@@ -13,7 +13,7 @@ defmodule PhoenixKit.Users.CustomFields do
 
   - `key` - Unique identifier for the field (string)
   - `label` - Display label for the field (string)
-  - `type` - Field type: text, textarea, number, boolean, date, email, url, select, radio, checkbox
+  - `type` - Field type: text, textarea, number, boolean, date, email, url, uuid, select, radio, checkbox
   - `required` - Whether the field is required (boolean)
   - `position` - Display order (integer)
   - `enabled` - Whether the field is active (boolean)
@@ -41,11 +41,15 @@ defmodule PhoenixKit.Users.CustomFields do
       CustomFields.get_config()
   """
 
+  require Logger
+
   alias PhoenixKit.Settings
 
   @setting_key "custom_user_fields_definitions"
 
-  @supported_types ~w(text textarea number boolean date email url select radio checkbox)
+  @supported_types ~w(text textarea number boolean date email url uuid select radio checkbox)
+
+  @uuid_regex ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   # Field Definition Management
 
@@ -494,6 +498,81 @@ defmodule PhoenixKit.Users.CustomFields do
     end
   end
 
+  @doc """
+  Ensures field definitions exist for all keys in the given custom fields map.
+
+  For any key that doesn't have a corresponding field definition, auto-creates one
+  with a label derived from the key, type inferred from the value, and
+  `user_accessible: false` (admin-only by default).
+
+  Returns `:ok`. Logs warnings for any definitions that fail to create.
+  """
+  def ensure_definitions_exist(custom_fields) when is_map(custom_fields) do
+    definitions = list_field_definitions()
+    existing_keys = MapSet.new(definitions, & &1["key"])
+
+    new_keys =
+      custom_fields
+      |> Map.keys()
+      |> Enum.reject(&MapSet.member?(existing_keys, &1))
+
+    if new_keys != [] do
+      next_position =
+        definitions
+        |> Enum.map(&(&1["position"] || 0))
+        |> Enum.max(fn -> 0 end)
+        |> Kernel.+(1)
+
+      new_keys
+      |> Enum.with_index(next_position)
+      |> Enum.each(fn {key, pos} ->
+        label =
+          key
+          |> String.replace("_", " ")
+          |> String.split()
+          |> Enum.map_join(" ", &String.capitalize/1)
+
+        case add_field_definition(%{
+               "key" => key,
+               "label" => label,
+               "type" => infer_field_type(Map.get(custom_fields, key)),
+               "enabled" => true,
+               "user_accessible" => false,
+               "position" => pos
+             }) do
+          {:ok, _} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning(
+              "Failed to auto-register field definition '#{key}': #{inspect(reason)}"
+            )
+        end
+      end)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Infers the custom field type from a value.
+
+  Returns one of: `"boolean"`, `"number"`, `"uuid"`, `"url"`, `"email"`, `"text"`.
+  """
+  def infer_field_type(value) when is_boolean(value), do: "boolean"
+  def infer_field_type(value) when is_number(value), do: "number"
+
+  def infer_field_type(value) when is_binary(value) do
+    cond do
+      Regex.match?(@uuid_regex, value) -> "uuid"
+      String.match?(value, ~r/^https?:\/\//) -> "url"
+      String.match?(value, ~r/^[^\s]+@[^\s]+\.[^\s]+$/) -> "email"
+      true -> "text"
+    end
+  end
+
+  def infer_field_type(_), do: "text"
+
   defp validate_type(_field_def, nil), do: :ok
   defp validate_type(_field_def, ""), do: :ok
 
@@ -527,6 +606,14 @@ defmodule PhoenixKit.Users.CustomFields do
        do: :ok
 
   defp validate_type(%{"type" => "boolean"}, _value), do: {:error, "Must be true or false"}
+
+  defp validate_type(%{"type" => "uuid"} = _field_def, value) do
+    if Regex.match?(@uuid_regex, to_string(value)) do
+      :ok
+    else
+      {:error, "Invalid UUID format"}
+    end
+  end
 
   defp validate_type(%{"type" => "date"} = _field_def, value) do
     case Date.from_iso8601(to_string(value)) do

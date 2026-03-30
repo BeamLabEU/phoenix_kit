@@ -488,7 +488,7 @@
                       required
                       phx-change="field_type_changed"
                     >
-                      <%= for type <- ~w(text textarea number boolean date email url select radio checkbox) do %>
+                      <%= for type <- ~w(text textarea number boolean date email url uuid select radio checkbox) do %>
                         <option
                           value={type}
                           selected={@field_form_type == type}

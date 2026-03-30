@@ -15,8 +15,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   @timestamp_modes Constants.timestamp_modes()
   @slug_modes Constants.slug_modes()
 
-  # Import publishing-specific components for templates
-  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+  import PhoenixKitWeb.Components.LanguageSwitcher
 
   embed_templates("templates/*")
 

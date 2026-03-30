@@ -8,7 +8,7 @@ config :phoenix_kit,
   parent_module: PhoenixKit,
   url_prefix: "/phoenix_kit",
   comment_resource_handlers: %{
-    "post" => PhoenixKit.Modules.Posts
+    "post" => PhoenixKitPosts
   }
 
 # Configure password requirements (optional - these are the defaults)
@@ -37,21 +37,22 @@ config :ueberauth, Ueberauth, providers: %{}
 # Configure Oban (if using job processing)
 config :phoenix_kit, Oban,
   repo: PhoenixKit.Repo,
-  queues: [default: 10, emails: 50, file_processing: 20, posts: 10, scheduled_jobs: 1],
+  queues: [
+    default: 10,
+    emails: 50,
+    file_processing: 20,
+    posts: 10,
+    scheduled_jobs: 1,
+    sitemap: 5,
+    sqs_polling: 1,
+    shop_imports: 2
+  ],
   plugins: [
-    # Main pruner: 30 days for most queues
-    {Oban.Plugins.Pruner,
-     max_age: 60 * 60 * 24 * 30,
-     queue: [:default, :emails, :file_processing, :posts, :sitemap, :sqs_polling, :sync]},
-    # Dedicated pruner: 1 day only for scheduled_jobs (cron runs every minute)
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24, queue: [:scheduled_jobs]},
+    # Pruner: delete completed/discarded jobs after 30 days
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
     {Oban.Plugins.Cron,
      crontab: [
-       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
-       sitemap: 5,
-       sqs_polling: 1,
-       sync: 5,
-       shop_imports: 2
+       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
      ]}
   ]
 

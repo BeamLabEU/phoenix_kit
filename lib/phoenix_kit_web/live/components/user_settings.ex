@@ -119,6 +119,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         CustomFields.list_user_accessible_field_definitions()
       end)
       |> assign_new(:last_uploaded_avatar_uuid, fn -> nil end)
+      |> assign_new(:show_email_form, fn -> false end)
+      |> assign_new(:show_password_form, fn -> false end)
       |> maybe_allow_upload()
 
     {:ok, socket}
@@ -243,6 +245,23 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
 
     socket =
+      if params["_target"] == ["avatar"] do
+        entries = socket.assigns.uploads.avatar.entries
+
+        if entries != [] do
+          send_update_after(
+            __MODULE__,
+            %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
+            500
+          )
+        end
+
+        socket
+      else
+        socket
+      end
+
+    socket =
       case {params["browser_timezone_name"], params["browser_timezone_offset"]} do
         {name, offset} when is_binary(name) and is_binary(offset) ->
           socket
@@ -253,14 +272,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           socket
       end
 
-    merged_params =
-      case params["custom_fields"] do
-        custom_fields when is_map(custom_fields) ->
-          Map.put(user_params, "custom_fields", custom_fields)
-
-        _ ->
-          user_params
-      end
+    merged_params = merge_custom_fields(params, user_params)
 
     profile_form =
       socket.assigns.user
@@ -284,29 +296,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     %{"user" => user_params} = params
     user = socket.assigns.user
 
-    merged_params =
-      case params["custom_fields"] do
-        custom_fields when is_map(custom_fields) ->
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
-
-          updated_custom_fields =
-            if existing_avatar do
-              Map.put(custom_fields, "avatar_file_uuid", existing_avatar)
-            else
-              custom_fields
-            end
-
-          Map.put(user_params, "custom_fields", updated_custom_fields)
-
-        _ ->
-          existing_avatar = get_in(user.custom_fields, ["avatar_file_uuid"])
-
-          if existing_avatar do
-            Map.put(user_params, "custom_fields", %{"avatar_file_uuid" => existing_avatar})
-          else
-            user_params
-          end
-      end
+    merged_params = merge_custom_fields_for_save(params, user_params, user)
 
     case Auth.update_user_profile(user, merged_params) do
       {:ok, updated_user} ->
@@ -427,25 +417,16 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     end
   end
 
-  def handle_event("validate", %{"_target" => ["avatar"]}, socket) do
-    entries = socket.assigns.uploads.avatar.entries
-    Logger.info("avatar validate event: entries=#{length(entries)}")
-
-    if entries != [] do
-      Logger.info("avatar validate: scheduling check_uploads_complete")
-
-      send_update_after(
-        __MODULE__,
-        %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
-        500
-      )
-    end
-
-    {:noreply, socket}
-  end
-
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :avatar, ref)}
+  end
+
+  def handle_event("toggle_email_form", _params, socket) do
+    {:noreply, assign(socket, :show_email_form, not socket.assigns.show_email_form)}
+  end
+
+  def handle_event("toggle_password_form", _params, socket) do
+    {:noreply, assign(socket, :show_password_form, not socket.assigns.show_password_form)}
   end
 
   # Private helpers
@@ -537,6 +518,38 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     has_password = user.hashed_password != nil
     oauth_count = length(OAuth.get_user_oauth_providers(user.uuid))
     has_password or oauth_count > 1
+  end
+
+  defp extract_custom_fields(params) do
+    get_in(params, ["profile_form", "user", "custom_fields"])
+  end
+
+  defp merge_custom_fields(params, user_params) do
+    case extract_custom_fields(params) do
+      custom_fields when is_map(custom_fields) ->
+        Map.put(user_params, "custom_fields", custom_fields)
+
+      _ ->
+        user_params
+    end
+  end
+
+  # Merges form custom fields on top of all existing user custom fields for persistence.
+  # Ensures fields not present in the form (e.g. avatar_file_uuid, programmatic fields)
+  # are preserved when saving.
+  defp merge_custom_fields_for_save(params, user_params, user) do
+    existing = user.custom_fields || %{}
+
+    case extract_custom_fields(params) do
+      form_fields when is_map(form_fields) ->
+        Map.put(user_params, "custom_fields", Map.merge(existing, form_fields))
+
+      _ when map_size(existing) > 0 ->
+        Map.put(user_params, "custom_fields", existing)
+
+      _ ->
+        user_params
+    end
   end
 
   defp format_provider_name("google"), do: "Google"
@@ -638,530 +651,460 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <%!-- Left Column - Profile --%>
-        <div class="lg:col-span-2 space-y-6">
-          <%!-- Profile Information Card --%>
-          <%= if :profile in @sections do %>
-            <div class="card bg-base-100 shadow-sm border border-base-300">
-              <div class="card-body">
-                <h2 class="card-title flex items-center gap-2">
-                  <.icon name="hero-user" class="w-5 h-5" /> Profile Information
-                </h2>
+    <div class="card bg-base-100 shadow-sm max-w-4xl mx-auto">
+      <div class="card-body">
+        <%!-- Profile Section --%>
+        <%= if :profile in @sections do %>
+          <div>
+            <%!-- Success Message --%>
+            <%= if @profile_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@profile_success_message}</span>
+              </div>
+            <% end %>
 
-                <%!-- Success Message --%>
-                <%= if @profile_success_message do %>
-                  <div class="alert alert-success text-sm mb-4">
-                    <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@profile_success_message}</span>
-                  </div>
-                <% end %>
+            <%!-- Avatar Upload Messages --%>
+            <%= if @last_uploaded_avatar_uuid do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>Avatar uploaded successfully!</span>
+              </div>
+            <% end %>
+            <%= if @avatar_error_message do %>
+              <div class="alert alert-error text-sm mb-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@avatar_error_message}</span>
+              </div>
+            <% end %>
 
-                <%!-- Avatar Upload Section --%>
-                <div>
-                  <label class="label">
-                    <span class="label-text font-semibold">Profile Picture</span>
-                  </label>
-
-                  <div class="flex items-start gap-6">
-                    <%!-- Avatar Preview --%>
-                    <div class="flex-shrink-0">
-                      <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
-                        <% avatar_url =
-                          PhoenixKit.Modules.Storage.URLSigner.signed_url(
-                            get_in(@user.custom_fields, ["avatar_file_uuid"]),
-                            "thumbnail"
-                          ) %>
-                        <img
-                          src={avatar_url}
-                          alt="Avatar"
-                          class="w-24 h-24 rounded-full object-cover border-2 border-base-300"
-                        />
-                      <% else %>
-                        <div class="w-24 h-24 rounded-full bg-primary/10 border-2 border-base-300 flex items-center justify-center">
-                          <span class="text-2xl font-bold text-primary">
-                            {String.upcase(String.at(@user.email, 0))}
-                          </span>
-                        </div>
-                      <% end %>
+            <%!-- Profile Form with Avatar --%>
+            <.simple_form
+              for={@profile_form}
+              id={"#{@id}-profile-form"}
+              phx-submit="update_profile"
+              phx-change="validate_profile"
+              phx-target={@myself}
+            >
+              <div class="flex flex-col gap-6 lg:flex-row lg:gap-4 lg:items-start">
+                <%!-- Avatar Section --%>
+                <div class="flex flex-col items-center gap-2 mx-auto lg:mx-0">
+                  <%= if get_in(@user.custom_fields, ["avatar_file_uuid"]) do %>
+                    <% avatar_url =
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(
+                        get_in(@user.custom_fields, ["avatar_file_uuid"]),
+                        "thumbnail"
+                      ) %>
+                    <img
+                      src={avatar_url}
+                      alt="Avatar"
+                      class="w-40 h-40 rounded-full object-cover border-2 border-primary"
+                    />
+                  <% else %>
+                    <div class="w-40 h-40 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                      <span class="text-5xl font-bold text-primary">
+                        {String.upcase(String.at(@user.email, 0))}
+                      </span>
                     </div>
-
-                    <%!-- Upload Controls --%>
-                    <div class="flex-1">
-                      <.file_upload
-                        upload={@uploads.avatar}
-                        variant="button"
-                        label="Choose Profile Picture"
-                      />
-
-                      <p class="text-sm text-base-content/60 mt-2 mb-2">
-                        Upload a profile picture (max 10MB). Accepts JPG, PNG, GIF.
-                      </p>
-
-                      <%!-- Success Message --%>
-                      <%= if @last_uploaded_avatar_uuid do %>
-                        <div class="alert alert-success text-sm">
-                          <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
-                          <span>Avatar uploaded successfully!</span>
-                        </div>
-                      <% end %>
-
-                      <%!-- Avatar Error Message --%>
-                      <%= if @avatar_error_message do %>
-                        <div class="alert alert-error text-sm">
-                          <.icon
-                            name="hero-exclamation-triangle"
-                            class="stroke-current shrink-0 h-5 w-5"
-                          />
-                          <span>{@avatar_error_message}</span>
-                        </div>
-                      <% end %>
-                    </div>
-                  </div>
-
-                  <%!-- Divider after avatar section --%>
-                  <div class="divider"></div>
+                  <% end %>
+                  <.file_upload
+                    upload={@uploads.avatar}
+                    variant="button"
+                    label="Upload"
+                  />
                 </div>
 
-                <.simple_form
-                  for={@profile_form}
-                  id={"#{@id}-profile-form"}
-                  phx-submit="update_profile"
-                  phx-change="validate_profile"
-                  phx-target={@myself}
-                >
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <%!-- Name Fields --%>
+                <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 w-full">
+                  <.input
+                    field={@profile_form[:first_name]}
+                    type="text"
+                    label="First Name"
+                  />
+                  <.input
+                    field={@profile_form[:last_name]}
+                    type="text"
+                    label="Last Name"
+                  />
+                  <div class="col-span-1 lg:col-span-2">
                     <.input
-                      field={@profile_form[:first_name]}
+                      field={@profile_form[:username]}
                       type="text"
-                      label="First Name"
-                    />
-                    <.input
-                      field={@profile_form[:last_name]}
-                      type="text"
-                      label="Last Name"
+                      label="Username"
                     />
                   </div>
 
-                  <%!-- Custom Fields Section --%>
+                  <%!-- Custom Fields --%>
                   <%= if length(@custom_field_definitions) > 0 do %>
-                    <div class="divider text-sm text-base-content/60">Additional Information</div>
+                    <div class="col-span-1 lg:col-span-2">
+                      <div class="divider text-sm text-base-content/60">Additional Information</div>
+                    </div>
 
-                    <%= for field_def <- @custom_field_definitions do %>
-                      <%= case field_def["type"] do %>
-                        <% "text" -> %>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="text"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "textarea" -> %>
-                          <.textarea
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "number" -> %>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="number"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "email" -> %>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="email"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "url" -> %>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="url"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "date" -> %>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="date"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% "select" -> %>
-                          <.select
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            label={field_def["label"]}
-                            options={Enum.map(field_def["options"], &{&1, &1})}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                        <% _ -> %>
-                          <%!-- Fallback for unknown field types --%>
-                          <.input
-                            name={"custom_fields[#{field_def["key"]}]"}
-                            type="text"
-                            label={field_def["label"]}
-                            value={
-                              get_in(@user.custom_fields, [field_def["key"]]) ||
-                                field_def["default"]
-                            }
-                            required={field_def["required"]}
-                          />
-                      <% end %>
+                    <%= for field <- @custom_field_definitions do %>
+                      <% field_name = "profile_form[user][custom_fields][#{field["key"]}]" %>
+                      <% field_value =
+                        get_in(@user.custom_fields, [field["key"]]) || field["default"] || "" %>
+                      <div class="col-span-1 lg:col-span-2">
+                        <%= case field["type"] do %>
+                          <% "select" -> %>
+                            <.select
+                              name={field_name}
+                              label={field["label"]}
+                              options={
+                                Enum.map(field["options"] || [], fn opt ->
+                                  if is_binary(opt),
+                                    do: {opt, opt},
+                                    else: {opt["label"], opt["value"]}
+                                end)
+                              }
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "textarea" -> %>
+                            <.textarea
+                              name={field_name}
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "number" -> %>
+                            <.input
+                              name={field_name}
+                              type="number"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "email" -> %>
+                            <.input
+                              name={field_name}
+                              type="email"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "url" -> %>
+                            <.input
+                              name={field_name}
+                              type="url"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% "date" -> %>
+                            <.input
+                              name={field_name}
+                              type="date"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                          <% _ -> %>
+                            <.input
+                              name={field_name}
+                              type="text"
+                              label={field["label"]}
+                              value={field_value}
+                              required={field["required"]}
+                            />
+                        <% end %>
+                      </div>
                     <% end %>
                   <% end %>
+                </div>
+              </div>
 
-                  <div id={"#{@id}-timezone-detector"}>
-                    <.select
-                      field={@profile_form[:user_timezone]}
-                      label="Personal Timezone"
-                      options={@timezone_options}
+              <%!-- Timezone Section --%>
+              <div id={"#{@id}-timezone-detector"}>
+                <.select
+                  field={@profile_form[:user_timezone]}
+                  label="Personal Timezone"
+                  options={@timezone_options}
+                />
+
+                <%= if assigns[:timezone_mismatch_warning] do %>
+                  <div class="alert alert-warning text-sm mt-2">
+                    <.icon
+                      name="hero-exclamation-triangle"
+                      class="stroke-current shrink-0 h-4 w-4"
                     />
-
-                    <%!-- Timezone Mismatch Warning --%>
-                    <%= if assigns[:timezone_mismatch_warning] do %>
-                      <div class="alert alert-warning text-sm mt-2">
-                        <.icon
-                          name="hero-exclamation-triangle"
-                          class="stroke-current shrink-0 h-5 w-5"
-                        />
-                        <div>
-                          <div class="font-semibold">Timezone Mismatch Detected</div>
-                          <div class="text-xs">
-                            {@timezone_mismatch_warning}
-                          </div>
-                        </div>
-                      </div>
-                    <% end %>
-
-                    <%!-- Browser Timezone Info --%>
-                    <%= if assigns[:browser_timezone_name] do %>
-                      <div class="text-xs text-base-content/60 mt-1">
-                        Browser detected: {@browser_timezone_name} ({@browser_timezone_offset})
-                      </div>
-                    <% end %>
-
-                    <%!-- Debug button for timezone detection --%>
-                    <div class="mt-2">
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline"
-                        onclick="detectAndStoreTimezone(); return false;"
-                      >
-                        Detect Browser Timezone (Debug)
-                      </button>
-                      <div class="text-xs text-base-content/60 mt-1">
-                        Click if timezone detection isn't working automatically
-                      </div>
-                    </div>
-                  </div>
-                  <:actions>
-                    <.button
-                      phx-disable-with="Updating..."
-                      class="btn-primary"
-                    >
-                      <.icon name="hero-user" class="w-4 h-4 mr-2" /> Update Profile
-                    </.button>
-                  </:actions>
-                </.simple_form>
-              </div>
-            </div>
-          <% end %>
-
-          <%!-- Email Settings Card --%>
-          <%= if :email in @sections do %>
-            <div class="card bg-base-100 shadow-sm border border-base-300">
-              <div class="card-body">
-                <h2 class="card-title flex items-center gap-2">
-                  <.icon name="hero-envelope" class="w-5 h-5" /> Email Address
-                </h2>
-                <p class="text-sm text-base-content/60 mb-4">Change your account email address</p>
-
-                <%!-- Email Success Message --%>
-                <%= if @email_success_message do %>
-                  <div class="alert alert-success text-sm mb-4">
-                    <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@email_success_message}</span>
-                  </div>
-                <% end %>
-
-                <%!-- Email Error Message --%>
-                <%= if @email_error_message do %>
-                  <div class="alert alert-error text-sm mb-4">
-                    <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@email_error_message}</span>
-                  </div>
-                <% end %>
-
-                <.simple_form
-                  for={@email_form}
-                  id={"#{@id}-email-form"}
-                  phx-submit="update_email"
-                  phx-change="validate_email"
-                  phx-target={@myself}
-                >
-                  <.input
-                    field={@email_form[:email]}
-                    type="email"
-                    label="Email"
-                    required
-                  />
-                  <.input
-                    field={@email_form[:current_password]}
-                    name="current_password"
-                    id={"#{@id}-current-password-for-email"}
-                    type="password"
-                    label="Current password"
-                    value={@email_form_current_password}
-                    required
-                  />
-                  <:actions>
-                    <.button
-                      phx-disable-with="Changing..."
-                      class="btn-primary"
-                    >
-                      <.icon name="hero-envelope" class="w-4 h-4 mr-2" /> Change Email
-                    </.button>
-                  </:actions>
-                </.simple_form>
-              </div>
-            </div>
-          <% end %>
-
-          <%!-- Password Settings Card --%>
-          <%= if :password in @sections do %>
-            <div class="card bg-base-100 shadow-sm border border-base-300">
-              <div class="card-body">
-                <h2 class="card-title flex items-center gap-2">
-                  <.icon name="hero-lock-closed" class="w-5 h-5" /> Password
-                </h2>
-                <p class="text-sm text-base-content/60 mb-4">Update your account password</p>
-
-                <%!-- Password Success Message --%>
-                <%= if @password_success_message do %>
-                  <div class="alert alert-success text-sm mb-4">
-                    <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@password_success_message}</span>
-                  </div>
-                <% end %>
-
-                <%!-- Password Error Message --%>
-                <%= if @password_error_message do %>
-                  <div class="alert alert-error text-sm mb-4">
-                    <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@password_error_message}</span>
-                  </div>
-                <% end %>
-
-                <.simple_form
-                  for={@password_form}
-                  id={"#{@id}-password-form"}
-                  action={Routes.path("/users/log-in?_action=password_updated")}
-                  method="post"
-                  phx-change="validate_password"
-                  phx-submit="update_password"
-                  phx-trigger-action={@trigger_submit}
-                  phx-target={@myself}
-                >
-                  <input
-                    name={@password_form[:email].name}
-                    type="hidden"
-                    id={"#{@id}-hidden-user-email"}
-                    value={@current_email}
-                  />
-                  <.input
-                    field={@password_form[:password]}
-                    type="password"
-                    label="New password"
-                    required
-                  />
-                  <.input
-                    field={@password_form[:password_confirmation]}
-                    type="password"
-                    label="Confirm new password"
-                  />
-                  <.input
-                    field={@password_form[:current_password]}
-                    name="current_password"
-                    type="password"
-                    label="Current password"
-                    id={"#{@id}-current-password-for-password"}
-                    value={@current_password}
-                    required
-                  />
-                  <:actions>
-                    <.button
-                      phx-disable-with="Changing..."
-                      class="btn-primary"
-                    >
-                      <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> Change Password
-                    </.button>
-                  </:actions>
-                </.simple_form>
-              </div>
-            </div>
-          <% end %>
-        </div>
-
-        <%!-- Right Column --%>
-        <div class="space-y-6">
-          <%!-- Connected Accounts Card --%>
-          <%= if :oauth in @sections and @oauth_available do %>
-            <div class="card bg-base-100 shadow-sm border border-base-300">
-              <div class="card-body">
-                <h2 class="card-title flex items-center gap-2">
-                  <.icon name="hero-link" class="w-5 h-5" /> Connected Accounts
-                </h2>
-                <p class="text-sm text-base-content/60 mb-4">
-                  Manage OAuth providers for quick sign-in
-                </p>
-
-                <%!-- OAuth Success Message --%>
-                <%= if @oauth_success_message do %>
-                  <div class="alert alert-success text-sm mb-4">
-                    <.icon name="hero-check" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@oauth_success_message}</span>
-                  </div>
-                <% end %>
-
-                <%!-- OAuth Error Message --%>
-                <%= if @oauth_error_message do %>
-                  <div class="alert alert-error text-sm mb-4">
-                    <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>{@oauth_error_message}</span>
-                  </div>
-                <% end %>
-
-                <%!-- Connected Providers List --%>
-                <%= if length(@oauth_providers) > 0 do %>
-                  <div class="space-y-3 mb-4">
-                    <h3 class="font-semibold text-sm text-base-content/70">Connected Providers</h3>
-                    <%= for provider <- @oauth_providers do %>
-                      <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-                        <div class="flex items-center gap-3">
-                          <%= case provider.provider do %>
-                            <% "google" -> %>
-                              <.icon name="hero-globe-alt" class="w-6 h-6" />
-                            <% "apple" -> %>
-                              <.icon name="hero-device-phone-mobile" class="w-6 h-6" />
-                            <% "github" -> %>
-                              <.icon name="hero-code-bracket" class="w-6 h-6" />
-                            <% _ -> %>
-                              <.icon name="hero-link" class="w-6 h-6" />
-                          <% end %>
-                          <div>
-                            <div class="font-semibold">
-                              {format_provider_name(provider.provider)}
-                            </div>
-                            <div class="text-xs text-base-content/60">
-                              {provider.provider_email || @current_email}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          phx-click="disconnect_oauth_provider"
-                          phx-target={@myself}
-                          phx-value-provider={provider.provider}
-                          class="btn btn-sm btn-outline btn-error"
-                          data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
-                        >
-                          <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Disconnect
-                        </button>
-                      </div>
-                    <% end %>
-                  </div>
-                <% else %>
-                  <div class="alert alert-info text-sm mb-4">
-                    <.icon name="hero-information-circle" class="stroke-current shrink-0 h-5 w-5" />
-                    <span>
-                      You don't have any OAuth providers connected yet. Connect one for faster sign-in.
-                    </span>
-                  </div>
-                <% end %>
-
-                <%!-- Available Providers to Connect --%>
-                <%= if length(@available_providers) > 0 do %>
-                  <div class="space-y-3">
-                    <h3 class="font-semibold text-sm text-base-content/70">
-                      Connect Additional Providers
-                    </h3>
-                    <div class="space-y-2">
-                      <%= for provider <- @available_providers do %>
-                        <button
-                          type="button"
-                          phx-click="connect_oauth_provider"
-                          phx-target={@myself}
-                          phx-value-provider={provider}
-                          class="btn btn-outline w-full flex items-center justify-start gap-3"
-                        >
-                          <%= case provider do %>
-                            <% "google" -> %>
-                              <.icon name="hero-globe-alt" class="w-5 h-5" />
-                              <span>Connect Google Account</span>
-                            <% "apple" -> %>
-                              <.icon name="hero-device-phone-mobile" class="w-5 h-5" />
-                              <span>Connect Apple Account</span>
-                            <% "github" -> %>
-                              <.icon name="hero-code-bracket" class="w-5 h-5" />
-                              <span>Connect GitHub Account</span>
-                            <% _ -> %>
-                              <.icon name="hero-link" class="w-5 h-5" />
-                              <span>Connect {format_provider_name(provider)}</span>
-                          <% end %>
-                        </button>
-                      <% end %>
-                    </div>
-                  </div>
-                <% end %>
-
-                <%!-- Password Warning for OAuth-only Users --%>
-                <%= if length(@oauth_providers) > 0 and @user.hashed_password == nil do %>
-                  <div class="alert alert-warning text-sm mt-4">
-                    <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-5 w-5" />
                     <div>
-                      <div class="font-semibold">No Password Set</div>
+                      <div class="font-semibold">Timezone Mismatch Detected</div>
                       <div class="text-xs">
-                        You signed up using OAuth. Consider setting a password above as a backup sign-in method.
+                        {@timezone_mismatch_warning}
                       </div>
                     </div>
                   </div>
                 <% end %>
+
+                <%= if assigns[:browser_timezone_name] do %>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Browser detected: {@browser_timezone_name} ({@browser_timezone_offset})
+                  </div>
+                <% end %>
               </div>
+
+              <:actions>
+                <div class="ml-auto">
+                  <.button phx-disable-with="Updating..." class="btn-primary">
+                    Update Profile
+                  </.button>
+                </div>
+              </:actions>
+            </.simple_form>
+            <div class="divider"></div>
+          </div>
+        <% end %>
+
+        <%!-- Email Section --%>
+        <%= if :email in @sections do %>
+          <div>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold flex items-center gap-2">
+                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
+              </h2>
+              <button
+                type="button"
+                phx-click="toggle_email_form"
+                phx-target={@myself}
+                class="btn btn-sm btn-outline"
+              >
+                <.icon
+                  name={if @show_email_form, do: "hero-x-mark", else: "hero-pencil"}
+                  class="w-4 h-4"
+                />
+                {if @show_email_form, do: "Cancel", else: "Change Email"}
+              </button>
             </div>
-          <% end %>
-        </div>
+
+            <div class="text-sm text-base-content/60 mb-4">{@current_email}</div>
+
+            <%= if @email_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@email_success_message}</span>
+              </div>
+            <% end %>
+            <%= if @email_error_message do %>
+              <div class="alert alert-error text-sm mb-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@email_error_message}</span>
+              </div>
+            <% end %>
+
+            <%= if @show_email_form do %>
+              <.simple_form
+                for={@email_form}
+                id={"#{@id}-email-form"}
+                phx-submit="update_email"
+                phx-change="validate_email"
+                phx-target={@myself}
+              >
+                <.input
+                  field={@email_form[:email]}
+                  type="email"
+                  label="New Email"
+                  required
+                />
+                <.input
+                  field={@email_form[:current_password]}
+                  name="current_password"
+                  id={"#{@id}-current-password-for-email"}
+                  type="password"
+                  label="Current Password"
+                  value={@email_form_current_password}
+                  required
+                />
+                <:actions>
+                  <div class="ml-auto">
+                    <.button phx-disable-with="Changing..." class="btn-primary">
+                      Update Email
+                    </.button>
+                  </div>
+                </:actions>
+              </.simple_form>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="divider"></div>
+
+        <%!-- Password Section --%>
+        <%= if :password in @sections do %>
+          <div>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold flex items-center gap-2">
+                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
+              </h2>
+              <button
+                type="button"
+                phx-click="toggle_password_form"
+                phx-target={@myself}
+                class="btn btn-sm btn-outline"
+              >
+                <.icon
+                  name={if @show_password_form, do: "hero-x-mark", else: "hero-pencil"}
+                  class="w-4 h-4"
+                />
+                {if @show_password_form, do: "Cancel", else: "Change Password"}
+              </button>
+            </div>
+
+            <div class="text-sm text-base-content/60 mb-4">••••••••</div>
+
+            <%= if @password_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@password_success_message}</span>
+              </div>
+            <% end %>
+            <%= if @password_error_message do %>
+              <div class="alert alert-error text-sm mb-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@password_error_message}</span>
+              </div>
+            <% end %>
+
+            <%= if @show_password_form do %>
+              <.simple_form
+                for={@password_form}
+                id={"#{@id}-password-form"}
+                action={Routes.path("/users/log-in?_action=password_updated")}
+                method="post"
+                phx-change="validate_password"
+                phx-submit="update_password"
+                phx-trigger-action={@trigger_submit}
+                phx-target={@myself}
+              >
+                <input
+                  name={@password_form[:email].name}
+                  type="hidden"
+                  id={"#{@id}-hidden-user-email"}
+                  value={@current_email}
+                />
+                <.input
+                  field={@password_form[:password]}
+                  type="password"
+                  label="New Password"
+                  required
+                />
+                <.input
+                  field={@password_form[:password_confirmation]}
+                  type="password"
+                  label="Confirm New Password"
+                />
+                <.input
+                  field={@password_form[:current_password]}
+                  name="current_password"
+                  type="password"
+                  label="Current Password"
+                  id={"#{@id}-current-password-for-password"}
+                  value={@current_password}
+                  required
+                />
+                <:actions>
+                  <div class="ml-auto">
+                    <.button phx-disable-with="Changing..." class="btn-primary">
+                      Update Password
+                    </.button>
+                  </div>
+                </:actions>
+              </.simple_form>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%!-- OAuth Section --%>
+        <%= if :oauth in @sections and @oauth_available do %>
+          <div class="divider"></div>
+          <div>
+            <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
+              <.icon name="hero-link" class="w-5 h-5 text-primary" /> Connected Accounts
+            </h2>
+
+            <%= if @oauth_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@oauth_success_message}</span>
+              </div>
+            <% end %>
+            <%= if @oauth_error_message do %>
+              <div class="alert alert-error text-sm mb-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@oauth_error_message}</span>
+              </div>
+            <% end %>
+
+            <%!-- Connected Providers --%>
+            <%= if length(@oauth_providers) > 0 do %>
+              <div class="space-y-2 mb-4">
+                <%= for provider <- @oauth_providers do %>
+                  <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-3">
+                      <%= case provider.provider do %>
+                        <% "google" -> %>
+                          <.icon name="hero-globe-alt" class="w-5 h-5" />
+                        <% "apple" -> %>
+                          <.icon name="hero-device-phone-mobile" class="w-5 h-5" />
+                        <% "github" -> %>
+                          <.icon name="hero-code-bracket" class="w-5 h-5" />
+                        <% _ -> %>
+                          <.icon name="hero-link" class="w-5 h-5" />
+                      <% end %>
+                      <div>
+                        <span class="font-medium">{format_provider_name(provider.provider)}</span>
+                        <div class="text-xs text-base-content/60">
+                          {provider.provider_email || @current_email}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="disconnect_oauth_provider"
+                      phx-target={@myself}
+                      phx-value-provider={provider.provider}
+                      class="btn btn-sm btn-outline btn-error"
+                      data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Available Providers --%>
+            <%= if length(@available_providers) > 0 do %>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <%= for provider <- @available_providers do %>
+                  <button
+                    type="button"
+                    phx-click="connect_oauth_provider"
+                    phx-target={@myself}
+                    phx-value-provider={provider}
+                    class="btn btn-outline"
+                  >
+                    <.icon name="hero-plus" class="w-4 h-4 mr-1" />
+                    Connect {format_provider_name(provider)}
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Password Warning for OAuth-only Users --%>
+            <%= if length(@oauth_providers) > 0 and @user.hashed_password == nil do %>
+              <div class="alert alert-warning text-sm mt-4">
+                <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
+                <div>
+                  <div class="font-semibold">No Password Set</div>
+                  <div class="text-xs">
+                    You signed up using OAuth. Consider setting a password above as a backup sign-in method.
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
       </div>
     </div>
     """

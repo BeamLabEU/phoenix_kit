@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+  import PhoenixKitWeb.Components.LanguageSwitcher
 
   @impl true
   def mount(params, _session, socket) do

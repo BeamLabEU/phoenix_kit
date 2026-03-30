@@ -973,7 +973,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     {"emails", "/admin/emails"},
     {"ai", "/admin/ai"},
     {"jobs", "/admin/jobs"},
-    {"sync", "/admin/sync"},
     {"db", "/admin/db"},
     {"publishing", "/admin/publishing"},
     # Settings sub-pages (lower priority landing pages)
@@ -982,8 +981,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     {"sitemap", "/admin/settings/sitemap"},
     {"maintenance", "/admin/settings/maintenance"},
     {"legal", "/admin/settings/legal"},
-    {"referrals", "/admin/settings/referral-codes"},
-    {"connections", "/admin/sync/connections"}
+    {"referrals", "/admin/settings/referral-codes"}
   ]
 
   # Find the best admin page the user has access to, falling back to "/"
@@ -1118,12 +1116,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Settings.Users => "settings",
     PhoenixKitWeb.Live.Settings.Organization => "settings",
     PhoenixKitWeb.Live.Settings.SEO => "seo",
-    PhoenixKitWeb.Live.Modules.Posts.Posts => "posts",
-    PhoenixKitWeb.Live.Modules.Posts.Edit => "posts",
-    PhoenixKitWeb.Live.Modules.Posts.Groups => "posts",
-    PhoenixKitWeb.Live.Modules.Posts.GroupEdit => "posts",
-    PhoenixKitWeb.Live.Modules.Posts.Details => "posts",
-    PhoenixKitWeb.Live.Modules.Posts.Settings => "posts",
     PhoenixKitWeb.Live.Modules.Languages => "languages",
     PhoenixKitWeb.Live.Modules.Legal.Settings => "legal",
     PhoenixKitWeb.Live.Modules.Maintenance.Settings => "maintenance",
