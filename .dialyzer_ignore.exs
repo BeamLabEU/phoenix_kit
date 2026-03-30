@@ -40,11 +40,6 @@
   {"lib/phoenix_kit_web/components/layouts/root.html.heex", :unknown_function},
   {"lib/phoenix_kit_web/components/layouts/dashboard.html.heex", :unknown_function},
 
-  # Pages module - type inference false positives
-  ~r/lib\/modules\/pages\/listing_cache\.ex:.*pattern_match/,
-  ~r/lib\/modules\/pages\/storage\/.*\.ex:.*pattern_match/,
-  ~r/lib\/modules\/pages\/storage\/.*\.ex:.*call/,
-
   # Dashboard tab system - keyword list spec inference false positives
   # Functions accept keyword() but Dialyzer infers broader types from pattern matching
   ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*invalid_contract/,
@@ -87,8 +82,6 @@
   # External optional modules guarded by Code.ensure_loaded? at runtime
   {"lib/modules/sitemap/sources/posts.ex", :unknown_function},
   {"lib/modules/sitemap/sources/publishing.ex", :unknown_function},
-  {"lib/modules/pages/renderer.ex", :unknown_function},
-  {"lib/modules/pages/page_builder/renderer.ex", :unknown_function},
   {"lib/phoenix_kit/dashboard/registry.ex", :unknown_function},
   {"lib/phoenix_kit/install/css_integration.ex", :unknown_function},
   {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},

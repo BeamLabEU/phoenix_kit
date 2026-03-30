@@ -1,3 +1,13 @@
+## 1.7.85 - 2026-03-30
+
+### Added
+- Add user-scoped media selector for avatar and fix custom fields position bug
+
+### Changed
+- Remove Pages module from core and clean up all references
+- Extract Connections module into external `phoenix_kit_user_connections` package
+- Remove unused Storage alias from user settings
+
 ## 1.7.84 - 2026-03-28
 
 ### Added

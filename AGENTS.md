@@ -170,6 +170,18 @@ Built-in Dashboard Features
 
 ## Guidelines
 
+### External Module Auto-Discovery
+
+When extracting modules to standalone packages, the package's `mix.exs` **must** include `:phoenix_kit` in `extra_applications`:
+
+```elixir
+def application do
+  [extra_applications: [:logger, :phoenix_kit]]
+end
+```
+
+Without this, `PhoenixKit.ModuleDiscovery` won't find the module and routes will return 404. See `phoenix_kit_hello_world` for the template.
+
 ### PhoenixKit Layout Guidelines
 
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
@@ -232,4 +244,16 @@ url = Routes.url("/users/confirm/#{token}")
 - `mix phoenix_kit.gen.migration` - Generate custom migration files
 
 Features: versioned migrations, database tables prefix support, idempotent operations, PostgreSQL validation, production mailer templates.
+
+### External module route discovery
+
+Routes from external PhoenixKit modules (e.g., `phoenix_kit_entities`) are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set.
+
+No manual config is needed. If auto-discovery fails, register route modules explicitly as a fallback:
+
+```elixir
+# config/config.exs
+config :phoenix_kit,
+  route_modules: [PhoenixKitEntities.Routes]
+```
 
