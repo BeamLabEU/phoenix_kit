@@ -1,3 +1,17 @@
+## 1.7.84 - 2026-03-28
+
+### Added
+- Add missing cookie consent widget to dashboard layout
+- Add user dashboard routes for billing profiles
+
+### Changed
+- Remove Legal module from core (extracted to `phoenix_kit_legal` package)
+- Remove LayoutWrapper from remaining storage and maintenance templates
+- Remove duplicate LayoutWrapper from admin module templates
+
+### Fixed
+- Fix core modules misclassified as external plugin views causing double admin chrome
+
 ## 1.7.83 - 2026-03-27
 
 ### Added
