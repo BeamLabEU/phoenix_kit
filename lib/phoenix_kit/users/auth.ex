@@ -1,5 +1,5 @@
 defmodule PhoenixKit.Users.Auth do
-  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop.Cart}
+  @compile {:no_warn_undefined, PhoenixKitEcommerce.Cart}
 
   @moduledoc """
   The Auth context for user authentication and management.
@@ -2322,8 +2322,8 @@ defmodule PhoenixKit.Users.Auth do
 
   # Delete shop carts for a user (uses user_uuid for safety)
   defp delete_user_shop_carts(user_uuid) do
-    if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Cart) do
-      from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_uuid == ^user_uuid)
+    if Code.ensure_loaded?(PhoenixKitEcommerce.Cart) do
+      from(c in PhoenixKitEcommerce.Cart, where: c.user_uuid == ^user_uuid)
       |> Repo.repo().delete_all()
     end
   end

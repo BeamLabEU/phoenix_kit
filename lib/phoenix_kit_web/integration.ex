@@ -2,11 +2,11 @@
 defmodule PhoenixKitWeb.Integration do
   @compile {:no_warn_undefined,
             [
-              PhoenixKit.Modules.Shop,
-              PhoenixKit.Modules.Shop.Web.Routes,
-              PhoenixKit.Modules.Shop.Web.Plugs.ShopSession,
-              PhoenixKit.Modules.Shop.Web.UserOrders,
-              PhoenixKit.Modules.Shop.Web.UserOrderDetails,
+              PhoenixKitEcommerce,
+              PhoenixKitEcommerce.Web.Routes,
+              PhoenixKitEcommerce.Web.Plugs.ShopSession,
+              PhoenixKitEcommerce.Web.UserOrders,
+              PhoenixKitEcommerce.Web.UserOrderDetails,
               PhoenixKitWeb.Live.Modules.Legal.Settings,
               PhoenixKitWeb.Controllers.ConsentConfigController
             ]}
@@ -177,10 +177,10 @@ defmodule PhoenixKitWeb.Integration do
   defp generate_pipelines do
     # Shop session pipeline — conditional on Shop package being installed
     shop_session_pipeline =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.Plugs.ShopSession) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
         quote do
           pipeline :phoenix_kit_shop_session do
-            plug PhoenixKit.Modules.Shop.Web.Plugs.ShopSession
+            plug PhoenixKitEcommerce.Web.Plugs.ShopSession
           end
         end
       else
@@ -333,11 +333,11 @@ defmodule PhoenixKitWeb.Integration do
 
     # Get shop live route declarations at compile time (no scope/pipeline wrappers)
     shop_live_routes =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.Routes) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Routes) do
         if suffix == :_locale do
-          PhoenixKit.Modules.Shop.Web.Routes.public_live_locale_routes()
+          PhoenixKitEcommerce.Web.Routes.public_live_locale_routes()
         else
-          PhoenixKit.Modules.Shop.Web.Routes.public_live_routes()
+          PhoenixKitEcommerce.Web.Routes.public_live_routes()
         end
       else
         quote do
@@ -406,9 +406,9 @@ defmodule PhoenixKitWeb.Integration do
     # Shop admin routes via safe_route_call (only when phoenix_kit_ecommerce is installed)
     shop_admin =
       if suffix == :_locale do
-        safe_route_call(PhoenixKit.Modules.Shop.Web.Routes, :admin_locale_routes, [])
+        safe_route_call(PhoenixKitEcommerce.Web.Routes, :admin_locale_routes, [])
       else
-        safe_route_call(PhoenixKit.Modules.Shop.Web.Routes, :admin_routes, [])
+        safe_route_call(PhoenixKitEcommerce.Web.Routes, :admin_routes, [])
       end
 
     # External route modules with complex routes (beyond simple admin tabs)
@@ -545,12 +545,12 @@ defmodule PhoenixKitWeb.Integration do
 
   defp authenticated_live_routes do
     shop_user_routes =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.UserOrders) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.UserOrders) do
         quote do
-          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+          live "/dashboard/orders", PhoenixKitEcommerce.Web.UserOrders, :index,
             as: :shop_user_orders
 
-          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+          live "/dashboard/orders/:uuid", PhoenixKitEcommerce.Web.UserOrderDetails, :show,
             as: :shop_user_order_details
         end
       else
@@ -605,12 +605,12 @@ defmodule PhoenixKitWeb.Integration do
 
   defp authenticated_live_locale_routes do
     shop_user_locale_routes =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.UserOrders) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.UserOrders) do
         quote do
-          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+          live "/dashboard/orders", PhoenixKitEcommerce.Web.UserOrders, :index,
             as: :shop_user_orders_locale
 
-          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+          live "/dashboard/orders/:uuid", PhoenixKitEcommerce.Web.UserOrderDetails, :show,
             as: :shop_user_order_details_locale
         end
       else
@@ -1046,7 +1046,7 @@ defmodule PhoenixKitWeb.Integration do
   defp generate_localized_routes(url_prefix, pattern) do
     # Only include shop session pipeline when the package is installed
     public_pipelines =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.Plugs.ShopSession) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
         [
           :browser,
           :phoenix_kit_auto_setup,
@@ -1099,7 +1099,7 @@ defmodule PhoenixKitWeb.Integration do
   defp generate_non_localized_routes(url_prefix) do
     # Only include shop session pipeline when the package is installed
     public_pipelines =
-      if Code.ensure_loaded?(PhoenixKit.Modules.Shop.Web.Plugs.ShopSession) do
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
         [
           :browser,
           :phoenix_kit_auto_setup,

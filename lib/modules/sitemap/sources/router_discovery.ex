@@ -121,7 +121,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery do
   # Mapping of route prefixes to module enabled? checks
   # Routes with these prefixes are excluded from sitemap when the module is disabled
   @module_route_prefixes %{
-    "/shop" => {PhoenixKit.Modules.Shop, :enabled?},
+    "/shop" => {PhoenixKitEcommerce, :enabled?},
     "/newsletters" => {PhoenixKit.Newsletters, :enabled?},
     "/publishing" => {PhoenixKit.Modules.Publishing, :enabled?},
     "/connections" => {PhoenixKit.Modules.Connections, :enabled?}
