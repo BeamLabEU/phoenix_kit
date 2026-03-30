@@ -266,9 +266,6 @@ defmodule PhoenixKitWeb.Integration do
         if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
           get "/api/consent-config", Controllers.ConsentConfigController, :config
         end
-
-        # Pages routes temporarily disabled
-        # get "/pages/*path", PagesController, :show
       end
 
       # Note: Email export routes moved to generate_emails_routes/1 (separate scope)
@@ -296,22 +293,6 @@ defmodule PhoenixKitWeb.Integration do
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
       # Shop user dashboard routes are now in phoenix_kit_authenticated_routes/1.
-    end
-  end
-
-  # Helper function to generate catch-all root route for pages
-  # This allows accessing pages from the root level (e.g., /test, /blog/post)
-  # Must be placed at the end of the router to not interfere with other routes
-  defp generate_pages_catch_all do
-    quote do
-      # Catch-all route for published pages at root level
-      # This route should be last to avoid conflicting with app routes
-      # scope "/", PhoenixKitWeb do
-      #   pipe_through [:browser, :phoenix_kit_auto_setup]
-      #
-      #   # Catch-all for root-level pages (must be last route)
-      #   get "/*path", PagesController, :show
-      # end
     end
   end
 
@@ -1190,9 +1171,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # External route modules with public routes
       unquote_splicing(external_public_routes)
-
-      # Generate catch-all route for pages at root level (must be last)
-      unquote(generate_pages_catch_all())
     end
   end
 

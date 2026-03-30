@@ -87,8 +87,6 @@
   # External optional modules guarded by Code.ensure_loaded? at runtime
   {"lib/modules/sitemap/sources/posts.ex", :unknown_function},
   {"lib/modules/sitemap/sources/publishing.ex", :unknown_function},
-  {"lib/modules/pages/renderer.ex", :unknown_function},
-  {"lib/modules/pages/page_builder/renderer.ex", :unknown_function},
   {"lib/phoenix_kit/dashboard/registry.ex", :unknown_function},
   {"lib/phoenix_kit/install/css_integration.ex", :unknown_function},
   {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
