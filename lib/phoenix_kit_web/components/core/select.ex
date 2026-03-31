@@ -41,7 +41,7 @@ defmodule PhoenixKitWeb.Components.Core.Select do
         id={@id}
         name={@name}
         class={[
-          "select select-bordered w-full",
+          "select w-full",
           @errors != [] && "select-error"
         ]}
         multiple={@multiple}

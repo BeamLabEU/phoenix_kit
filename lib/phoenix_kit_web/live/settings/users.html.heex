@@ -194,7 +194,7 @@
               </label>
               <select
                 name="settings[new_user_default_role]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["new_user_default_role"] do %>
                   <option value={value} selected={value == @settings["new_user_default_role"]}>
@@ -257,7 +257,7 @@
               </label>
               <select
                 name="settings[new_user_default_status]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["new_user_default_status"] do %>
                   <option value={value} selected={value == @settings["new_user_default_status"]}>
@@ -533,7 +533,7 @@
                     </label>
                     <select
                       name="field[type]"
-                      class="select select-bordered"
+                      class="select"
                       required
                       phx-change="field_type_changed"
                     >

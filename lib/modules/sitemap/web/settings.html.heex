@@ -481,7 +481,7 @@
                   <span class="label-text font-medium">Display Style</span>
                 </label>
                 <select
-                  class="select select-bordered w-full"
+                  class="select w-full"
                   name="style"
                   disabled={!@config.html_enabled}
                 >
@@ -515,7 +515,7 @@
             <form phx-change="update_interval" class="flex items-center gap-4 mt-4">
               <span class="text-sm">Regenerate every</span>
               <select
-                class="select select-bordered select-sm"
+                class="select select-sm"
                 name="interval"
                 disabled={!@config.schedule_enabled}
               >

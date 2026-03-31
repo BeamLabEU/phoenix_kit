@@ -73,7 +73,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
               value={@value}
               phx-change={@phx_change}
               class={[
-                "select select-bordered w-full",
+                "select w-full",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent",
                 "transition-colors duration-200",
                 if(@verified == :success, do: "border-success", else: ""),

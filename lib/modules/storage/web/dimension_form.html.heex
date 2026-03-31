@@ -176,7 +176,7 @@
 
               <select
                 name="dimension[format]"
-                class={"select select-bordered #{input_class(@changeset, :format)}"}
+                class={"select #{input_class(@changeset, :format)}"}
               >
                 <option value="">{gettext("Preserve original")}</option>
                 <%= if @dimension_type != "video" do %>
