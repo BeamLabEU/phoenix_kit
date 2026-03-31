@@ -55,7 +55,10 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Dashboard.Registry,
       # Normalize legacy admin_languages setting into unified languages_config
       # Runs once after settings cache is warmed; idempotent no-op if already migrated
-      {Task, fn -> Languages.normalize_language_settings() end},
+      Supervisor.child_spec(
+        {Task, fn -> Languages.normalize_language_settings() end},
+        id: :normalize_languages
+      ),
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)

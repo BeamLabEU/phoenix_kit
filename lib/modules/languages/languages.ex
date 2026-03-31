@@ -439,6 +439,44 @@ defmodule PhoenixKit.Modules.Languages do
   end
 
   @doc """
+  Gets enabled languages grouped by continent.
+
+  Filters `get_languages_grouped_by_continent/0` to only include languages
+  that are currently enabled. Languages may appear under multiple continents
+  (same as the admin settings page). Returns `[{continent, [language_maps]}]`.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Languages.get_enabled_languages_by_continent()
+      [{"Asia", [%{code: "ja", name: "Japanese", ...}]}, {"Europe", [%{code: "de-DE", ...}]}, ...]
+  """
+  def get_enabled_languages_by_continent do
+    enabled_codes =
+      get_display_languages()
+      |> Enum.filter(& &1.is_enabled)
+      |> MapSet.new(& &1.code)
+
+    get_languages_grouped_by_continent()
+    |> Enum.map(fn {continent, countries} ->
+      langs = collect_enabled_langs(countries, enabled_codes)
+      {continent, langs}
+    end)
+    |> Enum.reject(fn {_, langs} -> langs == [] end)
+    |> Enum.sort_by(fn {continent, _} -> continent end)
+  end
+
+  defp collect_enabled_langs(countries, enabled_codes) do
+    countries
+    |> Enum.flat_map(fn {_country, _flag, country_langs} ->
+      Enum.filter(country_langs, &(lang_code(&1) in enabled_codes))
+    end)
+    |> Enum.uniq_by(&lang_code/1)
+  end
+
+  defp lang_code(lang) when is_struct(lang), do: lang.code
+  defp lang_code(lang) when is_map(lang), do: lang[:code]
+
+  @doc """
   Gets the default language.
 
   Returns the language map marked as default, or nil if none found.
