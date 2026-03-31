@@ -83,6 +83,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :card_title, :any, default: nil
   attr :card_fields, :any, default: nil
   attr :storage_key, :string, default: nil
+  attr :wrapper_class, :string, default: "rounded-lg shadow-md overflow-x-auto overflow-y-clip"
   attr :rest, :global
 
   slot :inner_block, required: true
@@ -102,7 +103,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
 
   defp table_default_classic(assigns) do
     ~H"""
-    <div class="rounded-lg shadow-md overflow-x-auto overflow-y-clip">
+    <div class={@wrapper_class}>
       <table
         class={[
           "table",
@@ -144,7 +145,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
       </div>
       <%!-- Table: hidden on mobile always, shown on desktop (JS controls md: classes) --%>
       <div data-table-view="" class="hidden md:block">
-        <div class="rounded-lg shadow-md overflow-x-auto overflow-y-clip">
+        <div class={@wrapper_class}>
           <table
             class={[
               "table",
