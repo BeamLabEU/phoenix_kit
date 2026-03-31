@@ -658,19 +658,28 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   defp generate_base_code_url("", current_path), do: current_path || "/"
 
   defp generate_base_code_url(base_code, current_path) do
-    # Extract base code from current path for proper path processing
-    current_base = extract_locale_from_path(current_path)
+    # Strip the URL prefix first (e.g., /phoenix_kit)
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    prefix_to_remove = if url_prefix == "/", do: "", else: url_prefix
+    normalized = String.replace_prefix(current_path || "/", prefix_to_remove, "")
 
-    # Remove locale from path
-    path_without_locale = get_path_without_locale(current_path, current_base)
+    # Ensure path starts with /
+    normalized =
+      if normalized == "" or not String.starts_with?(normalized, "/"), do: "/", else: normalized
 
-    # Generate URL using Routes.path which handles default language logic
-    # Default language (first admin language, typically "en") gets clean URLs (no prefix)
-    # Other languages get the locale prefix
-    Routes.path(path_without_locale, locale: base_code)
+    # Extract and strip the locale from the remaining path
+    current_base = extract_locale_from_path(normalized)
+    clean_path = strip_locale_from_path(normalized, current_base)
+
+    # Admin paths use Routes.admin_path to keep locale in URL
+    if String.contains?(clean_path, "/admin") do
+      Routes.admin_path(clean_path, base_code)
+    else
+      Routes.path(clean_path, locale: base_code)
+    end
   end
 
-  # Extract the locale segment from a path
+  # Extract the locale segment from a path (after prefix removal)
   # /en/admin => "en"
   # /en-US/admin => "en-US"
   defp extract_locale_from_path(nil), do: nil
@@ -688,24 +697,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     end
   end
 
-  # Helper function to extract path without locale prefix
-  # Handles: /en/admin → /admin
-  # Handles: /admin → /admin (no locale)
-  # Handles: nil → / (root)
-  defp get_path_without_locale(nil, _current_locale), do: "/"
+  # Strip locale prefix from path: /en/admin → /admin
+  defp strip_locale_from_path(path, nil), do: path || "/"
 
-  defp get_path_without_locale(current_path, current_locale) do
-    # Remove locale from path: /en/admin → /admin
-    case String.split(current_path, "/", parts: 3) do
-      ["", ^current_locale, rest] when is_binary(rest) ->
-        "/#{rest}"
-
-      ["", ^current_locale] ->
-        "/"
-
-      _ ->
-        # Path doesn't start with locale, return as-is
-        current_path
+  defp strip_locale_from_path(path, locale) do
+    case String.split(path, "/", parts: 3) do
+      ["", ^locale, rest] when is_binary(rest) -> "/#{rest}"
+      ["", ^locale] -> "/"
+      _ -> path
     end
   end
 end
