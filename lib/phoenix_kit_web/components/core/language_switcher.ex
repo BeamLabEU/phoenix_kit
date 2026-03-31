@@ -682,8 +682,6 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # Extract the locale segment from a path (after prefix removal)
   # /en/admin => "en"
   # /en-US/admin => "en-US"
-  defp extract_locale_from_path(nil), do: nil
-
   defp extract_locale_from_path(path) do
     case String.split(path, "/", parts: 3) do
       ["", locale, _rest] ->
@@ -698,7 +696,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   end
 
   # Strip locale prefix from path: /en/admin → /admin
-  defp strip_locale_from_path(path, nil), do: path || "/"
+  defp strip_locale_from_path(path, nil), do: path
 
   defp strip_locale_from_path(path, locale) do
     case String.split(path, "/", parts: 3) do
