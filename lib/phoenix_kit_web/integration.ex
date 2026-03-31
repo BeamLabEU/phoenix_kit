@@ -419,7 +419,6 @@ defmodule PhoenixKitWeb.Integration do
 
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
-        live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
 
         if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
           live "/admin/settings/legal", Live.Modules.Legal.Settings, :index

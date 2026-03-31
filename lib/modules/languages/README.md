@@ -1,6 +1,6 @@
 # Languages Module
 
-The PhoenixKit Languages module provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It manages both frontend user-facing languages and backend admin panel languages.
+The PhoenixKit Languages module provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It provides a unified language configuration used by both the public-facing language switcher and the admin panel.
 
 ## Quick Links
 
@@ -18,7 +18,6 @@ The PhoenixKit Languages module provides multi-language support with a two-tier 
 |-------------|--------|-------------|
 | `languages_enabled` | `value` | Boolean flag (`true`/`false`) |
 | `languages_config` | `value_json` | JSON with `{"languages": [...]}` structure |
-| `admin_languages` | `value` | JSON array of admin language codes |
 
 ### Querying Configuration
 
@@ -50,8 +49,6 @@ SELECT value FROM phoenix_kit_settings WHERE key = 'languages_enabled';
 -- Get full configuration (note: value_json, not value)
 SELECT value_json FROM phoenix_kit_settings WHERE key = 'languages_config';
 
--- Get admin languages
-SELECT value FROM phoenix_kit_settings WHERE key = 'admin_languages';
 ```
 
 ## Language Configuration Structure
@@ -107,23 +104,6 @@ alias PhoenixKit.Modules.Languages.DialectMapper
 DialectMapper.extract_base("en-US")           # => "en"
 DialectMapper.base_to_dialect("en")           # => "en-US"
 DialectMapper.resolve_dialect("en", user)     # Considers user.custom_fields["preferred_locale"]
-```
-
-## Frontend vs Backend Languages
-
-| Setting | Purpose | Storage Key |
-|---------|---------|-------------|
-| **Frontend Languages** | User-facing language switcher | `languages_config` |
-| **Backend Languages** | Admin panel language switcher | `admin_languages` |
-
-These are **independent** - admins can use different languages than site visitors.
-
-### Admin Languages
-
-```elixir
-# Get admin languages (returns list of base codes)
-PhoenixKit.Settings.get_setting_cached("admin_languages", nil)
-# => "[\"en-US\",\"ja\"]"
 ```
 
 ## Key API Functions

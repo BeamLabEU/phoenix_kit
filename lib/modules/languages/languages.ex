@@ -96,6 +96,8 @@ defmodule PhoenixKit.Modules.Languages do
 
   use PhoenixKit.Module
 
+  require Logger
+
   alias PhoenixKit.Config
   alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages.Language
@@ -138,6 +140,123 @@ defmodule PhoenixKit.Modules.Languages do
   ]
 
   ## --- System Management Functions ---
+
+  @doc """
+  Normalizes language settings by merging any languages from the legacy
+  `admin_languages` setting into the unified `languages_config`.
+
+  This is a one-time migration function that:
+  1. Reads the old `admin_languages` JSON array of codes
+  2. Ensures the Languages module is enabled if admin languages existed
+  3. Adds any admin-only languages to the unified config
+  4. Clears the old `admin_languages` setting to prevent re-processing
+
+  Idempotent — if `admin_languages` doesn't exist or is empty, this is a no-op.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Languages.normalize_language_settings()
+      :ok
+  """
+  def normalize_language_settings do
+    case Settings.get_setting("admin_languages") do
+      nil ->
+        :ok
+
+      "[]" ->
+        :ok
+
+      admin_json when is_binary(admin_json) ->
+        case Jason.decode(admin_json) do
+          {:ok, codes} when is_list(codes) and codes != [] ->
+            merge_admin_languages(codes)
+
+          {:ok, _} ->
+            :ok
+
+          {:error, decode_error} ->
+            Logger.warning(
+              "[PhoenixKit Languages] Invalid JSON in legacy admin_languages setting: #{inspect(decode_error)}"
+            )
+
+            :ok
+        end
+
+      _ ->
+        :ok
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[PhoenixKit Languages] Could not normalize legacy admin_languages setting: #{inspect(error)}"
+      )
+
+      :ok
+  end
+
+  defp merge_admin_languages(admin_codes) do
+    # Ensure the system is enabled so we can add languages
+    unless enabled?() do
+      case enable_system() do
+        {:ok, _} ->
+          Logger.info("[PhoenixKit Languages] Enabled Languages module for legacy migration")
+
+        {:error, reason} ->
+          Logger.warning(
+            "[PhoenixKit Languages] Failed to enable Languages module during migration: #{inspect(reason)}"
+          )
+
+          # Cannot proceed without the module enabled
+          throw(:enable_failed)
+      end
+    end
+
+    current_codes = get_language_codes()
+
+    # Add any admin-only languages that aren't already in the config
+    results =
+      for code <- admin_codes, code not in current_codes do
+        case add_language(code) do
+          {:ok, _} ->
+            Logger.info(
+              "[PhoenixKit Languages] Migrated admin language #{code} to unified config"
+            )
+
+            {:ok, code}
+
+          {:error, reason} ->
+            Logger.warning(
+              "[PhoenixKit Languages] Failed to migrate admin language #{code}: #{inspect(reason)}"
+            )
+
+            {:error, code}
+        end
+      end
+
+    added_count = Enum.count(results, &match?({:ok, _}, &1))
+    failed_count = Enum.count(results, &match?({:error, _}, &1))
+
+    if added_count > 0 or failed_count > 0 do
+      Logger.info(
+        "[PhoenixKit Languages] Migration complete: #{added_count} added, #{failed_count} failed"
+      )
+    end
+
+    # Clear the legacy setting so this doesn't run again
+    case Settings.update_setting("admin_languages", "[]") do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "[PhoenixKit Languages] Failed to clear legacy admin_languages setting: #{inspect(reason)}"
+        )
+    end
+
+    :ok
+  catch
+    :enable_failed -> :ok
+  end
 
   @impl PhoenixKit.Module
   @doc """

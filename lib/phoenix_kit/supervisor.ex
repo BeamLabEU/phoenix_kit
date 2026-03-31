@@ -4,6 +4,8 @@ defmodule PhoenixKit.Supervisor do
   """
   use Supervisor
 
+  alias PhoenixKit.Modules.Languages
+
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
@@ -51,6 +53,9 @@ defmodule PhoenixKit.Supervisor do
       # Dashboard tab registry for user dashboard navigation.
       # Starts after settings_cache so module enabled? checks hit cache rather than DB.
       PhoenixKit.Dashboard.Registry,
+      # Normalize legacy admin_languages setting into unified languages_config
+      # Runs once after settings cache is warmed; idempotent no-op if already migrated
+      {Task, fn -> Languages.normalize_language_settings() end},
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)

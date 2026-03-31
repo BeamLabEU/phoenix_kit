@@ -78,6 +78,35 @@ defmodule LanguageRefactorTest do
     assert_raise UndefinedFunctionError, fn -> lang["code"] end
   end
 
+  test "get_display_languages returns default languages when disabled" do
+    # When disabled, get_display_languages returns the hardcoded default list
+    display_languages = Languages.get_display_languages()
+    assert is_list(display_languages)
+    assert display_languages != []
+
+    # All should be Language structs
+    Enum.each(display_languages, fn lang ->
+      assert is_struct(lang, Language)
+      assert is_binary(lang.code)
+      assert is_binary(lang.name)
+    end)
+  end
+
+  test "get_default_language returns nil when disabled" do
+    # When the system is disabled, get_default_language returns nil
+    assert Languages.get_default_language() == nil
+  end
+
+  test "get_enabled_languages returns empty list when disabled" do
+    assert Languages.get_enabled_languages() == []
+  end
+
+  test "enabled_locale_codes falls back to default locale when disabled" do
+    codes = Languages.enabled_locale_codes()
+    assert is_list(codes)
+    assert length(codes) == 1
+  end
+
   test "grouped languages converts structs before adding country metadata" do
     grouped_languages = Languages.get_languages_grouped_by_continent()
 
