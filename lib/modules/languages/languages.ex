@@ -52,11 +52,11 @@ defmodule PhoenixKit.Modules.Languages do
 
       # Get all languages
       languages = PhoenixKit.Modules.Languages.get_languages()
-      # => [%{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}, ...]
+      # => [%Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}, ...]
 
       # Get only enabled languages (most common use case)
       enabled_languages = PhoenixKit.Modules.Languages.get_enabled_languages()
-      # => [%{code: "en-US", name: "English (United States)", ...}, %{code: "es-ES", name: "Spanish (Spain)", ...}]
+      # => [%Language{code: "en-US", name: "English (United States)", ...}, ...]
 
       # Get a specific language by code
       spanish = PhoenixKit.Modules.Languages.get_language("es-ES")
@@ -95,6 +95,8 @@ defmodule PhoenixKit.Modules.Languages do
   """
 
   use PhoenixKit.Module
+
+  require Logger
 
   alias PhoenixKit.Config
   alias PhoenixKit.Dashboard.Tab
@@ -138,6 +140,123 @@ defmodule PhoenixKit.Modules.Languages do
   ]
 
   ## --- System Management Functions ---
+
+  @doc """
+  Normalizes language settings by merging any languages from the legacy
+  `admin_languages` setting into the unified `languages_config`.
+
+  This is a one-time migration function that:
+  1. Reads the old `admin_languages` JSON array of codes
+  2. Ensures the Languages module is enabled if admin languages existed
+  3. Adds any admin-only languages to the unified config
+  4. Clears the old `admin_languages` setting to prevent re-processing
+
+  Idempotent — if `admin_languages` doesn't exist or is empty, this is a no-op.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Languages.normalize_language_settings()
+      :ok
+  """
+  def normalize_language_settings do
+    case Settings.get_setting("admin_languages") do
+      nil ->
+        :ok
+
+      "[]" ->
+        :ok
+
+      admin_json when is_binary(admin_json) ->
+        case Jason.decode(admin_json) do
+          {:ok, codes} when is_list(codes) and codes != [] ->
+            merge_admin_languages(codes)
+
+          {:ok, _} ->
+            :ok
+
+          {:error, decode_error} ->
+            Logger.warning(
+              "[PhoenixKit Languages] Invalid JSON in legacy admin_languages setting: #{inspect(decode_error)}"
+            )
+
+            :ok
+        end
+
+      _ ->
+        :ok
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[PhoenixKit Languages] Could not normalize legacy admin_languages setting: #{inspect(error)}"
+      )
+
+      :ok
+  end
+
+  defp merge_admin_languages(admin_codes) do
+    # Ensure the system is enabled so we can add languages
+    unless enabled?() do
+      case enable_system() do
+        {:ok, _} ->
+          Logger.info("[PhoenixKit Languages] Enabled Languages module for legacy migration")
+
+        {:error, reason} ->
+          Logger.warning(
+            "[PhoenixKit Languages] Failed to enable Languages module during migration: #{inspect(reason)}"
+          )
+
+          # Cannot proceed without the module enabled
+          throw(:enable_failed)
+      end
+    end
+
+    current_codes = get_language_codes()
+
+    # Add any admin-only languages that aren't already in the config
+    results =
+      for code <- admin_codes, code not in current_codes do
+        case add_language(code) do
+          {:ok, _} ->
+            Logger.info(
+              "[PhoenixKit Languages] Migrated admin language #{code} to unified config"
+            )
+
+            {:ok, code}
+
+          {:error, reason} ->
+            Logger.warning(
+              "[PhoenixKit Languages] Failed to migrate admin language #{code}: #{inspect(reason)}"
+            )
+
+            {:error, code}
+        end
+      end
+
+    added_count = Enum.count(results, &match?({:ok, _}, &1))
+    failed_count = Enum.count(results, &match?({:error, _}, &1))
+
+    if added_count > 0 or failed_count > 0 do
+      Logger.info(
+        "[PhoenixKit Languages] Migration complete: #{added_count} added, #{failed_count} failed"
+      )
+    end
+
+    # Clear the legacy setting so this doesn't run again
+    case Settings.update_setting("admin_languages", "[]") do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning(
+          "[PhoenixKit Languages] Failed to clear legacy admin_languages setting: #{inspect(reason)}"
+        )
+    end
+
+    :ok
+  catch
+    :enable_failed -> :ok
+  end
 
   @impl PhoenixKit.Module
   @doc """
@@ -318,6 +437,44 @@ defmodule PhoenixKit.Modules.Languages do
     |> Enum.filter(& &1.is_enabled)
     |> Enum.sort_by(& &1.position)
   end
+
+  @doc """
+  Gets enabled languages grouped by continent.
+
+  Filters `get_languages_grouped_by_continent/0` to only include languages
+  that are currently enabled. Languages may appear under multiple continents
+  (same as the admin settings page). Returns `[{continent, [language_maps]}]`.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Languages.get_enabled_languages_by_continent()
+      [{"Asia", [%{code: "ja", name: "Japanese", ...}]}, {"Europe", [%{code: "de-DE", ...}]}, ...]
+  """
+  def get_enabled_languages_by_continent do
+    enabled_codes =
+      get_display_languages()
+      |> Enum.filter(& &1.is_enabled)
+      |> MapSet.new(& &1.code)
+
+    get_languages_grouped_by_continent()
+    |> Enum.map(fn {continent, countries} ->
+      langs = collect_enabled_langs(countries, enabled_codes)
+      {continent, langs}
+    end)
+    |> Enum.reject(fn {_, langs} -> langs == [] end)
+    |> Enum.sort_by(fn {continent, _} -> continent end)
+  end
+
+  defp collect_enabled_langs(countries, enabled_codes) do
+    countries
+    |> Enum.flat_map(fn {_country, _flag, country_langs} ->
+      Enum.filter(country_langs, &(lang_code(&1) in enabled_codes))
+    end)
+    |> Enum.uniq_by(&lang_code/1)
+  end
+
+  defp lang_code(lang) when is_struct(lang), do: lang.code
+  defp lang_code(lang) when is_map(lang), do: lang[:code]
 
   @doc """
   Gets the default language.

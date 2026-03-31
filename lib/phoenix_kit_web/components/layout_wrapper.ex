@@ -302,7 +302,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
                 <div class="flex items-center gap-3">
                   <.admin_theme_controller mobile={true} />
-                  <.admin_language_dropdown
+                  <PhoenixKitWeb.Components.Core.LanguageSwitcher.language_switcher_dropdown
                     current_path={@current_path}
                     current_locale={@current_locale}
                   />

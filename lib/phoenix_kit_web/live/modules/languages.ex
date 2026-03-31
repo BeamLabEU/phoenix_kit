@@ -13,12 +13,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
               {PhoenixKit.Modules.Publishing.ListingCache, :regenerate, 1}
             ]}
 
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
-
-  @default_locale Config.default_locale()
 
   def mount(_params, session, socket) do
     # Attach locale hook for automatic locale handling
@@ -65,32 +62,12 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:switcher_goto_home, false)
       |> assign(:switcher_hide_current, false)
       |> assign(:switcher_show_native_names, false)
-      # Backend tab settings
-      |> assign(:admin_languages, load_admin_languages())
 
     {:ok, socket}
   end
 
-  defp load_admin_languages do
-    admin_languages_json =
-      Settings.get_setting_cached("admin_languages", nil) ||
-        Jason.encode!([@default_locale])
-
-    case Jason.decode(admin_languages_json) do
-      {:ok, codes} when is_list(codes) -> codes
-      _ -> [@default_locale]
-    end
-  end
-
   def handle_params(_params, _uri, socket) do
-    active_tab =
-      case socket.assigns.live_action do
-        :backend -> "backend"
-        # Default to frontend for :index and :frontend
-        _ -> "frontend"
-      end
-
-    {:noreply, assign(socket, :active_tab, active_tab)}
+    {:noreply, socket}
   end
 
   def handle_event("toggle_languages", _params, socket) do
@@ -207,92 +184,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
-  # Backend tab event handlers
-
-  def handle_event(
-        "add_admin_language_to_form",
-        %{"admin_language_code_input" => language_code},
-        socket
-      )
-      when language_code != "" do
-    current_languages = socket.assigns.admin_languages || [@default_locale]
-
-    # Toggle: add if not present, remove if already present
-    if language_code in current_languages do
-      # Remove language
-      updated_languages = Enum.filter(current_languages, &(&1 != language_code))
-
-      language = Languages.get_predefined_language(language_code)
-      language_name = if language, do: language.name, else: String.upcase(language_code)
-
-      socket =
-        socket
-        |> assign(:admin_languages, updated_languages)
-        |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
-
-      {:noreply, socket}
-    else
-      # Add language
-      updated_languages = current_languages ++ [language_code]
-
-      language = Languages.get_predefined_language(language_code)
-      language_name = if language, do: language.name, else: String.upcase(language_code)
-
-      socket =
-        socket
-        |> assign(:admin_languages, updated_languages)
-        |> put_flash(:info, "#{language_name} added. Remember to save settings.")
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("add_admin_language_to_form", _params, socket) do
-    {:noreply, socket}
-  end
-
-  def handle_event("remove_admin_language_from_form", %{"code" => code}, socket) do
-    current_languages = socket.assigns.admin_languages || [@default_locale]
-
-    # Prevent removing the last language
-    if length(current_languages) <= 1 do
-      socket =
-        put_flash(
-          socket,
-          :warning,
-          "Cannot remove the last language. At least one language must be configured."
-        )
-
-      {:noreply, socket}
-    else
-      updated_languages = Enum.filter(current_languages, &(&1 != code))
-
-      language = Languages.get_predefined_language(code)
-      language_name = if language, do: language.name, else: String.upcase(code)
-
-      socket =
-        socket
-        |> assign(:admin_languages, updated_languages)
-        |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("save_admin_languages", _params, socket) do
-    admin_languages = socket.assigns.admin_languages || [@default_locale]
-
-    case Settings.update_setting("admin_languages", Jason.encode!(admin_languages)) do
-      {:ok, _} ->
-        socket = put_flash(socket, :info, "Admin panel languages saved successfully.")
-        {:noreply, socket}
-
-      {:error, _} ->
-        socket = put_flash(socket, :error, "Failed to save admin panel languages.")
-        {:noreply, socket}
-    end
-  end
-
   defp get_current_path(_socket, _session) do
     # For LanguagesLive, return the settings path
     Routes.path("/admin/settings/languages")
@@ -307,9 +198,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     default_code = get_default_code(display_languages)
     covered_countries = get_covered_countries(enabled_codes, grouped_languages)
 
-    # Sync the admin_languages setting so the admin navbar updates too
-    sync_admin_languages(display_languages)
-
     socket
     |> assign(:ml_enabled, enabled)
     |> assign(:languages, display_languages)
@@ -320,16 +208,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> assign(:enabled_count, length(enabled_codes))
     |> assign(:covered_countries, covered_countries)
     |> assign(:covered_count, length(covered_countries))
-  end
-
-  # Sync the admin_languages setting with the current display languages
-  defp sync_admin_languages(display_languages) do
-    enabled_codes =
-      display_languages
-      |> Enum.filter(& &1.is_enabled)
-      |> Enum.map(& &1.code)
-
-    Settings.update_json_setting("admin_languages", enabled_codes)
   end
 
   # Helper function to generate the language switcher code based on current settings
