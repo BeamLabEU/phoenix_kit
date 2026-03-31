@@ -123,10 +123,12 @@ defmodule PhoenixKit.Utils.Routes do
       "en"
     else
       case Languages.get_default_language() do
-        %{code: code} -> DialectMapper.extract_base(code)
-        nil -> "en"
+        %{code: code} when is_binary(code) -> DialectMapper.extract_base(code)
+        _ -> "en"
       end
     end
+  rescue
+    _ -> "en"
   end
 
   # Detect if we're running in a mix task context where the database

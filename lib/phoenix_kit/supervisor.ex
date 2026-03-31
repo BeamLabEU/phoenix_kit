@@ -56,7 +56,19 @@ defmodule PhoenixKit.Supervisor do
       # Normalize legacy admin_languages setting into unified languages_config
       # Runs once after settings cache is warmed; idempotent no-op if already migrated
       Supervisor.child_spec(
-        {Task, fn -> Languages.normalize_language_settings() end},
+        {Task,
+         fn ->
+           try do
+             Languages.normalize_language_settings()
+           rescue
+             error ->
+               require Logger
+
+               Logger.error(
+                 "[PhoenixKit] Failed to normalize language settings at startup: #{inspect(error)}"
+               )
+           end
+         end},
         id: :normalize_languages
       ),
       # Rate limiter backend MUST be started before any authentication requests

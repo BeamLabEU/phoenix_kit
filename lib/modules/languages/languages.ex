@@ -52,11 +52,11 @@ defmodule PhoenixKit.Modules.Languages do
 
       # Get all languages
       languages = PhoenixKit.Modules.Languages.get_languages()
-      # => [%{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}, ...]
+      # => [%Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}, ...]
 
       # Get only enabled languages (most common use case)
       enabled_languages = PhoenixKit.Modules.Languages.get_enabled_languages()
-      # => [%{code: "en-US", name: "English (United States)", ...}, %{code: "es-ES", name: "Spanish (Spain)", ...}]
+      # => [%Language{code: "en-US", name: "English (United States)", ...}, ...]
 
       # Get a specific language by code
       spanish = PhoenixKit.Modules.Languages.get_language("es-ES")

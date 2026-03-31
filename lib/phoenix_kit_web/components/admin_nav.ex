@@ -191,11 +191,19 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
     # Transform languages: code = base (for URLs), dialect = full (for preferences)
     transformed_languages =
-      Enum.map(admin_languages, fn lang ->
+      admin_languages
+      |> Enum.filter(fn lang -> is_binary(Map.get(lang, :code)) end)
+      |> Enum.map(fn lang ->
         dialect = lang.code
         base = DialectMapper.extract_base(dialect)
 
-        %{code: base, dialect: dialect, name: lang.name, flag: lang.flag, native: lang.native}
+        %{
+          code: base,
+          dialect: dialect,
+          name: Map.get(lang, :name, dialect),
+          flag: Map.get(lang, :flag, "🌐"),
+          native: Map.get(lang, :native, "")
+        }
       end)
 
     current_language =
@@ -568,15 +576,22 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   defp get_admin_languages do
     if Code.ensure_loaded?(Languages) do
       Languages.get_display_languages()
-      |> Enum.filter(& &1.is_enabled)
-      |> Enum.map(fn lang ->
-        case Languages.get_predefined_language(lang.code) do
-          %{} = predefined -> predefined
-          nil -> %{code: lang.code, name: lang.name, flag: "🌐", native: ""}
-        end
-      end)
+      |> Enum.filter(fn lang -> is_map(lang) and Map.get(lang, :is_enabled, false) end)
+      |> Enum.map(&enrich_language/1)
+      |> Enum.reject(&is_nil/1)
     else
       []
+    end
+  end
+
+  defp enrich_language(lang) do
+    code = if is_struct(lang), do: lang.code, else: lang[:code]
+
+    if is_binary(code) do
+      case Languages.get_predefined_language(code) do
+        %{} = predefined -> predefined
+        _ -> %{code: code, name: Map.get(lang, :name, code), flag: "🌐", native: ""}
+      end
     end
   end
 

@@ -1,28 +1,37 @@
 defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   @moduledoc """
-  Language switcher component for frontend applications.
+  Language switcher component for frontend and admin applications.
 
-  Provides a reusable language selection dropdown that pulls available languages
-  from the Language Module. Supports multiple display styles and configurations.
+  Provides reusable language selection UI that pulls available languages
+  from the unified Languages module. Three display variants are available:
+  dropdown, button group, and inline.
+
+  ## Continent Grouping
+
+  When more than 7 languages are enabled (configurable via `continent_threshold`),
+  the dropdown automatically shows a two-step interface: first pick a continent,
+  then pick a language within it. Set `group_by_continent={false}` to always
+  show a flat list regardless of language count.
 
   ## Examples
 
-      # Basic dropdown switcher
+      # Basic dropdown — auto-groups by continent when >7 languages
       <.language_switcher_dropdown current_locale={@current_locale} />
 
-      # Button group switcher (for mobile)
+      # Force flat list (no continent step)
+      <.language_switcher_dropdown current_locale={@current_locale} group_by_continent={false} />
+
+      # Custom threshold for continent grouping
+      <.language_switcher_dropdown current_locale={@current_locale} continent_threshold={5} />
+
+      # Show current language in trigger button
+      <.language_switcher_dropdown current_locale={@current_locale} show_current={true} />
+
+      # Button group (for mobile)
       <.language_switcher_buttons current_locale={@current_locale} />
 
-      # Inline switcher with flags
+      # Inline text links (for footers)
       <.language_switcher_inline current_locale={@current_locale} />
-
-  ## Attributes
-
-  - `current_locale` - Current active language code (e.g., "en", "es")
-  - `style` - Display style: `:dropdown`, `:buttons`, `:inline` (default: `:dropdown`)
-  - `class` - Additional CSS classes to apply
-  - `show_flags` - Show language flags (default: true)
-  - `show_native_names` - Show native language names (default: false)
   """
 
   use Phoenix.Component
@@ -40,8 +49,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   Renders a dropdown language switcher.
 
   Displays a globe icon that opens a dropdown menu with available languages.
-  Automatically fetches the configured languages (or default top 12 if not configured).
-  Perfect for navigation bars and header areas.
+  Automatically fetches the configured languages (or defaults when unconfigured).
+  Used in both frontend navigation bars and the admin panel header.
+
+  When more than `continent_threshold` languages are enabled, shows a two-step
+  continent → language navigation. Set `group_by_continent={false}` to disable.
 
   ## Examples
 
@@ -49,7 +61,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
       <.language_switcher_dropdown
         current_locale={@current_locale}
-        show_native_names={true}
+        group_by_continent={false}
       />
   """
   attr(:current_locale, :string,
@@ -82,6 +94,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:show_current, :boolean,
     default: false,
     doc: "Show current language (flag + name) in dropdown trigger instead of globe icon"
+  )
+
+  attr(:group_by_continent, :boolean,
+    default: true,
+    doc: "Enable continent grouping when language count exceeds continent_threshold"
   )
 
   attr(:continent_threshold, :integer,
@@ -222,20 +239,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
               </ul>
             <% end %>
           <% else %>
-            <%!-- Flat language list (when <= threshold) --%>
-            <%= if @needs_scroll do %>
-              <div class="p-2 border-b border-base-200">
-                <input
-                  type="text"
-                  placeholder="Search languages..."
-                  class="input input-sm input-bordered w-full"
-                  phx-hook="LanguageSwitcherSearch"
-                  id="language-search-input"
-                  autocomplete="off"
-                />
-              </div>
-            <% end %>
-
+            <%!-- Flat language list (when <= threshold or continent grouping disabled) --%>
             <ul
               class={[
                 "p-2 list-none space-y-1",
@@ -243,6 +247,30 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
               ]}
               id="language-switcher-list"
             >
+              <%= if @needs_scroll do %>
+                <li class="pb-1">
+                  <input
+                    type="text"
+                    placeholder="Search languages..."
+                    class="input input-sm input-bordered w-full"
+                    id="language-search-input"
+                    autocomplete="off"
+                    oninput="
+                      var t=this.value.toLowerCase().trim();
+                      var ul=this.closest('ul');
+                      var any=false;
+                      ul.querySelectorAll('.language-item').forEach(function(i){
+                        var n=i.dataset.name||'',v=i.dataset.native||'';
+                        var m=!t||n.includes(t)||v.includes(t);
+                        i.style.display=m?'':'none';
+                        if(m)any=true;
+                      });
+                      var empty=ul.querySelector('.ls-no-results');
+                      if(empty)empty.style.display=any?'none':'';
+                    "
+                  />
+                </li>
+              <% end %>
               <%= for language <- @languages do %>
                 <li
                   class="w-full language-item"
@@ -279,6 +307,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                       <span class="ml-auto">✓</span>
                     <% end %>
                   </a>
+                </li>
+              <% end %>
+              <%= if @needs_scroll do %>
+                <li class="ls-no-results px-3 py-2 text-sm text-base-content/50" style="display:none">
+                  No languages found
                 </li>
               <% end %>
             </ul>
@@ -530,14 +563,19 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   end
 
   # Converts a continent name to a URL-safe slug for DOM IDs
-  defp slug(name) do
+  defp slug(nil), do: "unknown"
+
+  defp slug(name) when is_binary(name) do
     name
     |> String.downcase()
     |> String.replace(~r/[^a-z0-9]+/, "-")
     |> String.trim("-")
   end
 
-  # Prepares all assigns needed by the dropdown template
+  defp slug(_), do: "unknown"
+
+  # Prepares all assigns needed by the dropdown template.
+  # Handles nil/invalid inputs gracefully — never crashes on bad data.
   defp prepare_dropdown_assigns(assigns) do
     locale =
       assigns.current_locale ||
@@ -545,7 +583,15 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
         @default_locale
 
-    languages_config = assigns.languages || Languages.get_display_languages() || []
+    # Ensure locale is always a string
+    locale = if is_binary(locale), do: locale, else: @default_locale
+
+    languages_config =
+      case assigns.languages do
+        nil -> Languages.get_display_languages()
+        list when is_list(list) -> list
+        _ -> []
+      end
 
     all_dialects = build_dialect_list(languages_config)
 
@@ -568,19 +614,19 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           "flag" => "🌐"
         }
 
-    use_continents = length(filtered_languages) > assigns.continent_threshold
+    {use_continents, continent_groups} =
+      maybe_build_continent_groups(assigns, filtered_languages)
 
-    continent_groups =
-      if use_continents do
-        Languages.get_enabled_languages_by_continent()
-        |> Enum.map(fn {continent, langs} ->
-          {continent, langs_to_dialect_maps(langs)}
-        end)
+    # When continent grouping is disabled but there are many languages,
+    # use the continent_threshold to decide if search is needed (lower = more likely to show search)
+    effective_scroll_threshold =
+      if assigns.group_by_continent do
+        assigns.scroll_threshold
       else
-        []
+        min(assigns.scroll_threshold, assigns.continent_threshold)
       end
 
-    needs_scroll = not use_continents and length(filtered_languages) > assigns.scroll_threshold
+    needs_scroll = not use_continents and length(filtered_languages) > effective_scroll_threshold
 
     assigns
     |> assign(:current_locale, locale)
@@ -592,6 +638,26 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     |> assign(:continent_groups, continent_groups)
   end
 
+  # Builds continent groups if grouping is enabled and threshold exceeded.
+  # Returns {use_continents, groups} where groups is a list of {continent, dialect_maps}.
+  # Falls back to flat list if grouping fails or produces no results.
+  defp maybe_build_continent_groups(assigns, filtered_languages) do
+    if assigns.group_by_continent and length(filtered_languages) > assigns.continent_threshold do
+      groups =
+        Languages.get_enabled_languages_by_continent()
+        |> Enum.map(fn {continent, langs} ->
+          {continent, langs_to_dialect_maps(langs)}
+        end)
+        |> Enum.reject(fn {_, langs} -> langs == [] end)
+
+      if groups != [], do: {true, groups}, else: {false, []}
+    else
+      {false, []}
+    end
+  rescue
+    _ -> {false, []}
+  end
+
   # Transforms Language structs/maps from grouped continent data into dialect maps
   defp langs_to_dialect_maps(langs) do
     langs
@@ -599,13 +665,16 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       code = if is_struct(lang), do: lang.code, else: lang[:code]
       name = if is_struct(lang), do: lang.name, else: lang[:name]
 
-      %{
-        "base_code" => DialectMapper.extract_base(code),
-        "dialect" => code,
-        "name" => name || code || "Unknown",
-        "flag" => get_language_flag(code)
-      }
+      if is_binary(code) do
+        %{
+          "base_code" => DialectMapper.extract_base(code),
+          "dialect" => code,
+          "name" => name || code,
+          "flag" => get_language_flag(code)
+        }
+      end
     end)
+    |> Enum.reject(&is_nil/1)
     |> Enum.sort_by(& &1["name"])
   end
 

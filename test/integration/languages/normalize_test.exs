@@ -97,4 +97,67 @@ defmodule PhoenixKit.Integration.Languages.NormalizeTest do
       assert "en-US" in codes
     end
   end
+
+  describe "get_enabled_languages_by_continent/0" do
+    test "returns default languages grouped by continent when system is disabled" do
+      # When disabled, get_display_languages returns defaults, so continent grouping uses those
+      grouped = Languages.get_enabled_languages_by_continent()
+      assert is_list(grouped)
+      assert grouped != []
+
+      continents = Enum.map(grouped, fn {c, _} -> c end)
+      assert Enum.all?(continents, &is_binary/1)
+    end
+
+    test "groups enabled languages by continent" do
+      {:ok, _} = Languages.enable_system()
+      {:ok, _} = Languages.add_language("ja")
+      {:ok, _} = Languages.add_language("de-DE")
+
+      grouped = Languages.get_enabled_languages_by_continent()
+      assert is_list(grouped)
+
+      # Should have at least 2 continents (Asia for ja, Europe for de-DE, etc.)
+      continents = Enum.map(grouped, fn {continent, _} -> continent end)
+      assert length(continents) >= 2
+
+      # Each group should have non-empty language list
+      Enum.each(grouped, fn {continent, langs} ->
+        assert is_binary(continent)
+        assert is_list(langs)
+        assert langs != []
+      end)
+    end
+
+    test "only includes enabled languages" do
+      {:ok, _} = Languages.enable_system()
+      {:ok, _} = Languages.add_language("ja")
+      {:ok, _} = Languages.add_language("fr-FR")
+      {:ok, _} = Languages.disable_language("ja")
+
+      grouped = Languages.get_enabled_languages_by_continent()
+
+      all_codes =
+        grouped
+        |> Enum.flat_map(fn {_, langs} ->
+          Enum.map(langs, fn lang ->
+            if is_struct(lang), do: lang.code, else: lang[:code]
+          end)
+        end)
+
+      refute "ja" in all_codes
+      assert "fr-FR" in all_codes
+    end
+
+    test "sorted alphabetically by continent" do
+      {:ok, _} = Languages.enable_system()
+      {:ok, _} = Languages.add_language("ja")
+      {:ok, _} = Languages.add_language("de-DE")
+      {:ok, _} = Languages.add_language("pt-BR")
+
+      grouped = Languages.get_enabled_languages_by_continent()
+      continents = Enum.map(grouped, fn {c, _} -> c end)
+      assert continents == Enum.sort(continents)
+    end
+  end
 end

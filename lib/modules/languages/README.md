@@ -29,7 +29,7 @@ PhoenixKit.Modules.Languages.get_display_languages()
 
 # Get the default/primary language
 PhoenixKit.Modules.Languages.get_default_language()
-# => %{"code" => "en", "name" => "English", "is_default" => true, "is_enabled" => true}
+# => %Language{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}
 
 # Get the primary language code for Publishing module
 PhoenixKit.Settings.get_content_language()
@@ -139,11 +139,48 @@ Languages.move_language_up("es-ES")       # Reorder
 Languages.move_language_down("es-ES")     # Reorder
 ```
 
+## Language Struct
+
+All public functions return `%Language{}` structs (not plain maps):
+
+```elixir
+lang = Languages.get_default_language()
+lang.code       #=> "en-US"
+lang.name       #=> "English (United States)"
+lang.native     #=> "English (US)"
+lang.flag       #=> "🇺🇸"
+lang.is_default #=> true
+lang.is_enabled #=> true
+lang.countries  #=> ["Australia", "Canada", "United States", ...]
+```
+
+See `PhoenixKit.Modules.Languages.Language` for the full struct definition.
+
+## Continent Grouping
+
+When more than 7 languages are enabled, the language switcher automatically shows a two-step interface:
+
+1. User selects a continent from the list
+2. User selects a language within that continent
+
+This uses the same continent data as the admin settings page (`get_languages_grouped_by_continent/0`). Languages may appear under multiple continents if spoken in countries across regions.
+
+```elixir
+# Get enabled languages organized by continent
+Languages.get_enabled_languages_by_continent()
+# => [{"Asia", [%{code: "ja", ...}, %{code: "ko", ...}]}, {"Europe", [%{code: "de-DE", ...}]}, ...]
+```
+
+The threshold is configurable via the `continent_threshold` attribute on the switcher component (default: 7).
+
 ## Language Switcher Components
 
 ```heex
-<%!-- Dropdown (recommended) --%>
+<%!-- Dropdown (recommended) — auto-groups by continent when >7 languages --%>
 <.language_switcher_dropdown current_locale={@current_locale} />
+
+<%!-- With custom threshold --%>
+<.language_switcher_dropdown current_locale={@current_locale} continent_threshold={5} />
 
 <%!-- Button group --%>
 <.language_switcher_buttons current_locale={@current_locale} />
@@ -197,6 +234,12 @@ The Publishing module uses Languages for:
 2. **Multi-language URLs**: `/en/blog/post` vs `/es/blog/post`
 3. **Per-post primary_language**: Stored in `.phk` file metadata
 4. **Language detection**: Determines if URL segment is language or blog slug
+
+## Legacy Migration
+
+Older versions of PhoenixKit used a separate `admin_languages` setting for the admin panel language switcher. This has been unified — both admin and public-facing switchers now use `languages_config`.
+
+On application startup, `normalize_language_settings/0` runs automatically to merge any languages from the old `admin_languages` setting into the unified config, then clears the old setting. This is idempotent and a no-op if already migrated.
 
 ## Troubleshooting
 
