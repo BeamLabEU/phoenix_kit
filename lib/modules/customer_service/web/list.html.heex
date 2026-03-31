@@ -103,7 +103,7 @@
           />
         </div>
         <div class="w-full md:w-48">
-          <select name="filters[status]" class="select select-bordered w-full">
+          <select name="filters[status]" class="select w-full">
             <option value="">All Statuses</option>
             <option value="open" selected={@status_filter == "open"}>Open</option>
             <option value="in_progress" selected={@status_filter == "in_progress"}>
@@ -114,7 +114,7 @@
           </select>
         </div>
         <div class="w-full md:w-48">
-          <select name="filters[assigned_to]" class="select select-bordered w-full">
+          <select name="filters[assigned_to]" class="select w-full">
             <option value="">All Assigned</option>
             <option value="unassigned" selected={@assigned_to_filter == "unassigned"}>
               Unassigned

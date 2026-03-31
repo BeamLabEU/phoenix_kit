@@ -535,7 +535,7 @@
                   <% "select" -> %>
                     <select
                       name={"user[custom_fields][#{field_key}]"}
-                      class={"select select-bordered w-full #{if field_error, do: "select-error", else: ""}"}
+                      class={"select w-full #{if field_error, do: "select-error", else: ""}"}
                       required={field_def["required"]}
                     >
                       <option value="">Select an option</option>

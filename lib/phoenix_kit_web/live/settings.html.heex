@@ -129,7 +129,7 @@
               </label>
               <select
                 name="settings[week_start_day]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["week_start_day"] do %>
                   <option value={value} selected={value == @settings["week_start_day"]}>
@@ -172,7 +172,7 @@
               </label>
               <select
                 name="settings[time_zone]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["time_zone"] do %>
                   <option value={value} selected={value == @settings["time_zone"]}>
@@ -215,7 +215,7 @@
               </label>
               <select
                 name="settings[date_format]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["date_format"] do %>
                   <option value={value} selected={value == @settings["date_format"]}>
@@ -258,7 +258,7 @@
               </label>
               <select
                 name="settings[time_format]"
-                class="select select-bordered w-full focus:select-primary"
+                class="select w-full focus:select-primary"
               >
                 <%= for {label, value} <- @setting_options["time_format"] do %>
                   <option value={value} selected={value == @settings["time_format"]}>

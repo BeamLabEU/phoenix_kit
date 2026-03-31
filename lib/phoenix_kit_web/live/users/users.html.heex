@@ -99,7 +99,7 @@
             <span class="label-text">Filter by role</span>
           </label>
           <form phx-change="filter_by_role">
-            <select class="select select-bordered w-full" name="role" value={@filter_role}>
+            <select class="select w-full" name="role" value={@filter_role}>
               <option value="all">All Users</option>
               <option value="Owner">Owners Only</option>
               <option value="Admin">Admins Only</option>

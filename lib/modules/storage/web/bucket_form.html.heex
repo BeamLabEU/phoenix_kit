@@ -45,7 +45,7 @@
               </label>
               <select
                 name="bucket[provider]"
-                class={"select select-bordered #{input_class(@changeset, :provider)}"}
+                class={"select #{input_class(@changeset, :provider)}"}
                 required
               >
                 <option value="">{gettext("Select provider...")}</option>
@@ -241,7 +241,7 @@
                 </label>
                 <select
                   name="bucket[access_type]"
-                  class="select select-bordered w-full"
+                  class="select w-full"
                 >
                   <option
                     value="public"

@@ -20,7 +20,7 @@
     <div class="bg-base-200 rounded-lg p-4 mb-6">
       <form phx-change="filter" class="flex flex-col md:flex-row gap-4 items-center">
         <div class="w-full md:w-48">
-          <select name="filters[status]" class="select select-bordered w-full">
+          <select name="filters[status]" class="select w-full">
             <option value="">{gettext("All Statuses")}</option>
             <option value="open" selected={@status_filter == "open"}>{gettext("Open")}</option>
             <option value="in_progress" selected={@status_filter == "in_progress"}>
