@@ -79,7 +79,11 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
 
   def table_row_menu(%{mode: "inline"} = assigns) do
     ~H"""
-    <div class={["inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]} role="group" aria-label={@label}>
+    <div
+      class={["inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]}
+      role="group"
+      aria-label={@label}
+    >
       {render_slot(@inner_block)}
     </div>
     """
@@ -88,7 +92,11 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   def table_row_menu(%{mode: "auto"} = assigns) do
     ~H"""
     <%!-- Inline buttons: visible on md+ --%>
-    <div class={["hidden md:inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]} role="group" aria-label={@label}>
+    <div
+      class={["hidden md:inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]}
+      role="group"
+      aria-label={@label}
+    >
       {render_slot(@inner_block)}
     </div>
     <%!-- Dropdown menu: visible on mobile only --%>
