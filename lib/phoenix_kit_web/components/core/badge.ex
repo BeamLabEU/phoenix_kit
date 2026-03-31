@@ -253,6 +253,47 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   defp enabled_class(true), do: "badge-success"
   defp enabled_class(false), do: "badge-neutral"
 
+  @doc """
+  Renders a generic status badge from a status string.
+
+  Maps common status values to appropriate badge colors. Covers statuses used
+  across PhoenixKit modules (catalogue items, entities, users, etc.).
+
+  ## Attributes
+
+  - `status` - Status string (required)
+  - `size` - Badge size (default: :sm)
+  - `class` - Additional CSS classes
+
+  ## Examples
+
+      <.status_badge status="active" />
+      <.status_badge status="deleted" size={:xs} />
+      <.status_badge status="discontinued" class="ml-2" />
+  """
+  attr :status, :string, required: true
+  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
+  attr :class, :string, default: ""
+
+  def status_badge(assigns) do
+    ~H"""
+    <span class={["badge", status_class(@status), size_class(@size), @class]}>
+      {String.capitalize(@status)}
+    </span>
+    """
+  end
+
+  defp status_class("active"), do: "badge-success"
+  defp status_class("inactive"), do: "badge-ghost"
+  defp status_class("archived"), do: "badge-warning"
+  defp status_class("deleted"), do: "badge-error"
+  defp status_class("discontinued"), do: "badge-warning"
+  defp status_class("draft"), do: "badge-warning"
+  defp status_class("published"), do: "badge-success"
+  defp status_class("pending"), do: "badge-info"
+  defp status_class("suspended"), do: "badge-error"
+  defp status_class(_), do: "badge-ghost"
+
   # Size classes — h-auto allows badge to expand when text wraps on mobile
   defp size_class(:xs), do: "badge-xs h-auto"
   defp size_class(:sm), do: "badge-sm h-auto"

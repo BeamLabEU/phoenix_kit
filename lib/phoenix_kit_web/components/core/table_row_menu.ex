@@ -59,6 +59,10 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
 
   * `id` - Unique element ID (required). Used by the JS hook.
   * `label` - Accessible label for the trigger button (optional, default: "Actions")
+  * `mode` - Display mode (optional, default: "dropdown"):
+    - `"dropdown"` — always show the ⋮ dropdown menu (original behavior)
+    - `"inline"` — always show actions as inline buttons (no dropdown)
+    - `"auto"` — inline buttons on `md+` screens, dropdown on mobile
   * `class` - Additional CSS classes for the wrapper (optional)
 
   ## Slots
@@ -68,9 +72,53 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   """
   attr :id, :string, required: true
   attr :label, :string, default: "Actions"
+  attr :mode, :string, default: "dropdown", values: ["dropdown", "inline", "auto"]
   attr :class, :string, default: nil
 
   slot :inner_block, required: true
+
+  def table_row_menu(%{mode: "inline"} = assigns) do
+    ~H"""
+    <div class={["inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]} role="group" aria-label={@label}>
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
+
+  def table_row_menu(%{mode: "auto"} = assigns) do
+    ~H"""
+    <%!-- Inline buttons: visible on md+ --%>
+    <div class={["hidden md:inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]} role="group" aria-label={@label}>
+      {render_slot(@inner_block)}
+    </div>
+    <%!-- Dropdown menu: visible on mobile only --%>
+    <div
+      id={@id}
+      phx-hook="RowMenu"
+      class={["relative inline-block md:hidden", @class]}
+      data-row-menu-wrapper
+    >
+      <button
+        type="button"
+        data-row-menu-trigger
+        aria-label={@label}
+        aria-expanded="false"
+        aria-haspopup="menu"
+        class="btn btn-xs btn-ghost btn-circle"
+      >
+        <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+      </button>
+      <ul
+        data-row-menu-content
+        role="menu"
+        class="hidden fixed z-[9999] min-w-[10rem] rounded-box bg-base-100 border border-base-200 shadow-xl p-1 focus:outline-none"
+        tabindex="-1"
+      >
+        {render_slot(@inner_block)}
+      </ul>
+    </div>
+    """
+  end
 
   def table_row_menu(assigns) do
     ~H"""
