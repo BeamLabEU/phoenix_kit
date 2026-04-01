@@ -157,6 +157,19 @@ defmodule PhoenixKit.Activity do
     _ -> %{}
   end
 
+  @doc "Returns distinct modes that have been logged."
+  def list_modes do
+    from(e in Entry,
+      distinct: true,
+      select: e.mode,
+      where: not is_nil(e.mode),
+      order_by: e.mode
+    )
+    |> repo().all()
+  rescue
+    _ -> []
+  end
+
   @doc "Returns distinct modules that have been logged."
   def list_modules do
     from(e in Entry,
@@ -227,6 +240,7 @@ defmodule PhoenixKit.Activity do
   defp apply_filters(query, opts) do
     query
     |> maybe_filter_module(Keyword.get(opts, :module))
+    |> maybe_filter_mode(Keyword.get(opts, :mode))
     |> maybe_filter_action(Keyword.get(opts, :action))
     |> maybe_filter_actor(Keyword.get(opts, :actor_uuid))
     |> maybe_filter_resource_type(Keyword.get(opts, :resource_type))
@@ -237,6 +251,9 @@ defmodule PhoenixKit.Activity do
 
   defp maybe_filter_module(query, nil), do: query
   defp maybe_filter_module(query, mod), do: where(query, [e], e.module == ^mod)
+
+  defp maybe_filter_mode(query, nil), do: query
+  defp maybe_filter_mode(query, mode), do: where(query, [e], e.mode == ^mode)
 
   defp maybe_filter_action(query, nil), do: query
 

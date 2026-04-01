@@ -132,6 +132,7 @@ defmodule PhoenixKitWeb.Users.Registration do
             PhoenixKit.Activity.log(%{
               action: "user.registered",
               module: "users",
+              mode: "auto",
               actor_uuid: user.uuid,
               resource_type: "user",
               resource_uuid: user.uuid,

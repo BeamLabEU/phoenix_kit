@@ -321,6 +321,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         PhoenixKit.Activity.log(%{
           action: "user.created",
           module: "users",
+          mode: "manual",
           actor_uuid: admin_user && admin_user.uuid,
           resource_type: "user",
           resource_uuid: user.uuid,

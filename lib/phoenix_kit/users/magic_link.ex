@@ -292,6 +292,7 @@ defmodule PhoenixKit.Users.MagicLink do
         PhoenixKit.Activity.log(%{
           action: "user.email_confirmed",
           module: "users",
+          mode: "auto",
           actor_uuid: confirmed_user.uuid,
           resource_type: "user",
           resource_uuid: confirmed_user.uuid,

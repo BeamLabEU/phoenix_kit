@@ -29,6 +29,18 @@
         </div>
 
         <div class="form-control">
+          <label class="label"><span class="label-text">Mode</span></label>
+          <select name="filter[mode]" class="select select-bordered select-sm">
+            <option value="">All Modes</option>
+            <%= for mode <- @modes do %>
+              <option value={mode} selected={@filter_mode == mode}>
+                {String.capitalize(mode)}
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="form-control">
           <label class="label"><span class="label-text">Action</span></label>
           <select name="filter[action]" class="select select-bordered select-sm">
             <option value="">All Actions</option>
@@ -84,7 +96,7 @@
 
             fields =
               if entry.resource_type do
-                fields ++ [%{label: "Resource", value: entry.resource_type}]
+                fields ++ [%{label: "Subject", value: entry.resource_type}]
               else
                 fields
               end
@@ -123,10 +135,11 @@
         <.table_default_header>
           <.table_default_row hover={false}>
             <.table_default_header_cell>Module</.table_default_header_cell>
+            <.table_default_header_cell>Mode</.table_default_header_cell>
             <.table_default_header_cell>Activity</.table_default_header_cell>
             <.table_default_header_cell>Actor</.table_default_header_cell>
             <.table_default_header_cell>Details</.table_default_header_cell>
-            <.table_default_header_cell>Resource</.table_default_header_cell>
+            <.table_default_header_cell>Subject</.table_default_header_cell>
             <.table_default_header_cell>Date</.table_default_header_cell>
           </.table_default_row>
         </.table_default_header>
@@ -137,6 +150,24 @@
               <.table_default_cell class="text-sm">
                 <%= if entry.module do %>
                   <span class="badge badge-outline badge-xs">{entry.module}</span>
+                <% else %>
+                  <span class="text-base-content/30">—</span>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell class="text-sm">
+                <%= if entry.mode do %>
+                  <span class={[
+                    "badge badge-xs",
+                    case entry.mode do
+                      "manual" -> "badge-warning"
+                      "auto" -> "badge-info"
+                      "cron" -> "badge-secondary"
+                      "script" -> "badge-accent"
+                      _ -> "badge-ghost"
+                    end
+                  ]}>
+                    {entry.mode}
+                  </span>
                 <% else %>
                   <span class="text-base-content/30">—</span>
                 <% end %>
@@ -165,19 +196,27 @@
                 <% end %>
               </.table_default_cell>
               <.table_default_cell>
-                <div class="space-y-0.5">
-                  <%= if entry.target do %>
-                    <div class="text-xs">
-                      <span class="text-base-content/50">&rarr;</span>
-                      <span>{entry.target.email}</span>
-                    </div>
-                  <% end %>
-                  <%= if entry.metadata["method"] do %>
-                    <span class="badge badge-ghost badge-xs">
-                      {String.replace(entry.metadata["method"], "_", " ")}
-                    </span>
-                  <% end %>
-                </div>
+                <% display_meta =
+                  (entry.metadata || %{})
+                  |> Map.drop(["method", "actor_role"])
+                  |> Enum.reject(fn {_k, v} -> v == nil or v == "" end) %>
+                <%= if entry.target && entry.target_uuid != entry.resource_uuid do %>
+                  <div class="text-xs mb-0.5">
+                    <span class="text-base-content/50">&rarr;</span>
+                    <span>{entry.target.email}</span>
+                  </div>
+                <% end %>
+                <%= if display_meta != [] do %>
+                  <div class="space-y-0.5">
+                    <%= for {key, value} <- display_meta do %>
+                      <div class="text-xs text-base-content/60">
+                        <span class="text-base-content/40">{key}:</span> {to_string(value)}
+                      </div>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <span class="text-base-content/30">—</span>
+                <% end %>
               </.table_default_cell>
               <.table_default_cell>
                 <%= if entry.resource_type do %>

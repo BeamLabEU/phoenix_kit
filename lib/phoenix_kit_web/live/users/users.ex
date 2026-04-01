@@ -596,6 +596,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         PhoenixKit.Activity.log(%{
           action: action,
           module: "users",
+          mode: "manual",
           actor_uuid: admin.uuid,
           resource_type: "user",
           resource_uuid: updated_user.uuid,

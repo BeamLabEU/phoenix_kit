@@ -1057,6 +1057,7 @@ defmodule PhoenixKit.Users.Auth do
       PhoenixKit.Activity.log(%{
         action: "user.email_confirmed",
         module: "users",
+        mode: "auto",
         actor_uuid: updated_user.uuid,
         resource_type: "user",
         resource_uuid: updated_user.uuid,
