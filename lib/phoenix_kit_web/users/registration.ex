@@ -135,11 +135,7 @@ defmodule PhoenixKitWeb.Users.Registration do
               actor_uuid: user.uuid,
               resource_type: "user",
               resource_uuid: user.uuid,
-              metadata: %{
-                "email" => user.email,
-                "method" => "self_registration",
-                "actor_role" => "user"
-              }
+              metadata: %{"method" => "self_registration", "actor_role" => "user"}
             })
 
             changeset = Auth.change_user_registration(user)

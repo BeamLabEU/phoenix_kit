@@ -1060,11 +1060,7 @@ defmodule PhoenixKit.Users.Auth do
         actor_uuid: updated_user.uuid,
         resource_type: "user",
         resource_uuid: updated_user.uuid,
-        metadata: %{
-          "email" => updated_user.email,
-          "method" => "email_link",
-          "actor_role" => "user"
-        }
+        metadata: %{"method" => "email_link", "actor_role" => "user"}
       })
 
       {:ok, updated_user}

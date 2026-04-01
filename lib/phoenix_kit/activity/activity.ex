@@ -130,6 +130,33 @@ defmodule PhoenixKit.Activity do
     _ -> 0
   end
 
+  @doc """
+  Resolves resource info for entries where `resource_type` is "user".
+
+  Returns a map of `resource_uuid => %{email: ..., first_name: ..., last_name: ...}`.
+  Batch-queries to avoid N+1.
+  """
+  def resolve_resource_users(entries) do
+    user_uuids =
+      entries
+      |> Enum.filter(&(&1.resource_type == "user" && &1.resource_uuid))
+      |> Enum.map(& &1.resource_uuid)
+      |> Enum.uniq()
+
+    if user_uuids == [] do
+      %{}
+    else
+      from(u in PhoenixKit.Users.Auth.User,
+        where: u.uuid in ^user_uuids,
+        select: {u.uuid, %{email: u.email, first_name: u.first_name, last_name: u.last_name}}
+      )
+      |> repo().all()
+      |> Map.new()
+    end
+  rescue
+    _ -> %{}
+  end
+
   @doc "Returns distinct modules that have been logged."
   def list_modules do
     from(e in Entry,

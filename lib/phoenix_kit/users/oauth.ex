@@ -68,11 +68,7 @@ if Code.ensure_loaded?(Ueberauth) do
             actor_uuid: confirmed_user.uuid,
             resource_type: "user",
             resource_uuid: confirmed_user.uuid,
-            metadata: %{
-              "email" => confirmed_user.email,
-              "method" => "oauth",
-              "actor_role" => "user"
-            }
+            metadata: %{"method" => "oauth", "actor_role" => "user"}
           })
 
           {:ok, confirmed_user}

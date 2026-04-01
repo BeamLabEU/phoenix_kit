@@ -295,11 +295,7 @@ defmodule PhoenixKit.Users.MagicLink do
           actor_uuid: confirmed_user.uuid,
           resource_type: "user",
           resource_uuid: confirmed_user.uuid,
-          metadata: %{
-            "email" => confirmed_user.email,
-            "method" => "magic_link",
-            "actor_role" => "user"
-          }
+          metadata: %{"method" => "magic_link", "actor_role" => "user"}
         })
 
         {:ok, confirmed_user}

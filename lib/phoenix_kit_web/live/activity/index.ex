@@ -109,8 +109,11 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
         preload: [:actor, :target]
       )
 
+    resource_users = Activity.resolve_resource_users(result.entries)
+
     socket
     |> assign(:entries, result.entries)
+    |> assign(:resource_users, resource_users)
     |> assign(:total, result.total)
     |> assign(:total_pages, result.total_pages)
   end

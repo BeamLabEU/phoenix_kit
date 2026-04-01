@@ -325,11 +325,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
           resource_type: "user",
           resource_uuid: user.uuid,
           target_uuid: user.uuid,
-          metadata: %{
-            "email" => user.email,
-            "method" => "manual",
-            "actor_role" => "admin"
-          }
+          metadata: %{"method" => "manual", "actor_role" => "admin"}
         })
 
         socket =

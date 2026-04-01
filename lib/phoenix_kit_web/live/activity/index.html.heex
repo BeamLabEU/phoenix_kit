@@ -177,18 +177,20 @@
                       {String.replace(entry.metadata["method"], "_", " ")}
                     </span>
                   <% end %>
-                  <%= if entry.metadata["email"] && !entry.target do %>
-                    <div class="text-xs text-base-content/50">{entry.metadata["email"]}</div>
-                  <% end %>
                 </div>
               </.table_default_cell>
               <.table_default_cell>
                 <%= if entry.resource_type do %>
                   <span class="badge badge-ghost badge-xs">{entry.resource_type}</span>
-                  <%= if entry.resource_uuid do %>
-                    <span class="text-xs text-base-content/40 ml-1">
-                      {String.slice(to_string(entry.resource_uuid), 0..7)}
-                    </span>
+                  <%= case Map.get(@resource_users, entry.resource_uuid) do %>
+                    <% %{email: email} -> %>
+                      <span class="text-xs ml-1">{email}</span>
+                    <% _ -> %>
+                      <%= if entry.resource_uuid do %>
+                        <span class="text-xs text-base-content/40 ml-1">
+                          {String.slice(to_string(entry.resource_uuid), 0..7)}
+                        </span>
+                      <% end %>
                   <% end %>
                 <% else %>
                   <span class="text-base-content/30">—</span>

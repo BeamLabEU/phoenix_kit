@@ -600,11 +600,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
           resource_type: "user",
           resource_uuid: updated_user.uuid,
           target_uuid: updated_user.uuid,
-          metadata: %{
-            "email" => updated_user.email,
-            "method" => "manual",
-            "actor_role" => "admin"
-          }
+          metadata: %{"method" => "manual", "actor_role" => "admin"}
         })
 
         socket =
