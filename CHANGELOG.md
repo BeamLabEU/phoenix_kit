@@ -1,3 +1,23 @@
+## 1.7.87 - 2026-03-31
+
+### Added
+- Add V89 migration: catalogue pricing with base_price and markup_percentage
+- Add status_badge component and wrapper_class attr to table_default
+- Add inline and auto display modes to table_row_menu
+- Add show_toggle attr to table_default and sync TableCardView instances
+- Add continent grouping to language switcher for many languages
+- Add language system tests, docs, error handling, and group_by_continent option
+
+### Changed
+- Unify admin and frontend language systems into single source of truth
+- Unify status badge components into single status_badge
+- Remove deprecated select-bordered class for daisyUI 5 compatibility
+- Disable automatic CI triggers, switch to manual-only
+
+### Fixed
+- Fix language switcher URL generation for prefixed admin paths
+- Fix dialyzer warnings in language switcher URL generation
+
 ## 1.7.86 - 2026-03-30
 
 ### Changed
