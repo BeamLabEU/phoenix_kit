@@ -1,0 +1,137 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Activity"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin")}
+      title="Activity"
+      subtitle={"#{@total} total activities"}
+    />
+
+    <%!-- Filters --%>
+    <div class="bg-base-200 rounded-lg p-4 mb-6">
+      <.form for={%{}} phx-change="filter" class="flex flex-wrap gap-4 items-end">
+        <div class="form-control">
+          <label class="label"><span class="label-text">Action</span></label>
+          <select name="filter[action]" class="select select-bordered select-sm">
+            <option value="">All Actions</option>
+            <%= for action <- @action_types do %>
+              <option value={action} selected={@filter_action == action}>
+                {action}
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Resource Type</span></label>
+          <select name="filter[resource_type]" class="select select-bordered select-sm">
+            <option value="">All Types</option>
+            <%= for rt <- @resource_types do %>
+              <option value={rt} selected={@filter_resource_type == rt}>
+                {String.capitalize(rt)}
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+          Clear
+        </button>
+      </.form>
+    </div>
+
+    <%!-- Activity List --%>
+    <%= if Enum.empty?(@entries) do %>
+      <div class="text-center py-12 text-base-content/60">
+        <.icon name="hero-bell-slash" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+        <p>No activities recorded yet</p>
+      </div>
+    <% else %>
+      <div class="space-y-2">
+        <%= for entry <- @entries do %>
+          <div class="flex items-start gap-3 p-3 bg-base-100 rounded-lg shadow-sm">
+            <%!-- Action Badge --%>
+            <div class="pt-0.5">
+              <span class={"badge badge-sm #{action_badge_color(entry.action)}"}>
+                {entry.action}
+              </span>
+            </div>
+
+            <%!-- Content --%>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 text-sm">
+                <%!-- Actor --%>
+                <%= if entry.actor do %>
+                  <span class="font-semibold truncate max-w-[200px]">
+                    {entry.actor.email}
+                  </span>
+                <% else %>
+                  <span class="text-base-content/50">System</span>
+                <% end %>
+
+                <%!-- Target --%>
+                <%= if entry.target do %>
+                  <span class="text-base-content/50">&rarr;</span>
+                  <span class="truncate max-w-[200px]">
+                    {entry.target.email}
+                  </span>
+                <% end %>
+              </div>
+
+              <%!-- Resource info --%>
+              <%= if entry.resource_type do %>
+                <div class="text-xs text-base-content/50 mt-0.5">
+                  <span class="badge badge-ghost badge-xs">{entry.resource_type}</span>
+                  <%= if entry.resource_uuid do %>
+                    <span class="ml-1">
+                      {String.slice(to_string(entry.resource_uuid), 0..7)}...
+                    </span>
+                  <% end %>
+                  <%= if entry.metadata["title"] do %>
+                    <span class="ml-1 italic">
+                      {String.slice(entry.metadata["title"], 0..50)}
+                    </span>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Timestamp --%>
+            <div
+              class="text-xs text-base-content/50 whitespace-nowrap pt-0.5"
+              title={to_string(entry.inserted_at)}
+            >
+              {format_time_ago(entry.inserted_at)}
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%!-- Pagination --%>
+    <%= if @total_pages > 1 do %>
+      <div class="flex justify-center mt-6">
+        <div class="join">
+          <%= for page <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+            <.link
+              patch={
+                Routes.path(
+                  "/admin/activity?#{URI.encode_query(%{"page" => page, "action" => @filter_action || "", "resource_type" => @filter_resource_type || ""})}"
+                )
+              }
+              class={["join-item btn btn-sm", if(page == @page, do: "btn-active", else: "")]}
+            >
+              {page}
+            </.link>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
