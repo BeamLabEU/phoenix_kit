@@ -72,7 +72,10 @@ defmodule Mix.Tasks.Compile.PhoenixKitCssSources do
     if existing != content do
       File.mkdir_p!(Path.dirname(path))
       File.write!(path, content)
-      Mix.shell().info("[PhoenixKit] Updated #{@generated_file} with #{length(source_lines)} source(s)")
+
+      Mix.shell().info(
+        "[PhoenixKit] Updated #{@generated_file} with #{length(source_lines)} source(s)"
+      )
     end
 
     {:ok, []}
