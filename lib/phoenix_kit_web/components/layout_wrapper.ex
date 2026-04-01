@@ -44,6 +44,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.SEO
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -236,7 +237,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               current_locale: assigns[:current_locale],
               current_locale_base:
                 assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale]),
-              scope: assigns[:phoenix_kit_current_scope]
+              scope: assigns[:phoenix_kit_current_scope],
+              auth_logo_url:
+                case PhoenixKit.Settings.get_setting("auth_logo_file_uuid", "") do
+                  uuid when is_binary(uuid) and uuid != "" -> URLSigner.signed_url(uuid, "medium")
+                  _ -> nil
+                end
             }
 
             assigns = template_assigns
@@ -281,9 +287,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   </label>
 
                   <%!-- Logo --%>
-                  <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <PhoenixKitWeb.Components.Core.Icons.icon_shield />
-                  </div>
+                  <%= if @auth_logo_url do %>
+                    <img src={@auth_logo_url} alt={@project_title} class="h-8 w-8 object-contain rounded-lg" />
+                  <% end %>
 
                   <%!-- Project title and Admin label grouped together --%>
                   <div class="flex items-center gap-1 min-w-0">
