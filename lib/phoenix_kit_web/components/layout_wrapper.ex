@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   import PhoenixKitWeb.Components.AdminNav
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
+  import PhoenixKitWeb.Components.InvitationBanner, only: [invitation_banners: 1]
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
@@ -78,6 +79,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :project_title, :string, default: nil
   attr :current_locale, :string, default: nil
   attr :from_layout, :boolean, default: false
+  attr :pk_pending_invitations, :list, default: []
 
   slot :inner_block, required: false
 
@@ -654,6 +656,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     ~H"""
     <main class="min-h-screen bg-base-100 transition-colors">
       <.flash_group flash={@flash} />
+      <.invitation_banners invitations={@pk_pending_invitations} />
       {render_slot(@inner_block)}
     </main>
     """
@@ -693,6 +696,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <%!-- Admin pages without parent headers --%>
         <main class="min-h-screen bg-base-100 transition-colors">
           <.flash_group flash={@flash} />
+          <.invitation_banners invitations={@pk_pending_invitations} />
           {render_slot(@inner_block)}
         </main>
 
@@ -723,6 +727,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
     ~H"""
     <PhoenixKitWeb.Layouts.root {prepare_phoenix_kit_assigns(assigns)}>
+      <.invitation_banners invitations={@pk_pending_invitations} />
       {render_slot(@inner_block)}
     </PhoenixKitWeb.Layouts.root>
     """

@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
+  alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -329,6 +330,45 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
+  def handle_event("invite_member", %{"email" => email}, socket) do
+    organization = socket.assigns.user
+    invited_by = socket.assigns.phoenix_kit_current_user
+    email = String.trim(email)
+
+    case Invitations.create_invitation(organization, email, invited_by) do
+      {:ok, _invitation, _encoded_token} ->
+        socket =
+          socket
+          |> assign(:pending_invitations, Invitations.list_invitations(organization.uuid))
+          |> put_flash(:info, gettext("Invitation sent to %{email}", email: email))
+
+        {:noreply, socket}
+
+      {:error, message} when is_binary(message) ->
+        {:noreply, put_flash(socket, :error, message)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to send invitation"))}
+    end
+  end
+
+  def handle_event("cancel_invitation", %{"uuid" => uuid}, socket) do
+    case Invitations.cancel_invitation(uuid) do
+      {:ok, _} ->
+        organization = socket.assigns.user
+
+        socket =
+          socket
+          |> assign(:pending_invitations, Invitations.list_invitations(organization.uuid))
+          |> put_flash(:info, gettext("Invitation cancelled"))
+
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to cancel invitation"))}
+    end
+  end
+
   def handle_event("toggle_user_status", _params, socket) do
     user = socket.assigns.user
     new_status = !user.is_active
@@ -606,6 +646,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     |> assign(:user_roles, [])
     |> assign(:organization_members, [])
     |> assign(:available_members, [])
+    |> assign(:pending_invitations, [])
   end
 
   defp load_user_data(socket, :edit, user_uuid) do
@@ -628,12 +669,21 @@ defmodule PhoenixKitWeb.Users.UserForm do
         []
       end
 
+    # Load pending invitations for organization accounts
+    pending_invitations =
+      if socket.assigns.org_accounts_enabled && user.account_type == "organization" do
+        Invitations.list_invitations(user.uuid)
+      else
+        []
+      end
+
     socket
     |> assign(:user, user)
     |> assign(:user_roles, user_roles)
     |> assign(:pending_roles, user_roles)
     |> assign(:organization_members, organization_members)
     |> assign(:available_members, available_members)
+    |> assign(:pending_invitations, pending_invitations)
   end
 
   defp load_form_data(%{assigns: %{mode: :new}} = socket) do

@@ -13,21 +13,22 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
       {:redirect, socket} ->
         {:ok, socket}
 
       :cont ->
-        do_mount(session, socket)
+        do_mount(params, session, socket)
     end
   end
 
-  defp do_mount(session, socket) do
+  defp do_mount(params, session, socket) do
     # Check if registration is allowed
     allow_registration = Settings.get_boolean_setting("allow_registration", true)
 
@@ -66,6 +67,10 @@ defmodule PhoenixKitWeb.Users.Registration do
       # Extract and store IP address during mount for later use
       ip_address = IpAddress.extract_from_socket(socket)
 
+      # Parse invitation token from URL params
+      invitation_token = Map.get(params, "invitation")
+      pending_invitation = load_pending_invitation(invitation_token)
+
       socket =
         socket
         |> assign(trigger_submit: false, check_errors: false)
@@ -78,6 +83,8 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(magic_link_registration_enabled: magic_link_registration_enabled)
         |> assign(show_username: show_username)
         |> assign(org_accounts_enabled: org_accounts_enabled)
+        |> assign(pending_invitation: pending_invitation)
+        |> assign(pending_invitation_token: invitation_token)
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
@@ -117,6 +124,13 @@ defmodule PhoenixKitWeb.Users.Registration do
             # Record referral code usage if provided and valid
             if validated_code do
               Referrals.use_code(validated_code.code, user.uuid)
+            end
+
+            # Store invitation token in custom_fields for auto-accept after email confirmation
+            if socket.assigns[:pending_invitation_token] do
+              Auth.update_user_fields(user, %{
+                "pending_invitation_token" => socket.assigns.pending_invitation_token
+              })
             end
 
             case Auth.deliver_user_confirmation_instructions(
@@ -232,5 +246,14 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64()
+  end
+
+  defp load_pending_invitation(nil), do: nil
+
+  defp load_pending_invitation(token) when is_binary(token) do
+    case Invitations.get_by_token(token) do
+      {:ok, invitation} -> invitation
+      {:error, _} -> nil
+    end
   end
 end

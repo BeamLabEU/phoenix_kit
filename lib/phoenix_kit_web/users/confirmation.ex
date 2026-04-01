@@ -8,7 +8,10 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   """
   use PhoenixKitWeb, :live_view
 
+  require Logger
+
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Utils.Routes
 
   def mount(%{"token" => token}, _session, socket) do
@@ -20,7 +23,9 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   # leaked token giving the user access to the account.
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do
     case Auth.confirm_user(token) do
-      {:ok, _} ->
+      {:ok, user} ->
+        maybe_accept_pending_invitation(user)
+
         {:noreply,
          socket
          |> put_flash(:info, "User confirmed successfully.")
@@ -42,6 +47,36 @@ defmodule PhoenixKitWeb.Users.Confirmation do
              |> put_flash(:error, "User confirmation link is invalid or it has expired.")
              |> redirect(to: "/")}
         end
+    end
+  end
+
+  # Auto-accept a pending invitation stored in custom_fields during registration.
+  # The invitation token is placed there by the registration flow when user
+  # arrives via an invite link (?invitation=TOKEN).
+  defp maybe_accept_pending_invitation(user) do
+    token = user.custom_fields && user.custom_fields["pending_invitation_token"]
+
+    if token do
+      case Invitations.get_by_token(token) do
+        {:ok, invitation} ->
+          case Invitations.accept_invitation_by_uuid(invitation.uuid, user) do
+            {:ok, _} ->
+              # Clear the stored token after accepting
+              Auth.update_user_fields(
+                user,
+                Map.delete(user.custom_fields, "pending_invitation_token")
+              )
+
+            {:error, reason} ->
+              Logger.warning(
+                "Failed to auto-accept invitation for user #{user.uuid}: #{inspect(reason)}"
+              )
+          end
+
+        {:error, _} ->
+          # Token expired or invalid — silently ignore
+          :ok
+      end
     end
   end
 end

@@ -5,6 +5,17 @@
 >
   <h1 class="text-2xl font-bold text-center mb-6">{@project_title} Create account</h1>
 
+  <%!-- Invitation banner: shown when user arrives via org invitation link --%>
+  <%= if @pending_invitation do %>
+    <div class="alert alert-info mb-4">
+      <.icon name="hero-building-office-2" class="w-5 h-5 shrink-0" />
+      <span>
+        You've been invited to join <strong>{@pending_invitation.organization.organization_name}</strong>.
+        Create an account to accept the invitation.
+      </span>
+    </div>
+  <% end %>
+
   <.form
     for={@form}
     id="registration_form"
