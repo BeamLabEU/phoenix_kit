@@ -559,6 +559,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
       "person" ->
         changeset
+        |> put_change(:organization_name, nil)
         |> validate_no_self_reference()
 
       _ ->
