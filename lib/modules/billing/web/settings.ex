@@ -8,6 +8,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
 
   use PhoenixKitWeb, :live_view
 
+  import PhoenixKit.Modules.Billing.Web.Components.BillingTabs
+
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Settings
@@ -23,6 +25,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
       |> assign(:page_title, "Billing Settings")
       |> assign(:project_title, project_title)
       |> assign(:url_path, Routes.path("/admin/billing/settings"))
+      |> assign(:active_tab, "general")
       |> assign(:billing_enabled, billing_enabled)
       |> load_settings()
 

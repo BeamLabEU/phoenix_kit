@@ -7,6 +7,8 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionTypes do
 
   use PhoenixKitWeb, :live_view
 
+  import PhoenixKit.Modules.Billing.Web.Components.BillingTabs
+
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -21,6 +23,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionTypes do
         |> assign(:page_title, "Subscription Types")
         |> assign(:project_title, project_title)
         |> assign(:url_path, Routes.path("/admin/billing/subscription-types"))
+        |> assign(:active_tab, "subscription_types")
         |> load_subscription_types()
 
       {:ok, socket}

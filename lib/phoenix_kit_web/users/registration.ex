@@ -57,6 +57,10 @@ defmodule PhoenixKitWeb.Users.Registration do
       # Get username field visibility setting
       show_username = Settings.get_setting("registration_show_username", "true") != "false"
 
+      # Get organization accounts setting
+      org_accounts_enabled =
+        Settings.get_boolean_setting("enable_organization_accounts", false)
+
       changeset = Auth.change_user_registration(%User{})
 
       # Extract and store IP address during mount for later use
@@ -73,6 +77,7 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(user_ip_address: ip_address)
         |> assign(magic_link_registration_enabled: magic_link_registration_enabled)
         |> assign(show_username: show_username)
+        |> assign(org_accounts_enabled: org_accounts_enabled)
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}

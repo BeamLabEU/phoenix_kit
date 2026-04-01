@@ -8,6 +8,8 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
 
   use PhoenixKitWeb, :live_view
 
+  import PhoenixKit.Modules.Billing.Web.Components.BillingTabs
+
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Settings
@@ -23,6 +25,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Currencies do
         |> assign(:page_title, "Currencies")
         |> assign(:project_title, project_title)
         |> assign(:url_path, Routes.path("/admin/billing/currencies"))
+        |> assign(:active_tab, "currencies")
         |> assign(:currencies, [])
         |> assign(:loading, true)
         |> assign(:show_form, false)

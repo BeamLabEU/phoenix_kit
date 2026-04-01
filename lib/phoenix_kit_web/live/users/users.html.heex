@@ -108,6 +108,32 @@
           </form>
         </div>
 
+        <%!-- Account Type Filter --%>
+        <%= if @org_accounts_enabled do %>
+          <div class="w-full lg:w-48">
+            <label class="label">
+              <span class="label-text">{gettext("Account type")}</span>
+            </label>
+            <form phx-change="filter_by_account_type">
+              <select
+                class="select select-bordered w-full"
+                name="account_type"
+                value={@filter_account_type}
+              >
+                <option value="all" selected={@filter_account_type == "all"}>
+                  {gettext("All Types")}
+                </option>
+                <option value="person" selected={@filter_account_type == "person"}>
+                  {gettext("Person")}
+                </option>
+                <option value="organization" selected={@filter_account_type == "organization"}>
+                  {gettext("Organization")}
+                </option>
+              </select>
+            </form>
+          </div>
+        <% end %>
+
         <%!-- Quick Actions --%>
         <div class="w-full lg:w-auto">
           <label class="label">
@@ -205,6 +231,11 @@
                                 <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                                   <span class="badge badge-info badge-xs h-auto">you</span>
                                 <% end %>
+                                <%= if @org_accounts_enabled && user.account_type == "organization" do %>
+                                  <span class="badge badge-primary badge-xs h-auto">
+                                    {gettext("Org")}
+                                  </span>
+                                <% end %>
                               </div>
                               <%= if user.username do %>
                                 <div class="text-sm text-base-content/60">
@@ -215,10 +246,15 @@
                           </.link>
                         <% column_id == "full_name" -> %>
                           <div class="flex flex-col gap-1">
-                            <%= if user.first_name || user.last_name do %>
+                            <%= if user.first_name || user.last_name || user.organization_name do %>
                               <div>{PhoenixKit.Users.Auth.User.full_name(user)}</div>
                             <% else %>
                               <div class="text-base-content/50">-</div>
+                            <% end %>
+                            <%= if @org_accounts_enabled && user.organization do %>
+                              <div class="text-xs text-base-content/60">
+                                {user.organization.organization_name}
+                              </div>
                             <% end %>
                           </div>
                         <% column_id == "role" -> %>

@@ -143,6 +143,8 @@ defmodule PhoenixKit.Settings do
       # SEO
       "seo_module_enabled" => "false",
       "seo_no_index" => "false",
+      # Organization Accounts
+      "enable_organization_accounts" => "false",
       # Webhook Security Settings
       "webhook_verify_sns_signature" => "true",
       "webhook_check_aws_ip" => "true",

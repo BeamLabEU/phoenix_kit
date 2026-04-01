@@ -148,6 +148,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.UserDashboardHeader
       import PhoenixKitWeb.Components.Core.DevNotice
       import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
+      import PhoenixKitWeb.Components.Core.NavTabs
     end
   end
 

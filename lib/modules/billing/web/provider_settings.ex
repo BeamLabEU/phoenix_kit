@@ -7,6 +7,8 @@ defmodule PhoenixKit.Modules.Billing.Web.ProviderSettings do
 
   use PhoenixKitWeb, :live_view
 
+  import PhoenixKit.Modules.Billing.Web.Components.BillingTabs
+
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Providers
   alias PhoenixKit.Settings
@@ -22,6 +24,7 @@ defmodule PhoenixKit.Modules.Billing.Web.ProviderSettings do
         |> assign(:page_title, "Payment Providers")
         |> assign(:project_title, project_title)
         |> assign(:url_path, Routes.path("/admin/settings/billing/providers"))
+        |> assign(:active_tab, "providers")
         |> load_provider_settings()
 
       {:ok, socket}

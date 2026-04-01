@@ -83,6 +83,56 @@
         </div>
       <% end %>
 
+      <%!-- Account Type (only when organization accounts enabled) --%>
+      <%= if @org_accounts_enabled do %>
+        <div phx-feedback-for="user[account_type]">
+          <label class="label" for="user_account_type">
+            <span class="label-text flex items-center">
+              <.icon name="hero-building-office-2" class="w-4 h-4 mr-2" /> {gettext(
+                "Account Type"
+              )}
+            </span>
+          </label>
+          <select
+            id="user_account_type"
+            name="user[account_type]"
+            class="select select-bordered w-full"
+          >
+            <option
+              value="person"
+              selected={Phoenix.HTML.Form.input_value(@form, :account_type) != "organization"}
+            >
+              {gettext("Person")}
+            </option>
+            <option
+              value="organization"
+              selected={Phoenix.HTML.Form.input_value(@form, :account_type) == "organization"}
+            >
+              {gettext("Organization")}
+            </option>
+          </select>
+        </div>
+
+        <%!-- Organization Name (only for organization type) --%>
+        <%= if Phoenix.HTML.Form.input_value(@form, :account_type) == "organization" do %>
+          <div phx-feedback-for="user[organization_name]">
+            <label class="label" for="user_organization_name">
+              <span class="label-text flex items-center">
+                <.icon name="hero-building-office" class="w-4 h-4 mr-2" /> {gettext(
+                  "Organization Name"
+                )}
+              </span>
+            </label>
+            <.input
+              field={@form[:organization_name]}
+              type="text"
+              placeholder="Enter organization name"
+              required
+            />
+          </div>
+        <% end %>
+      <% end %>
+
       <div phx-feedback-for="user[password]">
         <label class="label" for="user_password">
           <span class="label-text flex items-center">

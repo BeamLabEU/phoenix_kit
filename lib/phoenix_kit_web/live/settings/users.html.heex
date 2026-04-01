@@ -113,6 +113,22 @@
                 />
                 <span class="label-text">Show username field on registration</span>
               </div>
+              <%!-- Organization Accounts --%>
+              <div class="flex items-center gap-3 mt-3">
+                <input
+                  name="settings[enable_organization_accounts]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[enable_organization_accounts]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["enable_organization_accounts"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">{gettext("Enable organization accounts")}</span>
+              </div>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] or @settings["track_registration_geolocation"] != @saved_settings["track_registration_geolocation"] do %>
