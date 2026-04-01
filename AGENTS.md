@@ -182,6 +182,23 @@ end
 
 Without this, `PhoenixKit.ModuleDiscovery` won't find the module and routes will return 404. See `phoenix_kit_hello_world` for the template.
 
+### Tailwind CSS Scanning for External Modules
+
+External modules with UI must implement `css_sources/0` returning their OTP app name:
+
+```elixir
+@impl PhoenixKit.Module
+def css_sources, do: [:phoenix_kit_my_module]
+```
+
+CSS source discovery is **automatic at compile time**. The `:phoenix_kit_css_sources` compiler (in `lib/mix/tasks/compile.phoenix_kit_css_sources.ex`) discovers all modules with `css_sources/0`, resolves their paths (path deps vs hex deps), and writes `assets/css/_phoenix_kit_sources.css`. The parent app's `app.css` imports this generated file.
+
+**Parent app setup (one-time, handled by `mix phoenix_kit.install`):**
+1. Add `:phoenix_kit_css_sources` to `compilers:` in `mix.exs` (before `:phoenix_live_view`)
+2. `app.css` must have `@import "./_phoenix_kit_sources.css";`
+
+After setup, adding or removing modules is zero-config — the compiler regenerates on each compilation.
+
 ### PhoenixKit Layout Guidelines
 
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
@@ -247,9 +264,17 @@ Features: versioned migrations, database tables prefix support, idempotent opera
 
 ### External module route discovery
 
-Routes from external PhoenixKit modules (e.g., `phoenix_kit_entities`) are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set.
+Routes from external PhoenixKit modules are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set. No manual config needed.
 
-No manual config is needed. If auto-discovery fails, register route modules explicitly as a fallback:
+**Two routing patterns:**
+
+1. **Single page** — add `live_view: {MyModule.Web.IndexLive, :index}` to `admin_tabs/0` or `settings_tabs/0`. The route is auto-generated. No route module needed. Used by: hello_world, sync, catalogue, document_creator, emails (settings), user_connections, legal.
+
+2. **Multi-page** — implement `route_module/0` returning a module with `admin_routes/0` and `admin_locale_routes/0`. Required for sub-routes like `/new`, `/edit`, `/:id`. Do NOT set `live_view:` on the main tab when using a route module. Used by: ai, entities, publishing, newsletters.
+
+**Important:** if a parent tab and subtab share the same path and both have `live_view:`, the core deduplicates by path (first wins). But avoid this pattern — only set `live_view:` on one tab per unique path.
+
+If auto-discovery fails, register route modules explicitly as a fallback:
 
 ```elixir
 # config/config.exs
