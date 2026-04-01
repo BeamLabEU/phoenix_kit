@@ -502,8 +502,7 @@ defmodule PhoenixKit.ModuleRegistry do
         key: "catalogue",
         hex_package: "phoenix_kit_catalogue",
         name: "Catalogue",
-        description:
-          "Product catalogues with manufacturers, suppliers, categories, and items.",
+        description: "Product catalogues with manufacturers, suppliers, categories, and items.",
         icon: "📦",
         hex_url: "https://hex.pm/packages/phoenix_kit_catalogue"
       },
@@ -512,8 +511,7 @@ defmodule PhoenixKit.ModuleRegistry do
         key: "document_creator",
         hex_package: "phoenix_kit_document_creator",
         name: "Document Creator",
-        description:
-          "Document template management and PDF generation via Google Docs API.",
+        description: "Document template management and PDF generation via Google Docs API.",
         icon: "📄",
         hex_url: "https://hex.pm/packages/phoenix_kit_document_creator"
       },
@@ -532,8 +530,7 @@ defmodule PhoenixKit.ModuleRegistry do
         key: "comments",
         hex_package: "phoenix_kit_comments",
         name: "Comments",
-        description:
-          "Comment system with likes and admin management.",
+        description: "Comment system with likes and admin management.",
         icon: "💬",
         hex_url: "https://hex.pm/packages/phoenix_kit_comments"
       },
@@ -542,8 +539,7 @@ defmodule PhoenixKit.ModuleRegistry do
         key: "hello_world",
         hex_package: "phoenix_kit_hello_world",
         name: "Hello World",
-        description:
-          "Example module template for building new PhoenixKit modules.",
+        description: "Example module template for building new PhoenixKit modules.",
         icon: "👋",
         hex_url: "https://hex.pm/packages/phoenix_kit_hello_world"
       }
