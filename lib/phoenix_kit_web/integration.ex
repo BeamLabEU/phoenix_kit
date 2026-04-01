@@ -420,10 +420,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
 
-        if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
-          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
-        end
-
         live "/admin/settings/maintenance", Live.Modules.Maintenance.Settings, :index
         live "/admin/settings/seo", Live.Settings.SEO, :index
         live "/admin/settings/media", Live.Modules.Storage.Settings, :index
@@ -868,6 +864,7 @@ defmodule PhoenixKitWeb.Integration do
       apply(mod, callback, [])
       |> Enum.map(&Tab.resolve_path(&1, context))
       |> Enum.filter(&tab_has_live_view?/1)
+      |> Enum.uniq_by(fn %{path: path} -> path end)
       |> Enum.map(&tab_struct_to_route/1)
     else
       []
