@@ -17,6 +17,18 @@
     <div class="bg-base-200 rounded-lg p-4 mb-6">
       <.form for={%{}} phx-change="filter" class="flex flex-wrap gap-4 items-end">
         <div class="form-control">
+          <label class="label"><span class="label-text">Module</span></label>
+          <select name="filter[module]" class="select select-bordered select-sm">
+            <option value="">All Modules</option>
+            <%= for mod <- @modules do %>
+              <option value={mod} selected={@filter_module == mod}>
+                {String.capitalize(mod)}
+              </option>
+            <% end %>
+          </select>
+        </div>
+
+        <div class="form-control">
           <label class="label"><span class="label-text">Action</span></label>
           <select name="filter[action]" class="select select-bordered select-sm">
             <option value="">All Actions</option>
@@ -53,65 +65,145 @@
         <p>No activities recorded yet</p>
       </div>
     <% else %>
-      <div class="space-y-2">
-        <%= for entry <- @entries do %>
-          <div class="flex items-start gap-3 p-3 bg-base-100 rounded-lg shadow-sm">
-            <%!-- Action Badge --%>
-            <div class="pt-0.5">
-              <span class={"badge badge-sm #{action_badge_color(entry.action)}"}>
-                {entry.action}
-              </span>
-            </div>
+      <.table_default
+        id="activity-table"
+        variant="zebra"
+        size="sm"
+        class="w-full"
+        toggleable={true}
+        items={@entries}
+        card_title={fn entry -> entry.action end}
+        card_fields={
+          fn entry ->
+            fields = [
+              %{
+                label: "Actor",
+                value: if(entry.actor, do: entry.actor.email, else: "System")
+              }
+            ]
 
-            <%!-- Content --%>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 text-sm">
-                <%!-- Actor --%>
+            fields =
+              if entry.resource_type do
+                fields ++ [%{label: "Resource", value: entry.resource_type}]
+              else
+                fields
+              end
+
+            fields =
+              if entry.target do
+                fields ++ [%{label: "Target", value: entry.target.email}]
+              else
+                fields
+              end
+
+            fields =
+              if entry.metadata["role"] do
+                fields ++ [%{label: "Role", value: entry.metadata["role"]}]
+              else
+                fields
+              end
+
+            fields ++
+              [
+                %{
+                  label: "Date",
+                  value:
+                    "#{Calendar.strftime(entry.inserted_at, "%b %d, %Y %H:%M")} (#{format_time_ago(entry.inserted_at)})"
+                }
+              ]
+          end
+        }
+      >
+        <:card_header :let={entry}>
+          <span class={"badge badge-sm #{action_badge_color(entry.action)}"}>
+            {entry.action}
+          </span>
+        </:card_header>
+
+        <.table_default_header>
+          <.table_default_row hover={false}>
+            <.table_default_header_cell>Module</.table_default_header_cell>
+            <.table_default_header_cell>Activity</.table_default_header_cell>
+            <.table_default_header_cell>Actor</.table_default_header_cell>
+            <.table_default_header_cell>Details</.table_default_header_cell>
+            <.table_default_header_cell>Resource</.table_default_header_cell>
+            <.table_default_header_cell>Date</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+
+        <.table_default_body>
+          <%= for entry <- @entries do %>
+            <.table_default_row>
+              <.table_default_cell class="text-sm">
+                <%= if entry.module do %>
+                  <span class="badge badge-outline badge-xs">{entry.module}</span>
+                <% else %>
+                  <span class="text-base-content/30">—</span>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class={"badge badge-sm #{action_badge_color(entry.action)}"}>
+                  {entry.action}
+                </span>
+              </.table_default_cell>
+              <.table_default_cell class="text-sm">
                 <%= if entry.actor do %>
-                  <span class="font-semibold truncate max-w-[200px]">
-                    {entry.actor.email}
-                  </span>
+                  <span class="font-semibold">{entry.actor.email}</span>
+                  <%= if entry.metadata["actor_role"] do %>
+                    <span class={[
+                      "badge badge-xs ml-1",
+                      if(entry.metadata["actor_role"] == "admin",
+                        do: "badge-warning",
+                        else: "badge-ghost"
+                      )
+                    ]}>
+                      {entry.metadata["actor_role"]}
+                    </span>
+                  <% end %>
                 <% else %>
                   <span class="text-base-content/50">System</span>
                 <% end %>
-
-                <%!-- Target --%>
-                <%= if entry.target do %>
-                  <span class="text-base-content/50">&rarr;</span>
-                  <span class="truncate max-w-[200px]">
-                    {entry.target.email}
-                  </span>
-                <% end %>
-              </div>
-
-              <%!-- Resource info --%>
-              <%= if entry.resource_type do %>
-                <div class="text-xs text-base-content/50 mt-0.5">
-                  <span class="badge badge-ghost badge-xs">{entry.resource_type}</span>
-                  <%= if entry.resource_uuid do %>
-                    <span class="ml-1">
-                      {String.slice(to_string(entry.resource_uuid), 0..7)}...
+              </.table_default_cell>
+              <.table_default_cell>
+                <div class="space-y-0.5">
+                  <%= if entry.target do %>
+                    <div class="text-xs">
+                      <span class="text-base-content/50">&rarr;</span>
+                      <span>{entry.target.email}</span>
+                    </div>
+                  <% end %>
+                  <%= if entry.metadata["method"] do %>
+                    <span class="badge badge-ghost badge-xs">
+                      {String.replace(entry.metadata["method"], "_", " ")}
                     </span>
                   <% end %>
-                  <%= if entry.metadata["title"] do %>
-                    <span class="ml-1 italic">
-                      {String.slice(entry.metadata["title"], 0..50)}
-                    </span>
+                  <%= if entry.metadata["email"] && !entry.target do %>
+                    <div class="text-xs text-base-content/50">{entry.metadata["email"]}</div>
                   <% end %>
                 </div>
-              <% end %>
-            </div>
-
-            <%!-- Timestamp --%>
-            <div
-              class="text-xs text-base-content/50 whitespace-nowrap pt-0.5"
-              title={to_string(entry.inserted_at)}
-            >
-              {format_time_ago(entry.inserted_at)}
-            </div>
-          </div>
-        <% end %>
-      </div>
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if entry.resource_type do %>
+                  <span class="badge badge-ghost badge-xs">{entry.resource_type}</span>
+                  <%= if entry.resource_uuid do %>
+                    <span class="text-xs text-base-content/40 ml-1">
+                      {String.slice(to_string(entry.resource_uuid), 0..7)}
+                    </span>
+                  <% end %>
+                <% else %>
+                  <span class="text-base-content/30">—</span>
+                <% end %>
+              </.table_default_cell>
+              <.table_default_cell class="text-xs text-base-content/60">
+                <div>{Calendar.strftime(entry.inserted_at, "%b %d, %Y")}</div>
+                <div class="text-base-content/40">
+                  {Calendar.strftime(entry.inserted_at, "%H:%M:%S")}
+                </div>
+              </.table_default_cell>
+            </.table_default_row>
+          <% end %>
+        </.table_default_body>
+      </.table_default>
     <% end %>
 
     <%!-- Pagination --%>

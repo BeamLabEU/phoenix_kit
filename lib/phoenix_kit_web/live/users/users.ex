@@ -582,9 +582,30 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   defp toggle_user_confirmation_safely(socket, user) do
+    admin = socket.assigns.phoenix_kit_current_user
+
     case Auth.toggle_user_confirmation(user) do
       {:ok, updated_user} ->
         status_text = if updated_user.confirmed_at, do: "confirmed", else: "unconfirmed"
+
+        action =
+          if updated_user.confirmed_at,
+            do: "user.email_confirmed",
+            else: "user.email_unconfirmed"
+
+        PhoenixKit.Activity.log(%{
+          action: action,
+          module: "users",
+          actor_uuid: admin.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          target_uuid: updated_user.uuid,
+          metadata: %{
+            "email" => updated_user.email,
+            "method" => "manual",
+            "actor_role" => "admin"
+          }
+        })
 
         socket =
           socket

@@ -316,6 +316,22 @@ defmodule PhoenixKitWeb.Users.UserForm do
           {:error, _} -> :ok
         end
 
+        admin_user = socket.assigns[:phoenix_kit_current_user]
+
+        PhoenixKit.Activity.log(%{
+          action: "user.created",
+          module: "users",
+          actor_uuid: admin_user && admin_user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{
+            "email" => user.email,
+            "method" => "manual",
+            "actor_role" => "admin"
+          }
+        })
+
         socket =
           socket
           |> put_flash(:info, "User created successfully. Confirmation email sent.")

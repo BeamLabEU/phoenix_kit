@@ -34,6 +34,7 @@ defmodule PhoenixKit.Activity.Entry do
 
   schema "phoenix_kit_activities" do
     field(:action, :string)
+    field(:module, :string)
     field(:resource_type, :string)
     field(:resource_uuid, Ecto.UUID)
     field(:metadata, :map, default: %{})
@@ -56,9 +57,18 @@ defmodule PhoenixKit.Activity.Entry do
   @doc "Changeset for creating an activity entry."
   def changeset(entry, attrs) do
     entry
-    |> cast(attrs, [:action, :actor_uuid, :resource_type, :resource_uuid, :target_uuid, :metadata])
+    |> cast(attrs, [
+      :action,
+      :module,
+      :actor_uuid,
+      :resource_type,
+      :resource_uuid,
+      :target_uuid,
+      :metadata
+    ])
     |> validate_required([:action])
     |> validate_length(:action, min: 1, max: 100)
+    |> validate_length(:module, max: 50)
     |> validate_length(:resource_type, max: 50)
     |> foreign_key_constraint(:actor_uuid)
     |> foreign_key_constraint(:target_uuid)

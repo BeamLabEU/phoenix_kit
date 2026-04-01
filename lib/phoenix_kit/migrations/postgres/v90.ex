@@ -18,6 +18,7 @@ defmodule PhoenixKit.Migrations.Postgres.V90 do
                          ) do
       add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:action, :string, null: false, size: 100)
+      add(:module, :string, size: 50)
       add(:actor_uuid, :uuid)
       add(:resource_type, :string, size: 50)
       add(:resource_uuid, :uuid)
@@ -28,6 +29,7 @@ defmodule PhoenixKit.Migrations.Postgres.V90 do
 
     create_if_not_exists(index(:phoenix_kit_activities, [:actor_uuid], prefix: prefix))
     create_if_not_exists(index(:phoenix_kit_activities, [:action], prefix: prefix))
+    create_if_not_exists(index(:phoenix_kit_activities, [:module], prefix: prefix))
     create_if_not_exists(index(:phoenix_kit_activities, [:resource_type], prefix: prefix))
     create_if_not_exists(index(:phoenix_kit_activities, [:target_uuid], prefix: prefix))
     create_if_not_exists(index(:phoenix_kit_activities, [:inserted_at], prefix: prefix))

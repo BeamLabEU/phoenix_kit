@@ -1053,6 +1053,20 @@ defmodule PhoenixKit.Users.Auth do
          {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
       Events.broadcast_user_confirmed(updated_user)
+
+      PhoenixKit.Activity.log(%{
+        action: "user.email_confirmed",
+        module: "users",
+        actor_uuid: updated_user.uuid,
+        resource_type: "user",
+        resource_uuid: updated_user.uuid,
+        metadata: %{
+          "email" => updated_user.email,
+          "method" => "email_link",
+          "actor_role" => "user"
+        }
+      })
+
       {:ok, updated_user}
     else
       _ -> :error

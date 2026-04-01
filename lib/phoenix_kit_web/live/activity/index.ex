@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
         socket
         |> assign(:page_title, "Activity")
         |> assign(:project_title, project_title)
+        |> assign(:modules, Activity.list_modules())
         |> assign(:action_types, Activity.list_action_types())
         |> assign(:resource_types, Activity.list_resource_types())
         |> assign_filter_defaults()
@@ -59,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
 
     new_params =
       %{"page" => "1"}
+      |> maybe_put("module", filter_params["module"])
       |> maybe_put("action", filter_params["action"])
       |> maybe_put("resource_type", filter_params["resource_type"])
 
@@ -83,6 +85,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
     socket
     |> assign(:page, 1)
     |> assign(:per_page, 50)
+    |> assign(:filter_module, nil)
     |> assign(:filter_action, nil)
     |> assign(:filter_resource_type, nil)
   end
@@ -90,6 +93,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   defp apply_params(socket, params) do
     socket
     |> assign(:page, parse_int(params["page"], 1))
+    |> assign(:filter_module, blank_to_nil(params["module"]))
     |> assign(:filter_action, blank_to_nil(params["action"]))
     |> assign(:filter_resource_type, blank_to_nil(params["resource_type"]))
   end
@@ -99,6 +103,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
       Activity.list(
         page: socket.assigns.page,
         per_page: socket.assigns.per_page,
+        module: socket.assigns.filter_module,
         action: socket.assigns.filter_action,
         resource_type: socket.assigns.filter_resource_type,
         preload: [:actor, :target]
