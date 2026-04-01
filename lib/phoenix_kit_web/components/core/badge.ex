@@ -215,9 +215,13 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   def status_badge(assigns) do
     ~H"""
     <span class={["badge", status_class(@status), size_class(@size), @class]}>
-      {String.capitalize(@status)}
+      {status_label(@status)}
     </span>
     """
+  end
+
+  defp status_label(status) do
+    status |> String.replace("_", " ") |> String.capitalize()
   end
 
   defp status_class("active"), do: "badge-success"
@@ -229,6 +233,19 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   defp status_class("published"), do: "badge-success"
   defp status_class("pending"), do: "badge-info"
   defp status_class("suspended"), do: "badge-error"
+  defp status_class("completed"), do: "badge-success"
+  defp status_class("failed"), do: "badge-error"
+  defp status_class("cancelled"), do: "badge-ghost"
+  defp status_class("in_progress"), do: "badge-info"
+  defp status_class("denied"), do: "badge-error"
+  defp status_class("expired"), do: "badge-ghost"
+  defp status_class("approved"), do: "badge-info"
+  defp status_class("pending_approval"), do: "badge-warning"
+  defp status_class("revoked"), do: "badge-ghost"
+  defp status_class("loading"), do: "badge-ghost animate-pulse"
+  defp status_class("offline"), do: "badge-warning"
+  defp status_class("not_found"), do: "badge-error"
+  defp status_class("error"), do: "badge-error"
   defp status_class(_), do: "badge-ghost"
 
   # Size classes — h-auto allows badge to expand when text wraps on mobile
