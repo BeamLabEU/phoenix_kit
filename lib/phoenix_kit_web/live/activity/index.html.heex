@@ -132,6 +132,15 @@
           </span>
         </:card_header>
 
+        <:card_actions :let={entry}>
+          <.link
+            navigate={Routes.path("/admin/activity/#{entry.uuid}")}
+            class="btn btn-sm btn-outline btn-info"
+          >
+            <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" /> View
+          </.link>
+        </:card_actions>
+
         <.table_default_header>
           <.table_default_row hover={false}>
             <.table_default_header_cell>Module</.table_default_header_cell>
@@ -141,6 +150,7 @@
             <.table_default_header_cell>Details</.table_default_header_cell>
             <.table_default_header_cell>Subject</.table_default_header_cell>
             <.table_default_header_cell>Date</.table_default_header_cell>
+            <.table_default_header_cell class="w-12"></.table_default_header_cell>
           </.table_default_row>
         </.table_default_header>
 
@@ -240,6 +250,15 @@
                 <div class="text-base-content/40">
                   {Calendar.strftime(entry.inserted_at, "%H:%M:%S")}
                 </div>
+              </.table_default_cell>
+              <.table_default_cell>
+                <.link
+                  navigate={Routes.path("/admin/activity/#{entry.uuid}")}
+                  class="btn btn-ghost btn-xs btn-square"
+                  title="View details"
+                >
+                  <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+                </.link>
               </.table_default_cell>
             </.table_default_row>
           <% end %>

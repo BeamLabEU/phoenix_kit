@@ -106,6 +106,21 @@ defmodule PhoenixKit.Activity do
     }
   end
 
+  @doc "Gets a single activity entry by UUID with preloaded associations."
+  def get_entry(uuid) do
+    case repo().get(Entry, uuid) do
+      nil -> nil
+      entry -> repo().preload(entry, [:actor, :target])
+    end
+  end
+
+  @doc "Gets a single activity entry by UUID. Raises if not found."
+  def get_entry!(uuid) do
+    Entry
+    |> repo().get!(uuid)
+    |> repo().preload([:actor, :target])
+  end
+
   @doc "Lists activities for a specific user (as actor)."
   def list_for_user(user_uuid, opts \\ []) do
     opts = Keyword.put(opts, :actor_uuid, user_uuid)
