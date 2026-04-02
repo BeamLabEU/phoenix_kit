@@ -174,28 +174,27 @@
               <%!-- Get format value safely --%>
               <% format_value = get_field_value(@changeset, :format) %>
 
-              <select
-                name="dimension[format]"
-                class={"select #{input_class(@changeset, :format)}"}
-              >
-                <option value="">{gettext("Preserve original")}</option>
-                <%= if @dimension_type != "video" do %>
-                  <option value="jpg" selected={format_value == "jpg"}>
-                    JPEG
-                  </option>
-                  <option value="png" selected={format_value == "png"}>
-                    PNG
-                  </option>
-                  <option value="webp" selected={format_value == "webp"}>
-                    WebP
-                  </option>
-                <% end %>
-                <%= if @dimension_type == "video" do %>
-                  <option value="mp4" selected={format_value == "mp4"}>
-                    MP4
-                  </option>
-                <% end %>
-              </select>
+              <label class={"select #{input_class(@changeset, :format)}"}>
+                <select name="dimension[format]">
+                  <option value="">{gettext("Preserve original")}</option>
+                  <%= if @dimension_type != "video" do %>
+                    <option value="jpg" selected={format_value == "jpg"}>
+                      JPEG
+                    </option>
+                    <option value="png" selected={format_value == "png"}>
+                      PNG
+                    </option>
+                    <option value="webp" selected={format_value == "webp"}>
+                      WebP
+                    </option>
+                  <% end %>
+                  <%= if @dimension_type == "video" do %>
+                    <option value="mp4" selected={format_value == "mp4"}>
+                      MP4
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               {render_error(@changeset, :format)}
             </div>
           </div>

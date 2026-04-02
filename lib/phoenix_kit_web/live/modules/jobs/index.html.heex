@@ -81,56 +81,62 @@
               <label class="label py-1">
                 <span class="label-text text-xs">Queue</span>
               </label>
-              <select class="select select-sm" name="queue">
-                <option value="all" selected={@filter_queue == "all"}>All Queues</option>
-                <%= for {queue, _count} <- @queue_stats do %>
-                  <option value={queue} selected={@filter_queue == queue}>{queue}</option>
-                <% end %>
-              </select>
+              <label class="select select-sm">
+                <select name="queue">
+                  <option value="all" selected={@filter_queue == "all"}>All Queues</option>
+                  <%= for {queue, _count} <- @queue_stats do %>
+                    <option value={queue} selected={@filter_queue == queue}>{queue}</option>
+                  <% end %>
+                </select>
+              </label>
             </form>
 
             <form phx-change="filter_state" class="form-control">
               <label class="label py-1">
                 <span class="label-text text-xs">State</span>
               </label>
-              <select class="select select-sm" name="state">
-                <option value="all" selected={@filter_state == "all"}>All States</option>
-                <option value="available" selected={@filter_state == "available"}>
-                  available
-                </option>
-                <option value="scheduled" selected={@filter_state == "scheduled"}>
-                  scheduled
-                </option>
-                <option value="executing" selected={@filter_state == "executing"}>
-                  executing
-                </option>
-                <option value="completed" selected={@filter_state == "completed"}>
-                  completed
-                </option>
-                <option value="retryable" selected={@filter_state == "retryable"}>
-                  retryable
-                </option>
-                <option value="discarded" selected={@filter_state == "discarded"}>
-                  discarded
-                </option>
-                <option value="cancelled" selected={@filter_state == "cancelled"}>
-                  cancelled
-                </option>
-              </select>
+              <label class="select select-sm">
+                <select name="state">
+                  <option value="all" selected={@filter_state == "all"}>All States</option>
+                  <option value="available" selected={@filter_state == "available"}>
+                    available
+                  </option>
+                  <option value="scheduled" selected={@filter_state == "scheduled"}>
+                    scheduled
+                  </option>
+                  <option value="executing" selected={@filter_state == "executing"}>
+                    executing
+                  </option>
+                  <option value="completed" selected={@filter_state == "completed"}>
+                    completed
+                  </option>
+                  <option value="retryable" selected={@filter_state == "retryable"}>
+                    retryable
+                  </option>
+                  <option value="discarded" selected={@filter_state == "discarded"}>
+                    discarded
+                  </option>
+                  <option value="cancelled" selected={@filter_state == "cancelled"}>
+                    cancelled
+                  </option>
+                </select>
+              </label>
             </form>
 
             <form phx-change="filter_worker" class="form-control">
               <label class="label py-1">
                 <span class="label-text text-xs">Worker</span>
               </label>
-              <select class="select select-sm" name="worker">
-                <option value="all" selected={@filter_worker == "all"}>All Workers</option>
-                <%= for {worker, count} <- @worker_stats do %>
-                  <option value={worker} selected={@filter_worker == worker}>
-                    {short_worker_name(worker)} ({count})
-                  </option>
-                <% end %>
-              </select>
+              <label class="select select-sm">
+                <select name="worker">
+                  <option value="all" selected={@filter_worker == "all"}>All Workers</option>
+                  <%= for {worker, count} <- @worker_stats do %>
+                    <option value={worker} selected={@filter_worker == worker}>
+                      {short_worker_name(worker)} ({count})
+                    </option>
+                  <% end %>
+                </select>
+              </label>
             </form>
 
             <div class="flex-1"></div>

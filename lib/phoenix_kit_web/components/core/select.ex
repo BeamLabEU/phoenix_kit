@@ -37,19 +37,20 @@ defmodule PhoenixKitWeb.Components.Core.Select do
         {@label}
       </.label>
 
-      <select
-        id={@id}
-        name={@name}
-        class={[
-          "select w-full",
-          @errors != [] && "select-error"
-        ]}
-        multiple={@multiple}
-        {@rest}
-      >
-        <option :if={@prompt} value="">{@prompt}</option>
-        {Phoenix.HTML.Form.options_for_select(@options, @value)}
-      </select>
+      <label class={[
+        "select w-full",
+        @errors != [] && "select-error"
+      ]}>
+        <select
+          id={@id}
+          name={@name}
+          multiple={@multiple}
+          {@rest}
+        >
+          <option :if={@prompt} value="">{@prompt}</option>
+          {Phoenix.HTML.Form.options_for_select(@options, @value)}
+        </select>
+      </label>
 
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>

@@ -67,42 +67,42 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
         <% else %>
           <%= if @regions_loaded and not Enum.empty?(@regions) do %>
             <%!-- Region dropdown (after loading regions) --%>
-            <select
-              id={@id}
-              name={@name}
-              value={@value}
-              phx-change={@phx_change}
-              class={[
-                "select w-full",
-                "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent",
-                "transition-colors duration-200",
-                if(@verified == :success, do: "border-success", else: ""),
-                if(@verified == :error, do: "border-error", else: ""),
-                @class
-              ]}
-              disabled={@verifying}
-            >
-              <%!-- Empty option --%>
-              <option value="">Select a region (optional)</option>
+            <label class={[
+              "select w-full",
+              "focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent",
+              "transition-colors duration-200",
+              if(@verified == :success, do: "border-success", else: ""),
+              if(@verified == :error, do: "border-error", else: ""),
+              @class
+            ]}>
+              <select
+                id={@id}
+                name={@name}
+                value={@value}
+                phx-change={@phx_change}
+                disabled={@verifying}
+              >
+                <%!-- Empty option --%>
+                <option value="">Select a region (optional)</option>
 
-              <%!-- Show currently selected region first if not in list --%>
-              <%= if @value != "" and @value not in @regions do %>
-                <option value={@value} selected>
-                  {@value} (currently selected)
-                </option>
-              <% end %>
+                <%!-- Show currently selected region first if not in list --%>
+                <%= if @value != "" and @value not in @regions do %>
+                  <option value={@value} selected>
+                    {@value} (currently selected)
+                  </option>
+                <% end %>
 
-              <%!-- Region options from loaded list --%>
-              <%= for region <- @regions do %>
-                <option
-                  value={region}
-                  selected={region == @value}
-                  class="transition-colors duration-150 hover:bg-base-200"
-                >
-                  {region}
-                </option>
-              <% end %>
-            </select>
+                <%!-- Region options from loaded list --%>
+                <%= for region <- @regions do %>
+                  <option
+                    value={region}
+                    selected={region == @value}
+                  >
+                    {region}
+                  </option>
+                <% end %>
+              </select>
+            </label>
           <% else %>
             <%!-- Text input (default mode before loading regions) --%>
             <input

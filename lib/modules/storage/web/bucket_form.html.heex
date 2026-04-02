@@ -43,37 +43,38 @@
                 <span class="label-text font-semibold">{gettext("Storage Provider")} *</span>
                 <span class="label-text-alt">{gettext("Type of storage service")}</span>
               </label>
-              <select
-                name="bucket[provider]"
-                class={"select #{input_class(@changeset, :provider)}"}
-                required
-              >
-                <option value="">{gettext("Select provider...")}</option>
-                <option
-                  value="local"
-                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+              <label class={"select #{input_class(@changeset, :provider)}"}>
+                <select
+                  name="bucket[provider]"
+                  required
                 >
-                  {gettext("Local Filesystem")}
-                </option>
-                <option
-                  value="s3"
-                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
-                >
-                  AWS S3
-                </option>
-                <option
-                  value="b2"
-                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
-                >
-                  Backblaze B2
-                </option>
-                <option
-                  value="r2"
-                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
-                >
-                  Cloudflare R2
-                </option>
-              </select>
+                  <option value="">{gettext("Select provider...")}</option>
+                  <option
+                    value="local"
+                    selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+                  >
+                    {gettext("Local Filesystem")}
+                  </option>
+                  <option
+                    value="s3"
+                    selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
+                  >
+                    AWS S3
+                  </option>
+                  <option
+                    value="b2"
+                    selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
+                  >
+                    Backblaze B2
+                  </option>
+                  <option
+                    value="r2"
+                    selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
+                  >
+                    Cloudflare R2
+                  </option>
+                </select>
+              </label>
             </div>
           <% else %>
             <%!-- Provider Display (read-only in edit mode) --%>
@@ -239,23 +240,22 @@
                   <span class="label-text font-semibold">{gettext("Access Type")}</span>
                   <span class="label-text-alt">{gettext("How files are served")}</span>
                 </label>
-                <select
-                  name="bucket[access_type]"
-                  class="select w-full"
-                >
-                  <option
-                    value="public"
-                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "public"}
-                  >
-                    {gettext("Public (redirect to bucket URL)")}
-                  </option>
-                  <option
-                    value="private"
-                    selected={Ecto.Changeset.get_field(@changeset, :access_type) == "private"}
-                  >
-                    {gettext("Private (proxy through server)")}
-                  </option>
-                </select>
+                <label class="select w-full">
+                  <select name="bucket[access_type]">
+                    <option
+                      value="public"
+                      selected={Ecto.Changeset.get_field(@changeset, :access_type) == "public"}
+                    >
+                      {gettext("Public (redirect to bucket URL)")}
+                    </option>
+                    <option
+                      value="private"
+                      selected={Ecto.Changeset.get_field(@changeset, :access_type) == "private"}
+                    >
+                      {gettext("Private (proxy through server)")}
+                    </option>
+                  </select>
+                </label>
                 <label class="label">
                   <span class="label-text-alt text-base-content/60">
                     {gettext(

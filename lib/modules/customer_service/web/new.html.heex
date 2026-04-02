@@ -44,27 +44,28 @@
         <label class="label" for="ticket_priority">
           <span class="label-text font-medium">{gettext("Priority")}</span>
         </label>
-        <select
-          id="ticket_priority"
-          name="ticket[priority]"
-          class="select w-full max-w-xs"
-        >
-          <option
-            value="low"
-            selected={@form[:priority].value == "low" || @form[:priority].value == nil}
+        <label class="select w-full max-w-xs">
+          <select
+            id="ticket_priority"
+            name="ticket[priority]"
           >
-            {gettext("Low")}
-          </option>
-          <option value="medium" selected={@form[:priority].value == "medium"}>
-            {gettext("Medium")}
-          </option>
-          <option value="high" selected={@form[:priority].value == "high"}>
-            {gettext("High")}
-          </option>
-          <option value="urgent" selected={@form[:priority].value == "urgent"}>
-            {gettext("Urgent")}
-          </option>
-        </select>
+            <option
+              value="low"
+              selected={@form[:priority].value == "low" || @form[:priority].value == nil}
+            >
+              {gettext("Low")}
+            </option>
+            <option value="medium" selected={@form[:priority].value == "medium"}>
+              {gettext("Medium")}
+            </option>
+            <option value="high" selected={@form[:priority].value == "high"}>
+              {gettext("High")}
+            </option>
+            <option value="urgent" selected={@form[:priority].value == "urgent"}>
+              {gettext("Urgent")}
+            </option>
+          </select>
+        </label>
       </div>
 
       <%!-- Description --%>
