@@ -1,3 +1,11 @@
+## 1.7.88 - 2026-04-02
+
+### Changed
+- Migrate select elements to daisyUI 5 label wrapper pattern (#472)
+
+### Fixed
+- Fix negated condition in maintenance toggle flash message
+
 ## 1.7.87 - 2026-03-31
 
 ### Added
