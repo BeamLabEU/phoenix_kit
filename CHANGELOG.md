@@ -5,6 +5,7 @@
 
 ### Fixed
 - Fix negated condition in maintenance toggle flash message
+- Fix dialyzer warnings for CSS sources compiler, clean up 6 stale ignore entries
 
 ## 1.7.87 - 2026-03-31
 
