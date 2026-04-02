@@ -21,6 +21,8 @@ defmodule PhoenixKitWeb.Hooks.InvitationHook do
   import Phoenix.LiveView
   import Phoenix.Component
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   alias PhoenixKit.Users.Invitations
 
   @doc false
@@ -62,15 +64,16 @@ defmodule PhoenixKitWeb.Hooks.InvitationHook do
           socket
           |> assign(:phoenix_kit_current_user, updated_user)
           |> assign(:pk_pending_invitations, pending)
-          |> put_flash(:info, "You joined the organization!")
+          |> put_flash(:info, gettext("You joined the organization!"))
 
         {:halt, socket}
 
       {:error, :expired} ->
-        {:halt, put_flash(socket, :error, "This invitation has expired.")}
+        {:halt, put_flash(socket, :error, gettext("This invitation has expired."))}
 
       {:error, _} ->
-        {:halt, put_flash(socket, :error, "Failed to accept invitation. Please try again.")}
+        {:halt,
+         put_flash(socket, :error, gettext("Failed to accept invitation. Please try again."))}
     end
   end
 
@@ -84,12 +87,13 @@ defmodule PhoenixKitWeb.Hooks.InvitationHook do
         socket =
           socket
           |> assign(:pk_pending_invitations, pending)
-          |> put_flash(:info, "Invitation declined.")
+          |> put_flash(:info, gettext("Invitation declined."))
 
         {:halt, socket}
 
       {:error, _} ->
-        {:halt, put_flash(socket, :error, "Failed to decline invitation. Please try again.")}
+        {:halt,
+         put_flash(socket, :error, gettext("Failed to decline invitation. Please try again."))}
     end
   end
 

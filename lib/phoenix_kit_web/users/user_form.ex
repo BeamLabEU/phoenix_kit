@@ -344,6 +344,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
         {:noreply, socket}
 
+      {:error, :self_invite} ->
+        {:noreply, put_flash(socket, :error, gettext("You cannot invite yourself"))}
+
       {:error, message} when is_binary(message) ->
         {:noreply, put_flash(socket, :error, message)}
 
@@ -471,6 +474,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       {:error, :custom_fields_save} ->
         handle_custom_fields_save_error(socket)
+
+      {:error, reason} when is_binary(reason) ->
+        {:noreply, put_flash(socket, :error, reason)}
     end
   end
 

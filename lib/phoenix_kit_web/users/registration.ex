@@ -126,10 +126,10 @@ defmodule PhoenixKitWeb.Users.Registration do
               Referrals.use_code(validated_code.code, user.uuid)
             end
 
-            # Store invitation token in custom_fields for auto-accept after email confirmation
-            if socket.assigns[:pending_invitation_token] do
+            # Store invitation UUID in custom_fields for auto-accept after email confirmation
+            if socket.assigns[:pending_invitation] do
               Auth.update_user_fields(user, %{
-                "pending_invitation_token" => socket.assigns.pending_invitation_token
+                "pending_invitation_uuid" => socket.assigns.pending_invitation.uuid
               })
             end
 

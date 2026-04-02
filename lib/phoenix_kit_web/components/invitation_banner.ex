@@ -10,6 +10,8 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
   """
   use Phoenix.Component
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   @doc """
   Renders a stacked list of invitation banners, one per pending invitation.
 
@@ -39,7 +41,7 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
       <div class="flex w-full items-center justify-between gap-4 flex-wrap">
         <span class="text-sm">
           <strong>{@invitation.organization.organization_name}</strong>
-          {" "}invited you to join their organization.
+          {" "}{gettext("invited you to join their organization.")}
         </span>
         <div class="flex gap-2 shrink-0">
           <button
@@ -48,7 +50,7 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
             phx-click="accept_invitation"
             phx-value-uuid={@invitation.uuid}
           >
-            Accept
+            {gettext("Accept")}
           </button>
           <button
             type="button"
@@ -56,7 +58,7 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
             phx-click="decline_invitation"
             phx-value-uuid={@invitation.uuid}
           >
-            Decline
+            {gettext("Decline")}
           </button>
         </div>
       </div>

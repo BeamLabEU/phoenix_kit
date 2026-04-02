@@ -21,6 +21,8 @@ defmodule PhoenixKit.Users.Invitations do
 
   import Ecto.Query
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -230,27 +232,32 @@ defmodule PhoenixKit.Users.Invitations do
   # Private Helpers
 
   defp validate_invitation_allowed(organization, email) do
-    repo = RepoHelper.repo()
+    if organization.email == email do
+      {:error, :self_invite}
+    else
+      repo = RepoHelper.repo()
 
-    case repo.get_by(User, email: email) do
-      %User{organization_uuid: org_uuid} when not is_nil(org_uuid) ->
-        {:error, "This user already belongs to an organization"}
+      case repo.get_by(User, email: email) do
+        %User{organization_uuid: org_uuid} when not is_nil(org_uuid) ->
+          {:error, dgettext("phoenix_kit", "This user already belongs to an organization")}
 
-      _ ->
-        existing =
-          from(i in OrganizationInvitation,
-            where:
-              i.organization_uuid == ^organization.uuid and
-                i.email == ^email and
-                i.status == :pending
-          )
-          |> repo.one()
+        _ ->
+          existing =
+            from(i in OrganizationInvitation,
+              where:
+                i.organization_uuid == ^organization.uuid and
+                  i.email == ^email and
+                  i.status == :pending
+            )
+            |> repo.one()
 
-        if existing do
-          {:error, "A pending invitation already exists for this email"}
-        else
-          :ok
-        end
+          if existing do
+            {:error,
+             dgettext("phoenix_kit", "A pending invitation already exists for this email")}
+          else
+            :ok
+          end
+      end
     end
   end
 

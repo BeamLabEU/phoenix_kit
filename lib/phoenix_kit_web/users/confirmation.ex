@@ -51,31 +51,20 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   end
 
   # Auto-accept a pending invitation stored in custom_fields during registration.
-  # The invitation token is placed there by the registration flow when user
+  # The invitation UUID is placed there by the registration flow when user
   # arrives via an invite link (?invitation=TOKEN).
   defp maybe_accept_pending_invitation(user) do
-    token = user.custom_fields && user.custom_fields["pending_invitation_token"]
+    uuid = user.custom_fields && user.custom_fields["pending_invitation_uuid"]
 
-    if token do
-      case Invitations.get_by_token(token) do
-        {:ok, invitation} ->
-          case Invitations.accept_invitation_by_uuid(invitation.uuid, user) do
-            {:ok, _} ->
-              # Clear the stored token after accepting
-              Auth.update_user_fields(
-                user,
-                Map.delete(user.custom_fields, "pending_invitation_token")
-              )
+    if uuid do
+      case Invitations.accept_invitation_by_uuid(uuid, user) do
+        {:ok, _} ->
+          Auth.update_user_fields(user, %{"pending_invitation_uuid" => nil})
 
-            {:error, reason} ->
-              Logger.warning(
-                "Failed to auto-accept invitation for user #{user.uuid}: #{inspect(reason)}"
-              )
-          end
-
-        {:error, _} ->
-          # Token expired or invalid — silently ignore
-          :ok
+        {:error, reason} ->
+          Logger.warning(
+            "Failed to auto-accept invitation for user #{user.uuid}: #{inspect(reason)}"
+          )
       end
     end
   end
