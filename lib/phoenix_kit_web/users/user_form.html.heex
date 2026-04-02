@@ -533,21 +533,22 @@
                       readonly
                     />
                   <% "select" -> %>
-                    <select
-                      name={"user[custom_fields][#{field_key}]"}
-                      class={"select w-full #{if field_error, do: "select-error", else: ""}"}
-                      required={field_def["required"]}
-                    >
-                      <option value="">Select an option</option>
-                      <%= for {option, index} <- Enum.with_index(field_def["options"] || []) do %>
-                        <option
-                          value={index}
-                          selected={to_string(field_value) == to_string(index)}
-                        >
-                          {option}
-                        </option>
-                      <% end %>
-                    </select>
+                    <label class={"select w-full #{if field_error, do: "select-error", else: ""}"}>
+                      <select
+                        name={"user[custom_fields][#{field_key}]"}
+                        required={field_def["required"]}
+                      >
+                        <option value="">Select an option</option>
+                        <%= for {option, index} <- Enum.with_index(field_def["options"] || []) do %>
+                          <option
+                            value={index}
+                            selected={to_string(field_value) == to_string(index)}
+                          >
+                            {option}
+                          </option>
+                        <% end %>
+                      </select>
+                    </label>
                   <% _default -> %>
                     <%!-- text, radio, checkbox, and other types default to text input --%>
                     <input

@@ -192,16 +192,15 @@
                   {gettext("Role assigned to new user registrations")}
                 </span>
               </label>
-              <select
-                name="settings[new_user_default_role]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["new_user_default_role"] do %>
-                  <option value={value} selected={value == @settings["new_user_default_role"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[new_user_default_role]">
+                  <%= for {label, value} <- @setting_options["new_user_default_role"] do %>
+                    <option value={value} selected={value == @settings["new_user_default_role"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["new_user_default_role"] != @saved_settings["new_user_default_role"] do %>
@@ -255,16 +254,15 @@
                   {gettext("Active status for new user registrations")}
                 </span>
               </label>
-              <select
-                name="settings[new_user_default_status]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["new_user_default_status"] do %>
-                  <option value={value} selected={value == @settings["new_user_default_status"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[new_user_default_status]">
+                  <%= for {label, value} <- @setting_options["new_user_default_status"] do %>
+                    <option value={value} selected={value == @settings["new_user_default_status"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["new_user_default_status"] != @saved_settings["new_user_default_status"] do %>
@@ -531,21 +529,22 @@
                     <label class="label">
                       <span class="label-text">{gettext("Type")} *</span>
                     </label>
-                    <select
-                      name="field[type]"
-                      class="select"
-                      required
-                      phx-change="field_type_changed"
-                    >
-                      <%= for type <- ~w(text textarea number boolean date email url uuid select radio checkbox) do %>
-                        <option
-                          value={type}
-                          selected={@field_form_type == type}
-                        >
-                          {String.capitalize(type)}
-                        </option>
-                      <% end %>
-                    </select>
+                    <label class="select">
+                      <select
+                        name="field[type]"
+                        required
+                        phx-change="field_type_changed"
+                      >
+                        <%= for type <- ~w(text textarea number boolean date email url uuid select radio checkbox) do %>
+                          <option
+                            value={type}
+                            selected={@field_form_type == type}
+                          >
+                            {String.capitalize(type)}
+                          </option>
+                        <% end %>
+                      </select>
+                    </label>
                   </div>
 
                   <%!-- Required Checkbox --%>
