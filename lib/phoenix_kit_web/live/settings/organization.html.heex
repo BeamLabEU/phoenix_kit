@@ -46,19 +46,20 @@
                   {gettext("Country")} <span class="text-error">*</span>
                 </span>
               </label>
-              <select
-                name="company_country"
-                class="select"
-                phx-change="country_changed"
-                required
-              >
-                <option value="">{gettext("Select country...")}</option>
-                <%= for {name, code} <- @countries do %>
-                  <option value={code} selected={@company_country == code}>
-                    {name}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select">
+                <select
+                  name="company_country"
+                  phx-change="country_changed"
+                  required
+                >
+                  <option value="">{gettext("Select country...")}</option>
+                  <%= for {name, code} <- @countries do %>
+                    <option value={code} selected={@company_country == code}>
+                      {name}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
             </div>
 
             <div class="divider">{gettext("Address")}</div>

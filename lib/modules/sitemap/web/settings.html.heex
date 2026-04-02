@@ -480,18 +480,19 @@
                 <label class="label">
                   <span class="label-text font-medium">Display Style</span>
                 </label>
-                <select
-                  class="select w-full"
-                  name="style"
-                  disabled={!@config.html_enabled}
-                >
-                  <option value="table" selected={@config.html_style in ["table", "grouped"]}>
-                    Table (Clean table layout)
-                  </option>
-                  <option value="minimal" selected={@config.html_style in ["minimal", "flat"]}>
-                    Minimal (Simple list)
-                  </option>
-                </select>
+                <label class="select w-full">
+                  <select
+                    name="style"
+                    disabled={!@config.html_enabled}
+                  >
+                    <option value="table" selected={@config.html_style in ["table", "grouped"]}>
+                      Table (Clean table layout)
+                    </option>
+                    <option value="minimal" selected={@config.html_style in ["minimal", "flat"]}>
+                      Minimal (Simple list)
+                    </option>
+                  </select>
+                </label>
               </form>
             </div>
           </div>
@@ -514,26 +515,31 @@
 
             <form phx-change="update_interval" class="flex items-center gap-4 mt-4">
               <span class="text-sm">Regenerate every</span>
-              <select
-                class="select select-sm"
-                name="interval"
-                disabled={!@config.schedule_enabled}
-              >
-                <option value="1" selected={@config.schedule_interval_hours == 1}>1 hour</option>
-                <option value="6" selected={@config.schedule_interval_hours == 6}>6 hours</option>
-                <option value="12" selected={@config.schedule_interval_hours == 12}>
-                  12 hours
-                </option>
-                <option value="24" selected={@config.schedule_interval_hours == 24}>
-                  24 hours
-                </option>
-                <option value="48" selected={@config.schedule_interval_hours == 48}>
-                  48 hours
-                </option>
-                <option value="168" selected={@config.schedule_interval_hours == 168}>
-                  Weekly
-                </option>
-              </select>
+              <label class="select select-sm">
+                <select
+                  name="interval"
+                  disabled={!@config.schedule_enabled}
+                >
+                  <option value="1" selected={@config.schedule_interval_hours == 1}>
+                    1 hour
+                  </option>
+                  <option value="6" selected={@config.schedule_interval_hours == 6}>
+                    6 hours
+                  </option>
+                  <option value="12" selected={@config.schedule_interval_hours == 12}>
+                    12 hours
+                  </option>
+                  <option value="24" selected={@config.schedule_interval_hours == 24}>
+                    24 hours
+                  </option>
+                  <option value="48" selected={@config.schedule_interval_hours == 48}>
+                    48 hours
+                  </option>
+                  <option value="168" selected={@config.schedule_interval_hours == 168}>
+                    Weekly
+                  </option>
+                </select>
+              </label>
             </form>
           </div>
         </div>
