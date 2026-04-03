@@ -26,6 +26,7 @@ defmodule PhoenixKit.Activity do
   require Logger
 
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
 
   @pubsub_topic "phoenix_kit:activity"
@@ -356,7 +357,7 @@ defmodule PhoenixKit.Activity do
   defp maybe_filter_until(query, dt), do: where(query, [e], e.inserted_at <= ^dt)
 
   defp broadcast_activity(entry) do
-    PhoenixKit.PubSub.Manager.broadcast(@pubsub_topic, {:activity_logged, entry})
+    PubSubManager.broadcast(@pubsub_topic, {:activity_logged, entry})
   rescue
     _ -> :ok
   end

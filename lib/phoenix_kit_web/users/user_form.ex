@@ -704,6 +704,29 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
+  defp log_roles_updated(admin, user, current_roles, new_roles, added, removed) do
+    metadata =
+      %{"actor_role" => "admin"}
+      |> maybe_put_role_diff("added", added)
+      |> maybe_put_role_diff("removed", removed)
+      |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
+      |> Map.put("roles_to", Enum.join(Enum.sort(new_roles), ", "))
+
+    PhoenixKit.Activity.log(%{
+      action: "user.roles_updated",
+      module: "users",
+      mode: "manual",
+      actor_uuid: admin.uuid,
+      resource_type: "user",
+      resource_uuid: user.uuid,
+      target_uuid: user.uuid,
+      metadata: metadata
+    })
+  end
+
+  defp maybe_put_role_diff(map, _key, []), do: map
+  defp maybe_put_role_diff(map, key, roles), do: Map.put(map, key, Enum.join(roles, ", "))
+
   defp build_audit_context(socket) do
     %{
       admin_user: socket.assigns[:phoenix_kit_current_user],
@@ -744,29 +767,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
           {:ok, _} = result ->
             added = pending_roles -- current_roles
             removed = current_roles -- pending_roles
-
-            metadata =
-              %{"actor_role" => "admin"}
-              |> then(fn m ->
-                if added != [], do: Map.put(m, "added", Enum.join(added, ", ")), else: m
-              end)
-              |> then(fn m ->
-                if removed != [], do: Map.put(m, "removed", Enum.join(removed, ", ")), else: m
-              end)
-              |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
-              |> Map.put("roles_to", Enum.join(Enum.sort(pending_roles), ", "))
-
-            PhoenixKit.Activity.log(%{
-              action: "user.roles_updated",
-              module: "users",
-              mode: "manual",
-              actor_uuid: current_user.uuid,
-              resource_type: "user",
-              resource_uuid: user.uuid,
-              target_uuid: user.uuid,
-              metadata: metadata
-            })
-
+            log_roles_updated(current_user, user, current_roles, pending_roles, added, removed)
             result
 
           error ->

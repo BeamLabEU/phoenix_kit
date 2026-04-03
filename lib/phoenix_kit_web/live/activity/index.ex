@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Activity
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -19,7 +20,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
 
     if scope && Scope.has_module_access?(scope, "dashboard") do
       if connected?(socket) do
-        PhoenixKit.PubSub.Manager.subscribe(Activity.pubsub_topic())
+        PubSubManager.subscribe(Activity.pubsub_topic())
       end
 
       project_title = Settings.get_project_title()
@@ -162,36 +163,37 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   defp summarize_details(metadata) do
     meta = metadata || %{}
 
-    # For role updates, show added/removed summary
-    cond do
-      meta["added"] || meta["removed"] ->
-        parts = []
-        parts = if meta["added"], do: parts ++ ["added: #{meta["added"]}"], else: parts
-        parts = if meta["removed"], do: parts ++ ["removed: #{meta["removed"]}"], else: parts
-        Enum.join(parts, ", ")
+    if meta["added"] || meta["removed"] do
+      # For role updates, show added/removed summary
+      parts = []
+      parts = if meta["added"], do: parts ++ ["added: #{meta["added"]}"], else: parts
+      parts = if meta["removed"], do: parts ++ ["removed: #{meta["removed"]}"], else: parts
+      Enum.join(parts, ", ")
+    else
+      # For profile updates, extract field names from _from/_to pairs
+      changed_fields =
+        meta
+        |> Map.keys()
+        |> Enum.filter(&String.ends_with?(&1, "_to"))
+        |> Enum.map(&String.trim_trailing(&1, "_to"))
+        |> Enum.reject(&(&1 == ""))
 
-      true ->
-        # For profile updates, extract field names from _from/_to pairs
-        changed_fields =
-          meta
-          |> Map.keys()
-          |> Enum.filter(&String.ends_with?(&1, "_to"))
-          |> Enum.map(&String.trim_trailing(&1, "_to"))
-          |> Enum.reject(&(&1 == ""))
+      if changed_fields != [] do
+        fields = Enum.map_join(changed_fields, ", ", &String.replace(&1, "_", " "))
+        "#{fields} updated"
+      else
+        summarize_remaining_meta(meta)
+      end
+    end
+  end
 
-        if changed_fields != [] do
-          fields = Enum.map_join(changed_fields, ", ", &String.replace(&1, "_", " "))
-          "#{fields} updated"
-        else
-          # Show any remaining non-system metadata
-          meta
-          |> Map.drop(["method", "actor_role"])
-          |> Enum.reject(fn {_k, v} -> v == nil or v == "" end)
-          |> case do
-            [] -> nil
-            entries -> Enum.map_join(entries, ", ", fn {k, v} -> "#{k}: #{v}" end)
-          end
-        end
+  defp summarize_remaining_meta(meta) do
+    meta
+    |> Map.drop(["method", "actor_role"])
+    |> Enum.reject(fn {_k, v} -> v == nil or v == "" end)
+    |> case do
+      [] -> nil
+      entries -> Enum.map_join(entries, ", ", fn {k, v} -> "#{k}: #{v}" end)
     end
   end
 
