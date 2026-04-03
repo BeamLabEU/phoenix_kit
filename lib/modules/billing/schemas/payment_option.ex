@@ -107,12 +107,12 @@ defmodule PhoenixKit.Modules.Billing.PaymentOption do
   @doc """
   Returns the icon name for a payment option.
   """
-  def icon_name(%__MODULE__{icon: icon}) when is_binary(icon), do: icon
-  def icon_name(%__MODULE__{code: "cod"}), do: "hero-banknotes"
-  def icon_name(%__MODULE__{code: "bank_transfer"}), do: "hero-building-library"
-  def icon_name(%__MODULE__{code: "stripe"}), do: "hero-credit-card"
-  def icon_name(%__MODULE__{code: "paypal"}), do: "hero-credit-card"
-  def icon_name(%__MODULE__{code: "razorpay"}), do: "hero-credit-card"
+  def icon_name(%{icon: icon}) when is_binary(icon), do: icon
+  def icon_name(%{code: "cod"}), do: "hero-banknotes"
+  def icon_name(%{code: "bank_transfer"}), do: "hero-building-library"
+  def icon_name(%{code: "stripe"}), do: "hero-credit-card"
+  def icon_name(%{code: "paypal"}), do: "hero-credit-card"
+  def icon_name(%{code: "razorpay"}), do: "hero-credit-card"
   def icon_name(_), do: "hero-credit-card"
 
   defp validate_provider(changeset) do

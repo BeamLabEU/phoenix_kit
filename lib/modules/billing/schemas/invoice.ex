@@ -270,11 +270,11 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   @doc """
   Checks if invoice is overdue.
   """
-  def overdue?(%__MODULE__{status: "paid"}), do: false
-  def overdue?(%__MODULE__{status: "void"}), do: false
-  def overdue?(%__MODULE__{due_date: nil}), do: false
+  def overdue?(%{status: "paid"}), do: false
+  def overdue?(%{status: "void"}), do: false
+  def overdue?(%{due_date: nil}), do: false
 
-  def overdue?(%__MODULE__{due_date: due_date}) do
+  def overdue?(%{due_date: due_date}) do
     Date.compare(due_date, Date.utc_today()) == :lt
   end
 
@@ -301,12 +301,12 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   @doc """
   Returns the billing name from billing_details snapshot.
   """
-  def billing_name(%__MODULE__{billing_details: %{"name" => name}}) when is_binary(name), do: name
+  def billing_name(%{billing_details: %{"name" => name}}) when is_binary(name), do: name
 
-  def billing_name(%__MODULE__{billing_details: %{"company_name" => name}}) when is_binary(name),
+  def billing_name(%{billing_details: %{"company_name" => name}}) when is_binary(name),
     do: name
 
-  def billing_name(%__MODULE__{billing_details: %{"first_name" => first, "last_name" => last}}) do
+  def billing_name(%{billing_details: %{"first_name" => first, "last_name" => last}}) do
     "#{first} #{last}" |> String.trim()
   end
 
@@ -315,28 +315,28 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
   @doc """
   Returns the remaining amount to be paid.
   """
-  def remaining_amount(%__MODULE__{total: total, paid_amount: paid_amount}) do
+  def remaining_amount(%{total: total, paid_amount: paid_amount}) do
     Decimal.sub(total, paid_amount)
   end
 
   @doc """
   Checks if invoice is fully paid (paid_amount >= total).
   """
-  def fully_paid?(%__MODULE__{total: total, paid_amount: paid_amount}) do
+  def fully_paid?(%{total: total, paid_amount: paid_amount}) do
     Decimal.compare(paid_amount, total) != :lt
   end
 
   @doc """
   Checks if invoice has any payments (paid_amount > 0).
   """
-  def has_payments?(%__MODULE__{paid_amount: paid_amount}) do
+  def has_payments?(%{paid_amount: paid_amount}) do
     Decimal.positive?(paid_amount)
   end
 
   @doc """
   Checks if invoice can receive a refund (has payments).
   """
-  def refundable?(%__MODULE__{} = invoice) do
+  def refundable?(invoice) do
     has_payments?(invoice)
   end
 
@@ -365,7 +365,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       iex> Invoice.payment_methods(invoice_without_transactions)
       []
   """
-  def payment_methods(%__MODULE__{transactions: txns}) when is_list(txns) do
+  def payment_methods(%{transactions: txns}) when is_list(txns) do
     txns
     |> Enum.map(& &1.payment_method)
     |> Enum.reject(&is_nil/1)
@@ -387,7 +387,7 @@ defmodule PhoenixKit.Modules.Billing.Invoice do
       iex> Invoice.primary_payment_method(invoice_without_transactions)
       nil
   """
-  def primary_payment_method(%__MODULE__{transactions: txns}) when is_list(txns) do
+  def primary_payment_method(%{transactions: txns}) when is_list(txns) do
     txns
     |> Enum.filter(&Decimal.positive?(&1.amount))
     |> Enum.frequencies_by(& &1.payment_method)

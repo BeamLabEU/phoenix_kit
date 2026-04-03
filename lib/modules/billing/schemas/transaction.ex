@@ -77,28 +77,28 @@ defmodule PhoenixKit.Modules.Billing.Transaction do
   @doc """
   Returns true if this transaction is a payment (positive amount).
   """
-  def payment?(%__MODULE__{amount: amount}) do
+  def payment?(%{amount: amount}) do
     Decimal.positive?(amount)
   end
 
   @doc """
   Returns true if this transaction is a refund (negative amount).
   """
-  def refund?(%__MODULE__{amount: amount}) do
+  def refund?(%{amount: amount}) do
     Decimal.negative?(amount)
   end
 
   @doc """
   Returns the transaction type as a string.
   """
-  def type(%__MODULE__{} = transaction) do
+  def type(transaction) do
     if payment?(transaction), do: "payment", else: "refund"
   end
 
   @doc """
   Returns the absolute amount (always positive).
   """
-  def absolute_amount(%__MODULE__{amount: amount}) do
+  def absolute_amount(%{amount: amount}) do
     Decimal.abs(amount)
   end
 

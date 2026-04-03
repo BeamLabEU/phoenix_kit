@@ -53,6 +53,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.CountryData, as: CoreCountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -104,8 +105,8 @@ defmodule PhoenixKit.Modules.Shop do
     %{
       enabled: enabled?(),
       currency: get_default_currency_code(),
-      tax_enabled: Settings.get_setting_cached("shop_tax_enabled", "true") == "true",
-      tax_rate: Settings.get_setting_cached("shop_tax_rate", "20"),
+      tax_enabled: CoreCountryData.get_tax_config().enabled,
+      tax_rate: CoreCountryData.get_tax_config().rate,
       inventory_tracking:
         Settings.get_setting_cached("shop_inventory_tracking", "true") == "true",
       allow_price_override:
@@ -2736,9 +2737,10 @@ defmodule PhoenixKit.Modules.Shop do
   defp get_tax_rate(%Cart{shipping_country: nil}), do: Decimal.new("0")
 
   defp get_tax_rate(%Cart{shipping_country: _country}) do
-    if Settings.get_setting_cached("shop_tax_enabled", "true") == "true" do
-      rate = Settings.get_setting_cached("shop_tax_rate", "20")
-      Decimal.div(Decimal.new(rate), Decimal.new("100"))
+    tax_config = CoreCountryData.get_tax_config()
+
+    if tax_config.enabled do
+      tax_config.rate_decimal
     else
       Decimal.new("0")
     end

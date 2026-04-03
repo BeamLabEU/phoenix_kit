@@ -55,6 +55,7 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.Providers
   alias PhoenixKit.Modules.Billing.Transaction
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.CountryData, as: CoreCountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -276,8 +277,8 @@ defmodule PhoenixKit.Modules.Billing do
     %{
       enabled: enabled?(),
       default_currency: Settings.get_setting_cached("billing_default_currency", "EUR"),
-      tax_enabled: Settings.get_setting_cached("billing_tax_enabled", "false") == "true",
-      default_tax_rate: Settings.get_setting_cached("billing_default_tax_rate", "0"),
+      tax_enabled: CoreCountryData.get_tax_config().enabled,
+      default_tax_rate: CoreCountryData.get_tax_config().rate,
       invoice_prefix: Settings.get_setting_cached("billing_invoice_prefix", "INV"),
       order_prefix: Settings.get_setting_cached("billing_order_prefix", "ORD"),
       receipt_prefix: Settings.get_setting_cached("billing_receipt_prefix", "RCP"),

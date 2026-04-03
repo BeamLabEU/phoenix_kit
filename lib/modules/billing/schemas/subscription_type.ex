@@ -102,7 +102,7 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionType do
   @doc """
   Returns the billing period in days for this subscription type.
   """
-  def billing_period_days(%__MODULE__{interval: interval, interval_count: count}) do
+  def billing_period_days(%{interval: interval, interval_count: count}) do
     base_days =
       case interval do
         "day" -> 1
@@ -117,7 +117,7 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionType do
   @doc """
   Calculates the next billing date from a given start date.
   """
-  def next_billing_date(%__MODULE__{interval: interval, interval_count: count}, from_date) do
+  def next_billing_date(%{interval: interval, interval_count: count}, from_date) do
     case interval do
       "day" ->
         Date.add(from_date, count)
@@ -137,14 +137,14 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionType do
   @doc """
   Returns the formatted price string with currency.
   """
-  def formatted_price(%__MODULE__{price: price, currency: currency}) do
+  def formatted_price(%{price: price, currency: currency}) do
     "#{Decimal.round(price, 2)} #{currency}"
   end
 
   @doc """
   Returns the billing interval description (e.g., "monthly", "every 3 months").
   """
-  def interval_description(%__MODULE__{interval: interval, interval_count: 1}) do
+  def interval_description(%{interval: interval, interval_count: 1}) do
     case interval do
       "day" -> "daily"
       "week" -> "weekly"
@@ -153,7 +153,7 @@ defmodule PhoenixKit.Modules.Billing.SubscriptionType do
     end
   end
 
-  def interval_description(%__MODULE__{interval: interval, interval_count: count}) do
+  def interval_description(%{interval: interval, interval_count: count}) do
     "every #{count} #{interval}s"
   end
 

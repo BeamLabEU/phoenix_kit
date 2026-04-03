@@ -126,7 +126,7 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @doc """
   Returns true if the payment method is usable for charges.
   """
-  def usable?(%__MODULE__{status: "active"} = pm) do
+  def usable?(%{status: "active"} = pm) do
     not expired?(pm)
   end
 
@@ -135,10 +135,10 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @doc """
   Returns true if the card has expired based on exp_month/exp_year.
   """
-  def expired?(%__MODULE__{exp_month: nil}), do: false
-  def expired?(%__MODULE__{exp_year: nil}), do: false
+  def expired?(%{exp_month: nil}), do: false
+  def expired?(%{exp_year: nil}), do: false
 
-  def expired?(%__MODULE__{exp_month: month, exp_year: year}) do
+  def expired?(%{exp_month: month, exp_year: year}) do
     now = Date.utc_today()
     current_year = now.year
     current_month = now.month
@@ -149,35 +149,35 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @doc """
   Returns a display string for the payment method (e.g., "Visa **** 4242").
   """
-  def display_name(%__MODULE__{type: "card", brand: brand, last4: last4})
+  def display_name(%{type: "card", brand: brand, last4: last4})
       when not is_nil(brand) and not is_nil(last4) do
     brand_name = String.capitalize(brand || "Card")
     "#{brand_name} **** #{last4}"
   end
 
-  def display_name(%__MODULE__{type: "paypal"}) do
+  def display_name(%{type: "paypal"}) do
     "PayPal"
   end
 
-  def display_name(%__MODULE__{type: "bank_account", last4: last4}) when not is_nil(last4) do
+  def display_name(%{type: "bank_account", last4: last4}) when not is_nil(last4) do
     "Bank Account **** #{last4}"
   end
 
-  def display_name(%__MODULE__{type: _type, label: label}) when not is_nil(label) do
+  def display_name(%{type: _type, label: label}) when not is_nil(label) do
     label
   end
 
-  def display_name(%__MODULE__{type: type}) do
+  def display_name(%{type: type}) do
     String.capitalize(type)
   end
 
   @doc """
   Returns expiration string (e.g., "12/25").
   """
-  def expiration_string(%__MODULE__{exp_month: nil}), do: nil
-  def expiration_string(%__MODULE__{exp_year: nil}), do: nil
+  def expiration_string(%{exp_month: nil}), do: nil
+  def expiration_string(%{exp_year: nil}), do: nil
 
-  def expiration_string(%__MODULE__{exp_month: month, exp_year: year}) do
+  def expiration_string(%{exp_month: month, exp_year: year}) do
     month_str = String.pad_leading(to_string(month), 2, "0")
     year_str = String.slice(to_string(year), -2, 2)
     "#{month_str}/#{year_str}"
@@ -186,7 +186,7 @@ defmodule PhoenixKit.Modules.Billing.PaymentMethod do
   @doc """
   Returns the icon class for the card brand (for UI display).
   """
-  def brand_icon(%__MODULE__{brand: brand}) do
+  def brand_icon(%{brand: brand}) do
     case String.downcase(brand || "") do
       "visa" -> "fa-cc-visa"
       "mastercard" -> "fa-cc-mastercard"

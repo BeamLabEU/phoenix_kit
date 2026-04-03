@@ -101,7 +101,7 @@ defmodule PhoenixKit.Modules.Billing.Currency do
   @doc """
   Formats an amount without currency symbol.
   """
-  def format_amount_plain(amount, %__MODULE__{decimal_places: places}) do
+  def format_amount_plain(amount, %{decimal_places: places}) do
     amount
     |> to_decimal()
     |> Decimal.round(places)
@@ -144,7 +144,7 @@ defmodule PhoenixKit.Modules.Billing.Currency do
       iex> Currency.convert(100, from, to)
       Decimal.new("110.00")
   """
-  def convert(amount, %__MODULE__{exchange_rate: from_rate}, %__MODULE__{exchange_rate: to_rate}) do
+  def convert(amount, %{exchange_rate: from_rate}, %{exchange_rate: to_rate}) do
     amount
     |> to_decimal()
     |> Decimal.div(from_rate)
