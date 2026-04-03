@@ -112,6 +112,9 @@ defmodule PhoenixKit.MixProject do
       # Content editor
       {:leaf, "~> 0.2.6"},
 
+      # AWS
+      {:aws_regions, "~> 0.1.0"},
+
       # Utilities
       {:jason, "~> 1.4"},
       {:earmark, "~> 1.4"},

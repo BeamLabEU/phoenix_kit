@@ -135,16 +135,25 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">{gettext("Region")}</span>
-                  <span class="label-text-alt">{gettext("AWS region or equivalent")}</span>
+                  <span class="label-text font-semibold">{gettext("AWS Region")}</span>
                 </label>
-                <input
-                  type="text"
-                  name="bucket[region]"
-                  value={Ecto.Changeset.get_field(@changeset, :region)}
-                  class={"input input-bordered #{input_class(@changeset, :region)}"}
-                  placeholder="e.g., us-east-1"
-                />
+                <% current_region = Ecto.Changeset.get_field(@changeset, :region) %>
+                <label class="select select-bordered w-full">
+                  <select name="bucket[region]">
+                    <option value="" disabled selected={!current_region}>
+                      Select a region
+                    </option>
+                    <%= for {continent, regions} <- AwsRegions.group_by_continent() do %>
+                      <optgroup label={continent}>
+                        <%= for region <- regions do %>
+                          <option value={region.code} selected={current_region == region.code}>
+                            {region.name} — {region.code}
+                          </option>
+                        <% end %>
+                      </optgroup>
+                    <% end %>
+                  </select>
+                </label>
               </div>
 
               <div class="form-control">
