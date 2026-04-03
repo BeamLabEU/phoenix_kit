@@ -135,11 +135,11 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">{gettext("AWS Region")}</span>
+                  <span class="label-text font-semibold">{gettext("AWS Region")} *</span>
                 </label>
                 <% current_region = Ecto.Changeset.get_field(@changeset, :region) %>
                 <label class="select select-bordered w-full">
-                  <select name="bucket[region]">
+                  <select name="bucket[region]" required>
                     <option value="" disabled selected={!current_region}>
                       Select a region
                     </option>
