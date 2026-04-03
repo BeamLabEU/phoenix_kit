@@ -64,6 +64,65 @@ defmodule PhoenixKit.Activity do
   end
 
   @doc """
+  Logs a user change with automatic from/to diff extraction from a changeset.
+
+  Extracts changed fields from the changeset and builds `field_from` / `field_to`
+  metadata pairs. Skips logging if nothing actually changed.
+
+  ## Options
+
+  - `:actor_uuid` — who performed the action (default: the user's own UUID)
+  - `:target_uuid` — who was affected (default: nil)
+  - `:mode` — "auto" or "manual" (default: "auto")
+  - `:actor_role` — "user" or "admin" (default: "user")
+  - `:extra_metadata` — additional metadata to merge in (default: %{})
+  - `:skip_fields` — fields to exclude from diff (default: [:custom_fields])
+  """
+  def log_user_change(
+        action,
+        %{uuid: user_uuid} = user,
+        %Ecto.Changeset{} = changeset,
+        opts \\ []
+      ) do
+    skip_fields = Keyword.get(opts, :skip_fields, [:custom_fields])
+
+    changed_fields =
+      changeset.changes
+      |> Map.drop(skip_fields)
+      |> Enum.flat_map(fn {k, new_val} ->
+        old_val = Map.get(user, k)
+        [{"#{k}_from", to_string(old_val || "")}, {"#{k}_to", to_string(new_val)}]
+      end)
+      |> Map.new()
+
+    if changed_fields == %{} do
+      :noop
+    else
+      actor_uuid = Keyword.get(opts, :actor_uuid, user_uuid)
+      target_uuid = Keyword.get(opts, :target_uuid)
+      mode = Keyword.get(opts, :mode, "manual")
+      actor_role = Keyword.get(opts, :actor_role, "user")
+      extra = Keyword.get(opts, :extra_metadata, %{})
+
+      metadata =
+        changed_fields
+        |> Map.put("actor_role", actor_role)
+        |> Map.merge(extra)
+
+      log(%{
+        action: action,
+        module: "users",
+        mode: mode,
+        actor_uuid: actor_uuid,
+        resource_type: "user",
+        resource_uuid: user_uuid,
+        target_uuid: target_uuid,
+        metadata: metadata
+      })
+    end
+  end
+
+  @doc """
   Lists activities with filtering and pagination.
 
   ## Options

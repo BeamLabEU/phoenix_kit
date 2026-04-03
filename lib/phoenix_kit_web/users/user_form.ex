@@ -441,32 +441,23 @@ defmodule PhoenixKitWeb.Users.UserForm do
     case result do
       {:ok, updated_user} ->
         admin = socket.assigns[:phoenix_kit_current_user]
-        changed = Map.take(profile_params, ~w(email username first_name last_name user_timezone))
-        old_vals = Map.take(user, [:email, :username, :first_name, :last_name, :user_timezone])
 
-        changes =
-          changed
-          |> Enum.reject(fn {k, v} ->
-            to_string(Map.get(old_vals, String.to_existing_atom(k))) == to_string(v)
-          end)
-          |> Enum.flat_map(fn {k, new_val} ->
-            old_val = to_string(Map.get(old_vals, String.to_existing_atom(k)))
-            [{"#{k}_from", old_val}, {"#{k}_to", new_val}]
-          end)
-          |> Map.new()
-
-        if changes != %{} do
-          PhoenixKit.Activity.log(%{
-            action: "user.profile_updated",
-            module: "users",
-            mode: "manual",
-            actor_uuid: admin && admin.uuid,
-            resource_type: "user",
-            resource_uuid: updated_user.uuid,
-            target_uuid: updated_user.uuid,
-            metadata: Map.merge(changes, %{"actor_role" => "admin"})
+        # Build a changeset from old user to detect what changed
+        changeset =
+          Ecto.Changeset.change(user, %{
+            email: updated_user.email,
+            username: updated_user.username,
+            first_name: updated_user.first_name,
+            last_name: updated_user.last_name,
+            user_timezone: updated_user.user_timezone
           })
-        end
+
+        PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+          actor_uuid: admin && admin.uuid,
+          target_uuid: user.uuid,
+          mode: "manual",
+          actor_role: "admin"
+        )
 
         {:ok, updated_user}
 

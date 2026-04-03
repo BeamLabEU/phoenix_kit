@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         PhoenixKit.Activity.log(%{
           action: "user.avatar_changed",
           module: "users",
-          mode: "auto",
+          mode: "manual",
           actor_uuid: updated_user.uuid,
           resource_type: "user",
           resource_uuid: updated_user.uuid,

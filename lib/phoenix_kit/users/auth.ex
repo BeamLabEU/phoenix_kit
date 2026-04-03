@@ -797,7 +797,7 @@ defmodule PhoenixKit.Users.Auth do
         PhoenixKit.Activity.log(%{
           action: "user.password_changed",
           module: "users",
-          mode: "auto",
+          mode: "manual",
           actor_uuid: user.uuid,
           resource_type: "user",
           resource_uuid: user.uuid,
@@ -1420,21 +1420,15 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def update_user_profile(%User{} = user, attrs) do
-    case user
-         |> User.profile_changeset(attrs)
-         |> Repo.update() do
+    changeset = User.profile_changeset(user, attrs)
+
+    case Repo.update(changeset) do
       {:ok, updated_user} ->
         Events.broadcast_user_updated(updated_user)
 
-        PhoenixKit.Activity.log(%{
-          action: "user.profile_updated",
-          module: "users",
-          mode: "auto",
-          actor_uuid: updated_user.uuid,
-          resource_type: "user",
-          resource_uuid: updated_user.uuid,
-          metadata: %{"actor_role" => "user"}
-        })
+        PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+          mode: "manual"
+        )
 
         {:ok, updated_user}
 
