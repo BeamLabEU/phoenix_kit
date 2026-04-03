@@ -159,6 +159,42 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
     end
   end
 
+  defp summarize_details(metadata) do
+    meta = metadata || %{}
+
+    # For role updates, show added/removed summary
+    cond do
+      meta["added"] || meta["removed"] ->
+        parts = []
+        parts = if meta["added"], do: parts ++ ["added: #{meta["added"]}"], else: parts
+        parts = if meta["removed"], do: parts ++ ["removed: #{meta["removed"]}"], else: parts
+        Enum.join(parts, ", ")
+
+      true ->
+        # For profile updates, extract field names from _from/_to pairs
+        changed_fields =
+          meta
+          |> Map.keys()
+          |> Enum.filter(&String.ends_with?(&1, "_to"))
+          |> Enum.map(&String.trim_trailing(&1, "_to"))
+          |> Enum.reject(&(&1 == ""))
+
+        if changed_fields != [] do
+          fields = Enum.map_join(changed_fields, ", ", &String.replace(&1, "_", " "))
+          "#{fields} updated"
+        else
+          # Show any remaining non-system metadata
+          meta
+          |> Map.drop(["method", "actor_role"])
+          |> Enum.reject(fn {_k, v} -> v == nil or v == "" end)
+          |> case do
+            [] -> nil
+            entries -> Enum.map_join(entries, ", ", fn {k, v} -> "#{k}: #{v}" end)
+          end
+        end
+    end
+  end
+
   defp format_time_ago(datetime) do
     diff = DateTime.diff(DateTime.utc_now(), datetime, :second)
 

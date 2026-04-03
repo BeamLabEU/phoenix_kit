@@ -205,25 +205,16 @@
                   <span class="text-base-content/50">System</span>
                 <% end %>
               </.table_default_cell>
-              <.table_default_cell>
-                <% display_meta =
-                  (entry.metadata || %{})
-                  |> Map.drop(["method", "actor_role"])
-                  |> Enum.reject(fn {_k, v} -> v == nil or v == "" end) %>
+              <.table_default_cell class="text-xs text-base-content/60">
                 <%= if entry.target && entry.target_uuid != entry.resource_uuid do %>
-                  <div class="text-xs mb-0.5">
+                  <div class="mb-0.5">
                     <span class="text-base-content/50">&rarr;</span>
                     <span>{entry.target.email}</span>
                   </div>
                 <% end %>
-                <%= if display_meta != [] do %>
-                  <div class="space-y-0.5">
-                    <%= for {key, value} <- display_meta do %>
-                      <div class="text-xs text-base-content/60">
-                        <span class="text-base-content/40">{key}:</span> {to_string(value)}
-                      </div>
-                    <% end %>
-                  </div>
+                <% summary = summarize_details(entry.metadata) %>
+                <%= if summary do %>
+                  <span>{summary}</span>
                 <% else %>
                   <span class="text-base-content/30">—</span>
                 <% end %>

@@ -750,43 +750,27 @@ defmodule PhoenixKitWeb.Users.UserForm do
             added = pending_roles -- current_roles
             removed = current_roles -- pending_roles
 
-            Enum.each(added, fn role_name ->
-              role = Roles.get_role_by_name(role_name)
+            metadata =
+              %{"actor_role" => "admin"}
+              |> then(fn m ->
+                if added != [], do: Map.put(m, "added", Enum.join(added, ", ")), else: m
+              end)
+              |> then(fn m ->
+                if removed != [], do: Map.put(m, "removed", Enum.join(removed, ", ")), else: m
+              end)
+              |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
+              |> Map.put("roles_to", Enum.join(Enum.sort(pending_roles), ", "))
 
-              PhoenixKit.Activity.log(%{
-                action: "user.role_assigned",
-                module: "users",
-                mode: "manual",
-                actor_uuid: current_user.uuid,
-                resource_type: "user",
-                resource_uuid: user.uuid,
-                target_uuid: user.uuid,
-                metadata: %{
-                  "role_name" => role_name,
-                  "role_uuid" => role && to_string(role.uuid),
-                  "actor_role" => "admin"
-                }
-              })
-            end)
-
-            Enum.each(removed, fn role_name ->
-              role = Roles.get_role_by_name(role_name)
-
-              PhoenixKit.Activity.log(%{
-                action: "user.role_revoked",
-                module: "users",
-                mode: "manual",
-                actor_uuid: current_user.uuid,
-                resource_type: "user",
-                resource_uuid: user.uuid,
-                target_uuid: user.uuid,
-                metadata: %{
-                  "role_name" => role_name,
-                  "role_uuid" => role && to_string(role.uuid),
-                  "actor_role" => "admin"
-                }
-              })
-            end)
+            PhoenixKit.Activity.log(%{
+              action: "user.roles_updated",
+              module: "users",
+              mode: "manual",
+              actor_uuid: current_user.uuid,
+              resource_type: "user",
+              resource_uuid: user.uuid,
+              target_uuid: user.uuid,
+              metadata: metadata
+            })
 
             result
 
