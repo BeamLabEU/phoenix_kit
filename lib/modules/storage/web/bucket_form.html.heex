@@ -138,7 +138,7 @@
                 id="bucket-region-select"
                 name="bucket[region]"
                 value={Ecto.Changeset.get_field(@changeset, :region)}
-                label={"#{gettext("AWS Region")} *"}
+                label={"#{if @current_provider == "s3", do: gettext("AWS Region"), else: gettext("Region")} *"}
                 placeholder="Search regions..."
                 required={true}
                 grouped_options={
@@ -150,8 +150,11 @@
 
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
-                  <span class="label-text-alt">{gettext("Cloud storage bucket name")}</span>
+                  <span class="label-text font-semibold">
+                    {if @current_provider == "s3",
+                      do: gettext("AWS Bucket Name"),
+                      else: gettext("Bucket Name")} *
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -168,7 +171,7 @@
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Endpoint")} *</span>
-                  <span class="label-text-alt">{gettext("S3-compatible endpoint URL")}</span>
+                  <span class="label-text-alt">{gettext("S3-compatible endpoint")}</span>
                 </label>
                 <input
                   type="text"
@@ -188,7 +191,11 @@
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Access Key ID")} *</span>
-                  <span class="label-text-alt">{gettext("AWS access key or API key")}</span>
+                  <span class="label-text-alt">
+                    {if @current_provider == "s3",
+                      do: gettext("AWS access key"),
+                      else: gettext("API key")}
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -203,7 +210,11 @@
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Secret Access Key")} *</span>
-                  <span class="label-text-alt">{gettext("AWS secret key or API secret")}</span>
+                  <span class="label-text-alt">
+                    {if @current_provider == "s3",
+                      do: gettext("AWS secret key"),
+                      else: gettext("API secret")}
+                  </span>
                 </label>
                 <input
                   type="password"
