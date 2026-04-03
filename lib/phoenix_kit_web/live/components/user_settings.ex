@@ -52,6 +52,16 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       {:ok, updated_user} ->
         send(self(), {:phoenix_kit_user_updated, updated_user})
 
+        PhoenixKit.Activity.log(%{
+          action: "user.avatar_changed",
+          module: "users",
+          mode: "auto",
+          actor_uuid: updated_user.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          metadata: %{"file_uuid" => file_uuid, "actor_role" => "user"}
+        })
+
         {:ok,
          socket
          |> assign(:user, updated_user)

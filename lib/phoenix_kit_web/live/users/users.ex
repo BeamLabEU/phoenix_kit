@@ -560,8 +560,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     new_status = !user.is_active
 
     case Auth.update_user_status(user, %{"is_active" => new_status}) do
-      {:ok, _user} ->
+      {:ok, updated_user} ->
         status_text = if new_status, do: "activated", else: "deactivated"
+        admin = socket.assigns.phoenix_kit_current_user
+
+        PhoenixKit.Activity.log(%{
+          action: "user.status_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          target_uuid: updated_user.uuid,
+          metadata: %{"status" => status_text, "actor_role" => "admin"}
+        })
 
         socket =
           socket

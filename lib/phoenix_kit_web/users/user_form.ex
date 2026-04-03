@@ -22,8 +22,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
     user_uuid = params["id"]
     mode = if user_uuid, do: :edit, else: :new
 
-    # Extract IP during mount (connect_info is only available here)
+    # Extract IP and user agent during mount (connect_info is only available here)
     registration_ip = IpAddress.extract_from_socket(socket)
+
+    user_agent =
+      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
+        ua when is_binary(ua) -> ua
+        _ -> nil
+      end
 
     # Load custom field definitions
     field_definitions = CustomFields.list_enabled_field_definitions()
@@ -55,6 +61,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:pending_avatar_file_uuid, nil)
       |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
+      |> assign(:user_agent, user_agent)
       |> load_user_data(mode, user_uuid)
       |> load_form_data()
 
@@ -360,10 +367,29 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     profile_params = Map.delete(user_params, "custom_fields")
 
+    avatar_changed? = socket.assigns[:avatar_changed] == true
+    avatar_file_uuid = socket.assigns[:pending_avatar_file_uuid]
+
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
          {:ok, user_with_fields} <- update_custom_fields(updated_user, custom_fields_params),
          result <- update_user_roles_if_changed(socket, user_with_fields) do
+      # Log avatar change if it happened
+      if avatar_changed? && avatar_file_uuid do
+        admin = socket.assigns[:phoenix_kit_current_user]
+
+        PhoenixKit.Activity.log(%{
+          action: "user.avatar_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin && admin.uuid,
+          resource_type: "user",
+          resource_uuid: user_with_fields.uuid,
+          target_uuid: user_with_fields.uuid,
+          metadata: %{"file_uuid" => avatar_file_uuid, "actor_role" => "admin"}
+        })
+      end
+
       # Clear avatar change flag after successful update
       socket =
         socket
@@ -404,13 +430,48 @@ defmodule PhoenixKitWeb.Users.UserForm do
         profile_params["password"] != nil &&
         String.trim(profile_params["password"]) != ""
 
-    if password_provided do
-      update_profile_and_password(socket, user, profile_params)
-    else
-      cleaned_params = Map.delete(profile_params, "password")
-      # Pass validate_email: false to skip uniqueness validation for username/email
-      # This allows users to keep their current username without it being regenerated
-      update_user_profile_without_validation(user, cleaned_params)
+    result =
+      if password_provided do
+        update_profile_and_password(socket, user, profile_params)
+      else
+        cleaned_params = Map.delete(profile_params, "password")
+        update_user_profile_without_validation(user, cleaned_params)
+      end
+
+    case result do
+      {:ok, updated_user} ->
+        admin = socket.assigns[:phoenix_kit_current_user]
+        changed = Map.take(profile_params, ~w(email username first_name last_name user_timezone))
+        old_vals = Map.take(user, [:email, :username, :first_name, :last_name, :user_timezone])
+
+        changes =
+          changed
+          |> Enum.reject(fn {k, v} ->
+            to_string(Map.get(old_vals, String.to_existing_atom(k))) == to_string(v)
+          end)
+          |> Enum.flat_map(fn {k, new_val} ->
+            old_val = to_string(Map.get(old_vals, String.to_existing_atom(k)))
+            [{"#{k}_from", old_val}, {"#{k}_to", new_val}]
+          end)
+          |> Map.new()
+
+        if changes != %{} do
+          PhoenixKit.Activity.log(%{
+            action: "user.profile_updated",
+            module: "users",
+            mode: "manual",
+            actor_uuid: admin && admin.uuid,
+            resource_type: "user",
+            resource_uuid: updated_user.uuid,
+            target_uuid: updated_user.uuid,
+            metadata: Map.merge(changes, %{"actor_role" => "admin"})
+          })
+        end
+
+        {:ok, updated_user}
+
+      error ->
+        error
     end
   end
 
@@ -429,6 +490,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       {:ok, updated_user} ->
         Logger.info("After DB update, saved username: #{inspect(updated_user.username)}")
         Events.broadcast_user_updated(updated_user)
+
         {:ok, updated_user}
 
       {:error, changeset} ->
@@ -648,27 +710,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp build_audit_context(socket) do
-    # Get admin user from socket assigns (set by on_mount)
-    admin_user = Map.get(socket.assigns, :phoenix_kit_current_user)
-
-    # Get IP address from socket metadata
-    ip_address =
-      case Phoenix.LiveView.get_connect_info(socket, :peer_data) do
-        %{address: address} -> :inet.ntoa(address) |> to_string()
-        _ -> nil
-      end
-
-    # Get user agent from socket metadata
-    user_agent =
-      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
-        ua when is_binary(ua) -> ua
-        _ -> nil
-      end
-
     %{
-      admin_user: admin_user,
-      ip_address: ip_address,
-      user_agent: user_agent
+      admin_user: socket.assigns[:phoenix_kit_current_user],
+      ip_address: socket.assigns[:registration_ip],
+      user_agent: socket.assigns[:user_agent]
     }
   end
 
@@ -700,7 +745,42 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       # Roles have changed and it's allowed, update them
       true ->
-        Roles.sync_user_roles(user, pending_roles)
+        case Roles.sync_user_roles(user, pending_roles) do
+          {:ok, _} = result ->
+            added = pending_roles -- current_roles
+            removed = current_roles -- pending_roles
+
+            Enum.each(added, fn role ->
+              PhoenixKit.Activity.log(%{
+                action: "user.role_assigned",
+                module: "users",
+                mode: "manual",
+                actor_uuid: current_user.uuid,
+                resource_type: "user",
+                resource_uuid: user.uuid,
+                target_uuid: user.uuid,
+                metadata: %{"role" => role, "actor_role" => "admin"}
+              })
+            end)
+
+            Enum.each(removed, fn role ->
+              PhoenixKit.Activity.log(%{
+                action: "user.role_revoked",
+                module: "users",
+                mode: "manual",
+                actor_uuid: current_user.uuid,
+                resource_type: "user",
+                resource_uuid: user.uuid,
+                target_uuid: user.uuid,
+                metadata: %{"role" => role, "actor_role" => "admin"}
+              })
+            end)
+
+            result
+
+          error ->
+            error
+        end
     end
   end
 
