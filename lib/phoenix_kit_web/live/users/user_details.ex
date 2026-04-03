@@ -218,7 +218,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     note = Enum.find(socket.assigns.admin_notes, &(to_string(&1.uuid) == note_uuid))
 
     if note do
-      case Auth.delete_admin_note(note) do
+      admin = socket.assigns[:phoenix_kit_current_user]
+
+      case Auth.delete_admin_note(note, admin) do
         {:ok, _} ->
           admin_notes = Auth.list_admin_notes(socket.assigns.user)
 

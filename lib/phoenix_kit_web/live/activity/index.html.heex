@@ -166,16 +166,7 @@
               </.table_default_cell>
               <.table_default_cell class="text-sm">
                 <%= if entry.mode do %>
-                  <span class={[
-                    "badge badge-xs",
-                    case entry.mode do
-                      "manual" -> "badge-warning"
-                      "auto" -> "badge-info"
-                      "cron" -> "badge-secondary"
-                      "script" -> "badge-accent"
-                      _ -> "badge-ghost"
-                    end
-                  ]}>
+                  <span class={"badge badge-xs #{mode_badge_color(entry.mode)}"}>
                     {entry.mode}
                   </span>
                 <% else %>
@@ -265,7 +256,7 @@
             <.link
               patch={
                 Routes.path(
-                  "/admin/activity?#{URI.encode_query(%{"page" => page, "action" => @filter_action || "", "resource_type" => @filter_resource_type || ""})}"
+                  "/admin/activity?#{URI.encode_query(Enum.reject([{"page", page}, {"module", @filter_module}, {"mode", @filter_mode}, {"action", @filter_action}, {"resource_type", @filter_resource_type}], fn {_k, v} -> is_nil(v) or v == "" end))}"
                 )
               }
               class={["join-item btn btn-sm", if(page == @page, do: "btn-active", else: "")]}

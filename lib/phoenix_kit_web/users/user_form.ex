@@ -556,15 +556,16 @@ defmodule PhoenixKitWeb.Users.UserForm do
       {:ok, updated_user} ->
         admin = socket.assigns[:phoenix_kit_current_user]
 
-        # Build a changeset from old user to detect what changed
-        changeset =
-          Ecto.Changeset.change(user, %{
-            email: updated_user.email,
-            username: updated_user.username,
-            first_name: updated_user.first_name,
-            last_name: updated_user.last_name,
-            user_timezone: updated_user.user_timezone
-          })
+        # Build a changeset from old→new to detect what changed
+        # Dynamically compare all profile fields instead of hardcoding
+        profile_fields = ~w(email username first_name last_name user_timezone)a
+
+        new_values =
+          profile_fields
+          |> Enum.map(fn field -> {field, Map.get(updated_user, field)} end)
+          |> Map.new()
+
+        changeset = Ecto.Changeset.change(user, new_values)
 
         PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
           actor_uuid: admin && admin.uuid,

@@ -310,6 +310,24 @@ defmodule PhoenixKit.Activity do
   @doc "PubSub topic for activity events."
   def pubsub_topic, do: @pubsub_topic
 
+  @doc "Returns a CSS badge class based on the action verb."
+  def action_badge_color(action) do
+    cond do
+      String.contains?(action, "created") -> "badge-success"
+      String.contains?(action, "deleted") -> "badge-error"
+      String.contains?(action, "updated") or String.contains?(action, "changed") -> "badge-warning"
+      String.contains?(action, "liked") or String.contains?(action, "followed") -> "badge-info"
+      true -> "badge-ghost"
+    end
+  end
+
+  @doc "Returns a CSS badge class based on the mode."
+  def mode_badge_color("manual"), do: "badge-warning"
+  def mode_badge_color("auto"), do: "badge-info"
+  def mode_badge_color("cron"), do: "badge-secondary"
+  def mode_badge_color("script"), do: "badge-accent"
+  def mode_badge_color(_), do: "badge-ghost"
+
   # Private
 
   defp apply_filters(query, opts) do

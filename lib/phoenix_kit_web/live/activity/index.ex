@@ -141,24 +141,8 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(val), do: val
 
-  defp action_badge_color(action) do
-    cond do
-      String.contains?(action, "created") ->
-        "badge-success"
-
-      String.contains?(action, "deleted") ->
-        "badge-error"
-
-      String.contains?(action, "updated") or String.contains?(action, "changed") ->
-        "badge-warning"
-
-      String.contains?(action, "liked") or String.contains?(action, "followed") ->
-        "badge-info"
-
-      true ->
-        "badge-ghost"
-    end
-  end
+  defp action_badge_color(action), do: Activity.action_badge_color(action)
+  defp mode_badge_color(mode), do: Activity.mode_badge_color(mode)
 
   defp summarize_details(metadata) do
     meta = metadata || %{}
