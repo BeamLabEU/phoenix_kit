@@ -251,20 +251,6 @@
             <%= if @current_provider in ["s3", "b2", "r2"] do %>
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">{gettext("CDN URL")}</span>
-                  <span class="label-text-alt">{gettext("CDN endpoint for file serving")}</span>
-                </label>
-                <input
-                  type="url"
-                  name="bucket[cdn_url]"
-                  value={Ecto.Changeset.get_field(@changeset, :cdn_url)}
-                  class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
-                  placeholder="https://cdn.example.com"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label">
                   <span class="label-text font-semibold">{gettext("Access Type")}</span>
                   <span class="label-text-alt">{gettext("How files are served")}</span>
                 </label>
@@ -287,7 +273,7 @@
                 <label class="label">
                   <span class="label-text-alt text-base-content/60">
                     {gettext(
-                      "Public: faster, uses CDN. Private: slower, works with ACL-protected buckets."
+                      "Public: direct bucket URL. Private: proxied through server for ACL-protected buckets."
                     )}
                   </span>
                 </label>
