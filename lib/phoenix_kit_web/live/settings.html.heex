@@ -127,16 +127,15 @@
                   {gettext("First day of the week")}
                 </span>
               </label>
-              <select
-                name="settings[week_start_day]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["week_start_day"] do %>
-                  <option value={value} selected={value == @settings["week_start_day"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[week_start_day]">
+                  <%= for {label, value} <- @setting_options["week_start_day"] do %>
+                    <option value={value} selected={value == @settings["week_start_day"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["week_start_day"] != @saved_settings["week_start_day"] do %>
@@ -170,16 +169,15 @@
                   {gettext("System default timezone")}
                 </span>
               </label>
-              <select
-                name="settings[time_zone]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["time_zone"] do %>
-                  <option value={value} selected={value == @settings["time_zone"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[time_zone]">
+                  <%= for {label, value} <- @setting_options["time_zone"] do %>
+                    <option value={value} selected={value == @settings["time_zone"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["time_zone"] != @saved_settings["time_zone"] do %>
@@ -213,16 +211,15 @@
                   {gettext("How dates are displayed")}
                 </span>
               </label>
-              <select
-                name="settings[date_format]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["date_format"] do %>
-                  <option value={value} selected={value == @settings["date_format"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[date_format]">
+                  <%= for {label, value} <- @setting_options["date_format"] do %>
+                    <option value={value} selected={value == @settings["date_format"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["date_format"] != @saved_settings["date_format"] do %>
@@ -256,16 +253,15 @@
                   {gettext("How times are displayed")}
                 </span>
               </label>
-              <select
-                name="settings[time_format]"
-                class="select w-full focus:select-primary"
-              >
-                <%= for {label, value} <- @setting_options["time_format"] do %>
-                  <option value={value} selected={value == @settings["time_format"]}>
-                    {label}
-                  </option>
-                <% end %>
-              </select>
+              <label class="select w-full focus:select-primary">
+                <select name="settings[time_format]">
+                  <%= for {label, value} <- @setting_options["time_format"] do %>
+                    <option value={value} selected={value == @settings["time_format"]}>
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </label>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["time_format"] != @saved_settings["time_format"] do %>

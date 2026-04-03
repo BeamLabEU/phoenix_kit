@@ -429,7 +429,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:module_configs, configs)
       |> put_flash(
         :info,
-        "Maintenance #{if !currently_enabled, do: "enabled", else: "disabled"}"
+        "Maintenance #{if currently_enabled, do: "disabled", else: "enabled"}"
       )
 
     {:noreply, socket}

@@ -122,7 +122,7 @@ defmodule PhoenixKit.Module do
 
   Headless modules (no templates) can skip this callback — the default is `[]`.
   """
-  @callback css_sources() :: [String.t()]
+  @callback css_sources() :: [atom()]
 
   @optional_callbacks [
     get_config: 0,
