@@ -284,7 +284,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 <%!-- Left: Burger Menu, Logo and Title --%>
                 <div class="flex items-center gap-3">
                   <%!-- Burger Menu Button (Far left) --%>
-                  <label for="admin-mobile-menu" class="btn btn-square btn-primary drawer-button p-0">
+                  <label
+                    for="admin-mobile-menu"
+                    class="btn btn-square btn-primary drawer-button p-0 lg:hidden"
+                  >
                     <PhoenixKitWeb.Components.Core.Icons.icon_menu />
                   </label>
 
