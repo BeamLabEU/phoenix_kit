@@ -626,16 +626,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   >
                     <.icon name="hero-photo" class="w-5 h-5" /> Browse Media
                   </button>
-
-                  <.live_component
-                    module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
-                    id={"#{@id}-avatar-media-selector"}
-                    show={@show_avatar_selector}
-                    mode={:single}
-                    selected_uuids={[]}
-                    phoenix_kit_current_user={@user}
-                    on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
-                  />
                 </div>
 
                 <%!-- Name Fields --%>
@@ -698,6 +688,17 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
               </:actions>
             </.simple_form>
+
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
+              id={"#{@id}-avatar-media-selector"}
+              show={@show_avatar_selector}
+              mode={:single}
+              selected_uuids={[]}
+              phoenix_kit_current_user={@user}
+              on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
+            />
+
             <%= if Enum.any?([:custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
               <div class="divider"></div>
             <% end %>
