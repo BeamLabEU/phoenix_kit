@@ -386,7 +386,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
           resource_type: "user",
           resource_uuid: user_with_fields.uuid,
           target_uuid: user_with_fields.uuid,
-          metadata: %{"file_uuid" => avatar_file_uuid, "actor_role" => "admin"}
+          metadata: %{
+            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
+            "avatar_to" => avatar_file_uuid,
+            "actor_role" => "admin"
+          }
         })
       end
 

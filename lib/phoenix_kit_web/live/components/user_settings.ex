@@ -59,7 +59,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           actor_uuid: updated_user.uuid,
           resource_type: "user",
           resource_uuid: updated_user.uuid,
-          metadata: %{"file_uuid" => file_uuid, "actor_role" => "user"}
+          metadata: %{
+            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
+            "avatar_to" => file_uuid,
+            "actor_role" => "user"
+          }
         })
 
         {:ok,
