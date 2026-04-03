@@ -331,24 +331,6 @@
         </.form>
       </div>
     </div>
-
-    <%!-- Help Section --%>
-    <div class="alert mt-6">
-      <.icon name="hero-light-bulb" class="w-5 h-5" />
-      <div>
-        <h3 class="font-bold">{gettext("Storage Provider Configuration")}</h3>
-        <p class="text-sm">
-          <strong>{gettext("Local Filesystem:")}</strong> {gettext(
-            "No additional configuration needed"
-          )}<br />
-          <strong>AWS S3:</strong> {gettext(
-            "Requires region, bucket name, and access credentials"
-          )}<br />
-          <strong>Backblaze B2:</strong> {gettext("Requires endpoint and access credentials")}<br />
-          <strong>Cloudflare R2:</strong> {gettext("Requires account ID and access credentials")}
-        </p>
-      </div>
-    </div>
   </div>
 
   <%!-- Create Path Confirmation Modal --%>
