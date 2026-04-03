@@ -52,8 +52,10 @@
     <%!-- PhoenixKit Cookie Consent Widget Setup --%>
     <.phoenix_kit_globals />
     <%!-- PhoenixKit Cookie Consent Widget Script --%>
-    <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
-    </script>
+    <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do %>
+      <script defer src={PhoenixKit.Utils.Routes.path("/assets/phoenix_kit_consent.js")}>
+      </script>
+    <% end %>
   </head>
   <body class="bg-gray-50">
     <nav class="navbar bg-base-100 shadow-sm">
@@ -177,9 +179,10 @@
     <% end %>
 
     <%!-- Cookie Consent Widget (Phase 2 Legal Module) --%>
-    <%= if PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
+    <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) and
+           PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
       <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
-      <.cookie_consent
+      <PhoenixKit.Modules.Legal.CookieConsent.cookie_consent
         frameworks={config.frameworks}
         consent_mode={config.consent_mode}
         icon_position={config.icon_position}
@@ -187,6 +190,8 @@
         cookie_policy_url={config.cookie_policy_url}
         privacy_policy_url={config.privacy_policy_url}
         google_consent_mode={config.google_consent_mode}
+        legal_links={config.legal_links}
+        legal_index_url={config.legal_index_url}
       />
     <% end %>
   </body>

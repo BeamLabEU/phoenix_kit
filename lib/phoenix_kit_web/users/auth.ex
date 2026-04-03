@@ -1,4 +1,5 @@
 defmodule PhoenixKitWeb.Users.Auth do
+  @compile {:no_warn_undefined, [PhoenixKitEcommerce, PhoenixKitWeb.Live.Modules.Legal.Settings]}
   @moduledoc """
   Authentication and authorization plugs for PhoenixKit user management.
 
@@ -42,7 +43,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
-  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.Permissions
@@ -106,16 +106,21 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp maybe_merge_guest_cart(conn, user) do
-    shop_session_id =
-      conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
+    if Code.ensure_loaded?(PhoenixKitEcommerce) do
+      shop_session_id =
+        conn.cookies["shop_session_id"] || get_session(conn, :shop_session_id)
 
-    if shop_session_id do
-      try do
-        Shop.merge_guest_cart(shop_session_id, user)
-      rescue
-        _ -> :ok
+      if shop_session_id do
+        try do
+          # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+          PhoenixKitEcommerce.merge_guest_cart(shop_session_id, user)
+        rescue
+          _ -> :ok
+        end
       end
     end
+
+    conn
   end
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
@@ -931,9 +936,10 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp handle_module_refresh(_msg, socket), do: {:cont, socket}
 
   # Auto-apply admin layout for external plugin LiveViews.
-  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.*) handle layout
-  # via LayoutWrapper in their templates. External plugin views need it applied
-  # at the session level so plugin authors don't need to wrap anything.
+  # Core views (PhoenixKitWeb.* and PhoenixKit.Modules.* bundled in :phoenix_kit)
+  # handle layout via LayoutWrapper in their templates. External plugin views
+  # (from extracted packages like :phoenix_kit_ecommerce, or parent app views)
+  # need it applied at the session level so plugin authors don't need to wrap anything.
   defp maybe_apply_plugin_layout(socket) do
     view = socket.view
 
@@ -950,15 +956,23 @@ defmodule PhoenixKitWeb.Users.Auth do
         false
 
       ["PhoenixKit", "Modules", _, "Web" | _] ->
-        # Core modules live inside :phoenix_kit app; extracted packages have their own OTP app.
-        # Use :application.get_application/1 to distinguish them.
-        :application.get_application(view) != {:ok, :phoenix_kit}
+        # Only treat as external if the module comes from a separate package.
+        # Core modules bundled in :phoenix_kit handle their own layout via
+        # LayoutWrapper.app_layout in their templates.
+        not core_phoenix_kit_module?(view)
 
       ["PhoenixKit" | _] ->
         false
 
       _ ->
         true
+    end
+  end
+
+  defp core_phoenix_kit_module?(view) do
+    case :application.get_application(view) do
+      {:ok, :phoenix_kit} -> true
+      _ -> false
     end
   end
 
@@ -1127,7 +1141,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Settings.Organization => "settings",
     PhoenixKitWeb.Live.Settings.SEO => "seo",
     PhoenixKitWeb.Live.Modules.Languages => "languages",
-    PhoenixKitWeb.Live.Modules.Legal.Settings => "legal",
     PhoenixKitWeb.Live.Modules.Maintenance.Settings => "maintenance",
     PhoenixKitWeb.Live.Modules.Storage.Settings => "media",
     PhoenixKitWeb.Live.Modules.Storage.BucketForm => "media",
@@ -1560,8 +1573,8 @@ defmodule PhoenixKitWeb.Users.Auth do
               {preferred_base, preferred_dialect}
 
             _ ->
-              # No user preference - use default admin language
-              default_base = get_default_admin_language()
+              # No user preference - use default language
+              default_base = Routes.get_default_admin_locale()
               default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
               {default_base, default_dialect}
           end
@@ -1593,7 +1606,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       end)
 
     # Set locale before redirecting
-    default_base = get_default_admin_language()
+    default_base = Routes.get_default_admin_locale()
     current_user = get_user_for_locale_resolution(conn)
     default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
 
@@ -1629,9 +1642,8 @@ defmodule PhoenixKitWeb.Users.Auth do
        when is_binary(preferred) and preferred != "" do
     base = DialectMapper.extract_base(preferred)
 
-    # Verify the preferred locale is a valid admin language
-    # (admin languages are separate from frontend languages)
-    if DialectMapper.valid_base_code?(base) and admin_language_enabled?(base) do
+    # Verify the preferred locale is a valid enabled language
+    if DialectMapper.valid_base_code?(base) and language_enabled?(base) do
       {base, preferred}
     else
       nil
@@ -1641,52 +1653,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp get_user_preferred_locale(_user), do: nil
 
   defp locale_allowed?(base_code) do
-    language_enabled?(base_code) or admin_language_enabled?(base_code)
-  end
-
-  # Check if a language (base code) is enabled as an admin language
-  defp admin_language_enabled?(base_code) do
-    admin_languages = get_admin_language_codes()
-
-    if Enum.empty?(admin_languages) do
-      # No admin languages configured, allow if it's a valid predefined language
-      true
-    else
-      Enum.any?(admin_languages, fn code ->
-        DialectMapper.extract_base(code) == base_code
-      end)
-    end
-  end
-
-  # Get the list of admin language codes from settings
-  defp get_admin_language_codes do
-    case PhoenixKit.Settings.get_setting_cached("admin_languages") do
-      nil ->
-        []
-
-      json when is_binary(json) ->
-        case Jason.decode(json) do
-          {:ok, codes} when is_list(codes) -> codes
-          _ -> []
-        end
-    end
-  end
-
-  # Get the default admin language base code (first in admin_languages list, or "en")
-  # Extracts base code from full dialect (e.g., "en-US" -> "en")
-  defp get_default_admin_language do
-    case PhoenixKit.Settings.get_setting_cached("admin_languages") do
-      nil ->
-        # No setting exists, default is "en"
-        "en"
-
-      json when is_binary(json) ->
-        case Jason.decode(json) do
-          # Extract base code from full dialect (e.g., "en-US" -> "en")
-          {:ok, [first | _]} -> DialectMapper.extract_base(first)
-          _ -> "en"
-        end
-    end
+    language_enabled?(base_code)
   end
 
   # Check if a language (base code) is enabled in the system
@@ -1711,7 +1678,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Admin paths ALWAYS keep the locale in the URL to stay within the
   # :phoenix_kit_admin_locale live_session and avoid full-page reloads.
   defp process_valid_locale(conn, locale) do
-    if locale == get_default_admin_language() and not admin_request?(conn) do
+    if locale == Routes.get_default_admin_locale() and not admin_request?(conn) do
       redirect_default_locale_to_clean_url(conn, locale)
     else
       current_user = get_user_for_locale_resolution(conn)
@@ -1830,12 +1797,12 @@ defmodule PhoenixKitWeb.Users.Auth do
   Takes the current URL path and replaces the invalid locale with the default
   locale base code, then redirects the user to the corrected URL.
 
-  For the default language (first admin language), the locale segment is removed
-  entirely to produce clean URLs (e.g., /phoenix_kit/admin).
+  For the default language, the locale segment is removed entirely to produce
+  clean URLs (e.g., /phoenix_kit/admin).
   """
   def redirect_invalid_locale(conn, invalid_locale) do
-    # Get the default admin language (first in admin_languages list, or "en")
-    default_base = get_default_admin_language()
+    # Get the default language
+    default_base = Routes.get_default_admin_locale()
 
     # For default language, remove locale segment entirely for clean URLs
     # For other languages, replace with that language code

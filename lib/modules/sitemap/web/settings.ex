@@ -238,8 +238,10 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
     case Settings.update_boolean_setting("sitemap_schedule_enabled", !current) do
       {:ok, _} ->
-        unless current == false do
+        if current do
           SchedulerWorker.cancel_scheduled()
+        else
+          SchedulerWorker.schedule()
         end
 
         config = Sitemap.get_config()
@@ -491,7 +493,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       entities:
         Code.ensure_loaded?(PhoenixKitEntities) and safe_module_enabled?(PhoenixKitEntities),
       publishing: safe_module_available_and_enabled?(PhoenixKit.Modules.Publishing),
-      shop: safe_module_enabled?(PhoenixKit.Modules.Shop),
+      shop: safe_module_enabled?(PhoenixKitEcommerce),
       posts: Code.ensure_loaded?(PhoenixKitPosts) and safe_module_enabled?(PhoenixKitPosts)
     }
   end

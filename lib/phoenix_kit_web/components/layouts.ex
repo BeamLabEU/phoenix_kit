@@ -24,6 +24,9 @@ defmodule PhoenixKitWeb.Layouts do
 
   See `PhoenixKitWeb.LayoutHelpers` for more details.
   """
+  @compile {:no_warn_undefined,
+            [PhoenixKit.Modules.Legal, PhoenixKit.Modules.Legal.CookieConsent]}
+
   use PhoenixKitWeb, :html
 
   embed_templates "layouts/*"

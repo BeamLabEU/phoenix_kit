@@ -1,3 +1,95 @@
+## 1.7.88 - 2026-04-02
+
+### Changed
+- Migrate select elements to daisyUI 5 label wrapper pattern (#472)
+
+### Fixed
+- Fix negated condition in maintenance toggle flash message
+- Fix dialyzer warnings for CSS sources compiler, clean up 6 stale ignore entries
+
+## 1.7.87 - 2026-03-31
+
+### Added
+- Add V89 migration: catalogue pricing with base_price and markup_percentage
+- Add status_badge component and wrapper_class attr to table_default
+- Add inline and auto display modes to table_row_menu
+- Add show_toggle attr to table_default and sync TableCardView instances
+- Add continent grouping to language switcher for many languages
+- Add language system tests, docs, error handling, and group_by_continent option
+
+### Changed
+- Unify admin and frontend language systems into single source of truth
+- Unify status badge components into single status_badge
+- Remove deprecated select-bordered class for daisyUI 5 compatibility
+- Disable automatic CI triggers, switch to manual-only
+
+### Fixed
+- Fix language switcher URL generation for prefixed admin paths
+- Fix dialyzer warnings in language switcher URL generation
+
+## 1.7.86 - 2026-03-30
+
+### Changed
+- Update Shop module references from `PhoenixKit.Modules.Shop` to `PhoenixKitEcommerce` namespace
+- Update Billing module references from `PhoenixKit.Modules.Billing` to `PhoenixKitBilling` namespace
+- Restore LayoutWrapper in core module templates (not auto-applied to bundled modules)
+- Document `extra_applications` requirement for external module auto-discovery
+
+### Fixed
+- Fix missing `url_path` assign in referrals LiveViews causing runtime crash after LayoutWrapper restoration
+- Fix media selector modal mobile responsiveness (header overflow, button sizing, padding)
+
+## 1.7.85 - 2026-03-30
+
+### Added
+- Add user-scoped media selector for avatar and fix custom fields position bug
+
+### Changed
+- Remove Pages module from core and clean up all references
+- Extract Connections module into external `phoenix_kit_user_connections` package
+- Remove unused Storage alias from user settings
+
+## 1.7.84 - 2026-03-28
+
+### Added
+- Add missing cookie consent widget to dashboard layout
+- Add user dashboard routes for billing profiles
+
+### Changed
+- Remove Legal module from core (extracted to `phoenix_kit_legal` package)
+- Remove LayoutWrapper from remaining storage and maintenance templates
+- Remove duplicate LayoutWrapper from admin module templates
+
+### Fixed
+- Fix core modules misclassified as external plugin views causing double admin chrome
+
+## 1.7.83 - 2026-03-27
+
+### Added
+- Add V88 migration: Publishing schema V2 restructure
+- Add user dashboard generator with LiveView templates and standardize layout
+- Add `--index` flag to user dashboard generator for overriding default dashboard
+- Add Estonian to backend languages, fix Chinese code zh-CN → zh
+- Add CountryData to core utils for billing extraction
+- Add sitemap scheduler startup recovery
+
+### Changed
+- Extract Comments module into external `phoenix_kit_comments` package
+- Remove Shop module from core (extracted to `phoenix_kit_ecommerce` package)
+- Remove Billing module from core (extracted to `phoenix_kit_billing` package)
+- Replace hardcoded external module stats with generic `module_stats` callback
+- Remove hardcoded module cards for extracted packages
+- Rename and simplify admin page generator
+- Update Leaf dependency to v0.2.6
+
+### Fixed
+- Fix V88 migration: index prefix and partial re-run safety
+- Fix orphan files query to use `publishing_versions` table
+- Fix post-review issues from PR #453: Shop.Cart guard, consent attrs, language naming
+- Fix shop modules: remove billing struct patterns and fix nil clause ordering
+- Fix double navbar on comments admin pages
+- Fix auth page background breaking footer and page layout
+
 ## 1.7.82 - 2026-03-24
 
 ### Added

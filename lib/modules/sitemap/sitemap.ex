@@ -102,6 +102,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   use PhoenixKit.Module
 
   alias PhoenixKit.Dashboard.Tab
+  alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   require Logger
@@ -730,6 +731,13 @@ defmodule PhoenixKit.Modules.Sitemap do
   # ============================================================================
   # Module Behaviour Callbacks
   # ============================================================================
+
+  @impl PhoenixKit.Module
+  def children do
+    [
+      {Task, fn -> SchedulerWorker.ensure_scheduled() end}
+    ]
+  end
 
   @impl PhoenixKit.Module
   def module_key, do: "sitemap"

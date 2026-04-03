@@ -48,8 +48,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
     test "returns expected feature keys" do
       keys = Permissions.feature_module_keys()
       assert is_list(keys)
-      assert "billing" in keys
-      assert "shop" in keys
+      assert "customer_service" in keys
     end
 
     test "does not include core keys" do
@@ -102,7 +101,6 @@ defmodule PhoenixKit.Users.PermissionsTest do
     test "returns correct labels for built-in keys" do
       assert Permissions.module_label("dashboard") == "Dashboard"
       assert Permissions.module_label("users") == "Users"
-      assert Permissions.module_label("shop") == "E-Commerce"
       assert Permissions.module_label("db") == "DB"
     end
 
@@ -277,7 +275,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
   describe "valid_module_key?/1" do
     test "returns true for built-in keys" do
       assert Permissions.valid_module_key?("dashboard")
-      assert Permissions.valid_module_key?("billing")
+      assert Permissions.valid_module_key?("customer_service")
     end
 
     test "returns true for all 19 built-in keys" do

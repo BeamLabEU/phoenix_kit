@@ -36,6 +36,20 @@ defmodule PhoenixKit.ModuleDiscovery do
   end
 
   @doc """
+  Returns a deterministic hash of the current set of discovered external modules.
+
+  Used by `__mix_recompile__?/0` (injected into the host router) to detect when
+  modules are added or removed, triggering router recompilation.
+  """
+  @spec module_hash() :: binary()
+  def module_hash do
+    discover_external_modules()
+    |> Enum.sort()
+    |> :erlang.term_to_binary()
+    |> then(&:erlang.md5/1)
+  end
+
+  @doc """
   Scans beam files of phoenix_kit-dependent apps for `@phoenix_kit_module` attribute.
 
   Only checks apps that explicitly list `:phoenix_kit` in their dependencies,

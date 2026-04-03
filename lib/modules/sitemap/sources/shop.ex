@@ -1,4 +1,5 @@
 defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
+  @compile {:no_warn_undefined, PhoenixKitEcommerce}
   @moduledoc """
   Shop source for sitemap generation.
 
@@ -35,10 +36,10 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Shop do
   require Logger
 
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Sitemap.UrlEntry
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitEcommerce, as: Shop
 
   # Future: Hook into Shop.create_product/update_product to invalidate sitemap-shop
 

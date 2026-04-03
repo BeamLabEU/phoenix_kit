@@ -35,7 +35,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   require Logger
 
-  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
@@ -46,27 +45,46 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   @default_sections [:identity, :custom_fields, :email, :password, :oauth]
 
   @impl true
-  def update(%{action: :check_avatar_uploads_complete}, socket) do
-    entries = socket.assigns.uploads.avatar.entries
+  def update(%{action: :set_avatar, file_uuid: file_uuid}, socket) do
+    user = socket.assigns.user
 
-    Logger.info(
-      "check_avatar_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
-    )
+    case Auth.update_user_fields(user, %{"avatar_file_uuid" => file_uuid}) do
+      {:ok, updated_user} ->
+        send(self(), {:phoenix_kit_user_updated, updated_user})
 
-    if entries != [] && Enum.all?(entries, & &1.done?) do
-      Logger.info("Avatar uploads done! Processing...")
-      process_avatar_uploads(socket)
-    else
-      Logger.info("Still uploading avatar, checking again...")
+        PhoenixKit.Activity.log(%{
+          action: "user.avatar_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: updated_user.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          metadata: %{
+            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
+            "avatar_to" => file_uuid,
+            "actor_role" => "user"
+          }
+        })
 
-      send_update_after(
-        __MODULE__,
-        %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
-        500
-      )
+        {:ok,
+         socket
+         |> assign(:user, updated_user)
+         |> assign(:show_avatar_selector, false)
+         |> assign(:last_uploaded_avatar_uuid, file_uuid)
+         |> assign(:avatar_success_message, gettext("Avatar updated successfully!"))
+         |> assign(:avatar_error_message, nil)}
 
-      {:ok, socket}
+      {:error, _changeset} ->
+        {:ok,
+         socket
+         |> assign(:show_avatar_selector, false)
+         |> assign(:avatar_error_message, gettext("Failed to update avatar"))
+         |> assign(:avatar_success_message, nil)}
     end
+  end
+
+  def update(%{action: :avatar_selector_closed}, socket) do
+    {:ok, assign(socket, :show_avatar_selector, false)}
   end
 
   def update(assigns, socket) do
@@ -126,24 +144,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         CustomFields.list_user_accessible_field_definitions()
       end)
       |> assign_new(:last_uploaded_avatar_uuid, fn -> nil end)
+      |> assign_new(:show_avatar_selector, fn -> false end)
       |> assign_new(:show_email_form, fn -> false end)
       |> assign_new(:show_password_form, fn -> false end)
-      |> maybe_allow_upload()
 
     {:ok, socket}
-  end
-
-  defp maybe_allow_upload(socket) do
-    if socket.assigns[:uploads] && socket.assigns.uploads[:avatar] do
-      socket
-    else
-      allow_upload(socket, :avatar,
-        accept: ["image/*"],
-        max_entries: 1,
-        max_file_size: 10_000_000,
-        auto_upload: true
-      )
-    end
   end
 
   # Event handlers
@@ -249,23 +254,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   end
 
   def handle_event("validate_profile", params, socket) do
-    %{"user" => user_params} = params
-
-    socket =
-      if params["_target"] == ["avatar"] do
-        entries = socket.assigns.uploads.avatar.entries
-
-        if entries != [] do
-          send_update_after(
-            __MODULE__,
-            %{id: socket.assigns.id, action: :check_avatar_uploads_complete},
-            500
-          )
-        end
-
-        socket
-      else
-        socket
+    user_params =
+      case params do
+        %{"user" => user_params} -> user_params
+        %{"profile_form" => %{"user" => user_params}} -> user_params
+        _ -> %{}
       end
 
     socket =
@@ -300,7 +293,13 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   end
 
   def handle_event("update_profile", params, socket) do
-    %{"user" => user_params} = params
+    user_params =
+      case params do
+        %{"user" => user_params} -> user_params
+        %{"profile_form" => %{"user" => user_params}} -> user_params
+        _ -> %{}
+      end
+
     user = socket.assigns.user
 
     merged_params = merge_custom_fields_for_save(params, user_params, user)
@@ -424,8 +423,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     end
   end
 
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :avatar, ref)}
+  def handle_event("open_avatar_selector", _params, socket) do
+    {:noreply, assign(socket, :show_avatar_selector, true)}
   end
 
   def handle_event("toggle_email_form", _params, socket) do
@@ -564,97 +563,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   defp format_provider_name("github"), do: "GitHub"
   defp format_provider_name(provider), do: String.capitalize(provider)
 
-  defp process_avatar_uploads(socket) do
-    uploaded_avatars =
-      consume_uploaded_entries(socket, :avatar, fn %{path: path}, entry ->
-        ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        current_user = socket.assigns.user
-        user_uuid = current_user.uuid
-
-        {:ok, stat} = Elixir.File.stat(path)
-        file_size = stat.size
-        file_hash = Auth.calculate_file_hash(path)
-
-        case Storage.store_file_in_buckets(
-               path,
-               "image",
-               user_uuid,
-               file_hash,
-               ext,
-               entry.client_name
-             ) do
-          {:ok, file, :duplicate} ->
-            Logger.info("Avatar file is duplicate with ID: #{file.uuid}")
-
-            {:ok,
-             %{
-               file_uuid: file.uuid,
-               filename: entry.client_name,
-               size: file_size,
-               duplicate: true
-             }}
-
-          {:ok, file} ->
-            Logger.info("Avatar file stored with ID: #{file.uuid}")
-
-            {:ok,
-             %{
-               file_uuid: file.uuid,
-               filename: entry.client_name,
-               size: file_size
-             }}
-
-          {:error, reason} ->
-            Logger.error("Storage Error: #{inspect(reason)}")
-            {:error, reason}
-        end
-      end)
-
-    Logger.info("Uploaded avatars: #{inspect(uploaded_avatars)}")
-    avatar_file_uuids = Enum.map(uploaded_avatars, &get_avatar_file_uuid/1)
-    Logger.info("Avatar file UUIDs: #{inspect(avatar_file_uuids)}")
-    avatar_file_uuid = List.first(avatar_file_uuids)
-    Logger.info("First avatar file UUID: #{inspect(avatar_file_uuid)}")
-
-    socket =
-      if avatar_file_uuid && avatar_file_uuid != nil do
-        user = socket.assigns.user
-
-        case Auth.update_user_fields(user, %{"avatar_file_uuid" => avatar_file_uuid}) do
-          {:ok, updated_user} ->
-            Logger.info("Avatar file UUID saved: #{avatar_file_uuid}")
-            send(self(), {:phoenix_kit_user_updated, updated_user})
-
-            socket
-            |> assign(:user, updated_user)
-            |> assign(:last_uploaded_avatar_uuid, avatar_file_uuid)
-            |> assign(:avatar_success_message, gettext("Avatar uploaded successfully!"))
-            |> assign(:avatar_error_message, nil)
-
-          {:error, changeset} ->
-            Logger.error("Failed to save avatar file UUID: #{inspect(changeset)}")
-
-            socket
-            |> assign(:last_uploaded_avatar_uuid, avatar_file_uuid)
-            |> assign(
-              :avatar_error_message,
-              gettext("Avatar uploaded but failed to save to profile")
-            )
-            |> assign(:avatar_success_message, nil)
-        end
-      else
-        socket
-        |> assign(:avatar_error_message, gettext("Failed to upload avatar"))
-        |> assign(:avatar_success_message, nil)
-      end
-
-    {:ok, socket}
-  end
-
-  defp get_avatar_file_uuid(%{file_uuid: file_uuid}), do: file_uuid
-  defp get_avatar_file_uuid({:ok, %{file_uuid: file_uuid}}), do: file_uuid
-  defp get_avatar_file_uuid(_), do: nil
-
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
@@ -714,11 +622,14 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       </span>
                     </div>
                   <% end %>
-                  <.file_upload
-                    upload={@uploads.avatar}
-                    variant="button"
-                    label="Upload"
-                  />
+                  <button
+                    type="button"
+                    phx-click="open_avatar_selector"
+                    phx-target={@myself}
+                    class="btn btn-primary w-40"
+                  >
+                    <.icon name="hero-photo" class="w-5 h-5" /> Browse Media
+                  </button>
                 </div>
 
                 <%!-- Name Fields --%>
@@ -781,6 +692,17 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
               </:actions>
             </.simple_form>
+
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
+              id={"#{@id}-avatar-media-selector"}
+              show={@show_avatar_selector}
+              mode={:single}
+              selected_uuids={[]}
+              phoenix_kit_current_user={@user}
+              on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
+            />
+
             <%= if Enum.any?([:custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
               <div class="divider"></div>
             <% end %>

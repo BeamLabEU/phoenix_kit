@@ -752,7 +752,7 @@ defmodule PhoenixKit.Modules.Storage do
        dynamic(
          [f],
          fragment(
-           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_versions pv WHERE pv.data->>'featured_image' = ?::text)",
+           "NOT EXISTS (SELECT 1 FROM phoenix_kit_publishing_versions pv WHERE pv.data->>'featured_image_uuid' = ?::text)",
            f.uuid
          )
        )},

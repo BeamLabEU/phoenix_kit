@@ -357,6 +357,8 @@ defmodule PhoenixKit.Utils.Multilang do
     Code.ensure_loaded?(Languages) and
       function_exported?(Languages, :enabled?, 0) and
       Languages.enabled?()
+  rescue
+    _ -> false
   end
 
   defp enabled_language_codes do
@@ -366,6 +368,8 @@ defmodule PhoenixKit.Utils.Multilang do
     else
       [default_language_code()]
     end
+  rescue
+    _ -> [default_language_code()]
   end
 
   defp default_language_code do
@@ -378,6 +382,8 @@ defmodule PhoenixKit.Utils.Multilang do
     else
       "en-US"
     end
+  rescue
+    _ -> "en-US"
   end
 
   defp get_language_info(code) do

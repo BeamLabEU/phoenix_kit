@@ -137,6 +137,18 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users,
         "referrals"
       ),
+      # Activity
+      %Tab{
+        id: :admin_activity,
+        label: "Activity",
+        icon: "hero-bell-alert",
+        path: "activity",
+        priority: 250,
+        level: :admin,
+        permission: "dashboard",
+        match: :prefix,
+        group: :admin_main
+      },
       # Media
       %Tab{
         id: :admin_media,

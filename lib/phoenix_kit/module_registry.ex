@@ -401,16 +401,11 @@ defmodule PhoenixKit.ModuleRegistry do
   # remove it from this list and add it to :modules config instead.
   defp internal_modules do
     [
-      PhoenixKit.Modules.Billing,
-      PhoenixKit.Modules.Connections,
       PhoenixKit.Modules.DB,
       PhoenixKit.Modules.Languages,
-      PhoenixKit.Modules.Legal,
       PhoenixKit.Modules.Maintenance,
-      PhoenixKit.Modules.Pages,
       PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
-      PhoenixKit.Modules.Shop,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
       PhoenixKit.Modules.CustomerService,
@@ -491,6 +486,62 @@ defmodule PhoenixKit.ModuleRegistry do
           "AI endpoint management, prompt templates, completions via OpenRouter, and usage tracking.",
         icon: "🤖",
         hex_url: "https://hex.pm/packages/phoenix_kit_ai"
+      },
+      %{
+        module: PhoenixKit.Modules.Legal,
+        key: "legal",
+        hex_package: "phoenix_kit_legal",
+        name: "Legal",
+        description:
+          "GDPR/CCPA compliance with legal page generation, cookie consent widget, and consent audit logging.",
+        icon: "⚖️",
+        hex_url: "https://hex.pm/packages/phoenix_kit_legal"
+      },
+      %{
+        module: PhoenixKitCatalogue,
+        key: "catalogue",
+        hex_package: "phoenix_kit_catalogue",
+        name: "Catalogue",
+        description: "Product catalogues with manufacturers, suppliers, categories, and items.",
+        icon: "📦",
+        hex_url: "https://hex.pm/packages/phoenix_kit_catalogue"
+      },
+      %{
+        module: PhoenixKitDocumentCreator,
+        key: "document_creator",
+        hex_package: "phoenix_kit_document_creator",
+        name: "Document Creator",
+        description: "Document template management and PDF generation via Google Docs API.",
+        icon: "📄",
+        hex_url: "https://hex.pm/packages/phoenix_kit_document_creator"
+      },
+      %{
+        module: PhoenixKitUserConnections,
+        key: "user_connections",
+        hex_package: "phoenix_kit_user_connections",
+        name: "User Connections",
+        description:
+          "Social relationships with follows, mutual connections, blocking, and audit history.",
+        icon: "🤝",
+        hex_url: "https://hex.pm/packages/phoenix_kit_user_connections"
+      },
+      %{
+        module: PhoenixKitComments,
+        key: "comments",
+        hex_package: "phoenix_kit_comments",
+        name: "Comments",
+        description: "Comment system with likes and admin management.",
+        icon: "💬",
+        hex_url: "https://hex.pm/packages/phoenix_kit_comments"
+      },
+      %{
+        module: PhoenixKitHelloWorld,
+        key: "hello_world",
+        hex_package: "phoenix_kit_hello_world",
+        name: "Hello World",
+        description: "Example module template for building new PhoenixKit modules.",
+        icon: "👋",
+        hex_url: "https://hex.pm/packages/phoenix_kit_hello_world"
       }
     ]
   end

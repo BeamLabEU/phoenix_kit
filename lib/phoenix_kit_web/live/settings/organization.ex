@@ -8,7 +8,6 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Modules.Billing.CountryData, as: BillingCountryData
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.CountryData
@@ -349,14 +348,14 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   defp validate_eu_vat(errors, _vat, _country), do: errors
 
   defp validate_bank_iban(errors, iban, country_code) do
-    case BillingCountryData.validate_iban_format(iban, country_code) do
+    case CountryData.validate_iban_format(iban, country_code) do
       :ok -> errors
       {:error, msg} -> [msg | errors]
     end
   end
 
   defp validate_bank_swift(errors, swift) do
-    case BillingCountryData.validate_swift_format(swift) do
+    case CountryData.validate_swift_format(swift) do
       :ok -> errors
       {:error, msg} -> [msg | errors]
     end

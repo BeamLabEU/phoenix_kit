@@ -1,5 +1,15 @@
 # credo:disable-for-this-file Credo.Check.Refactor.LongQuoteBlocks
 defmodule PhoenixKitWeb.Integration do
+  @compile {:no_warn_undefined,
+            [
+              PhoenixKitEcommerce,
+              PhoenixKitEcommerce.Web.Routes,
+              PhoenixKitEcommerce.Web.Plugs.ShopSession,
+              PhoenixKitEcommerce.Web.UserOrders,
+              PhoenixKitEcommerce.Web.UserOrderDetails,
+              PhoenixKitWeb.Live.Modules.Legal.Settings,
+              PhoenixKitWeb.Controllers.ConsentConfigController
+            ]}
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
 
@@ -101,7 +111,6 @@ defmodule PhoenixKitWeb.Integration do
   alias PhoenixKitWeb
   alias PhoenixKitWeb.Routes.CustomerServiceRoutes
   alias PhoenixKitWeb.Routes.ReferralsRoutes
-  alias PhoenixKitWeb.Routes.ShopRoutes
 
   @doc """
   Creates locale-aware routing scopes based on enabled languages.
@@ -166,6 +175,19 @@ defmodule PhoenixKitWeb.Integration do
 
   # Helper function to generate pipeline definitions
   defp generate_pipelines do
+    # Shop session pipeline — conditional on Shop package being installed
+    shop_session_pipeline =
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
+        quote do
+          pipeline :phoenix_kit_shop_session do
+            plug PhoenixKitEcommerce.Web.Plugs.ShopSession
+          end
+        end
+      else
+        quote do
+        end
+      end
+
     quote do
       alias PhoenixKit.Modules.Languages
 
@@ -205,10 +227,8 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # Define shop session pipeline (ensures persistent cart session)
-      pipeline :phoenix_kit_shop_session do
-        plug PhoenixKit.Modules.Shop.Web.Plugs.ShopSession
-      end
+      # Shop session pipeline (only when phoenix_kit_ecommerce is installed)
+      unquote(shop_session_pipeline)
     end
   end
 
@@ -243,10 +263,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/api/files/:file_uuid/info", FileController, :info
 
         # Cookie consent widget config (public API for JS auto-injection)
-        get "/api/consent-config", Controllers.ConsentConfigController, :config
-
-        # Pages routes temporarily disabled
-        # get "/pages/*path", PagesController, :show
+        if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
+          get "/api/consent-config", Controllers.ConsentConfigController, :config
+        end
       end
 
       # Note: Email export routes moved to generate_emails_routes/1 (separate scope)
@@ -271,42 +290,9 @@ defmodule PhoenixKitWeb.Integration do
             :xsl_index_stylesheet
       end
 
-      # Billing webhook routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
-      scope unquote(url_prefix) do
-        pipe_through [:phoenix_kit_api]
-
-        post "/webhooks/billing/stripe",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :stripe
-
-        post "/webhooks/billing/paypal",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :paypal
-
-        post "/webhooks/billing/razorpay",
-             PhoenixKit.Modules.Billing.Web.WebhookController,
-             :razorpay
-      end
-
       # Shop public routes are generated via generate_shop_public_routes/1 helper
       # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
       # Shop user dashboard routes are now in phoenix_kit_authenticated_routes/1.
-    end
-  end
-
-  # Helper function to generate catch-all root route for pages
-  # This allows accessing pages from the root level (e.g., /test, /blog/post)
-  # Must be placed at the end of the router to not interfere with other routes
-  defp generate_pages_catch_all do
-    quote do
-      # Catch-all route for published pages at root level
-      # This route should be last to avoid conflicting with app routes
-      # scope "/", PhoenixKitWeb do
-      #   pipe_through [:browser, :phoenix_kit_auto_setup]
-      #
-      #   # Catch-all for root-level pages (must be last route)
-      #   get "/*path", PagesController, :show
-      # end
     end
   end
 
@@ -328,10 +314,15 @@ defmodule PhoenixKitWeb.Integration do
 
     # Get shop live route declarations at compile time (no scope/pipeline wrappers)
     shop_live_routes =
-      if suffix == :_locale do
-        ShopRoutes.public_live_locale_routes()
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Routes) do
+        if suffix == :_locale do
+          PhoenixKitEcommerce.Web.Routes.public_live_locale_routes()
+        else
+          PhoenixKitEcommerce.Web.Routes.public_live_routes()
+        end
       else
-        ShopRoutes.public_live_routes()
+        quote do
+        end
       end
 
     quote do
@@ -393,6 +384,14 @@ defmodule PhoenixKitWeb.Integration do
         }
       end
 
+    # Shop admin routes via safe_route_call (only when phoenix_kit_ecommerce is installed)
+    shop_admin =
+      if suffix == :_locale do
+        safe_route_call(PhoenixKitEcommerce.Web.Routes, :admin_locale_routes, [])
+      else
+        safe_route_call(PhoenixKitEcommerce.Web.Routes, :admin_routes, [])
+      end
+
     # External route modules with complex routes (beyond simple admin tabs)
     external_admin_routes = compile_external_admin_routes(suffix)
 
@@ -409,6 +408,8 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/users/permissions", Live.Users.PermissionsMatrix, :index
         live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
         live "/admin/users/sessions", Live.Users.Sessions, :index
+        live "/admin/activity", Live.Activity.Index, :index
+        live "/admin/activity/:uuid", Live.Activity.Show, :show
         live "/admin/media", Live.Users.Media, :index
         live "/admin/media/:file_uuid", Live.Users.MediaDetail, :show
         live "/admin/media/selector", Live.Users.MediaSelector, :index
@@ -420,8 +421,7 @@ defmodule PhoenixKitWeb.Integration do
 
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
-        live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
-        live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
+
         live "/admin/settings/maintenance", Live.Modules.Maintenance.Settings, :index
         live "/admin/settings/seo", Live.Settings.SEO, :index
         live "/admin/settings/media", Live.Modules.Storage.Settings, :index
@@ -453,104 +453,6 @@ defmodule PhoenixKitWeb.Integration do
                :index,
                as: :sitemap_settings
 
-          # Billing admin routes
-          live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
-
-          live "/admin/billing/orders", PhoenixKit.Modules.Billing.Web.Orders, :index,
-            as: :billing_orders
-
-          live "/admin/billing/orders/new", PhoenixKit.Modules.Billing.Web.OrderForm, :new,
-            as: :billing_order_new
-
-          live "/admin/billing/orders/:id", PhoenixKit.Modules.Billing.Web.OrderDetail, :show,
-            as: :billing_order_detail
-
-          live "/admin/billing/orders/:id/edit", PhoenixKit.Modules.Billing.Web.OrderForm, :edit,
-            as: :billing_order_edit
-
-          live "/admin/billing/invoices", PhoenixKit.Modules.Billing.Web.Invoices, :index,
-            as: :billing_invoices
-
-          live "/admin/billing/invoices/:id", PhoenixKit.Modules.Billing.Web.InvoiceDetail, :show,
-            as: :billing_invoice_detail
-
-          live "/admin/billing/invoices/:id/print",
-               PhoenixKit.Modules.Billing.Web.InvoicePrint,
-               :print,
-               as: :billing_invoice_print
-
-          live "/admin/billing/invoices/:id/receipt",
-               PhoenixKit.Modules.Billing.Web.ReceiptPrint,
-               :receipt,
-               as: :billing_receipt_print
-
-          live "/admin/billing/invoices/:id/credit-note/:transaction_uuid",
-               PhoenixKit.Modules.Billing.Web.CreditNotePrint,
-               :credit_note,
-               as: :billing_credit_note
-
-          live "/admin/billing/invoices/:id/payment/:transaction_uuid",
-               PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
-               :payment_confirmation,
-               as: :billing_payment_confirmation
-
-          live "/admin/billing/transactions", PhoenixKit.Modules.Billing.Web.Transactions, :index,
-            as: :billing_transactions
-
-          live "/admin/billing/subscriptions",
-               PhoenixKit.Modules.Billing.Web.Subscriptions,
-               :index,
-               as: :billing_subscriptions
-
-          live "/admin/billing/subscriptions/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionForm,
-               :new,
-               as: :billing_subscription_new
-
-          live "/admin/billing/subscriptions/:id",
-               PhoenixKit.Modules.Billing.Web.SubscriptionDetail,
-               :show,
-               as: :billing_subscription_detail
-
-          live "/admin/billing/subscription-types",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypes,
-               :index,
-               as: :billing_subscription_types
-
-          live "/admin/billing/subscription-types/new",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
-               :new,
-               as: :billing_subscription_type_new
-
-          live "/admin/billing/subscription-types/:id/edit",
-               PhoenixKit.Modules.Billing.Web.SubscriptionTypeForm,
-               :edit,
-               as: :billing_subscription_type_edit
-
-          live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
-            as: :billing_profiles
-
-          live "/admin/billing/profiles/new",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :new,
-               as: :billing_profile_new
-
-          live "/admin/billing/profiles/:id/edit",
-               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
-               :edit,
-               as: :billing_profile_edit
-
-          live "/admin/billing/currencies", PhoenixKit.Modules.Billing.Web.Currencies, :index,
-            as: :billing_currencies
-
-          live "/admin/settings/billing", PhoenixKit.Modules.Billing.Web.Settings, :settings,
-            as: :billing_settings
-
-          live "/admin/settings/billing/providers",
-               PhoenixKit.Modules.Billing.Web.ProviderSettings,
-               :index,
-               as: :billing_provider_settings
-
           # DB Explorer routes
           live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
 
@@ -559,63 +461,8 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
 
-          # Shop admin routes
-          live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
-
-          live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
-            as: :shop_products
-
-          live "/admin/shop/products/new", PhoenixKit.Modules.Shop.Web.ProductForm, :new,
-            as: :shop_product_new
-
-          live "/admin/shop/products/:id", PhoenixKit.Modules.Shop.Web.ProductDetail, :show,
-            as: :shop_product_detail
-
-          live "/admin/shop/products/:id/edit", PhoenixKit.Modules.Shop.Web.ProductForm, :edit,
-            as: :shop_product_edit
-
-          live "/admin/shop/categories", PhoenixKit.Modules.Shop.Web.Categories, :index,
-            as: :shop_categories
-
-          live "/admin/shop/categories/new", PhoenixKit.Modules.Shop.Web.CategoryForm, :new,
-            as: :shop_category_new
-
-          live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
-            as: :shop_category_edit
-
-          live "/admin/shop/shipping", PhoenixKit.Modules.Shop.Web.ShippingMethods, :index,
-            as: :shop_shipping_methods
-
-          live "/admin/shop/shipping/new", PhoenixKit.Modules.Shop.Web.ShippingMethodForm, :new,
-            as: :shop_shipping_new
-
-          live "/admin/shop/shipping/:id/edit",
-               PhoenixKit.Modules.Shop.Web.ShippingMethodForm,
-               :edit,
-               as: :shop_shipping_edit
-
-          live "/admin/shop/carts", PhoenixKit.Modules.Shop.Web.Carts, :index, as: :shop_carts
-
-          live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
-            as: :shop_settings
-
-          live "/admin/shop/settings/options",
-               PhoenixKit.Modules.Shop.Web.OptionsSettings,
-               :index,
-               as: :shop_options_settings
-
-          live "/admin/shop/settings/import-configs",
-               PhoenixKit.Modules.Shop.Web.ImportConfigs,
-               :index,
-               as: :shop_import_configs
-
-          live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
-            as: :shop_imports
-
-          live "/admin/shop/imports/:uuid", PhoenixKit.Modules.Shop.Web.ImportShow, :show,
-            as: :shop_import_show
-
-          live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
+          # Shop admin routes (only when phoenix_kit_ecommerce is installed)
+          unquote(shop_admin)
 
           # Routes from external route modules
           unquote(tickets_admin)
@@ -675,28 +522,46 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp authenticated_live_routes do
+    shop_user_routes =
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.UserOrders) do
+        quote do
+          live "/dashboard/orders", PhoenixKitEcommerce.Web.UserOrders, :index,
+            as: :shop_user_orders
+
+          live "/dashboard/orders/:uuid", PhoenixKitEcommerce.Web.UserOrderDetails, :show,
+            as: :shop_user_order_details
+        end
+      else
+        quote do
+        end
+      end
+
+    billing_user_routes =
+      if Code.ensure_loaded?(PhoenixKitBilling.Web.UserBillingProfiles) do
+        quote do
+          live "/dashboard/billing-profiles",
+               PhoenixKitBilling.Web.UserBillingProfiles,
+               :index,
+               as: :billing_user_profiles
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKitBilling.Web.UserBillingProfileForm,
+               :new,
+               as: :billing_user_profile_new
+
+          live "/dashboard/billing-profiles/:uuid/edit",
+               PhoenixKitBilling.Web.UserBillingProfileForm,
+               :edit,
+               as: :billing_user_profile_edit
+        end
+      else
+        quote do
+        end
+      end
+
     quote do
-      # Shop user pages
-      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
-        as: :shop_user_orders
-
-      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
-        as: :shop_user_order_details
-
-      live "/dashboard/billing-profiles",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-           :index,
-           as: :user_billing_profiles
-
-      live "/dashboard/billing-profiles/new",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :new,
-           as: :user_billing_profile_new
-
-      live "/dashboard/billing-profiles/:id/edit",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :edit,
-           as: :user_billing_profile_edit
+      unquote(shop_user_routes)
+      unquote(billing_user_routes)
 
       # Tickets user pages
       live "/dashboard/customer-service/tickets",
@@ -717,28 +582,46 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defp authenticated_live_locale_routes do
+    shop_user_locale_routes =
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.UserOrders) do
+        quote do
+          live "/dashboard/orders", PhoenixKitEcommerce.Web.UserOrders, :index,
+            as: :shop_user_orders_locale
+
+          live "/dashboard/orders/:uuid", PhoenixKitEcommerce.Web.UserOrderDetails, :show,
+            as: :shop_user_order_details_locale
+        end
+      else
+        quote do
+        end
+      end
+
+    billing_user_locale_routes =
+      if Code.ensure_loaded?(PhoenixKitBilling.Web.UserBillingProfiles) do
+        quote do
+          live "/dashboard/billing-profiles",
+               PhoenixKitBilling.Web.UserBillingProfiles,
+               :index,
+               as: :billing_user_profiles_locale
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKitBilling.Web.UserBillingProfileForm,
+               :new,
+               as: :billing_user_profile_new_locale
+
+          live "/dashboard/billing-profiles/:uuid/edit",
+               PhoenixKitBilling.Web.UserBillingProfileForm,
+               :edit,
+               as: :billing_user_profile_edit_locale
+        end
+      else
+        quote do
+        end
+      end
+
     quote do
-      # Shop user pages (locale variants — distinct aliases to avoid duplicate route names)
-      live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
-        as: :shop_user_orders_locale
-
-      live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
-        as: :shop_user_order_details_locale
-
-      live "/dashboard/billing-profiles",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
-           :index,
-           as: :user_billing_profiles_locale
-
-      live "/dashboard/billing-profiles/new",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :new,
-           as: :user_billing_profile_new_locale
-
-      live "/dashboard/billing-profiles/:id/edit",
-           PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
-           :edit,
-           as: :user_billing_profile_edit_locale
+      unquote(shop_user_locale_routes)
+      unquote(billing_user_locale_routes)
 
       # Tickets user pages (locale variants)
       live "/dashboard/customer-service/tickets",
@@ -983,6 +866,7 @@ defmodule PhoenixKitWeb.Integration do
       apply(mod, callback, [])
       |> Enum.map(&Tab.resolve_path(&1, context))
       |> Enum.filter(&tab_has_live_view?/1)
+      |> Enum.uniq_by(fn %{path: path} -> path end)
       |> Enum.map(&tab_struct_to_route/1)
     else
       []
@@ -1037,6 +921,9 @@ defmodule PhoenixKitWeb.Integration do
         if function_exported?(mod, fun, length(args)),
           do: apply(mod, fun, args),
           else: quote(do: nil)
+
+      {:error, reason} when reason in [:nofile, :unavailable] ->
+        quote(do: nil)
 
       {:error, reason} ->
         IO.warn(
@@ -1136,18 +1023,24 @@ defmodule PhoenixKitWeb.Integration do
 
   # Helper function to generate localized routes
   defp generate_localized_routes(url_prefix, pattern) do
-    quote do
-      # Localized scope: public routes (no plug-level auth check) + admin
-      # :phoenix_kit_shop_session is included so the cart session is available
-      # on all public pages; the plug is a no-op when Shop module is disabled.
-      scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
-        locale: ~r/^(#{unquote(pattern)})$/ do
-        pipe_through [
+    # Only include shop session pipeline when the package is installed
+    public_pipelines =
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
+        [
           :browser,
           :phoenix_kit_auto_setup,
           :phoenix_kit_shop_session,
           :phoenix_kit_locale_validation
         ]
+      else
+        [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+      end
+
+    quote do
+      # Localized scope: public routes (no plug-level auth check) + admin
+      scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
+        locale: ~r/^(#{unquote(pattern)})$/ do
+        pipe_through unquote(public_pipelines)
 
         # POST routes for authentication (needed for locale-prefixed form submissions)
         post "/users/log-in", Users.Session, :create
@@ -1183,17 +1076,23 @@ defmodule PhoenixKitWeb.Integration do
 
   # Helper function to generate non-localized routes
   defp generate_non_localized_routes(url_prefix) do
-    quote do
-      # Non-localized scope: public routes (no plug-level auth check) + admin
-      # :phoenix_kit_shop_session is included so the cart session is available
-      # on all public pages; the plug is a no-op when Shop module is disabled.
-      scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [
+    # Only include shop session pipeline when the package is installed
+    public_pipelines =
+      if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
+        [
           :browser,
           :phoenix_kit_auto_setup,
           :phoenix_kit_shop_session,
           :phoenix_kit_locale_validation
         ]
+      else
+        [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+      end
+
+    quote do
+      # Non-localized scope: public routes (no plug-level auth check) + admin
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through unquote(public_pipelines)
 
         phoenix_kit_public_routes(:"")
         phoenix_kit_admin_routes(:"")
@@ -1248,7 +1147,20 @@ defmodule PhoenixKitWeb.Integration do
     # Auto-discovered public routes from external PhoenixKit modules
     module_public_routes = compile_module_public_routes(url_prefix)
 
+    # Snapshot discovered modules so the host router auto-recompiles when deps change
+    current_hash = PhoenixKit.ModuleDiscovery.module_hash()
+    mix_lock_path = Path.expand("mix.lock")
+
     quote do
+      # Recompile router when deps change (mix.lock is updated by mix deps.get)
+      @external_resource unquote(mix_lock_path)
+
+      # Precise check: only actually recompile if the set of PhoenixKit modules changed
+      @doc false
+      def __mix_recompile__? do
+        unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash()
+      end
+
       # Generate pipeline definitions
       unquote(generate_pipelines())
 
@@ -1270,9 +1182,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # External route modules with public routes
       unquote_splicing(external_public_routes)
-
-      # Generate catch-all route for pages at root level (must be last)
-      unquote(generate_pages_catch_all())
     end
   end
 

@@ -116,9 +116,7 @@ defmodule PhoenixKit.Users.Roles do
         |> case do
           {:ok, assignment} ->
             if broadcast? do
-              # Broadcast role assignment event
               Events.broadcast_user_role_assigned(user, role_name)
-              # Notify active LiveView sessions to refresh cached scope
               ScopeNotifier.broadcast_roles_updated(user)
             end
 
@@ -158,9 +156,7 @@ defmodule PhoenixKit.Users.Roles do
         case repo.delete(assignment) do
           {:ok, deleted_assignment} ->
             if broadcast? do
-              # Broadcast role removal event
               Events.broadcast_user_role_removed(user, role_name)
-              # Notify active LiveView sessions to refresh cached scope
               ScopeNotifier.broadcast_roles_updated(user)
             end
 

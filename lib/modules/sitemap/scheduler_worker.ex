@@ -168,6 +168,23 @@ defmodule PhoenixKit.Modules.Sitemap.SchedulerWorker do
     |> insert_job()
   end
 
+  @doc """
+  Ensures a scheduled job exists when scheduling is enabled.
+
+  Called on application startup to recover the scheduling chain if it was
+  broken by a server restart, Oban pruning, or job failure.
+  """
+  @spec ensure_scheduled() ::
+          {:ok, Oban.Job.t()} | {:error, term()} | :disabled | :already_scheduled
+  def ensure_scheduled do
+    if schedule_enabled?() and count_pending_jobs() == 0 do
+      Logger.info("SitemapSchedulerWorker: No pending jobs found on startup, scheduling")
+      schedule()
+    else
+      if schedule_enabled?(), do: :already_scheduled, else: :disabled
+    end
+  end
+
   # Future: Per-module event-driven regeneration pattern:
   # When a specific source's content changes (e.g., new product, new post),
   # call regenerate_module_now/1 to regenerate only that source's sitemap

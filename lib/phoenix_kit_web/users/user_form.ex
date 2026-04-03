@@ -23,8 +23,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
     user_uuid = params["id"]
     mode = if user_uuid, do: :edit, else: :new
 
-    # Extract IP during mount (connect_info is only available here)
+    # Extract IP and user agent during mount (connect_info is only available here)
     registration_ip = IpAddress.extract_from_socket(socket)
+
+    user_agent =
+      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
+        ua when is_binary(ua) -> ua
+        _ -> nil
+      end
 
     # Load custom field definitions
     field_definitions = CustomFields.list_enabled_field_definitions()
@@ -65,6 +71,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:org_accounts_enabled, org_accounts_enabled)
       |> assign(:organizations, organizations)
       |> assign(:current_account_type, "person")
+      |> assign(:user_agent, user_agent)
       |> load_user_data(mode, user_uuid)
       |> load_form_data()
 
@@ -421,6 +428,19 @@ defmodule PhoenixKitWeb.Users.UserForm do
           {:error, _} -> :ok
         end
 
+        admin_user = socket.assigns[:phoenix_kit_current_user]
+
+        PhoenixKit.Activity.log(%{
+          action: "user.created",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin_user && admin_user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{"method" => "manual", "actor_role" => "admin"}
+        })
+
         socket =
           socket
           |> put_flash(:info, "User created successfully. Confirmation email sent.")
@@ -452,12 +472,35 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     profile_params = Map.delete(user_params, "custom_fields")
 
+    avatar_changed? = socket.assigns[:avatar_changed] == true
+    avatar_file_uuid = socket.assigns[:pending_avatar_file_uuid]
+
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
          {:ok, user_with_fields} <- update_custom_fields(updated_user, custom_fields_params),
          {:ok, user_with_account_type} <-
            update_account_type_fields(user_with_fields, user_params),
          result <- update_user_roles_if_changed(socket, user_with_account_type) do
+      # Log avatar change if it happened
+      if avatar_changed? && avatar_file_uuid do
+        admin = socket.assigns[:phoenix_kit_current_user]
+
+        PhoenixKit.Activity.log(%{
+          action: "user.avatar_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin && admin.uuid,
+          resource_type: "user",
+          resource_uuid: user_with_account_type.uuid,
+          target_uuid: user_with_account_type.uuid,
+          metadata: %{
+            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
+            "avatar_to" => avatar_file_uuid,
+            "actor_role" => "admin"
+          }
+        })
+      end
+
       # Clear avatar change flag after successful update
       socket =
         socket
@@ -501,13 +544,39 @@ defmodule PhoenixKitWeb.Users.UserForm do
         profile_params["password"] != nil &&
         String.trim(profile_params["password"]) != ""
 
-    if password_provided do
-      update_profile_and_password(socket, user, profile_params)
-    else
-      cleaned_params = Map.delete(profile_params, "password")
-      # Pass validate_email: false to skip uniqueness validation for username/email
-      # This allows users to keep their current username without it being regenerated
-      update_user_profile_without_validation(user, cleaned_params)
+    result =
+      if password_provided do
+        update_profile_and_password(socket, user, profile_params)
+      else
+        cleaned_params = Map.delete(profile_params, "password")
+        update_user_profile_without_validation(user, cleaned_params)
+      end
+
+    case result do
+      {:ok, updated_user} ->
+        admin = socket.assigns[:phoenix_kit_current_user]
+
+        # Build a changeset from old user to detect what changed
+        changeset =
+          Ecto.Changeset.change(user, %{
+            email: updated_user.email,
+            username: updated_user.username,
+            first_name: updated_user.first_name,
+            last_name: updated_user.last_name,
+            user_timezone: updated_user.user_timezone
+          })
+
+        PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+          actor_uuid: admin && admin.uuid,
+          target_uuid: user.uuid,
+          mode: "manual",
+          actor_role: "admin"
+        )
+
+        {:ok, updated_user}
+
+      error ->
+        error
     end
   end
 
@@ -526,6 +595,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       {:ok, updated_user} ->
         Logger.info("After DB update, saved username: #{inspect(updated_user.username)}")
         Events.broadcast_user_updated(updated_user)
+
         {:ok, updated_user}
 
       {:error, changeset} ->
@@ -799,28 +869,34 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
+  defp log_roles_updated(admin, user, current_roles, new_roles, added, removed) do
+    metadata =
+      %{"actor_role" => "admin"}
+      |> maybe_put_role_diff("added", added)
+      |> maybe_put_role_diff("removed", removed)
+      |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
+      |> Map.put("roles_to", Enum.join(Enum.sort(new_roles), ", "))
+
+    PhoenixKit.Activity.log(%{
+      action: "user.roles_updated",
+      module: "users",
+      mode: "manual",
+      actor_uuid: admin.uuid,
+      resource_type: "user",
+      resource_uuid: user.uuid,
+      target_uuid: user.uuid,
+      metadata: metadata
+    })
+  end
+
+  defp maybe_put_role_diff(map, _key, []), do: map
+  defp maybe_put_role_diff(map, key, roles), do: Map.put(map, key, Enum.join(roles, ", "))
+
   defp build_audit_context(socket) do
-    # Get admin user from socket assigns (set by on_mount)
-    admin_user = Map.get(socket.assigns, :phoenix_kit_current_user)
-
-    # Get IP address from socket metadata
-    ip_address =
-      case Phoenix.LiveView.get_connect_info(socket, :peer_data) do
-        %{address: address} -> :inet.ntoa(address) |> to_string()
-        _ -> nil
-      end
-
-    # Get user agent from socket metadata
-    user_agent =
-      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
-        ua when is_binary(ua) -> ua
-        _ -> nil
-      end
-
     %{
-      admin_user: admin_user,
-      ip_address: ip_address,
-      user_agent: user_agent
+      admin_user: socket.assigns[:phoenix_kit_current_user],
+      ip_address: socket.assigns[:registration_ip],
+      user_agent: socket.assigns[:user_agent]
     }
   end
 
@@ -852,7 +928,16 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       # Roles have changed and it's allowed, update them
       true ->
-        Roles.sync_user_roles(user, pending_roles)
+        case Roles.sync_user_roles(user, pending_roles) do
+          {:ok, _} = result ->
+            added = pending_roles -- current_roles
+            removed = current_roles -- pending_roles
+            log_roles_updated(current_user, user, current_roles, pending_roles, added, removed)
+            result
+
+          error ->
+            error
+        end
     end
   end
 

@@ -1,4 +1,6 @@
 defmodule PhoenixKit.Users.Auth do
+  @compile {:no_warn_undefined, PhoenixKitEcommerce.Cart}
+
   @moduledoc """
   The Auth context for user authentication and management.
 
@@ -699,6 +701,16 @@ defmodule PhoenixKit.Users.Auth do
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
          {:ok, _} <- Repo.transaction(user_email_multi(user, email, context)) do
+      PhoenixKit.Activity.log(%{
+        action: "user.email_changed",
+        module: "users",
+        mode: "auto",
+        actor_uuid: user.uuid,
+        resource_type: "user",
+        resource_uuid: user.uuid,
+        metadata: %{"old_email" => user.email, "new_email" => email, "actor_role" => "user"}
+      })
+
       :ok
     else
       _ -> :error
@@ -783,8 +795,21 @@ defmodule PhoenixKit.Users.Auth do
     Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.password_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          metadata: %{"method" => "password_form", "actor_role" => "user"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -849,8 +874,24 @@ defmodule PhoenixKit.Users.Auth do
     multi
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        admin_user = Map.get(context, :admin_user)
+
+        PhoenixKit.Activity.log(%{
+          action: "user.password_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin_user && admin_user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{"method" => "admin_reset", "actor_role" => "admin"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -1157,6 +1198,17 @@ defmodule PhoenixKit.Users.Auth do
          {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
       Events.broadcast_user_confirmed(updated_user)
+
+      PhoenixKit.Activity.log(%{
+        action: "user.email_confirmed",
+        module: "users",
+        mode: "auto",
+        actor_uuid: updated_user.uuid,
+        resource_type: "user",
+        resource_uuid: updated_user.uuid,
+        metadata: %{"method" => "email_link", "actor_role" => "user"}
+      })
+
       {:ok, updated_user}
     else
       _ -> :error
@@ -1312,8 +1364,21 @@ defmodule PhoenixKit.Users.Auth do
     Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.password_reset",
+          module: "users",
+          mode: "auto",
+          actor_uuid: user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          metadata: %{"method" => "reset_token", "actor_role" => "user"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -1461,12 +1526,16 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def update_user_profile(%User{} = user, attrs) do
-    case user
-         |> User.profile_changeset(attrs)
-         |> Repo.update() do
+    changeset = User.profile_changeset(user, attrs)
+
+    case Repo.update(changeset) do
       {:ok, updated_user} ->
-        # Broadcast user profile update event
         Events.broadcast_user_updated(updated_user)
+
+        PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+          mode: "manual"
+        )
+
         {:ok, updated_user}
 
       {:error, changeset} ->
@@ -2183,8 +2252,22 @@ defmodule PhoenixKit.Users.Auth do
     |> AdminNote.changeset(attrs)
     |> Repo.insert()
     |> case do
-      {:ok, note} -> {:ok, Repo.preload(note, :author)}
-      error -> error
+      {:ok, note} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.note_created",
+          module: "users",
+          mode: "manual",
+          actor_uuid: author.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{"actor_role" => "admin"}
+        })
+
+        {:ok, Repo.preload(note, :author)}
+
+      error ->
+        error
     end
   end
 
@@ -2222,7 +2305,23 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def delete_admin_note(%AdminNote{} = note) do
-    Repo.delete(note)
+    case Repo.delete(note) do
+      {:ok, deleted} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.note_deleted",
+          module: "users",
+          mode: "manual",
+          resource_type: "user",
+          resource_uuid: note.user_uuid,
+          target_uuid: note.user_uuid,
+          metadata: %{"actor_role" => "admin"}
+        })
+
+        {:ok, deleted}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -2302,6 +2401,17 @@ defmodule PhoenixKit.Users.Auth do
 
     with :ok <- validate_can_delete_user(user, current_user),
          {:ok, result} <- execute_user_deletion(user, opts) do
+      PhoenixKit.Activity.log(%{
+        action: "user.deleted",
+        module: "users",
+        mode: "manual",
+        actor_uuid: current_user && current_user.uuid,
+        resource_type: "user",
+        resource_uuid: user.uuid,
+        target_uuid: user.uuid,
+        metadata: %{"deleted_email" => user.email, "actor_role" => "admin"}
+      })
+
       {:ok, result}
     else
       {:error, reason} -> {:error, reason}
@@ -2425,14 +2535,20 @@ defmodule PhoenixKit.Users.Auth do
 
   # Delete billing profiles for a user (uses user_uuid for safety)
   defp delete_user_billing_profiles(user_uuid) do
-    from(bp in PhoenixKit.Modules.Billing.BillingProfile, where: bp.user_uuid == ^user_uuid)
-    |> Repo.repo().delete_all()
+    if Code.ensure_loaded?(PhoenixKitBilling) do
+      billing_profile_schema = PhoenixKitBilling.BillingProfile
+
+      from(bp in billing_profile_schema, where: bp.user_uuid == ^user_uuid)
+      |> Repo.repo().delete_all()
+    end
   end
 
   # Delete shop carts for a user (uses user_uuid for safety)
   defp delete_user_shop_carts(user_uuid) do
-    from(c in PhoenixKit.Modules.Shop.Cart, where: c.user_uuid == ^user_uuid)
-    |> Repo.repo().delete_all()
+    if Code.ensure_loaded?(PhoenixKitEcommerce.Cart) do
+      from(c in PhoenixKitEcommerce.Cart, where: c.user_uuid == ^user_uuid)
+      |> Repo.repo().delete_all()
+    end
   end
 
   # Delete admin notes for a user (uses user_uuid for safety)

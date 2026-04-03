@@ -288,8 +288,21 @@ defmodule PhoenixKit.Users.MagicLink do
   # If user can click the magic link, they have proven email ownership
   defp confirm_user_if_needed(%User{confirmed_at: nil} = user) do
     case Auth.admin_confirm_user(user) do
-      {:ok, confirmed_user} -> {:ok, confirmed_user}
-      {:error, _changeset} -> {:ok, user}
+      {:ok, confirmed_user} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.email_confirmed",
+          module: "users",
+          mode: "auto",
+          actor_uuid: confirmed_user.uuid,
+          resource_type: "user",
+          resource_uuid: confirmed_user.uuid,
+          metadata: %{"method" => "magic_link", "actor_role" => "user"}
+        })
+
+        {:ok, confirmed_user}
+
+      {:error, _changeset} ->
+        {:ok, user}
     end
   end
 

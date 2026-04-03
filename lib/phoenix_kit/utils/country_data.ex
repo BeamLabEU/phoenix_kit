@@ -1,21 +1,18 @@
 defmodule PhoenixKit.Utils.CountryData do
+  @compile {:no_warn_undefined, PhoenixKitBilling.IbanData}
   @moduledoc """
-  Core country data utilities powered by BeamLabCountries.
+  Wrapper for BeamLabCountries with country data utility functions.
 
-  Provides country information, tax rates, EU membership, and address formatting
-  for use across all PhoenixKit modules. This is the canonical source for
-  country-related data and tax configuration.
+  Provides a convenient API for working with country data:
+  country selection, tax rates, EU membership.
 
-  ## Tax Configuration
-
-  Tax settings are stored in the `company_info` JSON setting alongside other
-  organization data. The `get_tax_config/0` function provides a unified way
-  to access tax configuration from any module.
+  Includes workaround for charlist bug in VAT rates until fixed upstream.
 
   ## Examples
 
       # Get list of countries for dropdown
       countries = CountryData.countries_for_select()
+      # [{"🇦🇩 Andorra", "AD"}, {"🇦🇪 United Arab Emirates", "AE"}, ...]
 
       # Get standard VAT rate
       rate = CountryData.get_standard_vat_rate("EE")
@@ -25,19 +22,28 @@ defmodule PhoenixKit.Utils.CountryData do
       CountryData.eu_member?("EE")
       # true
 
-      # Get tax configuration
-      config = CountryData.get_tax_config()
-      # %{enabled: true, rate: "20", rate_decimal: #Decimal<0.20>}
+      # Get country information
+      country = CountryData.get_country("DE")
+      # %BeamLabCountries.Country{name: "Germany", ...}
+
+      # Format company address from Settings
+      address = CountryData.format_company_address()
+      # "123 Business Street\\nTallinn 10115\\nEstonia"
   """
 
   alias PhoenixKit.Settings
-
-  # ============================================================================
-  # Country Lookup
-  # ============================================================================
+  alias PhoenixKitBilling.IbanData
 
   @doc """
   Get all countries sorted by name.
+
+  ## Examples
+
+      iex> countries = CountryData.list_countries()
+      iex> length(countries)
+      250
+      iex> hd(countries).name
+      "Afghanistan"
   """
   def list_countries do
     BeamLabCountries.all()
@@ -46,55 +52,21 @@ defmodule PhoenixKit.Utils.CountryData do
 
   @doc """
   Get country by alpha-2 code.
+
+  ## Examples
+
+      iex> country = CountryData.get_country("EE")
+      iex> country.name
+      "Estonia"
+
+      iex> CountryData.get_country("XX")
+      nil
   """
-  def get_country(code) when is_binary(code), do: BeamLabCountries.get(code)
+  def get_country(code) when is_binary(code) do
+    BeamLabCountries.get(code)
+  end
+
   def get_country(_), do: nil
-
-  @doc """
-  Get country name.
-  """
-  def get_country_name(country_code) when is_binary(country_code) do
-    case get_country(country_code) do
-      %{name: name} -> name
-      _ -> nil
-    end
-  end
-
-  def get_country_name(_), do: nil
-
-  @doc """
-  Get country flag (emoji).
-  """
-  def get_flag(country_code) when is_binary(country_code) do
-    case get_country(country_code) do
-      %{flag: flag} -> flag
-      _ -> nil
-    end
-  end
-
-  def get_flag(_), do: nil
-
-  @doc """
-  Check if country with given code exists.
-  """
-  def exists?(country_code) when is_binary(country_code), do: get_country(country_code) != nil
-  def exists?(_), do: false
-
-  @doc """
-  Get country currency code.
-  """
-  def get_currency_code(country_code) when is_binary(country_code) do
-    case get_country(country_code) do
-      %{currency_code: code} when is_binary(code) -> code
-      _ -> nil
-    end
-  end
-
-  def get_currency_code(_), do: nil
-
-  # ============================================================================
-  # VAT / Tax Rates
-  # ============================================================================
 
   @doc """
   Get standard VAT rate for a country as Decimal.
@@ -107,13 +79,18 @@ defmodule PhoenixKit.Utils.CountryData do
       iex> CountryData.get_standard_vat_rate("EE")
       #Decimal<0.20>
 
+      iex> CountryData.get_standard_vat_rate("DE")
+      #Decimal<0.19>
+
       iex> CountryData.get_standard_vat_rate("US")
       #Decimal<0>
   """
   def get_standard_vat_rate(country_code) when is_binary(country_code) do
     case get_country(country_code) do
       %{vat_rates: %{standard: rate}} when is_number(rate) ->
-        rate |> Decimal.new() |> Decimal.div(100)
+        rate
+        |> Decimal.new()
+        |> Decimal.div(100)
 
       _ ->
         Decimal.new("0")
@@ -126,6 +103,17 @@ defmodule PhoenixKit.Utils.CountryData do
   Get standard VAT rate as percentage (integer).
 
   Returns rate as percentage (20 = 20%).
+
+  ## Examples
+
+      iex> CountryData.get_standard_vat_percent("EE")
+      20
+
+      iex> CountryData.get_standard_vat_percent("DE")
+      19
+
+      iex> CountryData.get_standard_vat_percent("US")
+      0
   """
   def get_standard_vat_percent(country_code) when is_binary(country_code) do
     case get_country(country_code) do
@@ -144,6 +132,17 @@ defmodule PhoenixKit.Utils.CountryData do
   - :reduced - reduced rates (list of integers)
   - :super_reduced - super reduced rate (integer or nil)
   - :parking - parking rate (integer or nil)
+
+  ## Examples
+
+      iex> CountryData.get_vat_rates("EE")
+      %{standard: 20, reduced: [9], super_reduced: nil, parking: nil}
+
+      iex> CountryData.get_vat_rates("FR")
+      %{standard: 20, reduced: [5.5, 10], super_reduced: 2.1, parking: nil}
+
+      iex> CountryData.get_vat_rates("US")
+      nil
   """
   def get_vat_rates(country_code) when is_binary(country_code) do
     case get_country(country_code) do
@@ -165,9 +164,6 @@ defmodule PhoenixKit.Utils.CountryData do
   - `:enabled` - boolean, whether tax is enabled
   - `:rate` - string percentage (e.g. "20")
   - `:rate_decimal` - Decimal fraction (e.g. Decimal.new("0.20"))
-
-  This is the canonical source of tax configuration for all modules.
-  Billing and Shop modules should use this instead of their own settings keys.
 
   Tax rate is stored in the `company_info` JSON setting under `"tax_rate"` and
   `"tax_enabled"` keys. Falls back to `billing_default_tax_rate` / `billing_tax_enabled`
@@ -191,7 +187,6 @@ defmodule PhoenixKit.Utils.CountryData do
   defp get_tax_enabled(company_info) do
     case company_info["tax_enabled"] do
       nil ->
-        # Fallback to legacy billing key
         Settings.get_setting_cached("billing_tax_enabled", "false") == "true"
 
       value when is_boolean(value) ->
@@ -208,7 +203,6 @@ defmodule PhoenixKit.Utils.CountryData do
   defp get_tax_rate_percent(company_info) do
     case company_info["tax_rate"] do
       nil ->
-        # Fallback to legacy billing key
         Settings.get_setting_cached("billing_default_tax_rate", "0")
 
       rate when is_binary(rate) ->
@@ -219,12 +213,19 @@ defmodule PhoenixKit.Utils.CountryData do
     end
   end
 
-  # ============================================================================
-  # EU / EEA Membership
-  # ============================================================================
-
   @doc """
   Check if country is an EU member.
+
+  ## Examples
+
+      iex> CountryData.eu_member?("EE")
+      true
+
+      iex> CountryData.eu_member?("GB")
+      false
+
+      iex> CountryData.eu_member?("US")
+      false
   """
   def eu_member?(country_code) when is_binary(country_code) do
     case get_country(country_code) do
@@ -237,6 +238,19 @@ defmodule PhoenixKit.Utils.CountryData do
 
   @doc """
   Check if country is an EEA (European Economic Area) member.
+
+  EEA includes EU + Norway, Iceland, Liechtenstein.
+
+  ## Examples
+
+      iex> CountryData.eea_member?("EE")
+      true
+
+      iex> CountryData.eea_member?("NO")
+      true
+
+      iex> CountryData.eea_member?("CH")
+      false
   """
   def eea_member?(country_code) when is_binary(country_code) do
     case get_country(country_code) do
@@ -249,22 +263,37 @@ defmodule PhoenixKit.Utils.CountryData do
 
   @doc """
   Get list of EU countries.
+
+  ## Examples
+
+      iex> eu = CountryData.eu_countries()
+      iex> length(eu)
+      27
+      iex> Enum.map(eu, & &1.alpha2) |> Enum.sort() |> Enum.take(5)
+      ["AT", "BE", "BG", "CY", "CZ"]
   """
-  def eu_countries, do: BeamLabCountries.filter_by(:eu_member, true)
+  def eu_countries do
+    BeamLabCountries.filter_by(:eu_member, true)
+  end
 
   @doc """
   Get list of EEA countries (EU + Norway, Iceland, Liechtenstein).
   """
-  def eea_countries, do: BeamLabCountries.filter_by(:eea_member, true)
-
-  # ============================================================================
-  # Select Helpers
-  # ============================================================================
+  def eea_countries do
+    BeamLabCountries.filter_by(:eea_member, true)
+  end
 
   @doc """
   Get list of countries for select dropdown.
 
-  Returns list of tuples {display_name, alpha2_code}.
+  Returns list of tuples {display_name, alpha2_code} for use
+  in Phoenix form selects.
+
+  ## Examples
+
+      iex> countries = CountryData.countries_for_select()
+      iex> {"🇦🇫 Afghanistan", "AF"} in countries
+      true
   """
   def countries_for_select do
     list_countries()
@@ -278,6 +307,33 @@ defmodule PhoenixKit.Utils.CountryData do
 
       {display_name, c.alpha2}
     end)
+  end
+
+  @doc """
+  Get the subdivision label for a country.
+
+  Returns appropriate label like "State", "Province", "Region", etc.
+  based on what the country uses for administrative divisions.
+
+  ## Examples
+
+      iex> CountryData.get_subdivision_label("US")
+      "State"
+
+      iex> CountryData.get_subdivision_label("CA")
+      "Province"
+
+      iex> CountryData.get_subdivision_label("EE")
+      "County"
+  """
+  def get_subdivision_label(nil), do: "State/Province"
+  def get_subdivision_label(""), do: "State/Province"
+
+  def get_subdivision_label(alpha2) when is_binary(alpha2) do
+    case BeamLabCountries.get(alpha2) do
+      nil -> "State/Province"
+      country -> Map.get(country, :subdivision_type) || "State/Province"
+    end
   end
 
   @doc """
@@ -299,21 +355,128 @@ defmodule PhoenixKit.Utils.CountryData do
   end
 
   @doc """
-  Get the subdivision label for a country.
-  """
-  def get_subdivision_label(nil), do: "State/Province"
-  def get_subdivision_label(""), do: "State/Province"
+  Get country currency code.
 
-  def get_subdivision_label(alpha2) when is_binary(alpha2) do
-    case BeamLabCountries.get(alpha2) do
-      nil -> "State/Province"
-      country -> Map.get(country, :subdivision_type) || "State/Province"
+  ## Examples
+
+      iex> CountryData.get_currency_code("EE")
+      "EUR"
+
+      iex> CountryData.get_currency_code("GB")
+      "GBP"
+
+      iex> CountryData.get_currency_code("US")
+      "USD"
+  """
+  def get_currency_code(country_code) when is_binary(country_code) do
+    case get_country(country_code) do
+      %{currency_code: code} when is_binary(code) -> code
+      _ -> nil
     end
   end
 
-  # ============================================================================
-  # Company Info & Address (from Organization Settings)
-  # ============================================================================
+  def get_currency_code(_), do: nil
+
+  @doc """
+  Get country name.
+
+  ## Examples
+
+      iex> CountryData.get_country_name("EE")
+      "Estonia"
+
+      iex> CountryData.get_country_name("XX")
+      nil
+  """
+  def get_country_name(country_code) when is_binary(country_code) do
+    case get_country(country_code) do
+      %{name: name} -> name
+      _ -> nil
+    end
+  end
+
+  def get_country_name(_), do: nil
+
+  @doc """
+  Get country flag (emoji).
+
+  ## Examples
+
+      iex> CountryData.get_flag("EE")
+      "🇪🇪"
+  """
+  def get_flag(country_code) when is_binary(country_code) do
+    case get_country(country_code) do
+      %{flag: flag} -> flag
+      _ -> nil
+    end
+  end
+
+  def get_flag(_), do: nil
+
+  @doc """
+  Check if country with given code exists.
+
+  ## Examples
+
+      iex> CountryData.exists?("EE")
+      true
+
+      iex> CountryData.exists?("XX")
+      false
+  """
+  def exists?(country_code) when is_binary(country_code) do
+    get_country(country_code) != nil
+  end
+
+  def exists?(_), do: false
+
+  @doc """
+  Format company address from Settings for document printing.
+
+  Assembles address from individual fields (address_line1, address_line2, city, state,
+  postal_code, country) into a single string with line breaks.
+
+  ## Returns
+
+  Formatted address as string, for example:
+  ```
+  123 Business Street
+  Suite 100
+  Tallinn 10115
+  Estonia
+  ```
+
+  ## Examples
+
+      iex> CountryData.format_company_address()
+      "123 Business Street\\nTallinn 10115\\nEstonia"
+  """
+  def format_company_address do
+    company_info = get_company_info()
+
+    address_line1 = company_info["address_line1"] || ""
+    address_line2 = company_info["address_line2"] || ""
+    city = company_info["city"] || ""
+    state = company_info["state"] || ""
+    postal_code = company_info["postal_code"] || ""
+    country_code = company_info["country"] || ""
+
+    country_name =
+      case get_country(country_code) do
+        %{name: name} -> name
+        _ -> country_code
+      end
+
+    city_postal =
+      [city, postal_code]
+      |> Enum.filter(&(&1 != ""))
+      |> Enum.join(" ")
+
+    [address_line1, address_line2, city_postal, state, country_name]
+    |> Enum.filter(&(&1 != "" && &1 != " "))
+    |> Enum.join("\n")
+  end
 
   @doc """
   Get company information from consolidated Settings.
@@ -323,6 +486,7 @@ defmodule PhoenixKit.Utils.CountryData do
   def get_company_info do
     case Settings.get_json_setting("company_info", nil) do
       nil ->
+        # Fallback to legacy billing_company_* keys
         %{
           "name" => Settings.get_setting("billing_company_name", ""),
           "address_line1" => Settings.get_setting("billing_company_address_line1", ""),
@@ -351,6 +515,7 @@ defmodule PhoenixKit.Utils.CountryData do
   def get_bank_details do
     case Settings.get_json_setting("company_bank_details", nil) do
       nil ->
+        # Fallback to legacy billing_bank_* keys
         %{
           "bank_name" => Settings.get_setting("billing_bank_name", ""),
           "iban" => Settings.get_setting("billing_bank_iban", ""),
@@ -365,38 +530,110 @@ defmodule PhoenixKit.Utils.CountryData do
     end
   end
 
+  # ==========================================================================
+  # Banking Validation Functions
+  # ==========================================================================
+
   @doc """
-  Format company address from Settings for document printing.
+  Validate IBAN format (length based on bank country, not company country).
+
+  Bank can be in a different country than the company - this is legal.
+  Validates format and length based on IBAN's country prefix.
+
+  Returns :ok or {:error, reason}.
+
+  ## Examples
+
+      iex> CountryData.validate_iban_format("EE382200221020145685", "EE")
+      :ok
+
+      iex> CountryData.validate_iban_format("DE89370400440532013000", "EE")
+      :ok  # German bank for Estonian company is valid
+
+      iex> CountryData.validate_iban_format("DE123", "EE")
+      {:error, "IBAN must be 22 characters for DE"}
   """
-  def format_company_address do
-    company_info = get_company_info()
+  def validate_iban_format(iban, _country_code)
+      when is_binary(iban) do
+    iban = String.replace(iban, ~r/\s/, "") |> String.upcase()
+    iban_country = String.slice(iban, 0, 2)
+    expected_length = IbanData.get_iban_length(iban_country)
 
-    address_line1 = company_info["address_line1"] || ""
-    address_line2 = company_info["address_line2"] || ""
-    city = company_info["city"] || ""
-    state = company_info["state"] || ""
-    postal_code = company_info["postal_code"] || ""
-    country_code = company_info["country"] || ""
+    cond do
+      iban == "" ->
+        :ok
 
-    country_name =
-      case get_country(country_code) do
-        %{name: name} -> name
-        _ -> country_code
-      end
+      expected_length == nil ->
+        # Unknown IBAN country - just validate basic format
+        if Regex.match?(~r/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, iban) do
+          :ok
+        else
+          {:error, "Invalid IBAN format"}
+        end
 
-    city_postal =
-      [city, postal_code]
-      |> Enum.filter(&(&1 != ""))
-      |> Enum.join(" ")
+      String.length(iban) != expected_length ->
+        {:error, "IBAN must be #{expected_length} characters for #{iban_country}"}
 
-    [address_line1, address_line2, city_postal, state, country_name]
-    |> Enum.filter(&(&1 != "" && &1 != " "))
-    |> Enum.join("\n")
+      not Regex.match?(~r/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, iban) ->
+        {:error, "Invalid IBAN format"}
+
+      true ->
+        :ok
+    end
   end
 
-  # ============================================================================
-  # Private: Charlist bug workaround
-  # ============================================================================
+  def validate_iban_format(_, _), do: :ok
+
+  @doc """
+  Validate SWIFT/BIC format (8 or 11 characters).
+
+  SWIFT codes structure:
+  - 4 letters: bank code
+  - 2 letters: country code (ISO 3166)
+  - 2 characters: location code
+  - 3 characters (optional): branch code
+
+  ## Examples
+
+      iex> CountryData.validate_swift_format("HABAEE2X")
+      :ok
+
+      iex> CountryData.validate_swift_format("HABAEE2XXXX")
+      :ok
+
+      iex> CountryData.validate_swift_format("INVALID")
+      {:error, "SWIFT/BIC must be 8 or 11 characters"}
+  """
+  def validate_swift_format(swift) when is_binary(swift) do
+    swift = String.replace(swift, ~r/\s/, "") |> String.upcase()
+
+    cond do
+      swift == "" ->
+        :ok
+
+      String.length(swift) not in [8, 11] ->
+        {:error, "SWIFT/BIC must be 8 or 11 characters"}
+
+      not Regex.match?(~r/^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/, swift) ->
+        {:error, "Invalid SWIFT/BIC format"}
+
+      true ->
+        :ok
+    end
+  end
+
+  def validate_swift_format(_), do: :ok
+
+  # ==========================================================================
+  # Private Functions - Workaround for charlist bug in BeamLabCountries
+  # ==========================================================================
+  #
+  # YAML parser interprets single-digit numbers in lists as charlists:
+  # - [9] → ~c"\t" (tab)
+  # - [7] → ~c"\a" (bell)
+  # - [10] → ~c"\n" (newline)
+  #
+  # These functions normalize data until fixed upstream.
 
   defp normalize_rates(rates) when is_map(rates) do
     Map.new(rates, fn {k, v} -> {k, normalize_rate_value(v)} end)
@@ -405,6 +642,7 @@ defmodule PhoenixKit.Utils.CountryData do
   defp normalize_rate_value(nil), do: nil
 
   defp normalize_rate_value(list) when is_list(list) do
+    # If charlist of single element (bug), convert back
     if charlist_single_digit?(list) do
       [hd(list)]
     else
@@ -414,6 +652,7 @@ defmodule PhoenixKit.Utils.CountryData do
 
   defp normalize_rate_value(value), do: value
 
+  # Check if list is a charlist of single ASCII digit code
   defp charlist_single_digit?([n]) when is_integer(n) and n >= 0 and n <= 127, do: true
   defp charlist_single_digit?(_), do: false
 

@@ -103,23 +103,27 @@
           />
         </div>
         <div class="w-full md:w-48">
-          <select name="filters[status]" class="select select-bordered w-full">
-            <option value="">All Statuses</option>
-            <option value="open" selected={@status_filter == "open"}>Open</option>
-            <option value="in_progress" selected={@status_filter == "in_progress"}>
-              In Progress
-            </option>
-            <option value="resolved" selected={@status_filter == "resolved"}>Resolved</option>
-            <option value="closed" selected={@status_filter == "closed"}>Closed</option>
-          </select>
+          <label class="select w-full">
+            <select name="filters[status]">
+              <option value="">All Statuses</option>
+              <option value="open" selected={@status_filter == "open"}>Open</option>
+              <option value="in_progress" selected={@status_filter == "in_progress"}>
+                In Progress
+              </option>
+              <option value="resolved" selected={@status_filter == "resolved"}>Resolved</option>
+              <option value="closed" selected={@status_filter == "closed"}>Closed</option>
+            </select>
+          </label>
         </div>
         <div class="w-full md:w-48">
-          <select name="filters[assigned_to]" class="select select-bordered w-full">
-            <option value="">All Assigned</option>
-            <option value="unassigned" selected={@assigned_to_filter == "unassigned"}>
-              Unassigned
-            </option>
-          </select>
+          <label class="select w-full">
+            <select name="filters[assigned_to]">
+              <option value="">All Assigned</option>
+              <option value="unassigned" selected={@assigned_to_filter == "unassigned"}>
+                Unassigned
+              </option>
+            </select>
+          </label>
         </div>
         <button type="button" phx-click="clear_filters" class="btn btn-ghost">
           Clear

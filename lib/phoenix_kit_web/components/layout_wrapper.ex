@@ -1,4 +1,7 @@
 defmodule PhoenixKitWeb.Components.LayoutWrapper do
+  @compile {:no_warn_undefined,
+            [PhoenixKit.Modules.Legal, PhoenixKit.Modules.Legal.CookieConsent]}
+
   @moduledoc """
   Dynamic layout wrapper component for Phoenix v1.7- and v1.8+ compatibility.
 
@@ -33,7 +36,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   require Logger
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
-  import PhoenixKitWeb.Components.Core.CookieConsent, only: [cookie_consent: 1]
+
   import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   import PhoenixKitWeb.Components.AdminNav
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
@@ -43,7 +46,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
-  alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.ThemeConfig
@@ -311,7 +313,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
                 <div class="flex items-center gap-3">
                   <.admin_theme_controller mobile={true} />
-                  <.admin_language_dropdown
+                  <PhoenixKitWeb.Components.Core.LanguageSwitcher.language_switcher_dropdown
                     current_path={@current_path}
                     current_locale={@current_locale}
                   />
@@ -692,8 +694,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
         <%!-- PhoenixKit Cookie Consent Widget Setup --%>
         <.phoenix_kit_globals />
-        <script defer src={Routes.path("/assets/phoenix_kit_consent.js")}>
-        </script>
+        <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do %>
+          <script defer src={Routes.path("/assets/phoenix_kit_consent.js")}>
+          </script>
+        <% end %>
       </head>
       <body class="bg-base-100 antialiased transition-colors" data-admin-theme-base="system">
         <%!-- Admin pages without parent headers --%>
@@ -704,9 +708,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         </main>
 
         <%!-- Cookie Consent Widget --%>
-        <%= if Legal.consent_widget_enabled?() do %>
-          <% config = Legal.get_consent_widget_config() %>
-          <.cookie_consent
+        <%= if Code.ensure_loaded?(PhoenixKit.Modules.Legal) and
+               PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
+          <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
+          <PhoenixKit.Modules.Legal.CookieConsent.cookie_consent
             frameworks={config.frameworks}
             consent_mode={config.consent_mode}
             icon_position={config.icon_position}

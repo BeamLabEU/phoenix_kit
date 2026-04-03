@@ -29,6 +29,10 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
     {:ok, socket}
   end
 
+  def handle_params(_params, uri, socket) do
+    {:noreply, assign(socket, :url_path, URI.parse(uri).path)}
+  end
+
   def handle_event("delete_code", %{"uuid" => uuid}, socket) do
     code = Referrals.get_code!(uuid)
 

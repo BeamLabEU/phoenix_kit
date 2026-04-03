@@ -156,74 +156,11 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
     """
   end
 
-  @doc """
-  Renders a status badge for email templates.
-
-  ## Attributes
-  - `status` - Template status: "active", "draft", "archived"
-  - `size` - Badge size (default: :sm)
-  - `class` - Additional CSS classes
-
-  ## Examples
-
-      <.template_status_badge status="active" />
-      <.template_status_badge status="draft" size={:md} />
-  """
-  attr :status, :string, required: true
-  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
-  attr :class, :string, default: ""
-
-  def template_status_badge(assigns) do
-    ~H"""
-    <div class={["badge", template_status_class(@status), size_class(@size), @class]}>
-      {String.capitalize(@status)}
-    </div>
-    """
-  end
-
-  @doc """
-  Renders a generic status badge for content items (entities, posts, etc.).
-
-  ## Attributes
-  - `status` - Item status: "published", "draft", "archived"
-  - `size` - Badge size (default: :sm)
-  - `class` - Additional CSS classes
-
-  ## Examples
-
-      <.content_status_badge status="published" />
-      <.content_status_badge status="draft" size={:md} />
-      <.content_status_badge status="archived" class="ml-2" />
-  """
-  attr :status, :string, required: true
-  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
-  attr :class, :string, default: ""
-
-  def content_status_badge(assigns) do
-    ~H"""
-    <div class={["badge", content_status_class(@status), size_class(@size), @class]}>
-      {String.capitalize(@status)}
-    </div>
-    """
-  end
-
   # Template category classes
   defp category_class("system"), do: "badge-info"
   defp category_class("marketing"), do: "badge-secondary"
   defp category_class("transactional"), do: "badge-primary"
   defp category_class(_), do: "badge-ghost"
-
-  # Template status classes
-  defp template_status_class("active"), do: "badge-success"
-  defp template_status_class("draft"), do: "badge-warning"
-  defp template_status_class("archived"), do: "badge-ghost"
-  defp template_status_class(_), do: "badge-neutral"
-
-  # Content status classes (for entities, posts, etc.)
-  defp content_status_class("published"), do: "badge-success"
-  defp content_status_class("draft"), do: "badge-warning"
-  defp content_status_class("archived"), do: "badge-ghost"
-  defp content_status_class(_), do: "badge-neutral"
 
   @doc """
   Renders an enabled/disabled status badge.
@@ -252,6 +189,64 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
 
   defp enabled_class(true), do: "badge-success"
   defp enabled_class(false), do: "badge-neutral"
+
+  @doc """
+  Renders a generic status badge from a status string.
+
+  Maps common status values to appropriate badge colors. Covers statuses used
+  across PhoenixKit modules (catalogue items, entities, users, etc.).
+
+  ## Attributes
+
+  - `status` - Status string (required)
+  - `size` - Badge size (default: :sm)
+  - `class` - Additional CSS classes
+
+  ## Examples
+
+      <.status_badge status="active" />
+      <.status_badge status="deleted" size={:xs} />
+      <.status_badge status="discontinued" class="ml-2" />
+  """
+  attr :status, :string, required: true
+  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
+  attr :class, :string, default: ""
+
+  def status_badge(assigns) do
+    ~H"""
+    <span class={["badge", status_class(@status), size_class(@size), @class]}>
+      {status_label(@status)}
+    </span>
+    """
+  end
+
+  defp status_label(status) do
+    status |> String.replace("_", " ") |> String.capitalize()
+  end
+
+  defp status_class("active"), do: "badge-success"
+  defp status_class("inactive"), do: "badge-ghost"
+  defp status_class("archived"), do: "badge-ghost"
+  defp status_class("deleted"), do: "badge-error"
+  defp status_class("discontinued"), do: "badge-warning"
+  defp status_class("draft"), do: "badge-warning"
+  defp status_class("published"), do: "badge-success"
+  defp status_class("pending"), do: "badge-info"
+  defp status_class("suspended"), do: "badge-error"
+  defp status_class("completed"), do: "badge-success"
+  defp status_class("failed"), do: "badge-error"
+  defp status_class("cancelled"), do: "badge-ghost"
+  defp status_class("in_progress"), do: "badge-info"
+  defp status_class("denied"), do: "badge-error"
+  defp status_class("expired"), do: "badge-ghost"
+  defp status_class("approved"), do: "badge-info"
+  defp status_class("pending_approval"), do: "badge-warning"
+  defp status_class("revoked"), do: "badge-ghost"
+  defp status_class("loading"), do: "badge-ghost animate-pulse"
+  defp status_class("offline"), do: "badge-warning"
+  defp status_class("not_found"), do: "badge-error"
+  defp status_class("error"), do: "badge-error"
+  defp status_class(_), do: "badge-ghost"
 
   # Size classes — h-auto allows badge to expand when text wraps on mobile
   defp size_class(:xs), do: "badge-xs h-auto"
