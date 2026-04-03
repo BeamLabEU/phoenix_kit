@@ -529,7 +529,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V89 - Catalogue pricing ⚡ LATEST
+  ### V91 - Locations tables ⚡ LATEST
+  - `phoenix_kit_location_types` for user-defined location categories
+  - `phoenix_kit_locations` for physical locations with type reference
+  - `phoenix_kit_location_type_assignments` for many-to-many join
+
+  ### V90 - Activity feed
+  - `phoenix_kit_activities` table for business-level action logging
+
+  ### V89 - Catalogue pricing
   - Renames `price` to `base_price` in `phoenix_kit_cat_items`
   - Adds `markup_percentage` decimal column to `phoenix_kit_cat_catalogues`
 
@@ -678,7 +686,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 90
+  @current_version 91
   @default_prefix "public"
 
   @doc false
