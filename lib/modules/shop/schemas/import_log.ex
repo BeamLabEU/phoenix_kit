@@ -150,9 +150,9 @@ defmodule PhoenixKit.Modules.Shop.ImportLog do
   @doc """
   Returns the percentage of completion.
   """
-  def progress_percent(%__MODULE__{total_rows: 0}), do: 0
+  def progress_percent(%{total_rows: 0}), do: 0
 
-  def progress_percent(%__MODULE__{processed_rows: processed, total_rows: total}) do
+  def progress_percent(%{processed_rows: processed, total_rows: total}) do
     trunc(processed / total * 100)
   end
 

@@ -2259,6 +2259,7 @@ defmodule PhoenixKit.Modules.Billing do
       |> order_by([t], desc: t.inserted_at)
       |> filter_transactions(opts)
       |> repo().all()
+      |> Enum.map(&normalize_struct/1)
 
     if preloads = opts[:preload] do
       repo().preload(transactions, preloads)
@@ -2266,6 +2267,11 @@ defmodule PhoenixKit.Modules.Billing do
       transactions
     end
   end
+
+  # Normalize struct module name in case of legacy metadata
+  defp normalize_struct(%Transaction{} = struct), do: struct
+  defp normalize_struct(%{__struct__: _} = map), do: struct(Transaction, Map.from_struct(map))
+  defp normalize_struct(other), do: other
 
   defp filter_transactions(query, opts) do
     query

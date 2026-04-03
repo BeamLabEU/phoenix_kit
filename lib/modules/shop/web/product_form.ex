@@ -1798,14 +1798,15 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp format_price(nil, _currency), do: "—"
   defp format_price("", _currency), do: "—"
 
-  defp format_price(price, %Currency{} = currency) when is_binary(price) do
+  defp format_price(price, %{symbol: _symbol, decimal_places: _places} = currency)
+       when is_binary(price) do
     case Decimal.parse(price) do
       {decimal, _} -> Currency.format_amount(decimal, currency)
       :error -> Currency.format_amount(Decimal.new("0"), currency)
     end
   end
 
-  defp format_price(price, %Currency{} = currency) do
+  defp format_price(price, %{symbol: _symbol, decimal_places: _places} = currency) do
     Currency.format_amount(price, currency)
   end
 

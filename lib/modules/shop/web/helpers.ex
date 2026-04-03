@@ -21,7 +21,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Helpers do
   @doc "Format a price value with currency. Returns \"-\" for nil price."
   def format_price(nil, _currency), do: "-"
 
-  def format_price(price, %Currency{} = currency) do
+  # Handle both PhoenixKit.Modules.Billing.Currency and PhoenixKitBilling.Currency
+  def format_price(price, %{symbol: _symbol, decimal_places: _places} = currency) do
     Currency.format_amount(price, currency)
   end
 

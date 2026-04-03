@@ -113,9 +113,9 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
       iex> available_for?(method, %{weight_grams: 500, subtotal: Decimal.new("50"), country: "EE"})
       true
   """
-  def available_for?(%__MODULE__{active: false}, _params), do: false
+  def available_for?(%{active: false}, _params), do: false
 
-  def available_for?(%__MODULE__{} = method, %{
+  def available_for?(method, %{
         weight_grams: weight,
         subtotal: subtotal,
         country: country
@@ -125,7 +125,7 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
       country_ok?(method, country)
   end
 
-  def available_for?(%__MODULE__{} = method, params) when is_map(params) do
+  def available_for?(method, params) when is_map(params) do
     weight = Map.get(params, :weight_grams, 0)
     subtotal = Map.get(params, :subtotal, Decimal.new("0"))
     country = Map.get(params, :country)
@@ -137,11 +137,11 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
   Calculates shipping cost for given subtotal.
   Returns 0 if free shipping threshold is met.
   """
-  def calculate_cost(%__MODULE__{free_above_amount: nil, price: price}, _subtotal) do
+  def calculate_cost(%{free_above_amount: nil, price: price}, _subtotal) do
     price
   end
 
-  def calculate_cost(%__MODULE__{free_above_amount: threshold, price: price}, subtotal) do
+  def calculate_cost(%{free_above_amount: threshold, price: price}, subtotal) do
     if Decimal.compare(subtotal, threshold) != :lt do
       Decimal.new("0")
     else
@@ -160,37 +160,37 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
       iex> delivery_estimate(%ShippingMethod{estimated_days_min: 1, estimated_days_max: 1})
       "1 day"
   """
-  def delivery_estimate(%__MODULE__{estimated_days_min: nil}), do: nil
+  def delivery_estimate(%{estimated_days_min: nil}), do: nil
 
-  def delivery_estimate(%__MODULE__{estimated_days_min: min, estimated_days_max: nil}) do
+  def delivery_estimate(%{estimated_days_min: min, estimated_days_max: nil}) do
     "#{min}+ days"
   end
 
-  def delivery_estimate(%__MODULE__{estimated_days_min: 1, estimated_days_max: 1}) do
+  def delivery_estimate(%{estimated_days_min: 1, estimated_days_max: 1}) do
     "1 day"
   end
 
-  def delivery_estimate(%__MODULE__{estimated_days_min: min, estimated_days_max: max})
+  def delivery_estimate(%{estimated_days_min: min, estimated_days_max: max})
       when min == max do
     "#{min} days"
   end
 
-  def delivery_estimate(%__MODULE__{estimated_days_min: min, estimated_days_max: max}) do
+  def delivery_estimate(%{estimated_days_min: min, estimated_days_max: max}) do
     "#{min}-#{max} days"
   end
 
   @doc """
   Returns true if method is active.
   """
-  def active?(%__MODULE__{active: true}), do: true
+  def active?(%{active: true}), do: true
   def active?(_), do: false
 
   @doc """
   Checks if shipping is free for the given subtotal.
   """
-  def free_for?(%__MODULE__{free_above_amount: nil}, _subtotal), do: false
+  def free_for?(%{free_above_amount: nil}, _subtotal), do: false
 
-  def free_for?(%__MODULE__{free_above_amount: threshold}, subtotal) do
+  def free_for?(%{free_above_amount: threshold}, subtotal) do
     Decimal.compare(subtotal, threshold) != :lt
   end
 

@@ -90,7 +90,7 @@ defmodule PhoenixKit.Modules.Shop.Web.UserOrderDetails do
 
   defp format_price(nil, _currency), do: "-"
 
-  defp format_price(amount, %Currency{} = currency) do
+  defp format_price(amount, %{symbol: _symbol, decimal_places: _places} = currency) do
     Currency.format_amount(amount, currency)
   end
 

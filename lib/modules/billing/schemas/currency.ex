@@ -90,7 +90,7 @@ defmodule PhoenixKit.Modules.Billing.Currency do
       iex> Currency.format_amount(1234.5, currency)
       "€1,234.50"
   """
-  def format_amount(amount, %__MODULE__{symbol: symbol, decimal_places: places}) do
+  def format_amount(amount, %{symbol: symbol, decimal_places: places}) do
     amount
     |> to_decimal()
     |> Decimal.round(places)

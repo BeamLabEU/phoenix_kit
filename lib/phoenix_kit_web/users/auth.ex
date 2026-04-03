@@ -946,11 +946,19 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp external_plugin_view?(view) do
     case Module.split(view) do
-      ["PhoenixKitWeb" | _] -> false
-      # Extracted packages keep PhoenixKit.Modules.*.Web namespace — treat as external
-      ["PhoenixKit", "Modules", _, "Web" | _] -> true
-      ["PhoenixKit" | _] -> false
-      _ -> true
+      ["PhoenixKitWeb" | _] ->
+        false
+
+      ["PhoenixKit", "Modules", _, "Web" | _] ->
+        # Core modules live inside :phoenix_kit app; extracted packages have their own OTP app.
+        # Use :application.get_application/1 to distinguish them.
+        :application.get_application(view) != {:ok, :phoenix_kit}
+
+      ["PhoenixKit" | _] ->
+        false
+
+      _ ->
+        true
     end
   end
 
