@@ -168,6 +168,91 @@ Built-in Dashboard Features
 **Full documentation:** `lib/phoenix_kit/dashboard/README.md` (tabs, subtabs, badges, context selectors, and more).
 
 
+## Activity Feed
+
+Core module at `lib/phoenix_kit/activity/` — tracks business-level actions across the platform. Admin UI at `/admin/activity` with detail pages at `/admin/activity/:uuid`.
+
+### Logging an activity
+
+```elixir
+PhoenixKit.Activity.log(%{
+  action: "post.created",       # required — dotted format: resource.verb
+  module: "posts",              # which module this belongs to (filterable)
+  mode: "manual",               # "manual" (user/admin clicked) or "auto" (system triggered)
+  actor_uuid: user.uuid,        # who did it
+  resource_type: "post",        # what kind of thing was acted on
+  resource_uuid: post.uuid,     # the thing's UUID
+  target_uuid: nil,             # optional: who was affected (e.g., follow target)
+  metadata: %{                  # flexible JSONB — shown in detail page
+    "actor_role" => "user",     # "user" or "admin"
+    "title" => post.title
+  }
+})
+```
+
+### Helper for profile/field changes
+
+For changes with from/to diffs, use `log_user_change/4` — auto-extracts `field_from`/`field_to` pairs from an Ecto changeset:
+
+```elixir
+# User updates own profile (defaults: mode "manual", actor_role "user")
+PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset)
+
+# Admin updates a user (override actor and role)
+PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+  actor_uuid: admin.uuid,
+  target_uuid: user.uuid,
+  mode: "manual",
+  actor_role: "admin"
+)
+```
+
+Skips logging if nothing actually changed. The index page summarizes diffs as "username, email updated"; the detail page shows full `_from`/`_to` values.
+
+### Conventions
+
+| Field | Convention |
+|-------|-----------|
+| `action` | `resource.verb` — e.g., `user.registered`, `post.created`, `comment.liked` |
+| `module` | Module key string: `"users"`, `"posts"`, `"comments"`, `"connections"` |
+| `mode` | `"manual"` = person clicked a button; `"auto"` = system/token triggered; `"cron"` = scheduled; `"script"` = one-off |
+| `actor_role` | `"admin"` or `"user"` — baked into metadata at log time (captures role at time of action) |
+| `resource_type` | Same as `module` for most cases, but can differ (e.g., module `"users"`, resource_type `"user"`) |
+
+### Existing user actions
+
+| Action | Mode | Logged in |
+|--------|------|-----------|
+| `user.registered` | manual | `registration.ex` |
+| `user.created` | manual | `user_form.ex` (admin) |
+| `user.email_confirmed` | auto/manual | `auth.ex`, `magic_link.ex`, `oauth.ex`, `users.ex` |
+| `user.email_unconfirmed` | manual | `users.ex` |
+| `user.password_changed` | manual | `auth.ex` (user + admin paths) |
+| `user.password_reset` | auto | `auth.ex` |
+| `user.email_changed` | auto | `auth.ex` (stores old_email/new_email) |
+| `user.profile_updated` | manual | `auth.ex` (user), `user_form.ex` (admin) — uses `log_user_change` |
+| `user.avatar_changed` | manual | `user_settings.ex` (user), `user_form.ex` (admin) |
+| `user.status_changed` | manual | `users.ex` (admin) |
+| `user.deleted` | manual | `auth.ex` (stores deleted_email) |
+| `user.roles_updated` | manual | `user_form.ex`, `users.ex` (admin) — stores roles_from/to, added/removed |
+| `user.note_created` | manual | `auth.ex` |
+| `user.note_deleted` | manual | `auth.ex` |
+
+### External modules
+
+External modules should guard with `Code.ensure_loaded?/1`:
+
+```elixir
+if Code.ensure_loaded?(PhoenixKit.Activity) do
+  PhoenixKit.Activity.log(%{action: "comment.created", module: "comments", ...})
+end
+```
+
+### Cleanup
+
+Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
+
+
 ## Guidelines
 
 ### External Module Auto-Discovery

@@ -1,0 +1,165 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Activity Detail"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <.admin_page_header
+      back={Routes.path("/admin/activity")}
+      title="Activity Detail"
+      subtitle={@entry.action}
+    />
+
+    <div class="max-w-4xl mx-auto w-full space-y-6">
+      <%!-- Action & Status --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <span class={"badge badge-lg #{action_badge_color(@entry.action)}"}>
+              {@entry.action}
+            </span>
+            <%= if @entry.module do %>
+              <span class="badge badge-outline">{@entry.module}</span>
+            <% end %>
+            <%= if @entry.mode do %>
+              <span class={"badge #{mode_badge_color(@entry.mode)}"}>{@entry.mode}</span>
+            <% end %>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <%!-- Activity UUID --%>
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">Activity ID</div>
+              <code class="text-sm break-all">{@entry.uuid}</code>
+            </div>
+
+            <%!-- Timestamp --%>
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">Date & Time</div>
+              <div class="text-sm">
+                {Calendar.strftime(@entry.inserted_at, "%B %d, %Y at %H:%M:%S UTC")}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- People --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h3 class="font-semibold text-lg mb-4">People</h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <%!-- Actor --%>
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">Actor (who did it)</div>
+              <%= if @entry.actor do %>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold">{@entry.actor.email}</span>
+                  <%= if @entry.metadata["actor_role"] do %>
+                    <span class={[
+                      "badge badge-xs",
+                      if(@entry.metadata["actor_role"] == "admin",
+                        do: "badge-warning",
+                        else: "badge-ghost"
+                      )
+                    ]}>
+                      {@entry.metadata["actor_role"]}
+                    </span>
+                  <% end %>
+                </div>
+                <div class="text-xs text-base-content/40 mt-0.5">
+                  {to_string(@entry.actor_uuid)}
+                </div>
+              <% else %>
+                <span class="text-base-content/50">System</span>
+              <% end %>
+            </div>
+
+            <%!-- Target --%>
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">Target (who was affected)</div>
+              <%= if @entry.target do %>
+                <div class="font-semibold">{@entry.target.email}</div>
+                <div class="text-xs text-base-content/40 mt-0.5">
+                  {to_string(@entry.target_uuid)}
+                </div>
+              <% else %>
+                <span class="text-base-content/30">—</span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Subject --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h3 class="font-semibold text-lg mb-4">Subject</h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">Type</div>
+              <%= if @entry.resource_type do %>
+                <span class="badge badge-ghost">{@entry.resource_type}</span>
+              <% else %>
+                <span class="text-base-content/30">—</span>
+              <% end %>
+            </div>
+
+            <div>
+              <div class="text-xs text-base-content/50 mb-1">ID</div>
+              <%= if @entry.resource_uuid do %>
+                <div>
+                  <%= if @resource_user do %>
+                    <span class="font-semibold">{@resource_user.email}</span>
+                  <% end %>
+                  <div class="text-xs text-base-content/40 mt-0.5">
+                    {to_string(@entry.resource_uuid)}
+                  </div>
+                </div>
+              <% else %>
+                <span class="text-base-content/30">—</span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Metadata --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h3 class="font-semibold text-lg mb-4">Metadata</h3>
+
+          <%= if @entry.metadata && map_size(@entry.metadata) > 0 do %>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th class="w-1/3">Key</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for {key, value} <- Enum.sort(@entry.metadata) do %>
+                    <tr>
+                      <td class="font-mono text-sm text-base-content/70">{key}</td>
+                      <td class="text-sm break-all">{to_string(value)}</td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% else %>
+            <div class="text-center py-4 text-base-content/50">
+              No metadata
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
