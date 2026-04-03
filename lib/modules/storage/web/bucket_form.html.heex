@@ -133,28 +133,20 @@
             <div class="divider">{gettext("Cloud Provider Configuration")}</div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">{gettext("AWS Region")} *</span>
-                </label>
-                <% current_region = Ecto.Changeset.get_field(@changeset, :region) %>
-                <label class="select select-bordered w-full">
-                  <select name="bucket[region]" required>
-                    <option value="" disabled selected={!current_region}>
-                      Select a region
-                    </option>
-                    <%= for {continent, regions} <- AwsRegions.group_by_continent() do %>
-                      <optgroup label={continent}>
-                        <%= for region <- regions do %>
-                          <option value={region.code} selected={current_region == region.code}>
-                            {region.name} — {region.code}
-                          </option>
-                        <% end %>
-                      </optgroup>
-                    <% end %>
-                  </select>
-                </label>
-              </div>
+              <.live_component
+                module={PhoenixKitWeb.Live.Components.SearchableSelect}
+                id="bucket-region-select"
+                name="bucket[region]"
+                value={Ecto.Changeset.get_field(@changeset, :region)}
+                label={"#{gettext("AWS Region")} *"}
+                placeholder="Search regions..."
+                required={true}
+                grouped_options={
+                  Enum.map(AwsRegions.group_by_continent(), fn {continent, regions} ->
+                    {continent, Enum.map(regions, fn r -> {"#{r.name} — #{r.code}", r.code} end)}
+                  end)
+                }
+              />
 
               <div class="form-control">
                 <label class="label">
