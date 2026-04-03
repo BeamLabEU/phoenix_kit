@@ -117,7 +117,7 @@
                 navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_uuid}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <.thumbnail_url :let={url} file={file} size={:medium}>
+                <.thumbnail_url :let={url} file={file} size={:small}>
                   <%= if url do %>
                     <img
                       src={url}

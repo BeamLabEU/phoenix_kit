@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="Storage Settings"
+  page_title="Media Settings"
   current_path={@current_path}
   current_locale={@current_locale}
   project_title={@project_title}
@@ -9,9 +9,11 @@
   <div class="container mx-auto px-4 py-8 max-w-6xl">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/modules")}
-      title={gettext("Storage Settings")}
+      title={gettext("Media Settings")}
       subtitle={
-        gettext("Configure storage buckets and file processing settings for your application")
+        gettext(
+          "Configure media storage buckets and file processing settings for your application"
+        )
       }
     />
 
@@ -21,22 +23,20 @@
       <div>
         <h3 class="font-bold">{gettext("Core System Module")}</h3>
         <p class="text-sm">
-          {gettext(
-            "Storage is a core system module that is always enabled and cannot be disabled."
-          )}
+          {gettext("Media is a core system module that is always enabled and cannot be disabled.")}
           {gettext("It provides essential file management functionality across PhoenixKit.")}
         </p>
       </div>
     </div>
 
-    <%!-- Repair Storage Module Section --%>
+    <%!-- Repair Media Module Section --%>
     <div class="alert alert-warning mb-6">
       <.icon name="hero-wrench-screwdriver" class="w-5 h-5" />
       <div class="flex-1">
-        <h3 class="font-bold">{gettext("Storage Module Repair")}</h3>
+        <h3 class="font-bold">{gettext("Media Module Repair")}</h3>
         <p class="text-sm">
           {gettext(
-            "If your storage module isn't working correctly, use this to reset configuration to defaults."
+            "If your media module isn't working correctly, use this to reset configuration to defaults."
           )}
           {gettext("This will NOT delete any uploaded files.")}
         </p>
@@ -51,7 +51,7 @@
         class="btn btn-warning btn-sm"
       >
         <.icon name="hero-wrench-screwdriver" class="w-4 h-4 mr-1" /> {gettext(
-          "Repair Storage Module"
+          "Repair Media Module"
         )}
       </button>
     </div>
@@ -107,12 +107,12 @@
       </div>
     <% end %>
 
-    <%!-- Storage Buckets --%>
+    <%!-- Media Buckets --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <div class="flex justify-between items-center mb-4">
           <h2 class="card-title text-2xl">
-            <.icon name="hero-inbox-stack" class="w-6 h-6 mr-2" /> {gettext("Storage Buckets")}
+            <.icon name="hero-inbox-stack" class="w-6 h-6 mr-2" /> {gettext("Media Buckets")}
           </h2>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/buckets/new")}
@@ -126,10 +126,10 @@
           <div class="alert alert-warning">
             <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
             <div>
-              <h3 class="font-bold">{gettext("No Storage Buckets Configured")}</h3>
+              <h3 class="font-bold">{gettext("No Media Buckets Configured")}</h3>
               <p class="text-sm">
                 {gettext(
-                  "You need to create at least one storage bucket before files can be uploaded."
+                  "You need to create at least one media bucket before files can be uploaded."
                 )}
                 {gettext(
                   "Buckets can be local directories or cloud storage providers (AWS S3, Backblaze B2, Cloudflare R2)."
@@ -290,7 +290,7 @@
             <div class="stat">
               <div class="stat-title">{gettext("Total Buckets")}</div>
               <div class="stat-value text-2xl">{length(@buckets)}</div>
-              <div class="stat-desc">{gettext("Configured storage locations")}</div>
+              <div class="stat-desc">{gettext("Configured media locations")}</div>
             </div>
 
             <div class="stat">
@@ -310,18 +310,18 @@
                   <span class="text-warning">{gettext("None")}</span>
                 <% end %>
               </div>
-              <div class="stat-desc">{gettext("Primary storage location")}</div>
+              <div class="stat-desc">{gettext("Primary media location")}</div>
             </div>
           </div>
         <% end %>
       </div>
     </div>
 
-    <%!-- Storage Configuration --%>
+    <%!-- Media Configuration --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <h2 class="card-title text-2xl mb-4">
-          <.icon name="hero-cog-6-tooth" class="w-6 h-6 mr-2" /> {gettext("Storage Configuration")}
+          <.icon name="hero-cog-6-tooth" class="w-6 h-6 mr-2" /> {gettext("Media Configuration")}
         </h2>
 
         <.form
@@ -435,7 +435,7 @@
           </.link>
 
           <button class="btn btn-outline" disabled>
-            <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> {gettext("Storage Stats")}
+            <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> {gettext("Media Stats")}
             <span class="badge badge-xs ml-1">{gettext("Soon")}</span>
           </button>
 
@@ -457,12 +457,12 @@
         </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <%!-- Multi-Location Storage --%>
+          <%!-- Multi-Location Media Storage --%>
           <div class="border border-base-300 rounded-lg p-4">
             <div class="flex items-start gap-3">
               <div class="text-3xl">🗂️</div>
               <div>
-                <h3 class="font-bold mb-1">{gettext("Multi-Location Storage")}</h3>
+                <h3 class="font-bold mb-1">{gettext("Multi-Location Media Storage")}</h3>
                 <p class="text-sm text-base-content/70">
                   {gettext("Store files across 1-5 redundant locations with automatic failover")}
                 </p>
@@ -503,7 +503,7 @@
               <div>
                 <h3 class="font-bold mb-1">{gettext("Admin Dashboard")}</h3>
                 <p class="text-sm text-base-content/70">
-                  {gettext("Monitor storage health, locations, and file distribution")}
+                  {gettext("Monitor media health, locations, and file distribution")}
                 </p>
               </div>
             </div>
@@ -529,7 +529,7 @@
               <div>
                 <h3 class="font-bold mb-1">{gettext("Automatic Failover")}</h3>
                 <p class="text-sm text-base-content/70">
-                  {gettext("Seamless file retrieval even when storage locations fail")}
+                  {gettext("Seamless file retrieval even when media locations fail")}
                 </p>
               </div>
             </div>
@@ -544,13 +544,13 @@
     <div class="alert mt-6">
       <.icon name="hero-light-bulb" class="w-5 h-5" />
       <div>
-        <h3 class="font-bold">{gettext("Storage System Architecture")}</h3>
+        <h3 class="font-bold">{gettext("Media System Architecture")}</h3>
         <p class="text-sm">
           {gettext(
-            "The storage system is designed for distributed file management with automatic redundancy."
+            "The media system is designed for distributed file management with automatic redundancy."
           )}
           {gettext(
-            "Files are tracked in PostgreSQL with support for multiple storage locations (local, S3, remote servers)."
+            "Files are tracked in PostgreSQL with support for multiple media locations (local, S3, remote servers)."
           )}
           {gettext(
             "When a file is requested, the system automatically tries each location until it successfully retrieves the file."
