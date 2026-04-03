@@ -153,11 +153,40 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   def handle_event("sync_user_roles", params, socket) do
     user = socket.assigns.managing_user
+    current_roles = socket.assigns.user_roles
     selected_roles = Map.get(params, "roles", %{})
     role_names = Map.values(selected_roles)
 
     case Roles.sync_user_roles(user, role_names) do
       {:ok, _assignments} ->
+        admin = socket.assigns.phoenix_kit_current_user
+        added = role_names -- current_roles
+        removed = current_roles -- role_names
+
+        if added != [] or removed != [] do
+          metadata =
+            %{"actor_role" => "admin"}
+            |> then(fn m ->
+              if added != [], do: Map.put(m, "added", Enum.join(added, ", ")), else: m
+            end)
+            |> then(fn m ->
+              if removed != [], do: Map.put(m, "removed", Enum.join(removed, ", ")), else: m
+            end)
+            |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
+            |> Map.put("roles_to", Enum.join(Enum.sort(role_names), ", "))
+
+          PhoenixKit.Activity.log(%{
+            action: "user.roles_updated",
+            module: "users",
+            mode: "manual",
+            actor_uuid: admin.uuid,
+            resource_type: "user",
+            resource_uuid: user.uuid,
+            target_uuid: user.uuid,
+            metadata: metadata
+          })
+        end
+
         socket =
           socket
           |> put_flash(:info, "User roles updated successfully")
