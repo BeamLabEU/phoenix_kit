@@ -750,7 +750,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
             added = pending_roles -- current_roles
             removed = current_roles -- pending_roles
 
-            Enum.each(added, fn role ->
+            Enum.each(added, fn role_name ->
+              role = Roles.get_role_by_name(role_name)
+
               PhoenixKit.Activity.log(%{
                 action: "user.role_assigned",
                 module: "users",
@@ -759,11 +761,17 @@ defmodule PhoenixKitWeb.Users.UserForm do
                 resource_type: "user",
                 resource_uuid: user.uuid,
                 target_uuid: user.uuid,
-                metadata: %{"role" => role, "actor_role" => "admin"}
+                metadata: %{
+                  "role_name" => role_name,
+                  "role_uuid" => role && to_string(role.uuid),
+                  "actor_role" => "admin"
+                }
               })
             end)
 
-            Enum.each(removed, fn role ->
+            Enum.each(removed, fn role_name ->
+              role = Roles.get_role_by_name(role_name)
+
               PhoenixKit.Activity.log(%{
                 action: "user.role_revoked",
                 module: "users",
@@ -772,7 +780,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
                 resource_type: "user",
                 resource_uuid: user.uuid,
                 target_uuid: user.uuid,
-                metadata: %{"role" => role, "actor_role" => "admin"}
+                metadata: %{
+                  "role_name" => role_name,
+                  "role_uuid" => role && to_string(role.uuid),
+                  "actor_role" => "admin"
+                }
               })
             end)
 
