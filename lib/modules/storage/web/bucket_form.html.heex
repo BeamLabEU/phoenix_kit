@@ -133,20 +133,36 @@
             <div class="divider">{gettext("Cloud Provider Configuration")}</div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <.live_component
-                module={PhoenixKitWeb.Live.Components.SearchableSelect}
-                id="bucket-region-select"
-                name="bucket[region]"
-                value={Ecto.Changeset.get_field(@changeset, :region)}
-                label={"#{if @current_provider == "s3", do: gettext("AWS Region"), else: gettext("Region")} *"}
-                placeholder="Search regions..."
-                required={true}
-                grouped_options={
-                  Enum.map(AwsRegions.group_by_continent(), fn {continent, regions} ->
-                    {continent, Enum.map(regions, fn r -> {"#{r.name} — #{r.code}", r.code} end)}
-                  end)
-                }
-              />
+              <%= if @current_provider == "s3" do %>
+                <.live_component
+                  module={PhoenixKitWeb.Live.Components.SearchableSelect}
+                  id="bucket-region-select"
+                  name="bucket[region]"
+                  value={Ecto.Changeset.get_field(@changeset, :region)}
+                  label={"#{gettext("AWS Region")} *"}
+                  placeholder="Search regions..."
+                  required={true}
+                  grouped_options={
+                    Enum.map(AwsRegions.group_by_continent(), fn {continent, regions} ->
+                      {continent,
+                       Enum.map(regions, fn r -> {"#{r.name} — #{r.code}", r.code} end)}
+                    end)
+                  }
+                />
+              <% else %>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-semibold">{gettext("Region")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="bucket[region]"
+                    value={Ecto.Changeset.get_field(@changeset, :region)}
+                    class={"input input-bordered #{input_class(@changeset, :region)}"}
+                    placeholder="e.g., us-west-002"
+                  />
+                </div>
+              <% end %>
 
               <div class="form-control">
                 <label class="label">
