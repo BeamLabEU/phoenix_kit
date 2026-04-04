@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V91 do
+defmodule PhoenixKit.Migrations.Postgres.V92 do
   @moduledoc """
-  V91: Add organization accounts support and organization invitations.
+  V92: Add organization accounts support and organization invitations.
 
   ## User schema changes
 
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Migrations.Postgres.V91 do
     END $$;
     """)
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '91'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '92'")
   end
 
   def down(opts) do
@@ -165,7 +165,7 @@ defmodule PhoenixKit.Migrations.Postgres.V91 do
       DROP COLUMN IF EXISTS account_type;
     """)
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '90'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '91'")
   end
 
   defp prefix_str("public"), do: "public."

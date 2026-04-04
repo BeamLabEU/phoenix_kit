@@ -529,11 +529,14 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V91 - Organization Accounts ⚡ LATEST
+  ### V92 - Organization Accounts ⚡ LATEST
   - Adds `account_type` column (VARCHAR(20), NOT NULL, DEFAULT 'person') with CHECK constraint
   - Adds `organization_name` column (VARCHAR(255)) for organization display names
   - Adds `organization_uuid` self-referencing FK to link persons to organizations
   - Indexes on `account_type` and `organization_uuid`
+
+  ### V91 - Locations
+  - Creates `phoenix_kit_location_types`, `phoenix_kit_locations`, `phoenix_kit_location_type_assignments`
 
   ### V90 - Activity module tables
   ### V89 - Catalogue pricing
@@ -685,7 +688,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 91
+  @current_version 92
   @default_prefix "public"
 
   @doc false
