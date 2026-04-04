@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJob do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.GenerateJob do
   @moduledoc """
   Oban worker for generating LLM text files.
 
@@ -12,37 +12,37 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJob do
 
   Use the helper functions to build changesets; the caller inserts them:
 
-      changeset = GenerateLLMTextJob.enqueue_all()
+      changeset = GenerateJob.enqueue_all()
       {:ok, job} = Oban.insert(changeset)
 
-      changeset = GenerateLLMTextJob.enqueue_for_source(:blog)
+      changeset = GenerateJob.enqueue_for_source(:blog)
       {:ok, job} = Oban.insert(changeset)
 
-      changeset = GenerateLLMTextJob.enqueue_for_file(:blog, "posts/article.md")
+      changeset = GenerateJob.enqueue_for_file(:blog, "posts/article.md")
       {:ok, job} = Oban.insert(changeset)
   """
 
   use Oban.Worker,
-    queue: :llm_text,
+    queue: :sitemap,
     max_attempts: 3,
     unique: [period: 5, fields: [:args], keys: [:scope, :source]]
 
   require Logger
 
-  alias PhoenixKit.Modules.LLMText.Generator
+  alias PhoenixKit.Modules.Sitemap.LLMText.Generator
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"scope" => "all"}}) do
-    Logger.info("GenerateLLMTextJob: Running all sources")
+    Logger.info("Sitemap.LLMText.GenerateJob: Running all sources")
     Generator.run_all()
   end
 
   def perform(%Oban.Job{args: %{"scope" => "source", "source" => source_name}}) do
-    Logger.info("GenerateLLMTextJob: Running source #{source_name}")
+    Logger.info("Sitemap.LLMText.GenerateJob: Running source #{source_name}")
 
     case resolve_source(source_name) do
       nil ->
-        Logger.warning("GenerateLLMTextJob: Source not found: #{source_name}")
+        Logger.warning("Sitemap.LLMText.GenerateJob: Source not found: #{source_name}")
         {:error, {:source_not_found, source_name}}
 
       source_module ->
@@ -51,22 +51,22 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJob do
   end
 
   def perform(%Oban.Job{args: %{"scope" => "file", "source" => source_name, "path" => path}}) do
-    Logger.info("GenerateLLMTextJob: Running file #{path} from source #{source_name}")
+    Logger.info("Sitemap.LLMText.GenerateJob: Running file #{path} from source #{source_name}")
 
     case resolve_source(source_name) do
       nil ->
-        Logger.warning("GenerateLLMTextJob: Source not found: #{source_name}")
+        Logger.warning("Sitemap.LLMText.GenerateJob: Source not found: #{source_name}")
         {:error, {:source_not_found, source_name}}
 
       source_module ->
-        alias PhoenixKit.Modules.LLMText.FileStorage
-        alias PhoenixKit.Modules.LLMText.Sources.Source
+        alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
+        alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
         files = Source.safe_collect_page_files(source_module)
 
         case Enum.find(files, fn {p, _} -> p == path end) do
           nil ->
-            Logger.warning("GenerateLLMTextJob: File not found in source: #{path}")
+            Logger.warning("Sitemap.LLMText.GenerateJob: File not found in source: #{path}")
             {:error, {:file_not_found, path}}
 
           {_, content} ->

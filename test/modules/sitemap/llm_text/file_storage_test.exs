@@ -1,14 +1,14 @@
-defmodule PhoenixKit.Modules.LLMText.FileStorageTest do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.FileStorageTest do
   use ExUnit.Case, async: false
 
-  alias PhoenixKit.Modules.LLMText.FileStorage
+  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
 
   setup do
     tmp_dir = System.tmp_dir!() |> Path.join("llm_text_test_#{:rand.uniform(1_000_000)}")
-    Application.put_env(:phoenix_kit, :llm_text_test_storage_dir, tmp_dir)
+    Application.put_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir, tmp_dir)
 
     on_exit(fn ->
-      Application.delete_env(:phoenix_kit, :llm_text_test_storage_dir)
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir)
       File.rm_rf(tmp_dir)
     end)
 

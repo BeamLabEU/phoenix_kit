@@ -1,11 +1,11 @@
-defmodule PhoenixKit.Modules.LLMText.Sources.SourceTest do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.SourceTest do
   use ExUnit.Case, async: true
 
-  alias PhoenixKit.Modules.LLMText.Sources.Source
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   # A valid stub source
   defmodule ValidSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :valid_stub
     def enabled?, do: true
@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.SourceTest do
 
   # A disabled source
   defmodule DisabledSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :disabled_stub
     def enabled?, do: false
@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.SourceTest do
 
   # A crashing source
   defmodule CrashingSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :crashing_stub
     def enabled?, do: true

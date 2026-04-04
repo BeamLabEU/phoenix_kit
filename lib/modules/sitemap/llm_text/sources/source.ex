@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.Sources.Source do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Source do
   @moduledoc """
   Behaviour for LLM text data sources.
 
@@ -85,7 +85,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.Source do
   rescue
     error ->
       Logger.warning(
-        "LLMText source #{inspect(source_module)} failed to collect index entries: #{inspect(error)}"
+        "Sitemap.LLMText source #{inspect(source_module)} failed to collect index entries: #{inspect(error)}"
       )
 
       []
@@ -104,7 +104,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.Source do
   rescue
     error ->
       Logger.warning(
-        "LLMText source #{inspect(source_module)} failed to collect page files: #{inspect(error)}"
+        "Sitemap.LLMText source #{inspect(source_module)} failed to collect page files: #{inspect(error)}"
       )
 
       []

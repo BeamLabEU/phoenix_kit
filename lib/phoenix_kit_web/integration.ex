@@ -289,8 +289,8 @@ defmodule PhoenixKitWeb.Integration do
 
       # LLM text routes - public plain text endpoints for AI/LLM consumption
       scope unquote(url_prefix) do
-        get "/llms.txt", PhoenixKit.Modules.LLMText.Web.Controller, :index
-        get "/llms/*path", PhoenixKit.Modules.LLMText.Web.Controller, :show
+        get "/llms.txt", PhoenixKit.Modules.Sitemap.LLMText.Controller, :index
+        get "/llms/*path", PhoenixKit.Modules.Sitemap.LLMText.Controller, :show
       end
 
       # Shop public routes are generated via generate_shop_public_routes/1 helper
@@ -560,12 +560,6 @@ defmodule PhoenixKitWeb.Integration do
                PhoenixKit.Modules.Billing.Web.ProviderSettings,
                :index,
                as: :billing_provider_settings
-
-          # LLM Text settings
-          live "/admin/settings/llm-text",
-               PhoenixKit.Modules.LLMText.Web.Settings,
-               :index,
-               as: :llm_text_settings
 
           # DB Explorer routes
           live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index

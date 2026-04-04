@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.Generator do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Generator do
   @moduledoc """
   Generator for LLM-friendly text files.
 
@@ -20,15 +20,15 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
 
   require Logger
 
-  alias PhoenixKit.Modules.LLMText.FileStorage
-  alias PhoenixKit.Modules.LLMText.Sources.Source
+  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   @doc """
   Regenerates files for one source and rebuilds the llms.txt index.
   """
   @spec run_source(module()) :: :ok
   def run_source(source_module) do
-    Logger.info("LLMText.Generator: Running source #{inspect(source_module)}")
+    Logger.info("Sitemap.LLMText.Generator: Running source #{inspect(source_module)}")
 
     files = Source.safe_collect_page_files(source_module)
 
@@ -38,7 +38,7 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
           :ok
 
         {:error, reason} ->
-          Logger.warning("LLMText.Generator: Failed to write #{path}: #{inspect(reason)}")
+          Logger.warning("Sitemap.LLMText.Generator: Failed to write #{path}: #{inspect(reason)}")
       end
     end)
 
@@ -51,7 +51,7 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
   @spec run_all() :: :ok
   def run_all do
     sources = get_sources()
-    Logger.info("LLMText.Generator: Running all #{length(sources)} sources")
+    Logger.info("Sitemap.LLMText.Generator: Running all #{length(sources)} sources")
 
     Enum.each(sources, fn source_module ->
       files = Source.safe_collect_page_files(source_module)
@@ -62,7 +62,9 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
             :ok
 
           {:error, reason} ->
-            Logger.warning("LLMText.Generator: Failed to write #{path}: #{inspect(reason)}")
+            Logger.warning(
+              "Sitemap.LLMText.Generator: Failed to write #{path}: #{inspect(reason)}"
+            )
         end
       end)
     end)
@@ -76,7 +78,7 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
   @spec rebuild_index() :: :ok
   def rebuild_index do
     sources = get_sources()
-    Logger.debug("LLMText.Generator: Rebuilding index from #{length(sources)} sources")
+    Logger.debug("Sitemap.LLMText.Generator: Rebuilding index from #{length(sources)} sources")
 
     entries =
       sources
@@ -89,7 +91,7 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
         :ok
 
       {:error, reason} ->
-        Logger.warning("LLMText.Generator: Failed to write index: #{inspect(reason)}")
+        Logger.warning("Sitemap.LLMText.Generator: Failed to write index: #{inspect(reason)}")
         :ok
     end
   end
@@ -154,7 +156,7 @@ defmodule PhoenixKit.Modules.LLMText.Generator do
   """
   @spec get_sources() :: [module()]
   def get_sources do
-    Application.get_env(:phoenix_kit, :llm_text_sources, [])
+    Application.get_env(:phoenix_kit, :sitemap_llm_text_sources, [])
   end
 
   # Private helpers

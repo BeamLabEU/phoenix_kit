@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.Web.Controller do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Controller do
   @moduledoc """
   Controller for serving LLM-friendly text files.
 
@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.LLMText.Web.Controller do
 
   require Logger
 
-  alias PhoenixKit.Modules.LLMText.FileStorage
+  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
 
   @doc """
   Serves the llms.txt index file.
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.LLMText.Web.Controller do
         |> send_resp(404, "Not found")
 
       {:error, reason} ->
-        Logger.warning("LLMText controller: failed to read llms.txt: #{inspect(reason)}")
+        Logger.warning("Sitemap.LLMText controller: failed to read llms.txt: #{inspect(reason)}")
 
         conn
         |> put_resp_content_type("text/plain; charset=utf-8")
@@ -70,7 +70,7 @@ defmodule PhoenixKit.Modules.LLMText.Web.Controller do
 
         {:error, reason} ->
           Logger.warning(
-            "LLMText controller: failed to read #{relative_path}: #{inspect(reason)}"
+            "Sitemap.LLMText controller: failed to read #{relative_path}: #{inspect(reason)}"
           )
 
           conn

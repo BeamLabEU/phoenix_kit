@@ -1,7 +1,7 @@
-defmodule PhoenixKit.Modules.LLMText.Sources.PublishingTest do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.PublishingTest do
   use ExUnit.Case, async: true
 
-  alias PhoenixKit.Modules.LLMText.Sources.Publishing
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing
 
   describe "source_name/0" do
     test "returns :publishing" do

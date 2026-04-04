@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.FileStorage do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.FileStorage do
   @moduledoc """
   File-based storage for LLM text files.
 
@@ -10,7 +10,7 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
   ## Test Override
 
-  Set `Application.put_env(:phoenix_kit, :llm_text_test_storage_dir, "/tmp/...")` to
+  Set `Application.put_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir, "/tmp/...")` to
   override the storage directory in tests.
   """
 
@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
   """
   @spec storage_dir() :: String.t()
   def storage_dir do
-    case Application.get_env(:phoenix_kit, :llm_text_test_storage_dir) do
+    case Application.get_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir) do
       nil -> resolve_storage_dir()
       dir -> dir
     end
@@ -57,12 +57,15 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
     with :ok <- ensure_directory_exists(path),
          :ok <- File.write(path, content) do
-      Logger.debug("LLMText.FileStorage: Wrote #{relative_path} (#{byte_size(content)} bytes)")
+      Logger.debug(
+        "Sitemap.LLMText.FileStorage: Wrote #{relative_path} (#{byte_size(content)} bytes)"
+      )
+
       :ok
     else
       {:error, reason} = error ->
         Logger.warning(
-          "LLMText.FileStorage: Failed to write #{relative_path}: #{inspect(reason)}"
+          "Sitemap.LLMText.FileStorage: Failed to write #{relative_path}: #{inspect(reason)}"
         )
 
         error
@@ -78,11 +81,14 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
     with :ok <- ensure_directory_exists(path),
          :ok <- File.write(path, content) do
-      Logger.debug("LLMText.FileStorage: Wrote llms.txt (#{byte_size(content)} bytes)")
+      Logger.debug("Sitemap.LLMText.FileStorage: Wrote llms.txt (#{byte_size(content)} bytes)")
       :ok
     else
       {:error, reason} = error ->
-        Logger.warning("LLMText.FileStorage: Failed to write llms.txt: #{inspect(reason)}")
+        Logger.warning(
+          "Sitemap.LLMText.FileStorage: Failed to write llms.txt: #{inspect(reason)}"
+        )
+
         error
     end
   end
@@ -96,7 +102,7 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
     case File.rm(path) do
       :ok ->
-        Logger.debug("LLMText.FileStorage: Deleted #{relative_path}")
+        Logger.debug("Sitemap.LLMText.FileStorage: Deleted #{relative_path}")
         :ok
 
       {:error, :enoent} ->
@@ -104,7 +110,7 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
       {:error, reason} ->
         Logger.warning(
-          "LLMText.FileStorage: Failed to delete #{relative_path}: #{inspect(reason)}"
+          "Sitemap.LLMText.FileStorage: Failed to delete #{relative_path}: #{inspect(reason)}"
         )
 
         :ok
@@ -128,11 +134,14 @@ defmodule PhoenixKit.Modules.LLMText.FileStorage do
 
     case File.rm_rf(dir) do
       {:ok, _} ->
-        Logger.debug("LLMText.FileStorage: Deleted all files in #{dir}")
+        Logger.debug("Sitemap.LLMText.FileStorage: Deleted all files in #{dir}")
         :ok
 
       {:error, reason, _path} ->
-        Logger.warning("LLMText.FileStorage: Failed to delete storage dir: #{inspect(reason)}")
+        Logger.warning(
+          "Sitemap.LLMText.FileStorage: Failed to delete storage dir: #{inspect(reason)}"
+        )
+
         :ok
     end
   rescue

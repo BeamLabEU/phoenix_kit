@@ -144,7 +144,7 @@
   {"test/support/conn_case.ex", :unknown_function},
   {"test/support/data_case.ex", :unknown_function},
 
-  # LLMText module — Publishing is an external package, guarded by Code.ensure_loaded?
-  {"lib/modules/llm_text/sources/publishing.ex", :unknown_function},
-  {"lib/modules/llm_text/publishing_subscriber.ex", :unknown_function}
+  # LLMText module (now under Sitemap) — Publishing is an external package, guarded by Code.ensure_loaded?
+  {"lib/modules/sitemap/llm_text/sources/publishing.ex", :unknown_function},
+  {"lib/modules/sitemap/llm_text/publishing_subscriber.ex", :unknown_function}
 ]
