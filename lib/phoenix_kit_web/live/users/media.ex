@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       allow_upload(socket, :media_files,
         accept: ["image/*", "video/*", "application/pdf"],
         max_entries: 10,
-        max_file_size: 100_000_000,
+        max_file_size: 1_000_000_000_000,
         auto_upload: true
       )
     else
@@ -137,12 +137,9 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("validate", _params, socket) do
-    # File selection event - files will auto-upload
     entries = socket.assigns.uploads.media_files.entries
-    Logger.info("validate event: entries=#{length(entries)}")
 
     if entries != [] do
-      Logger.info("validate: scheduling check_uploads_complete")
       Process.send_after(self(), :check_uploads_complete, 500)
     end
 
@@ -153,30 +150,30 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, cancel_upload(socket, :media_files, ref)}
   end
 
-  def handle_info({:file_uploaded, file_uuid}, socket) do
-    # This event can be used by other modules listening to uploaded files
-    # For example, avatar upload systems can listen for this event
-    Logger.info("File uploaded with ID: #{file_uuid}")
+  def handle_info({:file_uploaded, _file_uuid}, socket) do
     {:noreply, socket}
   end
 
   def handle_info(:check_uploads_complete, socket) do
     entries = socket.assigns.uploads.media_files.entries
 
-    Logger.info(
-      "check_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
-    )
+    cond do
+      entries == [] ->
+        # No entries left (all cancelled or consumed)
+        {:noreply, socket}
 
-    # Check if all entries are done uploading
-    if entries != [] && Enum.all?(entries, & &1.done?) do
-      Logger.info("All uploads done! Processing...")
-      # All done - process them
-      process_uploads(socket)
-    else
-      # Still uploading - check again later
-      Logger.info("Still uploading, checking again...")
-      Process.send_after(self(), :check_uploads_complete, 500)
-      {:noreply, socket}
+      Enum.all?(entries, & &1.done?) ->
+        process_uploads(socket)
+
+      Enum.any?(entries, & &1.cancelled?) ||
+          socket.assigns.uploads.media_files.errors != [] ->
+        Logger.warning("Upload rejected: #{inspect(socket.assigns.uploads.media_files.errors)}")
+
+        {:noreply, socket}
+
+      true ->
+        Process.send_after(self(), :check_uploads_complete, 500)
+        {:noreply, socket}
     end
   end
 

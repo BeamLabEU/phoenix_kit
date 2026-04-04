@@ -4,36 +4,33 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
 
   Stores files in Amazon S3 buckets using the ExAWS library.
   Supports all S3-compatible services (like Backblaze B2, Cloudflare R2, Tigris).
+
+  Files under 5 MB are uploaded via `put_object` (single request).
+  Files at or above 5 MB use multipart upload via `ExAws.S3.upload/4`
+  with streaming and concurrent chunk uploads.
   """
 
   require Logger
 
+  alias ExAws.S3.Upload
+
   @behaviour PhoenixKit.Modules.Storage.Provider
+
+  # Files at or above this size use multipart upload
+  @multipart_threshold 5 * 1024 * 1024
 
   @impl true
   def store_file(bucket, source_path, destination_path, opts \\ []) do
-    content_type = Keyword.get(opts, :content_type)
+    case File.stat(source_path) do
+      {:ok, %{size: size}} when size >= @multipart_threshold ->
+        multipart_upload(bucket, source_path, destination_path, opts)
 
-    case File.read(source_path) do
-      {:ok, file_content} ->
-        put_opts =
-          [{:acl, Keyword.get(opts, :acl, "private")}] ++
-            if(content_type, do: [{:content_type, content_type}], else: [])
-
-        case ExAws.S3.put_object(bucket.bucket_name, destination_path, file_content, put_opts)
-             |> ExAws.request(aws_config(bucket)) do
-          {:ok, _result} ->
-            url = public_url(bucket, destination_path)
-            {:ok, url}
-
-          {:error, reason} ->
-            Logger.error("S3 upload failed for #{bucket.name}: #{inspect(reason)}")
-            {:error, "Failed to upload to S3: #{inspect(reason)}"}
-        end
+      {:ok, _stat} ->
+        simple_upload(bucket, source_path, destination_path, opts)
 
       {:error, reason} ->
-        Logger.error("S3 upload: cannot read source file #{source_path}: #{inspect(reason)}")
-        {:error, "Cannot read source file: #{inspect(reason)}"}
+        Logger.error("S3 upload: cannot access source file #{source_path}: #{inspect(reason)}")
+        {:error, "Cannot access source file: #{inspect(reason)}"}
     end
   rescue
     error ->
@@ -99,6 +96,55 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     end
   rescue
     error -> {:error, "Error testing S3 connection: #{inspect(error)}"}
+  end
+
+  # Single-request upload for small files (<5 MB).
+  # Reads entire file into memory and sends in one PUT request.
+  defp simple_upload(bucket, source_path, destination_path, opts) do
+    content_type = Keyword.get(opts, :content_type)
+
+    case File.read(source_path) do
+      {:ok, file_content} ->
+        put_opts =
+          [{:acl, Keyword.get(opts, :acl, "private")}] ++
+            if(content_type, do: [{:content_type, content_type}], else: [])
+
+        case ExAws.S3.put_object(bucket.bucket_name, destination_path, file_content, put_opts)
+             |> ExAws.request(aws_config(bucket)) do
+          {:ok, _result} ->
+            {:ok, public_url(bucket, destination_path)}
+
+          {:error, reason} ->
+            Logger.error("S3 put_object failed for #{bucket.name}: #{inspect(reason)}")
+            {:error, "Failed to upload to S3: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        Logger.error("S3 upload: cannot read source file #{source_path}: #{inspect(reason)}")
+        {:error, "Cannot read source file: #{inspect(reason)}"}
+    end
+  end
+
+  # Multipart streaming upload for large files (>=5 MB).
+  # Streams file in chunks with concurrent part uploads.
+  defp multipart_upload(bucket, source_path, destination_path, opts) do
+    content_type = Keyword.get(opts, :content_type)
+
+    upload_opts =
+      [acl: Keyword.get(opts, :acl, "private"), max_concurrency: 4, timeout: 60_000] ++
+        if(content_type, do: [content_type: content_type], else: [])
+
+    case source_path
+         |> Upload.stream_file()
+         |> ExAws.S3.upload(bucket.bucket_name, destination_path, upload_opts)
+         |> ExAws.request(aws_config(bucket)) do
+      {:ok, _result} ->
+        {:ok, public_url(bucket, destination_path)}
+
+      {:error, reason} ->
+        Logger.error("S3 multipart upload failed for #{bucket.name}: #{inspect(reason)}")
+        {:error, "Failed multipart upload to S3: #{inspect(reason)}"}
+    end
   end
 
   # Build per-request ExAws config from bucket credentials.
