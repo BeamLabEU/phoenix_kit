@@ -169,18 +169,22 @@ defmodule PhoenixKit.Modules.Storage.Manager do
       buckets
       |> Enum.map(fn bucket ->
         provider = get_provider_for_bucket(bucket)
-        provider.store_file(bucket, source_path, destination_path, opts)
+        result = provider.store_file(bucket, source_path, destination_path, opts)
+        {bucket, result}
       end)
 
-    # Check if at least one storage succeeded
-    successful_storages = Enum.count(results, &(&1 == :ok or match?({:ok, _}, &1)))
+    # Only include buckets where the upload actually succeeded
+    successful_buckets =
+      Enum.filter(results, fn {_bucket, result} ->
+        result == :ok or match?({:ok, _}, result)
+      end)
 
-    if successful_storages > 0 do
+    if successful_buckets != [] do
       file_info = %{
         destination_path: destination_path,
         stored_in: length(buckets),
-        successful_storages: successful_storages,
-        bucket_ids: Enum.map(buckets, & &1.uuid)
+        successful_storages: length(successful_buckets),
+        bucket_ids: Enum.map(successful_buckets, fn {bucket, _} -> bucket.uuid end)
       }
 
       {:ok, file_info}
