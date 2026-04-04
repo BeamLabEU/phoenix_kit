@@ -419,6 +419,15 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     end
   end
 
+  # Handle PubSub message when LLM text generation completes
+  @impl true
+  def handle_info({:llm_text_generated, _}, socket) do
+    {:noreply,
+     socket
+     |> assign(:llm_text_generating, false)
+     |> put_flash(:info, "LLM Text generated successfully")}
+  end
+
   # Handle PubSub message when sitemap generation completes
   @impl true
   def handle_info({:sitemap_generated, %{url_count: count}}, socket) do

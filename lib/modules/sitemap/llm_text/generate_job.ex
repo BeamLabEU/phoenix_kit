@@ -30,11 +30,14 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GenerateJob do
   require Logger
 
   alias PhoenixKit.Modules.Sitemap.LLMText.Generator
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"scope" => "all"}}) do
     Logger.info("Sitemap.LLMText.GenerateJob: Running all sources")
-    Generator.run_all()
+    result = Generator.run_all()
+    broadcast_completed()
+    result
   end
 
   def perform(%Oban.Job{args: %{"scope" => "source", "source" => source_name}}) do
@@ -127,5 +130,11 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GenerateJob do
           false
       end
     end)
+  end
+
+  defp broadcast_completed do
+    PubSubManager.broadcast("sitemap:updates", {:llm_text_generated, %{}})
+  rescue
+    _ -> :ok
   end
 end
