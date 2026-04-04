@@ -149,25 +149,23 @@
                     end)
                   }
                 />
-              <% else %>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text font-semibold">
-                      {case @current_provider do
-                        "b2" -> gettext("Backblaze Region")
-                        "r2" -> gettext("Cloudflare Region")
-                        _ -> gettext("Region")
-                      end}
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name="bucket[region]"
-                    value={Ecto.Changeset.get_field(@changeset, :region)}
-                    class={"input input-bordered #{input_class(@changeset, :region)}"}
-                    placeholder="e.g., us-west-002"
-                  />
-                </div>
+              <% end %>
+              <%= if @current_provider == "b2" do %>
+                <.live_component
+                  module={PhoenixKitWeb.Live.Components.SearchableSelect}
+                  id="bucket-b2-region-select"
+                  name="bucket[region]"
+                  value={Ecto.Changeset.get_field(@changeset, :region)}
+                  label={"#{gettext("Backblaze Region")} *"}
+                  placeholder="Search Backblaze regions..."
+                  required={true}
+                  grouped_options={
+                    Enum.map(BackblazeRegions.group_by_continent(), fn {continent, regions} ->
+                      {continent,
+                       Enum.map(regions, fn r -> {"#{r.name} — #{r.code}", r.code} end)}
+                    end)
+                  }
+                />
               <% end %>
 
               <div class="form-control">
