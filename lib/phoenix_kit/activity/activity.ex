@@ -313,11 +313,20 @@ defmodule PhoenixKit.Activity do
   @doc "Returns a CSS badge class based on the action verb."
   def action_badge_color(action) do
     cond do
-      String.contains?(action, "created") -> "badge-success"
-      String.contains?(action, "deleted") -> "badge-error"
-      String.contains?(action, "updated") or String.contains?(action, "changed") -> "badge-warning"
-      String.contains?(action, "liked") or String.contains?(action, "followed") -> "badge-info"
-      true -> "badge-ghost"
+      String.contains?(action, "created") ->
+        "badge-success"
+
+      String.contains?(action, "deleted") ->
+        "badge-error"
+
+      String.contains?(action, "updated") or String.contains?(action, "changed") ->
+        "badge-warning"
+
+      String.contains?(action, "liked") or String.contains?(action, "followed") ->
+        "badge-info"
+
+      true ->
+        "badge-ghost"
     end
   end
 
