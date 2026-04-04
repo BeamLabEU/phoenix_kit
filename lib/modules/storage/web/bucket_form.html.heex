@@ -302,6 +302,40 @@
                 />
               </div>
             </div>
+
+            <%!-- Test Connection --%>
+            <div class="pt-2">
+              <button
+                type="button"
+                phx-click="test_connection"
+                class={"btn btn-outline btn-sm #{if @connection_status == :success, do: "btn-success", else: ""}"}
+                disabled={@testing_connection}
+              >
+                <%= if @testing_connection do %>
+                  <span class="loading loading-spinner loading-xs"></span>
+                  {gettext("Testing...")}
+                <% else %>
+                  <.icon name="hero-signal" class="w-4 h-4" />
+                  {gettext("Test Connection")}
+                <% end %>
+              </button>
+
+              <%= if @connection_status == :success do %>
+                <span class="text-sm text-success ml-2">
+                  <.icon name="hero-check-circle" class="w-4 h-4 inline" />
+                  {gettext("Connection successful")}
+                </span>
+              <% end %>
+              <%= if @connection_status == :failed do %>
+                <div class="mt-2 text-sm text-error">
+                  <.icon name="hero-x-circle" class="w-4 h-4 inline" />
+                  {gettext("Connection failed")}
+                  <%= if @connection_error do %>
+                    : {@connection_error}
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
           </div>
         </div>
       <% end %>
@@ -387,7 +421,14 @@
         >
           {gettext("Cancel")}
         </.link>
-        <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={
+            !@changeset.valid? ||
+              (@current_provider in ["s3", "b2", "r2", "tigris"] && @connection_status != :success)
+          }
+        >
           <.icon name="hero-check" class="w-4 h-4" /> {gettext("Save Bucket")}
         </button>
       </div>

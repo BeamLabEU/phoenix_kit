@@ -57,6 +57,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       |> assign(:current_provider, get_current_provider(changeset, bucket))
       |> assign(:pending_bucket_params, nil)
       |> assign(:show_create_path_modal, false)
+      |> assign(:connection_status, nil)
+      |> assign(:connection_error, nil)
+      |> assign(:testing_connection, false)
 
     {:ok, socket}
   end
@@ -75,11 +78,31 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     # Update current provider if it changed
     current_provider = get_current_provider(changeset, socket.assigns.bucket)
 
+    # Reset connection test when form changes
     socket =
       socket
       |> assign(:changeset, changeset)
       |> assign(:current_provider, current_provider)
+      |> assign(:connection_status, nil)
+      |> assign(:connection_error, nil)
 
+    {:noreply, socket}
+  end
+
+  def handle_event("test_connection", _params, socket) do
+    changeset = socket.assigns.changeset
+
+    bucket_params = %{
+      "provider" => Ecto.Changeset.get_field(changeset, :provider),
+      "region" => Ecto.Changeset.get_field(changeset, :region),
+      "endpoint" => Ecto.Changeset.get_field(changeset, :endpoint),
+      "bucket_name" => Ecto.Changeset.get_field(changeset, :bucket_name),
+      "access_key_id" => Ecto.Changeset.get_field(changeset, :access_key_id),
+      "secret_access_key" => Ecto.Changeset.get_field(changeset, :secret_access_key)
+    }
+
+    socket = assign(socket, :testing_connection, true)
+    send(self(), {:run_test_connection, bucket_params})
     {:noreply, socket}
   end
 
@@ -148,6 +171,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       |> assign(:pending_bucket_params, nil)
       |> assign(:show_create_path_modal, false)
       |> assign(:missing_path, nil)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:run_test_connection, bucket_params}, socket) do
+    {status, error} =
+      case Storage.test_connection(bucket_params) do
+        :ok -> {:success, nil}
+        {:error, reason} -> {:failed, reason}
+      end
+
+    socket =
+      socket
+      |> assign(:connection_status, status)
+      |> assign(:connection_error, error)
+      |> assign(:testing_connection, false)
 
     {:noreply, socket}
   end

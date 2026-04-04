@@ -34,6 +34,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.FileLocation
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.ProcessFileJob
+  alias PhoenixKit.Modules.Storage.ProviderRegistry
   # NOTE: Temporary helper for Publishing component system.
   # The dedicated storage/media APIs under development should replace this fallback once available.
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -148,6 +149,34 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def change_bucket(%Bucket{} = bucket, attrs \\ %{}) do
     Bucket.changeset(bucket, attrs)
+  end
+
+  @doc """
+  Tests connectivity for a bucket configuration.
+
+  Builds a temporary Bucket struct from the given params and delegates
+  to the appropriate provider's `test_connection/1` callback.
+
+  Returns `:ok` or `{:error, reason}`.
+  """
+  def test_connection(bucket_params) when is_map(bucket_params) do
+    provider = bucket_params["provider"]
+
+    bucket = %Bucket{
+      provider: provider,
+      region: bucket_params["region"],
+      endpoint: bucket_params["endpoint"],
+      bucket_name: bucket_params["bucket_name"],
+      access_key_id: bucket_params["access_key_id"],
+      secret_access_key: bucket_params["secret_access_key"]
+    }
+
+    case ProviderRegistry.get_provider(provider) do
+      {:ok, provider_module} -> provider_module.test_connection(bucket)
+      {:error, reason} -> {:error, reason}
+    end
+  rescue
+    error -> {:error, "Connection test failed: #{Exception.message(error)}"}
   end
 
   @doc """
