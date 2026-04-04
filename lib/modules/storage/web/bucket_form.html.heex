@@ -152,7 +152,13 @@
               <% else %>
                 <div class="form-control">
                   <label class="label">
-                    <span class="label-text font-semibold">{gettext("Region")}</span>
+                    <span class="label-text font-semibold">
+                      {case @current_provider do
+                        "b2" -> gettext("Backblaze Region")
+                        "r2" -> gettext("Cloudflare Region")
+                        _ -> gettext("Region")
+                      end}
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -167,9 +173,12 @@
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">
-                    {if @current_provider == "s3",
-                      do: gettext("AWS Bucket Name"),
-                      else: gettext("Bucket Name")} *
+                    {case @current_provider do
+                      "s3" -> gettext("AWS Bucket Name")
+                      "b2" -> gettext("Backblaze Bucket Name")
+                      "r2" -> gettext("Cloudflare Bucket Name")
+                      _ -> gettext("Bucket Name")
+                    end} *
                   </span>
                 </label>
                 <input
@@ -186,8 +195,11 @@
             <%= if @current_provider in ["b2", "r2"] do %>
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-semibold">{gettext("Endpoint")} *</span>
-                  <span class="label-text-alt">{gettext("S3-compatible endpoint")}</span>
+                  <span class="label-text font-semibold">
+                    {if @current_provider == "b2",
+                      do: gettext("Backblaze Endpoint"),
+                      else: gettext("Cloudflare Endpoint")} *
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -208,9 +220,12 @@
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Access Key ID")} *</span>
                   <span class="label-text-alt">
-                    {if @current_provider == "s3",
-                      do: gettext("AWS access key"),
-                      else: gettext("API key")}
+                    {case @current_provider do
+                      "s3" -> gettext("AWS access key")
+                      "b2" -> gettext("Backblaze key ID")
+                      "r2" -> gettext("Cloudflare access key")
+                      _ -> gettext("API key")
+                    end}
                   </span>
                 </label>
                 <input
@@ -227,9 +242,12 @@
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Secret Access Key")} *</span>
                   <span class="label-text-alt">
-                    {if @current_provider == "s3",
-                      do: gettext("AWS secret key"),
-                      else: gettext("API secret")}
+                    {case @current_provider do
+                      "s3" -> gettext("AWS secret key")
+                      "b2" -> gettext("Backblaze application key")
+                      "r2" -> gettext("Cloudflare secret key")
+                      _ -> gettext("API secret")
+                    end}
                   </span>
                 </label>
                 <input
