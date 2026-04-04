@@ -47,6 +47,9 @@ defmodule PhoenixKit.Users.Auth.User do
           registration_region: String.t() | nil,
           registration_city: String.t() | nil,
           custom_fields: map() | nil,
+          account_type: String.t(),
+          organization_name: String.t() | nil,
+          organization_uuid: UUIDv7.t() | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()
         }
@@ -69,6 +72,9 @@ defmodule PhoenixKit.Users.Auth.User do
     field :registration_region, :string
     field :registration_city, :string
     field :custom_fields, :map, default: %{}
+    field :account_type, :string, default: "person"
+    field :organization_name, :string
+    field :organization_uuid, UUIDv7
 
     has_many :role_assignments, PhoenixKit.Users.RoleAssignment,
       foreign_key: :user_uuid,
@@ -77,6 +83,16 @@ defmodule PhoenixKit.Users.Auth.User do
     many_to_many :roles, PhoenixKit.Users.Role,
       join_through: PhoenixKit.Users.RoleAssignment,
       join_keys: [user_uuid: :uuid, role_uuid: :uuid]
+
+    belongs_to :organization, __MODULE__,
+      foreign_key: :organization_uuid,
+      references: :uuid,
+      type: UUIDv7,
+      define_field: false
+
+    has_many :members, __MODULE__,
+      foreign_key: :organization_uuid,
+      references: :uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -120,7 +136,9 @@ defmodule PhoenixKit.Users.Auth.User do
       :registration_country,
       :registration_region,
       :registration_city,
-      :custom_fields
+      :custom_fields,
+      :account_type,
+      :organization_name
     ])
     |> validate_email(opts)
     |> validate_username(opts)
@@ -128,6 +146,7 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_names()
     |> validate_registration_fields()
     |> validate_custom_fields()
+    |> maybe_skip_names_for_organization()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
   end
@@ -491,7 +510,15 @@ defmodule PhoenixKit.Users.Auth.User do
   """
   def profile_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:first_name, :last_name, :email, :username, :user_timezone, :custom_fields])
+    |> cast(attrs, [
+      :first_name,
+      :last_name,
+      :email,
+      :username,
+      :user_timezone,
+      :custom_fields,
+      :organization_name
+    ])
     |> validate_names()
     |> validate_email(opts)
     |> validate_username(opts)
@@ -507,6 +534,48 @@ defmodule PhoenixKit.Users.Auth.User do
     |> cast(attrs, [:is_active])
     |> validate_inclusion(:is_active, [true, false])
     |> validate_owner_cannot_be_deactivated()
+  end
+
+  @doc """
+  A user changeset for updating account type and organization fields.
+  """
+  def account_type_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:account_type, :organization_name, :organization_uuid])
+    |> validate_required([:account_type])
+    |> validate_inclusion(:account_type, ["person", "organization"])
+    |> validate_organization_fields()
+  end
+
+  defp validate_organization_fields(changeset) do
+    account_type = get_field(changeset, :account_type)
+
+    case account_type do
+      "organization" ->
+        changeset
+        |> validate_required([:organization_name])
+        |> validate_length(:organization_name, max: 255)
+        |> put_change(:organization_uuid, nil)
+
+      "person" ->
+        changeset
+        |> put_change(:organization_name, nil)
+        |> validate_no_self_reference()
+
+      _ ->
+        changeset
+    end
+  end
+
+  defp validate_no_self_reference(changeset) do
+    uuid = get_field(changeset, :uuid)
+    org_uuid = get_field(changeset, :organization_uuid)
+
+    if uuid && org_uuid && uuid == org_uuid do
+      add_error(changeset, :organization_uuid, "cannot reference self")
+    else
+      changeset
+    end
   end
 
   @doc """
@@ -623,12 +692,28 @@ defmodule PhoenixKit.Users.Auth.User do
       iex> full_name(%User{first_name: nil, last_name: nil})
       nil
   """
+  def full_name(%__MODULE__{account_type: "organization", organization_name: name})
+      when is_binary(name) and name != "",
+      do: name
+
   def full_name(%__MODULE__{first_name: first_name, last_name: last_name}) do
     case {first_name, last_name} do
       {nil, nil} -> nil
       {first, nil} -> String.trim(first)
       {nil, last} -> String.trim(last)
       {first, last} -> String.trim("#{first} #{last}")
+    end
+  end
+
+  defp maybe_skip_names_for_organization(changeset) do
+    case get_field(changeset, :account_type) do
+      "organization" ->
+        changeset
+        |> validate_required([:organization_name])
+        |> validate_length(:organization_name, max: 255)
+
+      _ ->
+        changeset
     end
   end
 

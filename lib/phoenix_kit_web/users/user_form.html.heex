@@ -169,28 +169,97 @@
               </div>
             <% end %>
 
-            <%!-- Name Fields --%>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <%!-- First Name --%>
-              <div class="w-full">
-                <.input
-                  field={form[:first_name]}
-                  type="text"
-                  label="First Name"
-                  placeholder="Optional"
-                />
+            <%!-- Organization Account Type (only when feature is enabled) --%>
+            <%= if @org_accounts_enabled do %>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Account Type")}</span>
+                </label>
+                <div class="flex gap-4">
+                  <label class="label cursor-pointer gap-2">
+                    <input
+                      type="radio"
+                      name="user[account_type]"
+                      value="person"
+                      class="radio radio-primary"
+                      checked={@current_account_type != "organization"}
+                    />
+                    <span class="label-text">{gettext("Person")}</span>
+                  </label>
+                  <label class="label cursor-pointer gap-2">
+                    <input
+                      type="radio"
+                      name="user[account_type]"
+                      value="organization"
+                      class="radio radio-primary"
+                      checked={@current_account_type == "organization"}
+                    />
+                    <span class="label-text">{gettext("Organization")}</span>
+                  </label>
+                </div>
               </div>
 
-              <%!-- Last Name --%>
-              <div class="w-full">
-                <.input
-                  field={form[:last_name]}
-                  type="text"
-                  label="Last Name"
-                  placeholder="Optional"
-                />
+              <%!-- Organization Name (shown when account_type == "organization") --%>
+              <%= if @current_account_type == "organization" do %>
+                <div class="w-full">
+                  <.input
+                    field={form[:organization_name]}
+                    type="text"
+                    label={gettext("Organization Name *")}
+                    placeholder={gettext("Company or organization name")}
+                  />
+                </div>
+              <% end %>
+            <% end %>
+
+            <%!-- Name Fields (shown for persons only) --%>
+            <%= if @current_account_type != "organization" do %>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <%!-- First Name --%>
+                <div class="w-full">
+                  <.input
+                    field={form[:first_name]}
+                    type="text"
+                    label="First Name"
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <%!-- Last Name --%>
+                <div class="w-full">
+                  <.input
+                    field={form[:last_name]}
+                    type="text"
+                    label="Last Name"
+                    placeholder="Optional"
+                  />
+                </div>
               </div>
-            </div>
+            <% end %>
+
+            <%!-- Organization Selector (shown for persons when feature is enabled and orgs exist) --%>
+            <%= if @org_accounts_enabled and @current_account_type != "organization" and length(@organizations) > 0 do %>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">{gettext("Organization")}</span>
+                  <span class="label-text-alt text-base-content/60">{gettext("Optional")}</span>
+                </label>
+                <select name="user[organization_uuid]" class="select select-bordered w-full">
+                  <option value="">— No organization —</option>
+                  <%= for org <- @organizations do %>
+                    <option
+                      value={org.uuid}
+                      selected={Map.get(@form_data, "organization_uuid") == to_string(org.uuid)}
+                    >
+                      {org.organization_name}
+                    </option>
+                  <% end %>
+                </select>
+                <div class="text-xs text-base-content/60 mt-1">
+                  Link this person to an organization account
+                </div>
+              </div>
+            <% end %>
 
             <%!-- Personal Timezone --%>
             <div class="form-control">
@@ -617,6 +686,186 @@
           </div>
         </.form>
       </div>
+
+      <%!-- Organization Members Section (Edit mode, organization accounts only) --%>
+      <%= if @mode == :edit && @org_accounts_enabled && @current_account_type == "organization" do %>
+        <div class="bg-base-100 rounded-lg shadow-md p-6 mt-6">
+          <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+            <.icon name="hero-user-group" class="w-5 h-5" />
+            {gettext("Organization Members")}
+            <%= if length(@organization_members) > 0 do %>
+              <span class="badge badge-sm h-auto">{length(@organization_members)}</span>
+            <% end %>
+          </h3>
+
+          <%!-- Add Member --%>
+          <%= if length(@available_members) > 0 do %>
+            <div class="flex gap-2 mb-4">
+              <form phx-submit="add_member" class="flex gap-2 w-full">
+                <select
+                  name="member_uuid"
+                  class="select select-bordered flex-1"
+                  required
+                >
+                  <option value="" disabled selected>{gettext("Select a user to add...")}</option>
+                  <%= for user <- @available_members do %>
+                    <option value={user.uuid}>
+                      {user.email}
+                      <%= if PhoenixKit.Users.Auth.User.full_name(user) do %>
+                        — {PhoenixKit.Users.Auth.User.full_name(user)}
+                      <% end %>
+                    </option>
+                  <% end %>
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add")}
+                </button>
+              </form>
+            </div>
+          <% end %>
+
+          <%!-- Members Table --%>
+          <%= if Enum.empty?(@organization_members) do %>
+            <div class="text-center py-8 text-base-content/70">
+              <.icon name="hero-user-group" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{gettext("No members yet")}</p>
+              <p class="text-sm mt-1">{gettext("Use the dropdown above to add members")}</p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>{gettext("User")}</th>
+                    <th>{gettext("Email")}</th>
+                    <th>{gettext("Status")}</th>
+                    <th class="w-24">{gettext("Actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for member <- @organization_members do %>
+                    <tr>
+                      <td>
+                        <div class="flex items-center gap-3">
+                          <.user_avatar user={member} size="sm" />
+                          <div>
+                            <div class="font-medium">
+                              {PhoenixKit.Users.Auth.User.full_name(member) || "-"}
+                            </div>
+                            <%= if member.username do %>
+                              <div class="text-xs text-base-content/60">@{member.username}</div>
+                            <% end %>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{member.email}</td>
+                      <td>
+                        <%= if member.is_active do %>
+                          <span class="badge badge-success badge-sm h-auto">
+                            {gettext("Active")}
+                          </span>
+                        <% else %>
+                          <span class="badge badge-error badge-sm h-auto">
+                            {gettext("Inactive")}
+                          </span>
+                        <% end %>
+                      </td>
+                      <td>
+                        <div class="flex gap-1">
+                          <.link
+                            navigate={
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{member.uuid}")
+                            }
+                            class="btn btn-ghost btn-xs"
+                            title={gettext("View")}
+                          >
+                            <.icon name="hero-eye" class="w-4 h-4" />
+                          </.link>
+                          <button
+                            type="button"
+                            class="btn btn-ghost btn-xs text-error"
+                            phx-click="remove_member"
+                            phx-value-uuid={member.uuid}
+                            title={gettext("Remove from organization")}
+                            data-confirm={gettext("Remove this member from the organization?")}
+                          >
+                            <.icon name="hero-x-mark" class="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+
+          <%!-- Pending Invitations --%>
+          <% pending_only = Enum.filter(@pending_invitations, &(&1.status == :pending)) %>
+          <div class="divider text-base-content/60 mt-6">
+            {gettext("Pending Invitations")}
+            <%= if length(pending_only) > 0 do %>
+              <span class="badge badge-sm h-auto">{length(pending_only)}</span>
+            <% end %>
+          </div>
+
+          <%= if Enum.empty?(pending_only) do %>
+            <p class="text-sm text-base-content/60 mb-4">{gettext("No pending invitations")}</p>
+          <% else %>
+            <div class="overflow-x-auto mb-4">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>{gettext("Email")}</th>
+                    <th>{gettext("Invited")}</th>
+                    <th>{gettext("Expires")}</th>
+                    <th class="w-20">{gettext("Actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for inv <- pending_only do %>
+                    <tr>
+                      <td>{inv.email}</td>
+                      <td class="text-sm text-base-content/70">
+                        {Calendar.strftime(inv.inserted_at, "%Y-%m-%d %H:%M")}
+                      </td>
+                      <td class="text-sm text-base-content/70">
+                        {Calendar.strftime(inv.expires_at, "%Y-%m-%d")}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-xs text-error"
+                          phx-click="cancel_invitation"
+                          phx-value-uuid={inv.uuid}
+                          title={gettext("Cancel invitation")}
+                          data-confirm={gettext("Cancel this invitation?")}
+                        >
+                          <.icon name="hero-x-mark" class="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+
+          <%!-- Invite by Email --%>
+          <form phx-submit="invite_member" class="flex gap-2 mt-2">
+            <input
+              type="email"
+              name="email"
+              class="input input-bordered flex-1"
+              placeholder={gettext("Invite by email...")}
+              required
+            />
+            <button type="submit" class="btn btn-primary btn-sm">
+              <.icon name="hero-envelope" class="w-4 h-4" /> {gettext("Invite")}
+            </button>
+          </form>
+        </div>
+      <% end %>
 
       <%!-- Password Reset via Email Section (Edit mode only) --%>
       <%= if @mode == :edit do %>

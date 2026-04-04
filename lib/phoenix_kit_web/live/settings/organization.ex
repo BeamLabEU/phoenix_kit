@@ -61,6 +61,7 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
     socket
     |> assign_company_info(company_info)
     |> assign_country_data(company_info["country"])
+    |> assign_tax_settings(company_info)
     |> assign_bank_details(bank_details)
     |> assign(:site_url, Settings.get_setting("site_url", ""))
   end
@@ -85,6 +86,23 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
     |> assign(:eu_country, eu_country?(country))
   end
 
+  defp assign_tax_settings(socket, _company_info) do
+    tax_config = CountryData.get_tax_config()
+    country = socket.assigns.company_country
+
+    suggested_rate =
+      if country != "" do
+        rate = CountryData.get_standard_vat_percent(country)
+        current = parse_tax_rate(tax_config.rate)
+        if rate != 0 and rate != current, do: rate
+      end
+
+    socket
+    |> assign(:tax_enabled, tax_config.enabled)
+    |> assign(:tax_rate, tax_config.rate)
+    |> assign(:suggested_tax_rate, suggested_rate)
+  end
+
   defp assign_bank_details(socket, details) do
     socket
     |> assign(:bank_name, details["bank_name"] || "")
@@ -97,11 +115,21 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   # ===================================
 
   def handle_event("country_changed", %{"company_country" => country_code}, socket) do
+    # Update suggested tax rate when country changes
+    current_rate = parse_tax_rate(socket.assigns.tax_rate)
+
+    suggested_rate =
+      if country_code != "" do
+        rate = CountryData.get_standard_vat_percent(country_code)
+        if rate != 0 and rate != current_rate, do: rate
+      end
+
     {:noreply,
      socket
      |> assign(:company_country, country_code)
      |> assign(:subdivision_label, get_subdivision_label(country_code))
-     |> assign(:eu_country, eu_country?(country_code))}
+     |> assign(:eu_country, eu_country?(country_code))
+     |> assign(:suggested_tax_rate, suggested_rate)}
   end
 
   def handle_event("save_company", params, socket) do
@@ -121,6 +149,67 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
 
       errors ->
         {:noreply, put_flash(socket, :error, Enum.join(errors, ". "))}
+    end
+  end
+
+  def handle_event("save_tax", params, socket) do
+    tax_enabled = params["tax_enabled"] == "true"
+    tax_rate = (params["tax_rate"] || "0") |> String.trim()
+
+    # Save tax settings into company_info JSON
+    company_info = get_company_info()
+
+    updated_info =
+      company_info
+      |> Map.put("tax_enabled", tax_enabled)
+      |> Map.put("tax_rate", tax_rate)
+
+    Settings.update_json_setting("company_info", updated_info)
+
+    # Also sync to legacy keys for backward compatibility with Billing/Shop
+    Settings.update_setting(
+      "billing_tax_enabled",
+      if(tax_enabled, do: "true", else: "false")
+    )
+
+    Settings.update_setting("billing_default_tax_rate", tax_rate)
+    Settings.update_setting("shop_tax_enabled", if(tax_enabled, do: "true", else: "false"))
+    Settings.update_setting("shop_tax_rate", tax_rate)
+
+    broadcast_settings_change(:tax_settings_updated)
+
+    {:noreply,
+     socket
+     |> load_settings()
+     |> put_flash(:info, gettext("Tax settings saved"))}
+  end
+
+  def handle_event("tax_rate_changed", %{"tax_rate" => tax_rate}, socket) do
+    current_rate = parse_tax_rate(tax_rate)
+    country_code = socket.assigns.company_country
+
+    suggested_rate =
+      if country_code != "" do
+        rate = CountryData.get_standard_vat_percent(country_code)
+        if rate != 0 and rate != current_rate, do: rate
+      end
+
+    {:noreply,
+     socket
+     |> assign(:tax_rate, tax_rate)
+     |> assign(:suggested_tax_rate, suggested_rate)}
+  end
+
+  def handle_event("apply_suggested_tax", _params, socket) do
+    case socket.assigns.suggested_tax_rate do
+      nil ->
+        {:noreply, socket}
+
+      rate ->
+        {:noreply,
+         socket
+         |> assign(:tax_rate, to_string(rate))
+         |> assign(:suggested_tax_rate, nil)}
     end
   end
 
@@ -164,53 +253,14 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   Gets company info from consolidated key with fallback to legacy keys.
   """
   def get_company_info do
-    case Settings.get_json_setting("company_info", nil) do
-      nil -> try_legacy_company_keys()
-      info when is_map(info) -> Map.merge(@default_company_info, info)
-      _ -> @default_company_info
-    end
-  end
-
-  defp try_legacy_company_keys do
-    # Try legal_company_info first
-    case Settings.get_json_setting("legal_company_info", nil) do
-      nil -> build_from_billing_settings()
-      info when is_map(info) -> Map.merge(@default_company_info, info)
-      _ -> @default_company_info
-    end
-  end
-
-  defp build_from_billing_settings do
-    %{
-      "name" => Settings.get_setting("billing_company_name", ""),
-      "address_line1" => Settings.get_setting("billing_company_address_line1", ""),
-      "address_line2" => Settings.get_setting("billing_company_address_line2", ""),
-      "city" => Settings.get_setting("billing_company_city", ""),
-      "state" => Settings.get_setting("billing_company_state", ""),
-      "postal_code" => Settings.get_setting("billing_company_postal_code", ""),
-      "country" => Settings.get_setting("billing_company_country", ""),
-      "vat_number" => Settings.get_setting("billing_company_vat", ""),
-      "registration_number" => ""
-    }
+    Map.merge(@default_company_info, CountryData.get_company_info())
   end
 
   @doc """
   Gets bank details from consolidated key with fallback to legacy keys.
   """
   def get_bank_details do
-    case Settings.get_json_setting("company_bank_details", nil) do
-      nil -> build_from_billing_bank_settings()
-      info when is_map(info) -> Map.merge(@default_bank_details, info)
-      _ -> @default_bank_details
-    end
-  end
-
-  defp build_from_billing_bank_settings do
-    %{
-      "bank_name" => Settings.get_setting("billing_bank_name", ""),
-      "iban" => Settings.get_setting("billing_bank_iban", ""),
-      "swift" => Settings.get_setting("billing_bank_swift", "")
-    }
+    Map.merge(@default_bank_details, CountryData.get_bank_details())
   end
 
   # ===================================
@@ -277,17 +327,21 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   # ===================================
 
   defp save_company_info(data, params) do
-    company_info = %{
-      "name" => data.name,
-      "address_line1" => data.address_line1,
-      "address_line2" => (params["company_address_line2"] || "") |> String.trim(),
-      "city" => data.city,
-      "state" => (params["company_state"] || "") |> String.trim(),
-      "postal_code" => (params["company_postal_code"] || "") |> String.trim(),
-      "country" => data.country,
-      "vat_number" => String.upcase(data.vat),
-      "registration_number" => (params["company_registration"] || "") |> String.trim()
-    }
+    # Merge with existing company_info to preserve tax_enabled/tax_rate keys
+    existing = get_company_info()
+
+    company_info =
+      Map.merge(existing, %{
+        "name" => data.name,
+        "address_line1" => data.address_line1,
+        "address_line2" => (params["company_address_line2"] || "") |> String.trim(),
+        "city" => data.city,
+        "state" => (params["company_state"] || "") |> String.trim(),
+        "postal_code" => (params["company_postal_code"] || "") |> String.trim(),
+        "country" => data.country,
+        "vat_number" => String.upcase(data.vat),
+        "registration_number" => (params["company_registration"] || "") |> String.trim()
+      })
 
     Settings.update_json_setting("company_info", company_info)
   end
@@ -320,6 +374,15 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   defp eu_country?(nil), do: false
   defp eu_country?(""), do: false
   defp eu_country?(country_code), do: CountryData.eu_member?(country_code)
+
+  defp parse_tax_rate(rate) when is_binary(rate) do
+    case Float.parse(rate) do
+      {value, _} -> if value == trunc(value), do: trunc(value), else: value
+      :error -> 0
+    end
+  end
+
+  defp parse_tax_rate(_), do: 0
 
   defp get_current_path(locale) do
     Routes.path("/admin/settings/organization", locale: locale)

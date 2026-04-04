@@ -66,6 +66,8 @@ defmodule PhoenixKit.Users.Auth do
 
   require Logger
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
@@ -892,6 +894,110 @@ defmodule PhoenixKit.Users.Auth do
         {:error, changeset}
     end
   end
+
+  ## Organization Accounts
+
+  @doc """
+  Lists all organization-type users.
+  """
+  def list_organizations do
+    from(u in User, where: u.account_type == "organization", order_by: [asc: u.organization_name])
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists all person users belonging to an organization.
+  """
+  def list_organization_members(organization_uuid) do
+    from(u in User, where: u.organization_uuid == ^organization_uuid, order_by: [asc: u.email])
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists person users available to join an organization (not already in one).
+  Excludes the organization itself and users already belonging to any organization.
+  """
+  def list_available_members_for_organization(organization_uuid) do
+    from(u in User,
+      where:
+        u.account_type == "person" and
+          is_nil(u.organization_uuid) and
+          u.uuid != ^organization_uuid,
+      order_by: [asc: u.email]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Sets a person user's organization. Validates target is an organization-type user.
+  """
+  def set_organization(%User{} = user, organization_uuid) do
+    with {:ok, org} <- get_organization(organization_uuid),
+         :ok <- validate_not_self(user, org),
+         :ok <- validate_user_is_person(user) do
+      user
+      |> User.account_type_changeset(%{organization_uuid: organization_uuid})
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Removes a user from their organization.
+  """
+  def remove_from_organization(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{organization_uuid: nil})
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes a user's account type. Validates no members exist when switching org→person.
+  """
+  def change_account_type(%User{} = user, attrs) do
+    with :ok <- validate_can_change_type(user, attrs) do
+      user
+      |> User.account_type_changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  defp get_organization(uuid) do
+    case Repo.get(User, uuid) do
+      %User{account_type: "organization"} = org -> {:ok, org}
+      %User{} -> {:error, dgettext("phoenix_kit", "target user is not an organization")}
+      nil -> {:error, dgettext("phoenix_kit", "organization not found")}
+    end
+  end
+
+  defp validate_not_self(%User{uuid: uuid}, %User{uuid: org_uuid}) when uuid == org_uuid do
+    {:error, dgettext("phoenix_kit", "cannot reference self")}
+  end
+
+  defp validate_not_self(_, _), do: :ok
+
+  defp validate_user_is_person(%User{account_type: "person"}), do: :ok
+
+  defp validate_user_is_person(_),
+    do: {:error, dgettext("phoenix_kit", "only person accounts can join an organization")}
+
+  defp validate_can_change_type(%User{account_type: "organization"} = user, attrs) do
+    target_type = to_string(attrs[:account_type] || attrs["account_type"])
+
+    if target_type == "person" do
+      case list_organization_members(user.uuid) do
+        [] ->
+          :ok
+
+        _ ->
+          {:error,
+           dgettext("phoenix_kit", "cannot change to person while organization has members")}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp validate_can_change_type(_, _), do: :ok
 
   ## Session
 
@@ -1911,7 +2017,7 @@ defmodule PhoenixKit.Users.Auth do
       nil
   """
   def get_user_with_roles(uuid) when is_binary(uuid) do
-    from(u in User, where: u.uuid == ^uuid, preload: [:roles, :role_assignments])
+    from(u in User, where: u.uuid == ^uuid, preload: [:roles, :role_assignments, :organization])
     |> Repo.one()
   end
 
@@ -1931,6 +2037,7 @@ defmodule PhoenixKit.Users.Auth do
     page_size = Keyword.get(opts, :page_size, 10)
     role_filter = Keyword.get(opts, :role)
     search_query = Keyword.get(opts, :search, "")
+    account_type_filter = Keyword.get(opts, :account_type)
 
     base_query = from(u in User, order_by: [desc: u.inserted_at])
 
@@ -1938,6 +2045,7 @@ defmodule PhoenixKit.Users.Auth do
       base_query
       |> maybe_filter_by_role(role_filter)
       |> maybe_filter_by_search(search_query)
+      |> maybe_filter_by_account_type(account_type_filter)
 
     total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :uuid)
     total_pages = div(total_count + page_size - 1, page_size)
@@ -1946,7 +2054,7 @@ defmodule PhoenixKit.Users.Auth do
       query
       |> limit(^page_size)
       |> offset(^((page - 1) * page_size))
-      |> preload([:roles, :role_assignments])
+      |> preload([:roles, :role_assignments, :organization])
       |> Repo.all()
 
     %{
@@ -1966,6 +2074,13 @@ defmodule PhoenixKit.Users.Auth do
       join: role in assoc(assignment, :role),
       where: role.name == ^role_name,
       distinct: u.uuid
+  end
+
+  defp maybe_filter_by_account_type(query, nil), do: query
+  defp maybe_filter_by_account_type(query, "all"), do: query
+
+  defp maybe_filter_by_account_type(query, account_type) when is_binary(account_type) do
+    from([u] in query, where: u.account_type == ^account_type)
   end
 
   defp maybe_filter_by_search(query, ""), do: query

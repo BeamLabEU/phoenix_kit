@@ -54,6 +54,11 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       |> assign(:per_page, @per_page)
       |> assign(:search_query, "")
       |> assign(:filter_role, "all")
+      |> assign(
+        :org_accounts_enabled,
+        Settings.get_boolean_setting("enable_organization_accounts", false)
+      )
+      |> assign(:filter_account_type, "all")
       |> assign(:show_role_modal, false)
       |> assign(:managing_user, nil)
       |> assign(:user_roles, [])
@@ -97,6 +102,16 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     socket =
       socket
       |> assign(:filter_role, role)
+      |> assign(:page, 1)
+      |> load_users()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("filter_by_account_type", %{"account_type" => account_type}, socket) do
+    socket =
+      socket
+      |> assign(:filter_account_type, account_type)
       |> assign(:page, 1)
       |> load_users()
 
@@ -667,7 +682,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       page: socket.assigns.page,
       page_size: socket.assigns.per_page,
       search: socket.assigns.search_query,
-      role: socket.assigns.filter_role
+      role: socket.assigns.filter_role,
+      account_type: socket.assigns.filter_account_type
     ]
 
     %{users: users, total_count: total_count, total_pages: total_pages} =

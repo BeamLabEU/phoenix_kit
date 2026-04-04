@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
+  alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -44,6 +45,12 @@ defmodule PhoenixKitWeb.Users.UserForm do
     setting_options = Settings.get_setting_options()
     timezone_options = [{"Use System Default", nil} | setting_options["time_zone"]]
 
+    # Organization accounts
+    org_accounts_enabled =
+      Settings.get_setting("enable_organization_accounts", "false") == "true"
+
+    organizations = if org_accounts_enabled, do: Auth.list_organizations(), else: []
+
     socket =
       socket
       |> assign(:mode, mode)
@@ -61,6 +68,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:pending_avatar_file_uuid, nil)
       |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
+      |> assign(:org_accounts_enabled, org_accounts_enabled)
+      |> assign(:organizations, organizations)
+      |> assign(:current_account_type, "person")
       |> assign(:user_agent, user_agent)
       |> load_user_data(mode, user_uuid)
       |> load_form_data()
@@ -105,10 +115,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
       end
       |> Map.put(:action, :validate)
 
+    account_type =
+      Map.get(filtered_params, "account_type", socket.assigns.current_account_type)
+
     socket =
       socket
       |> assign(:changeset, changeset)
       |> assign(:form_data, filtered_params)
+      |> assign(:current_account_type, account_type)
       |> assign(
         :custom_fields_data,
         Map.get(user_params, "custom_fields", socket.assigns.custom_fields_data)
@@ -274,6 +288,97 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
+  def handle_event("add_member", %{"member_uuid" => member_uuid}, socket) do
+    case Auth.set_organization(Auth.get_user!(member_uuid), socket.assigns.user.uuid) do
+      {:ok, _} ->
+        socket =
+          socket
+          |> assign(
+            :organization_members,
+            Auth.list_organization_members(socket.assigns.user.uuid)
+          )
+          |> assign(
+            :available_members,
+            Auth.list_available_members_for_organization(socket.assigns.user.uuid)
+          )
+          |> put_flash(:info, gettext("Member added to organization"))
+
+        {:noreply, socket}
+
+      {:error, reason} when is_binary(reason) ->
+        {:noreply, put_flash(socket, :error, reason)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to add member"))}
+    end
+  end
+
+  def handle_event("remove_member", %{"uuid" => member_uuid}, socket) do
+    member = Auth.get_user!(member_uuid)
+
+    case Auth.remove_from_organization(member) do
+      {:ok, _} ->
+        socket =
+          socket
+          |> assign(
+            :organization_members,
+            Auth.list_organization_members(socket.assigns.user.uuid)
+          )
+          |> assign(
+            :available_members,
+            Auth.list_available_members_for_organization(socket.assigns.user.uuid)
+          )
+          |> put_flash(:info, gettext("Member removed from organization"))
+
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to remove member"))}
+    end
+  end
+
+  def handle_event("invite_member", %{"email" => email}, socket) do
+    organization = socket.assigns.user
+    invited_by = socket.assigns.phoenix_kit_current_user
+    email = String.trim(email)
+
+    case Invitations.create_invitation(organization, email, invited_by) do
+      {:ok, _invitation, _encoded_token} ->
+        socket =
+          socket
+          |> assign(:pending_invitations, Invitations.list_invitations(organization.uuid))
+          |> put_flash(:info, gettext("Invitation sent to %{email}", email: email))
+
+        {:noreply, socket}
+
+      {:error, :self_invite} ->
+        {:noreply, put_flash(socket, :error, gettext("You cannot invite yourself"))}
+
+      {:error, message} when is_binary(message) ->
+        {:noreply, put_flash(socket, :error, message)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to send invitation"))}
+    end
+  end
+
+  def handle_event("cancel_invitation", %{"uuid" => uuid}, socket) do
+    case Invitations.cancel_invitation(uuid) do
+      {:ok, _} ->
+        organization = socket.assigns.user
+
+        socket =
+          socket
+          |> assign(:pending_invitations, Invitations.list_invitations(organization.uuid))
+          |> put_flash(:info, gettext("Invitation cancelled"))
+
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to cancel invitation"))}
+    end
+  end
+
   def handle_event("toggle_user_status", _params, socket) do
     user = socket.assigns.user
     new_status = !user.is_active
@@ -373,7 +478,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
          {:ok, user_with_fields} <- update_custom_fields(updated_user, custom_fields_params),
-         result <- update_user_roles_if_changed(socket, user_with_fields) do
+         {:ok, user_with_account_type} <-
+           update_account_type_fields(user_with_fields, user_params),
+         result <- update_user_roles_if_changed(socket, user_with_account_type) do
       # Log avatar change if it happened
       if avatar_changed? && avatar_file_uuid do
         admin = socket.assigns[:phoenix_kit_current_user]
@@ -384,8 +491,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
           mode: "manual",
           actor_uuid: admin && admin.uuid,
           resource_type: "user",
-          resource_uuid: user_with_fields.uuid,
-          target_uuid: user_with_fields.uuid,
+          resource_uuid: user_with_account_type.uuid,
+          target_uuid: user_with_account_type.uuid,
           metadata: %{
             "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
             "avatar_to" => avatar_file_uuid,
@@ -410,6 +517,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       {:error, :custom_fields_save} ->
         handle_custom_fields_save_error(socket)
+
+      {:error, reason} when is_binary(reason) ->
+        {:noreply, put_flash(socket, :error, reason)}
     end
   end
 
@@ -506,6 +616,25 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
+  defp update_account_type_fields(user, user_params) do
+    account_type = Map.get(user_params, "account_type")
+
+    if account_type do
+      org_uuid = Map.get(user_params, "organization_uuid")
+      org_uuid = if org_uuid == "" or is_nil(org_uuid), do: nil, else: org_uuid
+
+      attrs = %{
+        "account_type" => account_type,
+        "organization_name" => Map.get(user_params, "organization_name"),
+        "organization_uuid" => org_uuid
+      }
+
+      Auth.change_account_type(user, attrs)
+    else
+      {:ok, user}
+    end
+  end
+
   defp handle_update_result(socket, {:ok, _result}) do
     # _result could be either the updated user or role assignments (from sync_user_roles)
     # In both cases, we need to reload the user from the database to get the fresh data
@@ -591,16 +720,46 @@ defmodule PhoenixKitWeb.Users.UserForm do
     socket
     |> assign(:user, %Auth.User{})
     |> assign(:user_roles, [])
+    |> assign(:organization_members, [])
+    |> assign(:available_members, [])
+    |> assign(:pending_invitations, [])
   end
 
   defp load_user_data(socket, :edit, user_uuid) do
     user = Auth.get_user!(user_uuid)
     user_roles = Roles.get_user_roles(user)
 
+    # Load organization members if this is an organization account
+    organization_members =
+      if socket.assigns.org_accounts_enabled && user.account_type == "organization" do
+        Auth.list_organization_members(user.uuid)
+      else
+        []
+      end
+
+    # Load all users for add-member dropdown (persons without an org)
+    available_members =
+      if socket.assigns.org_accounts_enabled && user.account_type == "organization" do
+        Auth.list_available_members_for_organization(user.uuid)
+      else
+        []
+      end
+
+    # Load pending invitations for organization accounts
+    pending_invitations =
+      if socket.assigns.org_accounts_enabled && user.account_type == "organization" do
+        Invitations.list_invitations(user.uuid)
+      else
+        []
+      end
+
     socket
     |> assign(:user, user)
     |> assign(:user_roles, user_roles)
     |> assign(:pending_roles, user_roles)
+    |> assign(:organization_members, organization_members)
+    |> assign(:available_members, available_members)
+    |> assign(:pending_invitations, pending_invitations)
   end
 
   defp load_form_data(%{assigns: %{mode: :new}} = socket) do
@@ -629,14 +788,20 @@ defmodule PhoenixKitWeb.Users.UserForm do
       "After creating changeset, changeset changes: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, changeset field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}"
     )
 
+    account_type = user.account_type || "person"
+
     socket
     |> assign(:changeset, changeset)
+    |> assign(:current_account_type, account_type)
     |> assign(:form_data, %{
       "email" => user.email || "",
       "username" => user.username || "",
       "first_name" => user.first_name || "",
       "last_name" => user.last_name || "",
-      "user_timezone" => user.user_timezone || "0"
+      "user_timezone" => user.user_timezone || "0",
+      "account_type" => account_type,
+      "organization_name" => user.organization_name || "",
+      "organization_uuid" => (user.organization_uuid && to_string(user.organization_uuid)) || ""
     })
     |> assign(:custom_fields_data, user.custom_fields || %{})
   end

@@ -258,6 +258,10 @@ defmodule PhoenixKit.Settings.Setting do
       field :time_format, :string
       field :track_registration_geolocation, :string
       field :registration_show_username, :string
+      # Organization Accounts
+      field :enable_organization_accounts, :string
+      # Admin Panel Languages
+      field :admin_languages, :string
       # OAuth Provider Credentials
       field :oauth_google_client_id, :string
       field :oauth_google_client_secret, :string
@@ -319,6 +323,8 @@ defmodule PhoenixKit.Settings.Setting do
         :time_format,
         :track_registration_geolocation,
         :registration_show_username,
+        :enable_organization_accounts,
+        :admin_languages,
         :oauth_google_client_id,
         :oauth_google_client_secret,
         :oauth_apple_client_id,
@@ -357,6 +363,7 @@ defmodule PhoenixKit.Settings.Setting do
       |> validate_date_format()
       |> validate_time_format()
       |> validate_track_registration_geolocation()
+      |> validate_inclusion(:enable_organization_accounts, ["true", "false"])
     end
 
     # Validates URL format (optional field - allows empty)
