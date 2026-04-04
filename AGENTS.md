@@ -148,6 +148,15 @@ Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix t
 
 PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
 
+Severity levels for review findings:
+
+- `BUG - CRITICAL` — Will cause crashes, data loss, or security issues
+- `BUG - HIGH` — Incorrect behavior that affects users
+- `BUG - MEDIUM` — Edge cases, minor incorrect behavior
+- `IMPROVEMENT - HIGH` — Significant code quality or performance issue
+- `IMPROVEMENT - MEDIUM` — Better patterns or maintainability
+- `NITPICK` — Style, naming, minor suggestions
+
 ### Publishing commands
 
 - `mix hex.build`
@@ -283,6 +292,25 @@ CSS source discovery is **automatic at compile time**. The `:phoenix_kit_css_sou
 2. `app.css` must have `@import "./_phoenix_kit_sources.css";`
 
 After setup, adding or removing modules is zero-config — the compiler regenerates on each compilation.
+
+### JavaScript Hooks for External Modules
+
+PhoenixKit provides JS hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`. This file defines `window.PhoenixKitHooks` which the parent app spreads into LiveSocket:
+
+```javascript
+hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
+```
+
+**Parent app setup (handled by `mix phoenix_kit.install`):**
+1. `phoenix_kit.js` is copied to `priv/static/assets/vendor/`
+2. A `<script>` tag is added to the root layout **before** `app.js`:
+   ```html
+   <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+   ```
+
+**On update (`mix phoenix_kit.update`):** The JS file is automatically refreshed to keep hooks in sync.
+
+External modules register custom hooks via inline `<script>` tags on `window.PhoenixKitHooks`. See the hello_world template for examples.
 
 ### PhoenixKit Layout Guidelines
 
