@@ -144,12 +144,11 @@
       <%!-- Cloud Provider Settings --%>
       <%= if @current_provider in ["s3", "b2", "r2", "tigris"] do %>
         <div class="card bg-base-100 shadow-sm">
-          <div class="card-body gap-4">
+          <div class="p-8 space-y-4">
             <h2 class="card-title text-lg">
               <.icon name="hero-cloud" class="w-5 h-5" /> {gettext("Provider Configuration")}
             </h2>
 
-            <%!-- Region (provider-specific) --%>
             <%= if @current_provider == "s3" do %>
               <.live_component
                 module={PhoenixKitWeb.Live.Components.SearchableSelect}
@@ -199,7 +198,6 @@
               />
             <% end %>
 
-            <%!-- Bucket Name --%>
             <fieldset class="fieldset">
               <legend class="fieldset-legend font-semibold">
                 {case @current_provider do
@@ -220,7 +218,6 @@
               />
             </fieldset>
 
-            <%!-- Endpoint (B2, R2, Tigris) --%>
             <%= if @current_provider in ["b2", "r2", "tigris"] do %>
               <fieldset class="fieldset">
                 <legend class="fieldset-legend font-semibold">

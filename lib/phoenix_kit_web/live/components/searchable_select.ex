@@ -114,18 +114,16 @@ defmodule PhoenixKitWeb.Live.Components.SearchableSelect do
       |> assign(:filtered, filtered)
 
     ~H"""
-    <div class="form-control relative" id={@id}>
+    <fieldset class="fieldset relative" id={@id}>
       <%= if @label do %>
-        <label class="label">
-          <span class="label-text font-semibold">{@label}</span>
-        </label>
+        <legend class="fieldset-legend font-semibold">{@label}</legend>
       <% end %>
 
       <input type="hidden" name={@name} value={@value || ""} />
 
       <%!-- Display input --%>
       <div
-        class="input input-bordered flex items-center justify-between cursor-pointer"
+        class="input input-bordered w-full flex items-center justify-between cursor-pointer"
         phx-click="toggle"
         phx-target={@myself}
       >
@@ -213,7 +211,7 @@ defmodule PhoenixKitWeb.Live.Components.SearchableSelect do
           </div>
         </div>
       <% end %>
-    </div>
+    </fieldset>
     """
   end
 
