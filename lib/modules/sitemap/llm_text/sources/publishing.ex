@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.Sources.Publishing do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   @moduledoc """
   LLM text source for PhoenixKit Publishing module.
 
@@ -9,7 +9,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.Publishing do
   Only active when the Publishing module is loaded and enabled.
   """
 
-  @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+  @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   @compile {:no_warn_undefined,
             [
@@ -64,7 +64,7 @@ defmodule PhoenixKit.Modules.LLMText.Sources.Publishing do
   rescue
     error ->
       Logger.warning(
-        "LLMText PublishingSource failed to collect index entries: #{inspect(error)}"
+        "Sitemap.LLMText PublishingSource failed to collect index entries: #{inspect(error)}"
       )
 
       []
@@ -93,7 +93,9 @@ defmodule PhoenixKit.Modules.LLMText.Sources.Publishing do
     end
   rescue
     error ->
-      Logger.warning("LLMText PublishingSource failed to collect page files: #{inspect(error)}")
+      Logger.warning(
+        "Sitemap.LLMText PublishingSource failed to collect page files: #{inspect(error)}"
+      )
 
       []
   end

@@ -1,11 +1,11 @@
-defmodule PhoenixKit.Modules.LLMText.GeneratorTest do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
   use ExUnit.Case, async: false
 
-  alias PhoenixKit.Modules.LLMText.FileStorage
-  alias PhoenixKit.Modules.LLMText.Generator
+  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
+  alias PhoenixKit.Modules.Sitemap.LLMText.Generator
 
   defmodule StubSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :stub
     def enabled?, do: true
@@ -27,7 +27,7 @@ defmodule PhoenixKit.Modules.LLMText.GeneratorTest do
   end
 
   defmodule DisabledSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :disabled_stub
     def enabled?, do: false
@@ -40,12 +40,12 @@ defmodule PhoenixKit.Modules.LLMText.GeneratorTest do
 
   setup do
     tmp_dir = System.tmp_dir!() |> Path.join("llm_text_gen_test_#{:rand.uniform(1_000_000)}")
-    Application.put_env(:phoenix_kit, :llm_text_test_storage_dir, tmp_dir)
-    Application.put_env(:phoenix_kit, :llm_text_sources, [StubSource])
+    Application.put_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir, tmp_dir)
+    Application.put_env(:phoenix_kit, :sitemap_llm_text_sources, [StubSource])
 
     on_exit(fn ->
-      Application.delete_env(:phoenix_kit, :llm_text_test_storage_dir)
-      Application.delete_env(:phoenix_kit, :llm_text_sources)
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir)
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_sources)
       File.rm_rf(tmp_dir)
     end)
 
@@ -111,7 +111,7 @@ defmodule PhoenixKit.Modules.LLMText.GeneratorTest do
     end
 
     test "skips disabled sources" do
-      Application.put_env(:phoenix_kit, :llm_text_sources, [StubSource, DisabledSource])
+      Application.put_env(:phoenix_kit, :sitemap_llm_text_sources, [StubSource, DisabledSource])
       :ok = Generator.run_all()
       refute FileStorage.exists?("hidden.md")
     end
@@ -145,7 +145,7 @@ defmodule PhoenixKit.Modules.LLMText.GeneratorTest do
     end
 
     test "returns [] when not configured" do
-      Application.delete_env(:phoenix_kit, :llm_text_sources)
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_sources)
       assert Generator.get_sources() == []
     end
   end

@@ -1,10 +1,10 @@
-defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.GenerateJobTest do
   use ExUnit.Case, async: false
 
-  alias PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJob
+  alias PhoenixKit.Modules.Sitemap.LLMText.GenerateJob
 
   defmodule BlogSource do
-    @behaviour PhoenixKit.Modules.LLMText.Sources.Source
+    @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
     def source_name, do: :blog
     def enabled?, do: true
@@ -13,10 +13,10 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
   end
 
   setup do
-    Application.put_env(:phoenix_kit, :llm_text_sources, [BlogSource])
+    Application.put_env(:phoenix_kit, :sitemap_llm_text_sources, [BlogSource])
 
     on_exit(fn ->
-      Application.delete_env(:phoenix_kit, :llm_text_sources)
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_sources)
     end)
 
     :ok
@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
 
   describe "enqueue_all/0" do
     test "returns a changeset with scope 'all'" do
-      changeset = GenerateLLMTextJob.enqueue_all()
+      changeset = GenerateJob.enqueue_all()
       assert changeset.valid?
       assert changeset.changes.args == %{"scope" => "all"}
     end
@@ -32,13 +32,13 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
 
   describe "enqueue_for_source/1" do
     test "accepts atom source name" do
-      changeset = GenerateLLMTextJob.enqueue_for_source(:blog)
+      changeset = GenerateJob.enqueue_for_source(:blog)
       assert changeset.valid?
       assert changeset.changes.args == %{"scope" => "source", "source" => "blog"}
     end
 
     test "accepts string source name" do
-      changeset = GenerateLLMTextJob.enqueue_for_source("blog")
+      changeset = GenerateJob.enqueue_for_source("blog")
       assert changeset.valid?
       assert changeset.changes.args == %{"scope" => "source", "source" => "blog"}
     end
@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
 
   describe "enqueue_for_file/2" do
     test "accepts atom source name and path" do
-      changeset = GenerateLLMTextJob.enqueue_for_file(:blog, "posts/article.md")
+      changeset = GenerateJob.enqueue_for_file(:blog, "posts/article.md")
       assert changeset.valid?
 
       assert changeset.changes.args == %{
@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
     end
 
     test "accepts string source name and path" do
-      changeset = GenerateLLMTextJob.enqueue_for_file("blog", "posts/article.md")
+      changeset = GenerateJob.enqueue_for_file("blog", "posts/article.md")
       assert changeset.valid?
 
       assert changeset.changes.args == %{
@@ -70,11 +70,11 @@ defmodule PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJobTest do
 
   describe "resolve_source/1" do
     test "finds a source module by name string" do
-      assert GenerateLLMTextJob.resolve_source("blog") == BlogSource
+      assert GenerateJob.resolve_source("blog") == BlogSource
     end
 
     test "returns nil for unknown source" do
-      assert GenerateLLMTextJob.resolve_source("nonexistent") == nil
+      assert GenerateJob.resolve_source("nonexistent") == nil
     end
   end
 end

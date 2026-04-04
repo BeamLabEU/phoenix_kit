@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
+defmodule PhoenixKit.Modules.Sitemap.LLMText.PublishingSubscriber do
   @moduledoc """
   GenServer that subscribes to Publishing PubSub events and triggers
   incremental LLM text file regeneration.
@@ -24,9 +24,9 @@ defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
 
   require Logger
 
-  alias PhoenixKit.Modules.LLMText.FileStorage
-  alias PhoenixKit.Modules.LLMText.Sources.Publishing, as: PublishingSource
-  alias PhoenixKit.Modules.LLMText.Workers.GenerateLLMTextJob
+  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
+  alias PhoenixKit.Modules.Sitemap.LLMText.GenerateJob
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing, as: PublishingSource
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
 
   @compile {:no_warn_undefined,
@@ -91,9 +91,7 @@ defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
     post_slug = extract_post_slug(post)
 
     if published?(post) do
-      changeset =
-        GenerateLLMTextJob.enqueue_for_file(:publishing, "#{group_slug}/#{post_slug}.txt")
-
+      changeset = GenerateJob.enqueue_for_file(:publishing, "#{group_slug}/#{post_slug}.txt")
       insert_job(changeset)
     else
       path = PublishingSource.build_file_path(group_slug, post_slug)
@@ -102,7 +100,9 @@ defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
     end
   rescue
     error ->
-      Logger.warning("LLMText PublishingSubscriber: handle_post_event failed: #{inspect(error)}")
+      Logger.warning(
+        "Sitemap.LLMText PublishingSubscriber: handle_post_event failed: #{inspect(error)}"
+      )
   end
 
   defp handle_post_removed(post_identifier) do
@@ -120,12 +120,12 @@ defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
   rescue
     error ->
       Logger.warning(
-        "LLMText PublishingSubscriber: handle_post_removed failed: #{inspect(error)}"
+        "Sitemap.LLMText PublishingSubscriber: handle_post_removed failed: #{inspect(error)}"
       )
   end
 
   defp enqueue_source_rebuild(_group_slug) do
-    changeset = GenerateLLMTextJob.enqueue_for_source(:publishing)
+    changeset = GenerateJob.enqueue_for_source(:publishing)
     insert_job(changeset)
   end
 
@@ -133,7 +133,10 @@ defmodule PhoenixKit.Modules.LLMText.PublishingSubscriber do
     Oban.insert(changeset)
   rescue
     error ->
-      Logger.warning("LLMText PublishingSubscriber: failed to insert job: #{inspect(error)}")
+      Logger.warning(
+        "Sitemap.LLMText PublishingSubscriber: failed to insert job: #{inspect(error)}"
+      )
+
       {:error, error}
   end
 
