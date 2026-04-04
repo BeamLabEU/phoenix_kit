@@ -1,3 +1,26 @@
+## 1.7.90 - 2026-04-04
+
+### Added
+- Add organization accounts support with person/organization user types
+- Add organization invitations system with token-based invite flow
+- Add V91 locations migration: location types, locations, and type assignments tables
+- Add V92 organization accounts migration (invitations, user type fields)
+- Add JS hooks integration for parent app install and update workflows
+- Add LLMText module for AI/LLM-friendly content generation
+- Add auth logo from settings to admin header
+- Add billing tabs component
+
+### Changed
+- Move tax rate and CountryData from Billing to core PhoenixKit
+- Remove hardcoded Billing and E-Commerce module cards in favor of auto-discovery
+- Update AGENTS.md with severity level definitions and JS hooks documentation
+
+### Fixed
+- Fix double sidebar for core modules and improve struct compatibility
+- Hide hamburger menu button when sidebar is permanently visible
+- Fix token security, gettext, and validation issues in organization invitations
+- Fix tax data loss, invitation status guard, and IbanData safety
+
 ## 1.7.88 - 2026-04-02
 
 ### Changed
