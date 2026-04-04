@@ -253,53 +253,14 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   Gets company info from consolidated key with fallback to legacy keys.
   """
   def get_company_info do
-    case Settings.get_json_setting("company_info", nil) do
-      nil -> try_legacy_company_keys()
-      info when is_map(info) -> Map.merge(@default_company_info, info)
-      _ -> @default_company_info
-    end
-  end
-
-  defp try_legacy_company_keys do
-    # Try legal_company_info first
-    case Settings.get_json_setting("legal_company_info", nil) do
-      nil -> build_from_billing_settings()
-      info when is_map(info) -> Map.merge(@default_company_info, info)
-      _ -> @default_company_info
-    end
-  end
-
-  defp build_from_billing_settings do
-    %{
-      "name" => Settings.get_setting("billing_company_name", ""),
-      "address_line1" => Settings.get_setting("billing_company_address_line1", ""),
-      "address_line2" => Settings.get_setting("billing_company_address_line2", ""),
-      "city" => Settings.get_setting("billing_company_city", ""),
-      "state" => Settings.get_setting("billing_company_state", ""),
-      "postal_code" => Settings.get_setting("billing_company_postal_code", ""),
-      "country" => Settings.get_setting("billing_company_country", ""),
-      "vat_number" => Settings.get_setting("billing_company_vat", ""),
-      "registration_number" => ""
-    }
+    Map.merge(@default_company_info, CountryData.get_company_info())
   end
 
   @doc """
   Gets bank details from consolidated key with fallback to legacy keys.
   """
   def get_bank_details do
-    case Settings.get_json_setting("company_bank_details", nil) do
-      nil -> build_from_billing_bank_settings()
-      info when is_map(info) -> Map.merge(@default_bank_details, info)
-      _ -> @default_bank_details
-    end
-  end
-
-  defp build_from_billing_bank_settings do
-    %{
-      "bank_name" => Settings.get_setting("billing_bank_name", ""),
-      "iban" => Settings.get_setting("billing_bank_iban", ""),
-      "swift" => Settings.get_setting("billing_bank_swift", "")
-    }
+    Map.merge(@default_bank_details, CountryData.get_bank_details())
   end
 
   # ===================================
@@ -366,17 +327,21 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   # ===================================
 
   defp save_company_info(data, params) do
-    company_info = %{
-      "name" => data.name,
-      "address_line1" => data.address_line1,
-      "address_line2" => (params["company_address_line2"] || "") |> String.trim(),
-      "city" => data.city,
-      "state" => (params["company_state"] || "") |> String.trim(),
-      "postal_code" => (params["company_postal_code"] || "") |> String.trim(),
-      "country" => data.country,
-      "vat_number" => String.upcase(data.vat),
-      "registration_number" => (params["company_registration"] || "") |> String.trim()
-    }
+    # Merge with existing company_info to preserve tax_enabled/tax_rate keys
+    existing = get_company_info()
+
+    company_info =
+      Map.merge(existing, %{
+        "name" => data.name,
+        "address_line1" => data.address_line1,
+        "address_line2" => (params["company_address_line2"] || "") |> String.trim(),
+        "city" => data.city,
+        "state" => (params["company_state"] || "") |> String.trim(),
+        "postal_code" => (params["company_postal_code"] || "") |> String.trim(),
+        "country" => data.country,
+        "vat_number" => String.upcase(data.vat),
+        "registration_number" => (params["company_registration"] || "") |> String.trim()
+      })
 
     Settings.update_json_setting("company_info", company_info)
   end

@@ -557,7 +557,11 @@ defmodule PhoenixKit.Utils.CountryData do
       when is_binary(iban) do
     iban = String.replace(iban, ~r/\s/, "") |> String.upcase()
     iban_country = String.slice(iban, 0, 2)
-    expected_length = IbanData.get_iban_length(iban_country)
+
+    expected_length =
+      if Code.ensure_loaded?(IbanData),
+        do: IbanData.get_iban_length(iban_country),
+        else: nil
 
     cond do
       iban == "" ->

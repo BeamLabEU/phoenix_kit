@@ -222,10 +222,13 @@ defmodule PhoenixKit.Users.Invitations do
       nil ->
         {:error, :not_found}
 
-      invitation ->
+      %{status: :pending} = invitation ->
         invitation
         |> OrganizationInvitation.cancel_changeset()
         |> repo.update()
+
+      _other ->
+        {:error, :not_pending}
     end
   end
 
