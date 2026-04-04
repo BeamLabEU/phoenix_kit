@@ -535,10 +535,14 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `organization_uuid` self-referencing FK to link persons to organizations
   - Indexes on `account_type` and `organization_uuid`
 
-  ### V91 - Locations
-  - Creates `phoenix_kit_location_types`, `phoenix_kit_locations`, `phoenix_kit_location_type_assignments`
+  ### V91 - Locations tables
+  - `phoenix_kit_location_types` for user-defined location categories
+  - `phoenix_kit_locations` for physical locations with type reference
+  - `phoenix_kit_location_type_assignments` for many-to-many join
 
-  ### V90 - Activity module tables
+  ### V90 - Activity feed
+  - `phoenix_kit_activities` table for business-level action logging
+
   ### V89 - Catalogue pricing
   - Renames `price` to `base_price` in `phoenix_kit_cat_items`
   - Adds `markup_percentage` decimal column to `phoenix_kit_cat_catalogues`

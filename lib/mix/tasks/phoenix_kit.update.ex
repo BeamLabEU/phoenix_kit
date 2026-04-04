@@ -90,6 +90,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       CssIntegration,
       DbConnectionCheck,
       IgniterHelpers,
+      JsIntegration,
       ObanConfig,
       RateLimiterConfig
     }
@@ -581,6 +582,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
+
+      # Update JS hooks file
+      JsIntegration.update_js_file()
 
       # Always rebuild assets unless explicitly skipped
       unless Keyword.get(opts, :skip_assets, false) do

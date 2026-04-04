@@ -55,6 +55,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       DbConnectionCheck,
       DemoFiles,
       EndpointIntegration,
+      JsIntegration,
       LayoutConfig,
       MailerConfig,
       MigrationStrategy,
@@ -103,6 +104,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
+      |> JsIntegration.add_js_integration()
       |> DemoFiles.copy_test_demo_files()
       |> RouterIntegration.add_router_integration(opts[:router_path])
       |> BrowserPipelineIntegration.add_integration_to_browser_pipeline()
