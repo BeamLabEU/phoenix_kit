@@ -73,6 +73,12 @@
                   >
                     Cloudflare R2
                   </option>
+                  <option
+                    value="tigris"
+                    selected={Ecto.Changeset.get_field(@changeset, :provider) == "tigris"}
+                  >
+                    Tigris
+                  </option>
                 </select>
               </label>
             </div>
@@ -95,6 +101,8 @@
                       Backblaze B2
                     <% "r2" -> %>
                       Cloudflare R2
+                    <% "tigris" -> %>
+                      Tigris
                     <% _ -> %>
                       {String.upcase(@current_provider || "Unknown")}
                   <% end %>
@@ -129,7 +137,7 @@
           <% end %>
 
           <%!-- Cloud Provider Settings --%>
-          <%= if @current_provider in ["s3", "b2", "r2"] do %>
+          <%= if @current_provider in ["s3", "b2", "r2", "tigris"] do %>
             <div class="divider">{gettext("Cloud Provider Configuration")}</div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -167,6 +175,24 @@
                   }
                 />
               <% end %>
+              <%= if @current_provider == "tigris" do %>
+                <.live_component
+                  module={PhoenixKitWeb.Live.Components.SearchableSelect}
+                  id="bucket-tigris-region-select"
+                  name="bucket[region]"
+                  value={Ecto.Changeset.get_field(@changeset, :region)}
+                  label={"#{gettext("Tigris Region")} *"}
+                  placeholder="Search Tigris regions..."
+                  required={true}
+                  grouped_options={
+                    Enum.map(Enum.sort(TigrisRegions.group_by_continent()), fn {continent,
+                                                                                regions} ->
+                      {continent,
+                       Enum.map(regions, fn r -> {"#{r.name} — #{r.code}", r.code} end)}
+                    end)
+                  }
+                />
+              <% end %>
 
               <div class="form-control">
                 <label class="label">
@@ -175,6 +201,7 @@
                       "s3" -> gettext("AWS Bucket Name")
                       "b2" -> gettext("Backblaze Bucket Name")
                       "r2" -> gettext("Cloudflare Bucket Name")
+                      "tigris" -> gettext("Tigris Bucket Name")
                       _ -> gettext("Bucket Name")
                     end} *
                   </span>
@@ -185,18 +212,21 @@
                   value={Ecto.Changeset.get_field(@changeset, :bucket_name)}
                   class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
                   placeholder="e.g., my-app-files"
-                  required={@current_provider in ["b2", "r2"]}
+                  required={@current_provider in ["b2", "r2", "tigris"]}
                 />
               </div>
             </div>
 
-            <%= if @current_provider in ["b2", "r2"] do %>
+            <%= if @current_provider in ["b2", "r2", "tigris"] do %>
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">
-                    {if @current_provider == "b2",
-                      do: gettext("Backblaze Endpoint"),
-                      else: gettext("Cloudflare Endpoint")} *
+                    {case @current_provider do
+                      "b2" -> gettext("Backblaze Endpoint")
+                      "r2" -> gettext("Cloudflare Endpoint")
+                      "tigris" -> gettext("Tigris Endpoint")
+                      _ -> gettext("Endpoint")
+                    end} *
                   </span>
                 </label>
                 <input
@@ -205,7 +235,7 @@
                   value={Ecto.Changeset.get_field(@changeset, :endpoint)}
                   class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
                   placeholder="e.g., s3.us-west-002.backblazeb2.com"
-                  required={@current_provider in ["b2", "r2"]}
+                  required={@current_provider in ["b2", "r2", "tigris"]}
                 />
               </div>
             <% end %>
@@ -222,6 +252,7 @@
                       "s3" -> gettext("AWS access key")
                       "b2" -> gettext("Backblaze key ID")
                       "r2" -> gettext("Cloudflare access key")
+                      "tigris" -> gettext("Tigris access key")
                       _ -> gettext("API key")
                     end}
                   </span>
@@ -232,7 +263,7 @@
                   value={Ecto.Changeset.get_field(@changeset, :access_key_id)}
                   class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
                   placeholder="AKIA..."
-                  required={@current_provider in ["b2", "r2"]}
+                  required={@current_provider in ["b2", "r2", "tigris"]}
                 />
               </div>
 
@@ -244,6 +275,7 @@
                       "s3" -> gettext("AWS secret key")
                       "b2" -> gettext("Backblaze application key")
                       "r2" -> gettext("Cloudflare secret key")
+                      "tigris" -> gettext("Tigris secret key")
                       _ -> gettext("API secret")
                     end}
                   </span>
@@ -254,7 +286,7 @@
                   value={Ecto.Changeset.get_field(@changeset, :secret_access_key)}
                   class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
                   placeholder="•••••••••••••••••••••••••••••••••"
-                  required={@current_provider in ["b2", "r2"]}
+                  required={@current_provider in ["b2", "r2", "tigris"]}
                 />
               </div>
             </div>
@@ -264,7 +296,7 @@
           <div class="divider">{gettext("Additional Settings")}</div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <%= if @current_provider in ["s3", "b2", "r2"] do %>
+            <%= if @current_provider in ["s3", "b2", "r2", "tigris"] do %>
               <div class="form-control">
                 <label class="label">
                   <span class="label-text font-semibold">{gettext("Access Type")}</span>
