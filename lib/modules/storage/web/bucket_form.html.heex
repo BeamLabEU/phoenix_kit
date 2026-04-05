@@ -21,30 +21,26 @@
             <.icon name="hero-server" class="w-5 h-5" /> {gettext("Basic Information")}
           </h2>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">{gettext("Bucket Name")} *</span>
-            </label>
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend font-semibold">{gettext("Bucket Name")} *</legend>
             <input
               type="text"
               name="bucket[name]"
               value={Ecto.Changeset.get_field(@changeset, :name)}
-              class={"input input-bordered #{input_class(@changeset, :name)}"}
+              class={"input input-bordered w-full #{input_class(@changeset, :name)}"}
               placeholder={gettext("e.g., Production Media, Backup Storage")}
               required
             />
-            <label class="label">
-              <span class="label-text-alt text-base-content/50">
-                {gettext("A friendly name to identify this storage location")}
-              </span>
-            </label>
-          </div>
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext("A friendly name to identify this storage location")}
+            </p>
+          </fieldset>
 
           <%= if @mode == :new do %>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Storage Provider")} *</span>
-              </label>
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend font-semibold">
+                {gettext("Storage Provider")} *
+              </legend>
               <label class={"select w-full #{input_class(@changeset, :provider)}"}>
                 <select name="bucket[provider]" required>
                   <option value="">{gettext("Select provider...")}</option>
@@ -80,13 +76,11 @@
                   </option>
                 </select>
               </label>
-            </div>
+            </fieldset>
           <% else %>
             <input type="hidden" name="bucket[provider]" value={@current_provider} />
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Storage Provider")}</span>
-              </label>
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend font-semibold">{gettext("Storage Provider")}</legend>
               <div class="flex items-center gap-2">
                 <span class="badge badge-lg badge-outline">
                   <%= case @current_provider do %>
@@ -106,7 +100,7 @@
                 </span>
                 <span class="text-xs text-base-content/40">{gettext("Cannot be changed")}</span>
               </div>
-            </div>
+            </fieldset>
           <% end %>
         </div>
       </div>
@@ -119,24 +113,20 @@
               <.icon name="hero-folder" class="w-5 h-5" /> {gettext("Local Storage")}
             </h2>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Storage Path")} *</span>
-              </label>
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend font-semibold">{gettext("Storage Path")} *</legend>
               <input
                 type="text"
                 name="bucket[endpoint]"
                 value={Ecto.Changeset.get_field(@changeset, :endpoint)}
-                class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
+                class={"input input-bordered w-full #{input_class(@changeset, :endpoint)}"}
                 placeholder="/path/to/storage"
                 required
               />
-              <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                  {gettext("Absolute path where files will be stored on disk")}
-                </span>
-              </label>
-            </div>
+              <p class="text-xs text-base-content/50 mt-1">
+                {gettext("Absolute path where files will be stored on disk")}
+              </p>
+            </fieldset>
           </div>
         </div>
       <% end %>
@@ -256,51 +246,33 @@
             </h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">{gettext("Access Key ID")} *</span>
-                  <span class="label-text-alt">
-                    {case @current_provider do
-                      "s3" -> gettext("AWS access key")
-                      "b2" -> gettext("Backblaze key ID")
-                      "r2" -> gettext("Cloudflare access key")
-                      "tigris" -> gettext("Tigris access key")
-                      _ -> gettext("API key")
-                    end}
-                  </span>
-                </label>
+              <fieldset class="fieldset">
+                <legend class="fieldset-legend font-semibold">
+                  {gettext("Access Key ID")} *
+                </legend>
                 <input
                   type="text"
                   name="bucket[access_key_id]"
                   value={Ecto.Changeset.get_field(@changeset, :access_key_id)}
-                  class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
+                  class={"input input-bordered w-full #{input_class(@changeset, :access_key_id)}"}
                   placeholder="AKIA..."
                   required={@current_provider in ["b2", "r2", "tigris"]}
                 />
-              </div>
+              </fieldset>
 
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">{gettext("Secret Access Key")} *</span>
-                  <span class="label-text-alt">
-                    {case @current_provider do
-                      "s3" -> gettext("AWS secret key")
-                      "b2" -> gettext("Backblaze application key")
-                      "r2" -> gettext("Cloudflare secret key")
-                      "tigris" -> gettext("Tigris secret key")
-                      _ -> gettext("API secret")
-                    end}
-                  </span>
-                </label>
+              <fieldset class="fieldset">
+                <legend class="fieldset-legend font-semibold">
+                  {gettext("Secret Access Key")} *
+                </legend>
                 <input
                   type="password"
                   name="bucket[secret_access_key]"
                   value={Ecto.Changeset.get_field(@changeset, :secret_access_key)}
-                  class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
+                  class={"input input-bordered w-full #{input_class(@changeset, :secret_access_key)}"}
                   placeholder="•••••••••••••••••••••••••••••••••"
                   required={@current_provider in ["b2", "r2", "tigris"]}
                 />
-              </div>
+              </fieldset>
             </div>
 
             <%!-- Test Connection --%>
@@ -349,10 +321,8 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <%= if @current_provider in ["s3", "b2", "r2", "tigris"] do %>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">{gettext("Access Type")}</span>
-                </label>
+              <fieldset class="fieldset">
+                <legend class="fieldset-legend font-semibold">{gettext("Access Type")}</legend>
                 <label class="select w-full">
                   <select name="bucket[access_type]">
                     <option
@@ -369,27 +339,23 @@
                     </option>
                   </select>
                 </label>
-              </div>
+              </fieldset>
             <% end %>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">{gettext("Priority")}</span>
-              </label>
+            <fieldset class="fieldset">
+              <legend class="fieldset-legend font-semibold">{gettext("Priority")}</legend>
               <input
                 type="number"
                 name="bucket[priority]"
                 value={Ecto.Changeset.get_field(@changeset, :priority)}
-                class={"input input-bordered #{input_class(@changeset, :priority)}"}
+                class={"input input-bordered w-full #{input_class(@changeset, :priority)}"}
                 placeholder="0"
                 min="0"
               />
-              <label class="label">
-                <span class="label-text-alt text-base-content/50">
-                  {gettext("0 = auto, 1+ = higher priority")}
-                </span>
-              </label>
-            </div>
+              <p class="text-xs text-base-content/50 mt-1">
+                {gettext("0 = auto, 1+ = higher priority")}
+              </p>
+            </fieldset>
           </div>
 
           <div class="form-control">
