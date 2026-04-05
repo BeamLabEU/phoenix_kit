@@ -273,6 +273,21 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
+  def handle_event("toggle_bucket", %{"id" => bucket_uuid}, socket) do
+    bucket = Storage.get_bucket(bucket_uuid)
+    new_enabled = !bucket.enabled
+
+    case Storage.update_bucket(bucket, %{enabled: new_enabled}) do
+      {:ok, _bucket} ->
+        action = if new_enabled, do: "enabled", else: "disabled"
+        socket = reload_settings_data(socket)
+        {:noreply, put_flash(socket, :info, "Bucket #{action} successfully")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update bucket")}
+    end
+  end
+
   def handle_event("delete_bucket", %{"id" => bucket_uuid}, socket) do
     bucket = Storage.get_bucket(bucket_uuid)
 
