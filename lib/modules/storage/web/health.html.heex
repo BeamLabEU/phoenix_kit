@@ -1,0 +1,156 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-5xl">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
+      title={@page_title}
+      subtitle={gettext("Check file redundancy against configured target")}
+    />
+
+    <%!-- Stats --%>
+    <div class="stats stats-vertical lg:stats-horizontal shadow w-full mb-6">
+      <div class="stat">
+        <div class="stat-figure text-primary">
+          <.icon name="hero-document-duplicate" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Total Files")}</div>
+        <div class="stat-value text-2xl">{@report.total}</div>
+        <div class="stat-desc">{gettext("Files with completed variants")}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-figure text-success">
+          <.icon name="hero-check-circle" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Healthy")}</div>
+        <div class="stat-value text-2xl text-success">{@report.healthy}</div>
+        <div class="stat-desc">
+          {gettext("%{count}+ locations each", count: @report.redundancy_target)}
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-figure text-error">
+          <.icon name="hero-exclamation-triangle" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Under-replicated")}</div>
+        <div class="stat-value text-2xl text-error">{length(@report.under_replicated)}</div>
+        <div class="stat-desc">{gettext("Below redundancy target")}</div>
+      </div>
+
+      <div class="stat">
+        <div class={"stat-figure #{if @report.health_percentage == 100.0, do: "text-success", else: "text-warning"}"}>
+          <.icon name="hero-heart" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Health")}</div>
+        <div class={"stat-value text-2xl #{if @report.health_percentage == 100.0, do: "text-success", else: "text-warning"}"}>
+          {@report.health_percentage}%
+        </div>
+        <div class="stat-desc">
+          {gettext("Redundancy target: %{n} copies", n: @report.redundancy_target)}
+        </div>
+      </div>
+    </div>
+
+    <%!-- Refresh Button --%>
+    <div class="flex justify-end mb-4">
+      <button phx-click="refresh" class="btn btn-outline btn-sm">
+        <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Refresh")}
+      </button>
+    </div>
+
+    <%!-- Results --%>
+    <%= if @report.under_replicated == [] do %>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body items-center text-center py-12">
+          <.icon name="hero-check-circle" class="w-16 h-16 text-success mb-4" />
+          <h3 class="text-xl font-bold text-success">{gettext("All Healthy")}</h3>
+          <p class="text-base-content/60">
+            {gettext("All files meet the redundancy target of %{n} copies.",
+              n: @report.redundancy_target
+            )}
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <.table_default
+        id="health-table"
+        variant="zebra"
+        toggleable={true}
+        items={@report.under_replicated}
+        card_title={fn item -> item.original_file_name end}
+        card_fields={
+          fn item ->
+            [
+              %{label: gettext("Type"), value: item.file_type},
+              %{
+                label: gettext("Locations"),
+                value: "#{item.min_location_count} / #{@report.redundancy_target}"
+              },
+              %{
+                label: gettext("Status"),
+                value:
+                  if(item.min_location_count == 0,
+                    do: gettext("No copies"),
+                    else:
+                      gettext("Missing %{n} copies",
+                        n: @report.redundancy_target - item.min_location_count
+                      )
+                  )
+              }
+            ]
+          end
+        }
+      >
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell>{gettext("File")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Locations")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+        <.table_default_body>
+          <%= for item <- @report.under_replicated do %>
+            <.table_default_row>
+              <.table_default_cell>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{item.file_uuid}")}
+                  class="font-bold link link-hover link-primary"
+                >
+                  {item.original_file_name}
+                </.link>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class="badge badge-ghost badge-sm h-auto">{item.file_type}</span>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class={"font-semibold #{if item.min_location_count == 0, do: "text-error", else: "text-warning"}"}>
+                  {item.min_location_count}
+                </span>
+                <span class="text-base-content/50">/ {@report.redundancy_target}</span>
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if item.min_location_count == 0 do %>
+                  <span class="badge badge-error badge-sm h-auto">{gettext("No copies")}</span>
+                <% else %>
+                  <span class="badge badge-warning badge-sm h-auto">
+                    {gettext("Missing %{n}",
+                      n: @report.redundancy_target - item.min_location_count
+                    )}
+                  </span>
+                <% end %>
+              </.table_default_cell>
+            </.table_default_row>
+          <% end %>
+        </.table_default_body>
+      </.table_default>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

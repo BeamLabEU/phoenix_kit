@@ -437,6 +437,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
         live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
         live "/admin/settings/media/dimensions", Live.Modules.Storage.Dimensions, :index
+        live "/admin/settings/media/health", Live.Modules.Storage.Health, :index
 
         live "/admin/settings/media/dimensions/new/image",
              Live.Modules.Storage.DimensionForm,

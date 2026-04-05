@@ -200,6 +200,97 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
+  Returns a health report comparing file location counts against the redundancy target.
+
+  Groups by file (not instance) — a file is "under-replicated" if any of its
+  instances have fewer active locations than the redundancy target.
+
+  Returns a map with:
+  - `total` — total files
+  - `healthy` — files where all instances meet the redundancy target
+  - `under_replicated` — list of files with at least one under-replicated instance
+  - `health_percentage` — percentage of healthy files
+  """
+  def get_health_report(redundancy_target) do
+    # Per-instance location counts, then aggregate per file
+    instance_counts_query =
+      from(fi in FileInstance,
+        left_join: fl in FileLocation,
+        on: fl.file_instance_uuid == fi.uuid and fl.status == "active",
+        where: fi.processing_status == "completed",
+        group_by: [fi.uuid, fi.file_uuid],
+        select: %{
+          file_uuid: fi.file_uuid,
+          location_count: count(fl.uuid)
+        }
+      )
+
+    instance_counts = repo().all(instance_counts_query)
+
+    # Group by file, take the minimum location count per file
+    file_min_counts =
+      instance_counts
+      |> Enum.group_by(& &1.file_uuid)
+      |> Enum.map(fn {file_uuid, instances} ->
+        min_count = Enum.min_by(instances, & &1.location_count).location_count
+        {file_uuid, min_count}
+      end)
+
+    # Load file details for under-replicated ones
+    under_replicated_uuids =
+      file_min_counts
+      |> Enum.filter(fn {_uuid, min_count} -> min_count < redundancy_target end)
+      |> Enum.map(fn {uuid, _} -> uuid end)
+
+    total = length(file_min_counts)
+    under_replicated_count = length(under_replicated_uuids)
+    healthy = total - under_replicated_count
+
+    under_replicated_files =
+      if under_replicated_uuids != [] do
+        min_counts_map = Map.new(file_min_counts)
+
+        from(f in PhoenixKit.Modules.Storage.File,
+          where: f.uuid in ^under_replicated_uuids,
+          order_by: [asc: f.original_file_name],
+          select: %{
+            file_uuid: f.uuid,
+            original_file_name: f.original_file_name,
+            file_type: f.file_type
+          }
+        )
+        |> repo().all()
+        |> Enum.map(fn file ->
+          Map.put(file, :min_location_count, Map.get(min_counts_map, file.file_uuid, 0))
+        end)
+      else
+        []
+      end
+
+    health_percentage =
+      if total > 0, do: Float.round(healthy / total * 100, 1), else: 100.0
+
+    %{
+      total: total,
+      healthy: healthy,
+      under_replicated: under_replicated_files,
+      health_percentage: health_percentage,
+      redundancy_target: redundancy_target
+    }
+  rescue
+    error ->
+      Logger.error("Health report failed: #{inspect(error)}")
+
+      %{
+        total: 0,
+        healthy: 0,
+        under_replicated: [],
+        health_percentage: 100.0,
+        redundancy_target: redundancy_target
+      }
+  end
+
+  @doc """
   Calculates free space for a bucket.
 
   For local storage, checks actual disk space.

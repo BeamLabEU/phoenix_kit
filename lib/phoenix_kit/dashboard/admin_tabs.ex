@@ -291,6 +291,15 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         934,
         :admin_settings_media,
         "media"
+      ),
+      admin_subtab(
+        :admin_settings_media_health,
+        "Health",
+        "hero-heart",
+        "media/health",
+        935,
+        :admin_settings_media,
+        "media"
       )
     ]
 
