@@ -36,7 +36,7 @@
               label="Upload Media Files"
               icon="hero-cloud-arrow-up"
               accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
-              max_size_description="100MB per file"
+              max_size_description={"#{@max_upload_size_mb}MB per file"}
             />
           <% else %>
             <div class="alert alert-warning">

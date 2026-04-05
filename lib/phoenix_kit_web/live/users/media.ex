@@ -52,14 +52,21 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   defp maybe_allow_upload(socket, has_buckets) do
     if has_buckets do
-      allow_upload(socket, :media_files,
+      max_size_mb =
+        Settings.get_setting_cached("storage_max_upload_size_mb", "500")
+        |> String.to_integer()
+
+      socket
+      |> assign(:max_upload_size_mb, max_size_mb)
+      |> allow_upload(:media_files,
         accept: ["image/*", "video/*", "application/pdf"],
         max_entries: 10,
-        max_file_size: 1_000_000_000_000,
+        max_file_size: max_size_mb * 1_000_000,
         auto_upload: true
       )
     else
       socket
+      |> assign(:max_upload_size_mb, 0)
     end
   end
 

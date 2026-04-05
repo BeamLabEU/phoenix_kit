@@ -398,6 +398,26 @@
               </span>
             </label>
           </div>
+
+          <%!-- Max Upload Size --%>
+          <div class="form-control">
+            <div class="mb-2">
+              <span class="label-text font-semibold">{gettext("Max Upload Size (MB)")}</span>
+              <span class="block text-xs text-base-content/60">
+                {gettext("Maximum file size allowed per upload")}
+              </span>
+            </div>
+            <input
+              type="number"
+              name="form_max_upload_size_mb"
+              value={@form_max_upload_size_mb}
+              min="1"
+              class="input input-bordered"
+            />
+            <p class="text-xs text-base-content/70 mt-1">
+              {gettext("Current limit: %{size} MB", size: @form_max_upload_size_mb)}
+            </p>
+          </div>
         </.form>
 
         <%!-- Apply Button --%>
@@ -407,7 +427,8 @@
             phx-click="apply_storage_settings"
             disabled={
               @form_redundancy == @redundancy_copies and
-                @form_auto_generate_variants == @auto_generate_variants
+                @form_auto_generate_variants == @auto_generate_variants and
+                @form_max_upload_size_mb == @max_upload_size_mb
             }
             phx-disable-with={gettext("Applying...")}
             class="btn btn-primary"
@@ -415,7 +436,7 @@
             <.icon name="hero-check" class="w-4 h-4 mr-2" /> {gettext("Apply Changes")}
           </button>
           <span class="label-text-alt text-xs ml-2">
-            <%= if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants do %>
+            <%= if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants and @form_max_upload_size_mb == @max_upload_size_mb do %>
               {gettext("No changes to apply")}
             <% else %>
               {gettext("Changes will be saved immediately")}
