@@ -80,6 +80,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
          %{done: done, total: total, synced: synced, failed: failed, status: :in_progress}},
         socket
       ) do
+    # Update health stats live based on sync progress
+    report = socket.assigns.report
+    new_healthy = report.healthy + synced
+
+    new_percentage =
+      if report.total > 0,
+        do: Float.round(new_healthy / report.total * 100, 1),
+        else: 100.0
+
+    updated_report = %{
+      report
+      | healthy: new_healthy,
+        under_replicated: Enum.drop(report.under_replicated, synced),
+        health_percentage: new_percentage
+    }
+
     socket =
       socket
       |> assign(:syncing, true)
@@ -87,6 +103,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
       |> assign(:sync_total, total)
       |> assign(:sync_synced, synced)
       |> assign(:sync_failed, failed)
+      |> assign(:report, updated_report)
 
     {:noreply, socket}
   end
