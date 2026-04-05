@@ -118,6 +118,31 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     end)
   end
 
+  @doc """
+  Replicates a file to specific target buckets.
+
+  Retrieves the file from any available bucket, then stores it to
+  each target bucket. Returns the list of bucket UUIDs that succeeded.
+  """
+  def replicate_to_buckets(file_path, target_buckets, opts \\ []) do
+    # First retrieve the file to a temp location
+    temp_path = generate_temp_path() <> Path.extname(file_path)
+
+    case retrieve_file(file_path, destination_path: temp_path) do
+      {:ok, local_path} ->
+        result =
+          store_across_buckets(local_path, target_buckets, [{:path_prefix, file_path} | opts])
+
+        File.rm(local_path)
+        result
+
+      {:error, reason} ->
+        {:error, "Cannot retrieve source file for replication: #{inspect(reason)}"}
+    end
+  rescue
+    error -> {:error, "Replication failed: #{inspect(error)}"}
+  end
+
   # Private functions
 
   defp select_buckets_for_storage(redundancy_copies, priority_buckets) do

@@ -58,12 +58,49 @@
       </div>
     </div>
 
-    <%!-- Refresh Button --%>
-    <div class="flex justify-end mb-4">
+    <%!-- Actions --%>
+    <div class="flex justify-end gap-2 mb-4">
+      <%= if @report.under_replicated != [] do %>
+        <button phx-click="sync" class="btn btn-primary btn-sm" disabled={@syncing}>
+          <%= if @syncing do %>
+            <span class="loading loading-spinner loading-xs"></span>
+            {gettext("Syncing...")}
+          <% else %>
+            <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4" />
+            {gettext("Sync All")}
+          <% end %>
+        </button>
+      <% end %>
       <button phx-click="refresh" class="btn btn-outline btn-sm">
         <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Refresh")}
       </button>
     </div>
+
+    <%!-- Sync Progress --%>
+    <%= if @syncing do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold">{gettext("Syncing files...")}</span>
+            <span class="text-sm text-base-content/60">
+              {@sync_progress} / {@sync_total}
+            </span>
+          </div>
+          <progress
+            class="progress progress-primary w-full"
+            value={@sync_progress}
+            max={@sync_total}
+          >
+          </progress>
+          <div class="flex gap-4 mt-2 text-xs text-base-content/60">
+            <span class="text-success">{gettext("%{n} synced", n: @sync_synced)}</span>
+            <%= if @sync_failed > 0 do %>
+              <span class="text-error">{gettext("%{n} failed", n: @sync_failed)}</span>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
 
     <%!-- Results --%>
     <%= if @report.under_replicated == [] do %>

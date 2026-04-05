@@ -291,6 +291,181 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
+  Syncs under-replicated files to meet the redundancy target.
+
+  For each under-replicated file, retrieves it from an existing bucket
+  and replicates it to the missing buckets. Returns a summary of results.
+  """
+  def sync_under_replicated(redundancy_target) do
+    enabled_buckets = list_enabled_buckets()
+    enabled_bucket_uuids = Enum.map(enabled_buckets, & &1.uuid)
+    buckets_by_uuid = Map.new(enabled_buckets, &{&1.uuid, &1})
+
+    # Get all instances with their location counts and existing bucket UUIDs
+    instance_data =
+      from(fi in FileInstance,
+        left_join: fl in FileLocation,
+        on: fl.file_instance_uuid == fi.uuid and fl.status == "active",
+        where: fi.processing_status == "completed",
+        group_by: [fi.uuid, fi.file_name],
+        having: count(fl.uuid) < ^redundancy_target,
+        select: %{
+          instance_uuid: fi.uuid,
+          file_name: fi.file_name,
+          location_count: count(fl.uuid)
+        }
+      )
+      |> repo().all()
+
+    results =
+      Enum.map(instance_data, fn item ->
+        # Get existing bucket UUIDs for this instance
+        existing_bucket_uuids = get_file_instance_bucket_uuids(item.instance_uuid)
+
+        # Find missing buckets (enabled but no location for this instance)
+        missing_bucket_uuids =
+          enabled_bucket_uuids
+          |> Enum.filter(&(&1 not in existing_bucket_uuids))
+          |> Enum.take(redundancy_target - item.location_count)
+
+        missing_buckets =
+          Enum.map(missing_bucket_uuids, &Map.get(buckets_by_uuid, &1))
+          |> Enum.reject(&is_nil/1)
+
+        if missing_buckets == [] do
+          {:skip, item.instance_uuid}
+        else
+          case Manager.replicate_to_buckets(item.file_name, missing_buckets) do
+            {:ok, storage_info} ->
+              create_file_locations_for_instance(
+                item.instance_uuid,
+                storage_info.bucket_ids,
+                item.file_name
+              )
+
+              {:ok, item.instance_uuid, length(storage_info.bucket_ids)}
+
+            {:error, reason} ->
+              Logger.warning("Sync failed for instance #{item.instance_uuid}: #{reason}")
+              {:error, item.instance_uuid, reason}
+          end
+        end
+      end)
+
+    synced = Enum.count(results, &match?({:ok, _, _}, &1))
+    failed = Enum.count(results, &match?({:error, _, _}, &1))
+    skipped = Enum.count(results, &match?({:skip, _}, &1))
+
+    %{synced: synced, failed: failed, skipped: skipped, total: length(results)}
+  end
+
+  @doc """
+  Syncs under-replicated files with progress reporting via callback.
+
+  The callback receives a map with `:done`, `:total`, `:synced`, `:failed`,
+  and `:status` (`:in_progress` or `:complete`) after each file is processed.
+  """
+  def sync_under_replicated_with_progress(redundancy_target, callback) do
+    enabled_buckets = list_enabled_buckets()
+    enabled_bucket_uuids = Enum.map(enabled_buckets, & &1.uuid)
+    buckets_by_uuid = Map.new(enabled_buckets, &{&1.uuid, &1})
+
+    # Get under-replicated instances grouped by file
+    instance_data =
+      from(fi in FileInstance,
+        join: f in PhoenixKit.Modules.Storage.File,
+        on: f.uuid == fi.file_uuid,
+        left_join: fl in FileLocation,
+        on: fl.file_instance_uuid == fi.uuid and fl.status == "active",
+        where: fi.processing_status == "completed",
+        group_by: [fi.uuid, fi.file_name, fi.file_uuid, f.original_file_name],
+        having: count(fl.uuid) < ^redundancy_target,
+        select: %{
+          instance_uuid: fi.uuid,
+          file_uuid: fi.file_uuid,
+          file_name: fi.file_name,
+          original_file_name: f.original_file_name,
+          location_count: count(fl.uuid)
+        }
+      )
+      |> repo().all()
+
+    # Group by file so progress tracks files, not instances
+    files_with_instances =
+      instance_data
+      |> Enum.group_by(& &1.file_uuid)
+      |> Enum.to_list()
+
+    total = length(files_with_instances)
+
+    {synced, failed} =
+      Enum.reduce(Enum.with_index(files_with_instances, 1), {0, 0}, fn {{_file_uuid, instances},
+                                                                        index},
+                                                                       {synced_acc, failed_acc} ->
+        # Sync all instances for this file
+        file_ok =
+          Enum.all?(instances, fn item ->
+            sync_instance(item, enabled_bucket_uuids, buckets_by_uuid, redundancy_target)
+          end)
+
+        {new_synced, new_failed} =
+          if file_ok, do: {synced_acc + 1, failed_acc}, else: {synced_acc, failed_acc + 1}
+
+        callback.(%{
+          done: index,
+          total: total,
+          synced: new_synced,
+          failed: new_failed,
+          status: :in_progress
+        })
+
+        {new_synced, new_failed}
+      end)
+
+    callback.(%{
+      done: total,
+      total: total,
+      synced: synced,
+      failed: failed,
+      status: :complete
+    })
+
+    %{synced: synced, failed: failed, total: total}
+  end
+
+  defp sync_instance(item, enabled_bucket_uuids, buckets_by_uuid, redundancy_target) do
+    existing = get_file_instance_bucket_uuids(item.instance_uuid)
+
+    missing_uuids =
+      enabled_bucket_uuids
+      |> Enum.filter(&(&1 not in existing))
+      |> Enum.take(redundancy_target - item.location_count)
+
+    missing_buckets =
+      Enum.map(missing_uuids, &Map.get(buckets_by_uuid, &1))
+      |> Enum.reject(&is_nil/1)
+
+    if missing_buckets == [] do
+      true
+    else
+      case Manager.replicate_to_buckets(item.file_name, missing_buckets) do
+        {:ok, storage_info} ->
+          create_file_locations_for_instance(
+            item.instance_uuid,
+            storage_info.bucket_ids,
+            item.file_name
+          )
+
+          true
+
+        {:error, reason} ->
+          Logger.warning("Sync failed for instance #{item.instance_uuid}: #{reason}")
+          false
+      end
+    end
+  end
+
+  @doc """
   Calculates free space for a bucket.
 
   For local storage, checks actual disk space.
