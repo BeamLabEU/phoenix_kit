@@ -4,17 +4,19 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
 
   Generates:
   - Index entries (categories and products) for llms.txt
-  - Individual `.txt` files per product at `shop/products/{slug}.txt`
+  - Individual `.md` files per product at `shop/product/{slug}.md`
 
   Only active when the PhoenixKitEcommerce module is loaded and enabled.
   """
 
   @compile {:no_warn_undefined, PhoenixKitEcommerce}
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Storage.URLSigner}
   @behaviour PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   require Logger
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKitEcommerce, as: Shop
 
   @impl true
@@ -55,8 +57,8 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
         title = extract_localized(product.title, language, "Product")
         url = build_full_url(Shop.product_url(product, language))
         description = extract_localized(product.description, language, "")
-        content = build_product_content(title, url, description)
-        {"shop/products/#{slug}.txt", content}
+        content = build_product_content(title, url, description, product)
+        {"shop/product/#{slug}.md", content}
       end)
     else
       []
@@ -93,7 +95,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
     Shop.list_products(status: "active", exclude_hidden_categories: true)
     |> Enum.map(fn product ->
       title = extract_localized(product.title, language, "Product")
-      url = build_full_url(Shop.product_url(product, language))
+      url = build_full_url(Shop.product_url(product, language)) <> ".md"
       raw_desc = extract_localized(product.description, language, "")
       description = raw_desc |> strip_markdown() |> String.slice(0, 200)
 
@@ -146,10 +148,40 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
     map |> Map.values() |> Enum.find(&(is_binary(&1) and &1 != ""))
   end
 
-  defp build_product_content(title, url, description) do
+  defp build_product_content(title, url, description, product) do
     url_line = if url != "", do: "> Source: #{url}\n\n", else: ""
     desc_line = if description != "", do: "#{description}\n\n", else: ""
-    "# #{strip_markdown(title)}\n\n#{url_line}#{desc_line}"
+    images_section = build_images_section(title, product)
+    "# #{strip_markdown(title)}\n\n#{url_line}#{desc_line}#{images_section}"
+  end
+
+  defp build_images_section(title, product) do
+    featured = Map.get(product, :featured_image_uuid)
+    extras = Map.get(product, :image_uuids, []) || []
+    site_url = get_site_url()
+
+    image_uuids =
+      [featured | extras]
+      |> Enum.reject(&(is_nil(&1) or &1 == ""))
+      |> Enum.uniq()
+      |> Enum.take(5)
+
+    if image_uuids == [] or not Code.ensure_loaded?(URLSigner) do
+      ""
+    else
+      image_uuids
+      |> Enum.map(fn uuid ->
+        relative = URLSigner.signed_url(uuid, "medium")
+        absolute = String.trim_trailing(site_url, "/") <> relative
+        "![#{title}](#{absolute})"
+      end)
+      |> case do
+        [] -> ""
+        lines -> Enum.join(lines, "\n") <> "\n\n"
+      end
+    end
+  rescue
+    _ -> ""
   end
 
   defp strip_markdown(text) when is_binary(text) do

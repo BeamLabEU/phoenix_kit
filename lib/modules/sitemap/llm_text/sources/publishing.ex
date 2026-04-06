@@ -4,7 +4,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
 
   Generates:
   - Index entries (one per published post) for llms.txt
-  - Individual `.txt` files per published post at `{group_slug}/{post_slug}.txt`
+  - Individual `.md` files per published post at `{group_slug}/{post_slug}.md`
 
   Only active when the Publishing module is loaded and enabled.
   """
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
         |> Enum.map(fn post ->
           %{
             title: get_title(post),
-            url: build_post_url(post, group_slug),
+            url: build_post_url(post, group_slug) <> ".md",
             description: extract_description(post),
             group: group_name
           }
@@ -101,14 +101,14 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   end
 
   @doc """
-  Builds the file path for a post's LLM text file.
+  Builds the file path for a post's LLM markdown file.
 
       iex> build_file_path("blog", "hello-world")
-      "blog/hello-world.txt"
+      "blog/hello-world.md"
   """
   @spec build_file_path(String.t(), String.t()) :: String.t()
   def build_file_path(group_slug, post_slug) do
-    "#{group_slug}/#{post_slug}.txt"
+    "#{group_slug}/#{post_slug}.md"
   end
 
   @doc """
