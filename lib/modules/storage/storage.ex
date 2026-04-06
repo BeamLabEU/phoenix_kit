@@ -402,20 +402,36 @@ defmodule PhoenixKit.Modules.Storage do
       Enum.reduce(Enum.with_index(files_with_instances, 1), {0, 0}, fn {{_file_uuid, instances},
                                                                         index},
                                                                        {synced_acc, failed_acc} ->
-        # Sync all instances for this file
-        file_ok =
-          Enum.all?(instances, fn item ->
+        file_name =
+          List.first(instances)[:original_file_name] || List.first(instances)[:file_name]
+
+        # Sync all instances for this file, collect errors
+        instance_results =
+          Enum.map(instances, fn item ->
             sync_instance(item, enabled_bucket_uuids, buckets_by_uuid, redundancy_target)
           end)
 
-        {new_synced, new_failed} =
-          if file_ok, do: {synced_acc + 1, failed_acc}, else: {synced_acc, failed_acc + 1}
+        file_ok = Enum.all?(instance_results, &match?({:ok, _}, &1))
+
+        {new_synced, new_failed, log_entry} =
+          if file_ok do
+            {synced_acc + 1, failed_acc,
+             %{file: file_name, status: :ok, message: "Synced successfully"}}
+          else
+            errors =
+              instance_results
+              |> Enum.filter(&match?({:error, _}, &1))
+              |> Enum.map_join("; ", fn {:error, reason} -> reason end)
+
+            {synced_acc, failed_acc + 1, %{file: file_name, status: :error, message: errors}}
+          end
 
         callback.(%{
           done: index,
           total: total,
           synced: new_synced,
           failed: new_failed,
+          log: log_entry,
           status: :in_progress
         })
 
@@ -427,6 +443,7 @@ defmodule PhoenixKit.Modules.Storage do
       total: total,
       synced: synced,
       failed: failed,
+      log: nil,
       status: :complete
     })
 
@@ -446,7 +463,7 @@ defmodule PhoenixKit.Modules.Storage do
       |> Enum.reject(&is_nil/1)
 
     if missing_buckets == [] do
-      true
+      {:ok, :already_synced}
     else
       case Manager.replicate_to_buckets(item.file_name, missing_buckets) do
         {:ok, storage_info} ->
@@ -456,11 +473,11 @@ defmodule PhoenixKit.Modules.Storage do
             item.file_name
           )
 
-          true
+          {:ok, :synced}
 
         {:error, reason} ->
           Logger.warning("Sync failed for instance #{item.instance_uuid}: #{reason}")
-          false
+          {:error, to_string(reason)}
       end
     end
   end

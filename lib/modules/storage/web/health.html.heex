@@ -98,6 +98,51 @@
               <span class="text-error">{gettext("%{n} failed", n: @sync_failed)}</span>
             <% end %>
           </div>
+
+          <%!-- Sync Log --%>
+          <%= if @sync_log != [] do %>
+            <div class="mt-4 bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs">
+              <%= for entry <- @sync_log do %>
+                <div class={[
+                  "flex gap-2 py-0.5",
+                  entry.status == :error && "text-error",
+                  entry.status == :ok && "text-base-content/60"
+                ]}>
+                  <%= if entry.status == :ok do %>
+                    <span>✓</span>
+                  <% else %>
+                    <span>✗</span>
+                  <% end %>
+                  <span class="truncate font-semibold">{entry.file}</span>
+                  <span class="truncate">{entry.message}</span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Show log after sync completes if there were failures --%>
+    <%= if !@syncing && @sync_log != [] && @sync_failed > 0 do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <h3 class="card-title text-sm">
+            <.icon name="hero-document-text" class="w-4 h-4" />
+            {gettext("Sync Log")}
+            <span class="badge badge-error badge-sm">
+              {gettext("%{n} errors", n: @sync_failed)}
+            </span>
+          </h3>
+          <div class="bg-base-200 rounded-lg p-3 max-h-64 overflow-y-auto font-mono text-xs">
+            <%= for entry <- Enum.filter(@sync_log, & &1.status == :error) do %>
+              <div class="flex gap-2 py-0.5 text-error">
+                <span>✗</span>
+                <span class="font-semibold">{entry.file}</span>
+                <span class="truncate">{entry.message}</span>
+              </div>
+            <% end %>
+          </div>
         </div>
       </div>
     <% end %>

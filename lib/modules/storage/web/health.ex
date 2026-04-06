@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/settings/media/health"))
+      |> assign(:sync_log, [])
       |> apply_sync_state(sync_state)
       |> load_health_report()
 
@@ -58,6 +59,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
         |> assign(:sync_total, 0)
         |> assign(:sync_synced, 0)
         |> assign(:sync_failed, 0)
+        |> assign(:sync_log, [])
 
       {:noreply, socket}
     end
@@ -65,7 +67,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
 
   def handle_info(
         {:sync_progress,
-         %{done: done, total: total, synced: synced, failed: failed, status: :in_progress}},
+         %{
+           done: done,
+           total: total,
+           synced: synced,
+           failed: failed,
+           log: log,
+           status: :in_progress
+         }},
         socket
       ) do
     # Update health stats live based on sync progress
@@ -84,6 +93,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
         health_percentage: new_percentage
     }
 
+    # Append log entry (newest first, cap at 100)
+    sync_log =
+      if log do
+        [log | socket.assigns.sync_log] |> Enum.take(100)
+      else
+        socket.assigns.sync_log
+      end
+
     socket =
       socket
       |> assign(:syncing, true)
@@ -92,6 +109,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
       |> assign(:sync_synced, synced)
       |> assign(:sync_failed, failed)
       |> assign(:report, updated_report)
+      |> assign(:sync_log, sync_log)
 
     {:noreply, socket}
   end
