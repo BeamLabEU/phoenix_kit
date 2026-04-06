@@ -1,3 +1,20 @@
+## 1.7.91 - 2026-04-06
+
+### Added
+- Add centralized Integrations system for external service connections (OAuth, API keys, bot tokens)
+- Add AES-256-GCM encryption at rest for stored credentials
+- Add OAuth 2.0 CSRF state parameter protection
+- Add `required_integrations/0` and `integration_providers/0` callbacks to PhoenixKit.Module
+- Add IntegrationPicker reusable component
+- Add Integrations admin settings tab
+- Add provider registry with Google and OpenRouter built-in
+
+### Fixed
+- Fix password field overwrite bug when editing integrations
+- Fix duplicate line in `maybe_set_userinfo/2`
+- Consolidate validation logic into Integrations context
+- Make validation URL provider-configurable (no more hardcoded Telegram URL)
+
 ## 1.7.90 - 2026-04-04
 
 ### Added
