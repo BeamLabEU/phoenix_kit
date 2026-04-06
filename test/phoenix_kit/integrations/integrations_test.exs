@@ -28,6 +28,12 @@ defmodule PhoenixKit.Integrations.IntegrationsTest do
     end
   end
 
+  describe "validate_connection/1 (no DB)" do
+    test "returns error for invalid input" do
+      assert {:error, _} = Integrations.validate_connection("")
+    end
+  end
+
   describe "list_providers/0" do
     test "returns a list of provider maps" do
       providers = Integrations.list_providers()

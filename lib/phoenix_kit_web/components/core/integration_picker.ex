@@ -43,6 +43,12 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
   The component sends the `on_select` event with:
   - Single mode: `%{"uuid" => uuid}` when a card is clicked
   - Multi mode: `%{"uuid" => uuid, "action" => "add" | "remove"}` when toggled
+
+  ## Search
+
+  Search is handled client-side via the `IntegrationPickerSearch` JS hook.
+  Cards are filtered by their `data-search-text` attribute (name, account, provider).
+  No parent LiveView handler is needed — filtering is instant and local.
   """
 
   use Phoenix.Component
@@ -110,14 +116,15 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
 
     ~H"""
     <div id={@id} class={["integration-picker", @class]}>
-      <%!-- Search --%>
+      <%!-- Search (client-side filtering via data attributes) --%>
       <div :if={@show_search} class="mb-3">
         <input
           type="text"
           placeholder={gettext("Search integrations...")}
           value={@search}
-          phx-keyup="integration_picker_search"
-          phx-value-picker-id={@id}
+          phx-hook="IntegrationPickerSearch"
+          id={"#{@id}-search"}
+          data-picker-id={@id}
           class="input input-bordered input-sm w-full"
         />
       </div>
@@ -136,6 +143,7 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
           phx-click={@on_select}
           phx-value-uuid={conn.uuid}
           phx-value-action={select_action(@multiple, conn.uuid, @selected_set)}
+          data-search-text={search_text(conn)}
           class={[
             "card bg-base-100 border text-left transition-all cursor-pointer",
             "hover:shadow-md hover:border-primary/50",
@@ -297,4 +305,15 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
   end
 
   defp select_action(false, _uuid, _selected_set), do: "select"
+
+  defp search_text(conn) do
+    parts = [
+      conn.name,
+      conn.data["external_account_id"],
+      conn.data["provider"],
+      if(is_map(conn[:provider]), do: conn.provider.name)
+    ]
+
+    parts |> Enum.reject(&is_nil/1) |> Enum.join(" ") |> String.downcase()
+  end
 end

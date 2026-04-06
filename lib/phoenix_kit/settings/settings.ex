@@ -573,6 +573,22 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Gets JSON settings for multiple prefixes in a single database query.
+
+  More efficient than calling `get_json_settings_by_prefix_with_uuid/1` in a loop.
+  Returns `[{uuid, key, value_json}]` tuples.
+  """
+  def get_json_settings_by_prefixes_with_uuid(prefixes) when is_list(prefixes) do
+    prefixes
+    |> Queries.list_settings_by_key_prefixes()
+    |> Enum.flat_map(fn setting ->
+      if setting.value_json,
+        do: [{setting.uuid, setting.key, setting.value_json}],
+        else: []
+    end)
+  end
+
+  @doc """
   Gets a JSON setting by its UUID. Returns the `value_json` map or the default.
   """
   def get_json_setting_by_uuid(uuid, default \\ nil) when is_binary(uuid) do

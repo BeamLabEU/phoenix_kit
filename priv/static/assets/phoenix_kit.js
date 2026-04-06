@@ -1962,6 +1962,28 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
+  // INTEGRATION PICKER SEARCH HOOK
+  // ============================================================================
+
+  window.PhoenixKitHooks.IntegrationPickerSearch = {
+    mounted() {
+      this.el.addEventListener("input", function(e) {
+        var query = e.target.value.toLowerCase();
+        var pickerId = e.target.dataset.pickerId;
+        var picker = document.getElementById(pickerId);
+        if (!picker) return;
+
+        var cards = picker.querySelectorAll("button[data-search-text]");
+        cards.forEach(function(card) {
+          var text = card.getAttribute("data-search-text") || "";
+          card.style.display = (query === "" || text.indexOf(query) !== -1) ? "" : "none";
+        });
+      });
+    }
+  };
+
+
+  // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================
 

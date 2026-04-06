@@ -529,7 +529,11 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V92 - Organization Accounts ⚡ LATEST
+  ### V93 - Settings prefix index ⚡ LATEST
+  - Adds `text_pattern_ops` B-tree index on `phoenix_kit_settings.key` for efficient LIKE prefix queries
+  - Used by the integrations system for `LIKE 'integration:provider:%'` lookups
+
+  ### V92 - Organization Accounts
   - Adds `account_type` column (VARCHAR(20), NOT NULL, DEFAULT 'person') with CHECK constraint
   - Adds `organization_name` column (VARCHAR(255)) for organization display names
   - Adds `organization_uuid` self-referencing FK to link persons to organizations
@@ -692,7 +696,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 92
+  @current_version 93
   @default_prefix "public"
 
   @doc false

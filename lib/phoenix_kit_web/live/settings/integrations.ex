@@ -9,8 +9,6 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  require Logger
-
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Integrations.Providers
@@ -135,22 +133,30 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   def handle_info({:integration_connection_removed, _, _}, socket),
     do: {:noreply, load_connections(socket)}
 
+  # Catch-all to prevent crashes from unexpected messages
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
 
   defp load_connections(socket) do
     used_by = Providers.used_by_modules()
+    providers = Providers.all()
+    provider_keys = Enum.map(providers, & &1.key)
+    providers_by_key = Map.new(providers, &{&1.key, &1})
+
+    # Single query for all providers instead of N+1
+    all_connections = Integrations.load_all_connections(provider_keys)
 
     connections =
-      Providers.all()
-      |> Enum.flat_map(fn provider ->
-        Integrations.list_connections(provider.key)
+      Enum.flat_map(providers, fn provider ->
+        Map.get(all_connections, provider.key, [])
         |> Enum.map(fn %{uuid: uuid, name: name, data: data} ->
           full_key = "#{provider.key}:#{name}"
 
           %{
-            provider: provider,
+            provider: providers_by_key[provider.key],
             uuid: uuid,
             name: name,
             full_key: full_key,
@@ -164,80 +170,7 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   end
 
   defp validate_connection(provider_key) do
-    do_validate_connection(provider_key)
-  rescue
-    e ->
-      Logger.error(
-        "[Integrations] validate_connection crashed for #{provider_key}: #{Exception.message(e)}"
-      )
-
-      {:error, "Validation failed unexpectedly"}
-  end
-
-  defp do_validate_connection(provider_key) do
-    with {:ok, data} <- Integrations.get_credentials(provider_key),
-         provider when not is_nil(provider) <- Providers.get(provider_key) do
-      validate_by_auth_type(provider, data)
-    else
-      {:error, _} -> {:error, "Not configured"}
-      nil -> {:error, "Unknown provider"}
-    end
-  end
-
-  defp validate_by_auth_type(%{auth_type: :oauth2} = provider, data) do
-    token = data["access_token"]
-    config = provider.oauth_config || %{}
-    userinfo_url = config[:userinfo_url] || config["userinfo_url"]
-
-    cond do
-      not (is_binary(token) and token != "") -> {:error, "No access token"}
-      is_nil(userinfo_url) -> :ok
-      true -> check_http(userinfo_url, [{"authorization", "Bearer #{token}"}])
-    end
-  end
-
-  defp validate_by_auth_type(%{auth_type: :api_key} = provider, data) do
-    api_key = data["api_key"]
-
-    cond do
-      not (is_binary(api_key) and api_key != "") ->
-        {:error, "No API key configured"}
-
-      Map.has_key?(provider, :validation) and provider.validation != nil ->
-        # Use provider's validation endpoint to actually test the key
-        v = provider.validation
-        headers = [{v.auth_header, "#{v.auth_prefix}#{api_key}"}]
-        check_http(v.url, headers)
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_by_auth_type(%{auth_type: :bot_token}, data) do
-    token = data["bot_token"]
-
-    if is_binary(token) and token != "" do
-      case Req.get("https://api.telegram.org/bot#{token}/getMe") do
-        {:ok, %{status: 200, body: %{"ok" => true}}} -> :ok
-        {:ok, %{status: status}} -> {:error, "HTTP #{status}"}
-        {:error, reason} -> {:error, inspect(reason)}
-      end
-    else
-      {:error, "No bot token configured"}
-    end
-  end
-
-  defp validate_by_auth_type(_, _data), do: :ok
-
-  defp check_http(url, headers) do
-    case Req.get(url, headers: headers) do
-      {:ok, %{status: 200}} -> :ok
-      {:ok, %{status: 401}} -> {:error, gettext("Invalid credentials")}
-      {:ok, %{status: 403}} -> {:error, gettext("Access denied")}
-      {:ok, %{status: status}} -> {:error, gettext("Service error %{status}", status: status)}
-      {:error, _reason} -> {:error, gettext("Could not reach the service")}
-    end
+    Integrations.validate_connection(provider_key)
   end
 
   defp get_current_path(locale) do

@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Events
+  alias PhoenixKit.Integrations.OAuth
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -35,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:error, nil)
       |> assign(:new_name, "")
       |> assign(:testing, false)
+      |> assign(:oauth_state, nil)
 
     {:ok, socket}
   end
@@ -90,8 +92,19 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     # a reverse proxy), causing redirect_uri mismatch with Google's token endpoint.
     if connected?(socket) do
       case params do
+        %{"code" => code, "state" => state} when is_binary(code) and code != "" ->
+          handle_oauth_callback(full_key, code, state, socket)
+
         %{"code" => code} when is_binary(code) and code != "" ->
-          handle_oauth_callback(full_key, code, socket)
+          handle_oauth_callback(full_key, code, nil, socket)
+
+        %{"error" => error} ->
+          description = params["error_description"] || error
+          clean_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
+
+          socket
+          |> put_flash(:error, gettext("Authorization failed: %{reason}", reason: description))
+          |> push_navigate(to: clean_path)
 
         _ ->
           socket
@@ -99,6 +112,13 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     else
       socket
     end
+  end
+
+  defp apply_action(socket, :edit, _params) do
+    # Missing provider/name params — redirect back to list
+    socket
+    |> put_flash(:error, gettext("Invalid integration URL"))
+    |> push_navigate(to: Routes.path("/admin/settings/integrations"))
   end
 
   # ---------------------------------------------------------------------------
@@ -197,8 +217,12 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       socket.assigns[:redirect_uri] ||
         build_redirect_uri(socket, provider_key, name)
 
-    case Integrations.authorization_url(full_key, redirect_uri) do
+    state = OAuth.generate_state()
+
+    case Integrations.authorization_url(full_key, redirect_uri, nil, state) do
       {:ok, url} ->
+        # Store state in integration data for verification on callback
+        save_oauth_state(full_key, state)
         {:noreply, redirect(socket, external: url)}
 
       {:error, :client_id_not_configured} ->
@@ -274,37 +298,44 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       when event in [:integration_disconnected, :integration_connection_removed],
       do: {:noreply, reload_data(socket)}
 
+  # Catch-all to prevent crashes from unexpected messages
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
   # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
 
-  defp handle_oauth_callback(full_key, code, socket) do
-    # Use the actual browser URL as redirect_uri (must match what was sent to Google)
-    redirect_uri =
-      socket.assigns[:redirect_uri] ||
-        build_redirect_uri(socket, socket.assigns.selected_provider, socket.assigns.name)
+  defp handle_oauth_callback(full_key, code, state, socket) do
+    clean_path =
+      Routes.path(
+        "/admin/settings/integrations/#{socket.assigns.selected_provider}/#{socket.assigns.name}"
+      )
 
-    case Integrations.exchange_code(full_key, code, redirect_uri) do
-      {:ok, _data} ->
-        # Redirect to clean URL (strip ?code=... params) to prevent re-exchange
-        clean_path =
-          Routes.path(
-            "/admin/settings/integrations/#{socket.assigns.selected_provider}/#{socket.assigns.name}"
-          )
+    # Verify CSRF state token if one was stored
+    case verify_oauth_state(full_key, state) do
+      :ok ->
+        # Use the actual browser URL as redirect_uri (must match what was sent to Google)
+        redirect_uri =
+          socket.assigns[:redirect_uri] ||
+            build_redirect_uri(socket, socket.assigns.selected_provider, socket.assigns.name)
 
-        push_navigate(socket, to: clean_path)
+        case Integrations.exchange_code(full_key, code, redirect_uri) do
+          {:ok, _data} ->
+            push_navigate(socket, to: clean_path)
 
-      {:error, reason} ->
-        Logger.warning("[IntegrationForm] OAuth callback failed: #{inspect(reason)}")
+          {:error, reason} ->
+            Logger.warning("[IntegrationForm] OAuth callback failed: #{inspect(reason)}")
 
-        # Redirect to clean URL to strip the dead ?code= from the URL
-        clean_path =
-          Routes.path(
-            "/admin/settings/integrations/#{socket.assigns.selected_provider}/#{socket.assigns.name}"
-          )
+            socket
+            |> put_flash(:error, gettext("Failed to connect. Please try again."))
+            |> push_navigate(to: clean_path)
+        end
+
+      {:error, :state_mismatch} ->
+        Logger.warning("[IntegrationForm] OAuth state mismatch for #{full_key}")
 
         socket
-        |> put_flash(:error, gettext("Failed to connect. Please try again."))
+        |> put_flash(:error, gettext("Security check failed. Please try connecting again."))
         |> push_navigate(to: clean_path)
     end
   end
@@ -314,82 +345,21 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
 
   defp save_and_redirect(provider_key, name, params, socket) do
-    provider = Providers.get(provider_key)
     full_key = "#{provider_key}:#{name}"
+    attrs = extract_setup_attrs(provider_key, params)
 
-    attrs =
-      if provider do
-        provider.setup_fields
-        |> Enum.reduce(%{}, fn field, acc ->
-          value = String.trim(params[field.key] || "")
-
-          Map.put(acc, field.key, value)
-        end)
-      else
-        %{}
-      end
-
-    Integrations.save_setup(full_key, attrs)
-
-    edit_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
-
-    {:noreply, push_navigate(socket, to: edit_path)}
-  end
-
-  defp run_connection_test(provider, full_key) do
-    case {provider && provider.auth_type, Integrations.get_credentials(full_key)} do
-      {:api_key, {:ok, data}} -> test_api_key(provider, data)
-      {:bot_token, {:ok, data}} -> test_bot_token(data)
-      {_, {:error, _}} -> {:error, gettext("No credentials configured")}
-      _ -> :ok
-    end
-  rescue
-    e -> {:error, Exception.message(e)}
-  end
-
-  defp test_api_key(provider, data) do
-    if Map.has_key?(provider, :validation) and provider.validation != nil do
-      v = provider.validation
-      api_key = data["api_key"] || ""
-      headers = [{v.auth_header, "#{v.auth_prefix}#{api_key}"}]
-
-      case Req.get(v.url, headers: headers) do
-        {:ok, %{status: 200}} ->
-          :ok
-
-        {:ok, %{status: 401}} ->
-          {:error, gettext("Invalid API key")}
-
-        {:ok, %{status: 403}} ->
-          {:error, gettext("Access denied — check your API key permissions")}
-
-        {:ok, %{status: status}} ->
-          {:error, gettext("Service returned error %{status}", status: status)}
-
-        {:error, _} ->
-          {:error, gettext("Could not reach the service — check your internet connection")}
-      end
-    else
-      :ok
-    end
-  end
-
-  defp test_bot_token(data) do
-    token = data["bot_token"] || ""
-
-    case Req.get("https://api.telegram.org/bot#{token}/getMe") do
-      {:ok, %{status: 200, body: %{"ok" => true}}} ->
-        :ok
-
-      {:ok, %{status: 401}} ->
-        {:error, gettext("Invalid bot token")}
-
-      {:ok, %{status: _}} ->
-        {:error, gettext("Invalid bot token — check with @BotFather")}
+    case Integrations.save_setup(full_key, attrs) do
+      {:ok, _data} ->
+        edit_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
+        {:noreply, push_navigate(socket, to: edit_path)}
 
       {:error, _} ->
-        {:error, gettext("Could not reach Telegram — check your internet connection")}
+        {:noreply, assign(socket, :error, gettext("Failed to save"))}
     end
+  end
+
+  defp run_connection_test(_provider, full_key) do
+    Integrations.validate_connection(full_key)
   end
 
   defp save_validation_result(full_key, result) do
@@ -422,25 +392,8 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   end
 
   defp save_setup_fields(provider_key, name, params, socket) do
-    provider = Providers.get(provider_key)
     full_key = "#{provider_key}:#{name}"
-
-    attrs =
-      if provider do
-        provider.setup_fields
-        |> Enum.reduce(%{}, fn field, acc ->
-          value = String.trim(params[field.key] || "")
-
-          # For password fields, skip empty values to keep the existing credential
-          if field.type == :password and value == "" do
-            acc
-          else
-            Map.put(acc, field.key, value)
-          end
-        end)
-      else
-        %{}
-      end
+    attrs = extract_setup_attrs(provider_key, params)
 
     case Integrations.save_setup(full_key, attrs) do
       {:ok, data} ->
@@ -453,6 +406,25 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
       {:error, _} ->
         {:noreply, assign(socket, :error, gettext("Failed to save"))}
+    end
+  end
+
+  defp extract_setup_attrs(provider_key, params) do
+    case Providers.get(provider_key) do
+      nil ->
+        %{}
+
+      provider ->
+        Enum.reduce(provider.setup_fields, %{}, fn field, acc ->
+          value = String.trim(params[field.key] || "")
+
+          # For password fields, skip empty values to keep the existing credential
+          if field.type == :password and value == "" do
+            acc
+          else
+            Map.put(acc, field.key, value)
+          end
+        end)
     end
   end
 
@@ -472,14 +444,47 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
+  defp save_oauth_state(full_key, state) do
+    case Integrations.get_integration(full_key) do
+      {:ok, data} ->
+        Integrations.save_setup(full_key, Map.put(data, "oauth_state", state))
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp verify_oauth_state(full_key, callback_state) do
+    case Integrations.get_integration(full_key) do
+      {:ok, %{"oauth_state" => stored_state}}
+      when is_binary(stored_state) and stored_state != "" ->
+        if callback_state == stored_state do
+          # Clear the used state token
+          {:ok, data} = Integrations.get_integration(full_key)
+          Integrations.save_setup(full_key, Map.delete(data, "oauth_state"))
+          :ok
+        else
+          {:error, :state_mismatch}
+        end
+
+      _ ->
+        # No state was stored (legacy flow or state not required) — allow
+        :ok
+    end
+  end
+
   defp build_redirect_uri(socket, provider_key, name) do
     base = Settings.get_setting("site_url", "")
     locale = socket.assigns[:current_locale_base]
     path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}", locale: locale)
 
-    if base != "" do
+    if is_binary(base) and base != "" do
       "#{String.trim_trailing(base, "/")}#{path}"
     else
+      Logger.warning(
+        "[IntegrationForm] site_url not configured — using localhost fallback for OAuth redirect URI"
+      )
+
       "http://localhost:4000#{path}"
     end
   end
@@ -495,7 +500,8 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   defp replace_vars(text, vars) do
     Enum.reduce(vars, text, fn {key, value}, acc ->
-      String.replace(acc, "{#{key}}", value || "")
+      escaped = Phoenix.HTML.html_escape(value || "") |> Phoenix.HTML.safe_to_string()
+      String.replace(acc, "{#{key}}", escaped)
     end)
   end
 

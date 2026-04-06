@@ -133,6 +133,31 @@ defmodule PhoenixKit.Settings.Queries do
   end
 
   @doc """
+  Lists settings whose keys match any of the given prefixes in a single query.
+
+  More efficient than calling `list_settings_by_key_prefix/1` in a loop.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.Queries.list_settings_by_key_prefixes(["integration:google:", "integration:openrouter:"])
+      [%Setting{key: "integration:google:default", ...}, %Setting{key: "integration:openrouter:default", ...}]
+  """
+  def list_settings_by_key_prefixes([]), do: []
+
+  def list_settings_by_key_prefixes(prefixes) when is_list(prefixes) do
+    conditions =
+      Enum.reduce(prefixes, dynamic(false), fn prefix, acc ->
+        like_pattern = prefix <> "%"
+        dynamic([s], ^acc or like(s.key, ^like_pattern))
+      end)
+
+    Setting
+    |> where(^conditions)
+    |> order_by([s], s.key)
+    |> repo().all()
+  end
+
+  @doc """
   Deletes a setting by key. Returns `{:ok, setting}` or `{:error, :not_found}`.
   """
   def delete_setting_by_key(key) when is_binary(key) do
