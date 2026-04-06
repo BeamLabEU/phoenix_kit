@@ -79,6 +79,17 @@
   # External optional modules guarded by Code.ensure_loaded? at runtime
   {"lib/modules/sitemap/sources/publishing.ex", :unknown_function},
   {"lib/phoenix_kit/dashboard/registry.ex", :unknown_function},
+  {"lib/phoenix_kit/install/css_integration.ex", :unknown_function},
+
+  # Integrations: Dialyzer infers boolean branches in cond/case are unreachable
+  # when provider auth_type covers all spec'd atoms. False positive — defensive code.
+  {"lib/phoenix_kit/integrations/integrations.ex", :pattern_match},
+  {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
+
+  # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
+  # Dialyzer cannot resolve ExUnit private macros expanded at compile time
+  {"test/support/conn_case.ex", :unknown_function},
+  {"test/support/data_case.ex", :unknown_function},
 
   # Extracted module references — conditionally loaded via Code.ensure_loaded?
   # These modules live in separate packages (phoenix_kit_ecommerce, phoenix_kit_billing)

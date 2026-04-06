@@ -171,6 +171,26 @@ Severity levels for review findings:
 - The migration system uses Oban-style versioned migrations (see `lib/phoenix_kit/migrations/postgres/`)
 
 
+## Integrations System
+
+Centralized management of external service connections (OAuth, API keys, bot tokens).
+
+**Architecture:**
+- `lib/phoenix_kit/integrations/integrations.ex` — Main context (CRUD, OAuth flow, credentials)
+- `lib/phoenix_kit/integrations/providers.ex` — Provider registry (Google, OpenRouter, etc.)
+- `lib/phoenix_kit/integrations/oauth.ex` — Generic OAuth 2.0 flow
+- `lib/phoenix_kit/integrations/events.ex` — PubSub events
+- `lib/phoenix_kit_web/live/settings/integrations.ex` — List page
+- `lib/phoenix_kit_web/live/settings/integration_form.ex` — Add/edit page
+- `lib/phoenix_kit_web/components/core/integration_picker.ex` — Reusable picker component
+
+**Storage:** Uses existing `phoenix_kit_settings` table with `value_json` JSONB. Keys follow `integration:{provider}:{name}` convention. Each connection is a JSON blob. Connections are referenced by their settings row UUID.
+
+**Module callbacks:** Modules declare `required_integrations/0` (e.g., `["google"]`) for the "Used by" display. Modules declare `integration_providers/0` to contribute custom provider definitions.
+
+**Plan:** `dev_docs/plans/integrations-system.md`
+
+
 ## Documentations
 
 Built-in Dashboard Features

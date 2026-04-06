@@ -28,6 +28,13 @@ defmodule PhoenixKit.Settings.Queries do
     repo().get_by(Setting, key: key)
   end
 
+  @doc """
+  Gets a setting record by UUID.
+  """
+  def get_setting_by_uuid(uuid) when is_binary(uuid) do
+    repo().get(Setting, uuid)
+  end
+
   # Multiple records queries
 
   @doc """
@@ -106,6 +113,33 @@ defmodule PhoenixKit.Settings.Queries do
       value = if setting.value_json, do: setting.value_json, else: setting.value
       {setting.key, value}
     end)
+  end
+
+  @doc """
+  Lists settings whose keys start with the given prefix.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.Queries.list_settings_by_key_prefix("integration:google:")
+      [%Setting{key: "integration:google:default", ...}, %Setting{key: "integration:google:personal", ...}]
+  """
+  def list_settings_by_key_prefix(prefix) when is_binary(prefix) do
+    like_pattern = prefix <> "%"
+
+    Setting
+    |> where([s], like(s.key, ^like_pattern))
+    |> order_by([s], s.key)
+    |> repo().all()
+  end
+
+  @doc """
+  Deletes a setting by key. Returns `{:ok, setting}` or `{:error, :not_found}`.
+  """
+  def delete_setting_by_key(key) when is_binary(key) do
+    case get_setting_by_key(key) do
+      nil -> {:error, :not_found}
+      setting -> repo().delete(setting)
+    end
   end
 
   # Write operations
