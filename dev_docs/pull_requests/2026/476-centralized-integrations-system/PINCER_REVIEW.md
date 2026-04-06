@@ -94,15 +94,24 @@ Validation logic duplicated between the two LiveViews (`integrations.ex` and `in
 ## Recommendations
 
 **Must fix (post-merge):**
-1. Fix password field overwrite bug — credentials will be wiped on edit
-2. Remove duplicate line in `maybe_set_userinfo/2`
+1. ~~Fix password field overwrite bug — credentials will be wiped on edit~~ ✅ **Fixed** — empty password fields now skipped in `save_setup_fields`
+2. ~~Remove duplicate line in `maybe_set_userinfo/2`~~ ✅ **Fixed**
 
 **Should fix:**
 3. Move legacy migration to a one-time task
 4. Add OAuth `state` parameter for CSRF protection
-5. Remove dead code
+5. ~~Remove dead code~~ ❌ **Not dead** — `has_setup_credentials?/2` is used in the HEEx template. Reviewers were wrong.
 6. Create tracking issue for encryption at rest
 
 **Nice to have:**
 7. Extract validation logic to context module
 8. Add proactive `expires_at` check before requests
+
+---
+
+## Post-Review Changes (2026-04-06)
+
+- Fixed password overwrite bug in `integration_form.ex` — password fields now preserve existing values when left empty
+- Removed duplicate `external_account_name` line in `integrations.ex`
+- Removed pre-existing TODO tag in `table_row_menu.ex` to clear credo --strict
+- Added dialyzer ignores for false positives in integration LiveViews
