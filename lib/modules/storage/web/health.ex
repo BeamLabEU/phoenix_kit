@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Workers.SyncFilesJob
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -45,23 +46,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
   end
 
   def handle_event("sync", _params, socket) do
-    # Prevent double-sync
     if get_sync_state() != nil do
       {:noreply, put_flash(socket, :warning, gettext("Sync is already running"))}
     else
-      redundancy_target = socket.assigns.report.redundancy_target
-
-      # Start unlinked so it survives page refresh
-      spawn(fn ->
-        put_sync_state(%{done: 0, total: 0, synced: 0, failed: 0, status: :starting})
-
-        Storage.sync_under_replicated_with_progress(redundancy_target, fn progress ->
-          put_sync_state(progress)
-          PubSubManager.broadcast(@sync_topic, {:sync_progress, progress})
-        end)
-
-        clear_sync_state()
-      end)
+      %{} |> SyncFilesJob.new() |> Oban.insert()
 
       socket =
         socket
@@ -162,15 +150,5 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
     :persistent_term.get(@sync_state_key, nil)
   rescue
     ArgumentError -> nil
-  end
-
-  defp put_sync_state(state) do
-    :persistent_term.put(@sync_state_key, state)
-  end
-
-  defp clear_sync_state do
-    :persistent_term.erase(@sync_state_key)
-  rescue
-    ArgumentError -> :ok
   end
 end
