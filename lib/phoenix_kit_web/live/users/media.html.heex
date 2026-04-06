@@ -35,7 +35,7 @@
               upload={@uploads.media_files}
               label="Upload Media Files"
               icon="hero-cloud-arrow-up"
-              accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+              accept_description="All file types supported"
               max_size_description={"#{@max_upload_size_mb}MB per file"}
             />
           <% else %>
@@ -115,7 +115,7 @@
             <%= for file <- @uploaded_files do %>
               <.link
                 navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_uuid}")}
-                class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                class="group relative block aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <.thumbnail_url :let={url} file={file} size={:small}>
                   <%= if url do %>
@@ -132,9 +132,11 @@
                       </div>
                     </div>
                   <% else %>
-                    <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
-                      <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
-                      <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
+                    <div class="grid place-items-center w-full aspect-square text-base-content/50 group-hover:bg-base-200 transition-colors">
+                      <div class="flex flex-col items-center">
+                        <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
+                        <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
+                      </div>
                     </div>
                   <% end %>
                 </.thumbnail_url>

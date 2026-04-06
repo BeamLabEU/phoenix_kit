@@ -59,7 +59,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       socket
       |> assign(:max_upload_size_mb, max_size_mb)
       |> allow_upload(:media_files,
-        accept: ["image/*", "video/*", "application/pdf"],
+        accept: :any,
         max_entries: 10,
         max_file_size: max_size_mb * 1_000_000,
         auto_upload: true
