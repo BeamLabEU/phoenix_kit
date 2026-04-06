@@ -36,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/settings/media/health"))
       |> assign(:sync_log, [])
+      |> assign(:sync_paused, SyncFilesJob.paused?())
       |> apply_sync_state(sync_state)
       |> load_health_report()
 
@@ -63,6 +64,21 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
 
       {:noreply, socket}
     end
+  end
+
+  def handle_event("pause_sync", _params, socket) do
+    SyncFilesJob.pause()
+    {:noreply, assign(socket, :sync_paused, true)}
+  end
+
+  def handle_event("resume_sync", _params, socket) do
+    SyncFilesJob.resume()
+    {:noreply, assign(socket, :sync_paused, false)}
+  end
+
+  def handle_event("stop_sync", _params, socket) do
+    SyncFilesJob.stop()
+    {:noreply, socket}
   end
 
   def handle_info(
@@ -118,6 +134,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
     socket =
       socket
       |> assign(:syncing, false)
+      |> assign(:sync_paused, false)
       |> assign(:sync_progress, result.total)
       |> assign(:sync_total, result.total)
       |> assign(:sync_synced, result.synced)
@@ -128,6 +145,25 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
         gettext("Sync complete: %{synced} synced, %{failed} failed",
           synced: result.synced,
           failed: result.failed
+        )
+      )
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:sync_progress, %{status: :stopped} = result}, socket) do
+    socket =
+      socket
+      |> assign(:syncing, false)
+      |> assign(:sync_paused, false)
+      |> assign(:sync_synced, result[:synced] || 0)
+      |> assign(:sync_failed, result[:failed] || 0)
+      |> load_health_report()
+      |> put_flash(
+        :warning,
+        gettext("Sync stopped: %{synced} synced, %{failed} failed",
+          synced: result[:synced] || 0,
+          failed: result[:failed] || 0
         )
       )
 

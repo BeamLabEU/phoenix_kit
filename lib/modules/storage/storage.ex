@@ -365,7 +365,7 @@ defmodule PhoenixKit.Modules.Storage do
   The callback receives a map with `:done`, `:total`, `:synced`, `:failed`,
   and `:status` (`:in_progress` or `:complete`) after each file is processed.
   """
-  def sync_under_replicated_with_progress(redundancy_target, callback) do
+  def sync_under_replicated_with_progress(redundancy_target, callback, opts \\ []) do
     enabled_buckets = list_enabled_buckets()
     enabled_bucket_uuids = Enum.map(enabled_buckets, & &1.uuid)
     buckets_by_uuid = Map.new(enabled_buckets, &{&1.uuid, &1})
@@ -398,44 +398,36 @@ defmodule PhoenixKit.Modules.Storage do
 
     total = length(files_with_instances)
 
+    check_cancelled = Keyword.get(opts, :check_cancelled, fn -> false end)
+
+    sync_ctx = %{
+      enabled_bucket_uuids: enabled_bucket_uuids,
+      buckets_by_uuid: buckets_by_uuid,
+      redundancy_target: redundancy_target
+    }
+
     {synced, failed} =
-      Enum.reduce(Enum.with_index(files_with_instances, 1), {0, 0}, fn {{_file_uuid, instances},
-                                                                        index},
-                                                                       {synced_acc, failed_acc} ->
-        file_name =
-          List.first(instances)[:original_file_name] || List.first(instances)[:file_name]
+      Enum.reduce_while(Enum.with_index(files_with_instances, 1), {0, 0}, fn {{_file_uuid,
+                                                                               instances}, index},
+                                                                             {synced_acc,
+                                                                              failed_acc} ->
+        if check_cancelled.() do
+          {:halt, {synced_acc, failed_acc}}
+        else
+          {new_synced, new_failed, log_entry} =
+            sync_file_instances(instances, synced_acc, failed_acc, sync_ctx, check_cancelled)
 
-        # Sync all instances for this file, collect errors
-        instance_results =
-          Enum.map(instances, fn item ->
-            sync_instance(item, enabled_bucket_uuids, buckets_by_uuid, redundancy_target)
-          end)
+          callback.(%{
+            done: index,
+            total: total,
+            synced: new_synced,
+            failed: new_failed,
+            log: log_entry,
+            status: :in_progress
+          })
 
-        file_ok = Enum.all?(instance_results, &match?({:ok, _}, &1))
-
-        {new_synced, new_failed, log_entry} =
-          if file_ok do
-            {synced_acc + 1, failed_acc,
-             %{file: file_name, status: :ok, message: "Synced successfully"}}
-          else
-            errors =
-              instance_results
-              |> Enum.filter(&match?({:error, _}, &1))
-              |> Enum.map_join("; ", fn {:error, reason} -> reason end)
-
-            {synced_acc, failed_acc + 1, %{file: file_name, status: :error, message: errors}}
-          end
-
-        callback.(%{
-          done: index,
-          total: total,
-          synced: new_synced,
-          failed: new_failed,
-          log: log_entry,
-          status: :in_progress
-        })
-
-        {new_synced, new_failed}
+          {:cont, {new_synced, new_failed}}
+        end
       end)
 
     callback.(%{
@@ -448,6 +440,41 @@ defmodule PhoenixKit.Modules.Storage do
     })
 
     %{synced: synced, failed: failed, total: total}
+  end
+
+  defp sync_file_instances(instances, synced_acc, failed_acc, ctx, check_cancelled) do
+    file_name = List.first(instances)[:original_file_name] || List.first(instances)[:file_name]
+
+    if check_cancelled.() do
+      {synced_acc, failed_acc, %{file: file_name, status: :error, message: "Cancelled"}}
+    else
+      instance_results =
+        Enum.map(instances, fn item ->
+          if check_cancelled.() do
+            {:error, "Cancelled"}
+          else
+            sync_instance(
+              item,
+              ctx.enabled_bucket_uuids,
+              ctx.buckets_by_uuid,
+              ctx.redundancy_target
+            )
+          end
+        end)
+
+      if Enum.all?(instance_results, &match?({:ok, _}, &1)) do
+        {synced_acc + 1, failed_acc,
+         %{file: file_name, status: :ok, message: "Synced successfully"}}
+      else
+        errors =
+          instance_results
+          |> Enum.filter(&match?({:error, _}, &1))
+          |> Enum.reject(&(&1 == {:error, "Cancelled"}))
+          |> Enum.map_join("; ", fn {:error, reason} -> reason end)
+
+        {synced_acc, failed_acc + 1, %{file: file_name, status: :error, message: errors}}
+      end
+    end
   end
 
   defp sync_instance(item, enabled_bucket_uuids, buckets_by_uuid, redundancy_target) do
