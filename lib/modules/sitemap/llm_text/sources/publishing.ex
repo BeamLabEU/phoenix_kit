@@ -147,6 +147,12 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
 
         if is_binary(content) and content != "" do
           content
+          |> String.replace(~r/^#+\s+/m, "")
+          |> String.replace(~r/\*\*([^*]+)\*\*/, "\\1")
+          |> String.replace(~r/\*([^*]+)\*/, "\\1")
+          |> String.replace(~r/>\s+/m, "")
+          |> String.replace(~r/---+/m, "")
+          |> String.replace(~r/\[([^\]]+)\]\([^)]+\)/, "\\1")
           |> String.replace(~r/\s+/, " ")
           |> String.trim()
           |> String.slice(0, 160)

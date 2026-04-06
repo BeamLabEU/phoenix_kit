@@ -61,6 +61,30 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.PublishingTest do
       refute result =~ "\n"
       assert result =~ "Hello"
     end
+
+    test "strips markdown headings in content fallback" do
+      post = %{metadata: %{}, content: "## My Heading\n\nSome paragraph text."}
+      result = Publishing.extract_description(post)
+      refute result =~ "#"
+      assert result =~ "My Heading"
+    end
+
+    test "strips bold and italic markdown in content fallback" do
+      post = %{metadata: %{}, content: "**bold** and *italic* text"}
+      result = Publishing.extract_description(post)
+      assert result =~ "bold"
+      assert result =~ "italic"
+      refute result =~ "**"
+      refute result =~ ~r/\*[^*]/
+    end
+
+    test "strips markdown links in content fallback" do
+      post = %{metadata: %{}, content: "See [the docs](https://example.com) for details."}
+      result = Publishing.extract_description(post)
+      assert result =~ "the docs"
+      refute result =~ "https://example.com"
+      refute result =~ "["
+    end
   end
 
   describe "build_post_content/3" do
