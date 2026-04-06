@@ -94,12 +94,11 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   end
 
   def table_row_menu(%{mode: "auto"} = assigns) do
-    # TODO: Auto mode is intended to show inline buttons when they fit and collapse
+    # Auto mode is intended to show inline buttons when they fit and collapse
     # to the ⋮ dropdown when they overflow. The RowMenuAuto JS hook exists in
     # phoenix_kit.js but doesn't work reliably — DaisyUI table cells have minimum
     # widths that prevent proper overflow detection. For now, auto mode falls through
-    # to the default dropdown-only behaviour. Fix requires a different approach
-    # (e.g., container queries or measuring before first paint).
+    # to the default dropdown-only behaviour.
     table_row_menu(%{assigns | mode: "dropdown"})
   end
 

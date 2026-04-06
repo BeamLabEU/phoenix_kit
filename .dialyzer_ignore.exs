@@ -101,5 +101,9 @@
 
   # LLMText module — Publishing is an external package, guarded by Code.ensure_loaded?
   {"lib/modules/llm_text/sources/publishing.ex", :unknown_function},
-  {"lib/modules/llm_text/publishing_subscriber.ex", :unknown_function}
+  {"lib/modules/llm_text/publishing_subscriber.ex", :unknown_function},
+
+  # Integrations — URI authority is opaque, cond guard false positive
+  {"lib/phoenix_kit_web/live/settings/integration_form.ex", :opaque_guard},
+  {"lib/phoenix_kit_web/live/settings/integrations.ex", :guard_fail}
 ]

@@ -523,7 +523,6 @@ defmodule PhoenixKit.Integrations do
     |> Map.put("metadata", updated_metadata)
     |> maybe_put("external_account_id", userinfo["email"])
     |> maybe_put("external_account_name", userinfo["name"])
-    |> maybe_put("external_account_name", userinfo["name"])
   end
 
   defp maybe_put(map, _key, nil), do: map

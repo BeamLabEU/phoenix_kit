@@ -432,7 +432,11 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
           value = String.trim(params[field.key] || "")
 
           # For password fields, skip empty values to keep the existing credential
-          Map.put(acc, field.key, value)
+          if field.type == :password and value == "" do
+            acc
+          else
+            Map.put(acc, field.key, value)
+          end
         end)
       else
         %{}
