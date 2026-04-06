@@ -76,6 +76,88 @@ defmodule PhoenixKit.Integrations.OAuthTest do
     end
   end
 
+  describe "generate_state/0" do
+    test "returns a non-empty string" do
+      state = OAuth.generate_state()
+      assert is_binary(state)
+      assert byte_size(state) > 0
+    end
+
+    test "returns unique values" do
+      states = for _ <- 1..10, do: OAuth.generate_state()
+      assert length(Enum.uniq(states)) == 10
+    end
+  end
+
+  describe "authorization_url/5 with state" do
+    test "includes state parameter when provided" do
+      data = %{"client_id" => "test-client-id"}
+      redirect = "http://localhost:4000/callback"
+      state = "random-state-token"
+
+      {:ok, url} = OAuth.authorization_url(@google_oauth_config, data, redirect, nil, state)
+      assert url =~ "state=random-state-token"
+    end
+
+    test "omits state parameter when nil" do
+      data = %{"client_id" => "test-client-id"}
+      redirect = "http://localhost:4000/callback"
+
+      {:ok, url} = OAuth.authorization_url(@google_oauth_config, data, redirect, nil, nil)
+      refute url =~ "state="
+    end
+  end
+
+  describe "exchange_code/4 validation" do
+    test "returns error when client_id is missing" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"client_secret" => "secret"}
+
+      assert {:error, :client_credentials_not_configured} =
+               OAuth.exchange_code(config, data, "code123", "http://localhost/cb")
+    end
+
+    test "returns error when client_secret is missing" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"client_id" => "id"}
+
+      assert {:error, :client_credentials_not_configured} =
+               OAuth.exchange_code(config, data, "code123", "http://localhost/cb")
+    end
+
+    test "returns error when both credentials empty" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"client_id" => "", "client_secret" => ""}
+
+      assert {:error, :client_credentials_not_configured} =
+               OAuth.exchange_code(config, data, "code123", "http://localhost/cb")
+    end
+  end
+
+  describe "refresh_access_token/2 validation" do
+    test "returns error when refresh_token is missing" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"client_id" => "id", "client_secret" => "secret"}
+
+      assert {:error, :no_refresh_token} = OAuth.refresh_access_token(config, data)
+    end
+
+    test "returns error when refresh_token is empty string" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"client_id" => "id", "client_secret" => "secret", "refresh_token" => ""}
+
+      assert {:error, :no_refresh_token} = OAuth.refresh_access_token(config, data)
+    end
+
+    test "returns error when client credentials missing for refresh" do
+      config = %{token_url: "https://example.com/token"}
+      data = %{"refresh_token" => "valid-refresh-token"}
+
+      assert {:error, :client_credentials_not_configured} =
+               OAuth.refresh_access_token(config, data)
+    end
+  end
+
   describe "fetch_userinfo/2" do
     test "returns empty map when userinfo_url is nil" do
       config = %{userinfo_url: nil}

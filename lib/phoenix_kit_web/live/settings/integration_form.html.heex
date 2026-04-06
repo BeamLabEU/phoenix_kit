@@ -208,7 +208,8 @@
           <% else %>
             <p class="text-sm text-base-content/60 mt-1">
               {gettext(
-                "Authorize access to your Google account. This will open a Google sign-in page where you choose which account to connect."
+                "Authorize access to your %{provider} account. This will open a sign-in page where you choose which account to connect.",
+                provider: @provider.name
               )}
             </p>
 
@@ -219,7 +220,7 @@
                 class="btn btn-accent btn-sm mt-3"
               >
                 <.icon name="hero-link" class="w-4 h-4" />
-                {gettext("Connect Google Account")}
+                {gettext("Connect %{provider} Account", provider: @provider.name)}
               </button>
             <% else %>
               <p class="text-sm text-base-content/40 mt-2">

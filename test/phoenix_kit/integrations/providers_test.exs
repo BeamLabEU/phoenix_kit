@@ -75,4 +75,24 @@ defmodule PhoenixKit.Integrations.ProvidersTest do
       assert is_map(result)
     end
   end
+
+  describe "clear_cache/0" do
+    test "clears and repopulates on next call" do
+      # Populate cache
+      providers1 = Providers.all()
+      assert is_list(providers1)
+
+      # Clear
+      :ok = Providers.clear_cache()
+
+      # Should repopulate
+      providers2 = Providers.all()
+      assert providers1 == providers2
+    end
+
+    test "safe to call when cache is empty" do
+      Providers.clear_cache()
+      assert :ok = Providers.clear_cache()
+    end
+  end
 end

@@ -27,8 +27,11 @@ defmodule PhoenixKit.Integrations do
       {:ok, response} = PhoenixKit.Integrations.authenticated_request("google", :get, url)
   """
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   require Logger
 
+  alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Integrations.OAuth
   alias PhoenixKit.Integrations.Providers
@@ -36,6 +39,7 @@ defmodule PhoenixKit.Integrations do
   alias PhoenixKit.Settings.Queries
 
   @settings_module "integrations"
+  @http_timeout 15_000
 
   # ---------------------------------------------------------------------------
   # Reading credentials
@@ -60,15 +64,8 @@ defmodule PhoenixKit.Integrations do
       end
 
     case data do
-      nil ->
-        # Try legacy migration
-        case maybe_migrate_legacy(provider_key) do
-          {:ok, data} -> {:ok, data}
-          _ -> {:error, :not_configured}
-        end
-
-      %{} = data ->
-        {:ok, data}
+      nil -> {:error, :not_configured}
+      %{} = data -> {:ok, Encryption.decrypt_fields(data)}
     end
   end
 
@@ -93,7 +90,8 @@ defmodule PhoenixKit.Integrations do
 
     case data do
       %{} = data when map_size(data) > 0 ->
-        if has_credentials?(data), do: {:ok, data}, else: {:error, :not_configured}
+        decrypted = Encryption.decrypt_fields(data)
+        if has_credentials?(decrypted), do: {:ok, decrypted}, else: {:error, :not_configured}
 
       _ ->
         if is_uuid do
@@ -120,19 +118,8 @@ defmodule PhoenixKit.Integrations do
   @spec connected?(String.t()) :: boolean()
   def connected?(provider_key) when is_binary(provider_key) do
     case get_credentials(provider_key) do
-      {:ok, _} ->
-        true
-
-      _ ->
-        # If checking a bare provider key (no name), check if ANY connection is connected
-        {_provider, name} = parse_provider_name(provider_key)
-
-        if name == "default" do
-          list_connections(provider_key)
-          |> Enum.any?(fn %{data: data} -> has_credentials?(data) end)
-        else
-          false
-        end
+      {:ok, _} -> true
+      _ -> false
     end
   end
 
@@ -181,13 +168,18 @@ defmodule PhoenixKit.Integrations do
 
   @doc """
   Build the OAuth authorization URL for a provider.
+
+  Accepts an optional `state` parameter for CSRF protection. Use
+  `PhoenixKit.Integrations.OAuth.generate_state/0` to generate one,
+  store it in the session or socket assigns, and verify it when the
+  callback arrives.
   """
-  @spec authorization_url(String.t(), String.t(), String.t() | nil) ::
+  @spec authorization_url(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, String.t()} | {:error, term()}
-  def authorization_url(provider_key, redirect_uri, extra_scopes \\ nil) do
+  def authorization_url(provider_key, redirect_uri, extra_scopes \\ nil, state \\ nil) do
     with {:ok, provider} <- fetch_provider(provider_key),
          {:ok, data} <- get_integration(provider_key) do
-      OAuth.authorization_url(provider.oauth_config, data, redirect_uri, extra_scopes)
+      OAuth.authorization_url(provider.oauth_config, data, redirect_uri, extra_scopes, state)
     end
   end
 
@@ -263,7 +255,7 @@ defmodule PhoenixKit.Integrations do
 
             "key_secret" ->
               data
-              |> Map.take(["provider", "auth_type", "access_key", "secret_key"])
+              |> Map.take(["provider", "auth_type"])
               |> Map.put("status", "disconnected")
 
             _ ->
@@ -317,10 +309,11 @@ defmodule PhoenixKit.Integrations do
   """
   @spec list_integrations() :: [map()]
   def list_integrations do
-    Providers.all()
-    |> Enum.flat_map(fn provider ->
-      list_connections(provider.key)
-      |> Enum.map(fn %{data: data} -> data end)
+    provider_keys = Providers.all() |> Enum.map(& &1.key)
+
+    load_all_connections(provider_keys)
+    |> Enum.flat_map(fn {_provider, connections} ->
+      Enum.map(connections, fn %{data: data} -> data end)
     end)
   end
 
@@ -366,7 +359,7 @@ defmodule PhoenixKit.Integrations do
       Settings.get_json_settings_by_prefix_with_uuid(prefix)
       |> Enum.map(fn {uuid, key, data} ->
         name = key |> String.replace_prefix(prefix, "")
-        %{uuid: uuid, name: name, data: data}
+        %{uuid: uuid, name: name, data: Encryption.decrypt_fields(data)}
       end)
 
     # Also check for old non-named key (e.g., "integration:google" without ":default")
@@ -381,7 +374,7 @@ defmodule PhoenixKit.Integrations do
 
         case Queries.get_setting_by_key(old_key) do
           %{uuid: uuid, value_json: data} when is_map(data) and map_size(data) > 0 ->
-            [%{uuid: uuid, name: "default", data: data} | connections]
+            [%{uuid: uuid, name: "default", data: Encryption.decrypt_fields(data)} | connections]
 
           _ ->
             connections
@@ -392,17 +385,61 @@ defmodule PhoenixKit.Integrations do
   end
 
   @doc """
+  Loads all connections for multiple providers in a single database query.
+
+  More efficient than calling `list_connections/1` in a loop.
+  Returns a map of `provider_key => [%{uuid, name, data}]`.
+  """
+  @spec load_all_connections([String.t()]) :: %{
+          String.t() => [%{uuid: String.t(), name: String.t(), data: map()}]
+        }
+  def load_all_connections(provider_keys) when is_list(provider_keys) do
+    prefixes = Enum.map(provider_keys, &"integration:#{&1}:")
+
+    # Single query for all providers
+    all_settings = Settings.get_json_settings_by_prefixes_with_uuid(prefixes)
+
+    # Group by provider
+    grouped =
+      Enum.reduce(all_settings, %{}, fn {uuid, key, data}, acc ->
+        # key is like "integration:google:default" — extract provider and name
+        case String.split(key, ":", parts: 3) do
+          ["integration", provider, name] ->
+            conn = %{uuid: uuid, name: name, data: Encryption.decrypt_fields(data)}
+            Map.update(acc, provider, [conn], &[conn | &1])
+
+          _ ->
+            acc
+        end
+      end)
+
+    # Sort each provider's connections (default first) and fill missing providers
+    Map.new(provider_keys, fn pk ->
+      connections =
+        Map.get(grouped, pk, [])
+        |> Enum.sort_by(fn %{name: name} -> if name == "default", do: "0", else: name end)
+
+      {pk, connections}
+    end)
+  end
+
+  @doc """
   Adds a new named connection for a provider.
 
   The name can be any string alphanumeric with hyphens (e.g., "company-drive").
   """
   @spec add_connection(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  @name_pattern ~r/^[a-zA-Z0-9][a-zA-Z0-9\-_]*$/
+
   def add_connection(provider_key, name) when is_binary(provider_key) and is_binary(name) do
     name = String.trim(name)
 
     cond do
       name == "" ->
         {:error, :empty_name}
+
+      not Regex.match?(@name_pattern, name) ->
+        {:error, :invalid_name}
 
       Settings.get_json_setting(settings_key("#{provider_key}:#{name}"), nil) != nil ->
         {:error, :already_exists}
@@ -446,6 +483,77 @@ defmodule PhoenixKit.Integrations do
   end
 
   # ---------------------------------------------------------------------------
+  # Validation
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Validate that a provider's credentials are working.
+
+  For OAuth: calls the provider's userinfo endpoint.
+  For API key / bot token: calls the provider's validation endpoint if defined.
+  Returns `:ok` or `{:error, reason}`.
+  """
+  @spec validate_connection(String.t()) :: :ok | {:error, String.t()}
+  def validate_connection(provider_key) do
+    with {:ok, data} <- get_credentials(provider_key),
+         provider when not is_nil(provider) <- Providers.get(provider_key) do
+      do_validate(provider, data)
+    else
+      {:error, _} -> {:error, gettext("Not configured")}
+      nil -> {:error, gettext("Unknown provider")}
+    end
+  rescue
+    e ->
+      Logger.error(
+        "[Integrations] validate_connection crashed for #{provider_key}: #{Exception.message(e)}"
+      )
+
+      {:error, gettext("Validation failed unexpectedly")}
+  end
+
+  defp do_validate(%{auth_type: :oauth2} = provider, data) do
+    token = data["access_token"]
+    config = provider.oauth_config || %{}
+    userinfo_url = config[:userinfo_url] || config["userinfo_url"]
+
+    cond do
+      not (is_binary(token) and token != "") -> {:error, gettext("No access token")}
+      is_nil(userinfo_url) -> :ok
+      true -> check_http(userinfo_url, [{"authorization", "Bearer #{token}"}])
+    end
+  end
+
+  defp do_validate(%{auth_type: auth_type} = provider, data)
+       when auth_type in [:api_key, :bot_token] do
+    token = data["api_key"] || data["bot_token"] || ""
+
+    cond do
+      token == "" ->
+        {:error, gettext("No credentials configured")}
+
+      Map.has_key?(provider, :validation) and provider.validation != nil ->
+        v = provider.validation
+        headers = [{v.auth_header, "#{v.auth_prefix}#{token}"}]
+        check_http(v.url, headers)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp do_validate(_, _data), do: :ok
+
+  defp check_http(url, headers) do
+    case Req.get(url, headers: headers, receive_timeout: @http_timeout) do
+      {:ok, %{status: 200}} -> :ok
+      {:ok, %{status: 401}} -> {:error, gettext("Invalid credentials")}
+      {:ok, %{status: 403}} -> {:error, gettext("Access denied")}
+      {:ok, %{status: status}} -> {:error, gettext("Service error %{status}", status: status)}
+      {:error, _reason} -> {:error, gettext("Could not reach the service")}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Private
   # ---------------------------------------------------------------------------
 
@@ -475,9 +583,11 @@ defmodule PhoenixKit.Integrations do
   end
 
   defp save_integration(provider_key, data) do
+    encrypted_data = Encryption.encrypt_fields(data)
+
     case Settings.update_json_setting_with_module(
            settings_key(provider_key),
-           data,
+           encrypted_data,
            @settings_module
          ) do
       {:ok, _setting} ->
@@ -626,11 +736,33 @@ defmodule PhoenixKit.Integrations do
   # ---------------------------------------------------------------------------
 
   # Map of legacy settings keys to provider keys.
-  # When a provider is accessed for the first time and has no data,
-  # we check if there's legacy data under old keys and migrate it.
   @legacy_keys %{
     "google" => "document_creator_google_oauth"
   }
+
+  @doc """
+  Run one-time legacy migrations for all known providers.
+
+  Call this at application boot (e.g., in `Application.start/2`) to migrate
+  legacy settings keys to the new `integration:{provider}:{name}` format.
+  Safe to call multiple times — skips providers that already have data.
+  """
+  @spec run_legacy_migrations() :: :ok
+  def run_legacy_migrations do
+    for {provider_key, _legacy_key} <- @legacy_keys do
+      # Only migrate if no data exists under the new key
+      case Settings.get_json_setting(settings_key(provider_key), nil) do
+        nil -> maybe_migrate_legacy(provider_key)
+        _ -> :skip
+      end
+    end
+
+    :ok
+  rescue
+    e ->
+      Logger.warning("[Integrations] Legacy migrations failed: #{Exception.message(e)}")
+      :ok
+  end
 
   defp maybe_migrate_legacy(provider_key) do
     {base_provider, _name} = parse_provider_name(provider_key)

@@ -11,6 +11,8 @@ defmodule PhoenixKit.Integrations.Providers do
   via the `integration_providers/0` callback on `PhoenixKit.Module`.
   """
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   require Logger
 
   alias PhoenixKit.ModuleRegistry
@@ -38,12 +40,26 @@ defmodule PhoenixKit.Integrations.Providers do
           capabilities: [atom()]
         }
 
+  @providers_cache_key {__MODULE__, :all}
+  @used_by_cache_key {__MODULE__, :used_by}
+
   @doc """
   Returns all known providers, including those contributed by external modules.
+
+  Results are cached in `persistent_term` after the first call.
+  Call `clear_cache/0` if modules are added or removed at runtime.
   """
   @spec all() :: [provider()]
   def all do
-    builtin_providers() ++ external_providers()
+    case :persistent_term.get(@providers_cache_key, :miss) do
+      :miss ->
+        providers = builtin_providers() ++ external_providers()
+        :persistent_term.put(@providers_cache_key, providers)
+        providers
+
+      cached ->
+        cached
+    end
   end
 
   @doc """
@@ -78,8 +94,8 @@ defmodule PhoenixKit.Integrations.Providers do
   defp google do
     %{
       key: "google",
-      name: "Google",
-      description: "Google Docs, Drive, Calendar, Sheets, Gmail",
+      name: gettext("Google"),
+      description: gettext("Google Docs, Drive, Calendar, Sheets, Gmail"),
       icon: "hero-cloud",
       auth_type: :oauth2,
       oauth_config: %{
@@ -93,16 +109,16 @@ defmodule PhoenixKit.Integrations.Providers do
       setup_fields: [
         %{
           key: "client_id",
-          label: "Client ID",
+          label: gettext("Client ID"),
           type: :text,
           required: true,
           placeholder: "xxxxx.apps.googleusercontent.com",
-          help: "From Google Cloud Console → APIs & Services → Credentials",
+          help: gettext("From Google Cloud Console → APIs & Services → Credentials"),
           options: nil
         },
         %{
           key: "client_secret",
-          label: "Client Secret",
+          label: gettext("Client Secret"),
           type: :password,
           required: true,
           placeholder: "GOCSPX-...",
@@ -113,59 +129,72 @@ defmodule PhoenixKit.Integrations.Providers do
       capabilities: [:google_docs, :google_drive, :google_calendar, :google_sheets],
       instructions: [
         %{
-          title: "Create a Google Cloud project",
+          title: gettext("Create a Google Cloud project"),
           steps: [
-            {"Go to the [Google Cloud Console](https://console.cloud.google.com)", nil},
-            {"Create a new project or select an existing one", nil}
+            {gettext("Go to the [Google Cloud Console](https://console.cloud.google.com)"), nil},
+            {gettext("Create a new project or select an existing one"), nil}
           ]
         },
         %{
-          title: "Enable required APIs",
+          title: gettext("Enable required APIs"),
           steps: [
-            {"Go to [APIs & Services → Library](https://console.cloud.google.com/apis/library)",
-             nil},
-            {"Search for **Google Drive API**, click it, then click **Enable**", nil},
-            {"Go back to the Library and search for **Google Docs API**, click it, then click **Enable**",
-             nil}
+            {gettext(
+               "Go to [APIs & Services → Library](https://console.cloud.google.com/apis/library)"
+             ), nil},
+            {gettext("Search for **Google Drive API**, click it, then click **Enable**"), nil},
+            {gettext(
+               "Go back to the Library and search for **Google Docs API**, click it, then click **Enable**"
+             ), nil}
           ],
           note:
-            "Drive API handles file listing, creation, copying, and PDF export. Docs API is used for reading document content and substituting template variables."
+            gettext(
+              "Drive API handles file listing, creation, copying, and PDF export. Docs API is used for reading document content and substituting template variables."
+            )
         },
         %{
-          title: "Set up OAuth consent",
+          title: gettext("Set up OAuth consent"),
           steps: [
-            {"Go to [Branding](https://console.cloud.google.com/auth/branding) in the sidebar — fill in the **App name** and **User support email**, then save",
-             nil},
-            {"Go to [Audience](https://console.cloud.google.com/auth/audience) — set user type to **External** (or Internal for Google Workspace)",
-             nil},
-            {"Still on Audience — while the app is in **Testing** status, add the Google account you will connect as a **Test user** (this must be the same account whose Drive will store your files)",
-             nil},
-            {"Go to [Data Access](https://console.cloud.google.com/auth/scopes) — click **Add or Remove Scopes** and add the Drive and Docs scopes. This step may not be required — the app requests the needed scopes at connect time regardless.",
-             nil}
+            {gettext(
+               "Go to [Branding](https://console.cloud.google.com/auth/branding) in the sidebar — fill in the **App name** and **User support email**, then save"
+             ), nil},
+            {gettext(
+               "Go to [Audience](https://console.cloud.google.com/auth/audience) — set user type to **External** (or Internal for Google Workspace)"
+             ), nil},
+            {gettext(
+               "Still on Audience — while the app is in **Testing** status, add the Google account you will connect as a **Test user** (this must be the same account whose Drive will store your files)"
+             ), nil},
+            {gettext(
+               "Go to [Data Access](https://console.cloud.google.com/auth/scopes) — click **Add or Remove Scopes** and add the Drive and Docs scopes. This step may not be required — the app requests the needed scopes at connect time regardless."
+             ), nil}
           ],
           note:
-            "Navigate to the OAuth section using the search bar or the hamburger menu: search for \"OAuth\", or go to the sidebar: **APIs & Services → OAuth consent screen**. This opens a different section with its own sidebar."
+            gettext(
+              "Navigate to the OAuth section using the search bar or the hamburger menu: search for \"OAuth\", or go to the sidebar: **APIs & Services → OAuth consent screen**. This opens a different section with its own sidebar."
+            )
         },
         %{
-          title: "Create an OAuth Client",
+          title: gettext("Create an OAuth Client"),
           steps: [
-            {"Go to [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)",
-             nil},
-            {"Click **Create Credentials → OAuth client ID**", nil},
-            {"Application type: **Web application** (do not select \"Desktop app\" — it won't support redirect URIs)",
-             nil},
-            {"Under **Authorized redirect URIs**, add: `{redirect_uri}`", nil},
-            {"Copy the **Client ID** and **Client Secret** into the form above", nil}
+            {gettext(
+               "Go to [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)"
+             ), nil},
+            {gettext("Click **Create Credentials → OAuth client ID**"), nil},
+            {gettext(
+               "Application type: **Web application** (do not select \"Desktop app\" — it won't support redirect URIs)"
+             ), nil},
+            {gettext("Under **Authorized redirect URIs**, add: `{redirect_uri}`"), nil},
+            {gettext("Copy the **Client ID** and **Client Secret** into the form above"), nil}
           ]
         },
         %{
-          title: "Connect and authorize",
+          title: gettext("Connect and authorize"),
           steps: [
-            {"Click **Save**, then **Connect Account**", nil},
-            {"Google will show an \"unverified app\" warning — click **Advanced → Go to (app name)** to proceed",
-             nil},
-            {"Grant access to Google Docs and Google Drive", nil},
-            {"You'll be redirected back here once connected", nil}
+            {gettext("Click **Save**, then **Connect Account**"), nil},
+            {gettext(
+               "Google will show an \"unverified app\" warning — click **Advanced → Go to (app name)** to proceed"
+             ), nil},
+            {gettext("Grant access to Google Docs and Google Drive"), nil},
+            {gettext("You'll be redirected back here once connected"), nil}
           ]
         }
       ]
@@ -175,8 +204,8 @@ defmodule PhoenixKit.Integrations.Providers do
   defp openrouter do
     %{
       key: "openrouter",
-      name: "OpenRouter",
-      description: "AI model access via OpenRouter (100+ models)",
+      name: gettext("OpenRouter"),
+      description: gettext("AI model access via OpenRouter (100+ models)"),
       icon: "hero-sparkles",
       auth_type: :api_key,
       oauth_config: nil,
@@ -189,36 +218,36 @@ defmodule PhoenixKit.Integrations.Providers do
       setup_fields: [
         %{
           key: "api_key",
-          label: "API Key",
+          label: gettext("API Key"),
           type: :password,
           required: true,
           placeholder: "sk-or-v1-...",
-          help: "From openrouter.ai/keys",
+          help: gettext("From openrouter.ai/keys"),
           options: nil
         }
       ],
       capabilities: [:ai_completions, :ai_embeddings],
       instructions: [
         %{
-          title: "Create an OpenRouter account",
+          title: gettext("Create an OpenRouter account"),
           steps: [
-            {"Go to [openrouter.ai](https://openrouter.ai) and sign up or log in", nil},
-            {"Navigate to [Keys](https://openrouter.ai/keys)", nil}
+            {gettext("Go to [openrouter.ai](https://openrouter.ai) and sign up or log in"), nil},
+            {gettext("Navigate to [Keys](https://openrouter.ai/keys)"), nil}
           ]
         },
         %{
-          title: "Create an API key",
+          title: gettext("Create an API key"),
           steps: [
-            {"Click **Create Key**", nil},
-            {"Give it a name (e.g., your app name)", nil},
-            {"Copy the key and paste it into the form above", nil}
+            {gettext("Click **Create Key**"), nil},
+            {gettext("Give it a name (e.g., your app name)"), nil},
+            {gettext("Copy the key and paste it into the form above"), nil}
           ]
         },
         %{
-          title: "Add credits (optional)",
+          title: gettext("Add credits (optional)"),
           steps: [
-            {"Some models are free, but most require credits", nil},
-            {"Go to [Credits](https://openrouter.ai/credits) to add funds", nil}
+            {gettext("Some models are free, but most require credits"), nil},
+            {gettext("Go to [Credits](https://openrouter.ai/credits) to add funds"), nil}
           ]
         }
       ]
@@ -250,10 +279,37 @@ defmodule PhoenixKit.Integrations.Providers do
   end
 
   @doc """
+  Clears the cached provider list and used-by map.
+
+  Call this when modules are added or removed at runtime so the next
+  call to `all/0` or `used_by_modules/0` recomputes from the module registry.
+  """
+  @spec clear_cache() :: :ok
+  def clear_cache do
+    :persistent_term.erase(@providers_cache_key)
+    :persistent_term.erase(@used_by_cache_key)
+    :ok
+  rescue
+    ArgumentError -> :ok
+  end
+
+  @doc """
   Returns a map of provider_key => [module_name] showing which modules use each integration.
   """
   @spec used_by_modules() :: %{String.t() => [String.t()]}
   def used_by_modules do
+    case :persistent_term.get(@used_by_cache_key, :miss) do
+      :miss ->
+        result = compute_used_by_modules()
+        :persistent_term.put(@used_by_cache_key, result)
+        result
+
+      cached ->
+        cached
+    end
+  end
+
+  defp compute_used_by_modules do
     ModuleRegistry.all_modules()
     |> Enum.reduce(%{}, fn mod, acc ->
       if Code.ensure_loaded?(mod) and function_exported?(mod, :required_integrations, 0) do

@@ -83,7 +83,9 @@
 
   # Integrations: Dialyzer infers boolean branches in cond/case are unreachable
   # when provider auth_type covers all spec'd atoms. False positive — defensive code.
+  # Also: :validation key not in @type provider but present in actual provider maps.
   {"lib/phoenix_kit/integrations/integrations.ex", :pattern_match},
+  {"lib/phoenix_kit/integrations/integrations.ex", :guard_fail},
   {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
 
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
