@@ -32,6 +32,8 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.FileLocation
+  alias PhoenixKit.Modules.Storage.Folder
+  alias PhoenixKit.Modules.Storage.FolderLink
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.ProcessFileJob
   alias PhoenixKit.Modules.Storage.ProviderRegistry
@@ -851,6 +853,139 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def change_dimension(%Dimension{} = dimension, attrs \\ %{}) do
     Dimension.changeset(dimension, attrs)
+  end
+
+  # ===== FOLDERS =====
+
+  @doc "Returns all folders as a flat list ordered by name, for building a tree."
+  def list_all_folders do
+    from(f in Folder, order_by: [asc: f.name])
+    |> repo().all()
+  end
+
+  @doc "Builds a folder tree structure from a flat list of folders."
+  def build_folder_tree(folders) do
+    by_parent = Enum.group_by(folders, & &1.parent_uuid)
+    build_tree_nodes(by_parent, nil)
+  end
+
+  defp build_tree_nodes(by_parent, parent_uuid) do
+    (Map.get(by_parent, parent_uuid) || [])
+    |> Enum.map(fn folder ->
+      %{folder: folder, children: build_tree_nodes(by_parent, folder.uuid)}
+    end)
+  end
+
+  @doc "Lists folders within a parent folder (nil = root)."
+  def list_folders(parent_uuid \\ nil)
+
+  def list_folders(nil) do
+    from(f in Folder, where: is_nil(f.parent_uuid), order_by: [asc: f.name])
+    |> repo().all()
+  end
+
+  def list_folders(parent_uuid) do
+    from(f in Folder, where: f.parent_uuid == ^parent_uuid, order_by: [asc: f.name])
+    |> repo().all()
+  end
+
+  @doc "Gets a single folder by UUID."
+  def get_folder(nil), do: nil
+  def get_folder(uuid), do: repo().get(Folder, uuid)
+
+  @doc "Creates a new folder."
+  def create_folder(attrs) do
+    %Folder{}
+    |> Folder.changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc "Updates a folder (rename, move)."
+  def update_folder(%Folder{} = folder, attrs) do
+    folder
+    |> Folder.changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes a folder.
+
+  Moves child folders and home files to the deleted folder's parent.
+  Folder links are cascade-deleted by the database FK.
+  """
+  def delete_folder(%Folder{} = folder) do
+    # Move child folders to parent
+    from(f in Folder, where: f.parent_uuid == ^folder.uuid)
+    |> repo().update_all(set: [parent_uuid: folder.parent_uuid])
+
+    # Move home files to parent
+    from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder.uuid)
+    |> repo().update_all(set: [folder_uuid: folder.parent_uuid])
+
+    # Delete folder (links cascade via FK)
+    repo().delete(folder)
+  end
+
+  @doc "Returns the ancestor chain from root to the given folder (for breadcrumbs)."
+  def folder_breadcrumbs(nil), do: []
+
+  def folder_breadcrumbs(folder_uuid) do
+    case get_folder(folder_uuid) do
+      nil -> []
+      folder -> folder_breadcrumbs(folder.parent_uuid) ++ [folder]
+    end
+  end
+
+  @doc "Counts files in a folder (home files + linked files)."
+  def count_folder_contents(nil) do
+    home =
+      from(f in PhoenixKit.Modules.Storage.File, where: is_nil(f.folder_uuid), select: count())
+      |> repo().one()
+
+    home || 0
+  end
+
+  def count_folder_contents(folder_uuid) do
+    home =
+      from(f in PhoenixKit.Modules.Storage.File,
+        where: f.folder_uuid == ^folder_uuid,
+        select: count()
+      )
+      |> repo().one()
+
+    links =
+      from(fl in FolderLink, where: fl.folder_uuid == ^folder_uuid, select: count())
+      |> repo().one()
+
+    (home || 0) + (links || 0)
+  end
+
+  @doc "Moves a file's home folder."
+  def move_file_to_folder(file_uuid, folder_uuid) do
+    file = repo().get(PhoenixKit.Modules.Storage.File, file_uuid)
+
+    if file do
+      file
+      |> Ecto.Changeset.change(%{folder_uuid: folder_uuid})
+      |> repo().update()
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc "Creates a link (shortcut) of a file in a folder."
+  def create_folder_link(folder_uuid, file_uuid) do
+    %FolderLink{}
+    |> FolderLink.changeset(%{folder_uuid: folder_uuid, file_uuid: file_uuid})
+    |> repo().insert()
+  end
+
+  @doc "Removes a folder link."
+  def delete_folder_link(link_uuid) do
+    case repo().get(FolderLink, link_uuid) do
+      nil -> {:error, :not_found}
+      link -> repo().delete(link)
+    end
   end
 
   # ===== FILES =====

@@ -46,8 +46,68 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:has_buckets, has_buckets)
       |> assign(:filter_orphaned, false)
       |> assign(:orphaned_count, 0)
+      |> assign(:current_folder, nil)
+      |> assign(:breadcrumbs, [])
+      |> assign(:folders, [])
+      |> assign(:folder_tree, [])
+      |> assign(:show_new_folder, false)
+      |> assign(:show_sidebar, true)
+      |> assign(:view_mode, "grid")
+      |> assign(:select_mode, false)
+      |> assign(:selected_files, MapSet.new())
+      |> assign(:show_move_modal, false)
 
     {:ok, socket}
+  end
+
+  attr :node, :map, required: true
+  attr :current_folder, :any, required: true
+  attr :depth, :integer, default: 0
+
+  def folder_tree_node(assigns) do
+    ~H"""
+    <li>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
+        class={
+          if @current_folder && @current_folder.uuid == @node.folder.uuid, do: "active", else: ""
+        }
+      >
+        <.icon name="hero-folder" class="w-4 h-4" /> {@node.folder.name}
+      </.link>
+      <%= if @node.children != [] do %>
+        <ul>
+          <%= for child <- @node.children do %>
+            <.folder_tree_node
+              node={child}
+              current_folder={@current_folder}
+              depth={@depth + 1}
+            />
+          <% end %>
+        </ul>
+      <% end %>
+    </li>
+    """
+  end
+
+  attr :node, :map, required: true
+  attr :depth, :integer, default: 0
+
+  def move_folder_option(assigns) do
+    ~H"""
+    <li>
+      <button
+        phx-click="move_selected_to_folder"
+        phx-value-folder_uuid={@node.folder.uuid}
+        style={"padding-left: #{(@depth + 1) * 16}px"}
+      >
+        <.icon name="hero-folder" class="w-4 h-4" /> {@node.folder.name}
+      </button>
+      <%= for child <- @node.children do %>
+        <.move_folder_option node={child} depth={@depth + 1} />
+      <% end %>
+    </li>
+    """
   end
 
   defp maybe_allow_upload(socket, has_buckets) do
@@ -71,17 +131,23 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_params(params, _uri, socket) do
-    # Pagination setup
     per_page = 50
     page = String.to_integer(params["page"] || "1")
+    folder_uuid = params["folder"]
 
     filter_orphaned = socket.assigns[:filter_orphaned] || false
+
+    # Load folder context
+    current_folder = if folder_uuid, do: Storage.get_folder(folder_uuid), else: nil
+    breadcrumbs = Storage.folder_breadcrumbs(folder_uuid)
+    folders = Storage.list_folders(folder_uuid)
+    folder_tree = Storage.list_all_folders() |> Storage.build_folder_tree()
 
     {existing_files, total_count} =
       if filter_orphaned do
         load_orphaned_files(page, per_page)
       else
-        load_existing_files(page, per_page)
+        load_existing_files(page, per_page, folder_uuid)
       end
 
     total_pages = ceil(total_count / per_page)
@@ -101,8 +167,176 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:total_pages, total_pages)
       |> assign(:total_count, total_count)
       |> assign(:orphaned_count, orphaned_count)
+      |> assign(:current_folder, current_folder)
+      |> assign(:breadcrumbs, breadcrumbs)
+      |> assign(:folders, folders)
+      |> assign(:folder_tree, folder_tree)
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_new_folder", _params, socket) do
+    {:noreply, assign(socket, :show_new_folder, !socket.assigns.show_new_folder)}
+  end
+
+  def handle_event("create_folder", %{"name" => name}, socket) do
+    folder_uuid =
+      if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid, else: nil
+
+    user = socket.assigns[:phoenix_kit_current_user]
+
+    case Storage.create_folder(%{
+           name: name,
+           parent_uuid: folder_uuid,
+           user_uuid: user && user.uuid
+         }) do
+      {:ok, _folder} ->
+        socket =
+          socket
+          |> assign(:show_new_folder, false)
+          |> assign(:folders, Storage.list_folders(folder_uuid))
+          |> assign(:folder_tree, Storage.list_all_folders() |> Storage.build_folder_tree())
+          |> put_flash(:info, "Folder created")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to create folder")}
+    end
+  end
+
+  def handle_event("delete_folder", %{"id" => folder_uuid}, socket) do
+    folder = Storage.get_folder(folder_uuid)
+
+    if folder do
+      Storage.delete_folder(folder)
+      parent_uuid = if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid
+
+      socket =
+        socket
+        |> assign(:folders, Storage.list_folders(parent_uuid))
+        |> assign(:folder_tree, Storage.list_all_folders() |> Storage.build_folder_tree())
+        |> put_flash(:info, "Folder deleted")
+
+      {:noreply, socket}
+    else
+      {:noreply, put_flash(socket, :error, "Folder not found")}
+    end
+  end
+
+  def handle_event(
+        "move_file_to_folder",
+        %{"file_uuid" => file_uuid, "folder_uuid" => folder_uuid},
+        socket
+      ) do
+    target = if folder_uuid == "", do: nil, else: folder_uuid
+
+    case Storage.move_file_to_folder(file_uuid, target) do
+      {:ok, _file} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "File moved")
+         |> push_patch(to: current_media_path(socket))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to move file")}
+    end
+  end
+
+  def handle_event("navigate_folder", %{"folder-uuid" => folder_uuid}, socket) do
+    {:noreply,
+     push_navigate(socket,
+       to: Routes.path("/admin/media?folder=#{folder_uuid}")
+     )}
+  end
+
+  def handle_event("set_view_mode", %{"mode" => mode}, socket) when mode in ["grid", "list"] do
+    {:noreply, assign(socket, :view_mode, mode)}
+  end
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, :show_sidebar, !socket.assigns.show_sidebar)}
+  end
+
+  def handle_event("toggle_select_mode", _params, socket) do
+    if socket.assigns.select_mode do
+      # Exiting select mode — clear selection
+      {:noreply,
+       socket
+       |> assign(:select_mode, false)
+       |> assign(:selected_files, MapSet.new())}
+    else
+      {:noreply, assign(socket, :select_mode, true)}
+    end
+  end
+
+  def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
+    if socket.assigns.select_mode do
+      # Select mode — toggle selection
+      selected = socket.assigns.selected_files
+
+      selected =
+        if MapSet.member?(selected, file_uuid),
+          do: MapSet.delete(selected, file_uuid),
+          else: MapSet.put(selected, file_uuid)
+
+      {:noreply, assign(socket, :selected_files, selected)}
+    else
+      # Normal mode — navigate to file detail
+      {:noreply,
+       push_navigate(socket,
+         to: Routes.path("/admin/media/#{file_uuid}")
+       )}
+    end
+  end
+
+  def handle_event("toggle_select", %{"file-uuid" => file_uuid}, socket) do
+    selected = socket.assigns.selected_files
+
+    selected =
+      if MapSet.member?(selected, file_uuid),
+        do: MapSet.delete(selected, file_uuid),
+        else: MapSet.put(selected, file_uuid)
+
+    {:noreply, assign(socket, :selected_files, selected)}
+  end
+
+  def handle_event("select_all", _params, socket) do
+    all_uuids = Enum.map(socket.assigns.uploaded_files, & &1.file_uuid)
+    {:noreply, assign(socket, :selected_files, MapSet.new(all_uuids))}
+  end
+
+  def handle_event("deselect_all", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:select_mode, false)
+     |> assign(:selected_files, MapSet.new())}
+  end
+
+  def handle_event("show_move_modal", _params, socket) do
+    {:noreply, assign(socket, :show_move_modal, true)}
+  end
+
+  def handle_event("close_move_modal", _params, socket) do
+    {:noreply, assign(socket, :show_move_modal, false)}
+  end
+
+  def handle_event("move_selected_to_folder", %{"folder_uuid" => folder_uuid}, socket) do
+    target = if folder_uuid == "", do: nil, else: folder_uuid
+
+    Enum.each(socket.assigns.selected_files, fn file_uuid ->
+      Storage.move_file_to_folder(file_uuid, target)
+    end)
+
+    count = MapSet.size(socket.assigns.selected_files)
+
+    {:noreply,
+     socket
+     |> assign(:select_mode, false)
+     |> assign(:selected_files, MapSet.new())
+     |> assign(:show_move_modal, false)
+     |> put_flash(:info, "#{count} file(s) moved")
+     |> push_patch(to: current_media_path(socket))}
   end
 
   def handle_event("toggle_orphan_filter", _params, socket) do
@@ -285,6 +519,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           mime_type: file.mime_type,
           size: file.size || 0,
           status: file.status,
+          inserted_at: file.inserted_at,
           urls: urls
         }
       end)
@@ -292,19 +527,23 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {existing_files, total_count}
   end
 
-  # Load existing files from database with pagination
-  defp load_existing_files(page, per_page) do
+  # Load existing files from database with pagination, filtered by folder
+  defp load_existing_files(page, per_page, folder_uuid \\ nil) do
     repo = PhoenixKit.Config.get_repo()
 
-    # Get total count
-    total_count = repo.aggregate(Storage.File, :count, :uuid)
+    # Base query filtered by folder
+    base_query =
+      if folder_uuid do
+        from(f in Storage.File, where: f.folder_uuid == ^folder_uuid)
+      else
+        from(f in Storage.File, where: is_nil(f.folder_uuid))
+      end
 
-    # Calculate offset
+    total_count = repo.aggregate(base_query, :count, :uuid)
     offset = (page - 1) * per_page
 
-    # Query files ordered by most recent first with pagination
     files =
-      from(f in Storage.File,
+      from(f in base_query,
         order_by: [desc: f.inserted_at],
         limit: ^per_page,
         offset: ^offset
@@ -340,6 +579,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           mime_type: file.mime_type,
           size: file.size || 0,
           status: file.status,
+          inserted_at: file.inserted_at,
           urls: urls
         }
       end)
@@ -374,9 +614,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
            entry.client_name
          ) do
       {:ok, file, :duplicate} ->
+        maybe_set_folder(file, socket)
         build_upload_result(file, entry, file_type, mime_type, file_size, true)
 
       {:ok, file} ->
+        maybe_set_folder(file, socket)
         build_upload_result(file, entry, file_type, mime_type, file_size, false)
 
       {:error, reason} ->
@@ -485,5 +727,24 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp build_new_and_duplicates_message(new_count, duplicate_count) do
     {:info,
      "Upload successful! #{new_count} new file(s) added. #{duplicate_count} file(s) were already uploaded."}
+  end
+
+  defp maybe_set_folder(file, socket) do
+    folder_uuid =
+      if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid, else: nil
+
+    if folder_uuid do
+      Storage.move_file_to_folder(file.uuid, folder_uuid)
+    end
+  end
+
+  defp current_media_path(socket) do
+    base = Routes.path("/admin/media")
+
+    if socket.assigns.current_folder do
+      base <> "?folder=#{socket.assigns.current_folder.uuid}"
+    else
+      base
+    end
   end
 end

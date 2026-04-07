@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V94 do
+defmodule PhoenixKit.Migrations.Postgres.V95 do
   @moduledoc """
-  V94: Create media folders and folder links tables.
+  V95: Create media folders and folder links tables.
 
   Adds organizational folder hierarchy for media files.
   Folders are metadata-only — storage buckets are unaware of them.
@@ -20,6 +20,7 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
                          ) do
       add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
+      add(:color, :string, size: 20)
 
       add(
         :parent_uuid,
@@ -43,6 +44,11 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
 
       add(:inserted_at, :utc_datetime, null: false, default: fragment("now()"))
       add(:updated_at, :utc_datetime, null: false, default: fragment("now()"))
+    end
+
+    # Add color column for existing installs
+    alter table(:phoenix_kit_media_folders, prefix: prefix) do
+      add_if_not_exists(:color, :string, size: 20)
     end
 
     create_if_not_exists(index(:phoenix_kit_media_folders, [:parent_uuid], prefix: prefix))
@@ -108,7 +114,7 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
 
     create_if_not_exists(index(:phoenix_kit_files, [:folder_uuid], prefix: prefix))
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '94'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '95'")
   end
 
   def down(opts) do
@@ -124,7 +130,7 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
     drop_if_exists(table(:phoenix_kit_media_folder_links, prefix: prefix))
     drop_if_exists(table(:phoenix_kit_media_folders, prefix: prefix))
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '90'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '94'")
   end
 
   defp prefix_str("public"), do: ""
