@@ -51,7 +51,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:folders, [])
       |> assign(:folder_tree, [])
       |> assign(:show_new_folder, false)
-      |> assign(:show_sidebar, true)
+      |> assign(:sidebar_collapsed, false)
+      |> assign(:expanded_folders, MapSet.new())
       |> assign(:view_mode, "grid")
       |> assign(:select_mode, false)
       |> assign(:selected_files, MapSet.new())
@@ -62,26 +63,71 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   attr :node, :map, required: true
   attr :current_folder, :any, required: true
+  attr :expanded_folders, :any, required: true
   attr :depth, :integer, default: 0
 
   def folder_tree_node(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :is_active,
+        assigns.current_folder && assigns.current_folder.uuid == assigns.node.folder.uuid
+      )
+
+    assigns =
+      assign(
+        assigns,
+        :is_expanded,
+        MapSet.member?(assigns.expanded_folders, assigns.node.folder.uuid)
+      )
+
+    assigns =
+      assign(assigns, :has_children, assigns.node.children != [])
+
     ~H"""
     <li>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
-        data-drop-folder={@node.folder.uuid}
-        class={
-          if @current_folder && @current_folder.uuid == @node.folder.uuid, do: "active", else: ""
-        }
-      >
-        <.icon name="hero-folder" class="w-4 h-4" /> {@node.folder.name}
-      </.link>
-      <%= if @node.children != [] do %>
-        <ul>
+      <div class={[
+        "flex items-center gap-0.5 rounded-lg px-1 py-1 hover:bg-base-200 transition-colors group",
+        @is_active && "bg-primary/10 font-semibold"
+      ]}>
+        <%!-- Chevron (expand/collapse) --%>
+        <%= if @has_children do %>
+          <button
+            phx-click="toggle_folder_expand"
+            phx-value-folder-uuid={@node.folder.uuid}
+            class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5"
+          >
+            <.icon
+              name={if @is_expanded, do: "hero-chevron-down-mini", else: "hero-chevron-right-mini"}
+              class="w-4 h-4 text-base-content/40"
+            />
+          </button>
+        <% else %>
+          <span class="w-5"></span>
+        <% end %>
+
+        <%!-- Folder link --%>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
+          data-drop-folder={@node.folder.uuid}
+          class="flex items-center gap-1.5 flex-1 truncate text-sm"
+        >
+          <.icon
+            name={if @is_expanded, do: "hero-folder-open", else: "hero-folder"}
+            class={"w-4 h-4 shrink-0 #{if @is_active, do: "text-primary", else: "text-warning"}"}
+          />
+          <span class="truncate">{@node.folder.name}</span>
+        </.link>
+      </div>
+
+      <%!-- Children (only if expanded) --%>
+      <%= if @has_children && @is_expanded do %>
+        <ul class="ml-3 border-l border-base-300 pl-1">
           <%= for child <- @node.children do %>
             <.folder_tree_node
               node={child}
               current_folder={@current_folder}
+              expanded_folders={@expanded_folders}
               depth={@depth + 1}
             />
           <% end %>
@@ -172,6 +218,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:breadcrumbs, breadcrumbs)
       |> assign(:folders, folders)
       |> assign(:folder_tree, folder_tree)
+      |> auto_expand_breadcrumbs(breadcrumbs)
 
     {:noreply, socket}
   end
@@ -256,7 +303,18 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("toggle_sidebar", _params, socket) do
-    {:noreply, assign(socket, :show_sidebar, !socket.assigns.show_sidebar)}
+    {:noreply, assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)}
+  end
+
+  def handle_event("toggle_folder_expand", %{"folder-uuid" => folder_uuid}, socket) do
+    expanded = socket.assigns.expanded_folders
+
+    expanded =
+      if MapSet.member?(expanded, folder_uuid),
+        do: MapSet.delete(expanded, folder_uuid),
+        else: MapSet.put(expanded, folder_uuid)
+
+    {:noreply, assign(socket, :expanded_folders, expanded)}
   end
 
   def handle_event("toggle_select_mode", _params, socket) do
@@ -747,5 +805,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     else
       base
     end
+  end
+
+  defp auto_expand_breadcrumbs(socket, breadcrumbs) do
+    # Expand all ancestor folders so the current folder is visible in the tree
+    ancestor_uuids = Enum.map(breadcrumbs, & &1.uuid)
+    expanded = Enum.reduce(ancestor_uuids, socket.assigns.expanded_folders, &MapSet.put(&2, &1))
+    assign(socket, :expanded_folders, expanded)
   end
 end

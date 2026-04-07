@@ -62,68 +62,97 @@
     <% end %>
 
     <%!-- Main Layout: Sidebar + Content --%>
-    <div class="flex gap-4">
+    <div class="flex gap-0">
       <%!-- Folder Sidebar --%>
-      <%= if @show_sidebar do %>
-        <div class="hidden lg:block w-64 shrink-0">
-          <div class="card bg-base-100 shadow-xl sticky top-4">
-            <div class="card-body p-3">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="font-semibold text-sm">Folders</h3>
-                <div class="flex gap-1">
-                  <button phx-click="toggle_new_folder" class="btn btn-xs btn-ghost">
-                    <.icon name="hero-folder-plus" class="w-4 h-4" />
-                  </button>
-                  <button
-                    phx-click="toggle_sidebar"
-                    class="btn btn-xs btn-ghost"
-                    title="Hide sidebar"
-                  >
-                    <.icon name="hero-x-mark" class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <%!-- New Folder Inline --%>
-              <%= if @show_new_folder do %>
-                <form phx-submit="create_folder" class="flex gap-1 mb-2">
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Folder name"
-                    class="input input-bordered input-xs flex-1"
-                    autofocus
-                    required
-                  />
-                  <button type="submit" class="btn btn-xs btn-primary">
-                    <.icon name="hero-check" class="w-3 h-3" />
-                  </button>
-                </form>
-              <% end %>
-
-              <%!-- Folder Tree --%>
-              <ul class="menu menu-xs p-0 w-full">
-                <li>
-                  <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/media")}
-                    data-drop-folder="root"
-                    class={if @current_folder == nil, do: "active", else: ""}
-                  >
-                    <.icon name="hero-home" class="w-4 h-4" /> All Files
-                  </.link>
-                </li>
-                <%= for node <- @folder_tree do %>
-                  <.folder_tree_node
-                    node={node}
-                    current_folder={@current_folder}
-                    depth={0}
-                  />
-                <% end %>
-              </ul>
-            </div>
+      <div class="hidden lg:block shrink-0">
+        <%= if @sidebar_collapsed do %>
+          <%!-- Collapsed strip --%>
+          <div class="sticky top-4 w-10">
+            <button
+              phx-click="toggle_sidebar"
+              class="btn btn-ghost btn-sm w-full"
+              title="Show folders"
+            >
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
           </div>
-        </div>
-      <% end %>
+        <% else %>
+          <%!-- Expanded sidebar --%>
+          <div class="sticky top-4 w-60 border-r border-base-200 pr-3 mr-3">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-sm text-base-content/70 uppercase tracking-wider">
+                Folders
+              </h3>
+              <div class="flex gap-0.5">
+                <button
+                  phx-click="toggle_new_folder"
+                  class="btn btn-ghost btn-xs"
+                  title="New folder"
+                >
+                  <.icon name="hero-folder-plus" class="w-4 h-4" />
+                </button>
+                <button
+                  phx-click="toggle_sidebar"
+                  class="btn btn-ghost btn-xs"
+                  title="Collapse sidebar"
+                >
+                  <.icon name="hero-chevron-left" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <%!-- New Folder Inline --%>
+            <%= if @show_new_folder do %>
+              <form phx-submit="create_folder" class="flex gap-1 mb-3">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Folder name"
+                  class="input input-bordered input-xs flex-1"
+                  autofocus
+                  required
+                />
+                <button type="submit" class="btn btn-xs btn-primary">
+                  <.icon name="hero-check" class="w-3 h-3" />
+                </button>
+              </form>
+            <% end %>
+
+            <%!-- All Files --%>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/media")}
+              data-drop-folder="root"
+              class={[
+                "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors mb-1",
+                if(@current_folder == nil,
+                  do: "bg-primary/10 font-semibold text-primary",
+                  else: "hover:bg-base-200"
+                )
+              ]}
+            >
+              <.icon name="hero-inbox" class="w-4 h-4 shrink-0" /> All Files
+            </.link>
+
+            <div class="divider my-1 h-0"></div>
+
+            <%!-- Folder Tree --%>
+            <ul class="space-y-0.5">
+              <%= for node <- @folder_tree do %>
+                <.folder_tree_node
+                  node={node}
+                  current_folder={@current_folder}
+                  expanded_folders={@expanded_folders}
+                  depth={0}
+                />
+              <% end %>
+            </ul>
+
+            <%= if @folder_tree == [] do %>
+              <p class="text-xs text-base-content/40 text-center py-4">No folders yet</p>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
 
       <%!-- Content Area --%>
       <div
@@ -169,15 +198,6 @@
                     <% end %>
                   <% end %>
                 </h2>
-                <%= unless @show_sidebar do %>
-                  <button
-                    phx-click="toggle_sidebar"
-                    class="btn btn-sm btn-ghost gap-2"
-                    title="Show folders"
-                  >
-                    <.icon name="hero-bars-3" class="w-4 h-4" />
-                  </button>
-                <% end %>
                 <%= unless @show_upload do %>
                   <button phx-click="toggle_upload" class="btn btn-sm btn-primary gap-2">
                     <.icon name="hero-plus" class="w-4 h-4" /> Add Media
