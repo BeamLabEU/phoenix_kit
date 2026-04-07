@@ -6,6 +6,16 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
+  <script>
+    (function() {
+      var m = localStorage.getItem("phoenix_kit_media_view_mode");
+      if (m) document.documentElement.dataset.mediaView = m;
+    })();
+  </script>
+  <style>
+    [data-media-view="list"] [data-media-grid] { display: none !important; }
+    [data-media-view="grid"] [data-media-list] { display: none !important; }
+  </style>
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin")}
@@ -96,6 +106,7 @@
                 <li>
                   <.link
                     navigate={PhoenixKit.Utils.Routes.path("/admin/media")}
+                    data-drop-folder="root"
                     class={if @current_folder == nil, do: "active", else: ""}
                   >
                     <.icon name="hero-home" class="w-4 h-4" /> All Files
@@ -115,7 +126,11 @@
       <% end %>
 
       <%!-- Content Area --%>
-      <div class="flex-1 min-w-0">
+      <div
+        class="flex-1 min-w-0"
+        id="media-drag-drop"
+        phx-hook="MediaDragDrop"
+      >
         <%!-- Breadcrumbs (mobile + desktop) --%>
         <%= if @breadcrumbs != [] do %>
           <div class="text-sm breadcrumbs mb-4">
@@ -216,6 +231,7 @@
                     <button
                       phx-click="set_view_mode"
                       phx-value-mode="grid"
+                      data-view-mode="grid"
                       class={["btn btn-xs join-item", if(@view_mode == "grid", do: "btn-active")]}
                       title="Grid view"
                     >
@@ -224,6 +240,7 @@
                     <button
                       phx-click="set_view_mode"
                       phx-value-mode="list"
+                      data-view-mode="list"
                       class={["btn btn-xs join-item", if(@view_mode == "list", do: "btn-active")]}
                       title="List view"
                     >
@@ -286,194 +303,201 @@
                 </p>
               </div>
             <% else %>
-              <%= if @view_mode == "grid" do %>
-                <%!-- Grid View --%>
-                <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  <%!-- Folders --%>
-                  <%= for folder <- @folders do %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/admin/media?folder=#{folder.uuid}")
-                      }
-                      class="group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-all"
-                    >
-                      <.icon name="hero-folder" class="w-12 h-12 text-warning mb-1" />
-                      <p class="text-xs font-semibold text-center px-2 truncate w-full">
-                        {folder.name}
-                      </p>
-                    </.link>
-                  <% end %>
-                  <%= for file <- @uploaded_files do %>
-                    <div class={[
+              <%!-- Grid View --%>
+              <div
+                data-media-grid
+                class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+              >
+                <%!-- Folders --%>
+                <%= for folder <- @folders do %>
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{folder.uuid}")}
+                    data-drop-folder={folder.uuid}
+                    class="group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-all"
+                  >
+                    <.icon name="hero-folder" class="w-12 h-12 text-warning mb-1" />
+                    <p class="text-xs font-semibold text-center px-2 truncate w-full">
+                      {folder.name}
+                    </p>
+                  </.link>
+                <% end %>
+                <%= for file <- @uploaded_files do %>
+                  <div
+                    data-draggable-file={file.file_uuid}
+                    class={[
                       "group relative aspect-square bg-base-300 rounded-lg overflow-hidden hover:shadow-lg transition-shadow",
                       @select_mode && MapSet.member?(@selected_files, file.file_uuid) &&
                         "ring-2 ring-primary"
-                    ]}>
-                      <%= if @select_mode do %>
-                        <label class="absolute top-1 left-1 z-10 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            class="checkbox checkbox-primary checkbox-sm"
-                            checked={MapSet.member?(@selected_files, file.file_uuid)}
-                            phx-click="toggle_select"
-                            phx-value-file-uuid={file.file_uuid}
+                    ]}
+                  >
+                    <%= if @select_mode do %>
+                      <label class="absolute top-1 left-1 z-10 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          class="checkbox checkbox-primary checkbox-sm"
+                          checked={MapSet.member?(@selected_files, file.file_uuid)}
+                          phx-click="toggle_select"
+                          phx-value-file-uuid={file.file_uuid}
+                        />
+                      </label>
+                    <% end %>
+
+                    <div
+                      phx-click="click_file"
+                      phx-value-file-uuid={file.file_uuid}
+                      class="block w-full h-full cursor-pointer"
+                    >
+                      <.thumbnail_url :let={url} file={file} size={:small}>
+                        <%= if url do %>
+                          <img
+                            src={url}
+                            alt={file.filename}
+                            class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+                            onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                           />
-                        </label>
+                          <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
+                            <div class="flex flex-col items-center justify-center">
+                              <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
+                              <p class="text-xs font-semibold">Image Missing</p>
+                            </div>
+                          </div>
+                        <% else %>
+                          <div class="grid place-items-center w-full aspect-square text-base-content/50 group-hover:bg-base-200 transition-colors">
+                            <div class="flex flex-col items-center">
+                              <.icon
+                                name={file_icon(file.file_type)}
+                                class="w-12 h-12 mb-2"
+                              />
+                              <p class="text-sm font-semibold">
+                                {String.upcase(file.file_type)}
+                              </p>
+                            </div>
+                          </div>
+                        <% end %>
+                      </.thumbnail_url>
+
+                      <%= if file.file_type == "video" do %>
+                        <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
+                          <.icon name="hero-play-solid" class="w-4 h-4" />
+                        </div>
                       <% end %>
 
-                      <div
-                        phx-click="click_file"
-                        phx-value-file-uuid={file.file_uuid}
-                        class="block w-full h-full cursor-pointer"
-                      >
-                        <.thumbnail_url :let={url} file={file} size={:small}>
-                          <%= if url do %>
-                            <img
-                              src={url}
-                              alt={file.filename}
-                              class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
-                              onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
-                            />
-                            <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
-                              <div class="flex flex-col items-center justify-center">
-                                <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
-                                <p class="text-xs font-semibold">Image Missing</p>
-                              </div>
-                            </div>
-                          <% else %>
-                            <div class="grid place-items-center w-full aspect-square text-base-content/50 group-hover:bg-base-200 transition-colors">
-                              <div class="flex flex-col items-center">
-                                <.icon
-                                  name={file_icon(file.file_type)}
-                                  class="w-12 h-12 mb-2"
-                                />
-                                <p class="text-sm font-semibold">
-                                  {String.upcase(file.file_type)}
-                                </p>
-                              </div>
-                            </div>
-                          <% end %>
-                        </.thumbnail_url>
-
-                        <%= if file.file_type == "video" do %>
-                          <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
-                            <.icon name="hero-play-solid" class="w-4 h-4" />
-                          </div>
-                        <% end %>
-
-                        <%= if file.mime_type == "application/pdf" do %>
-                          <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
-                            PDF
-                          </div>
-                        <% end %>
-
-                        <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                          {format_file_size(file.size)}
+                      <%= if file.mime_type == "application/pdf" do %>
+                        <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
+                          PDF
                         </div>
+                      <% end %>
+
+                      <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
+                        {format_file_size(file.size)}
                       </div>
                     </div>
-                  <% end %>
-                </div>
-              <% else %>
-                <%!-- List View --%>
-                <div class="overflow-x-auto">
-                  <table class="table table-sm">
-                    <thead>
-                      <tr>
+                  </div>
+                <% end %>
+              </div>
+              <%!-- List View --%>
+              <div
+                data-media-list
+                class="overflow-x-auto"
+              >
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <%= if @select_mode do %>
+                        <th class="w-8"></th>
+                      <% end %>
+                      <th class="w-12"></th>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Size</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%!-- Folders --%>
+                    <%= for folder <- @folders do %>
+                      <tr
+                        phx-click="navigate_folder"
+                        phx-value-folder-uuid={folder.uuid}
+                        data-drop-folder={folder.uuid}
+                        class="hover cursor-pointer"
+                      >
                         <%= if @select_mode do %>
-                          <th class="w-8"></th>
-                        <% end %>
-                        <th class="w-12"></th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Size</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <%!-- Folders --%>
-                      <%= for folder <- @folders do %>
-                        <tr
-                          phx-click="navigate_folder"
-                          phx-value-folder-uuid={folder.uuid}
-                          class="hover cursor-pointer"
-                        >
-                          <%= if @select_mode do %>
-                            <td></td>
-                          <% end %>
-                          <td>
-                            <div class="w-10 h-10 grid place-items-center">
-                              <.icon name="hero-folder" class="w-6 h-6 text-warning" />
-                            </div>
-                          </td>
-                          <td colspan="3">
-                            <span class="font-medium text-sm">{folder.name}</span>
-                          </td>
                           <td></td>
-                        </tr>
-                      <% end %>
-                      <%!-- Files --%>
-                      <%= for file <- @uploaded_files do %>
-                        <tr
-                          phx-click="click_file"
-                          phx-value-file-uuid={file.file_uuid}
-                          class={[
-                            "hover cursor-pointer",
-                            @select_mode &&
-                              MapSet.member?(@selected_files, file.file_uuid) && "bg-primary/10"
-                          ]}
-                        >
-                          <%= if @select_mode do %>
-                            <td>
-                              <input
-                                type="checkbox"
-                                class="checkbox checkbox-primary checkbox-xs"
-                                checked={MapSet.member?(@selected_files, file.file_uuid)}
-                                phx-click="toggle_select"
-                                phx-value-file-uuid={file.file_uuid}
-                              />
-                            </td>
-                          <% end %>
+                        <% end %>
+                        <td>
+                          <div class="w-10 h-10 grid place-items-center">
+                            <.icon name="hero-folder" class="w-6 h-6 text-warning" />
+                          </div>
+                        </td>
+                        <td colspan="3">
+                          <span class="font-medium text-sm">{folder.name}</span>
+                        </td>
+                        <td></td>
+                      </tr>
+                    <% end %>
+                    <%!-- Files --%>
+                    <%= for file <- @uploaded_files do %>
+                      <tr
+                        data-draggable-file={file.file_uuid}
+                        phx-click="click_file"
+                        phx-value-file-uuid={file.file_uuid}
+                        class={[
+                          "hover cursor-pointer",
+                          @select_mode &&
+                            MapSet.member?(@selected_files, file.file_uuid) && "bg-primary/10"
+                        ]}
+                      >
+                        <%= if @select_mode do %>
                           <td>
-                            <div class="w-10 h-10 rounded overflow-hidden bg-base-300 shrink-0">
-                              <.thumbnail_url :let={url} file={file} size={:small}>
-                                <%= if url do %>
-                                  <img
-                                    src={url}
-                                    class="w-full h-full object-cover"
-                                    alt={file.filename}
+                            <input
+                              type="checkbox"
+                              class="checkbox checkbox-primary checkbox-xs"
+                              checked={MapSet.member?(@selected_files, file.file_uuid)}
+                              phx-click="toggle_select"
+                              phx-value-file-uuid={file.file_uuid}
+                            />
+                          </td>
+                        <% end %>
+                        <td>
+                          <div class="w-10 h-10 rounded overflow-hidden bg-base-300 shrink-0">
+                            <.thumbnail_url :let={url} file={file} size={:small}>
+                              <%= if url do %>
+                                <img
+                                  src={url}
+                                  class="w-full h-full object-cover"
+                                  alt={file.filename}
+                                />
+                              <% else %>
+                                <div class="grid place-items-center w-full h-full text-base-content/40">
+                                  <.icon
+                                    name={file_icon(file.file_type)}
+                                    class="w-5 h-5"
                                   />
-                                <% else %>
-                                  <div class="grid place-items-center w-full h-full text-base-content/40">
-                                    <.icon
-                                      name={file_icon(file.file_type)}
-                                      class="w-5 h-5"
-                                    />
-                                  </div>
-                                <% end %>
-                              </.thumbnail_url>
-                            </div>
-                          </td>
-                          <td>
-                            <span class="font-medium text-sm">{file.filename}</span>
-                          </td>
-                          <td>
-                            <span class="badge badge-ghost badge-sm h-auto">
-                              {String.upcase(file.file_type)}
-                            </span>
-                          </td>
-                          <td class="text-sm text-base-content/70">
-                            {format_file_size(file.size)}
-                          </td>
-                          <td class="text-sm text-base-content/70">
-                            {Calendar.strftime(file.inserted_at, "%b %d, %Y")}
-                          </td>
-                        </tr>
-                      <% end %>
-                    </tbody>
-                  </table>
-                </div>
-              <% end %>
+                                </div>
+                              <% end %>
+                            </.thumbnail_url>
+                          </div>
+                        </td>
+                        <td>
+                          <span class="font-medium text-sm">{file.filename}</span>
+                        </td>
+                        <td>
+                          <span class="badge badge-ghost badge-sm h-auto">
+                            {String.upcase(file.file_type)}
+                          </span>
+                        </td>
+                        <td class="text-sm text-base-content/70">
+                          {format_file_size(file.size)}
+                        </td>
+                        <td class="text-sm text-base-content/70">
+                          {Calendar.strftime(file.inserted_at, "%b %d, %Y")}
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
             <% end %>
 
             <%!-- Pagination --%>

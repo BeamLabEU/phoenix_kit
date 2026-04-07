@@ -69,6 +69,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     <li>
       <.link
         navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
+        data-drop-folder={@node.folder.uuid}
         class={
           if @current_folder && @current_folder.uuid == @node.folder.uuid, do: "active", else: ""
         }
