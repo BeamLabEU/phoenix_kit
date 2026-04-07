@@ -529,7 +529,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V93 - Settings prefix index ⚡ LATEST
+  ### V94 - Document Creator local DB sync ⚡ LATEST
+  - Adds `google_doc_id` (VARCHAR(255)) to `phoenix_kit_doc_templates`, `phoenix_kit_doc_documents`, `phoenix_kit_doc_headers_footers`
+  - Adds `status` (VARCHAR(20), DEFAULT 'published') to `phoenix_kit_doc_documents`
+  - Partial unique indexes on `google_doc_id WHERE google_doc_id IS NOT NULL`
+
+  ### V93 - Settings prefix index
   - Adds `text_pattern_ops` B-tree index on `phoenix_kit_settings.key` for efficient LIKE prefix queries
   - Used by the integrations system for `LIKE 'integration:provider:%'` lookups
 
@@ -696,7 +701,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 93
+  @current_version 94
   @default_prefix "public"
 
   @doc false
