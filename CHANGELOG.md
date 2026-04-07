@@ -1,3 +1,12 @@
+## 1.7.92 - 2026-04-07
+
+### Fixed
+- Fix Google token refresh for named integration connections (e.g. google:work)
+- Add resolve_provider_lookup_key/2 and resolve_storage_key/2 helpers
+
+### Added
+- Add V94 migration for Document Creator sync (google_doc_id, status, path, folder_id columns)
+
 ## 1.7.91 - 2026-04-06
 
 ### Added
