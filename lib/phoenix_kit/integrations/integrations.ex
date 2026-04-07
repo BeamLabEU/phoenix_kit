@@ -221,12 +221,13 @@ defmodule PhoenixKit.Integrations do
   """
   @spec refresh_access_token(String.t()) :: {:ok, String.t()} | {:error, term()}
   def refresh_access_token(provider_key) do
-    with {:ok, provider} <- fetch_provider(provider_key),
-         {:ok, data} <- get_integration(provider_key),
+    with {:ok, data} <- get_integration(provider_key),
+         {:ok, provider_lookup_key} <- resolve_provider_lookup_key(provider_key, data),
+         {:ok, provider} <- fetch_provider(provider_lookup_key),
          {:ok, new_token, updated_fields} <-
            OAuth.refresh_access_token(provider.oauth_config, data) do
       updated = Map.merge(data, updated_fields)
-      save_integration(provider_key, updated)
+      save_integration(resolve_storage_key(provider_key, data), updated)
       {:ok, new_token}
     end
   end
@@ -606,6 +607,23 @@ defmodule PhoenixKit.Integrations do
     case Providers.get(provider_key) do
       nil -> {:error, :unknown_provider}
       provider -> {:ok, provider}
+    end
+  end
+
+  defp resolve_provider_lookup_key(provider_key, data) do
+    case data["provider"] do
+      saved_provider when is_binary(saved_provider) and saved_provider != "" ->
+        {:ok, saved_provider}
+
+      _ ->
+        if uuid?(provider_key), do: {:error, :unknown_provider}, else: {:ok, provider_key}
+    end
+  end
+
+  defp resolve_storage_key(provider_key, data) do
+    case data["provider"] do
+      saved_provider when is_binary(saved_provider) and saved_provider != "" -> saved_provider
+      _ -> provider_key
     end
   end
 
