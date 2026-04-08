@@ -1,3 +1,18 @@
+## 1.7.93 - 2026-04-08
+
+### Fixed
+- Fix installer to auto-inject PhoenixKitHooks into app.js
+- Fix decrypt after legacy integration migration
+- Improve OAuth login with remember_me by default
+
+### Added
+- Activity logging for Integrations (setup, connect, disconnect, token refresh, validation)
+- Cookie max_age set to 60 days
+
+### Changed
+- Simplify integration status: `configured` removed, now `connected` or `disconnected`
+- Validate connection checks provider exists before credentials
+
 ## 1.7.92 - 2026-04-07
 
 ### Fixed
