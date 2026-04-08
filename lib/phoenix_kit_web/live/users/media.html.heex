@@ -344,7 +344,7 @@
                   <div
                     data-drop-folder={folder.uuid}
                     class={[
-                      "group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-all",
+                      "group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-colors",
                       @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
                         "ring-2 ring-primary"
                     ]}
