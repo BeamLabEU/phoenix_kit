@@ -64,8 +64,15 @@ defmodule PhoenixKit.Integrations do
       end
 
     case data do
-      nil -> {:error, :not_configured}
-      %{} = data -> {:ok, Encryption.decrypt_fields(data)}
+      nil ->
+        # Try legacy migration on first access
+        case maybe_migrate_legacy(provider_key) do
+          {:ok, migrated_data} -> {:ok, Encryption.decrypt_fields(migrated_data)}
+          _ -> {:error, :not_configured}
+        end
+
+      %{} = data ->
+        {:ok, Encryption.decrypt_fields(data)}
     end
   end
 
@@ -155,6 +162,7 @@ defmodule PhoenixKit.Integrations do
     case save_integration(provider_key, data) do
       {:ok, saved} = result ->
         Events.broadcast_setup_saved(provider_key, saved)
+        log_activity("integration.setup_saved", provider_key, %{"status" => saved["status"]})
         result
 
       error ->
@@ -208,6 +216,11 @@ defmodule PhoenixKit.Integrations do
       case save_integration(provider_key, updated) do
         {:ok, saved} = result ->
           Events.broadcast_connected(provider_key, saved)
+
+          log_activity("integration.connected", provider_key, %{
+            "account" => saved["external_account_id"]
+          })
+
           result
 
         error ->
@@ -228,6 +241,9 @@ defmodule PhoenixKit.Integrations do
            OAuth.refresh_access_token(provider.oauth_config, data) do
       updated = Map.merge(data, updated_fields)
       save_integration(resolve_storage_key(provider_key, data), updated)
+
+      log_activity("integration.token_refreshed", provider_key, %{}, "auto")
+
       {:ok, new_token}
     end
   end
@@ -267,6 +283,7 @@ defmodule PhoenixKit.Integrations do
 
         save_integration(provider_key, cleaned)
         Events.broadcast_disconnected(provider_key)
+        log_activity("integration.disconnected", provider_key)
         :ok
     end
   end
@@ -455,8 +472,12 @@ defmodule PhoenixKit.Integrations do
 
         save_integration("#{provider_key}:#{name}", data)
         |> tap(fn
-          {:ok, _} -> Events.broadcast_connection_added(provider_key, name)
-          _ -> :ok
+          {:ok, _} ->
+            Events.broadcast_connection_added(provider_key, name)
+            log_activity("integration.connection_added", provider_key, %{"name" => name})
+
+          _ ->
+            :ok
         end)
     end
   end
@@ -473,6 +494,7 @@ defmodule PhoenixKit.Integrations do
     case Settings.delete_setting(key) do
       {:ok, _} ->
         Events.broadcast_connection_removed(provider_key, name)
+        log_activity("integration.connection_removed", provider_key, %{"name" => name})
         :ok
 
       {:error, :not_found} ->
@@ -496,13 +518,30 @@ defmodule PhoenixKit.Integrations do
   """
   @spec validate_connection(String.t()) :: :ok | {:error, String.t()}
   def validate_connection(provider_key) do
-    with {:ok, data} <- get_credentials(provider_key),
-         provider when not is_nil(provider) <- Providers.get(provider_key) do
-      do_validate(provider, data)
-    else
-      {:error, _} -> {:error, gettext("Not configured")}
-      nil -> {:error, gettext("Unknown provider")}
+    # Check if provider is known before checking credentials
+    provider = Providers.get(provider_key)
+
+    result =
+      with true <- not is_nil(provider) || :unknown_provider,
+           {:ok, data} <- get_credentials(provider_key) do
+        do_validate(provider, data)
+      else
+        :unknown_provider -> {:error, gettext("Unknown provider")}
+        {:error, _} -> {:error, gettext("Not configured")}
+      end
+
+    case result do
+      :ok ->
+        log_activity("integration.validated", provider_key, %{"result" => "ok"})
+
+      {:error, reason} ->
+        log_activity("integration.validated", provider_key, %{
+          "result" => "error",
+          "reason" => reason
+        })
     end
+
+    result
   rescue
     e ->
       Logger.error(
@@ -674,13 +713,10 @@ defmodule PhoenixKit.Integrations do
           :credentials -> has_custom_creds?(data)
         end
 
-      cond do
-        # OAuth with tokens is connected (verified by the OAuth flow itself)
-        provider.auth_type == :oauth2 and has_creds -> Map.put(data, "status", "connected")
-        # Other types with credentials are "configured" until validated
-        has_creds -> Map.put(data, "status", "configured")
-        # No credentials at all
-        true -> Map.put(data, "status", "disconnected")
+      if has_creds do
+        Map.put(data, "status", "connected")
+      else
+        Map.put(data, "status", "disconnected")
       end
     end
   end
@@ -747,6 +783,31 @@ defmodule PhoenixKit.Integrations do
       Logger.warning("[Integrations] 401 for #{provider_key} but no refresh_token available")
       {:error, :unauthorized}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Activity logging
+  # ---------------------------------------------------------------------------
+
+  defp log_activity(action, provider_key, metadata \\ %{}, mode \\ "manual") do
+    {provider, name} = parse_provider_name(provider_key)
+
+    if Code.ensure_loaded?(PhoenixKit.Activity) do
+      PhoenixKit.Activity.log(%{
+        action: action,
+        module: "integrations",
+        mode: mode,
+        resource_type: "integration",
+        metadata:
+          Map.merge(metadata, %{
+            "provider" => provider,
+            "connection" => name,
+            "actor_role" => "admin"
+          })
+      })
+    end
+  rescue
+    _ -> :ok
   end
 
   # ---------------------------------------------------------------------------

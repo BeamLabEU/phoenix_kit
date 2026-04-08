@@ -25,6 +25,7 @@ defmodule PhoenixKit.Install.JsIntegration do
     igniter
     |> copy_js_file()
     |> add_script_tag_to_layout()
+    |> add_hooks_to_app_js()
   end
 
   @doc """
@@ -159,6 +160,81 @@ defmodule PhoenixKit.Install.JsIntegration do
         """
       )
     end
+  end
+
+  defp add_hooks_to_app_js(igniter) do
+    app_js_path = Path.join([File.cwd!(), "assets", "js", "app.js"])
+
+    if File.exists?(app_js_path) do
+      content = File.read!(app_js_path)
+
+      cond do
+        String.contains?(content, "PhoenixKitHooks") ->
+          # Already has PhoenixKitHooks spread
+          igniter
+
+        Regex.match?(~r/hooks:\s*\{/, content) ->
+          # Has a hooks object — inject PhoenixKitHooks spread at the start
+          updated =
+            Regex.replace(
+              ~r/hooks:\s*\{/,
+              content,
+              "hooks: {...window.PhoenixKitHooks, ",
+              global: false
+            )
+
+          if updated != content do
+            File.write!(app_js_path, updated)
+
+            Igniter.add_notice(
+              igniter,
+              "✅ Added PhoenixKitHooks spread to LiveSocket hooks in assets/js/app.js"
+            )
+          else
+            add_hooks_manual_notice(igniter)
+          end
+
+        Regex.match?(~r/new LiveSocket\(/, content) ->
+          # Has LiveSocket but no hooks — add hooks option
+          updated =
+            Regex.replace(
+              ~r/(new LiveSocket\([^,]+,\s*Socket,\s*\{)/,
+              content,
+              "\\1\n  hooks: {...window.PhoenixKitHooks},",
+              global: false
+            )
+
+          if updated != content do
+            File.write!(app_js_path, updated)
+
+            Igniter.add_notice(
+              igniter,
+              "✅ Added PhoenixKitHooks to LiveSocket configuration in assets/js/app.js"
+            )
+          else
+            add_hooks_manual_notice(igniter)
+          end
+
+        true ->
+          add_hooks_manual_notice(igniter)
+      end
+    else
+      add_hooks_manual_notice(igniter)
+    end
+  end
+
+  defp add_hooks_manual_notice(igniter) do
+    Igniter.add_warning(
+      igniter,
+      """
+      ⚠️  Could not automatically add PhoenixKitHooks to app.js.
+      Please add ...window.PhoenixKitHooks to your LiveSocket hooks:
+
+          const liveSocket = new LiveSocket("/live", Socket, {
+            hooks: {...window.PhoenixKitHooks, ...yourOtherHooks},
+          })
+      """
+    )
   end
 
   defp resolve_source_path do
