@@ -491,10 +491,12 @@
             <span class="badge badge-xs ml-1">{gettext("Soon")}</span>
           </button>
 
-          <button class="btn btn-outline" disabled>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/health")}
+            class="btn btn-outline"
+          >
             <.icon name="hero-arrow-path" class="w-4 h-4 mr-2" /> {gettext("Sync Files")}
-            <span class="badge badge-xs ml-1">{gettext("Soon")}</span>
-          </button>
+          </.link>
         </div>
       </div>
     </div>
