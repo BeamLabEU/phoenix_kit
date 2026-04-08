@@ -57,7 +57,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       |> assign(:publishing_split_by_group, Sitemap.publishing_split_by_group?())
       |> assign(:module_enabled, get_module_enabled_status())
       |> assign(:llm_text_enabled, Sitemap.llm_text_enabled?())
-      |> assign(:llm_text_generating, false)
 
     {:ok, socket}
   end
@@ -403,31 +402,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to update LLM Text setting")}
     end
-  end
-
-  @impl true
-  def handle_event("regenerate_llm_text", _params, socket) do
-    alias PhoenixKit.Modules.Sitemap.LLMText.GenerateJob
-
-    case Oban.insert(GenerateJob.enqueue_all()) do
-      {:ok, _job} ->
-        {:noreply,
-         socket
-         |> assign(:llm_text_generating, true)
-         |> put_flash(:info, "LLM Text generation queued")}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to queue: #{inspect(reason)}")}
-    end
-  end
-
-  # Handle PubSub message when LLM text generation completes
-  @impl true
-  def handle_info({:llm_text_generated, _}, socket) do
-    {:noreply,
-     socket
-     |> assign(:llm_text_generating, false)
-     |> put_flash(:info, "LLM Text generated successfully")}
   end
 
   # Handle PubSub message when sitemap generation completes

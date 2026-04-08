@@ -1,99 +1,31 @@
 defmodule PhoenixKit.Modules.Sitemap.LLMText.Generator do
   @moduledoc """
-  Generator for LLM-friendly text files.
+  Generator for LLM-friendly text content.
 
-  Produces:
-  - `llms.txt` - Index file linking to all LLM-readable pages
-  - Individual page `.md` files per source
+  Produces llms.txt index content on-the-fly from configured sources.
 
   ## Usage
 
-      # Regenerate all sources and rebuild index
-      Generator.run_all()
+      # Build index for default language
+      Generator.build_index()
 
-      # Regenerate a single source and rebuild index
-      Generator.run_source(MyApp.LLMText.BlogSource)
-
-      # Only rebuild the index from all sources
-      Generator.rebuild_index()
+      # Build index for a specific language
+      Generator.build_index("en")
+      Generator.build_index("uk")
   """
 
-  require Logger
-
-  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
   alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   @doc """
-  Regenerates files for one source and rebuilds the llms.txt index.
+  Builds llms.txt index content for a specific language.
+
+  Queries all configured sources and merges their index entries.
   """
-  @spec run_source(module()) :: :ok
-  def run_source(source_module) do
-    Logger.info("Sitemap.LLMText.Generator: Running source #{inspect(source_module)}")
-
-    files = Source.safe_collect_page_files(source_module)
-
-    Enum.each(files, fn {path, content} ->
-      case FileStorage.write(path, content) do
-        :ok ->
-          :ok
-
-        {:error, reason} ->
-          Logger.warning("Sitemap.LLMText.Generator: Failed to write #{path}: #{inspect(reason)}")
-      end
-    end)
-
-    rebuild_index()
-  end
-
-  @doc """
-  Regenerates all sources and rebuilds the llms.txt index.
-  """
-  @spec run_all() :: :ok
-  def run_all do
+  @spec build_index(String.t() | nil) :: String.t()
+  def build_index(language \\ nil) do
     sources = get_sources()
-    Logger.info("Sitemap.LLMText.Generator: Running all #{length(sources)} sources")
-
-    Enum.each(sources, fn source_module ->
-      files = Source.safe_collect_page_files(source_module)
-
-      Enum.each(files, fn {path, content} ->
-        case FileStorage.write(path, content) do
-          :ok ->
-            :ok
-
-          {:error, reason} ->
-            Logger.warning(
-              "Sitemap.LLMText.Generator: Failed to write #{path}: #{inspect(reason)}"
-            )
-        end
-      end)
-    end)
-
-    rebuild_index()
-  end
-
-  @doc """
-  Rebuilds the llms.txt index from all sources without regenerating page files.
-  """
-  @spec rebuild_index() :: :ok
-  def rebuild_index do
-    sources = get_sources()
-    Logger.debug("Sitemap.LLMText.Generator: Rebuilding index from #{length(sources)} sources")
-
-    entries =
-      sources
-      |> Enum.flat_map(&Source.safe_collect_index_entries/1)
-
-    content = build_index_content(entries)
-
-    case FileStorage.write_index(content) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Sitemap.LLMText.Generator: Failed to write index: #{inspect(reason)}")
-        :ok
-    end
+    entries = Enum.flat_map(sources, &Source.safe_collect_index_entries(&1, language))
+    build_index_content(entries)
   end
 
   @doc """

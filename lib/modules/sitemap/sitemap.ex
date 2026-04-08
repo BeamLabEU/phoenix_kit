@@ -747,13 +747,7 @@ defmodule PhoenixKit.Modules.Sitemap do
 
   @impl PhoenixKit.Module
   def children do
-    base = [{Task, fn -> SchedulerWorker.ensure_scheduled() end}]
-
-    if llm_text_enabled?() do
-      base ++ [PhoenixKit.Modules.Sitemap.LLMText.PublishingSubscriber]
-    else
-      base
-    end
+    [{Task, fn -> SchedulerWorker.ensure_scheduled() end}]
   end
 
   @impl PhoenixKit.Module

@@ -2,9 +2,9 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   @moduledoc """
   LLM text source for PhoenixKit Publishing module.
 
-  Generates:
+  Provides:
   - Index entries (one per published post) for llms.txt
-  - Individual `.md` files per published post at `{group_slug}/{post_slug}.md`
+  - On-the-fly markdown content per published post via serve_page/2
 
   Only active when the Publishing module is loaded and enabled.
   """
@@ -20,6 +20,8 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
 
   require Logger
 
+  alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
   alias PhoenixKit.Utils.Routes
 
   @publishing_mod PhoenixKit.Modules.Publishing
@@ -37,9 +39,10 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   end
 
   @impl true
-  def collect_index_entries do
+  def collect_index_entries(language) do
     if enabled?() do
-      language = get_default_language()
+      lang = language || get_default_language()
+      site_url = get_site_url()
       groups = @publishing_mod.list_groups()
 
       Enum.flat_map(groups, fn group ->
@@ -47,12 +50,12 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
         group_name = group["name"]
 
         group_slug
-        |> @publishing_mod.list_posts(language)
+        |> @publishing_mod.list_posts(lang)
         |> Enum.filter(&published?/1)
         |> Enum.map(fn post ->
           %{
             title: get_title(post),
-            url: build_post_url(post, group_slug) <> ".md",
+            url: build_llms_url(group_slug, get_post_slug(post), lang, site_url),
             description: extract_description(post),
             group: group_name
           }
@@ -71,45 +74,26 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   end
 
   @impl true
-  def collect_page_files do
-    if enabled?() do
-      language = get_default_language()
-      groups = @publishing_mod.list_groups()
+  def serve_page([group_slug, filename], language) do
+    post_slug = String.replace_suffix(filename, ".md", "")
+    lang = language || get_default_language()
 
-      Enum.flat_map(groups, fn group ->
-        group_slug = group["slug"]
-
-        group_slug
-        |> @publishing_mod.list_posts(language)
-        |> Enum.filter(&published?/1)
-        |> Enum.map(fn post ->
-          path = build_file_path(group_slug, get_post_slug(post))
-          content = build_post_content(post, group_slug, get_title(post))
-          {path, content}
-        end)
+    post =
+      group_slug
+      |> @publishing_mod.list_posts(lang)
+      |> Enum.find(fn post ->
+        published?(post) and get_post_slug(post) == post_slug
       end)
-    else
-      []
+
+    case post do
+      nil -> :not_found
+      post -> {:ok, build_post_content(post, group_slug, get_title(post))}
     end
   rescue
-    error ->
-      Logger.warning(
-        "Sitemap.LLMText PublishingSource failed to collect page files: #{inspect(error)}"
-      )
-
-      []
+    _ -> :not_found
   end
 
-  @doc """
-  Builds the file path for a post's LLM markdown file.
-
-      iex> build_file_path("blog", "hello-world")
-      "blog/hello-world.md"
-  """
-  @spec build_file_path(String.t(), String.t()) :: String.t()
-  def build_file_path(group_slug, post_slug) do
-    "#{group_slug}/#{post_slug}.md"
-  end
+  def serve_page(_, _), do: :not_found
 
   @doc """
   Builds markdown content for a post's LLM text file.
@@ -131,7 +115,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   Extracts a description for a post.
 
   Uses metadata.description if available, otherwise falls back to the first
-  160 characters of the post content.
+  160 characters of the post content (markdown stripped).
   """
   @spec extract_description(map()) :: String.t()
   def extract_description(post) do
@@ -143,22 +127,10 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
         desc
 
       _ ->
-        content = Map.get(post, :content, "")
-
-        if is_binary(content) and content != "" do
-          content
-          |> String.replace(~r/^#+\s+/m, "")
-          |> String.replace(~r/\*\*([^*]+)\*\*/, "\\1")
-          |> String.replace(~r/\*([^*]+)\*/, "\\1")
-          |> String.replace(~r/>\s+/m, "")
-          |> String.replace(~r/---+/m, "")
-          |> String.replace(~r/\[([^\]]+)\]\([^)]+\)/, "\\1")
-          |> String.replace(~r/\s+/, " ")
-          |> String.trim()
-          |> String.slice(0, 160)
-        else
-          ""
-        end
+        post
+        |> Map.get(:content, "")
+        |> Source.strip_markdown()
+        |> String.slice(0, 160)
     end
   end
 
@@ -199,6 +171,17 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
     end
   end
 
+  # Builds the public URL for the LLM markdown file (served under /llms/{lang}/ prefix).
+  defp build_llms_url(group_slug, post_slug, language, site_url) do
+    path = "/llms/#{language}/#{group_slug}/#{post_slug}.md"
+
+    if site_url != "" do
+      String.trim_trailing(site_url, "/") <> path
+    else
+      path
+    end
+  end
+
   defp build_post_url(post, group_slug) do
     site_url = get_site_url()
     prefix = get_url_prefix()
@@ -218,9 +201,16 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Publishing do
   end
 
   defp get_default_language do
-    PhoenixKit.Settings.get_content_language()
+    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
+      case Languages.get_default_language() do
+        %{code: code} -> code
+        _ -> "en"
+      end
+    else
+      "en"
+    end
   rescue
-    _ -> nil
+    _ -> "en"
   end
 
   defp get_site_url do

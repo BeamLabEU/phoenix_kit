@@ -9,13 +9,13 @@ defmodule Mix.Tasks.PhoenixKit.LlmText.Setup do
   This will:
   1. Add `sitemap_llm_text_sources` config to config.exs (auto-detects Shop)
   2. Enable the LLMText module in the database
-  3. Run initial generation of llms.txt and page files
-  4. Verify site_name setting
+  3. Verify site_name setting
+
+  Content is served on-the-fly from the database — no initial file generation needed.
 
   ## Options
 
-      --config-only    Only add config, don't enable or generate
-      --skip-generate  Add config and enable, but skip initial generation
+      --config-only    Only add config, don't enable in the database
   """
 
   use Mix.Task
@@ -24,17 +24,15 @@ defmodule Mix.Tasks.PhoenixKit.LlmText.Setup do
 
   @impl Mix.Task
   def run(argv) do
-    {opts, _, _} =
-      OptionParser.parse(argv, strict: [config_only: :boolean, skip_generate: :boolean])
+    {opts, _, _} = OptionParser.parse(argv, strict: [config_only: :boolean])
 
     config_only? = Keyword.get(opts, :config_only, false)
-    skip_generate? = Keyword.get(opts, :skip_generate, false)
 
     # Step 1: Config
     setup_config()
 
     unless config_only? do
-      # Need running app for DB and generation
+      # Need running app for DB access
       Mix.Task.run("app.start")
 
       # Step 2: Enable module
@@ -43,12 +41,7 @@ defmodule Mix.Tasks.PhoenixKit.LlmText.Setup do
       # Step 3: Check site_name
       check_site_name()
 
-      # Step 4: Generate
-      unless skip_generate? do
-        generate_files()
-      end
-
-      # Step 5: Summary
+      # Step 4: Summary
       print_summary()
     end
   end
@@ -115,60 +108,18 @@ defmodule Mix.Tasks.PhoenixKit.LlmText.Setup do
       Mix.shell().info("⚠️  Could not check site_name setting")
   end
 
-  defp generate_files do
-    alias PhoenixKit.Modules.Sitemap.LLMText.Generator
-
-    sources = Generator.get_sources()
-
-    if sources == [] do
-      Mix.shell().info(
-        "⚠️  No sources configured. Restart your app to pick up config changes,\n" <>
-          "   then run: PhoenixKit.Modules.Sitemap.LLMText.Generator.run_all()"
-      )
-    else
-      Mix.shell().info("⏳ Generating llms.txt from #{length(sources)} source(s)...")
-
-      Generator.run_all()
-
-      alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
-      index = FileStorage.index_path()
-
-      if File.exists?(index) do
-        size = File.stat!(index).size
-        Mix.shell().info("✅ Generated llms.txt (#{div(size, 1024)} KB)")
-
-        # Count generated files
-        dir = FileStorage.storage_dir()
-
-        {output, 0} = System.cmd("find", [dir, "-type", "f", "-name", "*.txt"])
-        file_count = output |> String.split("\n", trim: true) |> length()
-        Mix.shell().info("   #{file_count} file(s) in #{dir}")
-      else
-        Mix.shell().info("⚠️  Generation completed but index file not found at #{index}")
-      end
-    end
-  rescue
-    error ->
-      Mix.shell().error("⚠️  Generation failed: #{inspect(error)}")
-
-      Mix.shell().info(
-        "   Run manually in iex: PhoenixKit.Modules.Sitemap.LLMText.Generator.run_all()"
-      )
-  end
-
   defp print_summary do
     Mix.shell().info("""
 
     ── LLMText Setup Complete ──────────────────────────
 
     Your site now serves:
-      GET /llms.txt         — index of all LLM-readable pages
-      GET /llms/*path       — individual page files
+      GET /llms.txt              — index of all LLM-readable pages
+      GET /llms/{lang}/llms.txt  — language-specific index
+      GET /llms/{lang}/*path     — individual page files
 
-    Sources are auto-refreshed via Oban when Publishing
-    content changes. To manually regenerate:
-
-      PhoenixKit.Modules.Sitemap.LLMText.Generator.run_all()
+    Content is generated on-the-fly from the database.
+    No background jobs or file storage needed.
 
     ────────────────────────────────────────────────────
     """)

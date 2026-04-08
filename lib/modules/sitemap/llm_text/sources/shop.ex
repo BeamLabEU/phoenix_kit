@@ -2,9 +2,9 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
   @moduledoc """
   LLM text source for PhoenixKit Ecommerce/Shop module.
 
-  Generates:
+  Provides:
   - Index entries (categories and products) for llms.txt
-  - Individual `.md` files per product at `shop/product/{slug}.md`
+  - On-the-fly markdown content per product via serve_page/2
 
   Only active when the PhoenixKitEcommerce module is loaded and enabled.
   """
@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
   require Logger
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKitEcommerce, as: Shop
 
@@ -30,10 +31,10 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
   end
 
   @impl true
-  def collect_index_entries do
+  def collect_index_entries(language) do
     if enabled?() do
-      language = get_default_language()
-      category_entries(language) ++ product_entries(language)
+      lang = language || get_default_language()
+      category_entries(lang) ++ product_entries(lang)
     else
       []
     end
@@ -47,28 +48,30 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
   end
 
   @impl true
-  def collect_page_files do
-    if enabled?() do
-      language = get_default_language()
+  def serve_page(["shop", "product", filename], language) do
+    slug = String.replace_suffix(filename, ".md", "")
+    lang = language || get_default_language()
 
+    # Optimization: replace with Shop.get_product_by_slug(slug, lang) when Shop API supports it
+    product =
       Shop.list_products(status: "active", exclude_hidden_categories: true)
-      |> Enum.map(fn product ->
-        slug = extract_localized(product.slug, language, "product")
-        title = extract_localized(product.title, language, "Product")
-        url = build_full_url(Shop.product_url(product, language))
-        description = extract_localized(product.description, language, "")
-        content = build_product_content(title, url, description, product)
-        {"shop/product/#{slug}.md", content}
-      end)
-    else
-      []
+      |> Enum.find(fn p -> extract_localized(p.slug, lang, "") == slug end)
+
+    case product do
+      nil ->
+        :not_found
+
+      product ->
+        title = extract_localized(product.title, lang, "Product")
+        url = build_full_url(Shop.product_url(product, lang))
+        description = extract_localized(product.description, lang, "")
+        {:ok, build_product_content(title, url, description, product)}
     end
   rescue
-    error ->
-      Logger.warning("Sitemap.LLMText ShopSource failed to collect page files: #{inspect(error)}")
-
-      []
+    _ -> :not_found
   end
+
+  def serve_page(_, _), do: :not_found
 
   # Private helpers
 
@@ -95,9 +98,10 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
     Shop.list_products(status: "active", exclude_hidden_categories: true)
     |> Enum.map(fn product ->
       title = extract_localized(product.title, language, "Product")
-      url = build_full_url(Shop.product_url(product, language)) <> ".md"
+      slug = extract_localized(product.slug, language, "product")
+      url = build_full_url("/llms/#{language}/shop/product/#{slug}.md")
       raw_desc = extract_localized(product.description, language, "")
-      description = raw_desc |> strip_markdown() |> String.slice(0, 200)
+      description = raw_desc |> Source.strip_markdown() |> String.slice(0, 200)
 
       %{
         title: title,
@@ -152,7 +156,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
     url_line = if url != "", do: "> Source: #{url}\n\n", else: ""
     desc_line = if description != "", do: "#{description}\n\n", else: ""
     images_section = build_images_section(title, product)
-    "# #{strip_markdown(title)}\n\n#{url_line}#{desc_line}#{images_section}"
+    "# #{Source.strip_markdown(title)}\n\n#{url_line}#{desc_line}#{images_section}"
   end
 
   defp build_images_section(title, product) do
@@ -183,20 +187,6 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.Shop do
   rescue
     _ -> ""
   end
-
-  defp strip_markdown(text) when is_binary(text) do
-    text
-    |> String.replace(~r/^#+\s+/m, "")
-    |> String.replace(~r/\*\*([^*]+)\*\*/, "\\1")
-    |> String.replace(~r/\*([^*]+)\*/, "\\1")
-    |> String.replace(~r/>\s+/m, "")
-    |> String.replace(~r/---+/m, "")
-    |> String.replace(~r/\[([^\]]+)\]\([^)]+\)/, "\\1")
-    |> String.replace(~r/\s+/, " ")
-    |> String.trim()
-  end
-
-  defp strip_markdown(_), do: ""
 
   defp build_full_url(path) do
     site_url = get_site_url()
