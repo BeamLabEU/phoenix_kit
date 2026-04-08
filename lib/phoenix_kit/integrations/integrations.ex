@@ -162,6 +162,7 @@ defmodule PhoenixKit.Integrations do
     case save_integration(provider_key, data) do
       {:ok, saved} = result ->
         Events.broadcast_setup_saved(provider_key, saved)
+        log_activity("integration.setup_saved", provider_key, %{"status" => saved["status"]})
         result
 
       error ->
@@ -215,6 +216,11 @@ defmodule PhoenixKit.Integrations do
       case save_integration(provider_key, updated) do
         {:ok, saved} = result ->
           Events.broadcast_connected(provider_key, saved)
+
+          log_activity("integration.connected", provider_key, %{
+            "account" => saved["external_account_id"]
+          })
+
           result
 
         error ->
@@ -235,6 +241,9 @@ defmodule PhoenixKit.Integrations do
            OAuth.refresh_access_token(provider.oauth_config, data) do
       updated = Map.merge(data, updated_fields)
       save_integration(resolve_storage_key(provider_key, data), updated)
+
+      log_activity("integration.token_refreshed", provider_key, %{}, "auto")
+
       {:ok, new_token}
     end
   end
@@ -274,6 +283,7 @@ defmodule PhoenixKit.Integrations do
 
         save_integration(provider_key, cleaned)
         Events.broadcast_disconnected(provider_key)
+        log_activity("integration.disconnected", provider_key)
         :ok
     end
   end
@@ -462,8 +472,12 @@ defmodule PhoenixKit.Integrations do
 
         save_integration("#{provider_key}:#{name}", data)
         |> tap(fn
-          {:ok, _} -> Events.broadcast_connection_added(provider_key, name)
-          _ -> :ok
+          {:ok, _} ->
+            Events.broadcast_connection_added(provider_key, name)
+            log_activity("integration.connection_added", provider_key, %{"name" => name})
+
+          _ ->
+            :ok
         end)
     end
   end
@@ -480,6 +494,7 @@ defmodule PhoenixKit.Integrations do
     case Settings.delete_setting(key) do
       {:ok, _} ->
         Events.broadcast_connection_removed(provider_key, name)
+        log_activity("integration.connection_removed", provider_key, %{"name" => name})
         :ok
 
       {:error, :not_found} ->
@@ -506,13 +521,27 @@ defmodule PhoenixKit.Integrations do
     # Check if provider is known before checking credentials
     provider = Providers.get(provider_key)
 
-    with true <- not is_nil(provider) || :unknown_provider,
-         {:ok, data} <- get_credentials(provider_key) do
-      do_validate(provider, data)
-    else
-      :unknown_provider -> {:error, gettext("Unknown provider")}
-      {:error, _} -> {:error, gettext("Not configured")}
+    result =
+      with true <- not is_nil(provider) || :unknown_provider,
+           {:ok, data} <- get_credentials(provider_key) do
+        do_validate(provider, data)
+      else
+        :unknown_provider -> {:error, gettext("Unknown provider")}
+        {:error, _} -> {:error, gettext("Not configured")}
+      end
+
+    case result do
+      :ok ->
+        log_activity("integration.validated", provider_key, %{"result" => "ok"})
+
+      {:error, reason} ->
+        log_activity("integration.validated", provider_key, %{
+          "result" => "error",
+          "reason" => reason
+        })
     end
+
+    result
   rescue
     e ->
       Logger.error(
@@ -754,6 +783,31 @@ defmodule PhoenixKit.Integrations do
       Logger.warning("[Integrations] 401 for #{provider_key} but no refresh_token available")
       {:error, :unauthorized}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Activity logging
+  # ---------------------------------------------------------------------------
+
+  defp log_activity(action, provider_key, metadata \\ %{}, mode \\ "manual") do
+    {provider, name} = parse_provider_name(provider_key)
+
+    if Code.ensure_loaded?(PhoenixKit.Activity) do
+      PhoenixKit.Activity.log(%{
+        action: action,
+        module: "integrations",
+        mode: mode,
+        resource_type: "integration",
+        metadata:
+          Map.merge(metadata, %{
+            "provider" => provider,
+            "connection" => name,
+            "actor_role" => "admin"
+          })
+      })
+    end
+  rescue
+    _ -> :ok
   end
 
   # ---------------------------------------------------------------------------
