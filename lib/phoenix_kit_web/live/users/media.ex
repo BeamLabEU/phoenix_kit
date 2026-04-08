@@ -98,10 +98,16 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     ~H"""
     <li>
-      <div class={[
-        "flex items-center gap-0.5 rounded-lg px-1 py-1 hover:bg-base-200 transition-colors group",
-        @is_active && "bg-primary/10 font-semibold"
-      ]}>
+      <div
+        class={[
+          "flex items-center gap-0.5 rounded-lg px-1 py-1 hover:bg-base-200 transition-colors group",
+          @is_active && "font-semibold"
+        ]}
+        style={
+          if @is_active,
+            do: "background-color: #{folder_color_hex(@node.folder.color) || "oklch(var(--p))"}25"
+        }
+      >
         <%!-- Chevron (expand/collapse) --%>
         <%= if @has_children do %>
           <button
@@ -712,11 +718,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     end
   end
 
-  defp folder_icon_style(color, active? \\ false) do
-    cond do
-      active? -> "color: oklch(var(--p))"
-      hex = folder_color_hex(color) -> "color: #{hex}"
-      true -> "color: oklch(var(--wa))"
+  defp folder_icon_style(color, _active? \\ false) do
+    case folder_color_hex(color) do
+      nil -> "color: oklch(var(--wa))"
+      hex -> "color: #{hex}"
     end
   end
 
