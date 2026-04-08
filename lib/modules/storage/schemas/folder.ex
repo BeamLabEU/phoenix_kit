@@ -12,8 +12,11 @@ defmodule PhoenixKit.Modules.Storage.Folder do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
+  @folder_colors ~w(default red orange amber yellow lime green emerald teal cyan sky blue violet purple fuchsia pink rose)
+
   schema "phoenix_kit_media_folders" do
     field :name, :string
+    field :color, :string, default: "default"
 
     belongs_to :parent, __MODULE__,
       foreign_key: :parent_uuid,
@@ -38,10 +41,13 @@ defmodule PhoenixKit.Modules.Storage.Folder do
     timestamps(type: :utc_datetime)
   end
 
+  def colors, do: @folder_colors
+
   def changeset(folder, attrs) do
     folder
-    |> cast(attrs, [:name, :parent_uuid, :user_uuid])
+    |> cast(attrs, [:name, :parent_uuid, :user_uuid, :color])
     |> validate_required([:name])
+    |> validate_inclusion(:color, @folder_colors)
     |> validate_length(:name, min: 1, max: 255)
     |> foreign_key_constraint(:parent_uuid)
     |> foreign_key_constraint(:user_uuid)

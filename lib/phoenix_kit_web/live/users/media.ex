@@ -53,9 +53,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:show_new_folder, false)
       |> assign(:sidebar_collapsed, false)
       |> assign(:expanded_folders, MapSet.new())
+      |> assign(:renaming_folder, nil)
+      |> assign(:renaming_source, nil)
       |> assign(:view_mode, "grid")
       |> assign(:select_mode, false)
       |> assign(:selected_files, MapSet.new())
+      |> assign(:selected_folders, MapSet.new())
       |> assign(:show_move_modal, false)
 
     {:ok, socket}
@@ -64,6 +67,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   attr :node, :map, required: true
   attr :current_folder, :any, required: true
   attr :expanded_folders, :any, required: true
+  attr :renaming_folder, :any, required: true
+  attr :renaming_source, :any, required: true
   attr :depth, :integer, default: 0
 
   def folder_tree_node(assigns) do
@@ -81,8 +86,15 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         MapSet.member?(assigns.expanded_folders, assigns.node.folder.uuid)
       )
 
+    assigns = assign(assigns, :has_children, assigns.node.children != [])
+
     assigns =
-      assign(assigns, :has_children, assigns.node.children != [])
+      assign(
+        assigns,
+        :is_renaming,
+        assigns.renaming_folder == assigns.node.folder.uuid &&
+          assigns.renaming_source == "sidebar"
+      )
 
     ~H"""
     <li>
@@ -106,18 +118,50 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           <span class="w-5"></span>
         <% end %>
 
-        <%!-- Folder link --%>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
-          data-drop-folder={@node.folder.uuid}
-          class="flex items-center gap-1.5 flex-1 truncate text-sm"
-        >
-          <.icon
-            name={if @is_expanded, do: "hero-folder-open", else: "hero-folder"}
-            class={"w-4 h-4 shrink-0 #{if @is_active, do: "text-primary", else: "text-warning"}"}
-          />
-          <span class="truncate">{@node.folder.name}</span>
-        </.link>
+        <%= if @is_renaming do %>
+          <%!-- Inline rename form --%>
+          <form phx-submit="rename_folder" class="flex items-center gap-1 flex-1">
+            <input type="hidden" name="folder_uuid" value={@node.folder.uuid} />
+            <input
+              type="text"
+              name="name"
+              value={@node.folder.name}
+              class="input input-bordered input-xs flex-1 min-w-0"
+              autofocus
+              required
+              phx-keydown="cancel_rename_folder"
+              phx-key="Escape"
+            />
+            <button type="submit" class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5">
+              <.icon name="hero-check" class="w-3 h-3 text-success" />
+            </button>
+          </form>
+        <% else %>
+          <%!-- Folder link --%>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
+            data-drop-folder={@node.folder.uuid}
+            class="flex items-center gap-1.5 flex-1 truncate text-sm"
+          >
+            <span style={folder_icon_style(@node.folder.color, @is_active)}>
+              <.icon
+                name={if @is_expanded, do: "hero-folder-open", else: "hero-folder"}
+                class="w-4 h-4 shrink-0"
+              />
+            </span>
+            <span class="truncate">{@node.folder.name}</span>
+          </.link>
+          <%!-- Rename button (visible on hover) --%>
+          <button
+            phx-click="start_rename_folder"
+            phx-value-folder-uuid={@node.folder.uuid}
+            phx-value-source="sidebar"
+            class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5 opacity-0 group-hover:opacity-100"
+            title="Rename"
+          >
+            <.icon name="hero-pencil" class="w-3 h-3 text-base-content/40" />
+          </button>
+        <% end %>
       </div>
 
       <%!-- Children (only if expanded) --%>
@@ -128,6 +172,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
               node={child}
               current_folder={@current_folder}
               expanded_folders={@expanded_folders}
+              renaming_folder={@renaming_folder}
+              renaming_source={@renaming_source}
               depth={@depth + 1}
             />
           <% end %>
@@ -291,6 +337,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     end
   end
 
+  def handle_event("noop", _params, socket), do: {:noreply, socket}
+
   def handle_event("navigate_folder", %{"folder-uuid" => folder_uuid}, socket) do
     {:noreply,
      push_navigate(socket,
@@ -306,6 +354,73 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)}
   end
 
+  def handle_event("start_rename_folder", %{"folder-uuid" => folder_uuid} = params, socket) do
+    source = params["source"] || "content"
+
+    {:noreply,
+     socket
+     |> assign(:renaming_folder, folder_uuid)
+     |> assign(:renaming_source, source)}
+  end
+
+  def handle_event("cancel_rename_folder", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:renaming_folder, nil)
+     |> assign(:renaming_source, nil)}
+  end
+
+  def handle_event("rename_folder", %{"folder_uuid" => folder_uuid, "name" => name}, socket) do
+    folder = Storage.get_folder(folder_uuid)
+
+    if folder && name != "" do
+      case Storage.update_folder(folder, %{name: String.trim(name)}) do
+        {:ok, _} ->
+          socket =
+            socket
+            |> assign(:renaming_folder, nil)
+            |> assign(:renaming_source, nil)
+            |> assign(:folder_tree, Storage.list_all_folders() |> Storage.build_folder_tree())
+
+          {:noreply, socket}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to rename folder")}
+      end
+    else
+      {:noreply,
+       socket
+       |> assign(:renaming_folder, nil)
+       |> assign(:renaming_source, nil)}
+    end
+  end
+
+  def handle_event(
+        "change_folder_color",
+        %{"folder-uuid" => folder_uuid, "color" => color},
+        socket
+      ) do
+    folder = Storage.get_folder(folder_uuid)
+
+    if folder do
+      case Storage.update_folder(folder, %{color: color}) do
+        {:ok, _} ->
+          parent_uuid =
+            if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid
+
+          {:noreply,
+           socket
+           |> assign(:folders, Storage.list_folders(parent_uuid))
+           |> assign(:folder_tree, Storage.list_all_folders() |> Storage.build_folder_tree())}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to change color")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("toggle_folder_expand", %{"folder-uuid" => folder_uuid}, socket) do
     expanded = socket.assigns.expanded_folders
 
@@ -319,11 +434,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   def handle_event("toggle_select_mode", _params, socket) do
     if socket.assigns.select_mode do
-      # Exiting select mode — clear selection
       {:noreply,
        socket
        |> assign(:select_mode, false)
-       |> assign(:selected_files, MapSet.new())}
+       |> assign(:selected_files, MapSet.new())
+       |> assign(:selected_folders, MapSet.new())}
     else
       {:noreply, assign(socket, :select_mode, true)}
     end
@@ -349,6 +464,17 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     end
   end
 
+  def handle_event("toggle_select_folder", %{"folder-uuid" => folder_uuid}, socket) do
+    selected = socket.assigns.selected_folders
+
+    selected =
+      if MapSet.member?(selected, folder_uuid),
+        do: MapSet.delete(selected, folder_uuid),
+        else: MapSet.put(selected, folder_uuid)
+
+    {:noreply, assign(socket, :selected_folders, selected)}
+  end
+
   def handle_event("toggle_select", %{"file-uuid" => file_uuid}, socket) do
     selected = socket.assigns.selected_files
 
@@ -361,15 +487,21 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("select_all", _params, socket) do
-    all_uuids = Enum.map(socket.assigns.uploaded_files, & &1.file_uuid)
-    {:noreply, assign(socket, :selected_files, MapSet.new(all_uuids))}
+    all_file_uuids = Enum.map(socket.assigns.uploaded_files, & &1.file_uuid)
+    all_folder_uuids = Enum.map(socket.assigns.folders, & &1.uuid)
+
+    {:noreply,
+     socket
+     |> assign(:selected_files, MapSet.new(all_file_uuids))
+     |> assign(:selected_folders, MapSet.new(all_folder_uuids))}
   end
 
   def handle_event("deselect_all", _params, socket) do
     {:noreply,
      socket
      |> assign(:select_mode, false)
-     |> assign(:selected_files, MapSet.new())}
+     |> assign(:selected_files, MapSet.new())
+     |> assign(:selected_folders, MapSet.new())}
   end
 
   def handle_event("show_move_modal", _params, socket) do
@@ -383,18 +515,49 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   def handle_event("move_selected_to_folder", %{"folder_uuid" => folder_uuid}, socket) do
     target = if folder_uuid == "", do: nil, else: folder_uuid
 
+    # Move selected files
     Enum.each(socket.assigns.selected_files, fn file_uuid ->
       Storage.move_file_to_folder(file_uuid, target)
     end)
 
-    count = MapSet.size(socket.assigns.selected_files)
+    # Move selected folders (update parent_uuid)
+    Enum.each(socket.assigns.selected_folders, fn sel_folder_uuid ->
+      # Don't move a folder into itself
+      if sel_folder_uuid != target do
+        folder = Storage.get_folder(sel_folder_uuid)
+        if folder, do: Storage.update_folder(folder, %{parent_uuid: target})
+      end
+    end)
+
+    file_count = MapSet.size(socket.assigns.selected_files)
+    folder_count = MapSet.size(socket.assigns.selected_folders)
+    total = file_count + folder_count
 
     {:noreply,
      socket
      |> assign(:select_mode, false)
      |> assign(:selected_files, MapSet.new())
+     |> assign(:selected_folders, MapSet.new())
      |> assign(:show_move_modal, false)
-     |> put_flash(:info, "#{count} file(s) moved")
+     |> put_flash(:info, "#{total} item(s) moved")
+     |> push_patch(to: current_media_path(socket))}
+  end
+
+  def handle_event("delete_selected", _params, socket) do
+    # Delete selected folders
+    Enum.each(socket.assigns.selected_folders, fn folder_uuid ->
+      folder = Storage.get_folder(folder_uuid)
+      if folder, do: Storage.delete_folder(folder)
+    end)
+
+    folder_count = MapSet.size(socket.assigns.selected_folders)
+
+    {:noreply,
+     socket
+     |> assign(:select_mode, false)
+     |> assign(:selected_files, MapSet.new())
+     |> assign(:selected_folders, MapSet.new())
+     |> put_flash(:info, "#{folder_count} folder(s) deleted")
      |> push_patch(to: current_media_path(socket))}
   end
 
@@ -539,6 +702,39 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   # Get icon for file type
+  defp folder_bg_style(color) do
+    case folder_color_hex(color) do
+      nil -> nil
+      hex -> "background-color: #{hex}15"
+    end
+  end
+
+  defp folder_icon_style(color, active? \\ false) do
+    cond do
+      active? -> "color: oklch(var(--p))"
+      hex = folder_color_hex(color) -> "color: #{hex}"
+      true -> "color: oklch(var(--wa))"
+    end
+  end
+
+  defp folder_color_hex("red"), do: "#ef4444"
+  defp folder_color_hex("orange"), do: "#f97316"
+  defp folder_color_hex("amber"), do: "#f59e0b"
+  defp folder_color_hex("yellow"), do: "#eab308"
+  defp folder_color_hex("lime"), do: "#84cc16"
+  defp folder_color_hex("green"), do: "#22c55e"
+  defp folder_color_hex("emerald"), do: "#10b981"
+  defp folder_color_hex("teal"), do: "#14b8a6"
+  defp folder_color_hex("cyan"), do: "#06b6d4"
+  defp folder_color_hex("sky"), do: "#0ea5e9"
+  defp folder_color_hex("blue"), do: "#3b82f6"
+  defp folder_color_hex("violet"), do: "#8b5cf6"
+  defp folder_color_hex("purple"), do: "#a855f7"
+  defp folder_color_hex("fuchsia"), do: "#d946ef"
+  defp folder_color_hex("pink"), do: "#ec4899"
+  defp folder_color_hex("rose"), do: "#f43f5e"
+  defp folder_color_hex(_), do: nil
+
   defp file_icon("image"), do: "hero-photo"
   defp file_icon("video"), do: "hero-play-circle"
   defp file_icon("pdf"), do: "hero-document-text"

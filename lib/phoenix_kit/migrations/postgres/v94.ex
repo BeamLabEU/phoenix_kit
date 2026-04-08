@@ -20,6 +20,7 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
                          ) do
       add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
       add(:name, :string, null: false, size: 255)
+      add(:color, :string, size: 20)
 
       add(
         :parent_uuid,
