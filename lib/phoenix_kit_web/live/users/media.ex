@@ -166,7 +166,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
       <%!-- Children (only if expanded) --%>
       <%= if @has_children && @is_expanded do %>
-        <ul class="ml-3 border-l border-base-300 pl-1">
+        <ul
+          class="ml-3 border-l-2 pl-1"
+          style={"border-color: #{folder_color_hex(@node.folder.color) || "oklch(var(--bc) / 0.15)"}"}
+        >
           <%= for child <- @node.children do %>
             <.folder_tree_node
               node={child}
