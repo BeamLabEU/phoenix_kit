@@ -188,65 +188,87 @@
           <div class="card-body">
             <%!-- Header --%>
             <div class="flex justify-between items-center mb-4">
-              <div class="flex items-center gap-3 flex-wrap">
-                <h2 class="card-title text-xl">
-                  <%= if @filter_orphaned do %>
-                    Orphaned Files ({@total_count})
-                  <% else %>
-                    <%= if @current_folder do %>
-                      {@current_folder.name} ({@total_count})
+              <%= if @select_mode do %>
+                <%!-- Selection Mode Header --%>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button phx-click="toggle_select_mode" class="btn btn-sm btn-error gap-2">
+                    <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+                  </button>
+                  <span class="text-sm font-semibold">
+                    {MapSet.size(@selected_files) + MapSet.size(@selected_folders)} selected
+                  </span>
+                  <button phx-click="show_move_modal" class="btn btn-sm btn-primary gap-1">
+                    <.icon name="hero-folder-arrow-down" class="w-4 h-4" /> Move
+                  </button>
+                  <%= if MapSet.size(@selected_folders) > 0 do %>
+                    <button
+                      phx-click="delete_selected"
+                      data-confirm={"Delete #{MapSet.size(@selected_folders)} folder(s)? Files will be moved to parent."}
+                      class="btn btn-sm btn-error gap-1"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" /> Delete folders
+                    </button>
+                  <% end %>
+                  <button phx-click="select_all" class="btn btn-sm btn-ghost">Select all</button>
+                  <button phx-click="deselect_all" class="btn btn-sm btn-ghost">Clear</button>
+                </div>
+              <% else %>
+                <%!-- Normal Header --%>
+                <div class="flex items-center gap-3 flex-wrap">
+                  <h2 class="card-title text-xl">
+                    <%= if @filter_orphaned do %>
+                      Orphaned Files ({@total_count})
                     <% else %>
-                      All Files ({@total_count})
+                      <%= if @current_folder do %>
+                        {@current_folder.name} ({@total_count})
+                      <% else %>
+                        All Files ({@total_count})
+                      <% end %>
                     <% end %>
+                  </h2>
+                  <%= unless @show_upload do %>
+                    <button phx-click="toggle_upload" class="btn btn-sm btn-primary gap-2">
+                      <.icon name="hero-plus" class="w-4 h-4" /> Add Media
+                    </button>
                   <% end %>
-                </h2>
-                <%= unless @show_upload do %>
-                  <button phx-click="toggle_upload" class="btn btn-sm btn-primary gap-2">
-                    <.icon name="hero-plus" class="w-4 h-4" /> Add Media
-                  </button>
-                <% end %>
-                <button
-                  phx-click="toggle_select_mode"
-                  class={[
-                    "btn btn-sm gap-2",
-                    if(@select_mode, do: "btn-error", else: "btn-secondary btn-outline")
-                  ]}
-                >
-                  <.icon name="hero-check-circle" class="w-4 h-4" />
-                  <%= if @select_mode do %>
-                    Cancel
-                  <% else %>
-                    Select
-                  <% end %>
-                </button>
-                <%!-- Mobile-only folder button --%>
-                <button phx-click="toggle_new_folder" class="btn btn-sm btn-ghost gap-2 lg:hidden">
-                  <.icon name="hero-folder-plus" class="w-4 h-4" /> New Folder
-                </button>
-                <button
-                  phx-click="toggle_orphan_filter"
-                  class={[
-                    "btn btn-sm gap-2",
-                    if(@filter_orphaned, do: "btn-warning", else: "btn-ghost")
-                  ]}
-                >
-                  <.icon name="hero-funnel" class="w-4 h-4" />
-                  <%= if @filter_orphaned do %>
-                    Showing orphaned ({@orphaned_count})
-                  <% else %>
-                    Find orphaned ({@orphaned_count})
-                  <% end %>
-                </button>
-                <%= if @filter_orphaned && @total_count > 0 do %>
                   <button
-                    phx-click="delete_all_orphaned"
-                    data-confirm={"Delete all #{@total_count} orphaned files?"}
-                    class="btn btn-sm btn-error gap-2"
+                    phx-click="toggle_select_mode"
+                    class="btn btn-sm btn-secondary btn-outline gap-2"
+                    phx-disable-with="Select"
                   >
-                    <.icon name="hero-trash" class="w-4 h-4" /> Delete all orphaned
+                    <.icon name="hero-check-circle" class="w-4 h-4" /> Select
                   </button>
-                <% end %>
-              </div>
+                  <button
+                    phx-click="toggle_new_folder"
+                    class="btn btn-sm btn-ghost gap-2 lg:hidden"
+                  >
+                    <.icon name="hero-folder-plus" class="w-4 h-4" /> New Folder
+                  </button>
+                  <button
+                    phx-click="toggle_orphan_filter"
+                    class={[
+                      "btn btn-sm gap-2",
+                      if(@filter_orphaned, do: "btn-warning", else: "btn-ghost")
+                    ]}
+                  >
+                    <.icon name="hero-funnel" class="w-4 h-4" />
+                    <%= if @filter_orphaned do %>
+                      Showing orphaned ({@orphaned_count})
+                    <% else %>
+                      Find orphaned ({@orphaned_count})
+                    <% end %>
+                  </button>
+                  <%= if @filter_orphaned && @total_count > 0 do %>
+                    <button
+                      phx-click="delete_all_orphaned"
+                      data-confirm={"Delete all #{@total_count} orphaned files?"}
+                      class="btn btn-sm btn-error gap-2"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" /> Delete all orphaned
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
               <div class="flex items-center gap-2">
                 <%= if @total_count > 0 do %>
                   <div class="join">
@@ -295,29 +317,6 @@
               </form>
             <% end %>
 
-            <%!-- Selection Toolbar --%>
-            <%= if @select_mode && (MapSet.size(@selected_files) > 0 || MapSet.size(@selected_folders) > 0) do %>
-              <div class="flex items-center gap-2 mb-3 p-2 bg-primary/10 rounded-lg">
-                <span class="text-sm font-semibold">
-                  {MapSet.size(@selected_files) + MapSet.size(@selected_folders)} selected
-                </span>
-                <button phx-click="show_move_modal" class="btn btn-xs btn-primary gap-1">
-                  <.icon name="hero-folder-arrow-down" class="w-3 h-3" /> Move
-                </button>
-                <%= if MapSet.size(@selected_folders) > 0 do %>
-                  <button
-                    phx-click="delete_selected"
-                    data-confirm={"Delete #{MapSet.size(@selected_folders)} folder(s)? Files will be moved to parent."}
-                    class="btn btn-xs btn-error gap-1"
-                  >
-                    <.icon name="hero-trash" class="w-3 h-3" /> Delete folders
-                  </button>
-                <% end %>
-                <button phx-click="select_all" class="btn btn-xs btn-ghost">Select all</button>
-                <button phx-click="deselect_all" class="btn btn-xs btn-ghost">Clear</button>
-              </div>
-            <% end %>
-
             <%= if @uploaded_files == [] && @folders == [] do %>
               <%!-- Empty state --%>
               <div class="bg-base-200 rounded-lg p-8 text-center">
@@ -334,428 +333,432 @@
                 </p>
               </div>
             <% else %>
-              <%!-- Grid View --%>
-              <div
-                data-media-grid
-                class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
-              >
-                <%!-- Folders --%>
-                <%= for folder <- @folders do %>
-                  <div
-                    data-drop-folder={folder.uuid}
-                    class={[
-                      "group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-colors",
-                      @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
-                        "ring-2 ring-primary"
-                    ]}
-                    style={folder_bg_style(folder.color)}
-                    phx-click={if @select_mode, do: "toggle_select_folder"}
-                    phx-value-folder-uuid={if @select_mode, do: folder.uuid}
-                  >
-                    <%= if @select_mode do %>
-                      <label class="absolute top-1 left-1 z-10 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          class="checkbox checkbox-primary checkbox-sm"
-                          checked={MapSet.member?(@selected_folders, folder.uuid)}
-                          phx-click="toggle_select_folder"
-                          phx-value-folder-uuid={folder.uuid}
-                        />
-                      </label>
-                    <% end %>
-                    <%= if @renaming_folder == folder.uuid && @renaming_source == "content" do %>
-                      <%!-- Inline rename --%>
-                      <span style={folder_icon_style(folder.color)}>
-                        <.icon name="hero-folder" class="w-12 h-12 mb-2" />
-                      </span>
-                      <form
-                        phx-submit="rename_folder"
-                        class="flex items-center gap-1 px-2 w-full"
-                      >
-                        <input type="hidden" name="folder_uuid" value={folder.uuid} />
-                        <input
-                          type="text"
-                          name="name"
-                          value={folder.name}
-                          class="input input-bordered input-xs w-full text-center"
-                          autofocus
-                          required
-                          phx-keydown="cancel_rename_folder"
-                          phx-key="Escape"
-                        />
-                      </form>
-                    <% else %>
-                      <.link
-                        navigate={
-                          PhoenixKit.Utils.Routes.path("/admin/media?folder=#{folder.uuid}")
-                        }
-                        class="flex flex-col items-center"
-                      >
-                        <span style={folder_icon_style(folder.color)}>
-                          <.icon name="hero-folder" class="w-12 h-12 mb-1" />
-                        </span>
-                        <p class="text-xs font-semibold text-center px-2 truncate w-full">
-                          {folder.name}
-                        </p>
-                      </.link>
-                      <div class="dropdown dropdown-end absolute top-1 right-1 opacity-0 group-hover:opacity-100">
-                        <label tabindex="0" class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5">
-                          <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+              <%= if @view_mode == "grid" do %>
+                <%!-- Grid View --%>
+                <div
+                  data-media-grid
+                  class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+                >
+                  <%!-- Folders --%>
+                  <%= for folder <- @folders do %>
+                    <div
+                      data-drop-folder={folder.uuid}
+                      class={[
+                        "group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-colors",
+                        @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
+                          "ring-2 ring-primary"
+                      ]}
+                      style={folder_bg_style(folder.color)}
+                      phx-click={if @select_mode, do: "toggle_select_folder"}
+                      phx-value-folder-uuid={if @select_mode, do: folder.uuid}
+                    >
+                      <%= if @select_mode do %>
+                        <label class="absolute top-1 left-1 z-10 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-primary checkbox-sm"
+                            checked={MapSet.member?(@selected_folders, folder.uuid)}
+                            phx-click="toggle_select_folder"
+                            phx-value-folder-uuid={folder.uuid}
+                          />
                         </label>
-                        <ul
-                          tabindex="0"
-                          class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-20 w-36 p-1"
+                      <% end %>
+                      <%= if @renaming_folder == folder.uuid && @renaming_source == "content" do %>
+                        <%!-- Inline rename --%>
+                        <span style={folder_icon_style(folder.color)}>
+                          <.icon name="hero-folder" class="w-12 h-12 mb-2" />
+                        </span>
+                        <form
+                          phx-submit="rename_folder"
+                          class="flex items-center gap-1 px-2 w-full"
                         >
-                          <li>
-                            <button
-                              phx-click="start_rename_folder"
-                              phx-value-folder-uuid={folder.uuid}
-                            >
-                              <.icon name="hero-pencil" class="w-4 h-4" /> Rename
-                            </button>
-                          </li>
-                          <li>
-                            <div class="px-3 py-1.5">
-                              <span class="text-xs font-semibold text-base-content/50 mb-1 block">
-                                Color
-                              </span>
-                              <div class="flex flex-wrap gap-1">
-                                <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
-                                  <button
-                                    phx-click="change_folder_color"
-                                    phx-value-folder-uuid={folder.uuid}
-                                    phx-value-color={color}
-                                    class={[
-                                      "w-4 h-4 rounded-full border-2 transition-transform hover:scale-125",
-                                      if(
-                                        folder.color == color ||
-                                          (folder.color == nil && color == "default"),
-                                        do: "border-base-content scale-110",
-                                        else: "border-transparent"
-                                      )
-                                    ]}
-                                    style={"background-color: #{folder_color_hex(color) || "oklch(var(--wa))"}"}
-                                    title={color}
-                                  >
-                                  </button>
-                                <% end %>
+                          <input type="hidden" name="folder_uuid" value={folder.uuid} />
+                          <input
+                            type="text"
+                            name="name"
+                            value={folder.name}
+                            class="input input-bordered input-xs w-full text-center"
+                            autofocus
+                            required
+                            phx-keydown="cancel_rename_folder"
+                            phx-key="Escape"
+                          />
+                        </form>
+                      <% else %>
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path("/admin/media?folder=#{folder.uuid}")
+                          }
+                          class="flex flex-col items-center"
+                        >
+                          <span style={folder_icon_style(folder.color)}>
+                            <.icon name="hero-folder" class="w-12 h-12 mb-1" />
+                          </span>
+                          <p class="text-xs font-semibold text-center px-2 truncate w-full">
+                            {folder.name}
+                          </p>
+                        </.link>
+                        <div class="dropdown dropdown-end absolute top-1 right-1 opacity-0 group-hover:opacity-100">
+                          <label tabindex="0" class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5">
+                            <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+                          </label>
+                          <ul
+                            tabindex="0"
+                            class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-20 w-36 p-1"
+                          >
+                            <li>
+                              <button
+                                phx-click="start_rename_folder"
+                                phx-value-folder-uuid={folder.uuid}
+                              >
+                                <.icon name="hero-pencil" class="w-4 h-4" /> Rename
+                              </button>
+                            </li>
+                            <li>
+                              <div class="px-3 py-1.5">
+                                <span class="text-xs font-semibold text-base-content/50 mb-1 block">
+                                  Color
+                                </span>
+                                <div class="flex flex-wrap gap-1">
+                                  <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
+                                    <button
+                                      phx-click="change_folder_color"
+                                      phx-value-folder-uuid={folder.uuid}
+                                      phx-value-color={color}
+                                      class={[
+                                        "w-4 h-4 rounded-full border-2 transition-transform hover:scale-125",
+                                        if(
+                                          folder.color == color ||
+                                            (folder.color == nil && color == "default"),
+                                          do: "border-base-content scale-110",
+                                          else: "border-transparent"
+                                        )
+                                      ]}
+                                      style={"background-color: #{folder_color_hex(color) || "oklch(var(--wa))"}"}
+                                      title={color}
+                                    >
+                                    </button>
+                                  <% end %>
+                                </div>
+                              </div>
+                            </li>
+                            <li>
+                              <button
+                                phx-click="delete_folder"
+                                phx-value-id={folder.uuid}
+                                data-confirm={"Delete '#{folder.name}'? Files move to parent."}
+                                class="text-error"
+                              >
+                                <.icon name="hero-trash" class="w-4 h-4" /> Delete
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <%= for file <- @uploaded_files do %>
+                    <div
+                      data-draggable-file={file.file_uuid}
+                      class={[
+                        "group relative aspect-square bg-base-300 rounded-lg overflow-hidden hover:shadow-lg transition-shadow",
+                        @select_mode && MapSet.member?(@selected_files, file.file_uuid) &&
+                          "ring-2 ring-primary"
+                      ]}
+                    >
+                      <%= if @select_mode do %>
+                        <label class="absolute top-1 left-1 z-10 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-primary checkbox-sm"
+                            checked={MapSet.member?(@selected_files, file.file_uuid)}
+                            phx-click="toggle_select"
+                            phx-value-file-uuid={file.file_uuid}
+                          />
+                        </label>
+                      <% end %>
+
+                      <div
+                        phx-click="click_file"
+                        phx-value-file-uuid={file.file_uuid}
+                        class="block w-full h-full cursor-pointer"
+                      >
+                        <.thumbnail_url :let={url} file={file} size={:small}>
+                          <%= if url do %>
+                            <img
+                              src={url}
+                              alt={file.filename}
+                              class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+                              onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
+                            />
+                            <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
+                              <div class="flex flex-col items-center justify-center">
+                                <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
+                                <p class="text-xs font-semibold">Image Missing</p>
                               </div>
                             </div>
-                          </li>
-                          <li>
-                            <button
-                              phx-click="delete_folder"
-                              phx-value-id={folder.uuid}
-                              data-confirm={"Delete '#{folder.name}'? Files move to parent."}
-                              class="text-error"
-                            >
-                              <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                            </button>
-                          </li>
-                        </ul>
-                      </div>
-                    <% end %>
-                  </div>
-                <% end %>
-                <%= for file <- @uploaded_files do %>
-                  <div
-                    data-draggable-file={file.file_uuid}
-                    class={[
-                      "group relative aspect-square bg-base-300 rounded-lg overflow-hidden hover:shadow-lg transition-shadow",
-                      @select_mode && MapSet.member?(@selected_files, file.file_uuid) &&
-                        "ring-2 ring-primary"
-                    ]}
-                  >
-                    <%= if @select_mode do %>
-                      <label class="absolute top-1 left-1 z-10 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          class="checkbox checkbox-primary checkbox-sm"
-                          checked={MapSet.member?(@selected_files, file.file_uuid)}
-                          phx-click="toggle_select"
-                          phx-value-file-uuid={file.file_uuid}
-                        />
-                      </label>
-                    <% end %>
+                          <% else %>
+                            <div class="grid place-items-center w-full aspect-square text-base-content/50 group-hover:bg-base-200 transition-colors">
+                              <div class="flex flex-col items-center">
+                                <.icon
+                                  name={file_icon(file.file_type)}
+                                  class="w-12 h-12 mb-2"
+                                />
+                                <p class="text-sm font-semibold">
+                                  {String.upcase(file.file_type)}
+                                </p>
+                              </div>
+                            </div>
+                          <% end %>
+                        </.thumbnail_url>
 
-                    <div
-                      phx-click="click_file"
-                      phx-value-file-uuid={file.file_uuid}
-                      class="block w-full h-full cursor-pointer"
-                    >
-                      <.thumbnail_url :let={url} file={file} size={:small}>
-                        <%= if url do %>
-                          <img
-                            src={url}
-                            alt={file.filename}
-                            class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
-                            onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
-                          />
-                          <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
-                            <div class="flex flex-col items-center justify-center">
-                              <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
-                              <p class="text-xs font-semibold">Image Missing</p>
-                            </div>
-                          </div>
-                        <% else %>
-                          <div class="grid place-items-center w-full aspect-square text-base-content/50 group-hover:bg-base-200 transition-colors">
-                            <div class="flex flex-col items-center">
-                              <.icon
-                                name={file_icon(file.file_type)}
-                                class="w-12 h-12 mb-2"
-                              />
-                              <p class="text-sm font-semibold">
-                                {String.upcase(file.file_type)}
-                              </p>
-                            </div>
+                        <%= if file.file_type == "video" do %>
+                          <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
+                            <.icon name="hero-play-solid" class="w-4 h-4" />
                           </div>
                         <% end %>
-                      </.thumbnail_url>
 
-                      <%= if file.file_type == "video" do %>
-                        <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
-                          <.icon name="hero-play-solid" class="w-4 h-4" />
+                        <%= if file.mime_type == "application/pdf" do %>
+                          <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
+                            PDF
+                          </div>
+                        <% end %>
+
+                        <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
+                          {format_file_size(file.size)}
                         </div>
-                      <% end %>
-
-                      <%= if file.mime_type == "application/pdf" do %>
-                        <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
-                          PDF
-                        </div>
-                      <% end %>
-
-                      <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                        {format_file_size(file.size)}
                       </div>
                     </div>
-                  </div>
-                <% end %>
-              </div>
-              <%!-- List View --%>
-              <div
-                data-media-list
-                class="overflow-x-auto"
-              >
-                <table class="table table-sm">
-                  <thead>
-                    <tr>
-                      <%= if @select_mode do %>
-                        <th class="w-8"></th>
-                      <% end %>
-                      <th class="w-12"></th>
-                      <th>Name</th>
-                      <th>Type</th>
-                      <th>Size</th>
-                      <th>Date</th>
-                      <th class="w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <%!-- Folders --%>
-                    <%= for folder <- @folders do %>
-                      <%= if @renaming_folder == folder.uuid && @renaming_source == "content" do %>
-                        <tr style={
-                          folder_bg_style(folder.color) || "background-color: oklch(var(--b2))"
-                        }>
-                          <%= if @select_mode do %>
-                            <td></td>
-                          <% end %>
-                          <td>
-                            <div class="w-10 h-10 grid place-items-center">
-                              <span style={folder_icon_style(folder.color)}>
-                                <.icon name="hero-folder" class="w-6 h-6" />
-                              </span>
-                            </div>
-                          </td>
-                          <td colspan="4">
-                            <form
-                              phx-submit="rename_folder"
-                              class="flex items-center gap-2"
-                            >
-                              <input type="hidden" name="folder_uuid" value={folder.uuid} />
-                              <input
-                                type="text"
-                                name="name"
-                                value={folder.name}
-                                class="input input-bordered input-sm flex-1"
-                                autofocus
-                                required
-                                phx-keydown="cancel_rename_folder"
-                                phx-key="Escape"
-                              />
-                              <button type="submit" class="btn btn-sm btn-ghost">
-                                <.icon name="hero-check" class="w-4 h-4 text-success" />
-                              </button>
-                              <button
-                                type="button"
-                                phx-click="cancel_rename_folder"
-                                class="btn btn-sm btn-ghost"
+                  <% end %>
+                </div>
+              <% end %>
+              <%= if @view_mode == "list" do %>
+                <%!-- List View --%>
+                <div
+                  data-media-list
+                  class="overflow-x-auto"
+                >
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <%= if @select_mode do %>
+                          <th class="w-8"></th>
+                        <% end %>
+                        <th class="w-12"></th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Date</th>
+                        <th class="w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <%!-- Folders --%>
+                      <%= for folder <- @folders do %>
+                        <%= if @renaming_folder == folder.uuid && @renaming_source == "content" do %>
+                          <tr style={
+                            folder_bg_style(folder.color) || "background-color: oklch(var(--b2))"
+                          }>
+                            <%= if @select_mode do %>
+                              <td></td>
+                            <% end %>
+                            <td>
+                              <div class="w-10 h-10 grid place-items-center">
+                                <span style={folder_icon_style(folder.color)}>
+                                  <.icon name="hero-folder" class="w-6 h-6" />
+                                </span>
+                              </div>
+                            </td>
+                            <td colspan="4">
+                              <form
+                                phx-submit="rename_folder"
+                                class="flex items-center gap-2"
                               >
-                                <.icon name="hero-x-mark" class="w-4 h-4" />
-                              </button>
-                            </form>
-                          </td>
-                          <td></td>
-                        </tr>
-                      <% else %>
+                                <input type="hidden" name="folder_uuid" value={folder.uuid} />
+                                <input
+                                  type="text"
+                                  name="name"
+                                  value={folder.name}
+                                  class="input input-bordered input-sm flex-1"
+                                  autofocus
+                                  required
+                                  phx-keydown="cancel_rename_folder"
+                                  phx-key="Escape"
+                                />
+                                <button type="submit" class="btn btn-sm btn-ghost">
+                                  <.icon name="hero-check" class="w-4 h-4 text-success" />
+                                </button>
+                                <button
+                                  type="button"
+                                  phx-click="cancel_rename_folder"
+                                  class="btn btn-sm btn-ghost"
+                                >
+                                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                                </button>
+                              </form>
+                            </td>
+                            <td></td>
+                          </tr>
+                        <% else %>
+                          <tr
+                            phx-click={
+                              if @select_mode, do: "toggle_select_folder", else: "navigate_folder"
+                            }
+                            phx-value-folder-uuid={folder.uuid}
+                            data-drop-folder={folder.uuid}
+                            class={[
+                              "hover cursor-pointer",
+                              @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
+                                "bg-primary/10"
+                            ]}
+                            style={folder_bg_style(folder.color)}
+                          >
+                            <%= if @select_mode do %>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  class="checkbox checkbox-primary checkbox-xs"
+                                  checked={MapSet.member?(@selected_folders, folder.uuid)}
+                                  phx-click="toggle_select_folder"
+                                  phx-value-folder-uuid={folder.uuid}
+                                />
+                              </td>
+                            <% end %>
+                            <td>
+                              <div class="w-10 h-10 grid place-items-center">
+                                <span style={folder_icon_style(folder.color)}>
+                                  <.icon name="hero-folder" class="w-6 h-6" />
+                                </span>
+                              </div>
+                            </td>
+                            <td colspan="3">
+                              <span class="font-medium text-sm">{folder.name}</span>
+                            </td>
+                            <td></td>
+                            <td>
+                              <div class="dropdown dropdown-end" phx-click="noop">
+                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                  <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+                                </label>
+                                <ul
+                                  tabindex="0"
+                                  class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-20 w-36 p-1"
+                                >
+                                  <li>
+                                    <button
+                                      phx-click="start_rename_folder"
+                                      phx-value-folder-uuid={folder.uuid}
+                                    >
+                                      <.icon name="hero-pencil" class="w-4 h-4" /> Rename
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <div class="px-3 py-1.5">
+                                      <span class="text-xs font-semibold text-base-content/50 mb-1 block">
+                                        Color
+                                      </span>
+                                      <div class="flex flex-wrap gap-1">
+                                        <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
+                                          <button
+                                            phx-click="change_folder_color"
+                                            phx-value-folder-uuid={folder.uuid}
+                                            phx-value-color={color}
+                                            class={[
+                                              "w-4 h-4 rounded-full border-2 transition-transform hover:scale-125",
+                                              if(
+                                                folder.color == color ||
+                                                  (folder.color == nil && color == "default"),
+                                                do: "border-base-content scale-110",
+                                                else: "border-transparent"
+                                              )
+                                            ]}
+                                            style={"background-color: #{folder_color_hex(color) || "oklch(var(--wa))"}"}
+                                            title={color}
+                                          >
+                                          </button>
+                                        <% end %>
+                                      </div>
+                                    </div>
+                                  </li>
+                                  <li>
+                                    <button
+                                      phx-click="delete_folder"
+                                      phx-value-id={folder.uuid}
+                                      data-confirm={"Delete '#{folder.name}'? Files move to parent."}
+                                      class="text-error"
+                                    >
+                                      <.icon name="hero-trash" class="w-4 h-4" /> Delete
+                                    </button>
+                                  </li>
+                                </ul>
+                              </div>
+                            </td>
+                          </tr>
+                        <% end %>
+                      <% end %>
+                      <%!-- Files --%>
+                      <%= for file <- @uploaded_files do %>
                         <tr
-                          phx-click={
-                            if @select_mode, do: "toggle_select_folder", else: "navigate_folder"
-                          }
-                          phx-value-folder-uuid={folder.uuid}
-                          data-drop-folder={folder.uuid}
+                          data-draggable-file={file.file_uuid}
+                          phx-click="click_file"
+                          phx-value-file-uuid={file.file_uuid}
                           class={[
                             "hover cursor-pointer",
-                            @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
-                              "bg-primary/10"
+                            @select_mode &&
+                              MapSet.member?(@selected_files, file.file_uuid) && "bg-primary/10"
                           ]}
-                          style={folder_bg_style(folder.color)}
                         >
                           <%= if @select_mode do %>
                             <td>
                               <input
                                 type="checkbox"
                                 class="checkbox checkbox-primary checkbox-xs"
-                                checked={MapSet.member?(@selected_folders, folder.uuid)}
-                                phx-click="toggle_select_folder"
-                                phx-value-folder-uuid={folder.uuid}
+                                checked={MapSet.member?(@selected_files, file.file_uuid)}
+                                phx-click="toggle_select"
+                                phx-value-file-uuid={file.file_uuid}
                               />
                             </td>
                           <% end %>
                           <td>
-                            <div class="w-10 h-10 grid place-items-center">
-                              <span style={folder_icon_style(folder.color)}>
-                                <.icon name="hero-folder" class="w-6 h-6" />
-                              </span>
-                            </div>
-                          </td>
-                          <td colspan="3">
-                            <span class="font-medium text-sm">{folder.name}</span>
-                          </td>
-                          <td></td>
-                          <td>
-                            <div class="dropdown dropdown-end" phx-click="noop">
-                              <label tabindex="0" class="btn btn-ghost btn-xs">
-                                <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
-                              </label>
-                              <ul
-                                tabindex="0"
-                                class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-20 w-36 p-1"
-                              >
-                                <li>
-                                  <button
-                                    phx-click="start_rename_folder"
-                                    phx-value-folder-uuid={folder.uuid}
-                                  >
-                                    <.icon name="hero-pencil" class="w-4 h-4" /> Rename
-                                  </button>
-                                </li>
-                                <li>
-                                  <div class="px-3 py-1.5">
-                                    <span class="text-xs font-semibold text-base-content/50 mb-1 block">
-                                      Color
-                                    </span>
-                                    <div class="flex flex-wrap gap-1">
-                                      <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
-                                        <button
-                                          phx-click="change_folder_color"
-                                          phx-value-folder-uuid={folder.uuid}
-                                          phx-value-color={color}
-                                          class={[
-                                            "w-4 h-4 rounded-full border-2 transition-transform hover:scale-125",
-                                            if(
-                                              folder.color == color ||
-                                                (folder.color == nil && color == "default"),
-                                              do: "border-base-content scale-110",
-                                              else: "border-transparent"
-                                            )
-                                          ]}
-                                          style={"background-color: #{folder_color_hex(color) || "oklch(var(--wa))"}"}
-                                          title={color}
-                                        >
-                                        </button>
-                                      <% end %>
-                                    </div>
+                            <div class="w-10 h-10 rounded overflow-hidden bg-base-300 shrink-0">
+                              <.thumbnail_url :let={url} file={file} size={:small}>
+                                <%= if url do %>
+                                  <img
+                                    src={url}
+                                    class="w-full h-full object-cover"
+                                    alt={file.filename}
+                                  />
+                                <% else %>
+                                  <div class="grid place-items-center w-full h-full text-base-content/40">
+                                    <.icon
+                                      name={file_icon(file.file_type)}
+                                      class="w-5 h-5"
+                                    />
                                   </div>
-                                </li>
-                                <li>
-                                  <button
-                                    phx-click="delete_folder"
-                                    phx-value-id={folder.uuid}
-                                    data-confirm={"Delete '#{folder.name}'? Files move to parent."}
-                                    class="text-error"
-                                  >
-                                    <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                                  </button>
-                                </li>
-                              </ul>
+                                <% end %>
+                              </.thumbnail_url>
                             </div>
+                          </td>
+                          <td>
+                            <span class="font-medium text-sm">{file.filename}</span>
+                          </td>
+                          <td>
+                            <span class="badge badge-ghost badge-sm h-auto">
+                              {String.upcase(file.file_type)}
+                            </span>
+                          </td>
+                          <td class="text-sm text-base-content/70">
+                            {format_file_size(file.size)}
+                          </td>
+                          <td class="text-sm text-base-content/70">
+                            {Calendar.strftime(file.inserted_at, "%b %d, %Y")}
                           </td>
                         </tr>
                       <% end %>
-                    <% end %>
-                    <%!-- Files --%>
-                    <%= for file <- @uploaded_files do %>
-                      <tr
-                        data-draggable-file={file.file_uuid}
-                        phx-click="click_file"
-                        phx-value-file-uuid={file.file_uuid}
-                        class={[
-                          "hover cursor-pointer",
-                          @select_mode &&
-                            MapSet.member?(@selected_files, file.file_uuid) && "bg-primary/10"
-                        ]}
-                      >
-                        <%= if @select_mode do %>
-                          <td>
-                            <input
-                              type="checkbox"
-                              class="checkbox checkbox-primary checkbox-xs"
-                              checked={MapSet.member?(@selected_files, file.file_uuid)}
-                              phx-click="toggle_select"
-                              phx-value-file-uuid={file.file_uuid}
-                            />
-                          </td>
-                        <% end %>
-                        <td>
-                          <div class="w-10 h-10 rounded overflow-hidden bg-base-300 shrink-0">
-                            <.thumbnail_url :let={url} file={file} size={:small}>
-                              <%= if url do %>
-                                <img
-                                  src={url}
-                                  class="w-full h-full object-cover"
-                                  alt={file.filename}
-                                />
-                              <% else %>
-                                <div class="grid place-items-center w-full h-full text-base-content/40">
-                                  <.icon
-                                    name={file_icon(file.file_type)}
-                                    class="w-5 h-5"
-                                  />
-                                </div>
-                              <% end %>
-                            </.thumbnail_url>
-                          </div>
-                        </td>
-                        <td>
-                          <span class="font-medium text-sm">{file.filename}</span>
-                        </td>
-                        <td>
-                          <span class="badge badge-ghost badge-sm h-auto">
-                            {String.upcase(file.file_type)}
-                          </span>
-                        </td>
-                        <td class="text-sm text-base-content/70">
-                          {format_file_size(file.size)}
-                        </td>
-                        <td class="text-sm text-base-content/70">
-                          {Calendar.strftime(file.inserted_at, "%b %d, %Y")}
-                        </td>
-                      </tr>
-                    <% end %>
-                  </tbody>
-                </table>
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+              <% end %>
             <% end %>
 
             <%!-- Pagination --%>
