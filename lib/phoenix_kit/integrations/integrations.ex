@@ -64,8 +64,15 @@ defmodule PhoenixKit.Integrations do
       end
 
     case data do
-      nil -> {:error, :not_configured}
-      %{} = data -> {:ok, Encryption.decrypt_fields(data)}
+      nil ->
+        # Try legacy migration on first access
+        case maybe_migrate_legacy(provider_key) do
+          {:ok, migrated_data} -> {:ok, Encryption.decrypt_fields(migrated_data)}
+          _ -> {:error, :not_configured}
+        end
+
+      %{} = data ->
+        {:ok, Encryption.decrypt_fields(data)}
     end
   end
 
@@ -496,12 +503,15 @@ defmodule PhoenixKit.Integrations do
   """
   @spec validate_connection(String.t()) :: :ok | {:error, String.t()}
   def validate_connection(provider_key) do
-    with {:ok, data} <- get_credentials(provider_key),
-         provider when not is_nil(provider) <- Providers.get(provider_key) do
+    # Check if provider is known before checking credentials
+    provider = Providers.get(provider_key)
+
+    with true <- not is_nil(provider) || :unknown_provider,
+         {:ok, data} <- get_credentials(provider_key) do
       do_validate(provider, data)
     else
+      :unknown_provider -> {:error, gettext("Unknown provider")}
       {:error, _} -> {:error, gettext("Not configured")}
-      nil -> {:error, gettext("Unknown provider")}
     end
   rescue
     e ->
@@ -674,13 +684,10 @@ defmodule PhoenixKit.Integrations do
           :credentials -> has_custom_creds?(data)
         end
 
-      cond do
-        # OAuth with tokens is connected (verified by the OAuth flow itself)
-        provider.auth_type == :oauth2 and has_creds -> Map.put(data, "status", "connected")
-        # Other types with credentials are "configured" until validated
-        has_creds -> Map.put(data, "status", "configured")
-        # No credentials at all
-        true -> Map.put(data, "status", "disconnected")
+      if has_creds do
+        Map.put(data, "status", "connected")
+      else
+        Map.put(data, "status", "disconnected")
       end
     end
   end

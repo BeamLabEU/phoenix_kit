@@ -212,6 +212,7 @@ defmodule PhoenixKit.Integration.Users.PermissionsTest do
     end
 
     test "User scope reflects granted permissions" do
+      Permissions.register_custom_key("posts")
       user = create_standard_user()
       role_uuid = get_role_uuid("User")
 
@@ -221,6 +222,7 @@ defmodule PhoenixKit.Integration.Users.PermissionsTest do
       assert Scope.has_module_access?(scope, "dashboard")
       assert Scope.has_module_access?(scope, "posts")
       refute Scope.has_module_access?(scope, "settings")
+      Permissions.unregister_custom_key("posts")
     end
 
     test "Admin scope with explicit permissions" do
