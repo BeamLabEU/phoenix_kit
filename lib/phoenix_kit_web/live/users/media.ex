@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   import Ecto.Query
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.URLSigner
@@ -101,10 +102,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       )
 
     ~H"""
-    <li>
+    <li class="overflow-hidden">
       <div
         class={[
-          "flex items-center gap-0.5 rounded-lg px-1 py-1 hover:bg-base-200 transition-colors group",
+          "flex items-center gap-0.5 rounded-lg px-1 py-1 hover:bg-base-200 transition-colors group overflow-hidden min-w-0",
           @is_active && "font-semibold"
         ]}
         style={
@@ -133,30 +134,30 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           <form
             phx-submit="rename_folder"
             phx-change="rename_folder_input"
-            class="flex items-center gap-1 flex-1"
+            class="flex items-center gap-1.5 flex-1 min-w-0"
           >
             <input type="hidden" name="folder_uuid" value={@node.folder.uuid} />
+            <span style={folder_icon_style(@node.folder.color)}>
+              <.icon name="hero-folder" class="w-4 h-4 shrink-0" />
+            </span>
             <input
               type="text"
               name="name"
               value={@renaming_text}
-              class="input input-bordered input-xs flex-1 min-w-0"
-              autofocus
+              class="bg-transparent border-none outline-none text-sm flex-1 min-w-0 p-0 h-auto focus:outline-none focus:ring-0"
+              phx-mounted={JS.focus()}
               required
               phx-keydown="cancel_rename_folder"
               phx-key="Escape"
               phx-debounce="50"
             />
-            <button type="submit" class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5">
-              <.icon name="hero-check" class="w-3 h-3 text-success" />
-            </button>
           </form>
         <% else %>
           <%!-- Folder link --%>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/media?folder=#{@node.folder.uuid}")}
             data-drop-folder={@node.folder.uuid}
-            class="flex items-center gap-1.5 flex-1 truncate text-sm"
+            class="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden text-sm"
           >
             <span style={folder_icon_style(@node.folder.color, @is_active)}>
               <.icon
@@ -164,7 +165,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                 class="w-4 h-4 shrink-0"
               />
             </span>
-            <span class="truncate">
+            <span
+              class={[
+                "truncate block min-w-0",
+                @renaming_folder == @node.folder.uuid && !@is_renaming && "renaming-preview"
+              ]}
+              title={@node.folder.name}
+            >
               <%= if @renaming_folder == @node.folder.uuid && @renaming_text != "" do %>
                 {@renaming_text}
               <% else %>
@@ -188,7 +195,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       <%!-- Children (expanded or active with new folder) --%>
       <%= if (@has_children && @is_expanded) || (@is_active && @show_new_folder) do %>
         <ul
-          class="ml-3 border-l-2 pl-1"
+          class="ml-3 border-l-2 pl-1 overflow-hidden"
           style={"border-color: #{folder_color_hex(@node.folder.color) || "oklch(var(--bc) / 0.15)"}"}
         >
           <%= for child <- @node.children do %>
@@ -218,7 +225,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                   name="name"
                   placeholder="Folder name"
                   class="input input-bordered input-xs flex-1 min-w-0"
-                  autofocus
+                  phx-mounted={JS.focus()}
                   required
                   phx-keydown="toggle_new_folder"
                   phx-key="Escape"

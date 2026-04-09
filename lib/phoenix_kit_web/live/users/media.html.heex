@@ -15,6 +15,15 @@
   <style>
     [data-media-view="list"] [data-media-grid] { display: none !important; }
     [data-media-view="grid"] [data-media-list] { display: none !important; }
+    @keyframes rename-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .renaming-preview {
+      animation: rename-pulse 1.5s ease-in-out infinite;
+      color: oklch(var(--p));
+      font-style: italic;
+    }
   </style>
   <div class="container flex-col mx-auto px-4 py-6">
     <.admin_page_header
@@ -64,7 +73,10 @@
     <%!-- Main Layout: Sidebar + Content --%>
     <div class="flex gap-0">
       <%!-- Folder Sidebar --%>
-      <div class="hidden lg:block shrink-0">
+      <div
+        class="hidden lg:block shrink-0"
+        style={if !@sidebar_collapsed, do: "width: 240px; max-width: 240px;"}
+      >
         <%= if @sidebar_collapsed do %>
           <%!-- Collapsed strip --%>
           <div class="sticky top-4 w-10">
@@ -78,7 +90,10 @@
           </div>
         <% else %>
           <%!-- Expanded sidebar --%>
-          <div class="sticky top-4 w-60 border-r border-base-200 pr-3 mr-3">
+          <div
+            class="sticky top-4 border-r border-base-200 pr-3 mr-3 overflow-hidden"
+            style="width: 240px; max-width: 240px;"
+          >
             <div class="flex items-center justify-between mb-3">
               <h3 class="font-semibold text-sm text-base-content/70 uppercase tracking-wider">
                 Folders
@@ -119,7 +134,7 @@
             <div class="divider my-1 h-0"></div>
 
             <%!-- Folder Tree --%>
-            <ul class="space-y-0.5">
+            <ul class="space-y-0.5 w-full overflow-hidden">
               <%= for node <- @folder_tree do %>
                 <.folder_tree_node
                   node={node}
@@ -146,7 +161,7 @@
                       name="name"
                       placeholder="Folder name"
                       class="input input-bordered input-xs flex-1 min-w-0"
-                      autofocus
+                      phx-mounted={JS.focus()}
                       required
                       phx-keydown="toggle_new_folder"
                       phx-key="Escape"
@@ -366,7 +381,7 @@
                           name="name"
                           placeholder="Folder name"
                           class="input input-bordered input-xs w-full text-center"
-                          autofocus
+                          phx-mounted={JS.focus()}
                           required
                           phx-keydown="toggle_new_folder"
                           phx-key="Escape"
@@ -414,7 +429,7 @@
                             name="name"
                             value={@renaming_text}
                             class="input input-bordered input-xs w-full text-center"
-                            autofocus
+                            phx-mounted={JS.focus()}
                             required
                             phx-keydown="cancel_rename_folder"
                             phx-key="Escape"
@@ -426,12 +441,16 @@
                           navigate={
                             PhoenixKit.Utils.Routes.path("/admin/media?folder=#{folder.uuid}")
                           }
-                          class="flex flex-col items-center"
+                          class="flex flex-col items-center overflow-hidden w-full"
                         >
                           <span style={folder_icon_style(folder.color)}>
                             <.icon name="hero-folder" class="w-12 h-12 mb-1" />
                           </span>
-                          <p class="text-xs font-semibold text-center px-2 truncate w-full">
+                          <p class={[
+                            "text-xs font-semibold text-center px-2 truncate w-full",
+                            @renaming_folder == folder.uuid && @renaming_source != "content" &&
+                              "renaming-preview"
+                          ]}>
                             <%= if @renaming_folder == folder.uuid && @renaming_text != "" do %>
                               {@renaming_text}
                             <% else %>
@@ -615,7 +634,7 @@
                                 name="name"
                                 placeholder="Folder name"
                                 class="input input-bordered input-sm flex-1"
-                                autofocus
+                                phx-mounted={JS.focus()}
                                 required
                                 phx-keydown="toggle_new_folder"
                                 phx-key="Escape"
@@ -663,7 +682,7 @@
                                   name="name"
                                   value={@renaming_text}
                                   class="input input-bordered input-sm flex-1"
-                                  autofocus
+                                  phx-mounted={JS.focus()}
                                   required
                                   phx-keydown="cancel_rename_folder"
                                   phx-key="Escape"
@@ -716,7 +735,11 @@
                               </div>
                             </td>
                             <td colspan="5">
-                              <span class="font-medium text-sm">
+                              <span class={[
+                                "font-medium text-sm",
+                                @renaming_folder == folder.uuid && @renaming_source != "content" &&
+                                  "renaming-preview"
+                              ]}>
                                 <%= if @renaming_folder == folder.uuid && @renaming_text != "" do %>
                                   {@renaming_text}
                                 <% else %>
