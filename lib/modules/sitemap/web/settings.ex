@@ -17,7 +17,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Sitemap.FileStorage
   alias PhoenixKit.Modules.Sitemap.Generator
-  alias PhoenixKit.Modules.Sitemap.LLMText.Cache, as: LLMTextCache
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
@@ -57,7 +56,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       |> assign(:include_registration, Sitemap.include_registration?())
       |> assign(:publishing_split_by_group, Sitemap.publishing_split_by_group?())
       |> assign(:module_enabled, get_module_enabled_status())
-      |> assign(:llm_text_enabled, Sitemap.llm_text_enabled?())
 
     {:ok, socket}
   end
@@ -381,28 +379,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
-    end
-  end
-
-  # Handle PubSub message when sitemap generation completes
-  @impl true
-  def handle_event("toggle_llm_text", _params, socket) do
-    new_value = !socket.assigns.llm_text_enabled
-
-    case Settings.update_boolean_setting("sitemap_llm_text_enabled", new_value) do
-      {:ok, _} ->
-        LLMTextCache.invalidate()
-        config = Sitemap.get_config()
-        message = if new_value, do: "LLM Text enabled", else: "LLM Text disabled"
-
-        {:noreply,
-         socket
-         |> assign(:llm_text_enabled, new_value)
-         |> assign(:config, config)
-         |> put_flash(:info, message)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update LLM Text setting")}
     end
   end
 

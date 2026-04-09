@@ -91,7 +91,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       DbConnectionCheck,
       IgniterHelpers,
       JsIntegration,
-      LlmTextConfig,
       ObanConfig,
       RateLimiterConfig
     }
@@ -366,12 +365,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Ensure Oban configuration exists
       igniter = validate_and_add_oban_config(igniter)
-
-      # Ensure LLMText sources configuration exists
-      igniter = LlmTextConfig.ensure_llm_text_sources_config(igniter)
-
-      # Remove robots.txt from static_paths so PhoenixKit's dynamic route handles it
-      igniter = LlmTextConfig.remove_robots_from_static_paths(igniter)
 
       # CRITICAL FIX: Ensure correct supervisor ordering in application.ex
       # This must run AFTER add_oban_supervisor to fix installations with wrong order

@@ -1180,18 +1180,6 @@ defmodule PhoenixKitWeb.Integration do
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
 
-      # LLM text and robots.txt routes - must come BEFORE external_public_routes.
-      # Publishing registers /:group and /:group/*path catch-alls via external_public_routes;
-      # placing these routes here ensures they win over those patterns.
-      # /robots.txt — dynamic, appends LLM-File: directive (requires removal from Plug.Static).
-      # /llms.txt — on-the-fly index; /llms/*path — individual pages under /llms/ prefix
-      # to avoid conflict with Publishing's /:group/*path intercepting .md URLs.
-      scope "/" do
-        get "/robots.txt", PhoenixKit.Modules.Sitemap.LLMText.RobotsController, :index
-        get "/llms.txt", PhoenixKit.Modules.Sitemap.LLMText.Controller, :index
-        get "/llms/*path", PhoenixKit.Modules.Sitemap.LLMText.Controller, :show
-      end
-
       # External route modules with public routes
       unquote_splicing(external_public_routes)
     end

@@ -427,40 +427,6 @@
         </div>
       </div>
 
-      <%!-- LLM Text Section --%>
-      <div class="card bg-base-200 shadow-md">
-        <div class="card-body">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="card-title">
-                <.icon name="hero-document-text" class="w-5 h-5" /> LLM Text (llms.txt)
-              </h2>
-              <p class="text-sm text-base-content/60 mt-1">
-                Generate AI/LLM-friendly text files from published content.
-                Served at <code class="text-xs">/llms.txt</code>
-                and <code class="text-xs">/llms/*</code>.
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              class="toggle toggle-primary"
-              checked={@llm_text_enabled}
-              phx-click="toggle_llm_text"
-            />
-          </div>
-
-          <div :if={@llm_text_enabled} class="mt-4 flex flex-wrap gap-3">
-            <.link
-              href={Routes.path("/llms.txt", locale: :none)}
-              target="_blank"
-              class="btn btn-sm btn-ghost gap-1"
-            >
-              <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" /> View llms.txt
-            </.link>
-          </div>
-        </div>
-      </div>
-
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <%!-- Configuration Card --%>
         <div class="card bg-base-200 shadow-md">

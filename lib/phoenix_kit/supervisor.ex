@@ -73,8 +73,6 @@ defmodule PhoenixKit.Supervisor do
       ),
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
-      # LLM text ETS cache — must be supervised so the table outlives HTTP requests
-      PhoenixKit.Modules.Sitemap.LLMText.Cache,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)
       {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
       # OAuth config loader - now guaranteed to have critical settings in cache
