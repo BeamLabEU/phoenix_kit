@@ -1,10 +1,15 @@
 defmodule PhoenixKit.Migrations.Postgres.V94 do
   @moduledoc """
-  V94: Create media folders and folder links tables.
+  V94: Add Google Drive metadata columns to Document Creator tables.
 
-  Adds organizational folder hierarchy for media files.
-  Folders are metadata-only — storage buckets are unaware of them.
-  Files have one home folder; folder_links provide shortcuts to other folders.
+  Adds columns needed for local DB mirroring of Google Drive file metadata:
+  - `google_doc_id` (VARCHAR(255)) on templates, documents, and headers_footers
+  - `status` (VARCHAR(20), DEFAULT 'published') on documents (templates already have it)
+  - `path` (VARCHAR(500)) on templates and documents for the accepted folder path
+  - `folder_id` (VARCHAR(255)) on templates and documents for the accepted parent folder
+  - Partial unique indexes on `google_doc_id WHERE google_doc_id IS NOT NULL`
+
+  All operations are idempotent.
   """
 
   use Ecto.Migration
@@ -12,102 +17,171 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
   def up(opts) do
     prefix = Map.get(opts, :prefix, "public")
     p = prefix_str(prefix)
+    schema = if prefix == "public", do: "public", else: prefix
 
-    # Folders table
-    create_if_not_exists table(:phoenix_kit_media_folders,
-                           primary_key: false,
-                           prefix: prefix
-                         ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
-      add(:name, :string, null: false, size: 255)
-      add(:color, :string, size: 20)
-
-      add(
-        :parent_uuid,
-        references(:phoenix_kit_media_folders,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :nilify_all,
-          prefix: prefix
-        )
-      )
-
-      add(
-        :user_uuid,
-        references(:phoenix_kit_users,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :nothing,
-          prefix: prefix
-        )
-      )
-
-      add(:inserted_at, :utc_datetime, null: false, default: fragment("now()"))
-      add(:updated_at, :utc_datetime, null: false, default: fragment("now()"))
-    end
-
-    create_if_not_exists(index(:phoenix_kit_media_folders, [:parent_uuid], prefix: prefix))
-    create_if_not_exists(index(:phoenix_kit_media_folders, [:user_uuid], prefix: prefix))
-
-    # Unique folder name per parent (COALESCE handles NULL parent for root-level uniqueness)
+    # 1. Add google_doc_id to phoenix_kit_doc_templates
     execute("""
-    CREATE UNIQUE INDEX IF NOT EXISTS #{p}phoenix_kit_media_folders_name_parent_idx
-    ON #{p}phoenix_kit_media_folders (name, COALESCE(parent_uuid, '00000000-0000-0000-0000-000000000000'))
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_templates'
+          AND column_name = 'google_doc_id'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_templates
+          ADD COLUMN google_doc_id VARCHAR(255);
+      END IF;
+    END $$;
     """)
 
-    # Folder links (shortcuts)
-    create_if_not_exists table(:phoenix_kit_media_folder_links,
-                           primary_key: false,
-                           prefix: prefix
-                         ) do
-      add(:uuid, :uuid, primary_key: true, default: fragment("uuid_generate_v7()"))
+    # 2. Add google_doc_id to phoenix_kit_doc_documents
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_documents'
+          AND column_name = 'google_doc_id'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_documents
+          ADD COLUMN google_doc_id VARCHAR(255);
+      END IF;
+    END $$;
+    """)
 
-      add(
-        :folder_uuid,
-        references(:phoenix_kit_media_folders,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :delete_all,
-          prefix: prefix
-        ),
-        null: false
-      )
+    # 3. Add status to phoenix_kit_doc_documents
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_documents'
+          AND column_name = 'status'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_documents
+          ADD COLUMN status VARCHAR(20) DEFAULT 'published';
+      END IF;
+    END $$;
+    """)
 
-      add(
-        :file_uuid,
-        references(:phoenix_kit_files,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :delete_all,
-          prefix: prefix
-        ),
-        null: false
-      )
+    # 4. Add path to phoenix_kit_doc_templates
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_templates'
+          AND column_name = 'path'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_templates
+          ADD COLUMN path VARCHAR(500);
+      END IF;
+    END $$;
+    """)
 
-      add(:inserted_at, :utc_datetime, null: false, default: fragment("now()"))
-    end
+    # 5. Add folder_id to phoenix_kit_doc_templates
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_templates'
+          AND column_name = 'folder_id'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_templates
+          ADD COLUMN folder_id VARCHAR(255);
+      END IF;
+    END $$;
+    """)
 
-    create_if_not_exists(index(:phoenix_kit_media_folder_links, [:folder_uuid], prefix: prefix))
-    create_if_not_exists(index(:phoenix_kit_media_folder_links, [:file_uuid], prefix: prefix))
+    # 6. Add path to phoenix_kit_doc_documents
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_documents'
+          AND column_name = 'path'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_documents
+          ADD COLUMN path VARCHAR(500);
+      END IF;
+    END $$;
+    """)
 
-    create_if_not_exists(
-      unique_index(:phoenix_kit_media_folder_links, [:folder_uuid, :file_uuid], prefix: prefix)
-    )
+    # 7. Add folder_id to phoenix_kit_doc_documents
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_documents'
+          AND column_name = 'folder_id'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_documents
+          ADD COLUMN folder_id VARCHAR(255);
+      END IF;
+    END $$;
+    """)
 
-    # Add folder_uuid to files
-    alter table(:phoenix_kit_files, prefix: prefix) do
-      add_if_not_exists(
-        :folder_uuid,
-        references(:phoenix_kit_media_folders,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :nilify_all,
-          prefix: prefix
-        )
-      )
-    end
+    # 8. Add google_doc_id to phoenix_kit_doc_headers_footers
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = '#{schema}'
+          AND table_name = 'phoenix_kit_doc_headers_footers'
+          AND column_name = 'google_doc_id'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_doc_headers_footers
+          ADD COLUMN google_doc_id VARCHAR(255);
+      END IF;
+    END $$;
+    """)
 
-    create_if_not_exists(index(:phoenix_kit_files, [:folder_uuid], prefix: prefix))
+    # 9. Partial unique indexes on google_doc_id (only for non-null values)
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM pg_indexes
+        WHERE schemaname = '#{schema}'
+          AND tablename = 'phoenix_kit_doc_templates'
+          AND indexname = 'phoenix_kit_doc_templates_google_doc_id_unique_idx'
+      ) THEN
+        CREATE UNIQUE INDEX phoenix_kit_doc_templates_google_doc_id_unique_idx
+          ON #{p}phoenix_kit_doc_templates (google_doc_id)
+          WHERE google_doc_id IS NOT NULL;
+      END IF;
+    END $$;
+    """)
+
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM pg_indexes
+        WHERE schemaname = '#{schema}'
+          AND tablename = 'phoenix_kit_doc_documents'
+          AND indexname = 'phoenix_kit_doc_documents_google_doc_id_unique_idx'
+      ) THEN
+        CREATE UNIQUE INDEX phoenix_kit_doc_documents_google_doc_id_unique_idx
+          ON #{p}phoenix_kit_doc_documents (google_doc_id)
+          WHERE google_doc_id IS NOT NULL;
+      END IF;
+    END $$;
+    """)
+
+    # 10. Status index on documents
+    create_if_not_exists(index(:phoenix_kit_doc_documents, [:status], prefix: prefix))
 
     execute("COMMENT ON TABLE #{p}phoenix_kit IS '94'")
   end
@@ -116,18 +190,23 @@ defmodule PhoenixKit.Migrations.Postgres.V94 do
     prefix = Map.get(opts, :prefix, "public")
     p = prefix_str(prefix)
 
-    drop_if_exists(index(:phoenix_kit_files, [:folder_uuid], prefix: prefix))
+    drop_if_exists(index(:phoenix_kit_doc_documents, [:status], prefix: prefix))
 
-    alter table(:phoenix_kit_files, prefix: prefix) do
-      remove_if_exists(:folder_uuid, :uuid)
-    end
+    execute("DROP INDEX IF EXISTS #{p}phoenix_kit_doc_documents_google_doc_id_unique_idx")
+    execute("DROP INDEX IF EXISTS #{p}phoenix_kit_doc_templates_google_doc_id_unique_idx")
 
-    drop_if_exists(table(:phoenix_kit_media_folder_links, prefix: prefix))
-    drop_if_exists(table(:phoenix_kit_media_folders, prefix: prefix))
+    execute("ALTER TABLE #{p}phoenix_kit_doc_headers_footers DROP COLUMN IF EXISTS google_doc_id")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_documents DROP COLUMN IF EXISTS folder_id")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_documents DROP COLUMN IF EXISTS path")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_documents DROP COLUMN IF EXISTS status")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_documents DROP COLUMN IF EXISTS google_doc_id")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_templates DROP COLUMN IF EXISTS folder_id")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_templates DROP COLUMN IF EXISTS path")
+    execute("ALTER TABLE #{p}phoenix_kit_doc_templates DROP COLUMN IF EXISTS google_doc_id")
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '90'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '93'")
   end
 
-  defp prefix_str("public"), do: ""
+  defp prefix_str("public"), do: "public."
   defp prefix_str(prefix), do: "#{prefix}."
 end
