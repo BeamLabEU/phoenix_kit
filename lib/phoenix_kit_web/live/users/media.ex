@@ -55,6 +55,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:expanded_folders, MapSet.new())
       |> assign(:renaming_folder, nil)
       |> assign(:renaming_source, nil)
+      |> assign(:renaming_text, "")
       |> assign(:view_mode, "grid")
       |> assign(:search_query, "")
       |> assign(:select_mode, false)
@@ -69,6 +70,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   attr :current_folder, :any, required: true
   attr :expanded_folders, :any, required: true
   attr :renaming_folder, :any, required: true
+  attr :renaming_text, :string, default: ""
+  attr :show_new_folder, :boolean, default: false
   attr :renaming_source, :any, required: true
   attr :depth, :integer, default: 0
 
@@ -127,17 +130,22 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
         <%= if @is_renaming do %>
           <%!-- Inline rename form --%>
-          <form phx-submit="rename_folder" class="flex items-center gap-1 flex-1">
+          <form
+            phx-submit="rename_folder"
+            phx-change="rename_folder_input"
+            class="flex items-center gap-1 flex-1"
+          >
             <input type="hidden" name="folder_uuid" value={@node.folder.uuid} />
             <input
               type="text"
               name="name"
-              value={@node.folder.name}
+              value={@renaming_text}
               class="input input-bordered input-xs flex-1 min-w-0"
               autofocus
               required
               phx-keydown="cancel_rename_folder"
               phx-key="Escape"
+              phx-debounce="50"
             />
             <button type="submit" class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5">
               <.icon name="hero-check" class="w-3 h-3 text-success" />
@@ -156,7 +164,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                 class="w-4 h-4 shrink-0"
               />
             </span>
-            <span class="truncate">{@node.folder.name}</span>
+            <span class="truncate">
+              <%= if @renaming_folder == @node.folder.uuid && @renaming_text != "" do %>
+                {@renaming_text}
+              <% else %>
+                {@node.folder.name}
+              <% end %>
+            </span>
           </.link>
           <%!-- Rename button (visible on hover) --%>
           <button
@@ -171,8 +185,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         <% end %>
       </div>
 
-      <%!-- Children (only if expanded) --%>
-      <%= if @has_children && @is_expanded do %>
+      <%!-- Children (expanded or active with new folder) --%>
+      <%= if (@has_children && @is_expanded) || (@is_active && @show_new_folder) do %>
         <ul
           class="ml-3 border-l-2 pl-1"
           style={"border-color: #{folder_color_hex(@node.folder.color) || "oklch(var(--bc) / 0.15)"}"}
@@ -184,8 +198,33 @@ defmodule PhoenixKitWeb.Live.Users.Media do
               expanded_folders={@expanded_folders}
               renaming_folder={@renaming_folder}
               renaming_source={@renaming_source}
+              renaming_text={@renaming_text}
+              show_new_folder={@show_new_folder}
               depth={@depth + 1}
             />
+          <% end %>
+          <%= if @is_active && @show_new_folder do %>
+            <li>
+              <form
+                phx-submit="create_folder"
+                class="flex items-center gap-0.5 rounded-lg px-1 py-1"
+              >
+                <span class="w-5"></span>
+                <span class="text-warning">
+                  <.icon name="hero-folder-plus" class="w-4 h-4" />
+                </span>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Folder name"
+                  class="input input-bordered input-xs flex-1 min-w-0"
+                  autofocus
+                  required
+                  phx-keydown="toggle_new_folder"
+                  phx-key="Escape"
+                />
+              </form>
+            </li>
           <% end %>
         </ul>
       <% end %>
@@ -392,18 +431,25 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   def handle_event("start_rename_folder", %{"folder-uuid" => folder_uuid} = params, socket) do
     source = params["source"] || "content"
+    folder = Storage.get_folder(folder_uuid)
 
     {:noreply,
      socket
      |> assign(:renaming_folder, folder_uuid)
-     |> assign(:renaming_source, source)}
+     |> assign(:renaming_source, source)
+     |> assign(:renaming_text, (folder && folder.name) || "")}
+  end
+
+  def handle_event("rename_folder_input", %{"name" => name}, socket) do
+    {:noreply, assign(socket, :renaming_text, name)}
   end
 
   def handle_event("cancel_rename_folder", _params, socket) do
     {:noreply,
      socket
      |> assign(:renaming_folder, nil)
-     |> assign(:renaming_source, nil)}
+     |> assign(:renaming_source, nil)
+     |> assign(:renaming_text, "")}
   end
 
   def handle_event("rename_folder", %{"folder_uuid" => folder_uuid, "name" => name}, socket) do
@@ -412,10 +458,15 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     if folder && name != "" do
       case Storage.update_folder(folder, %{name: String.trim(name)}) do
         {:ok, _} ->
+          parent_uuid =
+            if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid
+
           socket =
             socket
             |> assign(:renaming_folder, nil)
             |> assign(:renaming_source, nil)
+            |> assign(:renaming_text, "")
+            |> assign(:folders, Storage.list_folders(parent_uuid))
             |> assign(:folder_tree, Storage.list_all_folders() |> Storage.build_folder_tree())
 
           {:noreply, socket}
@@ -427,7 +478,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       {:noreply,
        socket
        |> assign(:renaming_folder, nil)
-       |> assign(:renaming_source, nil)}
+       |> assign(:renaming_source, nil)
+       |> assign(:renaming_text, "")}
     end
   end
 
