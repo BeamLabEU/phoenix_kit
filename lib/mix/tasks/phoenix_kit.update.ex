@@ -97,7 +97,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.Migrations.UUIDRepair
-    alias PhoenixKit.Utils.Routes
+    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
+    # application config that isn't available during mix task execution.
 
     @shortdoc "Updates PhoenixKit to the latest version"
 
@@ -564,7 +565,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           After update completes:
             1. Run migrations if not done automatically: mix ecto.migrate
             2. Restart your Phoenix server: mix phx.server
-            3. Visit your application: #{Routes.path("/users/register")}
+            3. Visit your application: #{build_app_path(opts, "/users/register")}
           """
 
       Igniter.add_notice(igniter, final_instructions)
@@ -835,7 +836,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             # Run the newly generated migration
             Mix.Task.reenable("ecto.migrate")
-            Mix.Task.run("ecto.migrate")
+
+            case resolve_host_repo() do
+              nil -> Mix.Task.run("ecto.migrate")
+              repo -> Mix.Task.run("ecto.migrate", ["-r", repo])
+            end
 
             Mix.shell().info("✅ #{name} migrated to V#{pad_version(target)}")
           else
@@ -1025,8 +1030,19 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         #
         # Re-enable the task first since Mix tracks which tasks have run
         # and ecto.migrate may have been invoked earlier in the session.
+        #
+        # Pass -r flag with the host app's repo explicitly, because
+        # Mix.Task.run("ecto.migrate") without -r may pick up phoenix_kit
+        # (which has ecto_repos: []) and skip the migration entirely.
         Mix.Task.reenable("ecto.migrate")
-        Mix.Task.run("ecto.migrate")
+
+        case resolve_host_repo() do
+          nil ->
+            Mix.Task.run("ecto.migrate")
+
+          repo ->
+            Mix.Task.run("ecto.migrate", ["-r", repo])
+        end
 
         Mix.shell().info("\n✅ Migration completed successfully!")
         show_update_success_notice()
@@ -1040,8 +1056,28 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # Show success notice after update
     defp show_update_success_notice do
       Mix.shell().info("""
-      🎉 PhoenixKit updated successfully! Visit: #{Routes.path("/users/register")}
+      🎉 PhoenixKit updated successfully! Visit: #{build_app_path("/users/register")}
       """)
+    end
+
+    defp build_app_path(opts \\ [], path) do
+      prefix = if is_list(opts), do: opts[:prefix] || "public", else: "public"
+      base = if prefix == "public", do: "", else: "/#{prefix}"
+      "#{base}#{path}"
+    end
+
+    # Resolve the host application's Ecto repo module name as a string.
+    # Returns nil if no repo is found (falls back to default ecto.migrate behaviour).
+    defp resolve_host_repo do
+      app_name = Mix.Project.config()[:app]
+      repos = Application.get_env(app_name, :ecto_repos, [])
+
+      case repos do
+        [repo | _] -> inspect(repo)
+        _ -> nil
+      end
+    rescue
+      _ -> nil
     end
 
     # Show manual migration instructions

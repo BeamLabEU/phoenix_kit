@@ -66,7 +66,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       RouterIntegration
     }
 
-    alias PhoenixKit.Utils.Routes
+    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
+    # application config that isn't available during mix task execution.
 
     @impl Igniter.Mix.Task
     def info(_argv, _composing_task) do
@@ -417,7 +418,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ✅ PhoenixKit ready! Next:
         • mix ecto.migrate
         • mix phx.server
-        • Visit #{Routes.path("/users/register")}
+        • Visit /users/register (or with your configured URL prefix)
         • Test: /test-current-user, /test-ensure-auth
       """
 
