@@ -646,7 +646,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Check if we can run migrations safely
       case check_migration_conditions() do
         :ok ->
-          run_interactive_migration_prompt_update(yes)
+          run_interactive_migration_prompt_update(yes, opts)
 
         {:error, reason} ->
           if yes do
@@ -655,7 +655,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               "\n⚠️  Migration conditions not optimal (#{reason}), but running due to -y flag..."
             )
 
-            run_migration_with_feedback()
+            run_migration_with_feedback(opts)
           else
             Mix.shell().info("""
 
@@ -668,11 +668,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Prompt user for migration execution (update-specific)
-    defp run_interactive_migration_prompt_update(yes) do
+    defp run_interactive_migration_prompt_update(yes, opts) do
       if yes do
         # Skip prompt and run migration directly
         Mix.shell().info("\n🚀 Running database migration automatically (--yes flag)...")
-        run_migration_with_feedback()
+        run_migration_with_feedback(opts)
       else
         Mix.shell().info("""
 
@@ -688,7 +688,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
              |> String.trim()
              |> String.downcase() do
           response when response in ["", "y", "yes"] ->
-            run_migration_with_feedback()
+            run_migration_with_feedback(opts)
 
           _ ->
             Mix.shell().info("""
@@ -1018,7 +1018,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Execute migration with feedback
-    defp run_migration_with_feedback do
+    defp run_migration_with_feedback(opts) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
@@ -1045,7 +1045,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         end
 
         Mix.shell().info("\n✅ Migration completed successfully!")
-        show_update_success_notice()
+        show_update_success_notice(opts)
       rescue
         error ->
           Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
@@ -1054,13 +1054,13 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Show success notice after update
-    defp show_update_success_notice do
+    defp show_update_success_notice(opts) do
       Mix.shell().info("""
-      🎉 PhoenixKit updated successfully! Visit: #{build_app_path("/users/register")}
+      🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
       """)
     end
 
-    defp build_app_path(opts \\ [], path) do
+    defp build_app_path(opts, path) do
       prefix = if is_list(opts), do: opts[:prefix] || "public", else: "public"
       base = if prefix == "public", do: "", else: "/#{prefix}"
       "#{base}#{path}"
@@ -1077,7 +1077,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         _ -> nil
       end
     rescue
-      _ -> nil
+      ArgumentError -> nil
     end
 
     # Show manual migration instructions
