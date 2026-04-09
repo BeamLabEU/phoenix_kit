@@ -450,15 +450,6 @@
           </div>
 
           <div :if={@llm_text_enabled} class="mt-4 flex flex-wrap gap-3">
-            <button
-              class={"btn btn-sm btn-outline #{if @llm_text_generating, do: "loading"}"}
-              phx-click="regenerate_llm_text"
-              disabled={@llm_text_generating}
-            >
-              <.icon :if={!@llm_text_generating} name="hero-arrow-path" class="w-4 h-4 mr-1" />
-              Regenerate LLM Text
-            </button>
-
             <.link
               href={Routes.path("/llms.txt", locale: :none)}
               target="_blank"

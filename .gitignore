@@ -103,8 +103,7 @@ yarn-error.log*
 /priv/static/sitemaps/
 
 # Generated LLM text files (created at runtime, not in repo)
-/priv/static/llms/legal/
-/priv/static/llms/shop/
+/priv/static/llms/
 
 # Ignore personal notes
 NOTES.md

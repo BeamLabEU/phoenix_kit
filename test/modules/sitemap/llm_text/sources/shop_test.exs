@@ -16,6 +16,26 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.ShopTest do
     end
   end
 
+  describe "collect_index_entries/1" do
+    test "returns [] when disabled" do
+      assert Shop.collect_index_entries("en") == []
+    end
+
+    test "returns [] for nil language when disabled" do
+      assert Shop.collect_index_entries(nil) == []
+    end
+  end
+
+  describe "serve_page/2" do
+    test "returns :not_found when disabled" do
+      assert Shop.serve_page(["shop", "product", "some-product.md"], "en") == :not_found
+    end
+
+    test "returns :not_found for unrecognized path when disabled" do
+      assert Shop.serve_page(["unknown"], "en") == :not_found
+    end
+  end
+
   describe "extract_localized/3" do
     test "extracts value for the given language" do
       assert Shop.extract_localized(%{"en" => "hello", "et" => "tere"}, "en", "fallback") ==

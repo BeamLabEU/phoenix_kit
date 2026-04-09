@@ -1,7 +1,6 @@
 defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
   use ExUnit.Case, async: false
 
-  alias PhoenixKit.Modules.Sitemap.LLMText.FileStorage
   alias PhoenixKit.Modules.Sitemap.LLMText.Generator
 
   defmodule StubSource do
@@ -10,7 +9,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
     def source_name, do: :stub
     def enabled?, do: true
 
-    def collect_index_entries do
+    def collect_index_entries(_language) do
       [
         %{title: "Home", url: "/", description: "Home page", group: "General"},
         %{title: "About", url: "/about", description: "About us", group: "General"},
@@ -18,12 +17,7 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
       ]
     end
 
-    def collect_page_files do
-      [
-        {"home.md", "# Home\nWelcome"},
-        {"about.md", "# About\nAbout us"}
-      ]
-    end
+    def serve_page(_path_parts, _language), do: :not_found
   end
 
   defmodule DisabledSource do
@@ -32,24 +26,20 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
     def source_name, do: :disabled_stub
     def enabled?, do: false
 
-    def collect_index_entries,
+    def collect_index_entries(_language),
       do: [%{title: "Hidden", url: "/hidden", description: "Hidden", group: "Hidden"}]
 
-    def collect_page_files, do: [{"hidden.md", "# Hidden"}]
+    def serve_page(_path_parts, _language), do: :not_found
   end
 
   setup do
-    tmp_dir = System.tmp_dir!() |> Path.join("llm_text_gen_test_#{:rand.uniform(1_000_000)}")
-    Application.put_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir, tmp_dir)
     Application.put_env(:phoenix_kit, :sitemap_llm_text_sources, [StubSource])
 
     on_exit(fn ->
-      Application.delete_env(:phoenix_kit, :sitemap_llm_text_test_storage_dir)
       Application.delete_env(:phoenix_kit, :sitemap_llm_text_sources)
-      File.rm_rf(tmp_dir)
     end)
 
-    {:ok, tmp_dir: tmp_dir}
+    :ok
   end
 
   describe "build_index_content/1" do
@@ -96,46 +86,28 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.GeneratorTest do
     end
   end
 
-  describe "run_all/0" do
-    test "writes page files from all enabled sources" do
-      :ok = Generator.run_all()
-      assert FileStorage.exists?("home.md")
-      assert FileStorage.exists?("about.md")
+  describe "build_index/1" do
+    test "returns string content for default language" do
+      content = Generator.build_index()
+      assert is_binary(content)
+      assert content =~ "Home"
     end
 
-    test "writes llms.txt index" do
-      :ok = Generator.run_all()
-      assert File.exists?(FileStorage.index_path())
-      content = File.read!(FileStorage.index_path())
-      assert content =~ "Home"
+    test "returns string content for specific language" do
+      content = Generator.build_index("en")
+      assert is_binary(content)
     end
 
     test "skips disabled sources" do
       Application.put_env(:phoenix_kit, :sitemap_llm_text_sources, [StubSource, DisabledSource])
-      :ok = Generator.run_all()
-      refute FileStorage.exists?("hidden.md")
-    end
-  end
-
-  describe "run_source/1" do
-    test "writes files for the given source" do
-      :ok = Generator.run_source(StubSource)
-      assert FileStorage.exists?("home.md")
-      assert FileStorage.exists?("about.md")
+      content = Generator.build_index()
+      refute content =~ "Hidden"
     end
 
-    test "rebuilds index after running source" do
-      :ok = Generator.run_source(StubSource)
-      assert File.exists?(FileStorage.index_path())
-    end
-  end
-
-  describe "rebuild_index/0" do
-    test "writes llms.txt with entries from all enabled sources" do
-      :ok = Generator.rebuild_index()
-      content = File.read!(FileStorage.index_path())
-      assert content =~ "Home"
-      assert content =~ "Blog"
+    test "returns string when no sources configured" do
+      Application.delete_env(:phoenix_kit, :sitemap_llm_text_sources)
+      content = Generator.build_index()
+      assert is_binary(content)
     end
   end
 

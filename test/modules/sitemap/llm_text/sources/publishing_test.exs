@@ -15,17 +15,6 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.PublishingTest do
     end
   end
 
-  describe "build_file_path/2" do
-    test "builds path as group_slug/post_slug.txt" do
-      assert Publishing.build_file_path("blog", "hello-world") == "blog/hello-world.txt"
-    end
-
-    test "works with any group and slug" do
-      assert Publishing.build_file_path("news", "2024-01-15-10-30") ==
-               "news/2024-01-15-10-30.txt"
-    end
-  end
-
   describe "extract_description/1" do
     test "returns metadata.description atom key when present" do
       post = %{metadata: %{description: "A great post", status: "published"}, content: "body"}

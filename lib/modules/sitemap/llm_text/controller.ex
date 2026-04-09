@@ -15,33 +15,44 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Controller do
   require Logger
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Sitemap
+  alias PhoenixKit.Modules.Sitemap.LLMText.Cache
   alias PhoenixKit.Modules.Sitemap.LLMText.Generator
   alias PhoenixKit.Modules.Sitemap.LLMText.Sources.Source
 
   def index(conn, _params) do
-    language = get_default_language()
-    content = Generator.build_index(language)
+    if Sitemap.llm_text_enabled?() do
+      language = get_default_language()
+      content = Cache.fetch({:index, language}, fn -> Generator.build_index(language) end)
 
-    conn
-    |> put_resp_content_type("text/plain; charset=utf-8")
-    |> send_resp(200, content)
+      conn
+      |> put_resp_content_type("text/plain; charset=utf-8")
+      |> send_resp(200, content)
+    else
+      send_resp(conn, 404, "Not found")
+    end
   end
 
   def show(conn, %{"path" => path_parts}) when is_list(path_parts) do
-    if String.contains?(Path.join(path_parts), "..") do
-      conn
-      |> put_resp_content_type("text/plain; charset=utf-8")
-      |> send_resp(400, "Bad request")
-    else
-      {language, content_path} = extract_language(path_parts)
-      dispatch(conn, language, content_path)
+    cond do
+      not Sitemap.llm_text_enabled?() ->
+        send_resp(conn, 404, "Not found")
+
+      String.contains?(Path.join(path_parts), "..") ->
+        conn
+        |> put_resp_content_type("text/plain; charset=utf-8")
+        |> send_resp(400, "Bad request")
+
+      true ->
+        {language, content_path} = extract_language(path_parts)
+        dispatch(conn, language, content_path)
     end
   end
 
   # Private
 
   defp dispatch(conn, language, ["llms.txt"]) do
-    content = Generator.build_index(language)
+    content = Cache.fetch({:index, language}, fn -> Generator.build_index(language) end)
 
     conn
     |> put_resp_content_type("text/plain; charset=utf-8")
@@ -52,32 +63,37 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Controller do
     last = List.last(content_path, "")
 
     if String.ends_with?(last, ".md") do
-      sources = Generator.get_sources()
-
-      result =
-        Enum.find_value(sources, fn source_mod ->
-          case Source.safe_serve_page(source_mod, content_path, language) do
-            {:ok, content} -> {:ok, content}
-            :not_found -> nil
-          end
-        end)
-
-      case result do
-        {:ok, content} ->
-          conn
-          |> put_resp_content_type("text/markdown; charset=utf-8")
-          |> send_resp(200, content)
-
-        nil ->
-          conn
-          |> put_resp_content_type("text/plain; charset=utf-8")
-          |> send_resp(404, "Not found")
-      end
+      result = fetch_page(content_path, language)
+      serve_page_result(conn, result)
     else
       conn
       |> put_resp_content_type("text/plain; charset=utf-8")
       |> send_resp(404, "Not found")
     end
+  end
+
+  defp fetch_page(content_path, language) do
+    Cache.fetch({:page, content_path, language}, fn ->
+      Generator.get_sources()
+      |> Enum.find_value(fn source_mod ->
+        case Source.safe_serve_page(source_mod, content_path, language) do
+          {:ok, content} -> {:ok, content}
+          :not_found -> nil
+        end
+      end)
+    end)
+  end
+
+  defp serve_page_result(conn, {:ok, content}) do
+    conn
+    |> put_resp_content_type("text/markdown; charset=utf-8")
+    |> send_resp(200, content)
+  end
+
+  defp serve_page_result(conn, _not_found) do
+    conn
+    |> put_resp_content_type("text/plain; charset=utf-8")
+    |> send_resp(404, "Not found")
   end
 
   defp extract_language([first | rest] = all_parts) do

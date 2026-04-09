@@ -10,10 +10,11 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.SourceTest do
     def source_name, do: :valid_stub
     def enabled?, do: true
 
-    def collect_index_entries,
+    def collect_index_entries(_language),
       do: [%{title: "Page", url: "/page", description: "Desc", group: "General"}]
 
-    def collect_page_files, do: [{"page.md", "# Page\nContent"}]
+    def serve_page(["page.md"], _language), do: {:ok, "# Page\nContent"}
+    def serve_page(_, _), do: :not_found
   end
 
   # A disabled source
@@ -23,10 +24,10 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.SourceTest do
     def source_name, do: :disabled_stub
     def enabled?, do: false
 
-    def collect_index_entries,
+    def collect_index_entries(_language),
       do: [%{title: "Hidden", url: "/hidden", description: "Hidden", group: "Hidden"}]
 
-    def collect_page_files, do: [{"hidden.md", "# Hidden"}]
+    def serve_page(_, _), do: {:ok, "# Hidden"}
   end
 
   # A crashing source
@@ -35,8 +36,8 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.SourceTest do
 
     def source_name, do: :crashing_stub
     def enabled?, do: true
-    def collect_index_entries, do: raise("collect_index_entries crash")
-    def collect_page_files, do: raise("collect_page_files crash")
+    def collect_index_entries(_language), do: raise("collect_index_entries crash")
+    def serve_page(_, _), do: raise("serve_page crash")
   end
 
   # An invalid module (missing callbacks)
@@ -62,42 +63,57 @@ defmodule PhoenixKit.Modules.Sitemap.LLMText.Sources.SourceTest do
     end
   end
 
-  describe "safe_collect_page_files/1" do
-    test "returns files when source is valid and enabled" do
-      result = Source.safe_collect_page_files(ValidSource)
-      assert result == [{"page.md", "# Page\nContent"}]
-    end
-
-    test "returns [] when source is disabled" do
-      result = Source.safe_collect_page_files(DisabledSource)
-      assert result == []
-    end
-
-    test "returns [] when source crashes" do
-      result = Source.safe_collect_page_files(CrashingSource)
-      assert result == []
-    end
-
-    test "returns [] for invalid module" do
-      result = Source.safe_collect_page_files(InvalidSource)
-      assert result == []
-    end
-  end
-
-  describe "safe_collect_index_entries/1" do
+  describe "safe_collect_index_entries/2" do
     test "returns entries when source is valid and enabled" do
-      result = Source.safe_collect_index_entries(ValidSource)
+      result = Source.safe_collect_index_entries(ValidSource, "en")
       assert [%{title: "Page", url: "/page"}] = result
     end
 
     test "returns [] when source is disabled" do
-      result = Source.safe_collect_index_entries(DisabledSource)
+      result = Source.safe_collect_index_entries(DisabledSource, "en")
       assert result == []
     end
 
     test "returns [] when source crashes" do
-      result = Source.safe_collect_index_entries(CrashingSource)
+      result = Source.safe_collect_index_entries(CrashingSource, "en")
       assert result == []
+    end
+
+    test "returns [] for invalid module" do
+      result = Source.safe_collect_index_entries(InvalidSource, "en")
+      assert result == []
+    end
+
+    test "accepts nil language" do
+      result = Source.safe_collect_index_entries(ValidSource, nil)
+      assert [%{title: "Page"}] = result
+    end
+  end
+
+  describe "safe_serve_page/3" do
+    test "returns {:ok, content} when source is valid and enabled" do
+      result = Source.safe_serve_page(ValidSource, ["page.md"], "en")
+      assert {:ok, _content} = result
+    end
+
+    test "returns :not_found when source is disabled" do
+      result = Source.safe_serve_page(DisabledSource, ["hidden.md"], "en")
+      assert result == :not_found
+    end
+
+    test "returns :not_found when source crashes" do
+      result = Source.safe_serve_page(CrashingSource, ["some.md"], "en")
+      assert result == :not_found
+    end
+
+    test "returns :not_found for invalid module" do
+      result = Source.safe_serve_page(InvalidSource, ["page.md"], "en")
+      assert result == :not_found
+    end
+
+    test "accepts nil language" do
+      result = Source.safe_serve_page(ValidSource, ["page.md"], nil)
+      assert {:ok, _content} = result
     end
   end
 end

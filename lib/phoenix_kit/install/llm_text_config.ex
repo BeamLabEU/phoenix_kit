@@ -4,6 +4,10 @@ defmodule PhoenixKit.Install.LlmTextConfig do
 
   Ensures that `sitemap_llm_text_sources` is configured in the parent app's
   config/config.exs with the Publishing source as a minimum.
+
+  Also removes `robots.txt` from `static_paths/0` / `Plug.Static only:` so that
+  PhoenixKit's dynamic `/robots.txt` route (which injects the `LLM-File:` directive)
+  is reachable instead of the static file.
   """
 
   @doc """
@@ -81,6 +85,36 @@ defmodule PhoenixKit.Install.LlmTextConfig do
         end
 
       Rewrite.Source.update(source, :content, updated_content)
+    end)
+  rescue
+    _ -> igniter
+  end
+
+  @doc """
+  Removes `robots.txt` from the parent app's `static_paths/0` so that
+  PhoenixKit's dynamic `/robots.txt` route takes over.
+
+  Accepts an Igniter struct and returns the updated Igniter.
+  """
+  @spec remove_robots_from_static_paths(igniter :: term()) :: term()
+  def remove_robots_from_static_paths(igniter) do
+    web_files = Path.wildcard("lib/*_web.ex")
+    token = "robots.txt"
+
+    Enum.reduce(web_files, igniter, fn file, acc ->
+      Igniter.update_file(acc, file, fn source ->
+        content = Rewrite.Source.get(source, :content)
+
+        # Remove the token with any surrounding whitespace inside ~w() sigil lists.
+        # Handles: "robots.txt ", " robots.txt", "robots.txt" (alone or with neighbours).
+        updated =
+          content
+          |> String.replace(" " <> token, "")
+          |> String.replace(token <> " ", "")
+          |> String.replace(token, "")
+
+        Rewrite.Source.update(source, :content, updated)
+      end)
     end)
   rescue
     _ -> igniter

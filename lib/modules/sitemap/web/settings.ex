@@ -17,6 +17,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
   alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Sitemap.FileStorage
   alias PhoenixKit.Modules.Sitemap.Generator
+  alias PhoenixKit.Modules.Sitemap.LLMText.Cache, as: LLMTextCache
   alias PhoenixKit.Modules.Sitemap.SchedulerWorker
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
@@ -390,6 +391,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
     case Settings.update_boolean_setting("sitemap_llm_text_enabled", new_value) do
       {:ok, _} ->
+        LLMTextCache.invalidate()
         config = Sitemap.get_config()
         message = if new_value, do: "LLM Text enabled", else: "LLM Text disabled"
 
