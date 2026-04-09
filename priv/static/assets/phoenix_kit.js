@@ -1617,6 +1617,134 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
+  // 5b. ROW MENU AUTO HOOK
+  // ============================================================================
+  //
+  // Smart auto-collapsing row menu: shows inline buttons when they fit in the
+  // available space, collapses into a ⋮ dropdown when they overflow.
+  // Uses ResizeObserver for dynamic detection — no fixed breakpoints.
+  //
+  window.PhoenixKitHooks.RowMenuAuto = {
+    mounted() {
+      this.inlineEl = this.el.querySelector("[data-row-menu-inline]");
+      this.dropdownEl = this.el.querySelector("[data-row-menu-dropdown]");
+      this.trigger = this.el.querySelector("[data-row-menu-trigger]");
+      this.menu = this.el.querySelector("[data-row-menu-content]");
+      this.isOpen = false;
+
+      if (!this.inlineEl || !this.dropdownEl) return;
+
+      // Start with both hidden
+      this.inlineEl.classList.add("hidden");
+      this.dropdownEl.classList.add("hidden");
+
+      // Set up dropdown click handlers
+      this._onTriggerClick = (e) => {
+        e.stopPropagation();
+        this.isOpen ? this._closeMenu() : this._openMenu();
+      };
+      this._onOutsideClick = (e) => {
+        if (!this.el.contains(e.target)) this._closeMenu();
+      };
+      this._onKeydown = (e) => {
+        if (e.key === "Escape") {
+          this._closeMenu();
+          if (this.trigger) this.trigger.focus();
+        }
+      };
+      this._onMenuClick = () => { this._closeMenu(); };
+
+      if (this.trigger) this.trigger.addEventListener("click", this._onTriggerClick);
+      if (this.menu) this.menu.addEventListener("click", this._onMenuClick);
+
+      // Listen to window resize
+      this._onResize = () => this._check();
+      window.addEventListener("resize", this._onResize);
+
+      // Initial check
+      this._check();
+    },
+
+    updated() {
+      this._check();
+    },
+
+    _check() {
+      if (!this.inlineEl || !this.dropdownEl) return;
+
+      var table = this.el.closest("table");
+      var scrollContainer = table ? table.parentElement : null;
+      if (!table || !scrollContainer) {
+        // Not in a table — show dropdown as fallback
+        this.inlineEl.classList.add("hidden");
+        this.dropdownEl.classList.remove("hidden");
+        return;
+      }
+
+      // Step 1: show inline, hide dropdown
+      this.inlineEl.classList.remove("hidden");
+      this.dropdownEl.classList.add("hidden");
+
+      // Step 2: check if showing inline causes the table to overflow
+      if (table.scrollWidth > scrollContainer.clientWidth) {
+        // Overflows — switch to dropdown
+        this.inlineEl.classList.add("hidden");
+        this.dropdownEl.classList.remove("hidden");
+      }
+      // else: fits, keep inline showing
+    },
+
+    _openMenu() {
+      if (!this.menu || !this.trigger) return;
+
+      var triggerRect = this.trigger.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var gap = 4;
+
+      this.menu.classList.remove("hidden");
+      var menuWidth = this.menu.offsetWidth || 160;
+      var menuHeight = this.menu.offsetHeight || 200;
+
+      var left = triggerRect.right - menuWidth;
+      if (left < 8) left = triggerRect.left;
+      left = Math.max(8, Math.min(left, vw - menuWidth - 8));
+
+      var top = triggerRect.bottom + gap;
+      if (top + menuHeight > vh - 8 && triggerRect.top - menuHeight - gap > 8) {
+        top = triggerRect.top - menuHeight - gap;
+      }
+      top = Math.max(8, Math.min(top, vh - menuHeight - 8));
+
+      this.menu.style.top = top + "px";
+      this.menu.style.left = left + "px";
+
+      this.isOpen = true;
+      this.trigger.setAttribute("aria-expanded", "true");
+
+      document.addEventListener("click", this._onOutsideClick, true);
+      document.addEventListener("keydown", this._onKeydown);
+    },
+
+    _closeMenu() {
+      if (!this.isOpen || !this.menu) return;
+      this.menu.classList.add("hidden");
+      this.isOpen = false;
+      if (this.trigger) this.trigger.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", this._onOutsideClick, true);
+      document.removeEventListener("keydown", this._onKeydown);
+    },
+
+    destroyed() {
+      this._closeMenu();
+      if (this._onResize) window.removeEventListener("resize", this._onResize);
+      if (this.trigger) this.trigger.removeEventListener("click", this._onTriggerClick);
+      if (this.menu) this.menu.removeEventListener("click", this._onMenuClick);
+    }
+  };
+
+
+  // ============================================================================
   // 6. EMAIL CHARTS HOOK
   // ============================================================================
   //
@@ -1831,6 +1959,28 @@ if (typeof window.Chart === "undefined") {
       }
     };
   })();
+
+
+  // ============================================================================
+  // INTEGRATION PICKER SEARCH HOOK
+  // ============================================================================
+
+  window.PhoenixKitHooks.IntegrationPickerSearch = {
+    mounted() {
+      this.el.addEventListener("input", function(e) {
+        var query = e.target.value.toLowerCase();
+        var pickerId = e.target.dataset.pickerId;
+        var picker = document.getElementById(pickerId);
+        if (!picker) return;
+
+        var cards = picker.querySelectorAll("button[data-search-text]");
+        cards.forEach(function(card) {
+          var text = card.getAttribute("data-search-text") || "";
+          card.style.display = (query === "" || text.indexOf(query) !== -1) ? "" : "none";
+        });
+      });
+    }
+  };
 
 
   // ============================================================================

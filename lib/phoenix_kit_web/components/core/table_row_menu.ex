@@ -80,7 +80,11 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   def table_row_menu(%{mode: "inline"} = assigns) do
     ~H"""
     <div
-      class={["inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]}
+      class={[
+        "inline-flex flex-nowrap items-center gap-0.5 row-menu-inline",
+        "[&>li]:list-none [&>li]:inline-flex",
+        @class
+      ]}
       role="group"
       aria-label={@label}
     >
@@ -90,42 +94,12 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   end
 
   def table_row_menu(%{mode: "auto"} = assigns) do
-    ~H"""
-    <%!-- Inline buttons: visible on md+ --%>
-    <div
-      class={["hidden md:inline-flex flex-nowrap items-center gap-0.5 row-menu-inline", @class]}
-      role="group"
-      aria-label={@label}
-    >
-      {render_slot(@inner_block)}
-    </div>
-    <%!-- Dropdown menu: visible on mobile only --%>
-    <div
-      id={@id}
-      phx-hook="RowMenu"
-      class={["relative inline-block md:hidden", @class]}
-      data-row-menu-wrapper
-    >
-      <button
-        type="button"
-        data-row-menu-trigger
-        aria-label={@label}
-        aria-expanded="false"
-        aria-haspopup="menu"
-        class="btn btn-xs btn-ghost btn-circle"
-      >
-        <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
-      </button>
-      <ul
-        data-row-menu-content
-        role="menu"
-        class="hidden fixed z-[9999] min-w-[10rem] rounded-box bg-base-100 border border-base-200 shadow-xl p-1 focus:outline-none"
-        tabindex="-1"
-      >
-        {render_slot(@inner_block)}
-      </ul>
-    </div>
-    """
+    # Auto mode is intended to show inline buttons when they fit and collapse
+    # to the ⋮ dropdown when they overflow. The RowMenuAuto JS hook exists in
+    # phoenix_kit.js but doesn't work reliably — DaisyUI table cells have minimum
+    # widths that prevent proper overflow detection. For now, auto mode falls through
+    # to the default dropdown-only behaviour.
+    table_row_menu(%{assigns | mode: "dropdown"})
   end
 
   def table_row_menu(assigns) do

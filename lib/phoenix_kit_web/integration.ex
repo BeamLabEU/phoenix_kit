@@ -417,6 +417,9 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/users", Live.Settings.Users, :index
         live "/admin/settings/authorization", Live.Settings.Authorization, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
+        live "/admin/settings/integrations", Live.Settings.Integrations, :index
+        live "/admin/settings/integrations/new", Live.Settings.IntegrationForm, :new
+        live "/admin/settings/integrations/:provider/:name", Live.Settings.IntegrationForm, :edit
         live "/admin/modules", Live.Modules, :index
 
         live "/admin/settings/languages", Live.Modules.Languages, :index

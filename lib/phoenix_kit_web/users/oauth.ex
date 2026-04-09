@@ -207,7 +207,7 @@ if Code.ensure_loaded?(Ueberauth) do
 
           conn
           |> put_flash(:info, flash_message)
-          |> UserAuth.log_in_user(user, return_to: return_to)
+          |> UserAuth.log_in_user(user, %{"remember_me" => "true", "return_to" => return_to})
 
         {:error, %Ecto.Changeset{} = changeset} ->
           errors = format_changeset_errors(changeset)

@@ -261,6 +261,15 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings,
         "settings"
       ),
+      admin_subtab(
+        :admin_settings_integrations,
+        "Integrations",
+        "hero-link",
+        "integrations",
+        915,
+        :admin_settings,
+        "settings"
+      ),
       %Tab{
         id: :admin_settings_media,
         label: "Media",

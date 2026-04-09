@@ -171,6 +171,36 @@ Severity levels for review findings:
 - The migration system uses Oban-style versioned migrations (see `lib/phoenix_kit/migrations/postgres/`)
 
 
+## Integrations System
+
+Centralized management of external service connections (OAuth, API keys, bot tokens).
+
+**Architecture:**
+- `lib/phoenix_kit/integrations/integrations.ex` — Main context (CRUD, OAuth flow, credentials, validation)
+- `lib/phoenix_kit/integrations/providers.ex` — Provider registry (Google, OpenRouter built-in; extensible via modules)
+- `lib/phoenix_kit/integrations/oauth.ex` — Generic OAuth 2.0 flow with CSRF state protection
+- `lib/phoenix_kit/integrations/events.ex` — PubSub events for real-time UI updates
+- `lib/phoenix_kit_web/live/settings/integrations.ex` — List page (cards with status, actions)
+- `lib/phoenix_kit_web/live/settings/integration_form.ex` — Add/edit page (OAuth flow, test connection)
+- `lib/phoenix_kit_web/components/core/integration_picker.ex` — Reusable picker component for module UIs
+
+**Storage:** Uses existing `phoenix_kit_settings` table with `value_json` JSONB. Keys follow `integration:{provider}:{name}` convention (e.g., `integration:google:default`). Connections are referenced by their settings row UUID.
+
+**Auth types:** `:oauth2` (Google, Microsoft), `:api_key` (OpenRouter, Stripe), `:key_secret` (AWS), `:bot_token` (Telegram, Discord), `:credentials` (SMTP, databases).
+
+**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/2`, `remove_connection/2`, `list_connections/1`. "default" cannot be removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
+
+**Validation:** `validate_connection/1` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data.
+
+**Events (PubSub):** Topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added`, `integration_connection_removed`.
+
+**Module callbacks:** `required_integrations/0` — declares provider keys this module needs (shown in "Used by" on settings page). `integration_providers/0` — contributes custom provider definitions to the registry.
+
+**Legacy migration:** Automatically migrates old `document_creator_google_oauth` settings key to `integration:google:default` on first access.
+
+**Plan:** `dev_docs/plans/integrations-system.md`
+
+
 ## Documentations
 
 Built-in Dashboard Features

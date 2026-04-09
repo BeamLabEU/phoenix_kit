@@ -144,6 +144,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.DevNotice
       import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
       import PhoenixKitWeb.Components.Core.NavTabs
+      import PhoenixKitWeb.Components.Core.IntegrationPicker
     end
   end
 

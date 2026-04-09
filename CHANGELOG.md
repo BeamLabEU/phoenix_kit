@@ -1,3 +1,67 @@
+## 1.7.93 - 2026-04-08
+
+### Fixed
+- Fix installer to auto-inject PhoenixKitHooks into app.js
+- Fix decrypt after legacy integration migration
+- Improve OAuth login with remember_me by default
+
+### Added
+- Activity logging for Integrations (setup, connect, disconnect, token refresh, validation)
+- Cookie max_age set to 60 days
+
+### Changed
+- Simplify integration status: `configured` removed, now `connected` or `disconnected`
+- Validate connection checks provider exists before credentials
+
+## 1.7.92 - 2026-04-07
+
+### Fixed
+- Fix Google token refresh for named integration connections (e.g. google:work)
+- Add resolve_provider_lookup_key/2 and resolve_storage_key/2 helpers
+
+### Added
+- Add V94 migration for Document Creator sync (google_doc_id, status, path, folder_id columns)
+
+## 1.7.91 - 2026-04-06
+
+### Added
+- Add centralized Integrations system for external service connections (OAuth, API keys, bot tokens)
+- Add AES-256-GCM encryption at rest for stored credentials
+- Add OAuth 2.0 CSRF state parameter protection
+- Add `required_integrations/0` and `integration_providers/0` callbacks to PhoenixKit.Module
+- Add IntegrationPicker reusable component
+- Add Integrations admin settings tab
+- Add provider registry with Google and OpenRouter built-in
+
+### Fixed
+- Fix password field overwrite bug when editing integrations
+- Fix duplicate line in `maybe_set_userinfo/2`
+- Consolidate validation logic into Integrations context
+- Make validation URL provider-configurable (no more hardcoded Telegram URL)
+
+## 1.7.90 - 2026-04-04
+
+### Added
+- Add organization accounts support with person/organization user types
+- Add organization invitations system with token-based invite flow
+- Add V91 locations migration: location types, locations, and type assignments tables
+- Add V92 organization accounts migration (invitations, user type fields)
+- Add JS hooks integration for parent app install and update workflows
+- Add LLMText module for AI/LLM-friendly content generation
+- Add auth logo from settings to admin header
+- Add billing tabs component
+
+### Changed
+- Move tax rate and CountryData from Billing to core PhoenixKit
+- Remove hardcoded Billing and E-Commerce module cards in favor of auto-discovery
+- Update AGENTS.md with severity level definitions and JS hooks documentation
+
+### Fixed
+- Fix double sidebar for core modules and improve struct compatibility
+- Hide hamburger menu button when sidebar is permanently visible
+- Fix token security, gettext, and validation issues in organization invitations
+- Fix tax data loss, invitation status guard, and IbanData safety
+
 ## 1.7.88 - 2026-04-02
 
 ### Changed

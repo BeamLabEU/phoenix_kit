@@ -546,6 +546,74 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Lists all JSON settings whose keys start with the given prefix.
+
+  Returns a list of `{key, json_value}` tuples.
+  """
+  def get_json_settings_by_prefix(prefix) when is_binary(prefix) do
+    prefix
+    |> Queries.list_settings_by_key_prefix()
+    |> Enum.flat_map(fn setting ->
+      if setting.value_json, do: [{setting.key, setting.value_json}], else: []
+    end)
+  end
+
+  @doc """
+  Lists all JSON settings whose keys start with the given prefix,
+  including the setting UUID. Returns a list of `{uuid, key, json_value}` tuples.
+  """
+  def get_json_settings_by_prefix_with_uuid(prefix) when is_binary(prefix) do
+    prefix
+    |> Queries.list_settings_by_key_prefix()
+    |> Enum.flat_map(fn setting ->
+      if setting.value_json,
+        do: [{setting.uuid, setting.key, setting.value_json}],
+        else: []
+    end)
+  end
+
+  @doc """
+  Gets JSON settings for multiple prefixes in a single database query.
+
+  More efficient than calling `get_json_settings_by_prefix_with_uuid/1` in a loop.
+  Returns `[{uuid, key, value_json}]` tuples.
+  """
+  def get_json_settings_by_prefixes_with_uuid(prefixes) when is_list(prefixes) do
+    prefixes
+    |> Queries.list_settings_by_key_prefixes()
+    |> Enum.flat_map(fn setting ->
+      if setting.value_json,
+        do: [{setting.uuid, setting.key, setting.value_json}],
+        else: []
+    end)
+  end
+
+  @doc """
+  Gets a JSON setting by its UUID. Returns the `value_json` map or the default.
+  """
+  def get_json_setting_by_uuid(uuid, default \\ nil) when is_binary(uuid) do
+    case Queries.get_setting_by_uuid(uuid) do
+      %Setting{value_json: value_json} when not is_nil(value_json) -> value_json
+      _ -> default
+    end
+  end
+
+  @doc """
+  Deletes a setting by key. Returns `{:ok, setting}` or `{:error, :not_found}`.
+  Also invalidates the cache for the key.
+  """
+  def delete_setting(key) when is_binary(key) do
+    result = Queries.delete_setting_by_key(key)
+
+    case result do
+      {:ok, _} -> PhoenixKit.Cache.invalidate(@cache_name, key)
+      _ -> :ok
+    end
+
+    result
+  end
+
+  @doc """
   Gets OAuth credentials for a specific provider.
 
   Returns a map with all credentials for the given provider.
