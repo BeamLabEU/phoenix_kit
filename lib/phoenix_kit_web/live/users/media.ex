@@ -433,7 +433,23 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("toggle_sidebar", _params, socket) do
-    {:noreply, assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)}
+    socket = assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)
+    {:noreply, push_tree_state(socket)}
+  end
+
+  def handle_event("restore_tree_state", params, socket) do
+    expanded =
+      (params["expanded"] || [])
+      |> MapSet.new()
+
+    sidebar_collapsed = params["sidebar_collapsed"] == true
+
+    socket =
+      socket
+      |> assign(:expanded_folders, MapSet.union(socket.assigns.expanded_folders, expanded))
+      |> assign(:sidebar_collapsed, sidebar_collapsed)
+
+    {:noreply, socket}
   end
 
   def handle_event("start_rename_folder", %{"folder-uuid" => folder_uuid} = params, socket) do
@@ -524,7 +540,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         do: MapSet.delete(expanded, folder_uuid),
         else: MapSet.put(expanded, folder_uuid)
 
-    {:noreply, assign(socket, :expanded_folders, expanded)}
+    socket = assign(socket, :expanded_folders, expanded)
+    {:noreply, push_tree_state(socket)}
   end
 
   def handle_event("toggle_select_mode", _params, socket) do
@@ -1124,5 +1141,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     ancestor_uuids = Enum.map(breadcrumbs, & &1.uuid)
     expanded = Enum.reduce(ancestor_uuids, socket.assigns.expanded_folders, &MapSet.put(&2, &1))
     assign(socket, :expanded_folders, expanded)
+  end
+
+  defp push_tree_state(socket) do
+    push_event(socket, "save_tree_state", %{
+      expanded: MapSet.to_list(socket.assigns.expanded_folders),
+      sidebar_collapsed: socket.assigns.sidebar_collapsed
+    })
   end
 end

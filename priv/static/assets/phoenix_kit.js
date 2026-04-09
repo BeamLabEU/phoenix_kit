@@ -1994,6 +1994,25 @@ if (typeof window.Chart === "undefined") {
         this.pushEvent("set_view_mode", { mode: savedMode });
       }
 
+      // Restore tree state from localStorage
+      var expandedRaw = localStorage.getItem("phoenix_kit_media_expanded_folders");
+      var sidebarCollapsed = localStorage.getItem("phoenix_kit_media_sidebar_collapsed") === "true";
+      var expanded = [];
+      try { expanded = expandedRaw ? JSON.parse(expandedRaw) : []; } catch(e) {}
+      if (expanded.length > 0 || sidebarCollapsed) {
+        this.pushEvent("restore_tree_state", {
+          expanded: expanded,
+          sidebar_collapsed: sidebarCollapsed
+        });
+      }
+
+      // Listen for tree state changes from server
+      var self = this;
+      this.handleEvent("save_tree_state", function(data) {
+        localStorage.setItem("phoenix_kit_media_expanded_folders", JSON.stringify(data.expanded || []));
+        localStorage.setItem("phoenix_kit_media_sidebar_collapsed", data.sidebar_collapsed ? "true" : "false");
+      });
+
       this.setupDragDrop();
       this.setupViewModePersistence();
     },
