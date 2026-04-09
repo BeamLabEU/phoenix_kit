@@ -1,0 +1,13 @@
+.git
+.github
+_build
+deps
+cover
+doc
+node_modules
+tmp
+temp
+.elixir_ls
+.idea
+.vscode
+dev_docs

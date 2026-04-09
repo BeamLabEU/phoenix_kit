@@ -259,6 +259,39 @@ mix phoenix_kit.install --prefix "auth" --create-schema
 mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 ```
 
+## Docker Development Environment
+
+PhoenixKit includes a Docker setup for local development with PostgreSQL.
+
+```bash
+docker compose up -d --build
+```
+
+Run commands inside the app container:
+
+```bash
+docker compose exec app mix test.setup
+docker compose exec app mix test
+```
+
+Open a shell in the container:
+
+```bash
+docker compose exec app bash
+```
+
+Stop everything:
+
+```bash
+docker compose down
+```
+
+To also remove persisted database and Mix volumes:
+
+```bash
+docker compose down -v
+```
+
 ## Manual Installation
 
 1. Add `{:phoenix_kit, "~> 1.7"}` to `mix.exs`

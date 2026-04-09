@@ -663,7 +663,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     ~H"""
     <!DOCTYPE html>
     <html
-      lang={@content_language || "en"}
+      lang={assigns[:content_language] || "en"}
       data-theme="light"
       data-admin-theme-base="system"
       class="[scrollbar-gutter:stable]"

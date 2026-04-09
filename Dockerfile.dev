@@ -1,0 +1,23 @@
+FROM elixir:1.18.4
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV MIX_ENV=dev
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  curl \
+  git \
+  inotify-tools \
+  postgresql-client \
+  ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . /app
+
+COPY docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]
+CMD ["sleep", "infinity"]

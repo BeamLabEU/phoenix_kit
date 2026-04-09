@@ -23,6 +23,12 @@ defmodule PhoenixKit.Integration.Users.PermissionsTest do
     role.uuid
   end
 
+  defp sample_feature_key do
+    Permissions.feature_module_keys()
+    |> List.first()
+    |> Kernel.||("users")
+  end
+
   describe "grant_permission/3" do
     test "grants permission to role" do
       role_uuid = get_role_uuid("User")
@@ -214,12 +220,13 @@ defmodule PhoenixKit.Integration.Users.PermissionsTest do
     test "User scope reflects granted permissions" do
       user = create_standard_user()
       role_uuid = get_role_uuid("User")
+      feature_key = sample_feature_key()
 
-      Permissions.set_permissions(role_uuid, ["dashboard", "posts"])
+      Permissions.set_permissions(role_uuid, ["dashboard", feature_key])
 
       scope = Scope.for_user(user)
       assert Scope.has_module_access?(scope, "dashboard")
-      assert Scope.has_module_access?(scope, "posts")
+      assert Scope.has_module_access?(scope, feature_key)
       refute Scope.has_module_access?(scope, "settings")
     end
 

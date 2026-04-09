@@ -13,9 +13,19 @@ defmodule PhoenixKit.Application do
   def start(_type, _args) do
     check_installation()
 
+    children = [
+      # Start the Ecto repository
+      PhoenixKit.Repo,
+      # Start the PubSub system
+      {Phoenix.PubSub, name: PhoenixKit.PubSub},
+      # Start the Endpoint (http/https)
+      PhoenixKitWeb.Endpoint
+    ]
+
     # PhoenixKit.Supervisor is started by parent app in its supervision tree
     # This is just a placeholder to satisfy OTP application callback
-    Supervisor.start_link([], strategy: :one_for_one, name: PhoenixKit.AppSupervisor)
+    opts = [strategy: :one_for_one, name: PhoenixKit.AppSupervisor]
+    Supervisor.start_link(children, opts)
   end
 
   defp check_installation do
