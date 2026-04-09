@@ -56,6 +56,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:renaming_folder, nil)
       |> assign(:renaming_source, nil)
       |> assign(:view_mode, "grid")
+      |> assign(:search_query, "")
       |> assign(:select_mode, false)
       |> assign(:selected_files, MapSet.new())
       |> assign(:selected_folders, MapSet.new())
@@ -236,20 +237,21 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     per_page = 50
     page = String.to_integer(params["page"] || "1")
     folder_uuid = params["folder"]
+    search_query = params["q"] || socket.assigns[:search_query] || ""
 
     filter_orphaned = socket.assigns[:filter_orphaned] || false
 
     # Load folder context
     current_folder = if folder_uuid, do: Storage.get_folder(folder_uuid), else: nil
     breadcrumbs = Storage.folder_breadcrumbs(folder_uuid)
-    folders = Storage.list_folders(folder_uuid)
+    folders = if search_query == "", do: Storage.list_folders(folder_uuid), else: []
     folder_tree = Storage.list_all_folders() |> Storage.build_folder_tree()
 
     {existing_files, total_count} =
       if filter_orphaned do
         load_orphaned_files(page, per_page)
       else
-        load_existing_files(page, per_page, folder_uuid)
+        load_existing_files(page, per_page, folder_uuid, search_query)
       end
 
     total_pages = ceil(total_count / per_page)
@@ -273,6 +275,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:breadcrumbs, breadcrumbs)
       |> assign(:folders, folders)
       |> assign(:folder_tree, folder_tree)
+      |> assign(:search_query, search_query)
       |> auto_expand_breadcrumbs(breadcrumbs)
 
     {:noreply, socket}
@@ -344,6 +347,30 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to move file")}
     end
+  end
+
+  def handle_event("search", %{"q" => query}, socket) do
+    folder_param =
+      if socket.assigns.current_folder,
+        do: "&folder=#{socket.assigns.current_folder.uuid}",
+        else: ""
+
+    {:noreply,
+     push_patch(socket,
+       to: Routes.path("/admin/media?q=#{URI.encode_www_form(query)}#{folder_param}")
+     )}
+  end
+
+  def handle_event("clear_search", _params, socket) do
+    folder_param =
+      if socket.assigns.current_folder,
+        do: "?folder=#{socket.assigns.current_folder.uuid}",
+        else: ""
+
+    {:noreply,
+     socket
+     |> assign(:search_query, "")
+     |> push_patch(to: Routes.path("/admin/media#{folder_param}"))}
   end
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
@@ -791,15 +818,21 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   # Load existing files from database with pagination, filtered by folder
-  defp load_existing_files(page, per_page, folder_uuid \\ nil) do
+  defp load_existing_files(page, per_page, folder_uuid \\ nil, search_query \\ "") do
     repo = PhoenixKit.Config.get_repo()
 
     # Base query filtered by folder
     base_query =
-      if folder_uuid do
-        from(f in Storage.File, where: f.folder_uuid == ^folder_uuid)
+      if search_query != "" do
+        # Search across all folders
+        search_term = "%#{search_query}%"
+        from(f in Storage.File, where: ilike(f.original_file_name, ^search_term))
       else
-        from(f in Storage.File, where: is_nil(f.folder_uuid))
+        if folder_uuid do
+          from(f in Storage.File, where: f.folder_uuid == ^folder_uuid)
+        else
+          from(f in Storage.File, where: is_nil(f.folder_uuid))
+        end
       end
 
     total_count = repo.aggregate(base_query, :count, :uuid)
@@ -827,10 +860,25 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         %{}
       end
 
+    # Batch-resolve folder paths for all files
+    folder_uuids =
+      files
+      |> Enum.map(& &1.folder_uuid)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    folder_paths =
+      Map.new(folder_uuids, fn fuuid ->
+        path =
+          Storage.folder_breadcrumbs(fuuid)
+          |> Enum.map_join(" / ", & &1.name)
+
+        {fuuid, path}
+      end)
+
     # Convert to same format as uploaded files
     existing_files =
       Enum.map(files, fn file ->
-        # Get pre-loaded instances for this file (no DB query!)
         instances = Map.get(instances_by_file, file.uuid, [])
         urls = generate_urls_from_instances(instances, file.uuid)
 
@@ -843,6 +891,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           size: file.size || 0,
           status: file.status,
           inserted_at: file.inserted_at,
+          folder_path: Map.get(folder_paths, file.folder_uuid),
           urls: urls
         }
       end)
