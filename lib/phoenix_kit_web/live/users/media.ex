@@ -655,20 +655,27 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("delete_selected", _params, socket) do
+    # Delete selected files
+    Enum.each(socket.assigns.selected_files, fn file_uuid ->
+      Storage.delete_file_completely(file_uuid)
+    end)
+
     # Delete selected folders
     Enum.each(socket.assigns.selected_folders, fn folder_uuid ->
       folder = Storage.get_folder(folder_uuid)
       if folder, do: Storage.delete_folder(folder)
     end)
 
+    file_count = MapSet.size(socket.assigns.selected_files)
     folder_count = MapSet.size(socket.assigns.selected_folders)
+    total = file_count + folder_count
 
     {:noreply,
      socket
      |> assign(:select_mode, false)
      |> assign(:selected_files, MapSet.new())
      |> assign(:selected_folders, MapSet.new())
-     |> put_flash(:info, "#{folder_count} folder(s) deleted")
+     |> put_flash(:info, "#{total} item(s) deleted")
      |> push_patch(to: current_media_path(socket))}
   end
 

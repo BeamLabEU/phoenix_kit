@@ -102,7 +102,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     }
 
     socket = assign(socket, :testing_connection, true)
-    send(self(), {:run_test_connection, bucket_params})
+    Task.async(fn -> {:test_connection_result, Storage.test_connection(bucket_params)} end)
     {:noreply, socket}
   end
 
@@ -175,9 +175,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     {:noreply, socket}
   end
 
-  def handle_info({:run_test_connection, bucket_params}, socket) do
+  def handle_info({ref, {:test_connection_result, result}}, socket) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+
     {status, error} =
-      case Storage.test_connection(bucket_params) do
+      case result do
         :ok -> {:success, nil}
         {:error, reason} -> {:failed, reason}
       end
@@ -186,6 +188,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       socket
       |> assign(:connection_status, status)
       |> assign(:connection_error, error)
+      |> assign(:testing_connection, false)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, socket) do
+    socket =
+      socket
+      |> assign(:connection_status, :failed)
+      |> assign(:connection_error, "Connection test crashed unexpectedly")
       |> assign(:testing_connection, false)
 
     {:noreply, socket}
