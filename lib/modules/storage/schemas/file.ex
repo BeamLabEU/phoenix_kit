@@ -108,6 +108,7 @@ defmodule PhoenixKit.Modules.Storage.File do
           status: String.t(),
           metadata: map() | nil,
           user_uuid: UUIDv7.t(),
+          folder_uuid: UUIDv7.t() | nil,
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           instances:
             [PhoenixKit.Modules.Storage.FileInstance.t()] | Ecto.Association.NotLoaded.t(),
@@ -136,7 +137,13 @@ defmodule PhoenixKit.Modules.Storage.File do
       references: :uuid,
       type: UUIDv7
 
+    belongs_to :folder, PhoenixKit.Modules.Storage.Folder,
+      foreign_key: :folder_uuid,
+      references: :uuid,
+      type: UUIDv7
+
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_uuid
+    has_many :folder_links, PhoenixKit.Modules.Storage.FolderLink, foreign_key: :file_uuid
 
     timestamps(type: :utc_datetime)
   end
@@ -181,7 +188,8 @@ defmodule PhoenixKit.Modules.Storage.File do
       :duration,
       :status,
       :metadata,
-      :user_uuid
+      :user_uuid,
+      :folder_uuid
     ])
     |> validate_required([
       :original_file_name,
@@ -201,6 +209,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:duration, greater_than: 0)
     |> foreign_key_constraint(:user_uuid)
+    |> foreign_key_constraint(:folder_uuid)
   end
 
   @doc """

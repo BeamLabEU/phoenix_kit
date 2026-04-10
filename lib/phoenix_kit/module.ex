@@ -80,6 +80,9 @@ defmodule PhoenixKit.Module do
   - `migration_module/0` - Module implementing versioned migrations (default: `nil`).
     When set, `mix phoenix_kit.update` will automatically run this module's migrations
     alongside the core PhoenixKit migrations.
+  - `required_integrations/0` - Integration provider keys this module needs (default: `[]`).
+    Used by the Integrations settings page to show relevant providers.
+  - `integration_providers/0` - Additional provider definitions this module contributes (default: `[]`).
   """
 
   @typedoc "Permission metadata for the module"
@@ -108,6 +111,8 @@ defmodule PhoenixKit.Module do
   @callback version() :: String.t()
   @callback migration_module() :: module() | nil
   @callback required_modules() :: [String.t()]
+  @callback required_integrations() :: [String.t()]
+  @callback integration_providers() :: [map()]
 
   @doc """
   Returns the OTP app name for Tailwind CSS source scanning.
@@ -122,7 +127,7 @@ defmodule PhoenixKit.Module do
 
   Headless modules (no templates) can skip this callback — the default is `[]`.
   """
-  @callback css_sources() :: [String.t()]
+  @callback css_sources() :: [atom()]
 
   @optional_callbacks [
     get_config: 0,
@@ -135,6 +140,8 @@ defmodule PhoenixKit.Module do
     version: 0,
     migration_module: 0,
     required_modules: 0,
+    required_integrations: 0,
+    integration_providers: 0,
     css_sources: 0
   ]
 
@@ -179,6 +186,12 @@ defmodule PhoenixKit.Module do
       def required_modules, do: []
 
       @impl PhoenixKit.Module
+      def required_integrations, do: []
+
+      @impl PhoenixKit.Module
+      def integration_providers, do: []
+
+      @impl PhoenixKit.Module
       def css_sources, do: []
 
       defoverridable get_config: 0,
@@ -191,6 +204,8 @@ defmodule PhoenixKit.Module do
                      version: 0,
                      migration_module: 0,
                      required_modules: 0,
+                     required_integrations: 0,
+                     integration_providers: 0,
                      css_sources: 0
     end
   end

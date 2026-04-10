@@ -135,25 +135,26 @@
           <label class="label">
             <span class="label-text">Filter by User Status</span>
           </label>
-          <select
-            phx-change="filter_by_user_status"
-            name="status"
-            class="select select-bordered w-full max-w-xs"
-          >
-            <option value="all" selected={@filter_user_status == "all"}>All Users</option>
-            <option value="active" selected={@filter_user_status == "active"}>
-              Active Users
-            </option>
-            <option value="inactive" selected={@filter_user_status == "inactive"}>
-              Inactive Users
-            </option>
-            <option value="confirmed" selected={@filter_user_status == "confirmed"}>
-              Confirmed Email
-            </option>
-            <option value="pending" selected={@filter_user_status == "pending"}>
-              Pending Email
-            </option>
-          </select>
+          <label class="select w-full max-w-xs">
+            <select
+              phx-change="filter_by_user_status"
+              name="status"
+            >
+              <option value="all" selected={@filter_user_status == "all"}>All Users</option>
+              <option value="active" selected={@filter_user_status == "active"}>
+                Active Users
+              </option>
+              <option value="inactive" selected={@filter_user_status == "inactive"}>
+                Inactive Users
+              </option>
+              <option value="confirmed" selected={@filter_user_status == "confirmed"}>
+                Confirmed Email
+              </option>
+              <option value="pending" selected={@filter_user_status == "pending"}>
+                Pending Email
+              </option>
+            </select>
+          </label>
         </div>
 
         <%!-- Refresh Button --%>

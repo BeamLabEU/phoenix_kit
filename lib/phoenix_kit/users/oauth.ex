@@ -61,8 +61,21 @@ if Code.ensure_loaded?(Ueberauth) do
     # OAuth providers verify email ownership, so we can trust it.
     defp maybe_confirm_user(%User{confirmed_at: nil} = user) do
       case Auth.admin_confirm_user(user) do
-        {:ok, confirmed_user} -> {:ok, confirmed_user}
-        {:error, _changeset} -> {:ok, user}
+        {:ok, confirmed_user} ->
+          PhoenixKit.Activity.log(%{
+            action: "user.email_confirmed",
+            module: "users",
+            mode: "auto",
+            actor_uuid: confirmed_user.uuid,
+            resource_type: "user",
+            resource_uuid: confirmed_user.uuid,
+            metadata: %{"method" => "oauth", "actor_role" => "user"}
+          })
+
+          {:ok, confirmed_user}
+
+        {:error, _changeset} ->
+          {:ok, user}
       end
     end
 

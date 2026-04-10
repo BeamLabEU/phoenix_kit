@@ -55,6 +55,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       DbConnectionCheck,
       DemoFiles,
       EndpointIntegration,
+      JsIntegration,
       LayoutConfig,
       MailerConfig,
       MigrationStrategy,
@@ -65,7 +66,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       RouterIntegration
     }
 
-    alias PhoenixKit.Utils.Routes
+    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
+    # application config that isn't available during mix task execution.
 
     @impl Igniter.Mix.Task
     def info(_argv, _composing_task) do
@@ -103,6 +105,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
+      |> JsIntegration.add_js_integration()
       |> DemoFiles.copy_test_demo_files()
       |> RouterIntegration.add_router_integration(opts[:router_path])
       |> BrowserPipelineIntegration.add_integration_to_browser_pipeline()
@@ -415,7 +418,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ✅ PhoenixKit ready! Next:
         • mix ecto.migrate
         • mix phx.server
-        • Visit #{Routes.path("/users/register")}
+        • Visit /users/register (or with your configured URL prefix)
         • Test: /test-current-user, /test-ensure-auth
       """
 

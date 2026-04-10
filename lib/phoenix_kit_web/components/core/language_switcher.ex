@@ -1,28 +1,37 @@
 defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   @moduledoc """
-  Language switcher component for frontend applications.
+  Language switcher component for frontend and admin applications.
 
-  Provides a reusable language selection dropdown that pulls available languages
-  from the Language Module. Supports multiple display styles and configurations.
+  Provides reusable language selection UI that pulls available languages
+  from the unified Languages module. Three display variants are available:
+  dropdown, button group, and inline.
+
+  ## Continent Grouping
+
+  When more than 7 languages are enabled (configurable via `continent_threshold`),
+  the dropdown automatically shows a two-step interface: first pick a continent,
+  then pick a language within it. Set `group_by_continent={false}` to always
+  show a flat list regardless of language count.
 
   ## Examples
 
-      # Basic dropdown switcher
+      # Basic dropdown — auto-groups by continent when >7 languages
       <.language_switcher_dropdown current_locale={@current_locale} />
 
-      # Button group switcher (for mobile)
+      # Force flat list (no continent step)
+      <.language_switcher_dropdown current_locale={@current_locale} group_by_continent={false} />
+
+      # Custom threshold for continent grouping
+      <.language_switcher_dropdown current_locale={@current_locale} continent_threshold={5} />
+
+      # Show current language in trigger button
+      <.language_switcher_dropdown current_locale={@current_locale} show_current={true} />
+
+      # Button group (for mobile)
       <.language_switcher_buttons current_locale={@current_locale} />
 
-      # Inline switcher with flags
+      # Inline text links (for footers)
       <.language_switcher_inline current_locale={@current_locale} />
-
-  ## Attributes
-
-  - `current_locale` - Current active language code (e.g., "en", "es")
-  - `style` - Display style: `:dropdown`, `:buttons`, `:inline` (default: `:dropdown`)
-  - `class` - Additional CSS classes to apply
-  - `show_flags` - Show language flags (default: true)
-  - `show_native_names` - Show native language names (default: false)
   """
 
   use Phoenix.Component
@@ -40,8 +49,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   Renders a dropdown language switcher.
 
   Displays a globe icon that opens a dropdown menu with available languages.
-  Automatically fetches the configured languages (or default top 12 if not configured).
-  Perfect for navigation bars and header areas.
+  Automatically fetches the configured languages (or defaults when unconfigured).
+  Used in both frontend navigation bars and the admin panel header.
+
+  When more than `continent_threshold` languages are enabled, shows a two-step
+  continent → language navigation. Set `group_by_continent={false}` to disable.
 
   ## Examples
 
@@ -49,7 +61,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
       <.language_switcher_dropdown
         current_locale={@current_locale}
-        show_native_names={true}
+        group_by_continent={false}
       />
   """
   attr(:current_locale, :string,
@@ -84,81 +96,23 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     doc: "Show current language (flag + name) in dropdown trigger instead of globe icon"
   )
 
+  attr(:group_by_continent, :boolean,
+    default: true,
+    doc: "Enable continent grouping when language count exceeds continent_threshold"
+  )
+
+  attr(:continent_threshold, :integer,
+    default: 7,
+    doc: "Number of languages after which the continent grouping step is shown"
+  )
+
   attr(:_language_update_key, :any,
     default: nil,
     doc: "Internal: forces re-render when languages change"
   )
 
   def language_switcher_dropdown(assigns) do
-    # Auto-detect current_locale if not explicitly provided
-    # This might be a base code (en) or full dialect (en-US)
-    locale =
-      assigns.current_locale ||
-        Process.get(:phoenix_kit_current_locale) ||
-        Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        @default_locale
-
-    # Get enabled languages - these are full dialect codes with names
-    # Ensure we always have a list, even if nil is returned
-    languages_config = assigns.languages || Languages.get_display_languages() || []
-
-    # Transform to include both base code (for URLs) and dialect (for preference)
-    # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
-    all_dialects =
-      languages_config
-      |> Enum.reject(&is_nil/1)
-      |> Enum.filter(&is_map/1)
-      |> Enum.map(fn lang ->
-        dialect = lang.code
-        base = DialectMapper.extract_base(dialect)
-        flag = get_language_flag(dialect)
-
-        %{
-          "base_code" => base,
-          "dialect" => dialect,
-          "name" => lang.name || dialect || "Unknown",
-          "native" => get_native_name(dialect),
-          "flag" => flag
-        }
-      end)
-      |> Enum.filter(fn lang ->
-        base_code = lang["base_code"]
-        is_binary(base_code) and base_code != ""
-      end)
-      |> Enum.sort_by(& &1["name"])
-
-    # Filter out current dialect if hide_current is enabled
-    filtered_languages =
-      if assigns.hide_current do
-        Enum.filter(all_dialects, &(&1["dialect"] != locale))
-      else
-        all_dialects
-      end
-
-    # Extract base code from current locale for matching
-    current_base = DialectMapper.extract_base(locale)
-
-    # Find current language by full dialect code
-    current_language =
-      Enum.find(all_dialects, &(&1["dialect"] == locale)) ||
-        %{
-          "base_code" => current_base,
-          "dialect" => locale,
-          "name" => String.upcase(locale),
-          "native" => nil,
-          "flag" => "🌐"
-        }
-
-    # Determine if we need scroll/search based on language count
-    needs_scroll = length(filtered_languages) > assigns.scroll_threshold
-
-    assigns =
-      assigns
-      |> assign(:current_locale, locale)
-      |> assign(:current_base, current_base)
-      |> assign(:languages, filtered_languages)
-      |> assign(:current_language, current_language)
-      |> assign(:needs_scroll, needs_scroll)
+    assigns = prepare_dropdown_assigns(assigns)
 
     ~H"""
     <div class={["relative", @class]}>
@@ -184,67 +138,184 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           tabindex="0"
           phx-click-away={JS.remove_attribute("open", to: "#language-switcher-dropdown")}
         >
-          <%!-- Search bar (only if many languages) --%>
-          <%= if @needs_scroll do %>
-            <div class="p-2 border-b border-base-200">
-              <input
-                type="text"
-                placeholder="Search languages..."
-                class="input input-sm input-bordered w-full"
-                phx-hook="LanguageSwitcherSearch"
-                id="language-search-input"
-                autocomplete="off"
-              />
-            </div>
-          <% end %>
+          <%= if @use_continents do %>
+            <%!-- Continent-grouped two-step navigation using JS commands --%>
 
-          <%!-- Language list (scrollable if many languages) --%>
-          <ul
-            class={[
-              "p-2 list-none space-y-1",
-              @needs_scroll && "max-h-64 overflow-y-auto"
-            ]}
-            id="language-switcher-list"
-          >
-            <%= for language <- @languages do %>
-              <li
-                class="w-full language-item"
-                data-name={String.downcase(language["name"] || "")}
-                data-native={String.downcase(language["native"] || "")}
-              >
-                <a
-                  href={generate_base_code_url(language["base_code"], @current_path)}
-                  phx-click="phoenix_kit_set_locale"
-                  phx-value-locale={language["base_code"]}
-                  phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
-                  class={[
-                    "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
-                    if(language["base_code"] == @current_base, do: "bg-base-200", else: "")
-                  ]}
-                >
-                  <%= if @show_flags do %>
-                    <span class="text-lg">{language["flag"]}</span>
-                  <% end %>
-                  <%= if @show_names do %>
-                    <div class="flex-1">
-                      <span class="font-medium text-base-content">
-                        <%= if @show_native_names && Map.get(language, "native") do %>
-                          {language["native"]}
-                        <% else %>
-                          {language["name"]}
-                        <% end %>
-                      </span>
-                    </div>
-                  <% else %>
-                    <div class="flex-1"></div>
-                  <% end %>
-                  <%= if language["base_code"] == @current_base do %>
-                    <span class="ml-auto">✓</span>
-                  <% end %>
-                </a>
-              </li>
+            <%!-- Step 1: Continent list --%>
+            <ul id="ls-continents" class="p-2 list-none space-y-1 max-h-72 overflow-y-auto">
+              <%= for {continent, langs} <- @continent_groups do %>
+                <% continent_id = "ls-cont-" <> slug(continent) %>
+                <li class="w-full">
+                  <button
+                    type="button"
+                    phx-click={
+                      JS.hide(to: "#ls-continents")
+                      |> JS.show(to: "#ls-back")
+                      |> JS.show(to: "##{continent_id}")
+                    }
+                    class="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition hover:bg-base-200 cursor-pointer"
+                  >
+                    <span class="font-medium text-base-content">{continent}</span>
+                    <span class="badge badge-ghost badge-sm">{length(langs)}</span>
+                  </button>
+                </li>
+              <% end %>
+            </ul>
+
+            <%!-- Back button (hidden initially) --%>
+            <button
+              id="ls-back"
+              type="button"
+              phx-click={
+                JS.hide(to: "#ls-back")
+                |> hide_all_continent_panels(@continent_groups)
+                |> JS.show(to: "#ls-continents")
+              }
+              class="hidden flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary hover:bg-base-200 border-b border-base-200 cursor-pointer"
+            >
+              <Icon.icon name="hero-arrow-left" class="w-4 h-4" />
+              <span>All regions</span>
+            </button>
+
+            <%!-- Step 2: Language panels per continent (all hidden initially) --%>
+            <%= for {continent, langs} <- @continent_groups do %>
+              <% continent_id = "ls-cont-" <> slug(continent) %>
+              <ul id={continent_id} class="hidden p-2 list-none space-y-1 max-h-64 overflow-y-auto">
+                <%= if length(langs) > @continent_threshold do %>
+                  <li class="pb-1">
+                    <input
+                      type="text"
+                      placeholder="Search languages..."
+                      class="input input-sm input-bordered w-full"
+                      id={"ls-search-" <> slug(continent)}
+                      autocomplete="off"
+                      oninput="
+                        var t=this.value.toLowerCase().trim();
+                        var ul=this.closest('ul');
+                        var any=false;
+                        ul.querySelectorAll('.language-item').forEach(function(i){
+                          var n=i.dataset.name||'',v=i.dataset.native||'';
+                          var m=!t||n.includes(t)||v.includes(t);
+                          i.style.display=m?'':'none';
+                          if(m)any=true;
+                        });
+                        var empty=ul.querySelector('.ls-no-results');
+                        if(empty)empty.style.display=any?'none':'';
+                      "
+                    />
+                  </li>
+                <% end %>
+                <%= for language <- langs do %>
+                  <li
+                    class="w-full language-item"
+                    data-name={String.downcase(language["name"] || "")}
+                    data-native={String.downcase(language["native"] || "")}
+                  >
+                    <a
+                      href={generate_base_code_url(language["base_code"], @current_path)}
+                      phx-click="phoenix_kit_set_locale"
+                      phx-value-locale={language["base_code"]}
+                      phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
+                      class={[
+                        "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
+                        if(language["base_code"] == @current_base, do: "bg-base-200", else: "")
+                      ]}
+                    >
+                      <%= if @show_flags do %>
+                        <span class="text-lg">{language["flag"]}</span>
+                      <% end %>
+                      <div class="flex-1">
+                        <span class="font-medium text-base-content">{language["name"]}</span>
+                      </div>
+                      <%= if language["base_code"] == @current_base do %>
+                        <span class="ml-auto">✓</span>
+                      <% end %>
+                    </a>
+                  </li>
+                <% end %>
+                <li class="ls-no-results px-3 py-2 text-sm text-base-content/50" style="display:none">
+                  No languages found
+                </li>
+              </ul>
             <% end %>
-          </ul>
+          <% else %>
+            <%!-- Flat language list (when <= threshold or continent grouping disabled) --%>
+            <ul
+              class={[
+                "p-2 list-none space-y-1",
+                @needs_scroll && "max-h-64 overflow-y-auto"
+              ]}
+              id="language-switcher-list"
+            >
+              <%= if @needs_scroll do %>
+                <li class="pb-1">
+                  <input
+                    type="text"
+                    placeholder="Search languages..."
+                    class="input input-sm input-bordered w-full"
+                    id="language-search-input"
+                    autocomplete="off"
+                    oninput="
+                      var t=this.value.toLowerCase().trim();
+                      var ul=this.closest('ul');
+                      var any=false;
+                      ul.querySelectorAll('.language-item').forEach(function(i){
+                        var n=i.dataset.name||'',v=i.dataset.native||'';
+                        var m=!t||n.includes(t)||v.includes(t);
+                        i.style.display=m?'':'none';
+                        if(m)any=true;
+                      });
+                      var empty=ul.querySelector('.ls-no-results');
+                      if(empty)empty.style.display=any?'none':'';
+                    "
+                  />
+                </li>
+              <% end %>
+              <%= for language <- @languages do %>
+                <li
+                  class="w-full language-item"
+                  data-name={String.downcase(language["name"] || "")}
+                  data-native={String.downcase(language["native"] || "")}
+                >
+                  <a
+                    href={generate_base_code_url(language["base_code"], @current_path)}
+                    phx-click="phoenix_kit_set_locale"
+                    phx-value-locale={language["base_code"]}
+                    phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
+                    class={[
+                      "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
+                      if(language["base_code"] == @current_base, do: "bg-base-200", else: "")
+                    ]}
+                  >
+                    <%= if @show_flags do %>
+                      <span class="text-lg">{language["flag"]}</span>
+                    <% end %>
+                    <%= if @show_names do %>
+                      <div class="flex-1">
+                        <span class="font-medium text-base-content">
+                          <%= if @show_native_names && Map.get(language, "native") do %>
+                            {language["native"]}
+                          <% else %>
+                            {language["name"]}
+                          <% end %>
+                        </span>
+                      </div>
+                    <% else %>
+                      <div class="flex-1"></div>
+                    <% end %>
+                    <%= if language["base_code"] == @current_base do %>
+                      <span class="ml-auto">✓</span>
+                    <% end %>
+                  </a>
+                </li>
+              <% end %>
+              <%= if @needs_scroll do %>
+                <li class="ls-no-results px-3 py-2 text-sm text-base-content/50" style="display:none">
+                  No languages found
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
         </div>
       </details>
     </div>
@@ -484,6 +555,153 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     """
   end
 
+  # Chains JS.hide commands to hide all continent language panels
+  defp hide_all_continent_panels(js, continent_groups) do
+    Enum.reduce(continent_groups, js, fn {continent, _}, acc ->
+      JS.hide(acc, to: "#ls-cont-#{slug(continent)}")
+    end)
+  end
+
+  # Converts a continent name to a URL-safe slug for DOM IDs
+  defp slug(nil), do: "unknown"
+
+  defp slug(name) when is_binary(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "-")
+    |> String.trim("-")
+  end
+
+  defp slug(_), do: "unknown"
+
+  # Prepares all assigns needed by the dropdown template.
+  # Handles nil/invalid inputs gracefully — never crashes on bad data.
+  defp prepare_dropdown_assigns(assigns) do
+    locale =
+      assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale) ||
+        Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+        @default_locale
+
+    # Ensure locale is always a string
+    locale = if is_binary(locale), do: locale, else: @default_locale
+
+    languages_config =
+      case assigns.languages do
+        nil -> Languages.get_display_languages()
+        list when is_list(list) -> list
+        _ -> []
+      end
+
+    all_dialects = build_dialect_list(languages_config)
+
+    filtered_languages =
+      if assigns.hide_current do
+        Enum.filter(all_dialects, &(&1["dialect"] != locale))
+      else
+        all_dialects
+      end
+
+    current_base = DialectMapper.extract_base(locale)
+
+    current_language =
+      Enum.find(all_dialects, &(&1["dialect"] == locale)) ||
+        %{
+          "base_code" => current_base,
+          "dialect" => locale,
+          "name" => String.upcase(locale),
+          "native" => nil,
+          "flag" => "🌐"
+        }
+
+    {use_continents, continent_groups} =
+      maybe_build_continent_groups(assigns, filtered_languages)
+
+    # When continent grouping is disabled but there are many languages,
+    # use the continent_threshold to decide if search is needed (lower = more likely to show search)
+    effective_scroll_threshold =
+      if assigns.group_by_continent do
+        assigns.scroll_threshold
+      else
+        min(assigns.scroll_threshold, assigns.continent_threshold)
+      end
+
+    needs_scroll = not use_continents and length(filtered_languages) > effective_scroll_threshold
+
+    assigns
+    |> assign(:current_locale, locale)
+    |> assign(:current_base, current_base)
+    |> assign(:languages, filtered_languages)
+    |> assign(:current_language, current_language)
+    |> assign(:needs_scroll, needs_scroll)
+    |> assign(:use_continents, use_continents)
+    |> assign(:continent_groups, continent_groups)
+  end
+
+  # Builds continent groups if grouping is enabled and threshold exceeded.
+  # Returns {use_continents, groups} where groups is a list of {continent, dialect_maps}.
+  # Falls back to flat list if grouping fails or produces no results.
+  defp maybe_build_continent_groups(assigns, filtered_languages) do
+    if assigns.group_by_continent and length(filtered_languages) > assigns.continent_threshold do
+      groups =
+        Languages.get_enabled_languages_by_continent()
+        |> Enum.map(fn {continent, langs} ->
+          {continent, langs_to_dialect_maps(langs)}
+        end)
+        |> Enum.reject(fn {_, langs} -> langs == [] end)
+
+      if groups != [], do: {true, groups}, else: {false, []}
+    else
+      {false, []}
+    end
+  rescue
+    _ -> {false, []}
+  end
+
+  # Transforms Language structs/maps from grouped continent data into dialect maps
+  defp langs_to_dialect_maps(langs) do
+    langs
+    |> Enum.map(fn lang ->
+      code = if is_struct(lang), do: lang.code, else: lang[:code]
+      name = if is_struct(lang), do: lang.name, else: lang[:name]
+
+      if is_binary(code) do
+        %{
+          "base_code" => DialectMapper.extract_base(code),
+          "dialect" => code,
+          "name" => name || code,
+          "flag" => get_language_flag(code)
+        }
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.sort_by(& &1["name"])
+  end
+
+  # Transforms language config into dialect maps for display
+  defp build_dialect_list(languages_config) do
+    languages_config
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(&is_map/1)
+    |> Enum.map(fn lang ->
+      dialect = lang.code
+      base = DialectMapper.extract_base(dialect)
+
+      %{
+        "base_code" => base,
+        "dialect" => dialect,
+        "name" => lang.name || dialect || "Unknown",
+        "native" => get_native_name(dialect),
+        "flag" => get_language_flag(dialect)
+      }
+    end)
+    |> Enum.filter(fn lang ->
+      base_code = lang["base_code"]
+      is_binary(base_code) and base_code != ""
+    end)
+    |> Enum.sort_by(& &1["name"])
+  end
+
   # Helper function to get language flag emoji
   defp get_language_flag(code) when is_binary(code) do
     case Languages.get_predefined_language(code) do
@@ -502,31 +720,37 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   # Generate URL with ONLY base code - no dialect, no query params
   # This is the clean URL used in href attributes
-  # Default language gets clean URLs (no prefix), other languages get locale prefix
-  # Example: generate_base_code_url("en", "/ru/admin") => "/admin" (if en is default)
-  # Example: generate_base_code_url("es", "/admin") => "/es/admin"
+  # Default language (from Languages module) gets clean URLs (no prefix),
+  # other languages get locale prefix
   # Guard clauses for nil/empty base_code to prevent Phoenix.Param errors
   defp generate_base_code_url(nil, current_path), do: current_path || "/"
   defp generate_base_code_url("", current_path), do: current_path || "/"
 
   defp generate_base_code_url(base_code, current_path) do
-    # Extract base code from current path for proper path processing
-    current_base = extract_locale_from_path(current_path)
+    # Strip the URL prefix first (e.g., /phoenix_kit)
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    prefix_to_remove = if url_prefix == "/", do: "", else: url_prefix
+    normalized = String.replace_prefix(current_path || "/", prefix_to_remove, "")
 
-    # Remove locale from path
-    path_without_locale = get_path_without_locale(current_path, current_base)
+    # Ensure path starts with /
+    normalized =
+      if normalized == "" or not String.starts_with?(normalized, "/"), do: "/", else: normalized
 
-    # Generate URL using Routes.path which handles default language logic
-    # Default language (first admin language, typically "en") gets clean URLs (no prefix)
-    # Other languages get the locale prefix
-    Routes.path(path_without_locale, locale: base_code)
+    # Extract and strip the locale from the remaining path
+    current_base = extract_locale_from_path(normalized)
+    clean_path = strip_locale_from_path(normalized, current_base)
+
+    # Admin paths use Routes.admin_path to keep locale in URL
+    if String.contains?(clean_path, "/admin") do
+      Routes.admin_path(clean_path, base_code)
+    else
+      Routes.path(clean_path, locale: base_code)
+    end
   end
 
-  # Extract the locale segment from a path
+  # Extract the locale segment from a path (after prefix removal)
   # /en/admin => "en"
   # /en-US/admin => "en-US"
-  defp extract_locale_from_path(nil), do: nil
-
   defp extract_locale_from_path(path) do
     case String.split(path, "/", parts: 3) do
       ["", locale, _rest] ->
@@ -540,24 +764,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     end
   end
 
-  # Helper function to extract path without locale prefix
-  # Handles: /en/admin → /admin
-  # Handles: /admin → /admin (no locale)
-  # Handles: nil → / (root)
-  defp get_path_without_locale(nil, _current_locale), do: "/"
+  # Strip locale prefix from path: /en/admin → /admin
+  defp strip_locale_from_path(path, nil), do: path
 
-  defp get_path_without_locale(current_path, current_locale) do
-    # Remove locale from path: /en/admin → /admin
-    case String.split(current_path, "/", parts: 3) do
-      ["", ^current_locale, rest] when is_binary(rest) ->
-        "/#{rest}"
-
-      ["", ^current_locale] ->
-        "/"
-
-      _ ->
-        # Path doesn't start with locale, return as-is
-        current_path
+  defp strip_locale_from_path(path, locale) do
+    case String.split(path, "/", parts: 3) do
+      ["", ^locale, rest] when is_binary(rest) -> "/#{rest}"
+      ["", ^locale] -> "/"
+      _ -> path
     end
   end
 end

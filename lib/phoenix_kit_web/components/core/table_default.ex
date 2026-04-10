@@ -79,10 +79,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :variant, :string, default: "default", values: ["default", "zebra", "pin-rows", "pin-cols"]
   attr :size, :string, default: "md", values: ["xs", "sm", "md", "lg"]
   attr :toggleable, :boolean, default: false
+  attr :show_toggle, :boolean, default: true
   attr :items, :list, default: []
   attr :card_title, :any, default: nil
   attr :card_fields, :any, default: nil
   attr :storage_key, :string, default: nil
+  attr :wrapper_class, :string, default: "rounded-lg shadow-md overflow-x-auto overflow-y-clip"
   attr :rest, :global
 
   slot :inner_block, required: true
@@ -102,7 +104,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
 
   defp table_default_classic(assigns) do
     ~H"""
-    <div class="rounded-lg shadow-md overflow-x-auto overflow-y-clip">
+    <div class={@wrapper_class}>
       <table
         class={[
           "table",
@@ -121,8 +123,8 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   defp table_default_with_cards(assigns) do
     ~H"""
     <div id={@id} phx-hook="TableCardView" data-storage-key={@storage_key || @id} class="relative">
-      <%!-- Toggle buttons — only if toggleable, only desktop --%>
-      <div :if={@toggleable} class="hidden md:flex justify-end mb-2">
+      <%!-- Toggle buttons — only if toggleable and show_toggle, only desktop --%>
+      <div :if={@toggleable && @show_toggle} class="hidden md:flex justify-end mb-2">
         <div class="join">
           <button
             type="button"
@@ -144,7 +146,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
       </div>
       <%!-- Table: hidden on mobile always, shown on desktop (JS controls md: classes) --%>
       <div data-table-view="" class="hidden md:block">
-        <div class="rounded-lg shadow-md overflow-x-auto overflow-y-clip">
+        <div class={@wrapper_class}>
           <table
             class={[
               "table",

@@ -147,7 +147,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
       :max_size_mb
     ])
     |> validate_required([:name, :provider])
-    |> validate_inclusion(:provider, ["local", "s3", "b2", "r2"])
+    |> validate_inclusion(:provider, ["local", "s3", "b2", "r2", "tigris"])
     |> validate_inclusion(:access_type, ["public", "private", "signed"])
     |> validate_number(:priority, greater_than_or_equal_to: 0)
     |> validate_number(:max_size_mb, greater_than: 0)

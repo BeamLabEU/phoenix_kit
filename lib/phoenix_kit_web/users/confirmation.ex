@@ -8,7 +8,10 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   """
   use PhoenixKitWeb, :live_view
 
+  require Logger
+
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Utils.Routes
 
   def mount(%{"token" => token}, _session, socket) do
@@ -20,7 +23,9 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   # leaked token giving the user access to the account.
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do
     case Auth.confirm_user(token) do
-      {:ok, _} ->
+      {:ok, user} ->
+        maybe_accept_pending_invitation(user)
+
         {:noreply,
          socket
          |> put_flash(:info, "User confirmed successfully.")
@@ -42,6 +47,25 @@ defmodule PhoenixKitWeb.Users.Confirmation do
              |> put_flash(:error, "User confirmation link is invalid or it has expired.")
              |> redirect(to: "/")}
         end
+    end
+  end
+
+  # Auto-accept a pending invitation stored in custom_fields during registration.
+  # The invitation UUID is placed there by the registration flow when user
+  # arrives via an invite link (?invitation=TOKEN).
+  defp maybe_accept_pending_invitation(user) do
+    uuid = user.custom_fields && user.custom_fields["pending_invitation_uuid"]
+
+    if uuid do
+      case Invitations.accept_invitation_by_uuid(uuid, user) do
+        {:ok, _} ->
+          Auth.update_user_fields(user, %{"pending_invitation_uuid" => nil})
+
+        {:error, reason} ->
+          Logger.warning(
+            "Failed to auto-accept invitation for user #{user.uuid}: #{inspect(reason)}"
+          )
+      end
     end
   end
 end

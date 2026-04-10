@@ -59,6 +59,10 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
 
   * `id` - Unique element ID (required). Used by the JS hook.
   * `label` - Accessible label for the trigger button (optional, default: "Actions")
+  * `mode` - Display mode (optional, default: "dropdown"):
+    - `"dropdown"` — always show the ⋮ dropdown menu (original behavior)
+    - `"inline"` — always show actions as inline buttons (no dropdown)
+    - `"auto"` — inline buttons on `md+` screens, dropdown on mobile
   * `class` - Additional CSS classes for the wrapper (optional)
 
   ## Slots
@@ -68,9 +72,35 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   """
   attr :id, :string, required: true
   attr :label, :string, default: "Actions"
+  attr :mode, :string, default: "dropdown", values: ["dropdown", "inline", "auto"]
   attr :class, :string, default: nil
 
   slot :inner_block, required: true
+
+  def table_row_menu(%{mode: "inline"} = assigns) do
+    ~H"""
+    <div
+      class={[
+        "inline-flex flex-nowrap items-center gap-0.5 row-menu-inline",
+        "[&>li]:list-none [&>li]:inline-flex",
+        @class
+      ]}
+      role="group"
+      aria-label={@label}
+    >
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
+
+  def table_row_menu(%{mode: "auto"} = assigns) do
+    # Auto mode is intended to show inline buttons when they fit and collapse
+    # to the ⋮ dropdown when they overflow. The RowMenuAuto JS hook exists in
+    # phoenix_kit.js but doesn't work reliably — DaisyUI table cells have minimum
+    # widths that prevent proper overflow detection. For now, auto mode falls through
+    # to the default dropdown-only behaviour.
+    table_row_menu(%{assigns | mode: "dropdown"})
+  end
 
   def table_row_menu(assigns) do
     ~H"""

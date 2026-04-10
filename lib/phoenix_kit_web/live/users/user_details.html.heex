@@ -65,6 +65,21 @@
             <span class="badge badge-sm h-auto">{length(@admin_notes)}</span>
           <% end %>
         </button>
+        <%= if @org_accounts_enabled && @user.account_type == "organization" do %>
+          <button
+            type="button"
+            role="tab"
+            class={"tab gap-2 #{if @active_tab == "members", do: "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="members"
+          >
+            <.icon name="hero-user-group" class="w-4 h-4" />
+            {gettext("Members")}
+            <%= if length(@organization_members) > 0 do %>
+              <span class="badge badge-sm h-auto">{length(@organization_members)}</span>
+            <% end %>
+          </button>
+        <% end %>
       </div>
     </div>
 
@@ -102,6 +117,15 @@
                   <% else %>
                     <span class="badge badge-warning">{gettext("Unconfirmed")}</span>
                   <% end %>
+                  <%= if @org_accounts_enabled do %>
+                    <span class={
+                      "badge #{if @user.account_type == "organization", do: "badge-primary", else: "badge-ghost"}"
+                    }>
+                      {if @user.account_type == "organization",
+                        do: gettext("Organization"),
+                        else: gettext("Person")}
+                    </span>
+                  <% end %>
                 </div>
 
                 <%!-- Roles --%>
@@ -117,6 +141,23 @@
                     </div>
                   </div>
                 <% end %>
+
+                <%!-- Organization link (for person accounts) --%>
+                <%= if @org_accounts_enabled && @user.organization_uuid do %>
+                  <div class="mt-4">
+                    <h3 class="text-sm font-semibold text-base-content/70 mb-2">
+                      {gettext("Organization")}
+                    </h3>
+                    <.pk_link
+                      navigate={"/admin/users/view/#{@user.organization_uuid}"}
+                      class="link link-primary text-sm"
+                    >
+                      {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
+                          PhoenixKit.Users.Auth.User.full_name(@user.organization)) ||
+                        to_string(@user.organization_uuid)}
+                    </.pk_link>
+                  </div>
+                <% end %>
               </div>
             </div>
           </div>
@@ -128,6 +169,35 @@
               <div class="card-body">
                 <h3 class="card-title text-lg">{gettext("Basic Information")}</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <%= if @user.account_type == "organization" do %>
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70">
+                        {gettext("Account Type")}
+                      </label>
+                      <p class="text-base-content">
+                        <span class="badge badge-info badge-sm h-auto">
+                          {gettext("Organization")}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70">
+                        {gettext("Organization Name")}
+                      </label>
+                      <p class="text-base-content">{@user.organization_name || "-"}</p>
+                    </div>
+                  <% else %>
+                    <%= if @user.organization_uuid do %>
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Organization")}
+                        </label>
+                        <p class="text-base-content font-mono text-sm">
+                          {@user.organization_uuid}
+                        </p>
+                      </div>
+                    <% end %>
+                  <% end %>
                   <div>
                     <label class="text-sm font-medium text-base-content/70">
                       {gettext("Email")}
@@ -461,6 +531,89 @@
               </div>
             </div>
           <% end %>
+        </div>
+      <% end %>
+
+      <%!-- Members Tab Content --%>
+      <%= if @active_tab == "members" && @org_accounts_enabled && @user.account_type == "organization" do %>
+        <div class="card bg-base-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="card-title text-lg mb-4">{gettext("Organization Members")}</h3>
+            <%= if Enum.empty?(@organization_members) do %>
+              <div class="text-center py-8 text-base-content/70">
+                <.icon name="hero-user-group" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>{gettext("No members yet")}</p>
+                <p class="text-sm mt-1">{gettext("Add members from the user edit page")}</p>
+              </div>
+            <% else %>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Name")}</th>
+                      <th>{gettext("Email")}</th>
+                      <th>{gettext("Status")}</th>
+                      <th>{gettext("Actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for member <- @organization_members do %>
+                      <tr>
+                        <td>
+                          <div class="flex items-center gap-3">
+                            <.user_avatar user={member} size="sm" />
+                            <div>
+                              <div class="font-medium">
+                                {PhoenixKit.Users.Auth.User.full_name(member) || "-"}
+                              </div>
+                              <%= if member.username do %>
+                                <div class="text-xs text-base-content/60">@{member.username}</div>
+                              <% end %>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{member.email}</td>
+                        <td>
+                          <%= if member.is_active do %>
+                            <span class="badge badge-success badge-sm h-auto">
+                              {gettext("Active")}
+                            </span>
+                          <% else %>
+                            <span class="badge badge-error badge-sm h-auto">
+                              {gettext("Inactive")}
+                            </span>
+                          <% end %>
+                        </td>
+                        <td>
+                          <div class="flex gap-1">
+                            <.pk_link
+                              navigate={"/admin/users/view/#{member.uuid}"}
+                              class="btn btn-ghost btn-xs"
+                              title={gettext("View")}
+                            >
+                              <.icon name="hero-eye" class="w-4 h-4" />
+                            </.pk_link>
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-xs text-error"
+                              phx-click="remove_member"
+                              phx-value-uuid={member.uuid}
+                              title={gettext("Remove from organization")}
+                              data-confirm={
+                                gettext("Are you sure you want to remove this member?")
+                              }
+                            >
+                              <.icon name="hero-x-mark" class="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+          </div>
         </div>
       <% end %>
     </div>

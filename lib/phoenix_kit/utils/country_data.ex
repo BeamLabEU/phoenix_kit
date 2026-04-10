@@ -153,6 +153,66 @@ defmodule PhoenixKit.Utils.CountryData do
 
   def get_vat_rates(_), do: nil
 
+  # ============================================================================
+  # Tax Configuration (from Organization Settings)
+  # ============================================================================
+
+  @doc """
+  Get the unified tax configuration from Organization settings.
+
+  Returns a map with:
+  - `:enabled` - boolean, whether tax is enabled
+  - `:rate` - string percentage (e.g. "20")
+  - `:rate_decimal` - Decimal fraction (e.g. Decimal.new("0.20"))
+
+  Tax rate is stored in the `company_info` JSON setting under `"tax_rate"` and
+  `"tax_enabled"` keys. Falls back to `billing_default_tax_rate` / `billing_tax_enabled`
+  for backward compatibility.
+  """
+  def get_tax_config do
+    company_info = get_company_info()
+
+    tax_enabled = get_tax_enabled(company_info)
+    tax_rate = get_tax_rate_percent(company_info)
+
+    rate_decimal =
+      case Float.parse(tax_rate) do
+        {value, _} -> Decimal.div(Decimal.new("#{value}"), 100)
+        :error -> Decimal.new("0")
+      end
+
+    %{enabled: tax_enabled, rate: tax_rate, rate_decimal: rate_decimal}
+  end
+
+  defp get_tax_enabled(company_info) do
+    case company_info["tax_enabled"] do
+      nil ->
+        Settings.get_setting_cached("billing_tax_enabled", "false") == "true"
+
+      value when is_boolean(value) ->
+        value
+
+      "true" ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp get_tax_rate_percent(company_info) do
+    case company_info["tax_rate"] do
+      nil ->
+        Settings.get_setting_cached("billing_default_tax_rate", "0")
+
+      rate when is_binary(rate) ->
+        rate
+
+      rate when is_number(rate) ->
+        to_string(rate)
+    end
+  end
+
   @doc """
   Check if country is an EU member.
 
@@ -497,7 +557,11 @@ defmodule PhoenixKit.Utils.CountryData do
       when is_binary(iban) do
     iban = String.replace(iban, ~r/\s/, "") |> String.upcase()
     iban_country = String.slice(iban, 0, 2)
-    expected_length = IbanData.get_iban_length(iban_country)
+
+    expected_length =
+      if Code.ensure_loaded?(IbanData),
+        do: IbanData.get_iban_length(iban_country),
+        else: nil
 
     cond do
       iban == "" ->

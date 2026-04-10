@@ -7,17 +7,13 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   use Phoenix.Component
 
   alias Phoenix.LiveView.JS
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
-  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon
   import PhoenixKitWeb.Components.Core.ThemeController, only: [theme_controller: 1]
-
-  @default_locale Config.default_locale()
 
   @doc """
   Renders an admin navigation item with proper active state styling.
@@ -187,7 +183,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
-    # Get admin languages from settings (separate from the language module)
+    # Get languages from the unified Languages module
     admin_languages = get_admin_languages()
 
     # Extract base code from current locale for matching
@@ -195,11 +191,19 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
     # Transform languages: code = base (for URLs), dialect = full (for preferences)
     transformed_languages =
-      Enum.map(admin_languages, fn lang ->
+      admin_languages
+      |> Enum.filter(fn lang -> is_binary(Map.get(lang, :code)) end)
+      |> Enum.map(fn lang ->
         dialect = lang.code
         base = DialectMapper.extract_base(dialect)
 
-        %{code: base, dialect: dialect, name: lang.name, flag: lang.flag, native: lang.native}
+        %{
+          code: base,
+          dialect: dialect,
+          name: Map.get(lang, :name, dialect),
+          flag: Map.get(lang, :flag, "🌐"),
+          native: Map.get(lang, :native, "")
+        }
       end)
 
     current_language =
@@ -567,38 +571,27 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     Regex.match?(~r/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/i, locale)
   end
 
-  # Helper function to get admin languages from settings
-  # Returns empty list if Languages module is disabled or not loaded
+  # Helper function to get languages for admin nav display
+  # Uses the unified Languages module as the single source of truth
   defp get_admin_languages do
-    # If Languages module is not loaded or not enabled, return empty list
-    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
-      # Read admin languages from settings cache (not all enabled languages)
-      # Note: admin_languages is stored as JSON string in value column
-      admin_languages_json =
-        Settings.get_setting_cached("admin_languages", nil) ||
-          Jason.encode!([@default_locale])
-
-      admin_language_codes =
-        case Jason.decode(admin_languages_json) do
-          {:ok, codes} when is_list(codes) -> codes
-          _ -> [@default_locale]
-        end
-
-      # Map codes to full language objects
-      admin_language_codes
-      |> Enum.map(fn code ->
-        case Languages.get_predefined_language(code) do
-          %{} = lang ->
-            lang
-
-          nil ->
-            # Fallback for unknown codes
-            %{code: code, name: code, flag: "🌐", native: ""}
-        end
-      end)
+    if Code.ensure_loaded?(Languages) do
+      Languages.get_display_languages()
+      |> Enum.filter(fn lang -> is_map(lang) and Map.get(lang, :is_enabled, false) end)
+      |> Enum.map(&enrich_language/1)
+      |> Enum.reject(&is_nil/1)
     else
-      # Module disabled, return empty list
       []
+    end
+  end
+
+  defp enrich_language(lang) do
+    code = if is_struct(lang), do: lang.code, else: lang[:code]
+
+    if is_binary(code) do
+      case Languages.get_predefined_language(code) do
+        %{} = predefined -> predefined
+        _ -> %{code: code, name: Map.get(lang, :name, code), flag: "🌐", native: ""}
+      end
     end
   end
 
@@ -615,26 +608,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Build URL with base code - expects base code directly (e.g., "en" not "en-US")
-  # Used by admin language dropdown where language["code"] is already the base code
   # Uses Routes.path/2 which automatically skips locale prefix for default language
   defp build_locale_url(current_path, base_code) do
-    # Get valid language codes from both admin and frontend systems
-    admin_languages = get_admin_languages()
-    admin_language_codes = Enum.map(admin_languages, & &1.code)
-    admin_base_codes = Enum.map(admin_language_codes, &DialectMapper.extract_base/1)
-
-    # Get frontend language codes from the Language Module
-    frontend_language_codes =
+    # Get valid language codes from the unified Languages module
+    language_codes =
       if Code.ensure_loaded?(Languages),
         do: Languages.enabled_locale_codes(),
         else: []
 
-    frontend_base_codes = Enum.map(frontend_language_codes, &DialectMapper.extract_base/1)
-
-    # Accept language if it's valid in EITHER admin or frontend (both full and base codes)
-    valid_language_codes =
-      (admin_language_codes ++ frontend_language_codes ++ admin_base_codes ++ frontend_base_codes)
-      |> Enum.uniq()
+    base_codes = Enum.map(language_codes, &DialectMapper.extract_base/1)
+    valid_codes = Enum.uniq(language_codes ++ base_codes)
 
     # Remove PhoenixKit prefix if present (use dynamic config, not hardcoded)
     url_prefix = PhoenixKit.Config.get_url_prefix()
@@ -645,18 +628,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     clean_path =
       case String.split(normalized_path, "/", parts: 3) do
         ["", potential_locale, rest] ->
-          if potential_locale in valid_language_codes do
-            "/" <> rest
-          else
-            normalized_path
-          end
+          if potential_locale in valid_codes, do: "/" <> rest, else: normalized_path
 
         ["", potential_locale] ->
-          if potential_locale in valid_language_codes do
-            "/"
-          else
-            normalized_path
-          end
+          if potential_locale in valid_codes, do: "/", else: normalized_path
 
         _ ->
           normalized_path

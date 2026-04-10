@@ -148,6 +148,15 @@ Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix t
 
 PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
 
+Severity levels for review findings:
+
+- `BUG - CRITICAL` — Will cause crashes, data loss, or security issues
+- `BUG - HIGH` — Incorrect behavior that affects users
+- `BUG - MEDIUM` — Edge cases, minor incorrect behavior
+- `IMPROVEMENT - HIGH` — Significant code quality or performance issue
+- `IMPROVEMENT - MEDIUM` — Better patterns or maintainability
+- `NITPICK` — Style, naming, minor suggestions
+
 ### Publishing commands
 
 - `mix hex.build`
@@ -162,10 +171,125 @@ PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` direct
 - The migration system uses Oban-style versioned migrations (see `lib/phoenix_kit/migrations/postgres/`)
 
 
+## Integrations System
+
+Centralized management of external service connections (OAuth, API keys, bot tokens).
+
+**Architecture:**
+- `lib/phoenix_kit/integrations/integrations.ex` — Main context (CRUD, OAuth flow, credentials, validation)
+- `lib/phoenix_kit/integrations/providers.ex` — Provider registry (Google, OpenRouter built-in; extensible via modules)
+- `lib/phoenix_kit/integrations/oauth.ex` — Generic OAuth 2.0 flow with CSRF state protection
+- `lib/phoenix_kit/integrations/events.ex` — PubSub events for real-time UI updates
+- `lib/phoenix_kit_web/live/settings/integrations.ex` — List page (cards with status, actions)
+- `lib/phoenix_kit_web/live/settings/integration_form.ex` — Add/edit page (OAuth flow, test connection)
+- `lib/phoenix_kit_web/components/core/integration_picker.ex` — Reusable picker component for module UIs
+
+**Storage:** Uses existing `phoenix_kit_settings` table with `value_json` JSONB. Keys follow `integration:{provider}:{name}` convention (e.g., `integration:google:default`). Connections are referenced by their settings row UUID.
+
+**Auth types:** `:oauth2` (Google, Microsoft), `:api_key` (OpenRouter, Stripe), `:key_secret` (AWS), `:bot_token` (Telegram, Discord), `:credentials` (SMTP, databases).
+
+**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/2`, `remove_connection/2`, `list_connections/1`. "default" cannot be removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
+
+**Validation:** `validate_connection/1` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data.
+
+**Events (PubSub):** Topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added`, `integration_connection_removed`.
+
+**Module callbacks:** `required_integrations/0` — declares provider keys this module needs (shown in "Used by" on settings page). `integration_providers/0` — contributes custom provider definitions to the registry.
+
+**Legacy migration:** Automatically migrates old `document_creator_google_oauth` settings key to `integration:google:default` on first access.
+
+**Plan:** `dev_docs/plans/integrations-system.md`
+
+
 ## Documentations
 
 Built-in Dashboard Features
 **Full documentation:** `lib/phoenix_kit/dashboard/README.md` (tabs, subtabs, badges, context selectors, and more).
+
+
+## Activity Feed
+
+Core module at `lib/phoenix_kit/activity/` — tracks business-level actions across the platform. Admin UI at `/admin/activity` with detail pages at `/admin/activity/:uuid`.
+
+### Logging an activity
+
+```elixir
+PhoenixKit.Activity.log(%{
+  action: "post.created",       # required — dotted format: resource.verb
+  module: "posts",              # which module this belongs to (filterable)
+  mode: "manual",               # "manual" (user/admin clicked) or "auto" (system triggered)
+  actor_uuid: user.uuid,        # who did it
+  resource_type: "post",        # what kind of thing was acted on
+  resource_uuid: post.uuid,     # the thing's UUID
+  target_uuid: nil,             # optional: who was affected (e.g., follow target)
+  metadata: %{                  # flexible JSONB — shown in detail page
+    "actor_role" => "user",     # "user" or "admin"
+    "title" => post.title
+  }
+})
+```
+
+### Helper for profile/field changes
+
+For changes with from/to diffs, use `log_user_change/4` — auto-extracts `field_from`/`field_to` pairs from an Ecto changeset:
+
+```elixir
+# User updates own profile (defaults: mode "manual", actor_role "user")
+PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset)
+
+# Admin updates a user (override actor and role)
+PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+  actor_uuid: admin.uuid,
+  target_uuid: user.uuid,
+  mode: "manual",
+  actor_role: "admin"
+)
+```
+
+Skips logging if nothing actually changed. The index page summarizes diffs as "username, email updated"; the detail page shows full `_from`/`_to` values.
+
+### Conventions
+
+| Field | Convention |
+|-------|-----------|
+| `action` | `resource.verb` — e.g., `user.registered`, `post.created`, `comment.liked` |
+| `module` | Module key string: `"users"`, `"posts"`, `"comments"`, `"connections"` |
+| `mode` | `"manual"` = person clicked a button; `"auto"` = system/token triggered; `"cron"` = scheduled; `"script"` = one-off |
+| `actor_role` | `"admin"` or `"user"` — baked into metadata at log time (captures role at time of action) |
+| `resource_type` | Same as `module` for most cases, but can differ (e.g., module `"users"`, resource_type `"user"`) |
+
+### Existing user actions
+
+| Action | Mode | Logged in |
+|--------|------|-----------|
+| `user.registered` | manual | `registration.ex` |
+| `user.created` | manual | `user_form.ex` (admin) |
+| `user.email_confirmed` | auto/manual | `auth.ex`, `magic_link.ex`, `oauth.ex`, `users.ex` |
+| `user.email_unconfirmed` | manual | `users.ex` |
+| `user.password_changed` | manual | `auth.ex` (user + admin paths) |
+| `user.password_reset` | auto | `auth.ex` |
+| `user.email_changed` | auto | `auth.ex` (stores old_email/new_email) |
+| `user.profile_updated` | manual | `auth.ex` (user), `user_form.ex` (admin) — uses `log_user_change` |
+| `user.avatar_changed` | manual | `user_settings.ex` (user), `user_form.ex` (admin) |
+| `user.status_changed` | manual | `users.ex` (admin) |
+| `user.deleted` | manual | `auth.ex` (stores deleted_email) |
+| `user.roles_updated` | manual | `user_form.ex`, `users.ex` (admin) — stores roles_from/to, added/removed |
+| `user.note_created` | manual | `auth.ex` |
+| `user.note_deleted` | manual | `auth.ex` |
+
+### External modules
+
+External modules should guard with `Code.ensure_loaded?/1`:
+
+```elixir
+if Code.ensure_loaded?(PhoenixKit.Activity) do
+  PhoenixKit.Activity.log(%{action: "comment.created", module: "comments", ...})
+end
+```
+
+### Cleanup
+
+Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
 
 
 ## Guidelines
@@ -181,6 +305,42 @@ end
 ```
 
 Without this, `PhoenixKit.ModuleDiscovery` won't find the module and routes will return 404. See `phoenix_kit_hello_world` for the template.
+
+### Tailwind CSS Scanning for External Modules
+
+External modules with UI must implement `css_sources/0` returning their OTP app name:
+
+```elixir
+@impl PhoenixKit.Module
+def css_sources, do: [:phoenix_kit_my_module]
+```
+
+CSS source discovery is **automatic at compile time**. The `:phoenix_kit_css_sources` compiler (in `lib/mix/tasks/compile.phoenix_kit_css_sources.ex`) discovers all modules with `css_sources/0`, resolves their paths (path deps vs hex deps), and writes `assets/css/_phoenix_kit_sources.css`. The parent app's `app.css` imports this generated file.
+
+**Parent app setup (one-time, handled by `mix phoenix_kit.install`):**
+1. Add `:phoenix_kit_css_sources` to `compilers:` in `mix.exs` (before `:phoenix_live_view`)
+2. `app.css` must have `@import "./_phoenix_kit_sources.css";`
+
+After setup, adding or removing modules is zero-config — the compiler regenerates on each compilation.
+
+### JavaScript Hooks for External Modules
+
+PhoenixKit provides JS hooks (RowMenu, TableCardView, SortableGrid, etc.) in `priv/static/assets/phoenix_kit.js`. This file defines `window.PhoenixKitHooks` which the parent app spreads into LiveSocket:
+
+```javascript
+hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
+```
+
+**Parent app setup (handled by `mix phoenix_kit.install`):**
+1. `phoenix_kit.js` is copied to `priv/static/assets/vendor/`
+2. A `<script>` tag is added to the root layout **before** `app.js`:
+   ```html
+   <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+   ```
+
+**On update (`mix phoenix_kit.update`):** The JS file is automatically refreshed to keep hooks in sync.
+
+External modules register custom hooks via inline `<script>` tags on `window.PhoenixKitHooks`. See the hello_world template for examples.
 
 ### PhoenixKit Layout Guidelines
 
@@ -247,9 +407,17 @@ Features: versioned migrations, database tables prefix support, idempotent opera
 
 ### External module route discovery
 
-Routes from external PhoenixKit modules (e.g., `phoenix_kit_entities`) are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set.
+Routes from external PhoenixKit modules are auto-discovered at compile time via `ModuleDiscovery` beam scanning. The host router automatically recompiles when module deps are added or removed — the `phoenix_kit_routes()` macro injects `__mix_recompile__?/0` into the host router with a hash of the discovered module set. No manual config needed.
 
-No manual config is needed. If auto-discovery fails, register route modules explicitly as a fallback:
+**Two routing patterns:**
+
+1. **Single page** — add `live_view: {MyModule.Web.IndexLive, :index}` to `admin_tabs/0` or `settings_tabs/0`. The route is auto-generated. No route module needed. Used by: hello_world, sync, catalogue, document_creator, emails (settings), user_connections, legal.
+
+2. **Multi-page** — implement `route_module/0` returning a module with `admin_routes/0` and `admin_locale_routes/0`. Required for sub-routes like `/new`, `/edit`, `/:id`. Do NOT set `live_view:` on the main tab when using a route module. Used by: ai, entities, publishing, newsletters.
+
+**Important:** if a parent tab and subtab share the same path and both have `live_view:`, the core deduplicates by path (first wins). But avoid this pattern — only set `live_view:` on one tab per unique path.
+
+If auto-discovery fails, register route modules explicitly as a fallback:
 
 ```elixir
 # config/config.exs

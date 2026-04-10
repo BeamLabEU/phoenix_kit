@@ -13,6 +13,7 @@
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :unknown_function},
+  {"lib/mix/tasks/compile.phoenix_kit_css_sources.ex", :unknown_function},
 
   # Mix.Task behaviour callbacks (expected in Mix tasks)
   # Note: Mix.Task behaviour info is not available to Dialyzer (compile-time only)
@@ -27,6 +28,7 @@
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.status.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.cleanup_orphaned_files.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/compile.phoenix_kit_css_sources.ex", :callback_info_missing, 1},
 
   # Publishing module (extracted) — dynamic dispatch through publishing_module() helper
   # Ecto.Multi opaque type false positives (code works correctly)
@@ -66,11 +68,6 @@
   # This is a false positive: MapSet.new/1 correctly produces an opaque MapSet at runtime
   {"lib/mix/tasks/phoenix_kit.doctor.ex", :call_without_opaque},
 
-  # Shop catalog_product - false positive guard_fail warning
-  # Case statement already handles nil in earlier branch, Dialyzer incorrectly warns
-  # that remaining branch comparing binary() to nil can never succeed
-  {"lib/modules/shop/web/catalog_product.ex", :guard_fail},
-
   # Entity form - defensive catch-all clauses for mb_to_bytes and parse_accept_list
   # Dialyzer proves previous clauses cover all actual call-site types but
   # catch-alls are kept intentionally for safety with dynamic form params
@@ -80,10 +77,15 @@
   {"lib/phoenix_kit_web/integration.ex", :pattern_match},
 
   # External optional modules guarded by Code.ensure_loaded? at runtime
-  {"lib/modules/sitemap/sources/posts.ex", :unknown_function},
   {"lib/modules/sitemap/sources/publishing.ex", :unknown_function},
   {"lib/phoenix_kit/dashboard/registry.ex", :unknown_function},
   {"lib/phoenix_kit/install/css_integration.ex", :unknown_function},
+
+  # Integrations: Dialyzer infers boolean branches in cond/case are unreachable
+  # when provider auth_type covers all spec'd atoms. False positive — defensive code.
+  # Also: :validation key not in @type provider but present in actual provider maps.
+  {"lib/phoenix_kit/integrations/integrations.ex", :pattern_match},
+  {"lib/phoenix_kit/integrations/integrations.ex", :guard_fail},
   {"lib/phoenix_kit/scheduled_jobs/workers/process_scheduled_jobs_worker.ex", :unknown_function},
 
   # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
@@ -97,5 +99,14 @@
   {"lib/phoenix_kit/utils/country_data.ex", :unknown_function},
   {"lib/phoenix_kit_web/users/auth.ex", :unknown_function},
   {"lib/modules/sitemap/sources/shop.ex", :unknown_function},
-  {"lib/phoenix_kit/users/auth.ex", :unknown_function}
+  {"lib/phoenix_kit/users/auth.ex", :unknown_function},
+
+  # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
+  # Dialyzer cannot resolve ExUnit private macros expanded at compile time
+  {"test/support/conn_case.ex", :unknown_function},
+  {"test/support/data_case.ex", :unknown_function},
+
+  # Integrations — URI authority is opaque, cond guard false positive
+  {"lib/phoenix_kit_web/live/settings/integration_form.ex", :opaque_guard},
+  {"lib/phoenix_kit_web/live/settings/integrations.ex", :guard_fail}
 ]

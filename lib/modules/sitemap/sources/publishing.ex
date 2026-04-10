@@ -54,8 +54,6 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   @publishing_mod PhoenixKit.Modules.Publishing
 
-  @default_locale Config.default_locale()
-
   # Future: Hook into Publishing post creation/update to invalidate sitemap-publishing
 
   @impl true
@@ -517,11 +515,11 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     _ -> true
   end
 
-  # Get default language from admin settings
+  # Get default language from the Languages module
   defp get_default_language do
-    case PhoenixKit.Settings.get_json_setting_cached("admin_languages", [@default_locale]) do
-      [first | _] -> Languages.DialectMapper.extract_base(first)
-      _ -> "en"
+    case Languages.get_default_language() do
+      %{code: code} -> Languages.DialectMapper.extract_base(code)
+      nil -> "en"
     end
   end
 

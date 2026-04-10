@@ -33,6 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
     default_bucket_uuid = Settings.get_setting("storage_default_bucket_uuid", nil)
+    max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
 
     # Calculate maximum redundancy based on available buckets
     active_buckets = Enum.count(buckets, & &1.enabled)
@@ -44,6 +45,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Store form values for batch updates
     form_redundancy = current_redundancy
     form_auto_generate_variants = auto_generate_variants == "true"
+    current_max_upload_size_mb = String.to_integer(max_upload_size_mb)
 
     # Check system dependencies
     imagemagick_status = Dependencies.check_imagemagick_cached()
@@ -52,7 +54,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     socket =
       socket
       |> assign(:current_path, current_path)
-      |> assign(:page_title, "Storage Settings")
+      |> assign(:page_title, "Media Settings")
       |> assign(:project_title, project_title)
       |> assign(:buckets, buckets)
       |> assign(:bucket_file_counts, bucket_file_counts)
@@ -63,6 +65,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_auto_generate_variants, form_auto_generate_variants)
+      |> assign(:max_upload_size_mb, current_max_upload_size_mb)
+      |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
       |> assign(:imagemagick_status, imagemagick_status)
       |> assign(:ffmpeg_status, ffmpeg_status)
 
@@ -140,25 +144,35 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     {:noreply, socket}
   end
 
-  def handle_event("update_storage_form", %{"form_redundancy" => redundancy}, socket) do
-    # Handle both string and integer inputs
+  def handle_event("update_storage_form", params, socket) do
     form_redundancy =
-      cond do
-        is_integer(redundancy) -> redundancy
-        is_binary(redundancy) -> String.to_integer(redundancy)
-        # fallback
-        true -> 1
+      case params["form_redundancy"] do
+        nil -> socket.assigns.form_redundancy
+        val when is_integer(val) -> val
+        val when is_binary(val) -> parse_integer(val, socket.assigns.form_redundancy)
+        _ -> socket.assigns.form_redundancy
+      end
+
+    form_max_upload_size_mb =
+      case params["form_max_upload_size_mb"] do
+        nil ->
+          socket.assigns.form_max_upload_size_mb
+
+        val when is_integer(val) ->
+          max(val, 1)
+
+        val when is_binary(val) ->
+          max(parse_integer(val, socket.assigns.form_max_upload_size_mb), 1)
+
+        _ ->
+          socket.assigns.form_max_upload_size_mb
       end
 
     socket =
       socket
       |> assign(:form_redundancy, form_redundancy)
+      |> assign(:form_max_upload_size_mb, form_max_upload_size_mb)
 
-    {:noreply, socket}
-  end
-
-  def handle_event("update_storage_form", _params, socket) do
-    # Handle cases where form doesn't include redundancy field
     {:noreply, socket}
   end
 
@@ -166,6 +180,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Get current form values
     new_redundancy = socket.assigns.form_redundancy
     new_variants = if socket.assigns.form_auto_generate_variants, do: "true", else: "false"
+    new_max_upload_size_mb = socket.assigns.form_max_upload_size_mb
 
     # Validate redundancy doesn't exceed available buckets
     max_redundancy = socket.assigns.max_redundancy
@@ -180,17 +195,23 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
       {:noreply, socket}
     else
-      # Update both settings
+      # Update all settings
       redundancy_result =
         Settings.update_setting("storage_redundancy_copies", to_string(new_redundancy))
 
       variants_result = Settings.update_setting("storage_auto_generate_variants", new_variants)
+
+      Settings.update_setting(
+        "storage_max_upload_size_mb",
+        to_string(new_max_upload_size_mb)
+      )
 
       case {redundancy_result, variants_result} do
         {{:ok, _}, {:ok, _}} ->
           # Verify the settings were saved correctly by reading them back
           saved_redundancy = Settings.get_setting("storage_redundancy_copies", "1")
           saved_variants = Settings.get_setting("storage_auto_generate_variants", "true")
+          saved_max_upload = Settings.get_setting("storage_max_upload_size_mb", "500")
 
           socket =
             socket
@@ -198,6 +219,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
             |> assign(:auto_generate_variants, saved_variants == "true")
             |> assign(:form_redundancy, String.to_integer(saved_redundancy))
             |> assign(:form_auto_generate_variants, saved_variants == "true")
+            |> assign(:max_upload_size_mb, String.to_integer(saved_max_upload))
+            |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
             |> put_flash(:info, "Storage settings updated successfully")
 
           {:noreply, socket}
@@ -254,6 +277,26 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update default bucket")
         {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_bucket", %{"id" => bucket_uuid}, socket) do
+    case Storage.get_bucket(bucket_uuid) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Bucket not found")}
+
+      bucket ->
+        new_enabled = !bucket.enabled
+
+        case Storage.update_bucket(bucket, %{enabled: new_enabled}) do
+          {:ok, _bucket} ->
+            action = if new_enabled, do: "enabled", else: "disabled"
+            socket = reload_settings_data(socket)
+            {:noreply, put_flash(socket, :info, "Bucket #{action} successfully")}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to update bucket")}
+        end
     end
   end
 
@@ -366,11 +409,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
     default_bucket_uuid = Settings.get_setting("storage_default_bucket_uuid", nil)
+    max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
 
     # Recalculate max redundancy
     active_buckets_count = Enum.count(buckets, & &1.enabled)
     max_redundancy = if active_buckets_count > 0, do: active_buckets_count, else: 1
     current_redundancy = String.to_integer(redundancy_copies)
+    current_max_upload_size_mb = String.to_integer(max_upload_size_mb)
 
     socket
     |> assign(:buckets, buckets)
@@ -382,5 +427,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     |> assign(:max_redundancy, max_redundancy)
     |> assign(:form_redundancy, current_redundancy)
     |> assign(:form_auto_generate_variants, auto_generate_variants == "true")
+    |> assign(:max_upload_size_mb, current_max_upload_size_mb)
+    |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
+  end
+
+  defp parse_integer(val, fallback) do
+    case Integer.parse(val) do
+      {int, _} -> int
+      :error -> fallback
+    end
   end
 end
