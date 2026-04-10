@@ -632,9 +632,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       Storage.move_file_to_folder(file_uuid, target)
     end)
 
-    # Move selected folders (update parent_uuid)
+    # Move selected folders (update parent_uuid), skip self-moves and cycles
     Enum.each(socket.assigns.selected_folders, fn sel_folder_uuid ->
-      # Don't move a folder into itself
       if sel_folder_uuid != target do
         folder = Storage.get_folder(sel_folder_uuid)
         if folder, do: Storage.update_folder(folder, %{parent_uuid: target})

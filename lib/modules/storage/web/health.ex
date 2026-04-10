@@ -61,6 +61,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
         |> assign(:sync_synced, 0)
         |> assign(:sync_failed, 0)
         |> assign(:sync_log, [])
+        |> assign(:prev_synced, 0)
 
       {:noreply, socket}
     end
@@ -94,8 +95,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
         socket
       ) do
     # Update health stats live based on sync progress
+    # synced is cumulative, so compute delta from previous callback
+    prev_synced = socket.assigns[:prev_synced] || 0
+    delta = synced - prev_synced
+
     report = socket.assigns.report
-    new_healthy = report.healthy + synced
+    new_healthy = report.healthy + delta
 
     new_percentage =
       if report.total > 0,
@@ -105,7 +110,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
     updated_report = %{
       report
       | healthy: new_healthy,
-        under_replicated: Enum.drop(report.under_replicated, synced),
+        under_replicated: Enum.drop(report.under_replicated, delta),
         health_percentage: new_percentage
     }
 
@@ -124,6 +129,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
       |> assign(:sync_total, total)
       |> assign(:sync_synced, synced)
       |> assign(:sync_failed, failed)
+      |> assign(:prev_synced, synced)
       |> assign(:report, updated_report)
       |> assign(:sync_log, sync_log)
 
@@ -189,15 +195,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
     |> assign(:sync_total, 0)
     |> assign(:sync_synced, 0)
     |> assign(:sync_failed, 0)
+    |> assign(:prev_synced, 0)
   end
 
   defp apply_sync_state(socket, state) do
+    synced = state[:synced] || 0
+
     socket
     |> assign(:syncing, true)
     |> assign(:sync_progress, state[:done] || 0)
     |> assign(:sync_total, state[:total] || 0)
-    |> assign(:sync_synced, state[:synced] || 0)
+    |> assign(:sync_synced, synced)
     |> assign(:sync_failed, state[:failed] || 0)
+    |> assign(:prev_synced, synced)
   end
 
   defp get_sync_state do
