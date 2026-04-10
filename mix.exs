@@ -112,6 +112,11 @@ defmodule PhoenixKit.MixProject do
       # Content editor
       {:leaf, "~> 0.2.6"},
 
+      # Cloud provider regions
+      {:aws_regions, "~> 0.1.0"},
+      {:backblaze_regions, "~> 0.1.0"},
+      {:tigris_regions, "~> 0.1.0"},
+
       # Utilities
       {:jason, "~> 1.4"},
       {:earmark, "~> 1.4"},

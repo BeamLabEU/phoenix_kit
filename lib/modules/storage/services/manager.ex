@@ -118,6 +118,31 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     end)
   end
 
+  @doc """
+  Replicates a file to specific target buckets.
+
+  Retrieves the file from any available bucket, then stores it to
+  each target bucket. Returns the list of bucket UUIDs that succeeded.
+  """
+  def replicate_to_buckets(file_path, target_buckets, opts \\ []) do
+    # First retrieve the file to a temp location
+    temp_path = generate_temp_path() <> Path.extname(file_path)
+
+    case retrieve_file(file_path, destination_path: temp_path) do
+      {:ok, local_path} ->
+        result =
+          store_across_buckets(local_path, target_buckets, [{:path_prefix, file_path} | opts])
+
+        File.rm(local_path)
+        result
+
+      {:error, reason} ->
+        {:error, "Cannot retrieve source file for replication: #{inspect(reason)}"}
+    end
+  rescue
+    error -> {:error, "Replication failed: #{inspect(error)}"}
+  end
+
   # Private functions
 
   defp select_buckets_for_storage(redundancy_copies, priority_buckets) do
@@ -169,18 +194,22 @@ defmodule PhoenixKit.Modules.Storage.Manager do
       buckets
       |> Enum.map(fn bucket ->
         provider = get_provider_for_bucket(bucket)
-        provider.store_file(bucket, source_path, destination_path, opts)
+        result = provider.store_file(bucket, source_path, destination_path, opts)
+        {bucket, result}
       end)
 
-    # Check if at least one storage succeeded
-    successful_storages = Enum.count(results, &(&1 == :ok or match?({:ok, _}, &1)))
+    # Only include buckets where the upload actually succeeded
+    successful_buckets =
+      Enum.filter(results, fn {_bucket, result} ->
+        result == :ok or match?({:ok, _}, result)
+      end)
 
-    if successful_storages > 0 do
+    if successful_buckets != [] do
       file_info = %{
         destination_path: destination_path,
         stored_in: length(buckets),
-        successful_storages: successful_storages,
-        bucket_ids: Enum.map(buckets, & &1.uuid)
+        successful_storages: length(successful_buckets),
+        bucket_ids: Enum.map(successful_buckets, fn {bucket, _} -> bucket.uuid end)
       }
 
       {:ok, file_info}

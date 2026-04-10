@@ -1,0 +1,262 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-5xl">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
+      title={@page_title}
+      subtitle={gettext("Check file redundancy against configured target")}
+    />
+
+    <%!-- Stats --%>
+    <div class="stats stats-vertical lg:stats-horizontal shadow w-full mb-6">
+      <div class="stat">
+        <div class="stat-figure text-primary">
+          <.icon name="hero-document-duplicate" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Total Files")}</div>
+        <div class="stat-value text-2xl">{@report.total}</div>
+        <div class="stat-desc">{gettext("Files with completed variants")}</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-figure text-success">
+          <.icon name="hero-check-circle" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Healthy")}</div>
+        <div class="stat-value text-2xl text-success">{@report.healthy}</div>
+        <div class="stat-desc">
+          {gettext("%{count}+ locations each", count: @report.redundancy_target)}
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-figure text-error">
+          <.icon name="hero-exclamation-triangle" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Under-replicated")}</div>
+        <div class="stat-value text-2xl text-error">{length(@report.under_replicated)}</div>
+        <div class="stat-desc">{gettext("Below redundancy target")}</div>
+      </div>
+
+      <div class="stat">
+        <div class={"stat-figure #{if @report.health_percentage == 100.0, do: "text-success", else: "text-warning"}"}>
+          <.icon name="hero-heart" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">{gettext("Health")}</div>
+        <div class={"stat-value text-2xl #{if @report.health_percentage == 100.0, do: "text-success", else: "text-warning"}"}>
+          {@report.health_percentage}%
+        </div>
+        <div class="stat-desc">
+          {gettext("Redundancy target: %{n} copies", n: @report.redundancy_target)}
+        </div>
+      </div>
+    </div>
+
+    <%!-- Actions --%>
+    <div class="flex justify-end gap-2 mb-4">
+      <%= if @report.under_replicated != [] do %>
+        <button phx-click="sync" class="btn btn-primary btn-sm" disabled={@syncing}>
+          <%= if @syncing do %>
+            <span class="loading loading-spinner loading-xs"></span>
+            {gettext("Syncing...")}
+          <% else %>
+            <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4" />
+            {gettext("Sync All")}
+          <% end %>
+        </button>
+      <% end %>
+      <button phx-click="refresh" class="btn btn-outline btn-sm">
+        <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Refresh")}
+      </button>
+    </div>
+
+    <%!-- Sync Progress --%>
+    <%= if @syncing do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold">
+                <%= if @sync_paused do %>
+                  {gettext("Sync paused")}
+                <% else %>
+                  {gettext("Syncing files...")}
+                <% end %>
+              </span>
+              <%= if @sync_paused do %>
+                <button phx-click="resume_sync" class="btn btn-xs btn-success">
+                  <.icon name="hero-play" class="w-3 h-3" /> {gettext("Resume")}
+                </button>
+              <% else %>
+                <button phx-click="pause_sync" class="btn btn-xs btn-warning">
+                  <.icon name="hero-pause" class="w-3 h-3" /> {gettext("Pause")}
+                </button>
+              <% end %>
+              <button
+                phx-click="stop_sync"
+                data-confirm={gettext("Stop the sync? Files already synced will be kept.")}
+                class="btn btn-xs btn-error"
+              >
+                <.icon name="hero-stop" class="w-3 h-3" /> {gettext("Stop")}
+              </button>
+            </div>
+            <span class="text-sm text-base-content/60">
+              {@sync_progress} / {@sync_total}
+            </span>
+          </div>
+          <progress
+            class="progress progress-primary w-full"
+            value={@sync_progress}
+            max={@sync_total}
+          >
+          </progress>
+          <div class="flex gap-4 mt-2 text-xs text-base-content/60">
+            <span class="text-success">{gettext("%{n} synced", n: @sync_synced)}</span>
+            <%= if @sync_failed > 0 do %>
+              <span class="text-error">{gettext("%{n} failed", n: @sync_failed)}</span>
+            <% end %>
+          </div>
+
+          <%!-- Sync Log --%>
+          <%= if @sync_log != [] do %>
+            <div class="mt-4 bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs">
+              <%= for entry <- @sync_log do %>
+                <div class={[
+                  "flex gap-2 py-0.5",
+                  entry.status == :error && "text-error",
+                  entry.status == :ok && "text-base-content/60"
+                ]}>
+                  <%= if entry.status == :ok do %>
+                    <span>✓</span>
+                  <% else %>
+                    <span>✗</span>
+                  <% end %>
+                  <span class="truncate font-semibold">{entry.file}</span>
+                  <span class="truncate">{entry.message}</span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Show log after sync completes if there were failures --%>
+    <%= if !@syncing && @sync_log != [] && @sync_failed > 0 do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <h3 class="card-title text-sm">
+            <.icon name="hero-document-text" class="w-4 h-4" />
+            {gettext("Sync Log")}
+            <span class="badge badge-error badge-sm">
+              {gettext("%{n} errors", n: @sync_failed)}
+            </span>
+          </h3>
+          <div class="bg-base-200 rounded-lg p-3 max-h-64 overflow-y-auto font-mono text-xs">
+            <%= for entry <- Enum.filter(@sync_log, & &1.status == :error) do %>
+              <div class="flex gap-2 py-0.5 text-error">
+                <span>✗</span>
+                <span class="font-semibold">{entry.file}</span>
+                <span class="truncate">{entry.message}</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Results --%>
+    <%= if @report.under_replicated == [] do %>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body items-center text-center py-12">
+          <.icon name="hero-check-circle" class="w-16 h-16 text-success mb-4" />
+          <h3 class="text-xl font-bold text-success">{gettext("All Healthy")}</h3>
+          <p class="text-base-content/60">
+            {gettext("All files meet the redundancy target of %{n} copies.",
+              n: @report.redundancy_target
+            )}
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <.table_default
+        id="health-table"
+        variant="zebra"
+        toggleable={true}
+        items={@report.under_replicated}
+        card_title={fn item -> item.original_file_name end}
+        card_fields={
+          fn item ->
+            [
+              %{label: gettext("Type"), value: item.file_type},
+              %{
+                label: gettext("Locations"),
+                value: "#{item.min_location_count} / #{@report.redundancy_target}"
+              },
+              %{
+                label: gettext("Status"),
+                value:
+                  if(item.min_location_count == 0,
+                    do: gettext("No copies"),
+                    else:
+                      gettext("Missing %{n} copies",
+                        n: @report.redundancy_target - item.min_location_count
+                      )
+                  )
+              }
+            ]
+          end
+        }
+      >
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell>{gettext("File")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Locations")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+        <.table_default_body>
+          <%= for item <- @report.under_replicated do %>
+            <.table_default_row>
+              <.table_default_cell>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{item.file_uuid}")}
+                  class="font-bold link link-hover link-primary"
+                >
+                  {item.original_file_name}
+                </.link>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class="badge badge-ghost badge-sm h-auto">{item.file_type}</span>
+              </.table_default_cell>
+              <.table_default_cell>
+                <span class={"font-semibold #{if item.min_location_count == 0, do: "text-error", else: "text-warning"}"}>
+                  {item.min_location_count}
+                </span>
+                <span class="text-base-content/50">/ {@report.redundancy_target}</span>
+              </.table_default_cell>
+              <.table_default_cell>
+                <%= if item.min_location_count == 0 do %>
+                  <span class="badge badge-error badge-sm h-auto">{gettext("No copies")}</span>
+                <% else %>
+                  <span class="badge badge-warning badge-sm h-auto">
+                    {gettext("Missing %{n}",
+                      n: @report.redundancy_target - item.min_location_count
+                    )}
+                  </span>
+                <% end %>
+              </.table_default_cell>
+            </.table_default_row>
+          <% end %>
+        </.table_default_body>
+      </.table_default>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

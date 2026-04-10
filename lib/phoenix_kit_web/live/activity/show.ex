@@ -59,28 +59,6 @@ defmodule PhoenixKitWeb.Live.Activity.Show do
     end
   end
 
-  defp mode_badge_color("manual"), do: "badge-warning"
-  defp mode_badge_color("auto"), do: "badge-info"
-  defp mode_badge_color("cron"), do: "badge-secondary"
-  defp mode_badge_color("script"), do: "badge-accent"
-  defp mode_badge_color(_), do: "badge-ghost"
-
-  defp action_badge_color(action) do
-    cond do
-      String.contains?(action, "created") ->
-        "badge-success"
-
-      String.contains?(action, "deleted") ->
-        "badge-error"
-
-      String.contains?(action, "updated") or String.contains?(action, "changed") ->
-        "badge-warning"
-
-      String.contains?(action, "liked") or String.contains?(action, "followed") ->
-        "badge-info"
-
-      true ->
-        "badge-ghost"
-    end
-  end
+  defp mode_badge_color(mode), do: Activity.mode_badge_color(mode)
+  defp action_badge_color(action), do: Activity.action_badge_color(action)
 end

@@ -2304,13 +2304,14 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %AdminNote{}}
 
   """
-  def delete_admin_note(%AdminNote{} = note) do
+  def delete_admin_note(%AdminNote{} = note, admin \\ nil) do
     case Repo.delete(note) do
       {:ok, deleted} ->
         PhoenixKit.Activity.log(%{
           action: "user.note_deleted",
           module: "users",
           mode: "manual",
+          actor_uuid: admin && admin.uuid,
           resource_type: "user",
           resource_uuid: note.user_uuid,
           target_uuid: note.user_uuid,
