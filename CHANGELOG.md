@@ -1,3 +1,39 @@
+## 1.7.94 - 2026-04-10
+
+### Added
+- Media folder system with sidebar, select mode, list/grid view, drag-drop file moving
+- Folder colors, inline rename, select folders, and context menus
+- Search bar and folder path column to media page
+- Media Health page for redundancy monitoring
+- Sync with progress tracking, pause/resume/stop controls, real-time sync log
+- Media sync moved to Oban worker for persistence and reliability
+- Multipart S3 uploads
+- Tigris storage provider support
+- Test Connection button to bucket form
+- Configurable max upload size setting
+- Reusable SearchableSelect LiveComponent
+- Provider-specific labels for B2, R2, and S3 bucket configuration
+- AWS regions dropdown via `aws_regions` hex package
+
+### Changed
+- Rename Storage to Media, use thumbnail variant for media grid
+- Redesign media sidebar with proper file explorer conventions
+- Migrate bucket and dimensions tables to `table_default` component
+- Restyle bucket/dimension forms with card sections and DaisyUI 5 fieldset/legend
+- Persist folder tree expand state and sidebar collapsed in localStorage
+- Remove LLMText module (preserved in feature/llmtext branch)
+- Remove CDN URL field from bucket configuration form
+
+### Fixed
+- Fix #478: register CSS sources compiler and create stub file on install
+- Fix integration activity logs always having nil actor_uuid
+- Fix S3 upload failures and false file location records
+- Fix folder card hover lag (use `transition-colors` instead of `transition-all`)
+- Fix folder name truncation, rename animation, and input autofocus
+- Fix select mode content jump and improve render performance
+- Fix mix tasks: `Routes.path` unavailable, `ecto.migrate` skips host repo
+- Fix OAuth users getting signed out after ~1-2 hours
+
 ## 1.7.93 - 2026-04-08
 
 ### Fixed
