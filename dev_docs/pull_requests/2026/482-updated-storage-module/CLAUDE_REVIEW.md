@@ -7,6 +7,14 @@
 **Base:** dev ← dev
 **Size:** +4471 / -1084 across 33 files, 40 commits
 
+## Resolution
+
+Bugs #1–#10 fixed in two commits:
+- `a55966a8` — HIGH: folder transaction, sync progress delta, cycle detection + depth limit
+- `ddd677cb` — MEDIUM: nil guard, Integer.parse, temp file cleanup, async test_connection, bulk delete files
+
+Remaining improvements (#12–#24) left for author to address.
+
 ## Summary
 
 Large PR that significantly enhances the Storage module with:
@@ -32,7 +40,7 @@ _(none found)_
 
 ### BUG - HIGH
 
-#### 1. `delete_folder/1` not wrapped in a transaction
+#### 1. `delete_folder/1` not wrapped in a transaction — FIXED in a55966a8
 **File:** `lib/modules/storage/storage.ex` (~line 916-927)
 
 Three sequential DB operations (reparent child folders, reparent files, delete folder) run without a transaction. If `repo().delete(folder)` fails after the `update_all` calls succeed, children are reparented but the folder remains — inconsistent state.
@@ -54,7 +62,7 @@ end
 
 ---
 
-#### 2. Health LiveView: Cumulative sync progress corrupts stats
+#### 2. Health LiveView: Cumulative sync progress corrupts stats — FIXED in a55966a8
 **File:** `lib/modules/storage/web/health.ex` (~line 96-109)
 
 The `:in_progress` handler does `new_healthy = report.healthy + synced`, but `synced` is the **cumulative** total (not a delta). Each progress callback inflates `healthy` further, and `Enum.drop(report.under_replicated, synced)` over-drops items. Health percentage can exceed 100%.
@@ -63,7 +71,7 @@ The `:in_progress` handler does `new_healthy = report.healthy + synced`, but `sy
 
 ---
 
-#### 3. `update_folder/2` allows creating circular parent references
+#### 3. `update_folder/2` allows creating circular parent references — FIXED in a55966a8
 **File:** `lib/modules/storage/storage.ex` (~line 903-907)
 
 No validation prevents moving a folder under one of its own descendants (A→B→C, then move A under C). This creates a cycle that causes `folder_breadcrumbs/1` to infinitely recurse and `build_folder_tree/1` to produce incorrect results.
@@ -74,7 +82,7 @@ No validation prevents moving a folder under one of its own descendants (A→B�
 
 ### BUG - MEDIUM
 
-#### 4. `toggle_bucket` crashes on nil bucket
+#### 4. `toggle_bucket` crashes on nil bucket — FIXED in ddd677cb
 **File:** `lib/modules/storage/web/settings.ex` (~line 276-288)
 
 `Storage.get_bucket(bucket_uuid)` can return `nil` (bucket deleted between page load and click). `!bucket.enabled` raises `KeyError`.
@@ -83,7 +91,7 @@ No validation prevents moving a folder under one of its own descendants (A→B�
 
 ---
 
-#### 5. `folder_breadcrumbs/1` — N+1 queries with no depth limit
+#### 5. `folder_breadcrumbs/1` — N+1 queries with no depth limit — FIXED (depth limit) in a55966a8
 **File:** `lib/modules/storage/storage.ex` (~line 929-935)
 
 Recursive individual queries per ancestor level. No depth guard means a cycle (see finding #3) causes infinite recursion.
@@ -92,7 +100,7 @@ Recursive individual queries per ancestor level. No depth guard means a cycle (s
 
 ---
 
-#### 6. `String.to_integer` crash on non-numeric input
+#### 6. `String.to_integer` crash on non-numeric input — FIXED in ddd677cb
 **File:** `lib/modules/storage/web/settings.ex` (~line 179-191)
 
 `String.to_integer(val)` in `update_storage_form` crashes with `ArgumentError` if user submits empty string or non-numeric value for redundancy/max upload size fields.
@@ -101,14 +109,14 @@ Recursive individual queries per ancestor level. No depth guard means a cycle (s
 
 ---
 
-#### 7. Move-to-folder: no descendant cycle check
+#### 7. Move-to-folder: no descendant cycle check — FIXED (via #3 update_folder) in a55966a8
 **File:** `lib/phoenix_kit_web/live/users/media.ex` (`move_selected_to_folder` handler)
 
 The handler checks `sel_folder_uuid != target` (self-move) but does not check if `target` is a descendant of the folder being moved. This is the UI-side manifestation of finding #3.
 
 ---
 
-#### 8. `replicate_to_buckets` temp file leaked on exception
+#### 8. `replicate_to_buckets` temp file leaked on exception — FIXED in ddd677cb
 **File:** `lib/modules/storage/services/manager.ex` (~line 127-144)
 
 The `rescue` clause returns an error tuple but does not clean up the temp file created before the failing call. `File.rm(local_path)` is skipped when `store_across_buckets` raises.
@@ -117,7 +125,7 @@ The `rescue` clause returns an error tuple but does not clean up the temp file c
 
 ---
 
-#### 9. `test_connection` runs synchronously in LiveView process
+#### 9. `test_connection` runs synchronously in LiveView process — FIXED in ddd677cb
 **File:** `lib/modules/storage/web/bucket_form.ex` (~line 175-190)
 
 `handle_info({:run_test_connection, ...})` calls `Storage.test_connection/1` synchronously. Network calls to S3/B2/R2/Tigris can hang for seconds, blocking the entire LiveView process and making the page unresponsive.
@@ -126,7 +134,7 @@ The `rescue` clause returns an error tuple but does not clean up the temp file c
 
 ---
 
-#### 10. `delete_selected` only deletes folders, ignores selected files
+#### 10. `delete_selected` only deletes folders, ignores selected files — FIXED in ddd677cb
 **File:** `lib/phoenix_kit_web/live/users/media.ex` (`handle_event("delete_selected", ...)`)
 
 The handler only deletes selected folders. Selected files are silently ignored. Flash says `"N folder(s) deleted"` but user may expect files deleted too.
@@ -254,4 +262,4 @@ Strings like "All Files", "Folders", "Root", "Select all", "No folders yet" are 
 
 ## Recommendation
 
-**Request changes.** The HIGH-severity bugs (#1 delete_folder transaction, #2 health stats corruption, #3 folder cycle creation) should be fixed before merge. The MEDIUM bugs are worth addressing but less urgent.
+All HIGH and MEDIUM bugs have been fixed. Remaining items (#12–#24) are improvements and nitpicks — assigned to author (alexdont) for follow-up.
