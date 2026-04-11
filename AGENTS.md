@@ -347,8 +347,10 @@ External modules register custom hooks via inline `<script>` tags on `window.Pho
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
 
 - **Always** begin PhoenixKit LiveView templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout ...>` which wraps all inner content
-- Required attributes: `flash`, `page_title`, `url_path`, `project_title`, `phoenix_kit_current_scope`
-- Optional: `current_locale`, `current_locale_base`
+- Required attribute: `flash`
+- Recommended attributes: `page_title`, `current_path`, `project_title`, `phoenix_kit_current_scope`
+- Optional: `current_locale`
+- Pass the `@url_path` assign (set by PhoenixKit's on_mount hook) into the `current_path` attribute — the component attribute is named `current_path`, not `url_path`
 
 Example:
 
@@ -356,15 +358,16 @@ Example:
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   page_title={@page_title}
-  url_path={@url_path}
+  current_path={@url_path}
   project_title={@project_title}
   phoenix_kit_current_scope={@phoenix_kit_current_scope}
   current_locale={assigns[:current_locale]}
-  current_locale_base={assigns[:current_locale_base]}
 >
   <!-- Your content here -->
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
 ```
+
+For the complete list of component attributes, see `lib/phoenix_kit_web/components/layout_wrapper.ex` — only `flash` is strictly required; everything else has sensible defaults.
 
 ### URL Prefix and Navigation
 

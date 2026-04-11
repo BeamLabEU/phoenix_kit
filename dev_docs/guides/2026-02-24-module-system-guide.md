@@ -97,7 +97,7 @@ defmodule PhoenixKit.Modules.Analytics do
         id: :admin_analytics,
         label: "Analytics",
         icon: "hero-chart-bar",
-        path: "/admin/analytics",
+        path: "analytics",
         priority: 600,
         level: :admin,
         permission: "analytics",  # MUST match module_key
@@ -599,7 +599,7 @@ def settings_tabs do
       id: :admin_settings_analytics,
       label: "Analytics",
       icon: "hero-chart-bar",
-      path: "/admin/settings/analytics",
+      path: "analytics",
       priority: 910,
       level: :admin,
       parent: :admin_settings,          # Required for settings subtabs
@@ -747,24 +747,50 @@ inside the admin `live_session` with the admin layout applied.
 
 ### Custom route module
 
-For complex routing needs (non-LiveView routes, custom pipelines), implement `route_module/0`:
+The `live_view:` field on a tab handles most module routing — including routes with dynamic segments like `:id` or `:slug` (the `path` string is spliced verbatim into the generated `live` route by `tab_to_route/1` in `integration.ex`). For CRUD pages that shouldn't appear in the sidebar, add extra tabs with `visible: false` — `phoenix_kit_posts` and `phoenix_kit_catalogue` are good references.
+
+You need a **route module** (via `route_module/0`) when the tab-based approach isn't expressive enough for your **admin LiveView routing**. Specifically:
+
+- You want to declare many admin `live` routes without a corresponding `Tab` entry for each one
+- You need separate localized (`:_locale` suffix) and non-localized route variants with distinct `:as` aliases — `admin_tabs/0` can't split these
+- You want a hybrid: `admin_tabs/0` for sidebar structure plus a route module for supplementary LiveView routes — `phoenix_kit_ai` uses exactly this pattern
+
+> **The admin functions only accept `live` routes.** `admin_routes/0` and `admin_locale_routes/0` get spliced directly inside `live_session :phoenix_kit_admin do … end` by `compile_external_admin_routes/1` at `integration.ex:481`. Phoenix LiveView's `live_session` macro only permits `live` declarations in its body — controller routes (`get`, `post`, etc.), `forward`, and nested `scope`/`pipe_through` blocks raise at compile time when placed there. For **non-LiveView module routes** (controllers, APIs, `forward`, catch-all public pages), use `generate/1` or `public_routes/1` on the same route module instead — they splice into separate router locations. `phoenix_kit_sync` puts its `POST /sync/api/*` controllers and its WebSocket `forward` in `generate/1`; `phoenix_kit_publishing` puts its catch-all blog `GET /:group` controller in `public_routes/1`.
+
+Implement `route_module/0` returning a module that exports `admin_routes/0` and `admin_locale_routes/0`, each returning a quoted block of `live` routes:
 
 ```elixir
-def route_module, do: PhoenixKitAnalytics.Router
+# In your main module
+def route_module, do: PhoenixKitAnalytics.Routes
 ```
 
 ```elixir
-defmodule PhoenixKitAnalytics.Router do
-  defmacro phoenix_kit_admin_routes do
+defmodule PhoenixKitAnalytics.Routes do
+  def admin_locale_routes do
     quote do
-      live "/admin/analytics", PhoenixKitAnalytics.Web.Index, :index
-      live "/admin/analytics/:id", PhoenixKitAnalytics.Web.Show, :show
+      live "/admin/analytics", PhoenixKitAnalytics.Web.Index, :index,
+        as: :analytics_localized
+      live "/admin/analytics/:id", PhoenixKitAnalytics.Web.Show, :show,
+        as: :analytics_show_localized
+    end
+  end
+
+  def admin_routes do
+    quote do
+      live "/admin/analytics", PhoenixKitAnalytics.Web.Index, :index,
+        as: :analytics
+      live "/admin/analytics/:id", PhoenixKitAnalytics.Web.Show, :show,
+        as: :analytics_show
     end
   end
 end
 ```
 
-Routes are generated at compile time via `compile_plugin_admin_routes/0` in `integration.ex`. A recompile is required after adding a new external module.
+Both functions define the same routes — one for the localized scope (`/:locale` prefix) and one for the non-localized scope. Every route needs a unique `:as` name across both.
+
+At compile time, PhoenixKit's `compile_external_admin_routes/1` (in `lib/phoenix_kit_web/integration.ex`) splices these quoted blocks into the single shared `live_session :phoenix_kit_admin` block. **You do not declare your own `live_session` — PhoenixKit owns `:phoenix_kit_admin` and Phoenix LiveView raises on duplicate names anyway.** A recompile is required after adding a new external module (handled automatically by `__mix_recompile__?/0` in the host router).
+
+See `phoenix_kit_entities/lib/phoenix_kit_entities/routes.ex` and `phoenix_kit_publishing/lib/phoenix_kit_publishing/routes.ex` for real-world reference implementations, and `phoenix_kit/guides/custom-admin-pages.md` for the user-facing routing guide.
 
 ### Assigns available in admin LiveViews
 

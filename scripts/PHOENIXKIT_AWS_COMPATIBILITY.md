@@ -294,7 +294,15 @@ end
 phoenix_kit_routes()  # PhoenixKit's default routes (our route takes precedence)
 ```
 
-**Why This Works:** Phoenix router matches routes in order - our route is defined BEFORE `phoenix_kit_routes()`, so it takes precedence.
+**Why This Works:** Phoenix router matches routes in order — our route is defined BEFORE `phoenix_kit_routes()`, so it takes precedence. The `:phoenix_kit_ensure_admin` on_mount hook ensures the auth check runs and applies the admin layout, so the page renders correctly with the sidebar.
+
+> ⚠️ **Known limitation: cross-session navigation forces a full page reload.** This override LiveView sits in `live_session :custom_aws_settings`, not PhoenixKit's `live_session :phoenix_kit_admin`. When a user clicks from another admin page (e.g. `/admin/users`) to this AWS settings page, Phoenix LiveView cannot `push_navigate` across live_session boundaries — the WebSocket is torn down and the browser performs a full HTTP page load. The Elixir log shows:
+>
+>     navigate event to "/admin/settings/aws" failed because you are redirecting across live_sessions. A full page reload will be performed instead
+>
+> This is a Phoenix LiveView constraint, not a PhoenixKit bug — see `lib/phoenix_live_view/channel.ex:1615` and `phoenix_kit/guides/custom-admin-pages.md`. **You cannot work around it by renaming your `live_session` to `:phoenix_kit_admin`** — Phoenix raises at compile time on duplicate `live_session` names.
+>
+> **If full page reloads on navigation to this page are acceptable** (e.g. this is a rarely-visited settings page reached by direct URL), this pattern is the cleanest available solution. **If they are not acceptable**, the only real fix is to upstream an override hook into PhoenixKit core so plugin modules can replace core routes inside the same `:phoenix_kit_admin` block.
 
 #### 4. Standalone Script: `scripts/setup_aws_infrastructure.exs`
 
