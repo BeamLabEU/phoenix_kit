@@ -529,7 +529,19 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V94 - Document Creator local DB sync ⚡ LATEST
+  ### V96 - Catalogue items linked directly to catalogues ⚡ LATEST
+  - Adds nullable `catalogue_uuid` FK on `phoenix_kit_cat_items` so items can
+    belong to a catalogue independently of having a category
+  - Backfills existing items from their category's catalogue_uuid
+  - Pins any remaining orphans to the oldest non-deleted catalogue
+  - Adds indexes on `catalogue_uuid` and `(catalogue_uuid, status)`
+
+  ### V95 - Media folders and folder links
+  - Creates `phoenix_kit_media_folders` and `phoenix_kit_media_folder_links` tables
+  - Adds organizational folder hierarchy for media files (metadata-only;
+    storage buckets are unaware of them)
+
+  ### V94 - Document Creator local DB sync
   - Adds `google_doc_id` (VARCHAR(255)) to `phoenix_kit_doc_templates`, `phoenix_kit_doc_documents`, `phoenix_kit_doc_headers_footers`
   - Adds `status` (VARCHAR(20), DEFAULT 'published') to `phoenix_kit_doc_documents`
   - Partial unique indexes on `google_doc_id WHERE google_doc_id IS NOT NULL`
@@ -701,7 +713,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 95
+  @current_version 96
   @default_prefix "public"
 
   @doc false
