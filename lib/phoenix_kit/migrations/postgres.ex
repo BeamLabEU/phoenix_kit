@@ -529,7 +529,53 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V87 - Add Catalogue tables ⚡ LATEST
+  ### V96 - Catalogue items linked directly to catalogues ⚡ LATEST
+  - Adds nullable `catalogue_uuid` FK on `phoenix_kit_cat_items` so items can
+    belong to a catalogue independently of having a category
+  - Backfills existing items from their category's catalogue_uuid
+  - Pins any remaining orphans to the oldest non-deleted catalogue
+  - Adds indexes on `catalogue_uuid` and `(catalogue_uuid, status)`
+
+  ### V95 - Media folders and folder links
+  - Creates `phoenix_kit_media_folders` and `phoenix_kit_media_folder_links` tables
+  - Adds organizational folder hierarchy for media files (metadata-only;
+    storage buckets are unaware of them)
+
+  ### V94 - Document Creator local DB sync
+  - Adds `google_doc_id` (VARCHAR(255)) to `phoenix_kit_doc_templates`, `phoenix_kit_doc_documents`, `phoenix_kit_doc_headers_footers`
+  - Adds `status` (VARCHAR(20), DEFAULT 'published') to `phoenix_kit_doc_documents`
+  - Partial unique indexes on `google_doc_id WHERE google_doc_id IS NOT NULL`
+
+  ### V93 - Settings prefix index
+  - Adds `text_pattern_ops` B-tree index on `phoenix_kit_settings.key` for efficient LIKE prefix queries
+  - Used by the integrations system for `LIKE 'integration:provider:%'` lookups
+
+  ### V92 - Organization Accounts
+  - Adds `account_type` column (VARCHAR(20), NOT NULL, DEFAULT 'person') with CHECK constraint
+  - Adds `organization_name` column (VARCHAR(255)) for organization display names
+  - Adds `organization_uuid` self-referencing FK to link persons to organizations
+  - Indexes on `account_type` and `organization_uuid`
+
+  ### V91 - Locations tables
+  - `phoenix_kit_location_types` for user-defined location categories
+  - `phoenix_kit_locations` for physical locations with type reference
+  - `phoenix_kit_location_type_assignments` for many-to-many join
+
+  ### V90 - Activity feed
+  - `phoenix_kit_activities` table for business-level action logging
+
+  ### V89 - Catalogue pricing
+  - Renames `price` to `base_price` in `phoenix_kit_cat_items`
+  - Adds `markup_percentage` decimal column to `phoenix_kit_cat_catalogues`
+
+  ### V88 - Publishing schema V2
+  - Restructures posts/versions/contents for publishing module
+  - Adds `active_version_uuid`, `trashed_at` to posts
+  - Adds `published_at` to versions
+  - Data migration from legacy columns
+  - Drops legacy post columns: `scheduled_at`, `status`, `published_at`, `primary_language`, `data`
+
+  ### V87 - Add Catalogue tables
   - Creates `phoenix_kit_cat_manufacturers` — manufacturer directory
   - Creates `phoenix_kit_cat_suppliers` — supplier directory
   - Creates `phoenix_kit_cat_manufacturer_suppliers` — many-to-many join with unique constraint
@@ -667,7 +713,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 88
+  @current_version 96
   @default_prefix "public"
 
   @doc false

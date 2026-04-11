@@ -137,6 +137,18 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users,
         "referrals"
       ),
+      # Activity
+      %Tab{
+        id: :admin_activity,
+        label: "Activity",
+        icon: "hero-bell-alert",
+        path: "activity",
+        priority: 250,
+        level: :admin,
+        permission: "dashboard",
+        match: :prefix,
+        group: :admin_main
+      },
       # Media
       %Tab{
         id: :admin_media,
@@ -249,6 +261,15 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings,
         "settings"
       ),
+      admin_subtab(
+        :admin_settings_integrations,
+        "Integrations",
+        "hero-link",
+        "integrations",
+        915,
+        :admin_settings,
+        "settings"
+      ),
       %Tab{
         id: :admin_settings_media,
         label: "Media",
@@ -268,6 +289,15 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         "hero-arrows-pointing-out",
         "media/dimensions",
         934,
+        :admin_settings_media,
+        "media"
+      ),
+      admin_subtab(
+        :admin_settings_media_health,
+        "Health",
+        "hero-heart",
+        "media/health",
+        935,
         :admin_settings_media,
         "media"
       )

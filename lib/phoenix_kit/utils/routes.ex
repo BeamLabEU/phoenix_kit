@@ -7,6 +7,7 @@ defmodule PhoenixKit.Utils.Routes do
   """
 
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
 
   @default_locale Config.default_locale()
@@ -107,33 +108,27 @@ defmodule PhoenixKit.Utils.Routes do
     DialectMapper.extract_base(locale)
   end
 
-  # Check if the given locale is the default (first in admin_languages list)
+  # Check if the given locale is the default language
   # Default locale doesn't need a prefix in URLs for cleaner URLs
   defp default_locale?(locale) do
-    default = get_default_admin_language()
+    default = get_default_language_base()
     locale == default
   end
 
-  defp get_default_admin_language do
+  defp get_default_language_base do
     # During mix tasks (like phoenix_kit.install), the database may not have
     # the settings table yet. We detect this by checking if we're in a mix task
     # context and fall back to "en" to avoid database errors.
     if mix_task_context?() do
       "en"
     else
-      case PhoenixKit.Settings.get_json_setting_cached("admin_languages", [@default_locale]) do
-        nil ->
-          # No setting exists, default is "en"
-          "en"
-
-        [first | _] ->
-          # Extract base code from full dialect (e.g., "en-US" -> "en")
-          DialectMapper.extract_base(first)
-
-        _ ->
-          "en"
+      case Languages.get_default_language() do
+        %{code: code} when is_binary(code) -> DialectMapper.extract_base(code)
+        _ -> "en"
       end
     end
+  rescue
+    _ -> "en"
   end
 
   # Detect if we're running in a mix task context where the database
@@ -190,27 +185,18 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   @doc """
-  Returns the default admin locale (base code).
+  Returns the default locale (base code) from the Languages module.
 
-  This is the first language in the admin_languages setting list,
-  extracted to its base code (e.g., "en-US" becomes "en").
-
-  Falls back to "en" if no admin languages are configured.
+  Extracts the base code from the default language (e.g., "en-US" becomes "en").
+  Falls back to "en" if no default language is configured.
 
   ## Examples
 
       iex> Routes.get_default_admin_locale()
-      "en"  # or "ko" if Korean is first in admin_languages
-
-  ## Use Case
-
-  This is used automatically in the `on_mount` hook to set `current_locale`
-  in socket assigns. LiveViews can then simply use:
-
-      locale = params["locale"] || socket.assigns[:current_locale]
+      "en"
   """
   def get_default_admin_locale do
-    get_default_admin_language()
+    get_default_language_base()
   end
 
   @doc """

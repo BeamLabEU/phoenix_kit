@@ -90,13 +90,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       CssIntegration,
       DbConnectionCheck,
       IgniterHelpers,
+      JsIntegration,
       ObanConfig,
       RateLimiterConfig
     }
 
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
     alias PhoenixKit.Migrations.UUIDRepair
-    alias PhoenixKit.Utils.Routes
+    # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
+    # application config that isn't available during mix task execution.
 
     @shortdoc "Updates PhoenixKit to the latest version"
 
@@ -369,6 +371,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # This must run AFTER add_oban_supervisor to fix installations with wrong order
       igniter = fix_supervisor_ordering(igniter)
 
+      # Ensure :phoenix_kit_css_sources compiler is registered in mix.exs
+      igniter = ensure_css_sources_compiler(igniter)
+
       # Check if this is the first pass (config missing) or second pass (config exists)
       config_status = Process.get(:phoenix_kit_config_status, :ok)
 
@@ -563,7 +568,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           After update completes:
             1. Run migrations if not done automatically: mix ecto.migrate
             2. Restart your Phoenix server: mix phx.server
-            3. Visit your application: #{Routes.path("/users/register")}
+            3. Visit your application: #{build_app_path(opts, "/users/register")}
           """
 
       Igniter.add_notice(igniter, final_instructions)
@@ -581,6 +586,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
+
+      # Update JS hooks file
+      JsIntegration.update_js_file()
 
       # Always rebuild assets unless explicitly skipped
       unless Keyword.get(opts, :skip_assets, false) do
@@ -641,7 +649,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Check if we can run migrations safely
       case check_migration_conditions() do
         :ok ->
-          run_interactive_migration_prompt_update(yes)
+          run_interactive_migration_prompt_update(yes, opts)
 
         {:error, reason} ->
           if yes do
@@ -650,7 +658,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               "\n⚠️  Migration conditions not optimal (#{reason}), but running due to -y flag..."
             )
 
-            run_migration_with_feedback()
+            run_migration_with_feedback(opts)
           else
             Mix.shell().info("""
 
@@ -663,11 +671,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Prompt user for migration execution (update-specific)
-    defp run_interactive_migration_prompt_update(yes) do
+    defp run_interactive_migration_prompt_update(yes, opts) do
       if yes do
         # Skip prompt and run migration directly
         Mix.shell().info("\n🚀 Running database migration automatically (--yes flag)...")
-        run_migration_with_feedback()
+        run_migration_with_feedback(opts)
       else
         Mix.shell().info("""
 
@@ -683,7 +691,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
              |> String.trim()
              |> String.downcase() do
           response when response in ["", "y", "yes"] ->
-            run_migration_with_feedback()
+            run_migration_with_feedback(opts)
 
           _ ->
             Mix.shell().info("""
@@ -831,7 +839,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             # Run the newly generated migration
             Mix.Task.reenable("ecto.migrate")
-            Mix.Task.run("ecto.migrate")
+
+            case resolve_host_repo() do
+              nil -> Mix.Task.run("ecto.migrate")
+              repo -> Mix.Task.run("ecto.migrate", ["-r", repo])
+            end
 
             Mix.shell().info("✅ #{name} migrated to V#{pad_version(target)}")
           else
@@ -919,6 +931,27 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Mix.Task.run("phoenix_kit.status", args)
     end
 
+    # Add :phoenix_kit_css_sources compiler to the parent app's mix.exs if missing.
+    defp ensure_css_sources_compiler(igniter) do
+      Igniter.Project.MixProject.update(igniter, :project, [:compilers], fn
+        nil ->
+          {:ok, {:code, [:phoenix_kit_css_sources]}}
+
+        zipper ->
+          case Igniter.Code.List.prepend_new_to_list(zipper, :phoenix_kit_css_sources) do
+            {:ok, zipper} -> {:ok, zipper}
+            :error -> {:warning, "Could not add :phoenix_kit_css_sources to compilers in mix.exs"}
+          end
+      end)
+    rescue
+      _ ->
+        Igniter.add_warning(
+          igniter,
+          "⚠️  Could not add :phoenix_kit_css_sources compiler to mix.exs. " <>
+            "Please add compilers: [:phoenix_kit_css_sources] ++ Mix.compilers() to your project/0."
+        )
+    end
+
     # Update CSS integration during PhoenixKit updates
     defp update_css_integration do
       css_paths = [
@@ -937,23 +970,62 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           content = File.read!(css_path)
           existing = CssIntegration.check_existing_integration(content)
 
-          if existing.daisyui_themes_disabled do
-            # Use regex to update themes: false -> themes: all
-            pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+          content =
+            if existing.daisyui_themes_disabled do
+              pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
 
-            updated_content =
-              String.replace(content, pattern, fn match ->
-                String.replace(match, ~r/(themes:\s*)false/, "\\1all")
-              end)
+              updated =
+                String.replace(content, pattern, fn match ->
+                  String.replace(match, ~r/(themes:\s*)false/, "\\1all")
+                end)
 
-            File.write!(css_path, updated_content)
+              Mix.shell().info("""
 
-            Mix.shell().info("""
+              ✅ Updated daisyUI configuration to enable all themes!
+              File: #{css_path}
+              Changed: themes: false → themes: all
+              """)
 
-            ✅ Updated daisyUI configuration to enable all themes!
-            File: #{css_path}
-            Changed: themes: false → themes: all
+              updated
+            else
+              content
+            end
+
+          # Ensure auto-generated CSS sources import is present
+          content =
+            if String.contains?(content, "_phoenix_kit_sources.css") do
+              content
+            else
+              updated =
+                String.replace(
+                  content,
+                  ~r/(@source\s+["'][^"']*phoenix_kit["'];)/,
+                  "\\1\n@import \"./_phoenix_kit_sources.css\";",
+                  global: false
+                )
+
+              Mix.shell().info("""
+
+              ✅ Added auto-generated CSS sources import!
+              File: #{css_path}
+              Added: @import "./_phoenix_kit_sources.css";
+              """)
+
+              updated
+            end
+
+          File.write!(css_path, content)
+
+          # Ensure the generated CSS sources file exists so @import doesn't fail
+          generated_path = Path.join(Path.dirname(css_path), "_phoenix_kit_sources.css")
+
+          unless File.exists?(generated_path) do
+            File.write!(generated_path, """
+            /* Auto-generated by PhoenixKit — do not edit manually.
+               Regenerated on each compilation from css_sources/0 callbacks. */
             """)
+
+            Mix.shell().info("✅ Created #{generated_path} (will be updated on next compilation)")
           end
       end
     rescue
@@ -982,7 +1054,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Execute migration with feedback
-    defp run_migration_with_feedback do
+    defp run_migration_with_feedback(opts) do
       Mix.shell().info("\n⏳ Running database migration...")
 
       try do
@@ -994,11 +1066,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         #
         # Re-enable the task first since Mix tracks which tasks have run
         # and ecto.migrate may have been invoked earlier in the session.
+        #
+        # Pass -r flag with the host app's repo explicitly, because
+        # Mix.Task.run("ecto.migrate") without -r may pick up phoenix_kit
+        # (which has ecto_repos: []) and skip the migration entirely.
         Mix.Task.reenable("ecto.migrate")
-        Mix.Task.run("ecto.migrate")
+
+        case resolve_host_repo() do
+          nil ->
+            Mix.Task.run("ecto.migrate")
+
+          repo ->
+            Mix.Task.run("ecto.migrate", ["-r", repo])
+        end
 
         Mix.shell().info("\n✅ Migration completed successfully!")
-        show_update_success_notice()
+        show_update_success_notice(opts)
       rescue
         error ->
           Mix.shell().info("\n⚠️  Migration failed: #{Exception.message(error)}")
@@ -1007,10 +1090,30 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Show success notice after update
-    defp show_update_success_notice do
+    defp show_update_success_notice(opts) do
       Mix.shell().info("""
-      🎉 PhoenixKit updated successfully! Visit: #{Routes.path("/users/register")}
+      🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
       """)
+    end
+
+    defp build_app_path(opts, path) do
+      prefix = if is_list(opts), do: opts[:prefix] || "public", else: "public"
+      base = if prefix == "public", do: "", else: "/#{prefix}"
+      "#{base}#{path}"
+    end
+
+    # Resolve the host application's Ecto repo module name as a string.
+    # Returns nil if no repo is found (falls back to default ecto.migrate behaviour).
+    defp resolve_host_repo do
+      app_name = Mix.Project.config()[:app]
+      repos = Application.get_env(app_name, :ecto_repos, [])
+
+      case repos do
+        [repo | _] -> inspect(repo)
+        _ -> nil
+      end
+    rescue
+      ArgumentError -> nil
     end
 
     # Show manual migration instructions

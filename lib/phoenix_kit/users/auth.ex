@@ -66,6 +66,8 @@ defmodule PhoenixKit.Users.Auth do
 
   require Logger
 
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
@@ -699,6 +701,16 @@ defmodule PhoenixKit.Users.Auth do
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
          {:ok, _} <- Repo.transaction(user_email_multi(user, email, context)) do
+      PhoenixKit.Activity.log(%{
+        action: "user.email_changed",
+        module: "users",
+        mode: "auto",
+        actor_uuid: user.uuid,
+        resource_type: "user",
+        resource_uuid: user.uuid,
+        metadata: %{"old_email" => user.email, "new_email" => email, "actor_role" => "user"}
+      })
+
       :ok
     else
       _ -> :error
@@ -783,8 +795,21 @@ defmodule PhoenixKit.Users.Auth do
     Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.password_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          metadata: %{"method" => "password_form", "actor_role" => "user"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -849,10 +874,130 @@ defmodule PhoenixKit.Users.Auth do
     multi
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        admin_user = Map.get(context, :admin_user)
+
+        PhoenixKit.Activity.log(%{
+          action: "user.password_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin_user && admin_user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{"method" => "admin_reset", "actor_role" => "admin"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
+
+  ## Organization Accounts
+
+  @doc """
+  Lists all organization-type users.
+  """
+  def list_organizations do
+    from(u in User, where: u.account_type == "organization", order_by: [asc: u.organization_name])
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists all person users belonging to an organization.
+  """
+  def list_organization_members(organization_uuid) do
+    from(u in User, where: u.organization_uuid == ^organization_uuid, order_by: [asc: u.email])
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists person users available to join an organization (not already in one).
+  Excludes the organization itself and users already belonging to any organization.
+  """
+  def list_available_members_for_organization(organization_uuid) do
+    from(u in User,
+      where:
+        u.account_type == "person" and
+          is_nil(u.organization_uuid) and
+          u.uuid != ^organization_uuid,
+      order_by: [asc: u.email]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Sets a person user's organization. Validates target is an organization-type user.
+  """
+  def set_organization(%User{} = user, organization_uuid) do
+    with {:ok, org} <- get_organization(organization_uuid),
+         :ok <- validate_not_self(user, org),
+         :ok <- validate_user_is_person(user) do
+      user
+      |> User.account_type_changeset(%{organization_uuid: organization_uuid})
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Removes a user from their organization.
+  """
+  def remove_from_organization(%User{} = user) do
+    user
+    |> Ecto.Changeset.change(%{organization_uuid: nil})
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes a user's account type. Validates no members exist when switching org→person.
+  """
+  def change_account_type(%User{} = user, attrs) do
+    with :ok <- validate_can_change_type(user, attrs) do
+      user
+      |> User.account_type_changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  defp get_organization(uuid) do
+    case Repo.get(User, uuid) do
+      %User{account_type: "organization"} = org -> {:ok, org}
+      %User{} -> {:error, dgettext("phoenix_kit", "target user is not an organization")}
+      nil -> {:error, dgettext("phoenix_kit", "organization not found")}
+    end
+  end
+
+  defp validate_not_self(%User{uuid: uuid}, %User{uuid: org_uuid}) when uuid == org_uuid do
+    {:error, dgettext("phoenix_kit", "cannot reference self")}
+  end
+
+  defp validate_not_self(_, _), do: :ok
+
+  defp validate_user_is_person(%User{account_type: "person"}), do: :ok
+
+  defp validate_user_is_person(_),
+    do: {:error, dgettext("phoenix_kit", "only person accounts can join an organization")}
+
+  defp validate_can_change_type(%User{account_type: "organization"} = user, attrs) do
+    target_type = to_string(attrs[:account_type] || attrs["account_type"])
+
+    if target_type == "person" do
+      case list_organization_members(user.uuid) do
+        [] ->
+          :ok
+
+        _ ->
+          {:error,
+           dgettext("phoenix_kit", "cannot change to person while organization has members")}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp validate_can_change_type(_, _), do: :ok
 
   ## Session
 
@@ -1053,6 +1198,17 @@ defmodule PhoenixKit.Users.Auth do
          {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
       Events.broadcast_user_confirmed(updated_user)
+
+      PhoenixKit.Activity.log(%{
+        action: "user.email_confirmed",
+        module: "users",
+        mode: "auto",
+        actor_uuid: updated_user.uuid,
+        resource_type: "user",
+        resource_uuid: updated_user.uuid,
+        metadata: %{"method" => "email_link", "actor_role" => "user"}
+      })
+
       {:ok, updated_user}
     else
       _ -> :error
@@ -1208,8 +1364,21 @@ defmodule PhoenixKit.Users.Auth do
     Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
     |> Repo.transaction()
     |> case do
-      {:ok, %{user: user}} -> {:ok, user}
-      {:error, :user, changeset, _} -> {:error, changeset}
+      {:ok, %{user: user}} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.password_reset",
+          module: "users",
+          mode: "auto",
+          actor_uuid: user.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          metadata: %{"method" => "reset_token", "actor_role" => "user"}
+        })
+
+        {:ok, user}
+
+      {:error, :user, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -1357,12 +1526,16 @@ defmodule PhoenixKit.Users.Auth do
       {:error, %Ecto.Changeset{}}
   """
   def update_user_profile(%User{} = user, attrs) do
-    case user
-         |> User.profile_changeset(attrs)
-         |> Repo.update() do
+    changeset = User.profile_changeset(user, attrs)
+
+    case Repo.update(changeset) do
       {:ok, updated_user} ->
-        # Broadcast user profile update event
         Events.broadcast_user_updated(updated_user)
+
+        PhoenixKit.Activity.log_user_change("user.profile_updated", user, changeset,
+          mode: "manual"
+        )
+
         {:ok, updated_user}
 
       {:error, changeset} ->
@@ -1844,7 +2017,7 @@ defmodule PhoenixKit.Users.Auth do
       nil
   """
   def get_user_with_roles(uuid) when is_binary(uuid) do
-    from(u in User, where: u.uuid == ^uuid, preload: [:roles, :role_assignments])
+    from(u in User, where: u.uuid == ^uuid, preload: [:roles, :role_assignments, :organization])
     |> Repo.one()
   end
 
@@ -1864,6 +2037,7 @@ defmodule PhoenixKit.Users.Auth do
     page_size = Keyword.get(opts, :page_size, 10)
     role_filter = Keyword.get(opts, :role)
     search_query = Keyword.get(opts, :search, "")
+    account_type_filter = Keyword.get(opts, :account_type)
 
     base_query = from(u in User, order_by: [desc: u.inserted_at])
 
@@ -1871,6 +2045,7 @@ defmodule PhoenixKit.Users.Auth do
       base_query
       |> maybe_filter_by_role(role_filter)
       |> maybe_filter_by_search(search_query)
+      |> maybe_filter_by_account_type(account_type_filter)
 
     total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :uuid)
     total_pages = div(total_count + page_size - 1, page_size)
@@ -1879,7 +2054,7 @@ defmodule PhoenixKit.Users.Auth do
       query
       |> limit(^page_size)
       |> offset(^((page - 1) * page_size))
-      |> preload([:roles, :role_assignments])
+      |> preload([:roles, :role_assignments, :organization])
       |> Repo.all()
 
     %{
@@ -1899,6 +2074,13 @@ defmodule PhoenixKit.Users.Auth do
       join: role in assoc(assignment, :role),
       where: role.name == ^role_name,
       distinct: u.uuid
+  end
+
+  defp maybe_filter_by_account_type(query, nil), do: query
+  defp maybe_filter_by_account_type(query, "all"), do: query
+
+  defp maybe_filter_by_account_type(query, account_type) when is_binary(account_type) do
+    from([u] in query, where: u.account_type == ^account_type)
   end
 
   defp maybe_filter_by_search(query, ""), do: query
@@ -2070,8 +2252,22 @@ defmodule PhoenixKit.Users.Auth do
     |> AdminNote.changeset(attrs)
     |> Repo.insert()
     |> case do
-      {:ok, note} -> {:ok, Repo.preload(note, :author)}
-      error -> error
+      {:ok, note} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.note_created",
+          module: "users",
+          mode: "manual",
+          actor_uuid: author.uuid,
+          resource_type: "user",
+          resource_uuid: user.uuid,
+          target_uuid: user.uuid,
+          metadata: %{"actor_role" => "admin"}
+        })
+
+        {:ok, Repo.preload(note, :author)}
+
+      error ->
+        error
     end
   end
 
@@ -2108,8 +2304,25 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %AdminNote{}}
 
   """
-  def delete_admin_note(%AdminNote{} = note) do
-    Repo.delete(note)
+  def delete_admin_note(%AdminNote{} = note, admin \\ nil) do
+    case Repo.delete(note) do
+      {:ok, deleted} ->
+        PhoenixKit.Activity.log(%{
+          action: "user.note_deleted",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin && admin.uuid,
+          resource_type: "user",
+          resource_uuid: note.user_uuid,
+          target_uuid: note.user_uuid,
+          metadata: %{"actor_role" => "admin"}
+        })
+
+        {:ok, deleted}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -2189,6 +2402,17 @@ defmodule PhoenixKit.Users.Auth do
 
     with :ok <- validate_can_delete_user(user, current_user),
          {:ok, result} <- execute_user_deletion(user, opts) do
+      PhoenixKit.Activity.log(%{
+        action: "user.deleted",
+        module: "users",
+        mode: "manual",
+        actor_uuid: current_user && current_user.uuid,
+        resource_type: "user",
+        resource_uuid: user.uuid,
+        target_uuid: user.uuid,
+        metadata: %{"deleted_email" => user.email, "actor_role" => "admin"}
+      })
+
       {:ok, result}
     else
       {:error, reason} -> {:error, reason}

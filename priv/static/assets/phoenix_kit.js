@@ -1458,8 +1458,26 @@ if (typeof window.Chart === "undefined") {
           var mode = btn.dataset.viewAction;
           localStorage.setItem(self.storageKey, mode);
           self.applyMode(mode);
+          // Notify other TableCardView instances sharing the same key
+          window.dispatchEvent(new CustomEvent("phx:table-view-change", {
+            detail: { key: self.storageKey, mode: mode }
+          }));
         });
       });
+
+      // Listen for view changes from other instances with the same key
+      this._onViewChange = function(e) {
+        if (e.detail.key === self.storageKey) {
+          self.applyMode(e.detail.mode);
+        }
+      };
+      window.addEventListener("phx:table-view-change", this._onViewChange);
+    },
+
+    destroyed() {
+      if (this._onViewChange) {
+        window.removeEventListener("phx:table-view-change", this._onViewChange);
+      }
     },
 
     applyMode(mode) {
@@ -1594,6 +1612,134 @@ if (typeof window.Chart === "undefined") {
       this._close();
       this.trigger.removeEventListener("click", this._onTriggerClick);
       this.menu.removeEventListener("click", this._onMenuClick);
+    }
+  };
+
+
+  // ============================================================================
+  // 5b. ROW MENU AUTO HOOK
+  // ============================================================================
+  //
+  // Smart auto-collapsing row menu: shows inline buttons when they fit in the
+  // available space, collapses into a ⋮ dropdown when they overflow.
+  // Uses ResizeObserver for dynamic detection — no fixed breakpoints.
+  //
+  window.PhoenixKitHooks.RowMenuAuto = {
+    mounted() {
+      this.inlineEl = this.el.querySelector("[data-row-menu-inline]");
+      this.dropdownEl = this.el.querySelector("[data-row-menu-dropdown]");
+      this.trigger = this.el.querySelector("[data-row-menu-trigger]");
+      this.menu = this.el.querySelector("[data-row-menu-content]");
+      this.isOpen = false;
+
+      if (!this.inlineEl || !this.dropdownEl) return;
+
+      // Start with both hidden
+      this.inlineEl.classList.add("hidden");
+      this.dropdownEl.classList.add("hidden");
+
+      // Set up dropdown click handlers
+      this._onTriggerClick = (e) => {
+        e.stopPropagation();
+        this.isOpen ? this._closeMenu() : this._openMenu();
+      };
+      this._onOutsideClick = (e) => {
+        if (!this.el.contains(e.target)) this._closeMenu();
+      };
+      this._onKeydown = (e) => {
+        if (e.key === "Escape") {
+          this._closeMenu();
+          if (this.trigger) this.trigger.focus();
+        }
+      };
+      this._onMenuClick = () => { this._closeMenu(); };
+
+      if (this.trigger) this.trigger.addEventListener("click", this._onTriggerClick);
+      if (this.menu) this.menu.addEventListener("click", this._onMenuClick);
+
+      // Listen to window resize
+      this._onResize = () => this._check();
+      window.addEventListener("resize", this._onResize);
+
+      // Initial check
+      this._check();
+    },
+
+    updated() {
+      this._check();
+    },
+
+    _check() {
+      if (!this.inlineEl || !this.dropdownEl) return;
+
+      var table = this.el.closest("table");
+      var scrollContainer = table ? table.parentElement : null;
+      if (!table || !scrollContainer) {
+        // Not in a table — show dropdown as fallback
+        this.inlineEl.classList.add("hidden");
+        this.dropdownEl.classList.remove("hidden");
+        return;
+      }
+
+      // Step 1: show inline, hide dropdown
+      this.inlineEl.classList.remove("hidden");
+      this.dropdownEl.classList.add("hidden");
+
+      // Step 2: check if showing inline causes the table to overflow
+      if (table.scrollWidth > scrollContainer.clientWidth) {
+        // Overflows — switch to dropdown
+        this.inlineEl.classList.add("hidden");
+        this.dropdownEl.classList.remove("hidden");
+      }
+      // else: fits, keep inline showing
+    },
+
+    _openMenu() {
+      if (!this.menu || !this.trigger) return;
+
+      var triggerRect = this.trigger.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var gap = 4;
+
+      this.menu.classList.remove("hidden");
+      var menuWidth = this.menu.offsetWidth || 160;
+      var menuHeight = this.menu.offsetHeight || 200;
+
+      var left = triggerRect.right - menuWidth;
+      if (left < 8) left = triggerRect.left;
+      left = Math.max(8, Math.min(left, vw - menuWidth - 8));
+
+      var top = triggerRect.bottom + gap;
+      if (top + menuHeight > vh - 8 && triggerRect.top - menuHeight - gap > 8) {
+        top = triggerRect.top - menuHeight - gap;
+      }
+      top = Math.max(8, Math.min(top, vh - menuHeight - 8));
+
+      this.menu.style.top = top + "px";
+      this.menu.style.left = left + "px";
+
+      this.isOpen = true;
+      this.trigger.setAttribute("aria-expanded", "true");
+
+      document.addEventListener("click", this._onOutsideClick, true);
+      document.addEventListener("keydown", this._onKeydown);
+    },
+
+    _closeMenu() {
+      if (!this.isOpen || !this.menu) return;
+      this.menu.classList.add("hidden");
+      this.isOpen = false;
+      if (this.trigger) this.trigger.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", this._onOutsideClick, true);
+      document.removeEventListener("keydown", this._onKeydown);
+    },
+
+    destroyed() {
+      this._closeMenu();
+      if (this._onResize) window.removeEventListener("resize", this._onResize);
+      if (this.trigger) this.trigger.removeEventListener("click", this._onTriggerClick);
+      if (this.menu) this.menu.removeEventListener("click", this._onMenuClick);
     }
   };
 
@@ -1815,6 +1961,134 @@ if (typeof window.Chart === "undefined") {
   })();
 
 
+  // ============================================================================
+  // INTEGRATION PICKER SEARCH HOOK
+  // ============================================================================
+
+  window.PhoenixKitHooks.IntegrationPickerSearch = {
+    mounted() {
+      this.el.addEventListener("input", function(e) {
+        var query = e.target.value.toLowerCase();
+        var pickerId = e.target.dataset.pickerId;
+        var picker = document.getElementById(pickerId);
+        if (!picker) return;
+
+        var cards = picker.querySelectorAll("button[data-search-text]");
+        cards.forEach(function(card) {
+          var text = card.getAttribute("data-search-text") || "";
+          card.style.display = (query === "" || text.indexOf(query) !== -1) ? "" : "none";
+        });
+      });
+    }
+  };
+
+  // ============================================================================
+  // MEDIA DRAG & DROP HOOK
+  // ============================================================================
+
+  window.PhoenixKitHooks.MediaDragDrop = {
+    mounted: function() {
+      // Sync saved view mode to server
+      var savedMode = localStorage.getItem("phoenix_kit_media_view_mode");
+      if (savedMode && savedMode !== "grid") {
+        this.pushEvent("set_view_mode", { mode: savedMode });
+      }
+
+      // Restore tree state from localStorage
+      var expandedRaw = localStorage.getItem("phoenix_kit_media_expanded_folders");
+      var sidebarCollapsed = localStorage.getItem("phoenix_kit_media_sidebar_collapsed") === "true";
+      var expanded = [];
+      try { expanded = expandedRaw ? JSON.parse(expandedRaw) : []; } catch(e) {}
+      if (expanded.length > 0 || sidebarCollapsed) {
+        this.pushEvent("restore_tree_state", {
+          expanded: expanded,
+          sidebar_collapsed: sidebarCollapsed
+        });
+      }
+
+      // Listen for tree state changes from server
+      var self = this;
+      this.handleEvent("save_tree_state", function(data) {
+        localStorage.setItem("phoenix_kit_media_expanded_folders", JSON.stringify(data.expanded || []));
+        localStorage.setItem("phoenix_kit_media_sidebar_collapsed", data.sidebar_collapsed ? "true" : "false");
+      });
+
+      this.setupDragDrop();
+      this.setupViewModePersistence();
+    },
+
+    updated: function() {
+      this.setupDragDrop();
+    },
+
+    setupViewModePersistence: function() {
+      this.el.querySelectorAll("[data-view-mode]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var mode = btn.dataset.viewMode;
+          localStorage.setItem("phoenix_kit_media_view_mode", mode);
+          document.documentElement.dataset.mediaView = mode;
+        });
+      });
+    },
+
+    setupDragDrop: function() {
+      var self = this;
+      var container = this.el;
+
+      // Make file items draggable
+      var files = container.querySelectorAll("[data-draggable-file]");
+      files.forEach(function(el) {
+        el.setAttribute("draggable", "true");
+
+        el.removeEventListener("dragstart", el._dragstart);
+        el._dragstart = function(e) {
+          e.dataTransfer.setData("text/plain", el.dataset.draggableFile);
+          e.dataTransfer.effectAllowed = "move";
+          el.classList.add("opacity-50");
+        };
+        el.addEventListener("dragstart", el._dragstart);
+
+        el.removeEventListener("dragend", el._dragend);
+        el._dragend = function() {
+          el.classList.remove("opacity-50");
+        };
+        el.addEventListener("dragend", el._dragend);
+      });
+
+      // Make folder targets droppable (grid, list rows, and sidebar)
+      var dropTargets = document.querySelectorAll("[data-drop-folder]");
+      dropTargets.forEach(function(target) {
+        target.removeEventListener("dragover", target._dragover);
+        target._dragover = function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          target.classList.add("ring-2", "ring-primary", "bg-primary/10");
+        };
+        target.addEventListener("dragover", target._dragover);
+
+        target.removeEventListener("dragleave", target._dragleave);
+        target._dragleave = function() {
+          target.classList.remove("ring-2", "ring-primary", "bg-primary/10");
+        };
+        target.addEventListener("dragleave", target._dragleave);
+
+        target.removeEventListener("drop", target._drop);
+        target._drop = function(e) {
+          e.preventDefault();
+          target.classList.remove("ring-2", "ring-primary", "bg-primary/10");
+          var fileUuid = e.dataTransfer.getData("text/plain");
+          var folderUuid = target.dataset.dropFolder;
+          if (fileUuid && folderUuid) {
+            self.pushEvent("move_file_to_folder", {
+              file_uuid: fileUuid,
+              folder_uuid: folderUuid === "root" ? "" : folderUuid
+            });
+          }
+        };
+        target.addEventListener("drop", target._drop);
+      });
+    }
+  };
   // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================

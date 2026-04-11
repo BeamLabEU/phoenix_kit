@@ -107,15 +107,16 @@
 
           <%!-- Filter by Type --%>
           <div class="w-full md:w-48">
-            <select
-              phx-change="filter_type"
-              name="filter"
-              class="select select-bordered w-full"
-            >
-              <option value="all" selected={@file_type_filter == :all}>All Files</option>
-              <option value="image" selected={@file_type_filter == :image}>Images Only</option>
-              <option value="video" selected={@file_type_filter == :video}>Videos Only</option>
-            </select>
+            <label class="select w-full">
+              <select
+                phx-change="filter_type"
+                name="filter"
+              >
+                <option value="all" selected={@file_type_filter == :all}>All Files</option>
+                <option value="image" selected={@file_type_filter == :image}>Images Only</option>
+                <option value="video" selected={@file_type_filter == :video}>Videos Only</option>
+              </select>
+            </label>
           </div>
         </div>
       </div>

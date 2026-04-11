@@ -208,6 +208,30 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   end
 
   @doc """
+  Deliver organization invitation email to a new (unregistered) user.
+
+  Sends a registration link containing the invitation token so the invitee
+  can register and automatically join the organization on email confirmation.
+  """
+  def deliver_organization_invitation(email, organization_name, registration_url) do
+    fallback_text = """
+    Hi #{email},
+
+    #{organization_name} has invited you to join their organization.
+
+    To accept the invitation, register an account by visiting the link below:
+
+    #{registration_url}
+
+    This invitation link will expire in 7 days.
+
+    If you did not expect this invitation, you can safely ignore this email.
+    """
+
+    deliver(email, "You've been invited to join #{organization_name}", fallback_text, nil)
+  end
+
+  @doc """
   Deliver magic link registration instructions.
 
   Uses the 'magic_link_registration' template from the database if available,

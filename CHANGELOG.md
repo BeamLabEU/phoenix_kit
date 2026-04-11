@@ -1,3 +1,138 @@
+## 1.7.95 - 2026-04-11
+
+### Added
+- V95 migration: media folders and folder links tables
+- V96 migration: catalogue_uuid FK on catalogue items for direct catalogue membership
+
+## 1.7.94 - 2026-04-10
+
+### Added
+- Media folder system with sidebar, select mode, list/grid view, drag-drop file moving
+- Folder colors, inline rename, select folders, and context menus
+- Search bar and folder path column to media page
+- Media Health page for redundancy monitoring
+- Sync with progress tracking, pause/resume/stop controls, real-time sync log
+- Media sync moved to Oban worker for persistence and reliability
+- Multipart S3 uploads
+- Tigris storage provider support
+- Test Connection button to bucket form
+- Configurable max upload size setting
+- Reusable SearchableSelect LiveComponent
+- Provider-specific labels for B2, R2, and S3 bucket configuration
+- AWS regions dropdown via `aws_regions` hex package
+
+### Changed
+- Rename Storage to Media, use thumbnail variant for media grid
+- Redesign media sidebar with proper file explorer conventions
+- Migrate bucket and dimensions tables to `table_default` component
+- Restyle bucket/dimension forms with card sections and DaisyUI 5 fieldset/legend
+- Persist folder tree expand state and sidebar collapsed in localStorage
+- Remove LLMText module (preserved in feature/llmtext branch)
+- Remove CDN URL field from bucket configuration form
+
+### Fixed
+- Fix #478: register CSS sources compiler and create stub file on install
+- Fix integration activity logs always having nil actor_uuid
+- Fix S3 upload failures and false file location records
+- Fix folder card hover lag (use `transition-colors` instead of `transition-all`)
+- Fix folder name truncation, rename animation, and input autofocus
+- Fix select mode content jump and improve render performance
+- Fix mix tasks: `Routes.path` unavailable, `ecto.migrate` skips host repo
+- Fix OAuth users getting signed out after ~1-2 hours
+
+## 1.7.93 - 2026-04-08
+
+### Fixed
+- Fix installer to auto-inject PhoenixKitHooks into app.js
+- Fix decrypt after legacy integration migration
+- Improve OAuth login with remember_me by default
+
+### Added
+- Activity logging for Integrations (setup, connect, disconnect, token refresh, validation)
+- Cookie max_age set to 60 days
+
+### Changed
+- Simplify integration status: `configured` removed, now `connected` or `disconnected`
+- Validate connection checks provider exists before credentials
+
+## 1.7.92 - 2026-04-07
+
+### Fixed
+- Fix Google token refresh for named integration connections (e.g. google:work)
+- Add resolve_provider_lookup_key/2 and resolve_storage_key/2 helpers
+
+### Added
+- Add V94 migration for Document Creator sync (google_doc_id, status, path, folder_id columns)
+
+## 1.7.91 - 2026-04-06
+
+### Added
+- Add centralized Integrations system for external service connections (OAuth, API keys, bot tokens)
+- Add AES-256-GCM encryption at rest for stored credentials
+- Add OAuth 2.0 CSRF state parameter protection
+- Add `required_integrations/0` and `integration_providers/0` callbacks to PhoenixKit.Module
+- Add IntegrationPicker reusable component
+- Add Integrations admin settings tab
+- Add provider registry with Google and OpenRouter built-in
+
+### Fixed
+- Fix password field overwrite bug when editing integrations
+- Fix duplicate line in `maybe_set_userinfo/2`
+- Consolidate validation logic into Integrations context
+- Make validation URL provider-configurable (no more hardcoded Telegram URL)
+
+## 1.7.90 - 2026-04-04
+
+### Added
+- Add organization accounts support with person/organization user types
+- Add organization invitations system with token-based invite flow
+- Add V91 locations migration: location types, locations, and type assignments tables
+- Add V92 organization accounts migration (invitations, user type fields)
+- Add JS hooks integration for parent app install and update workflows
+- Add LLMText module for AI/LLM-friendly content generation
+- Add auth logo from settings to admin header
+- Add billing tabs component
+
+### Changed
+- Move tax rate and CountryData from Billing to core PhoenixKit
+- Remove hardcoded Billing and E-Commerce module cards in favor of auto-discovery
+- Update AGENTS.md with severity level definitions and JS hooks documentation
+
+### Fixed
+- Fix double sidebar for core modules and improve struct compatibility
+- Hide hamburger menu button when sidebar is permanently visible
+- Fix token security, gettext, and validation issues in organization invitations
+- Fix tax data loss, invitation status guard, and IbanData safety
+
+## 1.7.88 - 2026-04-02
+
+### Changed
+- Migrate select elements to daisyUI 5 label wrapper pattern (#472)
+
+### Fixed
+- Fix negated condition in maintenance toggle flash message
+- Fix dialyzer warnings for CSS sources compiler, clean up 6 stale ignore entries
+
+## 1.7.87 - 2026-03-31
+
+### Added
+- Add V89 migration: catalogue pricing with base_price and markup_percentage
+- Add status_badge component and wrapper_class attr to table_default
+- Add inline and auto display modes to table_row_menu
+- Add show_toggle attr to table_default and sync TableCardView instances
+- Add continent grouping to language switcher for many languages
+- Add language system tests, docs, error handling, and group_by_continent option
+
+### Changed
+- Unify admin and frontend language systems into single source of truth
+- Unify status badge components into single status_badge
+- Remove deprecated select-bordered class for daisyUI 5 compatibility
+- Disable automatic CI triggers, switch to manual-only
+
+### Fixed
+- Fix language switcher URL generation for prefixed admin paths
+- Fix dialyzer warnings in language switcher URL generation
+
 ## 1.7.86 - 2026-03-30
 
 ### Changed

@@ -408,6 +408,8 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/users/permissions", Live.Users.PermissionsMatrix, :index
         live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
         live "/admin/users/sessions", Live.Users.Sessions, :index
+        live "/admin/activity", Live.Activity.Index, :index
+        live "/admin/activity/:uuid", Live.Activity.Show, :show
         live "/admin/media", Live.Users.Media, :index
         live "/admin/media/:file_uuid", Live.Users.MediaDetail, :show
         live "/admin/media/selector", Live.Users.MediaSelector, :index
@@ -415,15 +417,13 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/users", Live.Settings.Users, :index
         live "/admin/settings/authorization", Live.Settings.Authorization, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
+        live "/admin/settings/integrations", Live.Settings.Integrations, :index
+        live "/admin/settings/integrations/new", Live.Settings.IntegrationForm, :new
+        live "/admin/settings/integrations/:provider/:name", Live.Settings.IntegrationForm, :edit
         live "/admin/modules", Live.Modules, :index
 
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/languages/frontend", Live.Modules.Languages, :frontend
-        live "/admin/settings/languages/backend", Live.Modules.Languages, :backend
-
-        if Code.ensure_loaded?(PhoenixKit.Modules.Legal) do
-          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
-        end
 
         live "/admin/settings/maintenance", Live.Modules.Maintenance.Settings, :index
         live "/admin/settings/seo", Live.Settings.SEO, :index
@@ -431,6 +431,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
         live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
         live "/admin/settings/media/dimensions", Live.Modules.Storage.Dimensions, :index
+        live "/admin/settings/media/health", Live.Modules.Storage.Health, :index
 
         live "/admin/settings/media/dimensions/new/image",
              Live.Modules.Storage.DimensionForm,
@@ -869,6 +870,7 @@ defmodule PhoenixKitWeb.Integration do
       apply(mod, callback, [])
       |> Enum.map(&Tab.resolve_path(&1, context))
       |> Enum.filter(&tab_has_live_view?/1)
+      |> Enum.uniq_by(fn %{path: path} -> path end)
       |> Enum.map(&tab_struct_to_route/1)
     else
       []

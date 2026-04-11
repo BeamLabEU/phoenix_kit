@@ -54,6 +54,11 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       |> assign(:per_page, @per_page)
       |> assign(:search_query, "")
       |> assign(:filter_role, "all")
+      |> assign(
+        :org_accounts_enabled,
+        Settings.get_boolean_setting("enable_organization_accounts", false)
+      )
+      |> assign(:filter_account_type, "all")
       |> assign(:show_role_modal, false)
       |> assign(:managing_user, nil)
       |> assign(:user_roles, [])
@@ -97,6 +102,16 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     socket =
       socket
       |> assign(:filter_role, role)
+      |> assign(:page, 1)
+      |> load_users()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("filter_by_account_type", %{"account_type" => account_type}, socket) do
+    socket =
+      socket
+      |> assign(:filter_account_type, account_type)
       |> assign(:page, 1)
       |> load_users()
 
@@ -153,11 +168,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   def handle_event("sync_user_roles", params, socket) do
     user = socket.assigns.managing_user
+    current_roles = socket.assigns.user_roles
     selected_roles = Map.get(params, "roles", %{})
     role_names = Map.values(selected_roles)
 
     case Roles.sync_user_roles(user, role_names) do
       {:ok, _assignments} ->
+        admin = socket.assigns.phoenix_kit_current_user
+        added = role_names -- current_roles
+        removed = current_roles -- role_names
+
+        if added != [] or removed != [] do
+          log_roles_updated(admin, user, current_roles, role_names, added, removed)
+        end
+
         socket =
           socket
           |> put_flash(:info, "User roles updated successfully")
@@ -560,8 +584,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     new_status = !user.is_active
 
     case Auth.update_user_status(user, %{"is_active" => new_status}) do
-      {:ok, _user} ->
+      {:ok, updated_user} ->
         status_text = if new_status, do: "activated", else: "deactivated"
+        admin = socket.assigns.phoenix_kit_current_user
+
+        PhoenixKit.Activity.log(%{
+          action: "user.status_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          target_uuid: updated_user.uuid,
+          metadata: %{"status" => status_text, "actor_role" => "admin"}
+        })
 
         socket =
           socket
@@ -582,9 +618,27 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   defp toggle_user_confirmation_safely(socket, user) do
+    admin = socket.assigns.phoenix_kit_current_user
+
     case Auth.toggle_user_confirmation(user) do
       {:ok, updated_user} ->
         status_text = if updated_user.confirmed_at, do: "confirmed", else: "unconfirmed"
+
+        action =
+          if updated_user.confirmed_at,
+            do: "user.email_confirmed",
+            else: "user.email_unconfirmed"
+
+        PhoenixKit.Activity.log(%{
+          action: action,
+          module: "users",
+          mode: "manual",
+          actor_uuid: admin.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          target_uuid: updated_user.uuid,
+          metadata: %{"method" => "manual", "actor_role" => "admin"}
+        })
 
         socket =
           socket
@@ -600,12 +654,36 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
   end
 
+  defp log_roles_updated(admin, user, current_roles, new_roles, added, removed) do
+    metadata =
+      %{"actor_role" => "admin"}
+      |> maybe_put_role_diff("added", added)
+      |> maybe_put_role_diff("removed", removed)
+      |> Map.put("roles_from", Enum.join(Enum.sort(current_roles), ", "))
+      |> Map.put("roles_to", Enum.join(Enum.sort(new_roles), ", "))
+
+    PhoenixKit.Activity.log(%{
+      action: "user.roles_updated",
+      module: "users",
+      mode: "manual",
+      actor_uuid: admin.uuid,
+      resource_type: "user",
+      resource_uuid: user.uuid,
+      target_uuid: user.uuid,
+      metadata: metadata
+    })
+  end
+
+  defp maybe_put_role_diff(map, _key, []), do: map
+  defp maybe_put_role_diff(map, key, roles), do: Map.put(map, key, Enum.join(roles, ", "))
+
   defp load_users(socket) do
     params = [
       page: socket.assigns.page,
       page_size: socket.assigns.per_page,
       search: socket.assigns.search_query,
-      role: socket.assigns.filter_role
+      role: socket.assigns.filter_role,
+      account_type: socket.assigns.filter_account_type
     ]
 
     %{users: users, total_count: total_count, total_pages: total_pages} =

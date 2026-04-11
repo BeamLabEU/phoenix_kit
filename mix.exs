@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.86"
+  @version "1.7.95"
   @description "A foundation for building Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, and more"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -111,6 +111,11 @@ defmodule PhoenixKit.MixProject do
 
       # Content editor
       {:leaf, "~> 0.2.6"},
+
+      # Cloud provider regions
+      {:aws_regions, "~> 0.1.0"},
+      {:backblaze_regions, "~> 0.1.0"},
+      {:tigris_regions, "~> 0.1.0"},
 
       # Utilities
       {:jason, "~> 1.4"},

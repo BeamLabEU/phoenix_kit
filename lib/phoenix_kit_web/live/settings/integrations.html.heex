@@ -1,0 +1,239 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - Integrations"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings")}
+      title={gettext("Integrations")}
+      subtitle={gettext("Connect external services for use across modules")}
+    >
+      <:actions>
+        <.pk_link
+          navigate="/admin/settings/integrations/new"
+          class="btn btn-primary btn-sm"
+        >
+          <.icon name="hero-plus" class="w-4 h-4" />
+          {gettext("Add Integration")}
+        </.pk_link>
+      </:actions>
+    </.admin_page_header>
+
+    <%!-- Flash messages --%>
+    <%!-- Connections table --%>
+    <div :if={@connections != []}>
+      <.table_default
+        id="integrations-table"
+        toggleable
+        items={@connections}
+        card_title={fn conn -> conn.provider.name end}
+        card_fields={
+          fn conn ->
+            fields = [
+              %{
+                label: gettext("Status"),
+                value:
+                  if(@validating == conn.full_key,
+                    do: gettext("Testing..."),
+                    else: elem(integration_status_badge(conn.data["status"]), 1)
+                  )
+              }
+            ]
+
+            fields =
+              if conn.name != "default",
+                do: fields ++ [%{label: gettext("Name"), value: conn.name}],
+                else: fields
+
+            fields =
+              if conn.data["external_account_id"],
+                do:
+                  fields ++
+                    [%{label: gettext("Account"), value: conn.data["external_account_id"]}],
+                else: fields
+
+            fields =
+              if conn.used_by != [],
+                do:
+                  fields ++ [%{label: gettext("Used by"), value: Enum.join(conn.used_by, ", ")}],
+                else: fields
+
+            fields
+          end
+        }
+      >
+        <:card_header :let={conn}>
+          <div class="flex items-center gap-2">
+            <.icon name={conn.provider.icon} class="w-5 h-5" />
+            <span class="font-medium">{conn.provider.name}</span>
+            <span :if={conn.name != "default"} class="badge badge-ghost badge-xs">
+              {conn.name}
+            </span>
+          </div>
+        </:card_header>
+
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell>{gettext("Service")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Name")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Account")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Used by")}</.table_default_header_cell>
+            <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+
+        <.table_default_body>
+          <.table_default_row :for={conn <- @connections}>
+            <.table_default_cell>
+              <div class="flex items-center gap-2">
+                <.icon name={conn.provider.icon} class="w-4 h-4 text-base-content/60" />
+                <span>{conn.provider.name}</span>
+              </div>
+            </.table_default_cell>
+            <.table_default_cell>
+              {if conn.name == "default", do: gettext("Default"), else: conn.name}
+            </.table_default_cell>
+            <.table_default_cell>
+              <span :if={conn.data["external_account_id"]} class="text-sm">
+                {conn.data["external_account_id"]}
+              </span>
+              <span :if={!conn.data["external_account_id"]} class="text-base-content/30">—</span>
+            </.table_default_cell>
+            <.table_default_cell>
+              <%= if @validating == conn.full_key do %>
+                <span class="badge badge-sm badge-info gap-1">
+                  <span class="loading loading-spinner loading-xs"></span>
+                  {gettext("Testing...")}
+                </span>
+              <% else %>
+                <% {badge_class, badge_text} = integration_status_badge(conn.data["status"]) %>
+                <div>
+                  <span class={"badge badge-sm #{badge_class}"}>{badge_text}</span>
+                  <span
+                    :if={conn.data["status"] == "error" && conn.data["validation_status"]}
+                    class="text-xs text-error block mt-0.5"
+                  >
+                    {conn.data["validation_status"]}
+                  </span>
+                </div>
+              <% end %>
+            </.table_default_cell>
+            <.table_default_cell>
+              <span :if={conn.used_by != []} class="text-sm text-base-content/60">
+                {Enum.join(conn.used_by, ", ")}
+              </span>
+              <span :if={conn.used_by == []} class="text-base-content/30">—</span>
+            </.table_default_cell>
+            <.table_default_cell>
+              <.table_row_menu
+                id={"integration-menu-#{String.replace(conn.full_key, ":", "-")}"}
+                mode="auto"
+                label={gettext("Actions")}
+              >
+                <.table_row_menu_link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path(
+                      "/admin/settings/integrations/#{conn.provider.key}/#{conn.name}"
+                    )
+                  }
+                  icon="hero-pencil"
+                  label={gettext("Configure")}
+                />
+                <.table_row_menu_button
+                  :if={conn.data["status"] == "connected"}
+                  phx-click="validate_connection"
+                  phx-value-provider={conn.full_key}
+                  icon="hero-signal"
+                  label={gettext("Test Connection")}
+                />
+                <.table_row_menu_divider :if={conn.data["status"] == "connected"} />
+                <.table_row_menu_button
+                  :if={conn.data["status"] == "connected"}
+                  phx-click="disconnect"
+                  phx-value-provider={conn.full_key}
+                  icon="hero-link-slash"
+                  label={gettext("Disconnect")}
+                  variant="warning"
+                  data-confirm={gettext("Are you sure you want to disconnect?")}
+                />
+                <.table_row_menu_button
+                  :if={conn.name != "default"}
+                  phx-click="remove_connection"
+                  phx-value-provider={conn.provider.key}
+                  phx-value-name={conn.name}
+                  icon="hero-trash"
+                  label={gettext("Remove")}
+                  variant="error"
+                  data-confirm={
+                    gettext(
+                      "This integration may be in use by other parts of the system. Remove it permanently?"
+                    )
+                  }
+                />
+              </.table_row_menu>
+            </.table_default_cell>
+          </.table_default_row>
+        </.table_default_body>
+
+        <:card_actions :let={conn}>
+          <.table_row_menu
+            id={"integration-card-menu-#{String.replace(conn.full_key, ":", "-")}"}
+            mode="auto"
+            label={gettext("Actions")}
+          >
+            <.table_row_menu_link
+              navigate={
+                PhoenixKit.Utils.Routes.path(
+                  "/admin/settings/integrations/#{conn.provider.key}/#{conn.name}"
+                )
+              }
+              icon="hero-pencil"
+              label={gettext("Configure")}
+            />
+            <.table_row_menu_button
+              :if={conn.data["status"] == "connected"}
+              phx-click="disconnect"
+              phx-value-provider={conn.full_key}
+              icon="hero-link-slash"
+              label={gettext("Disconnect")}
+              variant="warning"
+              data-confirm={gettext("Disconnect?")}
+            />
+            <.table_row_menu_button
+              :if={conn.name != "default"}
+              phx-click="remove_connection"
+              phx-value-provider={conn.provider.key}
+              phx-value-name={conn.name}
+              icon="hero-trash"
+              label={gettext("Remove")}
+              variant="error"
+              data-confirm={
+                gettext(
+                  "This integration may be in use by other parts of the system. Remove it permanently?"
+                )
+              }
+            />
+          </.table_row_menu>
+        </:card_actions>
+      </.table_default>
+    </div>
+
+    <%!-- Empty state --%>
+    <div :if={@connections == []} class="text-center py-12">
+      <.icon name="hero-link" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
+      <h3 class="text-lg font-medium mb-2">{gettext("No integrations configured")}</h3>
+      <p class="text-base-content/70 mb-4">
+        {gettext("Connect external services like Google, OpenRouter, or Telegram.")}
+      </p>
+      <.pk_link navigate="/admin/settings/integrations/new" class="btn btn-primary btn-sm">
+        <.icon name="hero-plus" class="w-4 h-4" />
+        {gettext("Add Integration")}
+      </.pk_link>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

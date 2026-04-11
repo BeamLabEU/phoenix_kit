@@ -52,6 +52,20 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       {:ok, updated_user} ->
         send(self(), {:phoenix_kit_user_updated, updated_user})
 
+        PhoenixKit.Activity.log(%{
+          action: "user.avatar_changed",
+          module: "users",
+          mode: "manual",
+          actor_uuid: updated_user.uuid,
+          resource_type: "user",
+          resource_uuid: updated_user.uuid,
+          metadata: %{
+            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
+            "avatar_to" => file_uuid,
+            "actor_role" => "user"
+          }
+        })
+
         {:ok,
          socket
          |> assign(:user, updated_user)
@@ -616,16 +630,6 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   >
                     <.icon name="hero-photo" class="w-5 h-5" /> Browse Media
                   </button>
-
-                  <.live_component
-                    module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
-                    id={"#{@id}-avatar-media-selector"}
-                    show={@show_avatar_selector}
-                    mode={:single}
-                    selected_uuids={[]}
-                    phoenix_kit_current_user={@user}
-                    on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
-                  />
                 </div>
 
                 <%!-- Name Fields --%>
@@ -688,6 +692,17 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
               </:actions>
             </.simple_form>
+
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.UserMediaSelectorModal}
+              id={"#{@id}-avatar-media-selector"}
+              show={@show_avatar_selector}
+              mode={:single}
+              selected_uuids={[]}
+              phoenix_kit_current_user={@user}
+              on_select={{PhoenixKitWeb.Live.Components.UserSettings, @id, :set_avatar}}
+            />
+
             <%= if Enum.any?([:custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
               <div class="divider"></div>
             <% end %>

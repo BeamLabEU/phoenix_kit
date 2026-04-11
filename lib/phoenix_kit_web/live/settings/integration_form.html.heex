@@ -1,0 +1,299 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - #{@page_title}"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 max-w-2xl">
+    <.admin_page_header
+      back={PhoenixKit.Utils.Routes.path("/admin/settings/integrations")}
+      title={@page_title}
+      subtitle={if @provider, do: @provider.name, else: gettext("Choose a service to connect")}
+    />
+
+    <%!-- Flash messages --%>
+    <div :if={@success} class="alert alert-success mb-4" phx-click="dismiss">
+      <span>{@success}</span>
+    </div>
+    <div :if={@error} class="alert alert-error mb-4" phx-click="dismiss">
+      <span>{@error}</span>
+    </div>
+
+    <%!-- Step 1: Provider picker (new mode, no provider selected yet) --%>
+    <div :if={@live_action == :new && @selected_provider == nil}>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          :for={provider <- @providers}
+          phx-click="select_provider"
+          phx-value-provider={provider.key}
+          class="card bg-base-100 shadow-sm border border-base-300 hover:border-primary transition-colors cursor-pointer"
+        >
+          <div class="card-body p-4 flex-row items-center gap-3">
+            <span class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg">
+              <.icon name={provider.icon} class="w-5 h-5" />
+            </span>
+            <div class="text-left">
+              <div class="font-semibold">{provider.name}</div>
+              <div class="text-xs text-base-content/60">{provider.description}</div>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <%!-- Step 2: Setup form (provider selected in new mode, or edit mode) --%>
+    <div :if={@provider != nil} class="space-y-6">
+      <%!-- Back to provider picker (new mode only) --%>
+      <button
+        :if={@live_action == :new && @name == nil}
+        phx-click="back_to_providers"
+        class="btn btn-ghost btn-sm -mt-2"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+        {gettext("Choose a different service")}
+      </button>
+
+      <%!-- Provider info header with status --%>
+      <div class="flex items-center gap-3">
+        <span class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg shrink-0">
+          <.icon name={@provider.icon} class="w-5 h-5" />
+        </span>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold">{@provider.name}</h2>
+            <%= if @data["status"] == "connected" do %>
+              <span class="badge badge-success badge-sm gap-1">
+                <.icon name="hero-check-circle" class="w-3 h-3" />
+                {gettext("Connected")}
+              </span>
+            <% end %>
+            <%= if @data["status"] == "configured" do %>
+              <span class="badge badge-warning badge-sm">{gettext("Not tested")}</span>
+            <% end %>
+            <%= if @data["status"] == "error" do %>
+              <span class="badge badge-error badge-sm">{gettext("Error")}</span>
+            <% end %>
+            <%= if @data["status"] in ["disconnected", nil] do %>
+              <span class="badge badge-ghost badge-sm">{gettext("Not connected")}</span>
+            <% end %>
+          </div>
+          <p class="text-sm text-base-content/60">
+            {@provider.description}
+            <span :if={@data["external_account_id"]} class="ml-1">
+              — {@data["external_account_id"]}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <% credentials_saved = @name != nil && has_setup_credentials?(@data, @provider) %>
+
+      <%!-- Step 1: Credentials --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <div class="flex items-center gap-2">
+            <span class={"badge badge-sm #{if credentials_saved, do: "badge-success", else: "badge-ghost"}"}>
+              {gettext("Step 1")}
+            </span>
+            <h3 class="card-title text-base">
+              {if @provider.auth_type == :oauth2,
+                do: gettext("API Credentials"),
+                else: gettext("Credentials")}
+            </h3>
+          </div>
+          <p :if={@provider.auth_type == :oauth2} class="text-sm text-base-content/60">
+            {gettext("Enter your API credentials from the developer console.")}
+          </p>
+
+          <form
+            phx-submit={if @name, do: "save_setup", else: "create_connection"}
+            class="space-y-4 mt-2"
+          >
+            <%!-- Connection name (new mode only) --%>
+            <div :if={@name == nil} class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("Connection Name")}</span>
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={@new_name}
+                class="input input-bordered w-full"
+                placeholder={gettext("default")}
+              />
+            </div>
+
+            <%!-- Provider-specific fields --%>
+            <div :for={field <- @provider.setup_fields} class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  {field.label}
+                  <span :if={field.required} class="text-error">*</span>
+                </span>
+              </label>
+              <input
+                type={if field.type == :password, do: "password", else: "text"}
+                name={field.key}
+                value={@data[field.key] || ""}
+                class="input input-bordered w-full"
+                placeholder={field.placeholder || ""}
+                required={field.required}
+              />
+              <label :if={field.help} class="label">
+                <span class="label-text-alt text-base-content/50">{field.help}</span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm">
+              {gettext("Save Credentials")}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Step 2: Connect Account (OAuth providers only) --%>
+      <div :if={@provider.auth_type == :oauth2 && @name != nil} class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <div class="flex items-center gap-2">
+            <span class={"badge badge-sm #{if @data["status"] == "connected", do: "badge-success", else: "badge-ghost"}"}>
+              {gettext("Step 2")}
+            </span>
+            <h3 class="card-title text-base">{gettext("Connect Account")}</h3>
+          </div>
+
+          <% meta = @data["metadata"] || %{} %>
+          <%= if @data["status"] == "connected" do %>
+            <div class="flex items-center gap-3 mt-3">
+              <%!-- Avatar --%>
+              <%= if meta["picture"] do %>
+                <img
+                  src={meta["picture"]}
+                  class="w-10 h-10 rounded-full"
+                  referrerpolicy="no-referrer"
+                />
+              <% else %>
+                <div class="w-10 h-10 rounded-full bg-base-200 flex items-center justify-center">
+                  <.icon name="hero-user" class="w-5 h-5 text-base-content/40" />
+                </div>
+              <% end %>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span :if={meta["name"]} class="font-medium">{meta["name"]}</span>
+                  <div class="badge badge-success badge-sm gap-1">
+                    <.icon name="hero-check-circle" class="w-3 h-3" />
+                    {gettext("Connected")}
+                  </div>
+                </div>
+                <span :if={@data["external_account_id"]} class="text-sm text-base-content/60">
+                  {@data["external_account_id"]}
+                </span>
+                <span :if={@data["connected_at"]} class="text-xs text-base-content/40 block">
+                  {gettext("Connected on")} {format_date(@data["connected_at"])}
+                </span>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button
+                type="button"
+                phx-click="disconnect_account"
+                class="btn btn-outline btn-error btn-sm"
+                data-confirm={gettext("Are you sure you want to disconnect this account?")}
+              >
+                <.icon name="hero-link-slash" class="w-4 h-4" />
+                {gettext("Disconnect Account")}
+              </button>
+            </div>
+          <% else %>
+            <p class="text-sm text-base-content/60 mt-1">
+              {gettext(
+                "Authorize access to your %{provider} account. This will open a sign-in page where you choose which account to connect.",
+                provider: @provider.name
+              )}
+            </p>
+
+            <%= if credentials_saved do %>
+              <button
+                type="button"
+                phx-click="connect_oauth"
+                class="btn btn-accent btn-sm mt-3"
+              >
+                <.icon name="hero-link" class="w-4 h-4" />
+                {gettext("Connect %{provider} Account", provider: @provider.name)}
+              </button>
+            <% else %>
+              <p class="text-sm text-base-content/40 mt-2">
+                {gettext("Complete Step 1 first to enable account connection.")}
+              </p>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Test Connection (non-OAuth providers) --%>
+      <div
+        :if={
+          @provider.auth_type != :oauth2 && @name != nil &&
+            @data["status"] in ["configured", "connected", "error"]
+        }
+        class="card bg-base-100 shadow-sm"
+      >
+        <div class="card-body">
+          <div class="flex items-center gap-2">
+            <span class={"badge badge-sm #{if @data["status"] == "connected", do: "badge-success", else: "badge-ghost"}"}>
+              {gettext("Step 2")}
+            </span>
+            <h3 class="card-title text-base">{gettext("Verify Connection")}</h3>
+          </div>
+          <p class="text-sm text-base-content/60 mt-1">
+            {gettext("Test that your credentials are valid and the service is reachable.")}
+          </p>
+          <button
+            type="button"
+            phx-click="test_connection"
+            class={"btn btn-primary btn-sm mt-3 #{if @testing, do: "loading"}"}
+            disabled={@testing}
+          >
+            <.icon :if={!@testing} name="hero-signal" class="w-4 h-4" />
+            {if @testing, do: gettext("Testing..."), else: gettext("Test Connection")}
+          </button>
+        </div>
+      </div>
+
+      <%!-- Setup instructions (from provider definition) --%>
+      <div :if={Map.get(@provider, :instructions, []) != []} class="card bg-base-200/50">
+        <div class="card-body text-sm text-base-content/70 space-y-4">
+          <h3 class="font-semibold text-base-content text-base">
+            {gettext("Setup Instructions")}
+          </h3>
+
+          <div :for={{section, idx} <- Enum.with_index(Map.get(@provider, :instructions, []))}>
+            <h4 class="font-semibold text-base-content">
+              {idx + 1}. {section.title}
+            </h4>
+            <p
+              :if={Map.get(section, :note)}
+              class="text-xs text-base-content/50 mt-1 ml-2 mb-2"
+            >
+              <span class="[&>strong]:font-semibold [&>strong]:text-base-content/70">
+                {Phoenix.HTML.raw(
+                  render_markdown_inline(section.note, %{"redirect_uri" => @redirect_uri || ""})
+                )}
+              </span>
+            </p>
+            <ol class="list-decimal list-inside space-y-1 mt-1 ml-2">
+              <li :for={{text, _detail} <- section.steps}>
+                <span class="[&>a]:link [&>a]:link-primary [&>strong]:font-semibold [&>strong]:text-base-content">
+                  {Phoenix.HTML.raw(
+                    render_markdown_inline(text, %{"redirect_uri" => @redirect_uri || ""})
+                  )}
+                </span>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
