@@ -1,3 +1,9 @@
+## 1.7.95 - 2026-04-11
+
+### Added
+- V95 migration: media folders and folder links tables
+- V96 migration: catalogue_uuid FK on catalogue items for direct catalogue membership
+
 ## 1.7.94 - 2026-04-10
 
 ### Added
