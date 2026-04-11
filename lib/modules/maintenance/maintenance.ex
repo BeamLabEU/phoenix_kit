@@ -87,7 +87,7 @@ defmodule PhoenixKit.Modules.Maintenance do
       false
   """
   def enabled? do
-    Settings.get_boolean_setting("maintenance_enabled", false)
+    Settings.get_boolean_setting("maintenance_module_enabled", false)
   end
 
   @impl PhoenixKit.Module
