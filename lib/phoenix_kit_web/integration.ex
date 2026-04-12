@@ -675,7 +675,7 @@ defmodule PhoenixKitWeb.Integration do
   # ## Tab config example
   #
   #     config :phoenix_kit, :admin_dashboard_tabs, [
-  #       %{id: :admin_analytics, label: "Analytics", path: "/admin/analytics",
+  #       %{id: :admin_analytics, label: "Analytics", path: "analytics",
   #         live_view: {MyAppWeb.AnalyticsLive, :index}, permission: "dashboard"}
   #     ]
   #
