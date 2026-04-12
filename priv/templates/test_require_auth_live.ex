@@ -22,22 +22,35 @@ defmodule PhoenixKitWeb.TestRequireAuthLive do
             <div class={"alert #{if Scope.authenticated?(@phoenix_kit_current_scope), do: "alert-success", else: "alert-warning"}"}>
               <div>
                 <h3 class="font-bold">
-                  {if Scope.authenticated?(@phoenix_kit_current_scope), do: "User is logged in!", else: "No user logged in"}
+                  {if Scope.authenticated?(@phoenix_kit_current_scope),
+                    do: "User is logged in!",
+                    else: "No user logged in"}
                 </h3>
                 <div class="text-sm">
-                  <p><strong>Scope Status:</strong> authenticated? = {Scope.authenticated?(@phoenix_kit_current_scope)}</p>
-                  <p><strong>User Status:</strong> anonymous? = {Scope.anonymous?(@phoenix_kit_current_scope)}</p>
+                  <p>
+                    <strong>Scope Status:</strong>
+                    authenticated? = {Scope.authenticated?(@phoenix_kit_current_scope)}
+                  </p>
+                  <p>
+                    <strong>User Status:</strong>
+                    anonymous? = {Scope.anonymous?(@phoenix_kit_current_scope)}
+                  </p>
                   <%= if Scope.authenticated?(@phoenix_kit_current_scope) do %>
                     <p><strong>Email:</strong> {Scope.user_email(@phoenix_kit_current_scope)}</p>
                     <p><strong>ID:</strong> {Scope.user_uuid(@phoenix_kit_current_scope)}</p>
                     <%= if Scope.user(@phoenix_kit_current_scope).confirmed_at do %>
-                      <p><strong>Status:</strong> Confirmed at {Scope.user(@phoenix_kit_current_scope).confirmed_at}</p>
+                      <p>
+                        <strong>Status:</strong>
+                        Confirmed at {Scope.user(@phoenix_kit_current_scope).confirmed_at}
+                      </p>
                     <% else %>
                       <p><strong>Status:</strong> Not confirmed</p>
                     <% end %>
                   <% else %>
                     <p class="text-sm">Page is accessible but scope is anonymous</p>
-                    <p class="text-xs">Both @phoenix_kit_current_scope and @phoenix_kit_current_user available</p>
+                    <p class="text-xs">
+                      Both @phoenix_kit_current_scope and @phoenix_kit_current_user available
+                    </p>
                   <% end %>
                 </div>
               </div>

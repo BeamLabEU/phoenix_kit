@@ -1,0 +1,265 @@
+/* ============================================================================
+   Phoenix Kit Dashboard & Widgets Styling (daisyUI v5 Tokens)
+   ============================================================================ */
+
+/* Dashboard Container */
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--b2)) 0%,
+    hsl(var(--b3)) 100%
+  );
+  color: hsl(var(--bc));
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: hsl(var(--bc));
+}
+
+.dashboard-header .subtitle {
+  color: hsl(var(--bc) / 0.6);
+  font-size: 1rem;
+}
+
+/* Header Actions */
+.dashboard-header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.dashboard-header-actions .btn-primary {
+  background: hsl(var(--p));
+  color: hsl(var(--pc));
+  border-radius: var(--rounded-btn, 0.5rem);
+}
+
+.dashboard-header-actions .btn-primary:hover {
+  filter: brightness(0.9);
+  box-shadow: 0 4px 12px hsl(var(--p) / 0.3);
+}
+
+/* Widgets Grid */
+.widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Widget */
+.widget {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: hsl(var(--b1));
+  border-radius: var(--rounded-box, 1rem);
+  border: 1px solid hsl(var(--b3));
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.08));
+  transition: all 0.3s ease;
+}
+
+.widget:hover {
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.12));
+  transform: translateY(-2px);
+  border-color: hsl(var(--b3) / 0.8);
+}
+
+/* Widget Header */
+.widget-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid hsl(var(--b3));
+  display: flex;
+  justify-content: space-between;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--b2)) 0%,
+    hsl(var(--b1)) 100%
+  );
+}
+
+.widget-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: hsl(var(--bc));
+}
+
+.widget-header i {
+  color: hsl(var(--p));
+}
+
+.widget-header .btn-icon {
+  background: transparent;
+  color: hsl(var(--bc) / 0.6);
+  border-radius: var(--rounded-btn, 0.5rem);
+}
+
+.widget-header .btn-icon:hover {
+  background: hsl(var(--p) / 0.1);
+  color: hsl(var(--p));
+}
+
+/* Widget Body */
+.widget-body {
+  padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+  color: hsl(var(--bc));
+}
+
+.widget-body::-webkit-scrollbar-thumb {
+  background: hsl(var(--b3));
+}
+
+.widget-body::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--bc) / 0.4);
+}
+
+/* Footer */
+.widget-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid hsl(var(--b3));
+  background: hsl(var(--b2));
+}
+
+.widget-footer .link {
+  color: hsl(var(--p));
+}
+
+.widget-footer .link:hover {
+  text-decoration: underline;
+}
+
+/* States */
+.empty-state {
+  text-align: center;
+  color: hsl(var(--bc) / 0.5);
+}
+
+.loading-state {
+  color: hsl(var(--bc) / 0.5);
+}
+
+.error-state {
+  background: hsl(var(--wa) / 0.2);
+  border: 1px solid hsl(var(--wa));
+  color: hsl(var(--wac));
+}
+
+/* Stats */
+.stats-grid .stat {
+  background: hsl(var(--b2));
+  border: 1px solid hsl(var(--b3));
+  border-radius: var(--rounded-box, 0.75rem);
+}
+
+.stats-grid .stat:hover {
+  background: hsl(var(--b3));
+}
+
+.stats-grid .stat .label {
+  color: hsl(var(--bc) / 0.6);
+}
+
+.stats-grid .stat .value {
+  color: hsl(var(--p));
+}
+
+.stats-grid .stat .sub-value {
+  color: hsl(var(--bc) / 0.5);
+}
+
+/* List */
+.widget-list-item {
+  border-bottom: 1px solid hsl(var(--b3));
+}
+
+.widget-list-item-name {
+  color: hsl(var(--bc));
+}
+
+.widget-list-item-value {
+  color: hsl(var(--p));
+}
+
+.widget-list-item-meta {
+  color: hsl(var(--bc) / 0.5);
+}
+
+/* Empty Dashboard */
+.empty-dashboard {
+  background: hsl(var(--b1));
+  border: 2px dashed hsl(var(--b3));
+  border-radius: var(--rounded-box, 1rem);
+}
+
+.empty-dashboard h2 {
+  color: hsl(var(--bc) / 0.7);
+}
+
+.empty-dashboard p {
+  color: hsl(var(--bc) / 0.5);
+}
+
+.empty-dashboard .btn {
+  background: hsl(var(--p));
+  color: hsl(var(--pc));
+}
+
+.empty-dashboard .btn:hover {
+  filter: brightness(0.9);
+}
+
+/* Badges */
+.badge-success {
+  background: hsl(var(--su) / 0.2);
+  color: hsl(var(--suc));
+}
+
+.badge-warning {
+  background: hsl(var(--wa) / 0.2);
+  color: hsl(var(--wac));
+}
+
+.badge-danger {
+  background: hsl(var(--er) / 0.2);
+  color: hsl(var(--erc));
+}
+
+.badge-info {
+  background: hsl(var(--in) / 0.2);
+  color: hsl(var(--inc));
+}
+.sidebar-transition {
+  transition: transform 300ms ease, opacity 300ms ease;
+}
+/* Spinner */
+.spinner {
+  border: 2px solid hsl(var(--b3));
+  border-top: 2px solid hsl(var(--p));
+}
+
+/* Focus Accessibility */
+.widget:focus-within {
+  outline: 2px solid hsl(var(--p));
+}
+
+.widget-header .btn-icon:focus {
+  outline: 2px solid hsl(var(--p));
+}
