@@ -56,6 +56,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:covered_count, length(covered_countries))
       # Search filter
       |> assign(:search_query, "")
+      # Reorder mode
+      |> assign(:show_reorder, false)
       # Switcher preview settings
       |> assign(:switcher_show_names, true)
       |> assign(:switcher_show_flags, true)
@@ -68,6 +70,21 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
   def handle_params(_params, _uri, socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_reorder", _params, socket) do
+    {:noreply, assign(socket, :show_reorder, !socket.assigns.show_reorder)}
+  end
+
+  def handle_event("reorder_languages", %{"ordered_ids" => ordered_codes}, socket) do
+    case Languages.reorder_languages(ordered_codes) do
+      {:ok, _} ->
+        socket = reload_display_languages(socket, true)
+        {:noreply, put_flash(socket, :info, "Language order updated")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to reorder languages")}
+    end
   end
 
   def handle_event("toggle_languages", _params, socket) do

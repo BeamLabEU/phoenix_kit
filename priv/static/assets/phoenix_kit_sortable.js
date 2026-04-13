@@ -111,6 +111,7 @@
       var self = this;
       var container = this.el;
       var eventName = container.dataset.sortableEvent || "reorder_items";
+      var hideSource = container.dataset.sortableHideSource === "true";
 
       // Inject CSS styles for sortable classes
       injectStyles();
@@ -126,6 +127,15 @@
         ghostClass: "sortable-ghost",
         chosenClass: "sortable-chosen",
         dragClass: "sortable-drag",
+        onStart: function() {
+          if (hideSource) {
+            // Hide the fallback clone that SortableJS places at the initial position on body
+            setTimeout(function() {
+              var fallback = document.querySelector("body > .sortable-fallback");
+              if (fallback) fallback.style.display = "none";
+            }, 0);
+          }
+        },
         onEnd: function(evt) {
           // Get new order of item IDs
           var items = container.querySelectorAll(".sortable-item[data-id]");

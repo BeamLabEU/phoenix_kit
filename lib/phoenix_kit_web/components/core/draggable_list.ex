@@ -74,6 +74,7 @@ defmodule PhoenixKitWeb.Components.Core.DraggableList do
   attr :gap, :string, default: "gap-2", doc: "Gap between items (Tailwind class)"
   attr :class, :string, default: "", doc: "Additional CSS classes for the container"
   attr :item_class, :string, default: "", doc: "Additional CSS classes for each item wrapper"
+  attr :hide_source, :boolean, default: false, doc: "Hide source element on drag start"
 
   slot :item, required: true, doc: "Slot to render each item, receives the item as let"
   slot :add_button, doc: "Optional slot for add button at end of container"
@@ -101,6 +102,7 @@ defmodule PhoenixKitWeb.Components.Core.DraggableList do
       data-sortable="true"
       data-sortable-event={@on_reorder}
       data-sortable-items=".sortable-item"
+      data-sortable-hide-source={to_string(@hide_source)}
       phx-hook="SortableGrid"
       class={@container_class}
     >
