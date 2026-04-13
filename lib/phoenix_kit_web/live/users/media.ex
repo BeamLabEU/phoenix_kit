@@ -908,7 +908,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       if search_query != "" do
         # Search across all folders
         search_term = "%#{search_query}%"
-        from(f in Storage.File, where: ilike(f.original_file_name, ^search_term))
+
+        from(f in Storage.File,
+          where:
+            ilike(f.original_file_name, ^search_term) or
+              fragment("CAST(? AS TEXT) ILIKE ?", f.uuid, ^search_term)
+        )
       else
         if folder_uuid do
           from(f in Storage.File, where: f.folder_uuid == ^folder_uuid)
