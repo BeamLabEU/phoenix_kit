@@ -167,7 +167,14 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         variant_dimensions = put_original_fallbacks(variant_dimensions, file)
 
         file_data =
-          build_file_data(file, urls, variant_dimensions, locations, {title, description, tags}, user_name)
+          build_file_data(
+            file,
+            urls,
+            variant_dimensions,
+            locations,
+            {title, description, tags},
+            user_name
+          )
 
         socket
         |> assign(:file, file)
@@ -208,7 +215,14 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     end
   end
 
-  defp build_file_data(file, urls, variant_dimensions, locations, {title, description, tags}, user_name) do
+  defp build_file_data(
+         file,
+         urls,
+         variant_dimensions,
+         locations,
+         {title, description, tags},
+         user_name
+       ) do
     %{
       file_uuid: file.uuid,
       filename: file.original_file_name || file.file_name || "Unknown",
@@ -232,7 +246,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   defp build_variant_dimensions(instances) do
     Enum.reduce(instances, %{}, fn instance, acc ->
-      dims = if instance.width && instance.height, do: {instance.width, instance.height}, else: nil
+      dims =
+        if instance.width && instance.height, do: {instance.width, instance.height}, else: nil
+
       Map.put(acc, instance.variant_name, %{dimensions: dims, size: instance.size})
     end)
   end

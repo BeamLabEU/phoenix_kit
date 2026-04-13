@@ -190,6 +190,44 @@
         </div>
       </div>
 
+      <%!-- Alternative Formats (image dimensions only) --%>
+      <%= if @dimension_type != "video" do %>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body gap-4">
+            <h2 class="card-title text-lg">
+              <.icon name="hero-document-duplicate" class="w-5 h-5" />
+              {gettext("Alternative Formats")}
+            </h2>
+            <p class="text-sm text-base-content/60">
+              {gettext(
+                "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
+              )}
+            </p>
+
+            <input type="hidden" name="dimension[alternative_formats][]" value="" />
+            <% current_alternatives = get_field_value(@changeset, :alternative_formats) || [] %>
+            <% primary_format = get_field_value(@changeset, :format) %>
+            <div class="flex flex-wrap gap-4">
+              <%= for {fmt, label} <- [{"webp", "WebP"}, {"avif", "AVIF"}, {"png", "PNG"}, {"jpg", "JPEG"}] do %>
+                <%= if fmt != primary_format do %>
+                  <label class="label cursor-pointer gap-2">
+                    <input
+                      type="checkbox"
+                      name="dimension[alternative_formats][]"
+                      value={fmt}
+                      checked={fmt in current_alternatives}
+                      class="checkbox checkbox-sm checkbox-primary"
+                    />
+                    <span class="label-text">{label}</span>
+                  </label>
+                <% end %>
+              <% end %>
+            </div>
+            {render_error(@changeset, :alternative_formats)}
+          </div>
+        </div>
+      <% end %>
+
       <%!-- Actions --%>
       <div class="flex justify-end gap-3">
         <.link

@@ -593,6 +593,7 @@ defmodule PhoenixKit.Modules.Storage do
           applies_to: "image",
           enabled: true,
           order: 1,
+          alternative_formats: [],
           inserted_at: now,
           updated_at: now
         },
@@ -604,6 +605,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "jpg",
           applies_to: "image",
           enabled: true,
+          alternative_formats: [],
           order: 2,
           inserted_at: now,
           updated_at: now
@@ -616,6 +618,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "jpg",
           applies_to: "image",
           enabled: true,
+          alternative_formats: [],
           order: 3,
           inserted_at: now,
           updated_at: now
@@ -628,6 +631,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "jpg",
           applies_to: "image",
           enabled: true,
+          alternative_formats: [],
           order: 4,
           inserted_at: now,
           updated_at: now
@@ -641,6 +645,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "mp4",
           applies_to: "video",
           enabled: true,
+          alternative_formats: [],
           order: 5,
           inserted_at: now,
           updated_at: now
@@ -653,6 +658,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "mp4",
           applies_to: "video",
           enabled: true,
+          alternative_formats: [],
           order: 6,
           inserted_at: now,
           updated_at: now
@@ -665,6 +671,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "mp4",
           applies_to: "video",
           enabled: true,
+          alternative_formats: [],
           order: 7,
           inserted_at: now,
           updated_at: now
@@ -677,6 +684,7 @@ defmodule PhoenixKit.Modules.Storage do
           format: "jpg",
           applies_to: "video",
           enabled: true,
+          alternative_formats: [],
           order: 8,
           inserted_at: now,
           updated_at: now
@@ -1776,6 +1784,59 @@ defmodule PhoenixKit.Modules.Storage do
 
       nil ->
         nil
+    end
+  end
+
+  @doc """
+  Returns variant data for building an `<.image_set>` `<picture>` element.
+
+  Returns a list of maps with `:variant_name`, `:mime_type`, `:width`, and `:url`
+  for all completed image instances of the given file.
+  """
+  def list_image_set_variants(file_uuid) when is_binary(file_uuid) do
+    repo = repo()
+
+    FileInstance
+    |> where([fi], fi.file_uuid == ^file_uuid)
+    |> where([fi], fi.processing_status == "completed")
+    |> where([fi], like(fi.mime_type, ^"image/%"))
+    |> repo.all()
+    |> Enum.map(fn fi ->
+      %{
+        variant_name: fi.variant_name,
+        mime_type: fi.mime_type,
+        width: fi.width,
+        height: fi.height,
+        url: URLSigner.signed_url(file_uuid, fi.variant_name, locale: :none)
+      }
+    end)
+  end
+
+  @doc """
+  Bulk version of `list_image_set_variants/1` for multiple files.
+
+  Returns a map of `%{file_uuid => [variant_maps]}`. Uses a single DB query.
+  """
+  def list_image_set_variants_for_files(file_uuids) when is_list(file_uuids) do
+    if file_uuids == [] do
+      %{}
+    else
+      repo = repo()
+
+      FileInstance
+      |> where([fi], fi.file_uuid in ^file_uuids)
+      |> where([fi], fi.processing_status == "completed")
+      |> where([fi], like(fi.mime_type, ^"image/%"))
+      |> repo.all()
+      |> Enum.group_by(& &1.file_uuid, fn fi ->
+        %{
+          variant_name: fi.variant_name,
+          mime_type: fi.mime_type,
+          width: fi.width,
+          height: fi.height,
+          url: URLSigner.signed_url(fi.file_uuid, fi.variant_name, locale: :none)
+        }
+      end)
     end
   end
 
