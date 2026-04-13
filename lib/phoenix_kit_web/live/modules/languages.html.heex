@@ -6,16 +6,6 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <style>
-    @keyframes wiggle {
-      0%, 100% { transform: rotate(0deg); }
-      25% { transform: rotate(-1.5deg); }
-      75% { transform: rotate(1.5deg); }
-    }
-    .wiggle { animation: wiggle 0.4s ease-in-out infinite; }
-    .wiggle:nth-child(even) { animation-delay: 0.1s; }
-    .wiggle:nth-child(3n) { animation-delay: 0.2s; }
-  </style>
   <div
     id="languages-content"
     class="container flex flex-col mx-auto px-4 py-6"
@@ -84,7 +74,7 @@
                 layout={:list}
                 gap="gap-2"
                 class="!flex-row flex-wrap"
-                item_class="wiggle"
+                item_class="pk-sortable-wiggle"
                 hide_source={true}
               >
                 <:item :let={lang}>

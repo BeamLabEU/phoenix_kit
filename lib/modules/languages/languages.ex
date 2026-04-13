@@ -1155,18 +1155,16 @@ defmodule PhoenixKit.Modules.Languages do
     current_config = Settings.get_json_setting(@config_key, @default_config)
     current_languages = Map.get(current_config, "languages", [])
 
-    # Build a lookup of code -> language map
     lang_by_code = Map.new(current_languages, &{&1["code"], &1})
+    ordered_set = MapSet.new(ordered_codes)
 
-    # Reorder: put ordered codes first, then any remaining languages
     ordered =
       ordered_codes
+      |> Enum.uniq()
       |> Enum.map(&Map.get(lang_by_code, &1))
       |> Enum.reject(&is_nil/1)
 
-    remaining =
-      current_languages
-      |> Enum.reject(&(&1["code"] in ordered_codes))
+    remaining = Enum.reject(current_languages, &MapSet.member?(ordered_set, &1["code"]))
 
     updated_languages = ordered ++ remaining
     updated_config = Map.put(current_config, "languages", updated_languages)

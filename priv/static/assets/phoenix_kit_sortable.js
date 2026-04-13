@@ -44,7 +44,12 @@
     style.textContent = [
       ".sortable-ghost { opacity: 0.5; }",
       ".sortable-chosen { outline: 2px solid oklch(var(--p)); outline-offset: 2px; }",
-      ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }"
+      ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }",
+      "@keyframes pk-sortable-wiggle { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }",
+      ".pk-sortable-wiggle { animation: pk-sortable-wiggle 0.4s ease-in-out infinite; }",
+      ".pk-sortable-wiggle:nth-child(even) { animation-delay: 0.1s; }",
+      ".pk-sortable-wiggle:nth-child(3n) { animation-delay: 0.2s; }",
+      "@media (prefers-reduced-motion: reduce) { .pk-sortable-wiggle { animation: none; } }"
     ].join("\n");
     document.head.appendChild(style);
   }

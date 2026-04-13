@@ -65,6 +65,49 @@ defmodule PhoenixKit.Integration.Languages.CrudTest do
     end
   end
 
+  describe "reorder_languages/1" do
+    setup do
+      {:ok, _} = Languages.add_language("es-ES")
+      {:ok, _} = Languages.add_language("fr-FR")
+      {:ok, _} = Languages.add_language("de-DE")
+      :ok
+    end
+
+    test "reorders languages to match the given codes" do
+      assert {:ok, _} = Languages.reorder_languages(["de-DE", "fr-FR", "es-ES", "en-US"])
+      assert Languages.get_language_codes() == ["de-DE", "fr-FR", "es-ES", "en-US"]
+    end
+
+    test "languages not in the list keep their relative order at the end" do
+      assert {:ok, _} = Languages.reorder_languages(["fr-FR", "de-DE"])
+      codes = Languages.get_language_codes()
+      assert Enum.take(codes, 2) == ["fr-FR", "de-DE"]
+      # en-US and es-ES preserve their pre-reorder relative order
+      assert Enum.drop(codes, 2) == ["en-US", "es-ES"]
+    end
+
+    test "unknown codes in the list are ignored" do
+      assert {:ok, _} = Languages.reorder_languages(["xx-YY", "de-DE", "zz-ZZ"])
+      codes = Languages.get_language_codes()
+      assert hd(codes) == "de-DE"
+      refute "xx-YY" in codes
+      refute "zz-ZZ" in codes
+    end
+
+    test "empty list leaves order unchanged" do
+      before = Languages.get_language_codes()
+      assert {:ok, _} = Languages.reorder_languages([])
+      assert Languages.get_language_codes() == before
+    end
+
+    test "duplicate codes in the list are deduped to the first occurrence" do
+      assert {:ok, _} = Languages.reorder_languages(["de-DE", "fr-FR", "de-DE"])
+      codes = Languages.get_language_codes()
+      assert Enum.count(codes, &(&1 == "de-DE")) == 1
+      assert Enum.take(codes, 2) == ["de-DE", "fr-FR"]
+    end
+  end
+
   describe "set_default_language/1" do
     setup do
       {:ok, _} = Languages.add_language("fr-FR")
