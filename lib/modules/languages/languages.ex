@@ -1146,6 +1146,37 @@ defmodule PhoenixKit.Modules.Languages do
     end
   end
 
+  @doc """
+  Reorders languages to match the given list of codes.
+
+  Languages not in `ordered_codes` keep their current position at the end.
+  """
+  def reorder_languages(ordered_codes) when is_list(ordered_codes) do
+    current_config = Settings.get_json_setting(@config_key, @default_config)
+    current_languages = Map.get(current_config, "languages", [])
+
+    # Build a lookup of code -> language map
+    lang_by_code = Map.new(current_languages, &{&1["code"], &1})
+
+    # Reorder: put ordered codes first, then any remaining languages
+    ordered =
+      ordered_codes
+      |> Enum.map(&Map.get(lang_by_code, &1))
+      |> Enum.reject(&is_nil/1)
+
+    remaining =
+      current_languages
+      |> Enum.reject(&(&1["code"] in ordered_codes))
+
+    updated_languages = ordered ++ remaining
+    updated_config = Map.put(current_config, "languages", updated_languages)
+
+    case Settings.update_json_setting_with_module(@config_key, updated_config, @module_name) do
+      {:ok, _setting} -> {:ok, updated_config}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
   ## --- Private Helper Functions ---
 
   # Update a language at a specific index with proper default handling
