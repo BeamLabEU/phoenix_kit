@@ -164,6 +164,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         {title, description, tags} = extract_metadata_fields(file.metadata)
         user_name = get_user_name(file.user_uuid, repo)
 
+        variant_dimensions = put_original_fallbacks(variant_dimensions, file)
+
         file_data =
           build_file_data(file, urls, variant_dimensions, locations, {title, description, tags}, user_name)
 
@@ -233,6 +235,16 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       dims = if instance.width && instance.height, do: {instance.width, instance.height}, else: nil
       Map.put(acc, instance.variant_name, %{dimensions: dims, size: instance.size})
     end)
+  end
+
+  # Fill in original variant info from the main file record when the instance lacks it
+  defp put_original_fallbacks(variant_dimensions, file) do
+    original = Map.get(variant_dimensions, "original", %{dimensions: nil, size: nil})
+
+    dims = original.dimensions || if(file.width && file.height, do: {file.width, file.height})
+    size = original.size || file.size
+
+    Map.put(variant_dimensions, "original", %{original | dimensions: dims, size: size})
   end
 
   # Generate URLs from pre-loaded instances (no database query needed)
