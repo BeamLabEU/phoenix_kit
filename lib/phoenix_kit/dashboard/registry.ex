@@ -15,24 +15,28 @@ defmodule PhoenixKit.Dashboard.Registry do
           id: :orders,
           label: "Orders",
           icon: "hero-shopping-bag",
-          path: "/dashboard/orders",
+          path: "orders",
           priority: 100
         },
         %{
           id: :settings,
           label: "Settings",
           icon: "hero-cog-6-tooth",
-          path: "/dashboard/settings",
+          path: "settings",
           priority: 900
         }
       ]
+
+  > Tab paths are relative by convention — `Tab.resolve_path/2` prepends the context prefix
+  > (`/dashboard/`, `/admin/`, or `/admin/settings/`) at load time. Both relative and absolute
+  > forms are accepted but relative is preferred.
 
   ## Runtime Registration
 
   Parent applications can register tabs at runtime:
 
       PhoenixKit.Dashboard.Registry.register(:my_app, [
-        Tab.new!(id: :custom, label: "Custom", path: "/dashboard/custom", priority: 150)
+        Tab.new!(id: :custom, label: "Custom", path: "custom", priority: 150)
       ])
 
   ## Groups
@@ -47,7 +51,7 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   Then assign tabs to groups:
 
-      %{id: :printers, label: "Printers", path: "/dashboard/printers", group: :farm}
+      %{id: :printers, label: "Printers", path: "printers", group: :farm}
 
   ## PubSub Integration
 
@@ -94,12 +98,12 @@ defmodule PhoenixKit.Dashboard.Registry do
   ## Examples
 
       Registry.register(:my_app, [
-        Tab.new!(id: :home, label: "Home", path: "/dashboard", icon: "hero-home"),
-        Tab.new!(id: :orders, label: "Orders", path: "/dashboard/orders")
+        Tab.new!(id: :home, label: "Home", path: "", icon: "hero-home"),
+        Tab.new!(id: :orders, label: "Orders", path: "orders")
       ])
 
       # Register a single tab
-      Registry.register(:my_app, Tab.new!(id: :settings, label: "Settings", path: "/dashboard/settings"))
+      Registry.register(:my_app, Tab.new!(id: :settings, label: "Settings", path: "settings"))
   """
   @spec register(atom(), Tab.t() | [Tab.t()]) :: :ok
   def register(namespace, %Tab{} = tab) do
@@ -118,8 +122,8 @@ defmodule PhoenixKit.Dashboard.Registry do
   ## Examples
 
       Registry.register_from_config(:my_app, [
-        %{id: :home, label: "Home", path: "/dashboard", icon: "hero-home"},
-        %{id: :orders, label: "Orders", path: "/dashboard/orders"}
+        %{id: :home, label: "Home", path: "", icon: "hero-home"},
+        %{id: :orders, label: "Orders", path: "orders"}
       ])
   """
   @spec register_from_config(atom(), [map()] | [keyword()]) :: :ok | {:error, term()}

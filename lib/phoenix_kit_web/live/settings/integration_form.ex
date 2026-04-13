@@ -153,7 +153,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     # Default to "default" if empty
     name = if name == "", do: "default", else: name
 
-    case Integrations.add_connection(provider_key, name) do
+    case Integrations.add_connection(provider_key, name, actor_uuid(socket)) do
       {:ok, _} ->
         save_and_redirect(provider_key, name, params, socket)
 
@@ -188,7 +188,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     full_key = "#{provider_key}:#{name}"
 
     # Keep the setup credentials (client_id/secret) but remove tokens
-    Integrations.disconnect(full_key)
+    Integrations.disconnect(full_key, actor_uuid(socket))
 
     # Reload data
     data =
@@ -256,8 +256,9 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     full_key = "#{provider_key}:#{name}"
     provider = socket.assigns.provider
 
-    result = run_connection_test(provider, full_key)
-    save_validation_result(full_key, result)
+    uuid = actor_uuid(socket)
+    result = run_connection_test(provider, full_key, uuid)
+    save_validation_result(full_key, result, uuid)
     Events.broadcast_validated(full_key, result)
 
     data =
@@ -319,7 +320,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
           socket.assigns[:redirect_uri] ||
             build_redirect_uri(socket, socket.assigns.selected_provider, socket.assigns.name)
 
-        case Integrations.exchange_code(full_key, code, redirect_uri) do
+        case Integrations.exchange_code(full_key, code, redirect_uri, actor_uuid(socket)) do
           {:ok, _data} ->
             push_navigate(socket, to: clean_path)
 
@@ -348,7 +349,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     full_key = "#{provider_key}:#{name}"
     attrs = extract_setup_attrs(provider_key, params)
 
-    case Integrations.save_setup(full_key, attrs) do
+    case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
       {:ok, _data} ->
         edit_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
         {:noreply, push_navigate(socket, to: edit_path)}
@@ -358,11 +359,11 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
-  defp run_connection_test(_provider, full_key) do
-    Integrations.validate_connection(full_key)
+  defp run_connection_test(_provider, full_key, actor_uuid) do
+    Integrations.validate_connection(full_key, actor_uuid)
   end
 
-  defp save_validation_result(full_key, result) do
+  defp save_validation_result(full_key, result, actor_uuid) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     case Integrations.get_integration(full_key) do
@@ -384,7 +385,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
               })
           end
 
-        Integrations.save_setup(full_key, updated)
+        Integrations.save_setup(full_key, updated, actor_uuid)
 
       _ ->
         :ok
@@ -395,7 +396,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     full_key = "#{provider_key}:#{name}"
     attrs = extract_setup_attrs(provider_key, params)
 
-    case Integrations.save_setup(full_key, attrs) do
+    case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
       {:ok, data} ->
         {:noreply,
          socket
@@ -486,6 +487,13 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       )
 
       "http://localhost:4000#{path}"
+    end
+  end
+
+  defp actor_uuid(socket) do
+    case socket.assigns[:phoenix_kit_current_scope] do
+      %{user: %{uuid: uuid}} -> uuid
+      _ -> nil
     end
   end
 

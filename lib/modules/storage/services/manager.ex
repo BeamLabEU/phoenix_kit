@@ -130,11 +130,11 @@ defmodule PhoenixKit.Modules.Storage.Manager do
 
     case retrieve_file(file_path, destination_path: temp_path) do
       {:ok, local_path} ->
-        result =
+        try do
           store_across_buckets(local_path, target_buckets, [{:path_prefix, file_path} | opts])
-
-        File.rm(local_path)
-        result
+        after
+          File.rm(local_path)
+        end
 
       {:error, reason} ->
         {:error, "Cannot retrieve source file for replication: #{inspect(reason)}"}

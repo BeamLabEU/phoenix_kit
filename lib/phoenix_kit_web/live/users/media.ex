@@ -632,9 +632,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       Storage.move_file_to_folder(file_uuid, target)
     end)
 
-    # Move selected folders (update parent_uuid)
+    # Move selected folders (update parent_uuid), skip self-moves and cycles
     Enum.each(socket.assigns.selected_folders, fn sel_folder_uuid ->
-      # Don't move a folder into itself
       if sel_folder_uuid != target do
         folder = Storage.get_folder(sel_folder_uuid)
         if folder, do: Storage.update_folder(folder, %{parent_uuid: target})
@@ -656,20 +655,27 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("delete_selected", _params, socket) do
+    # Delete selected files
+    Enum.each(socket.assigns.selected_files, fn file_uuid ->
+      Storage.delete_file_completely(file_uuid)
+    end)
+
     # Delete selected folders
     Enum.each(socket.assigns.selected_folders, fn folder_uuid ->
       folder = Storage.get_folder(folder_uuid)
       if folder, do: Storage.delete_folder(folder)
     end)
 
+    file_count = MapSet.size(socket.assigns.selected_files)
     folder_count = MapSet.size(socket.assigns.selected_folders)
+    total = file_count + folder_count
 
     {:noreply,
      socket
      |> assign(:select_mode, false)
      |> assign(:selected_files, MapSet.new())
      |> assign(:selected_folders, MapSet.new())
-     |> put_flash(:info, "#{folder_count} folder(s) deleted")
+     |> put_flash(:info, "#{total} item(s) deleted")
      |> push_patch(to: current_media_path(socket))}
   end
 

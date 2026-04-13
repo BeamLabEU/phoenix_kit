@@ -76,7 +76,7 @@ defmodule PhoenixKitWeb.Dashboard.TabsInitializer do
         %{
           id: :alerts,
           label: "Alerts",
-          path: "/dashboard/alerts",
+          path: "alerts",
           badge: %{
             type: :count,
             context_key: :farm,  # Must match selector key

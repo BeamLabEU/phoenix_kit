@@ -149,16 +149,23 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       case params["form_redundancy"] do
         nil -> socket.assigns.form_redundancy
         val when is_integer(val) -> val
-        val when is_binary(val) -> String.to_integer(val)
+        val when is_binary(val) -> parse_integer(val, socket.assigns.form_redundancy)
         _ -> socket.assigns.form_redundancy
       end
 
     form_max_upload_size_mb =
       case params["form_max_upload_size_mb"] do
-        nil -> socket.assigns.form_max_upload_size_mb
-        val when is_integer(val) -> max(val, 1)
-        val when is_binary(val) -> max(String.to_integer(val), 1)
-        _ -> socket.assigns.form_max_upload_size_mb
+        nil ->
+          socket.assigns.form_max_upload_size_mb
+
+        val when is_integer(val) ->
+          max(val, 1)
+
+        val when is_binary(val) ->
+          max(parse_integer(val, socket.assigns.form_max_upload_size_mb), 1)
+
+        _ ->
+          socket.assigns.form_max_upload_size_mb
       end
 
     socket =
@@ -274,17 +281,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   end
 
   def handle_event("toggle_bucket", %{"id" => bucket_uuid}, socket) do
-    bucket = Storage.get_bucket(bucket_uuid)
-    new_enabled = !bucket.enabled
+    case Storage.get_bucket(bucket_uuid) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Bucket not found")}
 
-    case Storage.update_bucket(bucket, %{enabled: new_enabled}) do
-      {:ok, _bucket} ->
-        action = if new_enabled, do: "enabled", else: "disabled"
-        socket = reload_settings_data(socket)
-        {:noreply, put_flash(socket, :info, "Bucket #{action} successfully")}
+      bucket ->
+        new_enabled = !bucket.enabled
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to update bucket")}
+        case Storage.update_bucket(bucket, %{enabled: new_enabled}) do
+          {:ok, _bucket} ->
+            action = if new_enabled, do: "enabled", else: "disabled"
+            socket = reload_settings_data(socket)
+            {:noreply, put_flash(socket, :info, "Bucket #{action} successfully")}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to update bucket")}
+        end
     end
   end
 
@@ -417,5 +429,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     |> assign(:form_auto_generate_variants, auto_generate_variants == "true")
     |> assign(:max_upload_size_mb, current_max_upload_size_mb)
     |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
+  end
+
+  defp parse_integer(val, fallback) do
+    case Integer.parse(val) do
+      {int, _} -> int
+      :error -> fallback
+    end
   end
 end

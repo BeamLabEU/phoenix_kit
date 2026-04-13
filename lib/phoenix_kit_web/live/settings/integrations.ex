@@ -40,7 +40,7 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # ---------------------------------------------------------------------------
 
   def handle_event("disconnect", %{"provider" => provider_key}, socket) do
-    Integrations.disconnect(provider_key)
+    Integrations.disconnect(provider_key, actor_uuid(socket))
 
     {:noreply,
      socket
@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   end
 
   def handle_event("remove_connection", %{"provider" => provider_key, "name" => name}, socket) do
-    case Integrations.remove_connection(provider_key, name) do
+    case Integrations.remove_connection(provider_key, name, actor_uuid(socket)) do
       :ok ->
         {:noreply,
          socket
@@ -74,7 +74,8 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # ---------------------------------------------------------------------------
 
   def handle_info({:do_validate, provider_key}, socket) do
-    result = validate_connection(provider_key)
+    uuid = actor_uuid(socket)
+    result = validate_connection(provider_key, uuid)
 
     case Integrations.get_integration(provider_key) do
       {:ok, data} ->
@@ -97,7 +98,7 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
               })
           end
 
-        Integrations.save_setup(provider_key, updated)
+        Integrations.save_setup(provider_key, updated, uuid)
 
       _ ->
         :ok
@@ -169,8 +170,15 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
     assign(socket, :connections, connections)
   end
 
-  defp validate_connection(provider_key) do
-    Integrations.validate_connection(provider_key)
+  defp validate_connection(provider_key, actor_uuid) do
+    Integrations.validate_connection(provider_key, actor_uuid)
+  end
+
+  defp actor_uuid(socket) do
+    case socket.assigns[:phoenix_kit_current_scope] do
+      %{user: %{uuid: uuid}} -> uuid
+      _ -> nil
+    end
   end
 
   defp get_current_path(locale) do

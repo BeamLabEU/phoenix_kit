@@ -146,8 +146,9 @@ defmodule PhoenixKit.Integrations do
   Merges with existing data to preserve any previously obtained tokens.
   Sets status to "disconnected" if no runtime credentials exist yet.
   """
-  @spec save_setup(String.t(), map()) :: {:ok, map()} | {:error, term()}
-  def save_setup(provider_key, attrs) when is_binary(provider_key) and is_map(attrs) do
+  @spec save_setup(String.t(), map(), String.t() | nil) :: {:ok, map()} | {:error, term()}
+  def save_setup(provider_key, attrs, actor_uuid \\ nil)
+      when is_binary(provider_key) and is_map(attrs) do
     provider = Providers.get(provider_key)
     existing = Settings.get_json_setting(settings_key(provider_key), %{})
 
@@ -162,7 +163,15 @@ defmodule PhoenixKit.Integrations do
     case save_integration(provider_key, data) do
       {:ok, saved} = result ->
         Events.broadcast_setup_saved(provider_key, saved)
-        log_activity("integration.setup_saved", provider_key, %{"status" => saved["status"]})
+
+        log_activity(
+          "integration.setup_saved",
+          provider_key,
+          %{"status" => saved["status"]},
+          "manual",
+          actor_uuid
+        )
+
         result
 
       error ->
@@ -194,8 +203,9 @@ defmodule PhoenixKit.Integrations do
   @doc """
   Exchange an OAuth authorization code for tokens and save them.
   """
-  @spec exchange_code(String.t(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  def exchange_code(provider_key, code, redirect_uri) do
+  @spec exchange_code(String.t(), String.t(), String.t(), String.t() | nil) ::
+          {:ok, map()} | {:error, term()}
+  def exchange_code(provider_key, code, redirect_uri, actor_uuid \\ nil) do
     with {:ok, provider} <- fetch_provider(provider_key),
          {:ok, data} <- get_integration(provider_key),
          {:ok, token_data} <- OAuth.exchange_code(provider.oauth_config, data, code, redirect_uri) do
@@ -217,9 +227,15 @@ defmodule PhoenixKit.Integrations do
         {:ok, saved} = result ->
           Events.broadcast_connected(provider_key, saved)
 
-          log_activity("integration.connected", provider_key, %{
-            "account" => saved["external_account_id"]
-          })
+          log_activity(
+            "integration.connected",
+            provider_key,
+            %{
+              "account" => saved["external_account_id"]
+            },
+            "manual",
+            actor_uuid
+          )
 
           result
 
@@ -242,7 +258,7 @@ defmodule PhoenixKit.Integrations do
       updated = Map.merge(data, updated_fields)
       save_integration(resolve_storage_key(provider_key, data), updated)
 
-      log_activity("integration.token_refreshed", provider_key, %{}, "auto")
+      log_activity("integration.token_refreshed", provider_key, %{}, "auto", nil)
 
       {:ok, new_token}
     end
@@ -254,8 +270,8 @@ defmodule PhoenixKit.Integrations do
   For OAuth: removes access_token, refresh_token, keeps client_id/client_secret.
   For API key/bot token: removes the key entirely.
   """
-  @spec disconnect(String.t()) :: :ok
-  def disconnect(provider_key) when is_binary(provider_key) do
+  @spec disconnect(String.t(), String.t() | nil) :: :ok
+  def disconnect(provider_key, actor_uuid \\ nil) when is_binary(provider_key) do
     case Settings.get_json_setting(settings_key(provider_key), nil) do
       nil ->
         :ok
@@ -283,7 +299,7 @@ defmodule PhoenixKit.Integrations do
 
         save_integration(provider_key, cleaned)
         Events.broadcast_disconnected(provider_key)
-        log_activity("integration.disconnected", provider_key)
+        log_activity("integration.disconnected", provider_key, %{}, "manual", actor_uuid)
         :ok
     end
   end
@@ -446,10 +462,12 @@ defmodule PhoenixKit.Integrations do
 
   The name can be any string alphanumeric with hyphens (e.g., "company-drive").
   """
-  @spec add_connection(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec add_connection(String.t(), String.t(), String.t() | nil) ::
+          {:ok, map()} | {:error, term()}
   @name_pattern ~r/^[a-zA-Z0-9][a-zA-Z0-9\-_]*$/
 
-  def add_connection(provider_key, name) when is_binary(provider_key) and is_binary(name) do
+  def add_connection(provider_key, name, actor_uuid \\ nil)
+      when is_binary(provider_key) and is_binary(name) do
     name = String.trim(name)
 
     cond do
@@ -474,7 +492,14 @@ defmodule PhoenixKit.Integrations do
         |> tap(fn
           {:ok, _} ->
             Events.broadcast_connection_added(provider_key, name)
-            log_activity("integration.connection_added", provider_key, %{"name" => name})
+
+            log_activity(
+              "integration.connection_added",
+              provider_key,
+              %{"name" => name},
+              "manual",
+              actor_uuid
+            )
 
           _ ->
             :ok
@@ -485,16 +510,28 @@ defmodule PhoenixKit.Integrations do
   @doc """
   Removes a named connection. The "default" connection cannot be removed.
   """
-  @spec remove_connection(String.t(), String.t()) :: :ok | {:error, term()}
-  def remove_connection(_provider_key, "default"), do: {:error, :cannot_remove_default}
+  @spec remove_connection(String.t(), String.t(), String.t() | nil) :: :ok | {:error, term()}
+  def remove_connection(provider_key, name, actor_uuid \\ nil)
 
-  def remove_connection(provider_key, name) when is_binary(provider_key) and is_binary(name) do
+  def remove_connection(_provider_key, "default", _actor_uuid),
+    do: {:error, :cannot_remove_default}
+
+  def remove_connection(provider_key, name, actor_uuid)
+      when is_binary(provider_key) and is_binary(name) do
     key = settings_key("#{provider_key}:#{name}")
 
     case Settings.delete_setting(key) do
       {:ok, _} ->
         Events.broadcast_connection_removed(provider_key, name)
-        log_activity("integration.connection_removed", provider_key, %{"name" => name})
+
+        log_activity(
+          "integration.connection_removed",
+          provider_key,
+          %{"name" => name},
+          "manual",
+          actor_uuid
+        )
+
         :ok
 
       {:error, :not_found} ->
@@ -516,8 +553,8 @@ defmodule PhoenixKit.Integrations do
   For API key / bot token: calls the provider's validation endpoint if defined.
   Returns `:ok` or `{:error, reason}`.
   """
-  @spec validate_connection(String.t()) :: :ok | {:error, String.t()}
-  def validate_connection(provider_key) do
+  @spec validate_connection(String.t(), String.t() | nil) :: :ok | {:error, String.t()}
+  def validate_connection(provider_key, actor_uuid \\ nil) do
     # Check if provider is known before checking credentials
     provider = Providers.get(provider_key)
 
@@ -532,13 +569,25 @@ defmodule PhoenixKit.Integrations do
 
     case result do
       :ok ->
-        log_activity("integration.validated", provider_key, %{"result" => "ok"})
+        log_activity(
+          "integration.validated",
+          provider_key,
+          %{"result" => "ok"},
+          "manual",
+          actor_uuid
+        )
 
       {:error, reason} ->
-        log_activity("integration.validated", provider_key, %{
-          "result" => "error",
-          "reason" => reason
-        })
+        log_activity(
+          "integration.validated",
+          provider_key,
+          %{
+            "result" => "error",
+            "reason" => reason
+          },
+          "manual",
+          actor_uuid
+        )
     end
 
     result
@@ -789,7 +838,7 @@ defmodule PhoenixKit.Integrations do
   # Activity logging
   # ---------------------------------------------------------------------------
 
-  defp log_activity(action, provider_key, metadata \\ %{}, mode \\ "manual") do
+  defp log_activity(action, provider_key, metadata, mode, actor_uuid) do
     {provider, name} = parse_provider_name(provider_key)
 
     if Code.ensure_loaded?(PhoenixKit.Activity) do
@@ -797,6 +846,7 @@ defmodule PhoenixKit.Integrations do
         action: action,
         module: "integrations",
         mode: mode,
+        actor_uuid: actor_uuid,
         resource_type: "integration",
         metadata:
           Map.merge(metadata, %{
@@ -807,7 +857,8 @@ defmodule PhoenixKit.Integrations do
       })
     end
   rescue
-    _ -> :ok
+    e ->
+      Logger.warning("[Integrations] Failed to log activity #{action}: #{Exception.message(e)}")
   end
 
   # ---------------------------------------------------------------------------

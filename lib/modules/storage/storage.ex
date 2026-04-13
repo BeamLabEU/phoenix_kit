@@ -900,11 +900,17 @@ defmodule PhoenixKit.Modules.Storage do
     |> repo().insert()
   end
 
-  @doc "Updates a folder (rename, move)."
+  @doc "Updates a folder (rename, move). Returns `{:error, :cycle}` if the move would create a circular reference."
   def update_folder(%Folder{} = folder, attrs) do
-    folder
-    |> Folder.changeset(attrs)
-    |> repo().update()
+    new_parent = attrs[:parent_uuid] || attrs["parent_uuid"]
+
+    if new_parent && new_parent != folder.parent_uuid && ancestor_of?(folder.uuid, new_parent) do
+      {:error, :cycle}
+    else
+      folder
+      |> Folder.changeset(attrs)
+      |> repo().update()
+    end
   end
 
   @doc """
@@ -914,25 +920,51 @@ defmodule PhoenixKit.Modules.Storage do
   Folder links are cascade-deleted by the database FK.
   """
   def delete_folder(%Folder{} = folder) do
-    # Move child folders to parent
-    from(f in Folder, where: f.parent_uuid == ^folder.uuid)
-    |> repo().update_all(set: [parent_uuid: folder.parent_uuid])
+    repo().transaction(fn ->
+      # Move child folders to parent
+      from(f in Folder, where: f.parent_uuid == ^folder.uuid)
+      |> repo().update_all(set: [parent_uuid: folder.parent_uuid])
 
-    # Move home files to parent
-    from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder.uuid)
-    |> repo().update_all(set: [folder_uuid: folder.parent_uuid])
+      # Move home files to parent
+      from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder.uuid)
+      |> repo().update_all(set: [folder_uuid: folder.parent_uuid])
 
-    # Delete folder (links cascade via FK)
-    repo().delete(folder)
+      # Delete folder (links cascade via FK)
+      case repo().delete(folder) do
+        {:ok, deleted} -> deleted
+        {:error, changeset} -> repo().rollback(changeset)
+      end
+    end)
   end
 
   @doc "Returns the ancestor chain from root to the given folder (for breadcrumbs)."
-  def folder_breadcrumbs(nil), do: []
+  def folder_breadcrumbs(folder_uuid), do: folder_breadcrumbs(folder_uuid, 50)
 
-  def folder_breadcrumbs(folder_uuid) do
+  defp folder_breadcrumbs(nil, _limit), do: []
+  defp folder_breadcrumbs(_uuid, 0), do: []
+
+  defp folder_breadcrumbs(folder_uuid, limit) do
     case get_folder(folder_uuid) do
       nil -> []
-      folder -> folder_breadcrumbs(folder.parent_uuid) ++ [folder]
+      folder -> folder_breadcrumbs(folder.parent_uuid, limit - 1) ++ [folder]
+    end
+  end
+
+  @doc "Returns true if `folder_uuid` is an ancestor of `target_uuid`."
+  def ancestor_of?(_folder_uuid, nil), do: false
+
+  def ancestor_of?(folder_uuid, target_uuid) do
+    ancestor_of?(folder_uuid, target_uuid, 50)
+  end
+
+  defp ancestor_of?(_folder_uuid, nil, _limit), do: false
+  defp ancestor_of?(_folder_uuid, _target_uuid, 0), do: false
+
+  defp ancestor_of?(folder_uuid, target_uuid, limit) do
+    case get_folder(target_uuid) do
+      nil -> false
+      %{uuid: ^folder_uuid} -> true
+      target -> ancestor_of?(folder_uuid, target.parent_uuid, limit - 1)
     end
   end
 

@@ -132,7 +132,6 @@ defmodule PhoenixKit.Modules.Sitemap do
   @include_registration_key "sitemap_include_registration"
   @publishing_split_key "sitemap_publishing_split_by_group"
   @module_stats_key "sitemap_module_stats"
-
   # Default values
   @default_schedule_enabled true
   @default_schedule_interval_hours 24
@@ -734,9 +733,7 @@ defmodule PhoenixKit.Modules.Sitemap do
 
   @impl PhoenixKit.Module
   def children do
-    [
-      {Task, fn -> SchedulerWorker.ensure_scheduled() end}
-    ]
+    [{Task, fn -> SchedulerWorker.ensure_scheduled() end}]
   end
 
   @impl PhoenixKit.Module

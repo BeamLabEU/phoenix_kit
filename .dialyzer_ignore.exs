@@ -101,9 +101,10 @@
   {"lib/modules/sitemap/sources/shop.ex", :unknown_function},
   {"lib/phoenix_kit/users/auth.ex", :unknown_function},
 
-  # LLMText module — Publishing is an external package, guarded by Code.ensure_loaded?
-  {"lib/modules/llm_text/sources/publishing.ex", :unknown_function},
-  {"lib/modules/llm_text/publishing_subscriber.ex", :unknown_function},
+  # ExUnit internal functions — false positives when test/support is compiled in MIX_ENV=test
+  # Dialyzer cannot resolve ExUnit private macros expanded at compile time
+  {"test/support/conn_case.ex", :unknown_function},
+  {"test/support/data_case.ex", :unknown_function},
 
   # Integrations — URI authority is opaque, cond guard false positive
   {"lib/phoenix_kit_web/live/settings/integration_form.ex", :opaque_guard},
