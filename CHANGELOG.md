@@ -1,3 +1,25 @@
+## 1.7.96 - 2026-04-13
+
+### Added
+- Sortable languages in admin (drag-and-drop reorder)
+-  option on DraggableList component
+- Wiggle animation for reorder mode with prefers-reduced-motion support
+
+### Changed
+- Dedup language codes in reorder, use MapSet for lookup
+- Extract wiggle CSS to JS-injected styles with pk- prefix
+
+## 1.7.96 - 2026-04-13
+
+### Added
+- Sortable languages in admin (drag-and-drop reorder)
+- hide_source option on DraggableList component
+- Wiggle animation for reorder mode with prefers-reduced-motion support
+
+### Changed
+- Dedup language codes in reorder, use MapSet for lookup
+- Extract wiggle CSS to JS-injected styles with pk- prefix
+
 ## 1.7.95 - 2026-04-11
 
 ### Added
