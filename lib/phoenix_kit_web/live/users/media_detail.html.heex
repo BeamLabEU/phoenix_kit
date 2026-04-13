@@ -331,7 +331,17 @@
                       ]}
                     >
                       <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-                      {String.capitalize(variant)}
+                      <span class="flex-1 text-left">{String.capitalize(variant)}</span>
+                      <%= if info = @file_data.variant_dimensions[variant] do %>
+                        <span class="text-xs opacity-60">
+                          <%= if info.dimensions do %>
+                            {elem(info.dimensions, 0)}x{elem(info.dimensions, 1)}
+                          <% end %>
+                          <%= if info.size do %>
+                            · {format_file_size(info.size)}
+                          <% end %>
+                        </span>
+                      <% end %>
                     </a>
                   <% end %>
                 </div>
