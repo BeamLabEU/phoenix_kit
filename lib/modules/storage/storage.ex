@@ -1680,16 +1680,23 @@ defmodule PhoenixKit.Modules.Storage do
 
   """
   def delete_file_completely(%PhoenixKit.Modules.Storage.File{} = file) do
-    # 1. Delete physical files for all variants
-    case delete_file_data(file) do
-      :ok ->
-        Logger.info("Storage: physical files deleted for #{file.uuid}")
+    if other_files_share_path?(file) do
+      # Other files share the same storage — only delete the DB record, keep physical files
+      Logger.info(
+        "Storage: skipping physical deletion for #{file.uuid} (shared path: #{file.file_path})"
+      )
+    else
+      # Last reference — safe to delete physical files
+      case delete_file_data(file) do
+        :ok ->
+          Logger.info("Storage: physical files deleted for #{file.uuid}")
 
-      {:error, reason} ->
-        Logger.warning("Storage: partial physical deletion for #{file.uuid}: #{reason}")
+        {:error, reason} ->
+          Logger.warning("Storage: partial physical deletion for #{file.uuid}: #{reason}")
+      end
     end
 
-    # 2. Delete DB record (CASCADE handles instances + locations)
+    # Delete DB record (CASCADE handles instances + locations)
     delete_file(file)
   end
 
@@ -1967,17 +1974,33 @@ defmodule PhoenixKit.Modules.Storage do
         end
 
       nil ->
-        Logger.info("New file detected (no existing hash match). Proceeding with storage.")
-        # File is new, proceed with storage
-        store_new_file_in_buckets(
-          source_path,
-          file_type,
-          user_uuid,
-          file_checksum,
-          user_file_checksum,
-          ext,
-          original_filename
-        )
+        # No per-user match — check for cross-user duplicate (same file uploaded by another user)
+        case get_active_file_by_checksum(file_checksum) do
+          %PhoenixKit.Modules.Storage.File{} = donor_file ->
+            Logger.info("=== CROSS-USER DUPLICATE DETECTED ===")
+            Logger.info("Donor file: #{donor_file.uuid} (user: #{donor_file.user_uuid})")
+
+            clone_file_for_user(
+              donor_file,
+              user_uuid,
+              file_checksum,
+              ext,
+              original_filename
+            )
+
+          nil ->
+            Logger.info("New file detected (no existing hash match). Proceeding with storage.")
+
+            store_new_file_in_buckets(
+              source_path,
+              file_type,
+              user_uuid,
+              file_checksum,
+              user_file_checksum,
+              ext,
+              original_filename
+            )
+        end
     end
   end
 
@@ -2071,6 +2094,110 @@ defmodule PhoenixKit.Modules.Storage do
       {:error, changeset} ->
         {:error, changeset}
     end
+  end
+
+  # ===== CROSS-USER DEDUPLICATION =====
+
+  # Find any active file with the given checksum (regardless of user) for cross-user dedup
+  defp get_active_file_by_checksum(file_checksum) do
+    PhoenixKit.Modules.Storage.File
+    |> where([f], f.file_checksum == ^file_checksum and f.status == "active")
+    |> limit(1)
+    |> repo().one()
+  end
+
+  # Create a new File record for a different user, reusing the same storage path
+  defp clone_file_for_user(donor_file, user_uuid, file_checksum, ext, original_filename) do
+    user_file_checksum = calculate_user_file_checksum(user_uuid, file_checksum)
+
+    file_attrs = %{
+      file_name: donor_file.file_name,
+      original_file_name: original_filename || donor_file.original_file_name,
+      file_path: donor_file.file_path,
+      mime_type: donor_file.mime_type,
+      file_type: donor_file.file_type,
+      ext: ext,
+      file_checksum: file_checksum,
+      user_file_checksum: user_file_checksum,
+      size: donor_file.size,
+      width: donor_file.width,
+      height: donor_file.height,
+      status: "active",
+      user_uuid: user_uuid
+    }
+
+    case create_file(file_attrs) do
+      {:ok, new_file} ->
+        clone_file_instances(donor_file.uuid, new_file.uuid)
+        Logger.info("Cross-user clone created: #{new_file.uuid} from donor #{donor_file.uuid}")
+        {:ok, new_file, :duplicate}
+
+      {:error, changeset} ->
+        Logger.error("Failed to clone file for user: #{inspect(changeset.errors)}")
+        {:error, changeset}
+    end
+  end
+
+  # Copy all FileInstance records from one file to another (same storage paths)
+  defp clone_file_instances(donor_file_uuid, new_file_uuid) do
+    donor_instances = list_file_instances(donor_file_uuid)
+
+    Enum.each(donor_instances, fn instance ->
+      attrs = %{
+        variant_name: instance.variant_name,
+        file_name: instance.file_name,
+        mime_type: instance.mime_type,
+        ext: instance.ext,
+        checksum: instance.checksum,
+        size: instance.size,
+        width: instance.width,
+        height: instance.height,
+        processing_status: instance.processing_status,
+        file_uuid: new_file_uuid
+      }
+
+      %FileInstance{}
+      |> FileInstance.changeset(attrs)
+      |> repo().insert()
+    end)
+
+    # Also clone file locations for each new instance
+    clone_file_locations(donor_file_uuid, new_file_uuid)
+  end
+
+  # Copy FileLocation records from donor instances to new instances
+  defp clone_file_locations(donor_file_uuid, new_file_uuid) do
+    donor_instances = list_file_instances(donor_file_uuid)
+    new_instances = list_file_instances(new_file_uuid)
+
+    # Match instances by variant_name and copy their locations
+    Enum.each(new_instances, fn new_inst ->
+      donor_inst = Enum.find(donor_instances, &(&1.variant_name == new_inst.variant_name))
+
+      if donor_inst do
+        FileLocation
+        |> where([fl], fl.file_instance_uuid == ^donor_inst.uuid and fl.status == "active")
+        |> repo().all()
+        |> Enum.each(fn loc ->
+          %FileLocation{}
+          |> FileLocation.changeset(%{
+            path: loc.path,
+            status: "active",
+            priority: loc.priority,
+            file_instance_uuid: new_inst.uuid,
+            bucket_uuid: loc.bucket_uuid
+          })
+          |> repo().insert()
+        end)
+      end
+    end)
+  end
+
+  # Check if other File records share the same storage path
+  defp other_files_share_path?(file) do
+    PhoenixKit.Modules.Storage.File
+    |> where([f], f.file_path == ^file.file_path and f.uuid != ^file.uuid)
+    |> repo().exists?()
   end
 
   # ===== HELPER FUNCTIONS =====
