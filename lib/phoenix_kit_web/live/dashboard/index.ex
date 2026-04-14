@@ -4,20 +4,29 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Widgets.Loader
+  alias PhoenixKit.Utils.Widget
 
   @impl true
   def mount(_params, session, socket) do
-    current_user = session["phoenix_kit_current_user"]
+    scope = socket.assigns[:phoenix_kit_current_scope]
 
-    if current_user do
+    if scope && Scope.has_module_access?(scope, "dashboard") do
+      if connected?(socket) do
+        # PubSubManager.subscribe(Activity.pubsub_topic())
+      end
+
+      current_user = session["phoenix_kit_current_user"]
+
       widgets = Loader.load_user_widgets(current_user)
 
       {:ok,
        socket
        |> assign(current_user: current_user, widgets: widgets, loading: false)}
     else
-      {:error, :not_authenticated}
+      {:ok,
+       socket
+       |> put_flash(:error, "Access denied")
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 
@@ -25,14 +34,12 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   def render(assigns) do
     ~H"""
     <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
-      <header class="dashboard-header">
-        <div>
-          <h1>Welcome, {@current_user.email}</h1>
-          <p class="subtitle">Your personalized dashboard</p>
-        </div>
-      </header>
+      <.user_dashboard_header
+        title="Welcome, {@current_user.email}"
+        subtitle="Your personalized dashboard"
+      />
 
-      <div class="widgets-grid">
+      <div class="widgets-grid" id="widgets-grid">
         <%= for widget <- @widgets do %>
           <div class="widget-wrapper" id={"widget-#{widget.id}"}>
             <.live_component

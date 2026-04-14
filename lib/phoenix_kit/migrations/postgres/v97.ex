@@ -20,6 +20,7 @@ defmodule PhoenixKit.Migrations.Postgres.V97 do
       add(:w, :integer, null: false)
       add(:h, :integer, null: false)
       add(:enabled, :boolean, default: false)
+      timestamps(type: :utc_datetime)
 
       add(
         :user_uuid,
@@ -32,6 +33,12 @@ defmodule PhoenixKit.Migrations.Postgres.V97 do
       )
     end
 
+    create unique_index(
+             :phoenix_kit_dashboard_layouts,
+             [:user_uuid, :widget_uuid],
+             name: :phoenix_kit_dashboard_layouts_unique_index
+           )
+
     execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_layouts IS '97'")
   end
 
@@ -40,7 +47,6 @@ defmodule PhoenixKit.Migrations.Postgres.V97 do
     p = prefix_str(prefix)
 
     drop_if_exists(index(:phoenix_kit_dashboard_layouts, [], prefix: prefix))
-
 
     execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_layouts IS '97'")
   end

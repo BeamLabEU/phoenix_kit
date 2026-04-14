@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
   use Mix.Task
-
+  # Fixme:: Mix task phoenix_kit.gen.user.dashboard.advanced is fragile
   @shortdoc "Generates full advanced dashboard system"
 
   @impl true
@@ -200,7 +200,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
         <div id="grid_container" class="grid-stack mt-4" phx-hook="Grid">
           <%= for w <- @widgets do %>
             <div
-              id="grid-item-#{w.id}"
+              id={w.id}
               class="grid-stack-item"
               data-id={w.id}
               phx-hook="ContextMenu"
@@ -264,7 +264,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
     # already injected?
     if String.contains?(content, "DashboardLive") do
       Mix.shell().info("✔ Dashboard route already exists")
-      return_ok()
+      :ok
     else
       Mix.shell().info("🔧 Injecting dashboard into live_session...")
 
@@ -275,8 +275,6 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
     end
   end
 
-  defp return_ok, do: :ok
-
   defp inject_into_live_session(content, web_module) do
     lines = String.split(content, "\n")
 
@@ -285,7 +283,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
         cond do
           # find start of authenticated live_session
           String.contains?(line, "live_session") and
-              String.contains?(line, ":authenticated") ->
+              String.contains?(line, ":phoenix_kit_admin") ->
             {line, :found}
 
           # first `live` after session start → inject before it

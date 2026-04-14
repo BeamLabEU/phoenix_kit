@@ -6,7 +6,7 @@ defmodule PhoenixKitWeb.Widgets.GridStackDashboardComponent do
     ~H"""
     <!-- Container with phx-hook to activate JavaScript hook -->
     <div
-      id="gridstack-dashboard-#{@id}"
+      id={"gridstack-dashboard-" <> @id}
       class="grid-stack"
       data-gs-width="12"
       data-gs-animate="yes"
@@ -66,8 +66,8 @@ defmodule PhoenixKitWeb.Widgets.GridStackDashboardComponent do
   def handle_event("gridstack_change", %{"changes" => changes}, socket) do
     # Save widget positions to database
     Enum.each(changes, fn change ->
-      # Example:
-      # YourApp.Widgets.update_widget_layout(
+      # fixme: add persistence
+      # .update_widget_layout(
       #   socket.assigns.current_user,
       #   change["widget_id"],
       #   %{
