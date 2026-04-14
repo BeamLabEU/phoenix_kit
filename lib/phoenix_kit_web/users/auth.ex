@@ -1178,34 +1178,142 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
+  # Applies maintenance mode layout for non-admin users when maintenance is active.
+  # Instead of redirecting, overrides the LiveView's layout so the maintenance page
+  # renders in place of whatever page the user is on. URL never changes.
+  # Also attaches a PubSub hook so that when maintenance status changes,
+  # the page remounts to pick up the new layout.
   defp check_maintenance_mode(socket) do
-    # Check if maintenance mode is enabled
-    if Maintenance.enabled?() do
+    # Clean up stale state if the scheduled end time has passed
+    Maintenance.cleanup_expired_schedule()
+
+    if Maintenance.active?() do
       scope = socket.assigns[:phoenix_kit_current_scope]
 
-      # Check if this is an authentication route that should bypass maintenance
-      is_auth_route = auth_route?(socket)
-
       cond do
-        # Authentication routes (login, reset-password, etc.) always bypass maintenance
-        is_auth_route ->
-          Phoenix.Component.assign(socket, :show_maintenance, false)
+        # Auth routes must always be accessible (login, password reset, etc.)
+        auth_route?(socket) ->
+          maybe_attach_maintenance_hook(socket)
 
-        # Admins and owners can bypass maintenance mode
+        # Admins and owners bypass maintenance mode
         scope && (Scope.admin?(scope) || Scope.owner?(scope)) ->
-          Phoenix.Component.assign(socket, :show_maintenance, false)
+          maybe_attach_maintenance_hook(socket)
 
-        # All other users see maintenance page
+        # Everyone else gets the maintenance layout
         true ->
-          Phoenix.Component.assign(socket, :show_maintenance, true)
+          socket
+          |> save_original_layout()
+          |> put_in([Access.key(:private), :live_layout], {PhoenixKitWeb.Layouts, :maintenance})
+          |> maybe_attach_maintenance_hook()
       end
     else
-      # Maintenance mode disabled - show normal content
-      Phoenix.Component.assign(socket, :show_maintenance, false)
+      socket
+      |> save_original_layout()
+      |> maybe_attach_maintenance_hook()
     end
   end
 
-  # Check if the current socket is for an authentication route
+  # Save the current layout so we can restore it when maintenance ends
+  defp save_original_layout(socket) do
+    if socket.assigns[:phoenix_kit_original_layout] do
+      socket
+    else
+      Phoenix.Component.assign(socket, :phoenix_kit_original_layout, socket.private[:live_layout])
+    end
+  end
+
+  # Attach a PubSub hook that listens for maintenance status changes.
+  # When maintenance toggles on/off, forces a remount so the layout is re-evaluated.
+  #
+  # on_mount runs twice: disconnected (HTTP) then connected (WebSocket).
+  # The hook is attached on the first run, but PubSub subscription must happen
+  # on the connected mount — so we track them with separate flags.
+  defp maybe_attach_maintenance_hook(socket) do
+    socket =
+      if Phoenix.LiveView.connected?(socket) and
+           !socket.assigns[:phoenix_kit_maintenance_subscribed?] do
+        Maintenance.subscribe()
+        maybe_schedule_end_timer()
+        Phoenix.Component.assign(socket, :phoenix_kit_maintenance_subscribed?, true)
+      else
+        socket
+      end
+
+    if socket.assigns[:phoenix_kit_maintenance_hook_attached?] do
+      socket
+    else
+      socket
+      |> attach_hook(:phoenix_kit_maintenance, :handle_info, &handle_maintenance_change/2)
+      |> Phoenix.Component.assign(:phoenix_kit_maintenance_hook_attached?, true)
+    end
+  end
+
+  # If there's a scheduled end time in the future, schedule a self-message
+  # so the LiveView re-checks maintenance status when the window expires.
+  # This handles the case where a user is sitting on a maintenance-blocked page
+  # and the scheduled end time arrives — they get unblocked automatically.
+  # Erlang's Process.send_after/3 takes at most a 32-bit timeout in ms (~24.8 days).
+  # validate_schedule/2 caps schedules at 1 year, but clamp here defensively.
+  @max_timer_ms 2_147_483_647
+
+  defp maybe_schedule_end_timer do
+    case Maintenance.get_scheduled_end() do
+      %DateTime{} = end_dt ->
+        seconds = DateTime.diff(end_dt, DateTime.utc_now())
+
+        if seconds > 0 do
+          timeout_ms = min(seconds * 1000, @max_timer_ms)
+
+          Process.send_after(
+            self(),
+            {:maintenance_status_changed, %{active: false}},
+            timeout_ms
+          )
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp handle_maintenance_change({:maintenance_status_changed, _payload}, socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    if scope && (Scope.admin?(scope) || Scope.owner?(scope)) do
+      {:cont, socket}
+    else
+      if Maintenance.active?() do
+        # Swap to maintenance layout — LiveView keeps running, form state preserved.
+        # Must also touch an assign to trigger a re-render (private changes alone don't).
+        socket =
+          socket
+          |> put_in([Access.key(:private), :live_layout], {PhoenixKitWeb.Layouts, :maintenance})
+          |> Phoenix.Component.assign(:phoenix_kit_maintenance_active, true)
+
+        {:halt, socket}
+      else
+        # Restore the original layout — form state still preserved in assigns.
+        # If original was nil (no layout set), remove the key entirely instead of
+        # setting it to nil, which would crash the renderer.
+        original = socket.assigns[:phoenix_kit_original_layout]
+
+        socket =
+          if original do
+            put_in(socket.private[:live_layout], original)
+          else
+            %{socket | private: Map.delete(socket.private, :live_layout)}
+          end
+
+        socket = Phoenix.Component.assign(socket, :phoenix_kit_maintenance_active, false)
+
+        {:halt, socket}
+      end
+    end
+  end
+
+  defp handle_maintenance_change(_msg, socket), do: {:cont, socket}
+
+  # Auth views that must always be accessible during maintenance
   defp auth_route?(socket) do
     case socket.view do
       PhoenixKitWeb.Users.Login -> true

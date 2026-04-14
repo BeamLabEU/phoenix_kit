@@ -48,6 +48,16 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   # IMPORTANT: Excludes 'phx:' prefixed keys (PhoenixKit features like phx:theme)
   @websocket_fix_script """
   <script>try{Object.keys(localStorage).filter(k=>k.includes('phx')&&!k.startsWith('phx:')).forEach(k=>localStorage.removeItem(k));Object.keys(sessionStorage).filter(k=>k.includes('phx')&&!k.startsWith('phx:')).forEach(k=>sessionStorage.removeItem(k))}catch(e){}</script>
+  <script>
+  window.PhoenixKitHooks=window.PhoenixKitHooks||{};
+  if(!window.PhoenixKitHooks.MaintenanceCountdown){
+    window.PhoenixKitHooks.MaintenanceCountdown={
+      mounted(){this.endTime=new Date(this.el.dataset.end).getTime();this.timerEl=this.el.querySelector("#countdown-value");this.tick();this.interval=setInterval(()=>this.tick(),1000);},
+      tick(){var diff=Math.max(0,Math.floor((this.endTime-Date.now())/1000));if(diff<=0){clearInterval(this.interval);if(this.timerEl)this.timerEl.textContent=this.el.dataset.elapsedText||"";return;}var h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60,t="";if(h>0)t+=h+"h ";if(h>0||m>0)t+=m+"m ";t+=s+"s";if(this.timerEl)this.timerEl.textContent=t;},
+      destroyed(){if(this.interval)clearInterval(this.interval);}
+    };
+  }
+  </script>
   """
 
   @doc """
@@ -59,13 +69,19 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   Runs all PhoenixKit integration plugs in sequence.
   """
   def call(conn, _opts) do
-    conn
-    |> run_maintenance_mode_check()
-    |> inject_websocket_fix()
+    conn = run_maintenance_mode_check(conn)
 
-    # Future plugs can be added here:
-    # |> run_rate_limiter()
-    # |> run_security_headers()
+    # Skip remaining plugs if maintenance mode already sent a response
+    if conn.halted do
+      conn
+    else
+      conn
+      |> inject_websocket_fix()
+
+      # Future plugs can be added here:
+      # |> run_rate_limiter()
+      # |> run_security_headers()
+    end
   end
 
   # Run maintenance mode check

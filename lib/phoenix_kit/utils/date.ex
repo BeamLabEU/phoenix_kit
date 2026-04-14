@@ -712,4 +712,117 @@ defmodule PhoenixKit.Utils.Date do
       timezone -> timezone
     end
   end
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Timezone offset helpers — for converting between UTC and system timezone
+  # stored as a numeric hour offset string (e.g., "2", "-5", "5.5").
+  # Used primarily for datetime-local form inputs which have no timezone.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  @doc """
+  Converts a timezone offset string to seconds.
+
+  Accepts strings like `"0"`, `"2"`, `"-5"`, `"5.5"` (hours from UTC).
+  Returns `0` for invalid input (safe default).
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Date.offset_to_seconds("0")
+      0
+
+      iex> PhoenixKit.Utils.Date.offset_to_seconds("2")
+      7200
+
+      iex> PhoenixKit.Utils.Date.offset_to_seconds("-5")
+      -18000
+
+      iex> PhoenixKit.Utils.Date.offset_to_seconds("5.5")
+      19800
+
+      iex> PhoenixKit.Utils.Date.offset_to_seconds("invalid")
+      0
+  """
+  def offset_to_seconds(tz_offset) when is_binary(tz_offset) do
+    case Float.parse(tz_offset) do
+      {hours, _} -> round(hours * 3600)
+      :error -> 0
+    end
+  end
+
+  def offset_to_seconds(_), do: 0
+
+  @doc """
+  Shifts a DateTime by the system timezone offset (for display purposes only).
+
+  The result is NOT a properly-zoned DateTime — its `time_zone` still says UTC.
+  Use only when you need the wall-clock value for display. Never store this.
+  """
+  def shift_to_offset(%DateTime{} = dt, tz_offset) do
+    DateTime.add(dt, offset_to_seconds(tz_offset), :second)
+  end
+
+  @doc """
+  Parses a datetime-local input value (assumed to be in `tz_offset` timezone)
+  and returns the equivalent UTC `DateTime`.
+
+  Returns `{:ok, datetime}` or an error tuple. The tolerance input format is
+  `"YYYY-MM-DDTHH:MM"` (no seconds) or `"YYYY-MM-DDTHH:MM:SS"`.
+
+  ## Examples
+
+      iex> {:ok, dt} = PhoenixKit.Utils.Date.parse_datetime_local("2026-04-14T12:00", "0")
+      iex> DateTime.to_iso8601(dt)
+      "2026-04-14T12:00:00Z"
+
+      iex> {:ok, dt} = PhoenixKit.Utils.Date.parse_datetime_local("2026-04-14T12:00", "2")
+      iex> DateTime.to_iso8601(dt)
+      "2026-04-14T10:00:00Z"
+
+      iex> PhoenixKit.Utils.Date.parse_datetime_local("not-a-date", "0")
+      {:error, :invalid_format}
+  """
+  def parse_datetime_local("", _tz_offset), do: {:error, :empty}
+  def parse_datetime_local(nil, _tz_offset), do: {:error, :empty}
+
+  def parse_datetime_local(str, tz_offset) when is_binary(str) do
+    case parse_naive_datetime_local(str) do
+      {:ok, naive} ->
+        utc = NaiveDateTime.add(naive, -offset_to_seconds(tz_offset), :second)
+        DateTime.from_naive(utc, "Etc/UTC")
+
+      {:error, _reason} ->
+        {:error, :invalid_format}
+    end
+  end
+
+  defp parse_naive_datetime_local(str) do
+    # datetime-local inputs typically return "YYYY-MM-DDTHH:MM" (no seconds)
+    case NaiveDateTime.from_iso8601(str <> ":00") do
+      {:ok, naive} -> {:ok, naive}
+      _ -> NaiveDateTime.from_iso8601(str)
+    end
+  end
+
+  @doc """
+  Formats a UTC `DateTime` as a `datetime-local`-compatible string,
+  shifted to the given timezone offset.
+
+  Returns `""` for `nil` input. Output format: `"YYYY-MM-DDTHH:MM"`.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Date.format_datetime_local(~U[2026-04-14 12:00:00Z], "0")
+      "2026-04-14T12:00"
+
+      iex> PhoenixKit.Utils.Date.format_datetime_local(~U[2026-04-14 12:00:00Z], "2")
+      "2026-04-14T14:00"
+
+      iex> PhoenixKit.Utils.Date.format_datetime_local(nil, "0")
+      ""
+  """
+  def format_datetime_local(nil, _tz_offset), do: ""
+
+  def format_datetime_local(%DateTime{} = dt, tz_offset) do
+    Calendar.strftime(shift_to_offset(dt, tz_offset), "%Y-%m-%dT%H:%M")
+  end
 end
