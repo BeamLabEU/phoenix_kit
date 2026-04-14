@@ -14,17 +14,11 @@ defmodule <%= @web_module_prefix %>.PhoenixKit.Advanced.Dashboard.<%= @page_name
 
   @impl true
   def mount(_params, _session, socket) do
-    user = socket.assigns.current_user
-
-    show_sidebar =
-  case get_session(socket, :dashboard_sidebar_open) do
-    nil -> true
-    val -> val
-  end
+    user = socket.assigns.phoenix_kit_current_user
 
 socket =
   assign(socket,
-    show_sidebar: show_sidebar
+    show_sidebar: true
   )
 
     socket =
@@ -33,7 +27,6 @@ socket =
         page_title: @page_title,
         widgets: Layout.widgets_for(user),
         available: Widget.available_widgets(user),
-        show_modal: false,
         selected: MapSet.new()
       )
 
@@ -46,18 +39,17 @@ socket =
   socket =
     socket
     |> assign(:show_sidebar, new_state)
-    |> put_session(:dashboard_sidebar_open, new_state)
 
   {:noreply, socket}
 end
 
   def handle_event("remove_widget", %{"uuid" => uuid}, socket) do
-    Layout.remove_widget(socket.assigns.current_user, uuid)
+    Layout.remove_widget(socket.assigns.phoenix_kit_current_user, uuid)
 
     {:noreply,
      assign(socket,
-       widgets: Layout.widgets_for(socket.assigns.current_user),
-       available: Widget.available_widgets(socket.assigns.current_user)
+       widgets: Layout.widgets_for(socket.assigns.phoenix_kit_current_user),
+       available: Widget.available_widgets(socket.assigns.phoenix_kit_current_user)
      )}
   end
 
@@ -66,7 +58,7 @@ end
    layouts =
     Enum.map(items, fn item ->
       %{
-        user_uuid: user.uuid,
+        user_uuid: socket.assigns.phoenix_kit_current_user.uuid,
         widget_uuid: item["uuid"],
         x: parse_int(item["x"]),
         y: parse_int(item["y"]),
@@ -76,7 +68,7 @@ end
       }
     end)
 
-  case Layout.save_grid(socket.assigns.current_user, items) do
+  case Layout.save_grid(socket.assigns.phoenix_kit_current_user, items) do
     :ok ->
       {:noreply, socket}
 
@@ -87,8 +79,18 @@ end
     {:noreply, socket}
   end
 
+def handle_event("toggle_sidebar", _, socket) do
+  new_state = !socket.assigns.show_sidebar
+
+  socket =
+    socket
+    |> assign(:show_sidebar, new_state)
+
+  {:noreply, socket}
+end
+
   def handle_event("drop_widget", %{"uuid" => uuid, "x" => x, "y" => y}, socket) do
-    user = socket.assigns.current_user
+    user = socket.assigns.phoenix_kit_current_user
 
     {:ok, _widget} =
      Layout.add_widget(user, uuid, %{x: x, y: y})
@@ -121,24 +123,34 @@ end
                 class="grid-stack-item"
                 data-uuid={w.uuid}
                 phx-hook="ContextMenu"
-                gs-x={w.Widget.x}
-                gs-y={w.Widget.y}
-                gs-w={w.Widget.w}
-                gs-h={w.Widget.h}
+                gs-x={w.x}
+                gs-y={w.y}
+                gs-w={w.w}
+                gs-h={w.h}
               >
                 <div class="grid-stack-item-content">
-                  <.dashboard_card item={w} />
+                  <.dashboard_stack item={w} />
                 </div>
               </div>
             <% end %>
           </div>
         </div>
-
+    <div :if={Enum.count(@available) > 0}>
+        <!-- Toggle Button -->
+       <div class={[
+          "w-80 shrink-0 transition-all duration-300",
+          @show_sidebar && "translate-x-0",
+          !@show_sidebar && "translate-x-0 lg:translate-x-0"
+        ]} :if={!@show_sidebar}>
+     <button class="btn btn-xs btn-ghost" phx-click="toggle_sidebar">
+                    ✕
+                  </button>
+                </div>
         <!-- RIGHT GUTTER -->
         <div class={[
           "w-80 shrink-0 transition-all duration-300",
-          @show_modal && "translate-x-0",
-          !@show_modal && "translate-x-0 lg:translate-x-0"
+          @show_sidebar && "translate-x-0",
+          !@show_sidebar && "translate-x-0 lg:translate-x-0"
         ]}>
 
           <div class="sticky top-4">
@@ -151,7 +163,7 @@ end
 
                   <button
                     class="btn btn-xs btn-ghost"
-                    phx-click="toggle_widgets"
+                    phx-click="toggle_sidebar"
                   >
                     ✕
                   </button>
@@ -193,11 +205,12 @@ end
         </div>
 
       </div>
+      </div>
 
       <!-- MOBILE FLOAT BUTTON -->
       <button
         class="fixed bottom-6 right-6 btn btn-primary btn-circle shadow-lg lg:hidden"
-        phx-click="toggle_widgets"
+        phx-click="toggle_sidebar"
       >
         +
       </button>
@@ -206,7 +219,7 @@ end
     """
   end
 
-  defp dashboard_card(assigns) do
+  defp dashboard_stack(assigns) do
     ~H"""
     <div class="card bg-base-100 shadow-sm border border-base-300 h-full">
       <div class="card-body p-3">
@@ -231,4 +244,17 @@ end
     </div>
     """
   end
+
+defp parse_int(nil, default), do: default
+
+defp parse_int(value, default) when is_binary(value) do
+  case Integer.parse(value) do
+    {int, _} when int > 0 -> int
+    _ -> default
+  end
+end
+
+defp parse_int(value, _default) when is_integer(value), do: value
+defp parse_int(value), do: value
+defp parse_int(_, default), do: default
 end

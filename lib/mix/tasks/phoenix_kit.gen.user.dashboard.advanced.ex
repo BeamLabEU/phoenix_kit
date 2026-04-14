@@ -71,11 +71,12 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
 
     case parse_args(argv, opts) do
       {:ok, {tab_title, category, url}} ->
-        igniter
+        igniter = igniter
         |> create_live_view(tab_title, url, opts)
         |> maybe_add_dashboard_tab(category, tab_title, url, opts)
-        |> Igniter.create_new_file("assets/js/hooks/grid.js", grid(), on_format: :skip)
-        |> Igniter.create_new_file("assets/js/hooks/context_menu.js", context(), on_format: :skip)
+
+         Igniter.create_new_file(igniter, "assets/js/hooks/grid.js", grid(), on_format: :skip)
+         Igniter.create_new_file(igniter, "assets/js/hooks/context_menu.js", context(), on_format: :skip)
 
          Igniter.add_notice(igniter, """
     Next Steps: Install gridstack via package manager and add hooks to app.js

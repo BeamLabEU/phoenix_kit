@@ -89,4 +89,3 @@ defmodule PhoenixKit.Dashboard.Widget.Layout do
     end
   end
   end
-end
