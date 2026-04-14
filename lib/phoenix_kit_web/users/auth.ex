@@ -435,7 +435,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_mount_current_scope, params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session, params)
-    socket = check_maintenance_mode(socket)
     socket = attach_locale_hook(socket)
     {:cont, socket}
   end
@@ -470,7 +469,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_ensure_authenticated_scope, params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session, params)
-    socket = check_maintenance_mode(socket)
     socket = attach_locale_hook(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
@@ -511,7 +509,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_redirect_if_authenticated_scope, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
-    socket = check_maintenance_mode(socket)
 
     if Scope.authenticated?(socket.assigns.phoenix_kit_current_scope) do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
@@ -523,7 +520,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_ensure_owner, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
-    socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
     cond do
@@ -562,7 +558,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_ensure_admin, params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session, params)
-    socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
     cond do
@@ -606,7 +601,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount({:phoenix_kit_ensure_module_access, module_key}, params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session, params)
-    socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
     # Store current module key for scope refresh checks
@@ -826,6 +820,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
     |> Phoenix.Component.assign(:current_locale, current_locale)
     |> Phoenix.Component.assign(:current_locale_base, current_locale_base)
+    # Fold the maintenance check into the shared scope mount so any new
+    # live_session that uses a scope-mounting hook can't forget it.
+    |> check_maintenance_mode()
   end
 
   defp maybe_attach_scope_refresh_hook(
@@ -1184,12 +1181,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Also attaches a PubSub hook so that when maintenance status changes,
   # the page updates automatically without requiring navigation.
   #
-  # IMPORTANT: every on_mount hook that mounts the current scope (via
-  # mount_phoenix_kit_current_scope/2) must call this after mounting — otherwise
-  # users on those routes will bypass maintenance mode. Currently called from:
-  # :phoenix_kit_mount_current_scope, :phoenix_kit_ensure_authenticated_scope,
-  # :phoenix_kit_redirect_if_authenticated_scope, :phoenix_kit_ensure_owner,
-  # :phoenix_kit_ensure_admin, :phoenix_kit_ensure_module_access.
+  # Called from mount_phoenix_kit_current_scope/3 so every live_session that uses
+  # a scope-mounting on_mount hook automatically inherits maintenance mode
+  # enforcement. New on_mount hooks don't need to remember to call this.
   defp check_maintenance_mode(socket) do
     # Clean up stale state if the scheduled end time has passed
     Maintenance.cleanup_expired_schedule()
