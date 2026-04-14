@@ -120,7 +120,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
       use #{web_module}, :live_view
       use PhoenixKitWeb, :live_view
 
-       alias PhoenixKit.Widgets.Layout
+       alias PhoenixKit.Utils.Widget
 
 
       def mount(_, _, socket) do
@@ -128,30 +128,30 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
 
         {:ok,
          assign(socket,
-           widgets: Layout.widgets_for(user),
-           available: Layout.available_widgets(user),
+           widgets: Widget.widgets_for(user),
+           available: Widget.available_widgets(user),
            show_modal: false,
            selected: MapSet.new()
          )}
       end
 
       def handle_event("remove_widget", %{"id" => id}, socket) do
-        Layout.remove_widget(socket.assigns.current_user, id)
+        Widget.remove_widget(socket.assigns.current_user, id)
 
         {:noreply,
          assign(socket,
-           widgets: Layout.widgets_for(socket.assigns.current_user)
+           widgets: Widget.widgets_for(socket.assigns.current_user)
          )}
       end
 
       def handle_event("save_grid", %{"items" => items}, socket) do
-        Layout.save_grid(socket.assigns.current_user, items)
+        Widget.save_grid(socket.assigns.current_user, items)
         {:noreply, socket}
       end
 
       def render(assigns) do
         ~H\"\"\"
-       <PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
+       <PhoenixKitWeb.Widgets.dashboard {dashboard_assigns(assigns)}>
       <div class="p-6">
 
     <!-- BUTTON -->
@@ -204,10 +204,10 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
               class="grid-stack-item"
               data-id={w.id}
               phx-hook="ContextMenu"
-              gs-x={w.layout.x}
-              gs-y={w.layout.y}
-              gs-w={w.layout.w}
-              gs-h={w.layout.h}
+              gs-x={w.Widget.x}
+              gs-y={w.Widget.y}
+              gs-w={w.Widget.w}
+              gs-h={w.Widget.h}
               phx-hook="ContextMenu"
             >
               <div class="grid-stack-item-content">
@@ -248,7 +248,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
           </div>
         <% end %>
       </div>
-    </PhoenixKitWeb.Layouts.dashboard>
+    </PhoenixKitWeb.Widgets.dashboard>
         \"\"\"
       end
     end

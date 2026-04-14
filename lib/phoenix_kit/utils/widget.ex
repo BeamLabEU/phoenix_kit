@@ -165,26 +165,4 @@ defmodule PhoenixKit.Utils.Widget do
   def new(list) when is_list(list) do
     new(Map.new(list))
   end
-
-  def upsert_widget_raw(user_uuid, widget_uuid, attrs) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    data =
-      attrs
-      |> Map.merge(%{
-        user_uuid: user_uuid,
-        widget_uuid: widget_uuid,
-        inserted_at: now,
-        updated_at: now
-      })
-
-    repo().insert_or_update(
-      struct(PhoenixKit.Utils.Widget, data),
-      on_conflict: {:replace, Map.keys(data) -- [:id, :inserted_at]},
-      conflict_target: [:user_uuid, :uuid],
-      returning: true
-    )
-  end
-
-  defp repo, do: PhoenixKit.RepoHelper.repo()
 end

@@ -66,17 +66,16 @@ defmodule PhoenixKitWeb.Widgets.GridStackDashboardComponent do
   def handle_event("gridstack_change", %{"changes" => changes}, socket) do
     # Save widget positions to database
     Enum.each(changes, fn change ->
-      # fixme: add persistence
-      # .update_widget_layout(
-      #   socket.assigns.current_user,
-      #   change["widget_id"],
-      #   %{
-      #     grid_x: change["grid_x"],
-      #     grid_y: change["grid_y"],
-      #     grid_w: change["grid_w"],
-      #     grid_h: change["grid_h"]
-      #   }
-      # )
+      current_user = socket.assigns.phoenix_kit_current_scope.user
+
+      PhoenixKit.Dashboard.Widget.Layout.upsert_layout(current_user.uuid, %{
+        uuid: change["widget_id"],
+        grid_x: change["grid_x"],
+        grid_y: change["grid_y"],
+        grid_w: change["grid_w"],
+        grid_h: change["grid_h"]
+      })
+
       IO.inspect(change, label: "Widget layout changed")
     end)
 
@@ -88,7 +87,8 @@ defmodule PhoenixKitWeb.Widgets.GridStackDashboardComponent do
   def handle_event("remove_widget", %{"id" => widget_id}, socket) do
     # Remove from user's dashboard
     # Example: YourApp.Widgets.remove_user_widget(socket.assigns.current_user, widget_id)
-
+    current_user = socket.assigns.phoenix_kit_current_scope.user
+    PhoenixKit.Dashboard.Widget.Layout.delete(current_user.uuid, widget_id)
     IO.inspect(widget_id, label: "Widget removed")
     {:noreply, socket}
   end
