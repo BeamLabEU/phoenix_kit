@@ -80,10 +80,22 @@ defmodule PhoenixKit.Integration.MaintenanceTest do
       refute Maintenance.manually_enabled?()
     end
 
-    test "clears the scheduled start to prevent re-activation" do
-      Maintenance.update_schedule(past(60), future(3600))
+    test "clears both scheduled start and end to prevent stale re-activation" do
+      # Write a schedule directly so we don't depend on validation tolerance
+      Settings.update_setting(
+        "maintenance_scheduled_start",
+        DateTime.to_iso8601(future(3600))
+      )
+
+      Settings.update_setting(
+        "maintenance_scheduled_end",
+        DateTime.to_iso8601(future(7200))
+      )
+
       Maintenance.disable_system()
+
       assert Maintenance.get_scheduled_start() == nil
+      assert Maintenance.get_scheduled_end() == nil
     end
   end
 

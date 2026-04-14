@@ -75,6 +75,9 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
     Maintenance.update_header(socket.assigns.header)
     Maintenance.update_subtext(socket.assigns.subtext)
 
+    # Broadcast so other admin tabs and active maintenance pages pick up the new content
+    Maintenance.broadcast_status_change()
+
     log_activity(socket, "maintenance.content_updated", %{
       "header" => socket.assigns.header,
       "subtext" => socket.assigns.subtext
@@ -193,11 +196,14 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
   def handle_info({:maintenance_status_changed, _payload}, socket) do
     tz_offset = socket.assigns.tz_offset
 
+    # Re-read content fields too so multi-admin editing stays in sync
     {:noreply,
      socket
      |> assign(:active, Maintenance.active?())
      |> assign(:enabled, Maintenance.manually_enabled?())
      |> assign(:scheduled_active, Maintenance.within_scheduled_window?())
+     |> assign(:header, Maintenance.get_header())
+     |> assign(:subtext, Maintenance.get_subtext())
      |> assign(
        :scheduled_start,
        format_datetime_for_input(Maintenance.get_scheduled_start(), tz_offset)
@@ -526,8 +532,12 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
   defp schedule_error_message(:too_far_future),
     do: gettext("Schedule cannot be more than a year in the future")
 
-  defp schedule_error_message(_),
-    do: gettext("Failed to save schedule")
+  defp schedule_error_message(unknown) do
+    # Log so new validation atoms surface instead of being silently swallowed
+    require Logger
+    Logger.warning("Unknown maintenance schedule error atom: #{inspect(unknown)}")
+    gettext("Failed to save schedule")
+  end
 
   # Convert a timezone offset string (e.g., "2", "-5", "5.5") to seconds.
 

@@ -50,7 +50,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
     String.starts_with?(path, "/assets/") or
       String.starts_with?(path, "/images/") or
       String.starts_with?(path, "/fonts/") or
-      String.contains?(path, "/favicon")
+      String.starts_with?(path, "/favicon")
   end
 
   defp auth_route?(path) do
@@ -72,9 +72,11 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
       "/users/auth/"
     ]
 
+    # Use starts_with? (not contains?) to prevent parent-app paths like
+    # "/blog/users/log-in-to-us" from bypassing maintenance mode.
     Enum.any?(auth_routes, fn route ->
-      String.contains?(path, prefix_path.(route)) or
-        String.contains?(path, route)
+      String.starts_with?(path, prefix_path.(route)) or
+        String.starts_with?(path, route)
     end)
   end
 
@@ -98,24 +100,37 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
     header = Phoenix.HTML.html_escape(config.header) |> Phoenix.HTML.safe_to_string()
     subtext = Phoenix.HTML.html_escape(config.subtext) |> Phoenix.HTML.safe_to_string()
 
+    # Inline styles so the page works without the parent app's asset pipeline.
+    # Controller routes served by this plug may not have access to the digested
+    # app.css, so we ship a self-contained page.
     html = """
     <!DOCTYPE html>
-    <html lang="en" class="h-full">
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>#{header}</title>
-        <link rel="stylesheet" href="/assets/css/app.css" />
         <meta http-equiv="refresh" content="5" />
+        <style>
+          html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+          body { background: #f2f2f2; color: #1a1a1a; }
+          .wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; box-sizing: border-box; }
+          .card { background: #fff; border: 2px dashed #d4d4d4; border-radius: 1rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); max-width: 42rem; width: 100%; padding: 3rem 1.5rem; text-align: center; box-sizing: border-box; }
+          .icon { font-size: 5rem; margin-bottom: 1.5rem; opacity: 0.7; }
+          h1 { font-size: 3rem; font-weight: 700; margin: 0 0 1.5rem 0; line-height: 1.1; }
+          p { font-size: 1.25rem; line-height: 1.6; opacity: 0.7; margin: 0; }
+          @media (prefers-color-scheme: dark) {
+            body { background: #1d232a; color: #a6adbb; }
+            .card { background: #191e24; border-color: #2a323c; }
+          }
+        </style>
       </head>
-      <body class="h-full bg-base-200">
-        <div class="flex items-center justify-center min-h-screen p-4">
-          <div class="card bg-base-100 shadow-2xl border-2 border-dashed border-base-300 max-w-2xl w-full">
-            <div class="card-body text-center py-12 px-6">
-              <div class="text-8xl mb-6 opacity-70">🚧</div>
-              <h1 class="text-5xl font-bold text-base-content mb-6">#{header}</h1>
-              <p class="text-xl text-base-content/70 mb-8 leading-relaxed">#{subtext}</p>
-            </div>
+      <body>
+        <div class="wrap">
+          <div class="card">
+            <div class="icon">🚧</div>
+            <h1>#{header}</h1>
+            <p>#{subtext}</p>
           </div>
         </div>
       </body>

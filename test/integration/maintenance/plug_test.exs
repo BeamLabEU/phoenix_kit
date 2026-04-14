@@ -65,6 +65,21 @@ defmodule PhoenixKit.Integration.Maintenance.PlugTest do
       end
     end
 
+    test "does not bypass maintenance for look-alike parent-app paths" do
+      # Parent-app paths that merely CONTAIN an auth route as a substring must
+      # still be blocked — the skip check uses starts_with?, not contains?.
+      for path <- [
+            "/blog/users/log-in-to-us",
+            "/shop/users/auth/callback",
+            "/fake-assets/public/app.css",
+            "/my/favicon-handler"
+          ] do
+        conn = conn(:get, path) |> Plug.Test.init_test_session(%{})
+        result = MaintenanceMode.call(conn, [])
+        assert result.halted, "#{path} should be blocked by maintenance"
+      end
+    end
+
     test "adds Retry-After header when scheduled end is set" do
       Maintenance.update_schedule(nil, future(3600))
 

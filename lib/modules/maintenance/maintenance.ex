@@ -125,12 +125,15 @@ defmodule PhoenixKit.Modules.Maintenance do
   Disables maintenance mode manually.
 
   When disabled, all users can access the site normally.
-  Also clears the scheduled start time so it doesn't re-trigger.
+  Also clears both scheduled start and end times so stale schedule values
+  don't re-activate maintenance or leave surprise auto-off signals for
+  later re-enables.
   Broadcasts a PubSub event so the maintenance layout is removed.
   """
   def disable_system do
-    # Clear scheduled start so past_scheduled_start? doesn't re-activate maintenance
+    # Clear the whole schedule so it doesn't re-activate or surprise-deactivate later
     Settings.update_setting("maintenance_scheduled_start", "")
+    Settings.update_setting("maintenance_scheduled_end", "")
 
     result = Settings.update_boolean_setting("maintenance_enabled", false)
 

@@ -1182,7 +1182,14 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Instead of redirecting, overrides the LiveView's layout so the maintenance page
   # renders in place of whatever page the user is on. URL never changes.
   # Also attaches a PubSub hook so that when maintenance status changes,
-  # the page remounts to pick up the new layout.
+  # the page updates automatically without requiring navigation.
+  #
+  # IMPORTANT: every on_mount hook that mounts the current scope (via
+  # mount_phoenix_kit_current_scope/2) must call this after mounting — otherwise
+  # users on those routes will bypass maintenance mode. Currently called from:
+  # :phoenix_kit_mount_current_scope, :phoenix_kit_ensure_authenticated_scope,
+  # :phoenix_kit_redirect_if_authenticated_scope, :phoenix_kit_ensure_owner,
+  # :phoenix_kit_ensure_admin, :phoenix_kit_ensure_module_access.
   defp check_maintenance_mode(socket) do
     # Clean up stale state if the scheduled end time has passed
     Maintenance.cleanup_expired_schedule()
@@ -1233,8 +1240,10 @@ defmodule PhoenixKitWeb.Users.Auth do
       if Phoenix.LiveView.connected?(socket) and
            !socket.assigns[:phoenix_kit_maintenance_subscribed?] do
         Maintenance.subscribe()
-        maybe_schedule_end_timer()
-        Phoenix.Component.assign(socket, :phoenix_kit_maintenance_subscribed?, true)
+
+        socket
+        |> Phoenix.Component.assign(:phoenix_kit_maintenance_subscribed?, true)
+        |> reschedule_maintenance_end_timer()
       else
         socket
       end
@@ -1248,32 +1257,41 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  # If there's a scheduled end time in the future, schedule a self-message
-  # so the LiveView re-checks maintenance status when the window expires.
-  # This handles the case where a user is sitting on a maintenance-blocked page
-  # and the scheduled end time arrives — they get unblocked automatically.
   # Erlang's Process.send_after/3 takes at most a 32-bit timeout in ms (~24.8 days).
   # validate_schedule/2 caps schedules at 1 year, but clamp here defensively.
   @max_timer_ms 2_147_483_647
 
-  defp maybe_schedule_end_timer do
-    case Maintenance.get_scheduled_end() do
-      %DateTime{} = end_dt ->
-        seconds = DateTime.diff(end_dt, DateTime.utc_now())
-
-        if seconds > 0 do
-          timeout_ms = min(seconds * 1000, @max_timer_ms)
-
-          Process.send_after(
-            self(),
-            {:maintenance_status_changed, %{active: false}},
-            timeout_ms
-          )
-        end
-
-      _ ->
-        :ok
+  # Cancels any stale timer and schedules a new one for the current scheduled end.
+  # Called on connected mount and whenever the schedule changes via PubSub.
+  # This handles the case where a user is sitting on a maintenance-blocked page
+  # and the scheduled end time arrives — they get unblocked automatically.
+  defp reschedule_maintenance_end_timer(socket) do
+    # Cancel any existing timer so we don't leak a fire-after-schedule-changed signal.
+    case socket.assigns[:phoenix_kit_maintenance_timer_ref] do
+      ref when is_reference(ref) -> Process.cancel_timer(ref)
+      _ -> :ok
     end
+
+    timer_ref =
+      case Maintenance.get_scheduled_end() do
+        %DateTime{} = end_dt ->
+          seconds = DateTime.diff(end_dt, DateTime.utc_now())
+
+          if seconds > 0 do
+            timeout_ms = min(seconds * 1000, @max_timer_ms)
+
+            Process.send_after(
+              self(),
+              {:maintenance_status_changed, %{active: false}},
+              timeout_ms
+            )
+          end
+
+        _ ->
+          nil
+      end
+
+    Phoenix.Component.assign(socket, :phoenix_kit_maintenance_timer_ref, timer_ref)
   end
 
   defp handle_maintenance_change({:maintenance_status_changed, _payload}, socket) do
@@ -1282,9 +1300,16 @@ defmodule PhoenixKitWeb.Users.Auth do
     if scope && (Scope.admin?(scope) || Scope.owner?(scope)) do
       {:cont, socket}
     else
+      # Schedule may have changed — re-read the end time and reset the auto-off timer.
+      # Note: we intentionally distrust the payload's :active value and re-check via
+      # Maintenance.active?/0 so late-arriving stale messages don't drive the UI.
+      socket = reschedule_maintenance_end_timer(socket)
+
       if Maintenance.active?() do
         # Swap to maintenance layout — LiveView keeps running, form state preserved.
         # Must also touch an assign to trigger a re-render (private changes alone don't).
+        # HACK: socket.private[:live_layout] is Phoenix LiveView internals (same pattern
+        # used by maybe_apply_plugin_layout). Revisit if Phoenix.LiveView 1.x changes.
         socket =
           socket
           |> put_in([Access.key(:private), :live_layout], {PhoenixKitWeb.Layouts, :maintenance})
