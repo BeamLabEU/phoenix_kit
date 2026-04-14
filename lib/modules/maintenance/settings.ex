@@ -64,12 +64,11 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
     {:ok, socket}
   end
 
-  def handle_event("update_header", %{"header" => header}, socket) do
-    {:noreply, assign(socket, :header, header)}
-  end
-
-  def handle_event("update_subtext", %{"subtext" => subtext}, socket) do
-    {:noreply, assign(socket, :subtext, subtext)}
+  def handle_event("update_content", %{"header" => header, "subtext" => subtext}, socket) do
+    {:noreply,
+     socket
+     |> assign(:header, header)
+     |> assign(:subtext, subtext)}
   end
 
   def handle_event("save", _params, socket) do
@@ -276,9 +275,6 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
                 {gettext("Non-admin users are seeing the maintenance page.")}
               </p>
             </div>
-            <.link navigate={Routes.path("/maintenance")} class="btn btn-sm btn-ghost">
-              <.icon name="hero-eye" class="w-4 h-4" /> {gettext("Preview")}
-            </.link>
           </div>
         <% end %>
 
@@ -378,7 +374,7 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
               <h2 class="card-title mb-4">
                 <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> {gettext("Page Content")}
               </h2>
-              <form phx-submit="save" class="space-y-4">
+              <form phx-change="update_content" phx-submit="save" class="space-y-4">
                 <div class="form-control">
                   <label class="label">
                     <span class="label-text font-semibold">{gettext("Header Text")}</span>
@@ -387,8 +383,7 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
                     type="text"
                     name="header"
                     value={@header}
-                    phx-change="update_header"
-                    phx-debounce="300"
+                    phx-debounce="150"
                     class="input input-bordered w-full"
                     placeholder={gettext("Maintenance Mode")}
                     required
@@ -406,8 +401,7 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
                   </label>
                   <textarea
                     name="subtext"
-                    phx-change="update_subtext"
-                    phx-debounce="300"
+                    phx-debounce="150"
                     class="textarea textarea-bordered w-full h-32"
                     placeholder={gettext("We'll be back soon...")}
                     required
