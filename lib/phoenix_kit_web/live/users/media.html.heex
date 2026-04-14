@@ -118,17 +118,33 @@
 
             <%!-- All Files --%>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/media")}
-              data-drop-folder="root"
+              navigate={PhoenixKit.Utils.Routes.path("/admin/media?view=all")}
               class={[
                 "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors mb-1",
-                if(@current_folder == nil,
+                if(@file_view == "all",
                   do: "bg-primary/10 font-semibold text-primary",
                   else: "hover:bg-base-200"
                 )
               ]}
             >
-              <.icon name="hero-inbox" class="w-4 h-4 shrink-0" /> All Files
+              <.icon name="hero-rectangle-stack" class="w-4 h-4 shrink-0" /> All Files
+            </.link>
+
+            <div class="divider my-1 h-0"></div>
+
+            <%!-- Root --%>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/media")}
+              data-drop-folder="root"
+              class={[
+                "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors mb-1",
+                if(@current_folder == nil and @file_view != "all",
+                  do: "bg-primary/10 font-semibold text-primary",
+                  else: "hover:bg-base-200"
+                )
+              ]}
+            >
+              <.icon name="hero-inbox" class="w-4 h-4 shrink-0" /> Root
             </.link>
 
             <div class="divider my-1 h-0"></div>
@@ -263,14 +279,15 @@
                 <%!-- Normal Header --%>
                 <div class="flex items-center gap-3 flex-wrap">
                   <h2 class="card-title text-xl">
-                    <%= if @filter_orphaned do %>
-                      Orphaned Files ({@total_count})
-                    <% else %>
-                      <%= if @current_folder do %>
-                        {@current_folder.name} ({@total_count})
-                      <% else %>
+                    <%= cond do %>
+                      <% @filter_orphaned -> %>
+                        Orphaned Files ({@total_count})
+                      <% @file_view == "all" -> %>
                         All Files ({@total_count})
-                      <% end %>
+                      <% @current_folder -> %>
+                        {@current_folder.name} ({@total_count})
+                      <% true -> %>
+                        Root ({@total_count})
                     <% end %>
                   </h2>
                   <%= unless @show_upload do %>
@@ -347,7 +364,7 @@
               </div>
             </div>
 
-            <%= if @uploaded_files == [] && @folders == [] do %>
+            <%= if @uploaded_files == [] && (@folders == [] or @file_view == "all") do %>
               <%!-- Empty state --%>
               <div class="bg-base-200 rounded-lg p-8 text-center">
                 <.icon
@@ -370,7 +387,7 @@
                   class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
                 >
                   <%!-- New Folder Input (Grid) --%>
-                  <%= if @show_new_folder do %>
+                  <%= if @show_new_folder and @file_view != "all" do %>
                     <div class="flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg border-2 border-dashed border-primary/30">
                       <span class="text-warning mb-2">
                         <.icon name="hero-folder-plus" class="w-10 h-10" />
@@ -390,7 +407,7 @@
                     </div>
                   <% end %>
                   <%!-- Folders --%>
-                  <%= for folder <- @folders do %>
+                  <%= for folder <- if(@file_view == "all", do: [], else: @folders) do %>
                     <div
                       data-drop-folder={folder.uuid}
                       class={[
@@ -615,7 +632,7 @@
                     </thead>
                     <tbody>
                       <%!-- New Folder Input (List) --%>
-                      <%= if @show_new_folder do %>
+                      <%= if @show_new_folder and @file_view != "all" do %>
                         <tr class="bg-base-200">
                           <%= if @select_mode do %>
                             <td></td>
@@ -655,7 +672,7 @@
                         </tr>
                       <% end %>
                       <%!-- Folders --%>
-                      <%= for folder <- @folders do %>
+                      <%= for folder <- if(@file_view == "all", do: [], else: @folders) do %>
                         <%= if @renaming_folder == folder.uuid && @renaming_source == "content" do %>
                           <tr style={
                             folder_bg_style(folder.color) || "background-color: oklch(var(--b2))"

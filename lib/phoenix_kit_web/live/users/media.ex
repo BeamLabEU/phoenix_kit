@@ -284,6 +284,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     page = String.to_integer(params["page"] || "1")
     folder_uuid = params["folder"]
     search_query = params["q"] || socket.assigns[:search_query] || ""
+    view_mode = params["view"]
 
     filter_orphaned = socket.assigns[:filter_orphaned] || false
 
@@ -294,10 +295,15 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     folder_tree = Storage.list_all_folders() |> Storage.build_folder_tree()
 
     {existing_files, total_count} =
-      if filter_orphaned do
-        load_orphaned_files(page, per_page)
-      else
-        load_existing_files(page, per_page, folder_uuid, search_query)
+      cond do
+        filter_orphaned ->
+          load_orphaned_files(page, per_page)
+
+        view_mode == "all" ->
+          load_all_files(page, per_page, search_query)
+
+        true ->
+          load_existing_files(page, per_page, folder_uuid, search_query)
       end
 
     total_pages = ceil(total_count / per_page)
@@ -318,6 +324,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:total_count, total_count)
       |> assign(:orphaned_count, orphaned_count)
       |> assign(:current_folder, current_folder)
+      |> assign(:file_view, view_mode)
       |> assign(:breadcrumbs, breadcrumbs)
       |> assign(:folders, folders)
       |> assign(:folder_tree, folder_tree)
@@ -893,6 +900,82 @@ defmodule PhoenixKitWeb.Live.Users.Media do
           status: file.status,
           inserted_at: file.inserted_at,
           urls: urls
+        }
+      end)
+
+    {existing_files, total_count}
+  end
+
+  # Load all files regardless of folder, with optional search
+  defp load_all_files(page, per_page, search_query) do
+    repo = PhoenixKit.Config.get_repo()
+
+    base_query =
+      if search_query != "" do
+        search_term = "%#{search_query}%"
+
+        from(f in Storage.File,
+          where:
+            ilike(f.original_file_name, ^search_term) or
+              fragment("CAST(? AS TEXT) ILIKE ?", f.uuid, ^search_term)
+        )
+      else
+        from(f in Storage.File)
+      end
+
+    total_count = repo.aggregate(base_query, :count, :uuid)
+    offset = (page - 1) * per_page
+
+    files =
+      from(f in base_query,
+        order_by: [desc: f.inserted_at],
+        limit: ^per_page,
+        offset: ^offset
+      )
+      |> repo.all()
+
+    file_uuids = Enum.map(files, & &1.uuid)
+
+    instances_by_file =
+      if file_uuids != [] do
+        from(fi in FileInstance, where: fi.file_uuid in ^file_uuids)
+        |> repo.all()
+        |> Enum.group_by(& &1.file_uuid)
+      else
+        %{}
+      end
+
+    folder_uuids =
+      files
+      |> Enum.map(& &1.folder_uuid)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    folder_paths =
+      Map.new(folder_uuids, fn fuuid ->
+        path =
+          Storage.folder_breadcrumbs(fuuid)
+          |> Enum.map_join(" / ", & &1.name)
+
+        {fuuid, path}
+      end)
+
+    existing_files =
+      Enum.map(files, fn file ->
+        instances = Map.get(instances_by_file, file.uuid, [])
+        urls = generate_urls_from_instances(instances, file.uuid)
+
+        %{
+          file_uuid: file.uuid,
+          filename: file.original_file_name || file.file_name || "Unknown",
+          file_type: file.file_type,
+          mime_type: file.mime_type,
+          size: file.size || 0,
+          status: file.status,
+          urls: urls,
+          inserted_at: file.inserted_at,
+          folder_uuid: file.folder_uuid,
+          folder_path: Map.get(folder_paths, file.folder_uuid)
         }
       end)
 
