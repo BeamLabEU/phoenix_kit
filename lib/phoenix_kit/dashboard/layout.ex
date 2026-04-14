@@ -62,22 +62,31 @@ defmodule PhoenixKit.Dashboard.Widget.Layout do
   end
 
   def save_grid(user, layouts) do
-    Repo.insert_all(
+    repo().insert_all(
       Layout,
       layouts,
       on_conflict: {:replace, [:x, :y, :w, :h, :updated_at]},
-      conflict_target: [:user_uuid, :widget_uuid]
+      conflict_target: [:user_uuid, :uuid]
     )
 
     :ok
   end
 
   def remove_widget(user, widget_uuid) do
-    Repo.transaction(fn ->
-      from(l in PhoenixKit.DashboardLayout,
-        where: l.user_uuid == ^user.uuid and l.widget_uuid == ^widget_uuid
+    repo().transaction(fn ->
+      from(l in PhoenixKit.Dashboard.Widget.Layout,
+        where: l.user_uuid == ^user.uuid and l.uuid == ^widget_uuid
       )
-      |> Repo.delete_all()
+      |> repo().delete_all()
     end)
+  end
+
+  def widgets_for(user) do
+    try do
+    repo().get_by!(PhoenixKit.Dashboard.Widget.Layout, uuid: user.uuid)
+    rescue
+      _ -> []
+    end
+  end
   end
 end

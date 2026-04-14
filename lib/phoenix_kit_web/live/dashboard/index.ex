@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Utils.Widget
+  alias  PhoenixKit.Users.Auth.Scope
 
   @impl true
   def mount(_params, session, socket) do
@@ -17,7 +18,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
 
       current_user = session["phoenix_kit_current_user"]
 
-      widgets = Loader.load_user_widgets(current_user)
+      widgets = Widget.load_user_widgets(current_user)
 
       {:ok,
        socket

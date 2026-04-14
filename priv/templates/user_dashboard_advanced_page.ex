@@ -31,7 +31,7 @@ socket =
       socket
       |> assign(
         page_title: @page_title,
-        widgets: Widget.widgets_for(user),
+        widgets: Layout.widgets_for(user),
         available: Widget.available_widgets(user),
         show_modal: false,
         selected: MapSet.new()
@@ -56,7 +56,7 @@ end
 
     {:noreply,
      assign(socket,
-       widgets: Widget.widgets_for(socket.assigns.current_user),
+       widgets: Layout.widgets_for(socket.assigns.current_user),
        available: Widget.available_widgets(socket.assigns.current_user)
      )}
   end

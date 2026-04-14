@@ -44,7 +44,7 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
 
   alias PhoenixKit.Install.IgniterConfig
   alias PhoenixKit.Install.IgniterHelpers
-
+  import Plug.Conn
   @impl Igniter.Mix.Task
   def info(_argv, _composing_task) do
     %Igniter.Mix.Task.Info{
@@ -68,24 +68,32 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
     opts = igniter.args.options
     argv = igniter.args.argv
 
+
     case parse_args(argv, opts) do
       {:ok, {tab_title, category, url}} ->
         igniter
         |> create_live_view(tab_title, url, opts)
         |> maybe_add_dashboard_tab(category, tab_title, url, opts)
-        |> Igniter.Project.Npm.add_dependency("gridstack", "^9.0.0")
-        |> Igniter.Project.Npm.install()
-        |> Igniter.Project.File.mkdir_p("assets/js/hooks")
-        |> Igniter.Project.File.write("assets/js/hooks/grid.js", grid())
-        |> Igniter.Project.File.write("assets/js/hooks/context_menu.js", context())
-        |> Igniter.Project.File.append_once(
-          "assets/js/app.js",
-          hooks_imports()
-        )
-        |> Igniter.Project.File.append_once(
-          "assets/js/app.js",
-          ~s|import "gridstack/dist/gridstack.min.css";\n|
-        )
+        |> Igniter.create_new_file("assets/js/hooks/grid.js", grid(), on_format: :skip)
+        |> Igniter.create_new_file("assets/js/hooks/context_menu.js", context(), on_format: :skip)
+
+         Igniter.add_notice(igniter, """
+    Next Steps: Install gridstack via package manager and add hooks to app.js
+
+    Usage: npm --prefix ./assets install gridstack
+    add: import GridHook from "./hooks/grid"
+         import { ContextMenu } from "./hooks/context_menu"
+
+         let Hooks = {}
+         Hooks.Grid = GridHook
+         Hooks.ContextMenu = ContextMenu
+
+         const liveSocket = new LiveSocket("/live", Socket, {
+         longPollFallbackMs: 2500,
+          params: {_csrf_token: csrfToken},
+          hooks: {...window.PhoenixKitHooks, ...colocatedHooks, ...Hooks},
+          })
+    """)
 
       {:error, message} ->
         Igniter.add_notice(igniter, """
@@ -437,4 +445,16 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
     |> String.replace(~r/[^a-zA-Z0-9]+/, "_")
     |> Macro.camelize()
   end
+
+  defp parse_int(nil, default), do: default
+
+  defp parse_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} when int > 0 -> int
+      _ -> default
+    end
+  end
+
+  defp parse_int(value, _default) when is_integer(value) and value > 0, do: value
+  defp parse_int(_, default), do: default
 end
