@@ -246,7 +246,9 @@
   background: hsl(var(--in) / 0.2);
   color: hsl(var(--inc));
 }
-
+.sidebar-transition {
+  transition: transform 300ms ease, opacity 300ms ease;
+}
 /* Spinner */
 .spinner {
   border: 2px solid hsl(var(--b3));

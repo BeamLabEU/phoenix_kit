@@ -32,7 +32,7 @@ defmodule PhoenixKit.Dashboard.Widget.Layout do
 
     %Layout{}
     |> Layout.changeset(attrs)
-    |> Repo.insert(
+    |> repo().insert(
       on_conflict: {:replace, [:x, :y, :w, :h, :updated_at]},
       conflict_target: [:user_uuid],
       returning: true
@@ -41,12 +41,43 @@ defmodule PhoenixKit.Dashboard.Widget.Layout do
 
   import Ecto.Query
 
-  def delete_layout(user_uuid, widget_uuid) do
+  def delete_layout(user_uuid, uuid) do
     from(l in Layout,
       where:
         l.user_uuid == ^user_uuid and
-          l.uuid == ^widget_uuid
+          l.uuid == ^uuid
     )
-    |> Repo.delete_all()
+    |> repo().delete_all()
+  end
+
+  def add_widget(user, uuid, attrs \\ %{}) do
+    repo().insert(%Layout{
+      user_uuid: user.uuid,
+      uuid: uuid,
+      x: Map.get(attrs, :x, 0),
+      y: Map.get(attrs, :y, 0),
+      w: Map.get(attrs, :w, 3),
+      h: Map.get(attrs, :h, 2),
+    })
+  end
+
+  def save_grid(user, layouts) do
+    Repo.insert_all(
+      Layout,
+      layouts,
+      on_conflict: {:replace, [:x, :y, :w, :h, :updated_at]},
+      conflict_target: [:user_uuid, :widget_uuid]
+    )
+
+    :ok
+  end
+
+  def remove_widget(user, widget_uuid) do
+    Repo.transaction(fn ->
+      from(l in PhoenixKit.DashboardLayout,
+        where: l.user_uuid == ^user.uuid and l.widget_uuid == ^widget_uuid
+      )
+      |> Repo.delete_all()
+    end)
   end
 end

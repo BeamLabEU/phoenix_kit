@@ -1,37 +1,187 @@
 defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
-  use Mix.Task
-  # Fixme:: Mix task phoenix_kit.gen.user.dashboard.advanced is fragile
-  @shortdoc "Generates full advanced dashboard system"
+  @moduledoc """
+  Igniter task that generates an advanced user dashboard page with tab configuration.
 
-  @impl true
-  def run(_args) do
-    app = Mix.Project.config()[:app]
-    web_module = Macro.camelize("#{app}_web")
+  ## Usage
 
-    Mix.shell().info("🚀 Generating Advanced Dashboard...")
+      mix phoenix_kit.gen.user.advanced.dashboard "Example"
 
-    ensure_dirs()
-    write_hooks()
-    patch_app_js()
-    install_npm()
+  ## Arguments
 
-    generate_dashboard_live(web_module)
-    inject_route(web_module)
+  - `tab_title` - The display title for the tab (e.g., "Example")
 
-    Mix.shell().info("✅ Dashboard system ready")
+  ## Options
+
+  - `--url` - The URL path for the tab (optional, derived from title if not provided)
+  - `--category` - The category name (optional, defaults to "General")
+  - `--icon` - Heroicon name for the tab (optional, defaults to "hero-document")
+  - `--description` - Brief description for the tab (optional)
+  - `--category-icon` - Heroicon name for the category (optional, defaults to "hero-folder"). Only used when creating a new category.
+  - `--index` - Generate as main dashboard index (skips config, for overriding /dashboard)
+
+  ## Examples
+
+      # Simple - uses all defaults
+      mix phoenix_kit.gen.user.advanced.dashboard "Example"
+
+      # With custom category
+      mix phoenix_kit.gen.user.advanced.dashboard "Example" --category="Farm Management"
+
+      # With custom icon
+      mix phoenix_kit.gen.user.advanced.dashboard "Example" --icon="hero-chart-bar"
+
+      # Full control
+      mix phoenix_kit.gen.user.advanced.dashboard "Example" --url="/custom/path" --icon="hero-user"
+
+      # Generate as main dashboard index (overrides /dashboard)
+      mix phoenix_kit.gen.user.advanced.dashboard "Dashboard" --url="/dashboard" --index --description="Welcome"
+
+  """
+
+  @shortdoc "Generates user dashboard page with tab configuration"
+
+  use Igniter.Mix.Task
+
+  alias PhoenixKit.Install.IgniterConfig
+  alias PhoenixKit.Install.IgniterHelpers
+
+  @impl Igniter.Mix.Task
+  def info(_argv, _composing_task) do
+    %Igniter.Mix.Task.Info{
+      group: :phoenix_kit,
+      example: "mix phoenix_kit.gen.user.advanced.dashboard \"Example\"",
+      schema: [
+        url: :string,
+        category: :string,
+        icon: :string,
+        description: :string,
+        category_icon: :string,
+        index: :boolean
+      ],
+      aliases: [u: :url, c: :category, i: :icon, d: :description, ci: :category_icon]
+    }
   end
 
-  # ---------------- DIRS ----------------
-  defp ensure_dirs do
-    File.mkdir_p!("assets/js/hooks")
-    File.mkdir_p!("lib/#{Mix.Project.config()[:app]}_web/live")
-    File.mkdir_p!("lib/#{Mix.Project.config()[:app]}/plugin")
+  @impl Igniter.Mix.Task
+  def igniter(igniter) do
+    # Get options and arguments from igniter context
+    opts = igniter.args.options
+    argv = igniter.args.argv
+
+    case parse_args(argv, opts) do
+      {:ok, {tab_title, category, url}} ->
+        igniter
+        |> create_live_view(tab_title, url, opts)
+        |> maybe_add_dashboard_tab(category, tab_title, url, opts)
+        |> Igniter.Project.Npm.add_dependency("gridstack", "^9.0.0")
+        |> Igniter.Project.Npm.install()
+        |> Igniter.Project.File.mkdir_p("assets/js/hooks")
+        |> Igniter.Project.File.write("assets/js/hooks/grid.js", grid())
+        |> Igniter.Project.File.write("assets/js/hooks/context_menu.js", context())
+        |> Igniter.Project.File.append_once(
+          "assets/js/app.js",
+          hooks_imports()
+        )
+        |> Igniter.Project.File.append_once(
+          "assets/js/app.js",
+          ~s|import "gridstack/dist/gridstack.min.css";\n|
+        )
+
+      {:error, message} ->
+        Igniter.add_notice(igniter, """
+        ❌ Error: #{message}
+
+        Usage: mix phoenix_kit.gen.user.advanced.dashboard <tab_title>
+        Example: mix phoenix_kit.gen.user.advanced.dashboard "Example"
+        """)
+    end
   end
 
-  # ---------------- HOOKS ----------------
-  defp write_hooks do
-    File.write!("assets/js/hooks/grid.js", grid())
-    File.write!("assets/js/hooks/context_menu.js", context())
+  @impl Mix.Task
+  def run(argv) do
+    # Handle --help flag manually
+    if "--help" in argv or "-h" in argv do
+      Mix.shell().info("""
+      Generates a user dashboard page with tab configuration.
+
+      Usage:
+
+          mix phoenix_kit.gen.user.advanced.dashboard "Example"
+
+      Arguments:
+
+        tab_title  - The display title for the tab
+
+      Options:
+
+        --url           - The URL path for the tab (optional, derived from title)
+        --category      - The category name (optional, defaults to "General")
+        --icon          - Heroicon name for the tab (optional, defaults to "hero-document")
+        --description   - Brief description for the tab (optional)
+        --category-icon - Heroicon name for the category (optional, defaults to "hero-folder")
+        --index         - Generate as main dashboard index (skips config, for overriding /dashboard)
+
+      Examples:
+
+          # Simple - uses all defaults
+          mix phoenix_kit.gen.user.advanced.dashboard "Example"
+
+          # With custom category
+          mix phoenix_kit.gen.user.advanced.dashboard "Example" --category="Farm Management"
+
+          # With custom icon
+          mix phoenix_kit.gen.user.advanced.dashboard "Example" --icon="hero-chart-bar"
+
+          # Full control
+          mix phoenix_kit.gen.user.advanced.dashboard "Example" --url="/custom/path" --icon="hero-user"
+
+          # Generate as main dashboard index (overrides /dashboard)
+          mix phoenix_kit.gen.user.advanced.dashboard "Dashboard" --url="/dashboard" --index --description="Welcome"
+
+      Notes:
+
+        - Creates a LiveView file for the dashboard page
+        - Adds tab configuration to config/config.exs under :user_dashboard_categories (unless --index)
+        - After adding the route, run: mix compile --force
+      """)
+
+      :ok
+    else
+      # Delegate to Igniter.Mix.Task for standard execution
+      super(argv)
+    end
+  end
+
+  defp parse_args(argv, opts) do
+    # Filter out option arguments (starting with --) from argv
+    positional_args = Enum.reject(argv, &String.starts_with?(&1, "--"))
+
+    case positional_args do
+      [tab_title] ->
+        # Derive URL from tab title if not provided
+        url = Keyword.get(opts, :url, slugify(tab_title))
+        category = Keyword.get(opts, :category, "General")
+
+        {:ok, {tab_title, category, url}}
+
+      [] ->
+        {:error, "not enough arguments. Expected: <tab_title>"}
+
+      _ ->
+        {:error, "invalid arguments"}
+    end
+  end
+
+  defp hooks_imports do
+    """
+    import { Grid } from "./hooks/grid"
+    import { ContextMenu } from "./hooks/context_menu"
+
+    let Hooks = window.Hooks || {}
+    Hooks.Grid = Grid
+    Hooks.ContextMenu = ContextMenu
+    window.Hooks = Hooks
+    """
   end
 
   defp grid do
@@ -74,235 +224,217 @@ defmodule Mix.Tasks.PhoenixKit.Gen.User.Dashboard.Advanced do
     """
   end
 
-  # ---------------- APP.JS PATCH ----------------
-  defp patch_app_js do
-    path = "assets/js/app.js"
-    content = File.read!(path)
+  defp create_live_view(igniter, tab_title, url, opts) do
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
+    web_module = IgniterHelpers.get_parent_app_module_web(igniter)
 
-    unless String.contains?(content, "Hooks.Grid") do
-      injection = """
+    web_module_string =
+      web_module
+      |> to_string()
+      |> String.replace_prefix("Elixir.", "")
 
-      import { Grid } from "./hooks/grid"
-      import { ContextMenu } from "./hooks/context_menu"
+    page_name = camelize(tab_title)
+    description = Keyword.get(opts, :description, "Manage your dashboard content")
 
-      let Hooks = window.Hooks || {}
-      Hooks.Grid = Grid
-      Hooks.ContextMenu = ContextMenu
-      """
+    # Read the EEx template file
+    template_path =
+      case :code.priv_dir(:phoenix_kit) do
+        priv_dir when is_list(priv_dir) or is_binary(priv_dir) ->
+          Path.join(priv_dir, "templates/user_dashboard_advanced_page.ex")
 
-      File.write!(path, content <> injection)
+        _ ->
+          "priv/templates/user_dashboard_advanced_page.ex"
+      end
+
+    case File.read(template_path) do
+      {:ok, template_content} ->
+        # Use string replacement to avoid EEx/HEEX conflicts
+        rendered_content =
+          template_content
+          |> String.replace("<%= @web_module_prefix %>", web_module_string)
+          |> String.replace("<%= @page_name %>", page_name)
+          |> String.replace("<%= @page_title %>", tab_title)
+          |> String.replace("<%= @url %>", url)
+          |> String.replace("<%= @description %>", description)
+
+        # Build the correct path
+        file_path = build_live_view_file_path(app_name, page_name)
+
+        # Use create_new_file to avoid module parsing that might corrupt HEEX syntax
+        # Also skip formatting to preserve HEEX template syntax
+        Igniter.create_new_file(igniter, file_path, rendered_content, on_format: :skip)
+
+      {:error, reason} ->
+        igniter
+        |> Igniter.add_issue({:fatal, "Failed to read template file: #{reason}", []})
     end
   end
 
-  # ---------------- NPM ----------------
-  defp install_npm do
-    File.cd!("assets", fn ->
-      unless File.exists?("package.json") do
-        System.cmd("npm", ["init", "-y"])
-      end
+  defp add_dashboard_tab(igniter, category, tab_title, url, opts) do
+    icon = Keyword.get(opts, :icon, "hero-document")
+    description = Keyword.get(opts, :description)
 
-      System.cmd("npm", ["install", "gridstack"])
-    end)
-  end
+    # Validate inputs
+    cond do
+      !String.starts_with?(url, "/") ->
+        Igniter.add_issue(igniter, {:fatal, "URL must start with '/'", []})
 
-  # ---------------- DASHBOARD LIVE ----------------
-  defp generate_dashboard_live(web_module) do
-    path = "lib/#{Macro.underscore(web_module)}/live/dashboard_live.ex"
+      byte_size(tab_title) > 100 ->
+        Igniter.add_issue(igniter, {:fatal, "Tab title must be less than 100 characters", []})
 
-    unless File.exists?(path) do
-      File.write!(path, dashboard_live_template(web_module))
+      description && byte_size(description) > 200 ->
+        Igniter.add_issue(igniter, {:fatal, "Description must be less than 200 characters", []})
+
+      true ->
+        igniter
+        |> update_dashboard_categories_config(category, tab_title, url, icon, description, opts)
+        |> print_success_message(category, tab_title, url)
     end
   end
 
-  defp dashboard_live_template(web_module) do
-    """
-    defmodule #{web_module}.DashboardLive do
-      use #{web_module}, :live_view
-      use PhoenixKitWeb, :live_view
+  defp maybe_add_dashboard_tab(igniter, category, tab_title, url, opts) do
+    is_index = Keyword.get(opts, :index, false)
 
-       alias PhoenixKit.Utils.Widget
-
-
-      def mount(_, _, socket) do
-        user = socket.assigns.current_user
-
-        {:ok,
-         assign(socket,
-           widgets: Widget.widgets_for(user),
-           available: Widget.available_widgets(user),
-           show_modal: false,
-           selected: MapSet.new()
-         )}
-      end
-
-      def handle_event("remove_widget", %{"id" => id}, socket) do
-        Widget.remove_widget(socket.assigns.current_user, id)
-
-        {:noreply,
-         assign(socket,
-           widgets: Widget.widgets_for(socket.assigns.current_user)
-         )}
-      end
-
-      def handle_event("save_grid", %{"items" => items}, socket) do
-        Widget.save_grid(socket.assigns.current_user, items)
-        {:noreply, socket}
-      end
-
-      def render(assigns) do
-        ~H\"\"\"
-       <PhoenixKitWeb.Widgets.dashboard {dashboard_assigns(assigns)}>
-      <div class="p-6">
-
-    <!-- BUTTON -->
-        <div class="flex flex-row-reverse">
-          <button
-            phx-click="open_widget_modal"
-            class="px-3 py-2 bg-blue-600 text-white rounded w-1/3"
-          >
-            Add Widgets
-          </button>
-        </div>
-        <%= if @show_modal do %>
-          <div class="fixed inset-0 bg-black/40 flex items-center justify-center">
-            <div class="bg-white w-[600px] p-4 rounded">
-              <h2 class="font-bold mb-4">Select Widgets</h2>
-
-              <div class="space-y-2 max-h-[400px] overflow-auto">
-                <%= for w <- @available do %>
-                  <label class="flex justify-between border p-2 rounded">
-                    <span>{w.title}</span>
-
-                    <input
-                      type="checkbox"
-                      phx-click="toggle_widget"
-                      phx-value-id={w.id}
-                      checked={MapSet.member?(@selected, w.id)}
-                    />
-                  </label>
-                <% end %>
-              </div>
-
-              <div class="flex justify-end gap-2 mt-4">
-                <button phx-click="close_widget_modal" class="px-3 py-1 border">
-                  Cancel
-                </button>
-
-                <button phx-click="add_widgets" class="px-3 py-1 bg-green-600 text-white">
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        <% end %>
-
-    <!-- GRID -->
-        <div id="grid_container" class="grid-stack mt-4" phx-hook="Grid">
-          <%= for w <- @widgets do %>
-            <div
-              id={w.id}
-              class="grid-stack-item"
-              data-id={w.id}
-              phx-hook="ContextMenu"
-              gs-x={w.Widget.x}
-              gs-y={w.Widget.y}
-              gs-w={w.Widget.w}
-              gs-h={w.Widget.h}
-              phx-hook="ContextMenu"
-            >
-              <div class="grid-stack-item-content">
-                <.dashboard_card item={w} />
-              </div>
-            </div>
-          <% end %>
-        </div>
-
-    <!-- MODAL -->
-        <%= if @show_modal do %>
-          <div class="fixed inset-0 bg-black/40 flex items-center justify-center">
-            <div class="bg-white w-[600px] p-4 rounded">
-              <h2 class="font-bold mb-3">Widgets</h2>
-
-              <div class="space-y-2 max-h-[400px] overflow-auto">
-                <%= for w <- @available do %>
-                  <label class="flex justify-between border p-2 rounded">
-                    <span>{w.title}</span>
-
-                    <input
-                      type="checkbox"
-                      phx-click="toggle"
-                      phx-value-id={w.id}
-                      checked={w.id in @selected}
-                    />
-                  </label>
-                <% end %>
-              </div>
-
-              <div class="flex justify-end gap-2 mt-4">
-                <button phx-click="close_modal" class="px-3 py-1 border">Cancel</button>
-                <button phx-click="add_selected" class="px-3 py-1 bg-green-600 text-white">
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    </PhoenixKitWeb.Widgets.dashboard>
-        \"\"\"
-      end
-    end
-    """
-  end
-
-  # ---------------- ROUTER INJECTION ----------------
-  defp inject_route(web_module) do
-    router_path = "lib/#{Macro.underscore(web_module)}/router.ex"
-
-    content = File.read!(router_path)
-
-    # already injected?
-    if String.contains?(content, "DashboardLive") do
-      Mix.shell().info("✔ Dashboard route already exists")
-      :ok
+    if is_index do
+      # Skip adding to config for index pages
+      print_index_success_message(igniter, tab_title, url)
     else
-      Mix.shell().info("🔧 Injecting dashboard into live_session...")
-
-      updated =
-        inject_into_live_session(content, web_module)
-
-      File.write!(router_path, updated)
+      add_dashboard_tab(igniter, category, tab_title, url, opts)
     end
   end
 
-  defp inject_into_live_session(content, web_module) do
-    lines = String.split(content, "\n")
+  defp update_dashboard_categories_config(
+         igniter,
+         category,
+         tab_title,
+         url,
+         icon,
+         description,
+         opts
+       ) do
+    new_tab = %{
+      title: tab_title,
+      url: url,
+      icon: icon,
+      description: description
+    }
 
-    {new_lines, _inserted?} =
-      Enum.map_reduce(lines, false, fn line, inserted? ->
-        cond do
-          # find start of authenticated live_session
-          String.contains?(line, "live_session") and
-              String.contains?(line, ":phoenix_kit_admin") ->
-            {line, :found}
+    # Get category icon from options or use default
+    category_icon = Keyword.get(opts, :category_icon, "hero-folder")
 
-          # first `live` after session start → inject before it
-          inserted? == :found and String.trim(line) =~ ~r/^live\s+"/ ->
-            {
-              [
-                "      live \"/dashboard\", #{web_module}.DashboardLive",
-                line
-              ],
-              true
-            }
+    # Use IgniterConfig to add the tab to the category (creates category if needed)
+    IgniterConfig.add_to_user_dashboard_category(
+      igniter,
+      category,
+      new_tab,
+      icon: category_icon
+    )
+  end
 
-          true ->
-            {line, inserted?}
-        end
-      end)
+  defp print_success_message(igniter, category, tab_title, url) do
+    web_module = IgniterHelpers.get_parent_app_module_web(igniter)
 
-    new_lines
-    |> List.flatten()
-    |> Enum.join("\n")
+    web_module_string =
+      web_module
+      |> to_string()
+      |> String.replace_prefix("Elixir.", "")
+
+    page_name = camelize(tab_title)
+    live_view_module = "#{web_module_string}.PhoenixKit.Dashboard.#{page_name}"
+
+    Igniter.add_notice(igniter, """
+    ✅ Dashboard page generated!
+
+    Page: #{live_view_module}
+    Tab: #{tab_title}
+    Category: #{category}
+    URL: #{url}
+
+    📝 Add route:
+
+         scope "/" do
+           pipe_through :browser
+
+           live_session :user_dashboard,
+             on_mount: [
+               {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+               {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+             ] do
+             live "#{url}", #{live_view_module}, :index
+           end
+         end
+
+    Then: mix compile --force && restart server
+    """)
+  end
+
+  defp print_index_success_message(igniter, tab_title, url) do
+    web_module = IgniterHelpers.get_parent_app_module_web(igniter)
+
+    web_module_string =
+      web_module
+      |> to_string()
+      |> String.replace_prefix("Elixir.", "")
+
+    page_name = camelize(tab_title)
+    live_view_module = "#{web_module_string}.PhoenixKit.Dashboard.#{page_name}"
+
+    Igniter.add_notice(igniter, """
+    ✅ Dashboard index page generated!
+
+    Page: #{live_view_module}
+    URL: #{url}
+
+    📝 Add route BEFORE phoenix_kit_routes():
+
+         scope "/" do
+           pipe_through :browser
+
+           live_session :user_dashboard,
+             on_mount: [
+               {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+               {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+             ] do
+             live "#{url}", #{live_view_module}, :index
+           end
+         end
+
+         import PhoenixKitWeb.Integration
+         phoenix_kit_routes()
+
+    Then: mix compile --force && restart server
+    """)
+  end
+
+  # Builds the full file path for the LiveView
+  defp build_live_view_file_path(app_name, page_name) do
+    # Use the app_name to get the correct web directory name
+    # E.g., phoenix_kit_parent_project -> phoenix_kit_parent_project_web
+    web_path =
+      app_name
+      |> to_string()
+      |> Kernel.<>("_web")
+      |> String.downcase()
+
+    # Convert page name to lowercase for the file
+    file_name = String.downcase(page_name)
+
+    # Return the full file path
+    "lib/#{web_path}/phoenix_kit/dashboard/#{file_name}.ex"
+  end
+
+  # Convert title to URL-safe slug
+  defp slugify(title) do
+    title
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9\s-]/, "")
+    |> String.replace(~r/\s+/, "-")
+    |> then(&"/dashboard/#{&1}")
+  end
+
+  defp camelize(string) do
+    string
+    |> String.replace(~r/[^a-zA-Z0-9]+/, "_")
+    |> Macro.camelize()
   end
 end

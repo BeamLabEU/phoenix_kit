@@ -3,9 +3,8 @@ export const DashboardContextMenuRemove = {
     this.el.addEventListener("contextmenu", (e) => {
       e.preventDefault()
 
-      this.pushEvent("remove", {
-        id: this.el.dataset.id
-      })
+    const id = this.el.dataset.uuid
+    this.pushEvent("remove_widget", { uuid: id })
     })
   }
 }
