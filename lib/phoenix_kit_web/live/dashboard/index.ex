@@ -3,6 +3,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   Dashboard Index LiveView for PhoenixKit.
   """
   use PhoenixKitWeb, :live_view
+
   @impl true
   def mount(_params, _session, socket) do
     socket =
@@ -32,8 +33,6 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
           </div>
         </div>
       </div>
-
-
     </PhoenixKitWeb.Layouts.dashboard>
     """
   end

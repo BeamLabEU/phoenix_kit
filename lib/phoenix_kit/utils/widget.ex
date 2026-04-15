@@ -8,8 +8,8 @@ defmodule PhoenixKit.Utils.Widget do
     defmodule PhoenixKit.Modules.AI.Widgets do
       def widgets do
         [
-          %Widget{id: "ai_stats", ...},
-          %Widget{id: "ai_usage", ...}
+          %Widget{uuid: "1234-5678-9012-3456", ...},
+          %Widget{uuid: "2234-5678-9012-3456", ...}
         ]
       end
     end
@@ -18,6 +18,29 @@ defmodule PhoenixKit.Utils.Widget do
   require Logger
 
   alias PhoenixKit.Utils.Widget
+
+  @type t :: %__MODULE__{
+          uuid: UUIDv7.t() | nil,
+          name: String.t(),
+          description: String.t() | nil,
+          module: String.t() | nil,
+          icon: String.t() | nil,
+          enabled: boolean()
+        }
+  defstruct uuid: nil,
+            name: nil,
+            description: nil,
+            icon: nil,
+            module: nil,
+            enabled: false
+
+  def new(attrs) when is_map(attrs) do
+    struct!(__MODULE__, attrs)
+  end
+
+  def new(list) when is_list(list) do
+    new(Map.new(list))
+  end
 
   @doc """
   Load all available widgets from enabled modules.
@@ -29,18 +52,6 @@ defmodule PhoenixKit.Utils.Widget do
     |> Enum.filter(&module_enabled?/1)
     |> Enum.flat_map(&load_module_widgets/1)
     |> Enum.sort_by(& &1.order)
-  end
-
-  @doc """
-  Load widgets for a specific user, filtered by module permissions.
-
-  Returns widgets only for modules the user has access to.
-  """
-  def load_user_widgets(user) do
-    load_all_widgets()
-    |> Enum.filter(fn widget ->
-      user_can_access_module?(user, widget.module)
-    end)
   end
 
   @doc """
@@ -78,13 +89,13 @@ defmodule PhoenixKit.Utils.Widget do
   end
 
   @doc """
-  Get a single widget by ID.
+  Get a single widget by uuid.
 
   Returns nil if widget not found or parent module is disabled.
   """
-  def get_widget(widget_id) do
+  def get_widget(uuid) do
     load_all_widgets()
-    |> Enum.find(&(&1.id == widget_id))
+    |> Enum.find(&(&1.uuid == uuid))
   end
 
   @doc """
@@ -99,18 +110,6 @@ defmodule PhoenixKit.Utils.Widget do
     |> Map.new()
   end
 
-  # --- Private Helpers ---
-
-  defp find_widgets_module(module_name) do
-    # Try: PhoenixKit.Modules.AI -> PhoenixKit.Modules.AI.Widgets
-    widgets_module = Module.concat(module_name, "Widgets")
-
-    case Code.ensure_compiled(widgets_module) do
-      {:module, mod} -> mod
-      {:error, _} -> nil
-    end
-  end
-
   defp module_enabled?(module_name) do
     try do
       function_exported?(module_name, :enabled?, 0) && module_name.enabled?()
@@ -119,12 +118,7 @@ defmodule PhoenixKit.Utils.Widget do
     end
   end
 
-  defp user_can_access_module?(user, module_name) do
-    ## PhoenixKit.Users.Permissions.user_can_access_module?(user, module_name)
-    true
-  end
-
-  defp ensure_widget_struct(%{} = widget) do
+  defp ensure_widget_struct(%Widget{} = widget) do
     widget
   end
 
@@ -132,37 +126,16 @@ defmodule PhoenixKit.Utils.Widget do
     new(map)
   end
 
-  defp annotate_widget(%{} = widget, module_name) do
+  defp annotate_widget(%Widget{} = widget, module_name) do
     %{widget | module: module_name}
   end
 
-  defstruct uuid: nil,
-            title: nil,
-            description: nil,
-            icon: nil,
-            component: nil,
-            component_props: %{},
-            order: 100,
-            enabled: false,
-            module: nil
+  defp find_widgets_module(module_name) do
+    widgets_module = Module.concat(module_name, "Widgets")
 
-  @type t :: %__MODULE__{
-          uuid: UUIDv7.t() | nil,
-          title: String.t(),
-          description: String.t() | nil,
-          icon: String.t() | nil,
-          component: atom(),
-          component_props: map(),
-          order: integer(),
-          enabled: boolean(),
-          module: atom() | nil
-        }
-
-  def new(attrs) when is_map(attrs) do
-    struct!(__MODULE__, attrs)
-  end
-
-  def new(list) when is_list(list) do
-    new(Map.new(list))
+    case Code.ensure_compiled(widgets_module) do
+      {:module, mod} -> mod
+      {:error, _} -> nil
+    end
   end
 end

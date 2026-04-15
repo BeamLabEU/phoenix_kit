@@ -10,9 +10,7 @@ defmodule PhoenixKitWeb.TestRedirectIfAuthLive do
     <div class="hero py-8 min-h-[80vh] bg-warning">
       <div class="hero-content text-center">
         <div class="max-w-md">
-          <h1 class="text-5xl font-bold text-warning-content">
-            phoenix_kit_redirect_if_user_is_authenticated
-          </h1>
+          <h1 class="text-5xl font-bold text-warning-content">phoenix_kit_redirect_if_user_is_authenticated</h1>
           <div class="py-6 text-warning-content">
             <p class="mb-4">
               This page uses PhoenixKit <code>phoenix_kit_redirect_if_user_is_authenticated</code>.
