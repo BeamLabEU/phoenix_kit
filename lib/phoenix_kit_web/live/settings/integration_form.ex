@@ -258,8 +258,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
     uuid = actor_uuid(socket)
     result = run_connection_test(provider, full_key, uuid)
-    save_validation_result(full_key, result, uuid)
-    Events.broadcast_validated(full_key, result)
+    Integrations.record_validation(full_key, result, uuid)
 
     data =
       case Integrations.get_integration(full_key) do
@@ -361,35 +360,6 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   defp run_connection_test(_provider, full_key, actor_uuid) do
     Integrations.validate_connection(full_key, actor_uuid)
-  end
-
-  defp save_validation_result(full_key, result, actor_uuid) do
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
-
-    case Integrations.get_integration(full_key) do
-      {:ok, data} ->
-        updated =
-          case result do
-            :ok ->
-              Map.merge(data, %{
-                "status" => "connected",
-                "last_validated_at" => now,
-                "validation_status" => "ok"
-              })
-
-            {:error, reason} ->
-              Map.merge(data, %{
-                "status" => "error",
-                "last_validated_at" => now,
-                "validation_status" => "error: #{reason}"
-              })
-          end
-
-        Integrations.save_setup(full_key, updated, actor_uuid)
-
-      _ ->
-        :ok
-    end
   end
 
   defp save_setup_fields(provider_key, name, params, socket) do
