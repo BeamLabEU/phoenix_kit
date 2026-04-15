@@ -775,7 +775,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     # Reload paginated data from database to show newly uploaded files
     per_page = socket.assigns.per_page || 50
     page = socket.assigns.current_page || 1
-    {refreshed_files, total_count} = load_existing_files(page, per_page)
+    folder_uuid = if socket.assigns.current_folder, do: socket.assigns.current_folder.uuid
+    {refreshed_files, total_count} = load_existing_files(page, per_page, folder_uuid)
     total_pages = ceil(total_count / per_page)
 
     # Extract file UUIDs for callbacks (only from successful uploads)
