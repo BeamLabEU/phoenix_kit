@@ -83,7 +83,10 @@ defmodule PhoenixKit.Settings.Setting do
     "auth_logo_file_uuid",
     "auth_background_image_file_uuid",
     "auth_background_image_mobile_file_uuid",
-    "auth_background_color"
+    "auth_background_color",
+    # Maintenance Schedule (can be empty when no schedule is set)
+    "maintenance_scheduled_start",
+    "maintenance_scheduled_end"
   ]
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
