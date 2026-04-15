@@ -84,6 +84,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     field :applies_to, :string
     field :enabled, :boolean, default: true
     field :maintain_aspect_ratio, :boolean, default: true
+    field :alternative_formats, {:array, :string}, default: []
     field :order, :integer, default: 0
 
     timestamps(type: :utc_datetime)
@@ -125,6 +126,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       :applies_to,
       :enabled,
       :maintain_aspect_ratio,
+      :alternative_formats,
       :order
     ])
     |> validate_required([:name, :applies_to])
@@ -139,6 +141,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     |> validate_dimension_size()
     |> validate_quality()
     |> validate_format()
+    |> validate_alternative_formats()
     |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
 
@@ -212,6 +215,51 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       end
     end
   end
+
+  # Validate alternative_formats: must be valid image formats, no duplicates, exclude primary format
+  defp validate_alternative_formats(changeset) do
+    alt_formats = get_field(changeset, :alternative_formats) || []
+    primary_format = get_field(changeset, :format)
+    applies_to = get_field(changeset, :applies_to)
+
+    # Filter out empty strings (from hidden checkbox input)
+    alt_formats = Enum.reject(alt_formats, &(&1 == ""))
+    changeset = put_change(changeset, :alternative_formats, alt_formats)
+
+    cond do
+      alt_formats == [] ->
+        changeset
+
+      applies_to == "video" ->
+        add_error(changeset, :alternative_formats, "not supported for video-only dimensions")
+
+      true ->
+        valid = get_valid_image_formats()
+        invalid = Enum.reject(alt_formats, &(&1 in valid))
+        has_primary = primary_format && primary_format in alt_formats
+        has_dupes = length(alt_formats) != length(Enum.uniq(alt_formats))
+
+        changeset
+        |> then(fn cs ->
+          if invalid != [],
+            do:
+              add_error(cs, :alternative_formats, "invalid formats: #{Enum.join(invalid, ", ")}"),
+            else: cs
+        end)
+        |> then(fn cs ->
+          if has_primary,
+            do: add_error(cs, :alternative_formats, "must not include the primary format"),
+            else: cs
+        end)
+        |> then(fn cs ->
+          if has_dupes,
+            do: add_error(cs, :alternative_formats, "must not contain duplicates"),
+            else: cs
+        end)
+    end
+  end
+
+  defp get_valid_image_formats, do: ["jpg", "jpeg", "png", "webp", "avif", "gif"]
 
   defp get_valid_formats("image"), do: ["jpg", "jpeg", "png", "webp", "gif"]
   # Videos can output video formats, but video_thumbnail outputs JPG images

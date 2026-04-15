@@ -96,20 +96,19 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       Logger.warning("Cannot generate variant for file #{file.uuid}: file_path is nil")
       {:error, :file_path_missing}
     else
-      do_generate_variant(file, dimension)
+      do_generate_variant(file, dimension, dimension.name, dimension.format)
     end
   end
 
-  defp do_generate_variant(file, dimension) do
-    variant_name = dimension.name
+  defp do_generate_variant(file, dimension, variant_name, format_override) do
     Logger.info("Generating variant: #{variant_name} for file: #{file.uuid}")
 
     # Generate variant filename using file checksum + variant name for uniqueness
-    variant_ext = determine_variant_extension(file.ext, dimension.format)
+    variant_ext = determine_variant_extension(file.ext, format_override)
     # Use file_checksum or file_name basename for naming (works with any path structure)
     base_name = file.file_checksum || Path.basename(file.file_name, Path.extname(file.file_name))
     variant_filename = "#{base_name}_#{variant_name}.#{variant_ext}"
-    variant_mime_type = determine_variant_mime_type(file.mime_type, dimension.format)
+    variant_mime_type = determine_variant_mime_type(file.mime_type, format_override)
 
     # Build the variant storage path using file_path as base directory
     # file_path can be any directory structure (timestamp-based or hierarchical)
@@ -118,10 +117,13 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     # Generate temp path for processing
     variant_path = generate_temp_path(variant_ext)
 
+    # Override dimension format for alternative format variants
+    effective_dimension = %{dimension | format: format_override}
+
     # Download original file to temp location
     with {:ok, original_path} <- retrieve_original_file(file),
          {:ok, variant_path} <-
-           process_variant(original_path, variant_path, file.mime_type, dimension),
+           process_variant(original_path, variant_path, file.mime_type, effective_dimension),
          {:ok, file_stats} <- get_variant_file_stats(variant_path),
          {:ok, storage_info} <-
            store_variant_file(variant_path, variant_name, variant_storage_path, file.uuid),
@@ -271,10 +273,30 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     Enum.filter(dimensions, &(&1.name != "original"))
   end
 
+  # Expands each dimension into {dimension, variant_name, format_override} tuples,
+  # including one tuple per alternative format configured on the dimension.
+  defp expand_dimensions_with_alternatives(dimensions) do
+    Enum.flat_map(dimensions, fn dim ->
+      primary = {dim, dim.name, dim.format}
+      alt_formats = Map.get(dim, :alternative_formats, []) || []
+
+      alternatives =
+        Enum.map(alt_formats, fn fmt ->
+          {dim, "#{dim.name}_#{fmt}", fmt}
+        end)
+
+      [primary | alternatives]
+    end)
+  end
+
   defp process_variants(file, dimensions) do
+    expanded = expand_dimensions_with_alternatives(dimensions)
+
     results =
-      dimensions
-      |> Enum.map(&Task.async(fn -> generate_variant(file, &1) end))
+      expanded
+      |> Enum.map(fn {dim, vname, fmt} ->
+        Task.async(fn -> do_generate_variant(file, dim, vname, fmt) end)
+      end)
       # Video transcoding can take several minutes for large files
       |> Task.await_many(:timer.minutes(10))
 
