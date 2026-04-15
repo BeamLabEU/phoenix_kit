@@ -10,7 +10,7 @@
     <.admin_page_header
       back={Routes.path("/admin")}
       title="Activity"
-      subtitle={"#{@total} total activities"}
+      subtitle="Business-level activity across the platform"
     />
 
     <%!-- Filters --%>
@@ -63,10 +63,6 @@
             <% end %>
           </select>
         </div>
-
-        <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
-          Clear
-        </button>
       </.form>
     </div>
 
@@ -126,6 +122,14 @@
           end
         }
       >
+        <:toolbar_title>
+          <span class="text-sm text-base-content/60">{@total} activities</span>
+        </:toolbar_title>
+        <:toolbar_actions>
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            Clear filters
+          </button>
+        </:toolbar_actions>
         <:card_header :let={entry}>
           <span class={"badge badge-sm #{action_badge_color(entry.action)}"}>
             {entry.action}
