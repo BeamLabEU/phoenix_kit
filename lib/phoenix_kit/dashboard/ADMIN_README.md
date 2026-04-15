@@ -485,7 +485,6 @@ These assigns are automatically set by PhoenixKit's `on_mount` hooks in the admi
 | `@current_locale` | string | Current locale code (may be nil) |
 | `@flash` | map | Flash messages |
 | `@live_action` | atom | The action from the route (e.g., `:index`) |
-| `@show_maintenance` | boolean | Whether maintenance mode banner is shown |
 
 ## Legacy Config Compatibility
 

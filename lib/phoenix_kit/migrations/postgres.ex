@@ -533,7 +533,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `alternative_formats` (`text[]`) to `phoenix_kit_storage_dimensions`
   - Enables multi-format variant generation (e.g., WebP + AVIF alongside JPEG)
 
-  ### V97 - (reserved)
+  ### V97 - Per-item markup override ⚡ LATEST
+  - Adds nullable `markup_percentage DECIMAL(7, 2)` column on
+    `phoenix_kit_cat_items`
+  - `NULL` = inherit the catalogue's markup (existing behavior);
+    any set value (including `0`) overrides the catalogue's markup
+  - No backfill — existing rows stay `NULL` and continue to inherit
 
   ### V96 - Catalogue items linked directly to catalogues
   - Adds nullable `catalogue_uuid` FK on `phoenix_kit_cat_items` so items can
