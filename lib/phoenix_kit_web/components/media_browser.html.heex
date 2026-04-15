@@ -36,7 +36,11 @@
         <div class="card-body">
           <div class="flex items-center gap-3 mb-4">
             <h2 class="card-title text-xl">Upload Media</h2>
-            <button phx-click="toggle_upload" class="btn btn-sm btn-error gap-2">
+            <button
+              phx-click="toggle_upload"
+              phx-target={@myself}
+              class="btn btn-sm btn-error gap-2"
+            >
               <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
             </button>
           </div>
@@ -80,6 +84,7 @@
           <div class="sticky top-4 w-10">
             <button
               phx-click="toggle_sidebar"
+              phx-target={@myself}
               class="btn btn-ghost btn-sm w-full"
               title="Show folders"
             >
@@ -99,6 +104,7 @@
               <div class="flex gap-0.5">
                 <button
                   phx-click="toggle_new_folder"
+                  phx-target={@myself}
                   class="btn btn-ghost btn-xs"
                   title="New folder"
                 >
@@ -106,6 +112,7 @@
                 </button>
                 <button
                   phx-click="toggle_sidebar"
+                  phx-target={@myself}
                   class="btn btn-ghost btn-xs"
                   title="Collapse sidebar"
                 >
@@ -132,6 +139,7 @@
             <%!-- Root (navigate to real root folder) --%>
             <button
               phx-click="navigate_root"
+              phx-target={@myself}
               data-drop-folder="root"
               class={[
                 "flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors mb-1 text-left",
@@ -158,12 +166,14 @@
                   renaming_text={@renaming_text}
                   show_new_folder={@show_new_folder}
                   depth={0}
+                  myself={@myself}
                 />
               <% end %>
               <%= if @show_new_folder && @current_folder == nil do %>
                 <li>
                   <form
                     phx-submit="create_folder"
+                    phx-target={@myself}
                     class="flex items-center gap-1 px-1 py-1"
                   >
                     <span class="text-warning">
@@ -177,6 +187,7 @@
                       phx-mounted={JS.focus()}
                       required
                       phx-keydown="toggle_new_folder"
+                      phx-target={@myself}
                       phx-key="Escape"
                     />
                   </form>
@@ -196,6 +207,7 @@
               <li>
                 <button
                   phx-click="navigate_root"
+                  phx-target={@myself}
                   class="hover:underline text-primary"
                 >
                   All Media
@@ -205,6 +217,7 @@
                 <li>
                   <button
                     phx-click="navigate_folder"
+                    phx-target={@myself}
                     phx-value-folder-uuid={folder.uuid}
                     class="hover:underline text-primary"
                   >
@@ -220,7 +233,7 @@
         <% end %>
 
         <%!-- Search Bar --%>
-        <form phx-change="search" phx-submit="search" class="mb-4">
+        <form phx-change="search" phx-target={@myself} phx-submit="search" class="mb-4">
           <label class="input input-bordered input-sm w-full flex items-center gap-2">
             <.icon name="hero-magnifying-glass" class="w-4 h-4 text-base-content/40" />
             <input
@@ -236,6 +249,7 @@
               <button
                 type="button"
                 phx-click="clear_search"
+                phx-target={@myself}
                 class="btn btn-ghost btn-xs btn-circle"
               >
                 <.icon name="hero-x-mark" class="w-4 h-4" />
@@ -251,26 +265,43 @@
               <%= if @select_mode do %>
                 <%!-- Selection Mode Header --%>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <button phx-click="toggle_select_mode" class="btn btn-sm btn-error gap-2">
+                  <button
+                    phx-click="toggle_select_mode"
+                    phx-target={@myself}
+                    class="btn btn-sm btn-error gap-2"
+                  >
                     <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
                   </button>
                   <span class="text-sm font-semibold">
                     {MapSet.size(@selected_files) + MapSet.size(@selected_folders)} selected
                   </span>
-                  <button phx-click="show_move_modal" class="btn btn-sm btn-primary gap-1">
+                  <button
+                    phx-click="show_move_modal"
+                    phx-target={@myself}
+                    class="btn btn-sm btn-primary gap-1"
+                  >
                     <.icon name="hero-folder-arrow-down" class="w-4 h-4" /> Move
                   </button>
                   <%= if MapSet.size(@selected_folders) > 0 do %>
                     <button
                       phx-click="delete_selected"
+                      phx-target={@myself}
                       data-confirm={"Delete #{MapSet.size(@selected_folders)} folder(s)? Files will be moved to parent."}
                       class="btn btn-sm btn-error gap-1"
                     >
                       <.icon name="hero-trash" class="w-4 h-4" /> Delete folders
                     </button>
                   <% end %>
-                  <button phx-click="select_all" class="btn btn-sm btn-ghost">Select all</button>
-                  <button phx-click="deselect_all" class="btn btn-sm btn-ghost">Clear</button>
+                  <button phx-click="select_all" phx-target={@myself} class="btn btn-sm btn-ghost">
+                    Select all
+                  </button>
+                  <button
+                    phx-click="deselect_all"
+                    phx-target={@myself}
+                    class="btn btn-sm btn-ghost"
+                  >
+                    Clear
+                  </button>
                 </div>
               <% else %>
                 <%!-- Normal Header --%>
@@ -288,12 +319,17 @@
                     <% end %>
                   </h2>
                   <%= unless @show_upload do %>
-                    <button phx-click="toggle_upload" class="btn btn-sm btn-primary gap-2">
+                    <button
+                      phx-click="toggle_upload"
+                      phx-target={@myself}
+                      class="btn btn-sm btn-primary gap-2"
+                    >
                       <.icon name="hero-plus" class="w-4 h-4" /> Add Media
                     </button>
                   <% end %>
                   <button
                     phx-click="toggle_select_mode"
+                    phx-target={@myself}
                     class="btn btn-sm btn-secondary btn-outline gap-2"
                     phx-disable-with="Select"
                   >
@@ -301,6 +337,7 @@
                   </button>
                   <button
                     phx-click="toggle_new_folder"
+                    phx-target={@myself}
                     class="btn btn-sm btn-ghost gap-2 lg:hidden"
                   >
                     <.icon name="hero-folder-plus" class="w-4 h-4" /> New Folder
@@ -309,6 +346,7 @@
                   <%= if is_nil(@scope_folder_id) do %>
                     <button
                       phx-click="toggle_orphan_filter"
+                      phx-target={@myself}
                       class={[
                         "btn btn-sm gap-2",
                         if(@filter_orphaned, do: "btn-warning", else: "btn-ghost")
@@ -324,6 +362,7 @@
                     <%= if @filter_orphaned && @total_count > 0 do %>
                       <button
                         phx-click="delete_all_orphaned"
+                        phx-target={@myself}
                         data-confirm={"Delete all #{@total_count} orphaned files?"}
                         class="btn btn-sm btn-error gap-2"
                       >
@@ -338,6 +377,7 @@
                   <div class="join">
                     <button
                       phx-click="set_view_mode"
+                      phx-target={@myself}
                       phx-value-mode="grid"
                       data-view-mode="grid"
                       class={["btn btn-xs join-item", if(@view_mode == "grid", do: "btn-active")]}
@@ -347,6 +387,7 @@
                     </button>
                     <button
                       phx-click="set_view_mode"
+                      phx-target={@myself}
                       phx-value-mode="list"
                       data-view-mode="list"
                       class={["btn btn-xs join-item", if(@view_mode == "list", do: "btn-active")]}
@@ -395,7 +436,7 @@
                       <span class="text-warning mb-2">
                         <.icon name="hero-folder-plus" class="w-10 h-10" />
                       </span>
-                      <form phx-submit="create_folder" class="w-full px-3">
+                      <form phx-submit="create_folder" phx-target={@myself} class="w-full px-3">
                         <input
                           type="text"
                           name="name"
@@ -404,6 +445,7 @@
                           phx-mounted={JS.focus()}
                           required
                           phx-keydown="toggle_new_folder"
+                          phx-target={@myself}
                           phx-key="Escape"
                         />
                       </form>
@@ -420,6 +462,7 @@
                       ]}
                       style={folder_bg_style(folder.color)}
                       phx-click={if @select_mode, do: "toggle_select_folder"}
+                      phx-target={@myself}
                       phx-value-folder-uuid={if @select_mode, do: folder.uuid}
                     >
                       <%= if @select_mode do %>
@@ -429,6 +472,7 @@
                             class="checkbox checkbox-primary checkbox-sm"
                             checked={MapSet.member?(@selected_folders, folder.uuid)}
                             phx-click="toggle_select_folder"
+                            phx-target={@myself}
                             phx-value-folder-uuid={folder.uuid}
                           />
                         </label>
@@ -440,6 +484,7 @@
                         </span>
                         <form
                           phx-submit="rename_folder"
+                          phx-target={@myself}
                           phx-change="rename_folder_input"
                           class="flex items-center gap-1 px-2 w-full"
                         >
@@ -452,6 +497,7 @@
                             phx-mounted={JS.focus()}
                             required
                             phx-keydown="cancel_rename_folder"
+                            phx-target={@myself}
                             phx-key="Escape"
                             phx-debounce="50"
                           />
@@ -459,6 +505,7 @@
                       <% else %>
                         <button
                           phx-click="navigate_folder"
+                          phx-target={@myself}
                           phx-value-folder-uuid={folder.uuid}
                           class="flex flex-col items-center overflow-hidden w-full"
                         >
@@ -488,6 +535,7 @@
                             <li>
                               <button
                                 phx-click="start_rename_folder"
+                                phx-target={@myself}
                                 phx-value-folder-uuid={folder.uuid}
                               >
                                 <.icon name="hero-pencil" class="w-4 h-4" /> Rename
@@ -502,6 +550,7 @@
                                   <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
                                     <button
                                       phx-click="change_folder_color"
+                                      phx-target={@myself}
                                       phx-value-folder-uuid={folder.uuid}
                                       phx-value-color={color}
                                       class={[
@@ -524,6 +573,7 @@
                             <li>
                               <button
                                 phx-click="delete_folder"
+                                phx-target={@myself}
                                 phx-value-id={folder.uuid}
                                 data-confirm={"Delete '#{folder.name}'? Files move to parent."}
                                 class="text-error"
@@ -553,6 +603,7 @@
                             class="checkbox checkbox-primary checkbox-sm"
                             checked={MapSet.member?(@selected_files, file.file_uuid)}
                             phx-click="toggle_select"
+                            phx-target={@myself}
                             phx-value-file-uuid={file.file_uuid}
                           />
                         </label>
@@ -560,6 +611,7 @@
 
                       <div
                         phx-click="click_file"
+                        phx-target={@myself}
                         phx-value-file-uuid={file.file_uuid}
                         class="block w-full h-full cursor-pointer"
                       >
@@ -645,7 +697,11 @@
                             </div>
                           </td>
                           <td colspan="5">
-                            <form phx-submit="create_folder" class="flex items-center gap-2">
+                            <form
+                              phx-submit="create_folder"
+                              phx-target={@myself}
+                              class="flex items-center gap-2"
+                            >
                               <input
                                 type="text"
                                 name="name"
@@ -654,6 +710,7 @@
                                 phx-mounted={JS.focus()}
                                 required
                                 phx-keydown="toggle_new_folder"
+                                phx-target={@myself}
                                 phx-key="Escape"
                               />
                               <button type="submit" class="btn btn-sm btn-primary">
@@ -662,6 +719,7 @@
                               <button
                                 type="button"
                                 phx-click="toggle_new_folder"
+                                phx-target={@myself}
                                 class="btn btn-sm btn-ghost"
                               >
                                 <.icon name="hero-x-mark" class="w-4 h-4" />
@@ -690,6 +748,7 @@
                             <td colspan="5">
                               <form
                                 phx-submit="rename_folder"
+                                phx-target={@myself}
                                 phx-change="rename_folder_input"
                                 class="flex items-center gap-2"
                               >
@@ -702,6 +761,7 @@
                                   phx-mounted={JS.focus()}
                                   required
                                   phx-keydown="cancel_rename_folder"
+                                  phx-target={@myself}
                                   phx-key="Escape"
                                   phx-debounce="50"
                                 />
@@ -711,6 +771,7 @@
                                 <button
                                   type="button"
                                   phx-click="cancel_rename_folder"
+                                  phx-target={@myself}
                                   class="btn btn-sm btn-ghost"
                                 >
                                   <.icon name="hero-x-mark" class="w-4 h-4" />
@@ -724,6 +785,7 @@
                             phx-click={
                               if @select_mode, do: "toggle_select_folder", else: "navigate_folder"
                             }
+                            phx-target={@myself}
                             phx-value-folder-uuid={folder.uuid}
                             data-drop-folder={folder.uuid}
                             class={[
@@ -740,6 +802,7 @@
                                   class="checkbox checkbox-primary checkbox-xs"
                                   checked={MapSet.member?(@selected_folders, folder.uuid)}
                                   phx-click="toggle_select_folder"
+                                  phx-target={@myself}
                                   phx-value-folder-uuid={folder.uuid}
                                 />
                               </td>
@@ -766,7 +829,11 @@
                             </td>
                             <td></td>
                             <td>
-                              <div class="dropdown dropdown-end" phx-click="noop">
+                              <div
+                                class="dropdown dropdown-end"
+                                phx-click="noop"
+                                phx-target={@myself}
+                              >
                                 <label tabindex="0" class="btn btn-ghost btn-xs">
                                   <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
                                 </label>
@@ -777,6 +844,7 @@
                                   <li>
                                     <button
                                       phx-click="start_rename_folder"
+                                      phx-target={@myself}
                                       phx-value-folder-uuid={folder.uuid}
                                     >
                                       <.icon name="hero-pencil" class="w-4 h-4" /> Rename
@@ -791,6 +859,7 @@
                                         <%= for color <- PhoenixKit.Modules.Storage.Folder.colors() do %>
                                           <button
                                             phx-click="change_folder_color"
+                                            phx-target={@myself}
                                             phx-value-folder-uuid={folder.uuid}
                                             phx-value-color={color}
                                             class={[
@@ -813,6 +882,7 @@
                                   <li>
                                     <button
                                       phx-click="delete_folder"
+                                      phx-target={@myself}
                                       phx-value-id={folder.uuid}
                                       data-confirm={"Delete '#{folder.name}'? Files move to parent."}
                                       class="text-error"
@@ -831,6 +901,7 @@
                         <tr
                           data-draggable-file={file.file_uuid}
                           phx-click="click_file"
+                          phx-target={@myself}
                           phx-value-file-uuid={file.file_uuid}
                           class={[
                             "hover cursor-pointer",
@@ -845,6 +916,7 @@
                                 class="checkbox checkbox-primary checkbox-xs"
                                 checked={MapSet.member?(@selected_files, file.file_uuid)}
                                 phx-click="toggle_select"
+                                phx-target={@myself}
                                 phx-value-file-uuid={file.file_uuid}
                               />
                             </td>
@@ -901,6 +973,7 @@
                 <%= if @current_page > 1 do %>
                   <button
                     phx-click="set_page"
+                    phx-target={@myself}
                     phx-value-page={@current_page - 1}
                     class="btn btn-sm btn-ghost gap-1"
                   >
@@ -913,6 +986,7 @@
                 <%= if @current_page < @total_pages do %>
                   <button
                     phx-click="set_page"
+                    phx-target={@myself}
                     phx-value-page={@current_page + 1}
                     class="btn btn-sm btn-ghost gap-1"
                   >
@@ -937,6 +1011,7 @@
             <li>
               <button
                 phx-click="move_selected_to_folder"
+                phx-target={@myself}
                 phx-value-folder_uuid=""
                 class={if @current_folder == nil, do: "active", else: ""}
               >
@@ -944,14 +1019,16 @@
               </button>
             </li>
             <%= for node <- @folder_tree do %>
-              <.move_folder_option node={node} depth={0} />
+              <.move_folder_option node={node} depth={0} myself={@myself} />
             <% end %>
           </ul>
           <div class="modal-action">
-            <button phx-click="close_move_modal" class="btn btn-ghost">Cancel</button>
+            <button phx-click="close_move_modal" phx-target={@myself} class="btn btn-ghost">
+              Cancel
+            </button>
           </div>
         </div>
-        <div class="modal-backdrop" phx-click="close_move_modal"></div>
+        <div class="modal-backdrop" phx-click="close_move_modal" phx-target={@myself}></div>
       </div>
     <% end %>
   <% end %>

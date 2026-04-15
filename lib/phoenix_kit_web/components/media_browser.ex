@@ -264,6 +264,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   attr :show_new_folder, :boolean, default: false
   attr :renaming_source, :any, required: true
   attr :depth, :integer, default: 0
+  attr :myself, :any, required: true
 
   def folder_tree_node(assigns) do
     assigns =
@@ -306,6 +307,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         <%= if @has_children do %>
           <button
             phx-click="toggle_folder_expand"
+            phx-target={@myself}
             phx-value-folder-uuid={@node.folder.uuid}
             class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5"
           >
@@ -323,6 +325,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           <form
             phx-submit="rename_folder"
             phx-change="rename_folder_input"
+            phx-target={@myself}
             class="flex items-center gap-1.5 flex-1 min-w-0"
           >
             <input type="hidden" name="folder_uuid" value={@node.folder.uuid} />
@@ -337,6 +340,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
               phx-mounted={JS.focus()}
               required
               phx-keydown="cancel_rename_folder"
+              phx-target={@myself}
               phx-key="Escape"
               phx-debounce="50"
             />
@@ -345,6 +349,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           <%!-- Folder button (uncontrolled: phx-click instead of .link navigate) --%>
           <button
             phx-click="navigate_folder"
+            phx-target={@myself}
             phx-value-folder-uuid={@node.folder.uuid}
             data-drop-folder={@node.folder.uuid}
             class="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden text-sm text-left"
@@ -372,6 +377,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           <%!-- Rename button (visible on hover) --%>
           <button
             phx-click="start_rename_folder"
+            phx-target={@myself}
             phx-value-folder-uuid={@node.folder.uuid}
             phx-value-source="sidebar"
             class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5 opacity-0 group-hover:opacity-100"
@@ -398,12 +404,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
               renaming_text={@renaming_text}
               show_new_folder={@show_new_folder}
               depth={@depth + 1}
+              myself={@myself}
             />
           <% end %>
           <%= if @is_active && @show_new_folder do %>
             <li>
               <form
                 phx-submit="create_folder"
+                phx-target={@myself}
                 class="flex items-center gap-0.5 rounded-lg px-1 py-1"
               >
                 <span class="w-5"></span>
@@ -418,6 +426,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
                   phx-mounted={JS.focus()}
                   required
                   phx-keydown="toggle_new_folder"
+                  phx-target={@myself}
                   phx-key="Escape"
                 />
               </form>
@@ -431,19 +440,21 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   attr :node, :map, required: true
   attr :depth, :integer, default: 0
+  attr :myself, :any, required: true
 
   def move_folder_option(assigns) do
     ~H"""
     <li>
       <button
         phx-click="move_selected_to_folder"
+        phx-target={@myself}
         phx-value-folder_uuid={@node.folder.uuid}
         style={"padding-left: #{(@depth + 1) * 16}px"}
       >
         <.icon name="hero-folder" class="w-4 h-4" /> {@node.folder.name}
       </button>
       <%= for child <- @node.children do %>
-        <.move_folder_option node={child} depth={@depth + 1} />
+        <.move_folder_option node={child} depth={@depth + 1} myself={@myself} />
       <% end %>
     </li>
     """
