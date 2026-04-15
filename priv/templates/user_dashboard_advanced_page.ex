@@ -26,7 +26,7 @@ socket =
       |> assign(
         page_title: @page_title,
         widgets: Layout.widgets_for(user),
-        available: Widget.available_widgets(user),
+        available: Widget.load_all_widgets(user),
         selected: MapSet.new()
       )
 
@@ -39,6 +39,7 @@ socket =
   socket =
     socket
     |> assign(:show_sidebar, new_state)
+    |> put_session(:dashboard_sidebar_open, new_state)
 
   {:noreply, socket}
 end
@@ -48,8 +49,8 @@ end
 
     {:noreply,
      assign(socket,
-       widgets: Layout.widgets_for(socket.assigns.phoenix_kit_current_user),
-       available: Widget.available_widgets(socket.assigns.phoenix_kit_current_user)
+       widgets: Layout.widgets_for(socket.assigns.current_user),
+       available: Widget.load_all_widgets(socket.assigns.current_user)
      )}
   end
 
@@ -59,7 +60,7 @@ end
     Enum.map(items, fn item ->
       %{
         user_uuid: socket.assigns.phoenix_kit_current_user.uuid,
-        widget_uuid: item["uuid"],
+        uuid: item["uuid"],
         x: parse_int(item["x"]),
         y: parse_int(item["y"]),
         w: parse_int(item["w"], 3),
@@ -98,7 +99,7 @@ end
     {:noreply,
      assign(socket,
        widgets: Widget.widgets_for(user),
-       available: Widget.available_widgets(user)
+       available: Widget.load_all_widgets(user)
      )}
   end
 
@@ -143,7 +144,7 @@ end
           !@show_sidebar && "translate-x-0 lg:translate-x-0"
         ]} :if={!@show_sidebar}>
      <button class="btn btn-xs btn-ghost" phx-click="toggle_sidebar">
-                    ✕
+                    ☰
                   </button>
                 </div>
         <!-- RIGHT GUTTER -->
@@ -165,7 +166,7 @@ end
                     class="btn btn-xs btn-ghost"
                     phx-click="toggle_sidebar"
                   >
-                    ✕
+                    →
                   </button>
                 </div>
 
@@ -244,17 +245,4 @@ end
     </div>
     """
   end
-
-defp parse_int(nil, default), do: default
-
-defp parse_int(value, default) when is_binary(value) do
-  case Integer.parse(value) do
-    {int, _} when int > 0 -> int
-    _ -> default
-  end
-end
-
-defp parse_int(value, _default) when is_integer(value), do: value
-defp parse_int(value), do: value
-defp parse_int(_, default), do: default
 end
