@@ -56,6 +56,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     socket =
       socket
       |> assign(:changeset, changeset)
+      |> assign_format_fields(changeset)
 
     {:noreply, socket}
   end
@@ -132,6 +133,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     |> assign(:changeset, changeset)
     |> assign(:page_title, page_title_with_type(:new, dimension_type))
     |> assign(:form_action, page_title_with_type(:new, dimension_type))
+    |> assign_format_fields(changeset)
   end
 
   defp assign_form(%{assigns: %{mode: :edit, dimension: dimension}} = socket) do
@@ -143,6 +145,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     |> assign(:dimension_type, dimension_type)
     |> assign(:page_title, "Edit Storage Dimension")
     |> assign(:form_action, "Update Dimension")
+    |> assign_format_fields(changeset)
+  end
+
+  defp assign_format_fields(socket, changeset) do
+    socket
+    |> assign(
+      :current_alternatives,
+      Ecto.Changeset.get_field(changeset, :alternative_formats) || []
+    )
+    |> assign(:primary_format, Ecto.Changeset.get_field(changeset, :format))
   end
 
   defp normalize_dimension_params(params) do

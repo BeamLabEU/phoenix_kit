@@ -205,17 +205,15 @@
             </p>
 
             <input type="hidden" name="dimension[alternative_formats][]" value="" />
-            <% current_alternatives = get_field_value(@changeset, :alternative_formats) || [] %>
-            <% primary_format = get_field_value(@changeset, :format) %>
             <div class="flex flex-wrap gap-4">
               <%= for {fmt, label} <- [{"webp", "WebP"}, {"avif", "AVIF"}, {"png", "PNG"}, {"jpg", "JPEG"}] do %>
-                <%= if fmt != primary_format do %>
+                <%= if fmt != @primary_format do %>
                   <label class="label cursor-pointer gap-2">
                     <input
                       type="checkbox"
                       name="dimension[alternative_formats][]"
                       value={fmt}
-                      checked={fmt in current_alternatives}
+                      checked={fmt in @current_alternatives}
                       class="checkbox checkbox-sm checkbox-primary"
                     />
                     <span class="label-text">{label}</span>

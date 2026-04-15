@@ -61,6 +61,7 @@ defmodule PhoenixKit.Modules.Shared.Components.ImageSet do
       |> assign(:source_formats, source_formats)
       |> assign(:fallback_variants, fallback_variants)
       |> assign(:fallback_src, fallback_src)
+      |> assign(:fallback_srcset, build_srcset(fallback_variants))
       |> assign(:has_sources, source_formats != [] or fallback_variants != [])
 
     ~H"""
@@ -75,8 +76,8 @@ defmodule PhoenixKit.Modules.Shared.Components.ImageSet do
         <% end %>
         <img
           src={@fallback_src}
-          srcset={build_srcset(@fallback_variants)}
-          sizes={@sizes}
+          srcset={if(@fallback_srcset != "", do: @fallback_srcset)}
+          sizes={if(@fallback_srcset != "", do: @sizes)}
           alt={@alt}
           class={@class}
           loading={@loading}
@@ -124,7 +125,7 @@ defmodule PhoenixKit.Modules.Shared.Components.ImageSet do
 
   defp mime_to_format("image/webp"), do: "webp"
   defp mime_to_format("image/avif"), do: "avif"
-  defp mime_to_format("image/png"), do: "png"
+  # PNG goes into the fallback <img> group — no separate <source> needed
   defp mime_to_format(_), do: nil
 
   # Returns [{format, sorted_variants}] in priority order: AVIF > WebP > others
