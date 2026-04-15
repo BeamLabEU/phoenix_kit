@@ -247,20 +247,37 @@ defmodule PhoenixKit.Integrations do
 
   @doc """
   Refresh an expired OAuth access token and save the new one.
+
+  On failure, stamps the integration record with `status: "error"` and a
+  human-readable `validation_status` so the UI reflects the broken state
+  without waiting for an admin to click "Test Connection".
+  On success following a previously-errored state, auto-recovers the status
+  back to `"connected"`.
   """
   @spec refresh_access_token(String.t()) :: {:ok, String.t()} | {:error, term()}
   def refresh_access_token(provider_key) do
-    with {:ok, data} <- get_integration(provider_key),
-         {:ok, provider_lookup_key} <- resolve_provider_lookup_key(provider_key, data),
-         {:ok, provider} <- fetch_provider(provider_lookup_key),
-         {:ok, new_token, updated_fields} <-
-           OAuth.refresh_access_token(provider.oauth_config, data) do
-      updated = Map.merge(data, updated_fields)
-      save_integration(resolve_storage_key(provider_key, data), updated)
+    result =
+      with {:ok, data} <- get_integration(provider_key),
+           {:ok, provider_lookup_key} <- resolve_provider_lookup_key(provider_key, data),
+           {:ok, provider} <- fetch_provider(provider_lookup_key),
+           {:ok, new_token, updated_fields} <-
+             OAuth.refresh_access_token(provider.oauth_config, data) do
+        updated = Map.merge(data, updated_fields)
+        save_integration(resolve_storage_key(provider_key, data), updated)
 
-      log_activity("integration.token_refreshed", provider_key, %{}, "auto", nil)
+        log_activity("integration.token_refreshed", provider_key, %{}, "auto", nil)
 
-      {:ok, new_token}
+        {:ok, new_token}
+      end
+
+    case result do
+      {:ok, _token} ->
+        maybe_record_recovery(provider_key)
+        result
+
+      {:error, reason} ->
+        record_refresh_failure(provider_key, reason)
+        result
     end
   end
 
@@ -639,6 +656,82 @@ defmodule PhoenixKit.Integrations do
       {:ok, %{status: 403}} -> {:error, gettext("Access denied")}
       {:ok, %{status: status}} -> {:error, gettext("Service error %{status}", status: status)}
       {:error, _reason} -> {:error, gettext("Could not reach the service")}
+    end
+  end
+
+  @doc """
+  Persist the outcome of a connection check (manual or automatic) onto the
+  integration record and broadcast a PubSub event.
+
+  Writes `status`, `validation_status` and `last_validated_at`. Safe to call
+  from automatic code paths (e.g. failed token refresh) — it only touches the
+  DB / broadcasts when something actually changed, avoiding write churn on the
+  happy path.
+  """
+  @spec record_validation(String.t(), :ok | {:error, term()}, String.t() | nil) :: :ok
+  def record_validation(provider_key, result, _actor_uuid \\ nil) do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    {new_status, validation_text} = validation_fields(result)
+
+    case Settings.get_json_setting(settings_key(provider_key), nil) do
+      nil ->
+        Logger.debug(
+          "[Integrations] record_validation skipped — no integration at #{settings_key(provider_key)}"
+        )
+
+        :ok
+
+      data ->
+        if data["status"] != new_status or data["validation_status"] != validation_text do
+          updated =
+            Map.merge(data, %{
+              "status" => new_status,
+              "last_validated_at" => now,
+              "validation_status" => validation_text
+            })
+
+          save_integration(provider_key, updated)
+          Events.broadcast_validated(provider_key, result)
+        end
+
+        :ok
+    end
+  end
+
+  defp validation_fields(:ok), do: {"connected", "ok"}
+
+  defp validation_fields({:error, reason}),
+    do: {"error", "error: #{format_validation_reason(reason)}"}
+
+  defp format_validation_reason(reason) when is_binary(reason), do: reason
+
+  defp format_validation_reason({:refresh_failed, status}),
+    do: "Token refresh failed (HTTP #{status})"
+
+  defp format_validation_reason(:token_refresh_failed), do: "Token refresh failed"
+  defp format_validation_reason(reason), do: inspect(reason)
+
+  defp record_refresh_failure(provider_key, reason) do
+    reason_text = format_validation_reason(reason)
+    record_validation(provider_key, {:error, reason_text}, nil)
+
+    log_activity(
+      "integration.token_refresh_failed",
+      provider_key,
+      %{"reason" => reason_text},
+      "auto",
+      nil
+    )
+  end
+
+  defp maybe_record_recovery(provider_key) do
+    case Settings.get_json_setting(settings_key(provider_key), nil) do
+      %{"status" => "error"} ->
+        record_validation(provider_key, :ok, nil)
+        log_activity("integration.auto_recovered", provider_key, %{}, "auto", nil)
+
+      _ ->
+        :ok
     end
   end
 
