@@ -529,7 +529,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V96 - Catalogue items linked directly to catalogues ⚡ LATEST
+  ### V98 - Storage dimension alternative formats ⚡ LATEST
+  - Adds `alternative_formats` (`text[]`) to `phoenix_kit_storage_dimensions`
+  - Enables multi-format variant generation (e.g., WebP + AVIF alongside JPEG)
+
+  ### V97 - Per-item markup override ⚡ LATEST
+  - Adds nullable `markup_percentage DECIMAL(7, 2)` column on
+    `phoenix_kit_cat_items`
+  - `NULL` = inherit the catalogue's markup (existing behavior);
+    any set value (including `0`) overrides the catalogue's markup
+  - No backfill — existing rows stay `NULL` and continue to inherit
+
+  ### V96 - Catalogue items linked directly to catalogues
   - Adds nullable `catalogue_uuid` FK on `phoenix_kit_cat_items` so items can
     belong to a catalogue independently of having a category
   - Backfills existing items from their category's catalogue_uuid
@@ -713,7 +724,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 96
+  @current_version 98
   @default_prefix "public"
 
   @doc false

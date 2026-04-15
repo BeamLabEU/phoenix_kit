@@ -85,37 +85,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   defp apply_nav_params(socket, params) do
-    folder_uuid = params[:folder]
     q = params[:q] || ""
     page = params[:page] || 1
     filter_orphaned = params[:filter_orphaned] || false
+    file_view = params[:view]
     scope = scope_folder_id(socket)
     per_page = socket.assigns.per_page
 
     {current_folder, breadcrumbs, folders, scoped_fallback?} =
-      if folder_uuid in [nil, ""] do
-        {nil, [], Storage.list_folders(nil, scope), false}
-      else
-        folder = Storage.get_folder(folder_uuid)
-
-        if folder && Storage.within_scope?(folder.uuid, scope) do
-          bc = Storage.folder_breadcrumbs(folder.uuid, scope)
-          flds = Storage.list_folders(folder.uuid, scope)
-          {folder, bc, flds, false}
-        else
-          # Folder not found or outside scope — fall back to scope root.
-          {nil, [], Storage.list_folders(nil, scope), not is_nil(folder_uuid)}
-        end
-      end
+      resolve_folder(params[:folder], scope)
 
     actual_uuid = current_folder && current_folder.uuid
 
     {files, total_count} =
-      if filter_orphaned do
-        load_orphaned_files(page, per_page)
-      else
-        load_scoped_files(scope, page, per_page, actual_uuid, q)
-      end
+      load_nav_files(scope, page, per_page, q, actual_uuid, filter_orphaned, file_view)
 
     orphaned_count =
       if filter_orphaned,
@@ -125,10 +108,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     socket
     |> assign(:current_folder, current_folder)
     |> assign(:breadcrumbs, breadcrumbs)
-    |> assign(:folders, folders)
+    |> assign(:folders, if(file_view == "all", do: [], else: folders))
     |> assign(:search_query, q)
     |> assign(:current_page, page)
     |> assign(:filter_orphaned, filter_orphaned)
+    |> assign(:file_view, file_view)
     |> assign(:orphaned_count, orphaned_count)
     |> assign(:uploaded_files, files)
     |> assign(:total_count, total_count)
@@ -140,6 +124,31 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       )
     )
     |> auto_expand_breadcrumbs(breadcrumbs)
+  end
+
+  defp resolve_folder(folder_uuid, scope) do
+    if folder_uuid in [nil, ""] do
+      {nil, [], Storage.list_folders(nil, scope), false}
+    else
+      folder = Storage.get_folder(folder_uuid)
+
+      if folder && Storage.within_scope?(folder.uuid, scope) do
+        bc = Storage.folder_breadcrumbs(folder.uuid, scope)
+        flds = Storage.list_folders(folder.uuid, scope)
+        {folder, bc, flds, false}
+      else
+        # Folder not found or outside scope — fall back to scope root.
+        {nil, [], Storage.list_folders(nil, scope), not is_nil(folder_uuid)}
+      end
+    end
+  end
+
+  defp load_nav_files(scope, page, per_page, q, actual_uuid, filter_orphaned, file_view) do
+    cond do
+      filter_orphaned -> load_orphaned_files(page, per_page)
+      file_view == "all" -> load_all_view_files(scope, page, per_page, q)
+      true -> load_scoped_files(scope, page, per_page, actual_uuid, q)
+    end
   end
 
   defp init_socket(socket) do
@@ -156,6 +165,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:show_upload, false)
     |> assign(:last_uploaded_file_uuids, [])
     |> assign(:filter_orphaned, false)
+    |> assign(:file_view, nil)
     |> assign(
       :orphaned_count,
       if(scope_invalid, do: 0, else: Storage.count_orphaned_files(scope))
@@ -521,7 +531,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       send(
         self(),
-        {__MODULE__, socket.assigns.id, {:navigate, %{folder: folder_uuid, q: query, page: 1}}}
+        {__MODULE__, socket.assigns.id,
+         {:navigate, %{folder: folder_uuid, q: query, page: 1, view: socket.assigns.file_view}}}
       )
 
       {:noreply, socket}
@@ -529,15 +540,26 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       folder_uuid = current_folder_uuid(socket)
       per_page = socket.assigns.per_page
       scope = scope_folder_id(socket)
-      {files, total_count} = load_scoped_files(scope, 1, per_page, folder_uuid, query)
+      file_view = socket.assigns.file_view
+
+      {files, total_count} =
+        if file_view == "all" do
+          load_all_view_files(scope, 1, per_page, query)
+        else
+          load_scoped_files(scope, 1, per_page, folder_uuid, query)
+        end
+
+      folders =
+        cond do
+          file_view == "all" -> []
+          query != "" -> []
+          true -> Storage.list_folders(folder_uuid, scope)
+        end
 
       {:noreply,
        socket
        |> assign(:search_query, query)
-       |> assign(
-         :folders,
-         if(query == "", do: Storage.list_folders(folder_uuid, scope), else: [])
-       )
+       |> assign(:folders, folders)
        |> assign(:uploaded_files, files)
        |> assign(:current_page, 1)
        |> assign(:total_count, total_count)
@@ -551,7 +573,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       send(
         self(),
-        {__MODULE__, socket.assigns.id, {:navigate, %{folder: folder_uuid, q: "", page: 1}}}
+        {__MODULE__, socket.assigns.id,
+         {:navigate, %{folder: folder_uuid, q: "", page: 1, view: socket.assigns.file_view}}}
       )
 
       {:noreply, socket}
@@ -559,12 +582,24 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       folder_uuid = current_folder_uuid(socket)
       per_page = socket.assigns.per_page
       scope = scope_folder_id(socket)
-      {files, total_count} = load_scoped_files(scope, 1, per_page, folder_uuid, "")
+      file_view = socket.assigns.file_view
+
+      {files, total_count} =
+        if file_view == "all" do
+          load_all_view_files(scope, 1, per_page, "")
+        else
+          load_scoped_files(scope, 1, per_page, folder_uuid, "")
+        end
+
+      folders =
+        if file_view == "all",
+          do: [],
+          else: Storage.list_folders(folder_uuid, scope)
 
       {:noreply,
        socket
        |> assign(:search_query, "")
-       |> assign(:folders, Storage.list_folders(folder_uuid, scope))
+       |> assign(:folders, folders)
        |> assign(:uploaded_files, files)
        |> assign(:current_page, 1)
        |> assign(:total_count, total_count)
@@ -581,6 +616,37 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   def handle_event("navigate_root", _params, socket) do
     navigate_to_folder(socket, nil)
+  end
+
+  def handle_event("navigate_view_all", _params, socket) do
+    if controlled_mode?(socket) do
+      q = socket.assigns.search_query
+
+      send(
+        self(),
+        {__MODULE__, socket.assigns.id,
+         {:navigate, %{view: "all", folder: nil, q: q, page: 1, filter_orphaned: false}}}
+      )
+
+      {:noreply, socket}
+    else
+      scope = scope_folder_id(socket)
+      per_page = socket.assigns.per_page
+      q = socket.assigns.search_query
+      {files, total_count} = load_all_view_files(scope, 1, per_page, q)
+
+      {:noreply,
+       socket
+       |> assign(:file_view, "all")
+       |> assign(:current_folder, nil)
+       |> assign(:breadcrumbs, [])
+       |> assign(:folders, [])
+       |> assign(:filter_orphaned, false)
+       |> assign(:uploaded_files, files)
+       |> assign(:current_page, 1)
+       |> assign(:total_count, total_count)
+       |> assign(:total_pages, ceil(total_count / per_page))}
+    end
   end
 
   def handle_event("set_view_mode", %{"mode" => mode}, socket) when mode in ["grid", "list"] do
@@ -837,7 +903,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       send(
         self(),
         {__MODULE__, socket.assigns.id,
-         {:navigate, %{folder: folder_uuid, q: q, page: 1, filter_orphaned: filter_orphaned}}}
+         {:navigate,
+          %{folder: folder_uuid, q: q, page: 1, filter_orphaned: filter_orphaned, view: nil}}}
       )
 
       {:noreply, socket}
@@ -901,10 +968,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if controlled_mode?(socket) do
       folder_uuid = current_folder_uuid(socket)
       q = socket.assigns.search_query
+      file_view = socket.assigns.file_view
 
       send(
         self(),
-        {__MODULE__, socket.assigns.id, {:navigate, %{folder: folder_uuid, q: q, page: page}}}
+        {__MODULE__, socket.assigns.id,
+         {:navigate, %{folder: folder_uuid, q: q, page: page, view: file_view}}}
       )
 
       {:noreply, socket}
@@ -913,12 +982,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       per_page = socket.assigns.per_page
       search = socket.assigns.search_query
       scope = scope_folder_id(socket)
+      file_view = socket.assigns.file_view
 
       {files, total_count} =
-        if socket.assigns.filter_orphaned do
-          load_orphaned_files(page, per_page)
-        else
-          load_scoped_files(scope, page, per_page, folder_uuid, search)
+        cond do
+          socket.assigns.filter_orphaned -> load_orphaned_files(page, per_page)
+          file_view == "all" -> load_all_view_files(scope, page, per_page, search)
+          true -> load_scoped_files(scope, page, per_page, folder_uuid, search)
         end
 
       {:noreply,
@@ -945,6 +1015,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       {:noreply,
        socket
+       |> assign(:file_view, nil)
        |> assign(:current_folder, nil)
        |> assign(:breadcrumbs, [])
        |> assign(:folders, Storage.list_folders(nil, scope))
@@ -975,6 +1046,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       {:noreply,
        socket
+       |> assign(:file_view, nil)
        |> assign(:current_folder, current_folder)
        |> assign(:breadcrumbs, breadcrumbs)
        |> assign(:folders, folders)
@@ -993,12 +1065,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     per_page = socket.assigns.per_page
     search = socket.assigns.search_query
     scope = scope_folder_id(socket)
+    file_view = socket.assigns[:file_view]
 
     {files, total_count} =
-      if socket.assigns.filter_orphaned do
-        load_orphaned_files(page, per_page)
-      else
-        load_scoped_files(scope, page, per_page, folder_uuid, search)
+      cond do
+        socket.assigns.filter_orphaned -> load_orphaned_files(page, per_page)
+        file_view == "all" -> load_all_view_files(scope, page, per_page, search)
+        true -> load_scoped_files(scope, page, per_page, folder_uuid, search)
       end
 
     socket
@@ -1069,6 +1142,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     opts = if search && search != "", do: [{:search, search} | opts], else: opts
     opts = if at_real_root, do: [{:include_orphaned, true} | opts], else: opts
+
+    case Storage.list_files_in_scope(scope, opts) do
+      {:error, :out_of_scope} -> {[], 0}
+      {files, total_count} -> {enrich_files(files), total_count}
+    end
+  end
+
+  # Loads ALL files in the system (or within scope subtree when scope is set).
+  # Used for the view=all flat listing. Does not apply folder or orphan filters.
+  defp load_all_view_files(scope, page, per_page, search) do
+    opts = [page: page, per_page: per_page]
+    opts = if search && search != "", do: [{:search, search} | opts], else: opts
 
     case Storage.list_files_in_scope(scope, opts) do
       {:error, :out_of_scope} -> {[], 0}

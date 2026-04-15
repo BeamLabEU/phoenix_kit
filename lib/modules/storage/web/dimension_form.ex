@@ -41,13 +41,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   end
 
   def handle_event("validate", %{"dimension" => dimension_params}, socket) do
-    # Convert maintain_aspect_ratio string to boolean
-    dimension_params =
-      case dimension_params["maintain_aspect_ratio"] do
-        "true" -> Map.put(dimension_params, "maintain_aspect_ratio", true)
-        "false" -> Map.put(dimension_params, "maintain_aspect_ratio", false)
-        _ -> dimension_params
-      end
+    dimension_params = normalize_dimension_params(dimension_params)
 
     changeset =
       case socket.assigns.mode do
@@ -62,18 +56,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     socket =
       socket
       |> assign(:changeset, changeset)
+      |> assign_format_fields(changeset)
 
     {:noreply, socket}
   end
 
   def handle_event("save", %{"dimension" => dimension_params}, socket) do
-    # Convert maintain_aspect_ratio string to boolean
-    dimension_params =
-      case dimension_params["maintain_aspect_ratio"] do
-        "true" -> Map.put(dimension_params, "maintain_aspect_ratio", true)
-        "false" -> Map.put(dimension_params, "maintain_aspect_ratio", false)
-        _ -> dimension_params
-      end
+    dimension_params = normalize_dimension_params(dimension_params)
 
     case socket.assigns.mode do
       :new -> create_dimension(socket, dimension_params)
@@ -144,6 +133,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     |> assign(:changeset, changeset)
     |> assign(:page_title, page_title_with_type(:new, dimension_type))
     |> assign(:form_action, page_title_with_type(:new, dimension_type))
+    |> assign_format_fields(changeset)
   end
 
   defp assign_form(%{assigns: %{mode: :edit, dimension: dimension}} = socket) do
@@ -155,6 +145,31 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     |> assign(:dimension_type, dimension_type)
     |> assign(:page_title, "Edit Storage Dimension")
     |> assign(:form_action, "Update Dimension")
+    |> assign_format_fields(changeset)
+  end
+
+  defp assign_format_fields(socket, changeset) do
+    socket
+    |> assign(
+      :current_alternatives,
+      Ecto.Changeset.get_field(changeset, :alternative_formats) || []
+    )
+    |> assign(:primary_format, Ecto.Changeset.get_field(changeset, :format))
+  end
+
+  defp normalize_dimension_params(params) do
+    params
+    |> then(fn p ->
+      case p["maintain_aspect_ratio"] do
+        "true" -> Map.put(p, "maintain_aspect_ratio", true)
+        "false" -> Map.put(p, "maintain_aspect_ratio", false)
+        _ -> p
+      end
+    end)
+    |> then(fn p ->
+      alt = p["alternative_formats"] || []
+      Map.put(p, "alternative_formats", Enum.reject(alt, &(&1 == "")))
+    end)
   end
 
   defp page_title_with_type(:new, "image"), do: "Add Image Dimension"

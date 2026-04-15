@@ -246,5 +246,50 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
 
       assert html =~ "media-browser"
     end
+
+    test "?view=all deep link is accepted (page loads without error)", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, @media_path <> "?view=all")
+
+      assert html =~ "media-browser"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # URL sync — view=all navigate event
+  # ---------------------------------------------------------------------------
+
+  describe "URL sync for view=all" do
+    test "navigate event with view=all appends ?view=all to URL", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path)
+
+      send(
+        view.pid,
+        {PhoenixKitWeb.Components.MediaBrowser, "media-browser",
+         {:navigate, %{folder: nil, q: "", page: 1, filter_orphaned: false, view: "all"}}}
+      )
+
+      assert_patch(view, @media_path <> "?view=all")
+    end
+
+    test "navigate event with view=nil omits view param", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?view=all")
+
+      send(
+        view.pid,
+        {PhoenixKitWeb.Components.MediaBrowser, "media-browser",
+         {:navigate, %{folder: nil, q: "", page: 1, filter_orphaned: false, view: nil}}}
+      )
+
+      assert_patch(view, @media_path)
+    end
   end
 end

@@ -42,10 +42,17 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         end
 
       filter_orphaned = params["orphaned"] == "1"
+      view = params["view"]
 
       send_update(PhoenixKitWeb.Components.MediaBrowser,
         id: "media-browser",
-        nav_params: %{folder: folder, q: q, page: page, filter_orphaned: filter_orphaned}
+        nav_params: %{
+          folder: folder,
+          q: q,
+          page: page,
+          filter_orphaned: filter_orphaned,
+          view: view
+        }
       )
     end
 
@@ -60,6 +67,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     q = params[:q] || ""
     page = params[:page] || 1
     filter_orphaned = params[:filter_orphaned] || false
+    view = params[:view]
     base = Routes.path("/admin/media")
 
     qs =
@@ -68,6 +76,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> then(&if q != "", do: Map.put(&1, "q", q), else: &1)
       |> then(&if page > 1, do: Map.put(&1, "page", page), else: &1)
       |> then(&if filter_orphaned, do: Map.put(&1, "orphaned", "1"), else: &1)
+      |> then(&if view == "all", do: Map.put(&1, "view", "all"), else: &1)
 
     url = if qs == %{}, do: base, else: base <> "?" <> URI.encode_query(qs)
     {:noreply, push_patch(socket, to: url)}

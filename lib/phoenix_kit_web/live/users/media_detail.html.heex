@@ -71,11 +71,11 @@
         </div>
 
         <%!-- Right: Info Panel (1/4) --%>
-        <div class="flex-1 flex flex-col gap-4 overflow-y-auto">
+        <div class="flex-1 flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-w-0">
           <%!-- File Title Card --%>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body p-4">
-              <h2 class="card-title text-lg break-words">{@file_data.filename}</h2>
+              <h2 class="text-lg font-bold break-all">{@file_data.filename}</h2>
               <div class="flex gap-2 mt-2">
                 <span class={[
                   "badge",
@@ -102,7 +102,7 @@
           </div>
 
           <%!-- Metadata Card --%>
-          <div class="card bg-base-100 shadow-xl">
+          <div class="card bg-base-100 shadow-xl min-w-0">
             <div class="card-body p-4">
               <div class="flex justify-between items-center mb-3">
                 <h3 class="font-semibold text-sm">Metadata</h3>
@@ -171,7 +171,7 @@
                 <div class="space-y-2 text-xs">
                   <div>
                     <span class="font-semibold text-base-content/70">Title:</span>
-                    <p class="text-base-content mt-1">
+                    <p class="text-base-content mt-1 break-all">
                       <%= if String.length(@file_data.title) > 0 do %>
                         {@file_data.title}
                       <% else %>
@@ -182,7 +182,7 @@
 
                   <div>
                     <span class="font-semibold text-base-content/70">Description:</span>
-                    <p class="text-base-content mt-1">
+                    <p class="text-base-content mt-1 break-all">
                       <%= if String.length(@file_data.description) > 0 do %>
                         {@file_data.description}
                       <% else %>
@@ -331,7 +331,17 @@
                       ]}
                     >
                       <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-                      {String.capitalize(variant)}
+                      <span class="flex-1 text-left">{String.capitalize(variant)}</span>
+                      <%= if info = @file_data.variant_dimensions[variant] do %>
+                        <span class="text-xs opacity-60">
+                          <%= if info.dimensions do %>
+                            {elem(info.dimensions, 0)}x{elem(info.dimensions, 1)}
+                          <% end %>
+                          <%= if info.size do %>
+                            · {format_file_size(info.size)}
+                          <% end %>
+                        </span>
+                      <% end %>
                     </a>
                   <% end %>
                 </div>

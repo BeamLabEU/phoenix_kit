@@ -2104,6 +2104,44 @@ if (typeof window.Chart === "undefined") {
       });
     }
   };
+
+  // ============================================================================
+  // MAINTENANCE COUNTDOWN HOOK
+  // ============================================================================
+  // Powers the "Expected back in Xh Ym Zs" countdown on the maintenance page.
+  // Reads the scheduled end time from data-end (ISO 8601), updates #countdown-value
+  // every second, and shows the value from data-elapsed-text (translatable) when
+  // the countdown reaches zero.
+
+  window.PhoenixKitHooks.MaintenanceCountdown = {
+    mounted() {
+      this.endTime = new Date(this.el.dataset.end).getTime();
+      this.timerEl = this.el.querySelector("#countdown-value");
+      this.elapsedText = this.el.dataset.elapsedText || "";
+      this.tick();
+      this.interval = setInterval(() => this.tick(), 1000);
+    },
+    tick() {
+      var diff = Math.max(0, Math.floor((this.endTime - Date.now()) / 1000));
+      if (diff <= 0) {
+        clearInterval(this.interval);
+        if (this.timerEl) this.timerEl.textContent = this.elapsedText;
+        return;
+      }
+      var h = Math.floor(diff / 3600);
+      var m = Math.floor((diff % 3600) / 60);
+      var s = diff % 60;
+      var text = "";
+      if (h > 0) text += h + "h ";
+      if (h > 0 || m > 0) text += m + "m ";
+      text += s + "s";
+      if (this.timerEl) this.timerEl.textContent = text;
+    },
+    destroyed() {
+      if (this.interval) clearInterval(this.interval);
+    }
+  };
+
   // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================

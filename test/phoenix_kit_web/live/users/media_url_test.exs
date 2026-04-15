@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaUrlTest do
     q = params[:q] || ""
     page = params[:page] || 1
     filter_orphaned = params[:filter_orphaned] || false
+    view = params[:view]
 
     qs =
       %{}
@@ -18,6 +19,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaUrlTest do
       |> then(&if q != "", do: Map.put(&1, "q", q), else: &1)
       |> then(&if page > 1, do: Map.put(&1, "page", page), else: &1)
       |> then(&if filter_orphaned, do: Map.put(&1, "orphaned", "1"), else: &1)
+      |> then(&if view == "all", do: Map.put(&1, "view", "all"), else: &1)
 
     if qs == %{}, do: base, else: base <> "?" <> URI.encode_query(qs)
   end
@@ -92,6 +94,35 @@ defmodule PhoenixKitWeb.Live.Users.MediaUrlTest do
     test "nil folder omitted" do
       url = build_url(%{folder: nil})
       refute url =~ "folder"
+    end
+
+    test "view=all appended when view is \"all\"" do
+      url = build_url(%{view: "all"})
+      assert url =~ "view=all"
+    end
+
+    test "view omitted when nil" do
+      url = build_url(%{view: nil})
+      refute url =~ "view"
+    end
+
+    test "view=all combined with search and page" do
+      url = build_url(%{view: "all", q: "photo", page: 2})
+      assert url =~ "view=all"
+      assert url =~ "q=photo"
+      assert url =~ "page=2"
+    end
+
+    test "view=all preserved when search query is set" do
+      url = build_url(%{view: "all", q: "foo"})
+      assert url =~ "view=all"
+      assert url =~ "q=foo"
+    end
+
+    test "view=all preserved when search query is empty" do
+      url = build_url(%{view: "all", q: ""})
+      assert url =~ "view=all"
+      refute url =~ "q="
     end
   end
 

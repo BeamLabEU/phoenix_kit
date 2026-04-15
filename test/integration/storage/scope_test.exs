@@ -485,6 +485,29 @@ defmodule PhoenixKit.Integration.Storage.ScopeTest do
   end
 
   # ---------------------------------------------------------------------------
+  # UUID search in list_files_in_scope
+  # ---------------------------------------------------------------------------
+
+  describe "list_files_in_scope with UUID search" do
+    test "partial UUID prefix matches file" do
+      file = create_file!(nil)
+      prefix = String.slice(file.uuid, 0, 8)
+      {results, _count} = Storage.list_files_in_scope(nil, search: prefix)
+      uuids = Enum.map(results, & &1.uuid)
+      assert file.uuid in uuids
+    end
+
+    test "non-matching UUID prefix returns no results for that file" do
+      file = create_file!(nil)
+      # Overwrite all hex digits to guarantee no match
+      bogus = String.replace(file.uuid, ~r/[0-9a-f]/, "z")
+      {results, _count} = Storage.list_files_in_scope(nil, search: bogus)
+      uuids = Enum.map(results, & &1.uuid)
+      refute file.uuid in uuids
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
 
