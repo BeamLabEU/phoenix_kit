@@ -876,15 +876,40 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
-  @doc "Lists folders within a parent folder (nil = root)."
-  def list_folders(parent_uuid \\ nil)
+  @doc """
+  Returns folder tree rooted at scope_folder_id (exclusive of scope itself).
+  For nil scope, returns the real-root tree.
+  """
+  def list_folder_tree(scope_folder_id \\ nil) do
+    all_folders = list_all_folders()
+    by_parent = Enum.group_by(all_folders, & &1.parent_uuid)
 
-  def list_folders(nil) do
+    if scope_folder_id do
+      build_tree_nodes(by_parent, scope_folder_id)
+    else
+      build_tree_nodes(by_parent, nil)
+    end
+  end
+
+  @doc """
+  Lists folders within a parent folder (nil = root).
+
+  When parent_uuid is nil and scope_folder_id is set, returns children of
+  scope_folder_id instead of real root.
+  """
+  def list_folders(parent_uuid \\ nil, scope_folder_id \\ nil)
+
+  def list_folders(nil, nil) do
     from(f in Folder, where: is_nil(f.parent_uuid), order_by: [asc: f.name])
     |> repo().all()
   end
 
-  def list_folders(parent_uuid) do
+  def list_folders(nil, scope_folder_id) do
+    from(f in Folder, where: f.parent_uuid == ^scope_folder_id, order_by: [asc: f.name])
+    |> repo().all()
+  end
+
+  def list_folders(parent_uuid, _scope_folder_id) do
     from(f in Folder, where: f.parent_uuid == ^parent_uuid, order_by: [asc: f.name])
     |> repo().all()
   end
@@ -893,15 +918,46 @@ defmodule PhoenixKit.Modules.Storage do
   def get_folder(nil), do: nil
   def get_folder(uuid), do: repo().get(Folder, uuid)
 
-  @doc "Creates a new folder."
-  def create_folder(attrs) do
+  @doc """
+  Creates a new folder.
+
+  When scope_folder_id is set:
+  - If attrs.parent_uuid is outside scope, returns `{:error, :out_of_scope}`.
+  - If attrs.parent_uuid is nil, rewrites to scope_folder_id (new folder at scope root).
+  """
+  def create_folder(attrs, scope_folder_id \\ nil)
+
+  def create_folder(attrs, nil) do
     %Folder{}
     |> Folder.changeset(attrs)
     |> repo().insert()
   end
 
-  @doc "Updates a folder (rename, move). Returns `{:error, :cycle}` if the move would create a circular reference."
-  def update_folder(%Folder{} = folder, attrs) do
+  def create_folder(attrs, scope_folder_id) do
+    parent_uuid = attrs[:parent_uuid] || attrs["parent_uuid"]
+
+    cond do
+      is_nil(parent_uuid) ->
+        attrs = Map.put(attrs, :parent_uuid, scope_folder_id)
+        %Folder{} |> Folder.changeset(attrs) |> repo().insert()
+
+      within_scope?(parent_uuid, scope_folder_id) ->
+        %Folder{} |> Folder.changeset(attrs) |> repo().insert()
+
+      true ->
+        {:error, :out_of_scope}
+    end
+  end
+
+  @doc """
+  Updates a folder (rename, color change, move).
+
+  Returns `{:error, :cycle}` if the move would create a circular reference.
+  Returns `{:error, :out_of_scope}` if the folder or new parent is outside scope.
+  """
+  def update_folder(folder, attrs, scope_folder_id \\ nil)
+
+  def update_folder(%Folder{} = folder, attrs, nil) do
     new_parent = attrs[:parent_uuid] || attrs["parent_uuid"]
 
     if new_parent && new_parent != folder.parent_uuid && ancestor_of?(folder.uuid, new_parent) do
@@ -913,13 +969,49 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
+  def update_folder(%Folder{} = folder, attrs, scope_folder_id) do
+    if within_scope?(folder.uuid, scope_folder_id) do
+      new_parent = attrs[:parent_uuid] || attrs["parent_uuid"]
+
+      cond do
+        new_parent && not within_scope?(new_parent, scope_folder_id) ->
+          {:error, :out_of_scope}
+
+        new_parent && new_parent != folder.parent_uuid && ancestor_of?(folder.uuid, new_parent) ->
+          {:error, :cycle}
+
+        true ->
+          folder
+          |> Folder.changeset(attrs)
+          |> repo().update()
+      end
+    else
+      {:error, :out_of_scope}
+    end
+  end
+
   @doc """
   Deletes a folder.
 
   Moves child folders and home files to the deleted folder's parent.
   Folder links are cascade-deleted by the database FK.
+  Returns `{:error, :out_of_scope}` if the folder is outside scope.
   """
-  def delete_folder(%Folder{} = folder) do
+  def delete_folder(folder, scope_folder_id \\ nil)
+
+  def delete_folder(%Folder{} = folder, scope_folder_id) when not is_nil(scope_folder_id) do
+    if within_scope?(folder.uuid, scope_folder_id) do
+      do_delete_folder(folder)
+    else
+      {:error, :out_of_scope}
+    end
+  end
+
+  def delete_folder(%Folder{} = folder, nil) do
+    do_delete_folder(folder)
+  end
+
+  defp do_delete_folder(%Folder{} = folder) do
     repo().transaction(fn ->
       # Move child folders to parent
       from(f in Folder, where: f.parent_uuid == ^folder.uuid)
@@ -937,16 +1029,35 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
-  @doc "Returns the ancestor chain from root to the given folder (for breadcrumbs)."
-  def folder_breadcrumbs(folder_uuid), do: folder_breadcrumbs(folder_uuid, 50)
+  @doc """
+  Returns the ancestor chain from root to the given folder (for breadcrumbs).
 
-  defp folder_breadcrumbs(nil, _limit), do: []
-  defp folder_breadcrumbs(_uuid, 0), do: []
+  When scope_folder_id is set, the chain stops before scope (scope itself not included —
+  it is the virtual root).
+  """
+  def folder_breadcrumbs(folder_uuid, scope_folder_id \\ nil)
 
-  defp folder_breadcrumbs(folder_uuid, limit) do
+  def folder_breadcrumbs(folder_uuid, nil) do
+    do_folder_breadcrumbs(folder_uuid, 50)
+  end
+
+  def folder_breadcrumbs(folder_uuid, scope_folder_id) do
+    folder_uuid
+    |> do_folder_breadcrumbs(50)
+    |> Enum.drop_while(fn f -> f.uuid != scope_folder_id end)
+    |> case do
+      [] -> []
+      [_ | rest] -> rest
+    end
+  end
+
+  defp do_folder_breadcrumbs(nil, _limit), do: []
+  defp do_folder_breadcrumbs(_uuid, 0), do: []
+
+  defp do_folder_breadcrumbs(folder_uuid, limit) do
     case get_folder(folder_uuid) do
       nil -> []
-      folder -> folder_breadcrumbs(folder.parent_uuid, limit - 1) ++ [folder]
+      folder -> do_folder_breadcrumbs(folder.parent_uuid, limit - 1) ++ [folder]
     end
   end
 
@@ -967,6 +1078,19 @@ defmodule PhoenixKit.Modules.Storage do
       target -> ancestor_of?(folder_uuid, target.parent_uuid, limit - 1)
     end
   end
+
+  @doc """
+  Returns true if folder_uuid is within the given scope.
+
+  - When scope_folder_id is nil, always returns true (no scope restriction).
+  - When folder_uuid equals scope_folder_id, returns true (scope is the virtual root).
+  - When scope_folder_id is an ancestor of folder_uuid, returns true (folder is a descendant).
+  - Returns false otherwise, including when folder_uuid is nil and scope is set
+    (real root is outside any non-nil scope).
+  """
+  def within_scope?(_folder_uuid, nil), do: true
+  def within_scope?(folder_uuid, scope_folder_id) when folder_uuid == scope_folder_id, do: true
+  def within_scope?(folder_uuid, scope_folder_id), do: ancestor_of?(scope_folder_id, folder_uuid)
 
   @doc "Counts files in a folder (home files + linked files)."
   def count_folder_contents(nil) do
@@ -992,24 +1116,171 @@ defmodule PhoenixKit.Modules.Storage do
     (home || 0) + (links || 0)
   end
 
+  @doc """
+  Lists files within the given scope with optional folder filter, search, and pagination.
+
+  ## Options
+    - `:folder_uuid` — specific folder within scope; returns `{:error, :out_of_scope}` if outside.
+    - `:search` — ilike search on original_file_name; restricted to scope descendants when scope set.
+    - `:include_orphaned` — boolean (default false); only meaningful when scope is nil.
+      When true, returns only files with folder_uuid IS NULL.
+      `include_orphaned: true` is ignored when `scope_folder_id` is non-nil (orphans are always outside any scope).
+    - `:page` — page number (default 1).
+    - `:per_page` — page size (default 20).
+
+  ## Returns
+    `{files, total_count}` or `{:error, :out_of_scope}`.
+
+  When `scope_folder_id == nil` and no `folder_uuid` is specified, ALL files are returned (not
+  just orphans). To fetch orphans only at real root, pass `include_orphaned: true` AND use a
+  dedicated orphan-only branch. Task 4 callers must preserve the current `/admin/media` behavior
+  (list orphans only when `filter_orphaned` is on) via a separate code path.
+  """
+  def list_files_in_scope(scope_folder_id, opts \\ []) do
+    folder_uuid = opts[:folder_uuid]
+    search = opts[:search]
+    include_orphaned = Keyword.get(opts, :include_orphaned, false)
+    page = Keyword.get(opts, :page, 1)
+    per_page = Keyword.get(opts, :per_page, 20)
+
+    if not is_nil(folder_uuid) and not is_nil(scope_folder_id) and
+         not within_scope?(folder_uuid, scope_folder_id) do
+      {:error, :out_of_scope}
+    else
+      query = build_scope_file_query(scope_folder_id, folder_uuid, search, include_orphaned)
+      total = repo().aggregate(query, :count, :uuid)
+
+      files =
+        query
+        |> order_by([f], desc: f.inserted_at)
+        |> offset(^((page - 1) * per_page))
+        |> limit(^per_page)
+        |> repo().all()
+
+      {files, total}
+    end
+  end
+
+  defp build_scope_file_query(nil, nil, nil, false) do
+    from(f in PhoenixKit.Modules.Storage.File)
+  end
+
+  defp build_scope_file_query(nil, nil, nil, true) do
+    from(f in PhoenixKit.Modules.Storage.File, where: is_nil(f.folder_uuid))
+  end
+
+  defp build_scope_file_query(nil, folder_uuid, search, _orphaned) when not is_nil(folder_uuid) do
+    from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder_uuid)
+    |> apply_file_search(search)
+  end
+
+  defp build_scope_file_query(nil, nil, search, _orphaned) when not is_nil(search) do
+    from(f in PhoenixKit.Modules.Storage.File)
+    |> apply_file_search(search)
+  end
+
+  defp build_scope_file_query(scope_folder_id, folder_uuid, search, _orphaned) do
+    if folder_uuid do
+      # Specific folder already validated within scope — no CTE needed
+      from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder_uuid)
+    else
+      # Use recursive CTE to find all descendant folders of scope (including scope itself)
+      cte_base =
+        from(f in Folder,
+          where: f.uuid == ^scope_folder_id,
+          select: %{uuid: f.uuid}
+        )
+
+      cte_recursive =
+        from(f in Folder,
+          join: d in "scope_descendants",
+          on: f.parent_uuid == d.uuid,
+          select: %{uuid: f.uuid}
+        )
+
+      cte = union_all(cte_base, ^cte_recursive)
+
+      from(f in PhoenixKit.Modules.Storage.File,
+        join: d in "scope_descendants",
+        on: f.folder_uuid == d.uuid,
+        select: f
+      )
+      |> recursive_ctes(true)
+      |> with_cte("scope_descendants", as: ^cte)
+    end
+    |> apply_file_search(search)
+  end
+
+  defp apply_file_search(query, nil), do: query
+  defp apply_file_search(query, ""), do: query
+
+  defp apply_file_search(query, search) do
+    term = "%#{search}%"
+    where(query, [f], ilike(f.original_file_name, ^term))
+  end
+
   @doc "Moves a file's home folder."
-  def move_file_to_folder(file_uuid, folder_uuid) do
+  def move_file_to_folder(file_uuid, target_folder_uuid, scope_folder_id \\ nil)
+
+  def move_file_to_folder(file_uuid, target_folder_uuid, nil) do
     file = repo().get(PhoenixKit.Modules.Storage.File, file_uuid)
 
     if file do
       file
-      |> Ecto.Changeset.change(%{folder_uuid: folder_uuid})
+      |> Ecto.Changeset.change(%{folder_uuid: target_folder_uuid})
       |> repo().update()
     else
       {:error, :not_found}
     end
   end
 
+  def move_file_to_folder(file_uuid, target_folder_uuid, scope_folder_id) do
+    file = repo().get(PhoenixKit.Modules.Storage.File, file_uuid)
+
+    cond do
+      is_nil(file) ->
+        {:error, :not_found}
+
+      not within_scope?(file.folder_uuid, scope_folder_id) ->
+        {:error, :out_of_scope}
+
+      not within_scope?(target_folder_uuid, scope_folder_id) ->
+        {:error, :out_of_scope}
+
+      true ->
+        file
+        |> Ecto.Changeset.change(%{folder_uuid: target_folder_uuid})
+        |> repo().update()
+    end
+  end
+
   @doc "Creates a link (shortcut) of a file in a folder."
-  def create_folder_link(folder_uuid, file_uuid) do
+  def create_folder_link(folder_uuid, file_uuid, scope_folder_id \\ nil)
+
+  def create_folder_link(folder_uuid, file_uuid, nil) do
     %FolderLink{}
     |> FolderLink.changeset(%{folder_uuid: folder_uuid, file_uuid: file_uuid})
     |> repo().insert()
+  end
+
+  def create_folder_link(folder_uuid, file_uuid, scope_folder_id) do
+    file = repo().get(PhoenixKit.Modules.Storage.File, file_uuid)
+
+    cond do
+      not within_scope?(folder_uuid, scope_folder_id) ->
+        {:error, :out_of_scope}
+
+      is_nil(file) ->
+        {:error, :not_found}
+
+      not within_scope?(file.folder_uuid, scope_folder_id) ->
+        {:error, :out_of_scope}
+
+      true ->
+        %FolderLink{}
+        |> FolderLink.changeset(%{folder_uuid: folder_uuid, file_uuid: file_uuid})
+        |> repo().insert()
+    end
   end
 
   @doc "Removes a folder link."
@@ -1145,8 +1416,15 @@ defmodule PhoenixKit.Modules.Storage do
 
   @doc """
   Returns the count of orphaned files.
+
+  When scope_folder_id is set, returns 0 because orphaned files (folder_uuid IS NULL)
+  are always outside any non-nil scope.
   """
-  def count_orphaned_files do
+  def count_orphaned_files(scope_folder_id \\ nil)
+
+  def count_orphaned_files(scope_folder_id) when not is_nil(scope_folder_id), do: 0
+
+  def count_orphaned_files(nil) do
     orphaned_files_query()
     |> repo().aggregate(:count, :uuid)
   end
