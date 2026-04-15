@@ -39,7 +39,7 @@ socket =
   socket =
     socket
     |> assign(:show_sidebar, new_state)
-    |> put_session(:dashboard_sidebar_open, new_state)
+#    |> put_session(:dashboard_sidebar_open, new_state)
 
   {:noreply, socket}
 end

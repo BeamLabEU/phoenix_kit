@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V97 do
+defmodule PhoenixKit.Migrations.Postgres.V98 do
   @moduledoc """
-  V97: Add dashboard_widgets
+  V98: Add dashboard_widgets
   """
 
   use Ecto.Migration
@@ -39,7 +39,7 @@ defmodule PhoenixKit.Migrations.Postgres.V97 do
              name: :phoenix_kit_dashboard_widget_layouts_unique_index
            )
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_widget_layouts IS '97'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_widget_layouts IS '98'")
   end
 
   def down(opts) do
@@ -48,7 +48,7 @@ defmodule PhoenixKit.Migrations.Postgres.V97 do
 
     drop_if_exists(index(:phoenix_kit_dashboard_widget_layouts, [], prefix: prefix))
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_widget_layouts IS '97'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit_dashboard_widget_layouts IS '98'")
   end
 
   defp prefix_str("public"), do: ""
