@@ -668,33 +668,54 @@ defmodule PhoenixKit.Integrations do
   DB / broadcasts when something actually changed, avoiding write churn on the
   happy path.
   """
-  @spec record_validation(String.t(), :ok | {:error, term()}, String.t() | nil) :: :ok
-  def record_validation(provider_key, result, _actor_uuid \\ nil) do
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
+  @spec record_validation(String.t(), :ok | {:error, term()}) :: :ok
+  def record_validation(provider_key, result) do
     {new_status, validation_text} = validation_fields(result)
 
-    case Settings.get_json_setting(settings_key(provider_key), nil) do
+    case resolve_storage(provider_key) do
       nil ->
         Logger.debug(
-          "[Integrations] record_validation skipped — no integration at #{settings_key(provider_key)}"
+          "[Integrations] record_validation skipped — no integration for #{provider_key}"
         )
 
         :ok
 
-      data ->
+      {storage_key, data} ->
         if data["status"] != new_status or data["validation_status"] != validation_text do
           updated =
             Map.merge(data, %{
               "status" => new_status,
-              "last_validated_at" => now,
+              "last_validated_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
               "validation_status" => validation_text
             })
 
-          save_integration(provider_key, updated)
-          Events.broadcast_validated(provider_key, result)
+          case save_integration(storage_key, updated) do
+            {:ok, _} -> Events.broadcast_validated(storage_key, result)
+            _ -> :ok
+          end
         end
 
         :ok
+    end
+  end
+
+  # Accepts either a provider key ("google:default") or a settings-row UUID
+  # and returns `{storage_key, data}` where `storage_key` is always the
+  # provider-key form suitable for `save_integration/2`.
+  defp resolve_storage(provider_key) do
+    if uuid?(provider_key) do
+      case Queries.get_setting_by_uuid(provider_key) do
+        %{key: "integration:" <> rest, value_json: %{} = data} ->
+          {rest, Encryption.decrypt_fields(data)}
+
+        _ ->
+          nil
+      end
+    else
+      case Settings.get_json_setting(settings_key(provider_key), nil) do
+        nil -> nil
+        data -> {provider_key, Encryption.decrypt_fields(data)}
+      end
     end
   end
 
@@ -713,7 +734,7 @@ defmodule PhoenixKit.Integrations do
 
   defp record_refresh_failure(provider_key, reason) do
     reason_text = format_validation_reason(reason)
-    record_validation(provider_key, {:error, reason_text}, nil)
+    record_validation(provider_key, {:error, reason_text})
 
     log_activity(
       "integration.token_refresh_failed",
@@ -725,9 +746,9 @@ defmodule PhoenixKit.Integrations do
   end
 
   defp maybe_record_recovery(provider_key) do
-    case Settings.get_json_setting(settings_key(provider_key), nil) do
-      %{"status" => "error"} ->
-        record_validation(provider_key, :ok, nil)
+    case resolve_storage(provider_key) do
+      {_key, %{"status" => "error"}} ->
+        record_validation(provider_key, :ok)
         log_activity("integration.auto_recovered", provider_key, %{}, "auto", nil)
 
       _ ->

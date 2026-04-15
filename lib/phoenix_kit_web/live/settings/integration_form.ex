@@ -258,7 +258,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
     uuid = actor_uuid(socket)
     result = run_connection_test(provider, full_key, uuid)
-    Integrations.record_validation(full_key, result, uuid)
+    Integrations.record_validation(full_key, result)
 
     data =
       case Integrations.get_integration(full_key) do

@@ -592,6 +592,60 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # connected? simplified behavior
   # ===========================================================================
 
+  # ===========================================================================
+  # record_validation — health stamping on manual + automatic paths
+  # ===========================================================================
+
+  describe "record_validation/2" do
+    test "stamps status/validation_status on success" do
+      Integrations.save_setup("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation("openrouter", :ok)
+
+      {:ok, data} = Integrations.get_integration("openrouter")
+      assert data["status"] == "connected"
+      assert data["validation_status"] == "ok"
+      assert is_binary(data["last_validated_at"])
+    end
+
+    test "stamps error status with formatted reason on failure" do
+      Integrations.save_setup("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation("openrouter", {:error, {:refresh_failed, 400}})
+
+      {:ok, data} = Integrations.get_integration("openrouter")
+      assert data["status"] == "error"
+      assert data["validation_status"] == "error: Token refresh failed (HTTP 400)"
+    end
+
+    test "is a no-op when status and validation_status are unchanged" do
+      Integrations.save_setup("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation("openrouter", :ok)
+      {:ok, data1} = Integrations.get_integration("openrouter")
+
+      # Second call with same result should not rewrite last_validated_at
+      :ok = Integrations.record_validation("openrouter", :ok)
+      {:ok, data2} = Integrations.get_integration("openrouter")
+
+      assert data1["last_validated_at"] == data2["last_validated_at"]
+    end
+
+    test "silently no-ops when provider has no integration row" do
+      assert :ok = Integrations.record_validation("openrouter", {:error, "boom"})
+    end
+
+    test "accepts a settings-row UUID and stamps the correct row" do
+      Integrations.save_setup("openrouter", %{"api_key" => "k"})
+
+      # Look up the settings row UUID the way external modules do
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+
+      :ok = Integrations.record_validation(uuid, {:error, :token_refresh_failed})
+
+      {:ok, data} = Integrations.get_integration("openrouter")
+      assert data["status"] == "error"
+      assert data["validation_status"] == "error: Token refresh failed"
+    end
+  end
+
   describe "connected?/1 simplified" do
     test "returns true when default connection has credentials" do
       Integrations.save_setup("openrouter", %{"api_key" => "key"})
