@@ -1,13 +1,21 @@
-## 1.7.96 - 2026-04-13
+## 1.7.97 - 2026-04-15
 
 ### Added
-- Sortable languages in admin (drag-and-drop reorder)
--  option on DraggableList component
-- Wiggle animation for reorder mode with prefers-reduced-motion support
+- V97 migration: per-item `markup_percentage` override on catalogue items (PR #493)
+- V98 migration: `alternative_formats` column on storage dimensions
+- `PhoenixKit.Modules.Shared.Components.ImageSet` — responsive `<picture>` component with AVIF/WebP/JPEG `<source>` entries
+- `PhoenixKit.Modules.Storage.VariantNaming` — format-suffix parsing utility
+- Multi-format variant generation (WebP/AVIF alongside primary format per dimension)
+- Variant dimensions and file sizes shown on media detail page
+- UUID search support on media page search bar
 
 ### Changed
-- Dedup language codes in reorder, use MapSet for lookup
-- Extract wiggle CSS to JS-injected styles with pk- prefix
+- V95 migration made truly idempotent for `folder_uuid` column (raw SQL `IF NOT EXISTS` block)
+- Dimensions table format cell renders as `JPEG + WEBP, AVIF` (fixed stray `" +"` separator)
+
+### Fixed
+- Long text overflow in media detail sidebar
+- Missing original file size in variant download buttons
 
 ## 1.7.96 - 2026-04-13
 

@@ -40,3 +40,20 @@ Adds a responsive `<.image_set>` component that renders a `<picture>` element wi
 ## Recommendation
 
 Merge after confirming `Storage.list_image_set_variants/1` exists. The rest is ready.
+
+---
+
+## Follow-up review (commit `5d0dcc73` — "Address PR review feedback")
+
+All prior findings are resolved:
+
+- **BUG — MEDIUM (`list_image_set_variants/1`)** → **Resolved.** Defined at `lib/modules/storage/storage.ex:1803` (plus bulk `list_image_set_variants_for_files/1` at :1827). Guard in `ImageSet.load_variants/1` now succeeds.
+- **IMPROVEMENT — `" +"` separator leak in dimensions table** → **Resolved.** Now renders as `JPEG + WEBP, AVIF` via `" + " <> Enum.map_join(..., ", ", &String.upcase/1)` (`dimensions.html.heex:127-134`).
+- **IMPROVEMENT — `<% current_alternatives = ... %>` in HEEx** → **Resolved.** Moved into `assign_format_fields/2` in the LiveView; template reads `@current_alternatives` and `@primary_format` (`dimension_form.ex:138-155`, `dimension_form.html.heex:208-215`).
+- **NITPICK — PNG in `<source>` list** → **Resolved.** `mime_to_format("image/png")` now returns `nil`; PNG falls through to the fallback `<img>` only (`image_set.ex:127`).
+- **NITPICK — empty `srcset=""`** → **Resolved.** `fallback_srcset` is precomputed once; `srcset`/`sizes` attrs are only emitted when non-empty via `if(@fallback_srcset != "", do: ...)`.
+- **Migration version collision** → **Handled.** V97 was reassigned to the already-merged per-item markup migration (#493); this PR's column now ships as **V98** with the same idempotent `DO $$ ... IF NOT EXISTS` pattern and a correct `down/1` restoring comment `'97'`.
+
+### Verdict
+
+**Approve / ready to merge.** No new issues found in the follow-up diff.
