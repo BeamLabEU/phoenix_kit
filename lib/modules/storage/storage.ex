@@ -1963,7 +1963,10 @@ defmodule PhoenixKit.Modules.Storage do
   @doc "Moves a file to trash (soft-delete). Sets status to 'trashed' and records timestamp."
   def trash_file(%PhoenixKit.Modules.Storage.File{} = file) do
     file
-    |> Ecto.Changeset.change(%{status: "trashed", trashed_at: DateTime.utc_now()})
+    |> Ecto.Changeset.change(%{
+      status: "trashed",
+      trashed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    })
     |> repo().update()
   end
 

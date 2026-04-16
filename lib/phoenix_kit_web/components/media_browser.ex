@@ -941,6 +941,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      socket
      |> assign(:filter_trash, filter_trash)
      |> assign(:filter_orphaned, false)
+     |> assign(:folders, if(filter_trash, do: [], else: socket.assigns.folders))
      |> assign(:uploaded_files, files)
      |> assign(:total_count, total_count)
      |> assign(:total_pages, ceil(total_count / socket.assigns.per_page))
