@@ -104,3 +104,91 @@ Adds a trash bucket (soft-delete) for media files via V99 migration + `trashed_a
 Block merge on **bugs #1 and #2** (scope safety for trash view and permanent-delete). Strongly request **bug #3** (cron registration) before merge so the worker isn't a "declared-but-dead" feature. Bug #4 (typespec) and Improvement #5 (docstring) are one-liners and should land with #1/#2.
 
 Once those are in, this is a nice addition — soft-delete is a genuine improvement over hard-delete for an admin content tool, drag-drop upload closes a UX gap, and the hydration fix meaningfully improves reload behavior. Good work overall.
+
+---
+
+## Follow-up review (after commit `01638682`)
+
+**New commit on PR:**
+- `01638682` Address PR review: tenant isolation, cron wiring, schema fixes
+
+### Fixes verified ✅
+
+| # | Finding | Status | Evidence |
+|---|---------|--------|----------|
+| 1 | Trash view ignores scope | **FIXED** | `build_trashed_query/1` in `storage.ex:2012-2038` uses recursive CTE (mirrors `build_scope_file_query/4`). `list_trashed_files(scope, opts)`, `count_trashed_files(scope)`, and `empty_trash(scope)` all accept scope. Component passes `scope_folder_id(socket)` at all 6 call sites. |
+| 2 | Permanent-delete skips scope check | **FIXED** | `media_browser.ex:900-908` — trash branch now does `repo.get(Storage.File, file_uuid)` + `within_scope?(file.folder_uuid, scope)` guard before `delete_file_completely/1`, mirroring the soft-delete branch. |
+| 3 | `PruneTrashJob` not scheduled | **PARTIALLY FIXED** (see new finding 14 below) |
+| 4 | `@type t` missing `:trashed_at` | **FIXED** | `schemas/file.ex:110` — `trashed_at: DateTime.t() \| nil` added. |
+| 5 | Status Flow docstring missing `trashed` | **FIXED** | `schemas/file.ex:20` — `trashed` enumerated with description. |
+| 6 | `list_files/1` didn't filter trashed | **FIXED** | `storage.ex:1325` — `where([f], f.status != "trashed")` added at head of query pipeline. |
+
+CTE pattern check: the recursive CTE matches `build_scope_file_query/4` exactly (same select shape, same join topology), so shared behavior is guaranteed — `within_scope?` semantics hold (root files with `folder_uuid IS NULL` are correctly excluded from non-nil scopes via the inner join on `f.folder_uuid == d.uuid`).
+
+### New findings
+
+#### BUG — HIGH
+
+13. **`restore_selected` has no scope guard** — `media_browser.ex:967-980`:
+
+    ```elixir
+    def handle_event("restore_selected", _params, socket) do
+      Enum.each(socket.assigns.selected_files, fn file_uuid ->
+        Storage.restore_file(file_uuid)  # no within_scope? check
+      end)
+    ```
+
+    This is the same class of bug as the now-fixed #2. `selected_files` is a `MapSet` populated by `toggle_select` (`media_browser.ex:831-840`), which accepts whatever `file-uuid` the client pushes — **LiveView never validates that the UUID maps to a visible file**. A scoped embed can restore any trashed file in the system by sending a crafted `toggle_select` followed by `restore_selected`, even though bug #1's fix now prevents viewing cross-tenant trashed files through the grid.
+
+    Severity: HIGH, not CRITICAL, because restoration is reversible (the file returns to `active` with `trashed_at = nil`) and doesn't destroy data — but it still violates scope boundaries and can expose a cross-tenant file into the scoped view's active grid.
+
+    **Fix:** Apply the same pattern the delete branch now uses:
+
+    ```elixir
+    def handle_event("restore_selected", _params, socket) do
+      scope = scope_folder_id(socket)
+      repo = PhoenixKit.Config.get_repo()
+
+      Enum.each(socket.assigns.selected_files, fn file_uuid ->
+        file = repo.get(Storage.File, file_uuid)
+        if file && Storage.within_scope?(file.folder_uuid, scope) do
+          Storage.restore_file(file)
+        end
+      end)
+      # ...
+    end
+    ```
+
+#### BUG — MEDIUM
+
+14. **Cron wiring fix only applies to fresh installs, not existing installs.** The installer change (`oban_config.ex:129` and `:729`) adds `{"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}` to both the templated and manual-instruction config — but for **existing** parent apps running `mix phoenix_kit.update`, the upgrade path is `ensure_cron_plugin/2 → add_scheduled_posts_job_to_crontab/1` (`oban_config.ex:404-461`), which only knows how to inject `ProcessScheduledJobsWorker`. There is no matching `ensure_prune_trash_job_crontab` helper.
+
+    Result: existing installations will not pick up the trash cron entry after upgrading, so they'll accumulate trashed files indefinitely unless the operator manually edits `config/config.exs`. Since PhoenixKit ships as a library with a deliberate update path, this is the scenario most consumers will hit.
+
+    **Fix:** Add an `ensure_prune_trash_job_crontab/1` helper modeled on `add_scheduled_posts_job_to_crontab/1` that inserts the `{"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}` entry into an existing crontab when it's missing. Chain it from `update_existing_oban_config/3` alongside `ensure_cron_plugin`.
+
+### Nitpicks
+
+15. **Stale `⚡ LATEST` marker on V97 in `migrations/postgres.ex:540` docstring** — now that V99 is marked latest (correctly), the old V97 marker on line 540 should be removed. This was actually pre-existing (V98 didn't remove it either), so it's not this PR's regression, but the file is being modified anyway for the V99 entry — worth cleaning up one line over.
+
+16. **`empty_trash/1` and `prune_trash/1` still per-file `Enum.each`** (storage.ex:2043, 2056). Previous nitpick #7 stands — unchanged. Acceptable for now.
+
+17. **Hard-coded cutoff arithmetic** (`storage.ex:2049`) — `DateTime.add(-days * 86_400, :second)` still not idiomatic. Previous nitpick #11 unchanged.
+
+### Updated recommendation
+
+Finding #13 (restore scope guard) is the only new blocker — small, localized fix, same pattern already in the file for delete. Finding #14 (cron upgrade path) is important for existing deployments; I'd address it in this PR since the feature isn't functionally complete for upgraders otherwise, but it could reasonably be split to a follow-up if time-pressured.
+
+With #13 in and #14 at least documented as a known limitation, the rest of the review feedback has been handled cleanly. The CTE approach for scope, the mirrored `within_scope?` guard on delete, and the `@type t`/docstring consistency are all right. Good follow-through on the initial round.
+
+### Verification performed (follow-up)
+
+- Diffed `ef5e8bc3..01638682` on `storage.ex`, `media_browser.ex`, `oban_config.ex`, `schemas/file.ex`.
+- Confirmed `build_trashed_query/1` structure matches `build_scope_file_query/4` in CTE semantics.
+- Grepped `scope_folder_id(socket)` in `media_browser.ex` — 27 call sites, including all trash paths.
+- Read `within_scope?/2` (`storage.ex:1099-1101`) and `ancestor_of?/3` (`storage.ex:1073-1088`) — semantics preserved.
+- Read `toggle_select/select_all` handlers (`media_browser.ex:820-858`) — confirmed `selected_files` is client-trusted.
+- Read `Storage.restore_file/1` (`storage.ex:1982-1993`) — confirmed no internal scope check, so callsite must enforce.
+- Grepped `ensure_cron_plugin`, `add_scheduled_posts_job_to_crontab` in `oban_config.ex` — confirmed no `PruneTrashJob` insertion in upgrade path.
+- Confirmed `@current_version 99` in `migrations/postgres.ex:731` and V99 docstring entry at line 532.
+- Confirmed V99 migration `COMMENT ON TABLE phoenix_kit` (not `phoenix_kit_files`) matches V97/V98 pattern — correct.

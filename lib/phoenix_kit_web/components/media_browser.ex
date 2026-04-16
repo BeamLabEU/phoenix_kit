@@ -965,17 +965,28 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("restore_selected", _params, socket) do
-    Enum.each(socket.assigns.selected_files, fn file_uuid ->
-      Storage.restore_file(file_uuid)
-    end)
+    scope = scope_folder_id(socket)
+    repo = PhoenixKit.Config.get_repo()
 
-    count = MapSet.size(socket.assigns.selected_files)
+    restored =
+      Enum.reduce(socket.assigns.selected_files, 0, fn file_uuid, acc ->
+        file = repo.get(Storage.File, file_uuid)
+
+        if file && Storage.within_scope?(file.folder_uuid, scope) do
+          case Storage.restore_file(file) do
+            {:ok, _} -> acc + 1
+            _ -> acc
+          end
+        else
+          acc
+        end
+      end)
 
     {:noreply,
      socket
      |> assign(:select_mode, false)
      |> assign(:selected_files, MapSet.new())
-     |> put_flash(:info, "#{count} file(s) restored")
+     |> put_flash(:info, "#{restored} file(s) restored")
      |> reload_current_page()}
   end
 
