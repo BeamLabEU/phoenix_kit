@@ -883,8 +883,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_event("delete_selected", _params, socket) do
     scope = scope_folder_id(socket)
 
+    repo = PhoenixKit.Config.get_repo()
+
     Enum.each(socket.assigns.selected_files, fn file_uuid ->
-      Storage.delete_file_completely(file_uuid)
+      file = repo.get(Storage.File, file_uuid)
+
+      if file && Storage.within_scope?(file.folder_uuid, scope) do
+        Storage.delete_file_completely(file_uuid)
+      end
     end)
 
     Enum.each(socket.assigns.selected_folders, fn folder_uuid ->
@@ -1048,8 +1054,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {:noreply, socket}
     else
       scope = scope_folder_id(socket)
-      current_folder = Storage.get_folder(folder_uuid)
-      actual_uuid = current_folder && current_folder.uuid
+
+      {current_folder, actual_uuid} =
+        if folder_uuid do
+          folder = Storage.get_folder(folder_uuid)
+
+          if folder && Storage.within_scope?(folder.uuid, scope) do
+            {folder, folder.uuid}
+          else
+            {nil, nil}
+          end
+        else
+          {nil, nil}
+        end
+
       breadcrumbs = Storage.folder_breadcrumbs(actual_uuid, scope)
       folders = Storage.list_folders(actual_uuid, scope)
       per_page = socket.assigns.per_page
