@@ -17,6 +17,7 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `processing` - File is being processed (variants being generated)
   - `active` - File is ready and available
   - `failed` - Processing failed
+  - `trashed` - File is in trash, pending restoration or permanent deletion
 
   ## Fields
 
@@ -106,6 +107,7 @@ defmodule PhoenixKit.Modules.Storage.File do
           height: integer() | nil,
           duration: integer() | nil,
           status: String.t(),
+          trashed_at: DateTime.t() | nil,
           metadata: map() | nil,
           user_uuid: UUIDv7.t(),
           folder_uuid: UUIDv7.t() | nil,

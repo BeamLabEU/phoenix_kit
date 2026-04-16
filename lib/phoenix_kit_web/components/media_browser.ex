@@ -123,7 +123,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:filter_trash, false)
     |> assign(:file_view, file_view)
     |> assign(:orphaned_count, orphaned_count)
-    |> assign(:trash_count, Storage.count_trashed_files())
+    |> assign(:trash_count, Storage.count_trashed_files(scope_folder_id(socket)))
     |> assign(:uploaded_files, files)
     |> assign(:total_count, total_count)
     |> assign(:total_pages, ceil(total_count / per_page))
@@ -176,7 +176,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:last_uploaded_file_uuids, [])
     |> assign(:filter_orphaned, false)
     |> assign(:filter_trash, false)
-    |> assign(:trash_count, Storage.count_trashed_files())
+    |> assign(:trash_count, Storage.count_trashed_files(scope_folder_id(socket)))
     |> assign(:file_view, nil)
     |> assign(
       :orphaned_count,
@@ -898,9 +898,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     repo = PhoenixKit.Config.get_repo()
 
     if socket.assigns.filter_trash do
-      # Permanent delete from trash
+      # Permanent delete from trash (with scope guard)
       Enum.each(socket.assigns.selected_files, fn file_uuid ->
-        Storage.delete_file_completely(file_uuid)
+        file = repo.get(Storage.File, file_uuid)
+
+        if file && Storage.within_scope?(file.folder_uuid, scope) do
+          Storage.delete_file_completely(file)
+        end
       end)
     else
       # Soft-delete to trash
@@ -941,7 +945,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     {files, total_count} =
       if filter_trash do
-        load_trashed_files(1, socket.assigns.per_page)
+        load_trashed_files(scope_folder_id(socket), 1, socket.assigns.per_page)
       else
         scope = scope_folder_id(socket)
         folder_uuid = current_folder_uuid(socket)
@@ -957,7 +961,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      |> assign(:total_count, total_count)
      |> assign(:total_pages, ceil(total_count / socket.assigns.per_page))
      |> assign(:current_page, 1)
-     |> assign(:trash_count, Storage.count_trashed_files())}
+     |> assign(:trash_count, Storage.count_trashed_files(scope_folder_id(socket)))}
   end
 
   def handle_event("restore_selected", _params, socket) do
@@ -976,7 +980,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("empty_trash", _params, socket) do
-    {:ok, count} = Storage.empty_trash()
+    {:ok, count} = Storage.empty_trash(scope_folder_id(socket))
 
     {:noreply,
      socket
@@ -1181,7 +1185,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     {files, total_count} =
       cond do
-        socket.assigns[:filter_trash] -> load_trashed_files(page, per_page)
+        socket.assigns[:filter_trash] -> load_trashed_files(scope, page, per_page)
         socket.assigns.filter_orphaned -> load_orphaned_files(page, per_page)
         file_view == "all" -> load_all_view_files(scope, page, per_page, search)
         true -> load_scoped_files(scope, page, per_page, folder_uuid, search)
@@ -1191,7 +1195,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:uploaded_files, files)
     |> assign(:total_count, total_count)
     |> assign(:total_pages, ceil(total_count / per_page))
-    |> assign(:trash_count, Storage.count_trashed_files())
+    |> assign(:trash_count, Storage.count_trashed_files(scope_folder_id(socket)))
   end
 
   defp current_folder_uuid(socket) do
@@ -1206,11 +1210,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Data loading
   # ──────────────────────────────────────────────────────────────
 
-  defp load_trashed_files(page, per_page) do
+  defp load_trashed_files(scope, page, per_page) do
     repo = PhoenixKit.Config.get_repo()
     offset = (page - 1) * per_page
-    total_count = Storage.count_trashed_files()
-    files = Storage.list_trashed_files(limit: per_page, offset: offset)
+    total_count = Storage.count_trashed_files(scope)
+    files = Storage.list_trashed_files(scope, limit: per_page, offset: offset)
     file_uuids = Enum.map(files, & &1.uuid)
 
     instances_by_file =

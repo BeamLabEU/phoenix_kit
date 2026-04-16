@@ -1323,6 +1323,7 @@ defmodule PhoenixKit.Modules.Storage do
   """
   def list_files(opts \\ []) do
     PhoenixKit.Modules.Storage.File
+    |> where([f], f.status != "trashed")
     |> maybe_filter_by_bucket(opts[:bucket_uuid])
     |> maybe_order_by(opts[:order_by])
     |> maybe_limit(opts[:limit])
@@ -1991,11 +1992,10 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  @doc "Returns trashed files ordered by trashed_at descending, with pagination."
-  def list_trashed_files(opts \\ []) do
+  @doc "Returns trashed files ordered by trashed_at descending, with pagination and optional scope."
+  def list_trashed_files(scope \\ nil, opts \\ []) do
     query =
-      PhoenixKit.Modules.Storage.File
-      |> where([f], f.status == "trashed")
+      build_trashed_query(scope)
       |> order_by([f], desc: f.trashed_at)
 
     query = if opts[:limit], do: limit(query, ^opts[:limit]), else: query
@@ -2003,16 +2003,43 @@ defmodule PhoenixKit.Modules.Storage do
     repo().all(query)
   end
 
-  @doc "Returns the count of trashed files."
-  def count_trashed_files do
-    PhoenixKit.Modules.Storage.File
-    |> where([f], f.status == "trashed")
+  @doc "Returns the count of trashed files, optionally scoped."
+  def count_trashed_files(scope \\ nil) do
+    build_trashed_query(scope)
     |> repo().aggregate(:count, :uuid)
   end
 
-  @doc "Permanently deletes all trashed files."
-  def empty_trash do
-    trashed = list_trashed_files()
+  defp build_trashed_query(nil) do
+    from(f in PhoenixKit.Modules.Storage.File, where: f.status == "trashed")
+  end
+
+  defp build_trashed_query(scope_folder_id) do
+    cte_base =
+      from(f in Folder,
+        where: f.uuid == ^scope_folder_id,
+        select: %{uuid: f.uuid}
+      )
+
+    cte_recursive =
+      from(f in Folder,
+        join: d in "scope_descendants",
+        on: f.parent_uuid == d.uuid,
+        select: %{uuid: f.uuid}
+      )
+
+    cte = union_all(cte_base, ^cte_recursive)
+
+    from(f in PhoenixKit.Modules.Storage.File,
+      join: d in "scope_descendants",
+      on: f.folder_uuid == d.uuid,
+      where: f.status == "trashed"
+    )
+    |> with_cte("scope_descendants", as: ^cte)
+  end
+
+  @doc "Permanently deletes all trashed files, optionally scoped."
+  def empty_trash(scope \\ nil) do
+    trashed = list_trashed_files(scope)
     Enum.each(trashed, &delete_file_completely/1)
     {:ok, length(trashed)}
   end
