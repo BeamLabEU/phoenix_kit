@@ -1,3 +1,18 @@
+## 1.7.98 - 2026-04-16
+
+### Added
+- V99 migration: `trashed_at` column on `phoenix_kit_files` with partial index for soft-delete (PR #497)
+- Media trash bucket: soft-delete files with restore/empty/permanent-delete actions and sidebar count badge
+- `PhoenixKit.Modules.Storage.Workers.PruneTrashJob` — daily Oban cron (3 AM) that permanently deletes files older than `trash_retention_days` (default 30)
+- Drag-drop upload: drop device files directly onto the folder content area (`FolderDropUpload` JS hook)
+- URL-param hydration on first mount so reloads don't flash the root view
+
+### Fixed
+- Scope guard on `restore_selected` in MediaBrowser — a scoped embed could previously restore files outside its scope via a crafted `toggle_select` payload
+- Trash view, permanent-delete, and `empty_trash` now respect `scope_folder_id` via recursive CTE
+- `list_files/1` excludes trashed files
+- Breadcrumb and search bar moved inside card body so padding matches grid/list content
+
 ## 1.7.97 - 2026-04-15
 
 ### Added
