@@ -2143,6 +2143,79 @@ if (typeof window.Chart === "undefined") {
   };
 
   // ============================================================================
+  // FolderDropUpload Hook — drag files from device to upload into current folder
+  // ============================================================================
+
+  window.PhoenixKitHooks.FolderDropUpload = {
+    mounted: function() {
+      var self = this;
+      var el = this.el;
+      var dragCounter = 0;
+
+      el.addEventListener("dragenter", function(e) {
+        e.preventDefault();
+        dragCounter++;
+        if (dragCounter === 1) {
+          el.classList.add("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+        }
+      });
+
+      el.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      });
+
+      el.addEventListener("dragleave", function(e) {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+          el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+        }
+      });
+
+      el.addEventListener("drop", function(e) {
+        e.preventDefault();
+        dragCounter = 0;
+        el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+
+        var files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        // Show upload UI so progress is visible
+        self.pushEventTo(self.el, "show_upload", {});
+
+        // Inject files into the hidden upload input
+        self._pendingFiles = files;
+        self._injectFiles();
+      });
+    },
+
+    _injectFiles: function() {
+      var self = this;
+      var attempts = 0;
+      var maxAttempts = 20;
+
+      function tryInject() {
+        var uploadInput = self.el.closest("[id]").querySelector("[data-phx-upload-ref]");
+        if (uploadInput && self._pendingFiles) {
+          var dt = new DataTransfer();
+          for (var i = 0; i < self._pendingFiles.length; i++) {
+            dt.items.add(self._pendingFiles[i]);
+          }
+          uploadInput.files = dt.files;
+          uploadInput.dispatchEvent(new Event("input", { bubbles: true }));
+          self._pendingFiles = null;
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryInject, 50);
+        }
+      }
+
+      tryInject();
+    }
+  };
+
+  // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================
 

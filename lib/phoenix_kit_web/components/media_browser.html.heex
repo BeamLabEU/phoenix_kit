@@ -194,72 +194,108 @@
                 </li>
               <% end %>
             </ul>
+
+            <%!-- Trash --%>
+            <div class="divider my-1 h-0"></div>
+            <button
+              phx-click="toggle_trash_filter"
+              phx-target={@myself}
+              class={[
+                "flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors w-full",
+                if(@filter_trash,
+                  do: "bg-error/10 font-semibold text-error",
+                  else: "hover:bg-base-200 text-base-content/60"
+                )
+              ]}
+            >
+              <.icon name="hero-trash" class="w-4 h-4 shrink-0" /> Trash
+              <%= if @trash_count > 0 do %>
+                <span class="badge badge-sm badge-error ml-auto">{@trash_count}</span>
+              <% end %>
+            </button>
           </div>
         <% end %>
       </div>
 
       <%!-- Main content area --%>
       <div class="flex-1 min-w-0">
-        <%!-- Breadcrumbs --%>
-        <%= if @current_folder do %>
-          <nav class="breadcrumbs text-sm mb-3">
-            <ul>
-              <li>
-                <button
-                  phx-click="navigate_root"
-                  phx-target={@myself}
-                  class="hover:underline text-primary"
-                >
-                  All Media
-                </button>
-              </li>
-              <%= for folder <- @breadcrumbs do %>
-                <li>
-                  <button
-                    phx-click="navigate_folder"
-                    phx-target={@myself}
-                    phx-value-folder-uuid={folder.uuid}
-                    class="hover:underline text-primary"
-                  >
-                    {folder.name}
-                  </button>
-                </li>
-              <% end %>
-              <li>
-                {if @current_folder, do: @current_folder.name}
-              </li>
-            </ul>
-          </nav>
+        <%!-- Hidden upload input for folder drag-drop (always in DOM when in a folder) --%>
+        <%= if @current_folder && @has_buckets && !@show_upload do %>
+          <form
+            phx-change="validate"
+            phx-target={@myself}
+            id="folder-drop-upload-form"
+            class="hidden"
+          >
+            <.live_file_input upload={@uploads.media_files} />
+          </form>
         <% end %>
 
-        <%!-- Search Bar --%>
-        <form phx-change="search" phx-target={@myself} phx-submit="search" class="mb-4">
-          <label class="input input-bordered input-sm w-full flex items-center gap-2">
-            <.icon name="hero-magnifying-glass" class="w-4 h-4 text-base-content/40" />
-            <input
-              type="text"
-              name="q"
-              value={@search_query}
-              placeholder="Search files..."
-              class="grow bg-transparent border-none outline-none focus:outline-none"
-              phx-debounce="300"
-              autocomplete="off"
-            />
-            <%= if @search_query != "" do %>
-              <button
-                type="button"
-                phx-click="clear_search"
-                phx-target={@myself}
-                class="btn btn-ghost btn-xs btn-circle"
-              >
-                <.icon name="hero-x-mark" class="w-4 h-4" />
-              </button>
-            <% end %>
-          </label>
-        </form>
-
         <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
+          <div
+            class="card-body"
+            id={if @current_folder, do: "folder-drop-upload"}
+            phx-hook={if @current_folder, do: "FolderDropUpload"}
+            phx-target={if @current_folder, do: @myself}
+          >
+            <%!-- Breadcrumbs --%>
+            <%= if @current_folder do %>
+              <nav class="breadcrumbs text-sm mb-2">
+                <ul>
+                  <li>
+                    <button
+                      phx-click="navigate_root"
+                      phx-target={@myself}
+                      class="hover:underline text-primary"
+                    >
+                      All Media
+                    </button>
+                  </li>
+                  <%= for folder <- @breadcrumbs do %>
+                    <li>
+                      <button
+                        phx-click="navigate_folder"
+                        phx-target={@myself}
+                        phx-value-folder-uuid={folder.uuid}
+                        class="hover:underline text-primary"
+                      >
+                        {folder.name}
+                      </button>
+                    </li>
+                  <% end %>
+                  <li>
+                    {if @current_folder, do: @current_folder.name}
+                  </li>
+                </ul>
+              </nav>
+            <% end %>
+
+            <%!-- Search Bar --%>
+            <form phx-change="search" phx-target={@myself} phx-submit="search" class="mb-4">
+              <label class="input input-bordered input-sm w-full flex items-center gap-2">
+                <.icon name="hero-magnifying-glass" class="w-4 h-4 text-base-content/40" />
+                <input
+                  type="text"
+                  name="q"
+                  value={@search_query}
+                  placeholder="Search files..."
+                  class="grow bg-transparent border-none outline-none focus:outline-none"
+                  phx-debounce="300"
+                  autocomplete="off"
+                />
+                <%= if @search_query != "" do %>
+                  <button
+                    type="button"
+                    phx-click="clear_search"
+                    phx-target={@myself}
+                    class="btn btn-ghost btn-xs btn-circle"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                <% end %>
+              </label>
+            </form>
+
             <%!-- Header --%>
             <div class="flex justify-between items-center mb-4">
               <%= if @select_mode do %>
@@ -308,6 +344,8 @@
                 <div class="flex items-center gap-3 flex-wrap">
                   <h2 class="card-title text-xl">
                     <%= cond do %>
+                      <% @filter_trash -> %>
+                        Trash ({@total_count})
                       <% @filter_orphaned -> %>
                         Orphaned Files ({@total_count})
                       <% @file_view == "all" -> %>
@@ -318,7 +356,28 @@
                         Root ({@total_count})
                     <% end %>
                   </h2>
-                  <%= unless @show_upload do %>
+                  <%= if @filter_trash do %>
+                    <%= if @select_mode and MapSet.size(@selected_files) > 0 do %>
+                      <button
+                        phx-click="restore_selected"
+                        phx-target={@myself}
+                        class="btn btn-sm btn-success gap-1"
+                      >
+                        <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Restore
+                      </button>
+                    <% end %>
+                    <%= if @total_count > 0 do %>
+                      <button
+                        phx-click="empty_trash"
+                        phx-target={@myself}
+                        data-confirm={"Permanently delete all #{@total_count} trashed files?"}
+                        class="btn btn-sm btn-error gap-1"
+                      >
+                        <.icon name="hero-trash" class="w-4 h-4" /> Empty Trash
+                      </button>
+                    <% end %>
+                  <% end %>
+                  <%= unless @show_upload or @filter_trash do %>
                     <button
                       phx-click="toggle_upload"
                       phx-target={@myself}
@@ -407,21 +466,35 @@
 
             <%= if @uploaded_files == [] && (@folders == [] or @file_view == "all") do %>
               <%!-- Empty state --%>
-              <div class="bg-base-200 rounded-lg p-8 text-center">
-                <.icon
-                  name="hero-folder-open"
-                  class="w-12 h-12 mx-auto text-base-content/30 mb-2"
-                />
-                <p class="text-base-content/70">
-                  <%= cond do %>
-                    <% @file_view == "all" -> %>
+              <div class={[
+                "rounded-lg p-8 text-center",
+                if(@current_folder,
+                  do: "border-2 border-dashed border-base-300 bg-base-200/50",
+                  else: "bg-base-200"
+                )
+              ]}>
+                <%= if @current_folder do %>
+                  <.icon
+                    name="hero-cloud-arrow-up"
+                    class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                  />
+                  <p class="text-base-content/70">This folder is empty.</p>
+                  <p class="text-base-content/50 text-sm mt-1">
+                    Drop files here or click "Add Media" to upload
+                  </p>
+                <% else %>
+                  <.icon
+                    name="hero-folder-open"
+                    class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                  />
+                  <p class="text-base-content/70">
+                    <%= if @file_view == "all" do %>
                       No files found.
-                    <% @current_folder -> %>
-                      This folder is empty.
-                    <% true -> %>
+                    <% else %>
                       No media uploaded yet. Upload your first file above!
-                  <% end %>
-                </p>
+                    <% end %>
+                  </p>
+                <% end %>
               </div>
             <% else %>
               <%= if @view_mode == "grid" do %>

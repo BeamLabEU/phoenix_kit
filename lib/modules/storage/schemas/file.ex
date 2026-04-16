@@ -130,6 +130,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :height, :integer
     field :duration, :integer
     field :status, :string, default: "processing"
+    field :trashed_at, :utc_datetime
     field :metadata, :map
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
@@ -187,6 +188,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       :height,
       :duration,
       :status,
+      :trashed_at,
       :metadata,
       :user_uuid,
       :folder_uuid
@@ -203,7 +205,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       :user_uuid
     ])
     |> validate_inclusion(:file_type, ["image", "video", "document", "archive"])
-    |> validate_inclusion(:status, ["processing", "active", "failed"])
+    |> validate_inclusion(:status, ["processing", "active", "failed", "trashed"])
     |> validate_number(:size, greater_than: 0)
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)

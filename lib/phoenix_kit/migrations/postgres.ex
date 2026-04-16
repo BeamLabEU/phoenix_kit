@@ -529,7 +529,11 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V98 - Storage dimension alternative formats ⚡ LATEST
+  ### V99 - Media file trash bucket ⚡ LATEST
+  - Adds `trashed_at` (timestamptz) to `phoenix_kit_files` for soft-delete
+  - Partial index on `trashed_at` for efficient trash queries
+
+  ### V98 - Storage dimension alternative formats
   - Adds `alternative_formats` (`text[]`) to `phoenix_kit_storage_dimensions`
   - Enables multi-format variant generation (e.g., WebP + AVIF alongside JPEG)
 
@@ -724,7 +728,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 98
+  @current_version 99
   @default_prefix "public"
 
   @doc false

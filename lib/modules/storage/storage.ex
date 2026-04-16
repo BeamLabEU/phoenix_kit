@@ -1155,7 +1155,10 @@ defmodule PhoenixKit.Modules.Storage do
          not within_scope?(folder_uuid, scope_folder_id) do
       {:error, :out_of_scope}
     else
-      query = build_scope_file_query(scope_folder_id, folder_uuid, search, include_orphaned)
+      query =
+        build_scope_file_query(scope_folder_id, folder_uuid, search, include_orphaned)
+        |> where([f], f.status != "trashed")
+
       total = repo().aggregate(query, :count, :uuid)
 
       files =
@@ -1476,14 +1479,15 @@ defmodule PhoenixKit.Modules.Storage do
     existing = existing_optional_tables()
     protected_uuids = protected_file_uuids()
 
-    # Core check — phoenix_kit_users always exists
+    # Core check — phoenix_kit_users always exists; exclude trashed files
     base =
       from(f in PhoenixKit.Modules.Storage.File,
         where:
-          fragment(
-            "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_uuid' = ?::text)",
-            f.uuid
-          )
+          f.status != "trashed" and
+            fragment(
+              "NOT EXISTS (SELECT 1 FROM phoenix_kit_users u WHERE u.custom_fields->>'avatar_file_uuid' = ?::text)",
+              f.uuid
+            )
       )
 
     # Exclude UUIDs that the parent app has explicitly marked as protected
@@ -1952,6 +1956,88 @@ defmodule PhoenixKit.Modules.Storage do
         do: :ok,
         else: {:error, "Failed to delete from all buckets"}
     end
+  end
+
+  # ===== TRASH =====
+
+  @doc "Moves a file to trash (soft-delete). Sets status to 'trashed' and records timestamp."
+  def trash_file(%PhoenixKit.Modules.Storage.File{} = file) do
+    file
+    |> Ecto.Changeset.change(%{status: "trashed", trashed_at: DateTime.utc_now()})
+    |> repo().update()
+  end
+
+  def trash_file(file_uuid) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
+      nil -> {:error, :not_found}
+      file -> trash_file(file)
+    end
+  end
+
+  @doc "Restores a trashed file back to active status."
+  def restore_file(%PhoenixKit.Modules.Storage.File{} = file) do
+    file
+    |> Ecto.Changeset.change(%{status: "active", trashed_at: nil})
+    |> repo().update()
+  end
+
+  def restore_file(file_uuid) when is_binary(file_uuid) do
+    case get_file(file_uuid) do
+      nil -> {:error, :not_found}
+      file -> restore_file(file)
+    end
+  end
+
+  @doc "Returns trashed files ordered by trashed_at descending, with pagination."
+  def list_trashed_files(opts \\ []) do
+    query =
+      PhoenixKit.Modules.Storage.File
+      |> where([f], f.status == "trashed")
+      |> order_by([f], desc: f.trashed_at)
+
+    query = if opts[:limit], do: limit(query, ^opts[:limit]), else: query
+    query = if opts[:offset], do: offset(query, ^opts[:offset]), else: query
+    repo().all(query)
+  end
+
+  @doc "Returns the count of trashed files."
+  def count_trashed_files do
+    PhoenixKit.Modules.Storage.File
+    |> where([f], f.status == "trashed")
+    |> repo().aggregate(:count, :uuid)
+  end
+
+  @doc "Permanently deletes all trashed files."
+  def empty_trash do
+    trashed = list_trashed_files()
+    Enum.each(trashed, &delete_file_completely/1)
+    {:ok, length(trashed)}
+  end
+
+  @doc "Permanently deletes trashed files older than the given number of days."
+  def prune_trash(days) do
+    cutoff = DateTime.utc_now() |> DateTime.add(-days * 86_400, :second)
+
+    expired =
+      PhoenixKit.Modules.Storage.File
+      |> where([f], f.status == "trashed" and f.trashed_at < ^cutoff)
+      |> repo().all()
+
+    Enum.each(expired, &delete_file_completely/1)
+    {:ok, length(expired)}
+  end
+
+  @doc "Returns the configured trash retention period in days (default 30)."
+  def trash_retention_days do
+    Settings.get_setting("trash_retention_days", "30")
+    |> to_string()
+    |> Integer.parse()
+    |> case do
+      {n, _} -> n
+      :error -> 30
+    end
+  rescue
+    _ -> 30
   end
 
   @doc """

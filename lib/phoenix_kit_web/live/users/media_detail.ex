@@ -59,20 +59,46 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   def handle_event("delete_file", _params, socket) do
     file = socket.assigns.file
 
-    case Storage.delete_file_completely(file) do
+    case Storage.trash_file(file) do
       {:ok, _} ->
         {:noreply,
          socket
-         |> put_flash(:info, "File deleted successfully")
+         |> put_flash(:info, "File moved to trash")
          |> push_navigate(to: Routes.path("/admin/media"))}
 
       {:error, reason} ->
-        Logger.error("Failed to delete file #{file.uuid}: #{inspect(reason)}")
+        Logger.error("Failed to trash file #{file.uuid}: #{inspect(reason)}")
 
         {:noreply,
          socket
          |> assign(:show_delete_modal, false)
          |> put_flash(:error, "Failed to delete file")}
+    end
+  end
+
+  def handle_event("restore_file", _params, socket) do
+    case Storage.restore_file(socket.assigns.file) do
+      {:ok, _file} ->
+        {:noreply,
+         socket
+         |> load_file_data(socket.assigns.file_uuid)
+         |> put_flash(:info, "File restored")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to restore file")}
+    end
+  end
+
+  def handle_event("permanently_delete_file", _params, socket) do
+    case Storage.delete_file_completely(socket.assigns.file) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "File permanently deleted")
+         |> push_navigate(to: Routes.path("/admin/media"))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete file")}
     end
   end
 

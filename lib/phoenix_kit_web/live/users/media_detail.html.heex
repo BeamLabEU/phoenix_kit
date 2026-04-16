@@ -89,14 +89,32 @@
                   {String.upcase(@file_data.file_type)}
                 </span>
               </div>
-              <div class="mt-3">
-                <button
-                  type="button"
-                  phx-click="confirm_delete"
-                  class="btn btn-error btn-sm w-full gap-2"
-                >
-                  <.icon name="hero-trash" class="w-4 h-4" /> Delete File
-                </button>
+              <div class="mt-3 flex flex-col gap-2">
+                <%= if @file_data.status == "trashed" do %>
+                  <button
+                    type="button"
+                    phx-click="restore_file"
+                    class="btn btn-success btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Restore
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="permanently_delete_file"
+                    data-confirm="Permanently delete this file? This cannot be undone."
+                    class="btn btn-error btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" /> Delete Forever
+                  </button>
+                <% else %>
+                  <button
+                    type="button"
+                    phx-click="confirm_delete"
+                    class="btn btn-error btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" /> Delete File
+                  </button>
+                <% end %>
               </div>
             </div>
           </div>
