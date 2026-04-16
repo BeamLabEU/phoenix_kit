@@ -389,19 +389,19 @@
   <%= if @show_delete_modal do %>
     <div class="modal modal-open">
       <div class="modal-box">
-        <h3 class="font-bold text-lg text-error">Delete File</h3>
+        <h3 class="font-bold text-lg text-warning">Move to Trash</h3>
         <p class="py-4">
-          Are you sure you want to delete <strong>{@file_data && @file_data.filename}</strong>?
+          Move <strong>{@file_data && @file_data.filename}</strong> to trash?
         </p>
         <p class="text-sm text-base-content/70 pb-4">
-          This action is irreversible. The file and all its variants will be permanently removed from storage.
+          You can restore it from the trash at any time.
         </p>
         <div class="modal-action">
           <button type="button" phx-click="cancel_delete" class="btn btn-ghost">
             Cancel
           </button>
-          <button type="button" phx-click="delete_file" class="btn btn-error gap-2">
-            <.icon name="hero-trash" class="w-4 h-4" /> Delete
+          <button type="button" phx-click="delete_file" class="btn btn-warning gap-2">
+            <.icon name="hero-trash" class="w-4 h-4" /> Move to Trash
           </button>
         </div>
       </div>
