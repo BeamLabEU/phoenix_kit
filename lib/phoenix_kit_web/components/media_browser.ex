@@ -655,6 +655,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
        |> assign(:breadcrumbs, [])
        |> assign(:folders, [])
        |> assign(:filter_orphaned, false)
+       |> assign(:filter_trash, false)
        |> assign(:uploaded_files, files)
        |> assign(:current_page, 1)
        |> assign(:total_count, total_count)
@@ -1101,6 +1102,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {:noreply,
        socket
        |> assign(:file_view, nil)
+       |> assign(:filter_trash, false)
+       |> assign(:filter_orphaned, false)
        |> assign(:current_folder, nil)
        |> assign(:breadcrumbs, [])
        |> assign(:folders, Storage.list_folders(nil, scope))
@@ -1144,6 +1147,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {:noreply,
        socket
        |> assign(:file_view, nil)
+       |> assign(:filter_trash, false)
+       |> assign(:filter_orphaned, false)
        |> assign(:current_folder, current_folder)
        |> assign(:breadcrumbs, breadcrumbs)
        |> assign(:folders, folders)
