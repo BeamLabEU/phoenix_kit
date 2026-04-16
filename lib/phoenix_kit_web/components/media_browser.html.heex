@@ -473,27 +473,39 @@
                   else: "bg-base-200"
                 )
               ]}>
-                <%= if @current_folder do %>
-                  <.icon
-                    name="hero-cloud-arrow-up"
-                    class="w-12 h-12 mx-auto text-base-content/30 mb-2"
-                  />
-                  <p class="text-base-content/70">This folder is empty.</p>
-                  <p class="text-base-content/50 text-sm mt-1">
-                    Drop files here or click "Add Media" to upload
-                  </p>
-                <% else %>
-                  <.icon
-                    name="hero-folder-open"
-                    class="w-12 h-12 mx-auto text-base-content/30 mb-2"
-                  />
-                  <p class="text-base-content/70">
-                    <%= if @file_view == "all" do %>
-                      No files found.
-                    <% else %>
+                <%= cond do %>
+                  <% @filter_trash -> %>
+                    <.icon
+                      name="hero-trash"
+                      class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                    />
+                    <p class="text-base-content/70">Trash is empty.</p>
+                    <p class="text-base-content/50 text-sm mt-1">
+                      Deleted files will appear here
+                    </p>
+                  <% @current_folder -> %>
+                    <.icon
+                      name="hero-cloud-arrow-up"
+                      class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                    />
+                    <p class="text-base-content/70">This folder is empty.</p>
+                    <p class="text-base-content/50 text-sm mt-1">
+                      Drop files here or click "Add Media" to upload
+                    </p>
+                  <% @file_view == "all" -> %>
+                    <.icon
+                      name="hero-folder-open"
+                      class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                    />
+                    <p class="text-base-content/70">No files found.</p>
+                  <% true -> %>
+                    <.icon
+                      name="hero-folder-open"
+                      class="w-12 h-12 mx-auto text-base-content/30 mb-2"
+                    />
+                    <p class="text-base-content/70">
                       No media uploaded yet. Upload your first file above!
-                    <% end %>
-                  </p>
+                    </p>
                 <% end %>
               </div>
             <% else %>
