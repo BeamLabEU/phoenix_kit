@@ -1,39 +1,105 @@
 defmodule PhoenixKitWeb.ConnCase do
   @moduledoc """
-  This module defines the test case to be used by
-  tests that require setting up a connection.
+  This module defines the setup for tests requiring
+  setting up a connection and LiveView support.
 
-  Such tests rely on `Phoenix.ConnTest` and also
-  import other functionality to make it easier
-  to build common data structures and query the data layer.
-
-  Finally, if the test case interacts with the database,
-  we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use PhoenixKitWeb.ConnCase, async: true`, although
-  this option is not recommended for other databases.
+  For DB-backed tests (integration) set `use PhoenixKitWeb.ConnCase, async: true`.
+  For pure conn tests without a DB, omit async or tag as needed.
   """
 
   use ExUnit.CaseTemplate
 
   using do
     quote do
-      # Import conveniences for testing with connections
-      import Plug.Conn
-      import Phoenix.ConnTest
-      import PhoenixKitWeb.ConnCase
+      @moduletag :integration
 
       # The default endpoint for testing
-      # @endpoint PhoenixKitWeb.Endpoint
+      @endpoint PhoenixKitWeb.Endpoint
+
+      import Plug.Conn
+      import Phoenix.ConnTest
+      import Phoenix.LiveViewTest
+      import PhoenixKitWeb.ConnCase
+
+      alias PhoenixKit.Test.Repo
+      alias PhoenixKit.Users.Auth, as: AuthCtx
+      alias PhoenixKit.Users.Roles
+
+      import Ecto
+      import Ecto.Changeset
+      import Ecto.Query
     end
   end
 
-  setup __tags do
-    # Setup database sandbox if needed
-    # pid = Ecto.Adapters.SQL.Sandbox.start_owner!(PhoenixKit.RepoHelper.repo(), shared: not tags[:async])
-    # on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+  alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.Test.Repo, as: TestRepo
+  alias PhoenixKit.Users.Auth, as: AuthCtx
+  alias PhoenixKit.Users.Roles
+
+  setup tags do
+    pid = Sandbox.start_owner!(TestRepo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(pid) end)
+
+    # Start the endpoint if not already started
+    start_supervised_endpoint!()
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  defp start_supervised_endpoint! do
+    case Process.whereis(PhoenixKitWeb.Endpoint) do
+      nil ->
+        {:ok, _} =
+          ExUnit.Callbacks.start_supervised(
+            {PhoenixKitWeb.Endpoint, []},
+            id: :phoenix_kit_test_endpoint
+          )
+
+      _pid ->
+        :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  # ---------------------------------------------------------------------------
+  # Auth helpers
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Creates and confirms an admin user, returns {user, token}.
+  """
+  def create_admin_user(email \\ nil) do
+    email = email || "admin_#{System.unique_integer([:positive])}@example.com"
+
+    {:ok, user} =
+      AuthCtx.register_user(%{
+        email: email,
+        password: "TestPassword123!"
+      })
+
+    {:ok, user} = AuthCtx.admin_confirm_user(user)
+    {:ok, _user} = Roles.assign_role(user, "Admin")
+    # Reload to pick up associations
+    user = TestRepo.get!(PhoenixKit.Users.Auth.User, user.uuid)
+    user = TestRepo.preload(user, :role_assignments)
+
+    token = AuthCtx.generate_user_session_token(user)
+    {user, token}
+  end
+
+  @doc """
+  Puts a valid user session token into the conn for LiveView testing.
+  """
+  def log_in_user(conn, user) do
+    token = AuthCtx.generate_user_session_token(user)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+    |> Plug.Conn.put_session(
+      :live_socket_id,
+      "phoenix_kit_sessions:#{Base.url_encode64(token)}"
+    )
   end
 end

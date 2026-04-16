@@ -42,6 +42,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         <:card_actions :let={user}>
           <.button size="sm" navigate={~p"/users/\#{user.id}"}>View</.button>
         </:card_actions>
+        <:toolbar_title>
+          <span class="text-sm text-base-content/60">{length(@users)} users</span>
+        </:toolbar_title>
+        <:toolbar_actions>
+          <.button size="sm" navigate={~p"/users/new"}>Add User</.button>
+        </:toolbar_actions>
       </.table_default>
   """
 
@@ -73,6 +79,8 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
 
   * `inner_block` - Table content (thead, tbody, etc.)
   * `card_actions` - Action buttons rendered in each card footer (receives item via :let)
+  * `toolbar_title` - Title/content rendered at the start of the toolbar row
+  * `toolbar_actions` - Buttons rendered in the toolbar before the view toggle
   """
   attr :id, :string, default: nil
   attr :class, :string, default: ""
@@ -93,6 +101,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
     doc: "Custom header for each card (receives item via :let); replaces card_title"
 
   slot :card_actions, doc: "Action buttons in card footer"
+
+  slot :toolbar_title,
+    doc: "Title or arbitrary content rendered at the start of the toolbar row"
+
+  slot :toolbar_actions,
+    doc: "Action buttons rendered in the toolbar, before the view toggle"
 
   def table_default(assigns) do
     if assigns.items == [] and not assigns.toggleable do
@@ -123,25 +137,39 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   defp table_default_with_cards(assigns) do
     ~H"""
     <div id={@id} phx-hook="TableCardView" data-storage-key={@storage_key || @id} class="relative">
-      <%!-- Toggle buttons — only if toggleable and show_toggle, only desktop --%>
-      <div :if={@toggleable && @show_toggle} class="hidden md:flex justify-end mb-2">
-        <div class="join">
-          <button
-            type="button"
-            data-view-action="card"
-            class="btn btn-sm join-item"
-            title="Card view"
-          >
-            <.icon name="hero-squares-2x2" class="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            data-view-action="table"
-            class="btn btn-sm join-item"
-            title="Table view"
-          >
-            <.icon name="hero-bars-3-bottom-left" class="w-4 h-4" />
-          </button>
+      <%!-- Toolbar row: title (left) + actions and view toggle (right) --%>
+      <div
+        :if={
+          @toolbar_title != [] || @toolbar_actions != [] ||
+            (@toggleable && @show_toggle)
+        }
+        class="flex flex-wrap items-center justify-between gap-2 mb-2"
+      >
+        <div :if={@toolbar_title != []} class="min-w-0 flex-1 md:flex-none">
+          {render_slot(@toolbar_title)}
+        </div>
+        <div class="flex flex-wrap items-center gap-2 ml-auto">
+          <div :if={@toolbar_actions != []} class="flex flex-wrap items-center gap-2">
+            {render_slot(@toolbar_actions)}
+          </div>
+          <div :if={@toggleable && @show_toggle} class="hidden md:inline-flex join">
+            <button
+              type="button"
+              data-view-action="card"
+              class="btn btn-sm join-item"
+              title="Card view"
+            >
+              <.icon name="hero-squares-2x2" class="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              data-view-action="table"
+              class="btn btn-sm join-item"
+              title="Table view"
+            >
+              <.icon name="hero-bars-3-bottom-left" class="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
       <%!-- Table: hidden on mobile always, shown on desktop (JS controls md: classes) --%>
