@@ -2181,10 +2181,7 @@ if (typeof window.Chart === "undefined") {
         var files = e.dataTransfer.files;
         if (!files || files.length === 0) return;
 
-        // Show upload UI so progress is visible
-        self.pushEventTo(self.el, "show_upload", {});
-
-        // Inject files into the hidden upload input
+        // Inject files directly into the hidden upload input (no modal)
         self._pendingFiles = files;
         self._injectFiles();
       });
@@ -2196,7 +2193,7 @@ if (typeof window.Chart === "undefined") {
       var maxAttempts = 20;
 
       function tryInject() {
-        var uploadInput = self.el.closest("[id]").querySelector("[data-phx-upload-ref]");
+        var uploadInput = self.el.closest(".flex-1").querySelector("[data-phx-upload-ref]");
         if (uploadInput && self._pendingFiles) {
           var dt = new DataTransfer();
           for (var i = 0; i < self._pendingFiles.length; i++) {

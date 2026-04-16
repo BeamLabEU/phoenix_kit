@@ -238,6 +238,31 @@
             phx-hook={if @current_folder, do: "FolderDropUpload"}
             phx-target={if @current_folder, do: @myself}
           >
+            <%!-- Inline upload progress for drag-drop (no modal) --%>
+            <%= if @current_folder && !@show_upload && length(@uploads.media_files.entries) > 0 do %>
+              <div class="space-y-2 mb-4">
+                <%= for entry <- @uploads.media_files.entries do %>
+                  <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-100">
+                    <div class="flex-1">
+                      <p class="font-medium text-sm truncate">{entry.client_name}</p>
+                      <div class="flex gap-2 items-center mt-1">
+                        <progress
+                          value={entry.progress}
+                          max="100"
+                          class="progress progress-primary progress-sm flex-1"
+                        >
+                          {entry.progress}%
+                        </progress>
+                        <span class="text-xs text-base-content/60 min-w-max">
+                          {entry.progress}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
             <%!-- Breadcrumbs --%>
             <%= if @current_folder do %>
               <nav class="breadcrumbs text-sm mb-2">
