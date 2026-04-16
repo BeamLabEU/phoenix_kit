@@ -74,7 +74,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
-        {:ok, init_socket(socket)}
+        socket = init_socket(socket)
+
+        # Apply initial params if provided (avoids flash of root before correct view)
+        socket =
+          if Map.has_key?(assigns, :initial_params),
+            do: apply_nav_params(socket, assigns.initial_params),
+            else: socket
+
+        {:ok, socket}
 
       Map.has_key?(assigns, :nav_params) ->
         {:ok, apply_nav_params(socket, socket.assigns.nav_params)}
