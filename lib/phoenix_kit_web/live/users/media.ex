@@ -20,12 +20,25 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         %{"project_title" => PhoenixKit.Config.get(:project_title, "PhoenixKit")}
       )
 
+    initial_params = %{
+      folder: params["folder"],
+      q: params["q"] || "",
+      page:
+        case Integer.parse(params["page"] || "1") do
+          {n, _} when n > 0 -> n
+          _ -> 1
+        end,
+      filter_orphaned: params["orphaned"] == "1",
+      view: params["view"]
+    }
+
     socket =
       socket
       |> assign(:page_title, "Media")
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/media"))
+      |> assign(:initial_params, initial_params)
 
     {:ok, socket}
   end

@@ -125,7 +125,8 @@ defmodule PhoenixKit.Install.ObanConfig do
         {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
         {Oban.Plugins.Cron,
          crontab: [
-           {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
+           {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
+           {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}
          ]}
       ]
     """
@@ -724,7 +725,8 @@ defmodule PhoenixKit.Install.ObanConfig do
           {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
           {Oban.Plugins.Cron,
            crontab: [
-             {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
+             {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
+             {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}
            ]}
         ]
 
