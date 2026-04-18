@@ -2035,6 +2035,7 @@ defmodule PhoenixKit.Modules.Storage do
       where: f.status == "trashed"
     )
     |> with_cte("scope_descendants", as: ^cte)
+    |> recursive_ctes(true)
   end
 
   @doc "Permanently deletes all trashed files, optionally scoped."

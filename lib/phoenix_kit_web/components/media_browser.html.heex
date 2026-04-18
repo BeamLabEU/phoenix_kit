@@ -149,7 +149,7 @@
                 )
               ]}
             >
-              <.icon name="hero-inbox" class="w-4 h-4 shrink-0" /> Root
+              <.icon name="hero-inbox" class="w-4 h-4 shrink-0" /> {@scope_folder_name}
             </button>
 
             <div class="divider my-1 h-0"></div>
@@ -370,15 +370,15 @@
                   <h2 class="card-title text-xl">
                     <%= cond do %>
                       <% @filter_trash -> %>
-                        Trash ({@total_count})
+                        Trash
                       <% @filter_orphaned -> %>
-                        Orphaned Files ({@total_count})
+                        Orphaned Files
                       <% @file_view == "all" -> %>
-                        All Files ({@total_count})
+                        All Files
                       <% @current_folder -> %>
-                        {@current_folder.name} ({@total_count})
+                        {@current_folder.name}
                       <% true -> %>
-                        Root ({@total_count})
+                        {@scope_folder_name}
                     <% end %>
                   </h2>
                   <%= if @filter_trash do %>
@@ -1125,7 +1125,7 @@
                 phx-value-folder_uuid=""
                 class={if @current_folder == nil, do: "active", else: ""}
               >
-                <.icon name="hero-home" class="w-4 h-4" /> Root (no folder)
+                <.icon name="hero-home" class="w-4 h-4" /> {@scope_folder_name}
               </button>
             </li>
             <%= for node <- @folder_tree do %>

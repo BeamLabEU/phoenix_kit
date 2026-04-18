@@ -89,50 +89,6 @@
 
             <div class="form-control w-full">
               <label class="label">
-                <span class="label-text text-base font-medium">{gettext("Logo Image")}</span>
-              </label>
-              <input
-                type="hidden"
-                name="settings[auth_logo_file_uuid]"
-                value={@settings["auth_logo_file_uuid"]}
-              />
-              <%= if @settings["auth_logo_file_uuid"] != "" do %>
-                <div class="flex items-center gap-3 p-2 bg-base-200 rounded-lg">
-                  <img
-                    src={signed_preview_url(@settings["auth_logo_file_uuid"], "medium")}
-                    alt="Logo preview"
-                    class="h-20 object-contain"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-sm"
-                    phx-click="clear_branding_image"
-                    phx-value-target="logo"
-                  >
-                    {gettext("Remove")}
-                  </button>
-                </div>
-              <% else %>
-                <button
-                  type="button"
-                  class="btn btn-outline btn-sm w-fit"
-                  phx-click="open_media_selector"
-                  phx-value-target="logo"
-                >
-                  {gettext("Select Image")}
-                </button>
-              <% end %>
-              <div class="label">
-                <span class="label-text-alt text-xs text-base-content/50">
-                  {gettext(
-                    "Logo displayed on auth pages. Leave empty to show project title text."
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div class="form-control w-full">
-              <label class="label">
                 <span class="label-text text-base font-medium">
                   {gettext("Background Image (Desktop)")}
                 </span>

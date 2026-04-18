@@ -163,15 +163,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   defp init_socket(socket) do
     scope = scope_folder_id(socket)
-    scope_invalid = not is_nil(scope) and is_nil(Storage.get_folder(scope))
+    scope_folder = if scope, do: Storage.get_folder(scope)
+    scope_invalid = not is_nil(scope) and is_nil(scope_folder)
 
     enabled_buckets = Storage.list_enabled_buckets()
     has_buckets = not Enum.empty?(enabled_buckets)
+
+    scope_name = if scope_folder, do: scope_folder.name, else: "Root"
 
     socket
     |> maybe_allow_upload(has_buckets)
     |> assign(:has_buckets, has_buckets)
     |> assign(:scope_invalid, scope_invalid)
+    |> assign(:scope_folder_name, scope_name)
     |> assign(:show_upload, false)
     |> assign(:last_uploaded_file_uuids, [])
     |> assign(:filter_orphaned, false)
