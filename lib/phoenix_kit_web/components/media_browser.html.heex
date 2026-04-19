@@ -1,6 +1,6 @@
 <%!-- MediaBrowser LiveComponent template.
      All phx-* events route to the component via phx-target={@myself} on the root div. --%>
-<div id={@id} phx-target={@myself}>
+<div id={@id} phx-target={@myself} phx-hook="MediaDragDrop">
   <script>
     (function() {
       var m = localStorage.getItem("phoenix_kit_media_view_mode");

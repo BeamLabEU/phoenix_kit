@@ -1191,35 +1191,45 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp build_scope_file_query(scope_folder_id, folder_uuid, search, _orphaned) do
-    if folder_uuid do
-      # Specific folder already validated within scope — no CTE needed
-      from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder_uuid)
-    else
-      # Use recursive CTE to find all descendant folders of scope (including scope itself)
-      cte_base =
-        from(f in Folder,
-          where: f.uuid == ^scope_folder_id,
-          select: %{uuid: f.uuid}
-        )
+    cond do
+      folder_uuid ->
+        # Specific folder already validated within scope — no CTE needed
+        from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^folder_uuid)
 
-      cte_recursive =
-        from(f in Folder,
-          join: d in "scope_descendants",
-          on: f.parent_uuid == d.uuid,
-          select: %{uuid: f.uuid}
-        )
+      search && search != "" ->
+        # Search: walk the full scope subtree via recursive CTE
+        scope_subtree_query(scope_folder_id)
 
-      cte = union_all(cte_base, ^cte_recursive)
-
-      from(f in PhoenixKit.Modules.Storage.File,
-        join: d in "scope_descendants",
-        on: f.folder_uuid == d.uuid,
-        select: f
-      )
-      |> recursive_ctes(true)
-      |> with_cte("scope_descendants", as: ^cte)
+      true ->
+        # Scope root without search: show only direct children (files directly in scope)
+        from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid == ^scope_folder_id)
     end
     |> apply_file_search(search)
+  end
+
+  defp scope_subtree_query(scope_folder_id) do
+    cte_base =
+      from(f in Folder,
+        where: f.uuid == ^scope_folder_id,
+        select: %{uuid: f.uuid}
+      )
+
+    cte_recursive =
+      from(f in Folder,
+        join: d in "scope_descendants",
+        on: f.parent_uuid == d.uuid,
+        select: %{uuid: f.uuid}
+      )
+
+    cte = union_all(cte_base, ^cte_recursive)
+
+    from(f in PhoenixKit.Modules.Storage.File,
+      join: d in "scope_descendants",
+      on: f.folder_uuid == d.uuid,
+      select: f
+    )
+    |> recursive_ctes(true)
+    |> with_cte("scope_descendants", as: ^cte)
   end
 
   defp apply_file_search(query, nil), do: query
