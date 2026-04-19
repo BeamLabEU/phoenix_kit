@@ -173,16 +173,17 @@
                     <form
                       phx-submit="create_folder"
                       phx-target={@myself}
-                      class="flex items-center gap-1 px-1 py-1"
+                      class="flex items-center gap-0.5 px-1 py-1"
                     >
+                      <span class="w-5"></span>
                       <span class="text-warning">
-                        <.icon name="hero-folder-plus" class="w-4 h-4" />
+                        <.icon name="hero-folder-plus" class="w-4 h-4 shrink-0" />
                       </span>
                       <input
                         type="text"
                         name="name"
                         placeholder="Folder name"
-                        class="input input-bordered input-xs flex-1 min-w-0"
+                        class="input input-bordered input-xs flex-1 min-w-0 ml-1.5"
                         phx-mounted={JS.focus()}
                         required
                         phx-keydown="toggle_new_folder"
