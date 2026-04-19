@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.MediaBrowser
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale]
@@ -39,6 +40,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/media"))
       |> assign(:initial_params, initial_params)
+      |> MediaBrowser.setup_uploads()
 
     {:ok, socket}
   end
@@ -57,7 +59,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       filter_orphaned = params["orphaned"] == "1"
       view = params["view"]
 
-      send_update(PhoenixKitWeb.Components.MediaBrowser,
+      send_update(MediaBrowser,
         id: "media-browser",
         nav_params: %{
           folder: folder,
@@ -73,7 +75,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_info(
-        {PhoenixKitWeb.Components.MediaBrowser, "media-browser", {:navigate, params}},
+        {MediaBrowser, "media-browser", {:navigate, params}},
         socket
       ) do
     folder = params[:folder]
@@ -93,5 +95,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     url = if qs == %{}, do: base, else: base <> "?" <> URI.encode_query(qs)
     {:noreply, push_patch(socket, to: url)}
+  end
+
+  def handle_info(msg, socket)
+      when is_tuple(msg) and elem(msg, 0) == MediaBrowser do
+    MediaBrowser.handle_parent_info(msg, socket)
   end
 end

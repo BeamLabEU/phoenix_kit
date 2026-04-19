@@ -31,7 +31,7 @@
     </div>
   <% else %>
     <%!-- Upload Section --%>
-    <%= if @show_upload do %>
+    <%= if @show_upload and assigns[:parent_uploads] do %>
       <div class="card bg-base-100 shadow-xl mb-6">
         <div class="card-body">
           <div class="flex items-center gap-3 mb-4">
@@ -46,7 +46,7 @@
           </div>
           <%= if @has_buckets do %>
             <.file_upload
-              upload={@uploads.media_files}
+              upload={@parent_uploads.media_files}
               label="Upload Media Files"
               icon="hero-cloud-arrow-up"
               accept_description="All file types supported"
@@ -121,20 +121,22 @@
               </div>
             </div>
 
-            <%!-- All Files flat view --%>
-            <button
-              phx-click="navigate_view_all"
-              phx-target={@myself}
-              class={[
-                "flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors mb-1 text-left",
-                if(@file_view == "all",
-                  do: "bg-primary/10 font-semibold text-primary",
-                  else: "hover:bg-base-200"
-                )
-              ]}
-            >
-              <.icon name="hero-rectangle-stack" class="w-4 h-4 shrink-0" /> All Files
-            </button>
+            <%!-- All Files flat view (only when unscoped — admin media page) --%>
+            <%= if is_nil(@scope_folder_id) do %>
+              <button
+                phx-click="navigate_view_all"
+                phx-target={@myself}
+                class={[
+                  "flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors mb-1 text-left",
+                  if(@file_view == "all",
+                    do: "bg-primary/10 font-semibold text-primary",
+                    else: "hover:bg-base-200"
+                  )
+                ]}
+              >
+                <.icon name="hero-rectangle-stack" class="w-4 h-4 shrink-0" /> All Files
+              </button>
+            <% end %>
 
             <%!-- Root (navigate to real root folder) --%>
             <button
@@ -220,14 +222,14 @@
       <%!-- Main content area --%>
       <div class="flex-1 min-w-0">
         <%!-- Hidden upload input for folder drag-drop (always in DOM when in a folder) --%>
-        <%= if @current_folder && @has_buckets && !@show_upload do %>
+        <%= if @current_folder && @has_buckets && !@show_upload && assigns[:parent_uploads] do %>
           <form
             phx-change="validate"
             phx-target={@myself}
             id="folder-drop-upload-form"
             class="hidden"
           >
-            <.live_file_input upload={@uploads.media_files} />
+            <.live_file_input upload={@parent_uploads.media_files} />
           </form>
         <% end %>
 
@@ -239,9 +241,9 @@
             phx-target={if @current_folder, do: @myself}
           >
             <%!-- Inline upload progress for drag-drop (no modal) --%>
-            <%= if @current_folder && !@show_upload && length(@uploads.media_files.entries) > 0 do %>
+            <%= if @current_folder && !@show_upload && assigns[:parent_uploads] && length(@parent_uploads.media_files.entries) > 0 do %>
               <div class="space-y-2 mb-4">
-                <%= for entry <- @uploads.media_files.entries do %>
+                <%= for entry <- @parent_uploads.media_files.entries do %>
                   <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-100">
                     <div class="flex-1">
                       <p class="font-medium text-sm truncate">{entry.client_name}</p>
