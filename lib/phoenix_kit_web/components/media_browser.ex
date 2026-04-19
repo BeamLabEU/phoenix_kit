@@ -58,6 +58,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   - `phoenix_kit_current_user` — logged-in user struct (for upload attribution)
   - `scope_folder_id` — constrain the browser to a virtual root folder
   - `on_navigate` — when truthy, enables controlled mode (URL-sync via parent)
+  - `admin` — when `true`, clicking a file opens the admin detail page at
+    `/admin/media/:uuid`. When `false` (default), clicks toggle selection
+    instead, so the component behaves as a picker when embedded outside the
+    admin UI.
   """
   use PhoenixKitWeb, :live_component
 
@@ -82,6 +86,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(assigns)
       |> assign_new(:scope_folder_id, fn -> nil end)
+      |> assign_new(:admin, fn -> false end)
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
@@ -906,7 +911,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
-    if socket.assigns.select_mode do
+    if socket.assigns.select_mode or not socket.assigns.admin do
       selected = socket.assigns.selected_files
 
       selected =
@@ -914,7 +919,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           do: MapSet.delete(selected, file_uuid),
           else: MapSet.put(selected, file_uuid)
 
-      {:noreply, assign(socket, :selected_files, selected)}
+      {:noreply,
+       socket
+       |> assign(:selected_files, selected)
+       |> assign(:select_mode, true)}
     else
       {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
     end
