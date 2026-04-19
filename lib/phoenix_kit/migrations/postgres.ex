@@ -529,7 +529,24 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V99 - Media file trash bucket ⚡ LATEST
+  ### V101 - Projects module tables ⚡ LATEST
+  - Creates `phoenix_kit_project_tasks` (reusable task library),
+    `phoenix_kit_project_task_dependencies` (template-level ordering),
+    `phoenix_kit_projects`, `phoenix_kit_project_assignments`
+    (task instances with polymorphic assignee), and
+    `phoenix_kit_project_dependencies` (per-project task ordering)
+  - Assignment FKs reference staff module tables (teams, departments, people)
+  - CHECK constraint enforces at-most-one assignee (team / department / person)
+    on both `phoenix_kit_project_tasks` and `phoenix_kit_project_assignments`
+
+  ### V100 - Staff module tables
+  - Creates `phoenix_kit_staff_departments`, `phoenix_kit_staff_teams`,
+    `phoenix_kit_staff_people` (FK to `phoenix_kit_users`), and
+    `phoenix_kit_staff_team_memberships` join table
+  - UUIDv7 PKs, cascading deletes dept → team → team_memberships, and
+    user → person → team_memberships
+
+  ### V99 - Media file trash bucket
   - Adds `trashed_at` (timestamptz) to `phoenix_kit_files` for soft-delete
   - Partial index on `trashed_at` for efficient trash queries
 
@@ -537,7 +554,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds `alternative_formats` (`text[]`) to `phoenix_kit_storage_dimensions`
   - Enables multi-format variant generation (e.g., WebP + AVIF alongside JPEG)
 
-  ### V97 - Per-item markup override ⚡ LATEST
+  ### V97 - Per-item markup override
   - Adds nullable `markup_percentage DECIMAL(7, 2)` column on
     `phoenix_kit_cat_items`
   - `NULL` = inherit the catalogue's markup (existing behavior);
@@ -728,7 +745,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 99
+  @current_version 101
   @default_prefix "public"
 
   @doc false
