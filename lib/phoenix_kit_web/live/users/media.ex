@@ -74,6 +74,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
+  def handle_event("validate", _params, socket), do: {:noreply, socket}
+
   def handle_info(
         {MediaBrowser, "media-browser", {:navigate, params}},
         socket

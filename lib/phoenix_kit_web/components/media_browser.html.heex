@@ -222,10 +222,9 @@
       <%!-- Main content area --%>
       <div class="flex-1 min-w-0">
         <%!-- Hidden upload input for folder drag-drop (always in DOM when in a folder) --%>
-        <%= if @current_folder && @has_buckets && !@show_upload && assigns[:parent_uploads] do %>
+        <%= if @has_buckets && !@show_upload && assigns[:parent_uploads] do %>
           <form
             phx-change="validate"
-            phx-target={@myself}
             id="folder-drop-upload-form"
             class="hidden"
           >
@@ -236,12 +235,12 @@
         <div class="card bg-base-100 shadow-xl">
           <div
             class="card-body"
-            id={if @current_folder, do: "folder-drop-upload"}
-            phx-hook={if @current_folder, do: "FolderDropUpload"}
-            phx-target={if @current_folder, do: @myself}
+            id={if @has_buckets, do: "folder-drop-upload"}
+            phx-hook={if @has_buckets, do: "FolderDropUpload"}
+            phx-target={if @has_buckets, do: @myself}
           >
             <%!-- Inline upload progress for drag-drop (no modal) --%>
-            <%= if @current_folder && !@show_upload && assigns[:parent_uploads] && length(@parent_uploads.media_files.entries) > 0 do %>
+            <%= if !@show_upload && assigns[:parent_uploads] && length(@parent_uploads.media_files.entries) > 0 do %>
               <div class="space-y-2 mb-4">
                 <%= for entry <- @parent_uploads.media_files.entries do %>
                   <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-100">
