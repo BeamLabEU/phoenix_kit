@@ -345,15 +345,45 @@
                     >
                       <.icon name="hero-folder-arrow-down" class="w-4 h-4" /> Move
                     </button>
-                    <%= if MapSet.size(@selected_folders) > 0 do %>
-                      <button
-                        phx-click="delete_selected"
-                        phx-target={@myself}
-                        data-confirm={"Delete #{MapSet.size(@selected_folders)} folder(s)? Files will be moved to parent."}
-                        class="btn btn-sm btn-error gap-1"
-                      >
-                        <.icon name="hero-trash" class="w-4 h-4" /> Delete folders
-                      </button>
+                    <%= if MapSet.size(@selected_files) + MapSet.size(@selected_folders) > 0 do %>
+                      <div class="dropdown dropdown-end">
+                        <label
+                          tabindex="0"
+                          class="btn btn-sm btn-ghost px-2"
+                          title="More actions"
+                        >
+                          <.icon name="hero-ellipsis-horizontal" class="w-5 h-5" />
+                        </label>
+                        <ul
+                          tabindex="0"
+                          class="dropdown-content menu bg-base-100 rounded-box z-[1] w-44 p-2 shadow-lg border border-base-200"
+                        >
+                          <%= if MapSet.size(@selected_files) > 0 do %>
+                            <li>
+                              <button phx-click="download_selected" phx-target={@myself}>
+                                <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Download
+                              </button>
+                            </li>
+                          <% end %>
+                          <li>
+                            <button
+                              phx-click="delete_selected"
+                              phx-target={@myself}
+                              data-confirm={
+                                delete_selected_confirm(
+                                  @selected_files,
+                                  @selected_folders,
+                                  @filter_trash
+                                )
+                              }
+                              class="text-error"
+                            >
+                              <.icon name="hero-trash" class="w-4 h-4" />
+                              {if @filter_trash, do: "Delete permanently", else: "Delete"}
+                            </button>
+                          </li>
+                        </ul>
+                      </div>
                     <% end %>
                     <button
                       phx-click="select_all"

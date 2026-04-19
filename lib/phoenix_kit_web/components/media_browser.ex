@@ -16,14 +16,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   ## Enabling uploads
 
-  LiveView requires `allow_upload` on the parent LiveView's socket for uploads
-  to work. Add this one line in your parent `mount/3`:
+  The fastest path is the `Embed` helper — one `use` line gives you
+  uploads, the validate-channel stub, and the message delegator:
+
+      defmodule MyAppWeb.MediaPage do
+        use MyAppWeb, :live_view
+        use PhoenixKitWeb.Components.MediaBrowser.Embed
+      end
+
+  Manual setup (if you prefer explicit wiring) is three calls:
 
       def mount(_params, _session, socket) do
         {:ok, PhoenixKitWeb.Components.MediaBrowser.setup_uploads(socket)}
       end
 
-  Pass `no_upload={true}` to disable uploads entirely.
+      def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+      def handle_info({__MODULE__, _, _} = msg, socket) do
+        PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
+      end
 
   ## Usage (uncontrolled)
 
@@ -1051,6 +1062,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      |> reload_current_page()}
   end
 
+  def handle_event("download_selected", _params, socket) do
+    files =
+      socket.assigns.uploaded_files
+      |> Enum.filter(&MapSet.member?(socket.assigns.selected_files, &1.file_uuid))
+      |> Enum.map(fn f ->
+        %{url: Map.get(f.urls, "original") || Map.get(f.urls, :original), name: f.filename}
+      end)
+      |> Enum.reject(&is_nil(&1.url))
+
+    {:noreply, push_event(socket, "download_files", %{files: files})}
+  end
+
   def handle_event("toggle_trash_filter", _params, socket) do
     filter_trash = !socket.assigns.filter_trash
 
@@ -1670,6 +1693,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp folder_color_hex("pink"), do: "#ec4899"
   defp folder_color_hex("rose"), do: "#f43f5e"
   defp folder_color_hex(_), do: nil
+
+  defp delete_selected_confirm(selected_files, selected_folders, filter_trash) do
+    file_count = MapSet.size(selected_files)
+    folder_count = MapSet.size(selected_folders)
+
+    cond do
+      filter_trash and file_count > 0 ->
+        "Permanently delete #{file_count} file(s)? This cannot be undone."
+
+      folder_count > 0 and file_count > 0 ->
+        "Delete #{file_count} file(s) (to trash) and #{folder_count} folder(s)? Folder contents will be moved to parent."
+
+      folder_count > 0 ->
+        "Delete #{folder_count} folder(s)? Folder contents will be moved to parent."
+
+      true ->
+        "Move #{file_count} file(s) to trash?"
+    end
+  end
 
   defp file_icon("image"), do: "hero-photo"
   defp file_icon("video"), do: "hero-play-circle"

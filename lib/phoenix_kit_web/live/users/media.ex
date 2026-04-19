@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   `PhoenixKitWeb.Components.MediaBrowser`.
   """
   use PhoenixKitWeb, :live_view
+  use PhoenixKitWeb.Components.MediaBrowser.Embed
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -40,7 +41,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/media"))
       |> assign(:initial_params, initial_params)
-      |> MediaBrowser.setup_uploads()
 
     {:ok, socket}
   end
@@ -74,8 +74,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
-  def handle_event("validate", _params, socket), do: {:noreply, socket}
-
+  # URL-sync for the controlled mode. More generic MediaBrowser messages
+  # are caught by the fallback clause injected by the Embed macro.
   def handle_info(
         {MediaBrowser, "media-browser", {:navigate, params}},
         socket
@@ -97,10 +97,5 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     url = if qs == %{}, do: base, else: base <> "?" <> URI.encode_query(qs)
     {:noreply, push_patch(socket, to: url)}
-  end
-
-  def handle_info(msg, socket)
-      when is_tuple(msg) and elem(msg, 0) == MediaBrowser do
-    MediaBrowser.handle_parent_info(msg, socket)
   end
 end

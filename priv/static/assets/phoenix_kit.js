@@ -2028,6 +2028,22 @@ if (typeof window.Chart === "undefined") {
         localStorage.setItem("phoenix_kit_media_sidebar_collapsed", data.sidebar_collapsed ? "true" : "false");
       });
 
+      // Bulk download: server pushes a list of {url, name}; we trigger one anchor click per file
+      this.handleEvent("download_files", function(data) {
+        var files = (data && data.files) || [];
+        files.forEach(function(f, i) {
+          setTimeout(function() {
+            var a = document.createElement("a");
+            a.href = f.url;
+            a.download = f.name || "";
+            a.rel = "noopener";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }, i * 150);
+        });
+      });
+
       this.setupDragDrop();
       this.setupViewModePersistence();
     },
