@@ -57,13 +57,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
   end
 
   defmacro __before_compile__(_env) do
+    # Fully-qualified references on purpose: this code is injected into the
+    # caller's module, where aliasing from Embed wouldn't be in scope.
     quote do
       def handle_event("validate", _params, socket), do: {:noreply, socket}
 
+      # credo:disable-for-next-line Credo.Check.Design.AliasUsage
       def handle_info(
             {PhoenixKitWeb.Components.MediaBrowser, _, _} = msg,
             socket
           ) do
+        # credo:disable-for-next-line Credo.Check.Design.AliasUsage
         PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
       end
     end
