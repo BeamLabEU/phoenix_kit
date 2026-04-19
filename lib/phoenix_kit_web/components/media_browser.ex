@@ -212,6 +212,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:scope_invalid, scope_invalid)
     |> assign(:scope_folder_name, scope_name)
     |> assign(:show_upload, false)
+    |> assign(:show_search, false)
     |> assign(:last_uploaded_file_uuids, [])
     |> assign(:filter_orphaned, false)
     |> assign(:filter_trash, false)
@@ -1156,6 +1157,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   def handle_event("toggle_upload", _params, socket) do
     {:noreply, assign(socket, :show_upload, !socket.assigns.show_upload)}
+  end
+
+  def handle_event("toggle_search", _params, socket) do
+    {:noreply, assign(socket, :show_search, !socket.assigns.show_search)}
   end
 
   def handle_event("show_upload", _params, socket) do

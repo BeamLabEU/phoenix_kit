@@ -296,31 +296,34 @@
               </nav>
             <% end %>
 
-            <%!-- Search Bar --%>
-            <form phx-change="search" phx-target={@myself} phx-submit="search" class="mb-4">
-              <label class="input input-bordered input-sm w-full flex items-center gap-2">
-                <.icon name="hero-magnifying-glass" class="w-4 h-4 text-base-content/40" />
-                <input
-                  type="text"
-                  name="q"
-                  value={@search_query}
-                  placeholder="Search files..."
-                  class="grow bg-transparent border-none outline-none focus:outline-none"
-                  phx-debounce="300"
-                  autocomplete="off"
-                />
-                <%= if @search_query != "" do %>
-                  <button
-                    type="button"
-                    phx-click="clear_search"
-                    phx-target={@myself}
-                    class="btn btn-ghost btn-xs btn-circle"
-                  >
-                    <.icon name="hero-x-mark" class="w-4 h-4" />
-                  </button>
-                <% end %>
-              </label>
-            </form>
+            <%!-- Search Bar (toggleable) --%>
+            <%= if @show_search or @search_query != "" do %>
+              <form phx-change="search" phx-target={@myself} phx-submit="search" class="mb-4">
+                <label class="input input-bordered input-sm w-full flex items-center gap-2">
+                  <.icon name="hero-magnifying-glass" class="w-4 h-4 text-base-content/40" />
+                  <input
+                    type="text"
+                    name="q"
+                    value={@search_query}
+                    placeholder="Search files..."
+                    class="grow bg-transparent border-none outline-none focus:outline-none"
+                    phx-debounce="300"
+                    autocomplete="off"
+                    phx-mounted={JS.focus()}
+                  />
+                  <%= if @search_query != "" do %>
+                    <button
+                      type="button"
+                      phx-click="clear_search"
+                      phx-target={@myself}
+                      class="btn btn-ghost btn-xs btn-circle"
+                    >
+                      <.icon name="hero-x-mark" class="w-4 h-4" />
+                    </button>
+                  <% end %>
+                </label>
+              </form>
+            <% end %>
 
             <%!-- Header --%>
             <div class="flex justify-between items-center mb-4">
@@ -403,6 +406,20 @@
                       </button>
                     <% end %>
                   <% end %>
+                  <button
+                    phx-click="toggle_search"
+                    phx-target={@myself}
+                    class={[
+                      "btn btn-sm btn-circle",
+                      if(@show_search or @search_query != "",
+                        do: "btn-primary",
+                        else: "btn-ghost"
+                      )
+                    ]}
+                    title="Search"
+                  >
+                    <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+                  </button>
                   <%= unless @show_upload or @filter_trash do %>
                     <button
                       phx-click="toggle_upload"
