@@ -1,15 +1,7 @@
 <%!-- MediaBrowser LiveComponent template.
      All phx-* events route to the component via phx-target={@myself} on the root div. --%>
 <div id={@id} phx-target={@myself} phx-hook="MediaDragDrop">
-  <script>
-    (function() {
-      var m = localStorage.getItem("phoenix_kit_media_view_mode");
-      if (m) document.documentElement.dataset.mediaView = m;
-    })();
-  </script>
   <style>
-    [data-media-view="list"] [data-media-grid] { display: none !important; }
-    [data-media-view="grid"] [data-media-list] { display: none !important; }
     @keyframes rename-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
