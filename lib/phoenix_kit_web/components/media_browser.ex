@@ -317,7 +317,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         end)
 
       if result == :done do
-        send(self(), {__MODULE__, :process_pending_upload, persistent_path, entry})
+        # Payload is wrapped in a tuple so the outer message stays a 3-tuple;
+        # the Embed macro's handle_info matches `{Mod, _, _}` only.
+        send(self(), {__MODULE__, :process_pending_upload, {persistent_path, entry}})
       end
     end
 
@@ -330,13 +332,35 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {:noreply, assign(socket, :media_browser_ids, ids)}
   end
 
-  def handle_parent_info({__MODULE__, :process_pending_upload, path, entry}, socket) do
-    # Forward the upload to all registered MediaBrowser components on the page
-    component_ids = socket.assigns[:media_browser_ids] || MapSet.new()
+  def handle_parent_info({__MODULE__, :process_pending_upload, {path, entry}}, socket) do
+    # Forward the upload to every registered MediaBrowser. If more than one is on
+    # the page, copy the temp file per recipient so each component owns its own
+    # path — otherwise the first one to run would delete the shared file and the
+    # rest would crash on `File.stat/1`.
+    component_ids =
+      socket.assigns[:media_browser_ids]
+      |> Kernel.||(MapSet.new())
+      |> MapSet.to_list()
 
-    Enum.each(component_ids, fn id ->
-      send_update(__MODULE__, id: id, pending_upload: {path, entry})
-    end)
+    case component_ids do
+      [] ->
+        File.rm(path)
+
+      [single] ->
+        send_update(__MODULE__, id: single, pending_upload: {path, entry})
+
+      [first | rest] ->
+        send_update(__MODULE__, id: first, pending_upload: {path, entry})
+
+        Enum.each(rest, fn id ->
+          copy = "#{path}-#{id}"
+
+          case File.cp(path, copy) do
+            :ok -> send_update(__MODULE__, id: id, pending_upload: {copy, entry})
+            _ -> :ok
+          end
+        end)
+    end
 
     {:noreply, socket}
   end
