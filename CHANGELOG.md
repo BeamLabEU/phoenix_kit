@@ -1,3 +1,35 @@
+## 1.7.99 - 2026-04-20
+
+### Added
+- V100 migration: staff tables — `phoenix_kit_staff_departments`, `phoenix_kit_staff_teams`, `phoenix_kit_staff_people`, `phoenix_kit_staff_team_memberships` (PR #498)
+- V101 migration: projects tables — `phoenix_kit_project_tasks`, `phoenix_kit_project_task_dependencies`, `phoenix_kit_projects`, `phoenix_kit_project_assignments`, `phoenix_kit_project_dependencies`; polymorphic assignee with `CHECK (num_nonnulls(...) <= 1)` (PR #498)
+- V102 migration: smart catalogues + per-catalogue/item discount (PR #500)
+  - `phoenix_kit_cat_catalogues.discount_percentage` (NOT NULL DEFAULT 0) and `kind` (`'standard' | 'smart'`) columns with CHECK constraints
+  - `phoenix_kit_cat_items.discount_percentage`, `default_value`, `default_unit` override columns
+  - new `phoenix_kit_cat_item_catalogue_rules` table with unique `(item_uuid, referenced_catalogue_uuid)` and ON DELETE CASCADE on both FKs
+  - partial index on `kind = 'smart'`
+- `PhoenixKitWeb.Components.MediaBrowser.Embed` — one-line `use` macro that injects `on_mount` upload setup, the `"validate"` upload-channel stub, and the MediaBrowser `handle_info` delegator (PR #499)
+- MediaBrowser selection menu with bulk download (staggered `<a download>` dispatch via `MediaDragDrop` hook) (PR #499)
+- MediaBrowser `admin` attr to gate detail-page `push_navigate` — picker mode (default) vs admin mode (PR #499)
+- MediaBrowser drag-drop file-to-folder move (PR #499)
+- MediaBrowser toggleable search bar in the header (PR #499)
+- MediaBrowser drag-drop upload at any folder level (PR #499)
+- Site icon + default tab title settings, logo moved to main settings page (PR #499)
+- MultilangForm debounce flow: `mount_multilang/1` attaches a hidden `:handle_info` hook via `Phoenix.LiveView.attach_hook/4`; `handle_switch_language/2` schedules a 150 ms trailing debounce via `Process.send_after` (timer ref stored in `socket.private` to avoid render+diff cycles); `switch_lang_js/2` toggles skeleton/fields `hidden` classes client-side at t=0 (PR #500)
+- `<.input>` gains a `wrapper_class` attr for the outer `phx-feedback-for` div (PR #500)
+- `test_load_filters` / `test_ignore_filters` in `mix.exs` for Elixir 1.19 `mix test` hygiene (PR #500)
+- AGENTS.md: Core Form Components section, Multilang Form Components section, and CHANGELOG-ownership rule (entries written by the maintainer, not agents)
+
+### Changed
+- MediaBrowser sidebar and content unified into a single card (PR #499)
+- Scope-root new-folder form aligned with sibling folder rows (PR #499)
+- Core form components (`<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`) now merge the `class` attr onto the styled element itself — matches the Phoenix 1.7 generator convention. No in-tree caller used the old wrapper-class behavior; external consumers should switch to `wrapper_class` on `<.input>` (PR #500)
+- `compile.phoenix_kit_css_sources` emits absolute dep paths verbatim instead of prefixing `../../` (PR #500)
+
+### Fixed
+- MediaBrowser list view broken by stale view-toggle CSS (PR #499)
+- Credo `AliasUsage` warning inside `MediaBrowser.Embed`'s quoted block silenced (PR #499)
+
 ## 1.7.98 - 2026-04-16
 
 ### Added
