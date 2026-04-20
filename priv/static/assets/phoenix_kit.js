@@ -153,7 +153,12 @@ if (typeof window.Chart === "undefined") {
       style.textContent = [
         ".sortable-ghost { opacity: 0.5; }",
         ".sortable-chosen { outline: 2px solid oklch(var(--p)); outline-offset: 2px; }",
-        ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }"
+        ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }",
+        "@keyframes pk-sortable-wiggle { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }",
+        ".pk-sortable-wiggle { animation: pk-sortable-wiggle 0.4s ease-in-out infinite; }",
+        ".pk-sortable-wiggle:nth-child(even) { animation-delay: 0.1s; }",
+        ".pk-sortable-wiggle:nth-child(3n) { animation-delay: 0.2s; }",
+        "@media (prefers-reduced-motion: reduce) { .pk-sortable-wiggle { animation: none; } }"
       ].join("\n");
       document.head.appendChild(style);
     }
@@ -220,6 +225,7 @@ if (typeof window.Chart === "undefined") {
         var self = this;
         var container = this.el;
         var eventName = container.dataset.sortableEvent || "reorder_items";
+        var hideSource = container.dataset.sortableHideSource === "true";
 
         injectStyles();
 
@@ -234,6 +240,15 @@ if (typeof window.Chart === "undefined") {
           ghostClass: "sortable-ghost",
           chosenClass: "sortable-chosen",
           dragClass: "sortable-drag",
+          onStart: function() {
+            if (hideSource) {
+              // Hide the fallback clone that SortableJS places at the initial position on body
+              setTimeout(function() {
+                var fallback = document.querySelector("body > .sortable-fallback");
+                if (fallback) fallback.style.display = "none";
+              }, 0);
+            }
+          },
           onEnd: function(evt) {
             var items = container.querySelectorAll(".sortable-item[data-id]");
             var orderedIds = Array.from(items).map(function(el) {
@@ -1991,7 +2006,7 @@ if (typeof window.Chart === "undefined") {
       // Sync saved view mode to server
       var savedMode = localStorage.getItem("phoenix_kit_media_view_mode");
       if (savedMode && savedMode !== "grid") {
-        this.pushEvent("set_view_mode", { mode: savedMode });
+        this.pushEventTo(this.el, "set_view_mode", { mode: savedMode });
       }
 
       // Restore tree state from localStorage
@@ -2000,7 +2015,7 @@ if (typeof window.Chart === "undefined") {
       var expanded = [];
       try { expanded = expandedRaw ? JSON.parse(expandedRaw) : []; } catch(e) {}
       if (expanded.length > 0 || sidebarCollapsed) {
-        this.pushEvent("restore_tree_state", {
+        this.pushEventTo(this.el, "restore_tree_state", {
           expanded: expanded,
           sidebar_collapsed: sidebarCollapsed
         });
@@ -2011,6 +2026,22 @@ if (typeof window.Chart === "undefined") {
       this.handleEvent("save_tree_state", function(data) {
         localStorage.setItem("phoenix_kit_media_expanded_folders", JSON.stringify(data.expanded || []));
         localStorage.setItem("phoenix_kit_media_sidebar_collapsed", data.sidebar_collapsed ? "true" : "false");
+      });
+
+      // Bulk download: server pushes a list of {url, name}; we trigger one anchor click per file
+      this.handleEvent("download_files", function(data) {
+        var files = (data && data.files) || [];
+        files.forEach(function(f, i) {
+          setTimeout(function() {
+            var a = document.createElement("a");
+            a.href = f.url;
+            a.download = f.name || "";
+            a.rel = "noopener";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }, i * 150);
+        });
       });
 
       this.setupDragDrop();
@@ -2075,11 +2106,12 @@ if (typeof window.Chart === "undefined") {
         target.removeEventListener("drop", target._drop);
         target._drop = function(e) {
           e.preventDefault();
+          e.stopPropagation();
           target.classList.remove("ring-2", "ring-primary", "bg-primary/10");
           var fileUuid = e.dataTransfer.getData("text/plain");
           var folderUuid = target.dataset.dropFolder;
           if (fileUuid && folderUuid) {
-            self.pushEvent("move_file_to_folder", {
+            self.pushEventTo(self.el, "move_file_to_folder", {
               file_uuid: fileUuid,
               folder_uuid: folderUuid === "root" ? "" : folderUuid
             });
@@ -2089,6 +2121,118 @@ if (typeof window.Chart === "undefined") {
       });
     }
   };
+
+  // ============================================================================
+  // MAINTENANCE COUNTDOWN HOOK
+  // ============================================================================
+  // Powers the "Expected back in Xh Ym Zs" countdown on the maintenance page.
+  // Reads the scheduled end time from data-end (ISO 8601), updates #countdown-value
+  // every second, and shows the value from data-elapsed-text (translatable) when
+  // the countdown reaches zero.
+
+  window.PhoenixKitHooks.MaintenanceCountdown = {
+    mounted() {
+      this.endTime = new Date(this.el.dataset.end).getTime();
+      this.timerEl = this.el.querySelector("#countdown-value");
+      this.elapsedText = this.el.dataset.elapsedText || "";
+      this.tick();
+      this.interval = setInterval(() => this.tick(), 1000);
+    },
+    tick() {
+      var diff = Math.max(0, Math.floor((this.endTime - Date.now()) / 1000));
+      if (diff <= 0) {
+        clearInterval(this.interval);
+        if (this.timerEl) this.timerEl.textContent = this.elapsedText;
+        return;
+      }
+      var h = Math.floor(diff / 3600);
+      var m = Math.floor((diff % 3600) / 60);
+      var s = diff % 60;
+      var text = "";
+      if (h > 0) text += h + "h ";
+      if (h > 0 || m > 0) text += m + "m ";
+      text += s + "s";
+      if (this.timerEl) this.timerEl.textContent = text;
+    },
+    destroyed() {
+      if (this.interval) clearInterval(this.interval);
+    }
+  };
+
+  // ============================================================================
+  // FolderDropUpload Hook — drag files from device to upload into current folder
+  // ============================================================================
+
+  window.PhoenixKitHooks.FolderDropUpload = {
+    mounted: function() {
+      var self = this;
+      var el = this.el;
+      var dragCounter = 0;
+
+      el.addEventListener("dragenter", function(e) {
+        // Only respond to external file drags, not internal file-to-folder moves
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        dragCounter++;
+        if (dragCounter === 1) {
+          el.classList.add("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+        }
+      });
+
+      el.addEventListener("dragover", function(e) {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      });
+
+      el.addEventListener("dragleave", function(e) {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+          el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+        }
+      });
+
+      el.addEventListener("drop", function(e) {
+        // Ignore internal drags (file-to-folder moves) — only accept device files
+        var files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        e.preventDefault();
+        dragCounter = 0;
+        el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
+
+        // Inject files directly into the hidden upload input (no modal)
+        self._pendingFiles = files;
+        self._injectFiles();
+      });
+    },
+
+    _injectFiles: function() {
+      var self = this;
+      var attempts = 0;
+      var maxAttempts = 20;
+
+      function tryInject() {
+        var uploadInput = self.el.closest(".flex-1").querySelector("[data-phx-upload-ref]");
+        if (uploadInput && self._pendingFiles) {
+          var dt = new DataTransfer();
+          for (var i = 0; i < self._pendingFiles.length; i++) {
+            dt.items.add(self._pendingFiles[i]);
+          }
+          uploadInput.files = dt.files;
+          uploadInput.dispatchEvent(new Event("input", { bubbles: true }));
+          self._pendingFiles = null;
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryInject, 50);
+        }
+      }
+
+      tryInject();
+    }
+  };
+
   // ============================================================================
   // INITIALIZATION COMPLETE
   // ============================================================================

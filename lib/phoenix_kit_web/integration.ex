@@ -268,6 +268,18 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
+      # Maintenance mode page — public LiveView, no auth required.
+      # Uses :phoenix_kit_mount_current_scope to detect admin users (for preview banner).
+      # The maintenance page view is in skip_maintenance_check? so it won't redirect to itself.
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup]
+
+        live_session :phoenix_kit_maintenance,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/maintenance", Live.Modules.Maintenance.Page, :index
+        end
+      end
+
       # Note: Email export routes moved to generate_emails_routes/1 (separate scope)
 
       # PhoenixKit static assets (no CSRF protection needed for static files)
@@ -675,7 +687,7 @@ defmodule PhoenixKitWeb.Integration do
   # ## Tab config example
   #
   #     config :phoenix_kit, :admin_dashboard_tabs, [
-  #       %{id: :admin_analytics, label: "Analytics", path: "/admin/analytics",
+  #       %{id: :admin_analytics, label: "Analytics", path: "analytics",
   #         live_view: {MyAppWeb.AnalyticsLive, :index}, permission: "dashboard"}
   #     ]
   #

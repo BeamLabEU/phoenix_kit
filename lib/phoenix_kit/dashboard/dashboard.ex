@@ -24,18 +24,22 @@ defmodule PhoenixKit.Dashboard do
           id: :orders,
           label: "My Orders",
           icon: "hero-shopping-bag",
-          path: "/dashboard/orders",
+          path: "orders",
           priority: 100
         },
         %{
           id: :notifications,
           label: "Notifications",
           icon: "hero-bell",
-          path: "/dashboard/notifications",
+          path: "notifications",
           priority: 200,
           badge: %{type: :count, value: 0, color: :error}
         }
       ]
+
+  > Tab paths are **relative by convention** — `Tab.resolve_path/2` prepends `/dashboard/`
+  > for `user_dashboard_tabs`, `/admin/` for `admin_tabs`, `/admin/settings/` for `settings_tabs`.
+  > Absolute paths (starting with `/`) also work but the relative form is preferred.
 
   ### 2. Register Tabs at Runtime (Optional)
 
@@ -45,7 +49,7 @@ defmodule PhoenixKit.Dashboard do
           id: :printers,
           label: "Printers",
           icon: "hero-cube",
-          path: "/dashboard/printers",
+          path: "printers",
           priority: 150,
           badge: %{
             type: :count,
@@ -77,7 +81,7 @@ defmodule PhoenixKit.Dashboard do
 
   Then assign tabs to groups:
 
-      %{id: :printers, label: "Printers", path: "/dashboard/printers", group: :farm}
+      %{id: :printers, label: "Printers", path: "printers", group: :farm}
 
   ## Conditional Visibility
 
@@ -87,7 +91,7 @@ defmodule PhoenixKit.Dashboard do
       %{
         id: :beta_feature,
         label: "Beta",
-        path: "/dashboard/beta",
+        path: "beta",
         visible: fn scope ->
           scope.user.features["beta_enabled"] == true
         end
@@ -100,7 +104,7 @@ defmodule PhoenixKit.Dashboard do
       %{
         id: :notifications,
         label: "Notifications",
-        path: "/dashboard/notifications",
+        path: "notifications",
         badge: %{
           type: :count,
           color: :error,
@@ -139,13 +143,13 @@ defmodule PhoenixKit.Dashboard do
 
       # Register multiple tabs
       PhoenixKit.Dashboard.register_tabs(:my_app, [
-        %{id: :orders, label: "Orders", path: "/dashboard/orders", icon: "hero-shopping-bag"},
-        %{id: :history, label: "History", path: "/dashboard/history", icon: "hero-clock"}
+        %{id: :orders, label: "Orders", path: "orders", icon: "hero-shopping-bag"},
+        %{id: :history, label: "History", path: "history", icon: "hero-clock"}
       ])
 
       # Register a single tab
       PhoenixKit.Dashboard.register_tabs(:my_app, [
-        Tab.new!(id: :custom, label: "Custom", path: "/dashboard/custom")
+        Tab.new!(id: :custom, label: "Custom", path: "custom")
       ])
   """
   @spec register_tabs(atom(), [map() | Tab.t()]) :: :ok | {:error, term()}
@@ -231,7 +235,7 @@ defmodule PhoenixKit.Dashboard do
   ## Examples
 
       PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
-        %{id: :admin_analytics, label: "Analytics", path: "/admin/analytics",
+        %{id: :admin_analytics, label: "Analytics", path: "analytics",
           icon: "hero-chart-bar", permission: "dashboard"}
       ])
   """

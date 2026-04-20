@@ -39,7 +39,14 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     values:
       ~w(color date datetime-local email file hidden month number password range search tel text time url week)
 
-  attr :class, :string, default: nil
+  attr :class, :any,
+    default: nil,
+    doc:
+      "extra classes merged onto the `<input>` element — use this for daisyUI modifiers like `input-sm`, `input-primary`, or project-specific focus styles. Matches the Phoenix 1.7 generator convention."
+
+  attr :wrapper_class, :any,
+    default: nil,
+    doc: "extra classes for the outer `<div phx-feedback-for>` wrapper"
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -68,7 +75,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
 
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name} class={@class}>
+    <div phx-feedback-for={@name} class={@wrapper_class}>
       <label :if={@label && @label != ""} class="label mb-2" for={@id}>
         <span :if={@icon != []} class="label-text flex items-center">
           {render_slot(@icon)}
@@ -83,7 +90,8 @@ defmodule PhoenixKitWeb.Components.Core.Input do
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         class={[
           "input w-full transition-colors focus:input-primary",
-          @errors != [] && "input-error"
+          @errors != [] && "input-error",
+          @class
         ]}
         {@rest}
       />

@@ -1,3 +1,80 @@
+## 1.7.99 - 2026-04-20
+
+### Added
+- V100 migration: staff tables — `phoenix_kit_staff_departments`, `phoenix_kit_staff_teams`, `phoenix_kit_staff_people`, `phoenix_kit_staff_team_memberships` (PR #498)
+- V101 migration: projects tables — `phoenix_kit_project_tasks`, `phoenix_kit_project_task_dependencies`, `phoenix_kit_projects`, `phoenix_kit_project_assignments`, `phoenix_kit_project_dependencies`; polymorphic assignee with `CHECK (num_nonnulls(...) <= 1)` (PR #498)
+- V102 migration: smart catalogues + per-catalogue/item discount (PR #500)
+  - `phoenix_kit_cat_catalogues.discount_percentage` (NOT NULL DEFAULT 0) and `kind` (`'standard' | 'smart'`) columns with CHECK constraints
+  - `phoenix_kit_cat_items.discount_percentage`, `default_value`, `default_unit` override columns
+  - new `phoenix_kit_cat_item_catalogue_rules` table with unique `(item_uuid, referenced_catalogue_uuid)` and ON DELETE CASCADE on both FKs
+  - partial index on `kind = 'smart'`
+- `PhoenixKitWeb.Components.MediaBrowser.Embed` — one-line `use` macro that injects `on_mount` upload setup, the `"validate"` upload-channel stub, and the MediaBrowser `handle_info` delegator (PR #499)
+- MediaBrowser selection menu with bulk download (staggered `<a download>` dispatch via `MediaDragDrop` hook) (PR #499)
+- MediaBrowser `admin` attr to gate detail-page `push_navigate` — picker mode (default) vs admin mode (PR #499)
+- MediaBrowser drag-drop file-to-folder move (PR #499)
+- MediaBrowser toggleable search bar in the header (PR #499)
+- MediaBrowser drag-drop upload at any folder level (PR #499)
+- Site icon + default tab title settings, logo moved to main settings page (PR #499)
+- MultilangForm debounce flow: `mount_multilang/1` attaches a hidden `:handle_info` hook via `Phoenix.LiveView.attach_hook/4`; `handle_switch_language/2` schedules a 150 ms trailing debounce via `Process.send_after` (timer ref stored in `socket.private` to avoid render+diff cycles); `switch_lang_js/2` toggles skeleton/fields `hidden` classes client-side at t=0 (PR #500)
+- `<.input>` gains a `wrapper_class` attr for the outer `phx-feedback-for` div (PR #500)
+- `test_load_filters` / `test_ignore_filters` in `mix.exs` for Elixir 1.19 `mix test` hygiene (PR #500)
+- AGENTS.md: Core Form Components section, Multilang Form Components section, and CHANGELOG-ownership rule (entries written by the maintainer, not agents)
+
+### Changed
+- MediaBrowser sidebar and content unified into a single card (PR #499)
+- Scope-root new-folder form aligned with sibling folder rows (PR #499)
+- Core form components (`<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`) now merge the `class` attr onto the styled element itself — matches the Phoenix 1.7 generator convention. No in-tree caller used the old wrapper-class behavior; external consumers should switch to `wrapper_class` on `<.input>` (PR #500)
+- `compile.phoenix_kit_css_sources` emits absolute dep paths verbatim instead of prefixing `../../` (PR #500)
+
+### Fixed
+- MediaBrowser list view broken by stale view-toggle CSS (PR #499)
+- Credo `AliasUsage` warning inside `MediaBrowser.Embed`'s quoted block silenced (PR #499)
+
+## 1.7.98 - 2026-04-16
+
+### Added
+- V99 migration: `trashed_at` column on `phoenix_kit_files` with partial index for soft-delete (PR #497)
+- Media trash bucket: soft-delete files with restore/empty/permanent-delete actions and sidebar count badge
+- `PhoenixKit.Modules.Storage.Workers.PruneTrashJob` — daily Oban cron (3 AM) that permanently deletes files older than `trash_retention_days` (default 30)
+- Drag-drop upload: drop device files directly onto the folder content area (`FolderDropUpload` JS hook)
+- URL-param hydration on first mount so reloads don't flash the root view
+
+### Fixed
+- Scope guard on `restore_selected` in MediaBrowser — a scoped embed could previously restore files outside its scope via a crafted `toggle_select` payload
+- Trash view, permanent-delete, and `empty_trash` now respect `scope_folder_id` via recursive CTE
+- `list_files/1` excludes trashed files
+- Breadcrumb and search bar moved inside card body so padding matches grid/list content
+
+## 1.7.97 - 2026-04-15
+
+### Added
+- V97 migration: per-item `markup_percentage` override on catalogue items (PR #493)
+- V98 migration: `alternative_formats` column on storage dimensions
+- `PhoenixKit.Modules.Shared.Components.ImageSet` — responsive `<picture>` component with AVIF/WebP/JPEG `<source>` entries
+- `PhoenixKit.Modules.Storage.VariantNaming` — format-suffix parsing utility
+- Multi-format variant generation (WebP/AVIF alongside primary format per dimension)
+- Variant dimensions and file sizes shown on media detail page
+- UUID search support on media page search bar
+
+### Changed
+- V95 migration made truly idempotent for `folder_uuid` column (raw SQL `IF NOT EXISTS` block)
+- Dimensions table format cell renders as `JPEG + WEBP, AVIF` (fixed stray `" +"` separator)
+
+### Fixed
+- Long text overflow in media detail sidebar
+- Missing original file size in variant download buttons
+
+## 1.7.96 - 2026-04-13
+
+### Added
+- Sortable languages in admin (drag-and-drop reorder)
+- hide_source option on DraggableList component
+- Wiggle animation for reorder mode with prefers-reduced-motion support
+
+### Changed
+- Dedup language codes in reorder, use MapSet for lookup
+- Extract wiggle CSS to JS-injected styles with pk- prefix
+
 ## 1.7.95 - 2026-04-11
 
 ### Added

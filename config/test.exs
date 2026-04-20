@@ -49,6 +49,11 @@ config :phoenix_kit,
 # Configure logger for tests
 config :logger, level: :warning
 
+# Configure endpoint for LiveView tests (server: false — no HTTP server, just session signing)
+config :phoenix_kit, PhoenixKitWeb.Endpoint,
+  secret_key_base: "test_secret_key_base_at_least_64_bytes_long_for_phoenix_kit_tests_only",
+  server: false
+
 # Suppress esbuild/tailwind warnings in tests (library doesn't include these apps)
 config :esbuild, :version, nil
 config :tailwind, :version, nil

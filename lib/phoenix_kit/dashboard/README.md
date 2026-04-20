@@ -82,14 +82,14 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :orders,
     label: "My Orders",
     icon: "hero-shopping-bag",
-    path: "/dashboard/orders",
+    path: "orders",
     priority: 100
   },
   %{
     id: :notifications,
     label: "Notifications",
     icon: "hero-bell",
-    path: "/dashboard/notifications",
+    path: "notifications",
     priority: 200,
     badge: %{type: :count, value: 0, color: :error}
   }
@@ -105,7 +105,7 @@ PhoenixKit.Dashboard.register_tabs(:my_app, [
     id: :printers,
     label: "Printers",
     icon: "hero-cube",
-    path: "/dashboard/printers",
+    path: "printers",
     priority: 150,
     badge: %{
       type: :count,
@@ -145,7 +145,7 @@ PhoenixKit.Dashboard.clear_attention(:alerts)
 %{
   id: :orders,           # Required: Unique atom identifier
   label: "Orders",       # Required: Display text
-  path: "/dashboard/orders",  # Required: URL path
+  path: "orders",        # Required: URL path (relative — resolved to /dashboard/orders)
   icon: "hero-shopping-bag",  # Optional: Heroicon name
   priority: 100          # Optional: Sort order (default: 500)
 }
@@ -153,25 +153,30 @@ PhoenixKit.Dashboard.clear_attention(:alerts)
 
 ### Tab Path Format
 
-**Important:** Tab paths should be specified WITHOUT the PhoenixKit URL prefix.
+Tab paths are **relative by convention**. `Tab.resolve_path/2` (see `lib/phoenix_kit/dashboard/tab.ex`) prepends the context prefix at load time based on which callback returned the tab:
+
+- `user_dashboard_tabs/0` → prepends `/dashboard` (e.g. `"orders"` → `/dashboard/orders`)
+- `admin_tabs/0` → prepends `/admin` (e.g. `"analytics"` → `/admin/analytics`)
+- `settings_tabs/0` → prepends `/admin/settings` (e.g. `"billing"` → `/admin/settings/billing`)
+
+An empty `path: ""` resolves to the bare context root (e.g. `""` in a user_dashboard tab becomes `/dashboard`).
 
 ```elixir
-# ✅ CORRECT - relative path without prefix
+# ✅ PREFERRED — relative form
+path: "orders"                    # resolves to /dashboard/orders
+path: "orders/pending"            # resolves to /dashboard/orders/pending
+path: ""                          # resolves to /dashboard (context root)
+
+# ⚠️ ACCEPTED — absolute form (passes through resolver unchanged, but discouraged)
 path: "/dashboard/orders"
 
-# ❌ WRONG - don't include the phoenix_kit prefix
+# ❌ WRONG — never include the PhoenixKit URL prefix
 path: "/phoenix_kit/dashboard/orders"
 ```
 
-PhoenixKit automatically normalizes paths for matching:
-- Strips the configured URL prefix (default: `/phoenix_kit`)
-- Strips locale prefixes (e.g., `/en/dashboard/orders` → `/dashboard/orders`)
-- Handles trailing slashes consistently
+The relative form is preferred because it's what every real plugin module uses (`phoenix_kit_emails`, `phoenix_kit_catalogue`, `phoenix_kit_entities`, etc.), it's shorter, and the same tab definition can be reused across contexts without hardcoding the prefix.
 
-This means your tab will correctly highlight regardless of:
-- What URL prefix is configured
-- Whether the user has a locale in the URL
-- Whether there's a trailing slash
+Separately, PhoenixKit normalizes the **incoming request path** for matching — stripping the configured URL prefix (default `/phoenix_kit`), stripping locale prefixes (`/en/dashboard/orders` → `/dashboard/orders`), and handling trailing slashes. This means your tab highlights correctly regardless of URL prefix, locale, or trailing slash — that's a separate concern from the tab's stored `path` field.
 
 ### Full Options
 
@@ -180,7 +185,7 @@ This means your tab will correctly highlight regardless of:
   id: :printers,
   label: "Printers",
   icon: "hero-cube",
-  path: "/dashboard/printers",
+  path: "printers",
   priority: 150,
   group: :farm,          # Group ID for organization
   match: :prefix,        # :exact, :prefix, {:regex, ~r/.../}, or function
@@ -215,7 +220,7 @@ config :phoenix_kit, :user_dashboard_tab_groups, [
 Then assign tabs to groups:
 
 ```elixir
-%{id: :printers, label: "Printers", path: "/dashboard/printers", group: :farm}
+%{id: :printers, label: "Printers", path: "printers", group: :farm}
 ```
 
 ## Subtabs
@@ -231,7 +236,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :orders,
     label: "Orders",
     icon: "hero-shopping-bag",
-    path: "/dashboard/orders",
+    path: "orders",
     priority: 100,
     subtab_display: :when_active  # Show subtabs only when parent is active
   },
@@ -239,21 +244,21 @@ config :phoenix_kit, :user_dashboard_tabs, [
   %{
     id: :pending_orders,
     label: "Pending",
-    path: "/dashboard/orders/pending",
+    path: "orders/pending",
     priority: 110,
     parent: :orders  # Links this tab to the parent
   },
   %{
     id: :completed_orders,
     label: "Completed",
-    path: "/dashboard/orders/completed",
+    path: "orders/completed",
     priority: 120,
     parent: :orders
   },
   %{
     id: :cancelled_orders,
     label: "Cancelled",
-    path: "/dashboard/orders/cancelled",
+    path: "orders/cancelled",
     priority: 130,
     parent: :orders
   }
@@ -272,7 +277,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
 %{
   id: :settings,
   label: "Settings",
-  path: "/dashboard/settings",
+  path: "settings",
   subtab_display: :always
 }
 ```
@@ -285,14 +290,14 @@ When `redirect_to_first_subtab: true` is set on a parent tab, clicking the paren
 %{
   id: :orders,
   label: "Orders",
-  path: "/dashboard/orders",           # This path won't be used for navigation
+  path: "orders",                      # This path won't be used for navigation
   redirect_to_first_subtab: true,      # Clicking "Orders" goes to first subtab
   subtab_display: :when_active
 }
 
 # First subtab (priority 110) becomes the landing page
-%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders, priority: 110}
-%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders, priority: 120}
+%{id: :pending, label: "Pending", path: "orders/pending", parent: :orders, priority: 110}
+%{id: :completed, label: "Completed", path: "orders/completed", parent: :orders, priority: 120}
 ```
 
 With this config, clicking "Orders" navigates to `/dashboard/orders/pending`.
@@ -305,7 +310,7 @@ By default, when a subtab is active, only the subtab is highlighted (not the par
 %{
   id: :orders,
   label: "Orders",
-  path: "/dashboard/orders",
+  path: "orders",
   highlight_with_subtabs: true  # Also highlight parent when subtab is active (default: false)
 }
 ```
@@ -325,7 +330,7 @@ Set these on the **parent tab** to apply to all its subtabs, or on **individual 
 %{
   id: :orders,
   label: "Orders",
-  path: "/dashboard/orders",
+  path: "orders",
   subtab_display: :when_active,
   # Style options for subtabs (applied to children)
   subtab_indent: "pl-12",        # Tailwind padding-left class (default: "pl-4")
@@ -341,13 +346,13 @@ Individual subtabs can override the parent's styling:
 
 ```elixir
 # Parent with default styling
-%{id: :settings, label: "Settings", path: "/dashboard/settings", subtab_display: :always},
+%{id: :settings, label: "Settings", path: "settings", subtab_display: :always},
 
 # Subtab with custom styling (overrides parent)
 %{
   id: :advanced_settings,
   label: "Advanced",
-  path: "/dashboard/settings/advanced",
+  path: "settings/advanced",
   parent: :settings,
   subtab_indent: "pl-14",
   subtab_text_size: "text-xs font-medium"
@@ -419,9 +424,9 @@ Animations play when subtabs become visible (when navigating to parent or subtab
 ```elixir
 # Register parent and subtabs at runtime
 PhoenixKit.Dashboard.register_tabs(:my_app, [
-  %{id: :printers, label: "Printers", path: "/dashboard/printers", subtab_display: :when_active},
-  %{id: :active_printers, label: "Active", path: "/dashboard/printers/active", parent: :printers},
-  %{id: :idle_printers, label: "Idle", path: "/dashboard/printers/idle", parent: :printers}
+  %{id: :printers, label: "Printers", path: "printers", subtab_display: :when_active},
+  %{id: :active_printers, label: "Active", path: "printers/active", parent: :printers},
+  %{id: :idle_printers, label: "Idle", path: "printers/idle", parent: :printers}
 ])
 ```
 
@@ -472,15 +477,15 @@ The parent tab acts as a category header. Clicking it goes to the first subtab. 
 %{
   id: :history,
   label: "History",
-  path: "/dashboard/history",
+  path: "history",
   redirect_to_first_subtab: true,   # Click goes to /dashboard/history/timeline
   highlight_with_subtabs: true,     # Parent stays highlighted
   subtab_display: :when_active
 }
 
 # Subtabs
-%{id: :timeline, label: "Timeline", path: "/dashboard/history/timeline", parent: :history, priority: 100}
-%{id: :stats, label: "Stats", path: "/dashboard/history/stats", parent: :history, priority: 200}
+%{id: :timeline, label: "Timeline", path: "history/timeline", parent: :history, priority: 100}
+%{id: :stats, label: "Stats", path: "history/stats", parent: :history, priority: 200}
 ```
 
 **Pattern 2: Parent has its own content, subtabs are secondary**
@@ -492,15 +497,15 @@ The parent tab has its own page. Subtabs provide additional views. Only the acti
 %{
   id: :orders,
   label: "Orders",
-  path: "/dashboard/orders",
+  path: "orders",
   match: :exact,                    # Only highlight when exactly on /dashboard/orders
   highlight_with_subtabs: false,    # Don't highlight parent when on subtab
   subtab_display: :when_active
 }
 
 # Subtabs
-%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders}
-%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders}
+%{id: :pending, label: "Pending", path: "orders/pending", parent: :orders}
+%{id: :completed, label: "Completed", path: "orders/completed", parent: :orders}
 ```
 
 **Pattern 3: Always-visible subtabs (settings menu)**
@@ -511,13 +516,13 @@ Subtabs are always visible regardless of which is active.
 %{
   id: :settings,
   label: "Settings",
-  path: "/dashboard/settings",
+  path: "settings",
   subtab_display: :always,          # Always show subtabs
   redirect_to_first_subtab: true
 }
 
-%{id: :profile, label: "Profile", path: "/dashboard/settings/profile", parent: :settings}
-%{id: :security, label: "Security", path: "/dashboard/settings/security", parent: :settings}
+%{id: :profile, label: "Profile", path: "settings/profile", parent: :settings}
+%{id: :security, label: "Security", path: "settings/security", parent: :settings}
 ```
 
 #### How Options Interact
@@ -707,7 +712,7 @@ For badges that show different values per user, organization, or other context (
   id: :alerts,
   label: "Alerts",
   icon: "hero-bell-alert",
-  path: "/dashboard/alerts",
+  path: "alerts",
   badge: %{
     type: :count,
     color: :error,
@@ -723,7 +728,7 @@ For badges that show different values per user, organization, or other context (
 %{
   id: :printers,
   label: "Printers",
-  path: "/dashboard/printers",
+  path: "printers",
   badge: %{
     type: :count,
     context_key: :farm,
@@ -826,7 +831,7 @@ Use the `visible` field for non-permission conditional logic like feature flags 
 %{
   id: :beta_feature,
   label: "Beta Feature",
-  path: "/dashboard/beta",
+  path: "beta",
   visible: fn scope ->
     scope.user.features["beta_enabled"] == true
   end
@@ -1068,7 +1073,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :printers,
     label: "Printers",
     icon: "hero-cube",
-    path: "/dashboard",
+    path: "",
     priority: 100,
     group: :farm,
     match: :exact,
@@ -1081,7 +1086,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :history,
     label: "History",
     icon: "hero-chart-bar",
-    path: "/dashboard/history",
+    path: "history",
     priority: 200,
     group: :farm
   },
@@ -1089,7 +1094,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :farm_settings,
     label: "Farm Settings",
     icon: "hero-cog-6-tooth",
-    path: "/dashboard/farm-settings",
+    path: "farm-settings",
     priority: 300,
     group: :farm,
     visible: fn scope -> scope.user.has_farm? end
@@ -1110,7 +1115,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :orders,
     label: "Orders",
     icon: "hero-shopping-bag",
-    path: "/dashboard/orders",
+    path: "orders",
     priority: 100,
     badge: %{type: :count, value: 0}
   },
@@ -1118,14 +1123,14 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :wishlist,
     label: "Wishlist",
     icon: "hero-heart",
-    path: "/dashboard/wishlist",
+    path: "wishlist",
     priority: 200
   },
   %{
     id: :reviews,
     label: "Reviews",
     icon: "hero-star",
-    path: "/dashboard/reviews",
+    path: "reviews",
     priority: 300,
     badge: %{type: :new}
   },
@@ -1133,7 +1138,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
     id: :addresses,
     label: "Addresses",
     icon: "hero-map-pin",
-    path: "/dashboard/addresses",
+    path: "addresses",
     priority: 400
   }
 ]
@@ -1175,16 +1180,16 @@ The `tab_loader` option allows tabs to change based on the selected context:
 # In your context module
 def get_tabs_for_context(%{type: :personal}) do
   [
-    %{id: :overview, label: "Overview", path: "/dashboard", icon: "hero-home"},
-    %{id: :settings, label: "Settings", path: "/dashboard/settings", icon: "hero-cog-6-tooth"}
+    %{id: :overview, label: "Overview", path: "", icon: "hero-home"},
+    %{id: :settings, label: "Settings", path: "settings", icon: "hero-cog-6-tooth"}
   ]
 end
 
 def get_tabs_for_context(%{type: :team}) do
   [
-    %{id: :overview, label: "Overview", path: "/dashboard", icon: "hero-home"},
-    %{id: :projects, label: "Projects", path: "/dashboard/projects", icon: "hero-folder"},
-    %{id: :settings, label: "Settings", path: "/dashboard/settings", icon: "hero-cog-6-tooth"}
+    %{id: :overview, label: "Overview", path: "", icon: "hero-home"},
+    %{id: :projects, label: "Projects", path: "projects", icon: "hero-folder"},
+    %{id: :settings, label: "Settings", path: "settings", icon: "hero-cog-6-tooth"}
   ]
 end
 ```

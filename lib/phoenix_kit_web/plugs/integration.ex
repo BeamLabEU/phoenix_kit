@@ -59,13 +59,19 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   Runs all PhoenixKit integration plugs in sequence.
   """
   def call(conn, _opts) do
-    conn
-    |> run_maintenance_mode_check()
-    |> inject_websocket_fix()
+    conn = run_maintenance_mode_check(conn)
 
-    # Future plugs can be added here:
-    # |> run_rate_limiter()
-    # |> run_security_headers()
+    # Skip remaining plugs if maintenance mode already sent a response
+    if conn.halted do
+      conn
+    else
+      conn
+      |> inject_websocket_fix()
+
+      # Future plugs can be added here:
+      # |> run_rate_limiter()
+      # |> run_security_headers()
+    end
   end
 
   # Run maintenance mode check

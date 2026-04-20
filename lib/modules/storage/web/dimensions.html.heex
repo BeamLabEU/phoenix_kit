@@ -123,7 +123,14 @@
                     %{label: gettext("Quality"), value: "#{d.quality}%"},
                     %{
                       label: gettext("Format"),
-                      value: if(d.format, do: String.upcase(d.format), else: gettext("Original"))
+                      value:
+                        if(d.format, do: String.upcase(d.format), else: gettext("Original")) <>
+                          if((d.alternative_formats || []) != [],
+                            do:
+                              " + " <>
+                                Enum.map_join(d.alternative_formats, ", ", &String.upcase/1),
+                            else: ""
+                          )
                     },
                     %{
                       label: gettext("Status"),
@@ -178,6 +185,13 @@
                         <span class="text-sm font-mono uppercase">{dimension.format}</span>
                       <% else %>
                         <span class="text-sm text-base-content/60">{gettext("Original")}</span>
+                      <% end %>
+                      <%= if (dimension.alternative_formats || []) != [] do %>
+                        <%= for fmt <- dimension.alternative_formats do %>
+                          <span class="badge badge-outline badge-xs font-mono uppercase">
+                            +{fmt}
+                          </span>
+                        <% end %>
                       <% end %>
                     </.table_default_cell>
                     <.table_default_cell>
@@ -371,6 +385,13 @@
                         <span class="text-sm font-mono uppercase">{dimension.format}</span>
                       <% else %>
                         <span class="text-sm text-base-content/60">{gettext("Original")}</span>
+                      <% end %>
+                      <%= if (dimension.alternative_formats || []) != [] do %>
+                        <%= for fmt <- dimension.alternative_formats do %>
+                          <span class="badge badge-outline badge-xs font-mono uppercase">
+                            +{fmt}
+                          </span>
+                        <% end %>
                       <% end %>
                     </.table_default_cell>
                     <.table_default_cell>

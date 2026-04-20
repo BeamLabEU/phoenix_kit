@@ -9,8 +9,11 @@ defmodule PhoenixKitWeb.AssetsController do
   use PhoenixKitWeb, :controller
 
   @valid_assets %{
-    "phoenix_kit_daisyui5.js" => {"application/javascript", "phoenix_kit_daisyui5.js"},
-    "phoenix_kit_daisyui5.css" => {"text/css", "phoenix_kit_daisyui5.css"}
+    "phoenix_kit_daisyui5.js" =>
+      {"application/javascript", :phoenix_kit, "phoenix_kit_daisyui5.js"},
+    "phoenix_kit_daisyui5.css" => {"text/css", :phoenix_kit, "phoenix_kit_daisyui5.css"},
+    "phoenix_kit_consent.js" =>
+      {"application/javascript", :phoenix_kit_legal, "phoenix_kit_consent.js"}
   }
 
   @doc """
@@ -19,13 +22,19 @@ defmodule PhoenixKitWeb.AssetsController do
   Available assets:
   - phoenix_kit_daisyui5.js - DaisyUI 5 theme controller
   - phoenix_kit_daisyui5.css - DaisyUI 5 styles
+  - phoenix_kit_consent.js  - Legal consent banner (from phoenix_kit_legal package)
   """
   def serve(conn, %{"file" => file}) do
     case Map.get(@valid_assets, file) do
-      {content_type, filename} ->
-        asset_path = Application.app_dir(:phoenix_kit, "priv/static/assets/#{filename}")
+      {content_type, app, filename} ->
+        asset_path =
+          try do
+            Application.app_dir(app, "priv/static/assets/#{filename}")
+          rescue
+            ArgumentError -> nil
+          end
 
-        if File.exists?(asset_path) do
+        if asset_path && File.exists?(asset_path) do
           content = File.read!(asset_path)
 
           conn

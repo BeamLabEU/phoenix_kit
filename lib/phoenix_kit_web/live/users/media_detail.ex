@@ -59,20 +59,46 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   def handle_event("delete_file", _params, socket) do
     file = socket.assigns.file
 
-    case Storage.delete_file_completely(file) do
+    case Storage.trash_file(file) do
       {:ok, _} ->
         {:noreply,
          socket
-         |> put_flash(:info, "File deleted successfully")
+         |> put_flash(:info, "File moved to trash")
          |> push_navigate(to: Routes.path("/admin/media"))}
 
       {:error, reason} ->
-        Logger.error("Failed to delete file #{file.uuid}: #{inspect(reason)}")
+        Logger.error("Failed to trash file #{file.uuid}: #{inspect(reason)}")
 
         {:noreply,
          socket
          |> assign(:show_delete_modal, false)
          |> put_flash(:error, "Failed to delete file")}
+    end
+  end
+
+  def handle_event("restore_file", _params, socket) do
+    case Storage.restore_file(socket.assigns.file) do
+      {:ok, _file} ->
+        {:noreply,
+         socket
+         |> load_file_data(socket.assigns.file_uuid)
+         |> put_flash(:info, "File restored")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to restore file")}
+    end
+  end
+
+  def handle_event("permanently_delete_file", _params, socket) do
+    case Storage.delete_file_completely(socket.assigns.file) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "File permanently deleted")
+         |> push_navigate(to: Routes.path("/admin/media"))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete file")}
     end
   end
 
@@ -159,12 +185,22 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       file ->
         instances = load_file_instances(file_uuid, repo)
         urls = generate_urls_from_instances(instances, file_uuid)
+        variant_dimensions = build_variant_dimensions(instances)
         locations = load_original_locations(instances, repo)
         {title, description, tags} = extract_metadata_fields(file.metadata)
         user_name = get_user_name(file.user_uuid, repo)
 
+        variant_dimensions = put_original_fallbacks(variant_dimensions, file)
+
         file_data =
-          build_file_data(file, urls, locations, {title, description, tags}, user_name)
+          build_file_data(
+            file,
+            urls,
+            variant_dimensions,
+            locations,
+            {title, description, tags},
+            user_name
+          )
 
         socket
         |> assign(:file, file)
@@ -205,7 +241,14 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     end
   end
 
-  defp build_file_data(file, urls, locations, {title, description, tags}, user_name) do
+  defp build_file_data(
+         file,
+         urls,
+         variant_dimensions,
+         locations,
+         {title, description, tags},
+         user_name
+       ) do
     %{
       file_uuid: file.uuid,
       filename: file.original_file_name || file.file_name || "Unknown",
@@ -215,6 +258,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       size: file.size || 0,
       status: file.status,
       urls: urls,
+      variant_dimensions: variant_dimensions,
       title: title,
       description: description,
       tags: tags,
@@ -224,6 +268,25 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       locations: locations,
       user_name: user_name
     }
+  end
+
+  defp build_variant_dimensions(instances) do
+    Enum.reduce(instances, %{}, fn instance, acc ->
+      dims =
+        if instance.width && instance.height, do: {instance.width, instance.height}, else: nil
+
+      Map.put(acc, instance.variant_name, %{dimensions: dims, size: instance.size})
+    end)
+  end
+
+  # Fill in original variant info from the main file record when the instance lacks it
+  defp put_original_fallbacks(variant_dimensions, file) do
+    original = Map.get(variant_dimensions, "original", %{dimensions: nil, size: nil})
+
+    dims = original.dimensions || if(file.width && file.height, do: {file.width, file.height})
+    size = original.size || file.size
+
+    Map.put(variant_dimensions, "original", %{original | dimensions: dims, size: size})
   end
 
   # Generate URLs from pre-loaded instances (no database query needed)

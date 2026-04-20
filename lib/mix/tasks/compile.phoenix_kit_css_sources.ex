@@ -49,7 +49,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitCssSources do
         app_name = to_string(app_name)
 
         case find_dep_path(String.to_atom(app_name), deps) do
-          {:path, path} -> "@source \"../../#{path}\";"
+          {:path, path} -> source_for_path(path)
           :hex -> "@source \"../../deps/#{app_name}\";"
           :not_found -> "@source \"../../deps/#{app_name}\";"
         end
@@ -80,6 +80,13 @@ defmodule Mix.Tasks.Compile.PhoenixKitCssSources do
 
     {:ok, []}
   end
+
+  # Absolute paths are emitted verbatim — prepending `../../` would
+  # produce `@source "../..//abs/path";` which Tailwind can't resolve
+  # reliably. Relative paths stay relative to the generated file at
+  # `assets/css/_phoenix_kit_sources.css` (two levels up to project root).
+  defp source_for_path("/" <> _ = abs_path), do: "@source \"#{abs_path}\";"
+  defp source_for_path(path), do: "@source \"../../#{path}\";"
 
   defp find_dep_path(app_name, deps) do
     dep =

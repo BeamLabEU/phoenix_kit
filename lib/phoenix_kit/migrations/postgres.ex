@@ -529,7 +529,56 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V96 - Catalogue items linked directly to catalogues ⚡ LATEST
+  ### V102 - Catalogue discount + smart catalogues ⚡ LATEST
+  Two related catalogue features bundled together:
+  - **Discount**: `discount_percentage DECIMAL(7, 2) NOT NULL DEFAULT 0`
+    on `phoenix_kit_cat_catalogues` (whole-catalogue default) and
+    nullable `discount_percentage DECIMAL(7, 2)` on `phoenix_kit_cat_items`
+    (per-item override; `NULL` inherits, any value including `0` overrides).
+    Pricing chain: `base → markup → discount`; `sale_price` stays
+    "after markup, before discount" and new `final_price` lives on top.
+  - **Smart catalogues**: `kind VARCHAR(20) NOT NULL DEFAULT 'standard'`
+    on `phoenix_kit_cat_catalogues` (one of `'standard'` or `'smart'`).
+    Items in a smart catalogue reference *other* catalogues with a value
+    + unit; items also get nullable `default_value DECIMAL(12, 4)` and
+    `default_unit VARCHAR(20)` as a per-item fallback. New table
+    `phoenix_kit_cat_item_catalogue_rules` stores the item → referenced
+    catalogue pairs with nullable `value`/`unit` (inherit from item
+    defaults) and a `position INTEGER` for UI ordering.
+
+  ### V101 - Projects module tables
+  - Creates `phoenix_kit_project_tasks` (reusable task library),
+    `phoenix_kit_project_task_dependencies` (template-level ordering),
+    `phoenix_kit_projects`, `phoenix_kit_project_assignments`
+    (task instances with polymorphic assignee), and
+    `phoenix_kit_project_dependencies` (per-project task ordering)
+  - Assignment FKs reference staff module tables (teams, departments, people)
+  - CHECK constraint enforces at-most-one assignee (team / department / person)
+    on both `phoenix_kit_project_tasks` and `phoenix_kit_project_assignments`
+
+  ### V100 - Staff module tables
+  - Creates `phoenix_kit_staff_departments`, `phoenix_kit_staff_teams`,
+    `phoenix_kit_staff_people` (FK to `phoenix_kit_users`), and
+    `phoenix_kit_staff_team_memberships` join table
+  - UUIDv7 PKs, cascading deletes dept → team → team_memberships, and
+    user → person → team_memberships
+
+  ### V99 - Media file trash bucket
+  - Adds `trashed_at` (timestamptz) to `phoenix_kit_files` for soft-delete
+  - Partial index on `trashed_at` for efficient trash queries
+
+  ### V98 - Storage dimension alternative formats
+  - Adds `alternative_formats` (`text[]`) to `phoenix_kit_storage_dimensions`
+  - Enables multi-format variant generation (e.g., WebP + AVIF alongside JPEG)
+
+  ### V97 - Per-item markup override
+  - Adds nullable `markup_percentage DECIMAL(7, 2)` column on
+    `phoenix_kit_cat_items`
+  - `NULL` = inherit the catalogue's markup (existing behavior);
+    any set value (including `0`) overrides the catalogue's markup
+  - No backfill — existing rows stay `NULL` and continue to inherit
+
+  ### V96 - Catalogue items linked directly to catalogues
   - Adds nullable `catalogue_uuid` FK on `phoenix_kit_cat_items` so items can
     belong to a catalogue independently of having a category
   - Backfills existing items from their category's catalogue_uuid
@@ -713,7 +762,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 96
+  @current_version 102
   @default_prefix "public"
 
   @doc false
