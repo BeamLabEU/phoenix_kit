@@ -7,9 +7,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   `PhoenixKitWeb.Components.MediaBrowser`.
   """
   use PhoenixKitWeb, :live_view
+  use PhoenixKitWeb.Components.MediaBrowser.Embed
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.MediaBrowser
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale]
@@ -57,7 +59,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       filter_orphaned = params["orphaned"] == "1"
       view = params["view"]
 
-      send_update(PhoenixKitWeb.Components.MediaBrowser,
+      send_update(MediaBrowser,
         id: "media-browser",
         nav_params: %{
           folder: folder,
@@ -72,8 +74,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
+  # URL-sync for the controlled mode. More generic MediaBrowser messages
+  # are caught by the fallback clause injected by the Embed macro.
   def handle_info(
-        {PhoenixKitWeb.Components.MediaBrowser, "media-browser", {:navigate, params}},
+        {MediaBrowser, "media-browser", {:navigate, params}},
         socket
       ) do
     folder = params[:folder]

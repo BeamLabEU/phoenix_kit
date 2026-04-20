@@ -2006,7 +2006,7 @@ if (typeof window.Chart === "undefined") {
       // Sync saved view mode to server
       var savedMode = localStorage.getItem("phoenix_kit_media_view_mode");
       if (savedMode && savedMode !== "grid") {
-        this.pushEvent("set_view_mode", { mode: savedMode });
+        this.pushEventTo(this.el, "set_view_mode", { mode: savedMode });
       }
 
       // Restore tree state from localStorage
@@ -2015,7 +2015,7 @@ if (typeof window.Chart === "undefined") {
       var expanded = [];
       try { expanded = expandedRaw ? JSON.parse(expandedRaw) : []; } catch(e) {}
       if (expanded.length > 0 || sidebarCollapsed) {
-        this.pushEvent("restore_tree_state", {
+        this.pushEventTo(this.el, "restore_tree_state", {
           expanded: expanded,
           sidebar_collapsed: sidebarCollapsed
         });
@@ -2026,6 +2026,22 @@ if (typeof window.Chart === "undefined") {
       this.handleEvent("save_tree_state", function(data) {
         localStorage.setItem("phoenix_kit_media_expanded_folders", JSON.stringify(data.expanded || []));
         localStorage.setItem("phoenix_kit_media_sidebar_collapsed", data.sidebar_collapsed ? "true" : "false");
+      });
+
+      // Bulk download: server pushes a list of {url, name}; we trigger one anchor click per file
+      this.handleEvent("download_files", function(data) {
+        var files = (data && data.files) || [];
+        files.forEach(function(f, i) {
+          setTimeout(function() {
+            var a = document.createElement("a");
+            a.href = f.url;
+            a.download = f.name || "";
+            a.rel = "noopener";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }, i * 150);
+        });
       });
 
       this.setupDragDrop();
@@ -2090,11 +2106,12 @@ if (typeof window.Chart === "undefined") {
         target.removeEventListener("drop", target._drop);
         target._drop = function(e) {
           e.preventDefault();
+          e.stopPropagation();
           target.classList.remove("ring-2", "ring-primary", "bg-primary/10");
           var fileUuid = e.dataTransfer.getData("text/plain");
           var folderUuid = target.dataset.dropFolder;
           if (fileUuid && folderUuid) {
-            self.pushEvent("move_file_to_folder", {
+            self.pushEventTo(self.el, "move_file_to_folder", {
               file_uuid: fileUuid,
               folder_uuid: folderUuid === "root" ? "" : folderUuid
             });
@@ -2153,6 +2170,8 @@ if (typeof window.Chart === "undefined") {
       var dragCounter = 0;
 
       el.addEventListener("dragenter", function(e) {
+        // Only respond to external file drags, not internal file-to-folder moves
+        if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
         dragCounter++;
         if (dragCounter === 1) {
@@ -2161,6 +2180,7 @@ if (typeof window.Chart === "undefined") {
       });
 
       el.addEventListener("dragover", function(e) {
+        if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "copy";
       });
@@ -2174,12 +2194,13 @@ if (typeof window.Chart === "undefined") {
       });
 
       el.addEventListener("drop", function(e) {
+        // Ignore internal drags (file-to-folder moves) — only accept device files
+        var files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
         e.preventDefault();
         dragCounter = 0;
         el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
-
-        var files = e.dataTransfer.files;
-        if (!files || files.length === 0) return;
 
         // Inject files directly into the hidden upload input (no modal)
         self._pendingFiles = files;

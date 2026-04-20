@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Settings do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Config.EndpointUrlSync
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
@@ -41,6 +42,8 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:setting_options, setting_options)
       |> assign(:changeset, changeset)
       |> assign(:saving, false)
+      |> assign(:show_media_selector, false)
+      |> assign(:media_selector_target, nil)
       |> assign(
         :project_title,
         merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
@@ -116,12 +119,48 @@ defmodule PhoenixKitWeb.Live.Settings do
     end
   end
 
-  ## Live updates - handle broadcasts from other admins
+  def handle_event("open_media_selector", %{"target" => target}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, true)
+     |> assign(:media_selector_target, target)}
+  end
+
+  def handle_event("clear_image", %{"target" => target}, socket) do
+    key = media_target_to_key(target)
+    settings = Map.put(socket.assigns.settings, key, "")
+    {:noreply, assign(socket, :settings, settings)}
+  end
+
+  ## Media selector callbacks
+
+  def handle_info({:media_selected, file_uuids}, socket) do
+    file_uuid = List.first(file_uuids) || ""
+    key = media_target_to_key(socket.assigns.media_selector_target)
+    settings = Map.put(socket.assigns.settings, key, file_uuid)
+
+    {:noreply,
+     socket
+     |> assign(:settings, settings)
+     |> assign(:show_media_selector, false)
+     |> assign(:media_selector_target, nil)}
+  end
+
+  def handle_info({:media_selector_closed}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, false)
+     |> assign(:media_selector_target, nil)}
+  end
 
   # Catch-all for other settings changes (future-proof)
   def handle_info({:setting_changed, _key, _value}, socket) do
     {:noreply, socket}
   end
+
+  defp media_target_to_key("logo"), do: "auth_logo_file_uuid"
+  defp media_target_to_key("site_icon"), do: "site_icon_file_uuid"
+  defp media_target_to_key(_), do: "auth_logo_file_uuid"
 
   # Handle successful settings save
   defp handle_settings_saved(socket, _settings_params_to_save, updated_settings) do
@@ -191,5 +230,9 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   def get_current_time_example(format) do
     UtilsDate.format_time(Time.utc_now(), format)
+  end
+
+  def signed_preview_url(file_uuid, variant) do
+    URLSigner.signed_url(file_uuid, variant)
   end
 end

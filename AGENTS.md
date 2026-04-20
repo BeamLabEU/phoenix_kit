@@ -292,6 +292,75 @@ end
 Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
 
 
+## MediaBrowser Component
+
+Embeddable media management UI — full folder tree, grid/list view, upload, search, selection tools, drag-drop, trash bucket. Lives at `lib/phoenix_kit_web/components/media_browser.ex` (+ `.html.heex`). Used by the admin page (`/admin/media`) and any parent LiveView that needs media picking or browsing.
+
+### One-line embed
+
+Use the Embed macro. It injects the upload setup (`on_mount`), the `"validate"` upload-channel stub, and the `handle_info` delegator for MediaBrowser messages:
+
+```elixir
+defmodule MyAppWeb.MediaPage do
+  use MyAppWeb, :live_view
+  use PhoenixKitWeb.Components.MediaBrowser.Embed
+
+  def mount(_params, _session, socket), do: {:ok, socket}
+end
+```
+
+Template:
+
+```heex
+<.live_component
+  module={PhoenixKitWeb.Components.MediaBrowser}
+  id="media-browser"
+  parent_uploads={@uploads}
+/>
+```
+
+`parent_uploads={@uploads}` is required (the component renders a hidden `<.live_file_input>` from the parent's upload config). That's a LiveView constraint — `allow_upload` must live on the parent socket.
+
+### `admin` attr — picker vs admin mode
+
+- `admin={false}` (default) — clicking a file toggles selection and turns on `select_mode`. Picker behavior. Use outside `/admin/media`.
+- `admin={true}` — clicking a file `push_navigate`s to `/admin/media/:uuid`. Only the admin media page sets this.
+
+### Other useful attrs
+
+- `scope_folder_id` — constrain the whole browser to a virtual root folder. Trash, folder tree, uploads, move — all honor the scope.
+- `on_navigate={:navigate}` — controlled mode. Component emits `{MediaBrowser, id, {:navigate, params}}` to the parent on folder/search/page changes so the parent can `push_patch` the URL. The parent must then feed URL params back via `send_update(..., nav_params: ...)`. See `lib/phoenix_kit_web/live/users/media.ex` for the reference wiring.
+- `initial_params` — apply URL params on first render to avoid a flash of the root view.
+
+### Selection actions (built-in)
+
+When items are selected, a `…` dropdown appears in the header with Download + Delete. Download pushes a `download_files` event that the `MediaDragDrop` hook (in `priv/static/assets/phoenix_kit.js`) consumes — each entry is dispatched as a staggered `<a download>` click. Delete moves files to trash (or permanently removes if the trash view is active) and deletes folders.
+
+### Manual wiring (if not using Embed)
+
+```elixir
+def mount(_params, _session, socket) do
+  {:ok, PhoenixKitWeb.Components.MediaBrowser.setup_uploads(socket)}
+end
+
+def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+def handle_info({PhoenixKitWeb.Components.MediaBrowser, _, _} = msg, socket) do
+  PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
+end
+```
+
+The Embed macro injects these last via `@before_compile`, so user-defined clauses for other events/messages still match first.
+
+### Files
+
+- `lib/phoenix_kit_web/components/media_browser.ex` — LiveComponent
+- `lib/phoenix_kit_web/components/media_browser.html.heex` — template
+- `lib/phoenix_kit_web/components/media_browser/embed.ex` — the `use`-able macro
+- `lib/modules/storage/storage.ex` — backing context (folders, files, trash, variants)
+- `priv/static/assets/phoenix_kit.js` — `MediaDragDrop` and `FolderDropUpload` hooks
+
+
 ## Guidelines
 
 ### External Module Auto-Discovery

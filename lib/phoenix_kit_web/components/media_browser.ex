@@ -14,6 +14,28 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     must call `push_patch` and feed URL params back via `send_update` with a
     `:nav_params` key.
 
+  ## Enabling uploads
+
+  The fastest path is the `Embed` helper — one `use` line gives you
+  uploads, the validate-channel stub, and the message delegator:
+
+      defmodule MyAppWeb.MediaPage do
+        use MyAppWeb, :live_view
+        use PhoenixKitWeb.Components.MediaBrowser.Embed
+      end
+
+  Manual setup (if you prefer explicit wiring) is three calls:
+
+      def mount(_params, _session, socket) do
+        {:ok, PhoenixKitWeb.Components.MediaBrowser.setup_uploads(socket)}
+      end
+
+      def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+      def handle_info({__MODULE__, _, _} = msg, socket) do
+        PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
+      end
+
   ## Usage (uncontrolled)
 
       <.live_component
@@ -47,6 +69,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   - `phoenix_kit_current_user` — logged-in user struct (for upload attribution)
   - `scope_folder_id` — constrain the browser to a virtual root folder
   - `on_navigate` — when truthy, enables controlled mode (URL-sync via parent)
+  - `admin` — when `true`, clicking a file opens the admin detail page at
+    `/admin/media/:uuid`. When `false` (default), clicks toggle selection
+    instead, so the component behaves as a picker when embedded outside the
+    admin UI.
   """
   use PhoenixKitWeb, :live_component
 
@@ -71,10 +97,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(assigns)
       |> assign_new(:scope_folder_id, fn -> nil end)
+      |> assign_new(:admin, fn -> false end)
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
         socket = init_socket(socket)
+
+        # Register this component id with the parent so it can route uploads here
+        send(self(), {__MODULE__, :register_component, socket.assigns.id})
 
         # Apply initial params if provided (avoids flash of root before correct view)
         socket =
@@ -87,9 +117,30 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       Map.has_key?(assigns, :nav_params) ->
         {:ok, apply_nav_params(socket, socket.assigns.nav_params)}
 
+      Map.has_key?(assigns, :pending_upload) ->
+        {:ok, process_pending_upload(socket, assigns.pending_upload)}
+
       true ->
         {:ok, socket}
     end
+  end
+
+  defp process_pending_upload(socket, {path, entry}) do
+    result = process_single_upload(socket, path, entry)
+    File.rm(path)
+
+    {flash_type, flash_msg} = build_upload_flash_message([result])
+
+    new_uuids =
+      case result do
+        {:ok, %{file_uuid: uuid}} -> [uuid | socket.assigns.last_uploaded_file_uuids]
+        _ -> socket.assigns.last_uploaded_file_uuids
+      end
+
+    socket
+    |> reload_current_page()
+    |> put_flash(flash_type, flash_msg)
+    |> assign(:last_uploaded_file_uuids, new_uuids)
   end
 
   defp apply_nav_params(socket, params) do
@@ -163,16 +214,21 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   defp init_socket(socket) do
     scope = scope_folder_id(socket)
-    scope_invalid = not is_nil(scope) and is_nil(Storage.get_folder(scope))
+    scope_folder = if scope, do: Storage.get_folder(scope)
+    scope_invalid = not is_nil(scope) and is_nil(scope_folder)
 
     enabled_buckets = Storage.list_enabled_buckets()
     has_buckets = not Enum.empty?(enabled_buckets)
+
+    scope_name = if scope_folder, do: scope_folder.name, else: "Root"
 
     socket
     |> maybe_allow_upload(has_buckets)
     |> assign(:has_buckets, has_buckets)
     |> assign(:scope_invalid, scope_invalid)
+    |> assign(:scope_folder_name, scope_name)
     |> assign(:show_upload, false)
+    |> assign(:show_search, false)
     |> assign(:last_uploaded_file_uuids, [])
     |> assign(:filter_orphaned, false)
     |> assign(:filter_trash, false)
@@ -211,33 +267,96 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Upload
   # ──────────────────────────────────────────────────────────────
 
-  defp maybe_allow_upload(socket, has_buckets) do
-    cond do
-      socket.assigns[:uploads] ->
-        # Idempotency guard: allow_upload was already called — skip.
-        socket
+  @doc """
+  Handles the upload setup message from the MediaBrowser component.
 
-      has_buckets ->
-        max_size_mb =
-          Settings.get_setting_cached("storage_max_upload_size_mb", "500")
-          |> String.to_integer()
+  Parent LiveViews embedding MediaBrowser should add this to their `handle_info`:
 
-        socket
-        |> assign(:max_upload_size_mb, max_size_mb)
-        |> allow_upload(:media_files,
-          accept: :any,
-          max_entries: 10,
-          max_file_size: max_size_mb * 1_000_000,
-          auto_upload: true,
-          progress: &handle_progress/3
-        )
+      def handle_info({PhoenixKitWeb.Components.MediaBrowser, _id, :setup_uploads}, socket) do
+        {:noreply, PhoenixKitWeb.Components.MediaBrowser.setup_uploads(socket)}
+      end
 
-      true ->
-        assign(socket, :max_upload_size_mb, 0)
+  Or use the catch-all delegator:
+
+      def handle_info({PhoenixKitWeb.Components.MediaBrowser, _, _} = msg, socket) do
+        PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
+      end
+  """
+  def setup_uploads(socket) do
+    if socket.assigns[:uploads] do
+      socket
+    else
+      max_size_mb =
+        Settings.get_setting_cached("storage_max_upload_size_mb", "500")
+        |> String.to_integer()
+
+      socket
+      |> assign(:max_upload_size_mb, max_size_mb)
+      |> allow_upload(:media_files,
+        accept: :any,
+        max_entries: 10,
+        max_file_size: max_size_mb * 1_000_000,
+        auto_upload: true,
+        progress: &__MODULE__.parent_progress/3
+      )
     end
   end
 
-  defp handle_progress(:media_files, entry, socket) do
+  @doc false
+  # Progress callback that runs on the parent LiveView socket.
+  # Consumes the upload and sends the file to the MediaBrowser component for processing.
+  def parent_progress(:media_files, entry, socket) do
+    if entry.done? do
+      # Persist file to a temp path since consume_uploaded_entry cleans up the original
+      persistent_path = Path.join(System.tmp_dir!(), "pk_upload_#{entry.uuid}")
+
+      result =
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          File.cp!(path, persistent_path)
+          {:ok, :done}
+        end)
+
+      if result == :done do
+        send(self(), {__MODULE__, :process_pending_upload, persistent_path, entry})
+      end
+    end
+
+    {:noreply, socket}
+  end
+
+  @doc "Catch-all handler for parent LiveViews to delegate MediaBrowser messages."
+  def handle_parent_info({__MODULE__, :register_component, id}, socket) do
+    ids = MapSet.put(socket.assigns[:media_browser_ids] || MapSet.new(), id)
+    {:noreply, assign(socket, :media_browser_ids, ids)}
+  end
+
+  def handle_parent_info({__MODULE__, :process_pending_upload, path, entry}, socket) do
+    # Forward the upload to all registered MediaBrowser components on the page
+    component_ids = socket.assigns[:media_browser_ids] || MapSet.new()
+
+    Enum.each(component_ids, fn id ->
+      send_update(__MODULE__, id: id, pending_upload: {path, entry})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_parent_info(_msg, socket), do: {:noreply, socket}
+
+  defp maybe_allow_upload(socket, has_buckets) do
+    if has_buckets do
+      max_size_mb =
+        Settings.get_setting_cached("storage_max_upload_size_mb", "500")
+        |> String.to_integer()
+
+      assign(socket, :max_upload_size_mb, max_size_mb)
+    else
+      assign(socket, :max_upload_size_mb, 0)
+    end
+  end
+
+  @doc false
+  def handle_progress(:media_files, entry, socket) do
     socket =
       if entry.done? do
         result =
@@ -803,7 +922,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
-    if socket.assigns.select_mode do
+    if socket.assigns.select_mode or not socket.assigns.admin do
       selected = socket.assigns.selected_files
 
       selected =
@@ -811,7 +930,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           do: MapSet.delete(selected, file_uuid),
           else: MapSet.put(selected, file_uuid)
 
-      {:noreply, assign(socket, :selected_files, selected)}
+      {:noreply,
+       socket
+       |> assign(:selected_files, selected)
+       |> assign(:select_mode, true)}
     else
       {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
     end
@@ -940,6 +1062,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      |> reload_current_page()}
   end
 
+  def handle_event("download_selected", _params, socket) do
+    files =
+      socket.assigns.uploaded_files
+      |> Enum.filter(&MapSet.member?(socket.assigns.selected_files, &1.file_uuid))
+      |> Enum.map(fn f ->
+        %{url: Map.get(f.urls, "original") || Map.get(f.urls, :original), name: f.filename}
+      end)
+      |> Enum.reject(&is_nil(&1.url))
+
+    {:noreply, push_event(socket, "download_files", %{files: files})}
+  end
+
   def handle_event("toggle_trash_filter", _params, socket) do
     filter_trash = !socket.assigns.filter_trash
 
@@ -1054,6 +1188,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   def handle_event("toggle_upload", _params, socket) do
     {:noreply, assign(socket, :show_upload, !socket.assigns.show_upload)}
+  end
+
+  def handle_event("toggle_search", _params, socket) do
+    {:noreply, assign(socket, :show_search, !socket.assigns.show_search)}
   end
 
   def handle_event("show_upload", _params, socket) do
@@ -1489,7 +1627,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     scope = scope_folder_id(socket)
     folder_uuid = current_folder_uuid(socket) || scope
 
-    if folder_uuid, do: Storage.move_file_to_folder(file.uuid, folder_uuid, scope)
+    # Bypass scope check on initial placement: new uploads start at root
+    # (folder_uuid: nil) which fails the scope gate. The target folder is
+    # already constrained by current_folder_uuid || scope above, so this is safe.
+    if folder_uuid, do: Storage.move_file_to_folder(file.uuid, folder_uuid, nil)
   end
 
   # ──────────────────────────────────────────────────────────────
@@ -1552,6 +1693,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp folder_color_hex("pink"), do: "#ec4899"
   defp folder_color_hex("rose"), do: "#f43f5e"
   defp folder_color_hex(_), do: nil
+
+  defp delete_selected_confirm(selected_files, selected_folders, filter_trash) do
+    file_count = MapSet.size(selected_files)
+    folder_count = MapSet.size(selected_folders)
+
+    cond do
+      filter_trash and file_count > 0 ->
+        "Permanently delete #{file_count} file(s)? This cannot be undone."
+
+      folder_count > 0 and file_count > 0 ->
+        "Delete #{file_count} file(s) (to trash) and #{folder_count} folder(s)? Folder contents will be moved to parent."
+
+      folder_count > 0 ->
+        "Delete #{folder_count} folder(s)? Folder contents will be moved to parent."
+
+      true ->
+        "Move #{file_count} file(s) to trash?"
+    end
+  end
 
   defp file_icon("image"), do: "hero-photo"
   defp file_icon("video"), do: "hero-play-circle"
