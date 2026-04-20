@@ -144,6 +144,8 @@ ls lib/phoenix_kit/migrations/postgres/v*.ex | sed 's/.*\/v\([0-9]*\)\.ex/\1/' |
 
 Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
+> **CHANGELOG ownership:** entries in `CHANGELOG.md` are written by the project maintainer, not by agents. If you bump `@version` and the CHANGELOG hasn't caught up yet, that's intentional — flag the gap and stop. Do not auto-write entries.
+
 ### PR Reviews
 
 PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
@@ -200,6 +202,42 @@ Centralized management of external service connections (OAuth, API keys, bot tok
 
 **Plan:** `dev_docs/plans/integrations-system.md`
 
+
+## Core Form Components
+
+`PhoenixKitWeb.Components.Core.{Input, Select, Textarea, Checkbox}` are the canonical form primitives. Use them over raw `<input>`/`<select>`/`<textarea>` markup in new code — they handle `phx-feedback-for`, gettext-translated error display, label wiring, and daisyUI styling for you. The existing `lib/phoenix_kit_web/users/user_form.html.heex` is the canonical reference usage.
+
+- All four accept a `class` attr that merges onto the **styled element** itself (the `<input>` / daisyUI `<label class="select">` / `<textarea>` / `<input type="checkbox">`) — pass daisyUI modifiers here: `input-sm`, `select-primary`, `checkbox-accent`, or project-specific focus styles like `transition-colors focus:input-primary`.
+- `<.input>` additionally has a `wrapper_class` attr that goes to the outer `<div phx-feedback-for>` — this is the role the `class` attr used to play before the convention was aligned with the Phoenix 1.7 generator (`class` → input element). No in-tree caller used the old behavior, but external consumers who did should switch to `wrapper_class`.
+- FormField binding is preferred: `<.input field={@form[:email]} type="email" label="Email" />`. The component dispatches on `%Phoenix.HTML.FormField{}` to pull id / name / value / errors in one shot. The raw `name=` + `value=` form still works for cases where field names are dynamic (import wizards, custom field loops in user_form).
+
+## Multilang Form Components
+
+`PhoenixKitWeb.Components.MultilangForm` provides the form-level translation toolkit: `<.multilang_tabs>`, `<.multilang_fields_wrapper>`, `<.translatable_field>`, plus helpers `mount_multilang/1`, `handle_switch_language/2`, `merge_translatable_params/4`. Forms that edit translatable content `import PhoenixKitWeb.Components.MultilangForm` and call `mount_multilang(socket)` in `mount/3`.
+
+### Wrapper scope rule
+
+`<.multilang_fields_wrapper>` wraps translatable fields *only*. Everything else — pricing, classification, status, actions — renders as a sibling **outside** the wrapper. This is load-bearing: the wrapper's `id` includes `@current_lang`, so a language switch changes the ID and morphdom re-mounts everything inside. If you put non-translatable fields inside, they get re-mounted on every switch (churn + focus loss + lost input state). Keep the wrapper small — in practice, the name + description `<.translatable_field>` calls are all that belongs inside.
+
+### Language switching: client-side visibility + trailing debounce
+
+`mount_multilang/1` seeds the multilang assigns and attaches a `:handle_info` hook via `Phoenix.LiveView.attach_hook/4` that receives the debounced timer message. The flow:
+
+1. User clicks a language tab → `switch_lang_js/2` runs a composed `%JS{}`: pushes `"switch_language"` **and** immediately toggles `hidden` on the two sibling divs client-side — `add_class` on `[data-translatable=fields]`, `remove_class` on `[data-translatable=skeletons]`. The skeleton is visible at `t=0`, no round-trip delay.
+2. `handle_switch_language/2` cancels any pending timer, schedules a new `Process.send_after(self(), {:__multilang_apply_lang__, lang}, 150)`, stores the timer ref in the process dictionary (not socket assigns — avoids triggering phantom render+diff cycles), and returns the socket **unchanged**. The server does not touch the wrapper's class state — so nothing can fight the JS toggles on the client.
+3. Rapid clicks re-enter step 2 — timer is cancelled and rescheduled; the JS toggles are idempotent. Only the final click's lang reaches step 4.
+4. 150ms after the last click: the timer fires, the hook intercepts `{:__multilang_apply_lang__, lang}`, calls `handle_multilang_apply_lang/2` which sets `:current_lang = lang`, and returns `{:halt, socket}` so the consumer never sees the message.
+5. Wrapper re-renders with new lang in its ids (skeleton id, fields id, and the translatable inputs' `lang_data`). morphdom sees the id change and **replaces both sibling divs** — the new skeleton div is re-rendered with `class="hidden …"` (its default), the new fields div is re-rendered without `hidden` and with the new-language content. The skeleton is hidden again, the fields are back, and everything else on the form (outside the wrapper) is untouched.
+
+Why client-side and not server-driven: the skeleton has to appear **before** any round-trip to feel responsive. A server-driven visibility flag needs the `JS.push` to reach the server, the server to re-render, and the diff to arrive at the client — visible delay on slow connections, and on localhost the window is so brief you can barely perceive it. The client-side toggle shows the skeleton at `t=0`; the server only owns the final `current_lang` commit.
+
+The `attach_hook` approach means consumers **don't need a `handle_info` clause** — the library handles the timer message transparently. There's a graceful fallback for LiveComponent sockets (where `attach_hook` raises `ArgumentError`): rescue + return socket unchanged; those consumers can add the clause manually if they ever appear.
+
+The wrapper accepts a `switching_lang` attr and `mount_multilang/1` seeds `:switching_lang = false`, purely as a backwards-compat no-op — consumer templates that already pass `switching_lang={@switching_lang}` keep resolving. The wrapper doesn't read the value.
+
+### Translatable fields
+
+`<.translatable_field>` takes the raw changeset via `changeset={@changeset}` (not FormField) because its behavior changes with the active tab — primary-language input vs. secondary-language JSONB-backed input with different `name` attributes. When using `<.translatable_field>` alongside component-style inputs, a form LV keeps **both** `:changeset` (for translatable_field) and `:form = to_form(changeset)` (for `<.input>` / `<.select>`) in sync via a private helper called from mount / validate / save-error paths.
 
 ## Documentations
 
