@@ -102,8 +102,11 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   @doc """
   Adds multilang assigns to the socket. Call from `mount/3`.
 
-  Adds: `:multilang_enabled`, `:primary_language`, `:current_lang`, `:language_tabs`,
-  `:show_multilang_tabs`
+  Adds: `:multilang_enabled`, `:primary_language`, `:current_lang`,
+  `:language_tabs`, `:show_multilang_tabs`, `:switching_lang` (no-op
+  compat assign — kept because consumer templates pass it through to
+  the wrapper). Also attaches an internal `:handle_info` hook that
+  receives the debounced language-switch timer message.
   """
   def mount_multilang(socket) do
     multilang_enabled = multilang_enabled?()
@@ -111,13 +114,51 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
     language_tabs = if(multilang_enabled, do: safe_build_language_tabs(), else: [])
 
-    Phoenix.Component.assign(socket,
+    socket
+    |> Phoenix.Component.assign(
       multilang_enabled: multilang_enabled,
       primary_language: primary_language,
       current_lang: primary_language,
       language_tabs: language_tabs,
-      show_multilang_tabs: multilang_enabled and length(language_tabs) > 1
+      show_multilang_tabs: multilang_enabled and length(language_tabs) > 1,
+      # Kept for backwards compat with consumer templates that still pass
+      # `switching_lang={@switching_lang}` to `<.multilang_fields_wrapper>`.
+      # The wrapper no longer reads it — visibility is client-side JS.
+      switching_lang: false
     )
+    |> attach_multilang_hook()
+  end
+
+  # Attaches a `:handle_info` hook that intercepts the internal
+  # `{:__multilang_apply_lang__, lang}` message. The hook lives on the
+  # consumer's socket but is invisible to them — no `handle_info/2`
+  # clause needed. Returning `{:halt, socket}` prevents the message
+  # from reaching the consumer's own handle_info (and suppresses the
+  # "unhandled message" warning). Other messages pass through with
+  # `{:cont, socket}`.
+  #
+  # `attach_hook/4` is idempotent-by-name within a process — re-running
+  # `mount_multilang/1` (e.g. across reconnects) with the same hook id
+  # simply replaces the prior callback, so we don't need a guard.
+  defp attach_multilang_hook(socket) do
+    Phoenix.LiveView.attach_hook(
+      socket,
+      :__phoenix_kit_multilang_apply_lang__,
+      :handle_info,
+      fn
+        {:__multilang_apply_lang__, lang_code}, socket ->
+          {:halt, handle_multilang_apply_lang(socket, lang_code)}
+
+        _msg, socket ->
+          {:cont, socket}
+      end
+    )
+  rescue
+    # `attach_hook/4` only works on LiveView sockets, not LiveComponent
+    # sockets. Multilang consumers are all `Phoenix.LiveView` today, but
+    # if someone wires it into a component in the future, fall back
+    # silently — they'll need to add the `handle_info` themselves.
+    ArgumentError -> socket
   end
 
   @doc """
@@ -153,14 +194,71 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   @doc """
   Handles the `"switch_language"` event. Call from `handle_event/3`.
 
-  Returns the updated socket with the new `current_lang`.
+  Returns a socket that **defers** applying `:current_lang` via a short
+  trailing debounce (150 ms). Rapid click-through (EN → JA → FR → DE)
+  keeps rescheduling the timer; only the last click actually updates
+  `:current_lang` and triggers a content re-render. Without this, every
+  intermediate event caused its own server render and the client
+  briefly flashed each language's content before landing on the final
+  one.
+
+  Nothing to do on the consumer's end — `mount_multilang/1` attaches a
+  `:handle_info` hook via `Phoenix.LiveView.attach_hook/4` that
+  intercepts the internal `{:__multilang_apply_lang__, lang}` message
+  and applies the language transparently. Calling code never sees the
+  message.
+
   Ignores unknown language codes.
   """
+  @multilang_debounce_ms 150
+  # The timer ref lives in `socket.private` (not `socket.assigns`) so
+  # that storing it doesn't trigger a render+diff cycle that would fight
+  # the client-side skeleton/fields visibility toggles. Private state
+  # is per-socket — visible only inside the LV process — and survives
+  # the LV's lifecycle the same way assigns do, but with zero diff cost.
+  @multilang_timer_private_key :__phoenix_kit_multilang_timer__
+
   def handle_switch_language(socket, lang_code) do
     if lang_code in safe_enabled_languages() do
-      Phoenix.Component.assign(socket, :current_lang, lang_code)
+      socket = cancel_multilang_timer(socket)
+
+      timer_ref =
+        Process.send_after(
+          self(),
+          {:__multilang_apply_lang__, lang_code},
+          @multilang_debounce_ms
+        )
+
+      # Skeleton/fields visibility is driven entirely by
+      # `switch_lang_js/2`'s client-side class toggles. The server just
+      # holds off applying the new `current_lang` until the debounce
+      # fires, which is what causes the final morphdom swap that
+      # restores the fields (with new-lang content) and hides the
+      # skeleton again.
+      Phoenix.LiveView.put_private(socket, @multilang_timer_private_key, timer_ref)
     else
       socket
+    end
+  end
+
+  @doc """
+  Applies a debounced language change. Call from `handle_info/2` when
+  `{:__multilang_apply_lang__, lang_code}` is received.
+  """
+  def handle_multilang_apply_lang(socket, lang_code) do
+    socket
+    |> Phoenix.LiveView.put_private(@multilang_timer_private_key, nil)
+    |> Phoenix.Component.assign(:current_lang, lang_code)
+  end
+
+  defp cancel_multilang_timer(socket) do
+    case Map.get(socket.private, @multilang_timer_private_key) do
+      ref when is_reference(ref) ->
+        Process.cancel_timer(ref)
+        Phoenix.LiveView.put_private(socket, @multilang_timer_private_key, nil)
+
+      _ ->
+        socket
     end
   end
 
@@ -546,6 +644,12 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   """
   attr :multilang_enabled, :boolean, required: true
   attr :current_lang, :string, required: true
+
+  attr :switching_lang, :boolean,
+    default: false,
+    doc:
+      "accepted for backwards compatibility but no longer used — skeleton/fields visibility is client-side via `switch_lang_js/2`."
+
   attr :skeleton_class, :string, default: "card-body pt-4"
   attr :fields_class, :string, default: nil
   slot :skeleton
@@ -553,8 +657,11 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
   def multilang_fields_wrapper(assigns) do
     ~H"""
-    <%!-- Skeleton placeholders (shown instantly on tab click).
-         IDs include current_lang so morphdom treats them as new elements. --%>
+    <%!-- Skeleton placeholders (shown instantly on tab click via JS).
+         IDs include current_lang so that when the debounce fires and
+         current_lang changes, morphdom treats these as new elements
+         and replaces them — which resets the skeleton back to `hidden`
+         and inserts the fields with new-language content. --%>
     <div
       :if={@multilang_enabled}
       id={"translatable-skeletons-#{@current_lang}"}
@@ -802,14 +909,32 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   @doc """
   Returns a `Phoenix.LiveView.JS` command that switches languages.
 
-  Pushes the `"switch_language"` event, hides current field content,
-  and shows skeleton placeholders for instant visual feedback.
+  Toggles skeleton/fields visibility **client-side, instantly** (hides
+  `[data-translatable=fields]`, reveals `[data-translatable=skeletons]`)
+  and pushes `"switch_language"` to the server. The server side holds
+  the class state untouched — `handle_switch_language/2` just schedules
+  a 150 ms debounced timer that eventually updates `:current_lang`,
+  which changes the wrapper div ids and makes morphdom replace both
+  divs with their new-language versions (skeleton back to `hidden`,
+  fields visible with new content). Nothing on the server renders
+  `hidden` on the fields or removes `hidden` from the skeleton, so the
+  JS toggles never fight a server diff.
 
-  Returns a no-op when `lang_code == current_lang` to prevent skeleton ghosts.
+  Returns a no-op when `lang_code == current_lang` — clicking the
+  already-active tab doesn't push and doesn't flash the skeleton.
   """
   def switch_lang_js(lang_code, current_lang) do
     if lang_code == current_lang do
-      %JS{}
+      # Same-lang click during an in-flight debounce: we need to cancel
+      # the pending server timer (which would otherwise still fire and
+      # flip to the wrong lang) AND revert the skeleton/fields toggles
+      # on the client (so the UI doesn't sit stuck in skeleton-visible
+      # state after the no-op server render). Pushing with the current
+      # lang hits `handle_switch_language/2`'s `cancel_multilang_timer`
+      # and reschedules a no-op `current_lang` set.
+      JS.push("switch_language", value: %{lang: lang_code})
+      |> JS.remove_class("hidden", to: "[data-translatable=fields]")
+      |> JS.add_class("hidden", to: "[data-translatable=skeletons]")
     else
       JS.push("switch_language", value: %{lang: lang_code})
       |> JS.add_class("hidden", to: "[data-translatable=fields]")

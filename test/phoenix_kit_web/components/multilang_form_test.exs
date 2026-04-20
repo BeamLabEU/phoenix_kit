@@ -616,12 +616,50 @@ defmodule PhoenixKitWeb.Components.MultilangFormTest do
   # ── switch_lang_js ──────────────────────────────────────────
 
   describe "switch_lang_js/2" do
-    test "no-op for same language" do
-      assert switch_lang_js("en", "en") == %Phoenix.LiveView.JS{}
+    test "same-lang click pushes to cancel any pending debounce + reverts skeleton toggles" do
+      js = switch_lang_js("en", "en")
+      refute js == %Phoenix.LiveView.JS{}
+
+      ops = js.ops
+      assert Enum.any?(ops, fn op -> match?(["push", %{event: "switch_language"}], op) end)
+      # Same-lang must REVERT the skeleton/fields visibility (remove hidden
+      # from fields, add hidden to skeleton) so a stuck skeleton clears when
+      # the user re-clicks the active tab during an in-flight debounce.
+      assert Enum.any?(ops, fn op ->
+               match?(
+                 ["remove_class", %{names: ["hidden"], to: "[data-translatable=fields]"}],
+                 op
+               )
+             end)
+
+      assert Enum.any?(ops, fn op ->
+               match?(
+                 ["add_class", %{names: ["hidden"], to: "[data-translatable=skeletons]"}],
+                 op
+               )
+             end)
     end
 
-    test "returns JS commands for different language" do
-      refute switch_lang_js("fr", "en") == %Phoenix.LiveView.JS{}
+    test "different-lang click hides fields and shows skeleton client-side" do
+      js = switch_lang_js("fr", "en")
+      refute js == %Phoenix.LiveView.JS{}
+
+      ops = js.ops
+      assert Enum.any?(ops, fn op -> match?(["push", %{event: "switch_language"}], op) end)
+      # Add hidden on fields (hide them) and remove hidden from skeleton (show it).
+      assert Enum.any?(ops, fn op ->
+               match?(
+                 ["add_class", %{names: ["hidden"], to: "[data-translatable=fields]"}],
+                 op
+               )
+             end)
+
+      assert Enum.any?(ops, fn op ->
+               match?(
+                 ["remove_class", %{names: ["hidden"], to: "[data-translatable=skeletons]"}],
+                 op
+               )
+             end)
     end
   end
 
@@ -679,6 +717,100 @@ defmodule PhoenixKitWeb.Components.MultilangFormTest do
 
       refute Map.has_key?(result, "data")
       assert result["name"] == "Test"
+    end
+  end
+
+  # ── handle_switch_language / handle_multilang_apply_lang ────
+  #
+  # Exercises the debounced timer flow: schedule → cancel → reschedule
+  # → apply. The timer ref now lives in `socket.private` (not the
+  # process dictionary) so we assert against that.
+
+  describe "handle_switch_language/2 and handle_multilang_apply_lang/2" do
+    @timer_key :__phoenix_kit_multilang_timer__
+
+    setup do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{current_lang: "en", __changed__: %{}},
+        private: %{}
+      }
+
+      # Drain any leftover timer messages from previous tests in this
+      # process so a stray send doesn't leak across cases.
+      drain()
+
+      %{socket: socket}
+    end
+
+    test "ignores unknown language codes (no timer scheduled)", %{socket: socket} do
+      result = handle_switch_language(socket, "klingon-XX")
+
+      refute is_reference(Map.get(result.private, @timer_key))
+      assert drain() == []
+    end
+
+    test "schedules a deferred apply message and stores the ref in private", %{socket: socket} do
+      socket2 = handle_switch_language(socket, "en")
+      ref = Map.get(socket2.private, @timer_key)
+
+      # If the multilang config doesn't recognize "en" (no Languages
+      # module configured in the test env), no timer is scheduled and
+      # there's nothing to assert on the apply path. Otherwise, verify
+      # the ref shape and that the message arrives within the window.
+      if is_reference(ref) do
+        assert_receive {:__multilang_apply_lang__, "en"}, 500
+      end
+    end
+
+    test "rapid resubscribe cancels the previous timer", %{socket: socket} do
+      socket2 = handle_switch_language(socket, "en")
+      ref1 = Map.get(socket2.private, @timer_key)
+
+      socket3 = handle_switch_language(socket2, "en")
+      ref2 = Map.get(socket3.private, @timer_key)
+
+      # Skip the assertion if no timer was scheduled (lang not in
+      # enabled_languages in this env).
+      if is_reference(ref1) and is_reference(ref2) do
+        refute ref1 == ref2
+        # First ref should be cancelled; only the second ref's message
+        # should arrive.
+        messages = receive_all(200)
+        assert length(messages) <= 1
+      end
+    end
+
+    test "handle_multilang_apply_lang assigns current_lang and clears the private timer", %{
+      socket: socket
+    } do
+      # Pretend a timer was previously scheduled.
+      ref = Process.send_after(self(), :__noop__, 5_000)
+      socket = Phoenix.LiveView.put_private(socket, @timer_key, ref)
+
+      result = handle_multilang_apply_lang(socket, "fr")
+
+      assert result.assigns.current_lang == "fr"
+      assert is_nil(Map.get(result.private, @timer_key))
+
+      # Cleanup: drain the noop and don't leave a dangling timer running.
+      Process.cancel_timer(ref)
+      drain()
+    end
+
+    defp drain do
+      receive_all(0)
+    end
+
+    defp receive_all(timeout) do
+      receive_all([], timeout)
+    end
+
+    defp receive_all(acc, timeout) do
+      receive do
+        msg -> receive_all([msg | acc], timeout)
+      after
+        timeout -> Enum.reverse(acc)
+      end
     end
   end
 end

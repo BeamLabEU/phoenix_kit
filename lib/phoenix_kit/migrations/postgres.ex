@@ -529,7 +529,24 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V101 - Projects module tables ⚡ LATEST
+  ### V102 - Catalogue discount + smart catalogues ⚡ LATEST
+  Two related catalogue features bundled together:
+  - **Discount**: `discount_percentage DECIMAL(7, 2) NOT NULL DEFAULT 0`
+    on `phoenix_kit_cat_catalogues` (whole-catalogue default) and
+    nullable `discount_percentage DECIMAL(7, 2)` on `phoenix_kit_cat_items`
+    (per-item override; `NULL` inherits, any value including `0` overrides).
+    Pricing chain: `base → markup → discount`; `sale_price` stays
+    "after markup, before discount" and new `final_price` lives on top.
+  - **Smart catalogues**: `kind VARCHAR(20) NOT NULL DEFAULT 'standard'`
+    on `phoenix_kit_cat_catalogues` (one of `'standard'` or `'smart'`).
+    Items in a smart catalogue reference *other* catalogues with a value
+    + unit; items also get nullable `default_value DECIMAL(12, 4)` and
+    `default_unit VARCHAR(20)` as a per-item fallback. New table
+    `phoenix_kit_cat_item_catalogue_rules` stores the item → referenced
+    catalogue pairs with nullable `value`/`unit` (inherit from item
+    defaults) and a `position INTEGER` for UI ordering.
+
+  ### V101 - Projects module tables
   - Creates `phoenix_kit_project_tasks` (reusable task library),
     `phoenix_kit_project_task_dependencies` (template-level ordering),
     `phoenix_kit_projects`, `phoenix_kit_project_assignments`
@@ -745,7 +762,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 101
+  @current_version 102
   @default_prefix "public"
 
   @doc false

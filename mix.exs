@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.98"
+  @version "1.7.99"
   @description "A foundation for building Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, and more"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -21,7 +21,13 @@ defmodule PhoenixKit.MixProject do
       # Documentation
       docs: docs(),
 
-      # Testing
+      # Testing — Elixir 1.19's `mix test` uses these filters to pick
+      # which files to load as tests. Without them, `test/support/*.ex`
+      # files are flagged as orphaned and never run through the test
+      # loader, which leaves `test_helper.exs` looking up modules that
+      # were compiled but not loaded.
+      test_load_filters: [~r/_test\.exs$/],
+      test_ignore_filters: [~r{^test/support/}],
       test_coverage: [tool: ExCoveralls],
 
       # Aliases for development
