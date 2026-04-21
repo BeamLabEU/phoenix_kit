@@ -120,16 +120,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       Map.has_key?(assigns, :pending_upload) ->
         {:ok, process_pending_upload(socket, assigns.pending_upload)}
 
+      Map.get(assigns, :action) == :commit_upload_batch ->
+        {:ok, commit_upload_batch(socket)}
+
       true ->
         {:ok, socket}
     end
   end
 
+  # Processes one entry and buffers the result. A single reload + flash is
+  # committed from commit_upload_batch/1 once the batch debounce window closes,
+  # so dropping N files produces one page reload instead of N.
   defp process_pending_upload(socket, {path, entry}) do
     result = process_single_upload(socket, path, entry)
     File.rm(path)
 
-    {flash_type, flash_msg} = build_upload_flash_message([result])
+    batch = [result | socket.assigns[:pending_batch] || []]
 
     new_uuids =
       case result do
@@ -137,10 +143,33 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         _ -> socket.assigns.last_uploaded_file_uuids
       end
 
+    socket =
+      socket
+      |> assign(:pending_batch, batch)
+      |> assign(:last_uploaded_file_uuids, new_uuids)
+
+    if socket.assigns[:batch_scheduled] do
+      socket
+    else
+      Phoenix.LiveView.send_update_after(
+        __MODULE__,
+        [id: socket.assigns.id, action: :commit_upload_batch],
+        250
+      )
+
+      assign(socket, :batch_scheduled, true)
+    end
+  end
+
+  defp commit_upload_batch(socket) do
+    batch = socket.assigns[:pending_batch] || []
+    {flash_type, flash_msg} = build_upload_flash_message(Enum.reverse(batch))
+
     socket
+    |> assign(:pending_batch, [])
+    |> assign(:batch_scheduled, false)
     |> reload_current_page()
     |> put_flash(flash_type, flash_msg)
-    |> assign(:last_uploaded_file_uuids, new_uuids)
   end
 
   defp apply_nav_params(socket, params) do
@@ -230,6 +259,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:show_upload, false)
     |> assign(:show_search, false)
     |> assign(:last_uploaded_file_uuids, [])
+    |> assign(:pending_batch, [])
+    |> assign(:batch_scheduled, false)
     |> assign(:filter_orphaned, false)
     |> assign(:filter_trash, false)
     |> assign(:trash_count, Storage.count_trashed_files(scope_folder_id(socket)))
@@ -1651,10 +1682,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     scope = scope_folder_id(socket)
     folder_uuid = current_folder_uuid(socket) || scope
 
-    # Bypass scope check on initial placement: new uploads start at root
-    # (folder_uuid: nil) which fails the scope gate. The target folder is
-    # already constrained by current_folder_uuid || scope above, so this is safe.
-    if folder_uuid, do: Storage.move_file_to_folder(file.uuid, folder_uuid, nil)
+    cond do
+      is_nil(folder_uuid) ->
+        :ok
+
+      is_nil(scope) or Storage.within_scope?(folder_uuid, scope) ->
+        # The target folder is verified in-scope above, so passing nil as the
+        # scope arg to move_file_to_folder/3 is safe — it skips the scope
+        # re-check against the file's current folder (which is the real root
+        # for a fresh upload and would fail the gate).
+        Storage.move_file_to_folder(file.uuid, folder_uuid, nil)
+
+      true ->
+        Logger.warning(
+          "MediaBrowser: refusing out-of-scope initial placement " <>
+            "target=#{inspect(folder_uuid)} scope=#{inspect(scope)}"
+        )
+
+        :ok
+    end
   end
 
   # ──────────────────────────────────────────────────────────────
