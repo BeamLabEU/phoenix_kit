@@ -33,13 +33,30 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         # Handle the selected file UUIDs
         {:noreply, socket |> assign(:gallery_uuids, file_uuids)}
       end
+
+  ## Attrs
+
+    * `show` — boolean, controls modal visibility
+    * `mode` — `:single` or `:multiple`
+    * `selected_uuids` — list of already-selected file UUIDs
+    * `phoenix_kit_current_user` — required for uploads to attribute the file
+    * `file_type_filter` — `:all` (default), `:image`, or `:video`
+    * `user_uuid` — when set, restricts the library to files owned by
+      that user; nil (default) shows the full library
+    * `scope_folder_id` — when set, restricts both the browse query
+      and the post-upload home folder to this folder UUID. Plugins
+      scoping the picker to a single domain object (e.g. a catalogue
+      item) pass this after lazy-creating their folder; files already
+      living elsewhere get a `FolderLink` into the scope folder on
+      re-upload rather than being moved out from under their original
+      owner. `nil` (default) = no scope, legacy full-library behaviour.
   """
   use PhoenixKitWeb, :live_component
 
   require Logger
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{File, FileInstance, URLSigner}
+  alias PhoenixKit.Modules.Storage.{File, FileInstance, FolderLink, URLSigner}
   alias PhoenixKit.Users.Auth
 
   import Ecto.Query
@@ -63,6 +80,11 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign(assigns)
       |> assign(:has_buckets, has_buckets)
       |> assign_new(:user_uuid, fn -> nil end)
+      # When set, restricts both the browse query and the post-upload
+      # home folder to this folder UUID. Plugins scoping the picker to
+      # a single domain object (e.g. a catalogue item) pass this
+      # after lazy-creating their folder.
+      |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:file_type_filter, fn -> :all end)
       |> assign_new(:search_query, fn -> "" end)
       |> assign_new(:current_page, fn -> 1 end)
@@ -323,10 +345,12 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
            ) do
         {:ok, file, :duplicate} ->
           Logger.info("Duplicate file uploaded: #{file.uuid}")
+          _ = maybe_set_folder(file, socket.assigns[:scope_folder_id])
           {:ok, file.uuid}
 
         {:ok, file} ->
           Logger.info("New file uploaded: #{file.uuid}")
+          _ = maybe_set_folder(file, socket.assigns[:scope_folder_id])
           {:ok, file.uuid}
 
         {:error, reason} ->
@@ -339,35 +363,49 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     end
   end
 
+  # When the picker is scoped to a folder, ensure the file is visible
+  # in that folder. Three cases:
+  # - Same folder (or already linked): no-op.
+  # - File has no home yet: adopt as home (set folder_uuid).
+  # - File has a different home: add a `FolderLink` so the file
+  #   appears in both folders without being yanked from its current
+  #   owner. Callers doing per-object isolation (catalogue items)
+  #   rely on this so uploading the same file to two items leaves
+  #   both with their own reference.
+  defp maybe_set_folder(_file, nil), do: :noop
+
+  defp maybe_set_folder(%File{folder_uuid: current}, new) when current == new,
+    do: :already_in_folder
+
+  defp maybe_set_folder(%File{folder_uuid: nil} = file, folder_uuid) do
+    repo = PhoenixKit.Config.get_repo()
+
+    file
+    |> Ecto.Changeset.change(%{folder_uuid: folder_uuid})
+    |> repo.update()
+  end
+
+  defp maybe_set_folder(%File{uuid: file_uuid}, folder_uuid) do
+    repo = PhoenixKit.Config.get_repo()
+
+    # `:nothing` + the (folder_uuid, file_uuid) unique index makes this
+    # idempotent — re-uploading the same file to the same linked folder
+    # is a no-op rather than an error.
+    %FolderLink{}
+    |> FolderLink.changeset(%{folder_uuid: folder_uuid, file_uuid: file_uuid})
+    |> repo.insert(on_conflict: :nothing, conflict_target: [:folder_uuid, :file_uuid])
+  end
+
   defp load_files(socket, page) do
     repo = PhoenixKit.Config.get_repo()
     per_page = socket.assigns.per_page
-    filter = socket.assigns.file_type_filter
-    search = socket.assigns.search_query
-
-    query = from(f in File, order_by: [desc: f.inserted_at])
 
     query =
-      if socket.assigns[:user_uuid] do
-        where(query, [f], f.user_uuid == ^socket.assigns.user_uuid)
-      else
-        query
-      end
-
-    query =
-      case filter do
-        :image -> where(query, [f], f.file_type == "image")
-        :video -> where(query, [f], f.file_type == "video")
-        :all -> query
-      end
-
-    query =
-      if search != "" do
-        search_pattern = "%#{search}%"
-        where(query, [f], ilike(f.original_file_name, ^search_pattern))
-      else
-        query
-      end
+      from(f in File, order_by: [desc: f.inserted_at])
+      |> scope_files_by_user(socket.assigns[:user_uuid])
+      |> scope_files_by_folder(socket.assigns[:scope_folder_id])
+      |> scope_files_by_type(socket.assigns.file_type_filter)
+      |> scope_files_by_search(socket.assigns.search_query)
 
     total_count = repo.aggregate(query, :count, :uuid)
     offset = (page - 1) * per_page
@@ -408,6 +446,45 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
     {files_with_urls, total_count}
   end
+
+  # Scope helpers for load_files/2. Each one returns the query
+  # unchanged when the scope isn't set, otherwise narrows it. Keeps
+  # load_files readable and lets credo stop yelling about cyclomatic
+  # complexity on the combined set of scope branches.
+
+  defp scope_files_by_user(query, nil), do: query
+
+  defp scope_files_by_user(query, user_uuid),
+    do: where(query, [f], f.user_uuid == ^user_uuid)
+
+  # Scope to a specific folder when the caller provides one. Without
+  # a scope, the picker shows the full user library (legacy behavior).
+  # Files that are `FolderLink`-attached to the scope folder are
+  # included too, so per-object pickers still see files that live in
+  # another object's folder but are also shared with this one.
+  defp scope_files_by_folder(query, nil), do: query
+
+  defp scope_files_by_folder(query, folder_uuid) do
+    linked_subq =
+      from(fl in FolderLink,
+        where: fl.folder_uuid == ^folder_uuid,
+        select: fl.file_uuid
+      )
+
+    where(query, [f], f.folder_uuid == ^folder_uuid or f.uuid in subquery(linked_subq))
+  end
+
+  defp scope_files_by_type(query, :image), do: where(query, [f], f.file_type == "image")
+  defp scope_files_by_type(query, :video), do: where(query, [f], f.file_type == "video")
+  defp scope_files_by_type(query, _), do: query
+
+  defp scope_files_by_search(query, ""), do: query
+
+  defp scope_files_by_search(query, search) when is_binary(search) do
+    where(query, [f], ilike(f.original_file_name, ^"%#{search}%"))
+  end
+
+  defp scope_files_by_search(query, _), do: query
 
   defp generate_urls_from_instances(instances, file_uuid) do
     Enum.reduce(instances, %{}, fn instance, acc ->
