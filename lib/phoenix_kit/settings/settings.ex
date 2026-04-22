@@ -112,6 +112,9 @@ defmodule PhoenixKit.Settings do
       "time_format" => "H:i",
       "track_registration_geolocation" => "false",
       "registration_show_username" => "true",
+      # General branding
+      "site_icon_file_uuid" => "",
+      "default_tab_title" => "",
       # Auth Page Branding
       "auth_logo_file_uuid" => "",
       "auth_background_image_file_uuid" => "",

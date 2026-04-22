@@ -206,7 +206,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       :size,
       :user_uuid
     ])
-    |> validate_inclusion(:file_type, ["image", "video", "document", "archive"])
+    |> validate_inclusion(:file_type, ["image", "video", "audio", "document", "archive", "other"])
     |> validate_inclusion(:status, ["processing", "active", "failed", "trashed"])
     |> validate_number(:size, greater_than: 0)
     |> validate_number(:width, greater_than: 0)
