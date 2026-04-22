@@ -91,6 +91,9 @@ defmodule PhoenixKit.Settings.Setting do
     "maintenance_scheduled_end"
   ]
 
+  @doc false
+  def optional_settings, do: @optional_settings
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 
   schema "phoenix_kit_settings" do

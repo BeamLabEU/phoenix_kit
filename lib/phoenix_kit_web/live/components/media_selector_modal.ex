@@ -383,6 +383,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     file
     |> Ecto.Changeset.change(%{folder_uuid: folder_uuid})
     |> repo.update()
+    |> warn_on_folder_error(file.uuid, folder_uuid)
   end
 
   defp maybe_set_folder(%File{uuid: file_uuid}, folder_uuid) do
@@ -394,6 +395,17 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     %FolderLink{}
     |> FolderLink.changeset(%{folder_uuid: folder_uuid, file_uuid: file_uuid})
     |> repo.insert(on_conflict: :nothing, conflict_target: [:folder_uuid, :file_uuid])
+    |> warn_on_folder_error(file_uuid, folder_uuid)
+  end
+
+  defp warn_on_folder_error({:ok, _} = result, _file_uuid, _folder_uuid), do: result
+
+  defp warn_on_folder_error({:error, reason} = result, file_uuid, folder_uuid) do
+    Logger.warning(
+      "MediaSelectorModal: could not scope file #{file_uuid} to folder #{folder_uuid}: #{inspect(reason)}"
+    )
+
+    result
   end
 
   defp load_files(socket, page) do

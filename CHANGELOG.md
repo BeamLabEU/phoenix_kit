@@ -1,3 +1,19 @@
+## 1.7.100 - 2026-04-22
+
+### Added
+- V103 migration: nullable self-FK `parent_uuid` on `phoenix_kit_cat_categories` with b-tree index on `(parent_uuid)` for arbitrary-depth category trees. Existing rows stay `NULL` and become roots — no backfill. No DB-level `ON DELETE` cascade (subtree cascades are owned by the context layer so they go through soft-delete + activity log) (PR #503)
+- `scope_folder_id` attr on `PhoenixKitWeb.Live.Components.MediaSelectorModal` — filters the browse query to the given folder plus any files reached via `FolderLink`, and assigns newly-uploaded files into that folder (adopt as home if orphan, else add a `FolderLink`). Plugins scoping the picker to a single domain object (e.g. a catalogue item) pass this after lazy-creating their folder (PR #503)
+- `PhoenixKit.Settings.Setting.optional_settings/0` accessor exposing `@optional_settings` for invariant tests
+- Invariant test (`test/phoenix_kit/settings/setting_test.exs`) asserting every empty-string default in `PhoenixKit.Settings.get_defaults/0` is also in `@optional_settings`, to prevent the class of bug fixed in PR #502 from recurring
+
+### Changed
+- `PhoenixKit.Modules.Storage.File` changeset `file_type` allowlist widened from `["image", "video", "document", "archive"]` to include `"audio"` and `"other"` so non-image/video uploads bucket cleanly (PR #503)
+- `MediaSelectorModal.load_files/2` refactored into four composable `scope_files_by_{user,folder,type,search}` helpers — credo cyclomatic-complexity fix from adding the new scope branch (PR #503)
+
+### Fixed
+- Settings batch save no longer rolls back when `site_icon_file_uuid` or `default_tab_title` is left empty on the General Settings form. Both keys added to `@optional_settings` in `PhoenixKit.Settings.Setting` and seeded with empty-string defaults in `PhoenixKit.Settings.get_defaults/0` (PR #502)
+- `MediaSelectorModal.maybe_set_folder/2` errors (from the `folder_uuid` update or `FolderLink` insert) now log a warning via `warn_on_folder_error/3` instead of being silently discarded by `_ =`. Previously, a failed scope assignment after a successful upload left no trace
+
 ## 1.7.99 - 2026-04-20
 
 ### Added
