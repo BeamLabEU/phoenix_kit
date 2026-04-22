@@ -1,0 +1,164 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={assigns[:url_path]}
+  project_title={@project_title}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="container mx-auto px-4 py-6 max-w-3xl">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">Notifications</h1>
+        <p class="text-sm text-base-content/60">
+          <%= if @total_count == 0 do %>
+            No notifications.
+          <% else %>
+            {@total_count} total, {@unread_count} unread.
+          <% end %>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <%= if @unread_count > 0 do %>
+          <button
+            type="button"
+            phx-click="mark_all_seen"
+            class="btn btn-sm btn-ghost"
+          >
+            Mark all seen
+          </button>
+        <% end %>
+        <%= if @total_count > 0 do %>
+          <button
+            type="button"
+            phx-click="dismiss_all"
+            data-confirm="Dismiss all notifications? They will be removed from your inbox."
+            class="btn btn-sm btn-ghost text-error"
+          >
+            Clear all
+          </button>
+        <% end %>
+      </div>
+    </div>
+
+    <div role="tablist" class="tabs tabs-bordered mb-4">
+      <button
+        type="button"
+        role="tab"
+        phx-click="set_filter"
+        phx-value-status="all"
+        class={["tab", @status == :all && "tab-active"]}
+      >
+        All
+      </button>
+      <button
+        type="button"
+        role="tab"
+        phx-click="set_filter"
+        phx-value-status="unread"
+        class={["tab", @status == :unread && "tab-active"]}
+      >
+        Unread
+        <%= if @unread_count > 0 do %>
+          <span class="badge badge-sm badge-primary ml-2">{@unread_count}</span>
+        <% end %>
+      </button>
+    </div>
+
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+      <div class="card-body p-0">
+        <%= if @notifications == [] do %>
+          <div class="py-16 text-center text-base-content/50">
+            <.icon name="hero-bell" class="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p class="text-sm">
+              <%= if @status == :unread do %>
+                You're all caught up.
+              <% else %>
+                No notifications yet.
+              <% end %>
+            </p>
+          </div>
+        <% else %>
+          <ul class="divide-y divide-base-200">
+            <%= for n <- @notifications do %>
+              <% view = render_notification(n) %>
+              <li class={[
+                "flex items-start gap-3 px-4 py-4 hover:bg-base-200/40 transition-colors",
+                is_nil(n.seen_at) && "bg-primary/5"
+              ]}>
+                <button
+                  type="button"
+                  phx-click="open_notification"
+                  phx-value-uuid={n.uuid}
+                  class="flex items-start gap-3 flex-1 text-left"
+                >
+                  <.icon name={view.icon} class="w-5 h-5 mt-1 shrink-0 text-base-content/70" />
+                  <div class="flex-1 min-w-0">
+                    <p class={[
+                      "text-sm",
+                      is_nil(n.seen_at) && "font-semibold"
+                    ]}>
+                      {view.text}
+                    </p>
+                    <p class="text-xs text-base-content/50 mt-0.5">
+                      {relative_time(n.inserted_at)}
+                    </p>
+                  </div>
+                </button>
+                <div class="flex items-center gap-1 shrink-0">
+                  <%= if is_nil(n.seen_at) do %>
+                    <button
+                      type="button"
+                      phx-click="mark_seen"
+                      phx-value-uuid={n.uuid}
+                      title="Mark as seen"
+                      class="btn btn-ghost btn-xs"
+                    >
+                      <.icon name="hero-check" class="w-4 h-4" />
+                    </button>
+                  <% end %>
+                  <button
+                    type="button"
+                    phx-click="dismiss"
+                    phx-value-uuid={n.uuid}
+                    title="Dismiss"
+                    class="btn btn-ghost btn-xs"
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </div>
+    </div>
+
+    <%= if @total_pages > 1 do %>
+      <div class="flex justify-center items-center gap-2 mt-6">
+        <%= if @page > 1 do %>
+          <button
+            type="button"
+            phx-click="set_page"
+            phx-value-page={@page - 1}
+            class="btn btn-sm btn-ghost"
+          >
+            Prev
+          </button>
+        <% end %>
+        <span class="text-sm text-base-content/60">Page {@page} of {@total_pages}</span>
+        <%= if @page < @total_pages do %>
+          <button
+            type="button"
+            phx-click="set_page"
+            phx-value-page={@page + 1}
+            class="btn btn-sm btn-ghost"
+          >
+            Next
+          </button>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

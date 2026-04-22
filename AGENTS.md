@@ -330,6 +330,50 @@ end
 Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
 
 
+## Notifications
+
+Per-user inbox driven by the activity log. Whenever `PhoenixKit.Activity.log/1` records an entry with a `target_uuid` that differs from `actor_uuid`, a row is inserted into `phoenix_kit_notifications` for the target user. Admins still use `/admin/activity` for audit — they do NOT receive notifications, so high-volume systems don't drown them.
+
+Global kill switch: `notifications_enabled` setting (default `"true"`). When `"false"`, `maybe_create_from_activity/1` is a no-op.
+
+### Generating notifications
+
+Nothing to do in caller code. As soon as an activity meets the rule (`target_uuid != nil and target_uuid != actor_uuid` and the feature is enabled), the hook in `lib/phoenix_kit/activity/activity.ex` fans out to `PhoenixKit.Notifications.maybe_create_from_activity/1`. Each row is a `(activity_uuid, recipient_uuid)` pair with independent `seen_at` / `dismissed_at`.
+
+If you want a notification without a matching activity log entry, create the activity first and let the hook do the rest — don't insert directly into `phoenix_kit_notifications`.
+
+### Rendering
+
+`PhoenixKit.Notifications.Render.render(notification)` maps the notification's preloaded activity to `%{icon, text, link, actor_uuid}`. Unknown actions fall back to the raw action string — safe default.
+
+### Public API (on `PhoenixKit.Notifications`)
+
+- `list_for_user(user_uuid, opts)` — `:page`, `:per_page`, `:status (:unread|:all)`, `:include_dismissed`
+- `recent_for_user(user_uuid, limit \\ 10)` — bell dropdown
+- `count_unread(user_uuid)` — badge
+- `mark_seen(user_uuid, uuid)` / `mark_all_seen(user_uuid)`
+- `dismiss(user_uuid, uuid)` / `dismiss_all(user_uuid)`
+- `get_notification(user_uuid, uuid)` — scoped to recipient
+- `enabled?/0`, `retention_days/0`, `prune/1`
+
+All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uuid)` (`"phoenix_kit:notifications:<user_uuid>"`) so LiveViews stay in sync:
+- `{:notification_created, n}`
+- `{:notification_seen, n}`
+- `{:notification_dismissed, n}`
+- `{:notifications_bulk_updated, :seen | :dismissed}`
+
+### UI surfaces
+
+- **Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView rendered by `LayoutWrapper` whenever a user is signed in. Owns its own PubSub subscription so the badge updates live across page navigations.
+- **Inbox** — `PhoenixKitWeb.Live.Users.Notifications` at `/notifications`, in the authenticated live_session (any signed-in user, not just admins).
+
+"Seen" is only set on explicit user action (clicking a row or "Mark all seen"). Opening the dropdown does NOT auto-mark seen.
+
+### Cleanup
+
+`PhoenixKit.Notifications.PruneWorker` runs daily (`"0 4 * * *"`). Retention is driven by `notifications_retention_days` (falls back to `activity_retention_days`, default 90). Cascading FK deletes also remove notifications when the underlying activity is pruned.
+
+
 ## MediaBrowser Component
 
 Embeddable media management UI — full folder tree, grid/list view, upload, search, selection tools, drag-drop, trash bucket. Lives at `lib/phoenix_kit_web/components/media_browser.ex` (+ `.html.heex`). Used by the admin page (`/admin/media`) and any parent LiveView that needs media picking or browsing.

@@ -529,6 +529,9 @@ defmodule PhoenixKitWeb.Integration do
                :confirm_email
         end
 
+        # Notifications inbox — available to every authenticated user, admin or not
+        live "/notifications", Live.Users.Notifications, :index
+
         # Module user pages (full module names — no PhoenixKitWeb alias)
         scope "/", alias: false do
           unquote(module_routes)

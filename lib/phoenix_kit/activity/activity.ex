@@ -52,6 +52,7 @@ defmodule PhoenixKit.Activity do
     case %Entry{} |> Entry.changeset(attrs) |> repo().insert() do
       {:ok, entry} ->
         broadcast_activity(entry)
+        maybe_notify(entry)
         {:ok, entry}
 
       {:error, changeset} ->
@@ -62,6 +63,17 @@ defmodule PhoenixKit.Activity do
     e ->
       Logger.warning("Activity logging error: #{inspect(e)}")
       {:error, e}
+  end
+
+  # Fan out to per-user notifications. Guarded with `Code.ensure_loaded?` so
+  # the core Activity module keeps working if the Notifications module is
+  # ever stripped out or not yet compiled during recompile cascades.
+  defp maybe_notify(entry) do
+    if Code.ensure_loaded?(PhoenixKit.Notifications) do
+      PhoenixKit.Notifications.maybe_create_from_activity(entry)
+    end
+  rescue
+    e -> Logger.warning("Notifications fan-out failed: #{inspect(e)}")
   end
 
   @doc """
