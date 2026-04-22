@@ -529,7 +529,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V102 - Catalogue discount + smart catalogues ⚡ LATEST
+  ### V103 - Nested categories ⚡ LATEST
+  - Adds nullable self-FK `parent_uuid` on `phoenix_kit_cat_categories`
+    to support arbitrary-depth category trees. Existing rows become
+    roots (NULL parent). Adds a b-tree index on `(parent_uuid)` for the
+    "list children" query.
+
+  ### V102 - Catalogue discount + smart catalogues
   Two related catalogue features bundled together:
   - **Discount**: `discount_percentage DECIMAL(7, 2) NOT NULL DEFAULT 0`
     on `phoenix_kit_cat_catalogues` (whole-catalogue default) and
@@ -762,7 +768,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 102
+  @current_version 103
   @default_prefix "public"
 
   @doc false
