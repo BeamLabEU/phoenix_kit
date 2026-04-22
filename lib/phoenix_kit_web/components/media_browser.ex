@@ -1718,7 +1718,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     cond do
       String.starts_with?(mime_type, "image/") -> "image"
       String.starts_with?(mime_type, "video/") -> "video"
-      mime_type == "application/pdf" -> "pdf"
+      # PDFs fall under "document" because the File schema's allowlist is
+      # ["image", "video", "document", "archive"] — returning "pdf" here made
+      # every PDF upload fail the changeset validation silently.
+      mime_type == "application/pdf" -> "document"
       true -> "document"
     end
   end
