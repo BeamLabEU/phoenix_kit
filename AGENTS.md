@@ -362,10 +362,11 @@ All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uui
 - `{:notification_dismissed, n}`
 - `{:notifications_bulk_updated, :seen | :dismissed}`
 
-### UI surfaces
+### UI
 
-- **Inbox** — `PhoenixKitWeb.Live.Users.Notifications` at `/notifications`, in the authenticated live_session (any signed-in user, not just admins). This is always available via direct URL.
-- **Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView. It is **not** mounted in PhoenixKit's admin chrome — the admin bell slot is reserved for system-wide events (PhoenixKit updates, platform health), not per-user activity. Parent apps embed this in their own user-facing header when needed:
+There is no PhoenixKit-owned notifications page — the feature is a pure backend + embeddable bell.
+
+**Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView. Not mounted anywhere by default; parent apps render it where they have a user-facing header:
 
 ```heex
 <%= Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
@@ -373,6 +374,8 @@ All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uui
       sticky: true,
       session: %{"user_uuid" => @current_user.uuid}) %>
 ```
+
+The bell owns its own PubSub subscription so the badge and dropdown refresh live. Clicking a notification row marks it seen and navigates to `Render.render(n).link` when one is set; if `link` is `nil`, the dropdown just refreshes.
 
 "Seen" is only set on explicit user action (clicking a row or "Mark all seen"). Opening the dropdown does NOT auto-mark seen.
 

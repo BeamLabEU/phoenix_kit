@@ -121,7 +121,8 @@ defmodule PhoenixKit.Notifications.Render do
 
   defp link_for(%_{action: "user." <> _verb}), do: Routes.path("/dashboard/settings")
 
-  defp link_for(_activity), do: Routes.path("/notifications")
+  # No default deep-link target: the caller decides what to do when `link` is nil.
+  defp link_for(_activity), do: nil
 
   # ── Helpers ──────────────────────────────────────────────────────────
 

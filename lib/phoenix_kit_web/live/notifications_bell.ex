@@ -20,7 +20,6 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
   alias PhoenixKit.Notifications
   alias PhoenixKit.Notifications.Events
   alias PhoenixKit.Notifications.Render
-  alias PhoenixKit.Utils.Routes
 
   def mount(_params, %{"user_uuid" => user_uuid}, socket) when is_binary(user_uuid) do
     if connected?(socket), do: Events.subscribe(user_uuid)
@@ -44,11 +43,13 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
 
     case Notifications.mark_seen(user_uuid, uuid) do
       {:ok, notification} ->
-        target = Render.render(notification).link || Routes.path("/notifications")
-        {:noreply, push_navigate(socket, to: target)}
+        case Render.render(notification).link do
+          nil -> {:noreply, refresh(socket)}
+          target -> {:noreply, push_navigate(socket, to: target)}
+        end
 
       _ ->
-        {:noreply, push_navigate(socket, to: Routes.path("/notifications"))}
+        {:noreply, refresh(socket)}
     end
   end
 
@@ -150,15 +151,6 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
               <% end %>
             </ul>
           <% end %>
-
-          <div class="border-t border-base-200">
-            <.link
-              navigate={Routes.path("/notifications")}
-              class="block text-center text-sm py-2 hover:bg-base-200"
-            >
-              See all
-            </.link>
-          </div>
         </div>
       </div>
     </div>
