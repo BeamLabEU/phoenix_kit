@@ -364,8 +364,15 @@ All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uui
 
 ### UI surfaces
 
-- **Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView rendered by `LayoutWrapper` whenever a user is signed in. Owns its own PubSub subscription so the badge updates live across page navigations.
-- **Inbox** — `PhoenixKitWeb.Live.Users.Notifications` at `/notifications`, in the authenticated live_session (any signed-in user, not just admins).
+- **Inbox** — `PhoenixKitWeb.Live.Users.Notifications` at `/notifications`, in the authenticated live_session (any signed-in user, not just admins). This is always available via direct URL.
+- **Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView. It is **not** mounted in PhoenixKit's admin chrome — the admin bell slot is reserved for system-wide events (PhoenixKit updates, platform health), not per-user activity. Parent apps embed this in their own user-facing header when needed:
+
+```heex
+<%= Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
+      id: "pk-notifications-bell",
+      sticky: true,
+      session: %{"user_uuid" => @current_user.uuid}) %>
+```
 
 "Seen" is only set on explicit user action (clicking a row or "Mark all seen"). Opening the dropdown does NOT auto-mark seen.
 

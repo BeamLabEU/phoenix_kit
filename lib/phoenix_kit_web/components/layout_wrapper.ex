@@ -310,13 +310,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   </div>
                 </div>
 
-                <%!-- Right: Theme Switcher, Notifications Bell and User Dropdown (language selection lives inside user dropdown) --%>
+                <%!-- Right: Theme Switcher and User Dropdown (language selection lives inside user dropdown) --%>
                 <div class="flex items-center gap-3">
                   <.admin_theme_controller mobile={true} />
-                  <.notifications_bell_slot
-                    socket={assigns[:socket]}
-                    scope={@phoenix_kit_current_scope}
-                  />
                   <.admin_user_dropdown
                     scope={@phoenix_kit_current_scope}
                     current_path={@current_path}
@@ -873,31 +869,5 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   def generate_language_switch_url(current_path, new_locale) do
     base_code = DialectMapper.extract_base(new_locale)
     build_locale_url(current_path, base_code)
-  end
-
-  # Renders the notifications bell as a nested, sticky LiveView so it owns
-  # its own PubSub subscription and keeps the socket across navigations.
-  # Falls back to an empty render when we aren't inside a LiveView socket
-  # (e.g. a dead-view call into app_layout) or there's no signed-in user.
-  attr :socket, :any, default: nil
-  attr :scope, :any, default: nil
-
-  defp notifications_bell_slot(assigns) do
-    user = assigns.scope && Scope.user(assigns.scope)
-
-    if match?(%Phoenix.LiveView.Socket{}, assigns.socket) and is_map(user) and
-         is_binary(Map.get(user, :uuid)) do
-      assigns = assign(assigns, :user_uuid, user.uuid)
-
-      ~H"""
-      {Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
-        id: "pk-notifications-bell",
-        sticky: true,
-        session: %{"user_uuid" => @user_uuid}
-      )}
-      """
-    else
-      ~H""
-    end
   end
 end
