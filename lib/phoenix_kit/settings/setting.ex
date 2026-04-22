@@ -68,6 +68,8 @@ defmodule PhoenixKit.Settings.Setting do
     "sqs_polling_interval_ms",
     # General
     "site_url",
+    "site_icon_file_uuid",
+    "default_tab_title",
     # OAuth Provider Credentials
     "oauth_google_client_id",
     "oauth_google_client_secret",
