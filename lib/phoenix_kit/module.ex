@@ -115,6 +115,42 @@ defmodule PhoenixKit.Module do
   @callback integration_providers() :: [map()]
 
   @doc """
+  Returns a list of notification types this module contributes.
+
+  Each type is a map with:
+    * `:key` — binary, stable identifier used in user prefs (e.g. `"posts"`)
+    * `:label` — binary, user-facing display (e.g. `"Posts"`)
+    * `:description` — binary, short explainer shown under the toggle
+    * `:actions` — list of dotted action strings (`["post.liked", "post.commented"]`)
+    * `:default` — boolean, the toggle's default state for users who haven't
+      set a preference
+
+  Types merge with core PhoenixKit types (`account`, `posts`, `comments`) and
+  show up automatically in the UserSettings "Notifications" section. The
+  filter in `PhoenixKit.Notifications.maybe_create_from_activity/1` resolves
+  each action to a type via `:actions` and skips the fan-out when the user
+  has muted that type.
+
+  Headless modules (no user-facing actions) can skip this callback — the
+  default is `[]`.
+
+  ## Example
+
+      def notification_types do
+        [
+          %{
+            key: "reviews",
+            label: "Reviews",
+            description: "When someone leaves you a review",
+            actions: ["review.submitted", "review.edited"],
+            default: true
+          }
+        ]
+      end
+  """
+  @callback notification_types() :: [map()]
+
+  @doc """
   Returns the OTP app name for Tailwind CSS source scanning.
 
   The installer uses this to generate the correct `@source` directive in the
@@ -142,6 +178,7 @@ defmodule PhoenixKit.Module do
     required_modules: 0,
     required_integrations: 0,
     integration_providers: 0,
+    notification_types: 0,
     css_sources: 0
   ]
 
@@ -192,6 +229,9 @@ defmodule PhoenixKit.Module do
       def integration_providers, do: []
 
       @impl PhoenixKit.Module
+      def notification_types, do: []
+
+      @impl PhoenixKit.Module
       def css_sources, do: []
 
       defoverridable get_config: 0,
@@ -206,6 +246,7 @@ defmodule PhoenixKit.Module do
                      required_modules: 0,
                      required_integrations: 0,
                      integration_providers: 0,
+                     notification_types: 0,
                      css_sources: 0
     end
   end

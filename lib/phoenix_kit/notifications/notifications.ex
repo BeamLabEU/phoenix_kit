@@ -19,6 +19,7 @@ defmodule PhoenixKit.Notifications do
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.Notifications.Events
   alias PhoenixKit.Notifications.Notification
+  alias PhoenixKit.Notifications.Prefs
   alias PhoenixKit.Settings
 
   # ── Creation ─────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ defmodule PhoenixKit.Notifications do
       not enabled?() -> {:ok, :skipped}
       is_nil(entry.target_uuid) -> {:ok, :skipped}
       entry.target_uuid == entry.actor_uuid -> {:ok, :skipped}
+      not Prefs.user_wants?(entry.target_uuid, entry.action) -> {:ok, :skipped}
       true -> do_create(entry)
     end
   rescue

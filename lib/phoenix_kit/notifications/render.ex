@@ -26,12 +26,15 @@ defmodule PhoenixKit.Notifications.Render do
   """
   @spec render(Notification.t()) :: render_result()
   def render(%Notification{activity: %_{} = activity}) do
-    {icon, text} = icon_and_text(activity.action, activity.metadata || %{})
+    meta = activity.metadata || %{}
+    {default_icon, default_text} = icon_and_text(activity.action, meta)
 
+    # Metadata overrides let callers ship custom display without touching the
+    # Render action lookup. Any of the three keys can be present independently.
     %{
-      icon: icon,
-      text: text,
-      link: link_for(activity),
+      icon: meta_string(meta, "notification_icon") || default_icon,
+      text: meta_string(meta, "notification_text") || default_text,
+      link: meta_string(meta, "notification_link") || link_for(activity),
       actor_uuid: activity.actor_uuid
     }
   end
@@ -129,6 +132,17 @@ defmodule PhoenixKit.Notifications.Render do
   defp suffix_if(nil, _), do: ""
   defp suffix_if("", _), do: ""
   defp suffix_if(_value, suffix), do: suffix
+
+  # Returns the metadata string for `key` iff it's a non-empty binary;
+  # otherwise nil so the caller can fall through to the default.
+  defp meta_string(meta, key) when is_map(meta) and is_binary(key) do
+    case Map.get(meta, key) do
+      value when is_binary(value) and value != "" -> value
+      _ -> nil
+    end
+  end
+
+  defp meta_string(_meta, _key), do: nil
 
   defp humanize(action) do
     action
