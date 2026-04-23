@@ -529,7 +529,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V103 - Per-user notifications table ⚡ LATEST
+  ### V104 - Per-user notifications table ⚡ LATEST
   - Creates `phoenix_kit_notifications` with UUID v7 PK and FKs to
     `phoenix_kit_activities` and `phoenix_kit_users` (both ON DELETE CASCADE)
   - `seen_at` and `dismissed_at` tracked per-row so dropping one or the
@@ -772,7 +772,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 103
+  @current_version 104
   @default_prefix "public"
 
   @doc false

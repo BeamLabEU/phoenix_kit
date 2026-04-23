@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V103 do
+defmodule PhoenixKit.Migrations.Postgres.V104 do
   @moduledoc """
-  V103: Per-user notifications driven by the activity feed.
+  V104: Per-user notifications driven by the activity feed.
 
   Creates `phoenix_kit_notifications` — one row per (activity, recipient_user)
   with independent `seen_at` / `dismissed_at` timestamps. Generated in fan-out
@@ -57,7 +57,7 @@ defmodule PhoenixKit.Migrations.Postgres.V103 do
     WHERE dismissed_at IS NULL
     """)
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '103'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '104'")
   end
 
   def down(opts) do
@@ -69,7 +69,7 @@ defmodule PhoenixKit.Migrations.Postgres.V103 do
     execute("DROP INDEX IF EXISTS #{p}phoenix_kit_notifications_activity_recipient_index")
 
     execute("DROP TABLE IF EXISTS #{p}phoenix_kit_notifications")
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '102'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '103'")
   end
 
   defp prefix_str("public"), do: "public."
