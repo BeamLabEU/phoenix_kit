@@ -538,6 +538,12 @@ defmodule PhoenixKit.Migrations.Postgres do
     per activity per recipient (fan-out writes stay safe against retries)
   - Partial index on `(recipient_uuid, inserted_at DESC) WHERE dismissed_at
     IS NULL` — covers the main "my undismissed inbox, newest first" query
+    
+  ### V103 - Nested categories ⚡ LATEST
+  - Adds nullable self-FK `parent_uuid` on `phoenix_kit_cat_categories`
+    to support arbitrary-depth category trees. Existing rows become
+    roots (NULL parent). Adds a b-tree index on `(parent_uuid)` for the
+    "list children" query.
 
   ### V102 - Catalogue discount + smart catalogues
   Two related catalogue features bundled together:
