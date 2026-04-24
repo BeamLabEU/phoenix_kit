@@ -161,7 +161,9 @@ defmodule PhoenixKit.Settings do
       "oauth_github_client_id" => "",
       "oauth_github_client_secret" => "",
       "oauth_facebook_app_id" => "",
-      "oauth_facebook_app_secret" => ""
+      "oauth_facebook_app_secret" => "",
+      # Notifications
+      "notifications_enabled" => "true"
     }
   end
 

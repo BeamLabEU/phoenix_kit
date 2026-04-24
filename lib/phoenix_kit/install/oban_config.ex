@@ -126,7 +126,8 @@ defmodule PhoenixKit.Install.ObanConfig do
         {Oban.Plugins.Cron,
          crontab: [
            {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
-           {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}
+           {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob},
+           {"0 4 * * *", PhoenixKit.Notifications.PruneWorker}
          ]}
       ]
     """
@@ -726,7 +727,8 @@ defmodule PhoenixKit.Install.ObanConfig do
           {Oban.Plugins.Cron,
            crontab: [
              {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
-             {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}
+             {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob},
+             {"0 4 * * *", PhoenixKit.Notifications.PruneWorker}
            ]}
         ]
 

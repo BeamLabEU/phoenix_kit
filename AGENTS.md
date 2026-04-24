@@ -330,6 +330,108 @@ end
 Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
 
 
+## Notifications
+
+Per-user inbox driven by the activity log. Whenever `PhoenixKit.Activity.log/1` records an entry with a `target_uuid` that differs from `actor_uuid`, a row is inserted into `phoenix_kit_notifications` for the target user. Admins still use `/admin/activity` for audit — they do NOT receive notifications, so high-volume systems don't drown them.
+
+Global kill switch: `notifications_enabled` setting (default `"true"`). When `"false"`, `maybe_create_from_activity/1` is a no-op.
+
+### Generating notifications
+
+Nothing to do in caller code. As soon as an activity meets the rule (`target_uuid != nil and target_uuid != actor_uuid` and the feature is enabled), the hook in `lib/phoenix_kit/activity/activity.ex` fans out to `PhoenixKit.Notifications.maybe_create_from_activity/1`. Each row is a `(activity_uuid, recipient_uuid)` pair with independent `seen_at` / `dismissed_at`.
+
+If you want a notification without a matching activity log entry, create the activity first and let the hook do the rest — don't insert directly into `phoenix_kit_notifications`.
+
+### Rendering
+
+`PhoenixKit.Notifications.Render.render(notification)` maps the notification's preloaded activity to `%{icon, text, link, actor_uuid}`. Unknown actions fall back to the raw action string — safe default.
+
+### Public API (on `PhoenixKit.Notifications`)
+
+- `list_for_user(user_uuid, opts)` — `:page`, `:per_page`, `:status (:unread|:all)`, `:include_dismissed`
+- `recent_for_user(user_uuid, limit \\ 10)` — bell dropdown
+- `count_unread(user_uuid)` — badge
+- `mark_seen(user_uuid, uuid)` / `mark_all_seen(user_uuid)`
+- `dismiss(user_uuid, uuid)` / `dismiss_all(user_uuid)`
+- `get_notification(user_uuid, uuid)` — scoped to recipient
+- `enabled?/0`, `retention_days/0`, `prune/1`
+
+All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uuid)` (`"phoenix_kit:notifications:<user_uuid>"`) so LiveViews stay in sync:
+- `{:notification_created, n}`
+- `{:notification_seen, n}`
+- `{:notification_dismissed, n}`
+- `{:notifications_bulk_updated, :seen | :dismissed}`
+
+### UI
+
+There is no PhoenixKit-owned notifications page — the feature is a pure backend + embeddable bell.
+
+**Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView. Not mounted anywhere by default; parent apps render it where they have a user-facing header:
+
+```heex
+<%= Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
+      id: "pk-notifications-bell",
+      sticky: true,
+      session: %{"user_uuid" => @current_user.uuid}) %>
+```
+
+The bell owns its own PubSub subscription so the badge and dropdown refresh live. Clicking a notification row marks it seen and navigates to `Render.render(n).link` when one is set; if `link` is `nil`, the dropdown just refreshes.
+
+"Seen" is only set on explicit user action (clicking a row or "Mark all seen"). Opening the dropdown does NOT auto-mark seen.
+
+### Per-user preferences
+
+Each user can mute notification *types* (not individual actions) from the `UserSettings` LiveComponent's Notifications section. Preferences persist in `users.custom_fields["notification_preferences"]` as `%{"posts" => true, "account" => false, …}`. No migration — reuses the existing V18 JSONB column.
+
+The types registry lives in `PhoenixKit.Notifications.Types`. Core types: `"account"`, `"posts"`, `"comments"`. External modules contribute their own via the optional `notification_types/0` callback on `PhoenixKit.Module`:
+
+```elixir
+@impl PhoenixKit.Module
+def notification_types do
+  [%{
+    key: "reviews",
+    label: "Reviews",
+    description: "When someone leaves you a review",
+    actions: ["review.submitted", "review.edited"],
+    default: true
+  }]
+end
+```
+
+`Types.list/0` merges core + discovered modules; the toggle appears in every user's UserSettings automatically. The filter in `maybe_create_from_activity/1` calls `PhoenixKit.Notifications.Prefs.user_wants?(target_uuid, action)`, which resolves the action to its type (`Types.type_for_action/1`) and checks the recipient's `custom_fields`. **Fail-open**: unknown actions, missing prefs, or lookup errors all return `true` — a notification is never silently dropped because of a malformed row.
+
+### Custom display (metadata override)
+
+`Render.render/1` honors three conventional metadata keys before falling back to the action lookup. Any `Activity.log/1` caller can ship custom text/icon/link without editing PhoenixKit:
+
+```elixir
+Activity.log(%{
+  action: "review.submitted",
+  actor_uuid: alice.uuid,
+  target_uuid: bob.uuid,
+  metadata: %{
+    "notification_text" => "Alice left you a 5-star review.",
+    "notification_icon" => "hero-star",
+    "notification_link" => "/reviews/#{review.uuid}"
+  }
+})
+```
+
+Any key can be absent — Render falls back to `icon_and_text/2` and `link_for/1` for the missing parts.
+
+### Extensibility cheat sheet
+
+| Scenario | Developer work | PhoenixKit work |
+|---|---|---|
+| New action in an existing type | one `Activity.log/1` call | None (prefix is already covered) or add to the type's `actions` list |
+| New type (category of actions) | implement `notification_types/0` (~10 lines) | None |
+| Custom text / icon / link | set three metadata keys at the call site | None |
+
+### Cleanup
+
+`PhoenixKit.Notifications.PruneWorker` runs daily (`"0 4 * * *"`). Retention is driven by `notifications_retention_days` (falls back to `activity_retention_days`, default 90). Cascading FK deletes also remove notifications when the underlying activity is pruned.
+
+
 ## MediaBrowser Component
 
 Embeddable media management UI — full folder tree, grid/list view, upload, search, selection tools, drag-drop, trash bucket. Lives at `lib/phoenix_kit_web/components/media_browser.ex` (+ `.html.heex`). Used by the admin page (`/admin/media`) and any parent LiveView that needs media picking or browsing.

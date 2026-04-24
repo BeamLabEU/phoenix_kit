@@ -1,3 +1,18 @@
+## 1.7.101 - 2026-04-24
+
+### Added
+- **Notifications module** — per-user inbox driven by the activity log. When `PhoenixKit.Activity.log/1` records an entry with `target_uuid != actor_uuid`, a row is inserted into `phoenix_kit_notifications` for the target user. Independent `seen_at` / `dismissed_at` per row, per-user PubSub topic (`"phoenix_kit:notifications:<user_uuid>"`), global kill-switch via `notifications_enabled` setting (default `"true"`). Admins still audit via `/admin/activity` and don't receive notifications (PR #505)
+  - V104 migration: `phoenix_kit_notifications` with UUIDv7 PK, FKs to `phoenix_kit_activities` and `phoenix_kit_users` (both `ON DELETE CASCADE`), unique `(activity_uuid, recipient_uuid)` index, partial `(recipient_uuid, inserted_at DESC) WHERE dismissed_at IS NULL` index for the inbox read path
+  - `PhoenixKit.Notifications` public API: `maybe_create_from_activity/1`, `list_for_user/2`, `recent_for_user/2`, `count_unread/1`, `mark_seen/2`, `mark_all_seen/1`, `dismiss/2`, `dismiss_all/1`, `get_notification/2`, `enabled?/0`, `retention_days/0`, `prune/1`
+  - `PhoenixKit.Notifications.Render.render/1` — maps action → `%{icon, text, link, actor_uuid}`; honors metadata overrides (`notification_text`, `notification_icon`, `notification_link`) before falling back to the action lookup
+  - `PhoenixKit.Notifications.Types` registry — three core types (`account`, `posts`, `comments`) plus extension point for external modules via the new optional `notification_types/0` callback on `PhoenixKit.Module`
+  - `PhoenixKit.Notifications.Prefs` — per-user preferences persisted in `custom_fields.notification_preferences` (reuses V18 JSONB column; no migration). Fail-open on any ambiguity
+  - `PhoenixKit.Notifications.PruneWorker` — daily Oban cron at `"0 4 * * *"`; retention via `notifications_retention_days` (falls back to `activity_retention_days`, default 90)
+  - `PhoenixKitWeb.Live.NotificationsBell` — sticky nested LiveView for the bell + dropdown. Not mounted by default; parent apps render it where they have a user-facing header via `Phoenix.Component.live_render(..., sticky: true, session: %{"user_uuid" => ...})`. Badge + recent list refresh live via PubSub
+  - Notification preferences section in `PhoenixKitWeb.Live.Components.UserSettings` — one toggle per registered type; unknown submitted keys dropped at the call site
+  - `notifications_enabled` toggle on `/admin/settings`
+- Arity-2 `dynamic_children_fn` for admin sidebar tabs — callbacks can now be `(scope, locale -> [tab])` in addition to the existing `(scope -> [tab])`. Backwards-compatible extension: the sidebar dispatches on arity, every existing 1-arity callback keeps working unchanged. Lets plugins render locale-aware child labels without reading `Gettext.get_locale/1` at render time (PR #506)
+
 ## 1.7.100 - 2026-04-22
 
 ### Added

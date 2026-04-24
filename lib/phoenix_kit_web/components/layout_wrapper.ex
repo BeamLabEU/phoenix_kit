@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
 
+  import PhoenixKitWeb.Components.Core.PhoenixKitFavicon
   import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   import PhoenixKitWeb.Components.AdminNav
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
@@ -253,8 +254,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
             ~H"""
             <%!-- PhoenixKit Admin Layout --%>
-            <%!-- Globals needed here for render_admin_with_parent path where parent layout may not set them --%>
+            <%!-- Globals + favicon needed here for render_admin_with_parent path where parent layout may not set them --%>
             <.phoenix_kit_globals />
+            <.phoenix_kit_favicon />
             <style data-phoenix-kit-themes>
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
             </style>
@@ -689,14 +691,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         }>
           {assigns[:page_title] || "Admin"}
         </.live_title>
-        <% site_icon_uuid = PhoenixKit.Settings.get_setting_cached("site_icon_file_uuid", "") %>
-        <%= if site_icon_uuid != "" do %>
-          <link
-            rel="icon"
-            type="image/png"
-            href={PhoenixKit.Modules.Storage.URLSigner.signed_url(site_icon_uuid, "thumbnail")}
-          />
-        <% end %>
+        <.phoenix_kit_favicon />
         <%= if assigns[:seo_no_index] do %>
           <meta name="robots" content="noindex,nofollow" />
           <meta name="googlebot" content="noindex,nofollow" />
