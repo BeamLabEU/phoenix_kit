@@ -219,6 +219,38 @@
               </div>
             </div>
 
+            <%!-- Notifications --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">
+                  {gettext("Notifications")}
+                </span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  {gettext("Per-user inbox driven by the activity feed")}
+                </span>
+              </label>
+              <div class="flex items-center gap-3">
+                <input type="hidden" name="settings[notifications_enabled]" value="false" />
+                <input
+                  name="settings[notifications_enabled]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["notifications_enabled"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">
+                  {gettext("Enable user notifications")}
+                </span>
+              </div>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  {gettext(
+                    "When on, users receive a bell notification whenever an activity targets them (e.g., their post is liked)."
+                  )}
+                </span>
+              </div>
+            </div>
+
             <%!-- Site Address URL Setting --%>
             <div class="form-control w-full">
               <label class="label">
