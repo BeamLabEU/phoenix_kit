@@ -112,7 +112,15 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   @type level :: :user | :admin | :all
 
-  @type dynamic_children_fn :: (map() -> [t()]) | nil
+  # `dynamic_children` may have arity 1 (receives scope) or arity 2 (receives scope
+  # and the current locale). The 2-arity variant lets modules render locale-aware
+  # children (e.g. translated tab labels) without having to fall back on
+  # `Gettext.get_locale/1` at render time. The sidebar dispatches on arity; both
+  # forms are supported for backwards compatibility.
+  @type dynamic_children_fn ::
+          (map() -> [t()])
+          | (map(), String.t() | nil -> [t()])
+          | nil
 
   @type t :: %__MODULE__{
           id: atom(),
