@@ -204,7 +204,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   # Determine next recommended action
   defp determine_next_action({:not_installed}, _prefix) do
-    {:install, "mix phoenix_kit.install"}
+    {:install, "mix igniter.install phoenix_kit"}
   end
 
   defp determine_next_action({:needs_update, _current, _target}, prefix) do
