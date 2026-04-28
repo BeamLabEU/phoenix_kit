@@ -1,0 +1,47 @@
+## This file is a PO Template file.
+##
+## "msgid"s here are often extracted from source code.
+## Add new messages manually only if they're dynamic
+## messages that can't be statically extracted.
+##
+## Run "mix gettext.extract" to bring this file up to
+## date. Leave "msgstr"s empty as changing them here has no
+## effect: edit them in PO (.po) files instead.
+#
+msgid ""
+msgstr ""
+
+#: lib/phoenix_kit/users/invitations.ex:259
+#, elixir-autogen, elixir-format
+msgid "A pending invitation already exists for this email"
+msgstr ""
+
+#: lib/phoenix_kit/users/invitations.ex:245
+#, elixir-autogen, elixir-format
+msgid "This user already belongs to an organization"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:993
+#, elixir-autogen, elixir-format
+msgid "cannot change to person while organization has members"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:973
+#, elixir-autogen, elixir-format
+msgid "cannot reference self"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:981
+#, elixir-autogen, elixir-format
+msgid "only person accounts can join an organization"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:968
+#, elixir-autogen, elixir-format
+msgid "organization not found"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:967
+#, elixir-autogen, elixir-format
+msgid "target user is not an organization"
+msgstr ""
