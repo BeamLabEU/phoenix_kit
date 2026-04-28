@@ -151,19 +151,29 @@ defmodule PhoenixKit.Module do
   @callback notification_types() :: [map()]
 
   @doc """
-  Returns the OTP app name for Tailwind CSS source scanning.
+  Returns Tailwind CSS source roots for scanning.
 
-  The installer uses this to generate the correct `@source` directive in the
-  parent app's `app.css`. It automatically resolves the right path based on
-  whether the dep is installed from Hex (`deps/`) or as a path dep.
+  Each entry is either:
 
-  ## Example
+    * an atom — the OTP app name. The compiler resolves it via the parent
+      app's `mix.exs` deps (`deps/<app>` for Hex, `path:` value for path deps).
+    * a string — a literal path. Absolute paths (starting with `/`) emit as
+      `@source "<abs>";` verbatim; relative paths emit as `@source "../../<path>";`
+      (relative to `assets/css/_phoenix_kit_sources.css`). Useful when a module
+      wants to add a path-dep absolute fallback alongside the OTP-app entry,
+      so both Hex and path-dep installs work without parent-app toggles.
+
+  ## Examples
 
       def css_sources, do: [:phoenix_kit_publishing]
 
+      # Path-dep friendly:
+      @source_root Path.expand(Path.join(__DIR__, "../.."))
+      def css_sources, do: [:phoenix_kit_publishing, @source_root]
+
   Headless modules (no templates) can skip this callback — the default is `[]`.
   """
-  @callback css_sources() :: [atom()]
+  @callback css_sources() :: [atom() | String.t()]
 
   @optional_callbacks [
     get_config: 0,
