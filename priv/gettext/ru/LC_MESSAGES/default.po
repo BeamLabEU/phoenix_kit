@@ -662,7 +662,7 @@ msgstr ""
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:50
 #, elixir-autogen, elixir-format
 msgid "Close"
-msgstr "закрыть"
+msgstr "Закрыть"
 
 #: lib/modules/customer_service/web/user_details.html.heex:43
 #: lib/modules/customer_service/web/user_details.html.heex:268
@@ -1142,7 +1142,7 @@ msgstr "Не удалось сохранить контакт DPO"
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:68
 #, elixir-autogen, elixir-format
 msgid "Failed to save frameworks"
-msgstr "Не удалось сохранить набор стандартов"
+msgstr "Не удалось сохранить стандарты соответствия"
 
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:69
 #, elixir-autogen, elixir-format

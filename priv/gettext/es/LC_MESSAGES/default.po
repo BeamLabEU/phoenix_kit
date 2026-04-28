@@ -661,7 +661,7 @@ msgstr ""
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:50
 #, elixir-autogen, elixir-format
 msgid "Close"
-msgstr "cerrar"
+msgstr "Cerrar"
 
 #: lib/modules/customer_service/web/user_details.html.heex:43
 #: lib/modules/customer_service/web/user_details.html.heex:268
