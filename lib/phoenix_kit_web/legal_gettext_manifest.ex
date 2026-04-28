@@ -11,15 +11,28 @@ defmodule PhoenixKitWeb.LegalGettextManifest do
   # gettext calls from core's own source so the strings end up in
   # `priv/gettext/default.pot` and can be translated in every locale.
   #
-  # When `phoenix_kit_legal` adds or renames a translatable string, refresh
-  # this list. From the `phoenix_kit_legal` checkout:
+  # ## Scope
   #
-  #     grep -hEo 'gettext\("[^"]+"\)' \
+  # End-user-facing strings only: cookie-banner UI, flash messages, and
+  # legal page titles. Admin-settings UI strings (those in
+  # `lib/phoenix_kit_legal/web/settings.html.heex`) are intentionally
+  # excluded — that admin panel runs in English. If a consumer ever needs
+  # those translated, expand the list explicitly.
+  #
+  # ## Refreshing the list
+  #
+  # When `phoenix_kit_legal` adds or renames a translatable string, run
+  # this from the `phoenix_kit_legal` checkout:
+  #
+  #     grep -hEo 'gettext\("[^"]+' \
   #       lib/phoenix_kit_legal/legal.ex \
   #       lib/phoenix_kit_legal/web/cookie_consent.ex \
   #       lib/phoenix_kit_legal/web/settings.ex \
-  #       lib/phoenix_kit_legal/web/settings.html.heex \
   #     | sort -u
+  #
+  # The regex stops at the first quote close, so it captures the msgid for
+  # both plain `gettext("Foo")` and interpolated `gettext("Foo: %{x}", x: 1)`
+  # forms. Add interpolated entries to the list manually.
   #
   # This module is never called at runtime — it exists purely as an
   # extraction target for `mix gettext.extract`.
