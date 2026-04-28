@@ -10893,3 +10893,83 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "• Week start day controls which day begins the week (useful for calendar features)"
 msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Acceptable Use Policy"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Analytics"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "CCPA Notice at Collection"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Data Retention Policy"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Do Not Sell My Personal Information"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Essential"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Help us understand how you use our site to improve your experience."
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Legal pages reset successfully. You can now regenerate them."
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "No issues detected — reset not needed"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Preferences"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Privacy Policy"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Remember your settings like language and region preferences."
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Required for core functionality. These cannot be disabled."
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Reset failed: %{reason}"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Terms of Service"
+msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Used for personalized advertising and measuring ad effectiveness."
+msgstr ""

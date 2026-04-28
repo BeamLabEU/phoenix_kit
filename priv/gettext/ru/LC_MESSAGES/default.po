@@ -654,7 +654,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:281
 #, elixir-autogen, elixir-format
 msgid "Accept All"
-msgstr ""
+msgstr "Принять все"
 
 #: lib/modules/entities/web/entity_form.html.heex:1466
 #, elixir-autogen, elixir-format
@@ -797,7 +797,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:121
 #, elixir-autogen, elixir-format
 msgid "Address imported from Organization"
-msgstr ""
+msgstr "Адрес импортирован из настроек организации"
 
 #: lib/modules/emails/web/emails.html.heex:175
 #: lib/modules/emails/web/template_editor.html.heex:191
@@ -1427,7 +1427,7 @@ msgstr ""
 
 #: lib/modules/emails/web/emails.html.heex:641
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:327
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Close"
 msgstr "закрыть"
 
@@ -1577,7 +1577,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:276
 #, elixir-autogen, elixir-format
 msgid "Consent widget settings saved"
-msgstr ""
+msgstr "Настройки виджета согласия сохранены"
 
 #: lib/modules/entities/web/entity_form.ex:1398
 #, elixir-autogen, elixir-format
@@ -1608,22 +1608,22 @@ msgstr ""
 #: lib/modules/legal/web/settings.html.heex:791
 #, elixir-autogen, elixir-format
 msgid "Cookie Policy"
-msgstr ""
+msgstr "Политика использования файлов cookie"
 
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:229
 #, elixir-autogen, elixir-format
 msgid "Cookie consent"
-msgstr ""
+msgstr "Согласие на использование файлов cookie"
 
 #: lib/modules/legal/web/settings.ex:235
 #, elixir-autogen, elixir-format
 msgid "Cookie consent widget disabled"
-msgstr ""
+msgstr "Виджет согласия на cookie отключён"
 
 #: lib/modules/legal/web/settings.ex:249
 #, elixir-autogen, elixir-format
 msgid "Cookie consent widget enabled"
-msgstr ""
+msgstr "Виджет согласия на cookie включён"
 
 #: lib/modules/legal/web/settings.html.heex:758
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:215
@@ -1631,7 +1631,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:294
 #, elixir-autogen, elixir-format
 msgid "Cookie preferences"
-msgstr ""
+msgstr "Настройки файлов cookie"
 
 #: lib/modules/publishing/web/editor.html.heex:1133
 #, elixir-autogen, elixir-format
@@ -1882,7 +1882,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:267
 #, elixir-autogen, elixir-format
 msgid "Customize"
-msgstr ""
+msgstr "Настроить"
 
 #: lib/modules/entities/web/data_navigator.html.heex:630
 #, elixir-autogen, elixir-format
@@ -1917,7 +1917,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:142
 #, elixir-autogen, elixir-format
 msgid "DPO contact saved"
-msgstr ""
+msgstr "Контакт DPO сохранён"
 
 #: lib/modules/entities/web/data_view.ex:484
 #, elixir-autogen, elixir-format
@@ -2382,7 +2382,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:104
 #, elixir-autogen, elixir-format
 msgid "Email imported from General Settings"
-msgstr ""
+msgstr "Email импортирован из общих настроек"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:507
 #, elixir-autogen, elixir-format
@@ -2771,7 +2771,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:172
 #, elixir-autogen, elixir-format
 msgid "Failed to generate page: %{reason}"
-msgstr ""
+msgstr "Не удалось создать страницу: %{reason}"
 
 #: lib/phoenix_kit_web/live/users/permissions_matrix.ex:157
 #, elixir-autogen, elixir-format
@@ -2781,17 +2781,17 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:124
 #, elixir-autogen, elixir-format
 msgid "Failed to import address"
-msgstr ""
+msgstr "Не удалось импортировать адрес"
 
 #: lib/modules/legal/web/settings.ex:107
 #, elixir-autogen, elixir-format
 msgid "Failed to import email"
-msgstr ""
+msgstr "Не удалось импортировать email"
 
 #: lib/modules/legal/web/settings.ex:192
 #, elixir-autogen, elixir-format
 msgid "Failed to publish page: %{reason}"
-msgstr ""
+msgstr "Не удалось опубликовать страницу: %{reason}"
 
 #: lib/modules/publishing/web/settings.ex:63
 #, elixir-autogen, elixir-format
@@ -2816,12 +2816,12 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:145
 #, elixir-autogen, elixir-format
 msgid "Failed to save DPO contact"
-msgstr ""
+msgstr "Не удалось сохранить контакт DPO"
 
 #: lib/modules/legal/web/settings.ex:90
 #, elixir-autogen, elixir-format
 msgid "Failed to save frameworks"
-msgstr ""
+msgstr "Не удалось сохранить набор стандартов"
 
 #: lib/modules/publishing/web/editor/persistence.ex:580
 #: lib/modules/publishing/web/editor/persistence.ex:691
@@ -2832,7 +2832,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:279
 #, elixir-autogen, elixir-format
 msgid "Failed to save settings"
-msgstr ""
+msgstr "Не удалось сохранить настройки"
 
 #: lib/modules/entities/web/entities_settings.ex:96
 #, elixir-autogen, elixir-format
@@ -2875,7 +2875,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:252
 #, elixir-autogen, elixir-format
 msgid "Failed to update setting"
-msgstr ""
+msgstr "Не удалось обновить настройку"
 
 #: lib/modules/entities/web/data_navigator.ex:300
 #: lib/modules/publishing/web/listing.ex:920
@@ -3171,7 +3171,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:214
 #, elixir-autogen, elixir-format
 msgid "Generated %{count} pages"
-msgstr ""
+msgstr "Создано страниц: %{count}"
 
 #: lib/modules/legal/web/settings.html.heex:473
 #, elixir-autogen, elixir-format
@@ -3586,7 +3586,7 @@ msgstr ""
 #: lib/modules/legal/web/settings.html.heex:12
 #, elixir-autogen, elixir-format
 msgid "Legal Settings"
-msgstr ""
+msgstr "Настройки юридической информации"
 
 #: lib/phoenix_kit_web/live/modules.ex:323
 #, elixir-autogen, elixir-format
@@ -3666,7 +3666,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:319
 #, elixir-autogen, elixir-format
 msgid "Manage your cookie settings"
-msgstr ""
+msgstr "Управляйте настройками файлов cookie"
 
 #: lib/modules/publishing/web/html.ex:509
 #, elixir-autogen, elixir-format
@@ -4227,12 +4227,12 @@ msgstr ""
 #: lib/modules/legal/web/settings.ex:164
 #, elixir-autogen, elixir-format
 msgid "Page generated successfully"
-msgstr ""
+msgstr "Страница успешно создана"
 
 #: lib/modules/legal/web/settings.ex:185
 #, elixir-autogen, elixir-format
 msgid "Page published successfully"
-msgstr ""
+msgstr "Страница успешно опубликована"
 
 #: lib/modules/pages/web/settings.ex:49
 #, elixir-autogen, elixir-format
@@ -4492,7 +4492,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:316
 #, elixir-autogen, elixir-format
 msgid "Privacy Preferences"
-msgstr ""
+msgstr "Настройки конфиденциальности"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:41
 #, elixir-autogen, elixir-format
@@ -4724,12 +4724,12 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:274
 #, elixir-autogen, elixir-format
 msgid "Reject"
-msgstr ""
+msgstr "Отклонить"
 
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:404
 #, elixir-autogen, elixir-format
 msgid "Reject All"
-msgstr ""
+msgstr "Отклонить все"
 
 #: lib/modules/entities/web/entity_form.html.heex:883
 #: lib/modules/entities/web/entity_form.html.heex:972
@@ -4792,7 +4792,7 @@ msgstr ""
 #: lib/phoenix_kit_web/live/settings/users.html.heex:350
 #, elixir-autogen, elixir-format
 msgid "Required"
-msgstr ""
+msgstr "Обязательно"
 
 #: lib/modules/legal/web/settings.html.heex:367
 #, elixir-autogen, elixir-format
@@ -4973,7 +4973,7 @@ msgstr "Активные сессии"
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:411
 #, elixir-autogen, elixir-format
 msgid "Save Preferences"
-msgstr ""
+msgstr "Сохранить настройки"
 
 #: lib/modules/legal/web/settings.html.heex:713
 #, elixir-autogen, elixir-format
@@ -6153,7 +6153,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:246
 #, elixir-autogen, elixir-format
 msgid "We use cookies to enhance your browsing experience and analyze our traffic."
-msgstr ""
+msgstr "Мы используем файлы cookie, чтобы улучшить ваш опыт и анализировать трафик."
 
 #: lib/modules/legal/web/settings.html.heex:789
 #, elixir-autogen, elixir-format
@@ -6164,7 +6164,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:243
 #, elixir-autogen, elixir-format
 msgid "We value your privacy"
-msgstr ""
+msgstr "Мы ценим вашу конфиденциальность"
 
 #: lib/phoenix_kit_web/live/dashboard/index.ex:24
 #, elixir-autogen, elixir-format
@@ -7598,7 +7598,7 @@ msgstr ""
 #: lib/modules/emails/web/templates.html.heex:114
 #, elixir-autogen, elixir-format
 msgid "Marketing"
-msgstr ""
+msgstr "Маркетинг"
 
 #: lib/modules/emails/web/settings.html.heex:787
 #, elixir-autogen, elixir-format
@@ -9625,9 +9625,9 @@ msgstr ""
 
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:254
 #: lib/phoenix_kit_web/components/core/cookie_consent.ex:393
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Legal"
-msgstr ""
+msgstr "Юридическая информация"
 
 #: lib/modules/publishing/web/listing.html.heex:448
 #, elixir-autogen, elixir-format
@@ -10921,3 +10921,83 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "• Week start day controls which day begins the week (useful for calendar features)"
 msgstr ""
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Acceptable Use Policy"
+msgstr "Политика допустимого использования"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Analytics"
+msgstr "Аналитика"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "CCPA Notice at Collection"
+msgstr "Уведомление CCPA при сборе данных"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Data Retention Policy"
+msgstr "Политика хранения данных"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Do Not Sell My Personal Information"
+msgstr "Не продавать мою личную информацию"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Essential"
+msgstr "Обязательные"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Help us understand how you use our site to improve your experience."
+msgstr "Помогают понять, как вы используете сайт, чтобы улучшить ваш опыт."
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Legal pages reset successfully. You can now regenerate them."
+msgstr "Юридические страницы сброшены. Теперь их можно создать заново."
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "No issues detected — reset not needed"
+msgstr "Проблем не обнаружено — сброс не требуется"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Preferences"
+msgstr "Настройки"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Privacy Policy"
+msgstr "Политика конфиденциальности"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Remember your settings like language and region preferences."
+msgstr "Запоминают ваши настройки, например язык и регион."
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Required for core functionality. These cannot be disabled."
+msgstr "Необходимы для работы сайта. Их нельзя отключить."
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Reset failed: %{reason}"
+msgstr "Сбросить не удалось: %{reason}"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Terms of Service"
+msgstr "Условия использования"
+
+#: lib/phoenix_kit_web/legal_gettext_manifest.ex
+#, elixir-autogen, elixir-format
+msgid "Used for personalized advertising and measuring ad effectiveness."
+msgstr "Используются для персонализированной рекламы и измерения её эффективности."
