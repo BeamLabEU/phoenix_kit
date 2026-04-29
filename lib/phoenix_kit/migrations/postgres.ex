@@ -529,7 +529,17 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V104 - Per-user notifications table ⚡ LATEST
+  ### V105 - CRM tables ⚡ LATEST
+  Two tables for the upcoming `phoenix_kit_crm` plugin:
+  - **phoenix_kit_crm_role_settings**: tracks which user roles are opted into
+    the CRM module (`enabled BOOLEAN NOT NULL DEFAULT false`; FK to
+    `phoenix_kit_user_roles(uuid)` ON DELETE CASCADE).
+  - **phoenix_kit_crm_user_role_view**: per-user, per-scope view preferences
+    (column selection, ordering, filters) for CRM tables. `scope` is a string
+    like `"role:<uuid>"` or `"companies"`. Unique on `(user_uuid, scope)`;
+    indexed on `(user_uuid)` for fast per-user lookups.
+
+  ### V104 - Per-user notifications table
   - Creates `phoenix_kit_notifications` with UUID v7 PK and FKs to
     `phoenix_kit_activities` and `phoenix_kit_users` (both ON DELETE CASCADE)
   - `seen_at` and `dismissed_at` tracked per-row so dropping one or the
@@ -538,8 +548,8 @@ defmodule PhoenixKit.Migrations.Postgres do
     per activity per recipient (fan-out writes stay safe against retries)
   - Partial index on `(recipient_uuid, inserted_at DESC) WHERE dismissed_at
     IS NULL` — covers the main "my undismissed inbox, newest first" query
-    
-  ### V103 - Nested categories ⚡ LATEST
+
+  ### V103 - Nested categories
   - Adds nullable self-FK `parent_uuid` on `phoenix_kit_cat_categories`
     to support arbitrary-depth category trees. Existing rows become
     roots (NULL parent). Adds a b-tree index on `(parent_uuid)` for the
@@ -778,7 +788,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 104
+  @current_version 105
   @default_prefix "public"
 
   @doc false
