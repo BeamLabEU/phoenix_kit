@@ -1,3 +1,25 @@
+## 1.7.102 - 2026-04-29
+
+### Added
+- V105 migration: CRM tables for the upcoming `phoenix_kit_crm` plugin (PR #507)
+  - `phoenix_kit_crm_role_settings` — one row per role with `enabled BOOLEAN NOT NULL DEFAULT false` so existing roles stay opted out until explicitly enabled. PK on `role_uuid`; FK → `phoenix_kit_user_roles(uuid)` ON DELETE CASCADE
+  - `phoenix_kit_crm_user_role_view` — per-user, per-scope view preferences (column selection, ordering, filters). UUIDv7 PK; unique `(user_uuid, scope)`; index on `(user_uuid)`; FK → `phoenix_kit_users(uuid)` ON DELETE CASCADE. `scope` is a string like `"role:<uuid>"` or `"companies"`
+- V106 migration: split `phoenix_kit_projects.name` uniqueness across templates and real projects (PR #510)
+  - Replaces V101's single global unique index on `lower(name)` with two partial unique indexes: `phoenix_kit_projects_name_template_index WHERE is_template = true` and `phoenix_kit_projects_name_project_index WHERE is_template = false`
+  - Lets a template `"Onboarding"` and a real project `"Onboarding"` coexist, unblocking `Projects.create_project_from_template/2` for the common reuse-the-template-name path
+  - `down/1` recreates V101's single global index; lossy if a template and a real project share a name post-V106 — resolve duplicates before rolling back
+- Legal module i18n — translations across `de/fr/it/pl` plus refreshed `ru/es`. New `de/fr/it/pl` POs created via `mix gettext.merge --locale` with proper `Plural-Forms` headers (German `n != 1`, French `n > 1`, Italian `n != 1`, Polish 3-form rule). Pre-existing non-empty `msgstr` values preserved (PR #509)
+- `lib/phoenix_kit_web/legal_gettext_manifest.ex` — re-emits the 50 translatable strings used by `phoenix_kit_legal` so the gettext extractor (which doesn't walk into deps) records them into core's POT. Never called at runtime; pure extraction target with refresh procedure documented in the moduledoc (PR #509)
+- `css_sources/0` accepts string entries — `@callback css_sources()` widened from `[atom()]` to `[atom() | String.t()]`. Strings flow through `format_source/2` → `source_for_path/1` (absolute paths emit `@source "<abs>";` verbatim, relative get the standard `../../` prefix); atoms continue to resolve via parent app's mix.exs deps. Lets modules mix OTP-app atoms with literal path strings — first known consumer is `phoenix_kit_legal`, which ships a path-dep absolute fallback alongside its OTP-app entry so both Hex and path-dep installs work without parent-app toggles. Backwards compatible: existing `def css_sources, do: [:phoenix_kit_my_module]` keeps working unchanged (PR #509)
+
+### Changed
+- Bumped `leaf` editor dependency `~> 0.2.6 → ~> 0.2.10` and the matching CDN URL in `priv/static/assets/phoenix_kit.js` so the runtime loader pulls the same version. Includes `min-width: 0` + toolbar-wrap fixes so the editor stops claiming an unbounded intrinsic width on mount (PR #508)
+- `priv/gettext/default.pot` cleanup — dropped ~900 phantom msgids left over from modules extracted to standalone packages (billing, publishing, entities, etc.) (PR #509)
+
+### Fixed
+- `application/pdf` uploads in MediaBrowser. `determine_file_type/1` returned `"pdf"`, but the `File` changeset validates `file_type` against `["image", "video", "audio", "document", "archive", "other"]` — every PDF upload silently failed validation and never reached any bucket. Now maps `application/pdf` → `"document"`, matching how form-upload integrations already classify PDFs (PR #507)
+- V106 `COMMENT ON TABLE` version values were off by one (`up` wrote `'105'` instead of `'106'`, `down` wrote `'104'` instead of `'105'`). The migration framework reads this comment as the source of truth for the migrated version, so on the incremental V105 → V106 upgrade path the comment never advanced past `'105'` — V106.up would replay on every deploy and the admin dashboard / `mix phoenix_kit.status` would report a stale version. Fresh installs masked the bug because `handle_version_recording/4` stamps the final version on multi-step runs and overrode V106's bad write. Caught in review of PR #510 and amended in place since V106 had not yet shipped to Hex
+
 ## 1.7.101 - 2026-04-24
 
 ### Added
