@@ -1719,8 +1719,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       String.starts_with?(mime_type, "image/") -> "image"
       String.starts_with?(mime_type, "video/") -> "video"
       # PDFs fall under "document" because the File schema's allowlist is
-      # ["image", "video", "document", "archive"] — returning "pdf" here made
-      # every PDF upload fail the changeset validation silently.
+      # ["image", "video", "audio", "document", "archive", "other"] — returning
+      # "pdf" here made every PDF upload fail the changeset validation silently.
       mime_type == "application/pdf" -> "document"
       true -> "document"
     end
