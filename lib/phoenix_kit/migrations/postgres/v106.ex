@@ -53,7 +53,7 @@ defmodule PhoenixKit.Migrations.Postgres.V106 do
     WHERE is_template = false
     """)
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '105'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '106'")
   end
 
   @doc """
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Migrations.Postgres.V106 do
     ON #{p}phoenix_kit_projects (lower(name))
     """)
 
-    execute("COMMENT ON TABLE #{p}phoenix_kit IS '104'")
+    execute("COMMENT ON TABLE #{p}phoenix_kit IS '105'")
   end
 
   defp prefix_str("public"), do: "public."
