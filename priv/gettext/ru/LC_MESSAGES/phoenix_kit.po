@@ -1,0 +1,47 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: ru\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100 != 11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10||n%100>=20) ? 1 : 2);\n"
+
+#: lib/phoenix_kit/users/invitations.ex:259
+#, elixir-autogen, elixir-format
+msgid "A pending invitation already exists for this email"
+msgstr ""
+
+#: lib/phoenix_kit/users/invitations.ex:245
+#, elixir-autogen, elixir-format
+msgid "This user already belongs to an organization"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:993
+#, elixir-autogen, elixir-format
+msgid "cannot change to person while organization has members"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:973
+#, elixir-autogen, elixir-format
+msgid "cannot reference self"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:981
+#, elixir-autogen, elixir-format
+msgid "only person accounts can join an organization"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:968
+#, elixir-autogen, elixir-format
+msgid "organization not found"
+msgstr ""
+
+#: lib/phoenix_kit/users/auth.ex:967
+#, elixir-autogen, elixir-format
+msgid "target user is not an organization"
+msgstr ""

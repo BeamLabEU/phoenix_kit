@@ -506,7 +506,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       ❌ PhoenixKit is not installed.
 
-      Please run: mix phoenix_kit.install
+      Please run: mix igniter.install phoenix_kit
+      (or `mix phoenix_kit.install` if the dep is already in mix.exs)
       """
 
       Igniter.add_notice(igniter, notice)

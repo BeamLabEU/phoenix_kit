@@ -13,9 +13,11 @@ This approach provides dynamic updates without server restarts and secure creden
 1. **Install PhoenixKit and run migrations:**
 
    ```bash
-   mix phoenix_kit.install
+   mix igniter.install phoenix_kit
    mix ecto.migrate
    ```
+
+   (See the [README](../README.md#installation) for prerequisites and fallback flows.)
 
 2. **Configure OAuth via Admin UI:**
 

@@ -18,34 +18,48 @@ This guide is designed to help both developers and AI assistants (Claude, Cursor
 
 ## Quick Start
 
-```elixir
+```bash
 # 1. Verify database is prepared
 mix ecto.migrations
 
-# 2. Add to mix.exs
-{:phoenix_kit, "~> 1.7"}
+# 2. Install PhoenixKit (adds dep, fetches, configures, generates migrations)
+mix igniter.install phoenix_kit
 
-# 3. Run installation
-mix deps.get
-mix phoenix_kit.install
-mix compile --force
-
-# 4. Create database if needed
+# 3. Create database if needed
 mix ecto.create
 
-# 5. Run migrations
+# 4. Run migrations
 mix ecto.migrate
 
-# 6. Start your server
+# 5. Start your server
 mix phx.server
 # Visit /phoenix_kit/admin
 ```
+
+> Requires the `igniter_new` archive — install once with `mix archive.install hex igniter_new`. If you'd rather not, see the [two-step fallback](#step-2-install) below.
 
 ---
 
 ## Installation
 
-### Step 1: Add Dependency
+### Step 1: Run the Installer
+
+```bash
+mix igniter.install phoenix_kit
+```
+
+The installer will:
+- Add `{:phoenix_kit, "~> 1.7"}` to your `mix.exs` and fetch deps
+- Detect your Repo automatically (or use `--repo` to specify)
+- Add configuration to `config/config.exs`
+- Generate migrations
+- Set up mailer integration
+
+> Requires the `igniter_new` archive — `mix archive.install hex igniter_new` if you don't already have it.
+
+### Step 2: Install (two-step fallback)
+
+If you can't or don't want to use the `igniter_new` archive, add the dep manually and run the installer directly:
 
 ```elixir
 # mix.exs
@@ -56,18 +70,12 @@ defp deps do
 end
 ```
 
-### Step 2: Install
-
 ```bash
 mix deps.get
 mix phoenix_kit.install
 ```
 
-The installer will:
-- Detect your Repo automatically (or use `--repo` to specify)
-- Add configuration to `config/config.exs`
-- Generate migrations
-- Set up mailer integration
+`:igniter` is pulled in transitively, so this works on any Phoenix project.
 
 ### Step 3: Configure
 
