@@ -69,8 +69,11 @@ defmodule PhoenixKit.Integrations do
   Get the full integration data for a provider.
 
   Returns the entire JSON blob including credentials, status, and metadata.
-  Automatically migrates legacy settings keys (e.g., `"document_creator_google_oauth"`)
-  on first access.
+  Misses return `:not_configured` (or `:deleted` for uuid input) — there's
+  no on-read legacy-shape migration in core anymore. Modules with legacy
+  data own their own migration via the `migrate_legacy/0` callback on
+  `PhoenixKit.Module` (orchestrated by
+  `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`).
   """
   @spec get_integration(String.t()) ::
           {:ok, map()} | {:error, :not_configured | :invalid_provider_key}
@@ -85,11 +88,10 @@ defmodule PhoenixKit.Integrations do
 
     case data do
       nil ->
-        # Try legacy migration on first access
-        case maybe_migrate_legacy(provider_key) do
-          {:ok, migrated_data} -> {:ok, Encryption.decrypt_fields(migrated_data)}
-          _ -> {:error, :not_configured}
-        end
+        # No on-read legacy fallback in core anymore — module-side
+        # `migrate_legacy/0` callbacks handle data-shape migrations.
+        # Boot-time orchestration via `ModuleRegistry.run_all_legacy_migrations/0`.
+        {:error, :not_configured}
 
       %{} = data ->
         {:ok, Encryption.decrypt_fields(data)}
@@ -129,6 +131,41 @@ defmodule PhoenixKit.Integrations do
   end
 
   def get_integration_by_uuid(_), do: {:error, :invalid_uuid}
+
+  @doc """
+  Resolve a `provider:name`-style reference to the storage row's uuid.
+
+  Used by consumer modules' `migrate_legacy/0` implementations to walk
+  legacy name-string references and rewrite them to uuid references.
+  Accepts a few input shapes for convenience:
+
+  - `"openrouter:work"` — full provider:name pair
+  - `"openrouter"` — bare provider, treated as `provider:default`
+  - `{"openrouter", "work"}` — explicit tuple
+
+  Returns `{:ok, uuid}` if a matching row exists, `{:error, :not_found}`
+  if not, `{:error, :invalid}` for malformed input. Does NOT auto-pick
+  an arbitrary connection when multiple match — that's not the
+  caller's intent here.
+  """
+  @spec find_uuid_by_provider_name(String.t() | {String.t(), String.t()}) ::
+          {:ok, String.t()} | {:error, :not_found | :invalid}
+  def find_uuid_by_provider_name(input)
+
+  def find_uuid_by_provider_name({provider, name})
+      when is_binary(provider) and is_binary(name) and provider != "" and name != "" do
+    case Enum.find(list_connections(provider), &(&1.name == name)) do
+      %{uuid: uuid} -> {:ok, uuid}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def find_uuid_by_provider_name(string) when is_binary(string) and string != "" do
+    {provider, name} = parse_provider_name(string)
+    find_uuid_by_provider_name({provider, name})
+  end
+
+  def find_uuid_by_provider_name(_), do: {:error, :invalid}
 
   @doc """
   Get credentials for a provider, suitable for making API calls.
@@ -1132,168 +1169,26 @@ defmodule PhoenixKit.Integrations do
   end
 
   # ---------------------------------------------------------------------------
-  # Legacy migration
+  # Legacy migration (deprecated entry point)
   # ---------------------------------------------------------------------------
 
-  # Map of legacy settings keys to provider keys.
-  @legacy_keys %{
-    "google" => "document_creator_google_oauth"
-  }
-
   @doc """
-  Run one-time legacy migrations for all known providers.
+  Deprecated. Use `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`
+  from your host app's `Application.start/2` instead.
 
-  Call this at application boot (e.g., in `Application.start/2`) to migrate
-  legacy settings keys to the new `integration:{provider}:{name}` format.
-  Safe to call multiple times — skips providers that already have data.
+  Each module that has legacy data now implements its own
+  `migrate_legacy/0` callback. The orchestrator walks every registered
+  module and runs them all — same single entry point as before, but
+  modules own their own data shape.
+
+  Calling this delegates to the orchestrator for backwards compat.
+  Returns `:ok` regardless of per-module outcome (matches the previous
+  semantics of "best-effort, never crash boot").
   """
+  @deprecated "Use PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0 instead"
   @spec run_legacy_migrations() :: :ok
   def run_legacy_migrations do
-    for {provider_key, _legacy_key} <- @legacy_keys do
-      # Only migrate if no data exists under the new key
-      case Settings.get_json_setting(settings_key(provider_key), nil) do
-        nil -> maybe_migrate_legacy(provider_key)
-        _ -> :skip
-      end
-    end
-
+    _ = PhoenixKit.ModuleRegistry.run_all_legacy_migrations()
     :ok
-  rescue
-    e ->
-      Logger.warning("[Integrations] Legacy migrations failed: #{Exception.message(e)}")
-      :ok
-  end
-
-  defp maybe_migrate_legacy(provider_key) do
-    {base_provider, _name} = parse_provider_name(provider_key)
-
-    # Check module-specific legacy key (e.g., "document_creator_google_oauth")
-    module_legacy_key = Map.get(@legacy_keys, base_provider)
-
-    # Also check old single-connection format (e.g., "integration:google")
-    old_format_key = "integration:#{base_provider}"
-
-    cond do
-      # Try module-specific legacy key first
-      module_legacy_key && has_legacy_data?(module_legacy_key) ->
-        do_migrate_legacy(base_provider, Settings.get_json_setting(module_legacy_key, %{}))
-
-      # Try old format without name
-      has_legacy_data?(old_format_key) ->
-        data = Settings.get_json_setting(old_format_key, %{})
-        save_integration(provider_key, data)
-
-      true ->
-        :skip
-    end
-  rescue
-    e ->
-      Logger.warning(
-        "[Integrations] Legacy migration failed for #{provider_key}: #{Exception.message(e)}"
-      )
-
-      :skip
-  end
-
-  defp has_legacy_data?(key) do
-    case Settings.get_json_setting(key, nil) do
-      data when is_map(data) and map_size(data) > 0 -> true
-      _ -> false
-    end
-  end
-
-  defp do_migrate_legacy("google", legacy_data) do
-    data = %{
-      "provider" => "google",
-      "auth_type" => "oauth2",
-      "client_id" => legacy_data["client_id"],
-      "client_secret" => legacy_data["client_secret"],
-      "access_token" => legacy_data["access_token"],
-      "refresh_token" => legacy_data["refresh_token"],
-      "token_type" => legacy_data["token_type"] || "Bearer",
-      "token_obtained_at" => legacy_data["token_obtained_at"],
-      "status" =>
-        if(is_binary(legacy_data["access_token"]) and legacy_data["access_token"] != "",
-          do: "connected",
-          else: "disconnected"
-        ),
-      "external_account_id" => legacy_data["connected_email"],
-      "metadata" => %{
-        "connected_email" => legacy_data["connected_email"]
-      }
-    }
-
-    # Compute expires_at from legacy expires_in if available
-    data =
-      with expires_in when is_integer(expires_in) <- legacy_data["expires_in"],
-           obtained_at when is_binary(obtained_at) <- legacy_data["token_obtained_at"],
-           {:ok, dt, _} <- DateTime.from_iso8601(obtained_at) do
-        Map.put(
-          data,
-          "expires_at",
-          dt |> DateTime.add(expires_in, :second) |> DateTime.to_iso8601()
-        )
-      else
-        _ -> data
-      end
-
-    # Set connected_at
-    data =
-      if data["status"] == "connected" do
-        Map.put(
-          data,
-          "connected_at",
-          legacy_data["token_obtained_at"] || DateTime.utc_now() |> DateTime.to_iso8601()
-        )
-      else
-        data
-      end
-
-    # Save the integration — if this fails, return :skip so caller gets :not_configured
-    case save_integration("google", data) do
-      {:ok, saved_data} ->
-        # Best-effort: move folder config to its own key
-        migrate_legacy_folders(legacy_data)
-
-        Logger.info(
-          "[Integrations] Migrated legacy 'document_creator_google_oauth' → 'integration:google'"
-        )
-
-        {:ok, saved_data}
-
-      {:error, reason} ->
-        Logger.warning("[Integrations] Legacy migration save failed: #{inspect(reason)}")
-        :skip
-    end
-  end
-
-  defp do_migrate_legacy(_provider_key, _legacy_data), do: :skip
-
-  defp migrate_legacy_folders(legacy_data) do
-    folder_fields = ~w(
-      folder_path_templates folder_name_templates
-      folder_path_documents folder_name_documents
-      folder_path_deleted folder_name_deleted
-      templates_folder_id documents_folder_id
-      deleted_templates_folder_id deleted_documents_folder_id
-    )
-
-    folder_data = Map.take(legacy_data, folder_fields)
-
-    if map_size(folder_data) > 0 do
-      case Settings.update_json_setting_with_module(
-             "document_creator_folders",
-             folder_data,
-             "document_creator"
-           ) do
-        {:ok, _} ->
-          :ok
-
-        {:error, reason} ->
-          Logger.warning(
-            "[Integrations] Legacy migration: failed to save folder config: #{inspect(reason)}"
-          )
-      end
-    end
   end
 end

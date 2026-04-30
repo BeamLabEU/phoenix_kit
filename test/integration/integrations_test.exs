@@ -596,89 +596,70 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   end
 
   # ===========================================================================
-  # Legacy migration
+  # Legacy migration — moved to per-module migrate_legacy/0 callbacks
   # ===========================================================================
+  #
+  # The on-read legacy migration that used to live in
+  # `Integrations.get_integration/1` (with hardcoded knowledge of
+  # `document_creator_google_oauth`) was removed when the
+  # `PhoenixKit.Module` behaviour gained the optional `migrate_legacy/0`
+  # callback. Each module now owns its own legacy migration; doc_creator's
+  # google-OAuth-key migration lives in
+  # `PhoenixKitDocumentCreator.migrate_legacy/0` and is exercised by
+  # tests in the document_creator repo.
+  #
+  # Core's `Integrations.run_legacy_migrations/0` is now a deprecated
+  # shim that delegates to `ModuleRegistry.run_all_legacy_migrations/0`
+  # (see the test for the orchestrator in module_registry_test.exs).
 
-  describe "legacy migration from document_creator_google_oauth" do
-    test "migrates on first access to integration:google" do
-      # Write legacy data
-      Settings.update_json_setting_with_module(
-        "document_creator_google_oauth",
-        %{
-          "client_id" => "legacy-client",
-          "client_secret" => "legacy-secret",
-          "access_token" => "ya29.legacy-token",
-          "refresh_token" => "1//legacy-refresh",
-          "token_type" => "Bearer",
-          "expires_in" => 3600,
-          "token_obtained_at" => "2026-03-15T10:00:00Z",
-          "connected_email" => "legacy@gmail.com",
-          "folder_path_templates" => "clients",
-          "folder_name_templates" => "templates",
-          "templates_folder_id" => "folder-id-123"
-        },
-        "document_creator"
-      )
+  describe "find_uuid_by_provider_name/1" do
+    test "resolves an exact provider:name pair to the row's uuid" do
+      :ok = Integrations.add_connection("openrouter", "primary") |> elem(0)
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
 
-      # Access via Integrations — should trigger migration
-      {:ok, data} = Integrations.get_integration("google")
-
-      assert data["provider"] == "google"
-      assert data["auth_type"] == "oauth2"
-      assert data["client_id"] == "legacy-client"
-      assert data["client_secret"] == "legacy-secret"
-      assert data["access_token"] == "ya29.legacy-token"
-      assert data["refresh_token"] == "1//legacy-refresh"
-      assert data["status"] == "connected"
-      assert data["external_account_id"] == "legacy@gmail.com"
-      assert data["metadata"]["connected_email"] == "legacy@gmail.com"
-      assert data["expires_at"] != nil
+      assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name("openrouter:primary")
     end
 
-    test "migrates folder config to separate key" do
-      Settings.update_json_setting_with_module(
-        "document_creator_google_oauth",
-        %{
-          "client_id" => "c",
-          "client_secret" => "s",
-          "access_token" => "t",
-          "folder_path_templates" => "my/path",
-          "folder_name_templates" => "tpl",
-          "templates_folder_id" => "tid"
-        },
-        "document_creator"
-      )
+    test "accepts a tuple form" do
+      :ok = Integrations.add_connection("openrouter", "tuple-form") |> elem(0)
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
 
-      # Trigger migration
-      Integrations.get_integration("google")
-
-      # Check folder config was moved
-      folder_data = Settings.get_json_setting("document_creator_folders", nil)
-      assert folder_data != nil
-      assert folder_data["folder_path_templates"] == "my/path"
-      assert folder_data["folder_name_templates"] == "tpl"
-      assert folder_data["templates_folder_id"] == "tid"
+      assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name({"openrouter", "tuple-form"})
     end
 
-    test "does not migrate when integration:google already exists" do
-      # Set up integration data directly
-      Integrations.save_setup("google", %{
-        "client_id" => "new-client",
-        "client_secret" => "new-secret"
-      })
+    test "treats bare provider as `provider:default`" do
+      :ok = Integrations.add_connection("openrouter", "default") |> elem(0)
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
 
-      # Also set up legacy data (should be ignored)
+      assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name("openrouter")
+    end
+
+    test "returns :not_found when no matching row exists" do
+      assert {:error, :not_found} = Integrations.find_uuid_by_provider_name("openrouter:ghost")
+    end
+
+    test "returns :invalid for malformed input" do
+      assert {:error, :invalid} = Integrations.find_uuid_by_provider_name("")
+      assert {:error, :invalid} = Integrations.find_uuid_by_provider_name(nil)
+      assert {:error, :invalid} = Integrations.find_uuid_by_provider_name({"foo", ""})
+    end
+  end
+
+  describe "Integrations.get_integration/1 missing-row semantics (post-extraction)" do
+    test "non-uuid key that doesn't exist returns :not_configured (no on-read migration)" do
+      assert {:error, :not_configured} = Integrations.get_integration("google")
+    end
+
+    test "preserves connection-not-found behavior even when legacy keys exist" do
+      # Stage a legacy oauth key under the OLD shape — core no longer
+      # auto-migrates from it; that's the doc_creator module's job now.
       Settings.update_json_setting_with_module(
         "document_creator_google_oauth",
-        %{
-          "client_id" => "old-client",
-          "access_token" => "old-token"
-        },
+        %{"client_id" => "legacy-untouched", "access_token" => "legacy-token"},
         "document_creator"
       )
 
-      {:ok, data} = Integrations.get_integration("google")
-      assert data["client_id"] == "new-client"
+      assert {:error, :not_configured} = Integrations.get_integration("google")
     end
   end
 

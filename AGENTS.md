@@ -200,7 +200,7 @@ Centralized management of external service connections (OAuth, API keys, bot tok
 
 **Module callbacks:** `required_integrations/0` — declares provider keys this module needs. `integration_providers/0` — contributes custom provider definitions to the registry.
 
-**Legacy migration:** Automatically migrates old `document_creator_google_oauth` settings key to `integration:google:default` on first access.
+**Legacy migration:** Each module that has legacy data implements an optional `migrate_legacy/0` callback on `PhoenixKit.Module`. Host apps call `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0` from `Application.start/2`; the orchestrator walks every registered module and invokes its callback (idempotent per module, errors caught + logged, never crashes the boot). Each module owns its own data shape — core provides primitives like `Integrations.find_uuid_by_provider_name/1` that modules use in their migrators. The pre-uuid `Integrations.run_legacy_migrations/0` is now a deprecated shim that delegates to the orchestrator.
 
 **Plan:** `dev_docs/plans/integrations-system.md`
 
