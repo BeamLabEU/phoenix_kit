@@ -73,12 +73,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     `/admin/media/:uuid`. When `false` (default), clicks toggle selection
     instead, so the component behaves as a picker when embedded outside the
     admin UI.
-  - `view_path` — when set (e.g. `"/media/:uuid"`), clicks navigate to that
-    path with `:uuid` substituted by the clicked file's uuid. Use this to
-    let non-admin users open a read-only viewer (e.g.
-    `PhoenixKitWeb.Live.Media.View` at `/media/:uuid`) instead of falling
-    into picker selection. `admin` and `select_mode` both win over
-    `view_path` if also set.
+  - `viewer` — when `true`, clicks open a read-only modal showing the
+    clicked file (image / video / PDF / icon) with its metadata and a
+    Download button. Standard close behaviour (X button, Esc, click on
+    backdrop). `admin` and `select_mode` both win over `viewer` if also
+    set, so a caller can opt into modal viewing without losing the
+    selection picker for users who explicitly enable select mode.
   """
   use PhoenixKitWeb, :live_component
 
@@ -104,7 +104,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign(assigns)
       |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:admin, fn -> false end)
-      |> assign_new(:view_path, fn -> nil end)
+      |> assign_new(:viewer, fn -> false end)
+      |> assign_new(:viewer_file, fn -> nil end)
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
@@ -993,16 +994,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket.assigns.admin ->
         {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
 
-      # Caller opted into view-mode → navigate to the read-only viewer at view_path.
-      # `:uuid` (literal) inside view_path is substituted with the file's uuid.
-      is_binary(socket.assigns.view_path) ->
-        target = String.replace(socket.assigns.view_path, ":uuid", file_uuid)
-        {:noreply, push_navigate(socket, to: Routes.path(target))}
+      # Caller opted into the modal viewer → stash the clicked file in
+      # viewer_file so the modal at the bottom of the template renders.
+      socket.assigns.viewer ->
+        {:noreply, assign(socket, :viewer_file, find_uploaded_file(socket, file_uuid))}
 
       # Default picker behaviour: enter selection mode and toggle this file in.
       true ->
         {:noreply, socket |> do_toggle_file(file_uuid) |> assign(:select_mode, true)}
     end
+  end
+
+  def handle_event("close_viewer", _params, socket) do
+    {:noreply, assign(socket, :viewer_file, nil)}
   end
 
   def handle_event("toggle_select_folder", %{"folder-uuid" => folder_uuid}, socket) do
@@ -1328,6 +1332,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         else: MapSet.put(selected, file_uuid)
 
     assign(socket, :selected_files, selected)
+  end
+
+  # Look up the clicked file's enriched map (filename, mime_type, size, urls,
+  # …) inside the current page's uploaded_files list so the modal can render
+  # without an extra DB roundtrip.
+  defp find_uploaded_file(socket, file_uuid) do
+    Enum.find(socket.assigns.uploaded_files, fn f -> f.file_uuid == file_uuid end)
   end
 
   defp navigate_to_folder(socket, folder_uuid) when folder_uuid in [nil, ""] do

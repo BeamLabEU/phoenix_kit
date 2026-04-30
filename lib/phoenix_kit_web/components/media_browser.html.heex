@@ -1204,4 +1204,110 @@
       </div>
     <% end %>
   <% end %>
+
+  <%!-- ── Read-only modal viewer ──────────────────────────────────────────── --%>
+  <%!-- Activated by passing `viewer={true}` to the component. Clicking a file --%>
+  <%!-- (outside select_mode and admin) sets viewer_file and shows the preview --%>
+  <%!-- + metadata + Download. Closes via X / Esc / backdrop click.            --%>
+  <%= if assigns[:viewer_file] do %>
+    <% f = @viewer_file %>
+    <div
+      class="modal modal-open"
+      phx-window-keydown="close_viewer"
+      phx-key="escape"
+      phx-target={@myself}
+    >
+      <div class="modal-box w-11/12 max-w-7xl p-0 overflow-hidden">
+        <div class="flex flex-col lg:flex-row lg:h-[80vh]">
+          <%!-- Viewer (image / video / pdf / icon) --%>
+          <div class="flex-[7] flex items-center justify-center bg-base-200 overflow-hidden p-2 min-h-[40vh] lg:min-h-0">
+            <%= cond do %>
+              <% String.starts_with?(f.mime_type, "image/") -> %>
+                <img
+                  src={f.urls["original"] || f.urls["medium"]}
+                  alt={f.filename}
+                  class="max-w-full max-h-full object-contain rounded"
+                />
+              <% String.starts_with?(f.mime_type, "video/") -> %>
+                <video
+                  src={f.urls["original"]}
+                  controls
+                  class="max-w-full max-h-full rounded"
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              <% f.mime_type == "application/pdf" -> %>
+                <iframe
+                  src={f.urls["original"]}
+                  class="w-full h-full rounded border-0"
+                  title={f.filename}
+                >
+                </iframe>
+              <% true -> %>
+                <div class="flex flex-col items-center justify-center text-base-content/50 py-12">
+                  <.icon name={file_icon(f.file_type)} class="w-32 h-32 mb-4" />
+                  <p class="text-2xl font-semibold">{String.upcase(f.file_type || "FILE")}</p>
+                  <p class="text-sm text-base-content/70 mt-2">{f.mime_type}</p>
+                </div>
+            <% end %>
+          </div>
+
+          <%!-- Sidebar --%>
+          <div class="flex-[3] flex flex-col gap-3 p-4 lg:min-w-[280px] lg:overflow-y-auto bg-base-100">
+            <div class="flex items-start justify-between gap-2">
+              <h2 class="text-base font-bold break-all leading-tight min-w-0">
+                {f.filename}
+              </h2>
+              <button
+                type="button"
+                phx-click="close_viewer"
+                phx-target={@myself}
+                class="btn btn-ghost btn-sm btn-circle shrink-0"
+                title="Close"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4" />
+              </button>
+            </div>
+
+            <%= if f.urls["original"] do %>
+              <a
+                href={f.urls["original"]}
+                download={f.filename}
+                target="_blank"
+                rel="noopener"
+                class="btn btn-primary btn-sm gap-2 self-start"
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Download
+              </a>
+            <% end %>
+
+            <div class="text-sm space-y-2 mt-1">
+              <div>
+                <span class="text-base-content/60">Type:</span>
+                <span class="ml-1 badge badge-ghost">
+                  {String.upcase(f.file_type || "FILE")}
+                </span>
+              </div>
+              <div class="break-all">
+                <span class="text-base-content/60">MIME:</span>
+                <span class="ml-1 font-mono text-xs">{f.mime_type}</span>
+              </div>
+              <div>
+                <span class="text-base-content/60">Size:</span>
+                <span class="ml-1">{format_file_size(f.size)}</span>
+              </div>
+              <div>
+                <span class="text-base-content/60">Uploaded:</span>
+                <span class="ml-1">
+                  {Calendar.strftime(f.inserted_at, "%b %d, %Y at %H:%M")}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_viewer" phx-target={@myself}></div>
+    </div>
+  <% end %>
 </div>

@@ -529,10 +529,6 @@ defmodule PhoenixKitWeb.Integration do
                :confirm_email
         end
 
-        # Read-only media viewer for non-admin users — opted into by passing
-        # `view_path="/media/:uuid"` to a MediaBrowser instance.
-        live "/media/:file_uuid", Live.Media.View, :show
-
         # Module user pages (full module names — no PhoenixKitWeb alias)
         scope "/", alias: false do
           unquote(module_routes)
