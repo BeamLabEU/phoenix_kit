@@ -473,10 +473,20 @@ Template:
 
 `parent_uploads={@uploads}` is required (the component renders a hidden `<.live_file_input>` from the parent's upload config). That's a LiveView constraint — `allow_upload` must live on the parent socket.
 
-### `admin` attr — picker vs admin mode
+### Click behavior — three modes
 
-- `admin={false}` (default) — clicking a file toggles selection and turns on `select_mode`. Picker behavior. Use outside `/admin/media`.
-- `admin={true}` — clicking a file `push_navigate`s to `/admin/media/:uuid`. Only the admin media page sets this.
+The `click_file` handler picks one branch in this order:
+
+1. `select_mode` already on (anywhere, any caller) → toggle this file in/out of the selection set, stay in selection mode.
+2. `admin={true}` → `push_navigate` to `/admin/media/:uuid` (the rich admin detail page with delete / restore / edit / regenerate).
+3. `view_path="/some/path/:uuid"` → `push_navigate` to that path with `:uuid` substituted by the file's uuid. Use this to send non-admin users to a read-only viewer (e.g. `PhoenixKitWeb.Live.Media.View` at `/media/:uuid`).
+4. Default — enter `select_mode` and toggle the clicked file in. Picker behaviour.
+
+So a non-admin caller has two choices:
+- Pure picker (no `admin`, no `view_path`) — clicking selects.
+- Viewer (no `admin`, set `view_path="/media/:uuid"`) — clicking opens the read-only viewer.
+
+The built-in viewer at `/media/:file_uuid` is mounted in the authenticated `live_session` — any logged-in user can reach it. It renders the file (image / video / PDF / icon fallback) plus basic metadata (type, size, MIME, uploader, uploaded-at) and a Download button. No admin actions.
 
 ### Other useful attrs
 

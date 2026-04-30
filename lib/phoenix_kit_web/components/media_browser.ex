@@ -73,6 +73,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     `/admin/media/:uuid`. When `false` (default), clicks toggle selection
     instead, so the component behaves as a picker when embedded outside the
     admin UI.
+  - `view_path` — when set (e.g. `"/media/:uuid"`), clicks navigate to that
+    path with `:uuid` substituted by the clicked file's uuid. Use this to
+    let non-admin users open a read-only viewer (e.g.
+    `PhoenixKitWeb.Live.Media.View` at `/media/:uuid`) instead of falling
+    into picker selection. `admin` and `select_mode` both win over
+    `view_path` if also set.
   """
   use PhoenixKitWeb, :live_component
 
@@ -98,6 +104,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign(assigns)
       |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:admin, fn -> false end)
+      |> assign_new(:view_path, fn -> nil end)
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
@@ -977,20 +984,24 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
-    if socket.assigns.select_mode or not socket.assigns.admin do
-      selected = socket.assigns.selected_files
+    cond do
+      # Already in selection mode → toggle this file in/out, stay in selection mode.
+      socket.assigns.select_mode ->
+        {:noreply, do_toggle_file(socket, file_uuid)}
 
-      selected =
-        if MapSet.member?(selected, file_uuid),
-          do: MapSet.delete(selected, file_uuid),
-          else: MapSet.put(selected, file_uuid)
+      # Admin context → navigate to the rich admin detail page.
+      socket.assigns.admin ->
+        {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
 
-      {:noreply,
-       socket
-       |> assign(:selected_files, selected)
-       |> assign(:select_mode, true)}
-    else
-      {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
+      # Caller opted into view-mode → navigate to the read-only viewer at view_path.
+      # `:uuid` (literal) inside view_path is substituted with the file's uuid.
+      is_binary(socket.assigns.view_path) ->
+        target = String.replace(socket.assigns.view_path, ":uuid", file_uuid)
+        {:noreply, push_navigate(socket, to: Routes.path(target))}
+
+      # Default picker behaviour: enter selection mode and toggle this file in.
+      true ->
+        {:noreply, socket |> do_toggle_file(file_uuid) |> assign(:select_mode, true)}
     end
   end
 
@@ -1307,6 +1318,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # ──────────────────────────────────────────────────────────────
   # Navigation helpers
   # ──────────────────────────────────────────────────────────────
+
+  defp do_toggle_file(socket, file_uuid) do
+    selected = socket.assigns.selected_files
+
+    selected =
+      if MapSet.member?(selected, file_uuid),
+        do: MapSet.delete(selected, file_uuid),
+        else: MapSet.put(selected, file_uuid)
+
+    assign(socket, :selected_files, selected)
+  end
 
   defp navigate_to_folder(socket, folder_uuid) when folder_uuid in [nil, ""] do
     if controlled_mode?(socket) do
