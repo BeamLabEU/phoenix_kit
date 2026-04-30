@@ -50,9 +50,20 @@ config :phoenix_kit,
 config :logger, level: :warning
 
 # Configure endpoint for LiveView tests (server: false — no HTTP server, just session signing)
+# `render_errors` points at `PhoenixKitWeb.ErrorHTML` (the actual error
+# module — the lib has it, prod is fine, but Phoenix's default fallback
+# is `<EndpointBase>ErrorView` which doesn't exist here). Without this,
+# any 500-class crash inside a LiveView mount surfaces as
+# `** (ArgumentError) no "500" html template defined for PhoenixKitWeb.ErrorView`
+# instead of the real underlying error, making test failures unactionable.
 config :phoenix_kit, PhoenixKitWeb.Endpoint,
   secret_key_base: "test_secret_key_base_at_least_64_bytes_long_for_phoenix_kit_tests_only",
-  server: false
+  server: false,
+  live_view: [signing_salt: "phoenix_kit_test_live_view_salt_64bytes"],
+  render_errors: [
+    formats: [html: PhoenixKitWeb.ErrorHTML],
+    layout: false
+  ]
 
 # Suppress esbuild/tailwind warnings in tests (library doesn't include these apps)
 config :esbuild, :version, nil

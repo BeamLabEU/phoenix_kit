@@ -1,11 +1,16 @@
 defmodule PhoenixKit.Users.UserOrgChangesetTest do
-  use ExUnit.Case, async: true
+  # DataCase (not bare ExUnit.Case) — `User.registration_changeset/3`
+  # calls `maybe_generate_username_from_email/1` → `ensure_unique_username/2`
+  # which queries the DB. Same for `profile_changeset/3` whose
+  # `validate_email/2` does an `unsafe_validate_unique`. Without a
+  # sandbox checkout these crash with `DBConnection.OwnershipError`.
+  use PhoenixKit.DataCase, async: true
 
   import Ecto.Changeset
 
   alias PhoenixKit.Users.Auth.User
 
-  defp errors_on(changeset, field) do
+  defp errors_on_field(changeset, field) do
     changeset.errors
     |> Keyword.get_values(field)
     |> Enum.map(fn {msg, _opts} -> msg end)
@@ -32,13 +37,13 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
     test "invalid for unknown account_type" do
       changeset = User.account_type_changeset(%User{}, %{account_type: "company"})
       refute changeset.valid?
-      assert errors_on(changeset, :account_type) != []
+      assert errors_on_field(changeset, :account_type) != []
     end
 
     test "organization requires organization_name" do
       changeset = User.account_type_changeset(%User{}, %{account_type: "organization"})
       refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset, :organization_name)
+      assert "can't be blank" in errors_on_field(changeset, :organization_name)
     end
 
     test "organization_name max length 255" do
@@ -48,7 +53,7 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
           organization_name: String.duplicate("a", 256)
         })
 
-      assert errors_on(changeset, :organization_name) != []
+      assert errors_on_field(changeset, :organization_name) != []
     end
 
     test "organization clears organization_uuid" do
@@ -68,14 +73,22 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
         User.account_type_changeset(user, %{account_type: "person", organization_uuid: uuid})
 
       refute changeset.valid?
-      assert "cannot reference self" in errors_on(changeset, :organization_uuid)
+      assert "cannot reference self" in errors_on_field(changeset, :organization_uuid)
     end
 
     test "person — valid when organization_uuid is different" do
-      user = %User{uuid: "aaa"}
+      # `:uuid` and `:organization_uuid` are `UUIDv7` Ecto types — the
+      # cast step rejects raw strings that aren't valid UUIDs (e.g.
+      # the previous `"aaa"`/`"bbb"`), which made the test fail at
+      # `cast(:organization_uuid, ...)` before validate_no_self_reference
+      # ever ran. Use real UUIDs.
+      user = %User{uuid: UUIDv7.generate()}
 
       changeset =
-        User.account_type_changeset(user, %{account_type: "person", organization_uuid: "bbb"})
+        User.account_type_changeset(user, %{
+          account_type: "person",
+          organization_uuid: UUIDv7.generate()
+        })
 
       assert changeset.valid?
     end
@@ -148,7 +161,7 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
         )
 
       refute changeset.valid?
-      assert errors_on(changeset, :organization_name) != []
+      assert errors_on_field(changeset, :organization_name) != []
     end
 
     test "org registration valid with organization_name" do
@@ -209,8 +222,14 @@ defmodule PhoenixKit.Users.UserOrgChangesetTest do
     end
 
     test "allows nil organization_name" do
+      # `profile_changeset/3` validates email + username + names + custom
+      # fields — passing `%User{}` with no email makes the changeset
+      # invalid for unrelated reasons (`email: ["can't be blank"]`).
+      # The test's intent is "nil organization_name doesn't ADD an
+      # organization_name error", not "the whole changeset is valid",
+      # so assert on the field-specific error list.
       changeset = User.profile_changeset(%User{}, %{organization_name: nil})
-      assert changeset.valid?
+      assert errors_on_field(changeset, :organization_name) == []
     end
   end
 end

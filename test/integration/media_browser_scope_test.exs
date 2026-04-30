@@ -24,13 +24,20 @@ defmodule PhoenixKit.Integration.MediaBrowserScopeTest do
   end
 
   defp create_file!(folder_uuid) do
+    n = System.unique_integer([:positive])
+
     {:ok, file} =
       Repo.insert(%StorageFile{
-        original_file_name: "file_#{System.unique_integer([:positive])}.jpg",
-        file_name: "file_#{System.unique_integer([:positive])}.jpg",
+        original_file_name: "file_#{n}.jpg",
+        file_name: "file_#{n}.jpg",
         mime_type: "image/jpeg",
         file_type: "image",
         ext: "jpg",
+        # `file_checksum` and `user_file_checksum` are `NOT NULL` in
+        # V95's schema. Tests don't compute real SHAs — any non-empty
+        # string keeps the constraints satisfied.
+        file_checksum: "sha256:test-#{n}",
+        user_file_checksum: "user-sha256:test-#{n}",
         size: 1024,
         status: "active",
         folder_uuid: folder_uuid
@@ -154,7 +161,10 @@ defmodule PhoenixKit.Integration.MediaBrowserScopeTest do
       folder_uuid = fake_uuid()
 
       folder = Storage.get_folder(folder_uuid)
-      in_scope = folder && Storage.within_scope?(folder.uuid, scope.uuid)
+      # Coerce `in_scope` to a real boolean so `not in_scope` doesn't
+      # crash with `ArgumentError` on `:erlang.not(nil)` when the
+      # folder lookup misses.
+      in_scope = folder != nil && Storage.within_scope?(folder.uuid, scope.uuid)
       scoped_fallback? = not is_nil(folder_uuid) and not in_scope
       assert scoped_fallback?
     end

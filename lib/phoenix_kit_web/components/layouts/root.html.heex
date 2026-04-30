@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html
-  lang={@content_language || "en"}
+  lang={assigns[:content_language] || "en"}
   class="[scrollbar-gutter:stable]"
   data-theme="light"
 >
@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <%= if @seo_no_index do %>
+    <%= if assigns[:seo_no_index] do %>
       <meta name="robots" content="noindex,nofollow" />
       <meta name="googlebot" content="noindex,nofollow" />
     <% end %>
@@ -169,7 +169,7 @@
     <%!-- Maintenance mode is now handled via redirect to /maintenance LiveView --%>
     <main class="py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <.flash_group flash={@flash} />
+        <.flash_group id="flash-group-root" flash={@flash} />
         {@inner_content}
       </div>
     </main>

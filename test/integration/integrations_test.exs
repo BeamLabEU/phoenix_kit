@@ -14,7 +14,11 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       assert data["provider"] == "openrouter"
       assert data["auth_type"] == "api_key"
       assert data["api_key"] == "sk-or-test-key"
-      assert data["status"] == "connected"
+      # Status is `"configured"` post-save — credentials saved but not
+      # yet validated. The form LV's `maybe_auto_test/2` triggers
+      # `validate_connection/2` immediately; on success
+      # `record_validation/2` flips the status to `"connected"`.
+      assert data["status"] == "configured"
 
       {:ok, creds} = Integrations.get_credentials("openrouter")
       assert creds["api_key"] == "sk-or-test-key"
@@ -75,7 +79,9 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       assert data["provider"] == "openrouter"
       assert data["api_key"] == "test-key"
       assert data["auth_type"] == "api_key"
-      assert data["status"] == "connected"
+      # Post-save status is `"configured"`; transitions to `"connected"`
+      # only after a successful `record_validation(:ok)`.
+      assert data["status"] == "configured"
     end
 
     test "returns error for unconfigured provider" do
@@ -522,9 +528,14 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # ===========================================================================
 
   describe "connected_at tracking" do
-    test "sets connected_at when API key saved" do
+    test "save_setup with API key leaves connected_at nil (configured, not validated)" do
+      # `connected_at` represents the moment the integration first proved
+      # it could connect — not the moment credentials were saved. The
+      # honest post-save state is "configured" (credentials present,
+      # connection unverified), which doesn't stamp connected_at.
       {:ok, data} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
-      assert data["connected_at"] != nil
+      assert data["status"] == "configured"
+      assert data["connected_at"] == nil
     end
 
     test "does not set connected_at for OAuth setup (no tokens yet)" do
@@ -534,6 +545,54 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
           "client_secret" => "secret"
         })
 
+      assert data["connected_at"] == nil
+    end
+
+    test "record_validation(:ok) stamps connected_at on first successful validation" do
+      # Save credentials → "configured", no connected_at.
+      {:ok, saved} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
+      assert saved["connected_at"] == nil
+
+      # Successful validation flips status to "connected" AND stamps
+      # connected_at as a side effect — the equivalent of the OAuth
+      # exchange_code/4 path's behaviour for non-OAuth auth types.
+      :ok = Integrations.record_validation("openrouter", :ok)
+
+      {:ok, data} = Integrations.get_integration("openrouter")
+      assert data["status"] == "connected"
+      assert is_binary(data["connected_at"])
+      assert data["last_validated_at"] != nil
+    end
+
+    test "record_validation(:ok) does NOT overwrite an existing connected_at" do
+      # `connected_at` is a one-shot stamp — first successful connection.
+      # Subsequent successful validations update `last_validated_at` but
+      # leave `connected_at` untouched.
+      {:ok, _} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
+      :ok = Integrations.record_validation("openrouter", :ok)
+
+      {:ok, after_first} = Integrations.get_integration("openrouter")
+      first_connected_at = after_first["connected_at"]
+
+      # Force `:last_validated_at` to differ so record_validation actually
+      # writes (the early-return guard skips updates that are no-ops).
+      Process.sleep(20)
+      :ok = Integrations.record_validation("openrouter", {:error, :timeout})
+      :ok = Integrations.record_validation("openrouter", :ok)
+
+      {:ok, after_second} = Integrations.get_integration("openrouter")
+      assert after_second["connected_at"] == first_connected_at
+      # last_validated_at should have advanced because :error → :ok
+      # writes a fresh timestamp.
+      assert after_second["last_validated_at"] >= after_first["last_validated_at"]
+    end
+
+    test "record_validation({:error, _}) does NOT stamp connected_at" do
+      {:ok, _} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
+      :ok = Integrations.record_validation("openrouter", {:error, :invalid_api_key})
+
+      {:ok, data} = Integrations.get_integration("openrouter")
+      assert data["status"] == "error"
       assert data["connected_at"] == nil
     end
   end

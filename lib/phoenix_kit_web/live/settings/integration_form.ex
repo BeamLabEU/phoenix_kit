@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:selected_provider, nil)
       |> assign(:provider, nil)
       |> assign(:name, nil)
+      |> assign(:uuid, nil)
       |> assign(:data, %{})
       |> assign(:success, nil)
       |> assign(:error, nil)
@@ -68,54 +69,60 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     |> assign(:data, %{})
   end
 
-  defp apply_action(socket, :edit, %{"provider" => provider_key, "name" => name} = params) do
-    provider = Providers.get(provider_key)
-    full_key = "#{provider_key}:#{name}"
+  defp apply_action(socket, :edit, %{"uuid" => uuid} = params) do
+    case Integrations.get_integration_by_uuid(uuid) do
+      {:ok, %{provider: provider_key, name: name, data: data}} ->
+        provider = Providers.get(provider_key)
+        full_key = "#{provider_key}:#{name}"
 
-    data =
-      case Integrations.get_integration(full_key) do
-        {:ok, d} -> d
-        _ -> %{}
-      end
-
-    socket =
-      socket
-      |> assign(:page_title, gettext("Edit Integration"))
-      |> assign(:selected_provider, provider_key)
-      |> assign(:provider, provider)
-      |> assign(:name, name)
-      |> assign(:data, data)
-
-    # Handle OAuth callback (code in query params).
-    # Only process during live WebSocket connection — during dead (static) render
-    # the internal URI may differ from the external URL (e.g. http vs https behind
-    # a reverse proxy), causing redirect_uri mismatch with Google's token endpoint.
-    if connected?(socket) do
-      case params do
-        %{"code" => code, "state" => state} when is_binary(code) and code != "" ->
-          handle_oauth_callback(full_key, code, state, socket)
-
-        %{"code" => code} when is_binary(code) and code != "" ->
-          handle_oauth_callback(full_key, code, nil, socket)
-
-        %{"error" => error} ->
-          description = params["error_description"] || error
-          clean_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
-
+        socket =
           socket
-          |> put_flash(:error, gettext("Authorization failed: %{reason}", reason: description))
-          |> push_navigate(to: clean_path)
+          |> assign(:page_title, gettext("Edit Integration"))
+          |> assign(:selected_provider, provider_key)
+          |> assign(:provider, provider)
+          |> assign(:name, name)
+          |> assign(:uuid, uuid)
+          |> assign(:data, data)
 
-        _ ->
+        # Handle OAuth callback (code in query params).
+        # Only process during live WebSocket connection — during dead
+        # (static) render the internal URI may differ from the external
+        # URL (e.g. http vs https behind a reverse proxy), causing
+        # redirect_uri mismatch with Google's token endpoint.
+        if connected?(socket) do
+          case params do
+            %{"code" => code, "state" => state} when is_binary(code) and code != "" ->
+              handle_oauth_callback(full_key, code, state, socket)
+
+            %{"code" => code} when is_binary(code) and code != "" ->
+              handle_oauth_callback(full_key, code, nil, socket)
+
+            %{"error" => error} ->
+              description = params["error_description"] || error
+              clean_path = Routes.path("/admin/settings/integrations/#{uuid}")
+
+              socket
+              |> put_flash(
+                :error,
+                gettext("Authorization failed: %{reason}", reason: description)
+              )
+              |> push_navigate(to: clean_path)
+
+            _ ->
+              socket
+          end
+        else
           socket
-      end
-    else
-      socket
+        end
+
+      {:error, _} ->
+        socket
+        |> put_flash(:error, gettext("Integration not found"))
+        |> push_navigate(to: Routes.path("/admin/settings/integrations"))
     end
   end
 
   defp apply_action(socket, :edit, _params) do
-    # Missing provider/name params — redirect back to list
     socket
     |> put_flash(:error, gettext("Invalid integration URL"))
     |> push_navigate(to: Routes.path("/admin/settings/integrations"))
@@ -149,9 +156,6 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   def handle_event("create_connection", %{"name" => name} = params, socket) do
     provider_key = socket.assigns.selected_provider
     name = String.trim(name)
-
-    # Default to "default" if empty
-    name = if name == "", do: "default", else: name
 
     case Integrations.add_connection(provider_key, name, actor_uuid(socket)) do
       {:ok, _} ->
@@ -215,7 +219,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
     redirect_uri =
       socket.assigns[:redirect_uri] ||
-        build_redirect_uri(socket, provider_key, name)
+        build_redirect_uri(socket, socket.assigns.uuid)
 
     state = OAuth.generate_state()
 
@@ -244,6 +248,53 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   def handle_event("dismiss", _params, socket) do
     {:noreply, assign(socket, success: nil, error: nil)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Rename connection (edit mode, non-default only)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("rename_connection", %{"name" => new_name}, socket) do
+    provider_key = socket.assigns.selected_provider
+    old_name = socket.assigns.name
+
+    case Integrations.rename_connection(provider_key, old_name, new_name, actor_uuid(socket)) do
+      {:ok, data} ->
+        # URL is uuid-based, so a rename doesn't change the route — just
+        # update local assigns and surface a success flash. The list page
+        # picks up the new name through the `:integration_connection_renamed`
+        # broadcast.
+        socket =
+          socket
+          |> assign(:name, new_name)
+          |> assign(:data, data)
+          |> assign(:success, gettext("Connection renamed"))
+          |> assign(:error, nil)
+
+        {:noreply, socket}
+
+      {:error, :already_exists} ->
+        {:noreply,
+         assign(
+           socket,
+           :error,
+           gettext("A connection with that name already exists.")
+         )}
+
+      {:error, :empty_name} ->
+        {:noreply, assign(socket, :error, gettext("Connection name can't be blank."))}
+
+      {:error, :invalid_name} ->
+        {:noreply,
+         assign(
+           socket,
+           :error,
+           gettext("Use letters, digits, hyphens, and underscores only.")
+         )}
+
+      {:error, _other} ->
+        {:noreply, assign(socket, :error, gettext("Failed to rename connection."))}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -307,9 +358,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   defp handle_oauth_callback(full_key, code, state, socket) do
     clean_path =
-      Routes.path(
-        "/admin/settings/integrations/#{socket.assigns.selected_provider}/#{socket.assigns.name}"
-      )
+      Routes.path("/admin/settings/integrations/#{socket.assigns.uuid}")
 
     # Verify CSRF state token if one was stored
     case verify_oauth_state(full_key, state) do
@@ -317,7 +366,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
         # Use the actual browser URL as redirect_uri (must match what was sent to Google)
         redirect_uri =
           socket.assigns[:redirect_uri] ||
-            build_redirect_uri(socket, socket.assigns.selected_provider, socket.assigns.name)
+            build_redirect_uri(socket, socket.assigns.uuid)
 
         case Integrations.exchange_code(full_key, code, redirect_uri, actor_uuid(socket)) do
           {:ok, _data} ->
@@ -349,12 +398,41 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     attrs = extract_setup_attrs(provider_key, params)
 
     case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
-      {:ok, _data} ->
-        edit_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
-        {:noreply, push_navigate(socket, to: edit_path)}
+      {:ok, data} ->
+        # The settings storage row's UUID is the new edit URL anchor.
+        # `add_connection` already created the row; resolve its UUID
+        # from the just-saved row before push_patching to the edit page.
+        case lookup_connection_uuid(provider_key, name) do
+          {:ok, uuid} ->
+            edit_path = Routes.path("/admin/settings/integrations/#{uuid}")
+
+            socket =
+              socket
+              |> assign(:name, name)
+              |> assign(:uuid, uuid)
+              |> assign(:data, data)
+              |> assign(:success, gettext("Saved"))
+              |> assign(:error, nil)
+              |> push_patch(to: edit_path)
+              |> maybe_auto_test(data)
+
+            {:noreply, socket}
+
+          :error ->
+            {:noreply, assign(socket, :error, gettext("Failed to load saved connection"))}
+        end
 
       {:error, _} ->
         {:noreply, assign(socket, :error, gettext("Failed to save"))}
+    end
+  end
+
+  defp lookup_connection_uuid(provider_key, name) do
+    Integrations.list_connections(provider_key)
+    |> Enum.find(fn %{name: n} -> n == name end)
+    |> case do
+      %{uuid: uuid} when is_binary(uuid) -> {:ok, uuid}
+      _ -> :error
     end
   end
 
@@ -368,17 +446,33 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
     case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
       {:ok, data} ->
-        {:noreply,
-         socket
-         |> assign(:name, name)
-         |> assign(:data, data)
-         |> assign(:success, gettext("Saved"))
-         |> assign(:error, nil)}
+        socket =
+          socket
+          |> assign(:name, name)
+          |> assign(:data, data)
+          |> assign(:success, gettext("Saved"))
+          |> assign(:error, nil)
+          |> maybe_auto_test(data)
+
+        {:noreply, socket}
 
       {:error, _} ->
         {:noreply, assign(socket, :error, gettext("Failed to save"))}
     end
   end
+
+  # Auto-trigger validation right after save when there's something
+  # testable. `:disconnected` post-save means an OAuth provider without
+  # an access token yet — the user still needs to run the OAuth dance
+  # via the "Connect Account" button before any validation can succeed,
+  # so skip the auto-test there to avoid stamping a spurious error.
+  defp maybe_auto_test(socket, %{"status" => status})
+       when status in ["configured", "connected"] do
+    send(self(), :do_test_connection)
+    assign(socket, :testing, true)
+  end
+
+  defp maybe_auto_test(socket, _data), do: socket
 
   defp extract_setup_attrs(provider_key, params) do
     case Providers.get(provider_key) do
@@ -444,10 +538,10 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
-  defp build_redirect_uri(socket, provider_key, name) do
+  defp build_redirect_uri(socket, uuid) do
     base = Settings.get_setting("site_url", "")
     locale = socket.assigns[:current_locale_base]
-    path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}", locale: locale)
+    path = Routes.path("/admin/settings/integrations/#{uuid}", locale: locale)
 
     if is_binary(base) and base != "" do
       "#{String.trim_trailing(base, "/")}#{path}"

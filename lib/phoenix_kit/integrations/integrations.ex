@@ -79,6 +79,38 @@ defmodule PhoenixKit.Integrations do
   def get_integration(_), do: {:error, :invalid_provider_key}
 
   @doc """
+  Look up an integration row by its settings UUID and return a normalized
+  shape with `provider`, `name`, `data`, and the original `uuid`.
+
+  Used by the integration form LV (route `/admin/settings/integrations/:uuid`)
+  so the URL is stable across renames — the human-readable `name` lives in
+  the JSONB blob, the URL stays pinned to the row's storage UUID.
+  """
+  @spec get_integration_by_uuid(String.t()) ::
+          {:ok, %{uuid: String.t(), provider: String.t(), name: String.t(), data: map()}}
+          | {:error, :not_configured | :invalid_uuid}
+  def get_integration_by_uuid(uuid) when is_binary(uuid) and uuid != "" do
+    case get_integration(uuid) do
+      {:ok, data} ->
+        provider = Map.get(data, "provider")
+        name = Map.get(data, "name", "default")
+
+        if is_binary(provider) and provider != "" do
+          {:ok, %{uuid: uuid, provider: provider, name: name, data: data}}
+        else
+          # The row exists but lacks `"provider"` — pre-naming legacy data.
+          # Treat as not-configured rather than crashing the LV mount.
+          {:error, :not_configured}
+        end
+
+      {:error, _} ->
+        {:error, :not_configured}
+    end
+  end
+
+  def get_integration_by_uuid(_), do: {:error, :invalid_uuid}
+
+  @doc """
   Get credentials for a provider, suitable for making API calls.
 
   Returns the full integration data map. The caller extracts what it needs
@@ -101,19 +133,10 @@ defmodule PhoenixKit.Integrations do
         if has_credentials?(decrypted), do: {:ok, decrypted}, else: {:error, :not_configured}
 
       _ ->
-        if is_uuid do
-          # UUID was provided but not found — the integration was deleted
-          {:error, :deleted}
-        else
-          # If checking a bare provider key, try to find any connected connection
-          {_provider, name} = parse_provider_name(provider_key)
-
-          if name == "default" do
-            find_first_connected(provider_key)
-          else
-            {:error, :not_configured}
-          end
-        end
+        # uuid lookup that missed → row was deleted; bare-provider /
+        # provider:name lookup that missed → never configured. Both
+        # surface as the appropriate atom so callers can distinguish.
+        if is_uuid, do: {:error, :deleted}, else: {:error, :not_configured}
     end
   end
 
@@ -525,13 +548,15 @@ defmodule PhoenixKit.Integrations do
   end
 
   @doc """
-  Removes a named connection. The "default" connection cannot be removed.
+  Removes a named connection.
+
+  Names are pure user-chosen labels — no privileged values. The user is
+  free to delete any connection; consumer modules that referenced the
+  deleted integration row will surface a `:not_configured` (or similar)
+  error on next use, which is the correct loud failure.
   """
   @spec remove_connection(String.t(), String.t(), String.t() | nil) :: :ok | {:error, term()}
   def remove_connection(provider_key, name, actor_uuid \\ nil)
-
-  def remove_connection(_provider_key, "default", _actor_uuid),
-    do: {:error, :cannot_remove_default}
 
   def remove_connection(provider_key, name, actor_uuid)
       when is_binary(provider_key) and is_binary(name) do
@@ -553,6 +578,84 @@ defmodule PhoenixKit.Integrations do
 
       {:error, :not_found} ->
         :ok
+
+      error ->
+        error
+    end
+  end
+
+  @doc """
+  Renames a named connection.
+
+  Copies the storage row to the new key, then deletes the old key.
+  Names are pure user-chosen labels — any name (including the literal
+  string `"default"`) can be renamed freely. No-ops when
+  `old_name == new_name`. Refuses if the new name already exists for
+  this provider, or if it doesn't match the connection-name pattern.
+
+  Returns `{:ok, new_data}` on success, with the same JSONB body as the
+  old row but `"name"` rewritten to `new_name`.
+  """
+  @spec rename_connection(String.t(), String.t(), String.t(), String.t() | nil) ::
+          {:ok, map()}
+          | {:error,
+             :empty_name | :invalid_name | :already_exists | :not_found | term()}
+  def rename_connection(provider_key, old_name, new_name, actor_uuid \\ nil)
+
+  def rename_connection(provider_key, old_name, new_name, actor_uuid)
+      when is_binary(provider_key) and is_binary(old_name) and is_binary(new_name) do
+    new_name = String.trim(new_name)
+
+    cond do
+      new_name == old_name ->
+        case get_integration("#{provider_key}:#{old_name}") do
+          {:ok, data} -> {:ok, data}
+          error -> error
+        end
+
+      new_name == "" ->
+        {:error, :empty_name}
+
+      not Regex.match?(@name_pattern, new_name) ->
+        {:error, :invalid_name}
+
+      Settings.get_json_setting(settings_key("#{provider_key}:#{new_name}"), nil) != nil ->
+        {:error, :already_exists}
+
+      true ->
+        do_rename_connection(provider_key, old_name, new_name, actor_uuid)
+    end
+  end
+
+  defp do_rename_connection(provider_key, old_name, new_name, actor_uuid) do
+    old_key = "#{provider_key}:#{old_name}"
+
+    case get_integration(old_key) do
+      {:ok, data} ->
+        new_data = Map.put(data, "name", new_name)
+
+        case save_integration("#{provider_key}:#{new_name}", new_data) do
+          {:ok, _} ->
+            # Best-effort delete of the old row. If it fails the new row
+            # is already in place and a manual cleanup beats a half-rename
+            # rollback that the user can't reason about.
+            Settings.delete_setting(settings_key(old_key))
+
+            Events.broadcast_connection_renamed(provider_key, old_name, new_name)
+
+            log_activity(
+              "integration.connection_renamed",
+              provider_key,
+              %{"old_name" => old_name, "new_name" => new_name},
+              "manual",
+              actor_uuid
+            )
+
+            {:ok, new_data}
+
+          error ->
+            error
+        end
 
       error ->
         error
@@ -682,12 +785,30 @@ defmodule PhoenixKit.Integrations do
 
       {storage_key, data} ->
         if data["status"] != new_status or data["validation_status"] != validation_text do
-          updated =
-            Map.merge(data, %{
-              "status" => new_status,
-              "last_validated_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
-              "validation_status" => validation_text
-            })
+          now_iso = DateTime.utc_now() |> DateTime.to_iso8601()
+
+          base_update = %{
+            "status" => new_status,
+            "last_validated_at" => now_iso,
+            "validation_status" => validation_text
+          }
+
+          # Stamp `connected_at` on the FIRST successful validation. Once
+          # set, it never changes — `connected_at` represents the moment
+          # this integration first proved it could connect, not the last
+          # successful check (that's `last_validated_at`). The OAuth
+          # `exchange_code/4` path stamps the same field on a successful
+          # token exchange; this branch is the equivalent for non-OAuth
+          # auth types where the validation HTTP call is the connection
+          # event.
+          update =
+            if result == :ok and is_nil(data["connected_at"]) do
+              Map.put(base_update, "connected_at", now_iso)
+            else
+              base_update
+            end
+
+          updated = Map.merge(data, update)
 
           case save_integration(storage_key, updated) do
             {:ok, _} -> Events.broadcast_validated(storage_key, result)
@@ -763,13 +884,6 @@ defmodule PhoenixKit.Integrations do
   @uuid_pattern ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   defp uuid?(str), do: is_binary(str) and Regex.match?(@uuid_pattern, str)
-
-  defp find_first_connected(provider_key) do
-    list_connections(provider_key)
-    |> Enum.find_value({:error, :not_configured}, fn %{data: data} ->
-      if has_credentials?(data), do: {:ok, data}
-    end)
-  end
 
   defp parse_provider_name(key) do
     case String.split(key, ":", parts: 2) do
@@ -876,8 +990,13 @@ defmodule PhoenixKit.Integrations do
           :credentials -> has_custom_creds?(data)
         end
 
+      # Saved-but-not-validated. Setting "connected" here was optimistic —
+      # nothing has actually been tested. Callers that want a real
+      # `connected` status should follow up with `validate_connection/2`
+      # and `record_validation/2`. The form LV does this automatically on
+      # the save_setup / create_connection flow.
       if has_creds do
-        Map.put(data, "status", "connected")
+        Map.put(data, "status", "configured")
       else
         Map.put(data, "status", "disconnected")
       end

@@ -134,7 +134,7 @@ defmodule PhoenixKit.Integration.Users.InvitationsTest do
       {:ok, invitation, _} = Invitations.create_invitation(org, person.email, admin)
 
       invitation
-      |> Ecto.Changeset.change(expires_at: DateTime.add(DateTime.utc_now(), -1, :second))
+      |> Ecto.Changeset.change(expires_at: DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.truncate(:second))
       |> Repo.update!()
 
       assert {:error, :expired} = Invitations.accept_invitation_by_uuid(invitation.uuid, person)
@@ -212,14 +212,16 @@ defmodule PhoenixKit.Integration.Users.InvitationsTest do
     end
 
     test "returns error when invitation is not pending" do
+      # `cancel_invitation/1` returns `{:error, :not_pending}` (atom, see
+      # @doc at lib/phoenix_kit/users/invitations.ex:154) when the invitation
+      # has already been accepted/cancelled — not a changeset.
       org = create_org()
       person = create_person()
       admin = create_admin()
       {:ok, invitation, _} = Invitations.create_invitation(org, person.email, admin)
       {:ok, _} = Invitations.accept_invitation_by_uuid(invitation.uuid, person)
 
-      assert {:error, changeset} = Invitations.cancel_invitation(invitation.uuid)
-      assert changeset.errors[:status] != nil
+      assert {:error, :not_pending} = Invitations.cancel_invitation(invitation.uuid)
     end
 
     test "returns error for non-existent invitation uuid" do
@@ -281,7 +283,7 @@ defmodule PhoenixKit.Integration.Users.InvitationsTest do
       {:ok, invitation, _} = Invitations.create_invitation(org, person.email, admin)
 
       invitation
-      |> Ecto.Changeset.change(expires_at: DateTime.add(DateTime.utc_now(), -1, :second))
+      |> Ecto.Changeset.change(expires_at: DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.truncate(:second))
       |> Repo.update!()
 
       pending = Invitations.list_pending_for_email(person.email)
@@ -331,7 +333,7 @@ defmodule PhoenixKit.Integration.Users.InvitationsTest do
       {:ok, invitation, encoded_token} = Invitations.create_invitation(org, email, admin)
 
       invitation
-      |> Ecto.Changeset.change(expires_at: DateTime.add(DateTime.utc_now(), -1, :second))
+      |> Ecto.Changeset.change(expires_at: DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.truncate(:second))
       |> Repo.update!()
 
       assert {:error, _} = Invitations.get_by_token(encoded_token)

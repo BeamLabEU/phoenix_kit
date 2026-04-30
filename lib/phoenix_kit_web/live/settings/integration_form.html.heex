@@ -6,7 +6,7 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 max-w-2xl">
+  <div class="container mx-auto px-4 py-6">
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings/integrations")}
       title={@page_title}
@@ -22,7 +22,7 @@
     </div>
 
     <%!-- Step 1: Provider picker (new mode, no provider selected yet) --%>
-    <div :if={@live_action == :new && @selected_provider == nil}>
+    <div :if={@live_action == :new && @selected_provider == nil} class="max-w-2xl mx-auto">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           :for={provider <- @providers}
@@ -44,7 +44,7 @@
     </div>
 
     <%!-- Step 2: Setup form (provider selected in new mode, or edit mode) --%>
-    <div :if={@provider != nil} class="space-y-6">
+    <div :if={@provider != nil} class="space-y-6 max-w-2xl mx-auto">
       <%!-- Back to provider picker (new mode only) --%>
       <button
         :if={@live_action == :new && @name == nil}
@@ -63,20 +63,24 @@
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-semibold">{@provider.name}</h2>
-            <%= if @data["status"] == "connected" do %>
-              <span class="badge badge-success badge-sm gap-1">
-                <.icon name="hero-check-circle" class="w-3 h-3" />
-                {gettext("Connected")}
-              </span>
-            <% end %>
-            <%= if @data["status"] == "configured" do %>
-              <span class="badge badge-warning badge-sm">{gettext("Not tested")}</span>
-            <% end %>
-            <%= if @data["status"] == "error" do %>
-              <span class="badge badge-error badge-sm">{gettext("Error")}</span>
-            <% end %>
-            <%= if @data["status"] in ["disconnected", nil] do %>
-              <span class="badge badge-ghost badge-sm">{gettext("Not connected")}</span>
+            <%!--
+              No badge until the integration has actually been saved (@name set).
+              Showing "Not connected" on a fresh /new flow misleads — nothing has
+              been attempted yet, there's nothing to be disconnected from.
+            --%>
+            <%= cond do %>
+              <% @name == nil -> %>
+              <% @data["status"] == "connected" -> %>
+                <span class="badge badge-success badge-sm gap-1">
+                  <.icon name="hero-check-circle" class="w-3 h-3" />
+                  {gettext("Connected")}
+                </span>
+              <% @data["status"] == "configured" -> %>
+                <span class="badge badge-warning badge-sm">{gettext("Not tested")}</span>
+              <% @data["status"] == "error" -> %>
+                <span class="badge badge-error badge-sm">{gettext("Error")}</span>
+              <% true -> %>
+                <span class="badge badge-ghost badge-sm">{gettext("Not connected")}</span>
             <% end %>
           </div>
           <p class="text-sm text-base-content/60">
@@ -89,6 +93,34 @@
       </div>
 
       <% credentials_saved = @name != nil && has_setup_credentials?(@data, @provider) %>
+
+      <%!-- Connection name (edit mode). Always editable — names are pure
+           user-chosen labels with no system semantics. The URL is uuid-
+           based so renaming doesn't change the route; the list page picks
+           up the new name through the `:integration_connection_renamed`
+           broadcast. --%>
+      <div :if={@name != nil} class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h3 class="card-title text-base">{gettext("Connection Name")}</h3>
+          <form phx-submit="rename_connection" class="form-control space-y-2">
+            <input
+              type="text"
+              name="name"
+              value={@name}
+              class="input input-bordered w-full"
+              required
+            />
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">
+                {gettext("Letters, digits, hyphens, and underscores. Must be unique per provider.")}
+              </span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm self-start">
+              {gettext("Rename")}
+            </button>
+          </form>
+        </div>
+      </div>
 
       <%!-- Step 1: Credentials --%>
       <div class="card bg-base-100 shadow-sm">
@@ -111,7 +143,10 @@
             phx-submit={if @name, do: "save_setup", else: "create_connection"}
             class="space-y-4 mt-2"
           >
-            <%!-- Connection name (new mode only) --%>
+            <%!-- Connection name. Required on every new connection — names
+                 are user-chosen labels with no system meaning, so we always
+                 ask. Letters, digits, hyphens, underscores; must be unique
+                 per provider. --%>
             <div :if={@name == nil} class="form-control">
               <label class="label">
                 <span class="label-text">{gettext("Connection Name")}</span>
@@ -121,8 +156,14 @@
                 name="name"
                 value={@new_name}
                 class="input input-bordered w-full"
-                placeholder={gettext("default")}
+                placeholder={gettext("e.g. main, personal, work")}
+                required
               />
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                  {gettext("Letters, digits, hyphens, and underscores. Must be unique per provider.")}
+                </span>
+              </label>
             </div>
 
             <%!-- Provider-specific fields --%>

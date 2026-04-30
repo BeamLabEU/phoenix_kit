@@ -61,9 +61,6 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
          |> put_flash(:info, gettext("Connection removed"))
          |> load_connections()}
 
-      {:error, :cannot_remove_default} ->
-        {:noreply, put_flash(socket, :error, gettext("Cannot remove the default connection"))}
-
       {:error, _} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to remove connection"))}
     end
@@ -134,6 +131,9 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   def handle_info({:integration_connection_removed, _, _}, socket),
     do: {:noreply, load_connections(socket)}
 
+  def handle_info({:integration_connection_renamed, _, _, _}, socket),
+    do: {:noreply, load_connections(socket)}
+
   # Catch-all to prevent crashes from unexpected messages
   def handle_info(_msg, socket), do: {:noreply, socket}
 
@@ -142,7 +142,6 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # ---------------------------------------------------------------------------
 
   defp load_connections(socket) do
-    used_by = Providers.used_by_modules()
     providers = Providers.all()
     provider_keys = Enum.map(providers, & &1.key)
     providers_by_key = Map.new(providers, &{&1.key, &1})
@@ -161,13 +160,26 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
             uuid: uuid,
             name: name,
             full_key: full_key,
-            data: data,
-            used_by: Map.get(used_by, provider.key, [])
+            data: data
           }
         end)
       end)
 
-    assign(socket, :connections, connections)
+    socket
+    |> assign(:connections, connections)
+    |> assign(:provider_names, join_with_and(Enum.map(providers, & &1.name)))
+  end
+
+  # Joins a list of names with commas, using a translated "and" before
+  # the final item: ["A"] → "A", ["A", "B"] → "A and B",
+  # ["A", "B", "C"] → "A, B and C". `gettext("and")` is extracted to the
+  # .pot so each locale can supply its own conjunction.
+  defp join_with_and([]), do: ""
+  defp join_with_and([single]), do: single
+
+  defp join_with_and(list) do
+    {init, [last]} = Enum.split(list, -1)
+    Enum.join(init, ", ") <> " " <> gettext("and") <> " " <> last
   end
 
   defp validate_connection(provider_key, actor_uuid) do

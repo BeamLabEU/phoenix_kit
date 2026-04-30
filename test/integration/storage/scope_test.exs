@@ -3,7 +3,6 @@ defmodule PhoenixKit.Integration.Storage.ScopeTest do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
-  alias PhoenixKit.Modules.Storage.Folder
 
   # ---------------------------------------------------------------------------
   # Helpers
@@ -15,13 +14,20 @@ defmodule PhoenixKit.Integration.Storage.ScopeTest do
   end
 
   defp create_file!(folder_uuid) do
+    n = System.unique_integer([:positive])
+
     {:ok, file} =
       Repo.insert(%StorageFile{
-        original_file_name: "test_#{System.unique_integer([:positive])}.jpg",
-        file_name: "test_#{System.unique_integer([:positive])}.jpg",
+        original_file_name: "test_#{n}.jpg",
+        file_name: "test_#{n}.jpg",
         mime_type: "image/jpeg",
         file_type: "image",
         ext: "jpg",
+        # `file_checksum` and `user_file_checksum` are `NOT NULL` in
+        # V95's schema. Tests don't compute real SHAs — any non-empty
+        # string keeps the constraints satisfied.
+        file_checksum: "sha256:test-#{n}",
+        user_file_checksum: "user-sha256:test-#{n}",
         size: 1024,
         status: "active",
         folder_uuid: folder_uuid
@@ -207,7 +213,12 @@ defmodule PhoenixKit.Integration.Storage.ScopeTest do
   # ---------------------------------------------------------------------------
 
   describe "list_files_in_scope/2" do
-    test "returns files across all descendants of scope" do
+    test "returns only direct-child files of scope when no search/folder filter" do
+      # `list_files_in_scope/2` with `scope_folder_id` and no `folder_uuid`
+      # / `search` shows only **direct** children of scope — not the full
+      # subtree (see `build_scope_file_query/4`'s `true ->` branch).
+      # Subtree-wide listing is gated behind `search`, which switches to
+      # the recursive CTE path. Tests assert per-branch behavior.
       %{scope: scope, child_a: child_a, grandchild: grandchild} = build_tree()
       f1 = create_file!(scope.uuid)
       f2 = create_file!(child_a.uuid)
@@ -217,9 +228,25 @@ defmodule PhoenixKit.Integration.Storage.ScopeTest do
       uuids = Enum.map(files, & &1.uuid)
 
       assert f1.uuid in uuids
+      refute f2.uuid in uuids
+      refute f3.uuid in uuids
+      assert count >= 1
+    end
+
+    test "returns files across all descendants when search is provided" do
+      %{scope: scope, child_a: child_a, grandchild: grandchild} = build_tree()
+      f1 = create_file!(scope.uuid)
+      f2 = create_file!(child_a.uuid)
+      f3 = create_file!(grandchild.uuid)
+
+      # Use a search that matches every file's `original_file_name`
+      # (set to "test_<n>.jpg" by `create_file!/1`).
+      {files, _count} = Storage.list_files_in_scope(scope.uuid, search: "test_")
+      uuids = Enum.map(files, & &1.uuid)
+
+      assert f1.uuid in uuids
       assert f2.uuid in uuids
       assert f3.uuid in uuids
-      assert count >= 3
     end
 
     test "excludes files from sibling folders" do
