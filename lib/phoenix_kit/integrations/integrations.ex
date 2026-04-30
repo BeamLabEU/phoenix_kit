@@ -4,7 +4,12 @@ defmodule PhoenixKit.Integrations do
 
   Stores credentials (OAuth tokens, API keys, bot tokens, etc.) using the
   existing `PhoenixKit.Settings` system with `value_json` JSONB storage.
-  Each integration is a JSON blob under a key like `"integration:google"`.
+  Each integration is a JSON blob under a key like
+  `"integration:google:default"` (`integration:{provider}:{name}`).
+
+  Connections are referenced by the storage row's UUID. Names are pure
+  user-chosen labels with no system semantics — they can be renamed or
+  removed freely; consumer modules pin to UUIDs that survive renames.
 
   ## Auth types supported
 
@@ -16,15 +21,30 @@ defmodule PhoenixKit.Integrations do
 
   ## Usage
 
-      # Check if a provider is connected
-      PhoenixKit.Integrations.connected?("google")
+  Consumer modules (AI endpoints, document creator, etc.) store an
+  integration's UUID on their own records and resolve credentials by UUID:
 
-      # Get credentials for API calls
-      {:ok, creds} = PhoenixKit.Integrations.get_credentials("google")
+      # Look up the row by uuid (the stable reference consumers store)
+      {:ok, %{provider: "openrouter", name: "default", data: data}} =
+        PhoenixKit.Integrations.get_integration_by_uuid(integration_uuid)
+
+      # Get credentials for API calls — accepts either a uuid or a
+      # `provider:name` shape
+      {:ok, creds} = PhoenixKit.Integrations.get_credentials(integration_uuid)
       # => %{"access_token" => "ya29...", "token_type" => "Bearer", ...}
 
       # Make an authenticated request with auto-refresh on 401
-      {:ok, response} = PhoenixKit.Integrations.authenticated_request("google", :get, url)
+      {:ok, response} =
+        PhoenixKit.Integrations.authenticated_request(integration_uuid, :get, url)
+
+  ## Renaming and removing
+
+  Any connection can be renamed or removed — there's no privileged
+  `"default"` name. The storage row's UUID stays stable across renames,
+  so consumer references don't break:
+
+      {:ok, _} = PhoenixKit.Integrations.rename_connection("google", "personal", "work")
+      :ok = PhoenixKit.Integrations.remove_connection("google", "work")
   """
 
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -172,13 +192,15 @@ defmodule PhoenixKit.Integrations do
   @spec save_setup(String.t(), map(), String.t() | nil) :: {:ok, map()} | {:error, term()}
   def save_setup(provider_key, attrs, actor_uuid \\ nil)
       when is_binary(provider_key) and is_map(attrs) do
-    provider = Providers.get(provider_key)
+    {base_provider, name} = parse_provider_name(provider_key)
+    provider = Providers.get(base_provider)
     existing = Settings.get_json_setting(settings_key(provider_key), %{})
 
     data =
       existing
       |> Map.merge(attrs)
-      |> Map.put("provider", provider_key)
+      |> Map.put("provider", base_provider)
+      |> Map.put("name", name)
       |> Map.put("auth_type", provider && Atom.to_string(provider.auth_type))
       |> maybe_set_status(provider)
       |> maybe_set_connected_at()
@@ -628,19 +650,19 @@ defmodule PhoenixKit.Integrations do
   end
 
   defp do_rename_connection(provider_key, old_name, new_name, actor_uuid) do
-    old_key = "#{provider_key}:#{old_name}"
+    old_key = settings_key("#{provider_key}:#{old_name}")
+    new_key = settings_key("#{provider_key}:#{new_name}")
 
-    case get_integration(old_key) do
-      {:ok, data} ->
-        new_data = Map.put(data, "name", new_name)
+    case Queries.get_setting_by_key(old_key) do
+      %PhoenixKit.Settings.Setting{} = setting ->
+        # Rename in place: update the row's `key` column AND the JSONB
+        # `name` field, preserving the uuid. Consumers that pinned to
+        # `integration_uuid` keep working across the rename — that's
+        # the whole point of uuid-based references.
+        new_data = Map.put(setting.value_json || %{}, "name", new_name)
 
-        case save_integration("#{provider_key}:#{new_name}", new_data) do
-          {:ok, _} ->
-            # Best-effort delete of the old row. If it fails the new row
-            # is already in place and a manual cleanup beats a half-rename
-            # rollback that the user can't reason about.
-            Settings.delete_setting(settings_key(old_key))
-
+        case rename_setting_row(setting, new_key, new_data) do
+          {:ok, _updated} ->
             Events.broadcast_connection_renamed(provider_key, old_name, new_name)
 
             log_activity(
@@ -651,15 +673,30 @@ defmodule PhoenixKit.Integrations do
               actor_uuid
             )
 
-            {:ok, new_data}
+            {:ok, Encryption.decrypt_fields(new_data)}
 
           error ->
             error
         end
 
-      error ->
-        error
+      nil ->
+        {:error, :not_configured}
     end
+  end
+
+  # In-place key + value rewrite via Ecto changeset; preserves the row
+  # uuid (which is the stable reference consumers store on their own
+  # records). Goes through `Repo.update` so the same encryption /
+  # cache-invalidation hooks fire as for `update_setting`.
+  defp rename_setting_row(setting, new_key, new_data) do
+    encrypted_data = Encryption.encrypt_fields(new_data)
+
+    setting
+    |> PhoenixKit.Settings.Setting.changeset(%{
+      key: new_key,
+      value_json: encrypted_data
+    })
+    |> PhoenixKit.RepoHelper.repo().update()
   end
 
   # ---------------------------------------------------------------------------

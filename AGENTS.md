@@ -186,17 +186,19 @@ Centralized management of external service connections (OAuth, API keys, bot tok
 - `lib/phoenix_kit_web/live/settings/integration_form.ex` — Add/edit page (OAuth flow, test connection)
 - `lib/phoenix_kit_web/components/core/integration_picker.ex` — Reusable picker component for module UIs
 
-**Storage:** Uses existing `phoenix_kit_settings` table with `value_json` JSONB. Keys follow `integration:{provider}:{name}` convention (e.g., `integration:google:default`). Connections are referenced by their settings row UUID.
+**Storage:** Uses existing `phoenix_kit_settings` table with `value_json` JSONB. Keys follow `integration:{provider}:{name}` convention (e.g., `integration:google:default`). **Consumers reference connections by the storage row's UUID** — that uuid is the stable handle that survives renames.
 
 **Auth types:** `:oauth2` (Google, Microsoft), `:api_key` (OpenRouter, Stripe), `:key_secret` (AWS), `:bot_token` (Telegram, Discord), `:credentials` (SMTP, databases).
 
-**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/2`, `remove_connection/2`, `list_connections/1`. "default" cannot be removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
+**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/3`, `remove_connection/3`, `rename_connection/4`, `list_connections/1`. **Names are pure user-chosen labels** — `"default"` is no longer privileged; any connection can be renamed or removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
 
-**Validation:** `validate_connection/1` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data.
+**Consumer pattern (uuid-everywhere):** Modules that depend on an integration store its uuid on their own records (e.g. `phoenix_kit_ai_endpoints.integration_uuid`, `document_creator_settings.google_connection`). Lookups go through `get_integration_by_uuid/1` or `get_credentials/1` (accepts uuid or `provider:name` string). The system does **not** silently fall back to "any connected row of this provider" — consumers must specify which integration they want.
 
-**Events (PubSub):** Topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added`, `integration_connection_removed`.
+**Validation:** `validate_connection/2` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data. Successful validation flips `status` to `"connected"` and stamps `connected_at` (one-shot — first successful connection wins; subsequent successes update only `last_validated_at`).
 
-**Module callbacks:** `required_integrations/0` — declares provider keys this module needs (shown in "Used by" on settings page). `integration_providers/0` — contributes custom provider definitions to the registry.
+**Events (PubSub):** Topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added`, `integration_connection_removed`, `integration_connection_renamed`.
+
+**Module callbacks:** `required_integrations/0` — declares provider keys this module needs. `integration_providers/0` — contributes custom provider definitions to the registry.
 
 **Legacy migration:** Automatically migrates old `document_creator_google_oauth` settings key to `integration:google:default` on first access.
 

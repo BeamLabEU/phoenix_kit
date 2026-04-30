@@ -2,6 +2,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   use PhoenixKit.DataCase, async: true
 
   alias PhoenixKit.Integrations
+  alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Settings
 
   # ===========================================================================
@@ -173,6 +174,53 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
   end
 
+  describe "get_integration_by_uuid/1" do
+    test "returns normalized %{uuid, provider, name, data} on success" do
+      Integrations.add_connection("openrouter", "primary")
+      Integrations.save_setup("openrouter:primary", %{"api_key" => "key"})
+
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+
+      assert {:ok, result} = Integrations.get_integration_by_uuid(uuid)
+      assert result.uuid == uuid
+      assert result.provider == "openrouter"
+      assert result.name == "primary"
+      assert result.data["api_key"] == "key"
+    end
+
+    test "returns :not_configured when uuid doesn't match any row" do
+      ghost_uuid = "00000000-0000-7000-8000-000000000000"
+      assert {:error, :not_configured} = Integrations.get_integration_by_uuid(ghost_uuid)
+    end
+
+    test "rejects empty / non-string input with :invalid_uuid" do
+      assert {:error, :invalid_uuid} = Integrations.get_integration_by_uuid("")
+      assert {:error, :invalid_uuid} = Integrations.get_integration_by_uuid(nil)
+      assert {:error, :invalid_uuid} = Integrations.get_integration_by_uuid(:atom)
+    end
+
+    test "rejects rows missing the `provider` field with :not_configured" do
+      # Pre-naming legacy rows (storage shape from before V107) lack
+      # the `"provider"` JSONB key. The helper refuses to return them
+      # rather than crashing the LV mount.
+      legacy_data = %{"api_key" => "key", "name" => "default"}
+
+      Settings.update_json_setting_with_module(
+        Integrations.settings_key("openrouter"),
+        legacy_data,
+        "integrations"
+      )
+
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+
+      # Confirm the underlying row exists but lacks `provider`
+      {:ok, raw} = Integrations.get_integration(uuid)
+      refute Map.has_key?(raw, "provider")
+
+      assert {:error, :not_configured} = Integrations.get_integration_by_uuid(uuid)
+    end
+  end
+
   # ===========================================================================
   # get_credentials for all auth types
   # ===========================================================================
@@ -334,13 +382,112 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       assert :ok = Integrations.remove_connection("google", "temp")
     end
 
-    test "cannot remove default connection" do
-      assert {:error, :cannot_remove_default} =
-               Integrations.remove_connection("google", "default")
+    test "removes the default-named connection like any other" do
+      # Names are pure user-chosen labels with no system semantics —
+      # `"default"` is no more privileged than any other string. The
+      # cannot_remove_default guard was removed when consumer modules
+      # switched to uuid-based references.
+      {:ok, _} = Integrations.add_connection("google", "default")
+      assert :ok = Integrations.remove_connection("google", "default")
+      assert Integrations.list_connections("google") == []
     end
 
     test "returns ok for nonexistent connection" do
       assert :ok = Integrations.remove_connection("google", "nonexistent")
+    end
+  end
+
+  describe "rename_connection/4" do
+    test "renames a connection: copies row to new key, deletes old" do
+      Integrations.add_connection("google", "personal")
+      Integrations.save_setup("google:personal", %{"client_id" => "cid"})
+
+      assert {:ok, data} = Integrations.rename_connection("google", "personal", "work")
+
+      assert data["name"] == "work"
+      # Old key gone
+      assert {:error, :not_configured} = Integrations.get_integration("google:personal")
+      # New key has the body
+      assert {:ok, %{"client_id" => "cid"}} = Integrations.get_integration("google:work")
+    end
+
+    test "no-ops when old_name == new_name" do
+      Integrations.add_connection("google", "personal")
+      Integrations.save_setup("google:personal", %{"client_id" => "cid"})
+
+      assert {:ok, data} = Integrations.rename_connection("google", "personal", "personal")
+      assert data["name"] == "personal"
+      assert data["client_id"] == "cid"
+    end
+
+    test "rejects empty name" do
+      Integrations.add_connection("google", "personal")
+      assert {:error, :empty_name} = Integrations.rename_connection("google", "personal", "")
+      assert {:error, :empty_name} = Integrations.rename_connection("google", "personal", "   ")
+    end
+
+    test "rejects names that violate the connection-name pattern" do
+      Integrations.add_connection("google", "personal")
+      # Spaces, slashes, leading punctuation — all rejected
+      assert {:error, :invalid_name} =
+               Integrations.rename_connection("google", "personal", "my work")
+
+      assert {:error, :invalid_name} =
+               Integrations.rename_connection("google", "personal", "-leading-dash")
+
+      assert {:error, :invalid_name} =
+               Integrations.rename_connection("google", "personal", "with/slash")
+    end
+
+    test "rejects renaming to a name that already exists for the provider" do
+      Integrations.add_connection("google", "personal")
+      Integrations.add_connection("google", "work")
+
+      assert {:error, :already_exists} =
+               Integrations.rename_connection("google", "personal", "work")
+
+      # Both rows still present
+      assert length(Integrations.list_connections("google")) == 2
+    end
+
+    test "default-named connection can now be renamed (no privileged name)" do
+      Integrations.add_connection("google", "default")
+      Integrations.save_setup("google:default", %{"client_id" => "cid"})
+
+      assert {:ok, _} = Integrations.rename_connection("google", "default", "primary")
+      assert {:error, :not_configured} = Integrations.get_integration("google:default")
+      assert {:ok, _} = Integrations.get_integration("google:primary")
+    end
+
+    test "returns :not_found when source connection doesn't exist" do
+      assert {:error, :not_configured} =
+               Integrations.rename_connection("google", "ghost", "phantom")
+    end
+
+    test "trims whitespace from new_name" do
+      Integrations.add_connection("google", "personal")
+      assert {:ok, data} = Integrations.rename_connection("google", "personal", "  work  ")
+      assert data["name"] == "work"
+    end
+
+    test "broadcasts :integration_connection_renamed on success" do
+      Integrations.add_connection("google", "personal")
+      :ok = Events.subscribe()
+
+      {:ok, _} = Integrations.rename_connection("google", "personal", "work")
+
+      assert_receive {:integration_connection_renamed, "google", "personal", "work"}
+    end
+
+    test "does not broadcast on failure" do
+      Integrations.add_connection("google", "personal")
+      Integrations.add_connection("google", "work")
+      :ok = Events.subscribe()
+
+      assert {:error, :already_exists} =
+               Integrations.rename_connection("google", "personal", "work")
+
+      refute_receive {:integration_connection_renamed, _, _, _}, 50
     end
   end
 
@@ -390,6 +537,18 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     test "returns :deleted for nonexistent UUID" do
       fake_uuid = "019d0000-0000-7000-8000-000000000000"
       assert {:error, :deleted} = Integrations.get_credentials(fake_uuid)
+    end
+
+    test "differentiates :deleted (uuid input) from :not_configured (non-uuid input)" do
+      # uuid-shaped input that misses storage → row was deleted
+      ghost_uuid = "00000000-0000-7000-8000-000000000000"
+      assert {:error, :deleted} = Integrations.get_credentials(ghost_uuid)
+
+      # non-uuid input that misses storage → never configured
+      # No `find_first_connected/1` fallback anymore — bare-provider
+      # callers see this directly.
+      assert {:error, :not_configured} = Integrations.get_credentials("openrouter")
+      assert {:error, :not_configured} = Integrations.get_credentials("openrouter:nope")
     end
   end
 
@@ -715,16 +874,21 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       refute Integrations.connected?("openrouter")
     end
 
-    test "returns true when checking bare provider key with non-default connected" do
-      # Add a non-default connection with credentials
+    test "bare provider key no longer falls back to non-default connections" do
+      # The legacy `find_first_connected/1` fallback was removed once
+      # consumers switched to uuid-based references. A bare provider
+      # call now resolves only against the storage row keyed at
+      # `integration:<provider>:default` — non-default rows are
+      # invisible to bare-provider lookups.
       Integrations.add_connection("openrouter", "secondary")
+      Integrations.save_setup("openrouter:secondary", %{"api_key" => "secondary-key"})
 
-      Integrations.save_setup("openrouter:secondary", %{
-        "api_key" => "secondary-key"
-      })
+      refute Integrations.connected?("openrouter")
 
-      # Bare key should find the connected non-default via find_first_connected
-      assert Integrations.connected?("openrouter")
+      # The non-default row IS reachable, but only via its uuid — that's
+      # the only call shape consumer modules should be using now.
+      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+      assert Integrations.connected?(uuid)
     end
   end
 end

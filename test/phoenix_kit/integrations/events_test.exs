@@ -45,5 +45,11 @@ defmodule PhoenixKit.Integrations.EventsTest do
       :ok = Events.broadcast_connection_removed("google", "personal")
       assert_receive {:integration_connection_removed, "google", "personal"}
     end
+
+    test "subscribe and receive connection_renamed event" do
+      :ok = Events.subscribe()
+      :ok = Events.broadcast_connection_renamed("google", "personal", "work")
+      assert_receive {:integration_connection_renamed, "google", "personal", "work"}
+    end
   end
 end

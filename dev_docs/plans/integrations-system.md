@@ -1,8 +1,54 @@
 # PhoenixKit Integrations System — Implementation Plan
 
 **Created:** 2026-04-01
-**Status:** Phases 1-4 implemented (2026-04-02)
+**Status:** Phases 1-4 implemented (2026-04-02). uuid-everywhere migration landed (2026-04-30) — see Addendum below.
 **Scope:** phoenix_kit (core), phoenix_kit_document_creator, phoenix_kit_ai
+
+---
+
+## Addendum (2026-04-30): uuid-everywhere model
+
+The original plan referenced connections by `provider:name` strings
+(or bare provider keys with a "default" fallback). After the system
+hit its first multi-account use case, the implicit-default behavior
+became a source of confusion: a `default` name meant nothing to
+operators but couldn't be removed or renamed; the resolver guessed
+which row to use when callers passed bare provider keys; consumer
+modules had no stable handle when a connection was renamed.
+
+The follow-up landed a simpler model:
+
+- **Names are pure user-chosen labels.** `"default"` is no longer
+  privileged — it can be renamed or removed like any other name.
+  `cannot_rename_default` / `cannot_remove_default` guards removed.
+- **Consumers reference connections by UUID.** AI endpoints store
+  `integration_uuid` (added in V107 with backfill from legacy
+  `provider` strings). Document creator stores the uuid in its
+  `google_connection` setting (auto-migrates legacy values on first
+  read).
+- **The resolver no longer guesses.** `find_first_connected/1` and
+  the bare-provider→default fallback chain in `get_credentials/1`
+  are deleted. Bare-provider lookups that miss return
+  `:not_configured`; uuid lookups that miss return `:deleted`.
+- **Renames preserve the storage row's uuid.** `rename_connection/4`
+  updates the row's `key` column in place rather than copy+delete.
+  Consumer references survive renames.
+- **Edit URL is uuid-based** (`/admin/settings/integrations/:uuid`).
+  Renaming a connection doesn't change the route.
+
+The "Used by" column on the integrations list page was also dropped
+— it was a static map of "which modules *declare* they use this
+provider" (from `required_integrations/0`), not an actual usage
+graph. Misleading on a freshly-created row that no module had ever
+called.
+
+Test coverage for the new shape lives in:
+- `test/integration/integrations_test.exs` (rename, get_integration_by_uuid, simplified get_credentials)
+- `test/integration/phoenix_kit_web/live/settings/integrations_test.exs` (LV smoke for /new, rename, list page, uuid URL)
+- `test/phoenix_kit/migrations/v107_test.exs` (backfill correctness)
+- `test/phoenix_kit/integrations/events_test.exs` (broadcast_connection_renamed)
+- AI module: `test/phoenix_kit_ai/endpoint_test.exs`, `openrouter_client_test.exs`, `web/endpoint_form_test.exs`
+- document_creator: `test/integration/active_integration_test.exs`
 
 ---
 
