@@ -1211,16 +1211,42 @@
   <%!-- + metadata + Download. Closes via X / Esc / backdrop click.            --%>
   <%= if assigns[:viewer_file] do %>
     <% f = @viewer_file %>
+    <% viewer_idx = Enum.find_index(@uploaded_files, &(&1.file_uuid == f.file_uuid)) %>
+    <% has_prev = is_integer(viewer_idx) and viewer_idx > 0 %>
+    <% has_next = is_integer(viewer_idx) and viewer_idx < length(@uploaded_files) - 1 %>
     <div
       class="modal modal-open"
-      phx-window-keydown="close_viewer"
-      phx-key="escape"
+      phx-window-keydown="viewer_keydown"
       phx-target={@myself}
     >
       <div class="modal-box w-11/12 max-w-7xl p-0 overflow-hidden">
         <div class="flex flex-col lg:flex-row lg:h-[80vh]">
           <%!-- Viewer (image / video / pdf / icon) --%>
-          <div class="flex-[7] flex items-center justify-center bg-base-200 overflow-hidden p-2 min-h-[40vh] lg:min-h-0">
+          <div class="flex-[7] relative flex items-center justify-center bg-base-200 overflow-hidden p-2 min-h-[40vh] lg:min-h-0">
+            <%= if has_prev do %>
+              <button
+                type="button"
+                phx-click="step_viewer"
+                phx-value-dir="prev"
+                phx-target={@myself}
+                class="btn btn-circle btn-ghost absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-base-100/80 hover:bg-base-100 shadow-md"
+                title="Previous (←)"
+              >
+                <.icon name="hero-chevron-left" class="w-5 h-5" />
+              </button>
+            <% end %>
+            <%= if has_next do %>
+              <button
+                type="button"
+                phx-click="step_viewer"
+                phx-value-dir="next"
+                phx-target={@myself}
+                class="btn btn-circle btn-ghost absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-base-100/80 hover:bg-base-100 shadow-md"
+                title="Next (→)"
+              >
+                <.icon name="hero-chevron-right" class="w-5 h-5" />
+              </button>
+            <% end %>
             <%= cond do %>
               <% String.starts_with?(f.mime_type, "image/") -> %>
                 <img

@@ -479,7 +479,7 @@ The `click_file` handler picks one branch in this order:
 
 1. `select_mode` already on (anywhere, any caller) → toggle this file in/out of the selection set, stay in selection mode.
 2. `admin={true}` → `push_navigate` to `/admin/media/:uuid` (the rich admin detail page with delete / restore / edit / regenerate).
-3. `viewer={true}` → open a read-only **modal** in-place showing the clicked file (image / video / PDF / icon) with its metadata and a Download button. Closes via X / Esc / backdrop click. No navigation.
+3. `viewer={true}` → open a read-only **modal** in-place showing the clicked file (image / video / PDF / icon) with its metadata and a Download button. Closes via X / Esc / backdrop click. Prev / Next chevrons (and ← / → keys) step through the current page's `uploaded_files`; arrows hide at boundaries. No navigation.
 4. Default — enter `select_mode` and toggle the clicked file in. Picker behaviour.
 
 So a non-admin caller has two choices:

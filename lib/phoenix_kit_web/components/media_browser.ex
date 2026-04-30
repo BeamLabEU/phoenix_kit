@@ -1009,6 +1009,30 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {:noreply, assign(socket, :viewer_file, nil)}
   end
 
+  # Single keydown router so we can handle multiple keys without stacking
+  # phx-window-keydown directives (only one fires per element).
+  def handle_event("viewer_keydown", %{"key" => "Escape"}, socket) do
+    {:noreply, assign(socket, :viewer_file, nil)}
+  end
+
+  def handle_event("viewer_keydown", %{"key" => "ArrowLeft"}, socket) do
+    {:noreply, step_viewer(socket, :prev)}
+  end
+
+  def handle_event("viewer_keydown", %{"key" => "ArrowRight"}, socket) do
+    {:noreply, step_viewer(socket, :next)}
+  end
+
+  def handle_event("viewer_keydown", _params, socket), do: {:noreply, socket}
+
+  def handle_event("step_viewer", %{"dir" => "prev"}, socket) do
+    {:noreply, step_viewer(socket, :prev)}
+  end
+
+  def handle_event("step_viewer", %{"dir" => "next"}, socket) do
+    {:noreply, step_viewer(socket, :next)}
+  end
+
   def handle_event("toggle_select_folder", %{"folder-uuid" => folder_uuid}, socket) do
     selected = socket.assigns.selected_folders
 
@@ -1339,6 +1363,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # without an extra DB roundtrip.
   defp find_uploaded_file(socket, file_uuid) do
     Enum.find(socket.assigns.uploaded_files, fn f -> f.file_uuid == file_uuid end)
+  end
+
+  # Advance the modal viewer by one step in the current page's file list.
+  # Stops at the boundary (no wrap-around) so the user knows they hit the
+  # edge instead of being silently teleported to the other end.
+  defp step_viewer(socket, direction) do
+    current = socket.assigns.viewer_file
+    list = socket.assigns.uploaded_files
+
+    with %{file_uuid: uuid} <- current,
+         idx when is_integer(idx) <-
+           Enum.find_index(list, fn f -> f.file_uuid == uuid end),
+         next_idx <- if(direction == :prev, do: idx - 1, else: idx + 1),
+         true <- next_idx >= 0 and next_idx < length(list),
+         %{} = next_file <- Enum.at(list, next_idx) do
+      assign(socket, :viewer_file, next_file)
+    else
+      _ -> socket
+    end
   end
 
   defp navigate_to_folder(socket, folder_uuid) when folder_uuid in [nil, ""] do
