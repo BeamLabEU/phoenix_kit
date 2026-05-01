@@ -3,7 +3,7 @@ defmodule PhoenixKitWeb.AuthRouter do
   Legacy authentication router for PhoenixKit.
 
   **DEPRECATED**: This module is kept for backward compatibility.
-  Use `PhoenixKitWeb.Integration.phoenix_kit_routes/0` macro instead.
+  Use `PhoenixKitWeb.phoenix_kit_routes.phoenix_kit_routes/0` macro instead.
 
   This router provides basic forwarding to authentication routes but lacks
   the advanced features and proper pipeline configuration of the Integration module.
