@@ -204,7 +204,7 @@ A corrupted JSONB `provider`/`name` field cannot leak into a new storage key bec
 
 **Consumer pattern (uuid-everywhere):** Modules that depend on an integration store its uuid on their own records (e.g. `phoenix_kit_ai_endpoints.integration_uuid`, `document_creator_settings.google_connection`). Lookups go through `get_integration_by_uuid/1` or `get_credentials/1` (dual-input). The system does **not** silently fall back to "any connected row of this provider" — consumers must specify which integration they want.
 
-**Validation:** `validate_connection/2` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data. Successful validation flips `status` to `"connected"` and stamps `connected_at` (one-shot — first successful connection wins; subsequent successes update only `last_validated_at`).
+**Validation:** `validate_connection/2` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data. Successful validation flips `status` to `"connected"` and rewrites `connected_at` on every successful re-test (matches the OAuth `exchange_code/4` path; the form's "Connected N ago" reading bumps when the operator re-tests after fixing credentials). `last_validated_at` is rewritten unconditionally on every validation attempt, success or failure.
 
 **Events (PubSub):** Topic `"phoenix_kit:integrations"`. Events: `integration_setup_saved`, `integration_connected`, `integration_disconnected`, `integration_validated`, `integration_connection_added`, `integration_connection_removed`, `integration_connection_renamed`.
 

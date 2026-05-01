@@ -206,10 +206,10 @@ defmodule PhoenixKit.Module do
 
   ## Orchestration
 
-  Host apps call `PhoenixKit.Modules.run_all_legacy_migrations/0` from
-  `Application.start/2`; that walks every enabled module and invokes
-  this callback. Per-module errors are caught + logged; the boot
-  doesn't fail.
+  Host apps call `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`
+  from `Application.start/2`; that walks every registered module and
+  invokes this callback. Per-module errors are caught + logged; the
+  boot doesn't fail.
   """
   @callback migrate_legacy() :: :ok | {:ok, map()} | {:error, term()}
 

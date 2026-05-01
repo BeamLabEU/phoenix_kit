@@ -128,6 +128,34 @@ defmodule PhoenixKit.Migrations.Postgres.V107Test do
 
       assert exists == true
     end
+
+    test "the unique name index exists" do
+      %{rows: [[exists]]} =
+        Repo.query!("""
+        SELECT EXISTS (
+          SELECT 1 FROM pg_indexes
+          WHERE indexname = 'phoenix_kit_ai_endpoints_name_index'
+        )
+        """)
+
+      assert exists == true
+    end
+
+    test "duplicate endpoint names are rejected by the new UNIQUE constraint" do
+      _first = insert_endpoint!("Claude Haiku", "openrouter")
+
+      assert_raise Postgrex.Error, ~r/duplicate key value violates/, fn ->
+        insert_endpoint!("Claude Haiku", "openrouter")
+      end
+    end
+
+    test "case-only differences in endpoint names collide (lower(name) index)" do
+      _first = insert_endpoint!("Claude Haiku", "openrouter")
+
+      assert_raise Postgrex.Error, ~r/duplicate key value violates/, fn ->
+        insert_endpoint!("CLAUDE HAIKU", "openrouter")
+      end
+    end
   end
 
   describe "backfill — exact match for `provider:name` shape" do

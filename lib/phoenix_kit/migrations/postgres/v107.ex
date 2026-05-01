@@ -22,8 +22,8 @@ defmodule PhoenixKit.Migrations.Postgres.V107 do
       row `integration:openrouter:my-key`.
     - For `provider = "openrouter"` (bare) → pick the
       most-recently-validated `integration:openrouter:*` row, breaking
-      ties on `inserted_at ASC` (oldest first — stable on identical
-      timestamps).
+      ties on `uuid ASC` (UUIDv7 is time-ordered, so smaller uuid ≈
+      older row → ASC = oldest first when timestamps tie).
     - Endpoints with no matching integration row stay NULL; the user
       re-picks via the endpoint form.
   - Adds a UNIQUE index on `lower(name)` so duplicate endpoint names
