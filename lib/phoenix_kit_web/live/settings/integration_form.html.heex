@@ -7,10 +7,14 @@
   current_locale={@current_locale}
 >
   <div class="container mx-auto px-4 py-6">
+    <%!-- Page header — title only. Provider name + description + status
+         live in the provider info card below; repeating the name as a
+         subtitle here just doubled it visually. The picker step gets
+         a subtitle since there's no provider context yet. --%>
     <.admin_page_header
       back={PhoenixKit.Utils.Routes.path("/admin/settings/integrations")}
       title={@page_title}
-      subtitle={if @provider, do: @provider.name, else: gettext("Choose a service to connect")}
+      subtitle={if @provider == nil, do: gettext("Choose a service to connect")}
     />
 
     <%!-- Flash messages --%>
@@ -55,144 +59,257 @@
         {gettext("Choose a different service")}
       </button>
 
-      <%!-- Provider info header with status --%>
-      <div class="flex items-center gap-3">
-        <span class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg shrink-0">
-          <.icon name={@provider.icon} class="w-5 h-5" />
-        </span>
-        <div class="flex-1">
-          <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold">{@provider.name}</h2>
-            <%!--
-              No badge until the integration has actually been saved (@name set).
-              Showing "Not connected" on a fresh /new flow misleads — nothing has
-              been attempted yet, there's nothing to be disconnected from.
-            --%>
-            <%= cond do %>
-              <% @name == nil -> %>
-              <% @data["status"] == "connected" -> %>
-                <span class="badge badge-success badge-sm gap-1">
-                  <.icon name="hero-check-circle" class="w-3 h-3" />
-                  {gettext("Connected")}
-                </span>
-              <% @data["status"] == "configured" -> %>
-                <span class="badge badge-warning badge-sm">{gettext("Not tested")}</span>
-              <% @data["status"] == "error" -> %>
-                <span class="badge badge-error badge-sm">{gettext("Error")}</span>
-              <% true -> %>
-                <span class="badge badge-ghost badge-sm">{gettext("Not connected")}</span>
-            <% end %>
-          </div>
-          <p class="text-sm text-base-content/60">
-            {@provider.description}
-            <span :if={@data["external_account_id"]} class="ml-1">
-              — {@data["external_account_id"]}
+      <%!-- Provider info header with status + validation context.
+           Compact single-row layout: title + badge + connected-account
+           on one line, then a status footer with error / timestamps
+           inline. Previously the alert-error wrapper was visually
+           huge compared to the small "Error" badge — collapsed to
+           inline red text on the same line as the timestamps so the
+           status info reads as one cohesive block. Provider
+           description was also removed; once you've picked a
+           provider you know what it is. --%>
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body py-4">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg shrink-0">
+              <.icon name={@provider.icon} class="w-5 h-5" />
             </span>
-          </p>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-lg font-semibold">{@provider.name}</h2>
+                <%!--
+                  No badge until the integration has actually been saved
+                  (@name set). Showing "Not connected" on a fresh /new
+                  flow misleads — nothing has been attempted yet, there's
+                  nothing to be disconnected from.
+                --%>
+                <%= cond do %>
+                  <% @name == nil -> %>
+                  <% @data["status"] == "connected" -> %>
+                    <span class="badge badge-success badge-sm gap-1">
+                      <.icon name="hero-check-circle" class="w-3 h-3" />
+                      {gettext("Connected")}
+                    </span>
+                  <% @data["status"] == "configured" -> %>
+                    <span class="badge badge-warning badge-sm">{gettext("Not tested")}</span>
+                  <% @data["status"] == "error" -> %>
+                    <span class="badge badge-error badge-sm">{gettext("Error")}</span>
+                  <% true -> %>
+                    <span class="badge badge-ghost badge-sm">{gettext("Not connected")}</span>
+                <% end %>
+                <span
+                  :if={@data["external_account_id"]}
+                  class="text-sm text-base-content/60 truncate"
+                >
+                  · {@data["external_account_id"]}
+                </span>
+              </div>
+
+              <%!-- Status footer: error message + timestamps on one
+                   line. Only renders when there's something to show
+                   (post-save state with validation context). --%>
+              <div
+                :if={
+                  @name != nil &&
+                    (@data["validation_status"] || @data["last_validated_at"] ||
+                       @data["connected_at"])
+                }
+                class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs items-center"
+              >
+                <span
+                  :if={@data["status"] == "error" && @data["validation_status"]}
+                  class="text-error inline-flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
+                  {@data["validation_status"]}
+                </span>
+                <span
+                  :if={format_relative(@data["last_validated_at"])}
+                  class="text-base-content/50 inline-flex items-center gap-1"
+                >
+                  <.icon name="hero-signal" class="w-3 h-3" />
+                  {gettext("Last tested")} {format_relative(@data["last_validated_at"])}
+                </span>
+                <span
+                  :if={
+                    format_relative(@data["connected_at"]) &&
+                      @data["connected_at"] != @data["last_validated_at"]
+                  }
+                  class="text-base-content/50 inline-flex items-center gap-1"
+                >
+                  <.icon name="hero-link" class="w-3 h-3" />
+                  {gettext("Connected")} {format_relative(@data["connected_at"])}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <% credentials_saved = @name != nil && has_setup_credentials?(@data, @provider) %>
 
-      <%!-- Connection name (edit mode). Always editable — names are pure
-           user-chosen labels with no system semantics. The URL is uuid-
-           based so renaming doesn't change the route; the list page picks
-           up the new name through the `:integration_connection_renamed`
-           broadcast. --%>
-      <div :if={@name != nil} class="card bg-base-100 shadow-sm">
-        <div class="card-body">
-          <h3 class="card-title text-base">{gettext("Connection Name")}</h3>
-          <form phx-submit="rename_connection" class="form-control space-y-2">
-            <input
-              type="text"
-              name="name"
-              value={@name}
-              class="input input-bordered w-full"
-              required
-            />
-            <label class="label">
-              <span class="label-text-alt text-base-content/50">
-                {gettext("Letters, digits, hyphens, and underscores. Must be unique per provider.")}
-              </span>
-            </label>
-            <button type="submit" class="btn btn-primary btn-sm self-start">
-              {gettext("Rename")}
-            </button>
-          </form>
-        </div>
-      </div>
+      <%!-- ONE form, ONE card. Connection Name + provider fields +
+           action buttons all inside the same card body. Backend
+           dispatches via `save_form`:
 
-      <%!-- Step 1: Credentials --%>
-      <div class="card bg-base-100 shadow-sm">
-        <div class="card-body">
-          <div class="flex items-center gap-2">
-            <span class={"badge badge-sm #{if credentials_saved, do: "badge-success", else: "badge-ghost"}"}>
-              {gettext("Step 1")}
-            </span>
-            <h3 class="card-title text-base">
-              {if @provider.auth_type == :oauth2,
-                do: gettext("API Credentials"),
-                else: gettext("Credentials")}
-            </h3>
-          </div>
-          <p :if={@provider.auth_type == :oauth2} class="text-sm text-base-content/60">
-            {gettext("Enter your API credentials from the developer console.")}
-          </p>
+           - `@name == nil` → create_connection (creates row + saves
+              creds in one shot)
+           - `@name` set + posted name differs → rename_connection,
+              then save_setup
+           - name unchanged → just save_setup
 
-          <form
-            phx-submit={if @name, do: "save_setup", else: "create_connection"}
-            class="space-y-4 mt-2"
-          >
-            <%!-- Connection name. Required on every new connection — names
-                 are user-chosen labels with no system meaning, so we always
-                 ask. Letters, digits, hyphens, underscores; must be unique
-                 per provider. --%>
-            <div :if={@name == nil} class="form-control">
-              <label class="label">
+           Test Connection lives next to Save inside the same card
+           (secondary action, `type="button"` so it doesn't trigger
+           submit). OAuth's Connect Account is a separate card below
+           — different action shape (auth flow, not a save). --%>
+      <form phx-submit="save_form" autocomplete="off">
+        <%!-- `py-4` on the card body matches the provider-info card
+             above. Default `card-body` has 32px vertical padding —
+             fine for OAuth (the first child is a "Step 1" header
+             that anchors the top), but visually empty for non-OAuth
+             providers where the first child is a plain field
+             label. Tightening to `py-4` closes the gap between the
+             provider title and the first form input. --%>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body py-4 space-y-4">
+            <%!-- OAuth-only Step 1 header. The two-card OAuth flow
+                 has Step 1 (this card: API credentials) and Step 2
+                 (the separate card below: Connect Account). API key /
+                 bot token providers have no Step 2 — no badge. --%>
+            <div :if={@provider.auth_type == :oauth2} class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class={"badge badge-sm #{if credentials_saved, do: "badge-success", else: "badge-ghost"}"}>
+                  {gettext("Step 1")}
+                </span>
+                <h3 class="card-title text-base">{gettext("API Credentials")}</h3>
+              </div>
+              <p class="text-sm text-base-content/60">
+                {gettext("Enter your API credentials from the developer console.")}
+              </p>
+            </div>
+
+            <%!-- Connection name — always present, editable in both
+                 modes. New mode: empty placeholder; edit mode:
+                 current name pre-filled. Backend's `save_form`
+                 detects rename via params["name"] vs @name. --%>
+            <div class="form-control">
+              <label class="label" for="field-name">
                 <span class="label-text">{gettext("Connection Name")}</span>
               </label>
               <input
                 type="text"
+                id="field-name"
                 name="name"
-                value={@new_name}
+                value={@name || @new_name}
                 class="input input-bordered w-full"
                 placeholder={gettext("e.g. main, personal, work")}
                 required
               />
               <label class="label">
                 <span class="label-text-alt text-base-content/50">
-                  {gettext("Letters, digits, hyphens, and underscores. Must be unique per provider.")}
+                  {gettext(
+                    "Letters, digits, hyphens, and underscores. Must be unique per provider."
+                  )}
                 </span>
               </label>
             </div>
 
-            <%!-- Provider-specific fields --%>
+            <%!-- Provider-specific fields. Even credential-shaped
+                 fields render as `type="text"` — they're API keys /
+                 OAuth secrets / bot tokens, not site logins.
+                 `type="password"` would trigger every browser's
+                 password-save heuristic (Firefox ignores
+                 `autocomplete="off"` on password fields by Mozilla
+                 policy) and offer to vault these as if they were
+                 user credentials. The `type="text"` choice avoids
+                 that whole class of UX noise; if shoulder-surfing
+                 ever becomes a concern in practice we can revisit
+                 with CSS-based masking. --%>
             <div :for={field <- @provider.setup_fields} class="form-control">
-              <label class="label">
+              <label class="label" for={"field-#{field.key}"}>
                 <span class="label-text">
                   {field.label}
                   <span :if={field.required} class="text-error">*</span>
                 </span>
               </label>
+              <%!-- Value resolution order:
+                   1. `@form_values` — user-typed values captured
+                      during a dry-run test (`/new` flow). Without
+                      this, a failed test would re-render with empty
+                      inputs and look like the form ate the user's
+                      input.
+                   2. `@data` — the saved credential, edit mode.
+                   3. `""` — fresh /new, untouched. --%>
               <input
-                type={if field.type == :password, do: "password", else: "text"}
+                type="text"
                 name={field.key}
-                value={@data[field.key] || ""}
+                id={"field-#{field.key}"}
+                value={Map.get(@form_values, field.key) || @data[field.key] || ""}
                 class="input input-bordered w-full"
                 placeholder={field.placeholder || ""}
                 required={field.required}
+                autocomplete="off"
               />
               <label :if={field.help} class="label">
                 <span class="label-text-alt text-base-content/50">{field.help}</span>
               </label>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-sm">
-              {gettext("Save Credentials")}
-            </button>
-          </form>
+            <%!-- Action row at the bottom of the same card body.
+                 Both buttons submit the SAME form (`save_form`),
+                 which always saves the inputted values then
+                 auto-tests via `maybe_auto_test/2`. That means
+                 "Test Connection" verifies what's currently in the
+                 fields, not whatever was saved last time — typing a
+                 new api_key and clicking Test exercises the new
+                 key, not the stale one.
+
+                 For password fields the user didn't touch, the
+                 input is empty in the DOM; `extract_setup_attrs/2`
+                 strips empties so the existing saved credential is
+                 preserved across the no-op save, and the auto-test
+                 re-verifies it. --%>
+            <div class="flex flex-wrap gap-2 items-center pt-2">
+              <button type="submit" class="btn btn-primary">
+                {if @name, do: gettext("Save Changes"), else: gettext("Create Connection")}
+              </button>
+
+              <%!-- Test Connection — non-OAuth providers only. Two
+                   modes:
+                   - Saved row (`@name != nil`): submits the form
+                     so the inputted values get saved + auto-tested
+                     via `apply_save_outcome/2` (see backend).
+                   - /new flow (`@name == nil`): submits with
+                     `_intent="test"` which `save_form` routes to
+                     `test_credentials_dry_run/2` — probes the
+                     provider with the in-memory values, no
+                     persistence. Lets the operator verify the key
+                     works before committing to a connection row.
+
+                   `formnovalidate` bypasses HTML5 required-field
+                   validation when this specific button submits.
+                   The Connection Name input is `required` (the
+                   form needs it for `Save Changes` / `Create
+                   Connection`), but a Test doesn't need a name —
+                   the operator's intent is "does this api_key
+                   work?", and forcing them to invent a name first
+                   is needless friction. --%>
+              <button
+                :if={@provider.auth_type != :oauth2}
+                type="submit"
+                name="_intent"
+                value="test"
+                formnovalidate
+                class={"btn btn-outline #{if @testing, do: "loading"}"}
+                disabled={@testing}
+              >
+                <.icon :if={!@testing} name="hero-signal" class="w-4 h-4" />
+                {if @testing, do: gettext("Testing..."), else: gettext("Test Connection")}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </form>
 
       <%!-- Step 2: Connect Account (OAuth providers only) --%>
       <div :if={@provider.auth_type == :oauth2 && @name != nil} class="card bg-base-100 shadow-sm">
@@ -235,17 +352,6 @@
                 </span>
               </div>
             </div>
-            <div class="flex gap-2 mt-3">
-              <button
-                type="button"
-                phx-click="disconnect_account"
-                class="btn btn-outline btn-error btn-sm"
-                data-confirm={gettext("Are you sure you want to disconnect this account?")}
-              >
-                <.icon name="hero-link-slash" class="w-4 h-4" />
-                {gettext("Disconnect Account")}
-              </button>
-            </div>
           <% else %>
             <p class="text-sm text-base-content/60 mt-1">
               {gettext(
@@ -272,43 +378,24 @@
         </div>
       </div>
 
-      <%!-- Test Connection (non-OAuth providers) --%>
-      <div
-        :if={
-          @provider.auth_type != :oauth2 && @name != nil &&
-            @data["status"] in ["configured", "connected", "error"]
-        }
-        class="card bg-base-100 shadow-sm"
+      <%!-- Setup instructions (from provider definition).
+           In edit mode the operator has already done this once —
+           collapse by default to save vertical space. In /new mode
+           keep it open so the operator following the steps doesn't
+           have to expand it first. --%>
+      <details
+        :if={Map.get(@provider, :instructions, []) != []}
+        class="card bg-base-200/50"
+        open={@name == nil}
       >
-        <div class="card-body">
-          <div class="flex items-center gap-2">
-            <span class={"badge badge-sm #{if @data["status"] == "connected", do: "badge-success", else: "badge-ghost"}"}>
-              {gettext("Step 2")}
-            </span>
-            <h3 class="card-title text-base">{gettext("Verify Connection")}</h3>
-          </div>
-          <p class="text-sm text-base-content/60 mt-1">
-            {gettext("Test that your credentials are valid and the service is reachable.")}
-          </p>
-          <button
-            type="button"
-            phx-click="test_connection"
-            class={"btn btn-primary btn-sm mt-3 #{if @testing, do: "loading"}"}
-            disabled={@testing}
-          >
-            <.icon :if={!@testing} name="hero-signal" class="w-4 h-4" />
-            {if @testing, do: gettext("Testing..."), else: gettext("Test Connection")}
-          </button>
-        </div>
-      </div>
-
-      <%!-- Setup instructions (from provider definition) --%>
-      <div :if={Map.get(@provider, :instructions, []) != []} class="card bg-base-200/50">
-        <div class="card-body text-sm text-base-content/70 space-y-4">
+        <summary class="card-body cursor-pointer flex-row items-center gap-2 select-none">
+          <.icon name="hero-book-open" class="w-4 h-4" />
           <h3 class="font-semibold text-base-content text-base">
             {gettext("Setup Instructions")}
           </h3>
-
+          <.icon name="hero-chevron-down" class="w-4 h-4 ml-auto text-base-content/40" />
+        </summary>
+        <div class="card-body pt-0 text-sm text-base-content/70 space-y-4">
           <div :for={{section, idx} <- Enum.with_index(Map.get(@provider, :instructions, []))}>
             <h4 class="font-semibold text-base-content">
               {idx + 1}. {section.title}
@@ -334,7 +421,80 @@
             </ol>
           </div>
         </div>
-      </div>
+      </details>
+
+      <%!-- Danger Zone (edit mode only). Consolidates destructive
+           actions so the operator doesn't have to navigate back to
+           the list to disconnect / remove. Disconnect is OAuth-only
+           (clears tokens but preserves client_id/secret + the row);
+           Delete removes the integration row entirely.
+
+           Both confirm via `data-confirm` browser dialog before
+           firing. The Delete handler push_navigates back to the
+           list on success. --%>
+      <details :if={@name != nil} class="card bg-base-100 border-2 border-error/30">
+        <summary class="card-body py-3 cursor-pointer flex-row items-center gap-2 select-none">
+          <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-error" />
+          <h3 class="font-semibold text-error text-base">
+            {gettext("Danger Zone")}
+          </h3>
+          <.icon name="hero-chevron-down" class="w-4 h-4 ml-auto text-base-content/40" />
+        </summary>
+
+        <div class="card-body pt-0 space-y-4">
+          <%!-- Disconnect: OAuth providers only. Clears the access /
+               refresh tokens so the next request requires a fresh
+               OAuth dance. The credentials (client_id/secret) and
+               the integration row stay so re-connecting is one
+               click. --%>
+          <div
+            :if={@provider.auth_type == :oauth2 && @data["status"] == "connected"}
+            class="flex items-center justify-between gap-4"
+          >
+            <div>
+              <p class="font-medium text-sm">{gettext("Disconnect account")}</p>
+              <p class="text-xs text-base-content/60">
+                {gettext(
+                  "Clears the OAuth tokens. Credentials and the connection itself stay so you can reconnect with one click."
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click="disconnect_account"
+              class="btn btn-outline btn-warning btn-sm shrink-0"
+              data-confirm={gettext("Are you sure you want to disconnect this account?")}
+            >
+              <.icon name="hero-link-slash" class="w-4 h-4" />
+              {gettext("Disconnect")}
+            </button>
+          </div>
+
+          <%!-- Delete: removes the integration row. Any module that
+               referenced its uuid will surface :not_configured on
+               next use — the loud failure is correct (the credentials
+               are actually gone). --%>
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="font-medium text-sm">{gettext("Delete this connection")}</p>
+              <p class="text-xs text-base-content/60">
+                {gettext(
+                  "Removes the integration permanently. Any module pinned to this connection will stop working until repointed."
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click="delete_connection"
+              class="btn btn-outline btn-error btn-sm shrink-0"
+              data-confirm={gettext("Permanently delete this connection? This cannot be undone.")}
+            >
+              <.icon name="hero-trash" class="w-4 h-4" />
+              {gettext("Delete")}
+            </button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -5,13 +5,43 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Settings
 
+  # Helper: create a connection and (optionally) save credentials in
+  # one shot, returning the row's uuid. Mirrors the
+  # `add_connection/3` → `save_setup/3` flow that admin form code
+  # uses, condensed for tests.
+  defp setup_conn(provider, name_or_attrs \\ "default", maybe_attrs \\ %{})
+
+  defp setup_conn(provider, attrs, _) when is_map(attrs),
+    do: setup_conn(provider, "default", attrs)
+
+  defp setup_conn(provider, name, attrs) when is_binary(name) and is_map(attrs) do
+    uuid =
+      case Integrations.add_connection(provider, name) do
+        {:ok, %{uuid: uuid}} ->
+          uuid
+
+        {:error, :already_exists} ->
+          [%{uuid: uuid}] =
+            Integrations.list_connections(provider) |> Enum.filter(&(&1.name == name))
+
+          uuid
+      end
+
+    if map_size(attrs) > 0 do
+      {:ok, _} = Integrations.save_setup(uuid, attrs)
+    end
+
+    uuid
+  end
+
   # ===========================================================================
   # save_setup + get_credentials round-trip
   # ===========================================================================
 
-  describe "save_setup/2 and get_credentials/1 for API key provider" do
+  describe "save_setup/3 and get_credentials/1 for API key provider" do
     test "saves and retrieves an API key" do
-      {:ok, data} = Integrations.save_setup("openrouter", %{"api_key" => "sk-or-test-key"})
+      uuid = setup_conn("openrouter")
+      {:ok, data} = Integrations.save_setup(uuid, %{"api_key" => "sk-or-test-key"})
       assert data["provider"] == "openrouter"
       assert data["auth_type"] == "api_key"
       assert data["api_key"] == "sk-or-test-key"
@@ -21,13 +51,13 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       # `record_validation/2` flips the status to `"connected"`.
       assert data["status"] == "configured"
 
-      {:ok, creds} = Integrations.get_credentials("openrouter")
+      {:ok, creds} = Integrations.get_credentials(uuid)
       assert creds["api_key"] == "sk-or-test-key"
     end
 
     test "connected? returns true after saving API key" do
-      Integrations.save_setup("openrouter", %{"api_key" => "sk-or-test-key"})
-      assert Integrations.connected?("openrouter")
+      uuid = setup_conn("openrouter", %{"api_key" => "sk-or-test-key"})
+      assert Integrations.connected?(uuid)
     end
 
     test "connected? returns false when no data exists" do
@@ -35,18 +65,25 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "merges with existing data on subsequent save" do
-      Integrations.save_setup("openrouter", %{"api_key" => "key-1"})
-      Integrations.save_setup("openrouter", %{"api_key" => "key-2"})
+      uuid = setup_conn("openrouter", %{"api_key" => "key-1"})
+      Integrations.save_setup(uuid, %{"api_key" => "key-2"})
 
-      {:ok, creds} = Integrations.get_credentials("openrouter")
+      {:ok, creds} = Integrations.get_credentials(uuid)
       assert creds["api_key"] == "key-2"
+    end
+
+    test "returns :not_configured when uuid doesn't resolve" do
+      ghost_uuid = "00000000-0000-7000-8000-000000000000"
+      assert {:error, :not_configured} = Integrations.save_setup(ghost_uuid, %{"x" => "y"})
     end
   end
 
-  describe "save_setup/2 for OAuth provider" do
+  describe "save_setup/3 for OAuth provider" do
     test "saves client credentials with disconnected status" do
+      uuid = setup_conn("google")
+
       {:ok, data} =
-        Integrations.save_setup("google", %{
+        Integrations.save_setup(uuid, %{
           "client_id" => "test-client.apps.googleusercontent.com",
           "client_secret" => "GOCSPX-test"
         })
@@ -59,12 +96,13 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "OAuth provider not connected until tokens present" do
-      Integrations.save_setup("google", %{
-        "client_id" => "test-client",
-        "client_secret" => "test-secret"
-      })
+      uuid =
+        setup_conn("google", %{
+          "client_id" => "test-client",
+          "client_secret" => "test-secret"
+        })
 
-      refute Integrations.connected?("google")
+      refute Integrations.connected?(uuid)
     end
   end
 
@@ -74,7 +112,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "get_integration/1" do
     test "returns full data blob" do
-      Integrations.save_setup("openrouter", %{"api_key" => "test-key"})
+      setup_conn("openrouter", %{"api_key" => "test-key"})
 
       {:ok, data} = Integrations.get_integration("openrouter")
       assert data["provider"] == "openrouter"
@@ -94,9 +132,11 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # disconnect
   # ===========================================================================
 
-  describe "disconnect/1 for OAuth provider" do
+  describe "disconnect/2 for OAuth provider" do
     test "removes tokens but keeps client credentials" do
-      # Simulate a connected OAuth provider
+      # Simulate a connected OAuth provider — seed the row directly so
+      # the test can prove that disconnect surgically removes only the
+      # token fields and not the persisted client credentials.
       Settings.update_json_setting_with_module(
         Integrations.settings_key("google"),
         %{
@@ -112,9 +152,10 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
         "integrations"
       )
 
-      assert Integrations.connected?("google")
+      [%{uuid: uuid}] = Integrations.list_connections("google")
+      assert Integrations.connected?(uuid)
 
-      :ok = Integrations.disconnect("google")
+      :ok = Integrations.disconnect(uuid)
 
       {:ok, data} = Integrations.get_integration("google")
       assert data["client_id"] == "my-client-id"
@@ -126,12 +167,12 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
   end
 
-  describe "disconnect/1 for API key provider" do
+  describe "disconnect/2 for API key provider" do
     test "removes everything except provider and auth_type" do
-      Integrations.save_setup("openrouter", %{"api_key" => "sk-or-key"})
-      assert Integrations.connected?("openrouter")
+      uuid = setup_conn("openrouter", %{"api_key" => "sk-or-key"})
+      assert Integrations.connected?(uuid)
 
-      :ok = Integrations.disconnect("openrouter")
+      :ok = Integrations.disconnect(uuid)
 
       {:ok, data} = Integrations.get_integration("openrouter")
       assert data["provider"] == "openrouter"
@@ -141,7 +182,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
   end
 
-  describe "disconnect/1 for key_secret provider" do
+  describe "disconnect/2 for key_secret provider" do
     test "removes credentials like other non-OAuth types" do
       Settings.update_json_setting_with_module(
         Integrations.settings_key("aws"),
@@ -156,7 +197,8 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
         "integrations"
       )
 
-      :ok = Integrations.disconnect("aws")
+      [%{uuid: uuid}] = Integrations.list_connections("aws")
+      :ok = Integrations.disconnect(uuid)
 
       {:ok, data} = Integrations.get_integration("aws")
       assert data["provider"] == "aws"
@@ -168,18 +210,16 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
   end
 
-  describe "disconnect/1 for nonexistent provider" do
+  describe "disconnect/2 for nonexistent uuid" do
     test "returns ok" do
-      assert :ok = Integrations.disconnect("nonexistent")
+      ghost = "00000000-0000-7000-8000-000000000000"
+      assert :ok = Integrations.disconnect(ghost)
     end
   end
 
   describe "get_integration_by_uuid/1" do
     test "returns normalized %{uuid, provider, name, data} on success" do
-      Integrations.add_connection("openrouter", "primary")
-      Integrations.save_setup("openrouter:primary", %{"api_key" => "key"})
-
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+      uuid = setup_conn("openrouter", "primary", %{"api_key" => "key"})
 
       assert {:ok, result} = Integrations.get_integration_by_uuid(uuid)
       assert result.uuid == uuid
@@ -199,25 +239,29 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       assert {:error, :invalid_uuid} = Integrations.get_integration_by_uuid(:atom)
     end
 
-    test "rejects rows missing the `provider` field with :not_configured" do
-      # Pre-naming legacy rows (storage shape from before V107) lack
-      # the `"provider"` JSONB key. The helper refuses to return them
-      # rather than crashing the LV mount.
-      legacy_data = %{"api_key" => "key", "name" => "default"}
-
+    test "sources provider+name from the storage key, ignoring JSONB body drift" do
+      # Defensive: the JSONB `provider`/`name` fields are duplicates of
+      # information already encoded in the row's `key` column. If the
+      # JSONB body has drifted (corrupted by a previous bug, partial
+      # restore, etc.), `get_integration_by_uuid/1` must still return
+      # the canonical provider+name parsed from `key` so the form LV
+      # can recover.
       Settings.update_json_setting_with_module(
         Integrations.settings_key("openrouter"),
-        legacy_data,
+        %{
+          "api_key" => "key",
+          # Drift: JSONB claims provider/name that disagree with the row's key
+          "provider" => "openrouter:default",
+          "name" => "default:default"
+        },
         "integrations"
       )
 
       [%{uuid: uuid}] = Integrations.list_connections("openrouter")
 
-      # Confirm the underlying row exists but lacks `provider`
-      {:ok, raw} = Integrations.get_integration(uuid)
-      refute Map.has_key?(raw, "provider")
-
-      assert {:error, :not_configured} = Integrations.get_integration_by_uuid(uuid)
+      assert {:ok, result} = Integrations.get_integration_by_uuid(uuid)
+      assert result.provider == "openrouter"
+      assert result.name == "default"
     end
   end
 
@@ -333,7 +377,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "returns configured integrations" do
-      Integrations.save_setup("openrouter", %{"api_key" => "key-1"})
+      setup_conn("openrouter", %{"api_key" => "key-1"})
 
       integrations = Integrations.list_integrations()
       assert length(integrations) == 1
@@ -345,12 +389,16 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # Multi-connection support
   # ===========================================================================
 
-  describe "add_connection/2" do
-    test "creates a new named connection" do
-      {:ok, data} = Integrations.add_connection("google", "personal")
+  describe "add_connection/3" do
+    test "creates a new named connection and returns the row's uuid + data" do
+      {:ok, %{uuid: uuid, data: data}} = Integrations.add_connection("google", "personal")
+      assert is_binary(uuid)
       assert data["provider"] == "google"
       assert data["name"] == "personal"
       assert data["status"] == "disconnected"
+
+      # The returned uuid must resolve back to the same row.
+      assert {:ok, %{uuid: ^uuid, name: "personal"}} = Integrations.get_integration_by_uuid(uuid)
     end
 
     test "rejects empty name" do
@@ -366,7 +414,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "accepts name with hyphens and underscores" do
-      {:ok, data} = Integrations.add_connection("google", "my-company_drive")
+      {:ok, %{data: data}} = Integrations.add_connection("google", "my-company_drive")
       assert data["name"] == "my-company_drive"
     end
 
@@ -377,9 +425,10 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   end
 
   describe "remove_connection/2" do
-    test "removes a named connection" do
-      Integrations.add_connection("google", "temp")
-      assert :ok = Integrations.remove_connection("google", "temp")
+    test "removes a connection by uuid" do
+      uuid = setup_conn("google", "temp")
+      assert :ok = Integrations.remove_connection(uuid)
+      assert Integrations.list_connections("google") == []
     end
 
     test "removes the default-named connection like any other" do
@@ -387,105 +436,96 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       # `"default"` is no more privileged than any other string. The
       # cannot_remove_default guard was removed when consumer modules
       # switched to uuid-based references.
-      {:ok, _} = Integrations.add_connection("google", "default")
-      assert :ok = Integrations.remove_connection("google", "default")
+      uuid = setup_conn("google", "default")
+      assert :ok = Integrations.remove_connection(uuid)
       assert Integrations.list_connections("google") == []
     end
 
-    test "returns ok for nonexistent connection" do
-      assert :ok = Integrations.remove_connection("google", "nonexistent")
+    test "returns ok for nonexistent uuid" do
+      ghost = "00000000-0000-7000-8000-000000000000"
+      assert :ok = Integrations.remove_connection(ghost)
     end
   end
 
-  describe "rename_connection/4" do
-    test "renames a connection: copies row to new key, deletes old" do
-      Integrations.add_connection("google", "personal")
-      Integrations.save_setup("google:personal", %{"client_id" => "cid"})
+  describe "rename_connection/3" do
+    test "renames a connection: updates row's key column in place, preserves uuid" do
+      uuid = setup_conn("google", "personal", %{"client_id" => "cid"})
 
-      assert {:ok, data} = Integrations.rename_connection("google", "personal", "work")
+      assert {:ok, data} = Integrations.rename_connection(uuid, "work")
 
       assert data["name"] == "work"
-      # Old key gone
+      # uuid is stable across rename — the whole point of uuid-strict API.
+      assert {:ok, %{name: "work"}} = Integrations.get_integration_by_uuid(uuid)
       assert {:error, :not_configured} = Integrations.get_integration("google:personal")
-      # New key has the body
       assert {:ok, %{"client_id" => "cid"}} = Integrations.get_integration("google:work")
     end
 
-    test "no-ops when old_name == new_name" do
-      Integrations.add_connection("google", "personal")
-      Integrations.save_setup("google:personal", %{"client_id" => "cid"})
+    test "no-ops when new_name matches current name" do
+      uuid = setup_conn("google", "personal", %{"client_id" => "cid"})
 
-      assert {:ok, data} = Integrations.rename_connection("google", "personal", "personal")
+      assert {:ok, data} = Integrations.rename_connection(uuid, "personal")
       assert data["name"] == "personal"
       assert data["client_id"] == "cid"
     end
 
     test "rejects empty name" do
-      Integrations.add_connection("google", "personal")
-      assert {:error, :empty_name} = Integrations.rename_connection("google", "personal", "")
-      assert {:error, :empty_name} = Integrations.rename_connection("google", "personal", "   ")
+      uuid = setup_conn("google", "personal")
+      assert {:error, :empty_name} = Integrations.rename_connection(uuid, "")
+      assert {:error, :empty_name} = Integrations.rename_connection(uuid, "   ")
     end
 
     test "rejects names that violate the connection-name pattern" do
-      Integrations.add_connection("google", "personal")
+      uuid = setup_conn("google", "personal")
       # Spaces, slashes, leading punctuation — all rejected
-      assert {:error, :invalid_name} =
-               Integrations.rename_connection("google", "personal", "my work")
-
-      assert {:error, :invalid_name} =
-               Integrations.rename_connection("google", "personal", "-leading-dash")
-
-      assert {:error, :invalid_name} =
-               Integrations.rename_connection("google", "personal", "with/slash")
+      assert {:error, :invalid_name} = Integrations.rename_connection(uuid, "my work")
+      assert {:error, :invalid_name} = Integrations.rename_connection(uuid, "-leading-dash")
+      assert {:error, :invalid_name} = Integrations.rename_connection(uuid, "with/slash")
     end
 
     test "rejects renaming to a name that already exists for the provider" do
-      Integrations.add_connection("google", "personal")
-      Integrations.add_connection("google", "work")
+      uuid = setup_conn("google", "personal")
+      setup_conn("google", "work")
 
-      assert {:error, :already_exists} =
-               Integrations.rename_connection("google", "personal", "work")
+      assert {:error, :already_exists} = Integrations.rename_connection(uuid, "work")
 
       # Both rows still present
       assert length(Integrations.list_connections("google")) == 2
     end
 
     test "default-named connection can now be renamed (no privileged name)" do
-      Integrations.add_connection("google", "default")
-      Integrations.save_setup("google:default", %{"client_id" => "cid"})
+      uuid = setup_conn("google", "default", %{"client_id" => "cid"})
 
-      assert {:ok, _} = Integrations.rename_connection("google", "default", "primary")
+      assert {:ok, _} = Integrations.rename_connection(uuid, "primary")
       assert {:error, :not_configured} = Integrations.get_integration("google:default")
       assert {:ok, _} = Integrations.get_integration("google:primary")
     end
 
-    test "returns :not_found when source connection doesn't exist" do
-      assert {:error, :not_configured} =
-               Integrations.rename_connection("google", "ghost", "phantom")
+    test "returns :not_configured when uuid doesn't resolve" do
+      ghost = "00000000-0000-7000-8000-000000000000"
+      assert {:error, :not_configured} = Integrations.rename_connection(ghost, "anything")
     end
 
     test "trims whitespace from new_name" do
-      Integrations.add_connection("google", "personal")
-      assert {:ok, data} = Integrations.rename_connection("google", "personal", "  work  ")
+      uuid = setup_conn("google", "personal")
+      assert {:ok, data} = Integrations.rename_connection(uuid, "  work  ")
       assert data["name"] == "work"
     end
 
     test "broadcasts :integration_connection_renamed on success" do
-      Integrations.add_connection("google", "personal")
+      uuid = setup_conn("google", "personal")
       :ok = Events.subscribe()
 
-      {:ok, _} = Integrations.rename_connection("google", "personal", "work")
+      {:ok, _} = Integrations.rename_connection(uuid, "work")
 
       assert_receive {:integration_connection_renamed, "google", "personal", "work"}
     end
 
     test "does not broadcast on failure" do
-      Integrations.add_connection("google", "personal")
-      Integrations.add_connection("google", "work")
+      uuid = setup_conn("google", "personal")
+      setup_conn("google", "work")
       :ok = Events.subscribe()
 
-      assert {:error, :already_exists} =
-               Integrations.rename_connection("google", "personal", "work")
+      assert {:error, :already_exists} = Integrations.rename_connection(uuid, "work")
 
       refute_receive {:integration_connection_renamed, _, _, _}, 50
     end
@@ -497,7 +537,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "returns connections with uuid, name, and data" do
-      Integrations.save_setup("openrouter", %{"api_key" => "test-key"})
+      setup_conn("openrouter", %{"api_key" => "test-key"})
 
       connections = Integrations.list_connections("openrouter")
       assert length(connections) == 1
@@ -508,9 +548,9 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
 
     test "returns multiple connections sorted with default first" do
-      Integrations.add_connection("google", "personal")
-      Integrations.add_connection("google", "work")
-      Integrations.save_setup("google", %{"client_id" => "default-id"})
+      setup_conn("google", "default", %{"client_id" => "default-id"})
+      setup_conn("google", "personal")
+      setup_conn("google", "work")
 
       connections = Integrations.list_connections("google")
       names = Enum.map(connections, & &1.name)
@@ -526,9 +566,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "get_credentials/1 with UUID" do
     test "returns credentials when looking up by UUID" do
-      Integrations.save_setup("openrouter", %{"api_key" => "uuid-test-key"})
-
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+      uuid = setup_conn("openrouter", %{"api_key" => "uuid-test-key"})
 
       assert {:ok, data} = Integrations.get_credentials(uuid)
       assert data["api_key"] == "uuid-test-key"
@@ -554,8 +592,7 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "connected?/1 with UUID" do
     test "returns true for connected UUID" do
-      Integrations.save_setup("openrouter", %{"api_key" => "valid-key"})
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
+      uuid = setup_conn("openrouter", %{"api_key" => "valid-key"})
       assert Integrations.connected?(uuid)
     end
 
@@ -569,29 +606,32 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # authorization_url
   # ===========================================================================
 
-  describe "authorization_url/3" do
+  describe "authorization_url/4" do
     test "builds URL when client_id is saved" do
-      Integrations.save_setup("google", %{
-        "client_id" => "test-client-id",
-        "client_secret" => "test-secret"
-      })
+      uuid =
+        setup_conn("google", %{
+          "client_id" => "test-client-id",
+          "client_secret" => "test-secret"
+        })
 
-      {:ok, url} = Integrations.authorization_url("google", "http://localhost:4000/callback")
+      {:ok, url} = Integrations.authorization_url(uuid, "http://localhost:4000/callback")
       assert url =~ "accounts.google.com"
       assert url =~ "client_id=test-client-id"
       assert url =~ "response_type=code"
     end
 
     test "returns error when client_id not saved" do
-      Integrations.save_setup("google", %{"client_secret" => "only-secret"})
+      uuid = setup_conn("google", %{"client_secret" => "only-secret"})
 
       assert {:error, :client_id_not_configured} =
-               Integrations.authorization_url("google", "http://localhost/cb")
+               Integrations.authorization_url(uuid, "http://localhost/cb")
     end
 
-    test "returns error for unknown provider" do
-      assert {:error, :unknown_provider} =
-               Integrations.authorization_url("nonexistent", "http://localhost/cb")
+    test "returns error for nonexistent uuid" do
+      ghost = "00000000-0000-7000-8000-000000000000"
+
+      assert {:error, :not_configured} =
+               Integrations.authorization_url(ghost, "http://localhost/cb")
     end
   end
 
@@ -614,23 +654,17 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "find_uuid_by_provider_name/1" do
     test "resolves an exact provider:name pair to the row's uuid" do
-      :ok = Integrations.add_connection("openrouter", "primary") |> elem(0)
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
-
+      uuid = setup_conn("openrouter", "primary")
       assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name("openrouter:primary")
     end
 
     test "accepts a tuple form" do
-      :ok = Integrations.add_connection("openrouter", "tuple-form") |> elem(0)
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
-
+      uuid = setup_conn("openrouter", "tuple-form")
       assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name({"openrouter", "tuple-form"})
     end
 
     test "treats bare provider as `provider:default`" do
-      :ok = Integrations.add_connection("openrouter", "default") |> elem(0)
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
-
+      uuid = setup_conn("openrouter", "default")
       assert {:ok, ^uuid} = Integrations.find_uuid_by_provider_name("openrouter")
     end
 
@@ -669,18 +703,21 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "connected_at tracking" do
     test "save_setup with API key leaves connected_at nil (configured, not validated)" do
-      # `connected_at` represents the moment the integration first proved
-      # it could connect — not the moment credentials were saved. The
+      # `connected_at` only stamps on a successful validation — the
       # honest post-save state is "configured" (credentials present,
-      # connection unverified), which doesn't stamp connected_at.
-      {:ok, data} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
+      # connection unverified). No timestamp until a real test
+      # succeeds.
+      uuid = setup_conn("openrouter")
+      {:ok, data} = Integrations.save_setup(uuid, %{"api_key" => "key"})
       assert data["status"] == "configured"
       assert data["connected_at"] == nil
     end
 
     test "does not set connected_at for OAuth setup (no tokens yet)" do
+      uuid = setup_conn("google")
+
       {:ok, data} =
-        Integrations.save_setup("google", %{
+        Integrations.save_setup(uuid, %{
           "client_id" => "id",
           "client_secret" => "secret"
         })
@@ -688,52 +725,79 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       assert data["connected_at"] == nil
     end
 
-    test "record_validation(:ok) stamps connected_at on first successful validation" do
+    test "record_validation(:ok) stamps connected_at on a successful validation" do
       # Save credentials → "configured", no connected_at.
-      {:ok, saved} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
+      uuid = setup_conn("openrouter", %{"api_key" => "key"})
+      {:ok, saved} = Integrations.get_integration(uuid)
       assert saved["connected_at"] == nil
 
       # Successful validation flips status to "connected" AND stamps
-      # connected_at as a side effect — the equivalent of the OAuth
-      # exchange_code/4 path's behaviour for non-OAuth auth types.
-      :ok = Integrations.record_validation("openrouter", :ok)
+      # connected_at — same shape as the OAuth `exchange_code/4`
+      # path stamps the field on a successful token exchange.
+      :ok = Integrations.record_validation(uuid, :ok)
 
-      {:ok, data} = Integrations.get_integration("openrouter")
+      {:ok, data} = Integrations.get_integration(uuid)
       assert data["status"] == "connected"
       assert is_binary(data["connected_at"])
       assert data["last_validated_at"] != nil
     end
 
-    test "record_validation(:ok) does NOT overwrite an existing connected_at" do
-      # `connected_at` is a one-shot stamp — first successful connection.
-      # Subsequent successful validations update `last_validated_at` but
-      # leave `connected_at` untouched.
-      {:ok, _} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
-      :ok = Integrations.record_validation("openrouter", :ok)
+    test "record_validation(:ok) advances connected_at on every successful re-validation" do
+      # `connected_at` tracks the LAST successful connection — the
+      # form's "Connected N ago" reads from it, so users expect it
+      # to refresh on every successful re-test. (A previous
+      # one-shot semantic left the timestamp stuck on first-ever
+      # connection, which read as "didn't update even though it
+      # connected" after a fresh `:ok`.) Matches the OAuth
+      # `exchange_code/4` path which always overwrites the field
+      # on a successful token exchange.
+      uuid = setup_conn("openrouter", %{"api_key" => "key"})
+      :ok = Integrations.record_validation(uuid, :ok)
 
-      {:ok, after_first} = Integrations.get_integration("openrouter")
+      {:ok, after_first} = Integrations.get_integration(uuid)
       first_connected_at = after_first["connected_at"]
+      assert is_binary(first_connected_at)
 
-      # Force `:last_validated_at` to differ so record_validation actually
-      # writes (the early-return guard skips updates that are no-ops).
+      # An :error in between is a real state transition; the next
+      # :ok represents a fresh successful connection and should
+      # bump connected_at.
       Process.sleep(20)
-      :ok = Integrations.record_validation("openrouter", {:error, :timeout})
-      :ok = Integrations.record_validation("openrouter", :ok)
+      :ok = Integrations.record_validation(uuid, {:error, :timeout})
+      :ok = Integrations.record_validation(uuid, :ok)
 
-      {:ok, after_second} = Integrations.get_integration("openrouter")
-      assert after_second["connected_at"] == first_connected_at
-      # last_validated_at should have advanced because :error → :ok
-      # writes a fresh timestamp.
-      assert after_second["last_validated_at"] >= after_first["last_validated_at"]
+      {:ok, after_second} = Integrations.get_integration(uuid)
+      assert after_second["connected_at"] > first_connected_at
+      assert after_second["last_validated_at"] == after_second["connected_at"]
     end
 
     test "record_validation({:error, _}) does NOT stamp connected_at" do
-      {:ok, _} = Integrations.save_setup("openrouter", %{"api_key" => "key"})
-      :ok = Integrations.record_validation("openrouter", {:error, :invalid_api_key})
+      # An error result must not bump connected_at — a failed test
+      # is the opposite of a successful connection.
+      uuid = setup_conn("openrouter", %{"api_key" => "key"})
+      :ok = Integrations.record_validation(uuid, {:error, :invalid_api_key})
 
-      {:ok, data} = Integrations.get_integration("openrouter")
+      {:ok, data} = Integrations.get_integration(uuid)
       assert data["status"] == "error"
       assert data["connected_at"] == nil
+    end
+
+    test "record_validation({:error, _}) does NOT clobber an existing connected_at" do
+      # If the connection previously succeeded (so connected_at is
+      # set) and a later validation fails, leave the historical
+      # connected_at in place — that's the user's "last time it
+      # worked" reference. Only a *successful* validation moves
+      # connected_at forward.
+      uuid = setup_conn("openrouter", %{"api_key" => "key"})
+      :ok = Integrations.record_validation(uuid, :ok)
+      {:ok, after_ok} = Integrations.get_integration(uuid)
+      original_connected_at = after_ok["connected_at"]
+      assert is_binary(original_connected_at)
+
+      :ok = Integrations.record_validation(uuid, {:error, :timeout})
+
+      {:ok, after_err} = Integrations.get_integration(uuid)
+      assert after_err["status"] == "error"
+      assert after_err["connected_at"] == original_connected_at
     end
   end
 
@@ -741,36 +805,27 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
   # validate_connection
   # ===========================================================================
 
-  describe "validate_connection/1" do
-    test "returns error for unconfigured provider" do
-      assert {:error, "Not configured"} = Integrations.validate_connection("openrouter")
-    end
-
-    test "returns error for unknown provider key" do
-      assert {:error, "Unknown provider"} = Integrations.validate_connection("nonexistent_xyz")
+  describe "validate_connection/2" do
+    test "returns error for nonexistent uuid" do
+      ghost = "00000000-0000-7000-8000-000000000000"
+      assert {:error, "Not configured"} = Integrations.validate_connection(ghost)
     end
 
     test "returns ok for api_key provider without validation endpoint" do
-      # Save a provider with credentials but whose provider definition has no :validation
-      Settings.update_json_setting_with_module(
-        Integrations.settings_key("openrouter"),
-        %{
-          "provider" => "openrouter",
-          "auth_type" => "api_key",
-          "api_key" => "test-key",
-          "status" => "configured"
-        },
-        "integrations"
-      )
-
       # OpenRouter does have a validation endpoint, so this will try to hit it.
       # In a unit test context without network, it will fail with a connection error.
       # This test verifies the function executes without crashing.
-      result = Integrations.validate_connection("openrouter")
+      uuid = setup_conn("openrouter", %{"api_key" => "test-key"})
+      result = Integrations.validate_connection(uuid)
       assert result == :ok or match?({:error, _}, result)
     end
 
     test "returns error when OAuth provider has no access token" do
+      # Seed a row that claims to be connected but is missing the
+      # access_token. Real-world: a token-revocation race or partial
+      # restore. validate_connection should distinguish "credentials
+      # missing" (Not configured) from "access_token specifically
+      # missing on an otherwise-connected row" (No access token).
       Settings.update_json_setting_with_module(
         Integrations.settings_key("google"),
         %{
@@ -783,7 +838,9 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
         "integrations"
       )
 
-      assert {:error, "No access token"} = Integrations.validate_connection("google")
+      [%{uuid: uuid}] = Integrations.list_connections("google")
+
+      assert {:error, "No access token"} = Integrations.validate_connection(uuid)
     end
   end
 
@@ -797,57 +854,168 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
 
   describe "record_validation/2" do
     test "stamps status/validation_status on success" do
-      Integrations.save_setup("openrouter", %{"api_key" => "k"})
-      :ok = Integrations.record_validation("openrouter", :ok)
+      uuid = setup_conn("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation(uuid, :ok)
 
-      {:ok, data} = Integrations.get_integration("openrouter")
+      {:ok, data} = Integrations.get_integration(uuid)
       assert data["status"] == "connected"
       assert data["validation_status"] == "ok"
       assert is_binary(data["last_validated_at"])
     end
 
     test "stamps error status with formatted reason on failure" do
-      Integrations.save_setup("openrouter", %{"api_key" => "k"})
-      :ok = Integrations.record_validation("openrouter", {:error, {:refresh_failed, 400}})
+      uuid = setup_conn("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation(uuid, {:error, {:refresh_failed, 400}})
 
-      {:ok, data} = Integrations.get_integration("openrouter")
+      {:ok, data} = Integrations.get_integration(uuid)
       assert data["status"] == "error"
       assert data["validation_status"] == "error: Token refresh failed (HTTP 400)"
     end
 
-    test "is a no-op when status and validation_status are unchanged" do
-      Integrations.save_setup("openrouter", %{"api_key" => "k"})
-      :ok = Integrations.record_validation("openrouter", :ok)
-      {:ok, data1} = Integrations.get_integration("openrouter")
+    test "advances last_validated_at on every call, even when status is unchanged" do
+      # `last_validated_at` is the "moment of the last validation
+      # attempt" timestamp. A user clicking Test Connection on an
+      # already-connected integration must see the field move forward
+      # — otherwise the form's "Last tested N ago" goes stale.
+      uuid = setup_conn("openrouter", %{"api_key" => "k"})
+      :ok = Integrations.record_validation(uuid, :ok)
+      {:ok, data1} = Integrations.get_integration(uuid)
 
-      # Second call with same result should not rewrite last_validated_at
-      :ok = Integrations.record_validation("openrouter", :ok)
-      {:ok, data2} = Integrations.get_integration("openrouter")
+      # Sleep to make the timestamp comparison meaningful at second
+      # resolution. Same result, same status — but timestamp must
+      # advance.
+      Process.sleep(20)
 
-      assert data1["last_validated_at"] == data2["last_validated_at"]
+      :ok = Integrations.record_validation(uuid, :ok)
+      {:ok, data2} = Integrations.get_integration(uuid)
+
+      assert data2["last_validated_at"] > data1["last_validated_at"]
+      # Status / validation_status unchanged across the duplicate
+      # :ok call. `connected_at` advances alongside
+      # `last_validated_at` because both successful validations
+      # represent fresh successful connections (matches the OAuth
+      # exchange_code/4 path's behaviour and the user-facing
+      # "Connected N ago" semantics).
+      assert data2["status"] == data1["status"]
+      assert data2["validation_status"] == data1["validation_status"]
+      assert data2["connected_at"] > data1["connected_at"]
     end
 
-    test "silently no-ops when provider has no integration row" do
-      assert :ok = Integrations.record_validation("openrouter", {:error, "boom"})
+    test "broadcasts only when status or validation_status changes" do
+      # Listing LV subscribers reload on `:integration_validated` —
+      # gating the broadcast on actual state changes avoids reload
+      # storms from high-frequency automatic paths (e.g. token
+      # refresh failing on every API call).
+      uuid = setup_conn("openrouter", %{"api_key" => "k"})
+      :ok = Events.subscribe()
+
+      # First :ok flips status from "configured" → "connected" → broadcasts.
+      :ok = Integrations.record_validation(uuid, :ok)
+      assert_receive {:integration_validated, "openrouter:default", :ok}
+
+      # Second :ok keeps status at "connected" → no broadcast (but
+      # last_validated_at still advances per the test above).
+      :ok = Integrations.record_validation(uuid, :ok)
+      refute_receive {:integration_validated, _, _}, 50
+
+      # Switching to error → broadcasts.
+      :ok = Integrations.record_validation(uuid, {:error, "boom"})
+      assert_receive {:integration_validated, "openrouter:default", {:error, "boom"}}
     end
 
-    test "accepts a settings-row UUID and stamps the correct row" do
-      Integrations.save_setup("openrouter", %{"api_key" => "k"})
-
-      # Look up the settings row UUID the way external modules do
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
-
-      :ok = Integrations.record_validation(uuid, {:error, :token_refresh_failed})
-
-      {:ok, data} = Integrations.get_integration("openrouter")
-      assert data["status"] == "error"
-      assert data["validation_status"] == "error: Token refresh failed"
+    test "silently no-ops when uuid doesn't resolve" do
+      ghost = "00000000-0000-7000-8000-000000000000"
+      assert :ok = Integrations.record_validation(ghost, {:error, "boom"})
     end
   end
 
+  # ===========================================================================
+  # Storage-key integrity (regression: corrupted JSONB cannot leak into key)
+  # ===========================================================================
+  #
+  # Background: a previous bug wrote `"openrouter:default"` into the
+  # JSONB `provider` field, then derived a storage key from that field,
+  # producing `integration:openrouter:default:default`. The fix is
+  # structural: provider+name are sourced from the row's `key` column
+  # only, and JSONB `provider`/`name` are treated as untrusted
+  # duplicates. This block proves the invariant holds.
+
+  describe "storage-key invariant" do
+    test "rename never adds extra colon segments to the storage key" do
+      uuid = setup_conn("openrouter", "primary", %{"api_key" => "k1"})
+
+      # Confirm starting shape: exactly two colons (the prefix +
+      # provider/name separator).
+      [%{key: starting_key}] = list_settings_keys()
+      assert starting_key == "integration:openrouter:primary"
+
+      # Rename → still exactly two colons.
+      {:ok, _} = Integrations.rename_connection(uuid, "work")
+      [%{key: after_rename}] = list_settings_keys()
+      assert after_rename == "integration:openrouter:work"
+    end
+
+    test "rename round-trip is idempotent on storage key" do
+      uuid = setup_conn("openrouter", "a", %{"api_key" => "k"})
+
+      {:ok, _} = Integrations.rename_connection(uuid, "b")
+      {:ok, _} = Integrations.rename_connection(uuid, "c")
+      {:ok, _} = Integrations.rename_connection(uuid, "a")
+
+      [%{key: key}] = list_settings_keys()
+      assert key == "integration:openrouter:a"
+    end
+
+    test "save_setup ignores corrupted JSONB provider/name and writes to the canonical key" do
+      # Seed a row whose JSONB body has drifted (simulating the
+      # original bug condition). Then call save_setup via uuid — the
+      # write must land at `integration:openrouter:primary`, NOT at
+      # `integration:openrouter:default:primary` or any other
+      # JSONB-derived key.
+      uuid = setup_conn("openrouter", "primary")
+
+      [%{uuid: ^uuid, key: original_key}] = list_settings_keys()
+      assert original_key == "integration:openrouter:primary"
+
+      # Hand-corrupt the JSONB body to drift away from the storage key.
+      Settings.update_json_setting_with_module(
+        original_key,
+        %{
+          "provider" => "openrouter:default",
+          "name" => "default:primary",
+          "api_key" => "old"
+        },
+        "integrations"
+      )
+
+      # save_setup via uuid: the storage key must remain canonical.
+      {:ok, _} = Integrations.save_setup(uuid, %{"api_key" => "new"})
+
+      [%{key: after_save}] = list_settings_keys()
+      assert after_save == "integration:openrouter:primary"
+
+      # And the JSONB body's provider/name are now repaired (sourced
+      # from the storage key, not from the previous corrupted body).
+      {:ok, %{provider: "openrouter", name: "primary", data: data}} =
+        Integrations.get_integration_by_uuid(uuid)
+
+      assert data["api_key"] == "new"
+    end
+  end
+
+  defp list_settings_keys do
+    require Ecto.Query
+
+    Ecto.Query.from(s in PhoenixKit.Settings.Setting,
+      where: like(s.key, "integration:%"),
+      select: %{uuid: s.uuid, key: s.key}
+    )
+    |> PhoenixKit.RepoHelper.repo().all()
+  end
+
   describe "connected?/1 simplified" do
-    test "returns true when default connection has credentials" do
-      Integrations.save_setup("openrouter", %{"api_key" => "key"})
+    test "returns true when default connection has credentials (bare provider)" do
+      setup_conn("openrouter", %{"api_key" => "key"})
       assert Integrations.connected?("openrouter")
     end
 
@@ -861,14 +1029,12 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
       # call now resolves only against the storage row keyed at
       # `integration:<provider>:default` — non-default rows are
       # invisible to bare-provider lookups.
-      Integrations.add_connection("openrouter", "secondary")
-      Integrations.save_setup("openrouter:secondary", %{"api_key" => "secondary-key"})
+      uuid = setup_conn("openrouter", "secondary", %{"api_key" => "secondary-key"})
 
       refute Integrations.connected?("openrouter")
 
       # The non-default row IS reachable, but only via its uuid — that's
       # the only call shape consumer modules should be using now.
-      [%{uuid: uuid}] = Integrations.list_connections("openrouter")
       assert Integrations.connected?(uuid)
     end
   end

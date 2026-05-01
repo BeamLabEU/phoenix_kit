@@ -39,8 +39,8 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # Events
   # ---------------------------------------------------------------------------
 
-  def handle_event("disconnect", %{"provider" => provider_key}, socket) do
-    Integrations.disconnect(provider_key, actor_uuid(socket))
+  def handle_event("disconnect", %{"uuid" => uuid}, socket) do
+    Integrations.disconnect(uuid, actor_uuid(socket))
 
     {:noreply,
      socket
@@ -48,13 +48,13 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
      |> load_connections()}
   end
 
-  def handle_event("validate_connection", %{"provider" => provider_key}, socket) do
-    send(self(), {:do_validate, provider_key})
-    {:noreply, assign(socket, :validating, provider_key)}
+  def handle_event("validate_connection", %{"uuid" => uuid}, socket) do
+    send(self(), {:do_validate, uuid})
+    {:noreply, assign(socket, :validating, uuid)}
   end
 
-  def handle_event("remove_connection", %{"provider" => provider_key, "name" => name}, socket) do
-    case Integrations.remove_connection(provider_key, name, actor_uuid(socket)) do
+  def handle_event("remove_connection", %{"uuid" => uuid}, socket) do
+    case Integrations.remove_connection(uuid, actor_uuid(socket)) do
       :ok ->
         {:noreply,
          socket
@@ -70,38 +70,10 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # Async validation
   # ---------------------------------------------------------------------------
 
-  def handle_info({:do_validate, provider_key}, socket) do
-    uuid = actor_uuid(socket)
-    result = validate_connection(provider_key, uuid)
-
-    case Integrations.get_integration(provider_key) do
-      {:ok, data} ->
-        now = DateTime.utc_now() |> DateTime.to_iso8601()
-
-        updated =
-          case result do
-            :ok ->
-              Map.merge(data, %{
-                "last_validated_at" => now,
-                "validation_status" => "ok",
-                "status" => "connected"
-              })
-
-            {:error, reason} ->
-              Map.merge(data, %{
-                "last_validated_at" => now,
-                "validation_status" => "error: #{reason}",
-                "status" => "error"
-              })
-          end
-
-        Integrations.save_setup(provider_key, updated, uuid)
-
-      _ ->
-        :ok
-    end
-
-    Events.broadcast_validated(provider_key, result)
+  def handle_info({:do_validate, uuid}, socket) do
+    actor = actor_uuid(socket)
+    result = Integrations.validate_connection(uuid, actor)
+    Integrations.record_validation(uuid, result)
 
     {:noreply,
      socket
@@ -153,13 +125,10 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
       Enum.flat_map(providers, fn provider ->
         Map.get(all_connections, provider.key, [])
         |> Enum.map(fn %{uuid: uuid, name: name, data: data} ->
-          full_key = "#{provider.key}:#{name}"
-
           %{
             provider: providers_by_key[provider.key],
             uuid: uuid,
             name: name,
-            full_key: full_key,
             data: data
           }
         end)
@@ -180,10 +149,6 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   defp join_with_and(list) do
     {init, [last]} = Enum.split(list, -1)
     Enum.join(init, ", ") <> " " <> gettext("and") <> " " <> last
-  end
-
-  defp validate_connection(provider_key, actor_uuid) do
-    Integrations.validate_connection(provider_key, actor_uuid)
   end
 
   defp actor_uuid(socket) do

@@ -190,9 +190,19 @@ Centralized management of external service connections (OAuth, API keys, bot tok
 
 **Auth types:** `:oauth2` (Google, Microsoft), `:api_key` (OpenRouter, Stripe), `:key_secret` (AWS), `:bot_token` (Telegram, Discord), `:credentials` (SMTP, databases).
 
-**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/3`, `remove_connection/3`, `rename_connection/4`, `list_connections/1`. **Names are pure user-chosen labels** — `"default"` is no longer privileged; any connection can be renamed or removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
+**Named connections:** Multiple connections per provider (e.g., `google:default`, `google:personal`). Use `add_connection/3`, `remove_connection/2`, `rename_connection/3`, `list_connections/1`. **Names are pure user-chosen labels** — `"default"` is no longer privileged; any connection can be renamed or removed. Connection names must match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
 
-**Consumer pattern (uuid-everywhere):** Modules that depend on an integration store its uuid on their own records (e.g. `phoenix_kit_ai_endpoints.integration_uuid`, `document_creator_settings.google_connection`). Lookups go through `get_integration_by_uuid/1` or `get_credentials/1` (accepts uuid or `provider:name` string). The system does **not** silently fall back to "any connected row of this provider" — consumers must specify which integration they want.
+**API shape (uuid-strict).** Every operation past row creation takes the row's `uuid`. The structural rule: `"integration:{provider}:{name}"` storage-key construction happens only inside `add_connection/3` (creation) and module-side `migrate_legacy/0` migrators (translation of legacy data). Every other public API takes a uuid:
+
+- Mutating: `save_setup(uuid, attrs, actor)`, `disconnect(uuid, actor)`, `remove_connection(uuid, actor)`, `rename_connection(uuid, new_name, actor)`, `record_validation(uuid, result)`
+- OAuth: `authorization_url(uuid, redirect_uri, ...)`, `exchange_code(uuid, code, ...)`, `refresh_access_token(uuid)`
+- HTTP: `authenticated_request(uuid, method, url, opts)`, `validate_connection(uuid, actor)`
+- Read shims (dual-input — uuid OR `provider:name` string — for legacy data walks): `get_integration/1`, `get_credentials/1`, `connected?/1`
+- Migration primitive: `find_uuid_by_provider_name/1` (string → uuid for `migrate_legacy/0` callbacks)
+
+A corrupted JSONB `provider`/`name` field cannot leak into a new storage key because no public write API derives keys from JSONB. Provider+name are sourced only from the row's `key` column when needed for display.
+
+**Consumer pattern (uuid-everywhere):** Modules that depend on an integration store its uuid on their own records (e.g. `phoenix_kit_ai_endpoints.integration_uuid`, `document_creator_settings.google_connection`). Lookups go through `get_integration_by_uuid/1` or `get_credentials/1` (dual-input). The system does **not** silently fall back to "any connected row of this provider" — consumers must specify which integration they want.
 
 **Validation:** `validate_connection/2` tests if credentials work — calls provider's userinfo endpoint (OAuth) or validation endpoint (API key/bot token). Results stored in integration data. Successful validation flips `status` to `"connected"` and stamps `connected_at` (one-shot — first successful connection wins; subsequent successes update only `last_validated_at`).
 

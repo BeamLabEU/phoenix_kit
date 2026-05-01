@@ -27,7 +27,7 @@
               %{
                 label: gettext("Status"),
                 value:
-                  if(@validating == conn.full_key,
+                  if(@validating == conn.uuid,
                     do: gettext("Testing..."),
                     else: elem(integration_status_badge(conn.data["status"]), 1)
                   )
@@ -102,7 +102,7 @@
               <span :if={!conn.data["external_account_id"]} class="text-base-content/30">—</span>
             </.table_default_cell>
             <.table_default_cell>
-              <%= if @validating == conn.full_key do %>
+              <%= if @validating == conn.uuid do %>
                 <span class="badge badge-sm badge-info gap-1">
                   <span class="loading loading-spinner loading-xs"></span>
                   {gettext("Testing...")}
@@ -122,15 +122,13 @@
             </.table_default_cell>
             <.table_default_cell>
               <.table_row_menu
-                id={"integration-menu-#{String.replace(conn.full_key, ":", "-")}"}
+                id={"integration-menu-#{conn.uuid}"}
                 mode="auto"
                 label={gettext("Actions")}
               >
                 <.table_row_menu_link
                   navigate={
-                    PhoenixKit.Utils.Routes.path(
-                      "/admin/settings/integrations/#{conn.uuid}"
-                    )
+                    PhoenixKit.Utils.Routes.path("/admin/settings/integrations/#{conn.uuid}")
                   }
                   icon="hero-pencil"
                   label={gettext("Configure")}
@@ -138,7 +136,7 @@
                 <.table_row_menu_button
                   :if={conn.data["status"] in ["connected", "configured", "error"]}
                   phx-click="validate_connection"
-                  phx-value-provider={conn.full_key}
+                  phx-value-uuid={conn.uuid}
                   icon="hero-signal"
                   label={gettext("Test Connection")}
                 />
@@ -146,7 +144,7 @@
                 <.table_row_menu_button
                   :if={conn.data["status"] == "connected"}
                   phx-click="disconnect"
-                  phx-value-provider={conn.full_key}
+                  phx-value-uuid={conn.uuid}
                   icon="hero-link-slash"
                   label={gettext("Disconnect")}
                   variant="warning"
@@ -154,8 +152,7 @@
                 />
                 <.table_row_menu_button
                   phx-click="remove_connection"
-                  phx-value-provider={conn.provider.key}
-                  phx-value-name={conn.name}
+                  phx-value-uuid={conn.uuid}
                   icon="hero-trash"
                   label={gettext("Remove")}
                   variant="error"
@@ -172,23 +169,19 @@
 
         <:card_actions :let={conn}>
           <.table_row_menu
-            id={"integration-card-menu-#{String.replace(conn.full_key, ":", "-")}"}
+            id={"integration-card-menu-#{conn.uuid}"}
             mode="auto"
             label={gettext("Actions")}
           >
             <.table_row_menu_link
-              navigate={
-                PhoenixKit.Utils.Routes.path(
-                  "/admin/settings/integrations/#{conn.uuid}"
-                )
-              }
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/integrations/#{conn.uuid}")}
               icon="hero-pencil"
               label={gettext("Configure")}
             />
             <.table_row_menu_button
               :if={conn.data["status"] in ["connected", "configured", "error"]}
               phx-click="validate_connection"
-              phx-value-provider={conn.full_key}
+              phx-value-uuid={conn.uuid}
               icon="hero-signal"
               label={gettext("Test Connection")}
             />
@@ -196,7 +189,7 @@
             <.table_row_menu_button
               :if={conn.data["status"] == "connected"}
               phx-click="disconnect"
-              phx-value-provider={conn.full_key}
+              phx-value-uuid={conn.uuid}
               icon="hero-link-slash"
               label={gettext("Disconnect")}
               variant="warning"
@@ -204,8 +197,7 @@
             />
             <.table_row_menu_button
               phx-click="remove_connection"
-              phx-value-provider={conn.provider.key}
-              phx-value-name={conn.name}
+              phx-value-uuid={conn.uuid}
               icon="hero-trash"
               label={gettext("Remove")}
               variant="error"
