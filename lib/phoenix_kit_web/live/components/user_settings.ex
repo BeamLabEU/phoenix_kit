@@ -20,8 +20,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   ## Optional assigns
 
-    * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`
-      (default: all five). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
+    * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`, `:notifications`
+      (default: all six). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
     * `email_confirm_url_fn` — `(token -> url)` for email confirmation links
       (default: `&Routes.url("/dashboard/settings/confirm-email/\#{&1}")`)
     * `return_to` — where OAuth redirect returns to (default: `"/dashboard/settings"`)
@@ -35,6 +35,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   require Logger
 
+  alias PhoenixKit.Notifications.Prefs, as: NotificationPrefs
+  alias PhoenixKit.Notifications.Types, as: NotificationTypes
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
@@ -42,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
 
-  @default_sections [:identity, :custom_fields, :email, :password, :oauth]
+  @default_sections [:identity, :custom_fields, :email, :password, :oauth, :notifications]
 
   @impl true
   def update(%{action: :set_avatar, file_uuid: file_uuid}, socket) do
@@ -147,6 +149,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign_new(:show_avatar_selector, fn -> false end)
       |> assign_new(:show_email_form, fn -> false end)
       |> assign_new(:show_password_form, fn -> false end)
+      |> assign_new(:notification_types, fn -> NotificationTypes.list() end)
+      |> assign_new(:notification_prefs, fn -> NotificationPrefs.get(user) end)
+      |> assign_new(:notification_success_message, fn -> nil end)
 
     {:ok, socket}
   end
@@ -433,6 +438,41 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
   def handle_event("toggle_password_form", _params, socket) do
     {:noreply, assign(socket, :show_password_form, not socket.assigns.show_password_form)}
+  end
+
+  def handle_event("update_notification_prefs", params, socket) do
+    user = socket.assigns.user
+
+    # The form renders one hidden "false" + one checkbox "true" per type key
+    # under `params["notification_prefs"]`. Only the types registered right
+    # now are honored; any stray keys from the form are dropped so malformed
+    # submissions can't sneak data into custom_fields.
+    raw = params["notification_prefs"] || %{}
+    valid_keys = Enum.map(socket.assigns.notification_types, & &1.key)
+
+    prefs =
+      valid_keys
+      |> Enum.map(fn key -> {key, Map.get(raw, key) == "true"} end)
+      |> Map.new()
+
+    case NotificationPrefs.update(user, prefs) do
+      {:ok, updated_user} ->
+        send(self(), {:phoenix_kit_user_updated, updated_user})
+
+        {:noreply,
+         socket
+         |> assign(:user, updated_user)
+         |> assign(:notification_prefs, prefs)
+         |> assign(:notification_success_message, gettext("Notification preferences saved."))}
+
+      {:error, _changeset} ->
+        {:noreply,
+         assign(
+           socket,
+           :notification_success_message,
+           gettext("Failed to save notification preferences.")
+         )}
+    end
   end
 
   # Private helpers
@@ -1061,6 +1101,68 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 </div>
               </div>
             <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Notifications Section --%>
+        <%= if :notifications in @sections and @notification_types != [] do %>
+          <%= if Enum.any?([:identity, :custom_fields, :email, :password, :oauth], & &1 in @sections) do %>
+            <div class="divider"></div>
+          <% end %>
+          <div>
+            <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
+              <.icon name="hero-bell" class="w-5 h-5 text-primary" /> {gettext("Notifications")}
+            </h2>
+
+            <%= if @notification_success_message do %>
+              <div class="alert alert-success text-sm mb-4">
+                <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
+                <span>{@notification_success_message}</span>
+              </div>
+            <% end %>
+
+            <p class="text-sm text-base-content/60 mb-4">
+              {gettext(
+                "Pick which notification types you want to receive. Unchecked types are muted — activities still record in the audit log but no bell notification is created for you."
+              )}
+            </p>
+
+            <form
+              phx-submit="update_notification_prefs"
+              phx-target={@myself}
+              class="space-y-3"
+            >
+              <%= for type <- @notification_types do %>
+                <% current =
+                  case Map.get(@notification_prefs, type.key) do
+                    true -> true
+                    false -> false
+                    _ -> type.default
+                  end %>
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-base-300 hover:bg-base-200/40 cursor-pointer transition-colors">
+                  <input type="hidden" name={"notification_prefs[#{type.key}]"} value="false" />
+                  <input
+                    type="checkbox"
+                    name={"notification_prefs[#{type.key}]"}
+                    value="true"
+                    checked={current}
+                    class="checkbox checkbox-primary checkbox-sm mt-1"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-sm">{type.label}</div>
+                    <%= if type.description && type.description != "" do %>
+                      <div class="text-xs text-base-content/60 mt-0.5">{type.description}</div>
+                    <% end %>
+                  </div>
+                </label>
+              <% end %>
+
+              <div class="flex justify-end pt-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                  {gettext("Save preferences")}
+                </button>
+              </div>
+            </form>
           </div>
         <% end %>
       </div>

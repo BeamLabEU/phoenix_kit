@@ -44,7 +44,12 @@
     style.textContent = [
       ".sortable-ghost { opacity: 0.5; }",
       ".sortable-chosen { outline: 2px solid oklch(var(--p)); outline-offset: 2px; }",
-      ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }"
+      ".sortable-drag { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }",
+      "@keyframes pk-sortable-wiggle { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }",
+      ".pk-sortable-wiggle { animation: pk-sortable-wiggle 0.4s ease-in-out infinite; }",
+      ".pk-sortable-wiggle:nth-child(even) { animation-delay: 0.1s; }",
+      ".pk-sortable-wiggle:nth-child(3n) { animation-delay: 0.2s; }",
+      "@media (prefers-reduced-motion: reduce) { .pk-sortable-wiggle { animation: none; } }"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -111,6 +116,7 @@
       var self = this;
       var container = this.el;
       var eventName = container.dataset.sortableEvent || "reorder_items";
+      var hideSource = container.dataset.sortableHideSource === "true";
 
       // Inject CSS styles for sortable classes
       injectStyles();
@@ -126,6 +132,15 @@
         ghostClass: "sortable-ghost",
         chosenClass: "sortable-chosen",
         dragClass: "sortable-drag",
+        onStart: function() {
+          if (hideSource) {
+            // Hide the fallback clone that SortableJS places at the initial position on body
+            setTimeout(function() {
+              var fallback = document.querySelector("body > .sortable-fallback");
+              if (fallback) fallback.style.display = "none";
+            }, 0);
+          }
+        },
         onEnd: function(evt) {
           // Get new order of item IDs
           var items = container.querySelectorAll(".sortable-item[data-id]");

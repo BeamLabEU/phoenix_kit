@@ -1,3 +1,133 @@
+## 1.7.102 - 2026-04-29
+
+### Added
+- V105 migration: CRM tables for the upcoming `phoenix_kit_crm` plugin (PR #507)
+  - `phoenix_kit_crm_role_settings` — one row per role with `enabled BOOLEAN NOT NULL DEFAULT false` so existing roles stay opted out until explicitly enabled. PK on `role_uuid`; FK → `phoenix_kit_user_roles(uuid)` ON DELETE CASCADE
+  - `phoenix_kit_crm_user_role_view` — per-user, per-scope view preferences (column selection, ordering, filters). UUIDv7 PK; unique `(user_uuid, scope)`; index on `(user_uuid)`; FK → `phoenix_kit_users(uuid)` ON DELETE CASCADE. `scope` is a string like `"role:<uuid>"` or `"companies"`
+- V106 migration: split `phoenix_kit_projects.name` uniqueness across templates and real projects (PR #510)
+  - Replaces V101's single global unique index on `lower(name)` with two partial unique indexes: `phoenix_kit_projects_name_template_index WHERE is_template = true` and `phoenix_kit_projects_name_project_index WHERE is_template = false`
+  - Lets a template `"Onboarding"` and a real project `"Onboarding"` coexist, unblocking `Projects.create_project_from_template/2` for the common reuse-the-template-name path
+  - `down/1` recreates V101's single global index; lossy if a template and a real project share a name post-V106 — resolve duplicates before rolling back
+- Legal module i18n — translations across `de/fr/it/pl` plus refreshed `ru/es`. New `de/fr/it/pl` POs created via `mix gettext.merge --locale` with proper `Plural-Forms` headers (German `n != 1`, French `n > 1`, Italian `n != 1`, Polish 3-form rule). Pre-existing non-empty `msgstr` values preserved (PR #509)
+- `lib/phoenix_kit_web/legal_gettext_manifest.ex` — re-emits the 50 translatable strings used by `phoenix_kit_legal` so the gettext extractor (which doesn't walk into deps) records them into core's POT. Never called at runtime; pure extraction target with refresh procedure documented in the moduledoc (PR #509)
+- `css_sources/0` accepts string entries — `@callback css_sources()` widened from `[atom()]` to `[atom() | String.t()]`. Strings flow through `format_source/2` → `source_for_path/1` (absolute paths emit `@source "<abs>";` verbatim, relative get the standard `../../` prefix); atoms continue to resolve via parent app's mix.exs deps. Lets modules mix OTP-app atoms with literal path strings — first known consumer is `phoenix_kit_legal`, which ships a path-dep absolute fallback alongside its OTP-app entry so both Hex and path-dep installs work without parent-app toggles. Backwards compatible: existing `def css_sources, do: [:phoenix_kit_my_module]` keeps working unchanged (PR #509)
+
+### Changed
+- Bumped `leaf` editor dependency `~> 0.2.6 → ~> 0.2.10` and the matching CDN URL in `priv/static/assets/phoenix_kit.js` so the runtime loader pulls the same version. Includes `min-width: 0` + toolbar-wrap fixes so the editor stops claiming an unbounded intrinsic width on mount (PR #508)
+- `priv/gettext/default.pot` cleanup — dropped ~900 phantom msgids left over from modules extracted to standalone packages (billing, publishing, entities, etc.) (PR #509)
+
+### Fixed
+- `application/pdf` uploads in MediaBrowser. `determine_file_type/1` returned `"pdf"`, but the `File` changeset validates `file_type` against `["image", "video", "audio", "document", "archive", "other"]` — every PDF upload silently failed validation and never reached any bucket. Now maps `application/pdf` → `"document"`, matching how form-upload integrations already classify PDFs (PR #507)
+- V106 `COMMENT ON TABLE` version values were off by one (`up` wrote `'105'` instead of `'106'`, `down` wrote `'104'` instead of `'105'`). The migration framework reads this comment as the source of truth for the migrated version, so on the incremental V105 → V106 upgrade path the comment never advanced past `'105'` — V106.up would replay on every deploy and the admin dashboard / `mix phoenix_kit.status` would report a stale version. Fresh installs masked the bug because `handle_version_recording/4` stamps the final version on multi-step runs and overrode V106's bad write. Caught in review of PR #510 and amended in place since V106 had not yet shipped to Hex
+
+## 1.7.101 - 2026-04-24
+
+### Added
+- **Notifications module** — per-user inbox driven by the activity log. When `PhoenixKit.Activity.log/1` records an entry with `target_uuid != actor_uuid`, a row is inserted into `phoenix_kit_notifications` for the target user. Independent `seen_at` / `dismissed_at` per row, per-user PubSub topic (`"phoenix_kit:notifications:<user_uuid>"`), global kill-switch via `notifications_enabled` setting (default `"true"`). Admins still audit via `/admin/activity` and don't receive notifications (PR #505)
+  - V104 migration: `phoenix_kit_notifications` with UUIDv7 PK, FKs to `phoenix_kit_activities` and `phoenix_kit_users` (both `ON DELETE CASCADE`), unique `(activity_uuid, recipient_uuid)` index, partial `(recipient_uuid, inserted_at DESC) WHERE dismissed_at IS NULL` index for the inbox read path
+  - `PhoenixKit.Notifications` public API: `maybe_create_from_activity/1`, `list_for_user/2`, `recent_for_user/2`, `count_unread/1`, `mark_seen/2`, `mark_all_seen/1`, `dismiss/2`, `dismiss_all/1`, `get_notification/2`, `enabled?/0`, `retention_days/0`, `prune/1`
+  - `PhoenixKit.Notifications.Render.render/1` — maps action → `%{icon, text, link, actor_uuid}`; honors metadata overrides (`notification_text`, `notification_icon`, `notification_link`) before falling back to the action lookup
+  - `PhoenixKit.Notifications.Types` registry — three core types (`account`, `posts`, `comments`) plus extension point for external modules via the new optional `notification_types/0` callback on `PhoenixKit.Module`
+  - `PhoenixKit.Notifications.Prefs` — per-user preferences persisted in `custom_fields.notification_preferences` (reuses V18 JSONB column; no migration). Fail-open on any ambiguity
+  - `PhoenixKit.Notifications.PruneWorker` — daily Oban cron at `"0 4 * * *"`; retention via `notifications_retention_days` (falls back to `activity_retention_days`, default 90)
+  - `PhoenixKitWeb.Live.NotificationsBell` — sticky nested LiveView for the bell + dropdown. Not mounted by default; parent apps render it where they have a user-facing header via `Phoenix.Component.live_render(..., sticky: true, session: %{"user_uuid" => ...})`. Badge + recent list refresh live via PubSub
+  - Notification preferences section in `PhoenixKitWeb.Live.Components.UserSettings` — one toggle per registered type; unknown submitted keys dropped at the call site
+  - `notifications_enabled` toggle on `/admin/settings`
+- Arity-2 `dynamic_children_fn` for admin sidebar tabs — callbacks can now be `(scope, locale -> [tab])` in addition to the existing `(scope -> [tab])`. Backwards-compatible extension: the sidebar dispatches on arity, every existing 1-arity callback keeps working unchanged. Lets plugins render locale-aware child labels without reading `Gettext.get_locale/1` at render time (PR #506)
+
+## 1.7.100 - 2026-04-22
+
+### Added
+- V103 migration: nullable self-FK `parent_uuid` on `phoenix_kit_cat_categories` with b-tree index on `(parent_uuid)` for arbitrary-depth category trees. Existing rows stay `NULL` and become roots — no backfill. No DB-level `ON DELETE` cascade (subtree cascades are owned by the context layer so they go through soft-delete + activity log) (PR #503)
+- `scope_folder_id` attr on `PhoenixKitWeb.Live.Components.MediaSelectorModal` — filters the browse query to the given folder plus any files reached via `FolderLink`, and assigns newly-uploaded files into that folder (adopt as home if orphan, else add a `FolderLink`). Plugins scoping the picker to a single domain object (e.g. a catalogue item) pass this after lazy-creating their folder (PR #503)
+- `PhoenixKit.Settings.Setting.optional_settings/0` accessor exposing `@optional_settings` for invariant tests
+- Invariant test (`test/phoenix_kit/settings/setting_test.exs`) asserting every empty-string default in `PhoenixKit.Settings.get_defaults/0` is also in `@optional_settings`, to prevent the class of bug fixed in PR #502 from recurring
+
+### Changed
+- `PhoenixKit.Modules.Storage.File` changeset `file_type` allowlist widened from `["image", "video", "document", "archive"]` to include `"audio"` and `"other"` so non-image/video uploads bucket cleanly (PR #503)
+- `MediaSelectorModal.load_files/2` refactored into four composable `scope_files_by_{user,folder,type,search}` helpers — credo cyclomatic-complexity fix from adding the new scope branch (PR #503)
+
+### Fixed
+- Settings batch save no longer rolls back when `site_icon_file_uuid` or `default_tab_title` is left empty on the General Settings form. Both keys added to `@optional_settings` in `PhoenixKit.Settings.Setting` and seeded with empty-string defaults in `PhoenixKit.Settings.get_defaults/0` (PR #502)
+- `MediaSelectorModal.maybe_set_folder/2` errors (from the `folder_uuid` update or `FolderLink` insert) now log a warning via `warn_on_folder_error/3` instead of being silently discarded by `_ =`. Previously, a failed scope assignment after a successful upload left no trace
+
+## 1.7.99 - 2026-04-20
+
+### Added
+- V100 migration: staff tables — `phoenix_kit_staff_departments`, `phoenix_kit_staff_teams`, `phoenix_kit_staff_people`, `phoenix_kit_staff_team_memberships` (PR #498)
+- V101 migration: projects tables — `phoenix_kit_project_tasks`, `phoenix_kit_project_task_dependencies`, `phoenix_kit_projects`, `phoenix_kit_project_assignments`, `phoenix_kit_project_dependencies`; polymorphic assignee with `CHECK (num_nonnulls(...) <= 1)` (PR #498)
+- V102 migration: smart catalogues + per-catalogue/item discount (PR #500)
+  - `phoenix_kit_cat_catalogues.discount_percentage` (NOT NULL DEFAULT 0) and `kind` (`'standard' | 'smart'`) columns with CHECK constraints
+  - `phoenix_kit_cat_items.discount_percentage`, `default_value`, `default_unit` override columns
+  - new `phoenix_kit_cat_item_catalogue_rules` table with unique `(item_uuid, referenced_catalogue_uuid)` and ON DELETE CASCADE on both FKs
+  - partial index on `kind = 'smart'`
+- `PhoenixKitWeb.Components.MediaBrowser.Embed` — one-line `use` macro that injects `on_mount` upload setup, the `"validate"` upload-channel stub, and the MediaBrowser `handle_info` delegator (PR #499)
+- MediaBrowser selection menu with bulk download (staggered `<a download>` dispatch via `MediaDragDrop` hook) (PR #499)
+- MediaBrowser `admin` attr to gate detail-page `push_navigate` — picker mode (default) vs admin mode (PR #499)
+- MediaBrowser drag-drop file-to-folder move (PR #499)
+- MediaBrowser toggleable search bar in the header (PR #499)
+- MediaBrowser drag-drop upload at any folder level (PR #499)
+- Site icon + default tab title settings, logo moved to main settings page (PR #499)
+- MultilangForm debounce flow: `mount_multilang/1` attaches a hidden `:handle_info` hook via `Phoenix.LiveView.attach_hook/4`; `handle_switch_language/2` schedules a 150 ms trailing debounce via `Process.send_after` (timer ref stored in `socket.private` to avoid render+diff cycles); `switch_lang_js/2` toggles skeleton/fields `hidden` classes client-side at t=0 (PR #500)
+- `<.input>` gains a `wrapper_class` attr for the outer `phx-feedback-for` div (PR #500)
+- `test_load_filters` / `test_ignore_filters` in `mix.exs` for Elixir 1.19 `mix test` hygiene (PR #500)
+- AGENTS.md: Core Form Components section, Multilang Form Components section, and CHANGELOG-ownership rule (entries written by the maintainer, not agents)
+
+### Changed
+- MediaBrowser sidebar and content unified into a single card (PR #499)
+- Scope-root new-folder form aligned with sibling folder rows (PR #499)
+- Core form components (`<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>`) now merge the `class` attr onto the styled element itself — matches the Phoenix 1.7 generator convention. No in-tree caller used the old wrapper-class behavior; external consumers should switch to `wrapper_class` on `<.input>` (PR #500)
+- `compile.phoenix_kit_css_sources` emits absolute dep paths verbatim instead of prefixing `../../` (PR #500)
+
+### Fixed
+- MediaBrowser list view broken by stale view-toggle CSS (PR #499)
+- Credo `AliasUsage` warning inside `MediaBrowser.Embed`'s quoted block silenced (PR #499)
+
+## 1.7.98 - 2026-04-16
+
+### Added
+- V99 migration: `trashed_at` column on `phoenix_kit_files` with partial index for soft-delete (PR #497)
+- Media trash bucket: soft-delete files with restore/empty/permanent-delete actions and sidebar count badge
+- `PhoenixKit.Modules.Storage.Workers.PruneTrashJob` — daily Oban cron (3 AM) that permanently deletes files older than `trash_retention_days` (default 30)
+- Drag-drop upload: drop device files directly onto the folder content area (`FolderDropUpload` JS hook)
+- URL-param hydration on first mount so reloads don't flash the root view
+
+### Fixed
+- Scope guard on `restore_selected` in MediaBrowser — a scoped embed could previously restore files outside its scope via a crafted `toggle_select` payload
+- Trash view, permanent-delete, and `empty_trash` now respect `scope_folder_id` via recursive CTE
+- `list_files/1` excludes trashed files
+- Breadcrumb and search bar moved inside card body so padding matches grid/list content
+
+## 1.7.97 - 2026-04-15
+
+### Added
+- V97 migration: per-item `markup_percentage` override on catalogue items (PR #493)
+- V98 migration: `alternative_formats` column on storage dimensions
+- `PhoenixKit.Modules.Shared.Components.ImageSet` — responsive `<picture>` component with AVIF/WebP/JPEG `<source>` entries
+- `PhoenixKit.Modules.Storage.VariantNaming` — format-suffix parsing utility
+- Multi-format variant generation (WebP/AVIF alongside primary format per dimension)
+- Variant dimensions and file sizes shown on media detail page
+- UUID search support on media page search bar
+
+### Changed
+- V95 migration made truly idempotent for `folder_uuid` column (raw SQL `IF NOT EXISTS` block)
+- Dimensions table format cell renders as `JPEG + WEBP, AVIF` (fixed stray `" +"` separator)
+
+### Fixed
+- Long text overflow in media detail sidebar
+- Missing original file size in variant download buttons
+
+## 1.7.96 - 2026-04-13
+
+### Added
+- Sortable languages in admin (drag-and-drop reorder)
+- hide_source option on DraggableList component
+- Wiggle animation for reorder mode with prefers-reduced-motion support
+
+### Changed
+- Dedup language codes in reorder, use MapSet for lookup
+- Extract wiggle CSS to JS-injected styles with pk- prefix
+
 ## 1.7.95 - 2026-04-11
 
 ### Added

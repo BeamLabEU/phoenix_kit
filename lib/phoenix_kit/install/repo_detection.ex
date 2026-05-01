@@ -281,7 +281,8 @@ defmodule PhoenixKit.Install.RepoDetection do
 
     Please specify with --repo option:
 
-      mix phoenix_kit.install --repo YourApp.Repo
+      mix igniter.install phoenix_kit --repo YourApp.Repo
+      # or, if the dep is already in mix.exs: mix phoenix_kit.install --repo YourApp.Repo
 
     Common repo names:
       - MyAppRepo, MyApp.Repo

@@ -17,30 +17,23 @@ With PhoenixKit, you will be able to create Elixir/Phoenix apps much faster and 
 - **[Integration Guide](guides/integration.md)** - Complete guide for using PhoenixKit as a dependency, with API reference and examples. Optimized for AI assistants (Claude, Cursor, Copilot, Tidewave MCP).
 - **[All Guides](guides/README.md)** - Full list of development guides
 
-## Semi-Automatic Installation
+## Installation
 
-PhoenixKit provides pretty simple installation method, powered by igniter library, which takes care of all configuration needs.
-
-Add `phoenix_kit` to your project dependencies. `igniter` installed in `phoenix_kit`.
-
-```elixir
-# mix.exs
-def deps do
-  [
-    {:phoenix_kit, "~> 1.7"}
-  ]
-end
-```
-
-Then run the PhoenixKit installer:
+One command sets up the dependency, configuration, routes, mailer, and migrations:
 
 ```bash
-mix deps.get
-mix phoenix_kit.install
+mix igniter.install phoenix_kit
 ```
+
+> **Prerequisite:** the `igniter_new` archive (one-time setup, same as `phx_new`):
+>
+> ```bash
+> mix archive.install hex igniter_new
+> ```
 
 This will automatically:
 
+- Add `{:phoenix_kit, "~> 1.7"}` to your `mix.exs` and fetch deps
 - Auto-detect your Ecto repository
 - **Validate PostgreSQL compatibility** with adapter detection
 - Generate migration files for authentication tables
@@ -50,10 +43,12 @@ This will automatically:
 - **Create production mailer templates** in `config/prod.exs`
 - Add authentication routes to your router
 
+See [Installation Options](#installation-options) below for advanced flags and fallback flows.
+
 ## 📦 Current PhoenixKit Features / Modules:
 
 ```
-✅ Simple installation using Igniter (`mix phoenix_kit.install` and updating via `mix phoenix_kit.update`) 
+✅ One-command install via Igniter (`mix igniter.install phoenix_kit`, updates via `mix phoenix_kit.update`) 
 ✅ Tailwind and DaisyUI integration
 ✅ App layout integration
 ✅ App database integration (Postgres only for now)
@@ -208,15 +203,28 @@ This will automatically:
 
 💡 Send your ideas and suggestions about any existing modules and features our way. Start building your apps today!
 
-## Installation
+## Installation Options
 
-PhoenixKit provides multiple installation methods to suit different project needs and developer preferences.
+The recommended path is `mix igniter.install phoenix_kit` (see the [quick install](#installation) at the top of this README). The sections below cover advanced options and fallback flows.
 
-### Semi-Automatic Installation
+### Installer options
 
-**Recommended for most projects**
+```bash
+# Specify custom repository
+mix igniter.install phoenix_kit --repo MyApp.Repo
 
-Add `phoenix_kit` to your project dependencies (Igniter is included automatically):
+# Use PostgreSQL schema prefix for table isolation
+mix igniter.install phoenix_kit --prefix "auth" --create-schema
+
+# Specify custom router file path
+mix igniter.install phoenix_kit --router-path lib/my_app_web/router.ex
+```
+
+The same flags work with `mix phoenix_kit.install` if the dep is already in your project.
+
+### Fallback: two-step install
+
+If you'd rather not use the `igniter_new` archive, add the dep yourself and invoke the installer directly — `:igniter` is already pulled in transitively, so this works on any Phoenix project:
 
 ```elixir
 # mix.exs
@@ -227,39 +235,14 @@ def deps do
 end
 ```
 
-Then run the PhoenixKit installer:
-
 ```bash
 mix deps.get
 mix phoenix_kit.install
 ```
 
-This will automatically:
+### Manual Installation
 
-- ✅ Auto-detect your Ecto repository
-- ✅ **Validate PostgreSQL compatibility** with adapter detection
-- ✅ Generate migration files for authentication tables
-- ✅ **Optionally run migrations interactively** for instant setup
-- ✅ Add PhoenixKit configuration to `config/config.exs`
-- ✅ Configure mailer settings for development
-- ✅ **Create production mailer templates** in `config/prod.exs`
-- ✅ Add authentication routes to your router
-- ✅ Provide detailed setup instructions
-
-**Optional parameters:**
-
-```bash
-# Specify custom repository
-mix phoenix_kit.install --repo MyApp.Repo
-
-# Use PostgreSQL schema prefix for table isolation
-mix phoenix_kit.install --prefix "auth" --create-schema
-
-# Specify custom router file path
-mix phoenix_kit.install --router-path lib/my_app_web/router.ex
-```
-
-## Manual Installation
+For full control, skip the installer entirely:
 
 1. Add `{:phoenix_kit, "~> 1.7"}` to `mix.exs`
 2. Run `mix deps.get && mix phoenix_kit.gen.migration`

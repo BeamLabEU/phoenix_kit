@@ -17,6 +17,7 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `processing` - File is being processed (variants being generated)
   - `active` - File is ready and available
   - `failed` - Processing failed
+  - `trashed` - File is in trash, pending restoration or permanent deletion
 
   ## Fields
 
@@ -106,6 +107,7 @@ defmodule PhoenixKit.Modules.Storage.File do
           height: integer() | nil,
           duration: integer() | nil,
           status: String.t(),
+          trashed_at: DateTime.t() | nil,
           metadata: map() | nil,
           user_uuid: UUIDv7.t(),
           folder_uuid: UUIDv7.t() | nil,
@@ -130,6 +132,7 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :height, :integer
     field :duration, :integer
     field :status, :string, default: "processing"
+    field :trashed_at, :utc_datetime
     field :metadata, :map
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
@@ -187,6 +190,7 @@ defmodule PhoenixKit.Modules.Storage.File do
       :height,
       :duration,
       :status,
+      :trashed_at,
       :metadata,
       :user_uuid,
       :folder_uuid
@@ -202,8 +206,8 @@ defmodule PhoenixKit.Modules.Storage.File do
       :size,
       :user_uuid
     ])
-    |> validate_inclusion(:file_type, ["image", "video", "document", "archive"])
-    |> validate_inclusion(:status, ["processing", "active", "failed"])
+    |> validate_inclusion(:file_type, ["image", "video", "audio", "document", "archive", "other"])
+    |> validate_inclusion(:status, ["processing", "active", "failed", "trashed"])
     |> validate_number(:size, greater_than: 0)
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)

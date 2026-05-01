@@ -99,18 +99,20 @@ defmodule PhoenixKit.Migrations.Postgres.V95 do
       unique_index(:phoenix_kit_media_folder_links, [:folder_uuid, :file_uuid], prefix: prefix)
     )
 
-    # Add folder_uuid to files
-    alter table(:phoenix_kit_files, prefix: prefix) do
-      add_if_not_exists(
-        :folder_uuid,
-        references(:phoenix_kit_media_folders,
-          column: :uuid,
-          type: :uuid,
-          on_delete: :nilify_all,
-          prefix: prefix
-        )
-      )
-    end
+    # Add folder_uuid to files (idempotent — column + FK may already exist)
+    execute("""
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_name = 'phoenix_kit_files' AND column_name = 'folder_uuid'
+      ) THEN
+        ALTER TABLE #{p}phoenix_kit_files
+          ADD COLUMN folder_uuid UUID
+          REFERENCES #{p}phoenix_kit_media_folders(uuid) ON DELETE SET NULL;
+      END IF;
+    END $$;
+    """)
 
     create_if_not_exists(index(:phoenix_kit_files, [:folder_uuid], prefix: prefix))
 

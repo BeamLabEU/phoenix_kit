@@ -16,6 +16,11 @@ defmodule PhoenixKitWeb.Components.Core.Textarea do
 
   attr :errors, :list, default: []
 
+  attr :class, :any,
+    default: nil,
+    doc:
+      "extra classes merged onto the `<textarea>` element (e.g. `textarea-sm`, `min-h-[12rem]`)"
+
   attr :rest, :global,
     include: ~w(autocomplete cols maxlength disabled placeholder readonly required rows)
 
@@ -39,7 +44,8 @@ defmodule PhoenixKitWeb.Components.Core.Textarea do
         name={@name}
         class={[
           "textarea textarea-bordered min-h-[6rem] w-full focus:input-primary",
-          @errors != [] && "textarea-error"
+          @errors != [] && "textarea-error",
+          @class
         ]}
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>

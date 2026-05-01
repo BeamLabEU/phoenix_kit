@@ -13,16 +13,6 @@
       subtitle={gettext("Create and manage user roles")}
     />
 
-    <%!-- Action Button --%>
-    <div class="flex justify-center mb-6">
-      <button
-        phx-click="show_create_form"
-        class="btn btn-primary btn-lg"
-      >
-        <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Create New Role")}
-      </button>
-    </div>
-
     <%!-- Create Role Modal --%>
     <.modal show={@show_create_form} on_close="hide_form" max_width="2xl">
       <:title>{gettext("Create New Role")}</:title>
@@ -112,6 +102,16 @@
             end
           }
         >
+          <:toolbar_title>
+            <span class="text-sm text-base-content/60">
+              {length(@roles)} {gettext("roles")}
+            </span>
+          </:toolbar_title>
+          <:toolbar_actions>
+            <button phx-click="show_create_form" class="btn btn-primary btn-sm">
+              <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Create New Role")}
+            </button>
+          </:toolbar_actions>
           <:card_header :let={role}>
             <div class="flex items-center gap-2">
               <.role_badge role={role} />

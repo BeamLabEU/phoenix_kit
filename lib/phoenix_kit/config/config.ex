@@ -54,14 +54,14 @@ defmodule PhoenixKit.Config do
           id: :orders,
           label: "My Orders",
           icon: "hero-shopping-bag",
-          path: "/dashboard/orders",
+          path: "orders",
           priority: 100
         },
         %{
           id: :notifications,
           label: "Notifications",
           icon: "hero-bell",
-          path: "/dashboard/notifications",
+          path: "notifications",
           priority: 200,
           badge: %{type: :count, value: 0, color: :error}
         }

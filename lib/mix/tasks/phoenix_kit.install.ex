@@ -10,6 +10,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     ## Usage
 
+    The recommended one-command install (adds the dep, fetches, and runs this task):
+
+    ```bash
+    mix igniter.install phoenix_kit
+    ```
+
+    Requires the `igniter_new` archive (one-time setup, same as `phx_new`):
+
+    ```bash
+    mix archive.install hex igniter_new
+    ```
+
+    If `:phoenix_kit` is already in your project's deps, run the task directly:
+
     ```bash
     mix phoenix_kit.install
     ```
@@ -17,7 +31,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     With custom options:
 
     ```bash
-    mix phoenix_kit.install --repo MyApp.Repo --router-path lib/my_app_web/router.ex
+    mix igniter.install phoenix_kit --repo MyApp.Repo --router-path lib/my_app_web/router.ex
     ```
 
     ## Options
@@ -73,7 +87,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     def info(_argv, _composing_task) do
       %Igniter.Mix.Task.Info{
         group: :phoenix_kit,
-        example: "mix phoenix_kit.install --repo MyApp.Repo --prefix auth",
+        example: "mix igniter.install phoenix_kit --repo MyApp.Repo --prefix auth",
         positional: [],
         schema: [
           router_path: :string,
@@ -221,7 +235,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       mix phoenix_kit.install - Install PhoenixKit into a Phoenix application
 
       USAGE
+        # Recommended (single command — adds dep, fetches, and runs this task):
+        mix igniter.install phoenix_kit [OPTIONS]
+
+        # Direct invocation (when :phoenix_kit is already in your deps):
         mix phoenix_kit.install [OPTIONS]
+
+        Tip: `mix igniter.install` requires the `igniter_new` archive
+        (`mix archive.install hex igniter_new` — one-time setup).
 
       DESCRIPTION
         Automatically installs PhoenixKit into a Phoenix application by:
@@ -256,20 +277,21 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       EXAMPLES
         # Basic installation with auto-detection (uses default "public" schema)
-        mix phoenix_kit.install
+        mix igniter.install phoenix_kit
 
         # Install with specific repository
-        mix phoenix_kit.install --repo MyApp.Repo
+        mix igniter.install phoenix_kit --repo MyApp.Repo
 
         # Install with custom PostgreSQL schema prefix for table isolation
-        mix phoenix_kit.install --prefix "auth" --create-schema
-
+        mix igniter.install phoenix_kit --prefix "auth" --create-schema
 
         # Install with custom router path
-        mix phoenix_kit.install --router-path lib/my_app_web/router.ex
+        mix igniter.install phoenix_kit --router-path lib/my_app_web/router.ex
 
         # Install with all options
-        mix phoenix_kit.install --repo MyApp.Repo --prefix "auth"
+        mix igniter.install phoenix_kit --repo MyApp.Repo --prefix "auth"
+
+        # All flags also work with direct invocation: mix phoenix_kit.install ...
 
       AUTO-DETECTION
         The installer automatically:

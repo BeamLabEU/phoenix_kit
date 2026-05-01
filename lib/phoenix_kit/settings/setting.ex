@@ -68,6 +68,8 @@ defmodule PhoenixKit.Settings.Setting do
     "sqs_polling_interval_ms",
     # General
     "site_url",
+    "site_icon_file_uuid",
+    "default_tab_title",
     # OAuth Provider Credentials
     "oauth_google_client_id",
     "oauth_google_client_secret",
@@ -83,8 +85,14 @@ defmodule PhoenixKit.Settings.Setting do
     "auth_logo_file_uuid",
     "auth_background_image_file_uuid",
     "auth_background_image_mobile_file_uuid",
-    "auth_background_color"
+    "auth_background_color",
+    # Maintenance Schedule (can be empty when no schedule is set)
+    "maintenance_scheduled_start",
+    "maintenance_scheduled_end"
   ]
+
+  @doc false
+  def optional_settings, do: @optional_settings
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
 

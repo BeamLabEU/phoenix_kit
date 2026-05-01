@@ -71,11 +71,11 @@
         </div>
 
         <%!-- Right: Info Panel (1/4) --%>
-        <div class="flex-1 flex flex-col gap-4 overflow-y-auto">
+        <div class="flex-1 flex flex-col gap-4 overflow-y-auto overflow-x-hidden min-w-0">
           <%!-- File Title Card --%>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body p-4">
-              <h2 class="card-title text-lg break-words">{@file_data.filename}</h2>
+              <h2 class="text-lg font-bold break-all">{@file_data.filename}</h2>
               <div class="flex gap-2 mt-2">
                 <span class={[
                   "badge",
@@ -89,20 +89,38 @@
                   {String.upcase(@file_data.file_type)}
                 </span>
               </div>
-              <div class="mt-3">
-                <button
-                  type="button"
-                  phx-click="confirm_delete"
-                  class="btn btn-error btn-sm w-full gap-2"
-                >
-                  <.icon name="hero-trash" class="w-4 h-4" /> Delete File
-                </button>
+              <div class="mt-3 flex flex-col gap-2">
+                <%= if @file_data.status == "trashed" do %>
+                  <button
+                    type="button"
+                    phx-click="restore_file"
+                    class="btn btn-success btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Restore
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="permanently_delete_file"
+                    data-confirm="Permanently delete this file? This cannot be undone."
+                    class="btn btn-error btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" /> Delete Forever
+                  </button>
+                <% else %>
+                  <button
+                    type="button"
+                    phx-click="confirm_delete"
+                    class="btn btn-error btn-sm w-full gap-2"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" /> Delete File
+                  </button>
+                <% end %>
               </div>
             </div>
           </div>
 
           <%!-- Metadata Card --%>
-          <div class="card bg-base-100 shadow-xl">
+          <div class="card bg-base-100 shadow-xl min-w-0">
             <div class="card-body p-4">
               <div class="flex justify-between items-center mb-3">
                 <h3 class="font-semibold text-sm">Metadata</h3>
@@ -171,7 +189,7 @@
                 <div class="space-y-2 text-xs">
                   <div>
                     <span class="font-semibold text-base-content/70">Title:</span>
-                    <p class="text-base-content mt-1">
+                    <p class="text-base-content mt-1 break-all">
                       <%= if String.length(@file_data.title) > 0 do %>
                         {@file_data.title}
                       <% else %>
@@ -182,7 +200,7 @@
 
                   <div>
                     <span class="font-semibold text-base-content/70">Description:</span>
-                    <p class="text-base-content mt-1">
+                    <p class="text-base-content mt-1 break-all">
                       <%= if String.length(@file_data.description) > 0 do %>
                         {@file_data.description}
                       <% else %>
@@ -331,7 +349,17 @@
                       ]}
                     >
                       <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-                      {String.capitalize(variant)}
+                      <span class="flex-1 text-left">{String.capitalize(variant)}</span>
+                      <%= if info = @file_data.variant_dimensions[variant] do %>
+                        <span class="text-xs opacity-60">
+                          <%= if info.dimensions do %>
+                            {elem(info.dimensions, 0)}x{elem(info.dimensions, 1)}
+                          <% end %>
+                          <%= if info.size do %>
+                            · {format_file_size(info.size)}
+                          <% end %>
+                        </span>
+                      <% end %>
                     </a>
                   <% end %>
                 </div>
@@ -361,19 +389,19 @@
   <%= if @show_delete_modal do %>
     <div class="modal modal-open">
       <div class="modal-box">
-        <h3 class="font-bold text-lg text-error">Delete File</h3>
+        <h3 class="font-bold text-lg text-warning">Move to Trash</h3>
         <p class="py-4">
-          Are you sure you want to delete <strong>{@file_data && @file_data.filename}</strong>?
+          Move <strong>{@file_data && @file_data.filename}</strong> to trash?
         </p>
         <p class="text-sm text-base-content/70 pb-4">
-          This action is irreversible. The file and all its variants will be permanently removed from storage.
+          You can restore it from the trash at any time.
         </p>
         <div class="modal-action">
           <button type="button" phx-click="cancel_delete" class="btn btn-ghost">
             Cancel
           </button>
-          <button type="button" phx-click="delete_file" class="btn btn-error gap-2">
-            <.icon name="hero-trash" class="w-4 h-4" /> Delete
+          <button type="button" phx-click="delete_file" class="btn btn-warning gap-2">
+            <.icon name="hero-trash" class="w-4 h-4" /> Move to Trash
           </button>
         </div>
       </div>

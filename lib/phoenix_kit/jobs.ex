@@ -186,7 +186,7 @@ defmodule PhoenixKit.Jobs do
         id: :admin_jobs,
         label: "Jobs",
         icon: "hero-queue-list",
-        path: "/admin/jobs",
+        path: "jobs",
         priority: 610,
         level: :admin,
         permission: "jobs",

@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
       :telemetry.span([:phoenix_kit, :admin_sidebar, :render], %{}, fn ->
         result =
           Registry.get_admin_tabs(scope: assigns.scope)
-          |> expand_dynamic_children(assigns.scope)
+          |> expand_dynamic_children(assigns.scope, assigns[:locale])
           |> add_active_state(assigns.current_path)
 
         {result, %{tab_count: length(result)}}
@@ -227,18 +227,20 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
 
   # --- Helpers ---
 
-  defp expand_dynamic_children(tabs, scope) do
-    # Find tabs with dynamic_children and expand them
+  defp expand_dynamic_children(tabs, scope, locale) do
+    # Find tabs with dynamic_children (arity 1 or 2) and expand them.
+    # The 2-arity variant receives locale so modules can render translated
+    # child labels without falling back to `Gettext.get_locale/1`.
     {parents_with_dynamic, other_tabs} =
       Enum.split_with(tabs, fn tab ->
-        is_function(tab.dynamic_children, 1)
+        is_function(tab.dynamic_children, 1) or is_function(tab.dynamic_children, 2)
       end)
 
     dynamic_children =
       Enum.flat_map(parents_with_dynamic, fn parent ->
         children =
           try do
-            parent.dynamic_children.(scope)
+            invoke_dynamic_children(parent.dynamic_children, scope, locale)
           rescue
             error ->
               Logger.warning(
@@ -260,6 +262,14 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
     # Active state is applied after this function by add_active_state/2
     other_tabs ++ parents_with_dynamic ++ dynamic_children
   end
+
+  # Dispatches on arity so modules can opt in to locale-aware rendering
+  # without breaking existing 1-arity `dynamic_children` implementations.
+  defp invoke_dynamic_children(fun, scope, locale) when is_function(fun, 2),
+    do: fun.(scope, locale)
+
+  defp invoke_dynamic_children(fun, scope, _locale) when is_function(fun, 1),
+    do: fun.(scope)
 
   # Recursively checks if any descendant (children, grandchildren, etc.) is active.
   # Includes depth limit and cycle detection for safety with parent-app-registered tabs.

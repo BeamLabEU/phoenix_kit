@@ -144,6 +144,8 @@ ls lib/phoenix_kit/migrations/postgres/v*.ex | sed 's/.*\/v\([0-9]*\)\.ex/\1/' |
 
 Updates require: `mix.exs` (@version), `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
+> **CHANGELOG ownership:** entries in `CHANGELOG.md` are written by the project maintainer, not by agents. If you bump `@version` and the CHANGELOG hasn't caught up yet, that's intentional — flag the gap and stop. Do not auto-write entries.
+
 ### PR Reviews
 
 PR review files go in `dev_docs/pull_requests/{year}/{pr_number}-{slug}/` directory. Use `{AGENT}_REVIEW.md` naming (e.g., `CLAUDE_REVIEW.md`, `GEMINI_REVIEW.md`). See `dev_docs/pull_requests/README.md`.
@@ -200,6 +202,42 @@ Centralized management of external service connections (OAuth, API keys, bot tok
 
 **Plan:** `dev_docs/plans/integrations-system.md`
 
+
+## Core Form Components
+
+`PhoenixKitWeb.Components.Core.{Input, Select, Textarea, Checkbox}` are the canonical form primitives. Use them over raw `<input>`/`<select>`/`<textarea>` markup in new code — they handle `phx-feedback-for`, gettext-translated error display, label wiring, and daisyUI styling for you. The existing `lib/phoenix_kit_web/users/user_form.html.heex` is the canonical reference usage.
+
+- All four accept a `class` attr that merges onto the **styled element** itself (the `<input>` / daisyUI `<label class="select">` / `<textarea>` / `<input type="checkbox">`) — pass daisyUI modifiers here: `input-sm`, `select-primary`, `checkbox-accent`, or project-specific focus styles like `transition-colors focus:input-primary`.
+- `<.input>` additionally has a `wrapper_class` attr that goes to the outer `<div phx-feedback-for>` — this is the role the `class` attr used to play before the convention was aligned with the Phoenix 1.7 generator (`class` → input element). No in-tree caller used the old behavior, but external consumers who did should switch to `wrapper_class`.
+- FormField binding is preferred: `<.input field={@form[:email]} type="email" label="Email" />`. The component dispatches on `%Phoenix.HTML.FormField{}` to pull id / name / value / errors in one shot. The raw `name=` + `value=` form still works for cases where field names are dynamic (import wizards, custom field loops in user_form).
+
+## Multilang Form Components
+
+`PhoenixKitWeb.Components.MultilangForm` provides the form-level translation toolkit: `<.multilang_tabs>`, `<.multilang_fields_wrapper>`, `<.translatable_field>`, plus helpers `mount_multilang/1`, `handle_switch_language/2`, `merge_translatable_params/4`. Forms that edit translatable content `import PhoenixKitWeb.Components.MultilangForm` and call `mount_multilang(socket)` in `mount/3`.
+
+### Wrapper scope rule
+
+`<.multilang_fields_wrapper>` wraps translatable fields *only*. Everything else — pricing, classification, status, actions — renders as a sibling **outside** the wrapper. This is load-bearing: the wrapper's `id` includes `@current_lang`, so a language switch changes the ID and morphdom re-mounts everything inside. If you put non-translatable fields inside, they get re-mounted on every switch (churn + focus loss + lost input state). Keep the wrapper small — in practice, the name + description `<.translatable_field>` calls are all that belongs inside.
+
+### Language switching: client-side visibility + trailing debounce
+
+`mount_multilang/1` seeds the multilang assigns and attaches a `:handle_info` hook via `Phoenix.LiveView.attach_hook/4` that receives the debounced timer message. The flow:
+
+1. User clicks a language tab → `switch_lang_js/2` runs a composed `%JS{}`: pushes `"switch_language"` **and** immediately toggles `hidden` on the two sibling divs client-side — `add_class` on `[data-translatable=fields]`, `remove_class` on `[data-translatable=skeletons]`. The skeleton is visible at `t=0`, no round-trip delay.
+2. `handle_switch_language/2` cancels any pending timer, schedules a new `Process.send_after(self(), {:__multilang_apply_lang__, lang}, 150)`, stores the timer ref in the process dictionary (not socket assigns — avoids triggering phantom render+diff cycles), and returns the socket **unchanged**. The server does not touch the wrapper's class state — so nothing can fight the JS toggles on the client.
+3. Rapid clicks re-enter step 2 — timer is cancelled and rescheduled; the JS toggles are idempotent. Only the final click's lang reaches step 4.
+4. 150ms after the last click: the timer fires, the hook intercepts `{:__multilang_apply_lang__, lang}`, calls `handle_multilang_apply_lang/2` which sets `:current_lang = lang`, and returns `{:halt, socket}` so the consumer never sees the message.
+5. Wrapper re-renders with new lang in its ids (skeleton id, fields id, and the translatable inputs' `lang_data`). morphdom sees the id change and **replaces both sibling divs** — the new skeleton div is re-rendered with `class="hidden …"` (its default), the new fields div is re-rendered without `hidden` and with the new-language content. The skeleton is hidden again, the fields are back, and everything else on the form (outside the wrapper) is untouched.
+
+Why client-side and not server-driven: the skeleton has to appear **before** any round-trip to feel responsive. A server-driven visibility flag needs the `JS.push` to reach the server, the server to re-render, and the diff to arrive at the client — visible delay on slow connections, and on localhost the window is so brief you can barely perceive it. The client-side toggle shows the skeleton at `t=0`; the server only owns the final `current_lang` commit.
+
+The `attach_hook` approach means consumers **don't need a `handle_info` clause** — the library handles the timer message transparently. There's a graceful fallback for LiveComponent sockets (where `attach_hook` raises `ArgumentError`): rescue + return socket unchanged; those consumers can add the clause manually if they ever appear.
+
+The wrapper accepts a `switching_lang` attr and `mount_multilang/1` seeds `:switching_lang = false`, purely as a backwards-compat no-op — consumer templates that already pass `switching_lang={@switching_lang}` keep resolving. The wrapper doesn't read the value.
+
+### Translatable fields
+
+`<.translatable_field>` takes the raw changeset via `changeset={@changeset}` (not FormField) because its behavior changes with the active tab — primary-language input vs. secondary-language JSONB-backed input with different `name` attributes. When using `<.translatable_field>` alongside component-style inputs, a form LV keeps **both** `:changeset` (for translatable_field) and `:form = to_form(changeset)` (for `<.input>` / `<.select>`) in sync via a private helper called from mount / validate / save-error paths.
 
 ## Documentations
 
@@ -292,6 +330,177 @@ end
 Configurable via `activity_retention_days` setting (default: 90 days). `PhoenixKit.Activity.PruneWorker` runs daily via Oban.
 
 
+## Notifications
+
+Per-user inbox driven by the activity log. Whenever `PhoenixKit.Activity.log/1` records an entry with a `target_uuid` that differs from `actor_uuid`, a row is inserted into `phoenix_kit_notifications` for the target user. Admins still use `/admin/activity` for audit — they do NOT receive notifications, so high-volume systems don't drown them.
+
+Global kill switch: `notifications_enabled` setting (default `"true"`). When `"false"`, `maybe_create_from_activity/1` is a no-op.
+
+### Generating notifications
+
+Nothing to do in caller code. As soon as an activity meets the rule (`target_uuid != nil and target_uuid != actor_uuid` and the feature is enabled), the hook in `lib/phoenix_kit/activity/activity.ex` fans out to `PhoenixKit.Notifications.maybe_create_from_activity/1`. Each row is a `(activity_uuid, recipient_uuid)` pair with independent `seen_at` / `dismissed_at`.
+
+If you want a notification without a matching activity log entry, create the activity first and let the hook do the rest — don't insert directly into `phoenix_kit_notifications`.
+
+### Rendering
+
+`PhoenixKit.Notifications.Render.render(notification)` maps the notification's preloaded activity to `%{icon, text, link, actor_uuid}`. Unknown actions fall back to the raw action string — safe default.
+
+### Public API (on `PhoenixKit.Notifications`)
+
+- `list_for_user(user_uuid, opts)` — `:page`, `:per_page`, `:status (:unread|:all)`, `:include_dismissed`
+- `recent_for_user(user_uuid, limit \\ 10)` — bell dropdown
+- `count_unread(user_uuid)` — badge
+- `mark_seen(user_uuid, uuid)` / `mark_all_seen(user_uuid)`
+- `dismiss(user_uuid, uuid)` / `dismiss_all(user_uuid)`
+- `get_notification(user_uuid, uuid)` — scoped to recipient
+- `enabled?/0`, `retention_days/0`, `prune/1`
+
+All writes broadcast on `PhoenixKit.Notifications.Events.topic_for_user(user_uuid)` (`"phoenix_kit:notifications:<user_uuid>"`) so LiveViews stay in sync:
+- `{:notification_created, n}`
+- `{:notification_seen, n}`
+- `{:notification_dismissed, n}`
+- `{:notifications_bulk_updated, :seen | :dismissed}`
+
+### UI
+
+There is no PhoenixKit-owned notifications page — the feature is a pure backend + embeddable bell.
+
+**Bell** — `PhoenixKitWeb.Live.NotificationsBell`, a sticky nested LiveView. Not mounted anywhere by default; parent apps render it where they have a user-facing header:
+
+```heex
+<%= Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
+      id: "pk-notifications-bell",
+      sticky: true,
+      session: %{"user_uuid" => @current_user.uuid}) %>
+```
+
+The bell owns its own PubSub subscription so the badge and dropdown refresh live. Clicking a notification row marks it seen and navigates to `Render.render(n).link` when one is set; if `link` is `nil`, the dropdown just refreshes.
+
+"Seen" is only set on explicit user action (clicking a row or "Mark all seen"). Opening the dropdown does NOT auto-mark seen.
+
+### Per-user preferences
+
+Each user can mute notification *types* (not individual actions) from the `UserSettings` LiveComponent's Notifications section. Preferences persist in `users.custom_fields["notification_preferences"]` as `%{"posts" => true, "account" => false, …}`. No migration — reuses the existing V18 JSONB column.
+
+The types registry lives in `PhoenixKit.Notifications.Types`. Core types: `"account"`, `"posts"`, `"comments"`. External modules contribute their own via the optional `notification_types/0` callback on `PhoenixKit.Module`:
+
+```elixir
+@impl PhoenixKit.Module
+def notification_types do
+  [%{
+    key: "reviews",
+    label: "Reviews",
+    description: "When someone leaves you a review",
+    actions: ["review.submitted", "review.edited"],
+    default: true
+  }]
+end
+```
+
+`Types.list/0` merges core + discovered modules; the toggle appears in every user's UserSettings automatically. The filter in `maybe_create_from_activity/1` calls `PhoenixKit.Notifications.Prefs.user_wants?(target_uuid, action)`, which resolves the action to its type (`Types.type_for_action/1`) and checks the recipient's `custom_fields`. **Fail-open**: unknown actions, missing prefs, or lookup errors all return `true` — a notification is never silently dropped because of a malformed row.
+
+### Custom display (metadata override)
+
+`Render.render/1` honors three conventional metadata keys before falling back to the action lookup. Any `Activity.log/1` caller can ship custom text/icon/link without editing PhoenixKit:
+
+```elixir
+Activity.log(%{
+  action: "review.submitted",
+  actor_uuid: alice.uuid,
+  target_uuid: bob.uuid,
+  metadata: %{
+    "notification_text" => "Alice left you a 5-star review.",
+    "notification_icon" => "hero-star",
+    "notification_link" => "/reviews/#{review.uuid}"
+  }
+})
+```
+
+Any key can be absent — Render falls back to `icon_and_text/2` and `link_for/1` for the missing parts.
+
+### Extensibility cheat sheet
+
+| Scenario | Developer work | PhoenixKit work |
+|---|---|---|
+| New action in an existing type | one `Activity.log/1` call | None (prefix is already covered) or add to the type's `actions` list |
+| New type (category of actions) | implement `notification_types/0` (~10 lines) | None |
+| Custom text / icon / link | set three metadata keys at the call site | None |
+
+### Cleanup
+
+`PhoenixKit.Notifications.PruneWorker` runs daily (`"0 4 * * *"`). Retention is driven by `notifications_retention_days` (falls back to `activity_retention_days`, default 90). Cascading FK deletes also remove notifications when the underlying activity is pruned.
+
+
+## MediaBrowser Component
+
+Embeddable media management UI — full folder tree, grid/list view, upload, search, selection tools, drag-drop, trash bucket. Lives at `lib/phoenix_kit_web/components/media_browser.ex` (+ `.html.heex`). Used by the admin page (`/admin/media`) and any parent LiveView that needs media picking or browsing.
+
+### One-line embed
+
+Use the Embed macro. It injects the upload setup (`on_mount`), the `"validate"` upload-channel stub, and the `handle_info` delegator for MediaBrowser messages:
+
+```elixir
+defmodule MyAppWeb.MediaPage do
+  use MyAppWeb, :live_view
+  use PhoenixKitWeb.Components.MediaBrowser.Embed
+
+  def mount(_params, _session, socket), do: {:ok, socket}
+end
+```
+
+Template:
+
+```heex
+<.live_component
+  module={PhoenixKitWeb.Components.MediaBrowser}
+  id="media-browser"
+  parent_uploads={@uploads}
+/>
+```
+
+`parent_uploads={@uploads}` is required (the component renders a hidden `<.live_file_input>` from the parent's upload config). That's a LiveView constraint — `allow_upload` must live on the parent socket.
+
+### `admin` attr — picker vs admin mode
+
+- `admin={false}` (default) — clicking a file toggles selection and turns on `select_mode`. Picker behavior. Use outside `/admin/media`.
+- `admin={true}` — clicking a file `push_navigate`s to `/admin/media/:uuid`. Only the admin media page sets this.
+
+### Other useful attrs
+
+- `scope_folder_id` — constrain the whole browser to a virtual root folder. Trash, folder tree, uploads, move — all honor the scope.
+- `on_navigate={:navigate}` — controlled mode. Component emits `{MediaBrowser, id, {:navigate, params}}` to the parent on folder/search/page changes so the parent can `push_patch` the URL. The parent must then feed URL params back via `send_update(..., nav_params: ...)`. See `lib/phoenix_kit_web/live/users/media.ex` for the reference wiring.
+- `initial_params` — apply URL params on first render to avoid a flash of the root view.
+
+### Selection actions (built-in)
+
+When items are selected, a `…` dropdown appears in the header with Download + Delete. Download pushes a `download_files` event that the `MediaDragDrop` hook (in `priv/static/assets/phoenix_kit.js`) consumes — each entry is dispatched as a staggered `<a download>` click. Delete moves files to trash (or permanently removes if the trash view is active) and deletes folders.
+
+### Manual wiring (if not using Embed)
+
+```elixir
+def mount(_params, _session, socket) do
+  {:ok, PhoenixKitWeb.Components.MediaBrowser.setup_uploads(socket)}
+end
+
+def handle_event("validate", _params, socket), do: {:noreply, socket}
+
+def handle_info({PhoenixKitWeb.Components.MediaBrowser, _, _} = msg, socket) do
+  PhoenixKitWeb.Components.MediaBrowser.handle_parent_info(msg, socket)
+end
+```
+
+The Embed macro injects these last via `@before_compile`, so user-defined clauses for other events/messages still match first.
+
+### Files
+
+- `lib/phoenix_kit_web/components/media_browser.ex` — LiveComponent
+- `lib/phoenix_kit_web/components/media_browser.html.heex` — template
+- `lib/phoenix_kit_web/components/media_browser/embed.ex` — the `use`-able macro
+- `lib/modules/storage/storage.ex` — backing context (folders, files, trash, variants)
+- `priv/static/assets/phoenix_kit.js` — `MediaDragDrop` and `FolderDropUpload` hooks
+
+
 ## Guidelines
 
 ### External Module Auto-Discovery
@@ -347,8 +556,10 @@ External modules register custom hooks via inline `<script>` tags on `window.Pho
 PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
 
 - **Always** begin PhoenixKit LiveView templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout ...>` which wraps all inner content
-- Required attributes: `flash`, `page_title`, `url_path`, `project_title`, `phoenix_kit_current_scope`
-- Optional: `current_locale`, `current_locale_base`
+- Required attribute: `flash`
+- Recommended attributes: `page_title`, `current_path`, `project_title`, `phoenix_kit_current_scope`
+- Optional: `current_locale`
+- Pass the `@url_path` assign (set by PhoenixKit's on_mount hook) into the `current_path` attribute — the component attribute is named `current_path`, not `url_path`
 
 Example:
 
@@ -356,15 +567,16 @@ Example:
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   page_title={@page_title}
-  url_path={@url_path}
+  current_path={@url_path}
   project_title={@project_title}
   phoenix_kit_current_scope={@phoenix_kit_current_scope}
   current_locale={assigns[:current_locale]}
-  current_locale_base={assigns[:current_locale_base]}
 >
   <!-- Your content here -->
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
 ```
+
+For the complete list of component attributes, see `lib/phoenix_kit_web/components/layout_wrapper.ex` — only `flash` is strictly required; everything else has sensible defaults.
 
 ### URL Prefix and Navigation
 

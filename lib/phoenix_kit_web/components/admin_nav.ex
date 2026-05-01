@@ -6,7 +6,6 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   use Phoenix.Component
 
-  alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Users.Auth.Scope
@@ -172,94 +171,6 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   def admin_theme_controller(assigns) do
     ~H"""
     <.theme_controller themes={:all} id="admin-theme-dropdown" />
-    """
-  end
-
-  @doc """
-  Renders language dropdown for top bar navigation.
-  Shows globe icon with dropdown menu for language selection.
-  """
-  attr(:current_path, :string, default: "")
-  attr(:current_locale, :string, default: "en")
-
-  def admin_language_dropdown(assigns) do
-    # Get languages from the unified Languages module
-    admin_languages = get_admin_languages()
-
-    # Extract base code from current locale for matching
-    current_base = DialectMapper.extract_base(assigns.current_locale)
-
-    # Transform languages: code = base (for URLs), dialect = full (for preferences)
-    transformed_languages =
-      admin_languages
-      |> Enum.filter(fn lang -> is_binary(Map.get(lang, :code)) end)
-      |> Enum.map(fn lang ->
-        dialect = lang.code
-        base = DialectMapper.extract_base(dialect)
-
-        %{
-          code: base,
-          dialect: dialect,
-          name: Map.get(lang, :name, dialect),
-          flag: Map.get(lang, :flag, "🌐"),
-          native: Map.get(lang, :native, "")
-        }
-      end)
-
-    current_language =
-      Enum.find(transformed_languages, &(&1.code == current_base)) ||
-        %{
-          code: current_base,
-          dialect: assigns.current_locale,
-          name: String.upcase(current_base)
-        }
-
-    # Hide dropdown when only 1 language is configured
-    show_dropdown = length(transformed_languages) > 1
-
-    assigns =
-      assigns
-      |> assign(:enabled_languages, transformed_languages)
-      |> assign(:current_language, current_language)
-      |> assign(:current_base, current_base)
-      |> assign(:show_dropdown, show_dropdown)
-
-    ~H"""
-    <div :if={@show_dropdown} class="relative" data-language-dropdown>
-      <details class="dropdown dropdown-end dropdown-bottom" id="language-dropdown">
-        <summary class="btn btn-sm btn-ghost btn-circle">
-          <.icon name="hero-globe-alt" class="w-5 h-5" />
-        </summary>
-        <ul
-          class="dropdown-content w-52 rounded-box border border-base-200 bg-base-100 p-2 shadow-xl z-[60] mt-2 list-none space-y-1"
-          tabindex="0"
-          phx-click-away={JS.remove_attribute("open", to: "#language-dropdown")}
-        >
-          <%= for language <- @enabled_languages do %>
-            <li class="w-full">
-              <button
-                type="button"
-                phx-click="phoenix_kit_set_locale"
-                phx-value-locale={language.dialect}
-                phx-value-url={build_locale_url(@current_path, language.code)}
-                class={[
-                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200 cursor-pointer",
-                  if(language.code == @current_base, do: "bg-base-200", else: "")
-                ]}
-              >
-                <span class="text-lg">{get_language_flag(language.dialect)}</span>
-                <span class="flex-1 text-left font-medium text-base-content">
-                  {language.name}
-                </span>
-                <%= if language.code == @current_base do %>
-                  <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
-                <% end %>
-              </button>
-            </li>
-          <% end %>
-        </ul>
-      </details>
-    </div>
     """
   end
 

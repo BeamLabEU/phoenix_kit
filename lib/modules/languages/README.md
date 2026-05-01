@@ -1,6 +1,6 @@
 # Languages Module
 
-The PhoenixKit Languages module provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It provides a unified language configuration used by both the public-facing language switcher and the admin panel.
+The PhoenixKit Languages module provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It provides a unified language configuration used across the whole app: the public-facing language switcher, the pre-login language dropdown on the sign-in page, and the Language section inside the admin panel's user (avatar) menu. The admin header no longer has a separate globe switcher — admins change locale from the user avatar menu.
 
 ## Quick Links
 

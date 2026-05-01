@@ -19,6 +19,11 @@ defmodule PhoenixKitWeb.Components.Core.Select do
 
   attr :errors, :list, default: []
 
+  attr :class, :any,
+    default: nil,
+    doc:
+      "extra classes merged onto the daisyUI `<label class=\"select\">` wrapper — use this for daisyUI modifiers like `select-sm`, `select-primary`, or project-specific focus styles like `transition-colors focus-within:select-primary`"
+
   attr :rest, :global,
     include: ~w(autocomplete cols maxlength disabled placeholder readonly required rows)
 
@@ -39,7 +44,8 @@ defmodule PhoenixKitWeb.Components.Core.Select do
 
       <label class={[
         "select w-full",
-        @errors != [] && "select-error"
+        @errors != [] && "select-error",
+        @class
       ]}>
         <select
           id={@id}

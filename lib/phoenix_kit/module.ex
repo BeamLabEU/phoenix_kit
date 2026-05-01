@@ -115,19 +115,65 @@ defmodule PhoenixKit.Module do
   @callback integration_providers() :: [map()]
 
   @doc """
-  Returns the OTP app name for Tailwind CSS source scanning.
+  Returns a list of notification types this module contributes.
 
-  The installer uses this to generate the correct `@source` directive in the
-  parent app's `app.css`. It automatically resolves the right path based on
-  whether the dep is installed from Hex (`deps/`) or as a path dep.
+  Each type is a map with:
+    * `:key` — binary, stable identifier used in user prefs (e.g. `"posts"`)
+    * `:label` — binary, user-facing display (e.g. `"Posts"`)
+    * `:description` — binary, short explainer shown under the toggle
+    * `:actions` — list of dotted action strings (`["post.liked", "post.commented"]`)
+    * `:default` — boolean, the toggle's default state for users who haven't
+      set a preference
+
+  Types merge with core PhoenixKit types (`account`, `posts`, `comments`) and
+  show up automatically in the UserSettings "Notifications" section. The
+  filter in `PhoenixKit.Notifications.maybe_create_from_activity/1` resolves
+  each action to a type via `:actions` and skips the fan-out when the user
+  has muted that type.
+
+  Headless modules (no user-facing actions) can skip this callback — the
+  default is `[]`.
 
   ## Example
 
+      def notification_types do
+        [
+          %{
+            key: "reviews",
+            label: "Reviews",
+            description: "When someone leaves you a review",
+            actions: ["review.submitted", "review.edited"],
+            default: true
+          }
+        ]
+      end
+  """
+  @callback notification_types() :: [map()]
+
+  @doc """
+  Returns Tailwind CSS source roots for scanning.
+
+  Each entry is either:
+
+    * an atom — the OTP app name. The compiler resolves it via the parent
+      app's `mix.exs` deps (`deps/<app>` for Hex, `path:` value for path deps).
+    * a string — a literal path. Absolute paths (starting with `/`) emit as
+      `@source "<abs>";` verbatim; relative paths emit as `@source "../../<path>";`
+      (relative to `assets/css/_phoenix_kit_sources.css`). Useful when a module
+      wants to add a path-dep absolute fallback alongside the OTP-app entry,
+      so both Hex and path-dep installs work without parent-app toggles.
+
+  ## Examples
+
       def css_sources, do: [:phoenix_kit_publishing]
+
+      # Path-dep friendly:
+      @source_root Path.expand(Path.join(__DIR__, "../.."))
+      def css_sources, do: [:phoenix_kit_publishing, @source_root]
 
   Headless modules (no templates) can skip this callback — the default is `[]`.
   """
-  @callback css_sources() :: [atom()]
+  @callback css_sources() :: [atom() | String.t()]
 
   @optional_callbacks [
     get_config: 0,
@@ -142,6 +188,7 @@ defmodule PhoenixKit.Module do
     required_modules: 0,
     required_integrations: 0,
     integration_providers: 0,
+    notification_types: 0,
     css_sources: 0
   ]
 
@@ -192,6 +239,9 @@ defmodule PhoenixKit.Module do
       def integration_providers, do: []
 
       @impl PhoenixKit.Module
+      def notification_types, do: []
+
+      @impl PhoenixKit.Module
       def css_sources, do: []
 
       defoverridable get_config: 0,
@@ -206,6 +256,7 @@ defmodule PhoenixKit.Module do
                      required_modules: 0,
                      required_integrations: 0,
                      integration_providers: 0,
+                     notification_types: 0,
                      css_sources: 0
     end
   end

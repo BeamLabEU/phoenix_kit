@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
 
+  import PhoenixKitWeb.Components.Core.PhoenixKitFavicon
   import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
   import PhoenixKitWeb.Components.AdminNav
   import PhoenixKitWeb.Components.Dashboard.AdminSidebar, only: [admin_sidebar: 1]
@@ -253,8 +254,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
             ~H"""
             <%!-- PhoenixKit Admin Layout --%>
-            <%!-- Globals needed here for render_admin_with_parent path where parent layout may not set them --%>
+            <%!-- Globals + favicon needed here for render_admin_with_parent path where parent layout may not set them --%>
             <.phoenix_kit_globals />
+            <.phoenix_kit_favicon />
             <style data-phoenix-kit-themes>
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
             </style>
@@ -310,13 +312,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   </div>
                 </div>
 
-                <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
+                <%!-- Right: Theme Switcher and User Dropdown (language selection lives inside user dropdown) --%>
                 <div class="flex items-center gap-3">
                   <.admin_theme_controller mobile={true} />
-                  <PhoenixKitWeb.Components.Core.LanguageSwitcher.language_switcher_dropdown
-                    current_path={@current_path}
-                    current_locale={@current_locale}
-                  />
                   <.admin_user_dropdown
                     scope={@phoenix_kit_current_scope}
                     current_path={@current_path}
@@ -684,9 +682,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
-        <.live_title default={"#{assigns[:project_title] || PhoenixKit.Settings.get_project_title()} Admin"}>
+        <% default_tab = PhoenixKit.Settings.get_setting_cached("default_tab_title", "") %>
+        <.live_title default={
+          if(default_tab != "",
+            do: default_tab,
+            else: "#{assigns[:project_title] || PhoenixKit.Settings.get_project_title()} Admin"
+          )
+        }>
           {assigns[:page_title] || "Admin"}
         </.live_title>
+        <.phoenix_kit_favicon />
         <%= if assigns[:seo_no_index] do %>
           <meta name="robots" content="noindex,nofollow" />
           <meta name="googlebot" content="noindex,nofollow" />

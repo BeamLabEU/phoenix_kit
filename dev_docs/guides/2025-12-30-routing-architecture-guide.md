@@ -1,5 +1,15 @@
 # Routing Architecture Guide
 
+> ⚠️ **Historical design exploration — do not use Strategy 1 as an implementation recipe.**
+>
+> This document captures the state of the PhoenixKit router as of 2025-12-30, plus three scaling strategies that were being considered at the time. **Only the "Current Solution" section below still reflects how the router works today.** The three "Scaling Strategies" were exploratory and **Strategy 1 in particular was not adopted** — the architecture instead went with a single, shared `live_session :phoenix_kit_admin` block into which external plugin modules inject their routes via `compile_external_admin_routes/1` (see `lib/phoenix_kit_web/integration.ex`). Plugin modules expose `admin_routes/0` / `admin_locale_routes/0` (see any `phoenix_kit_*/lib/*/routes.ex`) and those quoted blocks are spliced into the core live_session at compile time.
+>
+> **Following Strategy 1 today would reproduce a known bug class**: a sub-router declaring its own `live_session :billing_admin` (or similar) sits in a different session than `:phoenix_kit_admin`, so every `push_navigate` from another admin page tears down the WebSocket with `navigate event failed because you are redirecting across live_sessions. A full page reload will be performed instead`, and the admin layout (applied by `maybe_apply_plugin_layout/1` inside the `:phoenix_kit_ensure_admin` on_mount hook) never gets applied to those routes.
+>
+> **For current user-facing routing guidance, read `phoenix_kit/guides/custom-admin-pages.md` instead.** This file is kept for historical reference only.
+
+---
+
 This guide documents the PhoenixKit routing architecture, compile-time optimization strategies, and recommendations for scaling as new modules are added.
 
 ## Table of Contents

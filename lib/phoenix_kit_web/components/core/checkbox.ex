@@ -18,6 +18,11 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
   attr :errors, :list, default: []
   attr :checked, :boolean, default: false
 
+  attr :class, :any,
+    default: nil,
+    doc:
+      "extra classes merged onto the `<input type=\"checkbox\">` (e.g. `checkbox-sm`, `checkbox-accent`)"
+
   attr :rest, :global, include: ~w(readonly required)
 
   slot :inner_block
@@ -44,7 +49,7 @@ defmodule PhoenixKitWeb.Components.Core.Checkbox do
           name={@name}
           value="true"
           checked={@checked}
-          class="checkbox checkbox-primary"
+          class={["checkbox checkbox-primary", @class]}
           {@rest}
         />
 

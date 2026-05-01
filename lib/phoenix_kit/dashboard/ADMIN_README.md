@@ -43,13 +43,15 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "dashboard",
     priority: 350,
     group: :admin_main
   }
 ]
 ```
+
+> **Tab paths are relative by convention.** `Tab.resolve_path/2` prepends the context prefix at render/compile time — `admin_tabs/0` tabs get `/admin/`, `settings_tabs/0` get `/admin/settings/`, `user_dashboard_tabs/0` get `/dashboard/`. So `path: "analytics"` in an `admin_tabs/0` entry resolves to `/admin/analytics`. Absolute paths (starting with `/`) pass through unchanged, but the relative form is preferred — it's what every real plugin module uses and it lets the same tab definition work across contexts without hardcoding the prefix.
 
 ### Adding Tabs with Seamless Navigation
 
@@ -63,7 +65,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "dashboard",
     priority: 350,
     group: :admin_main,
@@ -86,7 +88,7 @@ With `live_view` set, PhoenixKit:
 | `id` | atom | required | Unique identifier (prefix with `admin_` by convention) |
 | `label` | string | required | Display text in sidebar |
 | `icon` | string | nil | Heroicon name (e.g., `"hero-chart-bar"`) |
-| `path` | string | required | URL path without prefix (e.g., `"/admin/analytics"`) |
+| `path` | string | required | URL path — **relative by convention** (e.g., `"analytics"`, resolved to `/admin/analytics` by `Tab.resolve_path/2`). Absolute paths also work but are discouraged |
 | `priority` | integer | 500 | Sort order (lower = higher in sidebar) |
 | `level` | atom | `:admin` | Set automatically by config loader |
 | `permission` | string | nil | Permission key for access control (e.g., `"billing"`) |
@@ -120,7 +122,7 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "dashboard",
     priority: 350,
     group: :admin_main
@@ -142,7 +144,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_reports,
     label: "Reports",
     icon: "hero-document-chart-bar",
-    path: "/admin/reports",
+    path: "reports",
     permission: "dashboard",
     priority: 360,
     group: :admin_main,
@@ -153,7 +155,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
   %{
     id: :admin_reports_sales,
     label: "Sales",
-    path: "/admin/reports/sales",
+    path: "reports/sales",
     parent: :admin_reports,
     priority: 361,
     live_view: {MyAppWeb.ReportsSalesLive, :index}
@@ -161,7 +163,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
   %{
     id: :admin_reports_users,
     label: "Users",
-    path: "/admin/reports/users",
+    path: "reports/users",
     parent: :admin_reports,
     priority: 362,
     live_view: {MyAppWeb.ReportsUsersLive, :index}
@@ -186,7 +188,7 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
     id: :admin_workspaces,
     label: "Workspaces",
     icon: "hero-squares-2x2",
-    path: "/admin/workspaces",
+    path: "workspaces",
     permission: "dashboard",
     priority: 400,
     group: :admin_main,
@@ -198,7 +200,7 @@ PhoenixKit.Dashboard.register_admin_tabs(:my_app, [
           id: :"admin_workspace_#{ws.slug}",
           label: ws.name,
           icon: "hero-square-2-stack",
-          path: "/admin/workspaces/#{ws.slug}",
+          path: "workspaces/#{ws.slug}",
           priority: 401 + idx,
           level: :admin,
           permission: "dashboard",
@@ -243,7 +245,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "analytics",   # Not a built-in key → auto-registered
     group: :admin_main,
     live_view: {MyAppWeb.AnalyticsLive, :index}
@@ -271,7 +273,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "analytics",
     priority: 350,
     group: :admin_main,
@@ -281,7 +283,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
   %{
     id: :admin_analytics_sales,
     label: "Sales",
-    path: "/admin/analytics/sales",
+    path: "analytics/sales",
     parent: :admin_analytics,
     priority: 351,
     live_view: {MyAppWeb.AnalyticsSalesLive, :index}
@@ -289,7 +291,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
   %{
     id: :admin_analytics_traffic,
     label: "Traffic",
-    path: "/admin/analytics/traffic",
+    path: "analytics/traffic",
     parent: :admin_analytics,
     priority: 352,
     live_view: {MyAppWeb.AnalyticsTrafficLive, :index}
@@ -303,7 +305,7 @@ If a subtab needs its own independent permission, it can set a `permission` fiel
 %{
   id: :admin_analytics_billing,
   label: "Billing Reports",
-  path: "/admin/analytics/billing",
+  path: "analytics/billing",
   parent: :admin_analytics,
   permission: "analytics_billing",   # Separate permission, auto-registered
   priority: 353
@@ -357,7 +359,7 @@ This means:
 - Each page does a lightweight MOUNT (expected behavior for different LiveView modules)
 - No full page reloads within the admin panel
 
-**Important**: Custom admin routes defined by the parent app WITHOUT `live_view` may be in a different `live_session`, which would cause a full page reload when navigating to them. Use `live_view` in your tab config to avoid this.
+**Important**: Hand-writing `live` routes for admin LiveViews in your parent router puts them in a different `live_session` than `:phoenix_kit_admin`, which causes two problems: (1) the admin layout is lost (the sidebar/header are applied by `:phoenix_kit_ensure_admin` which only runs inside `:phoenix_kit_admin`), and (2) navigating from another admin page tears down the WebSocket with `navigate event failed because you are redirecting across live_sessions. A full page reload will be performed instead`. You cannot work around this by redeclaring `live_session :phoenix_kit_admin` in your router — Phoenix raises on duplicate live_session names. **Always register custom pages via `live_view:` on a tab** so PhoenixKit compiles them into the shared admin live_session. See `phoenix_kit/guides/custom-admin-pages.md` for the authoritative reference.
 
 ### Tab Rendering Flow
 
@@ -454,7 +456,7 @@ config :phoenix_kit, :admin_dashboard_tabs, [
     id: :admin_analytics,
     label: "Analytics",
     icon: "hero-chart-bar",
-    path: "/admin/analytics",
+    path: "analytics",
     permission: "dashboard",
     priority: 150,
     group: :admin_main,
@@ -483,7 +485,6 @@ These assigns are automatically set by PhoenixKit's `on_mount` hooks in the admi
 | `@current_locale` | string | Current locale code (may be nil) |
 | `@flash` | map | Flash messages |
 | `@live_action` | atom | The action from the route (e.g., `:index`) |
-| `@show_maintenance` | boolean | Whether maintenance mode banner is shown |
 
 ## Legacy Config Compatibility
 
@@ -500,7 +501,7 @@ config :phoenix_kit, AdminDashboardCategories, [
 # New format (recommended)
 config :phoenix_kit, :admin_dashboard_tabs, [
   %{id: :admin_analytics, label: "Analytics", icon: "hero-chart-bar",
-    path: "/admin/analytics", permission: "dashboard", group: :admin_main}
+    path: "analytics", permission: "dashboard", group: :admin_main}
 ]
 ```
 

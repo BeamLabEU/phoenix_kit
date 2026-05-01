@@ -18,9 +18,15 @@ defmodule PhoenixKit.Dashboard.Tab do
         id: :orders,
         label: "My Orders",
         icon: "hero-shopping-bag",
-        path: "/dashboard/orders",
+        path: "orders",
         priority: 100
       }
+
+  > Tab paths are **relative by convention** — `Tab.resolve_path/2` prepends the context
+  > prefix (`/dashboard/` for `user_dashboard_tabs`, `/admin/` for `admin_tabs`,
+  > `/admin/settings/` for `settings_tabs`). Absolute paths (starting with `/`) pass through
+  > unchanged but the relative form is preferred. An empty `path: ""` resolves to the bare
+  > context root (e.g. `/dashboard`).
 
   ## With Badge
 
@@ -28,7 +34,7 @@ defmodule PhoenixKit.Dashboard.Tab do
         id: :notifications,
         label: "Notifications",
         icon: "hero-bell",
-        path: "/dashboard/notifications",
+        path: "notifications",
         badge: %Badge{type: :count, value: 5, color: :error}
       }
 
@@ -38,7 +44,7 @@ defmodule PhoenixKit.Dashboard.Tab do
         id: :printers,
         label: "Printers",
         icon: "hero-cube",
-        path: "/dashboard/printers",
+        path: "printers",
         badge: %Badge{
           type: :count,
           subscribe: {"farm:stats", fn msg -> msg.printing_count end}
@@ -54,7 +60,7 @@ defmodule PhoenixKit.Dashboard.Tab do
         id: :beta_feature,
         label: "Beta",
         icon: "hero-beaker",
-        path: "/dashboard/beta",
+        path: "beta",
         visible: fn scope -> scope.user.features["beta_enabled"] == true end
       }
 
@@ -67,7 +73,7 @@ defmodule PhoenixKit.Dashboard.Tab do
         id: :orders,
         label: "Orders",
         icon: "hero-shopping-bag",
-        path: "/dashboard/orders",
+        path: "orders",
         subtab_display: :when_active  # Show subtabs only when this tab is active
       }
 
@@ -75,14 +81,14 @@ defmodule PhoenixKit.Dashboard.Tab do
       %Tab{
         id: :pending_orders,
         label: "Pending",
-        path: "/dashboard/orders/pending",
+        path: "orders/pending",
         parent: :orders
       }
 
       %Tab{
         id: :completed_orders,
         label: "Completed",
-        path: "/dashboard/orders/completed",
+        path: "orders/completed",
         parent: :orders
       }
 
@@ -106,7 +112,15 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   @type level :: :user | :admin | :all
 
-  @type dynamic_children_fn :: (map() -> [t()]) | nil
+  # `dynamic_children` may have arity 1 (receives scope) or arity 2 (receives scope
+  # and the current locale). The 2-arity variant lets modules render locale-aware
+  # children (e.g. translated tab labels) without having to fall back on
+  # `Gettext.get_locale/1` at render time. The sidebar dispatches on arity; both
+  # forms are supported for backwards compatibility.
+  @type dynamic_children_fn ::
+          (map() -> [t()])
+          | (map(), String.t() | nil -> [t()])
+          | nil
 
   @type t :: %__MODULE__{
           id: atom(),
