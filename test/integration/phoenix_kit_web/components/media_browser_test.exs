@@ -30,13 +30,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
   end
 
   defp create_file!(folder_uuid) do
+    n = System.unique_integer([:positive])
+
     {:ok, file} =
       Repo.insert(%StorageFile{
-        original_file_name: "file_#{System.unique_integer([:positive])}.jpg",
-        file_name: "file_#{System.unique_integer([:positive])}.jpg",
+        original_file_name: "file_#{n}.jpg",
+        file_name: "file_#{n}.jpg",
         mime_type: "image/jpeg",
         file_type: "image",
         ext: "jpg",
+        # `file_checksum`/`user_file_checksum` are `NOT NULL` in V95.
+        file_checksum: "sha256:test-#{n}",
+        user_file_checksum: "user-sha256:test-#{n}",
         size: 1024,
         status: "active",
         folder_uuid: folder_uuid
@@ -47,6 +52,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
 
   defp fake_uuid do
     "00000000-0000-7000-8000-#{System.unique_integer([:positive]) |> Integer.to_string() |> String.pad_leading(12, "0")}"
+  end
+
+  defp flatten_tree_uuids(nodes) do
+    Enum.flat_map(nodes, fn %{folder: folder, children: children} ->
+      [folder.uuid | flatten_tree_uuids(children)]
+    end)
   end
 
   # ---------------------------------------------------------------------------
@@ -149,13 +160,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
     end
 
     test "list_folder_tree with scope returns flattened subtree" do
+      # `list_folder_tree/1` returns nested tree nodes shaped as
+      # `%{folder: %Folder{}, children: [%{folder: ..., children: ...}, ...]}`
+      # — see `build_tree_nodes/2` in `lib/modules/storage/storage.ex:880`.
+      # Flatten via DFS and project to UUIDs to assert membership.
       scope = create_folder!()
       child = create_folder!(%{name: "child", parent_uuid: scope.uuid})
       grandchild = create_folder!(%{name: "grandchild", parent_uuid: child.uuid})
       _outside = create_folder!()
 
       tree = Storage.list_folder_tree(scope.uuid)
-      uuids = Enum.map(tree, & &1.uuid)
+      uuids = flatten_tree_uuids(tree)
 
       assert child.uuid in uuids
       assert grandchild.uuid in uuids

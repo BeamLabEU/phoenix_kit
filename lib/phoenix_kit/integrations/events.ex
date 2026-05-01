@@ -74,6 +74,12 @@ defmodule PhoenixKit.Integrations.Events do
     broadcast({:integration_connection_removed, provider_key, name})
   end
 
+  @doc "Broadcast that a named connection was renamed."
+  @spec broadcast_connection_renamed(String.t(), String.t(), String.t()) :: :ok
+  def broadcast_connection_renamed(provider_key, old_name, new_name) do
+    broadcast({:integration_connection_renamed, provider_key, old_name, new_name})
+  end
+
   defp broadcast(message) do
     Manager.broadcast(@topic, message)
   rescue

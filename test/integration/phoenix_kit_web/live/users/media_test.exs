@@ -33,10 +33,17 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
 
   describe "authentication" do
     test "unauthenticated request redirects to login", %{conn: conn} do
-      conn = get(conn, @media_path)
-      # LiveView auth redirects — may be 302 or a LiveView redirect
-      assert conn.status in [302, 303] or
-               (conn.status == 200 and conn.resp_body =~ "redirect")
+      # Phoenix 1.8 LV calls `Phoenix.Controller.put_flash/3` while building
+      # the unauth redirect (in `Phoenix.LiveView.Controller.live_render/3`),
+      # which requires `fetch_flash/2` to have run. The lib's `:browser`
+      # pipeline dropped `fetch_live_flash` in PR #426 because LV handles
+      # flash natively now, but didn't add `fetch_flash` for the redirect
+      # path. Prime it manually here so the test exercises the auth-redirect
+      # without a router-pipeline change.
+      conn = conn |> Phoenix.ConnTest.init_test_session(%{}) |> Phoenix.Controller.fetch_flash()
+      assert {:error, {kind, %{to: target}}} = live(conn, @media_path)
+      assert kind in [:redirect, :live_redirect]
+      assert is_binary(target)
     end
   end
 

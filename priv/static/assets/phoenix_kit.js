@@ -1080,6 +1080,79 @@ if (typeof window.Chart === "undefined") {
   };
 
   // ---------------------------------------------------------------------------
+  // CopyToClipboard Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Mount on a button. The button must have `data-copy-target` pointing
+  // at a CSS selector for the element whose value should be copied
+  // (typically a sibling `<input>`). Optional: an inner element with
+  // `data-copy-feedback` whose `hidden` class is toggled briefly to
+  // show "Copied!" feedback, and an inner element with `data-copy-idle`
+  // whose `hidden` class is the inverse so only one shows at a time.
+  //
+  // Usage in LiveView template:
+  //   <button phx-hook="CopyToClipboard"
+  //           id="copy-foo"
+  //           data-copy-target="#field-foo"
+  //           type="button">
+  //     <span data-copy-idle>Copy</span>
+  //     <span data-copy-feedback class="hidden">Copied!</span>
+  //   </button>
+  //
+  // ---------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.CopyToClipboard = {
+    mounted() {
+      const targetSelector = this.el.getAttribute("data-copy-target");
+      if (!targetSelector) return;
+
+      this.handler = async (e) => {
+        e.preventDefault();
+        const target = document.querySelector(targetSelector);
+        if (!target) return;
+        const value = target.value !== undefined ? target.value : target.textContent;
+        if (!value) return;
+
+        try {
+          await navigator.clipboard.writeText(value);
+        } catch (_err) {
+          // Fallback for older browsers or insecure contexts: select the
+          // input and execCommand("copy"). Best-effort; if both paths
+          // fail we just bail without feedback.
+          if (target.select) {
+            const masked = target.type === "password";
+            if (masked) target.type = "text";
+            target.select();
+            try { document.execCommand("copy"); } catch (_) {}
+            if (masked) target.type = "password";
+            window.getSelection && window.getSelection().removeAllRanges();
+          }
+        }
+
+        const idle = this.el.querySelector("[data-copy-idle]");
+        const feedback = this.el.querySelector("[data-copy-feedback]");
+        if (idle) idle.classList.add("hidden");
+        if (feedback) feedback.classList.remove("hidden");
+
+        clearTimeout(this.feedbackTimer);
+        this.feedbackTimer = setTimeout(() => {
+          if (idle) idle.classList.remove("hidden");
+          if (feedback) feedback.classList.add("hidden");
+        }, 1500);
+      };
+
+      this.el.addEventListener("click", this.handler);
+    },
+    destroyed() {
+      clearTimeout(this.feedbackTimer);
+      if (this.handler) {
+        this.el.removeEventListener("click", this.handler);
+      }
+    }
+  };
+
+
+  // ---------------------------------------------------------------------------
   // TimeAgo Hook
   // ---------------------------------------------------------------------------
   //

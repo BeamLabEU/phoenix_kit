@@ -41,7 +41,10 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
   ## Events
 
   The component sends the `on_select` event with:
-  - Single mode: `%{"uuid" => uuid}` when a card is clicked
+  - Single mode: `%{"uuid" => uuid, "action" => "select" | "deselect"}` —
+    clicking an unselected card emits `"select"`; clicking the
+    currently-selected card emits `"deselect"` so the parent can
+    clear the binding.
   - Multi mode: `%{"uuid" => uuid, "action" => "add" | "remove"}` when toggled
 
   ## Search
@@ -98,7 +101,7 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
         val -> val
       end
 
-    selected = auto_select(assigns.selected || [], connections)
+    selected = assigns.selected || []
     selected_set = MapSet.new(selected)
     existing_uuids = MapSet.new(Enum.map(connections, & &1.uuid))
 
@@ -297,14 +300,13 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationPicker do
     end)
   end
 
-  defp auto_select([], [single]), do: [single.uuid]
-  defp auto_select(selected, _connections), do: selected
-
   defp select_action(true, uuid, selected_set) do
     if MapSet.member?(selected_set, uuid), do: "remove", else: "add"
   end
 
-  defp select_action(false, _uuid, _selected_set), do: "select"
+  defp select_action(false, uuid, selected_set) do
+    if MapSet.member?(selected_set, uuid), do: "deselect", else: "select"
+  end
 
   defp search_text(conn) do
     parts = [

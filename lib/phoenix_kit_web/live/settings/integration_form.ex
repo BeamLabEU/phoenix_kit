@@ -31,10 +31,12 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:selected_provider, nil)
       |> assign(:provider, nil)
       |> assign(:name, nil)
+      |> assign(:uuid, nil)
       |> assign(:data, %{})
       |> assign(:success, nil)
       |> assign(:error, nil)
       |> assign(:new_name, "")
+      |> assign(:form_values, %{})
       |> assign(:testing, false)
       |> assign(:oauth_state, nil)
 
@@ -66,56 +68,62 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     |> assign(:provider, nil)
     |> assign(:name, nil)
     |> assign(:data, %{})
+    |> assign(:form_values, %{})
   end
 
-  defp apply_action(socket, :edit, %{"provider" => provider_key, "name" => name} = params) do
-    provider = Providers.get(provider_key)
-    full_key = "#{provider_key}:#{name}"
+  defp apply_action(socket, :edit, %{"uuid" => uuid} = params) do
+    case Integrations.get_integration_by_uuid(uuid) do
+      {:ok, %{provider: provider_key, name: name, data: data}} ->
+        provider = Providers.get(provider_key)
 
-    data =
-      case Integrations.get_integration(full_key) do
-        {:ok, d} -> d
-        _ -> %{}
-      end
-
-    socket =
-      socket
-      |> assign(:page_title, gettext("Edit Integration"))
-      |> assign(:selected_provider, provider_key)
-      |> assign(:provider, provider)
-      |> assign(:name, name)
-      |> assign(:data, data)
-
-    # Handle OAuth callback (code in query params).
-    # Only process during live WebSocket connection — during dead (static) render
-    # the internal URI may differ from the external URL (e.g. http vs https behind
-    # a reverse proxy), causing redirect_uri mismatch with Google's token endpoint.
-    if connected?(socket) do
-      case params do
-        %{"code" => code, "state" => state} when is_binary(code) and code != "" ->
-          handle_oauth_callback(full_key, code, state, socket)
-
-        %{"code" => code} when is_binary(code) and code != "" ->
-          handle_oauth_callback(full_key, code, nil, socket)
-
-        %{"error" => error} ->
-          description = params["error_description"] || error
-          clean_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
-
+        socket =
           socket
-          |> put_flash(:error, gettext("Authorization failed: %{reason}", reason: description))
-          |> push_navigate(to: clean_path)
+          |> assign(:page_title, gettext("Edit Integration"))
+          |> assign(:selected_provider, provider_key)
+          |> assign(:provider, provider)
+          |> assign(:name, name)
+          |> assign(:uuid, uuid)
+          |> assign(:data, data)
 
-        _ ->
+        # Handle OAuth callback (code in query params).
+        # Only process during live WebSocket connection — during dead
+        # (static) render the internal URI may differ from the external
+        # URL (e.g. http vs https behind a reverse proxy), causing
+        # redirect_uri mismatch with Google's token endpoint.
+        if connected?(socket) do
+          case params do
+            %{"code" => code, "state" => state} when is_binary(code) and code != "" ->
+              handle_oauth_callback(uuid, code, state, socket)
+
+            %{"code" => code} when is_binary(code) and code != "" ->
+              handle_oauth_callback(uuid, code, nil, socket)
+
+            %{"error" => error} ->
+              description = params["error_description"] || error
+              clean_path = Routes.path("/admin/settings/integrations/#{uuid}")
+
+              socket
+              |> put_flash(
+                :error,
+                gettext("Authorization failed: %{reason}", reason: description)
+              )
+              |> push_navigate(to: clean_path)
+
+            _ ->
+              socket
+          end
+        else
           socket
-      end
-    else
-      socket
+        end
+
+      {:error, _} ->
+        socket
+        |> put_flash(:error, gettext("Integration not found"))
+        |> push_navigate(to: Routes.path("/admin/settings/integrations"))
     end
   end
 
   defp apply_action(socket, :edit, _params) do
-    # Missing provider/name params — redirect back to list
     socket
     |> put_flash(:error, gettext("Invalid integration URL"))
     |> push_navigate(to: Routes.path("/admin/settings/integrations"))
@@ -150,15 +158,15 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     provider_key = socket.assigns.selected_provider
     name = String.trim(name)
 
-    # Default to "default" if empty
-    name = if name == "", do: "default", else: name
-
     case Integrations.add_connection(provider_key, name, actor_uuid(socket)) do
-      {:ok, _} ->
-        save_and_redirect(provider_key, name, params, socket)
+      {:ok, %{uuid: uuid}} ->
+        save_and_redirect(uuid, provider_key, name, params, socket)
 
       {:error, :already_exists} ->
-        save_and_redirect(provider_key, name, params, socket)
+        case lookup_connection_uuid(provider_key, name) do
+          {:ok, uuid} -> save_and_redirect(uuid, provider_key, name, params, socket)
+          :error -> {:noreply, assign(socket, :error, gettext("Failed to load connection"))}
+        end
 
       {:error, :empty_name} ->
         {:noreply, assign(socket, :error, gettext("Please enter a connection name."))}
@@ -173,9 +181,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
 
   def handle_event("save_setup", params, socket) do
-    provider_key = socket.assigns.selected_provider
-    name = socket.assigns.name
-    save_setup_fields(provider_key, name, params, socket)
+    save_setup_fields(socket.assigns.uuid, socket.assigns.selected_provider, params, socket)
   end
 
   # ---------------------------------------------------------------------------
@@ -183,17 +189,15 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
 
   def handle_event("disconnect_account", _params, socket) do
-    provider_key = socket.assigns.selected_provider
-    name = socket.assigns.name
-    full_key = "#{provider_key}:#{name}"
+    uuid = socket.assigns.uuid
 
     # Keep the setup credentials (client_id/secret) but remove tokens
-    Integrations.disconnect(full_key, actor_uuid(socket))
+    Integrations.disconnect(uuid, actor_uuid(socket))
 
-    # Reload data
+    # Reload data from the (now-disconnected) row
     data =
-      case Integrations.get_integration(full_key) do
-        {:ok, d} -> d
+      case Integrations.get_integration_by_uuid(uuid) do
+        {:ok, %{data: d}} -> d
         _ -> %{}
       end
 
@@ -209,20 +213,18 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
 
   def handle_event("connect_oauth", _params, socket) do
-    provider_key = socket.assigns.selected_provider
-    name = socket.assigns.name || "default"
-    full_key = "#{provider_key}:#{name}"
+    uuid = socket.assigns.uuid
 
     redirect_uri =
       socket.assigns[:redirect_uri] ||
-        build_redirect_uri(socket, provider_key, name)
+        build_redirect_uri(socket, uuid)
 
     state = OAuth.generate_state()
 
-    case Integrations.authorization_url(full_key, redirect_uri, nil, state) do
+    case Integrations.authorization_url(uuid, redirect_uri, nil, state) do
       {:ok, url} ->
         # Store state in integration data for verification on callback
-        save_oauth_state(full_key, state)
+        save_oauth_state(uuid, state)
         {:noreply, redirect(socket, external: url)}
 
       {:error, :client_id_not_configured} ->
@@ -233,17 +235,106 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
-  # ---------------------------------------------------------------------------
-  # Events — Test connection
-  # ---------------------------------------------------------------------------
-
-  def handle_event("test_connection", _params, socket) do
-    send(self(), :do_test_connection)
-    {:noreply, assign(socket, :testing, true)}
-  end
-
   def handle_event("dismiss", _params, socket) do
     {:noreply, assign(socket, success: nil, error: nil)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Unified form save (top-of-page Save button)
+  # ---------------------------------------------------------------------------
+  #
+  # Dispatches based on current state and the optional `_intent`
+  # flag (set by the Test Connection submit button):
+  #
+  # - `@name == nil` + `_intent: "test"` → /new flow, transient
+  #   validation against the inputted credentials WITHOUT
+  #   persisting. Lets the operator dry-run a key before committing
+  #   to a connection row.
+  # - `@name == nil` (no test intent) → create mode →
+  #   `create_connection` (creates the storage row + saves
+  #   credentials in one shot)
+  # - `@name != nil` and posted name differs from current → rename
+  #   first, then save credentials against the new name
+  # - `@name != nil` and posted name matches → just save credentials
+  #   (and `apply_save_outcome/2` may auto-test, see save_setup_fields)
+
+  def handle_event("save_form", params, socket) do
+    cond do
+      socket.assigns.name == nil and params["_intent"] == "test" ->
+        test_credentials_dry_run(params, socket)
+
+      socket.assigns.name == nil ->
+        # New connection — delegate to the existing create flow.
+        handle_event("create_connection", params, socket)
+
+      params["name"] && String.trim(params["name"]) != socket.assigns.name ->
+        save_form_with_rename(params, socket)
+
+      true ->
+        # No rename — just save credentials.
+        handle_event("save_setup", params, socket)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Delete connection (Danger Zone)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("delete_connection", _params, socket) do
+    case Integrations.remove_connection(socket.assigns.uuid, actor_uuid(socket)) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Connection removed"))
+         |> push_navigate(to: Routes.path("/admin/settings/integrations"))}
+
+      {:error, _reason} ->
+        {:noreply, assign(socket, :error, gettext("Failed to remove connection."))}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Events — Rename connection (edit mode, non-default only)
+  # ---------------------------------------------------------------------------
+
+  def handle_event("rename_connection", %{"name" => new_name}, socket) do
+    case Integrations.rename_connection(socket.assigns.uuid, new_name, actor_uuid(socket)) do
+      {:ok, data} ->
+        # URL is uuid-based, so a rename doesn't change the route — just
+        # update local assigns and surface a success flash. The list page
+        # picks up the new name through the `:integration_connection_renamed`
+        # broadcast.
+        socket =
+          socket
+          |> assign(:name, new_name)
+          |> assign(:data, data)
+          |> assign(:success, gettext("Connection renamed"))
+          |> assign(:error, nil)
+
+        {:noreply, socket}
+
+      {:error, :already_exists} ->
+        {:noreply,
+         assign(
+           socket,
+           :error,
+           gettext("A connection with that name already exists.")
+         )}
+
+      {:error, :empty_name} ->
+        {:noreply, assign(socket, :error, gettext("Connection name can't be blank."))}
+
+      {:error, :invalid_name} ->
+        {:noreply,
+         assign(
+           socket,
+           :error,
+           gettext("Use letters, digits, hyphens, and underscores only.")
+         )}
+
+      {:error, _other} ->
+        {:noreply, assign(socket, :error, gettext("Failed to rename connection."))}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -251,18 +342,14 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
 
   def handle_info(:do_test_connection, socket) do
-    provider_key = socket.assigns.selected_provider
-    name = socket.assigns.name
-    full_key = "#{provider_key}:#{name}"
-    provider = socket.assigns.provider
-
-    uuid = actor_uuid(socket)
-    result = run_connection_test(provider, full_key, uuid)
-    Integrations.record_validation(full_key, result)
+    uuid = socket.assigns.uuid
+    actor = actor_uuid(socket)
+    result = Integrations.validate_connection(uuid, actor)
+    Integrations.record_validation(uuid, result)
 
     data =
-      case Integrations.get_integration(full_key) do
-        {:ok, d} -> d
+      case Integrations.get_integration_by_uuid(uuid) do
+        {:ok, %{data: d}} -> d
         _ -> socket.assigns.data
       end
 
@@ -305,21 +392,18 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # Private
   # ---------------------------------------------------------------------------
 
-  defp handle_oauth_callback(full_key, code, state, socket) do
-    clean_path =
-      Routes.path(
-        "/admin/settings/integrations/#{socket.assigns.selected_provider}/#{socket.assigns.name}"
-      )
+  defp handle_oauth_callback(uuid, code, state, socket) do
+    clean_path = Routes.path("/admin/settings/integrations/#{uuid}")
 
     # Verify CSRF state token if one was stored
-    case verify_oauth_state(full_key, state) do
+    case verify_oauth_state(uuid, state) do
       :ok ->
         # Use the actual browser URL as redirect_uri (must match what was sent to Google)
         redirect_uri =
           socket.assigns[:redirect_uri] ||
-            build_redirect_uri(socket, socket.assigns.selected_provider, socket.assigns.name)
+            build_redirect_uri(socket, uuid)
 
-        case Integrations.exchange_code(full_key, code, redirect_uri, actor_uuid(socket)) do
+        case Integrations.exchange_code(uuid, code, redirect_uri, actor_uuid(socket)) do
           {:ok, _data} ->
             push_navigate(socket, to: clean_path)
 
@@ -332,7 +416,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
         end
 
       {:error, :state_mismatch} ->
-        Logger.warning("[IntegrationForm] OAuth state mismatch for #{full_key}")
+        Logger.warning("[IntegrationForm] OAuth state mismatch for #{uuid}")
 
         socket
         |> put_flash(:error, gettext("Security check failed. Please try connecting again."))
@@ -344,40 +428,156 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # Private
   # ---------------------------------------------------------------------------
 
-  defp save_and_redirect(provider_key, name, params, socket) do
-    full_key = "#{provider_key}:#{name}"
+  # Probe the provider's API with the values currently in the form,
+  # without writing anything to storage. Used by Test Connection on
+  # /new — operator wants to verify the api_key works before
+  # committing to a connection row that might end up half-baked if
+  # the test fails.
+  #
+  # Captures the typed-but-unsaved values onto socket assigns so the
+  # form re-renders with what the user just typed, not the (still
+  # empty) saved `@data`. Without this, a failed test would clear
+  # the api_key field — confusing UX, makes it look like the form
+  # ate the input.
+  defp test_credentials_dry_run(params, socket) do
+    provider_key = socket.assigns.selected_provider
     attrs = extract_setup_attrs(provider_key, params)
+    name = String.trim(params["name"] || "")
 
-    case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
-      {:ok, _data} ->
-        edit_path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}")
-        {:noreply, push_navigate(socket, to: edit_path)}
+    socket =
+      socket
+      |> assign(:new_name, name)
+      |> assign(:form_values, attrs)
 
-      {:error, _} ->
-        {:noreply, assign(socket, :error, gettext("Failed to save"))}
-    end
-  end
-
-  defp run_connection_test(_provider, full_key, actor_uuid) do
-    Integrations.validate_connection(full_key, actor_uuid)
-  end
-
-  defp save_setup_fields(provider_key, name, params, socket) do
-    full_key = "#{provider_key}:#{name}"
-    attrs = extract_setup_attrs(provider_key, params)
-
-    case Integrations.save_setup(full_key, attrs, actor_uuid(socket)) do
-      {:ok, data} ->
+    case Integrations.validate_credentials(provider_key, attrs) do
+      :ok ->
         {:noreply,
          socket
-         |> assign(:name, name)
-         |> assign(:data, data)
-         |> assign(:success, gettext("Saved"))
+         |> assign(:success, gettext("Connection verified"))
          |> assign(:error, nil)}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:error, "#{gettext("Test failed")}: #{reason}")
+         |> assign(:success, nil)}
+    end
+  end
+
+  defp save_form_with_rename(params, socket) do
+    uuid = socket.assigns.uuid
+    new_name = String.trim(params["name"])
+
+    case Integrations.rename_connection(uuid, new_name, actor_uuid(socket)) do
+      {:ok, data} ->
+        socket =
+          socket
+          |> assign(:name, new_name)
+          |> assign(:data, data)
+
+        # Now save credentials under the new name.
+        handle_event("save_setup", params, socket)
+
+      {:error, :already_exists} ->
+        {:noreply, assign(socket, :error, gettext("A connection with that name already exists."))}
+
+      {:error, :empty_name} ->
+        {:noreply, assign(socket, :error, gettext("Connection name can't be blank."))}
+
+      {:error, :invalid_name} ->
+        {:noreply,
+         assign(
+           socket,
+           :error,
+           gettext("Use letters, digits, hyphens, and underscores only.")
+         )}
+
+      {:error, _other} ->
+        {:noreply, assign(socket, :error, gettext("Failed to rename connection."))}
+    end
+  end
+
+  defp save_and_redirect(uuid, provider_key, name, params, socket) do
+    attrs = extract_setup_attrs(provider_key, params)
+
+    case Integrations.save_setup(uuid, attrs, actor_uuid(socket)) do
+      {:ok, data} ->
+        edit_path = Routes.path("/admin/settings/integrations/#{uuid}")
+
+        socket =
+          socket
+          |> assign(:name, name)
+          |> assign(:uuid, uuid)
+          |> assign(:data, data)
+          |> assign(:error, nil)
+          |> push_patch(to: edit_path)
+          |> apply_save_outcome(data)
+
+        {:noreply, socket}
 
       {:error, _} ->
         {:noreply, assign(socket, :error, gettext("Failed to save"))}
     end
+  end
+
+  defp lookup_connection_uuid(provider_key, name) do
+    Integrations.list_connections(provider_key)
+    |> Enum.find(fn %{name: n} -> n == name end)
+    |> case do
+      %{uuid: uuid} when is_binary(uuid) -> {:ok, uuid}
+      _ -> :error
+    end
+  end
+
+  defp save_setup_fields(uuid, provider_key, params, socket) do
+    attrs = extract_setup_attrs(provider_key, params)
+
+    case Integrations.save_setup(uuid, attrs, actor_uuid(socket)) do
+      {:ok, data} ->
+        socket =
+          socket
+          |> assign(:data, data)
+          |> assign(:error, nil)
+          |> apply_save_outcome(data)
+
+        {:noreply, socket}
+
+      {:error, _} ->
+        {:noreply, assign(socket, :error, gettext("Failed to save"))}
+    end
+  end
+
+  # Choose the right post-save UI state. Two cases:
+  #
+  #   1. The save left the integration in a state we can immediately
+  #      validate (`status in [configured, connected, error]`).
+  #      Trigger the auto-test and let the test result own the
+  #      success message — don't pre-set `success: "Saved"` first,
+  #      otherwise the user sees a flash of "Saved" before
+  #      "Connection verified" replaces it. The `"error"` case
+  #      matters: a connection currently in error state still has
+  #      credentials, the operator just edited them to (presumably)
+  #      fix the problem, so we should re-test to either confirm
+  #      the recovery or report the new error. This list mirrors
+  #      the Test Connection button's visibility guard in the
+  #      template — they have to stay in sync.
+  #
+  #   2. No test will fire — typically OAuth setup with no access
+  #      token yet (`status: disconnected`). The user still needs to
+  #      run the OAuth dance via "Connect Account". Surface "Saved"
+  #      so they know their setup credentials persisted, then they
+  #      can move on to the connect step.
+  defp apply_save_outcome(socket, %{"status" => status} = _data)
+       when status in ["configured", "connected", "error"] do
+    send(self(), :do_test_connection)
+
+    socket
+    |> assign(:testing, true)
+    |> assign(:success, nil)
+  end
+
+  defp apply_save_outcome(socket, _data) do
+    assign(socket, :success, gettext("Saved"))
   end
 
   defp extract_setup_attrs(provider_key, params) do
@@ -400,12 +600,10 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   end
 
   defp reload_data(socket) do
-    if socket.assigns.name && socket.assigns.selected_provider do
-      full_key = "#{socket.assigns.selected_provider}:#{socket.assigns.name}"
-
+    if socket.assigns[:uuid] do
       data =
-        case Integrations.get_integration(full_key) do
-          {:ok, d} -> d
+        case Integrations.get_integration_by_uuid(socket.assigns.uuid) do
+          {:ok, %{data: d}} -> d
           _ -> %{}
         end
 
@@ -415,24 +613,23 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
-  defp save_oauth_state(full_key, state) do
-    case Integrations.get_integration(full_key) do
-      {:ok, data} ->
-        Integrations.save_setup(full_key, Map.put(data, "oauth_state", state))
+  defp save_oauth_state(uuid, state) do
+    case Integrations.get_integration_by_uuid(uuid) do
+      {:ok, %{data: data}} ->
+        Integrations.save_setup(uuid, Map.put(data, "oauth_state", state))
 
       _ ->
         :ok
     end
   end
 
-  defp verify_oauth_state(full_key, callback_state) do
-    case Integrations.get_integration(full_key) do
-      {:ok, %{"oauth_state" => stored_state}}
+  defp verify_oauth_state(uuid, callback_state) do
+    case Integrations.get_integration_by_uuid(uuid) do
+      {:ok, %{data: %{"oauth_state" => stored_state} = data}}
       when is_binary(stored_state) and stored_state != "" ->
         if callback_state == stored_state do
           # Clear the used state token
-          {:ok, data} = Integrations.get_integration(full_key)
-          Integrations.save_setup(full_key, Map.delete(data, "oauth_state"))
+          Integrations.save_setup(uuid, Map.delete(data, "oauth_state"))
           :ok
         else
           {:error, :state_mismatch}
@@ -444,10 +641,10 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     end
   end
 
-  defp build_redirect_uri(socket, provider_key, name) do
+  defp build_redirect_uri(socket, uuid) do
     base = Settings.get_setting("site_url", "")
     locale = socket.assigns[:current_locale_base]
-    path = Routes.path("/admin/settings/integrations/#{provider_key}/#{name}", locale: locale)
+    path = Routes.path("/admin/settings/integrations/#{uuid}", locale: locale)
 
     if is_binary(base) and base != "" do
       "#{String.trim_trailing(base, "/")}#{path}"
@@ -502,4 +699,38 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       _ -> iso_string
     end
   end
+
+  # Humanize a UTC ISO8601 timestamp into a relative phrase like
+  # "2 hours ago" / "3 days ago" / "Apr 28 2026". Falls back to the
+  # raw string on parse failure.
+  defp format_relative(nil), do: nil
+  defp format_relative(""), do: nil
+
+  defp format_relative(iso_string) when is_binary(iso_string) do
+    case DateTime.from_iso8601(iso_string) do
+      {:ok, dt, _} ->
+        diff_seconds = DateTime.diff(DateTime.utc_now(), dt, :second)
+
+        cond do
+          diff_seconds < 0 -> Calendar.strftime(dt, "%b %-d %Y")
+          diff_seconds < 60 -> gettext("just now")
+          diff_seconds < 3600 -> gettext_minutes(div(diff_seconds, 60))
+          diff_seconds < 86_400 -> gettext_hours(div(diff_seconds, 3600))
+          diff_seconds < 7 * 86_400 -> gettext_days(div(diff_seconds, 86_400))
+          true -> Calendar.strftime(dt, "%b %-d %Y")
+        end
+
+      _ ->
+        iso_string
+    end
+  end
+
+  defp gettext_minutes(1), do: gettext("1 minute ago")
+  defp gettext_minutes(n), do: gettext("%{n} minutes ago", n: n)
+
+  defp gettext_hours(1), do: gettext("1 hour ago")
+  defp gettext_hours(n), do: gettext("%{n} hours ago", n: n)
+
+  defp gettext_days(1), do: gettext("1 day ago")
+  defp gettext_days(n), do: gettext("%{n} days ago", n: n)
 end

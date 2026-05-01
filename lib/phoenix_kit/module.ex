@@ -175,6 +175,44 @@ defmodule PhoenixKit.Module do
   """
   @callback css_sources() :: [atom() | String.t()]
 
+  @doc """
+  Run any one-shot legacy data migrations this module owns.
+
+  Two transitions every module that touches Integrations may need:
+
+  1. **Local credentials → Integrations** — the module used to store API
+     keys / OAuth tokens itself; move them into a `PhoenixKit.Integrations`
+     row and point the module's records at that row by uuid.
+  2. **Name-string references → uuid references** — the module already
+     used Integrations but referenced rows by `provider:name` strings;
+     resolve those to uuids and persist the cleaner reference.
+
+  Implementations should:
+
+  - Be idempotent — safe to call on every host-app boot. Use cheap
+    short-circuit guards (a "completed_at" setting, "no rows need
+    migration" check, etc.) so repeat runs do nothing.
+  - Log activity (`PhoenixKit.Activity.log/1`) for every record actually
+    migrated, with `mode: "auto"`. Operators can audit the migration
+    via the activity feed.
+  - Never raise — wrap risky paths in `try/rescue` and return
+    `{:error, reason}` for the orchestrator to log. A failed migration
+    must not crash the host app.
+  - Redact PII in metadata: log uuids and resource refs, never the
+    decrypted API key / OAuth tokens / etc.
+
+  Default implementation returns `:ok` (modules that don't have legacy
+  data don't need to override this).
+
+  ## Orchestration
+
+  Host apps call `PhoenixKit.Modules.run_all_legacy_migrations/0` from
+  `Application.start/2`; that walks every enabled module and invokes
+  this callback. Per-module errors are caught + logged; the boot
+  doesn't fail.
+  """
+  @callback migrate_legacy() :: :ok | {:ok, map()} | {:error, term()}
+
   @optional_callbacks [
     get_config: 0,
     permission_metadata: 0,
@@ -189,7 +227,8 @@ defmodule PhoenixKit.Module do
     required_integrations: 0,
     integration_providers: 0,
     notification_types: 0,
-    css_sources: 0
+    css_sources: 0,
+    migrate_legacy: 0
   ]
 
   defmacro __using__(_opts) do
@@ -244,6 +283,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def css_sources, do: []
 
+      @impl PhoenixKit.Module
+      def migrate_legacy, do: :ok
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -257,7 +299,8 @@ defmodule PhoenixKit.Module do
                      required_integrations: 0,
                      integration_providers: 0,
                      notification_types: 0,
-                     css_sources: 0
+                     css_sources: 0,
+                     migrate_legacy: 0
     end
   end
 end

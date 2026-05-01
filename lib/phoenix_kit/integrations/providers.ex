@@ -87,7 +87,10 @@ defmodule PhoenixKit.Integrations.Providers do
   defp builtin_providers do
     [
       google(),
-      openrouter()
+      microsoft(),
+      openrouter(),
+      mistral(),
+      deepseek()
     ]
   end
 
@@ -248,6 +251,237 @@ defmodule PhoenixKit.Integrations.Providers do
           steps: [
             {gettext("Some models are free, but most require credits"), nil},
             {gettext("Go to [Credits](https://openrouter.ai/credits) to add funds"), nil}
+          ]
+        }
+      ]
+    }
+  end
+
+  defp mistral do
+    %{
+      key: "mistral",
+      name: gettext("Mistral"),
+      description: gettext("AI model access via Mistral AI (Mistral Large, Codestral, Pixtral)"),
+      icon: "hero-sparkles",
+      auth_type: :api_key,
+      oauth_config: nil,
+      validation: %{
+        url: "https://api.mistral.ai/v1/models",
+        method: :get,
+        auth_header: "Authorization",
+        auth_prefix: "Bearer "
+      },
+      setup_fields: [
+        %{
+          key: "api_key",
+          label: gettext("API Key"),
+          type: :password,
+          required: true,
+          placeholder: "...",
+          help: gettext("From console.mistral.ai/api-keys"),
+          options: nil
+        }
+      ],
+      capabilities: [:ai_completions, :ai_embeddings],
+      instructions: [
+        %{
+          title: gettext("Create a Mistral account"),
+          steps: [
+            {gettext("Go to [console.mistral.ai](https://console.mistral.ai) and sign up or log in"),
+             nil},
+            {gettext("You may need to verify your phone number before creating API keys"), nil}
+          ]
+        },
+        %{
+          title: gettext("Add a payment method (required)"),
+          steps: [
+            {gettext(
+               "Go to [Workspace → Billing](https://console.mistral.ai/billing/plans) and choose **Experiment** (pay-as-you-go) or a paid tier"
+             ), nil},
+            {gettext("Free models still require a billing-enabled workspace"), nil}
+          ],
+          note:
+            gettext(
+              "Mistral does not offer credits without billing setup; this is a hard requirement before keys can be created."
+            )
+        },
+        %{
+          title: gettext("Create an API key"),
+          steps: [
+            {gettext("Go to [API Keys](https://console.mistral.ai/api-keys)"), nil},
+            {gettext("Click **Create new key**, give it a name, set an expiry if desired"), nil},
+            {gettext("Copy the key (shown once) and paste it into the form above"), nil}
+          ]
+        }
+      ]
+    }
+  end
+
+  defp deepseek do
+    %{
+      key: "deepseek",
+      name: gettext("DeepSeek"),
+      description: gettext("AI model access via DeepSeek (deepseek-chat, deepseek-reasoner)"),
+      icon: "hero-sparkles",
+      auth_type: :api_key,
+      oauth_config: nil,
+      validation: %{
+        url: "https://api.deepseek.com/models",
+        method: :get,
+        auth_header: "Authorization",
+        auth_prefix: "Bearer "
+      },
+      setup_fields: [
+        %{
+          key: "api_key",
+          label: gettext("API Key"),
+          type: :password,
+          required: true,
+          placeholder: "sk-...",
+          help: gettext("From platform.deepseek.com/api_keys"),
+          options: nil
+        }
+      ],
+      capabilities: [:ai_completions],
+      instructions: [
+        %{
+          title: gettext("Create a DeepSeek account"),
+          steps: [
+            {gettext(
+               "Go to [platform.deepseek.com](https://platform.deepseek.com) and sign up or log in"
+             ), nil}
+          ]
+        },
+        %{
+          title: gettext("Add credits"),
+          steps: [
+            {gettext(
+               "Go to [Top up](https://platform.deepseek.com/top_up) and add at least the minimum amount"
+             ), nil},
+            {gettext(
+               "DeepSeek requires a positive balance before you can call the chat or reasoner endpoints, even on cheap models"
+             ), nil}
+          ]
+        },
+        %{
+          title: gettext("Create an API key"),
+          steps: [
+            {gettext("Go to [API Keys](https://platform.deepseek.com/api_keys)"), nil},
+            {gettext("Click **Create API key**, give it a name"), nil},
+            {gettext("Copy the key (shown once) and paste it into the form above"), nil}
+          ]
+        }
+      ]
+    }
+  end
+
+  defp microsoft do
+    %{
+      key: "microsoft",
+      name: gettext("Microsoft 365"),
+      description: gettext("Microsoft Graph — Outlook, OneDrive, Teams, Calendar, SharePoint"),
+      icon: "hero-cloud",
+      auth_type: :oauth2,
+      oauth_config: %{
+        # `common` lets both work-or-school AND personal accounts sign in.
+        # Use a specific tenant ID (e.g. "consumers" or a GUID) when the
+        # app should be locked to one audience.
+        auth_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        userinfo_url: "https://graph.microsoft.com/v1.0/me",
+        # `offline_access` is required for refresh tokens — without it
+        # the access token expires after ~1h and there's no way back.
+        # `User.Read` is the minimum needed for /me to return a profile.
+        # Add Mail.Read, Files.Read.All, Calendars.Read, etc. as the
+        # consumer module needs them; Microsoft requires the app
+        # registration's API permissions to match what's requested here.
+        default_scopes: "openid email profile offline_access User.Read",
+        # `prompt=consent` forces the consent screen so refresh_token
+        # is reliably issued on every connect (Microsoft sometimes
+        # silently drops it on re-auth without this).
+        auth_params: %{"prompt" => "consent"}
+      },
+      setup_fields: [
+        %{
+          key: "client_id",
+          label: gettext("Application (client) ID"),
+          type: :text,
+          required: true,
+          placeholder: "00000000-0000-0000-0000-000000000000",
+          help: gettext("From Azure Portal → App registrations → your app → Overview"),
+          options: nil
+        },
+        %{
+          key: "client_secret",
+          label: gettext("Client Secret"),
+          type: :password,
+          required: true,
+          placeholder: "...",
+          help:
+            gettext(
+              "From your app → Certificates & secrets → New client secret. Copy the *Value*, not the Secret ID."
+            ),
+          options: nil
+        }
+      ],
+      capabilities: [:microsoft_outlook, :microsoft_onedrive, :microsoft_teams, :microsoft_calendar],
+      instructions: [
+        %{
+          title: gettext("Register an application in Microsoft Entra ID (Azure AD)"),
+          steps: [
+            {gettext(
+               "Go to the [Azure Portal](https://portal.azure.com) and search for **App registrations**"
+             ), nil},
+            {gettext("Click **New registration**, give the app a name"), nil},
+            {gettext(
+               "Under **Supported account types**, choose the audience: *Personal Microsoft accounts only*, *Accounts in any organizational directory*, or *Accounts in this organizational directory only* depending on who should sign in"
+             ), nil},
+            {gettext(
+               "Under **Redirect URI**, choose **Web** and enter: `{redirect_uri}`"
+             ), nil},
+            {gettext("Click **Register**"), nil}
+          ],
+          note:
+            gettext(
+              "If you picked a single-tenant audience, replace `common` in the OAuth URLs with your tenant ID — the provider definition uses `common` by default which only works for multi-tenant + personal apps."
+            )
+        },
+        %{
+          title: gettext("Add a client secret"),
+          steps: [
+            {gettext("Go to **Certificates & secrets → New client secret**"), nil},
+            {gettext("Set an expiration (24 months is common; renew before it lapses)"), nil},
+            {gettext(
+               "Copy the **Value** column (not the Secret ID) into the form above — the value is shown ONCE and disappears on page refresh"
+             ), nil}
+          ]
+        },
+        %{
+          title: gettext("Configure API permissions"),
+          steps: [
+            {gettext(
+               "Go to **API permissions → Add a permission → Microsoft Graph → Delegated permissions**"
+             ), nil},
+            {gettext(
+               "Add the permissions your integration needs: `User.Read` is included by default; add `Mail.Read`, `Files.Read.All`, `Calendars.Read`, etc. as required"
+             ), nil},
+            {gettext(
+               "If your tenant requires admin consent, click **Grant admin consent for <tenant>** before the connect flow will work"
+             ), nil}
+          ],
+          note:
+            gettext(
+              "The `default_scopes` in the provider definition request `openid email profile offline_access User.Read` — extra scopes can be added per-connect by passing `extra_scopes` to `authorization_url/5`."
+            )
+        },
+        %{
+          title: gettext("Connect and authorize"),
+          steps: [
+            {gettext("Click **Save**, then **Connect Account**"), nil},
+            {gettext(
+               "Microsoft will show the consent screen — click **Accept** to grant the requested permissions"
+             ), nil},
+            {gettext("You'll be redirected back here once connected"), nil}
           ]
         }
       ]

@@ -68,6 +68,18 @@ Application.put_env(:phoenix_kit, :test_repo_available, repo_available)
 {:ok, _pid} = PhoenixKit.ModuleRegistry.start_link([])
 {:ok, _pid} = PhoenixKit.Users.RateLimiter.Backend.start_link([])
 
+# Start the LV endpoint once for the whole test run. `PhoenixKitWeb.ConnCase`
+# previously did this per-test via `start_supervised`, but that ties the
+# endpoint's lifetime to a single test pid — when an async test finishes,
+# ExUnit tears down its supervisor and any concurrent test loses the
+# `PhoenixKitWeb.Endpoint` ETS config table mid-request, surfacing as
+# `:ets.lookup(PhoenixKitWeb.Endpoint, :secret_key_base)` ArgumentErrors.
+# A single Application-level start avoids that race entirely.
+case Process.whereis(PhoenixKitWeb.Endpoint) do
+  nil -> {:ok, _} = PhoenixKitWeb.Endpoint.start_link()
+  _pid -> :ok
+end
+
 # Exclude integration tests when DB is not available
 exclude = if repo_available, do: [], else: [:integration]
 

@@ -597,6 +597,90 @@ defmodule PhoenixKit.ModuleRegistry do
     end
   end
 
+  @doc """
+  Run every enabled module's `migrate_legacy/0` callback.
+
+  Iterates registered modules, calls `migrate_legacy/0` on each that
+  implements it, swallows per-module errors so the host-app boot can't
+  be taken down by a flaky migration. Each module's implementation is
+  expected to be idempotent (safe to re-run on every boot).
+
+  Activity logging happens inside each module's `migrate_legacy/0` —
+  this orchestrator only logs the per-module pass/fail outcome to the
+  Logger, not to Activity.
+
+  Designed to be called once from a host app's `Application.start/2`
+  after the Repo and supervision tree are up:
+
+      def start(_type, _args) do
+        children = [...]
+        result = Supervisor.start_link(children, opts)
+        PhoenixKit.ModuleRegistry.run_all_legacy_migrations()
+        result
+      end
+
+  Returns a summary map: `%{module_atom => :ok | {:error, term()}}`.
+  """
+  @spec run_all_legacy_migrations() :: %{module() => :ok | {:error, term()}}
+  def run_all_legacy_migrations do
+    all_modules()
+    |> Enum.reduce(%{}, fn mod, acc ->
+      Map.put(acc, mod, run_one_legacy_migration(mod))
+    end)
+  end
+
+  defp run_one_legacy_migration(mod) do
+    cond do
+      not Code.ensure_loaded?(mod) ->
+        {:error, :module_not_loaded}
+
+      not function_exported?(mod, :migrate_legacy, 0) ->
+        :ok
+
+      true ->
+        do_run_legacy_migration(mod)
+    end
+  end
+
+  defp do_run_legacy_migration(mod) do
+    case mod.migrate_legacy() do
+      :ok ->
+        :ok
+
+      {:ok, _summary} ->
+        :ok
+
+      {:error, reason} = err ->
+        Logger.warning(
+          "[ModuleRegistry] #{inspect(mod)}.migrate_legacy/0 returned error: #{inspect(reason)}"
+        )
+
+        err
+
+      other ->
+        Logger.warning(
+          "[ModuleRegistry] #{inspect(mod)}.migrate_legacy/0 returned unexpected shape: " <>
+            inspect(other)
+        )
+
+        {:error, {:unexpected_return, other}}
+    end
+  rescue
+    error ->
+      Logger.warning(
+        "[ModuleRegistry] #{inspect(mod)}.migrate_legacy/0 raised: #{Exception.message(error)}"
+      )
+
+      {:error, error}
+  catch
+    :exit, reason ->
+      Logger.warning(
+        "[ModuleRegistry] #{inspect(mod)}.migrate_legacy/0 exited: #{inspect(reason)}"
+      )
+
+      {:error, {:exit, reason}}
+  end
+
   # Safely call an optional callback on a module, returning the default
   # if the module isn't loaded or doesn't export the function.
   @spec safe_call(module(), atom(), term()) :: term()

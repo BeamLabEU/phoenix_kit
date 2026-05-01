@@ -40,26 +40,11 @@ defmodule PhoenixKitWeb.ConnCase do
     pid = Sandbox.start_owner!(TestRepo, shared: not tags[:async])
     on_exit(fn -> Sandbox.stop_owner(pid) end)
 
-    # Start the endpoint if not already started
-    start_supervised_endpoint!()
+    # The endpoint is started once for the suite in `test/test_helper.exs`.
+    # Don't `start_supervised` it here — that ties the endpoint to a
+    # single test pid and kills it for concurrent async tests.
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}
-  end
-
-  defp start_supervised_endpoint! do
-    case Process.whereis(PhoenixKitWeb.Endpoint) do
-      nil ->
-        {:ok, _} =
-          ExUnit.Callbacks.start_supervised(
-            {PhoenixKitWeb.Endpoint, []},
-            id: :phoenix_kit_test_endpoint
-          )
-
-      _pid ->
-        :ok
-    end
-  rescue
-    _ -> :ok
   end
 
   # ---------------------------------------------------------------------------

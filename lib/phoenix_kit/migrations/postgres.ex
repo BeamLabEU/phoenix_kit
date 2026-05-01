@@ -529,7 +529,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V105 - CRM tables ⚡ LATEST
+  ### V107 - Pin AI endpoints to integration via `integration_uuid` ⚡ LATEST
+  Adds `phoenix_kit_ai_endpoints.integration_uuid uuid` (nullable) so each
+  endpoint references the specific integration row it consumes, rather
+  than a bare provider string that the resolver had to guess against.
+  Backfills from existing `provider` strings — exact match for
+  `provider:name` shapes, most-recently-validated for bare providers.
+
+  ### V106 - Split phoenix_kit_projects.name uniqueness across templates and projects
+
+  ### V105 - CRM tables
   Two tables for the upcoming `phoenix_kit_crm` plugin:
   - **phoenix_kit_crm_role_settings**: tracks which user roles are opted into
     the CRM module (`enabled BOOLEAN NOT NULL DEFAULT false`; FK to
@@ -788,7 +797,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 106
+  @current_version 107
   @default_prefix "public"
 
   @doc false
