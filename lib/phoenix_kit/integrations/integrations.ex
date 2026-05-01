@@ -185,6 +185,54 @@ defmodule PhoenixKit.Integrations do
   def find_uuid_by_provider_name(_), do: {:error, :invalid}
 
   @doc """
+  Resolves a binary that may be EITHER an integration row's uuid OR a
+  `provider:name` string into the canonical row uuid.
+
+  This is the dual-input lookup that consumer modules' lazy-promotion
+  paths and migration sweeps converge on — code that reads a legacy
+  string from a column where the operator might have stuffed a uuid
+  pre-V107, or a `provider:name` shape pre-uuid-strict, or a bare
+  provider key. Each consumer used to copy the same regex + dispatch
+  pair into its own helper; this primitive centralises it so a future
+  provider doesn't tempt a third copy.
+
+  Returns `{:ok, uuid}` if the input resolves to a current row,
+  `{:error, :not_found}` if it parses cleanly but no matching row
+  exists, `{:error, :invalid}` for malformed input (empty string, nil,
+  non-binary).
+
+  ## Examples
+
+      iex> resolve_to_uuid("019b669c-3c9d-7256-8ed1-edbc6ae29703")
+      {:ok, "019b669c-3c9d-7256-8ed1-edbc6ae29703"}  # already-uuid path
+
+      iex> resolve_to_uuid("openrouter:default")
+      {:ok, "..."}  # provider:name path → find_uuid_by_provider_name
+
+      iex> resolve_to_uuid("openrouter")
+      {:ok, "..."}  # bare provider, treated as provider:default
+
+  See `find_uuid_by_provider_name/1` for the provider:name half of the
+  lookup. The split exists because that primitive doesn't handle the
+  "input is already a uuid" case — it'd treat `"019b669c-..."` as a
+  provider name and search `integration:019b669c-...:default`.
+  """
+  @spec resolve_to_uuid(String.t()) ::
+          {:ok, String.t()} | {:error, :not_found | :invalid}
+  def resolve_to_uuid(input) when is_binary(input) and input != "" do
+    if uuid?(input) do
+      case get_integration_by_uuid(input) do
+        {:ok, _} -> {:ok, input}
+        _ -> {:error, :not_found}
+      end
+    else
+      find_uuid_by_provider_name(input)
+    end
+  end
+
+  def resolve_to_uuid(_), do: {:error, :invalid}
+
+  @doc """
   Get credentials for a provider, suitable for making API calls.
 
   Returns the full integration data map. The caller extracts what it needs

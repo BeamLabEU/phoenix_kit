@@ -679,6 +679,43 @@ defmodule PhoenixKit.Integration.IntegrationsTest do
     end
   end
 
+  describe "resolve_to_uuid/1" do
+    # Dual-input lookup that consumer modules' lazy-promotion paths
+    # converge on. Tests pin both halves: uuid → verify-row-exists, and
+    # provider:name → find_uuid_by_provider_name.
+
+    test "passes through a valid uuid that resolves to an existing row" do
+      uuid = setup_conn("openrouter", "primary")
+      assert {:ok, ^uuid} = Integrations.resolve_to_uuid(uuid)
+    end
+
+    test "returns :not_found for a uuid-shaped string with no matching row" do
+      orphan = "01234567-89ab-7def-8000-000000000000"
+      assert {:error, :not_found} = Integrations.resolve_to_uuid(orphan)
+    end
+
+    test "delegates to find_uuid_by_provider_name for provider:name input" do
+      uuid = setup_conn("openrouter", "work")
+      assert {:ok, ^uuid} = Integrations.resolve_to_uuid("openrouter:work")
+    end
+
+    test "treats bare provider as provider:default" do
+      uuid = setup_conn("openrouter", "default")
+      assert {:ok, ^uuid} = Integrations.resolve_to_uuid("openrouter")
+    end
+
+    test "returns :not_found for provider:name that doesn't resolve" do
+      assert {:error, :not_found} = Integrations.resolve_to_uuid("openrouter:ghost")
+    end
+
+    test "returns :invalid for empty / nil / non-binary input" do
+      assert {:error, :invalid} = Integrations.resolve_to_uuid("")
+      assert {:error, :invalid} = Integrations.resolve_to_uuid(nil)
+      assert {:error, :invalid} = Integrations.resolve_to_uuid(:atom)
+      assert {:error, :invalid} = Integrations.resolve_to_uuid(123)
+    end
+  end
+
   describe "Integrations.get_integration/1 missing-row semantics (post-extraction)" do
     test "non-uuid key that doesn't exist returns :not_configured (no on-read migration)" do
       assert {:error, :not_configured} = Integrations.get_integration("google")
