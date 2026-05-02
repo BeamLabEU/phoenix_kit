@@ -79,7 +79,7 @@ defmodule PhoenixKitWeb.Components.Core.DraggableList do
   attr :draggable, :boolean,
     default: true,
     doc:
-      "When false, the container renders without the SortableGrid hook and items skip the grab-cursor styling — useful when the list is too short to reorder (length <= 1)"
+      "When false, the container renders without the SortableGrid hook and items skip the grab-cursor styling — useful when the list is too short to reorder (length <= 1). `data-id` is still emitted on each item so click-to-select handlers and test selectors work in both modes."
 
   slot :item, required: true, doc: "Slot to render each item, receives the item as let"
   slot :add_button, doc: "Optional slot for add button at end of container"
@@ -117,7 +117,7 @@ defmodule PhoenixKitWeb.Components.Core.DraggableList do
             @draggable && "sortable-item cursor-grab active:cursor-grabbing",
             @item_class
           ]}
-          data-id={if @draggable, do: @item_id_fn.(item)}
+          data-id={@item_id_fn.(item)}
         >
           {render_slot(@item, item)}
         </div>

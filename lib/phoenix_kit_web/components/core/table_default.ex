@@ -98,11 +98,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :on_reorder, :string,
     default: nil,
     doc:
-      "When set, the card-view container becomes a SortableGrid hook target. The table-view's tbody is owned by the inner_block — wire that side separately."
+      "When set, the card-view container becomes a SortableGrid hook target. The table-view's tbody is owned by the inner_block — wire that side separately so desktop users get the same DnD as mobile."
 
   attr :reorder_scope, :map,
     default: %{},
-    doc: "Map of scope values exposed on the card-view container as data-sortable-scope-* attrs"
+    doc:
+      "Map of scope values exposed on the card-view container as data-sortable-scope-* attrs. Keys are lowercased and dasherized for the DOM attr; the JS hook sends them back to LV as camelCase, so an Elixir key `:category_uuid` arrives in the LV handler payload as `\"categoryUuid\"`."
 
   attr :reorder_group, :string,
     default: nil,
