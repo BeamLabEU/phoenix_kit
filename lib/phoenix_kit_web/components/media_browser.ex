@@ -1876,6 +1876,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # True only when PhoenixKitComments is in the dep tree AND its admin toggle
   # is on. Anything else (module missing, settings table missing, raise from
   # enabled?/0) falls through to false so the modal still renders without it.
+  #
+  # The @dialyzer attribute silences the cross-package static call —
+  # phoenix_kit_comments is optional and not a transitive dep of phoenix_kit
+  # itself, so dialyzer can't see PhoenixKitComments.enabled?/0. The
+  # `Code.ensure_loaded?/1` guard above handles the actual runtime safety.
+  @dialyzer {:nowarn_function, comments_enabled?: 0}
   defp comments_enabled? do
     Code.ensure_loaded?(PhoenixKitComments) and PhoenixKitComments.enabled?()
   rescue
