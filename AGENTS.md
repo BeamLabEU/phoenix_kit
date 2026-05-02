@@ -649,3 +649,38 @@ config :phoenix_kit,
   route_modules: [PhoenixKitEntities.Routes]
 ```
 
+
+## TODOs
+
+Workspace-tracked items that aren't ready for inline `# TODO`
+comments in `lib/` (per the playbook, those should be resolved or
+moved here).
+
+### Component test coverage for `phoenix_kit_web/components/core/`
+
+There are no tests under `test/phoenix_kit_web/components/core/` —
+the directory doesn't exist. Several components in
+`lib/phoenix_kit_web/components/core/` are now non-trivial and would
+benefit from `Phoenix.LiveViewTest`-style render-and-assert
+coverage:
+
+- `<.draggable_list>` — recently grew a `:draggable` attr that
+  conditionally hides the SortableJS hook + `cursor-grab` styling.
+  Both branches need at least one rendered-HTML assertion.
+- `<.table_default>` — recently grew `:on_reorder` / `:reorder_scope`
+  / `:reorder_group` / `:item_id` attrs that wire the card-view
+  container as a sortable target. With- and without-DnD branches
+  need rendered-HTML assertions to pin `phx-hook="SortableGrid"`,
+  `data-sortable-*`, `data-id`, `class="sortable-item"`, and the
+  drag-handle footer row.
+- `<.input>`, `<.select>`, `<.textarea>`, `<.checkbox>` — the
+  canonical form primitives; surveyed for inline error rendering,
+  daisyUI variant classes, and the FormField vs raw `name=`/`value=`
+  dispatch.
+- `<.flash>`, `<.modal>` (if either's complexity has grown).
+
+Surfaced 2026-05-02 by the C12 triage during the V108 / DnD core
+work. Treated as out of scope for that PR (a single fixture in an
+empty test dir is awkward); fold into a future component-coverage
+sweep.
+
