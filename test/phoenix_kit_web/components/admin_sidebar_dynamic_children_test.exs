@@ -1,18 +1,15 @@
 defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebarDynamicChildrenTest do
   @moduledoc """
-  Unit tests for the arity-dispatching `expand_dynamic_children/3` helper in
-  `PhoenixKitWeb.Components.Dashboard.AdminSidebar`. The helper itself is private,
-  so we exercise it through `admin_sidebar/1` via Phoenix.LiveView.Rendered
-  APIs — but to keep the tests fast and DB-free, we rely on a thin public
-  wrapper test-helper: `invoke_dynamic_children_for_test/3`.
-
-  If that wrapper doesn't exist, we fall back to asserting the arity dispatch
-  via `Function.info/1` contracts baked into `Tab.dynamic_children_fn`.
+  Unit tests for the arity-dispatching `dynamic_children` callback handling in
+  `PhoenixKitWeb.Components.Dashboard.AdminSidebar`. The internal helper
+  `invoke_dynamic_children/3` is private, so the suite reaches it via the
+  `@doc false` test-only delegate `__invoke_dynamic_children_for_test__/3`.
   """
 
   use ExUnit.Case, async: true
 
   alias PhoenixKit.Dashboard.Tab
+  alias PhoenixKitWeb.Components.Dashboard.AdminSidebar
 
   describe "dynamic_children_fn type" do
     test "arity-1 function is a valid dynamic_children_fn" do
@@ -50,37 +47,60 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebarDynamicChildrenTest do
     end
   end
 
-  # The arity-dispatch logic is a private helper in AdminSidebar; we invoke it
-  # via a reflection-style call so regressions are caught without depending on
-  # any LiveView rendering infrastructure in tests.
-  describe "invoke_dynamic_children/3 dispatch" do
-    setup do
-      # Walk the AdminSidebar module to grab the private helper via :erlang.apply
-      # on the compiled module. We can't call private funs directly, but we can
-      # verify via the public admin_sidebar render path that arity-2 functions
-      # receive the locale argument by using a recording function.
-      {:ok, arity_1_calls: :counters.new(1, []), arity_2_calls: :counters.new(1, [])}
+  describe "invoke_dynamic_children/3 dispatch (via __invoke_dynamic_children_for_test__/3)" do
+    test "arity-1 callback receives only the scope" do
+      parent = self()
+
+      fun = fn scope ->
+        send(parent, {:called_with, :arity_1, scope})
+        []
+      end
+
+      assert AdminSidebar.__invoke_dynamic_children_for_test__(fun, %{user: :alice}, "en-US") ==
+               []
+
+      assert_received {:called_with, :arity_1, %{user: :alice}}
     end
 
-    test "documents the expected dispatch contract", ctx do
-      # This test documents the behaviour contract rather than reaching into
-      # the private helper. Integration coverage for the actual dispatch sits
-      # in the sibling test that renders the sidebar component.
-      arity_1 = fn _scope ->
-        :counters.add(ctx.arity_1_calls, 1, 1)
+    test "arity-2 callback receives both scope and locale" do
+      parent = self()
+
+      fun = fn scope, locale ->
+        send(parent, {:called_with, :arity_2, scope, locale})
         []
       end
 
-      arity_2 = fn _scope, _locale ->
-        :counters.add(ctx.arity_2_calls, 1, 1)
+      assert AdminSidebar.__invoke_dynamic_children_for_test__(fun, %{user: :bob}, "ja-JP") == []
+      assert_received {:called_with, :arity_2, %{user: :bob}, "ja-JP"}
+    end
+
+    test "arity-2 callback handles a nil locale gracefully" do
+      parent = self()
+
+      fun = fn _scope, locale ->
+        send(parent, {:locale_received, locale})
         []
       end
 
-      arity_1.(%{})
-      arity_2.(%{}, "en-US")
+      AdminSidebar.__invoke_dynamic_children_for_test__(fun, %{}, nil)
+      assert_received {:locale_received, nil}
+    end
 
-      assert :counters.get(ctx.arity_1_calls, 1) == 1
-      assert :counters.get(ctx.arity_2_calls, 1) == 1
+    test "callback's return value is propagated" do
+      tab =
+        Tab.new!(
+          id: :child_one,
+          label: "Child",
+          path: "child",
+          priority: 1,
+          level: :admin
+        )
+
+      arity_1 = fn _scope -> [tab] end
+      arity_2 = fn _scope, _locale -> [tab] end
+
+      assert AdminSidebar.__invoke_dynamic_children_for_test__(arity_1, %{}, "en") == [tab]
+      assert AdminSidebar.__invoke_dynamic_children_for_test__(arity_2, %{}, "en") == [tab]
     end
   end
 end
