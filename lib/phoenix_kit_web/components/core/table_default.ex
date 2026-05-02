@@ -52,6 +52,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
@@ -93,6 +94,25 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :card_fields, :any, default: nil
   attr :storage_key, :string, default: nil
   attr :wrapper_class, :string, default: "rounded-lg shadow-md overflow-x-auto overflow-y-clip"
+
+  attr :on_reorder, :string,
+    default: nil,
+    doc:
+      "When set, the card-view container becomes a SortableGrid hook target. The table-view's tbody is owned by the inner_block — wire that side separately."
+
+  attr :reorder_scope, :map,
+    default: %{},
+    doc: "Map of scope values exposed on the card-view container as data-sortable-scope-* attrs"
+
+  attr :reorder_group, :string,
+    default: nil,
+    doc: "SortableJS group name for cross-container drag (must match the table-view side)"
+
+  attr :item_id, :any,
+    default: nil,
+    doc:
+      "1-arity function returning the data-id for a card. Defaults to `& &1.uuid`. Required when on_reorder is set."
+
   attr :rest, :global
 
   slot :inner_block, required: true
@@ -135,6 +155,14 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   end
 
   defp table_default_with_cards(assigns) do
+    item_id_fn = assigns[:item_id] || fn item -> Map.get(item, :uuid) end
+    reorder_scope_attrs = build_sortable_scope_attrs(assigns[:reorder_scope] || %{})
+
+    assigns =
+      assigns
+      |> assign(:item_id_fn, item_id_fn)
+      |> assign(:reorder_scope_attrs, reorder_scope_attrs)
+
     ~H"""
     <div id={@id} phx-hook="TableCardView" data-storage-key={@storage_key || @id} class="relative">
       <%!-- Toolbar row: title (left) + actions and view toggle (right) --%>
@@ -189,8 +217,26 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         </div>
       </div>
       <%!-- Cards: always shown on mobile, hidden on desktop (JS controls md: classes) --%>
-      <div data-card-view="" class="md:hidden grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div :for={item <- @items} class="card card-sm bg-base-200 shadow-sm">
+      <div
+        id={if @on_reorder, do: "#{@id}-cards"}
+        data-card-view=""
+        class="md:hidden grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        data-sortable={if @on_reorder, do: "true"}
+        data-sortable-event={@on_reorder}
+        data-sortable-items={if @on_reorder, do: ".sortable-item"}
+        data-sortable-hide-source="false"
+        data-sortable-group={@reorder_group}
+        phx-hook={if @on_reorder, do: "SortableGrid"}
+        {@reorder_scope_attrs}
+      >
+        <div
+          :for={item <- @items}
+          class={[
+            "card card-sm bg-base-200 shadow-sm",
+            @on_reorder && "sortable-item cursor-grab active:cursor-grabbing"
+          ]}
+          data-id={if @on_reorder, do: @item_id_fn.(item)}
+        >
           <div class="card-body gap-3 flex flex-col">
             <%!-- Custom header (slot) or plain title string --%>
             <div :if={@card_header != []}>
@@ -206,12 +252,26 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
                 <div>{field.value}</div>
               <% end %>
             </div>
-            <%!-- Actions: pinned to bottom --%>
+            <%!-- Footer row: drag handle (bottom-left, when sortable) +
+                 actions (bottom-right, when present). Always rendered
+                 if either is present so the alignment is consistent. --%>
             <div
-              :if={@card_actions != []}
-              class="card-actions justify-end pt-1 border-t border-base-200 mt-auto"
+              :if={@on_reorder || @card_actions != []}
+              class="card-actions flex items-center justify-between pt-1 border-t border-base-200 mt-auto"
             >
-              {render_slot(@card_actions, item)}
+              <div
+                :if={@on_reorder}
+                class="text-base-content/30 hover:text-base-content/70 cursor-grab active:cursor-grabbing select-none"
+                title={gettext("Drag to reorder")}
+              >
+                <.icon name="hero-bars-3" class="w-4 h-4" />
+              </div>
+              <%!-- Spacer when sortable but no actions, so the handle
+                   stays left and we don't collapse the row. --%>
+              <span :if={@on_reorder && @card_actions == []}></span>
+              <div :if={@card_actions != []} class="flex gap-2 ml-auto">
+                {render_slot(@card_actions, item)}
+              </div>
             </div>
           </div>
         </div>
@@ -219,6 +279,24 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
     </div>
     """
   end
+
+  # Translates a `%{key => value}` map into a list of
+  # `{"data-sortable-scope-key" => value}` tuples so the SortableGrid
+  # hook can read them off the container as extra payload. nil/blank
+  # values become "" so the parser side can detect "uncategorized" /
+  # "no scope" without ambiguity.
+  defp build_sortable_scope_attrs(scope) when is_map(scope) do
+    Enum.flat_map(scope, fn {key, value} ->
+      attr_name = "data-sortable-scope-" <> sortable_scope_dash(to_string(key))
+      [{attr_name, sortable_scope_value(value)}]
+    end)
+  end
+
+  defp sortable_scope_value(nil), do: ""
+  defp sortable_scope_value(v) when is_binary(v), do: v
+  defp sortable_scope_value(v), do: to_string(v)
+
+  defp sortable_scope_dash(name), do: name |> String.replace("_", "-") |> String.downcase()
 
   @doc """
   Renders a table header section.
