@@ -117,7 +117,7 @@ defmodule PhoenixKit.MixProject do
       {:hackney, "~> 1.16"},
 
       # Content editor
-      {:leaf, "~> 0.2.10"},
+      {:leaf, "~> 0.2.11"},
 
       # Cloud provider regions
       {:aws_regions, "~> 0.1.0"},

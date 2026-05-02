@@ -1,4 +1,9 @@
 defmodule PhoenixKitWeb.Components.MediaBrowser do
+  # PhoenixKitComments is an optional sibling package — silence undefined
+  # warnings for parent apps that don't install it. The comments_enabled?/0
+  # helper guards every actual call at runtime with Code.ensure_loaded?/1.
+  @compile {:no_warn_undefined, [PhoenixKitComments, PhoenixKitComments.Web.CommentsComponent]}
+
   @moduledoc """
   MediaBrowser LiveComponent — embeddable media management UI.
 
@@ -73,6 +78,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     `/admin/media/:uuid`. When `false` (default), clicks toggle selection
     instead, so the component behaves as a picker when embedded outside the
     admin UI.
+  - `viewer` — when `true`, clicks open a read-only modal showing the
+    clicked file (image / video / PDF / icon) with its metadata and a
+    Download button. Standard close behaviour (X button, Esc, click on
+    backdrop). `admin` and `select_mode` both win over `viewer` if also
+    set, so a caller can opt into modal viewing without losing the
+    selection picker for users who explicitly enable select mode.
   """
   use PhoenixKitWeb, :live_component
 
@@ -98,6 +109,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign(assigns)
       |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:admin, fn -> false end)
+      |> assign_new(:viewer, fn -> false end)
+      |> assign_new(:viewer_file, fn -> nil end)
 
     cond do
       not Map.has_key?(socket.assigns, :uploaded_files) ->
@@ -977,21 +990,52 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
-    if socket.assigns.select_mode or not socket.assigns.admin do
-      selected = socket.assigns.selected_files
+    cond do
+      # Already in selection mode → toggle this file in/out, stay in selection mode.
+      socket.assigns.select_mode ->
+        {:noreply, do_toggle_file(socket, file_uuid)}
 
-      selected =
-        if MapSet.member?(selected, file_uuid),
-          do: MapSet.delete(selected, file_uuid),
-          else: MapSet.put(selected, file_uuid)
+      # Admin context → navigate to the rich admin detail page.
+      socket.assigns.admin ->
+        {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
 
-      {:noreply,
-       socket
-       |> assign(:selected_files, selected)
-       |> assign(:select_mode, true)}
-    else
-      {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
+      # Caller opted into the modal viewer → stash the clicked file in
+      # viewer_file so the modal at the bottom of the template renders.
+      socket.assigns.viewer ->
+        {:noreply, assign(socket, :viewer_file, find_uploaded_file(socket, file_uuid))}
+
+      # Default picker behaviour: enter selection mode and toggle this file in.
+      true ->
+        {:noreply, socket |> do_toggle_file(file_uuid) |> assign(:select_mode, true)}
     end
+  end
+
+  def handle_event("close_viewer", _params, socket) do
+    {:noreply, assign(socket, :viewer_file, nil)}
+  end
+
+  # Single keydown router so we can handle multiple keys without stacking
+  # phx-window-keydown directives (only one fires per element).
+  def handle_event("viewer_keydown", %{"key" => "Escape"}, socket) do
+    {:noreply, assign(socket, :viewer_file, nil)}
+  end
+
+  def handle_event("viewer_keydown", %{"key" => "ArrowLeft"}, socket) do
+    {:noreply, step_viewer(socket, :prev)}
+  end
+
+  def handle_event("viewer_keydown", %{"key" => "ArrowRight"}, socket) do
+    {:noreply, step_viewer(socket, :next)}
+  end
+
+  def handle_event("viewer_keydown", _params, socket), do: {:noreply, socket}
+
+  def handle_event("step_viewer", %{"dir" => "prev"}, socket) do
+    {:noreply, step_viewer(socket, :prev)}
+  end
+
+  def handle_event("step_viewer", %{"dir" => "next"}, socket) do
+    {:noreply, step_viewer(socket, :next)}
   end
 
   def handle_event("toggle_select_folder", %{"folder-uuid" => folder_uuid}, socket) do
@@ -1307,6 +1351,43 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # ──────────────────────────────────────────────────────────────
   # Navigation helpers
   # ──────────────────────────────────────────────────────────────
+
+  defp do_toggle_file(socket, file_uuid) do
+    selected = socket.assigns.selected_files
+
+    selected =
+      if MapSet.member?(selected, file_uuid),
+        do: MapSet.delete(selected, file_uuid),
+        else: MapSet.put(selected, file_uuid)
+
+    assign(socket, :selected_files, selected)
+  end
+
+  # Look up the clicked file's enriched map (filename, mime_type, size, urls,
+  # …) inside the current page's uploaded_files list so the modal can render
+  # without an extra DB roundtrip.
+  defp find_uploaded_file(socket, file_uuid) do
+    Enum.find(socket.assigns.uploaded_files, fn f -> f.file_uuid == file_uuid end)
+  end
+
+  # Advance the modal viewer by one step in the current page's file list.
+  # Stops at the boundary (no wrap-around) so the user knows they hit the
+  # edge instead of being silently teleported to the other end.
+  defp step_viewer(socket, direction) do
+    current = socket.assigns.viewer_file
+    list = socket.assigns.uploaded_files
+
+    with %{file_uuid: uuid} <- current,
+         idx when is_integer(idx) <-
+           Enum.find_index(list, fn f -> f.file_uuid == uuid end),
+         next_idx <- if(direction == :prev, do: idx - 1, else: idx + 1),
+         true <- next_idx >= 0 and next_idx < length(list),
+         %{} = next_file <- Enum.at(list, next_idx) do
+      assign(socket, :viewer_file, next_file)
+    else
+      _ -> socket
+    end
+  end
 
   defp navigate_to_folder(socket, folder_uuid) when folder_uuid in [nil, ""] do
     if controlled_mode?(socket) do
@@ -1791,6 +1872,21 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp file_icon("pdf"), do: "hero-document-text"
   defp file_icon("document"), do: "hero-document"
   defp file_icon(_), do: "hero-document-arrow-down"
+
+  # True only when PhoenixKitComments is in the dep tree AND its admin toggle
+  # is on. Anything else (module missing, settings table missing, raise from
+  # enabled?/0) falls through to false so the modal still renders without it.
+  #
+  # The @dialyzer attribute silences the cross-package static call —
+  # phoenix_kit_comments is optional and not a transitive dep of phoenix_kit
+  # itself, so dialyzer can't see PhoenixKitComments.enabled?/0. The
+  # `Code.ensure_loaded?/1` guard above handles the actual runtime safety.
+  @dialyzer {:nowarn_function, comments_enabled?: 0}
+  defp comments_enabled? do
+    Code.ensure_loaded?(PhoenixKitComments) and PhoenixKitComments.enabled?()
+  rescue
+    _ -> false
+  end
 
   defp auto_expand_breadcrumbs(socket, breadcrumbs) do
     ancestor_uuids = Enum.map(breadcrumbs, & &1.uuid)
