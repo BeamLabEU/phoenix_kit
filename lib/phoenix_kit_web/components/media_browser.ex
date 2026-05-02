@@ -1,4 +1,9 @@
 defmodule PhoenixKitWeb.Components.MediaBrowser do
+  # PhoenixKitComments is an optional sibling package — silence undefined
+  # warnings for parent apps that don't install it. The comments_enabled?/0
+  # helper guards every actual call at runtime with Code.ensure_loaded?/1.
+  @compile {:no_warn_undefined, [PhoenixKitComments, PhoenixKitComments.Web.CommentsComponent]}
+
   @moduledoc """
   MediaBrowser LiveComponent — embeddable media management UI.
 
@@ -1867,6 +1872,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp file_icon("pdf"), do: "hero-document-text"
   defp file_icon("document"), do: "hero-document"
   defp file_icon(_), do: "hero-document-arrow-down"
+
+  # True only when PhoenixKitComments is in the dep tree AND its admin toggle
+  # is on. Anything else (module missing, settings table missing, raise from
+  # enabled?/0) falls through to false so the modal still renders without it.
+  defp comments_enabled? do
+    Code.ensure_loaded?(PhoenixKitComments) and PhoenixKitComments.enabled?()
+  rescue
+    _ -> false
+  end
 
   defp auto_expand_breadcrumbs(socket, breadcrumbs) do
     ancestor_uuids = Enum.map(breadcrumbs, & &1.uuid)

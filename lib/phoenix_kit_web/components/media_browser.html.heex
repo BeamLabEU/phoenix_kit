@@ -11,6 +11,28 @@
       color: oklch(var(--p));
       font-style: italic;
     }
+
+    /* Compact-mode overrides for the Comments component when embedded
+       inside the modal viewer's narrow sidebar. The component itself is
+       designed for full-width post-detail pages; here we shrink the
+       internal typography, paddings, avatars, and button gaps so the
+       author/actions row stops truncating in ~360px of space. */
+    .leaf-comments-compact h2 { font-size: 1rem; line-height: 1.5rem; }
+    .leaf-comments-compact h3 { font-size: 0.8125rem; line-height: 1.25rem; }
+    .leaf-comments-compact .text-sm { font-size: 0.75rem; line-height: 1rem; }
+    .leaf-comments-compact .text-xs { font-size: 0.6875rem; line-height: 0.95rem; }
+    .leaf-comments-compact .p-3 { padding: 0.5rem; }
+    .leaf-comments-compact .p-4 { padding: 0.625rem; }
+    .leaf-comments-compact .gap-2 { gap: 0.25rem; }
+    .leaf-comments-compact .gap-4 { gap: 0.5rem; }
+    .leaf-comments-compact .mb-2 { margin-bottom: 0.25rem; }
+    .leaf-comments-compact .mt-4 { margin-top: 0.5rem; }
+    .leaf-comments-compact .w-5 { width: 1rem; }
+    .leaf-comments-compact .h-5 { height: 1rem; }
+    .leaf-comments-compact .w-4 { width: 0.875rem; }
+    .leaf-comments-compact .h-4 { height: 0.875rem; }
+    .leaf-comments-compact .btn-xs { min-height: 1.5rem; height: 1.5rem; padding: 0 0.4rem; font-size: 0.6875rem; }
+    .leaf-comments-compact .btn-sm { min-height: 1.75rem; height: 1.75rem; font-size: 0.75rem; }
   </style>
 
   <%!-- Scope-invalid guard: scope folder was deleted --%>
@@ -1330,6 +1352,28 @@
                 </span>
               </div>
             </div>
+
+            <%!-- Comments section — gated on the Comments module being     --%>
+            <%!-- installed AND enabled, plus a logged-in user. Keyed by    --%>
+            <%!-- file_uuid so prev/next remounts the component cleanly.    --%>
+            <%!--                                                           --%>
+            <%!-- The wrapper applies a compact-mode override: shrinks the  --%>
+            <%!-- comments component's typography, paddings, and avatars    --%>
+            <%!-- via descendant selectors so it fits inside the sidebar    --%>
+            <%!-- without truncation. The component itself isn't modified.  --%>
+            <%= if comments_enabled?() and assigns[:phoenix_kit_current_user] do %>
+              <div class="border-t border-base-300 pt-3 mt-3 leaf-comments-compact">
+                <.live_component
+                  module={PhoenixKitComments.Web.CommentsComponent}
+                  id={"media-comments-" <> f.file_uuid}
+                  resource_type="file"
+                  resource_uuid={f.file_uuid}
+                  current_user={@phoenix_kit_current_user}
+                  show_likes={true}
+                  title="Comments"
+                />
+              </div>
+            <% end %>
           </div>
         </div>
       </div>
