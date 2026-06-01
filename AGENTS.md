@@ -56,7 +56,8 @@ ast-grep --lang elixir --pattern 'def $FUNC($$$ARGS) do $$$BODY end' lib/
 
 ## Pull Requests
 
-- **CI/CD:** GitHub Actions on push to `main`, `dev`, `claude/**`, all PRs. Checks: format, credo, dialyzer, compile (warnings as errors), deps audit, tests with PostgreSQL.
+- **Branch:** core integrates on **`main`** — open PRs against `main` (`gh pr create --base main --head mdon:main`). The `dev` branch was **retired 2026-06-01**; do not target it. (Historical: core used `dev` as its integration branch until then.)
+- **CI/CD:** the `.github/workflows/ci.yml` workflow is **manual-only** (`workflow_dispatch`) — the equivalent checks run locally via `mix precommit` / `mix quality.ci`. Checks: format, credo, dialyzer, compile (warnings as errors), deps audit, tests with PostgreSQL.
 - **Commit messages:** start with `Add`, `Update`, `Fix`, `Remove`, `Merge`.
 - **Version management:** `mix.exs` `@version` + `CHANGELOG.md`. Run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing. Get current versions:
   ```bash
