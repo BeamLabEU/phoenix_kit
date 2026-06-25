@@ -133,15 +133,6 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_users,
         "users"
       ),
-      admin_subtab(
-        :admin_users_referral_codes,
-        gettext_noop("Referral Codes"),
-        "hero-ticket",
-        "users/referral-codes",
-        260,
-        :admin_users,
-        "referrals"
-      ),
       # Activity
       %Tab{
         id: :admin_activity,

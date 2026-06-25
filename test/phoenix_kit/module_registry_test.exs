@@ -20,7 +20,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
       expected = [
         PhoenixKit.Modules.Languages,
         PhoenixKit.Modules.Maintenance,
-        PhoenixKit.Modules.Referrals,
         PhoenixKit.Modules.SEO,
         PhoenixKit.Modules.Sitemap,
         PhoenixKit.Modules.Storage,

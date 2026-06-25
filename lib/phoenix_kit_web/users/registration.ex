@@ -9,11 +9,11 @@ defmodule PhoenixKitWeb.Users.Registration do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes

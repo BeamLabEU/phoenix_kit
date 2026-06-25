@@ -12,10 +12,10 @@ if Code.ensure_loaded?(Ueberauth) do
     import Ecto.Query, warn: false
     alias PhoenixKit.RepoHelper, as: Repo
 
-    alias PhoenixKit.Modules.Referrals
     alias PhoenixKit.Users.Auth
     alias PhoenixKit.Users.Auth.User
     alias PhoenixKit.Users.OAuthProvider
+    alias PhoenixKit.Users.Referrals
 
     @doc """
     Handles OAuth callback from Ueberauth.

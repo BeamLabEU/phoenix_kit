@@ -12,10 +12,10 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.RepoHelper, as: Repo
 
   alias PhoenixKit.Config
-  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
+  alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 

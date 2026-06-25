@@ -6,11 +6,11 @@ defmodule PhoenixKit.ModuleTest do
   @all_internal_modules [
     PhoenixKit.Modules.Languages,
     PhoenixKit.Modules.Maintenance,
-    PhoenixKit.Modules.Referrals,
     PhoenixKit.Modules.SEO,
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
-    PhoenixKit.Jobs
+    PhoenixKit.Jobs,
+    PhoenixKit.Notifications
   ]
 
   # Ensure all modules are loaded so function_exported? works even when

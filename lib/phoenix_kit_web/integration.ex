@@ -102,7 +102,6 @@ defmodule PhoenixKitWeb.Integration do
 
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb
-  alias PhoenixKitWeb.Routes.ReferralsRoutes
 
   @doc """
   Creates locale-aware routing scopes based on enabled languages.
@@ -406,13 +405,6 @@ defmodule PhoenixKitWeb.Integration do
     # so plugin LiveViews don't need to wrap with LayoutWrapper themselves
     plugin_admin_routes = compile_plugin_admin_routes(__CALLER__.module)
 
-    referrals_admin =
-      if suffix == :_locale do
-        safe_route_call(ReferralsRoutes, :admin_locale_routes, [])
-      else
-        safe_route_call(ReferralsRoutes, :admin_routes, [])
-      end
-
     # Shop admin routes via safe_route_call (only when phoenix_kit_ecommerce is installed)
     shop_admin =
       if suffix == :_locale do
@@ -487,9 +479,6 @@ defmodule PhoenixKitWeb.Integration do
 
         # Shop admin routes (only when phoenix_kit_ecommerce is installed)
         unquote(shop_admin)
-
-        # Routes from external route modules
-        unquote(referrals_admin)
 
         # Custom admin routes from :admin_dashboard_tabs config
         # Tabs with live_view: {Module, :action} get auto-generated routes

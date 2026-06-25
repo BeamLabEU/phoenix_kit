@@ -159,7 +159,7 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc """
   Build a feature_enabled_checks map from registered modules.
 
-  Returns `%{"referrals" => {PhoenixKit.Modules.Referrals, :enabled?}, ...}`
+  Returns `%{"storage" => {PhoenixKit.Modules.Storage, :enabled?}, ...}`
   """
   @spec feature_enabled_checks() :: %{String.t() => {module(), atom()}}
   def feature_enabled_checks do
@@ -496,7 +496,6 @@ defmodule PhoenixKit.ModuleRegistry do
     [
       PhoenixKit.Modules.Languages,
       PhoenixKit.Modules.Maintenance,
-      PhoenixKit.Modules.Referrals,
       PhoenixKit.Modules.SEO,
       PhoenixKit.Modules.Sitemap,
       PhoenixKit.Modules.Storage,
