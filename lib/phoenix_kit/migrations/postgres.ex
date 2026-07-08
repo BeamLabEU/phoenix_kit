@@ -529,7 +529,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V140 - Wider role-permission keys ⚡ LATEST
+  ### V141 - Calendar events ⚡ LATEST
+  - Adds `phoenix_kit_calendar_events` for the `phoenix_kit_calendar` module:
+    one implicit personal calendar per user (`owner_uuid` FK, CASCADE on user
+    delete). Timed events use an exclusive-end UTC pair; all-day events use an
+    exclusive-end DATE pair; a CHECK enforces exactly one pair per row matching
+    the `all_day` flag, with end > start. Status is confirmed/cancelled.
+  - Rollback drops the table.
+
+  ### V140 - Wider role-permission keys
   - Widens `phoenix_kit_role_permissions.module_key` from `VARCHAR(50)` to
     `VARCHAR(120)` so fine-grained sub-permissions can be stored as composed
     dotted keys (`"calendar.view_others"` — base and sub parts are each
@@ -1198,7 +1206,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 140
+  @current_version 141
   @default_prefix "public"
 
   @doc false
