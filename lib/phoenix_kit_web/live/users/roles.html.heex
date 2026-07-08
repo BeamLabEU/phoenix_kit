@@ -387,6 +387,21 @@
                 />
                 <span class="text-sm">{PhoenixKit.Users.Permissions.module_label(key)}</span>
               </label>
+              <%!-- Fine-grained sub-permissions, indented under their module.
+                   Checking one also checks the module; unchecking the module
+                   unchecks these with it (mirrors the save-time invariant). --%>
+              <%= for sub <- PhoenixKit.Users.Permissions.sub_permissions_for(key), MapSet.member?(@permissions_grantable_keys, sub.key) do %>
+                <label class="flex items-center gap-3 cursor-pointer p-2 pl-8 rounded-lg hover:bg-base-200 transition-colors">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-xs checkbox-primary"
+                    checked={MapSet.member?(@permissions_role_keys, sub.key)}
+                    phx-click="toggle_permission"
+                    phx-value-key={sub.key}
+                  />
+                  <span class="text-sm text-base-content/80">{sub.label}</span>
+                </label>
+              <% end %>
             <% end %>
           </div>
         </div>

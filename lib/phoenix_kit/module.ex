@@ -35,7 +35,17 @@ defmodule PhoenixKit.Module do
             key: "hello_world",
             label: "Hello World",
             icon: "hero-hand-raised",
-            description: "A demo module"
+            description: "A demo module",
+            # Optional fine-grained permissions under the base key.
+            # Stored/checked as "hello_world.moderate"; only effective
+            # while the module is enabled.
+            sub_permissions: [
+              %{
+                key: "moderate",
+                label: "Moderate content",
+                description: "Approve or reject other users' entries"
+              }
+            ]
           }
         end
 
@@ -85,12 +95,35 @@ defmodule PhoenixKit.Module do
   - `integration_providers/0` - Additional provider definitions this module contributes (default: `[]`).
   """
 
-  @typedoc "Permission metadata for the module"
-  @type permission_meta :: %{
+  @typedoc """
+  A fine-grained permission a module declares under its base key.
+
+  `:key` is the short action name (e.g. `"view_others"`); it is stored and
+  checked as the composed dotted key `"<module_key>.<key>"` (e.g.
+  `"calendar.view_others"`). Both parts must match `~r/^[a-z][a-z0-9_]*$/`,
+  so a composed key always contains exactly one dot.
+  """
+  @type sub_permission :: %{
           key: String.t(),
           label: String.t(),
-          icon: String.t(),
           description: String.t()
+        }
+
+  @typedoc """
+  Permission metadata for the module.
+
+  `:sub_permissions` (optional) declares fine-grained permissions under the
+  module's base key. The base key gates access to the module's admin pages;
+  sub-permissions are additive grants the module checks itself (via
+  `PhoenixKit.Users.Auth.Scope.can?/2`) for specific in-module capabilities.
+  A sub-permission is only effective while its parent module is enabled.
+  """
+  @type permission_meta :: %{
+          required(:key) => String.t(),
+          required(:label) => String.t(),
+          required(:icon) => String.t(),
+          required(:description) => String.t(),
+          optional(:sub_permissions) => [sub_permission()]
         }
 
   # Required callbacks

@@ -5,6 +5,7 @@ defmodule PhoenixKit.Supervisor do
   use Supervisor
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Users.Permissions
 
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -53,6 +54,29 @@ defmodule PhoenixKit.Supervisor do
       # Dashboard tab registry for user dashboard navigation.
       # Starts after settings_cache so module enabled? checks hit cache rather than DB.
       PhoenixKit.Dashboard.Registry,
+      # Grant the Admin role any permission keys it has never been auto-granted
+      # before (newly installed feature modules, new sub-permissions). Per-key
+      # settings flags make an Owner's revocation stick across restarts. Runs
+      # after ModuleRegistry (key discovery) and the settings cache (flag
+      # reads); idempotent and a silent no-op when the table doesn't exist yet.
+      # Modules registered at runtime (ModuleRegistry.register/1) are picked
+      # up on the next boot.
+      Supervisor.child_spec(
+        {Task,
+         fn ->
+           try do
+             Permissions.auto_grant_new_keys_to_admin()
+           rescue
+             error ->
+               require Logger
+
+               Logger.error(
+                 "[PhoenixKit] Failed to auto-grant permission keys to Admin at startup: #{inspect(error)}"
+               )
+           end
+         end},
+        id: :auto_grant_admin_permissions
+      ),
       # Normalize legacy admin_languages setting into unified languages_config
       # Runs once after settings cache is warmed; idempotent no-op if already migrated
       Supervisor.child_spec(

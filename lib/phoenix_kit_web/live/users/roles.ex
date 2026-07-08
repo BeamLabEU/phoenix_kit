@@ -243,18 +243,27 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   def handle_event("toggle_permission", %{"key" => key}, socket) do
     if can_manage_permissions?(socket) do
       grantable = socket.assigns.permissions_grantable_keys
+      keys = socket.assigns.permissions_role_keys
 
-      if MapSet.member?(grantable, key) do
-        keys = socket.assigns.permissions_role_keys
+      cond do
+        # Unchecking: drop the key and (for a base module key) the
+        # sub-permissions it carries — a sub-key must not outlive its module.
+        MapSet.member?(keys, key) and MapSet.member?(grantable, key) ->
+          implied_subs = key |> Permissions.sub_permissions_for() |> Enum.map(& &1.key)
+          new_keys = MapSet.difference(keys, MapSet.new([key | implied_subs]))
+          {:noreply, assign(socket, :permissions_role_keys, new_keys)}
 
-        new_keys =
-          if MapSet.member?(keys, key),
-            do: MapSet.delete(keys, key),
-            else: MapSet.put(keys, key)
+        # Checking: pull in the base key a sub-permission implies. The editor
+        # must hold EVERY key the check implies, not just the clicked one —
+        # otherwise holding only the sub would smuggle in a base grant.
+        not MapSet.member?(keys, key) and
+            MapSet.subset?(Permissions.expand_with_parents([key]), grantable) ->
+          new_keys = MapSet.union(keys, Permissions.expand_with_parents([key]))
+          {:noreply, assign(socket, :permissions_role_keys, new_keys)}
 
-        {:noreply, assign(socket, :permissions_role_keys, new_keys)}
-      else
-        {:noreply, put_flash(socket, :error, gettext("You can only manage permissions you have"))}
+        true ->
+          {:noreply,
+           put_flash(socket, :error, gettext("You can only manage permissions you have"))}
       end
     else
       {:noreply,

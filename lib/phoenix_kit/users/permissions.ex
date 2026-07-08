@@ -13,6 +13,24 @@ defmodule PhoenixKit.Users.Permissions do
     ai, publishing, sitemap, seo, maintenance, storage,
     languages, connections, legal, db, jobs
 
+  ## Sub-Permissions (fine-grained)
+
+  A module may declare fine-grained permissions under its base key via the
+  optional `sub_permissions` field of `permission_metadata/0`. They live in
+  the same table as composed dotted keys (`"calendar.view_others"`):
+
+  - The base key gates the module's admin pages; sub-keys are additive
+    grants the module checks itself via `Scope.can?/2`.
+  - A sub-key implies its base: granting a sub auto-grants the base,
+    revoking the base cascades its subs, and `set_permissions/3` normalizes
+    the desired set — no path can persist an orphan sub-key row.
+  - A sub-key is enabled iff its parent module is enabled.
+
+      Permissions.sub_permission_keys()          # ["calendar.edit_others", ...]
+      Permissions.sub_permissions_for("calendar") # [%{key:, label:, description:}]
+      Permissions.parent_key("calendar.view_others") # "calendar"
+      Permissions.expand_with_parents(keys)      # keys ∪ implied base keys
+
   ## Constants & Metadata
 
       Permissions.all_module_keys()        # 25 built-in + any custom keys
@@ -266,11 +284,77 @@ defmodule PhoenixKit.Users.Permissions do
     :persistent_term.get(@custom_views_pterm, %{})
   end
 
+  # --- Sub-Permissions ---
+  #
+  # Modules declare fine-grained permissions under their base key via the
+  # optional `sub_permissions` field of `permission_metadata/0`. They are
+  # stored in the same phoenix_kit_role_permissions table as composed dotted
+  # keys ("calendar.view_others"). The base key gates the module's admin
+  # pages; sub-keys are additive grants the module checks itself via
+  # `Scope.can?/2`. Base and sub parts each match ~r/^[a-z][a-z0-9_]*$/, so a
+  # composed key contains exactly one dot — plain keys never contain dots.
+
+  @doc """
+  Returns all composed sub-permission keys (`"calendar.view_others"`)
+  declared by registered modules.
+  """
+  @spec sub_permission_keys() :: [String.t()]
+  def sub_permission_keys do
+    ModuleRegistry.sub_permission_map()
+    |> Enum.flat_map(fn {_base, subs} -> Enum.map(subs, & &1.key) end)
+    |> Enum.sort()
+  end
+
+  @doc """
+  Returns the sub-permission metadata declared under a base module key.
+  Each entry is `%{key: composed_key, label: label, description: description}`.
+  """
+  @spec sub_permissions_for(String.t()) :: [map()]
+  def sub_permissions_for(base_key) when is_binary(base_key) do
+    ModuleRegistry.sub_permission_map() |> Map.get(base_key, [])
+  end
+
+  @doc """
+  Returns the base module key a composed sub-permission key belongs to, or
+  `nil` when the key is not a registered sub-permission. Registry-driven —
+  never inferred by string splitting.
+  """
+  @spec parent_key(String.t()) :: String.t() | nil
+  def parent_key(key) when is_binary(key) do
+    if String.contains?(key, ".") do
+      ModuleRegistry.sub_permission_map()
+      |> Enum.find_value(fn {base, subs} ->
+        if Enum.any?(subs, &(&1.key == key)), do: base
+      end)
+    end
+  end
+
+  def parent_key(_), do: nil
+
+  @doc """
+  Expands a set of permission keys with the base keys its sub-permissions
+  imply (a sub-permission is meaningless without module access). Used by the
+  grant paths to keep the "no orphan sub-key" invariant, and by the admin
+  UIs to compute the full set a grant would create before authorizing it.
+  """
+  @spec expand_with_parents(Enumerable.t()) :: MapSet.t()
+  def expand_with_parents(keys) do
+    keys = MapSet.new(keys)
+
+    parents =
+      keys
+      |> Enum.map(&parent_key/1)
+      |> Enum.reject(&is_nil/1)
+
+    MapSet.union(keys, MapSet.new(parents))
+  end
+
   # --- Constants ---
 
-  @doc "Returns all built-in and custom permission keys as a list. See `enabled_module_keys/0` for filtered MapSet variant."
+  @doc "Returns all built-in, sub-permission, and custom permission keys as a list. See `enabled_module_keys/0` for filtered MapSet variant."
   @spec all_module_keys() :: [String.t()]
-  def all_module_keys, do: @core_section_keys ++ feature_module_keys() ++ custom_keys()
+  def all_module_keys,
+    do: @core_section_keys ++ feature_module_keys() ++ sub_permission_keys() ++ custom_keys()
 
   @doc "Returns the 5 core section keys."
   @spec core_section_keys() :: [String.t()]
@@ -294,14 +378,22 @@ defmodule PhoenixKit.Users.Permissions do
       feature_module_keys()
       |> Enum.filter(&do_feature_enabled?/1)
 
-    MapSet.new(@core_section_keys ++ enabled_features ++ custom_keys())
+    sub_map = ModuleRegistry.sub_permission_map()
+
+    enabled_subs =
+      Enum.flat_map(enabled_features, fn base ->
+        sub_map |> Map.get(base, []) |> Enum.map(& &1.key)
+      end)
+
+    MapSet.new(@core_section_keys ++ enabled_features ++ enabled_subs ++ custom_keys())
   end
 
-  @doc "Checks whether `key` is a known permission key (built-in or custom)."
+  @doc "Checks whether `key` is a known permission key (built-in, sub-permission, or custom)."
   @spec valid_module_key?(String.t()) :: boolean()
   def valid_module_key?(key) when is_binary(key) do
     key in @core_section_keys or
       key in ModuleRegistry.all_feature_keys() or
+      not is_nil(parent_key(key)) or
       Map.has_key?(custom_keys_map(), key)
   end
 
@@ -312,6 +404,7 @@ defmodule PhoenixKit.Users.Permissions do
 
   Core section keys always return `true`. Feature module keys return the
   result of calling the module's `enabled?/0` (or equivalent) function.
+  Sub-permission keys are enabled iff their parent module is enabled.
   Custom permission keys are always enabled (no module toggle).
   Returns `false` for unknown keys.
   """
@@ -324,8 +417,11 @@ defmodule PhoenixKit.Users.Permissions do
         Code.ensure_loaded?(mod) && apply(mod, fun, [])
 
       nil ->
-        # Custom keys are always "enabled" (no module toggle)
-        Map.has_key?(custom_keys_map(), key)
+        case parent_key(key) do
+          # Custom keys are always "enabled" (no module toggle)
+          nil -> Map.has_key?(custom_keys_map(), key)
+          parent -> feature_enabled?(parent)
+        end
     end
   rescue
     _ -> false
@@ -372,35 +468,49 @@ defmodule PhoenixKit.Users.Permissions do
     "db" => "Database explorer and schema inspection"
   }
 
-  @doc "Returns a human-readable label for a module key."
+  @doc "Returns a human-readable label for a module key (sub-permission keys resolve to the sub's own label)."
   @spec module_label(String.t()) :: String.t()
   def module_label(key) do
     Map.get_lazy(@core_labels, key, fn ->
       case Map.get(ModuleRegistry.permission_labels(), key) do
-        nil -> custom_key_metadata(key)[:label] || String.capitalize(key)
-        label -> label
+        nil ->
+          sub_permission_metadata(key)[:label] ||
+            custom_key_metadata(key)[:label] || String.capitalize(key)
+
+        label ->
+          label
       end
     end)
   end
 
-  @doc "Returns a Heroicon name for a module key."
+  @doc "Returns a Heroicon name for a module key (sub-permission keys inherit the parent module's icon)."
   @spec module_icon(String.t()) :: String.t()
   def module_icon(key) do
     Map.get_lazy(@core_icons, key, fn ->
       case Map.get(ModuleRegistry.permission_icons(), key) do
-        nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
-        icon -> icon
+        nil ->
+          case parent_key(key) do
+            nil -> custom_key_metadata(key)[:icon] || "hero-squares-2x2"
+            parent -> module_icon(parent)
+          end
+
+        icon ->
+          icon
       end
     end)
   end
 
-  @doc "Returns a short description for a module key."
+  @doc "Returns a short description for a module key (sub-permission keys resolve to the sub's own description)."
   @spec module_description(String.t()) :: String.t()
   def module_description(key) do
     Map.get_lazy(@core_descriptions, key, fn ->
       case Map.get(ModuleRegistry.permission_descriptions(), key) do
-        nil -> custom_key_metadata(key)[:description] || ""
-        desc -> desc
+        nil ->
+          sub_permission_metadata(key)[:description] ||
+            custom_key_metadata(key)[:description] || ""
+
+        desc ->
+          desc
       end
     end)
   end
@@ -438,6 +548,22 @@ defmodule PhoenixKit.Users.Permissions do
       end
 
       []
+  end
+
+  @doc """
+  Returns true when at least one permission row exists (any role, any key).
+
+  Used to distinguish a genuinely unseeded install (pre-V53 / migrations not
+  yet run — the Admin role falls back to full access) from a seeded install
+  where an Owner has deliberately revoked keys. Returns `false` when the
+  table is missing.
+  """
+  @spec any_permissions_exist?() :: boolean()
+  def any_permissions_exist? do
+    repo = RepoHelper.repo()
+    repo.exists?(from(rp in RolePermission, select: true))
+  rescue
+    _ -> false
   end
 
   @doc """
@@ -587,19 +713,41 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc """
   Grants a single permission to a role. Uses upsert to be idempotent.
+
+  Granting a sub-permission key (`"calendar.view_others"`) also grants its
+  base module key in the same transaction — a sub-permission row must never
+  exist without module access, regardless of which code path grants it.
   """
   @spec grant_permission(integer() | String.t(), String.t(), integer() | String.t() | nil) ::
-          {:ok, RolePermission.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, RolePermission.t()} | {:error, Ecto.Changeset.t() | :role_not_found}
   def grant_permission(role_uuid, module_key, granted_by_uuid \\ nil) do
     repo = RepoHelper.repo()
 
     role_uuid = resolve_role_uuid(role_uuid)
 
-    if is_nil(role_uuid) do
-      {:error, :role_not_found}
-    else
-      grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid)
+    cond do
+      is_nil(role_uuid) ->
+        {:error, :role_not_found}
+
+      parent = parent_key(module_key) ->
+        grant_sub_with_parent(repo, role_uuid, parent, module_key, granted_by_uuid)
+
+      true ->
+        grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid)
     end
+  end
+
+  # Grants base + sub atomically. The base insert is an idempotent upsert, so
+  # a role that already holds the base key is unaffected by it.
+  defp grant_sub_with_parent(repo, role_uuid, parent, module_key, granted_by_uuid) do
+    repo.transaction(fn ->
+      with {:ok, _base} <- grant_permission_insert(repo, role_uuid, parent, granted_by_uuid),
+           {:ok, sub} <- grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid) do
+        sub
+      else
+        {:error, changeset} -> repo.rollback(changeset)
+      end
+    end)
   end
 
   defp grant_permission_insert(repo, role_uuid, module_key, granted_by_uuid) do
@@ -627,6 +775,10 @@ defmodule PhoenixKit.Users.Permissions do
 
   @doc """
   Revokes a single permission from a role.
+
+  Revoking a base module key also revokes all of its sub-permission keys in
+  the same statement — a sub-permission row must never outlive module access.
+  Revoking a sub-permission key removes only that key.
   """
   @spec revoke_permission(integer() | String.t(), String.t()) :: :ok | {:error, :not_found}
   def revoke_permission(role_uuid, module_key) do
@@ -634,8 +786,12 @@ defmodule PhoenixKit.Users.Permissions do
 
     role_uuid = resolve_role_uuid(role_uuid)
 
+    keys_to_remove = [
+      module_key | Enum.map(sub_permissions_for(module_key), & &1.key)
+    ]
+
     from(rp in RolePermission,
-      where: rp.role_uuid == ^role_uuid and rp.module_key == ^module_key
+      where: rp.role_uuid == ^role_uuid and rp.module_key in ^keys_to_remove
     )
     |> repo.delete_all()
     |> case do
@@ -652,6 +808,10 @@ defmodule PhoenixKit.Users.Permissions do
   @doc """
   Syncs permissions for a role: grants missing keys, revokes extras.
   Runs in a transaction.
+
+  The desired set is normalized before applying: every sub-permission key in
+  it pulls in its base module key (a sub-permission implies module access),
+  so no code path can persist an orphan sub-key row.
   """
   @spec set_permissions(integer() | String.t(), [String.t()], integer() | String.t() | nil) ::
           :ok | {:error, term()}
@@ -673,8 +833,12 @@ defmodule PhoenixKit.Users.Permissions do
         |> repo.all()
         |> MapSet.new()
 
-      # Filter out any invalid keys before processing
-      desired_set = desired_keys |> MapSet.new() |> MapSet.intersection(valid_keys)
+      # Filter out any invalid keys, then pull in base keys implied by subs
+      desired_set =
+        desired_keys
+        |> MapSet.new()
+        |> MapSet.intersection(valid_keys)
+        |> expand_with_parents()
 
       # Keys to add
       to_add = MapSet.difference(desired_set, current_keys)
@@ -820,6 +984,15 @@ defmodule PhoenixKit.Users.Permissions do
     Map.get(custom_keys_map(), key)
   end
 
+  # Returns %{key:, label:, description:} for a composed sub-permission key,
+  # or nil if the key is not a registered sub-permission.
+  defp sub_permission_metadata(key) do
+    case parent_key(key) do
+      nil -> nil
+      parent -> Enum.find(sub_permissions_for(parent), &(&1.key == key))
+    end
+  end
+
   defp do_feature_enabled?(key) do
     case Map.get(ModuleRegistry.feature_enabled_checks(), key) do
       {mod, fun} ->
@@ -877,6 +1050,26 @@ defmodule PhoenixKit.Users.Permissions do
     Settings.update_setting("auto_granted_perm:#{key}", nil)
   rescue
     _ -> :ok
+  end
+
+  @doc """
+  Grants every known built-in permission key (core sections, feature-module
+  keys, sub-permission keys) to the Admin system role, skipping keys that
+  were auto-granted before (per-key settings flag) so an Owner's later
+  revocation is never overridden. Custom keys go through the same mechanism
+  at `register_custom_key/2` time.
+
+  Called after module discovery. This is also the repair path for installs
+  whose V53 seeding predates newer modules: the first boot after upgrade
+  fills the Admin role's missing keys, after which revocations stick
+  per-key. Idempotent; safe when the table doesn't exist yet.
+  """
+  @spec auto_grant_new_keys_to_admin() :: :ok
+  def auto_grant_new_keys_to_admin do
+    (@core_section_keys ++ feature_module_keys() ++ sub_permission_keys())
+    |> Enum.each(&auto_grant_to_admin_roles/1)
+
+    :ok
   end
 
   @doc """

@@ -83,7 +83,11 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
           do: MapSet.new(Permissions.all_module_keys()),
           else: Scope.accessible_modules(scope)
 
-      if MapSet.member?(grantable, key) do
+      # Granting a sub-permission auto-grants its base key, so the editor
+      # must hold every key the toggle implies — not just the clicked one.
+      # Otherwise an editor holding only "calendar.view_others" could smuggle
+      # in a "calendar" base grant they don't hold themselves.
+      if MapSet.subset?(Permissions.expand_with_parents([key]), grantable) do
         toggle_role_permission(socket, role, key, scope)
       else
         {:noreply, put_flash(socket, :error, gettext("You can only manage permissions you have"))}
@@ -185,9 +189,21 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     enabled_feature_keys =
       Enum.filter(Permissions.feature_module_keys(), &MapSet.member?(enabled, &1))
 
+    # Sub-permissions render as indented rows under their (enabled) module row
+    sub_permissions =
+      enabled_feature_keys
+      |> Enum.map(&{&1, Permissions.sub_permissions_for(&1)})
+      |> Enum.reject(fn {_key, subs} -> subs == [] end)
+      |> Map.new()
+
+    enabled_sub_keys =
+      sub_permissions |> Map.values() |> List.flatten() |> Enum.map(& &1.key)
+
     core_keys = Permissions.core_section_keys()
     custom_keys = Permissions.custom_keys()
-    visible_keys = MapSet.new(core_keys ++ enabled_feature_keys ++ custom_keys)
+
+    visible_keys =
+      MapSet.new(core_keys ++ enabled_feature_keys ++ enabled_sub_keys ++ custom_keys)
 
     # Determine which roles can't be edited by the current user
     scope = socket.assigns[:phoenix_kit_current_scope]
@@ -204,6 +220,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
     |> assign(:matrix, matrix)
     |> assign(:core_keys, core_keys)
     |> assign(:feature_keys, enabled_feature_keys)
+    |> assign(:sub_permissions, sub_permissions)
     |> assign(:custom_keys, custom_keys)
     |> assign(:visible_keys, visible_keys)
     |> assign(:uneditable_role_uuids, uneditable_role_uuids)
@@ -213,6 +230,67 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   defp refresh_matrix(socket) do
     matrix = Permissions.get_permissions_matrix()
     assign(socket, :matrix, matrix)
+  end
+
+  # --- Template Components ---
+
+  attr :key, :string, required: true
+  attr :label, :string, required: true
+  attr :sub, :boolean, default: false
+  attr :roles, :list, required: true
+  attr :matrix, :map, required: true
+  attr :uneditable_role_uuids, :any, required: true
+
+  # One matrix row: label cell + a toggle/read-only cell per role.
+  # `sub` renders the indented variant used for sub-permission keys.
+  defp permission_row(assigns) do
+    ~H"""
+    <tr>
+      <td class={[
+        "sticky left-0 z-[1] whitespace-nowrap",
+        (@sub && "pl-8 text-sm text-base-content/80") || "font-medium"
+      ]}>
+        <.icon
+          :if={@sub}
+          name="hero-arrow-turn-down-right"
+          class="w-3.5 h-3.5 text-base-content/40 mr-1"
+        />{@label}
+      </td>
+      <td :for={role <- @roles} class="text-center">
+        <%= if role.name == "Owner" do %>
+          <span class="badge badge-sm badge-primary badge-outline">
+            {gettext("always")}
+          </span>
+        <% else %>
+          <%= if MapSet.member?(@uneditable_role_uuids, to_string(role.uuid)) do %>
+            <%!-- Read-only: user's own role or Admin (non-Owner) --%>
+            <%= if granted?(@matrix, role, @key) do %>
+              <.icon name="hero-check-circle" class="w-5 h-5 text-success/50" />
+            <% else %>
+              <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/10" />
+            <% end %>
+          <% else %>
+            <button
+              phx-click="toggle_permission"
+              phx-value-role_uuid={role.uuid}
+              phx-value-key={@key}
+              class="cursor-pointer hover:opacity-70 transition-opacity"
+            >
+              <%= if granted?(@matrix, role, @key) do %>
+                <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+              <% else %>
+                <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/20" />
+              <% end %>
+            </button>
+          <% end %>
+        <% end %>
+      </td>
+    </tr>
+    """
+  end
+
+  defp granted?(matrix, role, key) do
+    Map.get(matrix, to_string(role.uuid), MapSet.new()) |> MapSet.member?(key)
   end
 
   defp permission_error_message(:not_authenticated), do: gettext("Not authenticated")

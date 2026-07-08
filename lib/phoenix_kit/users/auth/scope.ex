@@ -37,11 +37,13 @@ defmodule PhoenixKit.Users.Auth.Scope do
   ## Module-Level Permissions
 
   Permissions are cached in the scope when it is built via `for_user/1`
-  (on mount and on PubSub-triggered refresh). Owner gets all 25 keys
-  automatically. Admin with no explicit permissions gets full access
-  (backward compat before V53 migration).
+  (on mount and on PubSub-triggered refresh). Owner gets every key
+  automatically. Admin defaults to all keys via seeding/auto-grant but is
+  genuinely gated by its rows — the full-access fallback applies only on an
+  unseeded install (no permission rows exist at all).
 
-      Scope.has_module_access?(scope, "billing")          # Single key check
+      Scope.has_module_access?(scope, "billing")          # Single key check (pure cache)
+      Scope.can?(scope, "calendar.view_others")           # Key held AND module enabled
       Scope.has_any_module_access?(scope, ["billing", "shop"])  # Any of these?
       Scope.has_all_module_access?(scope, ["billing", "shop"])  # All of these?
       Scope.accessible_modules(scope)                     # MapSet of granted keys
@@ -111,11 +113,22 @@ defmodule PhoenixKit.Users.Auth.Scope do
 
         roles.admin in cached_roles ->
           case Permissions.get_permissions_for_user(user) do
-            # Admin with no explicit permissions gets full access.
-            # This handles backward compat before V53 migration is applied
-            # (V53 seeds Admin with all 25 permission keys by default).
-            [] -> MapSet.new(Permissions.all_module_keys())
-            perms -> MapSet.new(perms)
+            # Admin with no explicit permissions falls back to full access
+            # ONLY on a genuinely unseeded install (no permission rows at
+            # all — pre-V53, or migrations not yet run). On a seeded
+            # install, zero rows means an Owner deliberately revoked
+            # everything from this admin's roles, and that must stick —
+            # otherwise revoking the last key would ironically restore
+            # full access.
+            [] ->
+              if Permissions.any_permissions_exist?() do
+                MapSet.new()
+              else
+                MapSet.new(Permissions.all_module_keys())
+              end
+
+            perms ->
+              MapSet.new(perms)
           end
 
         true ->
@@ -410,6 +423,30 @@ defmodule PhoenixKit.Users.Auth.Scope do
   end
 
   def has_module_access?(_, _), do: false
+
+  @doc """
+  Checks whether the user holds a permission key AND that key is currently
+  effective — the module behind it (or behind its parent, for sub-permission
+  keys like `"calendar.view_others"`) is enabled.
+
+  This is the check modules should use for fine-grained, in-page
+  authorization. Unlike `has_module_access?/2` (a pure cache lookup used on
+  hot paths where enablement is enforced separately at mount), `can?/2`
+  consults live module-enablement state, so a scope snapshotted before a
+  module was disabled cannot keep authorizing its actions.
+
+  ## Examples
+
+      Scope.can?(scope, "calendar.edit_others")
+      Scope.can?(scope, "calendar")
+  """
+  @spec can?(t(), String.t()) :: boolean()
+  def can?(%__MODULE__{cached_permissions: perms}, key)
+      when is_binary(key) and not is_nil(perms) do
+    MapSet.member?(perms, key) and Permissions.feature_enabled?(key)
+  end
+
+  def can?(_, _), do: false
 
   @doc """
   Returns the set of module keys the user can access.

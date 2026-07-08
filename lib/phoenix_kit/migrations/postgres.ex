@@ -529,7 +529,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V139 - Dashboard `config` column ⚡ LATEST
+  ### V140 - Wider role-permission keys ⚡ LATEST
+  - Widens `phoenix_kit_role_permissions.module_key` from `VARCHAR(50)` to
+    `VARCHAR(120)` so fine-grained sub-permissions can be stored as composed
+    dotted keys (`"calendar.view_others"` — base and sub parts are each
+    capped at 50 chars, so a composed key can reach 101).
+  - Rollback deletes rows over 50 chars (sub-permission grants are additive
+    and re-grantable) before narrowing the column back.
+
+  ### V139 - Dashboard `config` column
   - Adds a JSONB `config` column (`NOT NULL DEFAULT '{}'`) to
     `phoenix_kit_dashboards` for per-dashboard presentation settings, read and
     written whole like `layout`. Backs the dashboards plugin module.
@@ -1190,7 +1198,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 139
+  @current_version 140
   @default_prefix "public"
 
   @doc false
