@@ -10209,9 +10209,9 @@ msgstr ""
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:158
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:255
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:102
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Device"
-msgstr "Сервис"
+msgstr "Устройство"
 
 #: lib/phoenix_kit_web/users/user_form.ex:95
 #, elixir-autogen, elixir-format
@@ -10605,24 +10605,24 @@ msgstr "Неизвестное устройство"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:555
 #, elixir-autogen, elixir-format
 msgid "Active %{date} at %{time}"
-msgstr ""
+msgstr "Активен %{date} в %{time}"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:549
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Active today at %{time}"
-msgstr "Активен сегодня"
+msgstr "Активен сегодня в %{time}"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:552
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Active yesterday at %{time}"
-msgstr "Активен вчера"
+msgstr "Активен вчера в %{time}"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:83
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "By browser"
-msgstr "Вкладка браузера"
+msgstr "По браузеру"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:71
 #, elixir-autogen, elixir-format
 msgid "By operating system"
-msgstr ""
+msgstr "По операционной системе"

@@ -42,6 +42,46 @@
 
 ||||||| 867bc5b2
 ||||||| d3efff7e
+
+## 1.7.196 - 2026-07-15
+
+### Added
+- OpenRouter and xAI now declare the `:image_generation` capability (OpenAI
+  already did). Both genuinely have real image-gen models (OpenRouter's
+  catalog includes Gemini image/GPT-image-1 style entries; xAI has
+  `grok-imagine-image[-quality]`) reachable at the standard
+  `/images/generations` path — gates `phoenix_kit_ai`'s new "Image
+  Generation" Endpoint model type to providers that can actually serve it.
+
+## 1.7.195 - 2026-07-14
+
+### Added
+- V150: nullable `browser`/`os` columns on `phoenix_kit_users_tokens`,
+  parsed from the User-Agent at login. Session device names ("Safari on
+  iOS") are now available for every session, independent of the
+  `new_login_alert_enabled` setting — previously the name only came from
+  `known_devices`, which that setting gates. The self-service Active
+  Sessions list and the admin all-sessions page (new Device column) both
+  use it, falling back to a known-device row for pre-V150 sessions.
+- `Sessions.get_session_stats/0` gains `by_os`/`by_browser` breakdowns of
+  active sessions (most-common first), rendered as two cards on the admin
+  sessions page.
+- The user-facing "Active today"/"Active yesterday" session labels now
+  include the precise sign-in time ("Active today at 14:32").
+
+### Fixed
+- Admin Dashboard LiveView subscribed to the sessions PubSub topic but had
+  no `handle_info` clause for `{:session_created, ...}`,
+  `{:session_revoked, ...}`, or `{:user_sessions_revoked, ...}` — an
+  unmatched message crashed and reconnected the LiveView. Now refreshes
+  the session-stats tiles on each.
+- `mix gettext.extract --merge` fuzzy-matched several of the above's new
+  strings against unrelated old strings in the `ru`/`et` locales (e.g.
+  "Device" landed as "Service", "By browser" as "browser tab", and the new
+  `%{time}` interpolation was dropped from "Active today/yesterday").
+  Corrected all affected `ru`/`et` translations to keep both locales fully
+  translated, per project convention.
+
 ## 1.7.194 - 2026-07-14
 
 ### Added

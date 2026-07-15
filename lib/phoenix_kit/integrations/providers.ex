@@ -348,7 +348,10 @@ defmodule PhoenixKit.Integrations.Providers do
           options: nil
         }
       ],
-      capabilities: [:ai_completions, :ai_embeddings],
+      # `:image_generation` — OpenRouter's catalog includes real image-gen
+      # models (Gemini image, GPT-image-1, etc.) at the standard
+      # OpenAI-compatible `/images/generations` path.
+      capabilities: [:ai_completions, :ai_embeddings, :image_generation],
       instructions: [
         %{
           title: gettext("Create an OpenRouter account"),
@@ -529,7 +532,12 @@ defmodule PhoenixKit.Integrations.Providers do
       # `:realtime_voice` gates the xAI-only streaming TTS panel in
       # phoenix_kit_ai's Playground (Xai.Realtime, WebSocket-based — not
       # reachable through the shared REST completions path).
-      capabilities: [:ai_completions, :realtime_voice],
+      # `:image_generation` — xAI's `POST /v1/images/generations` returns
+      # the same `data: [{url | b64_json}]` envelope OpenAI's does,
+      # despite `grok-imagine-image[-quality]` being invisible to the
+      # shared `/models`-based picker's `:image_gen` filter without the
+      # xAI-specific no-modality fallback that filter already has.
+      capabilities: [:ai_completions, :realtime_voice, :image_generation],
       instructions: [
         %{
           title: gettext("Create an xAI account"),

@@ -10188,9 +10188,9 @@ msgstr ""
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:158
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:255
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:102
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Device"
-msgstr "Teenus"
+msgstr "Seade"
 
 #: lib/phoenix_kit_web/users/user_form.ex:95
 #, elixir-autogen, elixir-format
@@ -10584,24 +10584,24 @@ msgstr "Tundmatu seade"
 #: lib/phoenix_kit_web/live/components/user_settings.ex:555
 #, elixir-autogen, elixir-format
 msgid "Active %{date} at %{time}"
-msgstr ""
+msgstr "Aktiivne %{date} kell %{time}"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:549
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Active today at %{time}"
-msgstr "Aktiivne täna"
+msgstr "Aktiivne täna kell %{time}"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:552
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Active yesterday at %{time}"
-msgstr "Aktiivne eile"
+msgstr "Aktiivne eile kell %{time}"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:83
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "By browser"
-msgstr "Brauseri vaheleht"
+msgstr "Brauseri järgi"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:71
 #, elixir-autogen, elixir-format
 msgid "By operating system"
-msgstr ""
+msgstr "Operatsioonisüsteemi järgi"
