@@ -69,12 +69,18 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
             </span>
           </.link>
         <% else %>
+          <%!-- While the switch round-trips, LiveView tags the clicked tab
+               with phx-click-loading — pulse it so a switch whose content
+               needs server work still gives instant feedback. --%>
           <button
             type="button"
             role="tab"
             phx-click={@on_change}
             phx-value-tab={tab.id}
-            class={["tab gap-2", tab.id == @active_tab && "tab-active"]}
+            class={[
+              "tab gap-2 [&.phx-click-loading]:animate-pulse",
+              tab.id == @active_tab && "tab-active"
+            ]}
           >
             <.icon :if={Map.has_key?(tab, :icon)} name={tab.icon} class="w-4 h-4" />
             {tab.label}

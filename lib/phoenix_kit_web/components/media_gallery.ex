@@ -126,6 +126,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       |> assign_new(:preview_uuid, fn -> nil end)
       |> assign_new(:files, fn -> [] end)
       |> assign_new(:variants_map, fn -> %{} end)
+      |> assign_new(:rotations_map, fn -> %{} end)
       |> load_files()
 
     {:ok, socket}
@@ -177,13 +178,19 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   defp do_load_files(socket, []) do
-    assign(socket, files: [], variants_map: %{}, selected_loaded: [])
+    assign(socket, files: [], variants_map: %{}, rotations_map: %{}, selected_loaded: [])
   end
 
   defp do_load_files(socket, selected) do
     files = Storage.get_files(selected)
     variants_map = Storage.list_image_set_variants_for_files(selected)
-    assign(socket, files: files, variants_map: variants_map, selected_loaded: selected)
+
+    assign(socket,
+      files: files,
+      variants_map: variants_map,
+      rotations_map: rotations_map(files),
+      selected_loaded: selected
+    )
   rescue
     # Defensive degradation at the UI boundary — if Storage can't be reached
     # (DB outage, missing connection, sandbox unavailable in tests, cast on a
@@ -198,7 +205,14 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       Ecto.Query.CastError
     ] ->
       Logger.warning("MediaGallery: could not load files — #{Exception.message(e)}")
-      assign(socket, files: [], variants_map: %{}, selected_loaded: nil)
+      assign(socket, files: [], variants_map: %{}, rotations_map: %{}, selected_loaded: nil)
+  end
+
+  # uuid => saved orientation, for the thumbnails' CSS transform. The grid
+  # iterates uuids (not file structs), so it needs the lookup; keeps gallery
+  # thumbnails the same way up as the media grid and the lightbox canvas.
+  defp rotations_map(files) do
+    Map.new(files, fn file -> {file.uuid, Map.get(file.metadata || %{}, "rotation")} end)
   end
 
   defp apply_selection(_current, uuids, :single, _max_count) do

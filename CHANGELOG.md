@@ -40,8 +40,129 @@
   the check can prove the credentials are valid but not that they can send, and it
   now says so on screen instead of only in the log.
 
-||||||| 867bc5b2
-||||||| d3efff7e
+## 1.7.200 - 2026-07-17
+
+### Added
+- Media thumbnails (browser grid/list/stacks, gallery, both media-selector
+  pickers) now render a file's saved rotation as a CSS transform, matching
+  what the popup viewer's canvas shows — no re-encode needed, and baked
+  annotated thumbnails stay untouched on disk.
+- The media browser's "⋯" overflow menu now also lists Add Media, Cancel
+  upload, and Search, so every page action is reachable from one place even
+  when the toolbar wraps tight.
+- 4 strings (`Failed to save rotation`, `Hide details`, `Rotation saved`,
+  `Show details`) translated to et/ru.
+
+### Fixed
+- A file's rotation or rebaked annotated thumbnail is now reflected in a
+  collapsed stack's pile preview — previously only the grid and open
+  viewer picked up the live refresh, leaving the pile stuck on the stale
+  thumbnail.
+- Clicking a file inside an expanded stack now opens the popup viewer
+  (previously a silent no-op, since the lookup only searched the current
+  page's file list, not the stack's own); the viewer's prev/next now steps
+  through the correct sibling list in both stacked and flat views.
+- Select-mode toolbar's exit button now reads "Cancel" instead of "Done" —
+  it exits without applying anything, so "Done" read like a confirm it
+  never was.
+
+## 1.7.199 - 2026-07-17
+
+### Added
+- `MultilangForm.mount_multilang/2` now auto-attaches a `:handle_event`
+  hook that intercepts the `"switch_language"` event pushed by
+  `<.multilang_tabs>` — consumers no longer need their own
+  `handle_event("switch_language", …)` clause (forgetting it used to crash
+  the LiveView on the first tab click). Opt out with
+  `auto_switch_language: false` to handle the event manually.
+- `SearchPicker` gains a `search_on_focus` attr (default `false`) that
+  opens the dropdown on focus/click of an empty input — promotes the
+  previously JS-only `data-search-on-focus` behavior to a documented,
+  first-class attribute (the raw rest attr is still honored).
+- Event-based `NavTabs` buttons now pulse (`animate-pulse`) while
+  `phx-click-loading` is applied, giving instant feedback for a tab
+  switch whose content needs a server round-trip.
+
+### Fixed
+- Closed a test-coverage gap on the new `mount_multilang/2`
+  switch-language hook (and its `auto_switch_language: false` opt-out).
+
+## 1.7.198 - 2026-07-16
+
+### Added
+- Live refresh for the `MediaBrowser` popup viewer: `ProcessFileJob` and
+  `AnnotationThumbnailJob` now broadcast completion over PubSub
+  (`Storage.subscribe_to_file_events/0`), so a just-uploaded file's
+  dimensions/variants and a rebaked annotated thumbnail appear in an open
+  browser/viewer without a manual reload. Thumbnail updates refresh the
+  grid row only — an open annotator session is never remounted mid-edit.
+- Collapsible info sidebar in the popup viewer (filename/Download/
+  metadata/comments), toggled from a corner button and persisted per-user
+  so it survives prev/next, reopen, and reload.
+- Rotation-save confirmation: a transient status pill over the canvas
+  confirms each persisted rotation (or surfaces a failure) — previously
+  the write was invisible, indistinguishable from a view-only rotation.
+- Admin-context `MediaBrowser` clicks now open the same in-place modal
+  viewer as everyone else (previously they navigated straight to
+  `/admin/media/:uuid`); the viewer sidebar gains an "Open details page"
+  link to the full admin page instead.
+- Folder view now scrolls as a single region — breadcrumbs, hero header,
+  toolbar, and file grid scroll together instead of the grid owning its
+  own nested scrollport — fixing the list view's sticky column header not
+  pinning correctly against the real scroll area.
+- Bumped `etcher` to 0.8.0, `fresco` to 0.9.0, `tessera` to 0.3.3.
+
+### Fixed
+- `MarkdownEditor`'s unsaved-changes navigation guard is now opt-in
+  (`protect_navigation={true}`), off by default. The old `true` default
+  never actually armed the guard — a boolean renders as a bare HEEx
+  attribute, which failed the JS hook's `=== "true"` string check — so
+  this makes the previously-inert behavior deliberate, and hosts that
+  pass `protect_navigation={true}` now get a real (working) guard.
+
+## 1.7.197 - 2026-07-16
+
+### Added
+- V151: `supplier_source` (`crm_company | crm_contact | local`, CHECK-backed)
+  and `is_primary` (partial-unique, one primary per item) columns on
+  `phoenix_kit_cat_item_supplier_info` — completes the V149 junction for the
+  merged `phoenix_kit_catalogue` sourcing layer, which reads/writes both on
+  every insert/update.
+- V151: normalizes `phoenix_kit_crm_contacts.email` /
+  `phoenix_kit_crm_companies.email` to `citext`, a prerequisite for
+  case-insensitive email matching in the CRM v2 backfill and the
+  user↔contact bridge.
+- `mix phoenix_kit.doctor` gains three checks: **Schema Drift** (a version
+  marker claiming a column that's actually missing at the resolved prefix —
+  surfaces an installer/migration-runner drift with no other self-service
+  signal), **Child Start Order** (reads the host `application.ex` and fails
+  when `PhoenixKit.Supervisor`/`Oban` are listed before the Repo, the boot
+  crash class where Oban opens a pool against a database connection that
+  doesn't exist yet), and prefix resolution now goes through the same
+  `PrefixConfig.resolve_prefix/1` as `phoenix_kit.update --status`, fixing
+  doctor reporting "not installed" against a prefixed install it was
+  actually diagnosing at the wrong schema.
+
+### Fixed
+- Closed an `HtmlSanitizer` stored-XSS bypass: the `href`/`src` scheme
+  filter only blacklisted literal `javascript:`/`vbscript:`/`data:`, so
+  entity-encoded (`jav&#x61;script:`), whitespace-obfuscated
+  (`java&Tab;script:`), and raw-control-char variants slipped through into
+  any markdown-rendered rich-text sink. Replaced it with an allowlist
+  (`http`/`https`/`mailto`/`tel` + relative/fragment URLs) evaluated over a
+  decoded, control-char-stripped, normalized value — the transform only
+  ever removes an attribute, never rewrites the visible URL.
+- Fixed the admin sidebar's width flipping by ~15px around a modal's
+  scroll-lock on long admin pages (the drawer grid's auto-sized sidebar
+  column resolves differently depending on whether the page root currently
+  has a scrollbar).
+- `phoenix_kit.doctor`'s Oban Configuration check reported `0 queues, 0
+  plugins` because doctor's own pool-capping zeroed the app-env Oban config
+  before the check read it; now snapshotted before capping.
+- Silenced a dialyzer false positive (`call_without_opaque`) in
+  `QrLogin.location_for/1`'s `Task.Supervisor.async_nolink` +
+  `Task.yield`/`Task.shutdown` idiom, matching the existing `auth.ex`
+  ignore-list precedent for the same opaque-widening class.
 
 ## 1.7.196 - 2026-07-15
 

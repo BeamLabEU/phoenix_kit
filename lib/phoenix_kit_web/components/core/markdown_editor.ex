@@ -1,7 +1,8 @@
 defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
   @moduledoc """
   Reusable markdown editor LiveComponent with cursor tracking,
-  markdown formatting toolbar, component insertion, and unsaved changes protection.
+  markdown formatting toolbar, component insertion, and optional unsaved
+  changes protection.
 
   ## Features
 
@@ -10,7 +11,9 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
   - Cursor position tracking for inserting components at cursor
   - Optional toolbar for inserting images, videos, etc.
   - Save status indicator (saving/unsaved/saved)
-  - Browser navigation protection for unsaved changes
+  - Browser navigation protection for unsaved changes — **opt-in** via
+    `protect_navigation={true}`; off by default so closing the tab never
+    prompts
   - Debounced content updates
 
   ## Usage
@@ -102,7 +105,14 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
      |> assign_new(:placeholder, fn -> "Write your content here..." end)
      |> assign_new(:height, fn -> "480px" end)
      |> assign_new(:debounce, fn -> 400 end)
-     |> assign_new(:protect_navigation, fn -> true end)
+     # Off by default: closing the tab must never prompt "leave with unsaved
+     # changes". (The old `true` default never actually armed the guard — a
+     # boolean renders as an empty data attribute, which fails the hook's
+     # `=== "true"` check — so this makes the shipped behavior deliberate.)
+     # Hosts that genuinely want the guard opt in with
+     # `protect_navigation={true}`, which now arms it for real via the
+     # `to_string/1` in the data attribute below.
+     |> assign_new(:protect_navigation, fn -> false end)
      |> assign_new(:show_save_button, fn -> false end)
      |> assign_new(:readonly, fn -> false end)}
   end
@@ -144,7 +154,7 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
       phx-hook="MarkdownEditor"
       data-markdown-editor="true"
       data-global-id={@global_id}
-      data-protect-navigation={@protect_navigation}
+      data-protect-navigation={to_string(@protect_navigation)}
       data-save-status={@save_status}
     >
       <%!-- The toolbars below are hidden by default and revealed by the

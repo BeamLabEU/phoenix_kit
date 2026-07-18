@@ -21,11 +21,14 @@
     >
       <:item :let={uuid}>
         <div class="relative group aspect-square">
+          <%!-- `image_set`'s class attr is a plain string (not a class list),
+               so the rotation transform is interpolated; a nil (unrotated)
+               reads as "". --%>
           <.image_set
             file_uuid={uuid}
             variants={Map.get(@variants_map, uuid, [])}
             alt=""
-            class="w-full h-full object-cover rounded-lg border-2 border-base-300"
+            class={"w-full h-full object-cover rounded-lg border-2 border-base-300 #{rotation_class(%{rotation: Map.get(@rotations_map, uuid)})}"}
             loading="eager"
           />
 

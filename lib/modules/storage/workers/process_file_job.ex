@@ -35,12 +35,16 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
         "ProcessFileJob: Starting processing for file_uuid=#{file_uuid}, type=#{file.file_type}"
       )
 
+      # Broadcast on both outcomes — subscribers just reload the file row,
+      # which now carries either the fresh dimensions/variants or the
+      # failed status.
       case process_file(file) do
         {:ok, variants} ->
           Logger.info(
             "ProcessFileJob: Successfully processed file_uuid=#{file_uuid}, generated=#{length(variants)} variants"
           )
 
+          Storage.broadcast_file_processed(file_uuid)
           :ok
 
         {:error, reason} ->
@@ -48,6 +52,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
             "ProcessFileJob: Failed to process file_uuid=#{file_uuid}, error=#{inspect(reason)}"
           )
 
+          Storage.broadcast_file_processed(file_uuid)
           {:error, reason}
       end
     end

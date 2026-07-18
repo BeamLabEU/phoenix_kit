@@ -164,7 +164,7 @@
                       <img
                         src={url}
                         alt={file.filename}
-                        class="object-cover w-full h-full"
+                        class={["object-cover w-full h-full", rotation_class(file)]}
                       />
                     <% else %>
                       <div class="flex items-center justify-center w-full h-full">

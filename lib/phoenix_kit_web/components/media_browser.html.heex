@@ -135,8 +135,13 @@
           <% end %>
 
           <div class="min-h-0 flex-1 flex flex-col">
+            <%!-- The single scroll area for the whole content column —
+                 breadcrumbs, folder hero header, toolbar, and the file grid
+                 all scroll together (the grid wrapper below is NOT its own
+                 scroll region). The list view's sticky column header pins to
+                 the top of this scrollport once the header scrolls past. --%>
             <div
-              class="px-2 pb-2 min-h-0 flex-1 flex flex-col"
+              class="px-2 pb-2 min-h-0 flex-1 flex flex-col overflow-auto"
               id={if @has_buckets, do: "folder-drop-upload"}
               phx-hook={if @has_buckets, do: "FolderDropUpload"}
               phx-target={if @has_buckets, do: @myself}
@@ -273,10 +278,10 @@
               <% show_file_count = header_folder && header_folder.header_show_file_count %>
               <% show_creation_info = show_creator || show_date || show_file_count %>
               <% show_description = header_folder && header_folder.header_show_description %>
-              <%!-- `relative z-30` lifts the whole header above the list's
-                   scroll area (which comes later in the DOM), so the toolbar
-                   dropdowns open *over* the sticky table header instead of
-                   being painted behind it. --%>
+              <%!-- `relative z-30` lifts the whole header above the file area
+                   below (same scroll container, later in the DOM), so the
+                   toolbar dropdowns open *over* the sticky table header
+                   (z-10) instead of being painted behind it. --%>
               <div class={[
                 "relative z-30 rounded-xl mb-3 sm:mb-4 flex flex-col justify-end",
                 header_min_h
@@ -797,13 +802,16 @@
                           </button>
                         <% end %>
 
+                        <%!-- Cancel, not "Done": the ✕ exits selection mode
+                             without applying anything — "Done" reads like a
+                             confirm/apply, which this button never does. --%>
                         <button
                           phx-click="toggle_select_mode"
                           phx-target={@myself}
                           class="btn btn-sm btn-neutral gap-1.5"
                           title={gettext("Exit selection")}
                         >
-                          <.icon name="hero-x-mark" class="w-4 h-4" /> {gettext("Done")}
+                          <.icon name="hero-x-mark" class="w-4 h-4" /> {gettext("Cancel")}
                         </button>
                       </div>
                     </div>
@@ -1091,11 +1099,38 @@
                           >
                             <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
                           </div>
+                          <%!-- The complete list of this page's media actions.
+                               Add Media + Search also have prominent
+                               quick-access controls (the primary button and the
+                               magnifier) — they're duplicated here so the ⋯ is a
+                               single place that holds everything, which also
+                               keeps them reachable when the toolbar wraps tight.
+                               Contextual destructive actions (Empty Trash /
+                               Delete all orphaned) live only on their own view's
+                               red button — not duplicated into the menu. --%>
                           <ul
                             tabindex="0"
                             onclick="document.activeElement.blur()"
-                            class="dropdown-content menu bg-base-100 rounded-box z-20 w-44 p-2 shadow border border-base-200"
+                            class="dropdown-content menu bg-base-100 rounded-box z-20 w-48 p-2 shadow border border-base-200"
                           >
+                            <li :if={not @filter_trash}>
+                              <button phx-click="toggle_upload" phx-target={@myself}>
+                                <%= if @show_upload do %>
+                                  <.icon name="hero-x-mark" class="w-4 h-4" /> {gettext(
+                                    "Cancel upload"
+                                  )}
+                                <% else %>
+                                  <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add Media")}
+                                <% end %>
+                              </button>
+                            </li>
+                            <li>
+                              <button phx-click="toggle_search" phx-target={@myself}>
+                                <.icon name="hero-magnifying-glass" class="w-4 h-4" /> {gettext(
+                                  "Search"
+                                )}
+                              </button>
+                            </li>
                             <li>
                               <button
                                 phx-click="toggle_select_mode"
@@ -1137,7 +1172,7 @@
                 so the wrapper isn't a drop target there.
               --%>
               <div
-                class="rounded-lg min-h-0 flex-1 overflow-auto pr-1"
+                class="rounded-lg min-h-0 flex-1 pr-1"
                 data-drop-folder={
                   if not @filter_trash and @file_view != "all" do
                     if @current_folder, do: @current_folder.uuid, else: "root"
@@ -1434,7 +1469,10 @@
                                 <img
                                   src={url}
                                   alt={file.filename}
-                                  class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+                                  class={[
+                                    "w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity",
+                                    rotation_class(file)
+                                  ]}
                                   onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                                 />
                                 <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
@@ -2028,7 +2066,10 @@
                                     <%= if url do %>
                                       <img
                                         src={url}
-                                        class="w-full h-full object-cover"
+                                        class={[
+                                          "w-full h-full object-cover",
+                                          rotation_class(file)
+                                        ]}
                                         alt={file.filename}
                                       />
                                     <% else %>
@@ -2309,16 +2350,21 @@
   <% end %>
 
   <%!-- ── Read-only modal viewer ──────────────────────────────────────────── --%>
-  <%!-- Default click target for non-admin, non-select_mode browsers — the    --%>
-  <%!-- click_file handler stashes the clicked file in :viewer_file and this  --%>
-  <%!-- block renders the preview + metadata + Download. Pickers reach        --%>
-  <%!-- bulk-select via the toolbar's Select button (`select_mode` toggle).   --%>
-  <%!-- Closes via X / Esc / backdrop click.                                  --%>
+  <%!-- Default click target for non-select_mode browsers — the click_file    --%>
+  <%!-- handler stashes the clicked file in :viewer_file and this block       --%>
+  <%!-- renders the preview + metadata + Download. Admin browsers get the     --%>
+  <%!-- same popup plus an "Open details page" sidebar button (details_path). --%>
+  <%!-- Pickers reach bulk-select via the toolbar's Select button             --%>
+  <%!-- (`select_mode` toggle). Closes via X / Esc / backdrop click.          --%>
   <%= if assigns[:viewer_file] do %>
     <% f = @viewer_file %>
-    <% viewer_idx = Enum.find_index(@uploaded_files, &(&1.file_uuid == f.file_uuid)) %>
+    <%!-- Step through the list the viewer was opened from (the page's files,
+         or an expanded stack's own) — not always `@uploaded_files`, which
+         doesn't contain files that live inside a stack. --%>
+    <% siblings = @viewer_siblings %>
+    <% viewer_idx = Enum.find_index(siblings, &(&1.file_uuid == f.file_uuid)) %>
     <% has_prev = is_integer(viewer_idx) and viewer_idx > 0 %>
-    <% has_next = is_integer(viewer_idx) and viewer_idx < length(@uploaded_files) - 1 %>
+    <% has_next = is_integer(viewer_idx) and viewer_idx < length(siblings) - 1 %>
     <div
       id={"#{@id}-viewer-modal"}
       class="modal modal-open"
@@ -2346,16 +2392,20 @@
         <%!-- with filename + Download + metadata + comments thread) is  --%>
         <%!-- owned by the MediaCanvasViewer child LiveComponent. Its id --%>
         <%!-- includes the file uuid so prev/next destroys and remounts  --%>
-        <%!-- on file change (clean canvas re-hydration).                 --%>
+        <%!-- on file change (clean canvas re-hydration), plus the dims  --%>
+        <%!-- + variant count so a processing-completion refresh (see    --%>
+        <%!-- refresh_processed_file/2) remounts with the real canvas    --%>
+        <%!-- instead of the 1000x1000 placeholder.                      --%>
         <.live_component
           module={PhoenixKitWeb.Components.MediaCanvasViewer}
-          id={"media-canvas-viewer-" <> f.file_uuid}
+          id={"media-canvas-viewer-#{f.file_uuid}-#{f.width || 0}x#{f.height || 0}-#{map_size(f.urls)}"}
           file={f}
           current_user={assigns[:phoenix_kit_current_user]}
           parent_id={@id}
           has_prev={has_prev}
           has_next={has_next}
           persist_rotation={@admin}
+          details_path={if @admin, do: Routes.path("/admin/media/#{f.file_uuid}")}
         />
       </div>
       <div class="modal-backdrop" phx-click="close_viewer" phx-target={@myself}></div>

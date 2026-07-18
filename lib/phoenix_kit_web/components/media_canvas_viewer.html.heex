@@ -195,6 +195,56 @@
           </div>
       <% end %>
 
+      <%!-- Sidebar collapse/expand toggle — pinned to the viewer's         --%>
+      <%!-- top-right corner, at the seam with the info sidebar. Collapsing --%>
+      <%!-- hides the sidebar so the Fresco viewer gets the full popup; the --%>
+      <%!-- choice is persisted per-user (survives prev/next and reopen).   --%>
+      <%!-- While collapsed (viewer spans the full popup) and on mobile     --%>
+      <%!-- (panels stacked, viewer on top) the modal's close button owns   --%>
+      <%!-- top-right, so the toggle shifts inward next to it (right-14).   --%>
+      <button
+        :if={not @viewer_only}
+        type="button"
+        phx-click="toggle_viewer_sidebar"
+        phx-target={@myself}
+        class={[
+          "btn btn-ghost btn-sm btn-circle absolute top-3 z-30 bg-base-100 hover:bg-base-200 shadow-lg ring-1 ring-base-300",
+          if(@sidebar_collapsed, do: "right-14", else: "right-14 lg:right-3")
+        ]}
+        title={if @sidebar_collapsed, do: gettext("Show details"), else: gettext("Hide details")}
+        aria-label={
+          if @sidebar_collapsed, do: gettext("Show details"), else: gettext("Hide details")
+        }
+      >
+        <.icon
+          name={if @sidebar_collapsed, do: "hero-chevron-left", else: "hero-chevron-right"}
+          class="w-4 h-4 rotate-90 lg:rotate-0"
+        />
+      </button>
+
+      <%!-- Transient rotation save-status pill — persist_rotation writes  --%>
+      <%!-- are otherwise invisible (indistinguishable from a view-only     --%>
+      <%!-- rotation). Shown for a moment after each actual save / failure; --%>
+      <%!-- auto-hidden by the :clear_rotation_status timer.                 --%>
+      <div
+        :if={@rotation_status}
+        class={[
+          "absolute bottom-4 left-1/2 -translate-x-1/2 z-20 badge shadow-lg gap-1",
+          @rotation_status == :saved && "badge-success",
+          @rotation_status == :error && "badge-error"
+        ]}
+      >
+        <.icon
+          name={
+            if @rotation_status == :saved, do: "hero-check", else: "hero-exclamation-triangle"
+          }
+          class="w-3.5 h-3.5"
+        />
+        {if @rotation_status == :saved,
+          do: gettext("Rotation saved"),
+          else: gettext("Failed to save rotation")}
+      </div>
+
       <%!-- Floating annotation composer — positioned above the just-drawn --%>
       <%!-- shape by the AnnotationComposerPosition JS hook (it looks up    --%>
       <%!-- the shape via [data-uuid="…"]). Sidebar comments stay visible   --%>
@@ -230,26 +280,38 @@
 
     <%!-- Sidebar: filename + download + metadata + comments. Suppressed --%>
     <%!-- in viewer_only mode — standalone-page hosts render their own  --%>
-    <%!-- sidebar with admin actions / metadata editor / file details.   --%>
+    <%!-- sidebar with admin actions / metadata editor / file details —  --%>
+    <%!-- and while collapsed via the viewer-corner toggle above.        --%>
     <div
-      :if={not @viewer_only}
+      :if={not @viewer_only and not @sidebar_collapsed}
       class="flex-[3] flex flex-col gap-3 p-4 overflow-y-auto lg:min-w-[280px] bg-base-100"
     >
       <h2 class="text-base font-bold break-all leading-tight pr-10">
         {f.filename}
       </h2>
 
-      <%= if f.urls["original"] do %>
-        <a
-          href={f.urls["original"]}
-          download={f.filename}
-          target="_blank"
-          rel="noopener"
-          class="btn btn-primary btn-sm gap-2 self-start"
+      <div class="flex flex-wrap items-center gap-2">
+        <%= if f.urls["original"] do %>
+          <a
+            href={f.urls["original"]}
+            download={f.filename}
+            target="_blank"
+            rel="noopener"
+            class="btn btn-primary btn-sm gap-2"
+          >
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Download")}
+          </a>
+        <% end %>
+        <%!-- Admin-context hosts pass details_path — full-page detail view --%>
+        <%!-- with the metadata editor, variants, and storage locations.    --%>
+        <.link
+          :if={@details_path}
+          navigate={@details_path}
+          class="btn btn-ghost btn-sm gap-2"
         >
-          <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Download")}
-        </a>
-      <% end %>
+          <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" /> {gettext("Details")}
+        </.link>
+      </div>
 
       <div class="text-sm space-y-2 mt-1">
         <div>

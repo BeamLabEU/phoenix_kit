@@ -1309,7 +1309,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @initial_version 1
-  @current_version 150
+  @current_version 151
   @default_prefix "public"
 
   # First version whose SQL references uuid_generate_v7(). Chains that

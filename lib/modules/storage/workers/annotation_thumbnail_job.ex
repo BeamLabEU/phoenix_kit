@@ -27,6 +27,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailJob do
     max_attempts: 3,
     unique: [period: 120, keys: [:file_uuid], states: @unique_states]
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.AnnotationThumbnail
 
   # Seconds to wait before rendering, letting a flurry of edits settle.
@@ -53,8 +54,14 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailJob do
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"file_uuid" => file_uuid}}) do
     case AnnotationThumbnail.refresh(file_uuid) do
-      {:ok, _} -> :ok
-      {:error, reason} -> {:error, reason}
+      {:ok, _} ->
+        # Both outcomes (fresh bake, variant removed) change what grids
+        # should show — let open UIs swap the thumbnail without a reload.
+        Storage.broadcast_file_thumbnail_updated(file_uuid)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

@@ -69,12 +69,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   - `phoenix_kit_current_user` — logged-in user struct (for upload attribution)
   - `scope_folder_id` — constrain the browser to a virtual root folder
   - `on_navigate` — when truthy, enables controlled mode (URL-sync via parent)
-  - `admin` — when `true`, clicking a file opens the admin detail page at
-    `/admin/media/:uuid`. When `false` (default), clicks open a read-only
-    in-place modal viewer (image / video / PDF / icon + metadata + Download
-    + prev/next navigation). Bulk-select is still reachable via the
-    toolbar's Select button — once `select_mode` is on, clicks toggle
-    selection instead of opening the modal.
+  - `admin` — clicking a file always opens the in-place modal viewer
+    (image / video / PDF / icon + metadata + Download + prev/next
+    navigation). When `true`, the viewer sidebar additionally shows an
+    "Open details page" button linking to `/admin/media/:uuid`, and
+    rotations made in the viewer persist to the file row. Bulk-select is
+    still reachable via the toolbar's Select button — once `select_mode`
+    is on, clicks toggle selection instead of opening the modal.
   """
   use PhoenixKitWeb, :live_component
 
@@ -125,6 +126,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign_new(:scope_folder_id, fn -> nil end)
       |> assign_new(:admin, fn -> false end)
       |> assign_new(:viewer_file, fn -> nil end)
+      # The list the open viewer's prev/next steps through — the page's
+      # files, or an expanded stack's own (see `locate_file/2`).
+      |> assign_new(:viewer_siblings, fn -> [] end)
       # When true, the browser fills its parent's width + height (flex-1)
       # instead of the default fixed-height card. Used by the full-page
       # admin media view; modal/gallery embeds keep the bounded default.
@@ -150,6 +154,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       Map.has_key?(assigns, :pending_upload) ->
         {:ok, process_pending_upload(socket, assigns.pending_upload)}
+
+      # Background processing finished (see attach_file_event_forwarding/1).
+      Map.has_key?(assigns, :file_processed) ->
+        {:ok, refresh_processed_file(socket, assigns.file_processed)}
+
+      # Annotated thumbnail (re)baked — refresh the grid row only. The open
+      # viewer must NOT be swapped: the annotator is usually still working
+      # in it, and a viewer_file swap changes the canvas-viewer LC id
+      # (it encodes the variant count), remounting the canvas mid-edit.
+      Map.has_key?(assigns, :thumbnail_updated) ->
+        {:ok, refresh_processed_file(socket, assigns.thumbnail_updated, viewer: false)}
 
       # The header-image picker (MediaSelectorModal) reports back here via
       # `notify: {__MODULE__, id}`: a confirmed selection sets the cover or logo
@@ -199,6 +214,80 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       assign(socket, :batch_scheduled, true)
     end
+  end
+
+  # A background job finished for `file_uuid` — fresh dimensions, variants,
+  # status, or a rebaked annotated thumbnail just landed. If the file is on
+  # the current page or open in the modal viewer, swap in a freshly-enriched
+  # map so thumbnails and the correctly-proportioned canvas appear without a
+  # manual reload. (The viewer's canvas-viewer LC id encodes dims + variant
+  # count, so the swap remounts it with the real canvas instead of the
+  # 1000x1000 placeholder.) `viewer: false` limits the swap to the grid row —
+  # used for thumbnail-only updates, where remounting an open viewer would
+  # kick the annotator out mid-edit. Files not in view are skipped — their
+  # next load reads fresh rows anyway.
+  defp refresh_processed_file(socket, file_uuid, opts \\ []) do
+    viewer = socket.assigns[:viewer_file]
+
+    viewing? =
+      Keyword.get(opts, :viewer, true) and is_map(viewer) and viewer.file_uuid == file_uuid
+
+    case fresh_file(socket, file_uuid, viewing?) do
+      nil -> socket
+      fresh -> swap_file(socket, file_uuid, fresh, viewing?)
+    end
+  end
+
+  # Re-enrich from the DB, but only when the file is actually on screen —
+  # anything else re-reads fresh rows on its next load anyway.
+  defp fresh_file(socket, file_uuid, viewing?) do
+    if viewing? or rendered?(socket, file_uuid) do
+      case Storage.get_file(file_uuid) do
+        %Storage.File{} = file -> enrich_files([file]) |> List.first()
+        _ -> nil
+      end
+    end
+  end
+
+  defp swap_file(socket, file_uuid, fresh, viewing?) do
+    swap = fn f -> if f.file_uuid == file_uuid, do: fresh, else: f end
+
+    socket
+    |> assign(:uploaded_files, Enum.map(socket.assigns.uploaded_files, swap))
+    |> assign(
+      :stack_files,
+      Map.new(socket.assigns[:stack_files] || %{}, fn {uuid, files} ->
+        {uuid, Enum.map(files, swap)}
+      end)
+    )
+    |> assign(
+      :stack_previews,
+      Map.new(socket.assigns[:stack_previews] || %{}, fn {uuid, entry} ->
+        {uuid, Map.update(entry, :previews, [], &Enum.map(&1, swap))}
+      end)
+    )
+    |> assign(:viewer_siblings, Enum.map(socket.assigns[:viewer_siblings] || [], swap))
+    |> then(&if(viewing?, do: assign(&1, :viewer_file, fresh), else: &1))
+  end
+
+  # Every list the browser paints file thumbnails from: the current page's
+  # (`uploaded_files`), each expanded stack's (`stack_files`), and each
+  # collapsed pile's fanned previews (`stack_previews`). A refresh has to
+  # consider — and rewrite — all three, or an update lands on some
+  # thumbnails and not others: the pile is built once per stacks render, so
+  # skipping it left it showing a stale orientation forever while the grid
+  # and viewer moved on.
+  #
+  # Distinct from `locate_file/2`, which is about *clicking*: a pile preview
+  # isn't clickable and its 4-file list must never become the viewer's
+  # prev/next siblings.
+  defp rendered?(socket, file_uuid) do
+    lists =
+      [socket.assigns.uploaded_files] ++
+        Map.values(socket.assigns[:stack_files] || %{}) ++
+        Enum.map(Map.values(socket.assigns[:stack_previews] || %{}), &Map.get(&1, :previews, []))
+
+    Enum.any?(lists, fn list -> Enum.any?(list, fn f -> f.file_uuid == file_uuid end) end)
   end
 
   defp commit_upload_batch(socket) do
@@ -532,7 +621,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         auto_upload: true,
         progress: &__MODULE__.parent_progress/3
       )
+      |> attach_file_event_forwarding()
     end
+  end
+
+  # Live-refresh plumbing: subscribe the parent LiveView to storage file
+  # events and forward each one to every registered MediaBrowser on the
+  # page, so a just-uploaded file's dimensions/thumbnails — and freshly
+  # baked annotated thumbnails — appear without a manual reload (the
+  # component refreshes the affected rows in its `update/2`). A lifecycle
+  # hook (not an injected clause) so it composes with host LiveViews that
+  # define their own handle_info; it {:halt}s, so the message never leaks
+  # to host clauses. Guarded by setup_uploads' run-once check above —
+  # attach_hook raises on duplicate names.
+  defp attach_file_event_forwarding(socket) do
+    if connected?(socket) do
+      Storage.subscribe_to_file_events()
+
+      attach_hook(socket, :phoenix_kit_mb_file_events, :handle_info, fn
+        {:phoenix_kit_file_processed, file_uuid}, socket ->
+          {:halt, forward_to_browsers(socket, file_processed: file_uuid)}
+
+        {:phoenix_kit_file_thumbnail_updated, file_uuid}, socket ->
+          {:halt, forward_to_browsers(socket, thumbnail_updated: file_uuid)}
+
+        _msg, socket ->
+          {:cont, socket}
+      end)
+    else
+      socket
+    end
+  end
+
+  defp forward_to_browsers(socket, update) do
+    socket.assigns[:media_browser_ids]
+    |> Kernel.||(MapSet.new())
+    |> Enum.each(&send_update(__MODULE__, [{:id, &1} | update]))
+
+    socket
   end
 
   @doc false
@@ -1446,23 +1572,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      |> assign(:selected_folders, MapSet.put(socket.assigns.selected_folders, uuid))}
   end
 
+  # In selection mode, clicks toggle the file in/out and stay in selection
+  # mode (the toolbar's "Select" button is how callers reach bulk-select).
+  # Otherwise open the in-place modal viewer for that file — admin context
+  # gets the same popup, plus an "Open details page" button in the sidebar
+  # (see `details_path`) for the full /admin/media/:uuid page.
   def handle_event("click_file", %{"file-uuid" => file_uuid}, socket) do
-    cond do
-      # Already in selection mode → toggle this file in/out, stay in selection mode.
-      # The toolbar's "Select" button is how callers reach bulk-select; once on,
-      # clicks add/remove rather than open the modal.
-      socket.assigns.select_mode ->
-        {:noreply, do_toggle_file(socket, file_uuid)}
-
-      # Admin context → navigate to the rich admin detail page.
-      socket.assigns.admin ->
-        {:noreply, push_navigate(socket, to: Routes.path("/admin/media/#{file_uuid}"))}
-
-      # Anywhere else (non-admin, not in select mode) → open the in-place
-      # modal viewer for that file. This is the default and is what every
-      # embedded MediaBrowser gets unless `admin={true}` is set.
-      true ->
-        {:noreply, open_viewer(socket, find_uploaded_file(socket, file_uuid))}
+    if socket.assigns.select_mode do
+      {:noreply, do_toggle_file(socket, file_uuid)}
+    else
+      # `locate_file/2` also finds files inside expanded stacks, and hands
+      # back the list prev/next should step through. A miss (stale click
+      # against a since-reloaded page) leaves the viewer alone rather than
+      # opening it empty.
+      case locate_file(socket, file_uuid) do
+        {file, siblings} -> {:noreply, open_viewer(socket, file, siblings)}
+        nil -> {:noreply, socket}
+      end
     end
   end
 
@@ -1984,16 +2110,32 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Look up the clicked file's enriched map (filename, mime_type, size, urls,
   # …) inside the current page's uploaded_files list so the modal can render
   # without an extra DB roundtrip.
-  defp find_uploaded_file(socket, file_uuid) do
-    Enum.find(socket.assigns.uploaded_files, fn f -> f.file_uuid == file_uuid end)
+  # Rendered files live in TWO places: the current page's list
+  # (`uploaded_files`) and, in stacks view, each expanded stack's own list
+  # (`stack_files`, keyed by folder uuid). Resolve against both — searching
+  # only `uploaded_files` silently no-oped every click on a file inside an
+  # expanded stack, since the lookup missed and the viewer opened on `nil`.
+  #
+  # Returns the file *and* the list it came from, so the viewer's prev/next
+  # steps through the right siblings (a stack's own files, not the page's).
+  defp locate_file(socket, file_uuid) do
+    stacks = Map.values(socket.assigns[:stack_files] || %{})
+
+    Enum.find_value([socket.assigns.uploaded_files | stacks], fn list ->
+      case Enum.find(list, fn f -> f.file_uuid == file_uuid end) do
+        nil -> nil
+        file -> {file, list}
+      end
+    end)
   end
 
-  # Advance the modal viewer by one step in the current page's file list.
-  # Stops at the boundary (no wrap-around) so the user knows they hit the
-  # edge instead of being silently teleported to the other end.
+  # Advance the modal viewer by one step through the list it was opened
+  # from (see `locate_file/2`). Stops at the boundary (no wrap-around) so
+  # the user knows they hit the edge instead of being silently teleported
+  # to the other end.
   defp step_viewer(socket, direction) do
     current = socket.assigns.viewer_file
-    list = socket.assigns.uploaded_files
+    list = socket.assigns[:viewer_siblings] || []
 
     with %{file_uuid: uuid} <- current,
          idx when is_integer(idx) <-
@@ -2013,8 +2155,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # heex — it loads its own annotations on mount based on the file
   # we pass through `assigns[:file]`. MediaBrowser only owns the
   # modal open/close lifecycle and which file is currently shown.
-  defp open_viewer(socket, nil), do: assign(socket, :viewer_file, nil)
-  defp open_viewer(socket, %{file_uuid: _} = file), do: assign(socket, :viewer_file, file)
+  # `siblings` is the list prev/next steps through. Passing `nil` keeps the
+  # list already in play — how `step_viewer/2` moves within it without
+  # re-deciding which list the viewer belongs to.
+  defp open_viewer(socket, file, siblings \\ nil)
+
+  defp open_viewer(socket, nil, _siblings) do
+    socket |> assign(:viewer_file, nil) |> assign(:viewer_siblings, [])
+  end
+
+  defp open_viewer(socket, %{file_uuid: _} = file, nil), do: assign(socket, :viewer_file, file)
+
+  defp open_viewer(socket, %{file_uuid: _} = file, siblings) do
+    socket |> assign(:viewer_file, file) |> assign(:viewer_siblings, siblings)
+  end
 
   defp navigate_to_folder(socket, folder_uuid) when folder_uuid in [nil, ""] do
     if controlled_mode?(socket) do
@@ -2283,7 +2437,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
             ]}>
               <.thumbnail_url :let={url} file={pf} size={:card}>
                 <%= if url do %>
-                  <img src={url} alt="" class="w-full h-full object-cover" />
+                  <img
+                    src={url}
+                    alt=""
+                    class={[
+                      "w-full h-full object-cover",
+                      rotation_class(pf, box: :landscape_4_3)
+                    ]}
+                  />
                 <% else %>
                   <div class="w-full h-full grid place-items-center text-base-content/40">
                     <.icon name={file_icon_for(pf)} class="w-8 h-8" />
@@ -2361,7 +2522,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
             <img
               src={url}
               alt={@file.filename}
-              class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+              class={[
+                "w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity",
+                rotation_class(@file)
+              ]}
             />
           <% else %>
             <div class="grid place-items-center w-full aspect-square text-base-content/50">
@@ -2787,6 +2951,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         # doesn't crash.
         width: file.width,
         height: file.height,
+        # The image's saved orientation, applied to thumbnails as a CSS
+        # transform (see `MediaThumbnail.rotation_class/1`) so the grid
+        # matches what the viewer's canvas shows. Baked variants are
+        # unrotated on disk; nil/garbage reads as unrotated.
+        rotation: Map.get(file.metadata || %{}, "rotation"),
         folder_path: Map.get(folder_paths, file.folder_uuid),
         urls: urls,
         variant_widths: variant_widths

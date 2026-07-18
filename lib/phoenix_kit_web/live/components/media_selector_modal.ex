@@ -544,6 +544,9 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
           mime_type: file.mime_type,
           size: file.size || 0,
           urls: urls,
+          # Saved orientation — thumbnails apply it as a CSS transform, so
+          # the picker shows images the same way up as the media grid.
+          rotation: Map.get(file.metadata || %{}, "rotation"),
           width: get_dimension_from_instances(instances, :width),
           height: get_dimension_from_instances(instances, :height)
         }

@@ -41,6 +41,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       standalone-page hosts like `MediaDetail` that have their own
       surrounding chrome (admin actions, metadata editor, file
       details).
+    * `:details_path` (default `nil`) — when set, the sidebar shows an
+      "Open details page" button navigating to this path. Admin-context
+      hosts (`MediaBrowser` with `admin={true}`) pass the file's
+      `/admin/media/:uuid` page; public hosts leave it off.
   """
 
   use PhoenixKitWeb, :live_component
@@ -76,6 +80,12 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   @default_etcher_line_params %{"width" => 2, "opacity" => 1, "dash" => "solid"}
   @etcher_dash_values ~w(solid dashed dotted)
 
+  # Whether the info sidebar (filename / Download / metadata / comments) is
+  # collapsed to give the viewer the full popup width. Per-user, one value
+  # across every viewer — stored in `custom_fields` ("user meta") like the
+  # Etcher palette, so it survives prev/next remounts, reopen, and reload.
+  @viewer_info_collapsed_key "media_viewer_info_collapsed"
+
   # ──────────────────────────────────────────────────────────────
   # Lifecycle
   # ──────────────────────────────────────────────────────────────
@@ -91,7 +101,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:etcher_line_params, @default_etcher_line_params)
      |> assign(:viewer_only, false)
      |> assign(:viewer_rotation, 0)
-     |> assign(:persist_rotation, false)}
+     |> assign(:persist_rotation, false)
+     |> assign(:rotation_status, nil)
+     |> assign(:rotation_status_token, 0)
+     |> assign(:sidebar_collapsed, false)
+     |> assign(:details_path, nil)}
   end
 
   @impl true
@@ -101,6 +115,17 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   def update(%{action: :annotation_composer_cancelled} = assigns, socket) do
     {:ok, rollback_annotation_compose(socket, assigns[:annotation_uuid])}
+  end
+
+  # Auto-hide timer for the rotation save-status pill (scheduled by
+  # show_rotation_status/2). Token-guarded: a burst of saves bumps the
+  # token, so only the latest timer clears the pill.
+  def update(%{action: :clear_rotation_status, token: token}, socket) do
+    if socket.assigns[:rotation_status_token] == token do
+      {:ok, assign(socket, :rotation_status, nil)}
+    else
+      {:ok, socket}
+    end
   end
 
   # Inline title edit posted from the sidebar's CommentsComponent.
@@ -132,6 +157,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       # file row (see handle_event "fresco:rotate"). Public hosts still seed
       # `initial_rotation` below so everyone sees the saved orientation.
       |> assign(:persist_rotation, assigns[:persist_rotation] || false)
+      |> assign(:details_path, assigns[:details_path])
 
     # First mount (or file changed via re-mount): hydrate annotations
     # + canvas. Because the id encodes the file uuid, the parent's
@@ -152,6 +178,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         # edit, where the parent's `current_user` may be stale.
         |> assign(:etcher_colors, load_user_colors(assigns[:current_user]))
         |> assign(:etcher_line_params, load_user_line_params(assigns[:current_user]))
+        |> assign(:sidebar_collapsed, load_sidebar_collapsed(assigns[:current_user]))
       else
         socket
       end
@@ -261,6 +288,16 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     {:noreply, socket}
   end
 
+  # Collapse/expand the info sidebar so the viewer gets the full popup
+  # width (the win is biggest on small screens). Persisted per-user so
+  # prev/next — which remounts this component — and later opens keep
+  # the choice. Helpers live in "Info sidebar collapse" below.
+  def handle_event("toggle_viewer_sidebar", _params, socket) do
+    collapsed = not socket.assigns[:sidebar_collapsed]
+    persist_sidebar_collapsed(socket.assigns[:current_user], collapsed)
+    {:noreply, assign(socket, :sidebar_collapsed, collapsed)}
+  end
+
   # ──────────────────────────────────────────────────────────────
   # Rotation persistence
   # ──────────────────────────────────────────────────────────────
@@ -295,7 +332,13 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   # Write `rotation` into the file's metadata JSONB, skipping the DB round-trip
   # when it hasn't changed (Fresco fires `rotate` on every change, including the
-  # Reset-view snap back to the already-saved home rotation).
+  # Reset-view snap back to the already-saved home rotation). A transient
+  # status pill over the canvas confirms each actual save — the write is
+  # otherwise invisible, indistinguishable from a view-only rotation — and
+  # surfaces a failure instead of silently dropping the orientation. No-op
+  # rotations stay silent. (A pill, not put_flash: component flash doesn't
+  # reach the parent layout's flash group, and the pill also works in
+  # viewer_only hosts.)
   defp persist_rotation(socket, file_uuid, rotation) do
     case Storage.get_file(file_uuid) do
       %Storage.File{} = file ->
@@ -307,8 +350,20 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           merged = Map.put(file.metadata || %{}, "rotation", rotation)
 
           case Storage.update_file(file, %{metadata: merged}) do
-            {:ok, _updated} -> assign(socket, :viewer_rotation, rotation)
-            {:error, _changeset} -> socket
+            {:ok, _updated} ->
+              # Thumbnails render the saved orientation via a CSS transform
+              # (MediaThumbnail.rotation_class/1), so a rotation changes what
+              # every grid should show — same live-refresh rail the annotated
+              # bake uses. Grid-only by design: the viewer this rotation came
+              # from must not remount mid-interaction.
+              Storage.broadcast_file_thumbnail_updated(file_uuid)
+
+              socket
+              |> assign(:viewer_rotation, rotation)
+              |> show_rotation_status(:saved)
+
+            {:error, _changeset} ->
+              show_rotation_status(socket, :error)
           end
         end
 
@@ -318,7 +373,27 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   rescue
     e ->
       Logger.warning("Failed to persist media rotation for #{file_uuid}: #{inspect(e)}")
-      socket
+      show_rotation_status(socket, :error)
+  end
+
+  # How long the save-status pill stays up before auto-hiding.
+  @rotation_status_ms 2500
+
+  # Show the pill and schedule its removal. The token invalidates earlier
+  # timers, so a rapid rotate burst keeps the pill up for the full window
+  # after the LAST save instead of vanishing when the first timer fires.
+  defp show_rotation_status(socket, status) do
+    token = (socket.assigns[:rotation_status_token] || 0) + 1
+
+    Phoenix.LiveView.send_update_after(
+      __MODULE__,
+      [id: socket.assigns.id, action: :clear_rotation_status, token: token],
+      @rotation_status_ms
+    )
+
+    socket
+    |> assign(:rotation_status, status)
+    |> assign(:rotation_status_token, token)
   end
 
   # Coerce a rotation to one of the four snapped angles Fresco supports; any
@@ -338,6 +413,35 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   end
 
   defp normalize_rotation(_), do: 0
+
+  # ──────────────────────────────────────────────────────────────
+  # Info sidebar collapse (see handle_event "toggle_viewer_sidebar")
+  # ──────────────────────────────────────────────────────────────
+
+  # Fresh read (not the parent-passed struct), matching the Etcher palette
+  # helpers — keeps the value correct on modal prev/next after an
+  # in-session toggle. Anything but a stored `true` means expanded.
+  defp load_sidebar_collapsed(%{uuid: uuid} = user) do
+    fresh = Auth.get_user(uuid) || user
+    Auth.get_user_field(fresh, @viewer_info_collapsed_key) == true
+  end
+
+  defp load_sidebar_collapsed(_), do: false
+
+  # Merge into a freshly-read copy so a concurrent custom_fields change
+  # elsewhere isn't clobbered. No user → session-local only (the assign
+  # still toggles; it just won't survive a remount).
+  defp persist_sidebar_collapsed(%{uuid: uuid} = user, collapsed) do
+    fresh = Auth.get_user(uuid) || user
+    merged = Map.put(fresh.custom_fields || %{}, @viewer_info_collapsed_key, collapsed)
+
+    case Auth.update_user_custom_fields(fresh, merged) do
+      {:ok, _updated} -> :ok
+      {:error, _changeset} -> :ok
+    end
+  end
+
+  defp persist_sidebar_collapsed(_, _), do: :ok
 
   # ──────────────────────────────────────────────────────────────
   # Annotation persistence + canvas blob

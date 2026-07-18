@@ -55,6 +55,29 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
     file
   end
 
+  # A variant row ("original" by default) — the browser builds `urls`
+  # solely from FileInstance rows, and the viewer canvas only renders
+  # when a usable URL exists, so hook-driven viewer tests need one.
+  defp create_instance!(file_uuid, variant_name \\ "original") do
+    n = System.unique_integer([:positive])
+
+    {:ok, instance} =
+      Repo.insert(%Storage.FileInstance{
+        file_uuid: file_uuid,
+        variant_name: variant_name,
+        file_name: "instance_#{n}.jpg",
+        mime_type: "image/jpeg",
+        ext: "jpg",
+        checksum: "sha256:instance-#{n}",
+        size: 1024,
+        width: 800,
+        height: 600,
+        processing_status: "completed"
+      })
+
+    instance
+  end
+
   # Memoised user owner for the file fixtures in this test process.
   # See `test/integration/storage/scope_test.exs` for the rationale —
   # same V113 CHECK constraint workaround.
@@ -292,6 +315,273 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
   # Uncontrolled mode — component handles nav internally, no parent message
   # Verified by confirming render_component (one-shot init) has correct state
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Admin click → in-place viewer popup (not a page navigation)
+  # ---------------------------------------------------------------------------
+
+  describe "admin click_file" do
+    test "opens the in-place viewer popup with a Details link to the admin page",
+         %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      # The popup opened in place (no navigation away from /admin/media)…
+      assert html =~ "media-browser-viewer-modal"
+      # …and its sidebar links to the full admin detail page.
+      assert html =~ Routes.path("/admin/media/#{file.uuid}")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Rotation persistence — admin popup opts in via persist_rotation={@admin}
+  # ---------------------------------------------------------------------------
+
+  describe "rotation persistence in the admin popup" do
+    test "fresco:rotate persists to file metadata and seeds the next open",
+         %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+
+      view
+      |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+      |> render_click()
+
+      # Fresco's client hook pushes this on every rotation change, via
+      # pushEventTo(hook.el, ...) — which targets the owning LiveComponent.
+      # render_hook/3 on an element only follows an explicit phx-target,
+      # so aim at the MediaCanvasViewer component directly. Its id encodes
+      # dims + variant count (see the viewer-modal comment in the heex):
+      # this fixture has no dimensions and one "original" instance.
+      view
+      |> with_target("#media-canvas-viewer-#{file.uuid}-0x0-1")
+      |> render_hook("fresco:rotate", %{
+        "id" => "media-zoom-#{file.uuid}",
+        "rotation" => 90,
+        "previous" => 0
+      })
+
+      assert %{metadata: %{"rotation" => 90}} = Storage.get_file(file.uuid)
+      # The save is confirmed with a flash — otherwise it's invisible.
+      assert render(view) =~ "Rotation saved"
+
+      # The save also broadcasts a thumbnail refresh, so the grid card behind
+      # the popup picks up the new orientation without a reload (thumbnails
+      # render it as a CSS transform). Scoped to `img` on purpose — the
+      # viewer's own collapse chevron carries a rotate-90 class of its own.
+      _ = render(view)
+      assert has_element?(view, "img.rotate-90")
+
+      # Close and reopen — the saved rotation seeds `initial_rotation`,
+      # surfacing as data-initial-rotation on the canvas element.
+      view |> element("##{"media-browser"}-viewer-modal .modal-backdrop") |> render_click()
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      assert html =~ ~s(data-initial-rotation="90")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Stacks view — files inside an expanded stack are clickable
+  # ---------------------------------------------------------------------------
+
+  describe "stacks view live refresh" do
+    test "a rotation refreshes the collapsed pile's preview thumbnails", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      parent = create_folder!()
+      stack = create_folder!(%{name: "stack", parent_uuid: parent.uuid})
+      file = create_file!(stack.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{parent.uuid}")
+      view |> element("[phx-click='set_view_mode'][phx-value-mode='stacks']") |> render_click()
+
+      refute has_element?(view, "img.rotate-90")
+
+      # The pile is built once per stacks render and holds its own enriched
+      # copies — the regression this covers: it kept a stale orientation
+      # while the grid and viewer moved on.
+      {:ok, _} =
+        Storage.update_file(Storage.get_file(file.uuid), %{metadata: %{"rotation" => 90}})
+
+      Storage.broadcast_file_thumbnail_updated(file.uuid)
+
+      _ = render(view)
+      assert has_element?(view, "img.rotate-90")
+    end
+  end
+
+  describe "stacks view click_file" do
+    test "opens the viewer for a file inside an expanded stack", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      # A file nested one level down is only ever rendered from `stack_files`,
+      # never from the page's `uploaded_files` — the regression this covers:
+      # clicking it silently no-oped because the lookup only searched the
+      # latter, so the viewer opened on nil.
+      parent = create_folder!()
+      stack = create_folder!(%{name: "stack", parent_uuid: parent.uuid})
+      file = create_file!(stack.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{parent.uuid}")
+
+      view |> element("[phx-click='set_view_mode'][phx-value-mode='stacks']") |> render_click()
+      # The tile's phx-click is a JS.push targeting the component.
+      view |> element("[data-stack-tile='#{stack.uuid}']") |> render_click()
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      assert html =~ "media-browser-viewer-modal"
+      assert html =~ "MIME:"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Info sidebar collapse — viewer-only mode for small screens, per-user sticky
+  # ---------------------------------------------------------------------------
+
+  describe "info sidebar collapse in the popup" do
+    test "collapse hides the sidebar, persists across reopen, expand restores it",
+         %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      assert html =~ "MIME:"
+
+      # Collapse via the divider strip — the metadata sidebar disappears and
+      # the expand affordance takes its place.
+      html = view |> element("[phx-click='toggle_viewer_sidebar']") |> render_click()
+      refute html =~ "MIME:"
+      assert html =~ "Show details"
+
+      # Close and reopen — the choice is persisted per-user (user meta), so
+      # the popup opens collapsed.
+      view |> element("#media-browser-viewer-modal .modal-backdrop") |> render_click()
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      refute html =~ "MIME:"
+
+      # Expand brings the sidebar back.
+      html = view |> element("[phx-click='toggle_viewer_sidebar']") |> render_click()
+      assert html =~ "MIME:"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Thumbnail live refresh — AnnotationThumbnailJob's broadcast updates the
+  # grid row without remounting an open viewer
+  # ---------------------------------------------------------------------------
+
+  describe "thumbnail live refresh" do
+    test "thumbnail_updated broadcast swaps the grid thumbnail, open viewer untouched",
+         %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      # Only the "original" variant exists — the grid card falls back to it.
+      refute html =~ "#{file.uuid}/small"
+
+      # Simulate the bake job completing: a new variant lands on the file,
+      # then the completion broadcast fires.
+      create_instance!(file.uuid, "small")
+      Storage.broadcast_file_thumbnail_updated(file.uuid)
+
+      # Two round-trips: the hook's send_update can be queued as a separate
+      # mailbox message behind the first render call.
+      _ = render(view)
+      html = render(view)
+      # The grid card swapped to the fresh variant...
+      assert html =~ "#{file.uuid}/small"
+      # ...but the open viewer was NOT remounted — its LC id encodes the
+      # variant count and would read ...-0x0-2 if viewer_file were swapped.
+      assert html =~ "media-canvas-viewer-#{file.uuid}-0x0-1"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Live refresh — ProcessFileJob's broadcast updates the grid + open viewer
+  # ---------------------------------------------------------------------------
+
+  describe "live refresh on processing completion" do
+    test "file_processed broadcast swaps the placeholder canvas for real dimensions",
+         %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      create_instance!(file.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+        |> render_click()
+
+      # The file row has no dimensions yet — the viewer renders the
+      # 1000x1000 placeholder canvas.
+      assert html =~ ~s(data-canvas-width="1000")
+
+      # Simulate ProcessFileJob finishing: dimensions land on the row,
+      # then the completion broadcast fires.
+      {:ok, _} = Storage.update_file(Storage.get_file(file.uuid), %{width: 800, height: 600})
+      Storage.broadcast_file_processed(file.uuid)
+
+      # Two round-trips: the hook's send_update can be queued as a separate
+      # mailbox message behind the first render call.
+      _ = render(view)
+      html = render(view)
+      assert html =~ ~s(data-canvas-width="800")
+      assert html =~ ~s(data-canvas-height="600")
+    end
+  end
 
   describe "uncontrolled mode (on_navigate: nil)" do
     test "component renders successfully without on_navigate assign", %{conn: _conn} do

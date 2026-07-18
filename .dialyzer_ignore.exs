@@ -39,6 +39,13 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
+  # QrLogin.location_for/1 uses the textbook Task.Supervisor.async_nolink +
+  # `Task.yield(task, t) || Task.shutdown(task, :brutal_kill)` idiom. Dialyzer
+  # widens the opaque Task.t()'s :pid/:ref fields and flags Task.yield's 1st
+  # arg — a false positive (same class as the auth.ex entry above); the code
+  # is correct and well-covered.
+  ~r/lib\/phoenix_kit\/users\/qr_login\.ex:.*call_without_opaque/,
+
   # Connections module (extracted to phoenix_kit_user_connections) — conditional calls via Code.ensure_loaded?
   {"lib/phoenix_kit_web/live/users/user_details.ex", :unknown_function},
 

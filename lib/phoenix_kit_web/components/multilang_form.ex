@@ -29,9 +29,9 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
 
   ### Events
 
-      def handle_event("switch_language", %{"lang" => lang_code}, socket) do
-        {:noreply, handle_switch_language(socket, lang_code)}
-      end
+  `mount_multilang/2` auto-handles the `"switch_language"` event, so you do
+  NOT need a `handle_event("switch_language", …)` clause — you only wire your
+  own form events:
 
       def handle_event("validate", %{"record" => params}, socket) do
         params = merge_translatable_params(params, socket, ["name", "description"],
@@ -39,6 +39,18 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
         changeset = MySchema.changeset(socket.assigns.record, params)
         {:noreply, assign(socket, :changeset, changeset)}
       end
+
+  ## Storage caveat — the helper OWNS the `data` column
+
+  `merge_translatable_params/4` (and `put_language_data/3`) store translations
+  by RESTRUCTURING the schema's `data` JSONB into a multilang shape
+  (`%{"_primary_language" => "en", "en" => %{…}, "et" => %{…}}`). On a schema
+  whose `data` column already holds unrelated keys (e.g. per-record settings),
+  this MOVES those keys into the primary-language sub-map and every top-level
+  reader breaks. In that case do NOT point `merge_translatable_params` at
+  `data`: keep translations in an isolated sub-key and use `translatable_field`
+  in its settings-translations mode (`secondary_name` + `lang_data_key`) with
+  your own small merge. See the `translatable_field` docs.
 
   ### Template — whole-form translation
 
@@ -105,10 +117,25 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
   Adds: `:multilang_enabled`, `:primary_language`, `:current_lang`,
   `:language_tabs`, `:show_multilang_tabs`, `:switching_lang` (no-op
   compat assign — kept because consumer templates pass it through to
-  the wrapper). Also attaches an internal `:handle_info` hook that
-  receives the debounced language-switch timer message.
+  the wrapper).
+
+  Also attaches two internal LiveView hooks so consumers don't have to
+  wire the language-switching protocol by hand:
+
+    * a `:handle_info` hook for the debounced language-switch timer, and
+    * a `:handle_event` hook for the `"switch_language"` event that
+      `<.multilang_tabs>` pushes — it calls `handle_switch_language/2`
+      and halts, so **you no longer need to add**
+      `def handle_event("switch_language", …)` yourself. Forgetting that
+      clause used to crash the LiveView on the first tab click.
+
+  ## Options
+
+    * `:auto_switch_language` — when `false`, skips the `"switch_language"`
+      event hook so you can handle the event yourself (e.g. to switch
+      language immediately without the debounce). Default `true`.
   """
-  def mount_multilang(socket) do
+  def mount_multilang(socket, opts \\ []) do
     multilang_enabled = multilang_enabled?()
     primary_language = if multilang_enabled, do: safe_primary_language(), else: nil
 
@@ -126,21 +153,27 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
       # The wrapper no longer reads it — visibility is client-side JS.
       switching_lang: false
     )
-    |> attach_multilang_hook()
+    |> attach_multilang_hooks(opts)
   end
 
-  # Attaches a `:handle_info` hook that intercepts the internal
-  # `{:__multilang_apply_lang__, lang}` message. The hook lives on the
-  # consumer's socket but is invisible to them — no `handle_info/2`
-  # clause needed. Returning `{:halt, socket}` prevents the message
-  # from reaching the consumer's own handle_info (and suppresses the
-  # "unhandled message" warning). Other messages pass through with
-  # `{:cont, socket}`.
-  #
-  # `attach_hook/4` is idempotent-by-name within a process — re-running
-  # `mount_multilang/1` (e.g. across reconnects) with the same hook id
-  # simply replaces the prior callback, so we don't need a guard.
-  defp attach_multilang_hook(socket) do
+  # Attaches the internal hooks. Both are idempotent-by-name within a
+  # process — re-running `mount_multilang/2` (e.g. across reconnects) with
+  # the same hook ids simply replaces the prior callbacks, so no guard is
+  # needed. `attach_hook/4` only works on LiveView sockets (not
+  # LiveComponents), so each attach is guarded — a LiveComponent consumer
+  # would need to wire the handlers itself.
+  defp attach_multilang_hooks(socket, opts) do
+    socket = attach_apply_lang_hook(socket)
+
+    if Keyword.get(opts, :auto_switch_language, true),
+      do: attach_switch_language_hook(socket),
+      else: socket
+  end
+
+  # Intercepts the debounced `{:__multilang_apply_lang__, lang}` message so
+  # the consumer needs no `handle_info/2` clause. Other messages pass
+  # through with `{:cont, socket}`.
+  defp attach_apply_lang_hook(socket) do
     Phoenix.LiveView.attach_hook(
       socket,
       :__phoenix_kit_multilang_apply_lang__,
@@ -154,10 +187,27 @@ defmodule PhoenixKitWeb.Components.MultilangForm do
       end
     )
   rescue
-    # `attach_hook/4` only works on LiveView sockets, not LiveComponent
-    # sockets. Multilang consumers are all `Phoenix.LiveView` today, but
-    # if someone wires it into a component in the future, fall back
-    # silently — they'll need to add the `handle_info` themselves.
+    ArgumentError -> socket
+  end
+
+  # Intercepts the `"switch_language"` event that `<.multilang_tabs>`
+  # pushes, so the consumer needs no `handle_event/3` clause. Halting stops
+  # propagation to the consumer's own callbacks; every other event passes
+  # through with `{:cont, socket}`.
+  defp attach_switch_language_hook(socket) do
+    Phoenix.LiveView.attach_hook(
+      socket,
+      :__phoenix_kit_multilang_switch_language__,
+      :handle_event,
+      fn
+        "switch_language", %{"lang" => lang_code}, socket ->
+          {:halt, handle_switch_language(socket, lang_code)}
+
+        _event, _params, socket ->
+          {:cont, socket}
+      end
+    )
+  rescue
     ArgumentError -> socket
   end
 

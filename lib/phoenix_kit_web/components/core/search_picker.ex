@@ -74,6 +74,14 @@ defmodule PhoenixKitWeb.Components.Core.SearchPicker do
     The selector must actually match an element or every push is dropped
     with a console error.
   - `mode` — `"multi"` (default) or `"single"` (see moduledoc)
+  - `search_on_focus` — when `true`, clicking/focusing the EMPTY input
+    already opens the dropdown in browse mode (the hook searches with an
+    empty query, so the server should answer it with a first page — the
+    workspace picker rule: offer options before any typing). Off by
+    default; without it the dropdown only opens while typing, which also
+    means a multi-mode picker won't reopen after a pick clears the input.
+    (Previously only reachable as a raw `data-search-on-focus` rest attr —
+    still honored for existing call sites.)
   - `direction` — `"down"` (default) or `"up"`. Use `"up"` when the input
     sits near the BOTTOM of a scrollable container (e.g. the last field
     of a modal): a downward dropdown there extends the container's
@@ -90,6 +98,7 @@ defmodule PhoenixKitWeb.Components.Core.SearchPicker do
   attr :dropdown_id, :string, required: true
   attr :target, :any, default: nil
   attr :mode, :string, default: "multi", values: ["multi", "single"]
+  attr :search_on_focus, :boolean, default: false
   attr :direction, :string, default: "down", values: ["down", "up"]
   attr :name, :string, default: nil
   attr :value, :string, default: nil
@@ -121,6 +130,7 @@ defmodule PhoenixKitWeb.Components.Core.SearchPicker do
         data-target={@target}
         data-dropdown={@dropdown_id}
         data-mode={@mode}
+        data-search-on-focus={@search_on_focus || nil}
         data-search-event={@search_event}
         data-results-event={@results_event}
         data-pick-event={@pick_event}

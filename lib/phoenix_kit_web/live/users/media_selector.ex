@@ -306,6 +306,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
           size: file.size || 0,
           status: file.status,
           urls: urls,
+          # Saved orientation — thumbnails apply it as a CSS transform, so
+          # the picker shows images the same way up as the media grid.
+          rotation: Map.get(file.metadata || %{}, "rotation"),
           width: get_width_from_instances(instances),
           height: get_height_from_instances(instances)
         }

@@ -129,10 +129,83 @@ defmodule PhoenixKit.Utils.HtmlSanitizer do
     end)
   end
 
+  # Schemes a link/media URL may use; anything else (or an unlisted scheme) is
+  # dropped. Relative/fragment/query URLs (no scheme) are allowed.
+  @allowed_schemes ~w(http https mailto tel)
+  @dangerous_scheme ~r/^(?:javascript|vbscript|data|file|blob):/
+  @scheme ~r/^[a-z][a-z0-9+.\-]*:/i
+
+  # A few named entities whose decoded form matters for scheme detection
+  # (a browser decodes `javascript&colon;alert(1)` before dispatching).
+  @named_entities %{
+    "tab" => "\t",
+    "newline" => "\n",
+    "colon" => ":",
+    "sol" => "/",
+    "lpar" => "(",
+    "rpar" => ")",
+    "num" => "#"
+  }
+
+  # Sanitize `href`/`src` URLs with an ALLOWLIST over a normalized value, not a
+  # scheme blacklist. MDEx renders raw HTML (`unsafe: true`) and the browser
+  # decodes entities + ignores whitespace/control chars in the scheme, so a
+  # blacklist is trivially bypassed (`jav&#x61;script:`, `java&Tab;script:`,
+  # `java\tscript:`). We decode entities and strip those chars BEFORE checking,
+  # and only ever REMOVE an attribute — never rewrite the visible URL — so the
+  # transform is fail-safe even if decoding is imperfect.
   defp sanitize_urls(html) do
-    # Remove dangerous href and src attributes
     html
-    |> then(&Regex.replace(~r/href\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, &1, ""))
-    |> then(&Regex.replace(~r/src\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, &1, ""))
+    |> scrub_url_attr("href")
+    |> scrub_url_attr("src")
   end
+
+  defp scrub_url_attr(html, attr) do
+    regex = ~r/\s#{attr}\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i
+
+    Regex.replace(regex, html, fn full, dquoted, squoted, unquoted ->
+      value = dquoted <> squoted <> unquoted
+      if safe_url?(value), do: full, else: ""
+    end)
+  end
+
+  defp safe_url?(value) do
+    normalized =
+      value
+      |> decode_entities()
+      # Browsers ignore ASCII control chars + whitespace when parsing a scheme.
+      |> String.replace(~r/[\x00-\x20\x7f]/u, "")
+      |> String.downcase()
+
+    cond do
+      Regex.match?(@dangerous_scheme, normalized) -> false
+      not Regex.match?(@scheme, normalized) -> true
+      Regex.match?(~r/^(?:#{Enum.join(@allowed_schemes, "|")}):/, normalized) -> true
+      true -> false
+    end
+  end
+
+  defp decode_entities(str) do
+    str
+    |> replace_entities(~r/&#x([0-9a-f]+);?/i, &String.to_integer(&1, 16))
+    |> replace_entities(~r/&#([0-9]+);?/, &String.to_integer/1)
+    |> then(
+      &Regex.replace(~r/&([a-z]+);/i, &1, fn whole, name ->
+        Map.get(@named_entities, String.downcase(name), whole)
+      end)
+    )
+  end
+
+  defp replace_entities(str, regex, to_codepoint) do
+    Regex.replace(regex, str, fn _whole, digits -> codepoint(to_codepoint.(digits)) end)
+  end
+
+  defp codepoint(n) when is_integer(n) and n in 0..0x10FFFF do
+    <<n::utf8>>
+  rescue
+    # Surrogate/invalid code points can't be encoded — treat as removed.
+    _ -> ""
+  end
+
+  defp codepoint(_), do: ""
 end

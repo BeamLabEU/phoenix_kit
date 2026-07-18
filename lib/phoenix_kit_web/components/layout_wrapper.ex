@@ -323,7 +323,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   transition: grid-template-columns 300ms ease-in-out;
                 }
                 #admin-drawer.sidebar-closed .drawer-side {
-                  transform: translateX(-16rem); /* -256px (w-64) */
+                  /* -100%, not -16rem: the drawer-side is wider than the w-64 aside
+                     when its scrollbar gutter is reserved — a fixed offset would
+                     leave the gutter strip peeking out when closed. */
+                  transform: translateX(-100%);
                   transition: transform 300ms ease-in-out;
                   overflow: hidden;
                 }
@@ -447,8 +450,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 </div>
               </div>
 
-              <%!-- Desktop/Mobile Sidebar --%>
-              <div class="drawer-side">
+              <%!-- Desktop/Mobile Sidebar. lg:[scrollbar-gutter:stable]: the sidebar is
+                   its own scroll container (the menu outgrows the viewport), and the
+                   drawer grid auto-sizes this column — without a reserved gutter its
+                   width flips ±15px (classic scrollbars) when a modal's page scroll
+                   lock changes ambient scroll state, shifting the whole content pane.
+                   Scoped to lg (the drawer-open column mode); the mobile overlay
+                   drawer needs no gutter. --%>
+              <div class="drawer-side lg:[scrollbar-gutter:stable]">
                 <label for="admin-mobile-menu" class="drawer-overlay lg:hidden"></label>
                 <aside class="min-h-full w-64 bg-base-100 shadow-lg border-r border-base-300 flex flex-col pt-16">
                   <%!-- Navigation (fills available space) --%>

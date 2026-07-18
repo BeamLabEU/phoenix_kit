@@ -505,7 +505,7 @@ msgstr "Konto teave"
 msgid "Actions"
 msgstr "Tegevused"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:83
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:86
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:592
 #: lib/phoenix_kit_web/live/settings/users.html.heex:610
 #: lib/phoenix_kit_web/users/user_form.html.heex:715
@@ -618,12 +618,12 @@ msgstr "Arveldusprofiilid ja maksemeetodid"
 msgid "Blocked"
 msgstr "Blokeeritud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:199
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:209
 #, elixir-autogen, elixir-format
 msgid "Bold"
 msgstr "Paks"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:293
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:303
 #, elixir-autogen, elixir-format
 msgid "Bullet List"
 msgstr "Punktloend"
@@ -638,10 +638,11 @@ msgstr "Punktloend"
 #: lib/phoenix_kit_web/components/core/modal.ex:273
 #: lib/phoenix_kit_web/components/core/reorder_modal.ex:92
 #: lib/phoenix_kit_web/components/media_browser.html.heex:65
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1073
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1266
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2235
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2278
+#: lib/phoenix_kit_web/components/media_browser.html.heex:814
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1081
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1301
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2276
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2319
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:287
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:60
 #: lib/phoenix_kit_web/live/settings/users.html.heex:637
@@ -707,7 +708,7 @@ msgid "Click any check or cross icon to toggle a permission for that role. The O
 msgstr "Klõpsa mis tahes linnukese või risti ikoonil, et lülitada selle rolli õigust. Omaniku rollil on alati täielik juurdepääs ja seda ei saa muuta. Sa ei saa muuta oma rolli ega kõrgema volitusega rollide õigusi. Sa saad anda või tühistada ainult neid õigusi, mis sinu rollil on."
 
 #: lib/modules/sitemap/web/settings.html.heex:818
-#: lib/phoenix_kit_web/components/media_browser.html.heex:350
+#: lib/phoenix_kit_web/components/media_browser.html.heex:355
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:23
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:36
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:294
@@ -920,10 +921,10 @@ msgstr "Andmed, mis kustutatakse jäädavalt:"
 #: lib/modules/storage/web/dimensions.html.heex:473
 #: lib/modules/storage/web/settings.html.heex:276
 #: lib/phoenix_kit_web/components/core/bulk_select.ex:192
-#: lib/phoenix_kit_web/components/media_browser.html.heex:788
-#: lib/phoenix_kit_web/components/media_browser.html.heex:795
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1392
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1986
+#: lib/phoenix_kit_web/components/media_browser.html.heex:793
+#: lib/phoenix_kit_web/components/media_browser.html.heex:800
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1427
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2024
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:495
 #: lib/phoenix_kit_web/live/settings/users.html.heex:401
 #: lib/phoenix_kit_web/live/settings/users.html.heex:441
@@ -958,8 +959,8 @@ msgstr "Kustuta kasutaja"
 msgid "Describe what this role can do (optional)"
 msgstr "Kirjelda, mida see roll teha saab (valikuline)"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:395
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1703
+#: lib/phoenix_kit_web/components/media_browser.html.heex:400
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1741
 #: lib/phoenix_kit_web/live/users/roles.html.heex:29
 #: lib/phoenix_kit_web/live/users/roles.html.heex:63
 #: lib/phoenix_kit_web/live/users/roles.html.heex:96
@@ -1227,7 +1228,7 @@ msgid "IBAN"
 msgstr "IBAN"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:49
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:378
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:388
 #, elixir-autogen, elixir-format
 msgid "Image"
 msgstr "Pilt"
@@ -1249,39 +1250,39 @@ msgstr "Mitteaktiivne"
 msgid "Information"
 msgstr "Teave"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:229
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:239
 #, elixir-autogen, elixir-format
 msgid "Inline Code"
 msgstr "Reasisene kood"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:264
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:375
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:274
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:385
 #, elixir-autogen, elixir-format
 msgid "Insert Image"
 msgstr "Lisa pilt"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:252
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:262
 #, elixir-autogen, elixir-format
 msgid "Insert Link"
 msgstr "Lisa link"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:277
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:389
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:287
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:399
 #, elixir-autogen, elixir-format
 msgid "Insert Video"
 msgstr "Lisa video"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:365
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:375
 #, elixir-autogen, elixir-format
 msgid "Insert:"
 msgstr "Lisa:"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:159
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:169
 #, elixir-autogen, elixir-format
 msgid "Interactive editor features need JavaScript"
 msgstr "Interaktiivse redaktori funktsioonid vajavad JavaScripti"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:209
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:219
 #, elixir-autogen, elixir-format
 msgid "Italic"
 msgstr "Kaldkiri"
@@ -1318,7 +1319,7 @@ msgstr "Juriidiline moodul keelatud"
 msgid "Legal module enabled"
 msgstr "Juriidiline moodul lubatud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:238
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:248
 #, elixir-autogen, elixir-format
 msgid "Line Break"
 msgstr "Reavahe"
@@ -1457,7 +1458,7 @@ msgstr "Märkus uuendatud edukalt"
 msgid "Notes"
 msgstr "Märkused"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:302
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:312
 #, elixir-autogen, elixir-format
 msgid "Numbered List"
 msgstr "Nummerdatud loend"
@@ -1536,7 +1537,7 @@ msgstr "Leht genereeritud edukalt"
 msgid "Page published successfully"
 msgstr "Leht avaldatud edukalt"
 
-#: lib/phoenix_kit/integrations/providers.ex:702
+#: lib/phoenix_kit/integrations/providers.ex:713
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:277
 #: lib/phoenix_kit_web/users/login.html.heex:39
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:42
@@ -1689,9 +1690,9 @@ msgstr "Keeldu"
 msgid "Reject All"
 msgstr "Keeldu kõigest"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:451
-#: lib/phoenix_kit_web/components/media_browser.html.heex:499
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:50
+#: lib/phoenix_kit_web/components/media_browser.html.heex:456
+#: lib/phoenix_kit_web/components/media_browser.html.heex:504
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:53
 #: lib/phoenix_kit_web/live/settings.html.heex:95
 #: lib/phoenix_kit_web/live/settings.html.heex:216
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:118
@@ -1794,9 +1795,9 @@ msgstr "SWIFT/BIC"
 
 #: lib/modules/sitemap/web/settings.html.heex:487
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:67
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:346
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:430
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1258
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:356
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:440
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1293
 #, elixir-autogen, elixir-format
 msgid "Save"
 msgstr "Salvesta"
@@ -1827,15 +1828,15 @@ msgstr "Salvesta õigused"
 msgid "Save Preferences"
 msgstr "Salvesta eelistused"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:330
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:414
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:553
 #, elixir-autogen, elixir-format
 msgid "Saved"
 msgstr "Salvestatud"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:323
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:407
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:333
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
 #: lib/phoenix_kit_web/live/settings.html.heex:488
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:690
 #: lib/phoenix_kit_web/live/settings/users.html.heex:459
@@ -1941,7 +1942,7 @@ msgstr "Tänavaadress"
 msgid "Street address is required"
 msgstr "Tänavaadress on kohustuslik"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:219
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:229
 #, elixir-autogen, elixir-format
 msgid "Strikethrough"
 msgstr "Läbikriipsutus"
@@ -2023,7 +2024,7 @@ msgstr "Rolle kokku"
 
 #: lib/modules/storage/web/health.html.heex:196
 #: lib/modules/storage/web/health.html.heex:219
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1704
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1742
 #: lib/phoenix_kit_web/live/activity/index.html.heex:240
 #: lib/phoenix_kit_web/live/activity/show.html.heex:113
 #: lib/phoenix_kit_web/live/settings/users.html.heex:274
@@ -2050,8 +2051,8 @@ msgstr "Kinnitamata"
 msgid "Unknown"
 msgstr "Tundmatu"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:326
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:410
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:336
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:420
 #, elixir-autogen, elixir-format
 msgid "Unsaved changes"
 msgstr "Salvestamata muudatused"
@@ -2103,7 +2104,7 @@ msgstr "Kasutajat ei leitud"
 msgid "User-defined roles"
 msgstr "Kasutaja määratud rollid"
 
-#: lib/phoenix_kit/integrations/providers.ex:690
+#: lib/phoenix_kit/integrations/providers.ex:701
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:274
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:67
@@ -2126,7 +2127,7 @@ msgstr "Käibemaksukohustuslase number on kohustuslik"
 msgid "VAT number must be in EU format (e.g., %{country}123456789)"
 msgstr "Käibemaksukohustuslase number peab olema EL-i vormingus (nt %{country}123456789)"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:392
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:402
 #, elixir-autogen, elixir-format
 msgid "Video"
 msgstr "Video"
@@ -2357,7 +2358,7 @@ msgstr "Määra vaikimisi"
 
 #: lib/modules/storage/web/dimensions.html.heex:106
 #: lib/modules/storage/web/dimensions.html.heex:144
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1705
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1743
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Suurus"
@@ -2443,7 +2444,7 @@ msgid "Access Credentials"
 msgstr "Juurdepääsumandaadid"
 
 #: lib/modules/storage/web/bucket_form.html.heex:251
-#: lib/phoenix_kit/integrations/providers.ex:628
+#: lib/phoenix_kit/integrations/providers.ex:639
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Access Key ID"
 msgstr "Juurdepääsuvõtme ID"
@@ -2675,7 +2676,7 @@ msgid "Client ID"
 msgstr "Kliendi ID"
 
 #: lib/phoenix_kit/integrations/providers.ex:167
-#: lib/phoenix_kit/integrations/providers.ex:795
+#: lib/phoenix_kit/integrations/providers.ex:806
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:377
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:463
 #, elixir-autogen, elixir-format
@@ -3079,8 +3080,8 @@ msgstr "Maksimaalselt %{count} koopiat, arvestades %{buckets} aktiivset bucket(i
 #: lib/modules/storage/web/dimensions.html.heex:143
 #: lib/modules/storage/web/dimensions.html.heex:340
 #: lib/modules/storage/web/settings.html.heex:147
-#: lib/phoenix_kit_web/components/media_browser.html.heex:376
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1701
+#: lib/phoenix_kit_web/components/media_browser.html.heex:381
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1739
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:35
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:76
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:647
@@ -3309,7 +3310,7 @@ msgid "Search engines are instructed to skip this environment. Remove this befor
 msgstr "Otsingumootorid on juhendatud seda keskkonda vahele jätma. Eemalda see enne käivitamist."
 
 #: lib/modules/storage/web/bucket_form.html.heex:265
-#: lib/phoenix_kit/integrations/providers.ex:637
+#: lib/phoenix_kit/integrations/providers.ex:648
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Secret Access Key"
 msgstr "Saladuse juurdepääsuvõti"
@@ -3324,8 +3325,8 @@ msgstr "Turvahoiatus: vaikimisi mitteaktiivne"
 msgid "Security Notice: Medium Risk"
 msgstr "Turvahoiatus: keskmine risk"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1103
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1105
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1138
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1140
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:420
 #, elixir-autogen, elixir-format
 msgid "Select"
@@ -3641,7 +3642,7 @@ msgid "e.g., thumbnail, medium, 720p"
 msgstr "nt pisipilt, keskmine, 720p"
 
 #: lib/modules/storage/web/settings.html.heex:196
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1628
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1666
 #, elixir-autogen, elixir-format, fuzzy
 msgid "files"
 msgstr "faili"
@@ -3835,11 +3836,11 @@ msgstr "API mandaadid"
 
 #: lib/phoenix_kit/integrations/providers.ex:274
 #: lib/phoenix_kit/integrations/providers.ex:343
-#: lib/phoenix_kit/integrations/providers.ex:397
-#: lib/phoenix_kit/integrations/providers.ex:459
-#: lib/phoenix_kit/integrations/providers.ex:521
-#: lib/phoenix_kit/integrations/providers.ex:579
-#: lib/phoenix_kit/integrations/providers.ex:739
+#: lib/phoenix_kit/integrations/providers.ex:400
+#: lib/phoenix_kit/integrations/providers.ex:462
+#: lib/phoenix_kit/integrations/providers.ex:524
+#: lib/phoenix_kit/integrations/providers.ex:590
+#: lib/phoenix_kit/integrations/providers.ex:750
 #, elixir-autogen, elixir-format
 msgid "API Key"
 msgstr "API võti"
@@ -3895,7 +3896,7 @@ msgstr "Aktiivne planeeritud akna tõttu."
 msgid "Add Integration"
 msgstr "Lisa integratsioon"
 
-#: lib/phoenix_kit/integrations/providers.ex:369
+#: lib/phoenix_kit/integrations/providers.ex:372
 #, elixir-autogen, elixir-format
 msgid "Add credits (optional)"
 msgstr "Lisa krediite (valikuline)"
@@ -4055,13 +4056,13 @@ msgstr "Tühista ajakava"
 msgid "Click **Create Credentials → OAuth client ID**"
 msgstr "Klõpsa **Loo mandaadid → OAuth kliendi ID**"
 
-#: lib/phoenix_kit/integrations/providers.ex:363
+#: lib/phoenix_kit/integrations/providers.ex:366
 #, elixir-autogen, elixir-format
 msgid "Click **Create Key**"
 msgstr "Klõpsa **Loo võti**"
 
 #: lib/phoenix_kit/integrations/providers.ex:238
-#: lib/phoenix_kit/integrations/providers.ex:874
+#: lib/phoenix_kit/integrations/providers.ex:885
 #, elixir-autogen, elixir-format
 msgid "Click **Save**, then **Connect Account**"
 msgstr "Klõpsa **Salvesta**, seejärel **Ühenda konto**"
@@ -4112,7 +4113,7 @@ msgid "Connect Account"
 msgstr "Ühenda konto"
 
 #: lib/phoenix_kit/integrations/providers.ex:236
-#: lib/phoenix_kit/integrations/providers.ex:872
+#: lib/phoenix_kit/integrations/providers.ex:883
 #, elixir-autogen, elixir-format
 msgid "Connect and authorize"
 msgstr "Ühenda ja volita"
@@ -4170,7 +4171,7 @@ msgstr "Ühendus kontrollitud"
 msgid "Copy the **Client ID** and **Client Secret** into the form above"
 msgstr "Kopeeri **Kliendi ID** ja **Kliendi saladus** ülalolevasse vormi"
 
-#: lib/phoenix_kit/integrations/providers.ex:365
+#: lib/phoenix_kit/integrations/providers.ex:368
 #, elixir-autogen, elixir-format
 msgid "Copy the key and paste it into the form above"
 msgstr "Kopeeri võti ja kleebi see ülalolevasse vormi"
@@ -4191,11 +4192,11 @@ msgid "Create a new project or select an existing one"
 msgstr "Loo uus projekt või vali olemasolev"
 
 #: lib/phoenix_kit/integrations/providers.ex:310
-#: lib/phoenix_kit/integrations/providers.ex:361
-#: lib/phoenix_kit/integrations/providers.ex:430
-#: lib/phoenix_kit/integrations/providers.ex:489
-#: lib/phoenix_kit/integrations/providers.ex:546
-#: lib/phoenix_kit/integrations/providers.ex:596
+#: lib/phoenix_kit/integrations/providers.ex:364
+#: lib/phoenix_kit/integrations/providers.ex:433
+#: lib/phoenix_kit/integrations/providers.ex:492
+#: lib/phoenix_kit/integrations/providers.ex:557
+#: lib/phoenix_kit/integrations/providers.ex:607
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create an API key"
 msgstr "Loo API võti"
@@ -4205,7 +4206,7 @@ msgstr "Loo API võti"
 msgid "Create an OAuth Client"
 msgstr "Loo OAuth klient"
 
-#: lib/phoenix_kit/integrations/providers.ex:354
+#: lib/phoenix_kit/integrations/providers.ex:357
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create an OpenRouter account"
 msgstr "Loo konto"
@@ -4450,7 +4451,7 @@ msgstr "openrouter.ai/keys alt"
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "Genereeri täiendavaid vorminguvariantide kõrval peamise vorminguga. Kaasaegsed vormingud nagu WebP ja AVIF pakuvad paremat tihendust."
 
-#: lib/phoenix_kit/integrations/providers.ex:364
+#: lib/phoenix_kit/integrations/providers.ex:367
 #, elixir-autogen, elixir-format
 msgid "Give it a name (e.g., your app name)"
 msgstr "Andke sellele nimi (nt teie rakenduse nimi)"
@@ -4480,7 +4481,7 @@ msgstr "Mine [Sihtrühm](https://console.cloud.google.com/auth/audience) lehele 
 msgid "Go to [Branding](https://console.cloud.google.com/auth/branding) in the sidebar — fill in the **App name** and **User support email**, then save"
 msgstr "Mine [Kujundus](https://console.cloud.google.com/auth/branding) lehele külgribal — täida **Rakenduse nimi** ja **Kasutajatoe e-post**, seejärel salvesta"
 
-#: lib/phoenix_kit/integrations/providers.ex:372
+#: lib/phoenix_kit/integrations/providers.ex:375
 #, elixir-autogen, elixir-format
 msgid "Go to [Credits](https://openrouter.ai/credits) to add funds"
 msgstr "Mine [Krediidid](https://openrouter.ai/credits) lehele raha lisamiseks"
@@ -4490,7 +4491,7 @@ msgstr "Mine [Krediidid](https://openrouter.ai/credits) lehele raha lisamiseks"
 msgid "Go to [Data Access](https://console.cloud.google.com/auth/scopes) — click **Add or Remove Scopes** and add the Drive and Docs scopes. This step may not be required — the app requests the needed scopes at connect time regardless."
 msgstr "Mine [Andmete juurdepääs](https://console.cloud.google.com/auth/scopes) lehele — klõpsa **Lisa või eemalda ulatus** ja lisa Drive ja Docs ulatused. See samm ei pruugi olla vajalik — rakendus küsib vajalikud ulatused igal juhul ühendamise ajal."
 
-#: lib/phoenix_kit/integrations/providers.ex:356
+#: lib/phoenix_kit/integrations/providers.ex:359
 #, elixir-autogen, elixir-format
 msgid "Go to [openrouter.ai](https://openrouter.ai) and sign up or log in"
 msgstr "Mine [openrouter.ai](https://openrouter.ai) lehele ja registreeru või logi sisse"
@@ -4763,7 +4764,7 @@ msgstr "Puudub %{n}"
 msgid "Missing %{n} copies"
 msgstr "Puudub %{n} koopiat"
 
-#: lib/phoenix_kit/integrations/providers.ex:357
+#: lib/phoenix_kit/integrations/providers.ex:360
 #, elixir-autogen, elixir-format
 msgid "Navigate to [Keys](https://openrouter.ai/keys)"
 msgstr "Mine [Võtmed](https://openrouter.ai/keys) lehele"
@@ -5092,7 +5093,7 @@ msgstr "Seadista OAuth nõusolek"
 msgid "Size Configuration"
 msgstr "Suuruse konfiguratsioon"
 
-#: lib/phoenix_kit/integrations/providers.ex:371
+#: lib/phoenix_kit/integrations/providers.ex:374
 #, elixir-autogen, elixir-format
 msgid "Some models are free, but most require credits"
 msgstr "Mõned mudelid on tasuta, kuid enamik vajab krediite"
@@ -5308,7 +5309,7 @@ msgid "You need to create at least one media bucket before files can be uploaded
 msgstr "Enne failide üleslaadimist peate looma vähemalt ühe meedia bucketi."
 
 #: lib/phoenix_kit/integrations/providers.ex:243
-#: lib/phoenix_kit/integrations/providers.ex:878
+#: lib/phoenix_kit/integrations/providers.ex:889
 #, elixir-autogen, elixir-format
 msgid "You'll be redirected back here once connected"
 msgstr "Teid suunatakse tagasi siia pärast ühendamist"
@@ -5368,39 +5369,39 @@ msgstr "1 tund tagasi"
 msgid "1 minute ago"
 msgstr "1 minut tagasi"
 
-#: lib/phoenix_kit/integrations/providers.ex:445
+#: lib/phoenix_kit/integrations/providers.ex:448
 #, elixir-autogen, elixir-format
 msgid "AI model access via DeepSeek (deepseek-chat, deepseek-reasoner)"
 msgstr "Juurdepääs AI mudelitele DeepSeeki kaudu (deepseek-chat, deepseek-reasoner)"
 
-#: lib/phoenix_kit/integrations/providers.ex:383
+#: lib/phoenix_kit/integrations/providers.ex:386
 #, elixir-autogen, elixir-format
 msgid "AI model access via Mistral AI (Mistral Large, Codestral, Pixtral)"
 msgstr "Juurdepääs AI mudelitele Mistral AI kaudu (Mistral Large, Codestral, Pixtral)"
 
-#: lib/phoenix_kit/integrations/providers.ex:844
+#: lib/phoenix_kit/integrations/providers.ex:855
 #, elixir-autogen, elixir-format
 msgid "Add a client secret"
 msgstr "Lisa kliendi saladus"
 
-#: lib/phoenix_kit/integrations/providers.ex:417
+#: lib/phoenix_kit/integrations/providers.ex:420
 #, elixir-autogen, elixir-format
 msgid "Add a payment method (required)"
 msgstr "Lisa makseviis (kohustuslik)"
 
 #: lib/phoenix_kit/integrations/providers.ex:299
-#: lib/phoenix_kit/integrations/providers.ex:478
-#: lib/phoenix_kit/integrations/providers.ex:538
+#: lib/phoenix_kit/integrations/providers.ex:481
+#: lib/phoenix_kit/integrations/providers.ex:549
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Add credits"
 msgstr "Lisa krediite"
 
-#: lib/phoenix_kit/integrations/providers.ex:859
+#: lib/phoenix_kit/integrations/providers.ex:870
 #, elixir-autogen, elixir-format
 msgid "Add the permissions your integration needs: `User.Read` is included by default; add `Mail.Read`, `Files.Read.All`, `Calendars.Read`, etc. as required"
 msgstr "Lisa integratsioonile vajalikud õigused: `User.Read` on vaikimisi lisatud; vajadusel lisage `Mail.Read`, `Files.Read.All`, `Calendars.Read` jt"
 
-#: lib/phoenix_kit/integrations/providers.ex:786
+#: lib/phoenix_kit/integrations/providers.ex:797
 #, elixir-autogen, elixir-format
 msgid "Application (client) ID"
 msgstr "Rakenduse (kliendi) ID"
@@ -5410,28 +5411,28 @@ msgstr "Rakenduse (kliendi) ID"
 msgid "Clears the OAuth tokens. Credentials and the connection itself stay so you can reconnect with one click."
 msgstr "Tühjendab OAuth tokenid. Mandaadid ja ühendus ise jäävad, nii et saad ühe klõpsuga uuesti ühendada."
 
-#: lib/phoenix_kit/integrations/providers.ex:492
-#: lib/phoenix_kit/integrations/providers.ex:549
+#: lib/phoenix_kit/integrations/providers.ex:495
+#: lib/phoenix_kit/integrations/providers.ex:560
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Click **Create API key**, give it a name"
 msgstr "Klõpsa **Loo API võti**, anna sellele nimi"
 
-#: lib/phoenix_kit/integrations/providers.ex:433
+#: lib/phoenix_kit/integrations/providers.ex:436
 #, elixir-autogen, elixir-format
 msgid "Click **Create new key**, give it a name, set an expiry if desired"
 msgstr "Klõpsa **Loo uus võti**, anna sellele nimi, määra aegumiskuupäev soovi korral"
 
-#: lib/phoenix_kit/integrations/providers.ex:831
+#: lib/phoenix_kit/integrations/providers.ex:842
 #, elixir-autogen, elixir-format
 msgid "Click **New registration**, give the app a name"
 msgstr "Klõpsa **Uus registreerimine**, anna rakendusele nimi"
 
-#: lib/phoenix_kit/integrations/providers.ex:836
+#: lib/phoenix_kit/integrations/providers.ex:847
 #, elixir-autogen, elixir-format
 msgid "Click **Register**"
 msgstr "Klõpsa **Registreeri**"
 
-#: lib/phoenix_kit/integrations/providers.ex:854
+#: lib/phoenix_kit/integrations/providers.ex:865
 #, elixir-autogen, elixir-format
 msgid "Configure API permissions"
 msgstr "Seadista API õigused"
@@ -5452,16 +5453,16 @@ msgstr "Ühenduse nimi ei saa olla tühi."
 msgid "Connection renamed"
 msgstr "Ühendus ümber nimetatud"
 
-#: lib/phoenix_kit/integrations/providers.ex:848
+#: lib/phoenix_kit/integrations/providers.ex:859
 #, elixir-autogen, elixir-format
 msgid "Copy the **Value** column (not the Secret ID) into the form above — the value is shown ONCE and disappears on page refresh"
 msgstr "Kopeeri **Väärtus** veerg (mitte Saladuse ID) ülalolevasse vormi — väärtust kuvatakse ÜHEKORDSELT ja see kaob lehe värskendamisel"
 
 #: lib/phoenix_kit/integrations/providers.ex:314
-#: lib/phoenix_kit/integrations/providers.ex:434
-#: lib/phoenix_kit/integrations/providers.ex:493
-#: lib/phoenix_kit/integrations/providers.ex:550
-#: lib/phoenix_kit/integrations/providers.ex:601
+#: lib/phoenix_kit/integrations/providers.ex:437
+#: lib/phoenix_kit/integrations/providers.ex:496
+#: lib/phoenix_kit/integrations/providers.ex:561
+#: lib/phoenix_kit/integrations/providers.ex:612
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Copy the key (shown once) and paste it into the form above"
 msgstr "Kopeeri võti (kuvatakse ühekordselt) ja kleebi see ülalolevasse vormi"
@@ -5471,12 +5472,12 @@ msgstr "Kopeeri võti (kuvatakse ühekordselt) ja kleebi see ülalolevasse vormi
 msgid "Create Connection"
 msgstr "Loo ühendus"
 
-#: lib/phoenix_kit/integrations/providers.ex:470
+#: lib/phoenix_kit/integrations/providers.ex:473
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create a DeepSeek account"
 msgstr "Loo konto"
 
-#: lib/phoenix_kit/integrations/providers.ex:408
+#: lib/phoenix_kit/integrations/providers.ex:411
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create a Mistral account"
 msgstr "Loo konto"
@@ -5486,12 +5487,12 @@ msgstr "Loo konto"
 msgid "Danger Zone"
 msgstr "Ohumärkide tsoon"
 
-#: lib/phoenix_kit/integrations/providers.ex:444
+#: lib/phoenix_kit/integrations/providers.ex:447
 #, elixir-autogen, elixir-format
 msgid "DeepSeek"
 msgstr "DeepSeek"
 
-#: lib/phoenix_kit/integrations/providers.ex:483
+#: lib/phoenix_kit/integrations/providers.ex:486
 #, elixir-autogen, elixir-format
 msgid "DeepSeek requires a positive balance before you can call the chat or reasoner endpoints, even on cheap models"
 msgstr "DeepSeek nõuab positiivset jääki enne chat või reasoner lõpp-punktide kutsumist, isegi odavate mudelite puhul"
@@ -5525,82 +5526,82 @@ msgstr "Ühenduse eemaldamine ebaõnnestus."
 msgid "Failed to rename connection."
 msgstr "Ühenduse ümbernimetamine ebaõnnestus."
 
-#: lib/phoenix_kit/integrations/providers.ex:422
+#: lib/phoenix_kit/integrations/providers.ex:425
 #, elixir-autogen, elixir-format
 msgid "Free models still require a billing-enabled workspace"
 msgstr "Tasuta mudelid vajavad ikkagi arveldamisvõimalustega tööruumi"
 
-#: lib/phoenix_kit/integrations/providers.ex:790
+#: lib/phoenix_kit/integrations/providers.ex:801
 #, elixir-autogen, elixir-format
 msgid "From Azure Portal → App registrations → your app → Overview"
 msgstr "Azure Portal → Rakenduste registreerimised → teie rakendus → Ülevaade alt"
 
-#: lib/phoenix_kit/integrations/providers.ex:401
+#: lib/phoenix_kit/integrations/providers.ex:404
 #, elixir-autogen, elixir-format
 msgid "From console.mistral.ai/api-keys"
 msgstr "console.mistral.ai/api-keys alt"
 
-#: lib/phoenix_kit/integrations/providers.ex:463
+#: lib/phoenix_kit/integrations/providers.ex:466
 #, elixir-autogen, elixir-format
 msgid "From platform.deepseek.com/api_keys"
 msgstr "platform.deepseek.com/api_keys alt"
 
-#: lib/phoenix_kit/integrations/providers.ex:800
+#: lib/phoenix_kit/integrations/providers.ex:811
 #, elixir-autogen, elixir-format
 msgid "From your app → Certificates & secrets → New client secret. Copy the *Value*, not the Secret ID."
 msgstr "Teie rakendus → Sertifikaadid ja saladused → Uus kliendi saladus alt. Kopeeri *Väärtus*, mitte Saladuse ID."
 
-#: lib/phoenix_kit/integrations/providers.ex:856
+#: lib/phoenix_kit/integrations/providers.ex:867
 #, elixir-autogen, elixir-format
 msgid "Go to **API permissions → Add a permission → Microsoft Graph → Delegated permissions**"
 msgstr "Mine **API õigused → Lisa luba → Microsoft Graph → Delegeeritud õigused** lehele"
 
-#: lib/phoenix_kit/integrations/providers.ex:846
+#: lib/phoenix_kit/integrations/providers.ex:857
 #, elixir-autogen, elixir-format
 msgid "Go to **Certificates & secrets → New client secret**"
 msgstr "Mine **Sertifikaadid ja saladused → Uus kliendi saladus** lehele"
 
-#: lib/phoenix_kit/integrations/providers.ex:432
+#: lib/phoenix_kit/integrations/providers.ex:435
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://console.mistral.ai/api-keys)"
 msgstr "Mine [API võtmed](https://console.mistral.ai/api-keys) lehele"
 
-#: lib/phoenix_kit/integrations/providers.ex:491
+#: lib/phoenix_kit/integrations/providers.ex:494
 #, elixir-autogen, elixir-format
 msgid "Go to [API Keys](https://platform.deepseek.com/api_keys)"
 msgstr "Mine [API võtmed](https://platform.deepseek.com/api_keys) lehele"
 
-#: lib/phoenix_kit/integrations/providers.ex:480
+#: lib/phoenix_kit/integrations/providers.ex:483
 #, elixir-autogen, elixir-format
 msgid "Go to [Top up](https://platform.deepseek.com/top_up) and add at least the minimum amount"
 msgstr "Mine [Täienda](https://platform.deepseek.com/top_up) lehele ja lisa vähemalt minimaalne summa"
 
-#: lib/phoenix_kit/integrations/providers.ex:419
+#: lib/phoenix_kit/integrations/providers.ex:422
 #, elixir-autogen, elixir-format
 msgid "Go to [Workspace → Billing](https://console.mistral.ai/billing/plans) and choose **Experiment** (pay-as-you-go) or a paid tier"
 msgstr "Mine [Tööruum → Arveldamine](https://console.mistral.ai/billing/plans) lehele ja vali **Eksperiment** (maksa kasutamise järgi) või tasuline tase"
 
-#: lib/phoenix_kit/integrations/providers.ex:410
+#: lib/phoenix_kit/integrations/providers.ex:413
 #, elixir-autogen, elixir-format
 msgid "Go to [console.mistral.ai](https://console.mistral.ai) and sign up or log in"
 msgstr "Mine [console.mistral.ai](https://console.mistral.ai) lehele ja registreeru või logi sisse"
 
-#: lib/phoenix_kit/integrations/providers.ex:472
+#: lib/phoenix_kit/integrations/providers.ex:475
 #, elixir-autogen, elixir-format
 msgid "Go to [platform.deepseek.com](https://platform.deepseek.com) and sign up or log in"
 msgstr "Mine [platform.deepseek.com](https://platform.deepseek.com) lehele ja registreeru või logi sisse"
 
-#: lib/phoenix_kit/integrations/providers.ex:828
+#: lib/phoenix_kit/integrations/providers.ex:839
 #, elixir-autogen, elixir-format
 msgid "Go to the [Azure Portal](https://portal.azure.com) and search for **App registrations**"
 msgstr "Mine [Azure Portal](https://portal.azure.com) lehele ja otsi **Rakenduste registreerimised**"
 
-#: lib/phoenix_kit/integrations/providers.ex:839
+#: lib/phoenix_kit/integrations/providers.ex:850
 #, elixir-autogen, elixir-format
 msgid "If you picked a single-tenant audience, fill in **Tenant ID** above with your Directory (tenant) ID GUID — leaving it as `common` only works for multi-tenant + personal apps."
 msgstr "Kui valisite ühekordse rentnikuga sihtrühma, täitke **Rentniku ID** ülalpool oma kataloogi (rentniku) ID GUID-iga — `common` jätmine töötab ainult mitme rentnikuga + isiklike rakenduste puhul."
 
-#: lib/phoenix_kit/integrations/providers.ex:862
+#: lib/phoenix_kit/integrations/providers.ex:873
 #, elixir-autogen, elixir-format
 msgid "If your tenant requires admin consent, click **Grant admin consent for <tenant>** before the connect flow will work"
 msgstr "Kui teie rentnik nõuab administraatori nõusolekut, klõpsake **Anna administraatori nõusolek <tenant> jaoks** enne kui ühenduse voog töötab"
@@ -5615,32 +5616,32 @@ msgstr "Integratsiooni ei leitud"
 msgid "Last tested"
 msgstr "Viimati testitud"
 
-#: lib/phoenix_kit/integrations/providers.ex:812
+#: lib/phoenix_kit/integrations/providers.ex:823
 #, elixir-autogen, elixir-format
 msgid "Leave as `common` for multi-tenant + personal accounts. For single-tenant apps, paste your Directory (tenant) ID GUID. Use `consumers` for personal-only or `organizations` for any work-or-school account."
 msgstr "Jätke `common` mitme rentnikuga + isiklike kontode jaoks. Ühekordse rentnikuga rakenduste jaoks kleepige oma Kataloogi (rentniku) ID GUID. Kasutage `consumers` ainult isiklike või `organizations` töökoha-või kooli kontode jaoks."
 
-#: lib/phoenix_kit/integrations/providers.ex:757
+#: lib/phoenix_kit/integrations/providers.ex:768
 #, elixir-autogen, elixir-format
 msgid "Microsoft 365"
 msgstr "Microsoft 365"
 
-#: lib/phoenix_kit/integrations/providers.ex:758
+#: lib/phoenix_kit/integrations/providers.ex:769
 #, elixir-autogen, elixir-format
 msgid "Microsoft Graph — Outlook, OneDrive, Teams, Calendar, SharePoint"
 msgstr "Microsoft Graph — Outlook, OneDrive, Teams, Calendar, SharePoint"
 
-#: lib/phoenix_kit/integrations/providers.ex:875
+#: lib/phoenix_kit/integrations/providers.ex:886
 #, elixir-autogen, elixir-format
 msgid "Microsoft will show the consent screen — click **Accept** to grant the requested permissions"
 msgstr "Microsoft näitab nõusolekuekraani — klõpsa **Nõustu** taotletud õiguste andmiseks"
 
-#: lib/phoenix_kit/integrations/providers.ex:382
+#: lib/phoenix_kit/integrations/providers.ex:385
 #, elixir-autogen, elixir-format
 msgid "Mistral"
 msgstr "Mistral"
 
-#: lib/phoenix_kit/integrations/providers.ex:425
+#: lib/phoenix_kit/integrations/providers.ex:428
 #, elixir-autogen, elixir-format
 msgid "Mistral does not offer credits without billing setup; this is a hard requirement before keys can be created."
 msgstr "Mistral ei paku krediite ilma arvelduse seadistamiseta; see on kohustuslik nõue enne võtmete loomist."
@@ -5650,7 +5651,7 @@ msgstr "Mistral ei paku krediite ilma arvelduse seadistamiseta; see on kohustusl
 msgid "Permanently delete this connection? This cannot be undone."
 msgstr "Kustutada see ühendus jäädavalt? Seda ei saa tagasi võtta."
 
-#: lib/phoenix_kit/integrations/providers.ex:826
+#: lib/phoenix_kit/integrations/providers.ex:837
 #, elixir-autogen, elixir-format
 msgid "Register an application in Microsoft Entra ID (Azure AD)"
 msgstr "Registreerige rakendus Microsoft Entra ID-s (Azure AD)"
@@ -5665,32 +5666,32 @@ msgstr "Eemaldab integratsiooni jäädavalt. Ükski moodul, mis on selle ühendu
 msgid "Search..."
 msgstr "Otsi..."
 
-#: lib/phoenix_kit/integrations/providers.ex:847
+#: lib/phoenix_kit/integrations/providers.ex:858
 #, elixir-autogen, elixir-format
 msgid "Set an expiration (24 months is common; renew before it lapses)"
 msgstr "Määrake aegumisaeg (24 kuud on tavaline; uuendage enne aegumist)"
 
-#: lib/phoenix_kit/integrations/providers.ex:807
+#: lib/phoenix_kit/integrations/providers.ex:818
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Tenant ID"
 msgstr "Rentniku ID"
 
-#: lib/phoenix_kit/integrations/providers.ex:867
+#: lib/phoenix_kit/integrations/providers.ex:878
 #, elixir-autogen, elixir-format
 msgid "The `default_scopes` in the provider definition request `openid email profile offline_access User.Read` — extra scopes can be added per-connect by passing `extra_scopes` to `authorization_url/5`."
 msgstr "`default_scopes` teenusepakkuja definitsioonis taotleb `openid email profile offline_access User.Read` — täiendavaid ulatusi saab lisada ühenduse kaupa, edastades `extra_scopes` parameetri `authorization_url/5` funktsioonile."
 
-#: lib/phoenix_kit/integrations/providers.ex:835
+#: lib/phoenix_kit/integrations/providers.ex:846
 #, elixir-autogen, elixir-format
 msgid "Under **Redirect URI**, choose **Web** and enter: `{redirect_uri}`"
 msgstr "**Ümbersuunamise URI** all valige **Veebi** ja sisestage: `{redirect_uri}`"
 
-#: lib/phoenix_kit/integrations/providers.ex:832
+#: lib/phoenix_kit/integrations/providers.ex:843
 #, elixir-autogen, elixir-format
 msgid "Under **Supported account types**, choose the audience: *Personal Microsoft accounts only*, *Accounts in any organizational directory*, or *Accounts in this organizational directory only* depending on who should sign in"
 msgstr "**Toetatud kontotüübid** all valige sihtrühm: *Ainult isiklikud Microsoft kontod*, *Kontod mis tahes organisatsioonilises kataloogis* või *Kontod ainult selles organisatsioonilises kataloogis* sõltuvalt sellest, kes peaks sisse logima"
 
-#: lib/phoenix_kit/integrations/providers.ex:413
+#: lib/phoenix_kit/integrations/providers.ex:416
 #, elixir-autogen, elixir-format
 msgid "You may need to verify your phone number before creating API keys"
 msgstr "Enne API võtmete loomist võib olla vaja telefoninumber kinnitada"
@@ -5755,7 +5756,7 @@ msgstr "Blokeeringuid"
 msgid "Body Saved"
 msgstr "Sisu salvestatakse"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:294
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:356
 #: lib/phoenix_kit_web/live/modules.ex:102
 #: lib/phoenix_kit_web/live/modules.html.heex:201
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:299
@@ -6190,8 +6191,7 @@ msgstr "Rakenduse märkused"
 msgid "Enable and Configure Languages"
 msgstr "Luba ja seadista keeled"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:581
-#: lib/phoenix_kit_web/components/media_browser.html.heex:806
+#: lib/phoenix_kit_web/components/media_browser.html.heex:586
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:47
 #, elixir-autogen
 msgid "Done"
@@ -6513,21 +6513,21 @@ msgstr "Saidikaardi lähtekood"
 msgid "Open in Browser"
 msgstr "Ava brauseris"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1841
+#: lib/phoenix_kit_web/components/media_browser.ex:1967
 #, elixir-autogen, elixir-format
 msgid "%{count} file permanently deleted"
 msgid_plural "%{count} files permanently deleted"
 msgstr[0] "%{count} fail jäädavalt kustutatud"
 msgstr[1] "%{count} faili jäädavalt kustutatud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1638
+#: lib/phoenix_kit_web/components/media_browser.ex:1764
 #, elixir-autogen, elixir-format
 msgid "%{count} item moved"
 msgid_plural "%{count} items moved"
 msgstr[0] "%{count} element liigutatud"
 msgstr[1] "%{count} elementi liigutatud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1898
+#: lib/phoenix_kit_web/components/media_browser.ex:2024
 #, elixir-autogen, elixir-format
 msgid "%{count} orphaned file queued for deletion"
 msgid_plural "%{count} orphaned files queued for deletion"
@@ -6535,7 +6535,7 @@ msgstr[0] "%{count} sidumata fail kustutamise järjekorras"
 msgstr[1] "%{count} sidumata faili kustutamise järjekorras"
 
 #: lib/phoenix_kit_web/components/core/bulk_actions_bar.ex:101
-#: lib/phoenix_kit_web/components/media_browser.html.heex:732
+#: lib/phoenix_kit_web/components/media_browser.html.heex:737
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:34
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:26
 #, elixir-autogen, elixir-format
@@ -6549,22 +6549,23 @@ msgstr[1] "Valitud: %{count}"
 msgid "%{mb}MB per file"
 msgstr "%{mb} MB faili kohta"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1076
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1084
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1123
 #, elixir-autogen, elixir-format
 msgid "Add Media"
 msgstr "Lisa meedia"
 
 #: lib/phoenix_kit_web/components/folder_explorer.ex:159
-#: lib/phoenix_kit_web/components/media_browser.html.heex:638
+#: lib/phoenix_kit_web/components/media_browser.html.heex:643
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:218
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:125
 #, elixir-autogen, elixir-format
 msgid "All Files"
 msgstr "Kõik failid"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:200
-#: lib/phoenix_kit_web/components/media_browser.html.heex:222
-#: lib/phoenix_kit_web/components/media_browser.html.heex:651
+#: lib/phoenix_kit_web/components/media_browser.html.heex:205
+#: lib/phoenix_kit_web/components/media_browser.html.heex:227
+#: lib/phoenix_kit_web/components/media_browser.html.heex:656
 #, elixir-autogen, elixir-format
 msgid "All Media"
 msgstr "Kogu meedia"
@@ -6574,42 +6575,42 @@ msgstr "Kogu meedia"
 msgid "All file types supported"
 msgstr "Toetatud on kõik failitüübid"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2913
+#: lib/phoenix_kit_web/components/media_browser.ex:3082
 #, elixir-autogen, elixir-format
 msgid "Already have %{count} duplicate file. No new files were added."
 msgid_plural "Already have %{count} duplicate files. No new files were added."
 msgstr[0] "Juba olemas %{count} duplikaatfail. Uusi faile ei lisatud."
 msgstr[1] "Juba olemas %{count} duplikaatfaili. Uusi faile ei lisatud."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1399
+#: lib/phoenix_kit_web/components/media_browser.ex:1525
 #, elixir-autogen, elixir-format
 msgid "Cannot change folder outside the allowed scope"
 msgstr "Kausta ei saa muuta lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:710
+#: lib/phoenix_kit_web/components/media_browser.ex:836
 #, elixir-autogen, elixir-format
 msgid "Cannot create folder outside the allowed scope"
 msgstr "Kausta ei saa luua lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:749
+#: lib/phoenix_kit_web/components/media_browser.ex:875
 #, elixir-autogen, elixir-format
 msgid "Cannot delete folder outside the allowed scope"
 msgstr "Kausta ei saa kustutada lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:780
-#: lib/phoenix_kit_web/components/media_browser.ex:843
+#: lib/phoenix_kit_web/components/media_browser.ex:906
+#: lib/phoenix_kit_web/components/media_browser.ex:969
 #, elixir-autogen, elixir-format
 msgid "Cannot move file outside the allowed scope"
 msgstr "Faili ei saa liigutada lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1181
+#: lib/phoenix_kit_web/components/media_browser.ex:1307
 #, elixir-autogen, elixir-format
 msgid "Cannot rename folder outside the allowed scope"
 msgstr "Kausta ei saa ümber nimetada lubatud ulatusest väljaspool"
 
 #: lib/phoenix_kit_web/components/core/bulk_actions_bar.ex:110
 #: lib/phoenix_kit_web/components/core/bulk_select.ex:193
-#: lib/phoenix_kit_web/components/media_browser.html.heex:748
+#: lib/phoenix_kit_web/components/media_browser.html.heex:753
 #, elixir-autogen, elixir-format
 msgid "Clear"
 msgstr "Tühjenda"
@@ -6619,8 +6620,8 @@ msgstr "Tühjenda"
 msgid "Collapse sidebar"
 msgstr "Sulge külgriba"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1350
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1944
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1385
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1982
 #, elixir-autogen, elixir-format
 msgid "Color"
 msgstr "Värv"
@@ -6631,7 +6632,7 @@ msgstr "Värv"
 msgid "Configure Storage Buckets"
 msgstr "Konfigureeri salvestushoidlad"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1706
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1744
 #: lib/phoenix_kit_web/live/activity/index.html.heex:57
 #: lib/phoenix_kit_web/live/activity/index.html.heex:316
 #: lib/phoenix_kit_web/live/modules/notifications/index.html.heex:68
@@ -6639,95 +6640,95 @@ msgstr "Konfigureeri salvestushoidlad"
 msgid "Date"
 msgstr "Kuupäev"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3124
+#: lib/phoenix_kit_web/components/media_browser.ex:3293
 #, elixir-autogen, elixir-format
 msgid "Delete %{count} folder? Folder contents will be moved to parent."
 msgid_plural "Delete %{count} folders? Folder contents will be moved to parent."
 msgstr[0] "Kustuta %{count} kaust? Kausta sisu liigub ülemkausta."
 msgstr[1] "Kustuta %{count} kausta? Kaustade sisu liigub ülemkausta."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:992
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1000
 #, elixir-autogen, elixir-format
 msgid "Delete %{count} orphaned file?"
 msgid_plural "Delete all %{count} orphaned files?"
 msgstr[0] "Kustuta %{count} sidumata fail?"
 msgstr[1] "Kustuta kõik %{count} sidumata faili?"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1387
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1981
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1422
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2019
 #, elixir-autogen, elixir-format
 msgid "Delete '%{name}'? Files move to parent."
 msgstr "Kas kustutada „%{name}“? Failid liiguvad ülemkausta."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1003
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1011
 #, elixir-autogen, elixir-format
 msgid "Delete all orphaned"
 msgstr "Kustuta kõik sidumata"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:787
-#: lib/phoenix_kit_web/components/media_browser.html.heex:794
+#: lib/phoenix_kit_web/components/media_browser.html.heex:792
+#: lib/phoenix_kit_web/components/media_browser.html.heex:799
 #, elixir-autogen, elixir-format
 msgid "Delete permanently"
 msgstr "Kustuta jäädavalt"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1165
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1200
 #, elixir-autogen, elixir-format
 msgid "Deleted files will appear here"
 msgstr "Kustutatud failid ilmuvad siia"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2415
-#: lib/phoenix_kit_web/components/media_browser.html.heex:768
-#: lib/phoenix_kit_web/components/media_browser.html.heex:771
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1501
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2097
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:250
+#: lib/phoenix_kit_web/components/media_browser.ex:2579
+#: lib/phoenix_kit_web/components/media_browser.html.heex:773
+#: lib/phoenix_kit_web/components/media_browser.html.heex:776
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1539
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2138
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:302
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Lae alla"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1174
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1209
 #, elixir-autogen, elixir-format
 msgid "Drop files here or click \"Add Media\" to upload"
 msgstr "Lohista failid siia või klõpsa „Lisa meedia“, et üles laadida"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:982
+#: lib/phoenix_kit_web/components/media_browser.html.heex:990
 #, elixir-autogen, elixir-format
 msgid "Empty Trash"
 msgstr "Tühjenda prügikast"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1402
+#: lib/phoenix_kit_web/components/media_browser.ex:1528
 #, elixir-autogen, elixir-format
 msgid "Failed to change color"
 msgstr "Värvi muutmine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:713
+#: lib/phoenix_kit_web/components/media_browser.ex:839
 #, elixir-autogen, elixir-format
 msgid "Failed to create folder"
 msgstr "Kausta loomine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:783
+#: lib/phoenix_kit_web/components/media_browser.ex:909
 #, elixir-autogen, elixir-format
 msgid "Failed to move file"
 msgstr "Faili liigutamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1184
+#: lib/phoenix_kit_web/components/media_browser.ex:1310
 #, elixir-autogen, elixir-format
 msgid "Failed to rename folder"
 msgstr "Kausta ümbernimetamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:776
+#: lib/phoenix_kit_web/components/media_browser.ex:902
 #, elixir-autogen, elixir-format
 msgid "File moved"
 msgstr "Fail liigutatud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:356
+#: lib/phoenix_kit_web/components/media_browser.ex:445
 #, elixir-autogen, elixir-format
 msgid "Folder not accessible — showing root"
 msgstr "Kaust pole ligipääsetav — näitan juurkausta"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:759
-#: lib/phoenix_kit_web/components/media_browser.ex:802
-#: lib/phoenix_kit_web/components/media_browser.ex:866
+#: lib/phoenix_kit_web/components/media_browser.ex:885
+#: lib/phoenix_kit_web/components/media_browser.ex:928
+#: lib/phoenix_kit_web/components/media_browser.ex:992
 #, elixir-autogen, elixir-format
 msgid "Folder not found"
 msgstr "Kausta ei leitud"
@@ -6737,12 +6738,12 @@ msgstr "Kausta ei leitud"
 msgid "Folders"
 msgstr "Kaustad"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1444
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1482
 #, elixir-autogen, elixir-format
 msgid "Image Missing"
 msgstr "Pilt puudub"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:262
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:324
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr "MIME:"
@@ -6752,24 +6753,24 @@ msgstr "MIME:"
 msgid "Manage user media and uploads"
 msgstr "Halda kasutajate meediat ja üleslaadimisi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1090
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1098
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "More actions"
 msgstr "Veel toiminguid"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2422
-#: lib/phoenix_kit_web/components/media_browser.html.heex:758
-#: lib/phoenix_kit_web/components/media_browser.html.heex:761
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1380
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1508
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1974
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2104
+#: lib/phoenix_kit_web/components/media_browser.ex:2586
+#: lib/phoenix_kit_web/components/media_browser.html.heex:763
+#: lib/phoenix_kit_web/components/media_browser.html.heex:766
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1415
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1546
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2012
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2145
 #, elixir-autogen, elixir-format
 msgid "Move"
 msgstr "Liiguta"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3131
+#: lib/phoenix_kit_web/components/media_browser.ex:3300
 #, elixir-autogen, elixir-format
 msgid "Move %{count} file to trash?"
 msgid_plural "Move %{count} files to trash?"
@@ -6777,14 +6778,14 @@ msgstr[0] "Liiguta %{count} fail prügikasti?"
 msgstr[1] "Liiguta %{count} faili prügikasti?"
 
 #: lib/phoenix_kit_web/components/folder_explorer.ex:131
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1112
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1572
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2251
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1147
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1610
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2292
 #, elixir-autogen, elixir-format
 msgid "New folder"
 msgstr "Uus kaust"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2161
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2202
 #, elixir-autogen, elixir-format
 msgid "Next"
 msgstr "Järgmine"
@@ -6800,41 +6801,41 @@ msgstr "Järgmine (→)"
 msgid "No Storage Buckets Configured"
 msgstr "Salvestushoidlaid pole konfigureeritud"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1181
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1216
 #, elixir-autogen, elixir-format
 msgid "No files found."
 msgstr "Faile ei leitud."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1188
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1223
 #, elixir-autogen, elixir-format
 msgid "No media uploaded yet. Upload your first file above!"
 msgstr "Meediat pole veel üles laaditud. Lae oma esimene fail üles!"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:636
+#: lib/phoenix_kit_web/components/media_browser.html.heex:641
 #, elixir-autogen, elixir-format
 msgid "Orphaned Files"
 msgstr "Sidumata failid"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1702
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1740
 #, elixir-autogen, elixir-format
 msgid "Path"
 msgstr "Tee"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3107
+#: lib/phoenix_kit_web/components/media_browser.ex:3276
 #, elixir-autogen, elixir-format
 msgid "Permanently delete %{count} file? This cannot be undone."
 msgid_plural "Permanently delete %{count} files? This cannot be undone."
 msgstr[0] "Kustuta jäädavalt %{count} fail? Seda ei saa tagasi võtta."
 msgstr[1] "Kustuta jäädavalt %{count} faili? Seda ei saa tagasi võtta."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:971
+#: lib/phoenix_kit_web/components/media_browser.html.heex:979
 #, elixir-autogen, elixir-format
 msgid "Permanently delete %{count} trashed file?"
 msgid_plural "Permanently delete all %{count} trashed files?"
 msgstr[0] "Kustuta jäädavalt %{count} fail prügikastist?"
 msgstr[1] "Kustuta jäädavalt kõik %{count} faili prügikastist?"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2148
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2189
 #, elixir-autogen, elixir-format
 msgid "Prev"
 msgstr "Eelmine"
@@ -6845,24 +6846,25 @@ msgid "Previous (←)"
 msgstr "Eelmine (←)"
 
 #: lib/phoenix_kit_web/components/folder_explorer.ex:441
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1334
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1928
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1369
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1966
 #, elixir-autogen, elixir-format
 msgid "Rename"
 msgstr "Nimeta ümber"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1053
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1061
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1129
 #: lib/phoenix_kit_web/live/users/users.html.heex:276
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr "Otsi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1029
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1037
 #, elixir-autogen, elixir-format
 msgid "Search files..."
 msgstr "Otsi faile…"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:740
+#: lib/phoenix_kit_web/components/media_browser.html.heex:745
 #, elixir-autogen, elixir-format
 msgid "Select all"
 msgstr "Vali kõik"
@@ -6872,7 +6874,7 @@ msgstr "Vali kõik"
 msgid "Show folders"
 msgstr "Näita kaustu"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:266
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:328
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr "Suurus:"
@@ -6882,23 +6884,23 @@ msgstr "Suurus:"
 msgid "The configured scope folder no longer exists. The media browser is disabled until the scope is reconfigured."
 msgstr "Konfigureeritud ulatusekausta enam ei eksisteeri. Meediabrauser on keelatud, kuni ulatus on uuesti konfigureeritud."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1172
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1207
 #, elixir-autogen, elixir-format
 msgid "This folder is empty."
 msgstr "See kaust on tühi."
 
 #: lib/phoenix_kit_web/components/folder_explorer.ex:216
-#: lib/phoenix_kit_web/components/media_browser.html.heex:634
+#: lib/phoenix_kit_web/components/media_browser.html.heex:639
 #, elixir-autogen, elixir-format
 msgid "Trash"
 msgstr "Prügikast"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1163
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1198
 #, elixir-autogen, elixir-format
 msgid "Trash is empty."
 msgstr "Prügikast on tühi."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:256
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:318
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr "Tüüp:"
@@ -6913,25 +6915,25 @@ msgstr "Laadi meedia üles"
 msgid "Upload Media Files"
 msgstr "Laadi meediafailid üles"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2894
+#: lib/phoenix_kit_web/components/media_browser.ex:3063
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:405
 #, elixir-autogen, elixir-format
 msgid "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
 msgstr "Üleslaadimine ebaõnnestus: salvestushoidlaid pole konfigureeritud. Konfigureeri vähemalt üks salvestushoidla enne failide üleslaadimist."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2880
+#: lib/phoenix_kit_web/components/media_browser.ex:3049
 #, elixir-autogen, elixir-format
 msgid "Upload processed"
 msgstr "Üleslaadimine töödeldud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2922
+#: lib/phoenix_kit_web/components/media_browser.ex:3091
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{count} new file processed"
 msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] "Üleslaadimine edukas! Töödeldud %{count} uus fail"
 msgstr[1] "Üleslaadimine edukas! Töödeldud %{count} uut faili"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:270
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:332
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "Üles laaditud:"
@@ -6941,66 +6943,66 @@ msgstr "Üles laaditud:"
 msgid "Your browser does not support the video tag."
 msgstr "Teie brauser ei toeta video-elementi."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2901
+#: lib/phoenix_kit_web/components/media_browser.ex:3070
 #, elixir-autogen, elixir-format
 msgid "%{count} failed"
 msgid_plural "%{count} failed"
 msgstr[0] "%{count} ebaõnnestus"
 msgstr[1] "%{count} ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3114
-#: lib/phoenix_kit_web/components/media_browser.html.heex:710
+#: lib/phoenix_kit_web/components/media_browser.ex:3283
+#: lib/phoenix_kit_web/components/media_browser.html.heex:715
 #, elixir-autogen, elixir-format
 msgid "%{count} file"
 msgid_plural "%{count} files"
 msgstr[0] "%{count} fail"
 msgstr[1] "%{count} faili"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2900
+#: lib/phoenix_kit_web/components/media_browser.ex:3069
 #, elixir-autogen, elixir-format
 msgid "%{count} file uploaded"
 msgid_plural "%{count} files uploaded"
 msgstr[0] "%{count} fail üles laaditud"
 msgstr[1] "%{count} faili üles laaditud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2933
+#: lib/phoenix_kit_web/components/media_browser.ex:3102
 #, elixir-autogen, elixir-format
 msgid "%{count} file was already uploaded"
 msgid_plural "%{count} files were already uploaded"
 msgstr[0] "%{count} fail oli juba üles laaditud"
 msgstr[1] "%{count} faili oli juba üles laaditud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3115
+#: lib/phoenix_kit_web/components/media_browser.ex:3284
 #, elixir-autogen, elixir-format
 msgid "%{count} folder"
 msgid_plural "%{count} folders"
 msgstr[0] "%{count} kaust"
 msgstr[1] "%{count} kausta"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2930
+#: lib/phoenix_kit_web/components/media_browser.ex:3099
 #, elixir-autogen, elixir-format
 msgid "%{count} new file added"
 msgid_plural "%{count} new files added"
 msgstr[0] "lisatud %{count} uus fail"
 msgstr[1] "lisatud %{count} uut faili"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3117
+#: lib/phoenix_kit_web/components/media_browser.ex:3286
 #, elixir-autogen, elixir-format
 msgid "Delete %{files} (to trash) and %{folders}? Folder contents will be moved to parent."
 msgstr "Kas kustutada %{files} (prügikasti) ja %{folders}? Kaustade sisu liigub ülemkausta."
 
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:192
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:258
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:320
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr "FAIL"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2904
+#: lib/phoenix_kit_web/components/media_browser.ex:3073
 #, elixir-autogen, elixir-format
 msgid "Partially successful: %{uploaded}, %{failed} due to missing storage buckets."
 msgstr "Osaliselt edukas: %{uploaded}, %{failed} puuduvate salvestushoidlate tõttu."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2940
+#: lib/phoenix_kit_web/components/media_browser.ex:3109
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{added}. %{duplicates}."
 msgstr "Üleslaadimine edukas! %{added}. %{duplicates}."
@@ -7207,20 +7209,20 @@ msgstr "Vasta"
 msgid "Are you sure you want to delete this comment?"
 msgstr "Kas oled kindel, et soovid selle kommentaari kustutada?"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:920
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:921
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:1024
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:1025
 #, elixir-autogen, elixir-format
 msgid "%b %d, %Y"
 msgstr "%d %b %Y"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1828
+#: lib/phoenix_kit_web/components/media_browser.ex:1954
 #, elixir-autogen, elixir-format
 msgid "%{count} item restored"
 msgid_plural "%{count} items restored"
 msgstr[0] "%{count} üksus taastatud"
 msgstr[1] "%{count} üksust taastatud"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:211
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:261
 #, elixir-autogen, elixir-format
 msgid "Add a note to your annotation"
 msgstr "Lisa märkus oma annotatsioonile"
@@ -7235,7 +7237,7 @@ msgstr "Lisa pealkiri, märkus, GIF või manus"
 msgid "Add some text, a GIF, or an attachment"
 msgstr "Lisa tekst, GIF või manus"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:749
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:853
 #, elixir-autogen, elixir-format
 msgid "Annotation saved"
 msgstr "Annotatsioon salvestatud"
@@ -7250,24 +7252,24 @@ msgstr "Manused on keelatud"
 msgid "Auth failed"
 msgstr "Autentimine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3072
+#: lib/phoenix_kit_web/components/media_browser.ex:3241
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in the all-files view"
 msgstr "Kaustu ei saa luua kõigi failide vaates"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3069
+#: lib/phoenix_kit_web/components/media_browser.ex:3238
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in trash"
 msgstr "Prügikastis ei saa kaustu luua"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:819
+#: lib/phoenix_kit_web/components/media_browser.ex:945
 #, elixir-autogen, elixir-format
 msgid "Cannot move a folder into its own descendant"
 msgstr "Kausta ei saa teisaldada oma alamkausta"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:815
-#: lib/phoenix_kit_web/components/media_browser.ex:870
-#: lib/phoenix_kit_web/components/media_browser.ex:883
+#: lib/phoenix_kit_web/components/media_browser.ex:941
+#: lib/phoenix_kit_web/components/media_browser.ex:996
+#: lib/phoenix_kit_web/components/media_browser.ex:1009
 #, elixir-autogen, elixir-format
 msgid "Cannot move folder outside the allowed scope"
 msgstr "Kausta ei saa teisaldada lubatud ulatusest väljaspool"
@@ -7283,9 +7285,9 @@ msgstr "Kommentaari postitamine ebaõnnestus"
 msgid "Deep Zoom Tile Generation"
 msgstr "Sügava suumi plaadigeneratsioon"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2438
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1525
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2121
+#: lib/phoenix_kit_web/components/media_browser.ex:2602
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1563
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2162
 #, elixir-autogen, elixir-format
 msgid "Delete Permanently"
 msgstr "Kustuta jäädavalt"
@@ -7300,12 +7302,12 @@ msgstr "Kustutamine…"
 msgid "Disconnecting…"
 msgstr "Lahtiühendamine…"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:822
+#: lib/phoenix_kit_web/components/media_browser.ex:948
 #, elixir-autogen, elixir-format
 msgid "Failed to move folder"
 msgstr "Kausta teisaldamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:886
+#: lib/phoenix_kit_web/components/media_browser.ex:1012
 #, elixir-autogen, elixir-format
 msgid "Failed to move folder to trash"
 msgstr "Kausta prügikasti teisaldamine ebaõnnestus"
@@ -7315,19 +7317,19 @@ msgstr "Kausta prügikasti teisaldamine ebaõnnestus"
 msgid "File / Image"
 msgstr "Fail / Pilt"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:850
-#: lib/phoenix_kit_web/components/media_browser.ex:1731
+#: lib/phoenix_kit_web/components/media_browser.ex:976
+#: lib/phoenix_kit_web/components/media_browser.ex:1857
 #, elixir-autogen, elixir-format
 msgid "File moved to trash"
 msgstr "Fail teisaldati prügikasti"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:839
+#: lib/phoenix_kit_web/components/media_browser.ex:965
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "Faili ei leitud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1730
+#: lib/phoenix_kit_web/components/media_browser.ex:1856
 #, elixir-autogen, elixir-format
 msgid "File permanently deleted"
 msgstr "Fail jäädavalt kustutatud"
@@ -7342,29 +7344,29 @@ msgstr "Fail on liiga suur"
 msgid "File type not allowed"
 msgstr "Failtüüp pole lubatud"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1886
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1914
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1924
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1952
 #, elixir-autogen, elixir-format
 msgid "Folder"
 msgstr "Kaust"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:706
+#: lib/phoenix_kit_web/components/media_browser.ex:832
 #, elixir-autogen, elixir-format
 msgid "Folder \"%{name}\" created"
 msgstr "Kaust \"%{name}\" loodud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:809
+#: lib/phoenix_kit_web/components/media_browser.ex:935
 #, elixir-autogen, elixir-format
 msgid "Folder moved"
 msgstr "Kaust teisaldatud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:744
-#: lib/phoenix_kit_web/components/media_browser.ex:877
+#: lib/phoenix_kit_web/components/media_browser.ex:870
+#: lib/phoenix_kit_web/components/media_browser.ex:1003
 #, elixir-autogen, elixir-format
 msgid "Folder moved to trash"
 msgstr "Kaust teisaldatud prügikasti"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:743
+#: lib/phoenix_kit_web/components/media_browser.ex:869
 #, elixir-autogen, elixir-format
 msgid "Folder permanently deleted"
 msgstr "Kaust jäädavalt kustutatud"
@@ -7379,23 +7381,23 @@ msgstr "Giphy otsing ebaõnnestus"
 msgid "Lazily generate DZI tile pyramids when users zoom deeply into images. With this off the MediaBrowser still swaps between medium/large variants while zooming, but never generates tiles or hits the lazy tile endpoint. ImageMagick is required when enabled."
 msgstr "Genereeri DZI-plaadipüramiide laisklaadimisega suurendamisel. Väljalylitatuna vahetab MediaBrowser variantide vahel, kuid ei genereeri plaate. Vajalik ImageMagick."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2183
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2224
 #, elixir-autogen, elixir-format
 msgid "Move %{count} item to folder"
 msgid_plural "Move %{count} items to folder"
 msgstr[0] "Teisalda %{count} üksus kausta"
 msgstr[1] "Teisalda %{count} üksust kausta"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2439
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1526
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2122
+#: lib/phoenix_kit_web/components/media_browser.ex:2603
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1564
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2163
 #, elixir-autogen, elixir-format
 msgid "Move to Trash"
 msgstr "Teisalda prügikasti"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2431
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1517
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2113
+#: lib/phoenix_kit_web/components/media_browser.ex:2595
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1555
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2154
 #, elixir-autogen, elixir-format
 msgid "Permanently delete '%{name}'? This cannot be undone."
 msgstr "Kustuta '%{name}' jäädavalt? Seda ei saa tagasi võtta."
@@ -7461,11 +7463,12 @@ msgstr "Kirjuta märkus selle annotatsiooni kohta..."
 msgid "e.g. Main, Personal, My Company Drive"
 msgstr "nt Peamine, Isiklik, Minu ettevõtte draiv"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3080
+#: lib/phoenix_kit_web/components/media_browser.ex:3249
 #, elixir-autogen, elixir-format
 msgid "untitled"
 msgstr "pealkirjata"
 
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1119
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:158
 #, elixir-autogen, elixir-format
 msgid "Cancel upload"
@@ -7505,7 +7508,7 @@ msgstr "Pildid, videod või dokumendid"
 msgid "No media files found"
 msgstr "Meediafaile ei leitud"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:64
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:67
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Preview"
 msgstr "Eelmine"
@@ -7556,7 +7559,7 @@ msgstr "Ainult videod"
 msgid "You need to configure at least one storage bucket before you can upload files."
 msgstr "Enne failide üleslaadimist tuleb seadistada vähemalt üks salvestushoidla."
 
-#: lib/phoenix_kit_web/components/layout_wrapper.ex:373
+#: lib/phoenix_kit_web/components/layout_wrapper.ex:376
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:113
 #, elixir-autogen, elixir-format
 msgid "Admin Panel"
@@ -7572,12 +7575,12 @@ msgstr "Kasvav järjestus — klõpsa kahanevaks"
 msgid "Descending — click for ascending"
 msgstr "Kahanev järjestus — klõpsa kasvavaks"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:38
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "Featured"
 msgstr "Esiletõstetud"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:214
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:264
 #, elixir-autogen, elixir-format
 msgid "Post to add the note. Cancel to skip — you can edit or delete the annotation later via the toolbar."
 msgstr "Klõpsa «Postitus», et märkus lisada. «Tühista» — jäta vahele. Annotatsiooni saab hiljem tööriistaribal muuta või kustutada."
@@ -7991,6 +7994,7 @@ msgstr "Tühjenda filtrid"
 msgid "Date & Time"
 msgstr "Kuupäev ja kellaaeg"
 
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:312
 #: lib/phoenix_kit_web/live/activity/index.html.heex:310
 #, elixir-autogen, elixir-format
 msgid "Details"
@@ -8864,13 +8868,13 @@ msgid "Enable the multi-account switcher in the header"
 msgstr "Luba päises mitme konto vahetaja"
 
 #: lib/phoenix_kit_web/components/core/pagination.ex:283
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1639
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1677
 #, elixir-autogen, elixir-format
 msgid "Load more"
 msgstr "Lae rohkem"
 
 #: lib/phoenix_kit_web/components/core/pagination.ex:281
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1636
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1674
 #, elixir-autogen, elixir-format
 msgid "Loading…"
 msgstr "Laadimine…"
@@ -8911,7 +8915,7 @@ msgid "Reorder the 1 selected %{noun} (other rows stay in place)."
 msgstr "Järjesta 1 valitud %{noun} (teised read jäävad paigale)."
 
 #: lib/phoenix_kit_web/components/core/pagination.ex:270
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1625
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1663
 #, elixir-autogen, elixir-format
 msgid "Showing %{loaded} of %{total} %{noun}"
 msgstr "Kuvatud %{loaded} / %{total} %{noun}"
@@ -8936,7 +8940,7 @@ msgstr "Klõpsa failil, et see valida"
 msgid "Click on a video to select it"
 msgstr "Klõpsa videol, et see valida"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:829
+#: lib/phoenix_kit_web/components/media_browser.html.heex:837
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:197
 #, elixir-autogen, elixir-format
 msgid "Images"
@@ -8952,7 +8956,7 @@ msgstr "Vali üks või mitu faili"
 msgid "Select one or more videos"
 msgstr "Vali üks või mitu videot"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:830
+#: lib/phoenix_kit_web/components/media_browser.html.heex:838
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:198
 #, elixir-autogen, elixir-format
 msgid "Videos"
@@ -9028,13 +9032,13 @@ msgstr "Konto tüüp:"
 msgid "Action"
 msgstr "Toiming:"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1343
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1937
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1378
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1975
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Add description"
 msgstr "Kirjeldus"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:828
+#: lib/phoenix_kit_web/components/media_browser.html.heex:836
 #, elixir-autogen, elixir-format, fuzzy
 msgid "All types"
 msgstr "Kõik tüübid"
@@ -9044,12 +9048,12 @@ msgstr "Kõik tüübid"
 msgid "Annotated Thumbnails"
 msgstr "Märgistatud pisipildid"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:833
+#: lib/phoenix_kit_web/components/media_browser.html.heex:841
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Archives"
 msgstr "Arhiveeritud"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:832
+#: lib/phoenix_kit_web/components/media_browser.html.heex:840
 #, elixir-autogen, elixir-format
 msgid "Audio"
 msgstr "Heli"
@@ -9060,7 +9064,7 @@ msgstr "Heli"
 msgid "Back"
 msgstr "Tagasi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:462
+#: lib/phoenix_kit_web/components/media_browser.html.heex:467
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Background image"
 msgstr "Taustapilt (lauaarvuti)"
@@ -9075,23 +9079,23 @@ msgstr "Küpseta Etcheri märgistuskujundid (ristkülikud, markerijooned jne) fa
 msgid "Browse files no longer attached to any record (orphaned media) so you can review or delete them."
 msgstr "Sirvi faile, mis pole enam ühegi kirjega seotud (orvuks jäänud meedia), et neid üle vaadata või kustutada."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1257
-#: lib/phoenix_kit_web/components/media_browser.ex:2603
+#: lib/phoenix_kit_web/components/media_browser.ex:1383
+#: lib/phoenix_kit_web/components/media_browser.ex:2767
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Cannot edit a folder outside the allowed scope"
 msgstr "Kausta ei saa kustutada lubatud ulatusest väljaspool"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:486
+#: lib/phoenix_kit_web/components/media_browser.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Change"
 msgstr "Muuda"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:487
+#: lib/phoenix_kit_web/components/media_browser.html.heex:492
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Choose"
 msgstr "Sulge"
 
-#: lib/phoenix_kit/integrations/providers.ex:600
+#: lib/phoenix_kit/integrations/providers.ex:611
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Click **Create API Key**, give it a name"
 msgstr "Klõpsa **Loo API võti**, anna sellele nimi"
@@ -9101,13 +9105,13 @@ msgstr "Klõpsa **Loo API võti**, anna sellele nimi"
 msgid "Click **Create new secret key**, give it a name"
 msgstr "Klõpsa **Loo API võti**, anna sellele nimi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1042
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1050
 #: lib/phoenix_kit_web/live/users/users.html.heex:259
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Close search"
 msgstr "Tühjenda"
 
-#: lib/phoenix_kit/integrations/providers.ex:590
+#: lib/phoenix_kit/integrations/providers.ex:601
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create an ElevenLabs account"
 msgstr "Loo konto"
@@ -9122,12 +9126,12 @@ msgstr "Loo konto"
 msgid "Create and edit the image/video size presets used to generate variants of uploaded media."
 msgstr "Loo ja muuda pildi/video suuruse eelseadeid, mida kasutatakse üleslaaditud meedia variantide genereerimiseks."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2282
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2323
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create folder"
 msgstr "Loo roll"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:693
+#: lib/phoenix_kit_web/components/media_browser.html.heex:698
 #, elixir-autogen, elixir-format
 msgid "Created by %{name}"
 msgstr "Loonud %{name}"
@@ -9137,13 +9141,13 @@ msgstr "Loonud %{name}"
 msgid "Default notification link"
 msgstr "Vaikimisi teavituse link"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:402
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1752
+#: lib/phoenix_kit_web/components/media_browser.html.heex:407
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1790
 #, elixir-autogen, elixir-format
 msgid "Describe what this folder is for..."
 msgstr "Kirjelda, milleks see kaust on…"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1248
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1283
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Description..."
 msgstr "Kirjeldus"
@@ -9154,34 +9158,34 @@ msgstr "Kirjeldus"
 msgid "Dismissed"
 msgstr "Eemaldatud"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:831
+#: lib/phoenix_kit_web/components/media_browser.html.heex:839
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Documents"
 msgstr "Kommentaarid"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1659
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1697
 #, elixir-autogen, elixir-format
 msgid "Drop media here to remove it from a folder"
 msgstr "Lohista meedia siia, et see kaustast eemaldada"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1344
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1938
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1379
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1976
 #, elixir-autogen, elixir-format
 msgid "Edit description"
 msgstr "Muuda kirjeldust"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:326
-#: lib/phoenix_kit_web/components/media_browser.html.heex:343
+#: lib/phoenix_kit_web/components/media_browser.html.heex:331
+#: lib/phoenix_kit_web/components/media_browser.html.heex:348
 #, elixir-autogen, elixir-format
 msgid "Edit header"
 msgstr "Muuda päist"
 
-#: lib/phoenix_kit/integrations/providers.ex:560
+#: lib/phoenix_kit/integrations/providers.ex:571
 #, elixir-autogen, elixir-format
 msgid "ElevenLabs"
 msgstr "ElevenLabs"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:162
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:172
 #, elixir-autogen, elixir-format
 msgid "Enable JavaScript to use the toolbar and media insertion."
 msgstr "Luba JavaScript, et kasutada tööriistariba ja meedia sisestamist."
@@ -9191,37 +9195,37 @@ msgstr "Luba JavaScript, et kasutada tööriistariba ja meedia sisestamist."
 msgid "Enable module to view notifications"
 msgstr "Luba moodul taustatööde vaatamiseks"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1656
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1694
 #, elixir-autogen, elixir-format
 msgid "Everything else"
 msgstr "Kõik muu"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:804
+#: lib/phoenix_kit_web/components/media_browser.html.heex:812
 #, elixir-autogen, elixir-format
 msgid "Exit selection"
 msgstr "Välju valikust"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1261
+#: lib/phoenix_kit_web/components/media_browser.ex:1387
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Failed to save folder description"
 msgstr "Ajakava salvestamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2606
+#: lib/phoenix_kit_web/components/media_browser.ex:2770
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Failed to save folder header"
 msgstr "Salvestamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:236
+#: lib/phoenix_kit_web/components/media_browser.ex:325
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Failed to set the image"
 msgstr "Seadete salvestamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:271
+#: lib/phoenix_kit_web/components/media_browser.ex:360
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Failed to update the header"
 msgstr "Seade uuendamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:924
+#: lib/phoenix_kit_web/components/media_browser.html.heex:932
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Filter"
 msgstr "Fail"
@@ -9231,12 +9235,12 @@ msgstr "Fail"
 msgid "Find Orphaned Files"
 msgstr "Sidumata failid"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:385
+#: lib/phoenix_kit_web/components/media_browser.html.heex:390
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Folder name"
 msgstr "Kaust teisaldatud"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:1371
+#: lib/phoenix_kit_web/components/media_browser.ex:1497
 #, elixir-autogen, elixir-format
 msgid "Folder name can't be blank"
 msgstr "Kausta nimi ei tohi olla tühi"
@@ -9246,7 +9250,7 @@ msgstr "Kausta nimi ei tohi olla tühi"
 msgid "Forgot password"
 msgstr "Unustasid parooli"
 
-#: lib/phoenix_kit/integrations/providers.ex:583
+#: lib/phoenix_kit/integrations/providers.ex:594
 #, elixir-autogen, elixir-format
 msgid "From elevenlabs.io → Settings → API Keys"
 msgstr "elevenlabs.io kaudu → Seaded → API võtmed"
@@ -9266,12 +9270,12 @@ msgstr "Mine [API võtmed](https://platform.deepseek.com/api_keys) lehele"
 msgid "Go to [Billing](https://platform.openai.com/account/billing/overview) and add a payment method or credits"
 msgstr "Mine [Arveldus](https://platform.openai.com/account/billing/overview) ja lisa makseviis või krediiti"
 
-#: lib/phoenix_kit/integrations/providers.ex:598
+#: lib/phoenix_kit/integrations/providers.ex:609
 #, elixir-autogen, elixir-format
 msgid "Go to [Settings → API Keys](https://elevenlabs.io/app/settings/api-keys)"
 msgstr "Mine [Seaded → API võtmed](https://elevenlabs.io/app/settings/api-keys)"
 
-#: lib/phoenix_kit/integrations/providers.ex:592
+#: lib/phoenix_kit/integrations/providers.ex:603
 #, elixir-autogen, elixir-format
 msgid "Go to [elevenlabs.io](https://elevenlabs.io) and sign up or log in"
 msgstr "Mine [elevenlabs.io](https://elevenlabs.io) ja registreeru või logi sisse"
@@ -9281,7 +9285,7 @@ msgstr "Mine [elevenlabs.io](https://elevenlabs.io) ja registreeru või logi sis
 msgid "Go to [platform.openai.com](https://platform.openai.com) and sign up or log in"
 msgstr "Mine [platform.deepseek.com](https://platform.deepseek.com) lehele ja registreeru või logi sisse"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:812
+#: lib/phoenix_kit_web/components/media_browser.html.heex:820
 #: lib/phoenix_kit_web/live/activity/index.html.heex:73
 #: lib/phoenix_kit_web/live/activity/index.html.heex:87
 #: lib/phoenix_kit_web/live/users/users.html.heex:107
@@ -9290,17 +9294,17 @@ msgstr "Mine [platform.deepseek.com](https://platform.deepseek.com) lehele ja re
 msgid "Grid"
 msgstr "Ruudustikuvaade"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:509
+#: lib/phoenix_kit_web/components/media_browser.html.heex:514
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Header size"
 msgstr "Pealkiri"
 
-#: lib/phoenix_kit_web/components/core/markdown_editor.ex:182
+#: lib/phoenix_kit_web/components/core/markdown_editor.ex:192
 #, elixir-autogen, elixir-format
 msgid "Heading %{level}"
 msgstr "Pealkiri %{level}"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:412
+#: lib/phoenix_kit_web/components/media_browser.html.heex:417
 #, elixir-autogen, elixir-format
 msgid "Icon"
 msgstr "Ikoon"
@@ -9315,17 +9319,17 @@ msgstr "Kui sinu konto kuulub mitmesse organisatsiooni, on võtmed seotud organi
 msgid "Language"
 msgstr "Keeled"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:515
+#: lib/phoenix_kit_web/components/media_browser.html.heex:520
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Large"
 msgstr "Sihtmärk"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:824
+#: lib/phoenix_kit_web/components/media_browser.html.heex:832
 #, elixir-autogen, elixir-format
 msgid "Largest first"
 msgstr "Suurimad enne"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:813
+#: lib/phoenix_kit_web/components/media_browser.html.heex:821
 #: lib/phoenix_kit_web/live/activity/index.html.heex:74
 #: lib/phoenix_kit_web/live/activity/index.html.heex:87
 #: lib/phoenix_kit_web/live/users/users.html.heex:108
@@ -9344,48 +9348,48 @@ msgstr "Magic Link"
 msgid "Media is a core system module that is always enabled and cannot be disabled — it provides essential file management functionality across PhoenixKit. Configure its storage buckets and file processing settings here."
 msgstr "Meedia on põhisüsteemi moodul, mis on alati lubatud ja mida ei saa keelata — see pakub olulist failihalduse funktsionaalsust kogu PhoenixKitis. Seadista siin selle salvestusämbrid ja failitöötluse seaded."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:514
+#: lib/phoenix_kit_web/components/media_browser.html.heex:519
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Medium"
 msgstr "Meedia"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:822
+#: lib/phoenix_kit_web/components/media_browser.html.heex:830
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Name A–Z"
 msgstr "Nimi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:823
+#: lib/phoenix_kit_web/components/media_browser.html.heex:831
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Name Z–A"
 msgstr "Nimi"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:2254
+#: lib/phoenix_kit_web/components/media_browser.html.heex:2295
 #, elixir-autogen, elixir-format
 msgid "Name your folder, or leave it blank to use the default."
 msgstr "Pane kaustale nimi või jäta tühjaks, et kasutada vaikenime."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:820
+#: lib/phoenix_kit_web/components/media_browser.html.heex:828
 #, elixir-autogen, elixir-format
 msgid "Newest first"
 msgstr "Uusimad enne"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:479
+#: lib/phoenix_kit_web/components/media_browser.html.heex:484
 #, elixir-autogen, elixir-format
 msgid "No background"
 msgstr "Taustata"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:679
+#: lib/phoenix_kit_web/components/media_browser.html.heex:684
 #, elixir-autogen, elixir-format, fuzzy
 msgid "No description — add one"
 msgstr "Kirjeldus puudub"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2276
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1601
+#: lib/phoenix_kit_web/components/media_browser.ex:2430
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1639
 #, elixir-autogen, elixir-format
 msgid "No images"
 msgstr "Pilte pole"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:1679
+#: lib/phoenix_kit_web/components/media_browser.html.heex:1717
 #, elixir-autogen, elixir-format
 msgid "No media yet."
 msgstr "Meediat veel pole."
@@ -9400,7 +9404,7 @@ msgstr "Pole sisse logitud"
 msgid "Notifications are generated from the activity log (one per target user) and via standalone sends. Each user manages which types they receive in their settings; this page is a read-only overview. Disable the module from the Modules page."
 msgstr "Teavitused genereeritakse tegevuslogist (üks sihtkasutaja kohta) ja eraldiseisvate saatmiste kaudu. Iga kasutaja haldab oma seadetes, milliseid tüüpe ta saab; see leht on ainult lugemiseks mõeldud ülevaade. Mooduli saab keelata Moodulite lehelt."
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:821
+#: lib/phoenix_kit_web/components/media_browser.html.heex:829
 #, elixir-autogen, elixir-format
 msgid "Oldest first"
 msgstr "Vanimad enne"
@@ -9420,7 +9424,7 @@ msgstr "Avatud"
 msgid "OpenAI requires a positive balance before the API will return completions, even on cheaper models"
 msgstr "OpenAI nõuab positiivset saldot, enne kui API tagastab vastuseid, isegi odavamate mudelite puhul"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:834
+#: lib/phoenix_kit_web/components/media_browser.html.heex:842
 #, elixir-autogen, elixir-format
 msgid "Other"
 msgstr "Muu"
@@ -9431,7 +9435,7 @@ msgstr "Muu"
 msgid "Per-user in-app notifications driven by the activity log"
 msgstr "Kasutajapõhised rakendusesisesed teavitused tegevuslogi põhjal"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:441
+#: lib/phoenix_kit_web/components/media_browser.html.heex:446
 #, elixir-autogen, elixir-format
 msgid "Pick or upload a small icon image."
 msgstr "Vali või laadi üles väike ikoonipilt."
@@ -9446,42 +9450,42 @@ msgstr "Lähtesta mõõtmed ja seaded vaikeväärtustele ning loo kohalik ämber
 msgid "Retention"
 msgstr "Säilitamine"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:588
+#: lib/phoenix_kit_web/components/media_browser.html.heex:593
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Save name"
 msgstr "Salvesta"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:549
+#: lib/phoenix_kit_web/components/media_browser.html.heex:554
 #, elixir-autogen, elixir-format
 msgid "Show background"
 msgstr "Näita tausta"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:541
+#: lib/phoenix_kit_web/components/media_browser.html.heex:546
 #, elixir-autogen, elixir-format
 msgid "Show creator"
 msgstr "Näita loojat"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:543
+#: lib/phoenix_kit_web/components/media_browser.html.heex:548
 #, elixir-autogen, elixir-format
 msgid "Show date created"
 msgstr "Näita loomise kuupäeva"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:547
+#: lib/phoenix_kit_web/components/media_browser.html.heex:552
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Show description"
 msgstr "Kirjeldus puudub"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:545
+#: lib/phoenix_kit_web/components/media_browser.html.heex:550
 #, elixir-autogen, elixir-format
 msgid "Show file count"
 msgstr "Näita failide arvu"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:539
+#: lib/phoenix_kit_web/components/media_browser.html.heex:544
 #, elixir-autogen, elixir-format
 msgid "Show icon"
 msgstr "Näita ikooni"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:537
+#: lib/phoenix_kit_web/components/media_browser.html.heex:542
 #, elixir-autogen, elixir-format
 msgid "Show title"
 msgstr "Näita pealkirja"
@@ -9492,32 +9496,32 @@ msgstr "Näita pealkirja"
 msgid "Sign up"
 msgstr "Logi sisse"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:513
+#: lib/phoenix_kit_web/components/media_browser.html.heex:518
 #, elixir-autogen, elixir-format
 msgid "Small"
 msgstr "Väike"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:825
+#: lib/phoenix_kit_web/components/media_browser.html.heex:833
 #, elixir-autogen, elixir-format
 msgid "Smallest first"
 msgstr "Väikseimad enne"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:889
+#: lib/phoenix_kit_web/components/media_browser.html.heex:897
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Sort"
 msgstr "Sorteeri"
 
-#: lib/phoenix_kit_web/components/media_browser.html.heex:814
+#: lib/phoenix_kit_web/components/media_browser.html.heex:822
 #, elixir-autogen, elixir-format
 msgid "Stacks"
 msgstr "Virnad"
 
-#: lib/phoenix_kit/integrations/providers.ex:561
+#: lib/phoenix_kit/integrations/providers.ex:572
 #, elixir-autogen, elixir-format
 msgid "Text-to-speech and voice generation via ElevenLabs"
 msgstr "Teksti kõneks muutmine ja hääle genereerimine ElevenLabsi kaudu"
 
-#: lib/phoenix_kit/integrations/providers.ex:604
+#: lib/phoenix_kit/integrations/providers.ex:615
 #, elixir-autogen, elixir-format
 msgid "The free tier includes a monthly character quota; paid plans raise the quota and unlock commercial use and additional voices."
 msgstr "Tasuta tase sisaldab igakuist märkide kvooti; tasulised paketid tõstavad kvooti ning avavad ärilise kasutuse ja lisahääled."
@@ -10409,27 +10413,27 @@ msgstr ""
 msgid "Too many attempts. Please try again shortly."
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:504
+#: lib/phoenix_kit/integrations/providers.ex:507
 #, elixir-autogen, elixir-format, fuzzy
 msgid "AI model access via xAI (Grok models)"
 msgstr "Juurdepääs AI mudelitele OpenRouteri kaudu (100+ mudelit)"
 
-#: lib/phoenix_kit/integrations/providers.ex:616
+#: lib/phoenix_kit/integrations/providers.ex:627
 #, elixir-autogen, elixir-format
 msgid "AWS Simple Email Service (SMTP credentials via SES API)"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:615
+#: lib/phoenix_kit/integrations/providers.ex:626
 #, elixir-autogen, elixir-format
 msgid "Amazon SES"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:720
+#: lib/phoenix_kit/integrations/providers.ex:731
 #, elixir-autogen, elixir-format
 msgid "Brevo API"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:532
+#: lib/phoenix_kit/integrations/providers.ex:543
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Create an xAI account"
 msgstr "Loo konto"
@@ -10439,37 +10443,37 @@ msgstr "Loo konto"
 msgid "Email users when their account is signed in from a new device"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:707
+#: lib/phoenix_kit/integrations/providers.ex:718
 #, elixir-autogen, elixir-format
 msgid "For Brevo: the SMTP key starting with xsmtpsib- (SMTP & API → SMTP tab) — not the API key (xkeysib-)."
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:695
+#: lib/phoenix_kit/integrations/providers.ex:706
 #, elixir-autogen, elixir-format
 msgid "For Brevo: your account's SMTP login, shown as <subaccount>@smtp-brevo.com under SMTP & API → SMTP."
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:744
+#: lib/phoenix_kit/integrations/providers.ex:755
 #, elixir-autogen, elixir-format
 msgid "From Brevo → SMTP & API → API Keys. Starts with xkeysib- — not the SMTP key (xsmtpsib-)."
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:525
+#: lib/phoenix_kit/integrations/providers.ex:528
 #, elixir-autogen, elixir-format, fuzzy
 msgid "From console.x.ai/team/default/api-keys"
 msgstr "console.mistral.ai/api-keys alt"
 
-#: lib/phoenix_kit/integrations/providers.ex:548
+#: lib/phoenix_kit/integrations/providers.ex:559
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Go to [API Keys](https://console.x.ai/team/default/api-keys)"
 msgstr "Mine [API võtmed](https://console.mistral.ai/api-keys) lehele"
 
-#: lib/phoenix_kit/integrations/providers.ex:534
+#: lib/phoenix_kit/integrations/providers.ex:545
 #, elixir-autogen, elixir-format
 msgid "Go to [accounts.x.ai](https://accounts.x.ai) and sign up or log in"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:540
+#: lib/phoenix_kit/integrations/providers.ex:551
 #, elixir-autogen, elixir-format
 msgid "Go to [console.x.ai](https://console.x.ai) → Billing and add credits"
 msgstr ""
@@ -10479,42 +10483,42 @@ msgstr ""
 msgid "Login Notifications"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:681
+#: lib/phoenix_kit/integrations/providers.ex:692
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Port"
 msgstr "Sorteeri"
 
-#: lib/phoenix_kit/integrations/providers.ex:646
+#: lib/phoenix_kit/integrations/providers.ex:657
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Region"
 msgstr "AWS piirkond"
 
-#: lib/phoenix_kit/integrations/providers.ex:661
+#: lib/phoenix_kit/integrations/providers.ex:672
 #, elixir-autogen, elixir-format
 msgid "SMTP"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:672
+#: lib/phoenix_kit/integrations/providers.ex:683
 #, elixir-autogen, elixir-format
 msgid "SMTP Host"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:721
+#: lib/phoenix_kit/integrations/providers.ex:732
 #, elixir-autogen, elixir-format
 msgid "Send email via the Brevo transactional email API"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:663
+#: lib/phoenix_kit/integrations/providers.ex:674
 #, elixir-autogen, elixir-format
 msgid "Universal SMTP relay — works with any vendor (Brevo, Mailgun, SendGrid, a self-hosted mail server, etc). Add one named connection per relay/account."
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:503
+#: lib/phoenix_kit/integrations/providers.ex:506
 #, elixir-autogen, elixir-format
 msgid "xAI"
 msgstr ""
 
-#: lib/phoenix_kit/integrations/providers.ex:542
+#: lib/phoenix_kit/integrations/providers.ex:553
 #, elixir-autogen, elixir-format
 msgid "xAI requires a funded account before the API will return completions"
 msgstr ""
@@ -10605,3 +10609,25 @@ msgstr "Brauseri järgi"
 #, elixir-autogen, elixir-format
 msgid "By operating system"
 msgstr "Operatsioonisüsteemi järgi"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:245
+#, elixir-autogen, elixir-format
+msgid "Failed to save rotation"
+msgstr "Pöörde salvestamine ebaõnnestus"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:214
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:216
+#, elixir-autogen, elixir-format
+msgid "Hide details"
+msgstr "Peida üksikasjad"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:244
+#, elixir-autogen, elixir-format
+msgid "Rotation saved"
+msgstr "Pööre salvestatud"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:214
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:216
+#, elixir-autogen, elixir-format
+msgid "Show details"
+msgstr "Näita üksikasju"

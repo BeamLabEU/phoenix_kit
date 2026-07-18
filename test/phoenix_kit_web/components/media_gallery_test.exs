@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
     preview_uuid = Keyword.get(opts, :preview_uuid, nil)
     files = Keyword.get(opts, :files, [])
     variants_map = Keyword.get(opts, :variants_map, %{})
+    rotations_map = Keyword.get(opts, :rotations_map, %{})
     cols = Keyword.get(opts, :cols, 4)
     featured_first = Keyword.get(opts, :featured_first, false)
 
@@ -49,6 +50,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       preview_uuid: preview_uuid,
       files: files,
       variants_map: variants_map,
+      rotations_map: rotations_map,
       # LiveComponent requires a CID for phx-target — use a stub struct
       myself: %Phoenix.LiveComponent.CID{cid: 1}
     }
@@ -246,6 +248,26 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert html =~ ~s(data-id="01900000-0000-7000-8000-000000000001")
       assert html =~ ~s(data-id="01900000-0000-7000-8000-000000000002")
       assert html =~ "sortable-item"
+    end
+
+    test "thumbnails carry the file's saved rotation, unrotated files none" do
+      # The gallery grid iterates uuids, so orientation comes from the
+      # rotations_map lookup; thumbnails render it as a CSS transform to
+      # stay consistent with the media grid and the lightbox canvas.
+      turned = "01900000-0000-7000-8000-000000000001"
+      upright = "01900000-0000-7000-8000-000000000002"
+
+      html =
+        render(
+          gallery_assigns(
+            selected: [turned, upright],
+            variants_map: %{turned => [], upright => []},
+            rotations_map: %{turned => 90, upright => 0}
+          )
+        )
+
+      assert html =~ "rotate-90"
+      refute html =~ "rotate-180"
     end
 
     test "reorder grid carries a bare event name plus a component target" do

@@ -77,7 +77,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
   ## What gets injected
 
   * `on_mount` — calls `MediaBrowser.setup_uploads/1` so `@uploads.media_files`
-    is available on every mount of this LiveView. With `url_sync`, also
+    is available on every mount of this LiveView. On connected mounts that
+    also subscribes to storage file events and attaches a `:handle_info`
+    hook forwarding `{:phoenix_kit_file_processed, uuid}` to every embedded
+    browser — a just-uploaded file's thumbnails/dimensions appear live once
+    background processing finishes, no reload needed. With `url_sync`, also
     assigns `:initial_params` parsed from the mount params.
   * Fallback `handle_event("validate", _, socket)` — absorbs the upload
     channel's `phx-change` events. User-defined clauses with other event

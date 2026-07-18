@@ -14,7 +14,10 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
   ## Options
 
-    * `--prefix` - Database schema prefix (default: "public")
+    * `--prefix` - Database schema prefix. When omitted, resolves from
+      `config :phoenix_kit, :prefix`, then `"public"` — the same resolution
+      `mix phoenix_kit.update` / `--status` use, so a prefixed install is
+      diagnosed against the schema it actually lives in.
 
   ## Checks Performed
 
@@ -23,20 +26,24 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     3. **Pool Configuration** — Pool size, checkout timeout, queue settings
     4. **PgBouncer Detection** — Is PgBouncer between app and PostgreSQL?
     5. **Migration State** — PhoenixKit version (COMMENT), schema_migrations alignment
-    6. **Pending Migrations** — Migration files not yet recorded in schema_migrations
-    7. **UUID Column Types** — Detects varchar uuid columns that crash Ecto on startup
-    8. **NULL UUIDs in FK Sources** — Detects NULL uuids that cause infinite backfill loops
-    9. **Orphaned FK References** — Detects orphaned rows that block FK constraint creation
-   10. **Lock Conflicts** — Any blocked or long-running queries?
-   11. **Orphaned Connections** — Idle-in-transaction or stuck connections
-   12. **Oban Configuration** — Queues and plugins that consume pool connections
-   13. **Supervisor Children** — What's running (update_mode vs full)?
-   14. **Update Mode** — Is update_mode active?
-   15. **daisyUI Version** — Is the host's vendored daisyUI recent enough?
+    6. **Schema Drift** — Columns a migration should have added but the DB lacks
+    7. **Pending Migrations** — Migration files not yet recorded in schema_migrations
+    8. **UUID Column Types** — Detects varchar uuid columns that crash Ecto on startup
+    9. **NULL UUIDs in FK Sources** — Detects NULL uuids that cause infinite backfill loops
+   10. **Orphaned FK References** — Detects orphaned rows that block FK constraint creation
+   11. **Lock Conflicts** — Any blocked or long-running queries?
+   12. **Orphaned Connections** — Idle-in-transaction or stuck connections
+   13. **Oban Configuration** — Queues and plugins that consume pool connections
+   14. **Supervisor Children** — What's running (update_mode vs full)?
+   15. **Child Start Order** — Does the Repo start before PhoenixKit/Oban in application.ex?
+   16. **Update Mode** — Is update_mode active?
+   17. **daisyUI Version** — Is the host's vendored daisyUI recent enough?
   """
 
   use Mix.Task
 
+  alias PhoenixKit.Install.ChildOrder
+  alias PhoenixKit.Install.PrefixConfig
   alias PhoenixKit.Migrations.Postgres
 
   @shortdoc "Diagnoses PhoenixKit installation, migration, and runtime issues"
@@ -48,10 +55,21 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   def run(argv) do
     {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
 
-    prefix = opts[:prefix] || "public"
-
     # Start app with minimal footprint (same approach as phoenix_kit.update)
     Mix.Task.run("app.config")
+
+    # Resolve the prefix AFTER app.config loads config, so a configured
+    # non-public prefix is honored — same resolution the updater/status use
+    # (--prefix flag → config :phoenix_kit, :prefix → "public"). Reading
+    # opts[:prefix] || "public" here queries the version marker at public and
+    # reports a prefixed install as "not installed".
+    prefix = PrefixConfig.resolve_prefix(opts)
+
+    # Snapshot the host's Oban config BEFORE cap_repo_pool_size/1 zeroes its
+    # queues/plugins (it does that to conserve connections in update_mode) —
+    # otherwise the Oban Configuration check reports "0 queues, 0 plugins".
+    oban_config = Application.get_env(Mix.Project.config()[:app], Oban)
+
     cap_repo_pool_size(2)
     Application.put_env(:phoenix_kit, :update_mode, true)
     Mix.Task.run("app.start")
@@ -64,14 +82,16 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       run_check("Pool Configuration", fn -> check_pool_config() end),
       run_check("PgBouncer Detection", fn -> check_pgbouncer() end),
       run_check("Migration State", fn -> check_migration_state(prefix) end),
+      run_check("Schema Drift", fn -> check_schema_drift(prefix) end),
       run_check("Pending Migrations", fn -> check_pending_migrations() end),
       run_check("UUID Column Types", fn -> check_uuid_column_types(prefix) end),
       run_check("NULL UUIDs in FK Sources", fn -> check_null_uuids(prefix) end),
       run_check("Orphaned FK References", fn -> check_orphaned_fk_refs(prefix) end),
       run_check("Lock Conflicts", fn -> check_lock_conflicts() end),
       run_check("Orphaned Connections", fn -> check_orphaned_connections() end),
-      run_check("Oban Configuration", fn -> check_oban_config() end),
+      run_check("Oban Configuration", fn -> check_oban_config(oban_config) end),
       run_check("PhoenixKit Supervisor", fn -> check_supervisor_state() end),
+      run_check("Child Start Order", fn -> check_child_order() end),
       run_check("Update Mode", fn -> check_update_mode() end),
       run_check("daisyUI Version", fn -> check_daisyui() end)
     ]
@@ -225,6 +245,71 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         {:warn, "DB version > code version.\n       #{info}"}
     end
   end
+
+  # Columns a given migration version adds. If the version marker claims that
+  # version (or higher) but the column is missing at the prefix, the install
+  # drifted — the marker is ahead of the actual schema (e.g. a version renumber
+  # that crossed an upgrade, or an earlier prefix-confused migration run). A
+  # query that selects the column then crashes at runtime, and re-running the
+  # migrator is a no-op because the marker already covers that version.
+  @expected_columns [
+    {150, "phoenix_kit_users_tokens", "browser"},
+    {150, "phoenix_kit_users_tokens", "os"}
+  ]
+
+  defp check_schema_drift(prefix) do
+    repo = get_repo!()
+    escaped_prefix = String.replace(prefix, "'", "\\'")
+    marker = get_comment_version(repo, escaped_prefix)
+
+    if marker == 0 do
+      {:pass, "PhoenixKit not installed at prefix #{inspect(prefix)} — nothing to check."}
+    else
+      missing =
+        @expected_columns
+        |> Enum.filter(fn {min_version, _t, _c} -> marker >= min_version end)
+        |> Enum.reject(fn {_v, table, column} ->
+          column_exists?(repo, escaped_prefix, table, column)
+        end)
+
+      report_schema_drift(missing, marker, prefix)
+    end
+  end
+
+  defp report_schema_drift([], marker, _prefix),
+    do: {:pass, "Columns expected at V#{marker} are present."}
+
+  defp report_schema_drift(missing, marker, prefix) do
+    names = Enum.map_join(missing, ", ", fn {v, t, c} -> "#{t}.#{c} (V#{v})" end)
+    lowest = missing |> Enum.map(fn {v, _t, _c} -> v end) |> Enum.min()
+    p = if prefix == "public", do: "public.", else: "#{prefix}."
+
+    {:fail,
+     "Marker says V#{marker} but these columns are missing: #{names}. The install drifted " <>
+       "(marker ahead of schema). Roll the marker back one version and re-run the migrator — " <>
+       "the column adds are idempotent (add_if_not_exists), so this is safe:\n" <>
+       "       COMMENT ON TABLE #{p}phoenix_kit IS '#{lowest - 1}';\n" <>
+       "       mix phoenix_kit.update#{prefix_flag(prefix)}"}
+  end
+
+  defp column_exists?(repo, escaped_prefix, table, column) do
+    query = """
+    SELECT EXISTS (
+      SELECT FROM information_schema.columns
+      WHERE table_schema = '#{escaped_prefix}'
+      AND table_name = '#{table}'
+      AND column_name = '#{column}'
+    )
+    """
+
+    case repo.query(query, [], log: false) do
+      {:ok, %{rows: [[true]]}} -> true
+      _ -> false
+    end
+  end
+
+  defp prefix_flag("public"), do: ""
+  defp prefix_flag(prefix), do: " --prefix=#{prefix}"
 
   defp check_pending_migrations do
     repo = get_repo!()
@@ -577,21 +662,19 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     end
   end
 
-  defp check_oban_config do
-    app = Mix.Project.config()[:app]
+  # Reports the Oban config snapshotted in run/1 BEFORE cap_repo_pool_size/1
+  # zeroed its queues/plugins — reading it live here would always show 0/0.
+  defp check_oban_config(nil), do: {:pass, "Oban not configured"}
 
-    case Application.get_env(app, Oban) do
-      nil ->
-        {:pass, "Oban not configured"}
+  defp check_oban_config(config) when is_list(config) do
+    queues = Keyword.get(config, :queues, [])
+    plugins = Keyword.get(config, :plugins, [])
 
-      config ->
-        queues = Keyword.get(config, :queues, [])
-        plugins = Keyword.get(config, :plugins, [])
-
-        {:pass,
-         "#{length(queues)} queues, #{length(plugins)} plugins. Each active queue uses 1 pool connection."}
-    end
+    {:pass,
+     "#{length(queues)} queues, #{length(plugins)} plugins. Each active queue uses 1 pool connection."}
   end
+
+  defp check_oban_config(_other), do: {:pass, "Oban configured (non-keyword config)"}
 
   defp check_supervisor_state do
     case Process.whereis(PhoenixKit.Supervisor) do
@@ -602,6 +685,45 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         children = Supervisor.which_children(pid)
         names = Enum.map(children, fn {id, _, _, _} -> id end)
         {:pass, "#{length(children)} children: #{inspect(names)}"}
+    end
+  end
+
+  # Reads the host application.ex and verifies the Repo starts BEFORE
+  # PhoenixKit.Supervisor and Oban — a child listed before the Repo crashes the
+  # app at boot (PhoenixKit reads Settings from the DB; Oban needs the pool).
+  # The runtime supervisor check above can't catch this (by the time doctor
+  # runs, everything has already started), so we read the source order.
+  defp check_child_order do
+    repo = get_repo!()
+
+    case host_application_source() do
+      {:ok, path, source} ->
+        where = Path.relative_to_cwd(path)
+
+        case ChildOrder.check(source, repo) do
+          {:ok, detail} ->
+            {:pass, "#{detail} (#{where})"}
+
+          {:misordered, mods} ->
+            names = Enum.map_join(mods, ", ", &inspect/1)
+
+            {:fail,
+             "#{names} start BEFORE #{inspect(repo)} in #{where}. PhoenixKit.Supervisor " <>
+               "reads Settings from the database and Oban needs the connection pool, so both " <>
+               "must be listed AFTER your Repo. Move #{inspect(repo)} above them in the " <>
+               "children list to fix the boot crash."}
+
+          :no_repo_in_children ->
+            {:warn,
+             "Couldn't find #{inspect(repo)} in the children list of #{where} — verify " <>
+               "PhoenixKit.Supervisor and Oban are started after your Repo."}
+
+          :no_children ->
+            {:warn, "Couldn't locate a children list in #{where} to verify start order."}
+        end
+
+      :error ->
+        {:warn, "Couldn't locate your application.ex to verify child start order."}
     end
   end
 
@@ -624,6 +746,40 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       [repo | _] -> repo
       [] -> raise "No :ecto_repos configured for :#{app}"
     end
+  end
+
+  # Locate the host's application.ex — first via the compiled application
+  # module's source path, then the conventional lib/<app>/application.ex.
+  defp host_application_source do
+    app = Mix.Project.config()[:app]
+
+    candidates =
+      [
+        case Application.spec(app, :mod) do
+          {mod, _args} -> module_source(mod)
+          _ -> nil
+        end,
+        Path.join(["lib", "#{app}", "application.ex"])
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    Enum.find_value(candidates, :error, fn path ->
+      case File.read(path) do
+        {:ok, source} -> {:ok, path, source}
+        _ -> nil
+      end
+    end)
+  end
+
+  defp module_source(mod) do
+    with {:module, _} <- Code.ensure_loaded(mod),
+         source when not is_nil(source) <- mod.module_info(:compile)[:source] do
+      to_string(source)
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
   end
 
   defp cap_repo_pool_size(pool_size) do

@@ -813,4 +813,49 @@ defmodule PhoenixKitWeb.Components.MultilangFormTest do
       end
     end
   end
+
+  # ── mount_multilang/2 — auto-handled "switch_language" event ─
+  #
+  # `attach_hook/4` needs a socket that already carries a
+  # `:lifecycle` entry in `private` (real LiveView sockets always do,
+  # via `configure_socket/4` at connect time) — a bare
+  # `%Phoenix.LiveView.Socket{}` doesn't unless we seed it.
+  # `Phoenix.LiveView.Lifecycle.handle_event/3` is the same dispatcher
+  # LiveView uses internally, so calling it directly exercises the
+  # attached hook exactly as a real "switch_language" push would.
+
+  describe "mount_multilang/2 auto-switch-language hook" do
+    defp bare_socket do
+      %Phoenix.LiveView.Socket{private: %{lifecycle: %Phoenix.LiveView.Lifecycle{}}}
+    end
+
+    test "intercepts and halts the switch_language event" do
+      socket = mount_multilang(bare_socket())
+
+      assert {:halt, %Phoenix.LiveView.Socket{}} =
+               Phoenix.LiveView.Lifecycle.handle_event(
+                 "switch_language",
+                 %{"lang" => "en"},
+                 socket
+               )
+    end
+
+    test "other events pass through untouched" do
+      socket = mount_multilang(bare_socket())
+
+      assert {:cont, ^socket} =
+               Phoenix.LiveView.Lifecycle.handle_event("some_other_event", %{}, socket)
+    end
+
+    test "auto_switch_language: false skips the hook — event passes through" do
+      socket = mount_multilang(bare_socket(), auto_switch_language: false)
+
+      assert {:cont, ^socket} =
+               Phoenix.LiveView.Lifecycle.handle_event(
+                 "switch_language",
+                 %{"lang" => "en"},
+                 socket
+               )
+    end
+  end
 end
