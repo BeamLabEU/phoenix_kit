@@ -27,9 +27,11 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
     resolved (e.g. via `Routes.path/1` / `PhoenixKit.Utils.Routes.path/1`) — this
     renders a plain `<.link navigate>`, it does NOT re-apply the PhoenixKit URL
     prefix the way `<.pk_link>` would. When set, renders a compact ghost
-    back-affordance (arrow icon, optionally labeled) above the title.
-  - `back_label` - Optional text shown next to the back arrow. When omitted the
-    button is icon-only (still gets an accessible label).
+    back-affordance inline beside the title, aligned to its first line (never
+    on its own row — an icon-only circle by default).
+  - `back_label` - Optional text shown next to the back arrow (from the `sm`
+    breakpoint up; phones stay icon-only). When omitted the button is a
+    circular icon-only chip (still gets an accessible label + title tooltip).
   - `back_click` - Deprecated, no-op. Retained so existing callers compile.
 
   ## Slots
@@ -83,19 +85,41 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
   slot :actions
 
   def admin_page_header(assigns) do
+    # A blank back_label behaves as absent — "" is truthy in Elixir and would
+    # otherwise pick labeled mode with an empty aria-label/tooltip.
+    assigns =
+      case assigns.back_label do
+        "" -> assign(assigns, :back_label, nil)
+        _ -> assigns
+      end
+
     ~H"""
     <header class={@class || "mb-3 sm:mb-6"}>
-      <.link
-        :if={@back}
-        navigate={@back}
-        class="btn btn-ghost btn-sm -ml-2 mb-1 gap-1"
-        aria-label={@back_label || gettext("Back")}
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-        <span :if={@back_label}>{@back_label}</span>
-      </.link>
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+        <%!-- gap-x-2, NOT gap-2: core's legacy shipped app.css carries an
+          unlayered mobile rule (`.flex.gap-2 > .btn { width: 100% }` at
+          ≤768px) that would stretch the back chip full-width — layered
+          Tailwind utilities cannot override it, so keep the class off the
+          selector's reach. The :actions div's gap-2 stays: its buttons rely
+          on that stretch. --%>
+        <div class="flex items-start gap-x-2 min-w-0">
+          <.link
+            :if={@back}
+            navigate={@back}
+            class={
+              [
+                "btn btn-ghost btn-sm shrink-0 -ml-2 mt-0.5 lg:mt-1",
+                # Icon-only renders as a circle; a labeled chip keeps the circle
+                # on phones too, where the label span is hidden anyway.
+                (@back_label && "max-sm:btn-circle gap-1") || "btn-circle"
+              ]
+            }
+            aria-label={@back_label || gettext("Back")}
+            title={@back_label || gettext("Back")}
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
+            <span :if={@back_label} class="hidden sm:inline">{@back_label}</span>
+          </.link>
           <div class="min-w-0">
             <%= if @title do %>
               <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content break-words">
