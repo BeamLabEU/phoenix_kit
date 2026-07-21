@@ -27,9 +27,11 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
     resolved (e.g. via `Routes.path/1` / `PhoenixKit.Utils.Routes.path/1`) — this
     renders a plain `<.link navigate>`, it does NOT re-apply the PhoenixKit URL
     prefix the way `<.pk_link>` would. When set, renders a compact ghost
-    back-affordance (arrow icon, optionally labeled) above the title.
-  - `back_label` - Optional text shown next to the back arrow. When omitted the
-    button is icon-only (still gets an accessible label).
+    back-affordance inline beside the title, aligned to its first line (never
+    on its own row — an icon-only circle by default).
+  - `back_label` - Optional text shown next to the back arrow (from the `sm`
+    breakpoint up; phones stay icon-only). When omitted the button is a
+    circular icon-only chip (still gets an accessible label + title tooltip).
   - `back_click` - Deprecated, no-op. Retained so existing callers compile.
 
   ## Slots
@@ -85,17 +87,21 @@ defmodule PhoenixKitWeb.Components.Core.AdminPageHeader do
   def admin_page_header(assigns) do
     ~H"""
     <header class={@class || "mb-3 sm:mb-6"}>
-      <.link
-        :if={@back}
-        navigate={@back}
-        class="btn btn-ghost btn-sm -ml-2 mb-1 gap-1"
-        aria-label={@back_label || gettext("Back")}
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4" />
-        <span :if={@back_label}>{@back_label}</span>
-      </.link>
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-start gap-2 min-w-0">
+          <.link
+            :if={@back}
+            navigate={@back}
+            class={[
+              "btn btn-ghost btn-sm shrink-0 -ml-2 mt-0.5 lg:mt-1",
+              (@back_label && "gap-1") || "btn-circle"
+            ]}
+            aria-label={@back_label || gettext("Back")}
+            title={@back_label || gettext("Back")}
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4" />
+            <span :if={@back_label} class="hidden sm:inline">{@back_label}</span>
+          </.link>
           <div class="min-w-0">
             <%= if @title do %>
               <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-base-content break-words">
