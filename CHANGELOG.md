@@ -1,3 +1,15 @@
+## 1.7.208 - 2026-07-21
+
+### Changed
+- `<.admin_page_header back={...}>`'s back affordance now renders inline
+  beside the title (a circular icon chip aligned to the title's first line)
+  instead of as a bare ghost button on its own row above it. When
+  `back_label` is set, the chip widens to show the label from the `sm`
+  breakpoint up; phones always stay icon-only. A blank `back_label=""` now
+  normalizes to absent instead of producing an empty `aria-label`/tooltip.
+  No attribute API change — all existing `back`/`back_label` call sites
+  render the new anatomy unchanged (PR #659).
+
 ## 1.7.207 - 2026-07-21
 
 ### Added
