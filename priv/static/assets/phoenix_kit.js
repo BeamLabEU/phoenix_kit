@@ -3818,7 +3818,7 @@ if (typeof window.Chart === "undefined") {
   // ============================================================================
 
   (function() {
-    var FRESCO_CDN = "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.6.3/priv/static/fresco.js";
+    var FRESCO_CDN = "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.10.0/priv/static/fresco.js";
     var frescoLoading = false;
     var frescoCallbacks = [];
 
@@ -3973,7 +3973,7 @@ if (typeof window.Chart === "undefined") {
   // ============================================================================
 
   (function() {
-    var ETCHER_CDN = "https://cdn.jsdelivr.net/gh/alexdont/etcher@v0.6.5/priv/static/etcher.js";
+    var ETCHER_CDN = "https://cdn.jsdelivr.net/gh/alexdont/etcher@v0.9.0/priv/static/etcher.js";
     var etcherLoading = false;
     var etcherCallbacks = [];
 

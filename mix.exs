@@ -167,9 +167,9 @@ defmodule PhoenixKit.MixProject do
       # of the original for deep zoom on >4K images (no OpenSeadragon). The
       # tile overlay rides Fresco's stage transform so it stays glued to the
       # image. JS hooks lazy-load from jsdelivr pinned to the matching tag.
-      {:fresco, "~> 0.6"},
+      {:fresco, "~> 0.10"},
       {:tessera, "~> 0.3"},
-      {:etcher, "~> 0.7"},
+      {:etcher, "~> 0.9"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       {:keyfob, "~> 0.1"},
