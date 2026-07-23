@@ -529,7 +529,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces unique index with partial index (slug-mode only, WHERE slug IS NOT NULL)
   - Adds unique index on `(group_uuid, post_date, post_time)` for timestamp-mode posts
 
-  ### V156 - Legacy newsletters lists migrated into CRM, tables dropped ⚡ LATEST
+  ### V157 - Image annotation kind ⚡ LATEST
+  - Widens `phoenix_kit_annotations_kind_check` to allow `'image'`
+  - Pairs with the schema's `@kinds` (also widened) so Etcher's `:image`
+    tool — exposed in the media viewer's toolbar by PR #660 — can
+    actually persist; same regression shape as V130's `"marker"`
+
+  ### V156 - Legacy newsletters lists migrated into CRM, tables dropped
   - **Requires a coordinated release with the newsletters module** — drops
     tables/columns an older newsletters release still reads; see V156's
     moduledoc warning
@@ -1387,7 +1393,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @initial_version 1
-  @current_version 156
+  @current_version 157
   @default_prefix "public"
 
   # First version whose SQL references uuid_generate_v7(). Chains that

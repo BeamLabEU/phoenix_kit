@@ -24,7 +24,7 @@ defmodule PhoenixKit.Annotations.Annotation do
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
-  @kinds ~w(rectangle circle polygon freehand callout text dimension line marker)
+  @kinds ~w(rectangle circle polygon freehand callout text dimension line marker image)
 
   @type t :: %__MODULE__{
           uuid: UUIDv7.t() | nil,

@@ -6,6 +6,8 @@ defmodule PhoenixKit.Annotations.AnnotationKindTest do
   is only usable when both accept its kind — `"marker"` (V130) was the
   regression that motivated this test: it drew + skipped the composer but
   silently failed to persist because both layers still rejected it.
+  `"image"` (V157) repeated the same regression when PR #660 exposed
+  Etcher's `:image` tool without widening either layer.
   """
   use PhoenixKit.DataCase, async: true
 
@@ -41,6 +43,22 @@ defmodule PhoenixKit.Annotations.AnnotationKindTest do
     test "marker is listed in kinds/0" do
       assert "marker" in Annotation.kinds()
     end
+
+    test "accepts image" do
+      changeset =
+        Annotation.changeset(%Annotation{}, %{
+          file_uuid: UUIDv7.generate(),
+          kind: "image",
+          geometry: @geometry
+        })
+
+      assert changeset.valid?
+      refute Keyword.has_key?(changeset.errors, :kind)
+    end
+
+    test "image is listed in kinds/0" do
+      assert "image" in Annotation.kinds()
+    end
   end
 
   describe "DB kind check constraint" do
@@ -52,6 +70,16 @@ defmodule PhoenixKit.Annotations.AnnotationKindTest do
 
       assert def =~ "marker",
              "expected the kind CHECK constraint to include 'marker' (V130), got: #{def}"
+    end
+
+    test "phoenix_kit_annotations_kind_check allows image" do
+      %{rows: [[def]]} =
+        Repo.query!(
+          "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'phoenix_kit_annotations_kind_check'"
+        )
+
+      assert def =~ "image",
+             "expected the kind CHECK constraint to include 'image' (V157), got: #{def}"
     end
   end
 end
