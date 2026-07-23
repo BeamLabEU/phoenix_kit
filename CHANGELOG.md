@@ -1,3 +1,20 @@
+## 1.7.209 - 2026-07-23
+
+### Added
+- **Etcher image annotation tool** — the media viewer's annotation toolbar
+  now exposes Etcher's `:image` tool (fresco `~> 0.10`, etcher `~> 0.9`),
+  which inserts an image annotation via the OS file picker as a `data:`
+  URL (PR #660).
+- **Migration V157** — widens `phoenix_kit_annotations_kind_check` to allow
+  the new `"image"` annotation kind, paired with `Annotation.@kinds`.
+  `@current_version` bumped 156 → 157.
+
+### Fixed
+- The `:image` toolbar tool added by PR #660 shipped without widening the
+  annotation kind whitelist/CHECK constraint to match — image annotations
+  drew fine client-side but silently failed to persist across a reload
+  (same regression class as V130's `"marker"` fix). Closed by V157 above.
+
 ## 1.7.208 - 2026-07-21
 
 ### Changed
