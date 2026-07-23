@@ -1,3 +1,18 @@
+## 1.7.210 - 2026-07-23
+
+### Fixed
+- **Issue #652** — `** (ArgumentError) flash not fetched, call fetch_flash/2`
+  on every router-rendered LiveView that redirects during mount with a flash
+  message set (e.g. `:phoenix_kit_ensure_admin`'s "You must log in to access
+  this page." redirect for unauthenticated admin-route hits). The dev/test
+  router's `:browser` pipeline had no `fetch_flash`/`fetch_live_flash` plug,
+  so `Phoenix.LiveView.Controller.live_render/3` crashed instead of
+  redirecting whenever it tried to fold the on-mount flash back onto the
+  conn. Added `plug :fetch_live_flash` to `lib/phoenix_kit_web/router.ex`'s
+  `:browser` pipeline, plus a regression test. Test-harness-only fix — real
+  parent apps generated via `mix phx.new` already carry this plug by
+  convention.
+
 ## 1.7.209 - 2026-07-23
 
 ### Added
