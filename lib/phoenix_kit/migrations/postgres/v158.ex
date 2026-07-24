@@ -39,7 +39,7 @@ defmodule PhoenixKit.Migrations.Postgres.V158 do
 
     execute("""
     ALTER TABLE #{p}phoenix_kit_newsletters_broadcasts
-      ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'
+      ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb
     """)
 
     execute(
