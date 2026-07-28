@@ -10185,7 +10185,7 @@ msgstr ""
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:288
 #, elixir-autogen, elixir-format
 msgid "Enable QR code sign-in (scan from a signed-in phone)"
-msgstr ""
+msgstr "Abilita l'accesso con codice QR (scansione da un telefono con sessione attiva)"
 
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:103
 #, elixir-autogen, elixir-format, fuzzy
@@ -10225,14 +10225,14 @@ msgstr ""
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:276
 #, elixir-autogen, elixir-format
 msgid "QR Code"
-msgstr ""
+msgstr "Codice QR"
 
 #: lib/phoenix_kit_web/users/qr_login.ex:42
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:32
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:76
 #, elixir-autogen, elixir-format
 msgid "QR code sign-in is not available."
-msgstr ""
+msgstr "L'accesso con codice QR non è disponibile."
 
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:112
 #, elixir-autogen, elixir-format
@@ -10257,9 +10257,9 @@ msgstr ""
 #: lib/phoenix_kit_web/users/login.html.heex:115
 #: lib/phoenix_kit_web/users/qr_login.html.heex:4
 #: lib/phoenix_kit_web/users/qr_login.html.heex:7
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Sign in with QR code"
-msgstr ""
+msgstr "Accedi con codice QR"
 
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:110
 #, elixir-autogen, elixir-format, fuzzy
@@ -10269,7 +10269,7 @@ msgstr ""
 #: lib/phoenix_kit_web/users/qr_login_complete.ex:29
 #, elixir-autogen, elixir-format
 msgid "Signed in with QR code."
-msgstr ""
+msgstr "Accesso effettuato con codice QR."
 
 #: lib/phoenix_kit_web/users/qr_login.html.heex:41
 #, elixir-autogen, elixir-format
@@ -10285,7 +10285,7 @@ msgstr ""
 #: lib/phoenix_kit_web/users/qr_login_complete.ex:41
 #, elixir-autogen, elixir-format
 msgid "This QR sign-in link is invalid or has expired."
-msgstr ""
+msgstr "Questo link di accesso con codice QR non è valido o è scaduto."
 
 #: lib/phoenix_kit_web/users/qr_login.ex:155
 #, elixir-autogen, elixir-format
