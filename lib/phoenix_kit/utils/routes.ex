@@ -97,10 +97,34 @@ defmodule PhoenixKit.Utils.Routes do
     Enum.find(candidates, &local_path?/1) || after_login_path()
   end
 
-  defp after_login_path do
-    path = PhoenixKit.Settings.get_setting("after_login_path", "/")
+  @doc """
+  Renders `?return_to=<path>` for a link, or `""` when there is nothing safe to
+  carry. Lets the auth pages hand the pending destination to each other instead
+  of dropping it the moment a visitor switches to another sign-in method.
+  """
+  @spec return_to_query(term()) :: String.t()
+  def return_to_query(path) do
+    if local_path?(path), do: "?" <> URI.encode_query(%{"return_to" => path}), else: ""
+  end
 
-    if local_path?(path), do: path, else: "/"
+  # Every path that bounces an authenticated visitor elsewhere, plus log-out.
+  # Setting the post-login destination to any of them loops forever; pointing
+  # it at `/users/log-out` is worse — it is a real GET route, so every
+  # successful login immediately signs the user back out and nobody, including
+  # the admin who set it, can stay in to undo it.
+  @auth_paths ~w(/users/log-in /users/log-out /users/register /users/confirm
+  /users/magic-link /users/qr-login /users/reset-password)
+
+  defp after_login_path do
+    path =
+      "after_login_path" |> PhoenixKit.Settings.get_setting("/") |> to_string() |> String.trim()
+
+    if local_path?(path) and not auth_page?(path), do: path, else: "/"
+  end
+
+  defp auth_page?(path) do
+    trimmed = path |> String.split(["?", "#"], parts: 2) |> hd() |> String.trim_trailing("/")
+    Enum.any?(@auth_paths, &(trimmed == &1 or String.ends_with?(trimmed, &1)))
   end
 
   # NOTE: Locale override logic below exists for the publishing component system integration.

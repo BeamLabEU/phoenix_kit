@@ -66,6 +66,16 @@ Both settings are validated as local paths on save **and** re-guarded at read
 time, so a hand-edited database row cannot turn a post-auth redirect into an
 open redirect.
 
+### Loop and lockout guards
+
+`after_login_path` / `after_registration_path` are additionally refused when
+they point at a page that *bounces an authenticated visitor* — every auth page
+plus **`/users/log-out`**, which is a real GET route: set it and every
+successful login signs the user straight back out, locking out the admin who
+set it. `@auth_paths` in both `Setting.SettingsForm` (save time) and `Routes`
+(read time, since `update_setting/2` bypasses the changeset) covers log-in,
+log-out, register, confirm, magic-link, qr-login and reset-password.
+
 > ⚠️ **`Routes.local_path?/1` is the only redirect guard in the codebase.** It
 > rejects `//`, `/\`, and **ASCII control characters**. The control-character
 > rule is load-bearing: browsers strip tab/CR/LF while parsing a URL, so
@@ -74,6 +84,16 @@ open redirect.
 > but LiveView's `validate_local_url!` only rejects `\\` and a leading `//`, so
 > **any** LiveView `redirect(to: ...)` of user-influenced input must go through
 > `local_path?/1`.
+
+### Carrying `return_to` between auth pages
+
+Every route that can start a login threads the pending destination:
+`Routes.return_to_query/1` appends it to the links between login, register,
+magic-link, QR and the OAuth buttons, the magic-link *email* carries it in its
+URL (re-sanitized by `MagicLinkVerify` before it reaches the session), and
+`log_in_user/3` honors a `"return_to"` param as well as the session key. Adding
+a new sign-in entry point means threading it there too, or the destination dies
+the moment a user switches method.
 
 ## Email confirmation
 
@@ -103,6 +123,23 @@ It subscribes **before** re-reading the user, so a confirmation committed
 between the on_mount load and the subscribe cannot be missed. The email-link
 LiveView (`Users.Confirmation`) resolves the same destination, so the two tabs
 can never diverge.
+
+## Enumeration and abuse surfaces
+
+Public auth endpoints must answer identically whether or not an account exists,
+which means **rate-limiting before the lookup, not inside the send**:
+
+- **Password reset** limited inside `deliver_*`, i.e. only for addresses that
+  resolved to a user. Past the threshold a registered address got "Too many
+  password reset requests" while an unknown one still got the generic notice —
+  N+1 requests turned the deliberately vague copy into a precise oracle.
+- **Confirmation resend** had no limit at all: every request for an existing
+  unconfirmed account inserted a token and sent mail synchronously, so it was
+  both an unauthenticated targeted-mail-flood vector and a timing oracle.
+  `RateLimiter.check_confirmation_resend_rate_limit/1` now runs first.
+- **Magic-link registration request** answered "This email is already
+  registered", which login and magic-link login never do. It returns the same
+  generic confirmation as a success now.
 
 ## Soft-failure paths need `rescue` AND `catch :exit`
 
@@ -149,6 +186,15 @@ The flash group belongs **inside** the LiveView tree: LayoutWrapper's per-branch
 twice with duplicate `flash-<kind>` element ids (which breaks LiveView DOM
 patching) and froze at its dead-render value, since the root layout does not
 re-render on connected updates. Don't add one back.
+
+## Testing notes
+
+Rate limiting keys on the peer from `Plug.Conn.get_peer_data/1`, **not**
+`conn.remote_ip` — and the test adapter reports the same peer for every conn,
+so a file that logs in repeatedly exhausts one shared bucket (15/min) and later
+tests get bounced to the login page under some seed orderings. Hammer 7 removed
+bucket deletion, so isolate rather than reset: give each test its own peer (see
+`with_peer/2` in `auth_flows_test.exs`).
 
 Related: LayoutWrapper's standalone fallback (no `config :phoenix_kit, layout:`)
 renders content only. It previously nested a second full `Layouts.root` document

@@ -411,14 +411,37 @@ defmodule PhoenixKit.Settings.Setting do
     # Validates a redirect-target setting is a local path (optional field —
     # allows empty). Same rule as `Routes.local_path?/1`: must start with a
     # single "/" so a saved setting can never become an open redirect.
+    # Every path that bounces an authenticated visitor elsewhere, plus log-out.
+    # Setting the post-login destination to any of them loops forever; pointing
+    # it at `/users/log-out` is worse — it is a real GET route, so every
+    # successful login immediately signs the user back out and nobody, including
+    # the admin who set it, can stay in to undo it.
+    @auth_paths ~w(/users/log-in /users/log-out /users/register /users/confirm
+    /users/magic-link /users/qr-login /users/reset-password)
+
     defp validate_local_path(changeset, field) do
-      validate_change(changeset, field, fn ^field, value ->
-        if String.trim(value) == "" or RouteUtils.local_path?(value) do
-          []
-        else
-          [{field, "must be a local path starting with \"/\""}]
+      changeset
+      |> update_change(field, &String.trim/1)
+      |> validate_change(field, fn ^field, value ->
+        cond do
+          value == "" ->
+            []
+
+          not RouteUtils.local_path?(value) ->
+            [{field, "must be a local path starting with \"/\""}]
+
+          auth_page?(value) ->
+            [{field, "cannot point at a sign-in page (it would loop)"}]
+
+          true ->
+            []
         end
       end)
+    end
+
+    defp auth_page?(value) do
+      path = value |> String.split(["?", "#"], parts: 2) |> hd() |> String.trim_trailing("/")
+      Enum.any?(@auth_paths, &(path == &1 or String.ends_with?(path, &1)))
     end
 
     # Validates URL format (optional field - allows empty)

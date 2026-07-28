@@ -118,8 +118,28 @@ defmodule PhoenixKit.Admin.Events do
   """
   def broadcast_user_confirmed(user) do
     broadcast(@topic_users, {:user_confirmed, user})
+    broadcast(user_confirmation_topic(user.uuid), {:user_confirmed, user})
     maybe_broadcast_stats_updated()
   end
+
+  @doc """
+  Topic carrying only one user's confirmation.
+
+  Lets an unconfirmed user's own parked page wait for its own event without
+  subscribing to the site-wide admin users feed — which would put every other
+  user's `%User{}` struct in a non-admin's mailbox, and fan every admin action
+  out to every parked session.
+  """
+  @spec user_confirmation_topic(binary()) :: String.t()
+  def user_confirmation_topic(user_uuid) when is_binary(user_uuid),
+    do: "phoenix_kit:user_confirmed:#{user_uuid}"
+
+  @doc """
+  Subscribes to `user_confirmation_topic/1` for one user.
+  """
+  @spec subscribe_to_user_confirmation(binary()) :: :ok | {:error, term()}
+  def subscribe_to_user_confirmation(user_uuid) when is_binary(user_uuid),
+    do: Manager.subscribe(user_confirmation_topic(user_uuid))
 
   @doc """
   Broadcasts user unconfirmation event to admin panels.

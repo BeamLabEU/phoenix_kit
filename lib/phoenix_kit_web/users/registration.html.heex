@@ -201,7 +201,7 @@
         <%!-- Magic Link Registration --%>
         <%= if @magic_link_registration_enabled do %>
           <.link
-            navigate={Routes.path("/users/register/magic-link")}
+            navigate={Routes.path("/users/register/magic-link") <> Routes.return_to_query(@return_to)}
             class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
           >
             <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
@@ -209,7 +209,10 @@
           </.link>
         <% end %>
         <%!-- OAuth authentication --%>
-        <PhoenixKitWeb.Components.OAuthButtons.oauth_buttons show_divider={false} />
+        <PhoenixKitWeb.Components.OAuthButtons.oauth_buttons
+          show_divider={false}
+          return_to={@return_to}
+        />
       </div>
     </div>
   <% end %>
@@ -218,7 +221,7 @@
   <div class="text-center mt-4 text-sm">
     <span>{gettext("Already have an account?")}</span>
     <.link
-      navigate={Routes.path("/users/log-in")}
+      navigate={Routes.path("/users/log-in") <> Routes.return_to_query(@return_to)}
       class="font-semibold text-primary hover:underline"
     >
       {gettext("Sign in")}

@@ -14,13 +14,15 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Utils.Routes
 
-  def mount(%{"token" => token}, session, socket) do
+  def mount(%{"token" => token} = params, session, socket) do
     form = to_form(%{"token" => token}, as: "user")
 
     # Same destination rule as the parked /users/confirm page, so the tab that
     # clicks the emailed link and a tab parked waiting for confirmation don't
-    # land in two different places.
-    destination = Routes.post_auth_path([session["user_return_to"]])
+    # land in two different places. `?return_to=` is read as well as the
+    # session key because a LiveView gate can only pass the destination in the
+    # query string — it has no conn to `put_session` on.
+    destination = Routes.post_auth_path([params["return_to"], session["user_return_to"]])
 
     {:ok, assign(socket, form: form, destination: destination), temporary_assigns: [form: nil]}
   end

@@ -23,22 +23,34 @@ defmodule PhoenixKitWeb.Users.Session do
   alias PhoenixKitWeb.Users.MultiSession
 
   def create(conn, %{"_action" => "registered"} = params) do
-    conn
-    |> maybe_store_after_registration_path()
-    |> create(params, "Account created successfully!")
+    create(conn, params, "Account created successfully!", :registered)
   end
 
   def create(conn, %{"_action" => "password_updated"} = params) do
-    conn
-    |> put_session(:user_return_to, Routes.path("/dashboard/settings"))
-    |> create(params, "Password updated successfully!")
+    create(
+      conn,
+      carry_remember_me(conn, params),
+      "Password updated successfully!",
+      :password_updated
+    )
   end
 
   def create(conn, params) do
-    create(conn, params, "Welcome back!")
+    create(conn, params, "Welcome back!", :login)
   end
 
-  defp create(conn, %{"user" => user_params}, info) do
+  # The destination is stashed only once the credentials check out. Doing it up
+  # front leaked it into the failure branches, so a rejected registration
+  # handoff left `after_registration_path` in the session and the user's NEXT
+  # ordinary login landed on the registration page.
+  defp stash_destination(conn, :registered), do: maybe_store_after_registration_path(conn)
+
+  defp stash_destination(conn, :password_updated),
+    do: put_session(conn, :user_return_to, Routes.path("/dashboard/settings"))
+
+  defp stash_destination(conn, _), do: conn
+
+  defp create(conn, %{"user" => user_params}, info, action) do
     %{"password" => password} = user_params
     # Support both old "email" field and new "email_or_username" field for backwards compatibility
     email_or_username = user_params["email_or_username"] || user_params["email"]
@@ -58,6 +70,7 @@ defmodule PhoenixKitWeb.Users.Session do
       {:ok, user} ->
         # Valid credentials and active account
         conn
+        |> stash_destination(action)
         |> maybe_store_return_to_from_params(user_params)
         |> put_flash(:info, info)
         |> UserAuth.log_in_user(user, user_params)
@@ -127,6 +140,23 @@ defmodule PhoenixKitWeb.Users.Session do
       redirect(conn, to: Routes.path("/"))
     end
   end
+
+  # Changing a password deletes every token for the user, the one inside the
+  # live remember-me cookie included, and the dashboard form that re-logs them
+  # in carries no checkbox. Without this the user keeps a cookie pointing at a
+  # deleted token: fine until the browser drops its session cookie, then a
+  # silent sign-out — the exact failure this module's remember-me work exists
+  # to prevent. Re-authenticating as themselves, so carrying their existing
+  # choice forward is right; an absent cookie stays absent.
+  defp carry_remember_me(conn, %{"user" => user_params} = params) do
+    if UserAuth.remembered?(conn) do
+      %{params | "user" => Map.put(user_params, "remember_me", "true")}
+    else
+      params
+    end
+  end
+
+  defp carry_remember_me(_conn, params), do: params
 
   # Configured landing page for freshly registered accounts
   # (`after_registration_path` setting; empty = fall through to the

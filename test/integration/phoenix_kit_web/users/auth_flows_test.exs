@@ -24,10 +24,33 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
 
   # Seed a throwaway Owner so users created inside tests get their intended
   # role rather than the first-user Owner promotion.
-  setup do
+  #
+  # Each test also gets its own source IP. Login rate limiting keys on the IP
+  # (15/min) as well as the address, and this file performs several logins per
+  # test; sharing 127.0.0.1 let a busy run exhaust the bucket and bounce later
+  # tests back to the login page. Hammer 7 dropped bucket deletion, so a unique
+  # IP is the way to isolate rather than reset.
+  setup %{conn: conn} do
     {:ok, seed} = Auth.register_user(%{email: unique_email(), password: @password})
     {:ok, _} = Auth.admin_confirm_user(seed)
-    :ok
+    {:ok, conn: with_peer(conn, unique_ip())}
+  end
+
+  defp unique_ip do
+    n = System.unique_integer([:positive])
+    {127, 1, n |> div(256) |> rem(256), rem(n, 256)}
+  end
+
+  # Rate limiting reads the peer via `Plug.Conn.get_peer_data/1`, NOT
+  # `conn.remote_ip` — and the test adapter reports the same peer for every
+  # conn, so all 56 tests shared one login bucket (15/min) and a busy ordering
+  # bounced later tests back to the login page. Giving each test its own peer
+  # models distinct clients; Hammer 7 removed bucket deletion, so isolating
+  # beats resetting.
+  defp with_peer(conn, ip) do
+    {adapter, payload} = conn.adapter
+    peer = %{address: ip, port: 111_317, ssl_cert: nil}
+    %{conn | adapter: {adapter, Map.put(payload, :peer_data, peer)}, remote_ip: ip}
   end
 
   defp register_user(attrs \\ %{}) do
@@ -59,6 +82,35 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
     after
       1000 -> flunk("no confirmation token was generated")
     end
+  end
+
+  # A non-persistent login must leave no USABLE cookie. It may still appear in
+  # resp_cookies as an explicit expiry (value "", max_age 0) — that is the
+  # stronger outcome: it actively clears a stale cookie whose token a password
+  # change may have deleted, rather than leaving it to keep failing for 60 days.
+  defp persistent_cookie?(conn) do
+    case conn.resp_cookies[@remember_me_cookie] do
+      %{value: v} when is_binary(v) and v != "" ->
+        Map.get(conn.resp_cookies[@remember_me_cookie], :max_age) != 0
+
+      _ ->
+        false
+    end
+  end
+
+  # A genuinely-signed remember-me cookie, minted the way a real login does —
+  # hand-signing it needs a secret_key_base the bare test conn doesn't carry.
+  defp remember_me_cookie_for(user) do
+    conn =
+      post(with_peer(build_conn(), unique_ip()), Routes.path("/users/log-in"), %{
+        "user" => %{
+          "email_or_username" => user.email,
+          "password" => @password,
+          "remember_me" => "true"
+        }
+      })
+
+    conn.resp_cookies[@remember_me_cookie].value
   end
 
   defp login_conn(conn, user) do
@@ -110,7 +162,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         })
 
       assert redirected_to(conn)
-      refute Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      refute persistent_cookie?(conn)
     end
 
     test "plain login with the checkbox still sets the cookie", %{conn: conn} do
@@ -125,7 +177,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
           }
         })
 
-      assert Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      assert persistent_cookie?(conn)
     end
   end
 
@@ -341,7 +393,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         })
 
       assert redirected_to(conn)
-      refute Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      refute persistent_cookie?(conn)
     end
 
     test "enabled=false makes magic-link login session-only", %{conn: conn} do
@@ -352,7 +404,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       conn = get(conn, Routes.path("/users/magic-link/#{token}"))
 
       assert redirected_to(conn)
-      refute Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      refute persistent_cookie?(conn)
     end
 
     test "default=false makes magic-link login session-only (no checkbox to tick)",
@@ -364,7 +416,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       conn = get(conn, Routes.path("/users/magic-link/#{token}"))
 
       assert redirected_to(conn)
-      refute Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      refute persistent_cookie?(conn)
     end
 
     test "unticking the box keeps a login session-only", %{conn: conn} do
@@ -381,7 +433,7 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
         })
 
       assert redirected_to(conn)
-      refute Map.has_key?(conn.resp_cookies, @remember_me_cookie)
+      refute persistent_cookie?(conn)
     end
 
     test "helpers reflect the settings" do
@@ -692,6 +744,211 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       lv |> element("#confirmation_form") |> render_submit()
 
       assert_redirect(lv, "/protected-page")
+    end
+  end
+
+  describe "review round 2 regressions" do
+    test "changing a password keeps the persistent session alive", %{conn: conn} do
+      user = confirmed_user()
+
+      # Password change deletes EVERY token, the one inside the live cookie
+      # included. The re-login handoff carries no checkbox, so without
+      # carry_remember_me/2 the user kept a cookie pointing at a dead token.
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Test.put_req_cookie(@remember_me_cookie, remember_me_cookie_for(user))
+        |> post(Routes.path("/users/log-in?_action=password_updated"), %{
+          "user" => %{"email_or_username" => user.email, "password" => @password}
+        })
+
+      assert redirected_to(conn)
+      assert persistent_cookie?(conn)
+    end
+
+    test "a login without remember-me clears a stale cookie", %{conn: conn} do
+      user = confirmed_user()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Test.put_req_cookie(@remember_me_cookie, remember_me_cookie_for(user))
+        |> post(Routes.path("/users/log-in"), %{
+          "user" => %{"email_or_username" => user.email, "password" => @password}
+        })
+
+      # Explicitly expired, not merely "not set" — a stale cookie whose token
+      # is gone must not survive to keep failing for 60 days.
+      assert %{max_age: 0} = conn.resp_cookies[@remember_me_cookie]
+      refute persistent_cookie?(conn)
+    end
+
+    test "remember_me_enabled=false stops an already-issued cookie working", %{conn: conn} do
+      user = confirmed_user()
+
+      # Obtain a genuinely-signed cookie the way a real login does.
+      logged_in =
+        post(conn, Routes.path("/users/log-in"), %{
+          "user" => %{
+            "email_or_username" => user.email,
+            "password" => @password,
+            "remember_me" => "true"
+          }
+        })
+
+      %{value: cookie} = logged_in.resp_cookies[@remember_me_cookie]
+
+      Settings.update_setting("remember_me_enabled", "false")
+
+      restored =
+        build_conn()
+        |> Plug.Test.put_req_cookie(@remember_me_cookie, cookie)
+        |> Map.put(:secret_key_base, PhoenixKitWeb.Endpoint.config(:secret_key_base))
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> UserAuth.fetch_phoenix_kit_current_user([])
+
+      # Blocking new cookies while still honoring old ones would let every
+      # cookie issued before the switch keep working for its full 60 days.
+      refute restored.assigns.phoenix_kit_current_user
+    end
+
+    test "magic-link registration confirms the account", %{conn: _conn} do
+      email = unique_email()
+      {:ok, _email, token} = MagicLinkRegistration.send_registration_link(email)
+
+      {:ok, user} =
+        MagicLinkRegistration.complete_registration(token, %{"password" => @password})
+
+      # Clicking the emailed link proves inbox control. Unconfirmed, the user
+      # would be parked at /users/confirm with no email ever sent to escape it.
+      assert user.confirmed_at
+    end
+
+    test "magic-link registration ignores client-supplied custom_fields" do
+      email = unique_email()
+      {:ok, _email, token} = MagicLinkRegistration.send_registration_link(email)
+
+      {:ok, user} =
+        MagicLinkRegistration.complete_registration(token, %{
+          "password" => @password,
+          "custom_fields" => %{"oauth_avatar_url" => "http://evil.example/x.png"}
+        })
+
+      # complete_registration/3 is a context call, so it legitimately accepts
+      # custom_fields; the LiveView strips them before they ever get here.
+      # This pins that the changeset itself never took confirmed_at.
+      assert user.confirmed_at
+    end
+
+    test "an expired registration token does not crash the completion flow" do
+      email = unique_email()
+      {:ok, _email, token} = MagicLinkRegistration.send_registration_link(email)
+      :ok = MagicLinkRegistration.delete_registration_token(token)
+
+      assert {:error, :invalid_token} =
+               MagicLinkRegistration.complete_registration(token, %{"password" => @password})
+    end
+
+    test "the after-login path cannot be set to a sign-in page" do
+      # /users/log-out is the nastiest of these: a real GET route, so it would
+      # sign the user straight back out on every login, locking out the admin
+      # who set it too.
+      for loop <- [
+            "/users/log-in",
+            "/users/log-out",
+            "/users/register",
+            "/users/confirm",
+            "/users/magic-link",
+            "/users/qr-login",
+            "/users/reset-password",
+            "/users/log-in/"
+          ] do
+        cs = Settings.validate_settings(%{"after_login_path" => loop})
+        assert cs.errors[:after_login_path], "expected #{loop} to be rejected"
+      end
+
+      refute Settings.validate_settings(%{"after_login_path" => "/dashboard"}).errors[
+               :after_login_path
+             ]
+    end
+
+    test "a hand-edited loop path is still refused at read time" do
+      # update_setting/2 bypasses the changeset, so the guard has to hold on
+      # the read side too.
+      Settings.update_setting("after_login_path", "/users/log-out")
+      assert Routes.post_auth_path([]) == "/"
+    end
+
+    test "magic-link login honors a return_to carried by the emailed link", %{conn: conn} do
+      user = confirmed_user()
+      {:ok, _user, token} = MagicLink.generate_magic_link(user.email)
+
+      conn =
+        get(conn, Routes.path("/users/magic-link/#{token}") <> "?return_to=/checkout")
+
+      assert redirected_to(conn) == "/checkout"
+    end
+
+    test "magic-link login ignores a non-local return_to", %{conn: conn} do
+      user = confirmed_user()
+      {:ok, _user, token} = MagicLink.generate_magic_link(user.email)
+
+      conn =
+        get(
+          conn,
+          Routes.path("/users/magic-link/#{token}") <>
+            "?return_to=" <> URI.encode_www_form("https://evil.example")
+        )
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "auth pages hand return_to to each other", %{conn: conn} do
+      html =
+        conn
+        |> get(Routes.path("/users/log-in") <> "?return_to=/checkout")
+        |> html_response(200)
+
+      # Switching sign-in method or heading to registration must not silently
+      # drop the destination the user was sent here to reach.
+      assert html =~ "return_to=%2Fcheckout"
+    end
+
+    test "redirect paths are trimmed on save" do
+      cs = Settings.validate_settings(%{"after_login_path" => "  /dashboard  "})
+      refute cs.errors[:after_login_path]
+      assert Ecto.Changeset.get_change(cs, :after_login_path) == "/dashboard"
+    end
+
+    test "a failed registration handoff does not stash the destination", %{conn: conn} do
+      Settings.update_setting("after_registration_path", "/onboarding")
+      user = register_user()
+
+      conn =
+        post(conn, Routes.path("/users/log-in?_action=registered"), %{
+          "user" => %{"email_or_username" => user.email, "password" => "WrongPassword123!"}
+        })
+
+      assert redirected_to(conn) == Routes.path("/users/log-in")
+      refute get_session(conn, :user_return_to)
+    end
+
+    test "confirmation resend is rate limited", %{conn: conn} do
+      user = register_user()
+      # A parked (logged-in, unconfirmed) user stays on the page after
+      # submitting, so the response can be inspected repeatedly.
+      {:ok, lv, _html} = live(login_conn(conn, user), Routes.path("/users/confirm"))
+
+      # Well past the 3-per-5-minutes budget. Every response stays identical so
+      # the throttle can't be used to tell registered addresses apart.
+      for _ <- 1..6 do
+        html =
+          lv
+          |> form("#resend_confirmation_form", %{"user" => %{"email" => user.email}})
+          |> render_submit()
+
+        refute html =~ "Too many"
+      end
     end
   end
 end

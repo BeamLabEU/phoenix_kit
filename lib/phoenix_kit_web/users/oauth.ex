@@ -156,14 +156,25 @@ if Code.ensure_loaded?(Ueberauth) do
       end
     end
 
-    defp maybe_put_session(conn, _key, nil), do: conn
+    # Set-or-CLEAR, never leave the previous attempt's value behind. A no-op on
+    # nil meant an abandoned OAuth attempt handed its stale return_to or
+    # referral attribution to whatever login came next.
+    defp maybe_put_session(conn, key, nil), do: delete_session(conn, key)
     defp maybe_put_session(conn, key, value), do: put_session(conn, key, value)
 
     defp maybe_set_add_account_intent(conn, %{"add_account" => "1"}) do
       put_session(conn, @add_account_intent_key, "add_account")
     end
 
-    defp maybe_set_add_account_intent(conn, _params), do: conn
+    defp maybe_set_add_account_intent(conn, _params),
+      do: delete_session(conn, @add_account_intent_key)
+
+    defp clear_oauth_session_keys(conn) do
+      conn
+      |> delete_session(:oauth_referral_code)
+      |> delete_session(:oauth_return_to)
+      |> delete_session(@add_account_intent_key)
+    end
 
     defp oauth_enabled_in_settings? do
       Settings.get_boolean_setting("oauth_enabled", false)
@@ -291,8 +302,9 @@ if Code.ensure_loaded?(Ueberauth) do
       Logger.warning("PhoenixKit: OAuth authentication failure: #{inspect(failure)}")
 
       conn
-      # Clear the add-account marker so a later normal sign-in can't inherit it.
-      |> delete_session(@add_account_intent_key)
+      # Clear every transient OAuth key so a later normal sign-in can't inherit
+      # this abandoned attempt's redirect target or referral attribution.
+      |> clear_oauth_session_keys()
       |> put_flash(:error, error_message)
       |> redirect(to: Routes.path("/users/log-in"))
     end
@@ -302,8 +314,9 @@ if Code.ensure_loaded?(Ueberauth) do
       Logger.error("PhoenixKit: Unexpected OAuth callback without auth or failure")
 
       conn
-      # Clear the add-account marker so a later normal sign-in can't inherit it.
-      |> delete_session(@add_account_intent_key)
+      # Clear every transient OAuth key so a later normal sign-in can't inherit
+      # this abandoned attempt's redirect target or referral attribution.
+      |> clear_oauth_session_keys()
       |> put_flash(:error, "Authentication failed. Please try again.")
       |> redirect(to: Routes.path("/users/log-in"))
     end

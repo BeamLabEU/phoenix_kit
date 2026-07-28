@@ -76,6 +76,9 @@ defmodule PhoenixKit.Users.RateLimiter do
     # Password reset: 3 requests per 5 minutes per email
     password_reset_limit: 3,
     password_reset_window_ms: 300_000,
+    # Confirmation resend: 3 requests per 5 minutes per email
+    confirmation_resend_limit: 3,
+    confirmation_resend_window_ms: 300_000,
     # Registration: 3 attempts per hour per email
     registration_limit: 3,
     registration_window_ms: 3_600_000,
@@ -170,6 +173,37 @@ defmodule PhoenixKit.Users.RateLimiter do
 
       {:error, :rate_limit_exceeded} = error ->
         log_rate_limit_violation("magic_link", email, limit, window)
+        error
+    end
+  end
+
+  @doc """
+  Checks if confirmation-email resends are within rate limit.
+
+  The resend form is public and unauthenticated: each accepted request inserts
+  a token and sends mail, so without a limit it is both a targeted mail-flood
+  vector and — because only existing unconfirmed accounts do that work — a
+  measurable oracle for which addresses are registered but unconfirmed.
+
+  ## Examples
+
+      iex> PhoenixKit.Users.RateLimiter.check_confirmation_resend_rate_limit("user@example.com")
+      :ok
+  """
+  def check_confirmation_resend_rate_limit(email) when is_binary(email) do
+    email = normalize_email(email)
+    config = get_config()
+
+    key = "auth:confirmation_resend:#{email}"
+    limit = Keyword.get(config, :confirmation_resend_limit)
+    window = Keyword.get(config, :confirmation_resend_window_ms)
+
+    case check_rate_limit(key, window, limit) do
+      :ok ->
+        :ok
+
+      {:error, :rate_limit_exceeded} = error ->
+        log_rate_limit_violation("confirmation_resend", email, limit, window)
         error
     end
   end

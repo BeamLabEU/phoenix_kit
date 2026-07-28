@@ -156,7 +156,17 @@ settings live on the admin Users settings page (`/admin/settings/users`).
   `/\`, and **ASCII control characters** (browsers strip tab/CR/LF, so
   `"/\t/evil.com"` lands as `//evil.com`; `Phoenix.Controller.redirect/2` blocks
   those but LiveView's `validate_local_url!` does not). Every LiveView
-  `redirect(to: ...)` of user-influenced input MUST go through it.
+  `redirect(to: ...)` of user-influenced input MUST go through it. The path
+  settings are additionally refused if they point at a page that bounces an
+  authenticated visitor — including **`/users/log-out`**, a real GET route that
+  would sign every user straight back out.
+- **Carrying `return_to`:** `Routes.return_to_query/1` threads it across the
+  links between login/register/magic-link/QR/OAuth, and the magic-link email
+  carries it in its URL. A new sign-in entry point must thread it too.
+- ⚠️ **Public auth endpoints rate-limit BEFORE the lookup** — limiting inside
+  the send only throttles addresses that resolve to a user, which turns the
+  deliberately generic copy into an account-existence oracle. Password reset had
+  exactly that shape; confirmation resend had no limit at all.
 - **Email confirmation:** `require_email_confirmation` (default true) gates
   *enforcement* only; emails always send. Honored at **six** sites — the
   `require_authenticated_user` / `require_authenticated_scope` plugs and the
@@ -172,6 +182,10 @@ settings live on the admin Users settings page (`/admin/settings/users`).
 - ⚠️ **Flash belongs inside the LiveView tree** (LayoutWrapper / dashboard / host
   layout). `root.html.heex` deliberately has none — a copy there double-rendered
   every message with duplicate ids and froze at its dead-render value.
+- ⚠️ Rate limiting keys on `Plug.Conn.get_peer_data/1`, **not**
+  `conn.remote_ip`, and the test adapter reports one peer for every conn — so a
+  login-heavy test file shares a single bucket and gets bounced under some
+  seeds. Give each test its own peer (`with_peer/2` in `auth_flows_test.exs`).
 - ⚠️ A `disabled` `<.checkbox>` still submits its **un-disabled** hidden
   `value="false"` fallback, silently rewriting the setting on save. Don't use
   `disabled` to mean "inactive right now" in a settings form.

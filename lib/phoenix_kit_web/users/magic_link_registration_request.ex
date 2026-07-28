@@ -80,13 +80,16 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
          |> assign(:error_message, nil)
          |> put_flash(:info, "Registration link sent! Check your email.")}
 
+      # Deliberately indistinguishable from success: saying "already
+      # registered" here turned this public form into an account-existence
+      # oracle, while login and magic-link login both answer generically.
       {:error, :email_already_exists} ->
         {:noreply,
-         error_state(
-           socket,
-           "This email is already registered. Please log in instead.",
-           "Email already exists"
-         )}
+         socket
+         |> assign(:email_sent, true)
+         |> assign(:loading, false)
+         |> assign(:error_message, nil)
+         |> put_flash(:info, "Registration link sent! Check your email.")}
 
       {:error, :invalid_email} ->
         {:noreply,

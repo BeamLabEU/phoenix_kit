@@ -51,6 +51,13 @@ defmodule PhoenixKitWeb.Hooks.InvitationHook do
        when not is_nil(confirmed_at),
        do: true
 
+  # With `require_email_confirmation` off, an unconfirmed account is a fully
+  # usable one — gating the banner on `confirmed_at` would leave an invited
+  # user no way to join their organization at all, since the auto-accept path
+  # also only runs on confirmation.
+  defp confirmed_person?(%{account_type: "person"}),
+    do: not PhoenixKit.Settings.get_boolean_setting("require_email_confirmation", true)
+
   defp confirmed_person?(_), do: false
 
   defp handle_invitation_event("accept_invitation", %{"uuid" => uuid}, socket) do

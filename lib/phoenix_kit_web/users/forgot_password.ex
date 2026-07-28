@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
@@ -18,31 +19,31 @@ defmodule PhoenixKitWeb.Users.ForgotPassword do
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
-    result =
-      if user = Auth.get_user_by_email(email) do
-        Auth.deliver_user_reset_password_instructions(
-          user,
-          &Routes.url("/users/reset-password/#{&1}")
-        )
-      else
-        {:ok, nil}
-      end
-
-    case result do
-      {:ok, _} ->
-        info =
-          "If your email is in our system, you will receive instructions to reset your password shortly."
-
-        {:noreply,
-         socket
-         |> put_flash(:info, info)
-         |> redirect(to: "/")}
+    # Rate-limit BEFORE the lookup, and answer identically whatever happens.
+    # The limiter used to run inside deliver_*, i.e. only for addresses that
+    # resolved to a user — so past the threshold a registered address got
+    # "Too many password reset requests" while an unregistered one still got
+    # the generic notice. That turned the deliberately vague copy into a
+    # precise account-existence oracle: N+1 requests told you the answer.
+    case RateLimiter.check_password_reset_rate_limit(email) do
+      :ok ->
+        if user = Auth.get_user_by_email(email) do
+          Auth.deliver_user_reset_password_instructions(
+            user,
+            &Routes.url("/users/reset-password/#{&1}")
+          )
+        end
 
       {:error, :rate_limit_exceeded} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Too many password reset requests. Please try again later.")
-         |> redirect(to: Routes.path("/users/log-in"))}
+        :throttled
     end
+
+    info =
+      "If your email is in our system, you will receive instructions to reset your password shortly."
+
+    {:noreply,
+     socket
+     |> put_flash(:info, info)
+     |> redirect(to: "/")}
   end
 end

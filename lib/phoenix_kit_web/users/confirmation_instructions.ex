@@ -13,10 +13,12 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
   - On mount, an already-confirmed user is redirected onward immediately —
     covers a confirmation done elsewhere (or directly in the DB) followed
     by a refresh, since the user is reloaded from the DB on every mount.
-  - While parked, the LiveView listens for the `{:user_confirmed, user}`
-    event (broadcast by both the email-link flow and the admin confirm
-    action) and redirects onward live, no refresh needed — e.g. when the
-    user clicks the emailed link in another tab.
+  - While parked, the LiveView listens on this user's own confirmation topic
+    for `{:user_confirmed, user}` (broadcast by both the email-link flow and
+    the admin confirm action) and redirects onward live, no refresh needed —
+    e.g. when the user clicks the emailed link in another tab. It is a
+    per-user topic, not the site-wide admin users feed, so a parked
+    non-admin never receives other users' structs.
 
   "Onward" is `?return_to=` (stashed by the gate that parked them), then
   the session's `user_return_to`, then the `after_login_path` setting.
@@ -25,6 +27,7 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
@@ -48,7 +51,7 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
         # the page would sit there forever despite promising to continue
         # automatically. Re-reading after subscribing closes that window —
         # either the re-read sees it, or the broadcast reaches us.
-        if connected?(socket), do: Events.subscribe_to_users()
+        if connected?(socket), do: Events.subscribe_to_user_confirmation(user.uuid)
 
         if connected?(socket) and confirmed_since_mount?(user) do
           {:ok, redirect(socket, to: destination)}
@@ -70,7 +73,12 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
   end
 
   def handle_event("send_instructions", %{"user" => %{"email" => email}}, socket) do
-    if user = Auth.get_user_by_email(email) do
+    # Throttle BEFORE the lookup and answer identically either way. This form
+    # is public: only an existing unconfirmed account does work (insert a token,
+    # send mail), so an unthrottled endpoint is both a targeted mail-flood
+    # vector and a timing oracle for which addresses are registered.
+    with :ok <- RateLimiter.check_confirmation_resend_rate_limit(email),
+         %{} = user <- Auth.get_user_by_email(email) do
       Auth.deliver_user_confirmation_instructions(
         user,
         &Routes.url("/users/confirm/#{&1}")
@@ -105,7 +113,7 @@ defmodule PhoenixKitWeb.Users.ConfirmationInstructions do
     end
   end
 
-  # The admin users topic also carries created/updated/deleted/etc. events.
+  # Defensive: the topic carries only this user's confirmation today.
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   defp resolve_destination(params, session) do

@@ -9,6 +9,8 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   """
 
   import Ecto.Query, warn: false
+
+  require Logger
   alias PhoenixKit.RepoHelper, as: Repo
 
   alias PhoenixKit.Config
@@ -16,7 +18,6 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
   alias PhoenixKit.Users.Referrals
-  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"
@@ -161,10 +162,10 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   defp do_complete_registration(email, attrs, ip_address, token) do
     {referral_code, attrs} = Map.pop(attrs, "referral_code")
 
-    attrs =
-      attrs
-      |> Map.put("email", email)
-      |> Map.put("confirmed_at", UtilsDate.utc_now())
+    # `confirmed_at` is NOT settable here: `registration_changeset/3` casts a
+    # fixed allowlist that omits it, so putting it in attrs was silently
+    # dropped. The account is confirmed explicitly after insert instead.
+    attrs = Map.put(attrs, "email", email)
 
     track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
 
@@ -182,10 +183,30 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
         end
 
         delete_registration_token(token)
-        {:ok, user}
+
+        # Clicking the emailed link already proved control of this inbox, so
+        # the account is confirmed. Without this the user is auto-logged-in and
+        # immediately parked at /users/confirm — and this flow never sends a
+        # confirmation email, so there is no link to click and the only way out
+        # is the resend form.
+        {:ok, confirm_registered_user(user)}
 
       {:error, changeset} ->
         {:error, changeset}
+    end
+  end
+
+  defp confirm_registered_user(user) do
+    case Auth.admin_confirm_user(user) do
+      {:ok, confirmed} ->
+        confirmed
+
+      {:error, reason} ->
+        Logger.warning(
+          "[PhoenixKit] magic-link registration could not confirm #{user.uuid}: #{inspect(reason)}"
+        )
+
+        user
     end
   end
 

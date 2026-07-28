@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkVerify do
   3. Redirects to the appropriate post-login destination
   4. Handles invalid/expired tokens gracefully
   """
-  def verify(conn, %{"token" => token}) do
+  def verify(conn, %{"token" => token} = params) do
     case MagicLink.verify_magic_link(token) do
       {:ok, user} ->
         # A magic-link user just proved control of their own inbox on this
@@ -29,7 +29,10 @@ defmodule PhoenixKitWeb.Users.MagicLinkVerify do
         # cookie the login rides a browser-session cookie that mobile browsers
         # drop overnight. There's no checkbox to tick when arriving from an
         # email, so this follows the site-wide policy setting.
+        # log_in_user/3 reads :user_return_to from the session, so stash the
+        # (re-sanitized) destination the emailed link carried before signing in.
         conn
+        |> maybe_store_return_to(params["return_to"])
         |> put_flash(:info, "Successfully logged in with magic link!")
         |> UserAuth.log_in_user(user, UserAuth.remember_me_params())
 
@@ -44,5 +47,13 @@ defmodule PhoenixKitWeb.Users.MagicLinkVerify do
     conn
     |> put_flash(:error, "Invalid magic link. Please request a new one.")
     |> redirect(to: Routes.path("/users/log-in"))
+  end
+
+  defp maybe_store_return_to(conn, return_to) do
+    if Routes.local_path?(return_to) do
+      put_session(conn, :user_return_to, return_to)
+    else
+      conn
+    end
   end
 end

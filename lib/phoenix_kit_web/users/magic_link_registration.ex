@@ -69,6 +69,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   @impl true
   def handle_event("validate", %{"user" => user_params} = params, socket) do
     referral_code = params["referral_code"]
+    user_params = form_params(user_params)
 
     # Track the checkbox across re-renders so unticking it sticks.
     socket = assign(socket, :remember_me, user_params["remember_me"] == "true")
@@ -105,6 +106,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   @impl true
   def handle_event("save", %{"user" => user_params} = params, socket) do
     referral_code = params["referral_code"]
+    user_params = form_params(user_params)
 
     case validate_referral_code(referral_code, socket) do
       {:ok, _validated_code} ->
@@ -128,6 +130,16 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
 
           {:error, %Ecto.Changeset{} = changeset} ->
             {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}
+
+          # `complete_registration/3` also returns bare atoms — `:invalid_token`
+          # once the token expires while the form sits open, and
+          # `:email_already_exists` if the address is claimed in between.
+          # Without these clauses either outcome was a CaseClauseError.
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, completion_error_message(reason))
+             |> redirect(to: Routes.path("/users/register/magic-link"))}
         end
 
       {:error, error_message} ->
@@ -140,6 +152,23 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
         {:noreply, socket}
     end
   end
+
+  defp completion_error_message(:email_already_exists),
+    do: "That email is already registered. Please log in instead."
+
+  defp completion_error_message(_),
+    do: "Registration link is invalid or has expired. Please request a new one."
+
+  # Only what this form legitimately owns. `registration_changeset/3` also casts
+  # `custom_fields` and the geo columns — fine for server-side callers, but a
+  # phx-submit payload is whatever the client sends.
+  @form_fields ~w(email username password first_name last_name account_type
+                  organization_name user_timezone remember_me return_to)
+
+  defp form_params(user_params) when is_map(user_params),
+    do: Map.take(user_params, @form_fields)
+
+  defp form_params(other), do: other
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     form = to_form(changeset, as: "user")

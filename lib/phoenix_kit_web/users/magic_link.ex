@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   alias PhoenixKitWeb.Users.Auth
 
   @impl true
-  def mount(_params, session, socket) do
+  def mount(params, session, socket) do
     case Auth.maybe_redirect_authenticated(socket) do
       {:redirect, socket} ->
         {:ok, socket}
@@ -41,13 +41,19 @@ defmodule PhoenixKitWeb.Users.MagicLink do
 
         form = to_form(%{"email" => ""}, as: "magic_link")
 
+        # Carried into the emailed link so a user sent here from a protected
+        # page still lands there after clicking it. Sanitized on the way in and
+        # again on the way out.
+        return_to = if Routes.local_path?(params["return_to"]), do: params["return_to"]
+
         {:ok,
          socket
          |> assign(:page_title, "Magic Link Login")
          |> assign(:form, form)
          |> assign(:sent, false)
          |> assign(:loading, false)
-         |> assign(:error, nil)}
+         |> assign(:error, nil)
+         |> assign(:return_to, return_to)}
     end
   end
 
@@ -67,7 +73,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
        |> assign(:form, form)
        |> assign(:loading, true)
        |> assign(:error, nil)
-       |> send_magic_link_async(email)}
+       |> send_magic_link_async(email, socket.assigns[:return_to])}
     else
       form = to_form(%{"email" => email}, as: "magic_link")
 
@@ -107,8 +113,8 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   end
 
   # Send magic link email to user and handle response
-  defp send_magic_link_email_to_user(user, token) do
-    magic_link_url = MagicLink.magic_link_url(token)
+  defp send_magic_link_email_to_user(user, token, return_to) do
+    magic_link_url = MagicLink.magic_link_url(token) <> Routes.return_to_query(return_to)
 
     case Mailer.send_magic_link_email(user, magic_link_url) do
       {:ok, _} -> {:ok, user}
@@ -117,11 +123,11 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   end
 
   # Process the magic link sending in the background
-  defp send_magic_link_async(socket, email) do
+  defp send_magic_link_async(socket, email, return_to) do
     Phoenix.LiveView.start_async(socket, :send_magic_link, fn ->
       case MagicLink.generate_magic_link(email) do
         {:ok, user, token} ->
-          send_magic_link_email_to_user(user, token)
+          send_magic_link_email_to_user(user, token, return_to)
 
         {:error, :user_not_found} ->
           # For security, we simulate the same delay as successful case

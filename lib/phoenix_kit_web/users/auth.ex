@@ -164,8 +164,13 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
+  # Not a remembered login — clear any cookie this browser still holds. Logging
+  # in mints a new token and (on a password change) deletes the old ones, so a
+  # carried-over cookie would point at a dead token: it survives until the
+  # browser drops its session cookie, then silently signs the user out and
+  # keeps failing for the cookie's full 60 days.
   defp maybe_write_remember_me_cookie(conn, _token, _params) do
-    conn
+    delete_resp_cookie(conn, @remember_me_cookie)
   end
 
   @doc """
@@ -201,6 +206,19 @@ defmodule PhoenixKitWeb.Users.Auth do
   @spec remember_me_params() :: map()
   def remember_me_params do
     if remember_me_default?(), do: %{"remember_me" => "true"}, else: %{}
+  end
+
+  @doc """
+  Whether this request already carries a persistent remember-me cookie.
+
+  Lets a re-login flow that has no checkbox of its own (the password-change
+  handoff) preserve the choice the user already made, instead of silently
+  downgrading them to a session-only login.
+  """
+  @spec remembered?(Plug.Conn.t()) :: boolean()
+  def remembered?(conn) do
+    conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+    is_binary(conn.cookies[@remember_me_cookie])
   end
 
   # This function renews the session ID and erases the whole
@@ -426,8 +444,19 @@ defmodule PhoenixKitWeb.Users.Auth do
       conn = fetch_cookies(conn, signed: [@remember_me_cookie])
 
       case conn.cookies[@remember_me_cookie] do
-        token when is_binary(token) -> {token, put_token_in_session(conn, token)}
-        _ -> {nil, conn}
+        token when is_binary(token) ->
+          # Honor the master switch on READ too, not just on write. Blocking new
+          # cookies while still accepting old ones would let every cookie issued
+          # before the switch was turned off keep restoring sessions for its
+          # full 60 days — the opposite of what turning it off means.
+          if remember_me_enabled?() do
+            {token, put_token_in_session(conn, token)}
+          else
+            {nil, delete_resp_cookie(conn, @remember_me_cookie)}
+          end
+
+        _ ->
+          {nil, conn}
       end
     end
   end
@@ -1787,6 +1816,24 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKit.Settings.get_boolean_setting("require_email_confirmation", true)
   end
 
+  # Shared confirmation gate for the role-based conn plugs. They check the role
+  # but never the email, and the shipped `:phoenix_kit_admin_only` pipeline runs
+  # `require_admin` with NO preceding `require_authenticated_*` — so a host
+  # controller route behind it enforced confirmation nowhere, even at the
+  # default. Returns `:cont` or an already-halted conn.
+  defp confirmation_gate(conn, scope) do
+    if Scope.authenticated?(scope) and not email_confirmed?(scope) and confirmation_required?() do
+      {:halt,
+       conn
+       |> put_flash(:error, "Please confirm your email before accessing the application.")
+       |> maybe_store_return_to()
+       |> redirect(to: Routes.path("/users/confirm"))
+       |> halt()}
+    else
+      :cont
+    end
+  end
+
   @doc """
   Used for routes that require the user to be an owner.
 
@@ -1797,13 +1844,19 @@ defmodule PhoenixKitWeb.Users.Auth do
   def require_owner(conn, _opts) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        if Scope.owner?(scope) do
-          conn
-        else
-          conn
-          |> put_flash(:error, "You must be an owner to access this page.")
-          |> redirect(to: "/")
-          |> halt()
+        case confirmation_gate(conn, scope) do
+          {:halt, conn} ->
+            conn
+
+          :cont ->
+            if Scope.owner?(scope) do
+              conn
+            else
+              conn
+              |> put_flash(:error, "You must be an owner to access this page.")
+              |> redirect(to: "/")
+              |> halt()
+            end
         end
 
       _ ->
@@ -1824,21 +1877,30 @@ defmodule PhoenixKitWeb.Users.Auth do
   def require_admin(conn, _opts) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        cond do
-          Scope.can_access_admin_area?(scope) ->
+        case confirmation_gate(conn, scope) do
+          {:halt, conn} ->
             conn
 
-          Scope.authenticated?(scope) ->
-            conn
-            |> put_flash(:error, "You do not have the required permission to access this page.")
-            |> redirect(to: "/")
-            |> halt()
+          :cont ->
+            cond do
+              Scope.can_access_admin_area?(scope) ->
+                conn
 
-          true ->
-            conn
-            |> put_flash(:error, "You must log in to access this page.")
-            |> redirect(to: Routes.path("/users/log-in"))
-            |> halt()
+              Scope.authenticated?(scope) ->
+                conn
+                |> put_flash(
+                  :error,
+                  "You do not have the required permission to access this page."
+                )
+                |> redirect(to: "/")
+                |> halt()
+
+              true ->
+                conn
+                |> put_flash(:error, "You must log in to access this page.")
+                |> redirect(to: Routes.path("/users/log-in"))
+                |> halt()
+            end
         end
 
       _ ->
@@ -1854,24 +1916,33 @@ defmodule PhoenixKitWeb.Users.Auth do
   def require_module_access(conn, module_key) when is_binary(module_key) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        cond do
-          not Scope.can_access_admin_area?(scope) ->
-            conn
-            |> put_flash(:error, "You do not have the required permission to access this page.")
-            |> redirect(to: "/")
-            |> halt()
-
-          # Disabled modules are blocked for everyone (Owner included), matching
-          # the LiveView mount and plug gates.
-          Scope.has_module_access?(scope, module_key) and
-              MapSet.member?(Permissions.enabled_module_keys(), module_key) ->
+        case confirmation_gate(conn, scope) do
+          {:halt, conn} ->
             conn
 
-          true ->
-            conn
-            |> put_flash(:error, "You do not have permission to access this section.")
-            |> redirect(to: best_available_admin_path(scope))
-            |> halt()
+          :cont ->
+            cond do
+              not Scope.can_access_admin_area?(scope) ->
+                conn
+                |> put_flash(
+                  :error,
+                  "You do not have the required permission to access this page."
+                )
+                |> redirect(to: "/")
+                |> halt()
+
+              # Disabled modules are blocked for everyone (Owner included), matching
+              # the LiveView mount and plug gates.
+              Scope.has_module_access?(scope, module_key) and
+                  MapSet.member?(Permissions.enabled_module_keys(), module_key) ->
+                conn
+
+              true ->
+                conn
+                |> put_flash(:error, "You do not have permission to access this section.")
+                |> redirect(to: best_available_admin_path(scope))
+                |> halt()
+            end
         end
 
       _ ->
@@ -1884,13 +1955,19 @@ defmodule PhoenixKitWeb.Users.Auth do
   def require_role(conn, role_name) when is_binary(role_name) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        if Scope.has_role?(scope, role_name) do
-          conn
-        else
-          conn
-          |> put_flash(:error, "You must have the #{role_name} role to access this page.")
-          |> redirect(to: "/")
-          |> halt()
+        case confirmation_gate(conn, scope) do
+          {:halt, conn} ->
+            conn
+
+          :cont ->
+            if Scope.has_role?(scope, role_name) do
+              conn
+            else
+              conn
+              |> put_flash(:error, "You must have the #{role_name} role to access this page.")
+              |> redirect(to: "/")
+              |> halt()
+            end
         end
 
       _ ->
