@@ -32,7 +32,8 @@ defmodule PhoenixKitWeb.Users.QrLogin do
       :cont ->
         # `return_to` is a post-login destination the browser carries through
         # the whole handoff (mint → approve → finish); sanitized against open
-        # redirects up front. remember_me defaults off, toggled on this page.
+        # redirects up front. remember_me starts at the site default and is
+        # toggled on this page.
         socket = assign(socket, :return_to, sanitize_return_to(params["return_to"]))
 
         cond do
@@ -141,7 +142,8 @@ defmodule PhoenixKitWeb.Users.QrLogin do
   defp assign_common(socket) do
     socket
     |> assign(:project_title, PhoenixKit.Settings.get_project_title())
-    |> assign_new(:remember_me, fn -> false end)
+    |> assign_new(:remember_me_available, fn -> Auth.remember_me_enabled?() end)
+    |> assign_new(:remember_me, fn -> Auth.remember_me_default?() end)
   end
 
   defp panel_labels do

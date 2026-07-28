@@ -97,6 +97,20 @@ defmodule PhoenixKit.Settings do
       "project_title" => "PhoenixKit",
       "site_url" => "",
       "allow_registration" => "true",
+      # Enforce email confirmation before the app is usable ("true"/"false").
+      # Confirmation emails send either way — this only gates enforcement.
+      "require_email_confirmation" => "true",
+      # Session persistence policy. `remember_me_enabled` is the site-wide
+      # master switch: off = no flow may write the persistent cookie and the
+      # checkbox disappears. `remember_me_default` decides whether that
+      # checkbox starts checked (and is what the no-UI flows — magic-link
+      # login, OAuth — follow, since there's nothing to tick there).
+      "remember_me_enabled" => "true",
+      "remember_me_default" => "true",
+      # Local paths users land on after signing in / registering.
+      # after_registration_path empty = fall back to after_login_path.
+      "after_login_path" => "/",
+      "after_registration_path" => "",
       "oauth_enabled" => "false",
       "oauth_google_enabled" => "false",
       "oauth_github_enabled" => "false",
@@ -194,6 +208,19 @@ defmodule PhoenixKit.Settings do
         nil -> nil
       end
     end
+  rescue
+    # An unreachable database surfaces BOTH ways — a checkout with no owner
+    # raises, a dead pool/owner exits — and this function previously handled
+    # neither, so a transient DB problem crashed every caller (including the
+    # login redirect resolver). "No setting" is the honest answer; it lets
+    # each caller apply its own documented default.
+    error ->
+      Logger.warning("Settings read for #{inspect(key)} failed: #{inspect(error)}")
+      nil
+  catch
+    :exit, reason ->
+      Logger.warning("Settings read for #{inspect(key)} exited: #{inspect(reason)}")
+      nil
   end
 
   @doc """
@@ -325,6 +352,16 @@ defmodule PhoenixKit.Settings do
       # Cache system unavailable, fallback to regular database query
       Logger.warning("Settings cache error: #{inspect(error)}, falling back to database")
       get_setting(key, default)
+  catch
+    # A connection-pool failure EXITS rather than raising (`DBConnection`
+    # checkout against a stopped/unowned pool), so `rescue` alone never
+    # covered a genuinely unreachable database — the caller crashed instead
+    # of getting its default. Only reachable on a cache MISS, which is why it
+    # showed up as rare flakiness rather than a hard failure: a warm cache
+    # never touches the pool, and any write to any setting invalidates it.
+    :exit, reason ->
+      Logger.warning("Settings read for #{inspect(key)} exited: #{inspect(reason)}")
+      default
   end
 
   @doc """

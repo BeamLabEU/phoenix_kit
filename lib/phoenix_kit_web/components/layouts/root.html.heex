@@ -167,9 +167,15 @@
     <% end %> --%>
 
     <%!-- Maintenance mode is now handled via redirect to /maintenance LiveView --%>
+    <%!-- No flash group here: flash is owned by the layer INSIDE the LiveView
+         tree (LayoutWrapper's per-branch `<.flash_group>`, the dashboard
+         layout, or the host's own layout). A copy here rendered every flash
+         twice with duplicate `flash-<kind>` element ids, and — being outside
+         the LiveView — it froze at its dead-render value while the real one
+         updated. Controllers here all redirect rather than render, so their
+         flash surfaces at the (LiveView) destination. --%>
     <main class="py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <.flash_group id="flash-group-root" flash={@flash} />
         {@inner_content}
       </div>
     </main>

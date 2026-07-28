@@ -14,14 +14,22 @@ defmodule PhoenixKitWeb.Users.Confirmation do
   alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Utils.Routes
 
-  def mount(%{"token" => token}, _session, socket) do
+  def mount(%{"token" => token}, session, socket) do
     form = to_form(%{"token" => token}, as: "user")
-    {:ok, assign(socket, form: form), temporary_assigns: [form: nil]}
+
+    # Same destination rule as the parked /users/confirm page, so the tab that
+    # clicks the emailed link and a tab parked waiting for confirmation don't
+    # land in two different places.
+    destination = Routes.post_auth_path([session["user_return_to"]])
+
+    {:ok, assign(socket, form: form, destination: destination), temporary_assigns: [form: nil]}
   end
 
   # Do not log in the user after confirmation to avoid a
   # leaked token giving the user access to the account.
   def handle_event("confirm_account", %{"user" => %{"token" => token}}, socket) do
+    destination = socket.assigns.destination
+
     case Auth.confirm_user(token) do
       {:ok, user} ->
         maybe_accept_pending_invitation(user)
@@ -29,7 +37,7 @@ defmodule PhoenixKitWeb.Users.Confirmation do
         {:noreply,
          socket
          |> put_flash(:info, "User confirmed successfully.")
-         |> redirect(to: "/")}
+         |> redirect(to: destination)}
 
       :error ->
         # If there is a current user and the account was already confirmed,
@@ -39,7 +47,7 @@ defmodule PhoenixKitWeb.Users.Confirmation do
         case socket.assigns do
           %{phoenix_kit_current_user: %{confirmed_at: confirmed_at}}
           when not is_nil(confirmed_at) ->
-            {:noreply, redirect(socket, to: "/")}
+            {:noreply, redirect(socket, to: destination)}
 
           %{} ->
             {:noreply,

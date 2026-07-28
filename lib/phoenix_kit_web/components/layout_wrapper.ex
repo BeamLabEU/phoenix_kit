@@ -912,16 +912,25 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     """
   end
 
-  # Fallback to PhoenixKit's own layout
+  # Standalone fallback (no `config :phoenix_kit, layout:` — core's own
+  # dev/test, or a minimal host): render content only. The document shell
+  # already comes from the router's `put_root_layout` (Layouts.root), so
+  # rendering `<PhoenixKitWeb.Layouts.root>` here nested a SECOND full
+  # document inside the LiveView — and, worse, the spread carried
+  # `app_layout`'s `attr :inner_content, default: nil` into a template that
+  # renders `{@inner_content}`, so the actual page content was swallowed
+  # entirely (empty login/register pages in standalone mode). The flash
+  # group must render HERE, inside the LiveView's tree — the root layout's
+  # copy is static after the dead render, so connected `put_flash` updates
+  # would never display through it.
   defp render_with_phoenix_kit_layout(assigns) do
     # Wrap inner content with admin navigation if needed
     assigns = wrap_inner_block_with_admin_nav_if_needed(assigns)
 
     ~H"""
-    <PhoenixKitWeb.Layouts.root {prepare_phoenix_kit_assigns(assigns)}>
-      <.invitation_banners invitations={@pk_pending_invitations} />
-      {render_slot(@inner_block)}
-    </PhoenixKitWeb.Layouts.root>
+    <.flash_group flash={@flash} />
+    <.invitation_banners invitations={@pk_pending_invitations} />
+    {render_slot(@inner_block)}
     """
   end
 
@@ -944,13 +953,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     |> Map.put_new(:phoenix_kit_integrated, true)
     |> Map.put_new(:phoenix_kit_version, get_phoenix_kit_version())
     |> Map.put_new(:phoenix_version_info, PhoenixVersion.get_version_info())
-    |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
-  end
-
-  # Prepare assigns specifically for PhoenixKit layout
-  defp prepare_phoenix_kit_assigns(assigns) do
-    assigns
-    |> Map.put_new(:phoenix_kit_standalone, true)
     |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
   end
 

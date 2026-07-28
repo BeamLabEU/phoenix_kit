@@ -5,12 +5,23 @@
   current_path={assigns[:url_path] || "/users/confirm"}
   dev_mailbox_message={gettext("confirmation emails")}
 >
-  <h1 class="text-2xl font-bold text-center mb-2">
-    {gettext("No confirmation instructions received?")}
-  </h1>
-  <p class="text-center text-base-content/60 text-sm mb-6">
-    {gettext("We'll send a new confirmation link to your inbox")}
-  </p>
+  <%= if @awaiting_confirmation? do %>
+    <h1 class="text-2xl font-bold text-center mb-2">
+      {gettext("Confirm your email")}
+    </h1>
+    <p class="text-center text-base-content/60 text-sm mb-6">
+      {gettext(
+        "We sent a confirmation link to your inbox. This page continues automatically once your email is confirmed."
+      )}
+    </p>
+  <% else %>
+    <h1 class="text-2xl font-bold text-center mb-2">
+      {gettext("No confirmation instructions received?")}
+    </h1>
+    <p class="text-center text-base-content/60 text-sm mb-6">
+      {gettext("We'll send a new confirmation link to your inbox")}
+    </p>
+  <% end %>
   <.form for={@form} id="resend_confirmation_form" phx-submit="send_instructions">
     <fieldset class="fieldset min-w-0">
       <legend class="fieldset-legend sr-only">{gettext("Resend Confirmation")}</legend>

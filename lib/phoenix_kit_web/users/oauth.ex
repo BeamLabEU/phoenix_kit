@@ -252,9 +252,14 @@ if Code.ensure_loaded?(Ueberauth) do
               flash_message =
                 "Successfully signed in with #{format_provider_name(auth.provider)}!"
 
+              # No checkbox in an OAuth round-trip, so persistence follows the
+              # site-wide policy setting.
+              login_params =
+                Map.put(UserAuth.remember_me_params(), "return_to", return_to)
+
               conn
               |> put_flash(:info, flash_message)
-              |> UserAuth.log_in_user(user, %{"remember_me" => "true", "return_to" => return_to})
+              |> UserAuth.log_in_user(user, login_params)
           end
 
         {:error, %Ecto.Changeset{} = changeset} ->

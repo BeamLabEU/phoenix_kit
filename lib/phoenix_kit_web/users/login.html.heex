@@ -51,10 +51,13 @@
         </:icon>
       </.input>
 
-      <div class="form-control mt-4">
+      <%!-- Checked by default (site-configurable); users can untick it for a
+           session-only login, and the site can forbid persistence entirely. --%>
+      <div :if={@remember_me_available} class="form-control mt-4">
         <.checkbox
           id="user_remember_me"
           name="user[remember_me]"
+          checked={@remember_me}
           label={gettext("Keep me logged in")}
         />
       </div>

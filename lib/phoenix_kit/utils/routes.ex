@@ -34,6 +34,13 @@ defmodule PhoenixKit.Utils.Routes do
   which browsers resolve as protocol-relative, host-switching URLs. Use this to
   guard user-supplied redirect params against open-redirect attacks.
 
+  ASCII control characters are rejected too. Browsers strip tab/CR/LF while
+  parsing a URL, so `"/\\t/evil.example"` (from `?return_to=%2F%09%2Fevil.example`)
+  becomes `//evil.example` — a cross-origin navigation — once it reaches
+  `window.location`. `Phoenix.Controller.redirect/2` blocks those itself, but
+  LiveView's `validate_local_url!` only rejects `\\\\` and a leading `//`, so a
+  LiveView `redirect(socket, to: ...)` would otherwise pass it through.
+
   ## Examples
 
       iex> PhoenixKit.Utils.Routes.local_path?("/admin/dashboard")
@@ -42,16 +49,59 @@ defmodule PhoenixKit.Utils.Routes do
       false
       iex> PhoenixKit.Utils.Routes.local_path?("https://evil.com")
       false
+      iex> PhoenixKit.Utils.Routes.local_path?("/\\t/evil.com")
+      false
 
   """
   @spec local_path?(term()) :: boolean()
   def local_path?(path) when is_binary(path) do
     String.starts_with?(path, "/") and
       not String.starts_with?(path, "//") and
-      not String.starts_with?(path, "/\\")
+      not String.starts_with?(path, "/\\") and
+      not contains_control_char?(path)
   end
 
   def local_path?(_), do: false
+
+  # ASCII control chars (C0 + DEL). Checked bytewise: a control char is
+  # single-byte in UTF-8 and can never appear inside a multi-byte sequence.
+  defp contains_control_char?(path) do
+    path
+    |> :binary.bin_to_list()
+    |> Enum.any?(fn byte -> byte <= 0x1F or byte == 0x7F end)
+  end
+
+  @doc """
+  Resolves where to send a user once they are signed in and confirmed.
+
+  Takes candidate destinations in priority order (e.g. a `?return_to=` param,
+  then the session's `user_return_to`) and returns the first that passes
+  `local_path?/1`. Falls back to the `after_login_path` setting, and finally
+  to `"/"`.
+
+  The setting is validated as a local path when saved, but is re-guarded here
+  so a hand-edited DB row can't turn a post-auth redirect into an open
+  redirect. Single source of truth for the post-auth landing page — used by
+  the login flow (`signed_in_path/1`) and by both confirmation LiveViews.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Routes.post_auth_path(["/checkout"])
+      "/checkout"
+      iex> PhoenixKit.Utils.Routes.post_auth_path(["https://evil.com", nil])
+      "/"
+
+  """
+  @spec post_auth_path([term()]) :: String.t()
+  def post_auth_path(candidates \\ []) when is_list(candidates) do
+    Enum.find(candidates, &local_path?/1) || after_login_path()
+  end
+
+  defp after_login_path do
+    path = PhoenixKit.Settings.get_setting("after_login_path", "/")
+
+    if local_path?(path), do: path, else: "/"
+  end
 
   # NOTE: Locale override logic below exists for the publishing component system integration.
   # Switch to the upcoming media/storage helpers once they land.
@@ -184,6 +234,13 @@ defmodule PhoenixKit.Utils.Routes do
     end
   rescue
     _ -> "en"
+  catch
+    # A connection-pool failure EXITS rather than raising, so `rescue` alone
+    # never delivered the "path building works without a reachable database"
+    # guarantee above. Seen as a flaky suite failure: the settings read is
+    # ETS-cached, so a DB-less test only reached the pool on a cache miss —
+    # which another test's settings write could cause at any time.
+    :exit, _ -> "en"
   end
 
   # Detect if we're running in a mix task context where the database

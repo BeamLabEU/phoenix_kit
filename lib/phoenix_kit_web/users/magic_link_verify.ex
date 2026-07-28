@@ -24,9 +24,14 @@ defmodule PhoenixKitWeb.Users.MagicLinkVerify do
   def verify(conn, %{"token" => token}) do
     case MagicLink.verify_magic_link(token) do
       {:ok, user} ->
+        # A magic-link user just proved control of their own inbox on this
+        # device, so the session persists by default — without the remember-me
+        # cookie the login rides a browser-session cookie that mobile browsers
+        # drop overnight. There's no checkbox to tick when arriving from an
+        # email, so this follows the site-wide policy setting.
         conn
         |> put_flash(:info, "Successfully logged in with magic link!")
-        |> UserAuth.log_in_user(user)
+        |> UserAuth.log_in_user(user, UserAuth.remember_me_params())
 
       {:error, :invalid_token} ->
         conn

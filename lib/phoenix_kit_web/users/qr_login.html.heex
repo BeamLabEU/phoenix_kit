@@ -23,7 +23,12 @@
     </div>
   </div>
 
-  <form :if={@keyfob} id="qr-login-remember-form" phx-change="set_remember" class="mt-2">
+  <form
+    :if={@keyfob && @remember_me_available}
+    id="qr-login-remember-form"
+    phx-change="set_remember"
+    class="mt-2"
+  >
     <label class="label cursor-pointer justify-center gap-2">
       <input
         type="checkbox"

@@ -32,6 +32,8 @@
     action={Routes.path("/users/log-in?_action=registered")}
     method="post"
   >
+    <input :if={@return_to} type="hidden" name="user[return_to]" value={@return_to} />
+
     <%!-- Silently captures the browser's UTC offset so new accounts start
          with a timezone instead of "Not set" — no UI, just a value the
          TimezoneOffset hook fills in before submit. Never overwrites an
@@ -155,6 +157,19 @@
             <PhoenixKitWeb.Components.Core.Icons.icon_lock class="h-[1em] w-[1em] opacity-50" />
           </:icon>
         </.input>
+      </div>
+
+      <%!-- Checked by default so a new account stays signed in on this device;
+           without the persistent cookie the session rides a browser-session
+           cookie that phones drop overnight. Users can untick it, and the
+           site can change the default (or forbid persistence) in settings. --%>
+      <div :if={@remember_me_available} class="form-control mt-4">
+        <.checkbox
+          id="user_remember_me"
+          name="user[remember_me]"
+          checked={@remember_me}
+          label={gettext("Keep me logged in")}
+        />
       </div>
 
       <button

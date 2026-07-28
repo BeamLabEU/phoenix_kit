@@ -99,4 +99,54 @@ defmodule PhoenixKit.Utils.RoutesTest do
       assert Routes.admin_path("/admin/users", "en-US") == "/phoenix_kit/en-US/admin/users"
     end
   end
+
+  describe "local_path?/1 — the open-redirect guard" do
+    test "accepts ordinary local paths" do
+      assert Routes.local_path?("/")
+      assert Routes.local_path?("/admin/dashboard")
+      assert Routes.local_path?("/checkout?step=2&x=a+b")
+      assert Routes.local_path?("/ru/профиль")
+      assert Routes.local_path?("/path#fragment")
+    end
+
+    test "rejects host-switching and non-path values" do
+      refute Routes.local_path?("//evil.example")
+      refute Routes.local_path?("/\\evil.example")
+      refute Routes.local_path?("https://evil.example")
+      refute Routes.local_path?("evil.example")
+      refute Routes.local_path?(nil)
+      refute Routes.local_path?(:not_a_string)
+      refute Routes.local_path?("")
+    end
+
+    # Browsers strip tab/CR/LF while parsing a URL, so "/\t/evil.example"
+    # reaches window.location as "//evil.example" — a cross-origin
+    # navigation. Phoenix.Controller.redirect/2 rejects these itself, but
+    # LiveView's validate_local_url! only blocks "\\" and a leading "//",
+    # so this guard is the one thing standing between a LiveView
+    # redirect(to: ...) and an open redirect.
+    test "rejects ASCII control characters browsers strip" do
+      refute Routes.local_path?("/\t/evil.example")
+      refute Routes.local_path?("/\n/evil.example")
+      refute Routes.local_path?("/\r/evil.example")
+      refute Routes.local_path?("/\0/evil.example")
+      refute Routes.local_path?("/\x7F/evil.example")
+      refute Routes.local_path?("/ok/path\r\nX-Injected: 1")
+    end
+
+    test "rejects control characters anywhere in the path, not just up front" do
+      refute Routes.local_path?("/legit/looking/path\t/evil.example")
+    end
+  end
+
+  describe "post_auth_path/1" do
+    # The settings fallback needs a DB; these cases all short-circuit on a
+    # valid candidate before reaching it.
+    test "returns the first candidate that passes the guard" do
+      assert Routes.post_auth_path(["/checkout"]) == "/checkout"
+      assert Routes.post_auth_path([nil, "/second"]) == "/second"
+      assert Routes.post_auth_path(["https://evil.example", "/safe"]) == "/safe"
+      assert Routes.post_auth_path(["/\t/evil.example", "/safe"]) == "/safe"
+    end
+  end
 end

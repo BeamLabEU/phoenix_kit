@@ -10,10 +10,11 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   @impl true
   def mount(%{"token" => token}, _session, socket) do
-    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+    case WebAuth.maybe_redirect_authenticated(socket) do
       {:redirect, socket} ->
         {:ok, socket}
 
@@ -52,6 +53,8 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
              |> assign(:referral_code_error, nil)
              |> assign(:trigger_submit, false)
              |> assign(:check_errors, false)
+             |> assign(:remember_me_available, WebAuth.remember_me_enabled?())
+             |> assign(:remember_me, WebAuth.remember_me_default?())
              |> assign_form(changeset)}
 
           {:error, _} ->
@@ -66,6 +69,9 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   @impl true
   def handle_event("validate", %{"user" => user_params} = params, socket) do
     referral_code = params["referral_code"]
+
+    # Track the checkbox across re-renders so unticking it sticks.
+    socket = assign(socket, :remember_me, user_params["remember_me"] == "true")
 
     case validate_referral_code(referral_code, socket) do
       {:ok, _} ->

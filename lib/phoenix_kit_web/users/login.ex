@@ -56,6 +56,8 @@ defmodule PhoenixKitWeb.Users.Login do
             allow_registration: allow_registration,
             magic_link_enabled: magic_link_enabled,
             qr_login_enabled: qr_login_enabled,
+            remember_me_available: Auth.remember_me_enabled?(),
+            remember_me: Auth.remember_me_default?(),
             return_to: return_to
           )
 

@@ -23,7 +23,9 @@ defmodule PhoenixKitWeb.Users.Session do
   alias PhoenixKitWeb.Users.MultiSession
 
   def create(conn, %{"_action" => "registered"} = params) do
-    create(conn, params, "Account created successfully!")
+    conn
+    |> maybe_store_after_registration_path()
+    |> create(params, "Account created successfully!")
   end
 
   def create(conn, %{"_action" => "password_updated"} = params) do
@@ -123,6 +125,24 @@ defmodule PhoenixKitWeb.Users.Session do
       redirect(conn, to: params["return_to"])
     else
       redirect(conn, to: Routes.path("/"))
+    end
+  end
+
+  # Configured landing page for freshly registered accounts
+  # (`after_registration_path` setting; empty = fall through to the
+  # after-login default). An explicit destination always wins over the
+  # setting: a return_to already stashed in the session (by an auth gate) is
+  # left alone, and a return_to carried by the form overwrites the session
+  # key afterwards (maybe_store_return_to_from_params/2 runs later in the
+  # shared create/3).
+  defp maybe_store_after_registration_path(conn) do
+    path = PhoenixKit.Settings.get_setting("after_registration_path", "")
+
+    if is_binary(path) and path != "" and Routes.local_path?(path) and
+         is_nil(get_session(conn, :user_return_to)) do
+      put_session(conn, :user_return_to, path)
+    else
+      conn
     end
   end
 

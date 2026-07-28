@@ -605,6 +605,12 @@ defmodule PhoenixKit.Modules.Languages do
     end
   rescue
     _ -> false
+  catch
+    # A connection-pool failure EXITS rather than raising, so `rescue` alone
+    # leaves this "safe" wrapper unsafe. The settings read is ETS-cached, so
+    # the pool is only reached on a cache miss — which is why it surfaced as a
+    # rare flake rather than a consistent failure.
+    :exit, _ -> false
   end
 
   # Mirrors `PhoenixKit.Utils.Routes.mix_task_context?/0` — the

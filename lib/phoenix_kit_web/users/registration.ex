@@ -17,9 +17,10 @@ defmodule PhoenixKitWeb.Users.Registration do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   def mount(params, session, socket) do
-    case PhoenixKitWeb.Users.Auth.maybe_redirect_authenticated(socket) do
+    case WebAuth.maybe_redirect_authenticated(socket) do
       {:redirect, socket} ->
         {:ok, socket}
 
@@ -71,6 +72,10 @@ defmodule PhoenixKitWeb.Users.Registration do
       invitation_token = Map.get(params, "invitation")
       pending_invitation = load_pending_invitation(invitation_token)
 
+      # Support return_to query param for post-registration redirect
+      # (mirrors the login page; wins over the after_registration_path setting)
+      return_to = sanitize_return_to(params["return_to"])
+
       socket =
         socket
         |> assign(trigger_submit: false, check_errors: false)
@@ -86,6 +91,9 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(org_accounts_enabled: org_accounts_enabled)
         |> assign(pending_invitation: pending_invitation)
         |> assign(pending_invitation_token: invitation_token)
+        |> assign(return_to: return_to)
+        |> assign(remember_me_available: WebAuth.remember_me_enabled?())
+        |> assign(remember_me: WebAuth.remember_me_default?())
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
@@ -188,7 +196,14 @@ defmodule PhoenixKitWeb.Users.Registration do
     # the email while it's still auto-managed.
     username_edited = username_manually_edited?(socket, params, user_params)
     user_params = maybe_sync_username(user_params, username_edited)
-    socket = assign(socket, username_edited: username_edited)
+
+    # The form re-renders on every change, so the checkbox has to be driven by
+    # what the user actually left it at — otherwise unticking it would snap
+    # back to the site default on the next keystroke.
+    socket =
+      socket
+      |> assign(username_edited: username_edited)
+      |> assign(remember_me: user_params["remember_me"] == "true")
 
     # Validate referral code and update error state
     case validate_referral_code(referral_code, socket) do
@@ -288,6 +303,11 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64()
+  end
+
+  # Only allow relative paths to prevent open redirect attacks
+  defp sanitize_return_to(path) do
+    if Routes.local_path?(path), do: path, else: nil
   end
 
   defp load_pending_invitation(nil), do: nil

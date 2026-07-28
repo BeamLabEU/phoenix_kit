@@ -135,6 +135,103 @@ The canonical toolkit for admin list views — DnD reorder, bulk-select, sort, s
 
 Tabs, subtabs, badges, context selectors: see `lib/phoenix_kit/dashboard/README.md`.
 
+## Login & Registration
+
+Settings live on the admin **Users settings** page (`/admin/settings/users`).
+
+**Session persistence** is one site-wide policy, two settings, and a visible
+per-user choice:
+
+- `remember_me_enabled` (default true) — master switch. Off hides the checkbox
+  on every auth form AND hard-blocks the cookie in
+  `maybe_write_remember_me_cookie/3`, so no caller (nor a forged param) can
+  persist a session.
+- `remember_me_default` (default true) — whether that checkbox starts
+  **checked**. Users untick it for a session-only login.
+
+Every form with a UI (password login, registration, magic-link completion, QR
+handoff) renders the same pre-checked "Keep me logged in" box. Flows with no UI
+to tick — **magic-link login** (arrives from an email) and **OAuth** (external
+round-trip) — call `Auth.remember_me_params/0` and follow `remember_me_default`.
+Read the policy via `Auth.remember_me_enabled?/0` / `remember_me_default?/0`;
+never hardcode `%{"remember_me" => "true"}` at a call site again.
+
+Why it defaults on: registration used to force a session-only login, so the
+session rode the browser-session cookie that mobile browsers drop when they
+evict the tab — freshly registered users were silently logged out overnight
+(the DB token was fine; nothing referenced it).
+
+⚠️ In the settings UI, do **not** mark a `<.checkbox>` `disabled` to express
+"this doesn't apply right now": the component pairs the box with an
+**un-disabled** hidden `value="false"` input, so a disabled box still submits
+`false` and silently rewrites the stored setting on save.
+
+**Post-auth destination** — one resolver, `Routes.post_auth_path/1`, takes
+candidates in priority order and falls back to the `after_login_path` setting
+then `"/"`. Precedence everywhere: explicit `return_to` (a `?return_to=` param
+or the `:user_return_to` a gate stashed) > `after_registration_path` (registration
+only) > `after_login_path`. `log_in_user/3` honors a `"return_to"` in its params
+map as well as the session key. Both settings are validated as local paths on
+save AND re-guarded at read time, so a hand-edited DB row can't create an open
+redirect.
+
+⚠️ **`Routes.local_path?/1` is the only redirect guard** — it rejects `//`,
+`/\`, and **ASCII control characters**. The control-char rule is load-bearing:
+browsers strip tab/CR/LF while parsing, so `"/\t/evil.com"` becomes
+`//evil.com`. `Phoenix.Controller.redirect/2` blocks those itself, but
+LiveView's `validate_local_url!` only rejects `\\` and a leading `//` — so any
+LiveView `redirect(to: ...)` of user-influenced input MUST go through
+`local_path?/1`.
+
+**Email confirmation** — `require_email_confirmation` (default `"true"`,
+historical behavior) gates enforcement only; confirmation emails always send.
+All **six** enforcement sites honor it: the `require_authenticated_user` /
+`require_authenticated_scope` conn plugs and the `ensure_authenticated`,
+`ensure_authenticated_scope`, `ensure_owner`, `ensure_admin`, and
+`ensure_module_access` on_mount hooks. Add the check to any new gate.
+
+**The parked `/users/confirm` page** moves users along instead of stranding
+them. Gates stash where the user was headed (`?return_to=`), and
+`ConfirmationInstructions` advances (a) on mount when the user is already
+confirmed — covers a `confirmed_at` flipped directly in the DB, then a refresh
+— and (b) live, via the `{:user_confirmed, user}` broadcast, so clicking the
+emailed link in another tab advances the parked tab. It subscribes **before**
+re-reading the user, so a confirmation landing mid-mount can't be missed. The
+email-link LiveView (`Users.Confirmation`) resolves the same destination, so
+the two tabs never diverge.
+
+**Soft-failure paths need `rescue` AND `catch :exit`** — an unreachable
+database surfaces both ways: a checkout with no owner *raises*
+(`DBConnection.OwnershipError`), while a dead pool or a died-mid-flight owner
+*exits*. `Settings.get_setting_cached/2` and the boot-safe URL wrappers had
+`rescue` only (so they leaked exits) and `Settings.get_setting/1` had neither —
+meaning a transient DB problem crashed every caller, including the login
+redirect resolver. All three now carry both clauses and log-then-default.
+
+Because settings reads are ETS-cached, the pool is only touched on a cache
+MISS, so this presented as **suite flakiness**, not a hard failure: DB-less
+unit tests (`routes_test`, `language_refactor_test`, `tab_item_test`) passed on
+a warm cache and died whenever another test's settings write evicted the key.
+`test/integration/settings_unreachable_db_test.exs` pins it. Reproducing "no
+database" in a test needs `async: true` (so sandbox ownership isn't shared)
+**and** `Process.delete(:"$callers")` in the spawned process (Ecto lets a Task
+borrow its caller's connection) — miss either and the test passes vacuously
+against a healthy DB, which is why that file leads with a guard test.
+
+⚠️ **Never evict a real key from the settings cache in a test.** The ETS cache
+is global, so an `async: true` test that evicts `languages_enabled` (or any
+shared key) forces every concurrently-running test to hit the database at
+once — which showed up as unrelated permission-test failures and even a
+Postgres `40P01 deadlock_detected`. Read a unique probe key instead: one that
+exists in neither cache nor database misses inherently, with no eviction and
+no blast radius.
+
+**Flash ownership** — the flash group belongs INSIDE the LiveView tree
+(LayoutWrapper's per-branch `<.flash_group>`, the dashboard layout, or the
+host's layout). `root.html.heex` deliberately has none: a copy there rendered
+every message twice with duplicate `flash-<kind>` ids and froze at its
+dead-render value. Don't add one back.
+
 ## Permissions
 
 `PhoenixKit.Users.Permissions` — allowlist model (row present = granted, absent = denied); Owner always has full access, enforced in code. The moduledoc is the source of truth; highlights:

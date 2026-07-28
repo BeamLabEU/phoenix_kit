@@ -70,6 +70,12 @@
                 wrapper_class="mb-3"
               />
               <.checkbox
+                name="settings[require_email_confirmation]"
+                checked={@settings["require_email_confirmation"] == "true"}
+                label={gettext("Require email confirmation before using the app")}
+                wrapper_class="mb-3"
+              />
+              <.checkbox
                 name="settings[track_registration_geolocation]"
                 checked={@settings["track_registration_geolocation"] == "true"}
                 label={gettext("Track user registration location")}
@@ -91,6 +97,7 @@
                 Enum.any?(
                   [
                     "allow_registration",
+                    "require_email_confirmation",
                     "track_registration_geolocation",
                     "registration_show_username",
                     "enable_organization_accounts"
@@ -118,6 +125,97 @@
                   </div>
                 </div>
               <% end %>
+            </div>
+
+            <.section_header icon="hero-shield-check" title={gettext("Sessions")} />
+
+            <%!-- Site-wide session-persistence policy. The master switch also
+                 hard-blocks the cookie server-side, not just the checkbox. --%>
+            <div class="form-control w-full">
+              <.checkbox
+                name="settings[remember_me_enabled]"
+                checked={@settings["remember_me_enabled"] == "true"}
+                label={gettext("Allow \"Keep me logged in\" (persistent sessions)")}
+                wrapper_class="mb-3"
+              />
+              <%!-- Deliberately NOT `disabled` when the master switch is off:
+                   <.checkbox> renders an un-disabled hidden "false" fallback
+                   next to the box, so a disabled checkbox still submits
+                   "false" and would silently rewrite the stored value. It
+                   simply has no effect while persistence is off. --%>
+              <.checkbox
+                name="settings[remember_me_default]"
+                checked={@settings["remember_me_default"] == "true"}
+                label={gettext("Check it by default (users can still untick it)")}
+              />
+              <div class="text-xs text-base-content/60 mt-1 max-w-prose">
+                {gettext(
+                  "Persistent sessions last 60 days. Magic-link and social logins have no checkbox to tick, so they follow the default above. Turning the first option off hides the checkbox everywhere and keeps every login to the browser session."
+                )}
+              </div>
+              <.unsaved_hint dirty={
+                Enum.any?(
+                  ["remember_me_enabled", "remember_me_default"],
+                  fn key -> @settings[key] != @saved_settings[key] end
+                )
+              } />
+            </div>
+
+            <.section_header
+              icon="hero-arrow-right-circle"
+              title={gettext("Post-Login Redirects")}
+            />
+
+            <%!-- Where users land after signing in / registering. An explicit
+                 return_to (e.g. a protected page that sent them to login)
+                 always wins over these defaults. --%>
+            <div class="form-control w-full">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-control w-full">
+                  <label class="label" for="settings_after_login_path">
+                    <span class="label-text text-base font-medium">
+                      {gettext("After-login path")}
+                    </span>
+                  </label>
+                  <input
+                    id="settings_after_login_path"
+                    type="text"
+                    name="settings[after_login_path]"
+                    value={@settings["after_login_path"]}
+                    placeholder="/"
+                    class="input input-bordered w-full"
+                  />
+                  <div class="text-xs text-base-content/60 mt-1">
+                    {gettext("Local path users land on after signing in.")}
+                  </div>
+                </div>
+                <div class="form-control w-full">
+                  <label class="label" for="settings_after_registration_path">
+                    <span class="label-text text-base font-medium">
+                      {gettext("After-registration path")}
+                    </span>
+                  </label>
+                  <input
+                    id="settings_after_registration_path"
+                    type="text"
+                    name="settings[after_registration_path]"
+                    value={@settings["after_registration_path"]}
+                    placeholder={gettext("Same as after login")}
+                    class="input input-bordered w-full"
+                  />
+                  <div class="text-xs text-base-content/60 mt-1">
+                    {gettext(
+                      "Where a freshly registered account lands. Empty = after-login path."
+                    )}
+                  </div>
+                </div>
+              </div>
+              <.unsaved_hint dirty={
+                Enum.any?(
+                  ["after_login_path", "after_registration_path"],
+                  fn key -> @settings[key] != @saved_settings[key] end
+                )
+              } />
             </div>
 
             <.section_header icon="hero-user-circle" title={gettext("New User Defaults")} />

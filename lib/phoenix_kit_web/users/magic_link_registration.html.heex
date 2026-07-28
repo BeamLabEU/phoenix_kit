@@ -108,6 +108,17 @@
         </div>
       <% end %>
 
+      <%!-- Checked by default so a new account stays signed in on this device
+           (see the note on the password registration form). --%>
+      <div :if={@remember_me_available} class="form-control mt-4">
+        <.checkbox
+          id="user_remember_me"
+          name="user[remember_me]"
+          checked={@remember_me}
+          label={gettext("Keep me logged in")}
+        />
+      </div>
+
       <button
         type="submit"
         class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
