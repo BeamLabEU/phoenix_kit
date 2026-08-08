@@ -1,0 +1,468 @@
+diff --git a/lib/phoenix_kit/migrations/expected_schema.ex b/lib/phoenix_kit/migrations/expected_schema.ex
+index 2de024f6..78721877 100644
+--- a/lib/phoenix_kit/migrations/expected_schema.ex
++++ b/lib/phoenix_kit/migrations/expected_schema.ex
+@@ -49,7 +49,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
+   @schema_token "__SCHEMA__"
+   @name_marker_exempt "__PK_NAME_EXEMPT__"
+   @name_marker_always "__PK_NAME_ALWAYS__"
+-  @chain_hash "cf51d5ef964c08fb1bb892dce77e7194f469565bb6dd85ade7893ab3eace4381"
++  @chain_hash "6af072215691e80e0f10930f5510abefbc69aae7cfc00710dddce6d5faa4c309"
+ 
+   def objects(prefix) do
+     prefix = normalize_prefix!(prefix)
+diff --git a/lib/phoenix_kit/migrations/postgres.ex b/lib/phoenix_kit/migrations/postgres.ex
+index 3fecbb81..f6ba7924 100644
+--- a/lib/phoenix_kit/migrations/postgres.ex
++++ b/lib/phoenix_kit/migrations/postgres.ex
+@@ -399,6 +399,7 @@ defmodule PhoenixKit.Migrations.Postgres do
+ 
+   alias PhoenixKit.Migrations.BelowFloorError
+   alias PhoenixKit.Migrations.Postgres.Helpers
++  alias PhoenixKit.Migrations.Repair.Environment
+ 
+   @initial_version 135
+   @current_version 163
+@@ -423,6 +424,7 @@ defmodule PhoenixKit.Migrations.Postgres do
+   @impl PhoenixKit.Migration
+   def up(opts) do
+     opts = with_defaults(opts, @current_version)
++    acquire_chain_lock!()
+     initial = migrated_version(opts)
+ 
+     case plan_up(initial, opts.version, @initial_version) do
+@@ -454,6 +456,8 @@ defmodule PhoenixKit.Migrations.Postgres do
+       |> Map.put(:escaped_prefix, String.replace(opts.prefix, "'", "\\'"))
+       |> Map.put_new(:create_schema, opts.prefix != @default_prefix)
+ 
++    acquire_chain_lock!()
++
+     current_version = migrated_version(opts)
+ 
+     # Determine target version:
+@@ -908,6 +912,20 @@ defmodule PhoenixKit.Migrations.Postgres do
+     end
+   end
+ 
++  # Same key `PhoenixKit.Migrations.Repair` locks on, so a repair run and a
++  # chain run exclude each other rather than merely detecting the race
++  # afterwards (spec §6.1).
++  #
++  # Transaction-scoped, unlike repair's session-scoped lock: a session lock
++  # taken here would survive a raising migration and ride the connection back
++  # into the pool, where nothing ever unlocks it and every later repair on that
++  # key blocks forever. Under `@disable_ddl_transaction` there is no
++  # surrounding transaction, so this degrades to a no-op instead of leaking.
++  defp acquire_chain_lock! do
++    repo().query!("SELECT pg_advisory_xact_lock($1)", [Environment.lock_key()], log: false)
++    :ok
++  end
++
+   defp record_version(_opts, 0) do
+     # Handle rollback to version 0 - tables are dropped, so we can't update comment
+     # This is expected behavior for complete rollback
+diff --git a/lib/phoenix_kit/migrations/postgres/v163.ex b/lib/phoenix_kit/migrations/postgres/v163.ex
+index 82b6d913..dd649c8e 100644
+--- a/lib/phoenix_kit/migrations/postgres/v163.ex
++++ b/lib/phoenix_kit/migrations/postgres/v163.ex
+@@ -20,9 +20,23 @@ defmodule PhoenixKit.Migrations.Postgres.V163 do
+   immediate `repo().query`, so
+   `add_constraints/1`'s guards ran against `information_schema` state that
+   had not seen the columns `UUIDFKColumns.up/1` had *just* queued moments
+-  earlier in the same call — every guard failed closed, and ~46 `*_uuid`
+-  columns across ~33 tables were silently left nullable instead of NOT
+-  NULL. `phoenix_kit_comments.fk_comments_user_uuid` specifically was never
++  earlier in the same call — every guard failed closed:
++
++    * ~46 `*_uuid` columns across ~33 tables were silently left nullable
++      instead of NOT NULL.
++    * ALL ~70 declared FK constraints (`UUIDFKColumns.fk_constraints/0`)
++      failed the same closed guard, not just the one this version used to
++      single out. Live evidence from a production database that crossed
++      V56/V57 in one migrator invocation: 155 foreign keys existed on
++      `phoenix_kit_*` tables, but only a handful carried the `fk_` naming
++      convention these declarations use — every sampled expected name
++      (`fk_users_tokens_user_uuid`, `fk_role_permissions_role_uuid`,
++      `fk_orders_user_uuid`, …) was absent. An earlier revision of this
++      migration repaired only `phoenix_kit_comments.fk_comments_user_uuid`
++      (item 3 below) on the mistaken premise that it was the sole
++      casualty — understating the fallout by roughly 67 constraints.
++
++  `phoenix_kit_comments.fk_comments_user_uuid` specifically was never
+   created at all (the same guard gap). V72, running later and finding that
+   FK genuinely missing, added it back with a guessed `ON DELETE CASCADE`
+   instead of matching V56/V57's own already-declared `SET NULL` intent
+@@ -93,16 +107,47 @@ defmodule PhoenixKit.Migrations.Postgres.V163 do
+   that is not listed here — a future relaxation cannot silently make this
+   list stale again.
+ 
+-  2. `phoenix_kit_comments.fk_comments_user_uuid`: if it currently has `ON
++  2. For every `{table, uuid_fk, ref_table, ref_col, on_delete}` tuple in
++     `UUIDFKColumns.fk_constraints/0` (the exact same ~70-entry list, not a
++     second copy): if the FK's own table/column or its referenced
++     table/column is absent, the whole tuple is skipped (feature-module
++     tables can legitimately be missing on an install that never enabled
++     that module) and folded into one aggregate warning naming every
++     skipped tuple. Otherwise, if the named constraint
++     (`UUIDFKColumns.fk_constraint_name/2` — the identical name
++     `add_fk_constraint/7` itself would have used) does not already exist,
++     it is added the same way `PhoenixKit.Migrations.Repair.Executor` adds
++     any FK (spec §6.2/§6.3, the repair engine's own rule, not a new one
++     invented here): `NOT VALID` first — metadata-only, no table scan,
++     brief lock — then a separate `VALIDATE CONSTRAINT` — `SHARE UPDATE
++     EXCLUSIVE`, does not block reads or writes, but does scan the table.
++     If validation fails because live rows violate it, the constraint is
++     left `NOT VALID` (new writes are still checked going forward) and a
++     warning names the table, column and the orphan row count — a real
++     `COUNT(*)` diagnostic query, never a guess. Nothing here ever deletes
++     a row or nulls out a reference to force a constraint through: V72's
++     own historical fix for the one comments FK did that, and so does
++     `UUIDFKColumns.add_fk_constraint/7` itself when it first lays down
++     these constraints on a fresh install — both are safe there only
++     because they act on data they just created moments earlier in the
++     same call, never on live, already-deployed data, which is exactly
++     what this repair runs against. Idempotent: a constraint that already
++     exists, `NOT VALID` or fully validated, is left exactly as-is on every
++     re-run — a second run finds everything this pass would have created
++     already present and does nothing.
++
++  3. `phoenix_kit_comments.fk_comments_user_uuid`: if it currently has `ON
+      DELETE CASCADE` (V72's guess, made under the buggy single-shot
+      shape), drops and re-adds it `ON DELETE SET NULL`. No orphan cleanup
+      is needed for that transition — rows cannot be orphaned under an
+      already-enforced CASCADE constraint (every row whose referenced user
+      was deleted would already be gone). If the constraint is absent
+-     entirely (defensive — V72 always runs before this version and its own
+-     add is itself existence-guarded, so this should not happen in
+-     practice), adds it `SET NULL` with the same orphan cleanup V72's own
+-     `add_fk_constraint/7` does. If already `SET NULL`, no-op.
++     entirely — reachable now only if item 2 above also failed to create
++     it (e.g. a validation failure left it `NOT VALID`, which this branch
++     does not treat as "absent"; item 2 always runs first and already
++     covers the ordinary "missing entirely" case with the correct `SET
++     NULL` action) — adds it `SET NULL` with the same orphan cleanup V72's
++     own `add_fk_constraint/7` does. If already `SET NULL`, no-op.
+ 
+   ## down/1
+ 
+@@ -114,6 +159,7 @@ defmodule PhoenixKit.Migrations.Postgres.V163 do
+ 
+   use Ecto.Migration
+ 
++  alias PhoenixKit.Migrations.Repair.Probe
+   alias PhoenixKit.Migrations.UUIDFKColumns
+ 
+   @comments_table "phoenix_kit_comments"
+@@ -172,6 +218,8 @@ defmodule PhoenixKit.Migrations.Postgres.V163 do
+       repair_not_null(table, column, prefix, escaped_prefix)
+     end
+ 
++    repair_missing_fks(prefix, escaped_prefix)
++
+     repair_comments_fk(prefix, escaped_prefix)
+ 
+     execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '163'")
+@@ -231,6 +279,177 @@ defmodule PhoenixKit.Migrations.Postgres.V163 do
+     end
+   end
+ 
++  # ── Missing FK repair ─────────────────────────────────────────────────
++  #
++  # Drives off UUIDFKColumns.fk_constraints/0 (the exact list, not a copy)
++  # and adds every FK that list's own `add_fk_constraint/7` would have
++  # created had the flush bug not made its existence guard fail closed.
++  # Uses the same NOT VALID + VALIDATE two-step
++  # `PhoenixKit.Migrations.Repair.Executor` uses for every FK it creates
++  # (spec §6.2/§6.3) and the same orphan-count diagnostic
++  # (`Repair.Probe.orphan_count/6`, reused rather than duplicated).
++
++  defp repair_missing_fks(prefix, escaped_prefix) do
++    outcomes =
++      Enum.map(UUIDFKColumns.fk_constraints(), fn {table, uuid_fk, ref_table, ref_col, on_delete} ->
++        ensure_fk(table, uuid_fk, ref_table, ref_col, on_delete, prefix, escaped_prefix)
++      end)
++
++    outcomes
++    |> Enum.filter(&match?({:skipped, _reason}, &1))
++    |> Enum.map(fn {:skipped, reason} -> reason end)
++    |> report_skipped_fks()
++  end
++
++  defp ensure_fk(table, uuid_fk, ref_table, ref_col, on_delete, prefix, escaped_prefix) do
++    table_str = Atom.to_string(table)
++
++    cond do
++      not (table_exists?(table_str, escaped_prefix) and
++               column_exists?(table_str, uuid_fk, escaped_prefix)) ->
++        {:skipped, "#{table_str}.#{uuid_fk} (source table/column absent)"}
++
++      not (table_exists?(ref_table, escaped_prefix) and
++               column_exists?(ref_table, ref_col, escaped_prefix)) ->
++        {:skipped,
++         "#{table_str}.#{uuid_fk} -> #{ref_table}.#{ref_col} (referenced table/column absent)"}
++
++      true ->
++        create_fk_if_missing(
++          table_str,
++          uuid_fk,
++          ref_table,
++          ref_col,
++          on_delete,
++          prefix,
++          escaped_prefix
++        )
++    end
++  end
++
++  defp create_fk_if_missing(
++         table_str,
++         uuid_fk,
++         ref_table,
++         ref_col,
++         on_delete,
++         prefix,
++         escaped_prefix
++       ) do
++    constraint = UUIDFKColumns.fk_constraint_name(table_str, uuid_fk)
++
++    if fk_exists?(table_str, constraint, escaped_prefix) do
++      :already_present
++    else
++      table_name = prefix_table_name(table_str, prefix)
++      ref_name = prefix_table_name(ref_table, prefix)
++
++      # NOT VALID first — metadata-only, brief lock, no table scan (spec
++      # §6.2/§6.3; the same rule `PhoenixKit.Migrations.Repair.Executor`
++      # enforces for every FK it creates). Existence was just checked
++      # immediately above, so a bare ADD CONSTRAINT — no `DO $$ IF NOT
++      # EXISTS $$` guard — matches this file's existing convention
++      # (`add_comments_fk/2` below does the same after its own check).
++      execute("""
++      ALTER TABLE #{table_name}
++      ADD CONSTRAINT #{constraint}
++      FOREIGN KEY (#{uuid_fk})
++      REFERENCES #{ref_name}(#{ref_col})
++      ON DELETE #{on_delete}
++      NOT VALID
++      """)
++
++      # Flushed before the immediate VALIDATE/read steps below — otherwise
++      # they would run against pre-ADD state, exactly the ordering bug
++      # this whole migration exists to repair.
++      flush()
++
++      validate_fk(table_str, uuid_fk, ref_table, ref_col, constraint, prefix, escaped_prefix)
++    end
++  end
++
++  defp validate_fk(table_str, uuid_fk, ref_table, ref_col, constraint, prefix, escaped_prefix) do
++    table_name = prefix_table_name(table_str, prefix)
++
++    # PL/pgSQL EXCEPTION handler, not an Elixir rescue — a failing immediate
++    # VALIDATE CONSTRAINT would otherwise abort the surrounding transaction
++    # (25P02), same reasoning as UUIDFKColumns' own backfill DO blocks.
++    execute("""
++    DO $$
++    BEGIN
++      ALTER TABLE #{table_name} VALIDATE CONSTRAINT #{constraint};
++    EXCEPTION
++      WHEN OTHERS THEN
++        NULL;
++    END $$;
++    """)
++
++    flush()
++
++    if fk_validated?(table_str, constraint, escaped_prefix) do
++      :created
++    else
++      count = Probe.orphan_count(repo(), prefix, table_str, uuid_fk, ref_table, ref_col)
++
++      IO.warn(
++        "PhoenixKit V163: added #{constraint} NOT VALID but VALIDATE failed — " <>
++          "#{orphan_message(count)} in #{table_str}.#{uuid_fk} referencing " <>
++          "#{ref_table}.#{ref_col}. Leaving NOT VALID (new writes are still checked). " <>
++          "Investigate and clean up the orphaned rows, then run ALTER TABLE " <>
++          "#{table_name} VALIDATE CONSTRAINT #{constraint} by hand."
++      )
++
++      :not_valid
++    end
++  end
++
++  defp orphan_message(:unknown), do: "an unknown number of orphaned row(s)"
++  defp orphan_message(count), do: "#{count} orphaned row(s)"
++
++  defp report_skipped_fks([]), do: :ok
++
++  defp report_skipped_fks(reasons) do
++    IO.warn(
++      "PhoenixKit V163: skipped #{length(reasons)} FK repair(s) — table or column absent " <>
++        "(expected when the owning feature module was never installed): " <>
++        Enum.join(reasons, "; ")
++    )
++  end
++
++  defp fk_exists?(table_str, constraint, escaped_prefix) do
++    query = """
++    SELECT EXISTS (
++      SELECT 1 FROM pg_constraint c
++      JOIN pg_class t ON t.oid = c.conrelid
++      JOIN pg_namespace n ON n.oid = t.relnamespace
++      WHERE c.conname = '#{constraint}'
++        AND t.relname = '#{table_str}'
++        AND n.nspname = '#{escaped_prefix}'
++    )
++    """
++
++    case repo().query(query, [], log: false) do
++      {:ok, %{rows: [[true]]}} -> true
++      _ -> false
++    end
++  end
++
++  defp fk_validated?(table_str, constraint, escaped_prefix) do
++    query = """
++    SELECT convalidated FROM pg_constraint c
++    JOIN pg_class t ON t.oid = c.conrelid
++    JOIN pg_namespace n ON n.oid = t.relnamespace
++    WHERE c.conname = '#{constraint}'
++      AND t.relname = '#{table_str}'
++      AND n.nspname = '#{escaped_prefix}'
++    """
++
++    case repo().query(query, [], log: false) do
++      {:ok, %{rows: [[true]]}} -> true
++      _ -> false
++    end
++  end
++
+   # ── Comments FK repair ────────────────────────────────────────────────
+ 
+   defp repair_comments_fk(prefix, escaped_prefix) do
+diff --git a/lib/phoenix_kit/migrations/repair.ex b/lib/phoenix_kit/migrations/repair.ex
+index f46b30ff..1fe7841d 100644
+--- a/lib/phoenix_kit/migrations/repair.ex
++++ b/lib/phoenix_kit/migrations/repair.ex
+@@ -43,18 +43,16 @@ defmodule PhoenixKit.Migrations.Repair do
+     * `:dry_run` — `repair/1` only; `verify/1` always runs as if this were
+       `true` regardless of what is passed.
+ 
+-  ## What this pipeline does NOT (yet) do
+-
+-  Spec §6.1 describes `Postgres.up/1`/`.down/1` taking the *same* advisory
+-  lock key on direct connections, so repair-vs-migration exclusion is a real
+-  mutual exclusion. `lib/phoenix_kit/migrations/postgres.ex` is out of scope
+-  for this phase (P2) — it is not touched by this change. Today, the lock
+-  this module takes (`PhoenixKit.Migrations.Repair.Environment.with_lock/2`)
+-  only serializes concurrent repair runs against **each other**; a migration
+-  racing a repair is *detected*, not prevented, via the before/after
+-  raw-comment re-read (`PhoenixKit.Migrations.Repair.CommentPolicy.concurrent_migration?/2`,
+-  S18) — see `Environment`'s moduledoc for the full explanation. Wiring
+-  `Postgres.up/down` to the same lock key is P3-scope.
++  ## Repair vs. a concurrently running migration
++
++  `Postgres.up/1` and `.down/1` take the same advisory lock key this module
++  takes (`PhoenixKit.Migrations.Repair.Environment.with_lock/2`), so the two
++  exclude each other rather than merely colliding (spec §6.1). Exclusion is
++  only real on **direct** connections at both ends, and the migration side
++  degrades to no lock if a version disables its DDL transaction — so the
++  before/after raw-comment re-read
++  (`PhoenixKit.Migrations.Repair.CommentPolicy.concurrent_migration?/2`, S18)
++  is still the backstop that *detects* a race the lock could not prevent.
+   """
+ 
+   alias PhoenixKit.Migrations.ExpectedSchema.Resolver
+diff --git a/lib/phoenix_kit/migrations/repair/differ.ex b/lib/phoenix_kit/migrations/repair/differ.ex
+index bd2dd949..dbabd398 100644
+--- a/lib/phoenix_kit/migrations/repair/differ.ex
++++ b/lib/phoenix_kit/migrations/repair/differ.ex
+@@ -48,7 +48,11 @@ defmodule PhoenixKit.Migrations.Repair.Differ do
+       signal folded into the same mismatch (still `:error` severity per
+       spec's explicit list — this module does not invent a softer tier for
+       it, it only labels *which* fields disagreed so an operator can judge a
+-      cross-major artifact for themselves).
++      cross-major artifact for themselves). `NULLS NOT DISTINCT` (PG15+) has
++      no structured field of its own; no version in the chain declares it, and
++      until one does it is covered by `definition`, which `pg_get_indexdef`
++      renders it into. A version that starts using it should promote it to a
++      structured field rather than rely on that text comparison.
+     * `:constraint` — dispatches on `type` (`pg_constraint.contype`):
+       `"f"` (foreign key) compares `columns`/`foreign_table`/
+       `foreign_columns`/`on_delete`/`on_update` — all decomposed,
+diff --git a/lib/phoenix_kit/migrations/repair/environment.ex b/lib/phoenix_kit/migrations/repair/environment.ex
+index fbd3bb78..72399135 100644
+--- a/lib/phoenix_kit/migrations/repair/environment.ex
++++ b/lib/phoenix_kit/migrations/repair/environment.ex
+@@ -123,17 +123,15 @@ defmodule PhoenixKit.Migrations.Repair.Environment do
+ 
+   # A 64-bit key derived from a fixed string, so it reads as intentional in
+   # `pg_stat_activity`/`pg_locks` rather than an arbitrary magic number.
+-  # LIMITATION (documented, not hidden): this key is known only to
+-  # `PhoenixKit.Migrations.Repair` — `PhoenixKit.Migrations.Postgres.up/1`
+-  # and `.down/1` do not (cannot, in P2: `postgres.ex` is out of scope for
+-  # this phase) take it too, so this lock only serializes repair runs
+-  # against EACH OTHER, not against a concurrently-running migration. Spec
+-  # §6.1's "repair-vs-migration exclusion is real" needs `Postgres.up/down`
+-  # to acquire the same key — a P3 change. Until then,
++  # Shared with `PhoenixKit.Migrations.Postgres.up/1` and `.down/1`, which
++  # take the same key so repair and a chain run exclude each other (spec
++  # §6.1). They take it as `pg_advisory_xact_lock/1` rather than the
++  # session-level lock used here — see the reasoning at
++  # `Postgres.acquire_chain_lock!/0`; the two forms contend on the same key.
++  # Exclusion still requires a direct connection on BOTH sides, so
+   # `PhoenixKit.Migrations.CommentPolicy.concurrent_migration?/2`'s
+-  # before/after comment re-read is what actually catches a migration
+-  # racing a repair (S18) — detection, not prevention, for that half of the
+-  # race.
++  # before/after comment re-read (S18) remains the backstop for the pooled
++  # case and for a migrator that disabled its DDL transaction.
+   @lock_key :erlang.crc32("phoenix_kit.migrations.repair")
+ 
+   @doc "The advisory lock key repair uses — exposed for tests/diagnostics, never meant to be passed elsewhere."
+diff --git a/lib/phoenix_kit/migrations/uuid_fk_columns.ex b/lib/phoenix_kit/migrations/uuid_fk_columns.ex
+index 5cf302c4..68ea9ceb 100644
+--- a/lib/phoenix_kit/migrations/uuid_fk_columns.ex
++++ b/lib/phoenix_kit/migrations/uuid_fk_columns.ex
+@@ -388,6 +388,31 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
+   @spec not_null_uuid_fks() :: [{atom(), String.t()}]
+   def not_null_uuid_fks, do: @not_null_uuid_fks
+ 
++  @doc """
++  The `{table, uuid_fk, ref_table, ref_col, on_delete}` tuples
++  `add_constraints/1` builds FK constraints from — exposed for the same
++  reason as `not_null_uuid_fks/0`: `PhoenixKit.Migrations.Postgres.V163`
++  drives its missing-FK repair off this exact list rather than a second
++  copy of it. Not otherwise meant as a public contract.
++  """
++  @spec fk_constraints() :: [{atom(), String.t(), String.t(), String.t(), String.t()}]
++  def fk_constraints, do: @fk_constraints
++
++  @doc """
++  The FK constraint name `add_fk_constraint/7`/`drop_fk_constraint/4` use for
++  `{table, uuid_fk}` — `fk_<table minus the phoenix_kit_ prefix>_<uuid_fk>`.
++  Exposed so `V163`'s repair names constraints identically to what this
++  module itself would have created, instead of re-deriving the same string
++  format a second time.
++  """
++  @spec fk_constraint_name(atom() | String.t(), String.t()) :: String.t()
++  def fk_constraint_name(table, uuid_fk) do
++    table
++    |> to_string()
++    |> String.replace_prefix("phoenix_kit_", "")
++    |> then(&"fk_#{&1}_#{uuid_fk}")
++  end
++
+   def up(%{prefix: prefix} = opts) do
+     escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
+ 
+@@ -925,9 +950,4 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
+   defp prefix_table_name(table_name, nil), do: table_name
+   defp prefix_table_name(table_name, "public"), do: "public.#{table_name}"
+   defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
+-
+-  defp fk_constraint_name(table_str, uuid_fk) do
+-    short = String.replace_prefix(table_str, "phoenix_kit_", "")
+-    "fk_#{short}_#{uuid_fk}"
+-  end
+ end

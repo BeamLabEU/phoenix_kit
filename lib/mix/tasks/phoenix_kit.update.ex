@@ -103,7 +103,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     alias PhoenixKit.Migrations.Modules, as: MigrationModules
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
-    alias PhoenixKit.Migrations.UUIDRepair
     # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
     # application config that isn't available during mix task execution.
 
@@ -414,40 +413,71 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         :ok ->
           # Second pass: Configuration exists, app is started, proceed with migration
-          case Common.check_installation_status(prefix) do
-            {:not_installed} ->
-              add_not_installed_notice(igniter, prefix)
+          handle_installation_status(
+            Common.check_installation_status(prefix),
+            igniter,
+            prefix,
+            force,
+            opts
+          )
+      end
+    end
 
-            {:unreachable, reason} ->
-              Igniter.add_warning(igniter, """
-              ❌ Cannot reach the database to determine the installed PhoenixKit
-              version (#{inspect(reason)}).
+    # Split out of `perform_igniter_update/2` to keep its cyclomatic
+    # complexity down (credo's Refactor.CyclomaticComplexity) — this branch
+    # was the below-floor addition's cost.
+    defp handle_installation_status({:not_installed}, igniter, prefix, _force, _opts) do
+      add_not_installed_notice(igniter, prefix)
+    end
 
-              Not generating an update migration — fix the database connection
-              and re-run mix phoenix_kit.update.
-              """)
+    defp handle_installation_status({:unreachable, reason}, igniter, _prefix, _force, _opts) do
+      Igniter.add_warning(igniter, """
+      ❌ Cannot reach the database to determine the installed PhoenixKit
+      version (#{inspect(reason)}).
 
-            {:current_version, current_version} ->
-              target_version = Common.current_version()
+      Not generating an update migration — fix the database connection
+      and re-run mix phoenix_kit.update.
+      """)
+    end
 
-              cond do
-                current_version >= target_version && !force ->
-                  add_already_up_to_date_notice(igniter, current_version)
+    defp handle_installation_status(
+           {:current_version, current_version},
+           igniter,
+           prefix,
+           force,
+           opts
+         ) do
+      target_version = Common.current_version()
+      floor_version = MigrationsPostgres.initial_version()
 
-                current_version < target_version || force ->
-                  create_update_migration_with_igniter(
-                    igniter,
-                    prefix,
-                    current_version,
-                    target_version,
-                    force,
-                    opts
-                  )
+      cond do
+        # Spec §5.2/§5.3: generating an update migration here would just
+        # defer the SAME hard `BelowFloorError` to migrate-time
+        # (`PhoenixKit.Migrations.Postgres.up/1`, once the generated
+        # wrapper actually runs) — refuse up front instead, with the
+        # bridge instructions, rather than hand the operator a migration
+        # file that is guaranteed to raise. LIVE since the squash raised the
+        # floor to 135: any install still at V1..V134 lands here
+        # (current_version is always >= 1 in this clause — `{:not_installed}`
+        # is handled separately above).
+        current_version > 0 and current_version < floor_version ->
+          add_below_floor_notice(igniter, current_version, floor_version)
 
-                true ->
-                  igniter
-              end
-          end
+        current_version >= target_version && !force ->
+          add_already_up_to_date_notice(igniter, current_version)
+
+        current_version < target_version || force ->
+          create_update_migration_with_igniter(
+            igniter,
+            prefix,
+            current_version,
+            target_version,
+            force,
+            opts
+          )
+
+        true ->
+          igniter
       end
     end
 
@@ -560,6 +590,32 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Igniter.add_notice(igniter, notice)
     end
 
+    # Spec §5.2/§5.3 generation-time below-floor refusal. Was dormant while
+    # `MigrationsPostgres.initial_version/0` is 1 — every installed DB is
+    # already at or above that floor, so `current_version` can never land
+    # here today. Mirrors `PhoenixKit.Migrations.BelowFloorError`'s message
+    # (this path never touches the DB again, so it can't raise that
+    # exception directly — it names the same bridge instructions instead).
+    defp add_below_floor_notice(igniter, current_version, floor_version) do
+      current_padded = Common.pad_version(current_version)
+      floor_padded = Common.pad_version(floor_version)
+
+      notice = """
+
+      ❌ PhoenixKit database is at V#{current_padded}, below this release's floor
+      (V#{floor_padded}) — this release's chain no longer carries the migration
+      modules below the floor, so it cannot generate a migration that would
+      bring this database current.
+
+      Install the last PhoenixKit 1.7.x release (the migration bridge) first,
+      run its migrations until the reported version is at least V#{floor_padded},
+      THEN move the dependency pin to this release and run
+      mix phoenix_kit.update again.
+      """
+
+      Igniter.add_warning(igniter, notice)
+    end
+
     defp add_already_up_to_date_notice(igniter, current_version) do
       current_version_padded = Common.pad_version(current_version)
 
@@ -626,12 +682,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     defp post_igniter_tasks(opts) do
       prefix = PrefixConfig.resolve_prefix(opts)
 
-      # CRITICAL: Run UUID repair BEFORE migrations
-      # This fixes upgrade path from PhoenixKit < 1.7.0 where uuid columns
-      # were not present in some tables, but later migrations use Ecto schemas
-      # that expect the uuid column to exist.
-      run_uuid_repair(prefix)
-
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
 
@@ -659,43 +709,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Show migration status summary
       show_migration_status(prefix)
-    end
-
-    # Run UUID column repair for upgrades from pre-1.7.0 installations
-    defp run_uuid_repair(prefix) do
-      case UUIDRepair.maybe_repair(prefix: prefix) do
-        {:ok, :not_needed} ->
-          # No repair needed, continue silently
-          :ok
-
-        {:ok, :repaired} ->
-          Mix.shell().info("""
-
-          ✅ UUID columns repaired successfully!
-             This ensures compatibility with migrations that use Ecto schemas.
-          """)
-
-        {:error, reason} ->
-          Mix.shell().info("""
-
-          ⚠️  UUID repair encountered an issue: #{inspect(reason)}
-             You may need to add uuid columns manually before running migrations.
-
-             Manual fix (run in psql or your database client):
-               ALTER TABLE #{prefix}.phoenix_kit_settings
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT #{prefix}.uuid_generate_v7();
-
-               ALTER TABLE #{prefix}.phoenix_kit_email_templates
-               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT #{prefix}.uuid_generate_v7();
-          """)
-      end
-    rescue
-      error ->
-        Mix.shell().info("""
-
-        ⚠️  UUID repair check failed: #{inspect(error)}
-           If migrations fail, you may need to add uuid columns manually.
-        """)
     end
 
     # Run interactive migration for updates

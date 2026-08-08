@@ -1,0 +1,135 @@
+-- table: phoenix_kit_buckets
+access_key_id,access_type,bucket_name,cdn_url,enabled,endpoint,inserted_at,max_size_mb,name,path_prefix,priority,provider,region,secret_access_key,updated_at,uuid
+,"public",,,"t","priv/media","<ts>",,"Local Storage",,"0","local",,,"<ts>","<uuid-1>"
+
+-- table: phoenix_kit_currencies
+code,decimal_places,enabled,exchange_rate,inserted_at,is_default,name,sort_order,symbol,updated_at,uuid
+"EUR","2","t","1.000000","<ts>","t","Euro","1","€","<ts>","<uuid-2>"
+"GBP","2","t","0.850000","<ts>","f","British Pound","3","£","<ts>","<uuid-3>"
+"USD","2","t","1.100000","<ts>","f","US Dollar","2","$","<ts>","<uuid-4>"
+
+-- table: phoenix_kit_email_templates
+category,created_by_user_uuid,description,display_name,html_body,inserted_at,is_system,last_used_at,metadata,name,slug,status,subject,text_body,updated_at,updated_by_user_uuid,usage_count,uuid,variables,version
+
+-- table: phoenix_kit_payment_options
+active,code,description,icon,inserted_at,instructions,name,position,provider,requires_billing_profile,settings,type,updated_at,uuid
+"f","bank_transfer","Pay via bank transfer","hero-building-library","<ts>","You will receive invoice with bank details after order confirmation.","Bank Transfer","2",,"t","{}","offline","<ts>","<uuid-5>"
+"t","cod","Pay when you receive your order","hero-banknotes","<ts>","Payment will be collected upon delivery. Please have the exact amount ready.","Cash on Delivery","1",,"t","{}","offline","<ts>","<uuid-6>"
+"f","paypal","Pay securely with your PayPal account","hero-credit-card","<ts>",,"PayPal","4","paypal","f","{}","online","<ts>","<uuid-7>"
+"f","stripe","Secure payment with credit or debit card","hero-credit-card","<ts>",,"Pay with Card","3","stripe","f","{}","online","<ts>","<uuid-8>"
+
+-- table: phoenix_kit_role_permissions
+granted_by_uuid,inserted_at,module_key,role_uuid,uuid
+,"<ts>","ai","<uuid-9>","<uuid-10>"
+,"<ts>","billing","<uuid-9>","<uuid-11>"
+,"<ts>","comments","<uuid-9>","<uuid-12>"
+,"<ts>","connections","<uuid-9>","<uuid-13>"
+,"<ts>","customer_support","<uuid-9>","<uuid-14>"
+,"<ts>","dashboard","<uuid-9>","<uuid-15>"
+,"<ts>","db","<uuid-9>","<uuid-16>"
+,"<ts>","emails","<uuid-9>","<uuid-17>"
+,"<ts>","entities","<uuid-9>","<uuid-18>"
+,"<ts>","jobs","<uuid-9>","<uuid-19>"
+,"<ts>","languages","<uuid-9>","<uuid-20>"
+,"<ts>","legal","<uuid-9>","<uuid-21>"
+,"<ts>","maintenance","<uuid-9>","<uuid-22>"
+,"<ts>","media","<uuid-9>","<uuid-23>"
+,"<ts>","modules","<uuid-9>","<uuid-24>"
+,"<ts>","posts","<uuid-9>","<uuid-25>"
+,"<ts>","publishing","<uuid-9>","<uuid-26>"
+,"<ts>","referrals","<uuid-9>","<uuid-27>"
+,"<ts>","seo","<uuid-9>","<uuid-28>"
+,"<ts>","settings","<uuid-9>","<uuid-29>"
+,"<ts>","shop","<uuid-9>","<uuid-30>"
+,"<ts>","sitemap","<uuid-9>","<uuid-31>"
+,"<ts>","storage","<uuid-9>","<uuid-32>"
+,"<ts>","sync","<uuid-9>","<uuid-33>"
+,"<ts>","users","<uuid-9>","<uuid-34>"
+
+-- table: phoenix_kit_settings
+date_added,date_updated,key,module,uuid,value,value_json
+"<ts>","<ts>","ai_enabled","ai","<uuid-35>","false",
+"<ts>","<ts>","billing_default_currency","billing","<uuid-36>","EUR",
+"<ts>","<ts>","billing_default_tax_rate","billing","<uuid-37>","0",
+"<ts>","<ts>","billing_dunning_max_attempts","billing","<uuid-38>","3",
+"<ts>","<ts>","billing_dunning_retry_days","billing","<uuid-39>","3",
+"<ts>","<ts>","billing_enabled","billing","<uuid-40>","false",
+"<ts>","<ts>","billing_invoice_due_days","billing","<uuid-41>","14",
+"<ts>","<ts>","billing_invoice_prefix","billing","<uuid-42>","INV",
+"<ts>","<ts>","billing_order_prefix","billing","<uuid-43>","ORD",
+"<ts>","<ts>","billing_paypal_enabled","billing","<uuid-44>","false",
+"<ts>","<ts>","billing_razorpay_enabled","billing","<uuid-45>","false",
+"<ts>","<ts>","billing_receipt_prefix","billing","<uuid-46>","RCP",
+"<ts>","<ts>","billing_stripe_enabled","billing","<uuid-47>","false",
+"<ts>","<ts>","billing_subscription_grace_days","billing","<uuid-48>","3",
+"<ts>","<ts>","billing_tax_enabled","billing","<uuid-49>","false",
+"<ts>","<ts>","billing_transaction_prefix","billing","<uuid-50>","TXN",
+"<ts>","<ts>","comments_enabled",,"<uuid-51>","false",
+"<ts>","<ts>","comments_max_depth",,"<uuid-52>","10",
+"<ts>","<ts>","comments_max_length",,"<uuid-53>","10000",
+"<ts>","<ts>","comments_moderation",,"<uuid-54>","false",
+"<ts>","<ts>","connections_enabled",,"<uuid-55>","false",
+"<ts>","<ts>","customer_support_allow_reopen",,"<uuid-56>","true",
+"<ts>","<ts>","customer_support_attachments_enabled",,"<uuid-57>","true",
+"<ts>","<ts>","customer_support_comments_enabled",,"<uuid-58>","true",
+"<ts>","<ts>","customer_support_enabled",,"<uuid-59>","false",
+"<ts>","<ts>","customer_support_internal_notes_enabled",,"<uuid-60>","true",
+"<ts>","<ts>","customer_support_per_page",,"<uuid-61>","20",
+"<ts>","<ts>","date_format","system","<uuid-62>","Y-m-d",
+"<ts>","<ts>","entities_allow_relations","entities","<uuid-63>","true",
+"<ts>","<ts>","entities_enabled","entities","<uuid-64>","false",
+"<ts>","<ts>","entities_file_upload","entities","<uuid-65>","false",
+"<ts>","<ts>","entities_max_per_user","entities","<uuid-66>","100",
+"<ts>","<ts>","legal_company_info","legal","<uuid-67>",,"{}"
+"<ts>","<ts>","legal_consent_widget_enabled","legal","<uuid-68>","false",
+"<ts>","<ts>","legal_cookie_banner_position","legal","<uuid-69>","bottom",
+"<ts>","<ts>","legal_dpo_contact","legal","<uuid-70>",,"{}"
+"<ts>","<ts>","legal_enabled","legal","<uuid-71>","false",
+"<ts>","<ts>","legal_frameworks","legal","<uuid-72>",,"{""items"": []}"
+"<ts>","<ts>","posts_allow_groups",,"<uuid-73>","true",
+"<ts>","<ts>","posts_allow_reposts",,"<uuid-74>","true",
+"<ts>","<ts>","posts_allow_scheduling",,"<uuid-75>","true",
+"<ts>","<ts>","posts_comment_moderation",,"<uuid-76>","false",
+"<ts>","<ts>","posts_comments_enabled",,"<uuid-77>","true",
+"<ts>","<ts>","posts_default_status",,"<uuid-78>","draft",
+"<ts>","<ts>","posts_enabled",,"<uuid-79>","false",
+"<ts>","<ts>","posts_likes_enabled",,"<uuid-80>","true",
+"<ts>","<ts>","posts_max_content_length",,"<uuid-81>","50000",
+"<ts>","<ts>","posts_max_media",,"<uuid-82>","10",
+"<ts>","<ts>","posts_max_mentions",,"<uuid-83>","10",
+"<ts>","<ts>","posts_max_subtitle_length",,"<uuid-84>","500",
+"<ts>","<ts>","posts_max_tags",,"<uuid-85>","20",
+"<ts>","<ts>","posts_max_title_length",,"<uuid-86>","255",
+"<ts>","<ts>","posts_per_page",,"<uuid-87>","20",
+"<ts>","<ts>","posts_require_approval",,"<uuid-88>","false",
+"<ts>","<ts>","posts_seo_auto_slug",,"<uuid-89>","true",
+"<ts>","<ts>","posts_show_view_count",,"<uuid-90>","true",
+"<ts>","<ts>","publishing_storage",,"<uuid-91>","filesystem",
+"<ts>","<ts>","shop_currency","shop","<uuid-92>","USD",
+"<ts>","<ts>","shop_enabled","shop","<uuid-93>","false",
+"<ts>","<ts>","shop_inventory_tracking","shop","<uuid-94>","true",
+"<ts>","<ts>","shop_tax_enabled","shop","<uuid-95>","true",
+"<ts>","<ts>","shop_tax_rate","shop","<uuid-96>","20",
+"<ts>","<ts>","storage_auto_generate_variants",,"<uuid-97>","true",
+"<ts>","<ts>","storage_default_bucket_uuid",,"<uuid-98>",,
+"<ts>","<ts>","storage_redundancy_copies",,"<uuid-99>","1",
+"<ts>","<ts>","time_format","system","<uuid-100>","H:i",
+"<ts>","<ts>","time_zone","system","<uuid-101>","0",
+
+-- table: phoenix_kit_storage_dimensions
+alternative_formats,applies_to,enabled,format,height,inserted_at,maintain_aspect_ratio,name,order,quality,updated_at,uuid,width
+"{}","video","t","mp4","1080","<ts>","t","1080p","7","28","<ts>","<uuid-102>","1920"
+"{}","video","t","mp4","360","<ts>","t","360p","5","28","<ts>","<uuid-103>","640"
+"{}","video","t","mp4","720","<ts>","t","720p","6","28","<ts>","<uuid-104>","1280"
+"{}","image","t","jpg","1080","<ts>","t","large","4","85","<ts>","<uuid-105>","1920"
+"{}","image","t","jpg","600","<ts>","t","medium","3","85","<ts>","<uuid-106>","800"
+"{}","image","t","jpg","300","<ts>","t","small","2","85","<ts>","<uuid-107>","300"
+"{}","image","t","jpg","150","<ts>","t","thumbnail","1","85","<ts>","<uuid-108>","150"
+"{}","video","t","jpg","360","<ts>","t","video_thumbnail","8","85","<ts>","<uuid-109>","640"
+
+-- table: phoenix_kit_user_roles
+description,inserted_at,is_system_role,name,updated_at,uuid
+"Administrator with elevated privileges","<ts>","t","Admin","<ts>","<uuid-9>"
+"System owner with full access","<ts>","t","Owner","<ts>","<uuid-110>"
+"Support team member with ticket management access","<ts>","t","SupportAgent","<ts>","<uuid-111>"
+"Standard user with basic access","<ts>","t","User","<ts>","<uuid-112>"

@@ -54,7 +54,8 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
   end
 
   # Scan existing migration files to find the highest PhoenixKit version applied.
-  # Looks for files matching `*_phoenix_kit_update_v*_to_v*.exs` or `*_create_phoenix_kit_tables.exs`.
+  # Looks for files matching `*_phoenix_kit_update_v*_to_v*.exs` or
+  # `*_add_phoenix_kit_tables.exs` / `*_create_phoenix_kit_tables.exs`.
   defp detect_current_version do
     migrations_path = "priv/repo/migrations"
 
@@ -71,16 +72,29 @@ defmodule Mix.Tasks.PhoenixKit.Gen.Migration do
 
   # Extract the "to" version from migration filenames like:
   # - `20260310_phoenix_kit_update_v78_to_v80.exs` → 80
-  # - `20260316_create_phoenix_kit_tables.exs`      → 0 (initial install)
-  defp extract_phoenix_kit_version(filename) do
+  # - `20250908_add_phoenix_kit_tables.exs`         → 1 (initial install)
+  # - `20260316_create_phoenix_kit_tables.exs`      → 1 (legacy initial-install name)
+  #
+  # `add_phoenix_kit_tables` is what the installer actually emits — see
+  # `PhoenixKit.Install.MigrationStrategy.create_initial_migration_silent/3`
+  # (`migration_strategy.ex:208`) and `PhoenixKit.Install.Common.phoenix_kit_migration?/1`'s
+  # own doctest (`common.ex:299`). `create_phoenix_kit_tables` does not appear
+  # anywhere the installer writes today (2026-07 audit: zero hits outside this
+  # module's own comments) but is kept as a second, harmless match for any
+  # older/manual migration using that name — widening the scan can only
+  # recognize more real installs, never fewer, so both forms stay matched
+  # rather than replacing one with the other.
+  @doc false
+  def extract_phoenix_kit_version(filename) do
     cond do
       # Pattern: phoenix_kit_update_vXX_to_vYY.exs
       match = Regex.run(~r/phoenix_kit_update_v\d+_to_v(\d+)/, filename) ->
         [_, version_str] = match
         [String.to_integer(version_str)]
 
-      # Pattern: create_phoenix_kit_tables.exs (initial install = version 1)
-      String.contains?(filename, "create_phoenix_kit_tables") ->
+      # Pattern: {add,create}_phoenix_kit_tables.exs (initial install = version 1)
+      String.contains?(filename, "add_phoenix_kit_tables") or
+          String.contains?(filename, "create_phoenix_kit_tables") ->
         [1]
 
       true ->

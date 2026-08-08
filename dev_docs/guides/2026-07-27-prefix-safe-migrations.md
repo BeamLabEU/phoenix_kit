@@ -19,7 +19,7 @@ any new `execute`-built SQL can regress them:
   the prefixed object.
   ⚠️ For the `pg_constraint` anchor, prefer a name-based JOIN
   (`JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n …
-  WHERE t.relname = '…' AND n.nspname = $1`) over V51's
+  WHERE t.relname = '…' AND n.nspname = $1`) over the raw
   `conrelid = '#{p}table'::regclass` idiom in IMMEDIATE checks
   (`repo().query/3`): a regclass cast RAISES when the relation doesn't
   exist yet — on a fresh chain the table's CREATE may still be queued —
@@ -42,20 +42,23 @@ rules for new migration code:
   unqualified `CREATE OR REPLACE FUNCTION` lands wherever `search_path`
   points (pollutes `public`; fails outright on PG15+). Use
   `PhoenixKit.Migrations.Postgres.Helpers.ensure_uuid_v7_function/1` +
-  `uuid_v7_call/1`. `Postgres.up/1` re-ensures the function at the
-  prefix for upgrade chains starting ≥ V40 (which skip the creation
-  sites).
+  `uuid_v7_call/1`. The `V135` baseline is now the sole creation site
+  (folding what were historically four separate re-ensure points — V40,
+  V56, V61, V63 — into one call in `V135.up/1`); `Postgres.up/1` still
+  re-ensures the function on every delta upgrade too (`@uuid_fn_version
+  40`), as pure defense-in-depth.
 - **Never bare `CREATE EXTENSION IF NOT EXISTS`** — Postgres checks the
   CREATE privilege *before* the IF-NOT-EXISTS short-circuit, so it fails
   for low-privilege roles even when the extension is installed. Use
   `Helpers.ensure_extension!/1` (checks `pg_extension` first; raises an
   operator-facing message listing citext/pgcrypto/pg_trgm when genuinely
   missing and uncreatable).
-- **Same story for `CREATE SCHEMA`.** V01 checks
+- **Same story for `CREATE SCHEMA`.** The `V135` baseline checks
   `information_schema.schemata` first and only creates when missing
-  (raising a clear error if missing + `create_schema: false`). External
-  migrators must have the flag threaded: V27 passes
-  `create_schema: false` to `Oban.Migration.up/1` — without it Oban
+  (raising a clear error if missing + `create_schema: false`) —
+  folding what was historically V01's idiom. External migrators must
+  have the flag threaded too: `V135` passes `create_schema: false` to
+  `Oban.Migration.up/1` (folding V27's idiom) — without it Oban
   re-defaults to true for non-public prefixes and executes the failing
   statement mid-chain.
 - **The prefix is validated at the `up/down` entry points**
@@ -101,10 +104,12 @@ Rules:
   (needs `PhoenixKit.Users.RateLimiter.Backend.start_link` +
   `PhoenixKit.PubSub.Manager.start_link` + `:phoenix_pubsub`/`:hammer`
   apps started), then revert + recompile.
-- **Oban rides the same prefix** — V27 creates `oban_jobs` inside the
-  named schema, so the host's `config :app, Oban` must carry
-  `prefix: "..."`. The installer writes it for new prefixed installs;
-  `mix phoenix_kit.update` warns when an existing Oban config lacks it.
+- **Oban rides the same prefix** — the `V135` baseline creates
+  `oban_jobs` inside the named schema via `Oban.Migration.up/1`
+  (folding V27's original idiom), so the host's `config :app, Oban`
+  must carry `prefix: "..."`. The installer writes it for new prefixed
+  installs; `mix phoenix_kit.update` warns when an existing Oban config
+  lacks it.
 - Feature modules' own schemas (`phoenix_kit_catalogue` etc.) do NOT get
   the prefix from core — prefixed installs using feature modules need
   the same treatment there (open item, per-module).

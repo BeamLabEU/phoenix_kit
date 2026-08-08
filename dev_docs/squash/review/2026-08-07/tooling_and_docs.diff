@@ -1,0 +1,743 @@
+diff --git a/dev_docs/guides/2026-08-07-upgrading-to-2.0-guide.md b/dev_docs/guides/2026-08-07-upgrading-to-2.0-guide.md
+index 7353d63b..a0ee24eb 100644
+--- a/dev_docs/guides/2026-08-07-upgrading-to-2.0-guide.md
++++ b/dev_docs/guides/2026-08-07-upgrading-to-2.0-guide.md
+@@ -16,8 +16,11 @@ migrate it and tells you so — you must first upgrade on the last `1.7.x`
+ release (the **bridge**), which still carries the full chain, and only then move
+ the pin to `~> 2.0`. Separately, this release repairs schema damage that a
+ migration-ordering defect left on essentially every install created by
+-`mix phoenix_kit.install`; the repair adds constraints, and on a large database
+-that costs locks and a validation scan.
++`mix phoenix_kit.install`. The fix is `V163` — an ordinary delta in the chain,
++not a separate command — so it runs automatically the moment your update
++reaches it (step 3 below); it adds constraints, and on a large database that
++costs locks and a validation scan, so plan your maintenance window around
++step 3, not step 4.
+ 
+ ## Step by step
+ 
+@@ -38,19 +41,40 @@ that costs locks and a validation scan.
+    safe, but a failed deploy.
+ 
+ 3. **Move the pin** to `{:phoenix_kit, "~> 2.0"}` and run
+-   `mix phoenix_kit.update` as usual.
+-
+-4. **Run the repair in report mode first**, then for real:
++   `mix phoenix_kit.update` as usual. **This is where the defect below actually
++   gets repaired** — `V163` runs as an ordinary delta in this same chain run
++   and adds the missing constraints. On a large database that costs locks and
++   a validation scan (see "What V163 repairs" below); this is the step to run
++   in a maintenance window, not step 4.
++
++4. **(Optional) Run the general repair as a completeness check.** `V163` in
++   step 3 already applied the fix this page is about — this step is not
++   required for it. `mix phoenix_kit.repair` compares your whole schema
++   against the full manifest and is worth running afterward only to catch
++   anything else that may have drifted, unrelated to this specific defect:
+ 
+    ```bash
+    mix phoenix_kit.repair --dry-run      # reports only, changes nothing
+    mix phoenix_kit.repair                # applies additive fixes
+    ```
+ 
+-   `--dry-run` is opt-in: the bare command **writes**. Read the section below
+-   before running it against production.
++   `--dry-run` is opt-in: the bare command **writes**.
++
++   Two things to know before running the write form. Like every other
++   `phoenix_kit.*` task it boots your application (`mix app.start`), so run it
++   from an environment that does not also start your web server — with
++   `PHX_SERVER` set, the endpoint tries to bind a port already in use. And a
++   write run re-runs **Oban's own migrator** for the PhoenixKit prefix, the
++   same `Oban.Migration.up(prefix: …, create_schema: false)` call the baseline
++   makes; `--dry-run` skips it, because previewing another library's migrator
++   is not something this tool can do safely.
++
++## What V163 repairs, and why it exists
+ 
+-## What the repair changes, and why it exists
++The fix ships as `V163` (`lib/phoenix_kit/migrations/postgres/v163.ex`) — an
++ordinary delta, applied automatically wherever `mix phoenix_kit.update` reaches
++it (step 3 above). It is not `mix phoenix_kit.repair`, and it is not a
++separate step you have to remember to run.
+ 
+ `V56` and `V57` built the UUID foreign-key layer, and their existence checks
+ queried the database immediately while the DDL they depended on was still
+@@ -67,7 +91,10 @@ Incrementally-upgraded installs that crossed `V56`/`V57` in separate narrow
+ wrappers are unaffected. To see where you stand:
+ 
+ ```sql
+--- expect ~70 for a healthy install; a much lower number means the defect hit you
++-- expect ~86 on a healthy install (measured against a fresh V135..V163 build):
++-- 70 are the UUID FK layer this repair targets, the rest are unrelated
++-- fk_-prefixed constraints already present elsewhere in the schema. A much
++-- lower number means the defect hit you.
+ SELECT count(*) FROM pg_constraint c
+ JOIN pg_class t ON t.oid = c.conrelid
+ JOIN pg_namespace n ON n.oid = t.relnamespace
+diff --git a/dev_docs/squash/README.md b/dev_docs/squash/README.md
+index a9f0bf49..342991f3 100644
+--- a/dev_docs/squash/README.md
++++ b/dev_docs/squash/README.md
+@@ -273,6 +273,26 @@ against baseline + repair.
+   (§8.3 runbook). A migration PR may land with a stale manifest; the
+   `chain_hash` assertion in `release_check` **and** its plain-unit-test twin
+   are the release-time gate — regeneration must happen before publish.
++- ⚠️ **Regenerate from a PRE-SQUASH checkout, never from the squashed
++  branch.** The generator builds the baseline by replaying the chain it finds.
++  On the squashed branch that chain already *starts* with the baseline, so the
++  run is self-referential: it can only reproduce what the current baseline
++  produces, and it loses everything the baseline knows that a replay of
++  `V135..HEAD` cannot show — the pre-floor bimodal drift the manifest depends
++  on, and objects created below the floor and dropped above it (`floor_carryover`).
++  Observed 2026-08-07: a regeneration run on the squashed branch emitted a
++  baseline that no longer seeded `phoenix_kit_role_permissions`, which failed
++  s2/s5/s8/s10 (25 seed rows appearing only under repair). The committed
++  baseline's own header comment records which kind of run produced it — read it
++  before overwriting the file.
++- ⚠️ **`chain_hash` is restamped after promotion, not by the generator.** The
++  generator cannot know the post-promotion `v*.ex` set — its own emitted
++  baseline joins that set only once you copy it into `lib/`, and any later edit
++  to a delta moves the hash again. Run
++  `mix run dev_docs/squash/restamp_chain_hash.exs` last, after `mix format`
++  (`--check` reports staleness without writing). Skipping it leaves
++  `release_check` reporting a stale manifest even though the manifest content
++  is correct.
+ - The S1/S2 reference dumps in `reference/` follow the same policy:
+   tool-written by `s1_self`/`s2_self` on the bridge checkout, header-stamped
+   with the chain version, regenerated whenever the chain head moves, never
+diff --git a/dev_docs/squash/migration_runner.ex b/dev_docs/squash/migration_runner.ex
+index 1e42f3d4..066d17b6 100644
+--- a/dev_docs/squash/migration_runner.ex
++++ b/dev_docs/squash/migration_runner.ex
+@@ -193,6 +193,108 @@ defmodule PhoenixKit.Squash.MigrationRunner do
+     )
+   end
+ 
++  @doc """
++  Run the NEW chain's `up/1` entry point pinned at `version`, asserting
++  NOTHING about the schema's current state first. Models replaying ONE
++  wrapper migration file exactly as a consumer app's `mix ecto.migrate`
++  would — the D13 clamp / no-op / delta branch `PhoenixKit.Migrations.up/1`
++  lands in depends entirely on whatever the schema already holds, same as
++  the real thing. Unlike `run_new_chain_fresh/3` (requires an empty schema)
++  and `run_new_chain_existing/4` (requires an exact existing version), this
++  makes no precondition assertion — used by S5(i)'s replay of a realistic
++  accumulated wrapper sequence and S5(ii)'s synthetic pinned chain
++  `[27, 50, 120, current]` (spec 8.2).
++
++  Options: `:create_schema` (default `prefix != "public"`).
++
++  [DB]
++  """
++  def run_pinned_wrapper(repo, prefix, version, opts \\ []) do
++    create_schema = Keyword.get(opts, :create_schema, prefix != "public")
++
++    run_via_wrapper(repo, prefix, :up,
++      version: version,
++      prefix: prefix,
++      create_schema: create_schema
++    )
++  end
++
++  @doc """
++  Run the NEW chain's `down/1` entry point targeting `version`, with no
++  precondition — the down-direction counterpart to `run_pinned_wrapper/4`,
++  modeling one pinned wrapper's `down/0` (which calls
++  `PhoenixKit.Migrations.down(prefix:, version:)`) for S5(iv)'s
++  rollback-then-migrate round trip.
++
++  [DB]
++  """
++  def run_pinned_wrapper_down(repo, prefix, version) do
++    run_via_wrapper(repo, prefix, :down, version: version, prefix: prefix)
++  end
++
++  @doc """
++  Runs an arbitrary CONSUMER-authored migration body (quoted `up`/`down`
++  ASTs) through the same ephemeral-module + `Ecto.Migrator` pattern every
++  other function in this module uses — for S5's replay of REAL
++  consumer-authored migrations interleaved with PK wrapper files (spec 8.2
++  S5 i/iii/iv), which are not `PhoenixKit.Migrations.up/down` calls at all
++  and so don't fit `run_pinned_wrapper/4`.
++
++  The quoted bodies are built by the CALLER with `prefix` already
++  substituted as a literal (same reasoning as `create_wrapper_module!/2`'s
++  moduledoc note: `Ecto.Migrator` runs the migration body in a spawned
++  `Task`, so nothing can be smuggled in via the calling process's state).
++  Bare calls to `Ecto.Migration` macros/functions (`execute/1`,
++  `alter/2`, ...) inside those quoted bodies resolve correctly once
++  spliced into `mod` below — Elixir resolves unqualified calls at the
++  FINAL compilation site (this function's `Module.create/3`, which already
++  `use Ecto.Migration`s), not wherever the AST was textually written;
++  verified empirically before relying on it here.
++
++  `opts[:down]` (default `quote(do: :ok)`) is the quoted down body.
++  `opts[:disable_ddl_transaction]` (default `false`) mirrors the real
++  files' own `@disable_ddl_transaction` declaration (both PK-generated
++  update wrappers and Andi's byte-faithful V140 bridge migration set it).
++
++  [DB]
++  """
++  def run_consumer_migration!(repo, prefix, up_quoted, opts \\ []) do
++    down_quoted = Keyword.get(opts, :down, quote(do: :ok))
++    disable_ddl_transaction? = Keyword.get(opts, :disable_ddl_transaction, false)
++
++    mod =
++      Module.concat([
++        PhoenixKit.Squash.ConsumerRunner,
++        "T#{:os.system_time(:microsecond)}_#{System.unique_integer([:positive])}"
++      ])
++
++    contents =
++      if disable_ddl_transaction? do
++        quote do
++          use Ecto.Migration
++          @disable_ddl_transaction true
++          def up, do: unquote(up_quoted)
++          def down, do: unquote(down_quoted)
++        end
++      else
++        quote do
++          use Ecto.Migration
++          def up, do: unquote(up_quoted)
++          def down, do: unquote(down_quoted)
++        end
++      end
++
++    {:module, ^mod, _, _} = Module.create(mod, contents, Macro.Env.location(__ENV__))
++    fake_version = :os.system_time(:microsecond)
++
++    try do
++      Ecto.Migrator.up(repo, fake_version, mod, log: false, prefix: prefix)
++    after
++      :code.delete(mod)
++      :code.purge(mod)
++    end
++  end
++
+   @doc """
+   Per-version stepping for the manifest generator: migrate ONE version at a
+   time across `range` (an ascending `first..last` range), each step a
+@@ -328,11 +430,16 @@ defmodule PhoenixKit.Squash.MigrationRunner do
+ 
+         :down ->
+           [version: Keyword.get(opts, :to_version, 0), prefix: prefix]
++
++        # ensure_current/2 IS the migrator caller, so it takes no version and
++        # is invoked directly rather than through a synthetic wrapper.
++        :ensure_current ->
++          [prefix: prefix, log: false]
+       end
+ 
+     result =
+       try do
+-        {:unexpected_success, run_via_wrapper(repo, prefix, entry_point, pk_opts)}
++        {:unexpected_success, invoke_entry_point(repo, prefix, entry_point, pk_opts)}
+       rescue
+         e -> {:raised, e}
+       catch
+@@ -457,6 +564,21 @@ defmodule PhoenixKit.Squash.MigrationRunner do
+   # Ecto.Migrator migration. Threading :prefix keeps the bookkeeping row in
+   # the target schema; a fake-version collision would make Ecto skip the
+   # module silently, so :already_up is promoted to a raise.
++  # `ensure_current/2` reaches PhoenixKit.Migration.up/1 through its own
++  # Ecto.Migrator.up call and decorates the raised BelowFloorError with
++  # `context: :ensure_current`. Calling it directly (no wrapper module) is the
++  # whole point: it proves the decorating `rescue` still sees the exception
++  # after the migrator has carried it out of its spawned Task.
++  defp invoke_entry_point(repo, prefix, :ensure_current, pk_opts) do
++    Helpers.validate_prefix!(prefix)
++    ensure_bookkeeping_schema!(repo, prefix)
++    PhoenixKit.Migration.ensure_current(repo, pk_opts)
++  end
++
++  defp invoke_entry_point(repo, prefix, direction, pk_opts) do
++    run_via_wrapper(repo, prefix, direction, pk_opts)
++  end
++
+   defp run_via_wrapper(repo, prefix, direction, pk_opts) do
+     Helpers.validate_prefix!(prefix)
+     ensure_bookkeeping_schema!(repo, prefix)
+diff --git a/dev_docs/squash/verify.exs b/dev_docs/squash/verify.exs
+index 494e8552..278990a6 100644
+--- a/dev_docs/squash/verify.exs
++++ b/dev_docs/squash/verify.exs
+@@ -17,6 +17,14 @@
+ Code.require_file(Path.join(__DIR__, "repo_helper.ex"))
+ Code.require_file(Path.join(__DIR__, "dump_helper.ex"))
+ Code.require_file(Path.join(__DIR__, "migration_runner.ex"))
++Code.require_file(Path.join(__DIR__, "s5_fixtures.ex"))
++
++# S5(iv) uses ExUnit.CaptureIO to pin the clamped-down desync warning (spec
++# 5.2) — that needs ExUnit's own supervision tree (ExUnit.CaptureServer)
++# running, which `mix run` does not start on its own (only `mix test` does).
++# `autorun: false`: this script defines no ExUnit.Case modules, so there is
++# nothing to auto-run either way — explicit for clarity.
++ExUnit.start(autorun: false)
+ 
+ defmodule PhoenixKit.Squash.Verify do
+   @moduledoc """
+@@ -60,6 +68,7 @@ defmodule PhoenixKit.Squash.Verify do
+   alias PhoenixKit.Squash.DumpHelper
+   alias PhoenixKit.Squash.MigrationRunner
+   alias PhoenixKit.Squash.RepoHelper
++  alias PhoenixKit.Squash.S5Fixtures
+ 
+   @script_dir __DIR__
+ 
+@@ -271,7 +280,8 @@ defmodule PhoenixKit.Squash.Verify do
+       %{
+         id: "s4",
+         spec: "S4",
+-        title: "below-floor guard: up() AND down() raise the specific BelowFloorError",
++        title:
++          "below-floor guard: up(), down() AND ensure_current/2 raise the specific BelowFloorError",
+         requires: [:squashed_registry, :below_floor_error, :mode_b, :db],
+         run: &s4_guard/1
+       },
+@@ -279,8 +289,8 @@ defmodule PhoenixKit.Squash.Verify do
+         id: "s5",
+         spec: "S5",
+         title: "consumer wrapper replay (Andi 41-file set / synthetic pins / interleaved)",
+-        requires: [:squashed_registry, :db],
+-        run: &s5_stub/1
++        requires: [:squashed_registry, :repair_engine, :generated_manifest, :db],
++        run: &s5_all/1
+       },
+       %{
+         id: "s6",
+@@ -795,13 +805,25 @@ defmodule PhoenixKit.Squash.Verify do
+             entry_point: :down
+           )
+ 
+-        case {r_up, r_down} do
+-          {:ok, :ok} ->
+-            IO.puts("  up() and down() both raised BelowFloorError with the expected fields")
++        r_ensure =
++          MigrationRunner.assert_below_floor_error(ctx.repo, target, v,
++            matcher: ensure_current_matcher(v),
++            entry_point: :ensure_current
++          )
++
++        case {r_up, r_down, r_ensure} do
++          {:ok, :ok, :ok} ->
++            IO.puts(
++              "  up(), down() and ensure_current/2 all raised BelowFloorError with the " <>
++                "expected fields (ensure_current additionally carries the test-DB hint)"
++            )
++
+             :pass
+ 
+-          {up, down} ->
+-            {:fail, "below-floor guard mismatch: up=#{inspect(up)} down=#{inspect(down)}"}
++          {up, down, ensure} ->
++            {:fail,
++             "below-floor guard mismatch: up=#{inspect(up)} down=#{inspect(down)} " <>
++               "ensure_current=#{inspect(ensure)}"}
+         end
+     end
+   end
+@@ -811,6 +833,20 @@ defmodule PhoenixKit.Squash.Verify do
+   # until the bridge is tagged — add a field assert in s4_guard then). If P3
+   # ships different field names this matcher fails loudly as
+   # {:wrong_error, exception} — adjust it, never loosen it to any-raise-passes.
++  # Same fields, plus the two things only the ensure_current/2 path can prove:
++  # its `rescue` really re-tagged the context (Ecto.Migrator carried the
++  # exception out of its spawned Task un-wrapped), and the re-tag is what makes
++  # `message/1` append the `mix test.reset` hint instead of bridge-install
++  # advice that is wrong for a CI database.
++  defp ensure_current_matcher(db_version) do
++    base = below_floor_matcher(db_version)
++
++    fn e ->
++      base.(e) and Map.get(e, :context) == :ensure_current and
++        Exception.message(e) =~ "mix test.reset"
++    end
++  end
++
+   defp below_floor_matcher(db_version) do
+     error_mod = PhoenixKit.Migrations.BelowFloorError
+     floor = MigrationRunner.floor()
+@@ -822,14 +858,375 @@ defmodule PhoenixKit.Squash.Verify do
+   end
+ 
+   # ---------------------------------------------------------------------------
+-  # S5 — consumer wrapper replay (stub: fixtures are a P3 deliverable)
++  # S5 — consumer wrapper replay (spec 8.2 S5 i-iv / 5.3; fixtures in
++  # s5_fixtures.ex, mined from /www/app/priv/repo/migrations — never edited)
+   # ---------------------------------------------------------------------------
+ 
+-  defp s5_stub(_ctx) do
+-    {:skip, "pending-p3-fixtures",
+-     "wrapper-replay fixtures (Andi's real 41-file set, synthetic pinned chain " <>
+-       "[27,50,120,current], interleaved consumer migration, rollback round-trip) " <>
+-       "are built in P3 alongside the squash PR (spec S5 i-iv)"}
++  defp s5_all(ctx) do
++    first_failure([
++      s5_wrapper_replay(ctx),
++      s5_synthetic_pins(ctx),
++      s5_interleaved_failure(ctx),
++      s5_rollback_roundtrip(ctx)
++    ])
++  end
++
++  # (i) Realistic accumulated wrapper set: Andi's real 54-file shape (1
++  # unpinned installer + 48 pinned update wrappers + 5 interleaved
++  # consumer-authored migrations touching PK-owned tables), replayed in
++  # their real chronological order against the NEW squashed chain. Oracle:
++  # lands at the current comment, and `Repair.verify/1` reports the PK
++  # schema itself fully conformant (exit 0) — Andi's own extra objects
++  # (markup_percentage, prefix, primary_supplier_uuid, the sample warehouse
++  # table) are not PK-manifest objects, so they don't count against this;
++  # a raw byte-dump comparison against a pristine install would need to
++  # whitelist each of them individually for no added assurance.
++  defp s5_wrapper_replay(ctx) do
++    ensure_generated_manifest_loaded!()
++    t = fresh_target(ctx, "s5_wrap")
++    current = MigrationRunner.current_version()
++
++    IO.puts(
++      "  [s5i] replaying installer + #{length(S5Fixtures.wrapper_versions())} update " <>
++        "wrapper(s), with interleaved consumer migrations at their real positions, " <>
++        "against #{t}..."
++    )
++
++    replay_wrapper_and_consumer_steps(ctx, t, installer: true, to_max: current)
++
++    v = MigrationRunner.migrated_version(ctx.repo, t)
++
++    if v != current do
++      {:fail, "s5(i): after the realistic replay, comment is #{v}, expected #{current}"}
++    else
++      {:ok, report} = Repair.verify(prefix: t, repo: ctx.repo)
++
++      if Report.exit_code(report) == 0 do
++        IO.puts("  [s5i] PASS: #{t} landed at v#{v}; repair verify reports the PK schema clean")
++        :pass
++      else
++        {:fail,
++         "s5(i): after the realistic replay, repair verify is NOT clean: " <>
++           "#{inspect(Report.summary(report))} — #{findings_detail(report)}"}
++      end
++    end
++  end
++
++  # (ii) Synthetic pinned chain [27, 50, 120, current] on a fresh schema —
++  # the D13 clamp acceptance case (spec 5.2/5.3): the first pin clamps a
++  # fresh install straight to the baseline, every below-comment pin after
++  # it is a no-op, and the final current-pinned wrapper carries the deltas
++  # the rest of the way. Step-by-step comment assertions PLUS a full dump
++  # comparison against a pristine single-shot install (no consumer extras
++  # here, so byte equality modulo the standard S1 whitelist is the right,
++  # stronger oracle).
++  defp s5_synthetic_pins(ctx) do
++    floor = MigrationRunner.floor()
++    current = MigrationRunner.current_version()
++    t = fresh_target(ctx, "s5_pins")
++    pins = [27, 50, 120, current]
++
++    IO.puts("  [s5ii] replaying synthetic pinned chain #{inspect(pins)} against #{t}...")
++
++    {_final, mismatches} =
++      Enum.reduce(pins, {0, []}, fn pin, {prev, mismatches} ->
++        MigrationRunner.run_pinned_wrapper(ctx.repo, t, pin, create_schema: prev == 0)
++        actual = MigrationRunner.migrated_version(ctx.repo, t)
++        expected = expected_after_pin(prev, pin, floor)
++
++        mismatches =
++          if actual == expected do
++            mismatches
++          else
++            [
++              "up(version: #{pin}) after prior comment #{prev}: expected #{expected}, got #{actual}"
++              | mismatches
++            ]
++          end
++
++        {actual, mismatches}
++      end)
++
++    if mismatches != [] do
++      {:fail, "s5(ii): #{Enum.join(Enum.reverse(mismatches), "; ")}"}
++    else
++      ref = fresh_target(ctx, "s5_pins_ref")
++      IO.puts("  [s5ii] building single-shot reference install in #{ref}...")
++      MigrationRunner.run_new_chain_fresh(ctx.repo, ref)
++      ref_dump = DumpHelper.dump!(ref)
++      dump = DumpHelper.dump!(t)
++      compare_dumps(ctx, "s5_synthetic_pins", ref_dump, ref, dump, t, ctx.whitelist)
++    end
++  end
++
++  # Pure mirror of Postgres.plan_up/3's routing (D13 clamp / no-op / delta),
++  # for asserting the synthetic pinned chain's comment after EACH step, not
++  # just the final one.
++  defp expected_after_pin(0, pin, floor), do: max(pin, floor)
++  defp expected_after_pin(prev, pin, _floor) when prev < pin, do: pin
++  defp expected_after_pin(prev, _pin, _floor), do: prev
++
++  # (iii) Interleaved consumer migration touching a below-floor-shaped
++  # object -> documented, actionable failure (spec 5.3's named breakage
++  # class). Same position and same object as the REAL guarded
++  # phoenix_kit_catalogue_v013_base_price.exs (s5_wrapper_replay/1 proves
++  # THAT one survives) — this is its unguarded sibling
++  # (S5Fixtures.unguarded_price_rename/1), a synthetic negative fixture, not
++  # a real Andi file. Oracle: raises, and the message actually names the
++  # missing column (actionable), not an opaque crash.
++  defp s5_interleaved_failure(ctx) do
++    t = fresh_target(ctx, "s5_fail")
++
++    IO.puts(
++      "  [s5iii] building #{t} to the same position the real guarded rename runs at, " <>
++        "then replaying its UNGUARDED sibling..."
++    )
++
++    MigrationRunner.run_pinned_wrapper(ctx.repo, t, 87, create_schema: true)
++    MigrationRunner.run_pinned_wrapper(ctx.repo, t, 88, create_schema: false)
++
++    v = MigrationRunner.migrated_version(ctx.repo, t)
++
++    result =
++      try do
++        MigrationRunner.run_consumer_migration!(ctx.repo, t, S5Fixtures.unguarded_price_rename(t))
++        {:unexpected_success, nil}
++      rescue
++        e -> {:raised, e}
++      catch
++        kind, value -> {:caught, kind, value}
++      end
++
++    case result do
++      {:raised, e} ->
++        message = Exception.message(e)
++
++        if message =~ ~r/price/i and message =~ ~r/does not exist|column/i do
++          IO.puts(
++            "  [s5iii] PASS: unguarded rename raised an actionable error at comment " <>
++              "v#{v}: #{String.slice(message, 0, 200)}"
++          )
++
++          :pass
++        else
++          {:fail,
++           "s5(iii): unguarded rename raised #{inspect(e.__struct__)}, but the message " <>
++             "doesn't name the missing column (not actionable): #{message}"}
++        end
++
++      {:unexpected_success, _} ->
++        {:fail,
++         "s5(iii): unguarded rename against comment v#{v} did NOT raise — the below-floor " <>
++           "breakage class spec 5.3 names is no longer reproducible here; re-check that " <>
++           "example is still valid"}
++
++      {:caught, kind, value} ->
++        {:fail,
++         "s5(iii): unguarded rename exited via #{inspect(kind)}/#{inspect(value)}, not a " <>
++           "normal raise"}
++    end
++  end
++
++  # (iv) Rollback -> migrate round trip, including one interleaved consumer
++  # migration's own down, landing back at a state repair finds fully clean
++  # (no spurious re-creates) — plus the below-floor clamped-down desync
++  # invariant (spec 5.2) that doctor's detection is built on: the PK
++  # comment stays pinned at the floor while Ecto's own bookkeeping in the
++  # scratch schema records the wrapper as rolled back, and a warning names
++  # the disagreement.
++  #
++  # Rollback TARGET is the wrapper step immediately before the ONE
++  # interleaved consumer migration under test (138, one before the
++  # warehouse-tables fixture at 139) — NOT the floor. Rolling all the way
++  # to the floor would also re-traverse wrapper steps 136..139, which host
++  # A DIFFERENT interleaved fixture (add_primary_supplier_uuid, at 138)
++  # whose OWN down was never called — Ecto tracks each migration file's
++  # applied state independently, so a real `mix ecto.rollback` targeting
++  # only the PK wrapper's version would never re-run that file either, and
++  # replaying it a second time (an unguarded ADD COLUMN, faithful to the
++  # real file) collides with itself. Rolling back exactly one step keeps
++  # the round trip to precisely "one interleaved consumer down" as
++  # documented, and confirmed live: rolling to the floor instead reproduces
++  # a duplicate_column error here — the double-run is fixture-harness
++  # infidelity to Ecto's per-file bookkeeping, not a squash defect.
++  @s5_rollback_step_before 138
++  @s5_rollback_step_after 139
++
++  defp s5_rollback_roundtrip(ctx) do
++    ensure_generated_manifest_loaded!()
++    current = MigrationRunner.current_version()
++    t = fresh_target(ctx, "s5_rt")
++
++    IO.puts(
++      "  [s5iv] building #{t} up through v#{@s5_rollback_step_after} (installer + wrappers, " <>
++        "plus the interleaved warehouse-tables consumer migration)..."
++    )
++
++    replay_wrapper_and_consumer_steps(ctx, t, installer: true, to_max: @s5_rollback_step_after)
++
++    [warehouse_fixture] = S5Fixtures.consumer_migrations_after(@s5_rollback_step_after)
++
++    IO.puts(
++      "  [s5iv] rolling #{t} back down to v#{@s5_rollback_step_before}: the interleaved " <>
++        "consumer migration's own down first (drops the sample warehouse table), then the " <>
++        "one PK wrapper step..."
++    )
++
++    MigrationRunner.run_consumer_migration!(ctx.repo, t, warehouse_fixture.down.(t))
++    MigrationRunner.run_pinned_wrapper_down(ctx.repo, t, @s5_rollback_step_before)
++    v_after_down = MigrationRunner.migrated_version(ctx.repo, t)
++
++    IO.puts(
++      "  [s5iv] migrating #{t} back up to v#{current} (replays v#{@s5_rollback_step_after}, " <>
++        "including the interleaved consumer migration's up again, then the remaining " <>
++        "untouched wrapper steps through v#{current})..."
++    )
++
++    replay_wrapper_and_consumer_steps(ctx, t,
++      installer: false,
++      to_min: @s5_rollback_step_before,
++      to_max: current
++    )
++
++    v_final = MigrationRunner.migrated_version(ctx.repo, t)
++
++    cond do
++      v_after_down != @s5_rollback_step_before ->
++        {:fail,
++         "s5(iv): after rolling down one step, comment reads #{v_after_down}, expected " <>
++           "#{@s5_rollback_step_before}"}
++
++      v_final != current ->
++        {:fail, "s5(iv): after migrating back up, comment reads #{v_final}, expected #{current}"}
++
++      true ->
++        ref = fresh_target(ctx, "s5_rt_ref")
++        IO.puts("  [s5iv] building single-shot reference install in #{ref}...")
++        MigrationRunner.run_new_chain_fresh(ctx.repo, ref)
++        {:ok, ref_report} = Repair.verify(prefix: ref, repo: ctx.repo)
++        {:ok, rt_report} = Repair.verify(prefix: t, repo: ctx.repo)
++
++        cond do
++          Report.exit_code(ref_report) != 0 ->
++            {:fail,
++             "s5(iv): fresh reference install is not itself clean per repair verify " <>
++               "(unrelated to the round trip): #{inspect(Report.summary(ref_report))}"}
++
++          Report.exit_code(rt_report) != 0 ->
++            {:fail,
++             "s5(iv): after the round trip, repair verify found something to fix (a " <>
++               "spurious missing column/object): #{inspect(Report.summary(rt_report))} — " <>
++               "#{findings_detail(rt_report)}"}
++
++          true ->
++            IO.puts(
++              "  [s5iv] round trip landed back at v#{v_final}; repair verify reports clean"
++            )
++
++            s5_below_floor_down_desync_check(ctx)
++        end
++    end
++  end
++
++  # spec 5.2's down/1 routing: `target == 0` is a FULL TEARDOWN (removes
++  # everything, including the floor's own down) — NOT the clamp case. The
++  # clamp is specifically `0 < target < @initial_version`, so this targets
++  # `1` (any value in `1..floor-1` clamps identically).
++  @s5_below_floor_down_target 1
++
++  defp s5_below_floor_down_desync_check(ctx) do
++    floor = MigrationRunner.floor()
++    t = fresh_target(ctx, "s5_desync")
++
++    IO.puts(
++      "  [s5iv] building #{t} to v#{floor}, then attempting a clamped " <>
++        "down(version: #{@s5_below_floor_down_target}) to pin the documented desync " <>
++        "warning (spec 5.2)..."
++    )
++
++    MigrationRunner.run_pinned_wrapper(ctx.repo, t, floor, create_schema: true)
++
++    output =
++      ExUnit.CaptureIO.capture_io(:stderr, fn ->
++        MigrationRunner.run_pinned_wrapper_down(ctx.repo, t, @s5_below_floor_down_target)
++      end)
++
++    v_after = MigrationRunner.migrated_version(ctx.repo, t)
++
++    cond do
++      v_after != floor ->
++        {:fail,
++         "s5(iv): clamped down(version: #{@s5_below_floor_down_target}) moved the PK " <>
++           "comment to #{v_after}; expected it to stay pinned at floor v#{floor} (the " <>
++           "documented clamped-down invariant)"}
++
++      not (output =~ ~r/clamp/i and output =~ ~r/floor/i) ->
++        {:fail,
++         "s5(iv): clamped down(version: #{@s5_below_floor_down_target}) did not emit the " <>
++           "expected desync warning on stderr; got: #{inspect(output)}"}
++
++      true ->
++        IO.puts(
++          "  [s5iv] PASS: clamped down warned and the comment correctly stayed pinned at v#{floor}"
++        )
++
++        :pass
++    end
++  end
++
++  # `add_phoenix_kit_tables.exs` literally calls `PhoenixKit.Migrations.up([])`
++  # — no version pin, which `with_defaults/2` resolves to WHATEVER
++  # `@current_version` the INSTALLED package compiles to. Historically that
++  # was ~84 (the very next wrapper's `from`), not today's 163 — replaying it
++  # against TODAY's compiled code with an explicit `version: current()` pin
++  # would jump the schema straight to 163 in one shot, making every
++  # subsequent wrapper AND interleaved consumer fixture race against an
++  # already-fully-migrated schema (a real column collision was observed
++  # here: V146 and the real `add_primary_supplier_uuid_...` consumer file
++  # both add `phoenix_kit_cat_items.primary_supplier_uuid`, and only the
++  # SEQUENCE — consumer file first, V146 later finds it already there via
++  # its own `IF NOT EXISTS` — makes both succeed). Pinning below the floor
++  # instead reproduces what actually happened: `run_pinned_wrapper/4`'s D13
++  # clamp lands ANY below-floor target at exactly the floor either way, so
++  # `84` (real, documented evidence — the next wrapper's `from`) and
++  # `current()` are NOT interchangeable here despite both being legal
++  # `up/1` calls.
++  @installer_historical_version 84
++
++  # Replays the installer (if requested) then every wrapper step whose `to`
++  # falls in `(to_min, to_max]`, splicing in that step's interleaved
++  # consumer fixtures (S5Fixtures.consumer_migrations_after/1) right after
++  # it — shared by s5_wrapper_replay/1 (the full sequence) and
++  # s5_rollback_roundtrip/1 (which replays it in two slices, before and
++  # after a rollback).
++  defp replay_wrapper_and_consumer_steps(ctx, prefix, opts) do
++    include_installer? = Keyword.get(opts, :installer, false)
++    to_min = Keyword.get(opts, :to_min, 0)
++    to_max = Keyword.get(opts, :to_max, MigrationRunner.current_version())
++
++    if include_installer? do
++      MigrationRunner.run_pinned_wrapper(
++        ctx.repo,
++        prefix,
++        @installer_historical_version,
++        create_schema: true
++      )
++    end
++
++    S5Fixtures.wrapper_versions()
++    |> Enum.filter(fn {_from, to} -> to > to_min and to <= to_max end)
++    |> Enum.each(fn {_from, to} ->
++      MigrationRunner.run_pinned_wrapper(ctx.repo, prefix, to, create_schema: false)
++
++      Enum.each(S5Fixtures.consumer_migrations_after(to), fn fx ->
++        MigrationRunner.run_consumer_migration!(ctx.repo, prefix, fx.up.(prefix),
++          down: fx.down.(prefix),
++          disable_ddl_transaction: fx.disable_ddl_transaction
++        )
++      end)
++    end)
++
++    :ok
+   end
+ 
+   # ---------------------------------------------------------------------------

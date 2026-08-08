@@ -1,0 +1,136 @@
+-- pk-squash-ref kind=s2 chain_version=164
+-- table: phoenix_kit_user_roles
+description,inserted_at,is_system_role,name,updated_at,uuid
+"Administrator with elevated privileges","<ts>","t","Admin","<ts>","<uuid-1>"
+"System owner with full access","<ts>","t","Owner","<ts>","<uuid-2>"
+"Support team member with ticket management access","<ts>","t","SupportAgent","<ts>","<uuid-3>"
+"Standard user with basic access","<ts>","t","User","<ts>","<uuid-4>"
+
+-- table: phoenix_kit_settings
+date_added,date_updated,key,module,uuid,value,value_json
+"<ts>","<ts>","ai_enabled","ai","<uuid-5>","false",
+"<ts>","<ts>","billing_default_currency","billing","<uuid-6>","EUR",
+"<ts>","<ts>","billing_default_tax_rate","billing","<uuid-7>","0",
+"<ts>","<ts>","billing_dunning_max_attempts","billing","<uuid-8>","3",
+"<ts>","<ts>","billing_dunning_retry_days","billing","<uuid-9>","3",
+"<ts>","<ts>","billing_enabled","billing","<uuid-10>","false",
+"<ts>","<ts>","billing_invoice_due_days","billing","<uuid-11>","14",
+"<ts>","<ts>","billing_invoice_prefix","billing","<uuid-12>","INV",
+"<ts>","<ts>","billing_order_prefix","billing","<uuid-13>","ORD",
+"<ts>","<ts>","billing_paypal_enabled","billing","<uuid-14>","false",
+"<ts>","<ts>","billing_razorpay_enabled","billing","<uuid-15>","false",
+"<ts>","<ts>","billing_receipt_prefix","billing","<uuid-16>","RCP",
+"<ts>","<ts>","billing_stripe_enabled","billing","<uuid-17>","false",
+"<ts>","<ts>","billing_subscription_grace_days","billing","<uuid-18>","3",
+"<ts>","<ts>","billing_tax_enabled","billing","<uuid-19>","false",
+"<ts>","<ts>","billing_transaction_prefix","billing","<uuid-20>","TXN",
+"<ts>","<ts>","comments_enabled",,"<uuid-21>","false",
+"<ts>","<ts>","comments_max_depth",,"<uuid-22>","10",
+"<ts>","<ts>","comments_max_length",,"<uuid-23>","10000",
+"<ts>","<ts>","comments_moderation",,"<uuid-24>","false",
+"<ts>","<ts>","connections_enabled",,"<uuid-25>","false",
+"<ts>","<ts>","customer_support_allow_reopen",,"<uuid-26>","true",
+"<ts>","<ts>","customer_support_attachments_enabled",,"<uuid-27>","true",
+"<ts>","<ts>","customer_support_comments_enabled",,"<uuid-28>","true",
+"<ts>","<ts>","customer_support_enabled",,"<uuid-29>","false",
+"<ts>","<ts>","customer_support_internal_notes_enabled",,"<uuid-30>","true",
+"<ts>","<ts>","customer_support_per_page",,"<uuid-31>","20",
+"<ts>","<ts>","date_format","system","<uuid-32>","Y-m-d",
+"<ts>","<ts>","entities_allow_relations","entities","<uuid-33>","true",
+"<ts>","<ts>","entities_enabled","entities","<uuid-34>","false",
+"<ts>","<ts>","entities_file_upload","entities","<uuid-35>","false",
+"<ts>","<ts>","entities_max_per_user","entities","<uuid-36>","100",
+"<ts>","<ts>","legal_company_info","legal","<uuid-37>",,"{}"
+"<ts>","<ts>","legal_consent_widget_enabled","legal","<uuid-38>","false",
+"<ts>","<ts>","legal_cookie_banner_position","legal","<uuid-39>","bottom",
+"<ts>","<ts>","legal_dpo_contact","legal","<uuid-40>",,"{}"
+"<ts>","<ts>","legal_enabled","legal","<uuid-41>","false",
+"<ts>","<ts>","legal_frameworks","legal","<uuid-42>",,"{""items"": []}"
+"<ts>","<ts>","posts_allow_groups",,"<uuid-43>","true",
+"<ts>","<ts>","posts_allow_reposts",,"<uuid-44>","true",
+"<ts>","<ts>","posts_allow_scheduling",,"<uuid-45>","true",
+"<ts>","<ts>","posts_comment_moderation",,"<uuid-46>","false",
+"<ts>","<ts>","posts_comments_enabled",,"<uuid-47>","true",
+"<ts>","<ts>","posts_default_status",,"<uuid-48>","draft",
+"<ts>","<ts>","posts_enabled",,"<uuid-49>","false",
+"<ts>","<ts>","posts_likes_enabled",,"<uuid-50>","true",
+"<ts>","<ts>","posts_max_content_length",,"<uuid-51>","50000",
+"<ts>","<ts>","posts_max_media",,"<uuid-52>","10",
+"<ts>","<ts>","posts_max_mentions",,"<uuid-53>","10",
+"<ts>","<ts>","posts_max_subtitle_length",,"<uuid-54>","500",
+"<ts>","<ts>","posts_max_tags",,"<uuid-55>","20",
+"<ts>","<ts>","posts_max_title_length",,"<uuid-56>","255",
+"<ts>","<ts>","posts_per_page",,"<uuid-57>","20",
+"<ts>","<ts>","posts_require_approval",,"<uuid-58>","false",
+"<ts>","<ts>","posts_seo_auto_slug",,"<uuid-59>","true",
+"<ts>","<ts>","posts_show_view_count",,"<uuid-60>","true",
+"<ts>","<ts>","publishing_storage",,"<uuid-61>","filesystem",
+"<ts>","<ts>","shop_currency","shop","<uuid-62>","USD",
+"<ts>","<ts>","shop_enabled","shop","<uuid-63>","false",
+"<ts>","<ts>","shop_inventory_tracking","shop","<uuid-64>","true",
+"<ts>","<ts>","shop_tax_enabled","shop","<uuid-65>","true",
+"<ts>","<ts>","shop_tax_rate","shop","<uuid-66>","20",
+"<ts>","<ts>","storage_auto_generate_variants",,"<uuid-67>","true",
+"<ts>","<ts>","storage_default_bucket_uuid",,"<uuid-68>",,
+"<ts>","<ts>","storage_redundancy_copies",,"<uuid-69>","1",
+"<ts>","<ts>","time_format","system","<uuid-70>","H:i",
+"<ts>","<ts>","time_zone","system","<uuid-71>","0",
+
+-- table: phoenix_kit_currencies
+code,decimal_places,enabled,exchange_rate,inserted_at,is_default,name,sort_order,symbol,updated_at,uuid
+"EUR","2","t","1.000000","<ts>","t","Euro","1","€","<ts>","<uuid-72>"
+"GBP","2","t","0.850000","<ts>","f","British Pound","3","£","<ts>","<uuid-73>"
+"USD","2","t","1.100000","<ts>","f","US Dollar","2","$","<ts>","<uuid-74>"
+
+-- table: phoenix_kit_payment_options
+active,code,description,icon,inserted_at,instructions,name,position,provider,requires_billing_profile,settings,type,updated_at,uuid
+"f","bank_transfer","Pay via bank transfer","hero-building-library","<ts>","You will receive invoice with bank details after order confirmation.","Bank Transfer","2",,"t","{}","offline","<ts>","<uuid-75>"
+"t","cod","Pay when you receive your order","hero-banknotes","<ts>","Payment will be collected upon delivery. Please have the exact amount ready.","Cash on Delivery","1",,"t","{}","offline","<ts>","<uuid-76>"
+"f","paypal","Pay securely with your PayPal account","hero-credit-card","<ts>",,"PayPal","4","paypal","f","{}","online","<ts>","<uuid-77>"
+"f","stripe","Secure payment with credit or debit card","hero-credit-card","<ts>",,"Pay with Card","3","stripe","f","{}","online","<ts>","<uuid-78>"
+
+-- table: phoenix_kit_storage_dimensions
+alternative_formats,applies_to,enabled,format,height,inserted_at,maintain_aspect_ratio,name,order,quality,updated_at,uuid,width
+"{}","video","t","mp4","1080","<ts>","t","1080p","7","28","<ts>","<uuid-79>","1920"
+"{}","video","t","mp4","360","<ts>","t","360p","5","28","<ts>","<uuid-80>","640"
+"{}","video","t","mp4","720","<ts>","t","720p","6","28","<ts>","<uuid-81>","1280"
+"{}","image","t","jpg","1080","<ts>","t","large","4","85","<ts>","<uuid-82>","1920"
+"{}","image","t","jpg","600","<ts>","t","medium","3","85","<ts>","<uuid-83>","800"
+"{}","image","t","jpg","300","<ts>","t","small","2","85","<ts>","<uuid-84>","300"
+"{}","image","t","jpg","150","<ts>","t","thumbnail","1","85","<ts>","<uuid-85>","150"
+"{}","video","t","jpg","360","<ts>","t","video_thumbnail","8","85","<ts>","<uuid-86>","640"
+
+-- table: phoenix_kit_buckets
+access_key_id,access_type,bucket_name,cdn_url,enabled,endpoint,inserted_at,max_size_mb,name,path_prefix,priority,provider,region,secret_access_key,updated_at,uuid
+,"public",,,"t","priv/media","<ts>",,"Local Storage",,"0","local",,,"<ts>","<uuid-87>"
+
+-- table: phoenix_kit_role_permissions
+granted_by_uuid,inserted_at,module_key,role_uuid,uuid
+,"<ts>","ai","<uuid-1>","<uuid-88>"
+,"<ts>","billing","<uuid-1>","<uuid-89>"
+,"<ts>","comments","<uuid-1>","<uuid-90>"
+,"<ts>","connections","<uuid-1>","<uuid-91>"
+,"<ts>","customer_support","<uuid-1>","<uuid-92>"
+,"<ts>","dashboard","<uuid-1>","<uuid-93>"
+,"<ts>","db","<uuid-1>","<uuid-94>"
+,"<ts>","emails","<uuid-1>","<uuid-95>"
+,"<ts>","entities","<uuid-1>","<uuid-96>"
+,"<ts>","jobs","<uuid-1>","<uuid-97>"
+,"<ts>","languages","<uuid-1>","<uuid-98>"
+,"<ts>","legal","<uuid-1>","<uuid-99>"
+,"<ts>","maintenance","<uuid-1>","<uuid-100>"
+,"<ts>","media","<uuid-1>","<uuid-101>"
+,"<ts>","modules","<uuid-1>","<uuid-102>"
+,"<ts>","posts","<uuid-1>","<uuid-103>"
+,"<ts>","publishing","<uuid-1>","<uuid-104>"
+,"<ts>","referrals","<uuid-1>","<uuid-105>"
+,"<ts>","seo","<uuid-1>","<uuid-106>"
+,"<ts>","settings","<uuid-1>","<uuid-107>"
+,"<ts>","shop","<uuid-1>","<uuid-108>"
+,"<ts>","sitemap","<uuid-1>","<uuid-109>"
+,"<ts>","storage","<uuid-1>","<uuid-110>"
+,"<ts>","sync","<uuid-1>","<uuid-111>"
+,"<ts>","users","<uuid-1>","<uuid-112>"
+
+-- table: phoenix_kit_email_templates
+category,created_by_user_uuid,description,display_name,html_body,inserted_at,is_system,last_used_at,metadata,name,slug,status,subject,text_body,updated_at,updated_by_user_uuid,usage_count,uuid,variables,version

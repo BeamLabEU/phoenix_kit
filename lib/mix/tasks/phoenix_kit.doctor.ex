@@ -38,13 +38,22 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
    15. **Child Start Order** — Does the Repo start before PhoenixKit/Oban in application.ex?
    16. **Update Mode** — Is update_mode active?
    17. **daisyUI Version** — Is the host's vendored daisyUI recent enough?
+   18. **Manifest Repair (dry-run)** — if the generated
+       `PhoenixKit.Migrations.ExpectedSchema` manifest exists,
+       `PhoenixKit.Migrations.Repair.verify/1` runs against it as an
+       additional, non-fatal check (never `:fail`). Passes and says so while
+       the manifest does not exist yet (P2, pending the squash PR's
+       scratch-DB generation step) — expected today, not a defect.
   """
 
   use Mix.Task
 
   alias PhoenixKit.Install.ChildOrder
   alias PhoenixKit.Install.PrefixConfig
+  alias PhoenixKit.Migrations.ExpectedSchema.Resolver
   alias PhoenixKit.Migrations.Postgres
+  alias PhoenixKit.Migrations.Repair
+  alias PhoenixKit.Migrations.Repair.Report
   alias PhoenixKit.Modules.Sitemap.RouteResolver
 
   @shortdoc "Diagnoses PhoenixKit installation, migration, and runtime issues"
@@ -103,7 +112,8 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
       run_check("daisyUI Version", fn -> check_daisyui() end),
       run_check("User Dashboard (deprecated)", fn -> check_user_dashboard_deprecation() end),
       run_check("Sitemap Discoverability", fn -> check_sitemap_serving() end),
-      run_check("Demo Auth Pages", fn -> check_demo_routes() end)
+      run_check("Demo Auth Pages", fn -> check_demo_routes() end),
+      run_check("Manifest Repair (dry-run)", fn -> check_manifest_repair(prefix) end)
     ]
 
     IO.puts("")
@@ -1125,6 +1135,44 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     end
   rescue
     _ -> ""
+  end
+
+  # Additional, non-fatal check (task ask, spec §6.1's third manifest
+  # consumer): when the generated manifest exists, run
+  # `PhoenixKit.Migrations.Repair.verify/1` (read-only) against it and fold
+  # the result into doctor's report. Deliberately capped at `:warn` — this
+  # check exists to surface repair-relevant information during a routine
+  # diagnostic pass, not to make `mix phoenix_kit.doctor` fail a deploy gate
+  # over something `mix phoenix_kit.repair` itself reports in full. Wrapped
+  # in its own rescue (on top of `run_check/2`'s) so a bug in this brand-new
+  # code path can never turn into a `:fail` here either.
+  defp check_manifest_repair(prefix) do
+    case Resolver.resolve() do
+      {:error, :not_generated} ->
+        {:pass, Resolver.not_generated_message()}
+
+      {:ok, _module} ->
+        manifest_repair_result(prefix)
+    end
+  rescue
+    e -> {:warn, "Manifest repair check raised: #{Exception.message(e)}"}
+  end
+
+  defp manifest_repair_result(prefix) do
+    case Repair.verify(prefix: prefix) do
+      {:ok, report} ->
+        summary = Report.summary(report)
+
+        if Report.exit_code(report) == 0 do
+          {:pass, "clean — #{summary.total} finding(s), all info-level"}
+        else
+          {:warn,
+           "#{summary.total} finding(s): #{inspect(summary.by_severity)} — run mix phoenix_kit.repair for details"}
+        end
+
+      {:error, reason} ->
+        {:warn, Repair.error_message(reason)}
+    end
   end
 
   # ── Display ─────────────────────────────────────────────────────────

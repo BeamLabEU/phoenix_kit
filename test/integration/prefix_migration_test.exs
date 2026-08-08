@@ -39,7 +39,11 @@ defmodule PhoenixKit.Integration.PrefixMigrationTest do
   # The full chain is 140+ versions — well past the default 60s.
   @moduletag timeout: :timer.minutes(5)
 
-  @schema "pk_prefix_migration_test"
+  # Kept at or under Helpers.validate_prefix!/1's 20-byte length cap (the
+  # V26/V56 conventions embed the prefix into a handful of index names —
+  # the longest is 42 bytes — so anything longer risks the same
+  # 63-byte-NAMEDATALEN truncation the cap exists to reject outright).
+  @schema "pk_prefix_mig_test"
 
   test "full migration chain applies cleanly into a named schema" do
     Sandbox.mode(Repo, :auto)

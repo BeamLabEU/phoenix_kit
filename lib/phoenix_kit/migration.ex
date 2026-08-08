@@ -321,14 +321,44 @@ defmodule PhoenixKit.Migration do
     )
 
     :ok
+  rescue
+    # Below-floor DB (spec §5.2): re-raise with the test/CI-database hint
+    # `PhoenixKit.Migrations.BelowFloorError.message/1` only appends for
+    # `context: :ensure_current` — "install the bridge" is the wrong advice
+    # for this call site's actual common case, a persistent below-floor CI
+    # database (GLM M6). Ecto.Migrator's own mechanics above are untouched;
+    # this only decorates whatever `PhoenixKit.Migration.up/1` (reached
+    # through `PhoenixKit.Migration.Runner.up/0`) already raised.
+    e in PhoenixKit.Migrations.BelowFloorError ->
+      reraise %{e | context: :ensure_current}, __STACKTRACE__
   end
 
   defp migrator do
     case repo().__adapter__() do
-      Ecto.Adapters.Postgres -> PhoenixKit.Migrations.Postgres
-      Ecto.Adapters.SQLite3 -> PhoenixKit.Migrations.SQLite
-      Ecto.Adapters.MyXQL -> PhoenixKit.Migrations.MyXQL
-      _ -> Keyword.fetch!(repo().config(), :phoenix_kit_migrator)
+      Ecto.Adapters.Postgres ->
+        PhoenixKit.Migrations.Postgres
+
+      # There is no SQLite or MyXQL migrator: the versioned chain is
+      # PostgreSQL-only (citext, pgcrypto, pg_trgm, uuid_generate_v7, JSONB,
+      # partial and expression indexes). The clauses that used to name
+      # PhoenixKit.Migrations.SQLite / .MyXQL pointed at modules that have
+      # never existed and would have raised UndefinedFunctionError the moment
+      # anything reached them. A host on another adapter must supply its own
+      # migrator explicitly.
+      adapter ->
+        case Keyword.fetch(repo().config(), :phoenix_kit_migrator) do
+          {:ok, migrator} ->
+            migrator
+
+          :error ->
+            raise ArgumentError, """
+            PhoenixKit migrations require PostgreSQL, but #{inspect(repo())} uses             #{inspect(adapter)}.
+
+            The versioned chain depends on PostgreSQL-only features (citext,             pgcrypto, pg_trgm, JSONB, partial and expression indexes), so there             is no built-in migrator for other adapters. If you have your own,             configure it:
+
+                config :my_app, #{inspect(repo())}, phoenix_kit_migrator: MyApp.Migrator
+            """
+        end
     end
   end
 end

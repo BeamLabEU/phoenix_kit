@@ -190,7 +190,22 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
 
   @not_null_uuid_fks [
     # Group A — User FKs
-    {:phoenix_kit_users_tokens, "user_uuid"},
+    #
+    # NOT `{:phoenix_kit_users_tokens, "user_uuid"}` — removed 2026-08-08 (Kimi
+    # review). V64 added
+    # `user_uuid_required_for_non_registration_tokens`:
+    #   CHECK (CASE WHEN context = 'magic_link_registration' THEN true
+    #               ELSE user_uuid IS NOT NULL END)
+    # i.e. magic-link REGISTRATION tokens are authorless by design — the user
+    # does not exist yet, `UserToken.build_email_token_for_context/2` builds
+    # them with `user_uuid: nil`, and `MagicLinkRegistration` inserts that
+    # struct with a bare `Repo.insert`, so a NOT NULL column RAISES instead of
+    # returning a changeset error. This list is V56/V57's snapshot of intent and
+    # predates that CHECK; the flush defect is the only reason single-shot
+    # installs never enforced it and registration still works on them. Enforcing
+    # it — here, in the V135 baseline, or in V164's repair — breaks magic-link
+    # registration. Kept as a comment rather than deleted silently so the next
+    # person does not "restore" it.
     {:phoenix_kit_user_role_assignments, "user_uuid"},
     {:phoenix_kit_admin_notes, "user_uuid"},
     {:phoenix_kit_admin_notes, "author_uuid"},
@@ -238,7 +253,16 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
     {:phoenix_kit_entity_data, "entity_uuid"},
     # Group D — Module Internal FKs
     {:phoenix_kit_shop_cart_items, "cart_uuid"},
-    {:phoenix_kit_subscriptions, "plan_uuid"},
+    # NOTE: no phoenix_kit_subscriptions entry here — it used to say
+    # "plan_uuid", a column no code path has ever created (the real FK is
+    # subscription_type_uuid, `@module_fk_columns` above; its integer
+    # counterpart subscription_type_id no longer exists as a column at all).
+    # Removed 2026-08-04: set_not_null/4's own table_exists?/column_exists?
+    # guard already made this dead weight (silently skipped every run), and
+    # verified empirically against a real, fully-migrated `public` schema
+    # that subscription_type_uuid is genuinely nullable there (not an
+    # oversight this list should instead point at) before removing rather
+    # than repointing.
     {:phoenix_kit_email_events, "email_log_uuid"},
     {:phoenix_kit_referral_code_usage, "code_uuid"}
   ]
@@ -367,6 +391,42 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
   ]
 
   # ── Public API ────────────────────────────────────────────────────────
+
+  @doc """
+  The `{table, uuid_fk_column}` pairs `add_constraints/1` sets NOT NULL on —
+  exposed so `PhoenixKit.Migrations.Postgres.V163` (a later repair for
+  installs that ran the V56/V57 flush-order bug — see that migration's
+  moduledoc) can drive the same list without duplicating it. Not otherwise
+  meant as a public contract; if a future addition to `@not_null_uuid_fks`
+  changes shape, this accessor and `V163`'s consumption of it move together.
+  """
+  @spec not_null_uuid_fks() :: [{atom(), String.t()}]
+  def not_null_uuid_fks, do: @not_null_uuid_fks
+
+  @doc """
+  The `{table, uuid_fk, ref_table, ref_col, on_delete}` tuples
+  `add_constraints/1` builds FK constraints from — exposed for the same
+  reason as `not_null_uuid_fks/0`: `PhoenixKit.Migrations.Postgres.V163`
+  drives its missing-FK repair off this exact list rather than a second
+  copy of it. Not otherwise meant as a public contract.
+  """
+  @spec fk_constraints() :: [{atom(), String.t(), String.t(), String.t(), String.t()}]
+  def fk_constraints, do: @fk_constraints
+
+  @doc """
+  The FK constraint name `add_fk_constraint/7`/`drop_fk_constraint/4` use for
+  `{table, uuid_fk}` — `fk_<table minus the phoenix_kit_ prefix>_<uuid_fk>`.
+  Exposed so `V163`'s repair names constraints identically to what this
+  module itself would have created, instead of re-deriving the same string
+  format a second time.
+  """
+  @spec fk_constraint_name(atom() | String.t(), String.t()) :: String.t()
+  def fk_constraint_name(table, uuid_fk) do
+    table
+    |> to_string()
+    |> String.replace_prefix("phoenix_kit_", "")
+    |> then(&"fk_#{&1}_#{uuid_fk}")
+  end
 
   def up(%{prefix: prefix} = opts) do
     escaped_prefix = Map.get(opts, :escaped_prefix, prefix)
@@ -905,9 +965,4 @@ defmodule PhoenixKit.Migrations.UUIDFKColumns do
   defp prefix_table_name(table_name, nil), do: table_name
   defp prefix_table_name(table_name, "public"), do: "public.#{table_name}"
   defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
-
-  defp fk_constraint_name(table_str, uuid_fk) do
-    short = String.replace_prefix(table_str, "phoenix_kit_", "")
-    "fk_#{short}_#{uuid_fk}"
-  end
 end

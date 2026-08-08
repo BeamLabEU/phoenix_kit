@@ -6,7 +6,6 @@ defmodule PhoenixKit.Migrations.PrefixValidationTest do
   alias PhoenixKit.Install.PrefixConfig
   alias PhoenixKit.Migrations.Postgres
   alias PhoenixKit.Migrations.Postgres.Helpers
-  alias PhoenixKit.Migrations.UUIDRepair
 
   @moduledoc """
   Pins the prefix-validation chokepoints added after the 2026-07 quorum
@@ -36,16 +35,6 @@ defmodule PhoenixKit.Migrations.PrefixValidationTest do
   test "Install.Common.check_installation_status rejects an invalid prefix" do
     assert_raise ArgumentError, ~r/invalid PhoenixKit schema prefix/, fn ->
       Common.check_installation_status(@bad)
-    end
-  end
-
-  test "UUIDRepair rejects an invalid prefix at both entry points" do
-    assert_raise ArgumentError, ~r/invalid PhoenixKit schema prefix/, fn ->
-      UUIDRepair.maybe_repair(prefix: @bad)
-    end
-
-    assert_raise ArgumentError, ~r/invalid PhoenixKit schema prefix/, fn ->
-      UUIDRepair.needs_repair?(prefix: @bad)
     end
   end
 

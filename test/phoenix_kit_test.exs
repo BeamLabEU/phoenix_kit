@@ -55,8 +55,24 @@ defmodule PhoenixKitTest do
   end
 
   describe "Migration system" do
-    test "initial version is defined" do
-      assert Migrations.initial_version() == 1
+    test "initial version is the squash floor and matches the oldest module on disk" do
+      # The chain was consolidated at floor 135: v01..v134 are gone and V135 is
+      # the baseline, so initial_version/0 is no longer 1. Deriving the
+      # expectation from disk rather than hardcoding keeps this honest across a
+      # future re-squash.
+      oldest_on_disk =
+        "lib/phoenix_kit/migrations/postgres/v*.ex"
+        |> Path.wildcard()
+        |> Enum.map(
+          &(&1
+            |> Path.basename(".ex")
+            |> String.trim_leading("v")
+            |> String.to_integer())
+        )
+        |> Enum.min()
+
+      assert Migrations.initial_version() == oldest_on_disk
+      assert Migrations.initial_version() > 1
     end
 
     test "current version is defined and valid" do

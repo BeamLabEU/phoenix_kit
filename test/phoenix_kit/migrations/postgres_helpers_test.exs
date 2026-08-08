@@ -35,6 +35,52 @@ defmodule PhoenixKit.Migrations.Postgres.HelpersTest do
         Helpers.validate_prefix!(:auth)
       end
     end
+
+    # The V26/V56 conventions embed the prefix into a handful of index
+    # names (longest base 42 bytes — see `Helpers`'
+    # `@longest_embedded_object_name`), so a long enough prefix silently
+    # truncates at Postgres's 63-byte NAMEDATALEN instead of raising —
+    # confirmed live against a real chain (`PhoenixKit.Migrations.Repair`
+    # never converges past a 21-byte prefix). 20 bytes is the exact budget:
+    # 63 - 1 (the embedded separator) - 42.
+    test "accepts a prefix at the 63-byte NAMEDATALEN budget" do
+      assert :ok = Helpers.validate_prefix!(String.duplicate("a", 20))
+    end
+
+    test "rejects a prefix one byte over the budget" do
+      assert_raise ArgumentError, ~r/63-byte NAMEDATALEN/, fn ->
+        Helpers.validate_prefix!(String.duplicate("a", 21))
+      end
+    end
+  end
+
+  describe "the embedded-name length budget stays in sync with the manifest" do
+    # DB-free: reads the manifest's SOURCE TEXT directly rather than
+    # compiling/loading it as a module, so this test needs neither a
+    # database nor a compile-time dependency from this low-level helper
+    # module onto the generated manifest. Ties `Helpers`'
+    # `@longest_embedded_object_name` (currently 42, hardcoded — mirroring
+    # `dev_docs/squash/verify.exs`'s own identical constant) to the actual
+    # manifest content: if a future migration embeds a longer
+    # `__PK_NAME_EXEMPT__`/`__PK_NAME_ALWAYS__` name, this fails loudly
+    # instead of `validate_prefix!/1`'s budget silently going stale.
+    test "no __PK_NAME_*__ base name in expected_schema.ex exceeds 42 bytes" do
+      manifest_path =
+        Path.expand("../../../lib/phoenix_kit/migrations/expected_schema.ex", __DIR__)
+
+      source = File.read!(manifest_path)
+
+      longest =
+        ~r/__PK_NAME_(?:EXEMPT|ALWAYS)__([a-zA-Z0-9_]+)/
+        |> Regex.scan(source)
+        |> Enum.map(fn [_whole, base] -> byte_size(base) end)
+        |> Enum.max(fn -> 0 end)
+
+      assert longest <= 42,
+             "expected_schema.ex now embeds a #{longest}-byte prefixed name — bump " <>
+               "Helpers.@longest_embedded_object_name (and re-derive the prefix length " <>
+               "cap) to match"
+    end
   end
 
   describe "qualify_table/2" do
