@@ -677,7 +677,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       Logger.debug("Sitemap: Collected #{length(entries)} entries from #{inspect(source_module)}")
       entries
     end)
-    |> dedupe_by_loc()
+    |> UrlEntry.dedupe_by_loc()
     |> Enum.sort_by(& &1.loc)
   end
 
@@ -772,7 +772,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         entry
       end
     end)
-    |> dedupe_by_loc()
+    |> UrlEntry.dedupe_by_loc()
     |> Enum.sort_by(& &1.loc)
   end
 
@@ -788,36 +788,6 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
       [_, lang] -> lang
       _ -> Routes.get_default_admin_locale()
     end
-  end
-
-  # Deduplicates entries by `loc`, preferring the entry with the richer
-  # sitemap metadata when a URL is emitted by more than one source. This
-  # matters because RouterDiscovery blindly enumerates every GET route and
-  # can emit the same `loc` as a content source (Publishing, Entities, ...)
-  # that also generates a richer entry (canonical_path/alternates for
-  # hreflang, higher priority) for that same URL. A RouterDiscovery entry
-  # always loses to a same-loc entry from any other source: it only carries
-  # generic route metadata (priority 0.5, no hreflang) and must never mask
-  # an authoritative content-source entry. `Enum.uniq_by/2` alone is not
-  # enough here since it keeps whichever entry happens to come first, which
-  # depends on source ordering rather than which entry is actually richer.
-  defp dedupe_by_loc(entries) do
-    entries
-    |> Enum.group_by(& &1.loc)
-    |> Enum.map(fn {_loc, group} -> Enum.max_by(group, &entry_richness/1) end)
-  end
-
-  # RouterDiscovery entries always score lowest (0), so any other source
-  # wins a same-loc collision regardless of its own priority/canonical_path.
-  # Among non-RouterDiscovery entries, richer entries win ties.
-  defp entry_richness(%UrlEntry{source: :router_discovery}), do: 0
-
-  defp entry_richness(%UrlEntry{} = entry) do
-    canonical_bonus = if entry.canonical_path in [nil, ""], do: 0, else: 2
-    alternates_bonus = if entry.alternates in [nil, []], do: 0, else: 2
-    priority = UrlEntry.parse_priority(entry.priority) || 0.0
-
-    1 + canonical_bonus + alternates_bonus + priority
   end
 
   # ── Internal: XML building ─────────────────────────────────────────

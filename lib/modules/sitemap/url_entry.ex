@@ -236,4 +236,43 @@ defmodule PhoenixKit.Modules.Sitemap.UrlEntry do
   end
 
   def parse_priority(_), do: nil
+
+  @doc """
+  Deduplicates entries by `loc`, keeping the richest description of each URL.
+
+  A sitemap file must list a URL once, but more than one producer can arrive at
+  the same `loc`. `RouterDiscovery` blindly enumerates every GET route and can
+  emit the `loc` a content source (Publishing, Entities, ...) also emits with
+  far better metadata; and under `DomainMode` a locale-prefixed clone route is
+  re-hosted prefix-free onto that language's domain, landing on the home URL the
+  static source already placed there.
+
+  `Enum.uniq_by/2` alone is not enough: it keeps whichever entry happens to come
+  first, which depends on source ordering rather than on which entry is actually
+  richer.
+  """
+  @spec dedupe_by_loc([t()]) :: [t()]
+  def dedupe_by_loc(entries) do
+    entries
+    |> Enum.group_by(& &1.loc)
+    |> Enum.map(fn {_loc, group} -> Enum.max_by(group, &richness/1) end)
+  end
+
+  @doc """
+  Ranks an entry for a same-`loc` collision; higher wins.
+
+  A `RouterDiscovery` entry always scores lowest, so any other source wins
+  regardless of its own priority: route discovery carries only generic metadata
+  (priority 0.5, no hreflang) and must never mask an authoritative content-source
+  entry. Among the rest, the entry describing the URL more fully wins.
+  """
+  @spec richness(t()) :: number()
+  def richness(%__MODULE__{source: :router_discovery}), do: 0
+
+  def richness(%__MODULE__{} = entry) do
+    canonical_bonus = if entry.canonical_path in [nil, ""], do: 0, else: 2
+    alternates_bonus = if entry.alternates in [nil, []], do: 0, else: 2
+
+    1 + canonical_bonus + alternates_bonus + (parse_priority(entry.priority) || 0.0)
+  end
 end
