@@ -122,19 +122,22 @@ defmodule PhoenixKit.Modules.Sitemap.DomainMode do
           |> Map.values()
           |> Enum.map(&group_by_language(&1, base_url, default_lang, enabled_bases))
 
+        # One host's file must list a URL once, and two producers can reach the
+        # same <loc> here: a locale-prefixed clone route (/de, /fr on the home
+        # LiveView) is discovered with no canonical_path, so it forms its own
+        # group, and re-hosting strips the prefix onto exactly the home URL the
+        # static source already placed on that language's domain. The two groups
+        # cannot merge, so the file listed the home twice. Resolved by the same
+        # richness policy the flat generator uses (UrlEntry.dedupe_by_loc/1).
         Map.new(domains, fn %{host: host, language: lang, primary: primary?} ->
           own = domain_entries(groups, lang, host_by_lang, primary, base_url)
 
           entries =
             if primary?,
-              do:
-                Enum.sort_by(
-                  own ++ extra_for_primary(own, groups, host_by_lang, primary, base_url),
-                  & &1.loc
-                ),
+              do: own ++ extra_for_primary(own, groups, host_by_lang, primary, base_url),
               else: own
 
-          {host, entries}
+          {host, entries |> UrlEntry.dedupe_by_loc() |> Enum.sort_by(& &1.loc)}
         end)
     end
   end
@@ -212,6 +215,18 @@ defmodule PhoenixKit.Modules.Sitemap.DomainMode do
 
   # Computed once per group and reused verbatim for every domain that carries
   # the group — the spec's "identical hreflang set on every duplicate".
+  #
+  # A group with only one language present is not a hreflang set: the app's
+  # own page-level builders (`Decor3dprintWeb.SEO.with_x_default/1`,
+  # `PhoenixKitEcommerce.Web.SEOHelpers.dedup_or_empty/1`) already drop
+  # under-2-entry sets as noise rather than emit a lone self+x-default pair.
+  # Without this guard here, an untranslated product/page's <head> carried
+  # NO hreflang tags (per that same rule) while its sitemap entry advertised
+  # one — the live page silently failed to back up a promise its own sitemap
+  # made for the identical URL.
+  defp group_alternates(by_lang, _host_by_lang, _primary, _base_url) when map_size(by_lang) < 2,
+    do: []
+
   defp group_alternates(by_lang, host_by_lang, primary, base_url) do
     links =
       by_lang

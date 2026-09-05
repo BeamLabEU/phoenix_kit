@@ -183,7 +183,30 @@ defmodule PhoenixKit.Integration.Sitemap.DomainModeTest do
       assert result["site.example.com"] == []
       [fr_entry] = result["site.example.fr"]
       assert fr_entry.loc == "https://site.example.fr/only-french"
-      # no x-default: the primary language has no entry in this group (m2)
+      # One language is not a hreflang set, so this URL carries none at all.
+      # m2 (no x-default when the primary's language is absent) is NOT what
+      # this asserts — against an empty list any `refute Enum.any?` passes
+      # vacuously. m2 is covered by the two-language test below.
+      assert fr_entry.alternates == []
+    end
+
+    test "no x-default when the group has no entry for the primary's language (m2)" do
+      # Two non-primary languages, so the group is a real hreflang set and the
+      # single-language guard does not fire — only then does the absence of
+      # x-default mean the rule holds rather than the list simply being empty.
+      put_provider(:all_mapped)
+
+      entries = [
+        entry("/fr/only-french", "/only-french"),
+        entry("/de/nur-deutsch", "/only-french")
+      ]
+
+      result = DomainMode.rebuild_for_domains(entries, @base)
+
+      assert result["site.example.com"] == []
+      [fr_entry] = result["site.example.fr"]
+
+      assert Enum.map(fr_entry.alternates, & &1.hreflang) == ["de", "fr"]
       refute Enum.any?(fr_entry.alternates, &(&1.hreflang == "x-default"))
     end
 
@@ -198,6 +221,51 @@ defmodule PhoenixKit.Integration.Sitemap.DomainModeTest do
       [en_entry] = result["site.example.com"]
       assert en_entry.loc == "https://site.example.com/some/tool"
       assert result["site.example.fr"] == []
+    end
+
+    test "a single-language group on the PRIMARY's own language carries no alternates at all" do
+      # Regression: an untranslated product/page whose only language happens
+      # to be the primary domain's would previously get a self+x-default
+      # pair here — a lone entry, i.e. exactly the "hreflang for a single
+      # language is noise" case the app's own page-level builders already
+      # special-case. Left unguarded, the sitemap advertised an alternate
+      # set for this URL that the live page's <head> never repeated (it
+      # correctly emits none), so a crawler following the sitemap saw a
+      # promise the page itself did not keep.
+      entries = [entry("/only-english", "/only-english")]
+      result = DomainMode.rebuild_for_domains(entries, @base)
+
+      [en_entry] = result["site.example.com"]
+      assert en_entry.loc == "https://site.example.com/only-english"
+      assert en_entry.alternates == []
+      assert result["site.example.fr"] == []
+    end
+
+    test "one host lists a <loc> once when two sources produce it, keeping the richer entry" do
+      # Regression: a locale-prefixed clone route (`live "/fr"` pointing at the
+      # home LiveView) is discovered from the router with no canonical_path, so
+      # it forms its own single-language group. Re-hosting strips the prefix and
+      # lands it on `https://<fr-host>/` — exactly where the static home, grouped
+      # with the default language's `/` under canonical_path "/", already sits.
+      # The two groups cannot merge, so the French file listed its home twice:
+      # once with the full cross-domain alternates, once bare.
+      entries = [
+        entry("/", "/"),
+        entry("/fr/", "/"),
+        entry("/fr", nil)
+      ]
+
+      result = DomainMode.rebuild_for_domains(entries, @base)
+
+      assert [fr_home] = result["site.example.fr"]
+      assert fr_home.loc == "https://site.example.fr/"
+
+      # The survivor is the entry carrying the hreflang set, not the bare clone.
+      assert Enum.map(fr_home.alternates, & &1.hreflang) == ["en", "fr", "x-default"]
+
+      # The primary is unaffected — its own home is still listed exactly once.
+      assert [en_home] = result["site.example.com"]
+      assert en_home.loc == "https://site.example.com/"
     end
 
     test "a non-locale first segment is not treated as a language" do
