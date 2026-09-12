@@ -71,6 +71,42 @@ defmodule PhoenixKitWeb.VendoredCdnPinsTest do
     end
   end
 
+  for {app, _} <- @pinned do
+    test "the #{app} requirement's ceiling stops at the pinned minor" do
+      # The other half of the pin discipline, sibling to leaf_bundle_pin's
+      # ceiling test: `~> 0.N` without a patch segment reads as "the 0.N
+      # line" but means `< 1.0.0`, so one patch-less alternative silently
+      # admits every later 0.x — and a host is then free to resolve the
+      # Elixir half past the tag this file's other tests hold the bundle
+      # to. Neither the tag test above nor the lock can see that: both only
+      # look at versions THIS project resolved.
+      app = unquote(app)
+
+      requirement =
+        File.read!(Path.join(__DIR__, "../../mix.exs"))
+        |> then(&Regex.run(~r/\{:#{app}, "([^"]+)"/, &1))
+        |> then(fn [_, req] -> req end)
+
+      resolved = to_string(Application.spec(app, :vsn))
+
+      assert Version.match?(resolved, requirement),
+             "#{app} #{resolved} no longer satisfies its own requirement #{inspect(requirement)}"
+
+      %Version{major: major, minor: minor} = Version.parse!(resolved)
+      next_minor = "#{major}.#{minor + 1}.0"
+
+      refute Version.match?(next_minor, requirement),
+             """
+             The #{app} requirement #{inspect(requirement)} admits \
+             #{next_minor}, one minor past the bundle tag this file pins. \
+             Give every alternative a patch segment (`~> #{major}.#{minor}.0`, \
+             not `~> #{major}.#{minor}`) so the ceiling stops at the pinned \
+             minor, and move the requirement, the lock and the CDN pin \
+             together.
+             """
+    end
+  end
+
   test "every gh/ pin in the bundle is covered by this test" do
     # A fifth sibling added with a pin this file doesn't know about would
     # re-open the exact hole this test exists to close.

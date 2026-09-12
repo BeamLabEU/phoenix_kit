@@ -230,9 +230,18 @@ defmodule PhoenixKit.MixProject do
       # of the original for deep zoom on >4K images (no OpenSeadragon). The
       # tile overlay rides Fresco's stage transform so it stays glued to the
       # image. JS hooks lazy-load from jsdelivr pinned to the matching tag.
-      {:fresco, "~> 0.10"},
-      {:tessera, "~> 0.3"},
-      {:etcher, "~> 0.9"},
+      #
+      # Ceilings carry a patch segment for the same reason :leaf's do (see
+      # the comment there): each of these serves its browser half from an
+      # exact jsDelivr tag in phoenix_kit.js, and a patch-less `~> 0.N`
+      # reads as "the 0.N line" while meaning `< 1.0.0` — an open ceiling
+      # that lets a host float the Elixir half past the frozen bundle the
+      # day the next minor ships. `vendored_cdn_pins_test.exs` holds each
+      # ceiling to the pinned minor; the next minor of any of them needs
+      # the same requirement + lock + CDN-pin move :leaf gets.
+      {:fresco, "~> 0.10.0 or ~> 0.11.0"},
+      {:tessera, "~> 0.3.0"},
+      {:etcher, "~> 0.9.0 or ~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
