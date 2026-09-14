@@ -98,6 +98,12 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   @etcher_line_params_key "etcher_line_params"
   @default_etcher_line_params %{"width" => 2, "opacity" => 1, "dash" => "solid"}
   @etcher_dash_values ~w(solid dashed dotted)
+  # Label font size, when the user has pinned one. Deliberately absent from
+  # the defaults above: having no value is what "size each label by its own
+  # box" means, and that is what labels did before the control existed, so a
+  # default here would silently pin every board to one size. Limits match the
+  # control's own.
+  @etcher_font_size_range {6, 200}
 
   # Whether the info sidebar (filename / Download / metadata / comments) is
   # collapsed to give the viewer the full popup width. Per-user, one value
@@ -1153,26 +1159,38 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp load_user_line_params(_), do: @default_etcher_line_params
 
   # Line params arrive from the same untrusted client hook as the palette.
-  # Keep only the three known keys, clamped to Etcher's own ranges (width
-  # 1..40, opacity 0..1, dash enum), then merge over the default so a partial
-  # or garbage payload still yields a usable map. Returns `nil` when nothing
-  # valid survives so the caller can ignore the update rather than wipe the
-  # saved ink.
+  # Keep only the known keys, clamped to Etcher's own ranges (width 1..40,
+  # opacity 0..1, dash enum, font size 6..200), then merge over the default
+  # so a partial or garbage payload still yields a usable map. Returns `nil`
+  # when nothing valid survives so the caller can ignore the update rather
+  # than wipe the saved ink.
   defp sanitize_line_params(params) when is_map(params) do
     clean =
       Enum.reduce(params, %{}, fn
         {"width", w}, acc when is_number(w) -> Map.put(acc, "width", clamp_number(w, 1, 40))
         {"opacity", o}, acc when is_number(o) -> Map.put(acc, "opacity", clamp_number(o, 0, 1))
         {"dash", d}, acc when d in @etcher_dash_values -> Map.put(acc, "dash", d)
+        {"font_size", s}, acc when is_number(s) -> Map.put(acc, "font_size", clamp_font(s))
         _, acc -> acc
       end)
 
+    # Merged into the DEFAULTS rather than into whatever was stored before,
+    # which is what lets a cleared font size clear: Etcher omits the key
+    # when the user unpins it, and an omitted key has to mean "back to
+    # sizing labels by their box" rather than "leave the old one alone".
     if map_size(clean) == 0, do: nil, else: Map.merge(@default_etcher_line_params, clean)
   end
 
   defp sanitize_line_params(_), do: nil
 
   defp clamp_number(n, lo, hi), do: n |> max(lo) |> min(hi)
+
+  # Rounded as well as clamped: the control only ever offers whole pixels,
+  # and a stored 17.5 would come back as a size the user cannot type.
+  defp clamp_font(n) do
+    {lo, hi} = @etcher_font_size_range
+    n |> clamp_number(lo, hi) |> round()
+  end
 
   @doc """
   Loads annotations for a file into the curated map shape this component
