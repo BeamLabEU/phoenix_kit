@@ -984,6 +984,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
                 :callout,
                 :text,
                 :dimension,
+                :arrow,
                 :line,
                 :eraser
               ],
