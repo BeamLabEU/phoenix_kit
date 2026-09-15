@@ -387,4 +387,19 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert text =~ "catalogue item"
     assert text =~ "conflict"
   end
+
+  test "format_report/1 includes a :trashed action in the details section on --apply" do
+    empty = create_folder!(%{name: "pending-empty"})
+
+    plan = [
+      %{source: "catalogue", kind: :pending, label: "pending-empty", op: :trash, folder: empty}
+    ]
+
+    report = run!(plan)
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "catalogue pending"
+    assert text =~ "pending-empty"
+    assert text =~ "trashed"
+  end
 end

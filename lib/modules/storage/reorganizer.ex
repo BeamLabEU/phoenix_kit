@@ -397,7 +397,7 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp format_details(actions, applied?) do
     noteworthy =
       Enum.filter(actions, fn action ->
-        not applied? or Map.get(action, :outcome) in [:conflict, :failed, :reported]
+        not applied? or Map.get(action, :outcome) in [:conflict, :failed, :reported, :trashed]
       end)
 
     case noteworthy do
