@@ -63,6 +63,10 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer.Action do
       end
     end)
 
+    validate_field_type!(attrs, :source, &is_binary/1, "a String.t()")
+    validate_field_type!(attrs, :kind, &is_atom/1, "an atom")
+    validate_field_type!(attrs, :label, &is_binary/1, "a String.t()")
+
     attrs = drop_unknown_keys(attrs)
 
     op = Map.fetch!(attrs, :op)
@@ -83,6 +87,15 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer.Action do
     @defaults
     |> Map.merge(attrs)
     |> Map.put(:on_conflict, on_conflict)
+  end
+
+  defp validate_field_type!(attrs, key, predicate, expected) do
+    value = Map.fetch!(attrs, key)
+
+    unless predicate.(value) do
+      raise ArgumentError,
+            "Reorganizer.Action #{inspect(key)} must be #{expected}, got: #{inspect(value)}"
+    end
   end
 
   # Unknown keys are dropped (with a warning), never raised on — a Source

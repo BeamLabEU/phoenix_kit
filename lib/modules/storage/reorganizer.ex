@@ -271,6 +271,10 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     end
   end
 
+  defp do_trash(%Folder{trashed_at: trashed_at}, action) when not is_nil(trashed_at) do
+    Map.merge(action, %{outcome: :reported, reason: "already trashed"})
+  end
+
   defp do_trash(folder, action) do
     case counts(folder.uuid) do
       {0, 0} ->
