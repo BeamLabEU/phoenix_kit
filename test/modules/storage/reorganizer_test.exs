@@ -386,6 +386,11 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
 
     assert text =~ "catalogue item"
     assert text =~ "conflict"
+
+    # Column headers are separately readable words, not run together
+    # ("renamedbackfilledconflicts...") — each gets its own field width.
+    assert text =~ " renamed "
+    assert text =~ " backfilled "
   end
 
   test "format_report/1 includes a :trashed action in the details section on --apply" do

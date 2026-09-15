@@ -32,6 +32,10 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   alias PhoenixKit.Modules.Storage.Reorganizer.Action
 
   @columns [:total, :moved, :renamed, :backfilled, :conflicts, :failed, :trashed, :reported]
+  # Each column's width is the header word's own length (min 7), so a word
+  # like "backfilled" (10 chars) gets room instead of being padded to a
+  # fixed width shorter than itself, which ran header words into each other.
+  @column_widths Map.new(@columns, &{&1, max(String.length(Atom.to_string(&1)), 7)})
   @default_opts [apply?: false, pending_days: 7]
 
   # ===== PLAN =====
@@ -370,17 +374,12 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   """
   @spec format_report(%{actions: [Action.t()], summary: map(), applied?: boolean()}) :: String.t()
   def format_report(%{actions: actions, summary: summary, applied?: applied?}) do
-    header = format_row(["source kind", Enum.map(@columns, &to_string/1)])
+    header = format_row("source kind", Map.new(@columns, &{&1, Atom.to_string(&1)}))
 
     rows =
       summary
       |> Enum.sort_by(fn {key, _} -> key end)
-      |> Enum.map(fn {{source, kind}, counts} ->
-        format_row([
-          "#{source} #{kind}",
-          Enum.map(@columns, &to_string(Map.get(counts, &1, 0)))
-        ])
-      end)
+      |> Enum.map(fn {{source, kind}, counts} -> format_row("#{source} #{kind}", counts) end)
 
     note = if applied?, do: "applied", else: "dry run — planned actions, nothing written"
 
@@ -390,8 +389,16 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     |> Kernel.<>(format_details(actions, applied?))
   end
 
-  defp format_row([label, cols]) do
-    String.pad_trailing(label, 24) <> Enum.map_join(cols, "", &String.pad_leading(&1, 8))
+  defp format_row(label, values_by_column) do
+    cells =
+      Enum.map(@columns, fn col ->
+        values_by_column
+        |> Map.get(col, 0)
+        |> to_string()
+        |> String.pad_leading(@column_widths[col])
+      end)
+
+    Enum.join([String.pad_trailing(label, 24) | cells], " ")
   end
 
   defp format_details(actions, applied?) do
