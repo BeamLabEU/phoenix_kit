@@ -221,6 +221,23 @@ defmodule PhoenixKit.ModuleRegistry do
   end
 
   @doc """
+  Collect media reorganizer source modules contributed by all **enabled**
+  modules.
+
+  Each entry implements `PhoenixKit.Modules.Storage.Reorganizer.Source`.
+  Iterates `enabled_modules/0`, like `all_sitemap_sources/0`: a disabled
+  module's records must not be touched by a reorganizer run.
+  """
+  @spec all_media_reorganizers() :: [module()]
+  def all_media_reorganizers do
+    enabled_modules()
+    |> Enum.map(&safe_call(&1, :media_reorganizer, nil))
+    |> Enum.filter(&is_atom/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  @doc """
   Collect top-level route path segments reserved by all installed modules.
 
   Each entry is a literal path segment (no slashes, e.g. `"legal"`) a module
