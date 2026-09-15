@@ -50,4 +50,49 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
     assert output =~ "Stub legacy folder"
     assert output =~ "dry run"
   end
+
+  describe "exit_code/2" do
+    test "is 0 on a dry-run regardless of outcomes" do
+      assert ReorganizeTask.exit_code(%{actions: [%{outcome: :failed}]}, false) == 0
+    end
+
+    test "is 0 after --apply when nothing failed or conflicted" do
+      assert ReorganizeTask.exit_code(%{actions: [%{outcome: :moved}, %{outcome: :trashed}]}, true) ==
+               0
+    end
+
+    test "is 1 after --apply when an action outcome is :failed" do
+      assert ReorganizeTask.exit_code(%{actions: [%{outcome: :moved}, %{outcome: :failed}]}, true) ==
+               1
+    end
+
+    test "is 1 after --apply when an action outcome is :conflict" do
+      assert ReorganizeTask.exit_code(%{actions: [%{outcome: :conflict}]}, true) == 1
+    end
+  end
+
+  describe "invalid options" do
+    test "an unknown switch is ignored with a warning instead of silently accepted" do
+      output =
+        capture_io(fn ->
+          capture_io(:stderr, fn ->
+            ReorganizeTask.run(["--source", "stub_task_module", "--no-such-switch"])
+          end)
+        end)
+
+      assert output =~ "dry run"
+    end
+
+    test "--pending-days must be a positive integer" do
+      assert_raise Mix.Error, ~r/--pending-days/, fn ->
+        capture_io(fn -> ReorganizeTask.run(["--pending-days", "abc"]) end)
+      end
+    end
+
+    test "--pending-days 0 is rejected" do
+      assert_raise Mix.Error, ~r/--pending-days/, fn ->
+        capture_io(fn -> ReorganizeTask.run(["--pending-days", "0"]) end)
+      end
+    end
+  end
 end

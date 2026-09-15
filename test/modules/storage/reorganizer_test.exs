@@ -22,6 +22,57 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     def plan(_actor, _opts), do: raise("boom")
   end
 
+  defmodule ThrowingSource do
+    @moduledoc false
+    @behaviour PhoenixKit.Modules.Storage.Reorganizer.Source
+
+    @impl true
+    def plan(_actor, _opts), do: throw(:boom)
+  end
+
+  defmodule ExitingSource do
+    @moduledoc false
+    @behaviour PhoenixKit.Modules.Storage.Reorganizer.Source
+
+    @impl true
+    def plan(_actor, _opts), do: exit(:boom)
+  end
+
+  defmodule NonListSource do
+    @moduledoc false
+    @behaviour PhoenixKit.Modules.Storage.Reorganizer.Source
+
+    @impl true
+    def plan(_actor, _opts), do: :not_a_list
+  end
+
+  defmodule DisabledHostModule do
+    @moduledoc false
+    def module_key, do: "disabled_reorganizer_module"
+    def module_name, do: "Disabled Reorganizer Module"
+    def enabled?, do: false
+    def enable_system, do: :ok
+    def disable_system, do: :ok
+    def media_reorganizer, do: DisabledHostModule.MediaReorganizer
+
+    defmodule MediaReorganizer do
+      @moduledoc false
+      @behaviour PhoenixKit.Modules.Storage.Reorganizer.Source
+
+      @impl true
+      def plan(_actor, _opts) do
+        [
+          %{
+            source: "disabled_reorganizer_module",
+            kind: :item,
+            label: "should never be planned",
+            op: :report
+          }
+        ]
+      end
+    end
+  end
+
   # ---------------------------------------------------------------------
   # Helpers
   # ---------------------------------------------------------------------
@@ -432,5 +483,342 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert text =~ "catalogue pending"
     assert text =~ "pending-empty"
     assert text =~ "trashed"
+  end
+
+  # ---------------------------------------------------------------------
+  # B2/M1 — apply_one/1 and plan/2 never halt the run
+  # ---------------------------------------------------------------------
+
+  test "a source that throws becomes one :source_error :report action and other sources still run" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    stub_plan = [
+      move_action(%{folder: folder, parent_uuid: target.uuid, name: "New", counts: {0, 0}})
+    ]
+
+    {:ok, report} =
+      Reorganizer.run(nil,
+        apply?: true,
+        sources: [ThrowingSource, StubSource],
+        stub_actions: stub_plan
+      )
+
+    source_error_action = Enum.find(report.actions, &(&1.kind == :source_error))
+    assert source_error_action.outcome == :reported
+
+    moved_action = Enum.find(report.actions, &(&1.kind == :item))
+    assert moved_action.outcome == :moved_renamed
+  end
+
+  test "a source that exits becomes one :source_error :report action and other sources still run" do
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: true, sources: [ExitingSource])
+
+    [action] = report.actions
+    assert action.kind == :source_error
+    assert action.outcome == :reported
+  end
+
+  test "a source returning a non-list becomes one :source_error :report action" do
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: true, sources: [NonListSource])
+
+    [action] = report.actions
+    assert action.kind == :source_error
+    assert action.outcome == :reported
+  end
+
+  test "an invalid action from a source becomes one :invalid_action :report, other actions in the same source still run" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    good = move_action(%{folder: folder, parent_uuid: target.uuid, name: "New", counts: {0, 0}})
+    bad = %{kind: :item, label: "missing required keys", op: :move}
+
+    {:ok, report} =
+      Reorganizer.run(nil,
+        apply?: true,
+        sources: [StubSource],
+        stub_actions: [good, bad]
+      )
+
+    invalid = Enum.find(report.actions, &(&1.kind == :invalid_action))
+    assert invalid.outcome == :reported
+
+    moved = Enum.find(report.actions, &(&1.kind == :item))
+    assert moved.outcome == :moved_renamed
+  end
+
+  test "after_move raising an exception is caught and the action fails without losing other actions" do
+    target = create_folder!(%{name: "Target"})
+    ok_folder = create_folder!(%{name: "x-legacy-ok"})
+    raising_folder = create_folder!(%{name: "x-legacy-raise"})
+
+    plan = [
+      move_action(%{
+        folder: ok_folder,
+        kind: :ok_item,
+        parent_uuid: target.uuid,
+        counts: {0, 0}
+      }),
+      move_action(%{
+        folder: raising_folder,
+        kind: :raising_item,
+        parent_uuid: target.uuid,
+        counts: {0, 0},
+        after_move: fn -> raise "boom in after_move" end
+      })
+    ]
+
+    report = run!(plan)
+
+    ok_action = Enum.find(report.actions, &(&1.kind == :ok_item))
+    assert ok_action.outcome == :moved
+
+    failed_action = Enum.find(report.actions, &(&1.kind == :raising_item))
+    assert failed_action.outcome == :failed
+
+    reloaded = Storage.get_folder(raising_folder.uuid)
+    assert reloaded.parent_uuid == nil
+  end
+
+  test "after_move returning {:ok, _} backfills successfully" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{
+        folder: folder,
+        parent_uuid: target.uuid,
+        counts: {0, 0},
+        after_move: fn -> {:ok, :whatever} end
+      })
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :backfilled
+  end
+
+  test "after_move returning an unexpected value fails the action" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{
+        folder: folder,
+        parent_uuid: target.uuid,
+        counts: {0, 0},
+        after_move: fn -> :something_else end
+      })
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == {:bad_after_move_return, :something_else}
+  end
+
+  # ---------------------------------------------------------------------
+  # M3 — unknown action keys are dropped with a warning, never raised
+  # ---------------------------------------------------------------------
+
+  test "an unknown action key is dropped with a warning instead of crashing the plan" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{
+        folder: folder,
+        parent_uuid: target.uuid,
+        counts: {0, 0},
+        totally_unknown_future_key: "from a newer module"
+      })
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :moved
+    refute Map.has_key?(action, :totally_unknown_future_key)
+  end
+
+  # ---------------------------------------------------------------------
+  # M4 — counts: nil is a failure, not a silently-disabled guard
+  # ---------------------------------------------------------------------
+
+  test "counts: nil fails the move instead of silently skipping the guard" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [move_action(%{folder: folder, parent_uuid: target.uuid, counts: nil})]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == {:counts_missing, folder.uuid}
+
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.parent_uuid == nil
+  end
+
+  # ---------------------------------------------------------------------
+  # M5 — :trash requires 0 files, 0 links AND 0 live child folders
+  # ---------------------------------------------------------------------
+
+  test "reports instead of trashing a folder that still has a live child folder" do
+    parent = create_folder!(%{name: "pending-with-child"})
+    _child = create_folder!(%{name: "child", parent_uuid: parent.uuid})
+
+    plan = [%{source: "catalogue", kind: :pending, label: "pending-with-child", op: :trash, folder: parent}]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :reported
+    assert action.reason =~ "child folder"
+    assert Storage.get_folder(parent.uuid).trashed_at == nil
+  end
+
+  test "trashes a folder whose only child folders are already trashed" do
+    parent = create_folder!(%{name: "pending-with-trashed-child"})
+    child = create_folder!(%{name: "child", parent_uuid: parent.uuid})
+    {:ok, _} = Storage.trash_folder(child)
+
+    plan = [
+      %{
+        source: "catalogue",
+        kind: :pending,
+        label: "pending-with-trashed-child",
+        op: :trash,
+        folder: parent
+      }
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :trashed
+  end
+
+  # ---------------------------------------------------------------------
+  # M6 — a trashed folder is never a noop; restoring it is :restored
+  # ---------------------------------------------------------------------
+
+  test "restoring a trashed folder that already sits at the wanted parent/name is outcome :restored" do
+    folder = create_folder!(%{name: "x-legacy"})
+    {:ok, _} = Storage.trash_folder(folder)
+    trashed_folder = Storage.get_folder(folder.uuid)
+
+    plan = [move_action(%{folder: trashed_folder, counts: {0, 0}})]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :restored
+
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.trashed_at == nil
+  end
+
+  test "a trashed folder already in place is planned (not filtered as a noop)" do
+    folder = create_folder!(%{name: "x-legacy"})
+    {:ok, _} = Storage.trash_folder(folder)
+    trashed_folder = Storage.get_folder(folder.uuid)
+
+    plan = [move_action(%{folder: trashed_folder, counts: {0, 0}})]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    assert report.actions != []
+  end
+
+  # ---------------------------------------------------------------------
+  # M7 — moving into a trashed or missing target parent fails clearly
+  # ---------------------------------------------------------------------
+
+  test "moving into a trashed target parent fails instead of silently succeeding" do
+    target = create_folder!(%{name: "Target"})
+    {:ok, _} = Storage.trash_folder(target)
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [move_action(%{folder: folder, parent_uuid: target.uuid, counts: {0, 0}})]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == {:target_parent_trashed, target.uuid}
+
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.parent_uuid == nil
+  end
+
+  test "moving into a missing target parent fails instead of silently succeeding" do
+    folder = create_folder!(%{name: "x-legacy"})
+    missing_parent_uuid = Ecto.UUID.generate()
+
+    plan = [move_action(%{folder: folder, parent_uuid: missing_parent_uuid, counts: {0, 0}})]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == {:target_parent_missing, missing_parent_uuid}
+  end
+
+  # ---------------------------------------------------------------------
+  # M8 — dry-run detail lines show the parent/name transition
+  # ---------------------------------------------------------------------
+
+  test "dry-run detail line shows the from/to parent names and the old/new folder name" do
+    origin = create_folder!(%{name: "Origin"})
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy", parent_uuid: origin.uuid})
+
+    plan = [
+      move_action(%{folder: folder, parent_uuid: target.uuid, name: "New", counts: {0, 0}})
+    ]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "[catalogue/item] move"
+    assert text =~ "Origin → Target"
+    assert text =~ "name \"x-legacy\" → \"New\""
+  end
+
+  test "dry-run detail line shows root when the folder has no current parent" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [move_action(%{folder: folder, parent_uuid: target.uuid, counts: {0, 0}})]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "root → Target"
+  end
+
+  # ---------------------------------------------------------------------
+  # M9 — disabled module's Source is skipped by sources: :all
+  # ---------------------------------------------------------------------
+
+  test "a disabled module's Source is skipped by sources: :all" do
+    PhoenixKit.ModuleRegistry.register(DisabledHostModule)
+    on_exit(fn -> PhoenixKit.ModuleRegistry.unregister(DisabledHostModule) end)
+
+    plan = Reorganizer.plan(nil, sources: :all)
+
+    refute Enum.any?(plan, &(&1.source == "disabled_reorganizer_module"))
   end
 end
