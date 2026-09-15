@@ -2,9 +2,11 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
   use PhoenixKit.DataCase, async: false
 
   import ExUnit.CaptureIO
+  import ExUnit.CaptureLog
 
   alias Mix.Tasks.PhoenixKit.Media.Reorganize, as: ReorganizeTask
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Modules.Storage.Reorganizer
 
   defmodule StubSourceModule do
     @moduledoc false
@@ -104,6 +106,18 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
 
       assert exit_reason == {:shutdown, 1}
       assert output =~ "--pending-days"
+    end
+
+    test "an unresolved --source key is warned about instead of silently vanishing" do
+      log =
+        capture_log(fn ->
+          capture_io(fn ->
+            Reorganizer.sources(["no_such_module_key"])
+          end)
+        end)
+
+      assert log =~ "no_such_module_key"
+      assert log =~ "unresolved source key"
     end
   end
 end

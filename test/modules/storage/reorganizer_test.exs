@@ -623,6 +623,42 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
   end
 
   # ---------------------------------------------------------------------
+  # M2 — Action field types are validated (a bad type never reaches apply)
+  # ---------------------------------------------------------------------
+
+  test "an action with a non-binary label becomes one :invalid_action report instead of crashing the run" do
+    target = create_folder!(%{name: "Target"})
+    good_folder = create_folder!(%{name: "x-legacy-good"})
+
+    good = move_action(%{folder: good_folder, parent_uuid: target.uuid, counts: {0, 0}})
+    bad = move_action(%{label: {:bad, 1}, folder: nil})
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: true, sources: [StubSource], stub_actions: [good, bad])
+
+    invalid = Enum.find(report.actions, &(&1.kind == :invalid_action))
+    assert invalid.outcome == :reported
+
+    moved = Enum.find(report.actions, &(&1.kind == :item))
+    assert moved.outcome == :moved
+  end
+
+  test "an action with a non-atom kind or non-binary source becomes one :invalid_action report" do
+    bad_kind = move_action(%{kind: "not_an_atom"})
+    bad_source = move_action(%{source: :not_a_string})
+
+    {:ok, report} =
+      Reorganizer.run(nil,
+        apply?: true,
+        sources: [StubSource],
+        stub_actions: [bad_kind, bad_source]
+      )
+
+    assert length(report.actions) == 2
+    assert Enum.all?(report.actions, &(&1.kind == :invalid_action and &1.outcome == :reported))
+  end
+
+  # ---------------------------------------------------------------------
   # M3 — unknown action keys are dropped with a warning, never raised
   # ---------------------------------------------------------------------
 
@@ -713,6 +749,30 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert action.outcome == :trashed
   end
 
+  test "trashing an already-trashed folder is reported instead of re-trashed" do
+    folder = create_folder!(%{name: "pending-already-trashed"})
+    {:ok, _} = Storage.trash_folder(folder)
+    trashed_folder = Storage.get_folder(folder.uuid)
+    original_trashed_at = trashed_folder.trashed_at
+
+    plan = [
+      %{
+        source: "catalogue",
+        kind: :pending,
+        label: "pending-already-trashed",
+        op: :trash,
+        folder: trashed_folder
+      }
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :reported
+    assert action.reason =~ "already trashed"
+    assert Storage.get_folder(folder.uuid).trashed_at == original_trashed_at
+  end
+
   # ---------------------------------------------------------------------
   # M6 — a trashed folder is never a noop; restoring it is :restored
   # ---------------------------------------------------------------------
@@ -778,6 +838,58 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
 
     assert action.outcome == :failed
     assert action.error == {:target_parent_missing, missing_parent_uuid}
+  end
+
+  test "moving a folder under its own descendant fails with :cycle instead of corrupting the tree" do
+    parent = create_folder!(%{name: "Parent"})
+    child = create_folder!(%{name: "Child", parent_uuid: parent.uuid})
+
+    plan = [move_action(%{folder: parent, parent_uuid: child.uuid, counts: {0, 0}})]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == :cycle
+
+    reloaded = Storage.get_folder(parent.uuid)
+    assert reloaded.parent_uuid == nil
+  end
+
+  test "after_move's own write is rolled back together with the folder move when a later step fails" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+    marker = create_folder!(%{name: "marker-not-yet-renamed"})
+
+    plan = [
+      move_action(%{
+        folder: folder,
+        parent_uuid: target.uuid,
+        # counts is {0, 0} at plan time. after_move renames `marker` (a real
+        # write) and then adds a file to `folder`, so the post-after_move
+        # verify_counts re-check (same expected {0, 0}) fails — the whole
+        # transaction rolls back, taking both the folder move AND
+        # after_move's own write with it.
+        counts: {0, 0},
+        after_move: fn ->
+          {:ok, _} = Storage.update_folder(marker, %{name: "marker-renamed-by-after-move"})
+          create_file!(folder.uuid)
+          :ok
+        end
+      })
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert {:count_mismatch, _folder_uuid, {0, 0}, {1, 0}} = action.error
+
+    reloaded_folder = Storage.get_folder(folder.uuid)
+    assert reloaded_folder.parent_uuid == nil
+
+    reloaded_marker = Storage.get_folder(marker.uuid)
+    assert reloaded_marker.name == "marker-not-yet-renamed"
   end
 
   # ---------------------------------------------------------------------
