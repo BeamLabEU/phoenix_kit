@@ -14,8 +14,16 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   in the report.
 
   Nothing is ever hard-deleted. `:trash` only soft-deletes a folder that is
-  still empty at apply time (`PhoenixKit.Modules.Storage.trash_folder/1`);
-  the engine never creates folders.
+  still empty (0 files, 0 links, 0 live child folders) at apply time
+  (`PhoenixKit.Modules.Storage.trash_folder/1`); the engine never creates
+  folders.
+
+  A real unique-constraint violation aborts the surrounding Postgres
+  transaction, so a failed `UPDATE` can't be retried inside the same
+  transaction. Rather than retry, the engine SELECTs the target name for a
+  collision *before* writing (`on_conflict: :suffix` picks a free
+  `"name (N)"`, `on_conflict: :report` just checks): the transaction either
+  hits no naming constraint at all, or is the one query it ever attempts.
 
       {:ok, report} = PhoenixKit.Modules.Storage.Reorganizer.run(actor_uuid, apply?: false)
       IO.puts(PhoenixKit.Modules.Storage.Reorganizer.format_report(report))
@@ -31,7 +39,17 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   alias PhoenixKit.Modules.Storage.FolderLink
   alias PhoenixKit.Modules.Storage.Reorganizer.Action
 
-  @columns [:total, :moved, :renamed, :backfilled, :conflicts, :failed, :trashed, :reported]
+  @columns [
+    :total,
+    :moved,
+    :renamed,
+    :backfilled,
+    :restored,
+    :conflicts,
+    :failed,
+    :trashed,
+    :reported
+  ]
   # Each column's width is the header word's own length (min 7), so a word
   # like "backfilled" (10 chars) gets room instead of being padded to a
   # fixed width shorter than itself, which ran header words into each other.
@@ -42,7 +60,16 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
 
   @doc """
   Collects and normalizes actions from every source, dropping no-ops.
-  Read-only — never touches the database.
+  Never writes (engine-side) — a `Source`'s own hooks may still create
+  folders/pointers, since `plan/2` calls into the module's normal
+  parent/name resolution.
+
+  A source's `plan/2` is isolated: a raise, throw, exit, or a non-list
+  return becomes one `:source_error` `:report` action for that source and
+  every other source still runs. Within a source's own list, one action
+  `Action.new!/1` can't normalize (missing/invalid field) becomes one
+  `:invalid_action` `:report` for that action only — the rest of that
+  source's plan (and every other source) is unaffected.
   """
   @spec plan(String.t() | nil, keyword()) :: [Action.t()]
   def plan(actor_uuid, opts \\ []) do
@@ -52,24 +79,63 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     |> Keyword.get(:sources, :all)
     |> sources()
     |> Enum.flat_map(&collect(&1, actor_uuid, opts))
-    |> Enum.map(&Action.new!/1)
     |> Enum.reject(&Action.noop?/1)
   end
 
   defp collect(source_module, actor_uuid, opts) do
-    source_module.plan(actor_uuid, opts)
-  rescue
-    error ->
-      [
-        %{
-          source: inspect(source_module),
-          kind: :source_error,
-          label: "#{inspect(source_module)}.plan/2 raised",
-          op: :report,
-          reason: Exception.message(error)
-        }
-      ]
+    case safe_plan(source_module, actor_uuid, opts) do
+      {:ok, actions} when is_list(actions) ->
+        Enum.flat_map(actions, &normalize_action(&1, source_module))
+
+      {:ok, other} ->
+        [Action.new!(source_error_action(source_module, {:invalid_plan_return, inspect(other)}))]
+
+      {:error, reason} ->
+        [Action.new!(source_error_action(source_module, reason))]
+    end
   end
+
+  defp safe_plan(source_module, actor_uuid, opts) do
+    {:ok, source_module.plan(actor_uuid, opts)}
+  rescue
+    error -> {:error, Exception.message(error)}
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp normalize_action(attrs, _source_module) do
+    [Action.new!(attrs)]
+  rescue
+    error -> [Action.new!(invalid_action(attrs, error))]
+  catch
+    kind, reason -> [Action.new!(invalid_action(attrs, {kind, reason}))]
+  end
+
+  defp source_error_action(source_module, reason) do
+    %{
+      source: inspect(source_module),
+      kind: :source_error,
+      label: "#{inspect(source_module)}.plan/2 raised",
+      op: :report,
+      reason: inspect(reason)
+    }
+  end
+
+  defp invalid_action(attrs, reason) do
+    %{
+      source: action_source(attrs, reason),
+      kind: :invalid_action,
+      label: "invalid action: #{inspect(attrs)}",
+      op: :report,
+      reason: format_invalid_action_reason(reason)
+    }
+  end
+
+  defp action_source(%{source: source}, _reason) when is_binary(source), do: source
+  defp action_source(_attrs, _reason), do: "unknown"
+
+  defp format_invalid_action_reason(%_{} = exception), do: Exception.message(exception)
+  defp format_invalid_action_reason(reason), do: inspect(reason)
 
   @doc """
   Resolves the `sources:` option to a list of `Source` modules.
@@ -85,13 +151,27 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
 
   def sources(list) when is_list(list) do
     list
-    |> Enum.map(&resolve_source/1)
+    |> Enum.map(&resolve_source_with_warning/1)
     |> Enum.reject(&is_nil/1)
   end
 
-  defp resolve_source(mod) when is_atom(mod) and not is_nil(mod), do: mod
+  defp resolve_source_with_warning(mod) when is_atom(mod) and not is_nil(mod), do: mod
 
-  defp resolve_source(key) when is_binary(key) do
+  defp resolve_source_with_warning(key) when is_binary(key) do
+    case resolve_source(key) do
+      nil ->
+        Logger.warning(
+          "[Reorganizer] unresolved source key #{inspect(key)} (unknown or disabled module) — skipped"
+        )
+
+        nil
+
+      mod ->
+        mod
+    end
+  end
+
+  defp resolve_source(key) do
     Enum.find_value(ModuleRegistry.enabled_modules(), fn mod ->
       if function_exported?(mod, :module_key, 0) and mod.module_key() == key and
            function_exported?(mod, :media_reorganizer, 0) do
@@ -125,25 +205,38 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   Applies a single normalized action, returning it with `:outcome` set (and
   `:error`/`:reason` on anything that isn't a clean success). Runs in one
   transaction — a failure at any step rolls back everything the action did.
+
+  Never raises: an exception, throw, or exit anywhere in the apply path
+  (including an `after_move` callback) is caught and turned into outcome
+  `:failed` — a single bad action never loses the already-committed actions
+  from the report.
   """
   @spec apply_one(Action.t()) :: Action.t()
-  def apply_one(%{op: :report} = action), do: Map.put(action, :outcome, :reported)
+  def apply_one(action) do
+    do_apply_one(action)
+  rescue
+    error -> failed(action, {:exception, Exception.message(error)})
+  catch
+    kind, reason -> failed(action, {kind, reason})
+  end
 
-  def apply_one(%{op: :move, folder: nil} = action),
+  defp do_apply_one(%{op: :report} = action), do: Map.put(action, :outcome, :reported)
+
+  defp do_apply_one(%{op: :move, folder: nil} = action),
     do: Map.merge(action, %{outcome: :reported, reason: "no folder to move"})
 
-  def apply_one(%{op: :trash, folder: nil} = action),
+  defp do_apply_one(%{op: :trash, folder: nil} = action),
     do: Map.merge(action, %{outcome: :reported, reason: "no folder to trash"})
 
-  def apply_one(%{op: :move, folder: %Folder{} = folder} = action) do
+  defp do_apply_one(%{op: :move, folder: %Folder{} = folder} = action) do
     case repo().transaction(fn -> do_move(folder, action) end) do
       {:ok, result} -> result
-      {:error, {:conflict, reason}} -> Map.merge(action, %{outcome: :conflict, error: reason})
+      {:error, {:conflict, reason}} -> conflicted(action, reason)
       {:error, reason} -> failed(action, reason)
     end
   end
 
-  def apply_one(%{op: :trash, folder: %Folder{} = folder} = action) do
+  defp do_apply_one(%{op: :trash, folder: %Folder{} = folder} = action) do
     case repo().transaction(fn -> do_trash(folder, action) end) do
       {:ok, result} -> result
       {:error, reason} -> failed(action, reason)
@@ -152,6 +245,7 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
 
   defp do_move(folder, action) do
     with :ok <- verify_counts(folder.uuid, Map.get(action, :counts)),
+         :ok <- verify_target_parent(Map.get(action, :parent_uuid)),
          folder = restore_if_trashed(folder),
          attrs = move_attrs(folder, action),
          {:ok, updated, final_attrs} <- perform_update(folder, attrs, action),
@@ -164,12 +258,34 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     end
   end
 
+  # A target parent must exist and be live: a folder can't be moved under one
+  # that's trashed (it would be dragged along on the next restore/cleanup of
+  # that subtree) or gone.
+  defp verify_target_parent(nil), do: :ok
+
+  defp verify_target_parent(parent_uuid) do
+    case Storage.get_folder(parent_uuid) do
+      nil -> {:error, {:target_parent_missing, parent_uuid}}
+      %Folder{trashed_at: nil} -> :ok
+      %Folder{} -> {:error, {:target_parent_trashed, parent_uuid}}
+    end
+  end
+
   defp do_trash(folder, action) do
     case counts(folder.uuid) do
       {0, 0} ->
-        case Storage.trash_folder(folder) do
-          {:ok, _} -> Map.put(action, :outcome, :trashed)
-          {:error, reason} -> repo().rollback(reason)
+        case child_folder_count(folder.uuid) do
+          0 ->
+            case Storage.trash_folder(folder) do
+              {:ok, _} -> Map.put(action, :outcome, :trashed)
+              {:error, reason} -> repo().rollback(reason)
+            end
+
+          n ->
+            Map.merge(action, %{
+              outcome: :reported,
+              reason: "#{n} live child folder(s) still present"
+            })
         end
 
       {files, links} ->
@@ -178,6 +294,11 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
           reason: "#{files} file(s) and #{links} link(s) still present"
         })
     end
+  end
+
+  defp child_folder_count(folder_uuid) do
+    from(f in Folder, where: f.parent_uuid == ^folder_uuid and is_nil(f.trashed_at), select: count())
+    |> repo().one()
   end
 
   defp restore_if_trashed(%Folder{trashed_at: nil} = folder), do: folder
@@ -238,8 +359,8 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
         {:ok, updated, attrs}
 
       {:error, %Ecto.Changeset{errors: errors} = changeset} ->
-        if Keyword.has_key?(errors, :name) do
-          {:error, {:conflict, changeset}}
+        if unique_name_conflict?(errors) do
+          {:error, {:conflict, {:name_taken, Map.get(attrs, :parent_uuid, folder.parent_uuid), Map.get(attrs, :name, folder.name)}}}
         else
           {:error, changeset}
         end
@@ -247,6 +368,16 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # Only a real unique-constraint violation on :name is a naming conflict —
+  # any other :name error (e.g. length > 255) is a genuine failure, not a
+  # collision `on_conflict: :suffix`/`:report` should resolve.
+  defp unique_name_conflict?(errors) do
+    Enum.any?(errors, fn
+      {:name, {_msg, opts}} -> Keyword.get(opts, :constraint) == :unique
+      _ -> false
+    end)
   end
 
   defp maybe_presuffix(folder, attrs, action) do
@@ -292,16 +423,22 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp pick_free_name(existing_names, base_name) do
     existing = MapSet.new(existing_names)
 
-    Enum.find_value(Stream.iterate(2, &(&1 + 1)), fn n ->
-      candidate = "#{base_name} (#{n})"
-      if candidate not in existing, do: candidate
-    end)
+    if base_name not in existing do
+      base_name
+    else
+      Enum.find_value(Stream.iterate(2, &(&1 + 1)), fn n ->
+        candidate = "#{base_name} (#{n})"
+        if candidate not in existing, do: candidate
+      end)
+    end
   end
 
   defp run_after_move(%{after_move: fun}) when is_function(fun, 0) do
     case fun.() do
       :ok -> :ok
+      {:ok, _} -> :ok
       {:error, reason} -> {:error, reason}
+      other -> {:error, {:bad_after_move_return, other}}
     end
   end
 
@@ -316,11 +453,20 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
       moved? and renamed? -> :moved_renamed
       moved? -> :moved
       renamed? -> :renamed
-      true -> :moved
+      # Reached only when the folder was already at the wanted parent/name
+      # (nothing written) with no after_move — since a noop `:move` action
+      # this shape never reaches `apply_one/1` (see `Action.noop?/1`), the
+      # only way here is a trashed folder that `restore_if_trashed/1` just
+      # brought back: the restore itself is the change.
+      true -> :restored
     end
   end
 
-  defp verify_counts(_folder_uuid, nil), do: :ok
+  # `counts: nil` disables the built-in guard entirely — a Source must
+  # always measure and pass counts for a `:move` with a folder; treating a
+  # missing measurement as "skip the check" let a folder move with files
+  # still inside it slip through silently.
+  defp verify_counts(folder_uuid, nil), do: {:error, {:counts_missing, folder_uuid}}
 
   defp verify_counts(folder_uuid, expected) do
     case counts(folder_uuid) do
@@ -346,6 +492,11 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     Map.merge(action, %{outcome: :failed, error: reason})
   end
 
+  defp conflicted(action, reason) do
+    Logger.warning("[Reorganizer] #{action.kind} #{action.label} conflict: #{inspect(reason)}")
+    Map.merge(action, %{outcome: :conflict, error: reason})
+  end
+
   # ===== REPORT =====
 
   @doc "Groups actions by `{source, kind}` and counts outcomes per group."
@@ -366,6 +517,7 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
         ),
       renamed: Enum.count(actions, &(Map.get(&1, :outcome) in [:renamed, :moved_renamed])),
       backfilled: Enum.count(actions, &(Map.get(&1, :outcome) == :backfilled)),
+      restored: Enum.count(actions, &(Map.get(&1, :outcome) == :restored)),
       conflicts: Enum.count(actions, &(Map.get(&1, :outcome) == :conflict)),
       failed: Enum.count(actions, &(Map.get(&1, :outcome) == :failed)),
       trashed: Enum.count(actions, &(Map.get(&1, :outcome) == :trashed)),
@@ -412,23 +564,56 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp format_details(actions, applied?) do
     noteworthy =
       Enum.filter(actions, fn action ->
-        not applied? or Map.get(action, :outcome) in [:conflict, :failed, :reported, :trashed]
+        not applied? or
+          Map.get(action, :outcome) in [:conflict, :failed, :reported, :trashed, :restored]
       end)
 
     case noteworthy do
       [] -> ""
-      list -> "\n\nDetails:\n" <> Enum.map_join(list, "\n", &detail_line/1)
+      list -> "\n\nDetails:\n" <> Enum.map_join(list, "\n", &detail_line(&1, resolve_parent_names(list)))
     end
   end
 
-  defp detail_line(%{source: source, kind: kind, label: label} = action) do
-    outcome = Map.get(action, :outcome)
-    reason = Map.get(action, :reason) || Map.get(action, :error)
+  # One batched query for every parent name a detail line needs (current +
+  # desired parent of every `:move` action), instead of one lookup per line.
+  defp resolve_parent_names(actions) do
+    uuids =
+      actions
+      |> Enum.flat_map(fn action -> [Map.get(action, :parent_uuid), current_parent_uuid(action)] end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
 
-    "  [#{source}/#{kind}] #{label}"
-    |> maybe_append(outcome, &" -> #{&1}")
-    |> maybe_append(reason, &" (#{inspect(&1)})")
+    case uuids do
+      [] ->
+        %{}
+
+      _ ->
+        from(f in Folder, where: f.uuid in ^uuids, select: {f.uuid, f.name})
+        |> repo().all()
+        |> Map.new()
+    end
   end
+
+  defp current_parent_uuid(%{folder: %Folder{parent_uuid: parent_uuid}}), do: parent_uuid
+  defp current_parent_uuid(_action), do: nil
+
+  defp detail_line(%{source: source, kind: kind, op: op, label: label} = action, parent_names) do
+    "  [#{source}/#{kind}] #{op} #{label}"
+    |> append_transition(action, parent_names)
+    |> maybe_append(Map.get(action, :outcome), &" -> #{&1}")
+    |> maybe_append(Map.get(action, :reason) || Map.get(action, :error), &" (#{inspect(&1)})")
+  end
+
+  defp append_transition(line, %{op: :move, folder: %Folder{} = folder} = action, parent_names) do
+    from_name = Map.get(parent_names, folder.parent_uuid, "root")
+    to_name = Map.get(parent_names, Map.get(action, :parent_uuid), "root")
+    old_name = folder.name
+    new_name = Map.get(action, :name) || old_name
+
+    line <> ": #{from_name} → #{to_name}, name \"#{old_name}\" → \"#{new_name}\""
+  end
+
+  defp append_transition(line, _action, _parent_names), do: line
 
   defp maybe_append(line, nil, _fun), do: line
   defp maybe_append(line, value, fun), do: line <> fun.(value)

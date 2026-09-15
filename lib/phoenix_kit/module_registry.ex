@@ -232,7 +232,9 @@ defmodule PhoenixKit.ModuleRegistry do
   def all_media_reorganizers do
     enabled_modules()
     |> Enum.map(&safe_call(&1, :media_reorganizer, nil))
+    |> Enum.filter(&is_atom/1)
     |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
   end
 
   @doc """
