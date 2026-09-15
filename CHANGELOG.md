@@ -16,6 +16,15 @@
   probe, no migration, zero tests run, so it cannot go red from the
   environment — only from a genuine compile error in `test/`. `mix test`
   itself is still not part of `precommit`; see AGENTS.md "CI/CD".
+- Media reorganizer: `PhoenixKit.Modules.Storage.Reorganizer`, `Source`
+  contract, `media_reorganizer/0` module callback,
+  `mix phoenix_kit.media.reorganize`. `apply_one/1` is isolated against a
+  raise/throw/exit anywhere in the apply path (including `after_move`),
+  and `plan/2` isolates each `Source` and each of its actions the same way,
+  so one bad source or action never takes the rest of the run down. A
+  collision is checked with a SELECT before the write rather than retried
+  after a failed `UPDATE`, since a real unique-constraint violation poisons
+  the surrounding Postgres transaction and a retry inside it is unusable.
 
 ## 2.23.2 - 2026-09-15
 

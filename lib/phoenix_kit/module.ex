@@ -95,6 +95,9 @@ defmodule PhoenixKit.Module do
   - `integration_providers/0` - Additional provider definitions this module contributes (default: `[]`).
   - `email_settings_sections/0` - Sections this module contributes to the core Emails
     Transactional settings page (default: `[]`).
+  - `media_reorganizer/0` - Module implementing
+    `PhoenixKit.Modules.Storage.Reorganizer.Source` for this module's own
+    records (default: `nil`).
   """
 
   @typedoc """
@@ -494,6 +497,24 @@ defmodule PhoenixKit.Module do
   """
   @callback email_settings_sections() :: [email_settings_section()]
 
+  @doc """
+  Returns the module implementing
+  `PhoenixKit.Modules.Storage.Reorganizer.Source` for this module's own
+  records, or `nil` if it has nothing to contribute.
+
+  Collected from **enabled** modules by
+  `PhoenixKit.ModuleRegistry.all_media_reorganizers/0` — same rationale as
+  `sitemap_sources/0`: a disabled module's records must not be touched.
+
+  ## Example
+
+      @impl PhoenixKit.Module
+      def media_reorganizer, do: PhoenixKitCatalogue.MediaReorganizer
+
+  Modules with no media of their own skip this callback — the default is `nil`.
+  """
+  @callback media_reorganizer() :: module() | nil
+
   @optional_callbacks [
     get_config: 0,
     permission_metadata: 0,
@@ -516,7 +537,8 @@ defmodule PhoenixKit.Module do
     sitemap_sources: 0,
     reserved_route_prefixes: 0,
     migrate_legacy: 0,
-    email_settings_sections: 0
+    email_settings_sections: 0,
+    media_reorganizer: 0
   ]
 
   defmacro __using__(_opts) do
@@ -592,6 +614,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def email_settings_sections, do: []
 
+      @impl PhoenixKit.Module
+      def media_reorganizer, do: nil
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -612,7 +637,8 @@ defmodule PhoenixKit.Module do
                      sitemap_sources: 0,
                      reserved_route_prefixes: 0,
                      migrate_legacy: 0,
-                     email_settings_sections: 0
+                     email_settings_sections: 0,
+                     media_reorganizer: 0
     end
   end
 end
