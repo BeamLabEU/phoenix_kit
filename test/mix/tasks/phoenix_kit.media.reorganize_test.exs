@@ -87,15 +87,23 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
     end
 
     test "--pending-days must be a positive integer" do
-      assert_raise Mix.Error, ~r/--pending-days/, fn ->
-        capture_io(fn -> ReorganizeTask.run(["--pending-days", "abc"]) end)
-      end
+      {exit_reason, output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["--pending-days", "abc"]))
+        end)
+
+      assert exit_reason == {:shutdown, 1}
+      assert output =~ "--pending-days"
     end
 
     test "--pending-days 0 is rejected" do
-      assert_raise Mix.Error, ~r/--pending-days/, fn ->
-        capture_io(fn -> ReorganizeTask.run(["--pending-days", "0"]) end)
-      end
+      {exit_reason, output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["--pending-days", "0"]))
+        end)
+
+      assert exit_reason == {:shutdown, 1}
+      assert output =~ "--pending-days"
     end
   end
 end

@@ -429,13 +429,13 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp pick_free_name(existing_names, base_name) do
     existing = MapSet.new(existing_names)
 
-    if base_name not in existing do
-      base_name
-    else
+    if base_name in existing do
       Enum.find_value(Stream.iterate(2, &(&1 + 1)), fn n ->
         candidate = "#{base_name} (#{n})"
         if candidate not in existing, do: candidate
       end)
+    else
+      base_name
     end
   end
 

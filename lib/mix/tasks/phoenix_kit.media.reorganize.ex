@@ -35,30 +35,42 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
   @switches [apply: :boolean, source: [:string, :keep], pending_days: :integer]
 
   @impl Mix.Task
-  @spec run([String.t()]) :: :ok
   def run(argv) do
     Mix.Task.run("app.start")
 
     {opts, _argv, errors} = OptionParser.parse(argv, strict: @switches)
 
-    case List.keyfind(errors, "--pending-days", 0) do
-      {_switch, value} ->
-        Mix.raise("--pending-days must be a positive integer, got: #{inspect(value)}")
+    pending_days_result =
+      case List.keyfind(errors, "--pending-days", 0) do
+        {_switch, value} ->
+          {:error, "--pending-days must be a positive integer, got: #{inspect(value)}"}
 
-      nil ->
-        :ok
+        nil ->
+          validate_pending_days(opts[:pending_days])
+      end
+
+    warn_unresolved_options(errors)
+
+    case pending_days_result do
+      :ok -> run_reorganize(opts, opts[:pending_days] || 7)
+      {:error, message} -> halt_with_error(message)
     end
+  end
 
+  defp warn_unresolved_options(errors) do
     Enum.each(errors, fn {switch, value} ->
-      Mix.shell().error(
-        "Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}"
-      )
+      unless switch == "--pending-days" do
+        Mix.shell().error(
+          "Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}"
+        )
+      end
     end)
+  end
 
+  defp run_reorganize(opts, pending_days) do
     apply? = opts[:apply] || false
     source_keys = Keyword.get_values(opts, :source)
     sources = if source_keys == [], do: :all, else: source_keys
-    pending_days = validate_pending_days!(opts[:pending_days])
 
     actor_uuid = first_owner_uuid()
 
@@ -70,15 +82,19 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
     halt_with(exit_code(report, apply?))
   end
 
+  defp halt_with_error(message) do
+    Mix.shell().error(message)
+    exit({:shutdown, 1})
+  end
+
   defp format_bad_value(nil), do: ""
   defp format_bad_value(value), do: " #{inspect(value)}"
 
-  defp validate_pending_days!(nil), do: 7
+  defp validate_pending_days(nil), do: :ok
+  defp validate_pending_days(days) when is_integer(days) and days >= 1, do: :ok
 
-  defp validate_pending_days!(days) when is_integer(days) and days >= 1, do: days
-
-  defp validate_pending_days!(days) do
-    Mix.raise("--pending-days must be a positive integer, got: #{inspect(days)}")
+  defp validate_pending_days(days) do
+    {:error, "--pending-days must be a positive integer, got: #{inspect(days)}"}
   end
 
   defp first_owner_uuid do
@@ -91,7 +107,7 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
   @doc false
   # 0 on a dry-run (nothing was ever going to be written) or a clean
   # `--apply`; 1 once `--apply` leaves anything `:failed`/`:conflict`.
-  @spec exit_code(%{actions: [map()]}, boolean()) :: 0 | 1
+  @spec exit_code(map(), boolean()) :: 0 | 1
   def exit_code(_report, false), do: 0
 
   def exit_code(%{actions: actions}, true) do
