@@ -93,8 +93,16 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer.Action do
   variant of it — matches the previous run's own suffix-on-collision output,
   so re-running `plan/2` doesn't propose renaming it back and forth). A `nil`
   `name` means "keep the current name", so it always matches.
+
+  An action carrying `after_move` is never a noop, even when the folder is
+  already in place: the folder position matching doesn't mean the pointer
+  back-fill it exists to run has happened — the engine still needs to apply
+  it (see `PhoenixKit.Modules.Storage.Reorganizer`'s move path, which skips
+  `update_folder` but still runs `after_move` in that case).
   """
   @spec noop?(t()) :: boolean()
+  def noop?(%{op: :move, after_move: fun}) when is_function(fun, 0), do: false
+
   def noop?(%{op: :move, folder: %Folder{} = folder} = action) do
     parent_uuid = Map.get(action, :parent_uuid)
     name = Map.get(action, :name)

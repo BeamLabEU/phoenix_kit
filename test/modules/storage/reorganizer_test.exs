@@ -273,6 +273,32 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert reloaded.name == "New"
   end
 
+  test "folder already in place + after_move still backfills the pointer" do
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{folder: folder, counts: {0, 0}, after_move: fn -> :ok end})
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :backfilled
+
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.parent_uuid == nil
+    assert reloaded.name == "x-legacy"
+
+    # A second plan without after_move (a real Source wouldn't emit it again
+    # once the pointer is backfilled) is a true noop — nothing to plan.
+    second_plan = [move_action(%{folder: reloaded, counts: {0, 0}})]
+
+    {:ok, second} =
+      Reorganizer.run(nil, apply?: true, sources: [StubSource], stub_actions: second_plan)
+
+    assert second.actions == []
+  end
+
   test "restores a trashed folder before moving it" do
     target = create_folder!(%{name: "Target"})
     folder = create_folder!(%{name: "x-legacy"})

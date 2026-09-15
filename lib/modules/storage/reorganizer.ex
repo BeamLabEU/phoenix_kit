@@ -222,6 +222,14 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   # SELECT *before* writing, so the single `update_folder` call either hits
   # no constraint at all (suffix path) or is the one query the transaction
   # ever attempts (report path, which just rolls back on conflict).
+  defp perform_update(folder, %{} = attrs, _action) when map_size(attrs) == 0 do
+    # Folder already sits at the wanted parent/name — nothing to write. This
+    # still reaches here (not filtered as a noop) when the action carries
+    # `after_move`: the folder position matching doesn't mean the pointer
+    # back-fill has run yet.
+    {:ok, folder, attrs}
+  end
+
   defp perform_update(folder, attrs, action) do
     attrs = maybe_presuffix(folder, attrs, action)
 
