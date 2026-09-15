@@ -39,11 +39,24 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
   def run(argv) do
     Mix.Task.run("app.start")
 
-    {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches)
+    {opts, _argv, errors} = OptionParser.parse(argv, strict: @switches)
+
+    case List.keyfind(errors, "--pending-days", 0) do
+      {_switch, value} ->
+        Mix.raise("--pending-days must be a positive integer, got: #{inspect(value)}")
+
+      nil ->
+        :ok
+    end
+
+    Enum.each(errors, fn {switch, value} ->
+      Mix.shell().error("Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}")
+    end)
+
     apply? = opts[:apply] || false
     source_keys = Keyword.get_values(opts, :source)
     sources = if source_keys == [], do: :all, else: source_keys
-    pending_days = opts[:pending_days] || 7
+    pending_days = validate_pending_days!(opts[:pending_days])
 
     actor_uuid = first_owner_uuid()
 
@@ -52,7 +65,18 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
 
     Mix.shell().info("\n" <> Reorganizer.format_report(report))
 
-    maybe_halt(report, apply?)
+    halt_with(exit_code(report, apply?))
+  end
+
+  defp format_bad_value(nil), do: ""
+  defp format_bad_value(value), do: " #{inspect(value)}"
+
+  defp validate_pending_days!(nil), do: 7
+
+  defp validate_pending_days!(days) when is_integer(days) and days >= 1, do: days
+
+  defp validate_pending_days!(days) do
+    Mix.raise("--pending-days must be a positive integer, got: #{inspect(days)}")
   end
 
   defp first_owner_uuid do
@@ -62,13 +86,20 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
     end
   end
 
-  defp maybe_halt(_report, false), do: :ok
+  @doc false
+  # 0 on a dry-run (nothing was ever going to be written) or a clean
+  # `--apply`; 1 once `--apply` leaves anything `:failed`/`:conflict`.
+  @spec exit_code(%{actions: [map()]}, boolean()) :: 0 | 1
+  def exit_code(_report, false), do: 0
 
-  defp maybe_halt(%{actions: actions}, true) do
+  def exit_code(%{actions: actions}, true) do
     if Enum.any?(actions, &(Map.get(&1, :outcome) in [:failed, :conflict])) do
-      exit({:shutdown, 1})
+      1
     else
-      :ok
+      0
     end
   end
+
+  defp halt_with(0), do: :ok
+  defp halt_with(code), do: exit({:shutdown, code})
 end
