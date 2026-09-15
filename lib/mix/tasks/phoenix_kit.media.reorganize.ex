@@ -34,38 +34,39 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
 
   @switches [apply: :boolean, source: [:string, :keep], pending_days: :integer]
 
+  # Parsed (and validated) BEFORE `app.start` — a typo'd or malformed option
+  # must never fall through to running against every enabled source by
+  # accident. Any invalid/unknown option, a switch missing its value, or a
+  # leftover positional argument halts with an error and exit 1.
   @impl Mix.Task
   def run(argv) do
-    Mix.Task.run("app.start")
-
-    {opts, _argv, errors} = OptionParser.parse(argv, strict: @switches)
-
-    pending_days_result =
-      case List.keyfind(errors, "--pending-days", 0) do
-        {_switch, value} ->
-          {:error, "--pending-days must be a positive integer, got: #{inspect(value)}"}
-
-        nil ->
-          validate_pending_days(opts[:pending_days])
-      end
-
-    warn_unresolved_options(errors)
-
-    case pending_days_result do
-      :ok -> run_reorganize(opts, opts[:pending_days] || 7)
-      {:error, message} -> halt_with_error(message)
+    case OptionParser.parse(argv, strict: @switches) do
+      {opts, [], []} -> validate_and_run(opts)
+      {_opts, argv, errors} -> halt_with_error(invalid_arguments_message(argv, errors))
     end
   end
 
-  defp warn_unresolved_options(errors) do
-    Enum.each(errors, fn {switch, value} ->
-      unless switch == "--pending-days" do
-        Mix.shell().error(
-          "Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}"
-        )
-      end
-    end)
+  defp validate_and_run(opts) do
+    case validate_pending_days(opts[:pending_days]) do
+      :ok ->
+        Mix.Task.run("app.start")
+        run_reorganize(opts, opts[:pending_days] || 7)
+
+      {:error, message} ->
+        halt_with_error(message)
+    end
   end
+
+  defp invalid_arguments_message(argv, errors) do
+    parts =
+      Enum.map(errors, &format_option_error/1) ++
+        Enum.map(argv, &"unexpected argument #{inspect(&1)}")
+
+    "Invalid arguments: " <> Enum.join(parts, "; ")
+  end
+
+  defp format_option_error({switch, nil}), do: "invalid option #{switch}"
+  defp format_option_error({switch, value}), do: "invalid value #{inspect(value)} for #{switch}"
 
   defp run_reorganize(opts, pending_days) do
     apply? = opts[:apply] || false
@@ -86,9 +87,6 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
     Mix.shell().error(message)
     exit({:shutdown, 1})
   end
-
-  defp format_bad_value(nil), do: ""
-  defp format_bad_value(value), do: " #{inspect(value)}"
 
   defp validate_pending_days(nil), do: :ok
   defp validate_pending_days(days) when is_integer(days) and days >= 1, do: :ok

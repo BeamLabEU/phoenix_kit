@@ -77,15 +77,43 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
   end
 
   describe "invalid options" do
-    test "an unknown switch is ignored with a warning instead of silently accepted" do
-      output =
-        capture_io(fn ->
-          capture_io(:stderr, fn ->
-            ReorganizeTask.run(["--source", "stub_task_module", "--no-such-switch"])
-          end)
+    test "an unknown switch halts with an error instead of silently running with defaults" do
+      {exit_reason, output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["--source", "stub_task_module", "--no-such-switch"]))
         end)
 
-      assert output =~ "dry run"
+      assert exit_reason == {:shutdown, 1}
+      assert output =~ "no-such-switch"
+    end
+
+    test "a mistyped multi-word switch (--sources instead of --source) halts instead of falling back to every source" do
+      {exit_reason, output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["--apply", "--sources", "catalogue"]))
+        end)
+
+      assert exit_reason == {:shutdown, 1}
+      assert output =~ "sources"
+    end
+
+    test "--source without a value halts instead of falling back to every source" do
+      {exit_reason, _output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["--apply", "--source"]))
+        end)
+
+      assert exit_reason == {:shutdown, 1}
+    end
+
+    test "a leftover positional argument halts instead of being silently dropped" do
+      {exit_reason, output} =
+        ExUnit.CaptureIO.with_io(:stderr, fn ->
+          catch_exit(ReorganizeTask.run(["stub_task_module"]))
+        end)
+
+      assert exit_reason == {:shutdown, 1}
+      assert output =~ "stub_task_module"
     end
 
     test "--pending-days must be a positive integer" do
