@@ -69,6 +69,8 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer.Action do
 
     attrs = drop_unknown_keys(attrs)
 
+    validate_after_move!(attrs)
+
     op = Map.fetch!(attrs, :op)
 
     if op not in @valid_ops do
@@ -87,6 +89,26 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer.Action do
     @defaults
     |> Map.merge(attrs)
     |> Map.put(:on_conflict, on_conflict)
+  end
+
+  # An `after_move` that isn't a 0-arity function (or `nil`) can never be
+  # called by `run_after_move/1` — without this check it silently falls
+  # through `noop?/1`'s folder-position check instead (a mis-shaped
+  # `after_move` on an already-in-place folder was dropped as a noop and
+  # never reported at all).
+  defp validate_after_move!(attrs) do
+    case Map.get(attrs, :after_move) do
+      nil ->
+        :ok
+
+      fun when is_function(fun, 0) ->
+        :ok
+
+      other ->
+        raise ArgumentError,
+              "Reorganizer.Action :after_move must be nil or a 0-arity function, got: " <>
+                inspect(other)
+    end
   end
 
   defp validate_field_type!(attrs, key, predicate, expected) do
