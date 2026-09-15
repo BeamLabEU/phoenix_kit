@@ -50,7 +50,9 @@ defmodule Mix.Tasks.PhoenixKit.Media.Reorganize do
     end
 
     Enum.each(errors, fn {switch, value} ->
-      Mix.shell().error("Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}")
+      Mix.shell().error(
+        "Ignoring unrecognized/invalid option #{switch}#{format_bad_value(value)}"
+      )
     end)
 
     apply? = opts[:apply] || false

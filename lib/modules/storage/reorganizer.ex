@@ -297,7 +297,10 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   end
 
   defp child_folder_count(folder_uuid) do
-    from(f in Folder, where: f.parent_uuid == ^folder_uuid and is_nil(f.trashed_at), select: count())
+    from(f in Folder,
+      where: f.parent_uuid == ^folder_uuid and is_nil(f.trashed_at),
+      select: count()
+    )
     |> repo().one()
   end
 
@@ -360,7 +363,10 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
 
       {:error, %Ecto.Changeset{errors: errors} = changeset} ->
         if unique_name_conflict?(errors) do
-          {:error, {:conflict, {:name_taken, Map.get(attrs, :parent_uuid, folder.parent_uuid), Map.get(attrs, :name, folder.name)}}}
+          {:error,
+           {:conflict,
+            {:name_taken, Map.get(attrs, :parent_uuid, folder.parent_uuid),
+             Map.get(attrs, :name, folder.name)}}}
         else
           {:error, changeset}
         end
@@ -569,8 +575,12 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
       end)
 
     case noteworthy do
-      [] -> ""
-      list -> "\n\nDetails:\n" <> Enum.map_join(list, "\n", &detail_line(&1, resolve_parent_names(list)))
+      [] ->
+        ""
+
+      list ->
+        "\n\nDetails:\n" <>
+          Enum.map_join(list, "\n", &detail_line(&1, resolve_parent_names(list)))
     end
   end
 
@@ -579,7 +589,9 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp resolve_parent_names(actions) do
     uuids =
       actions
-      |> Enum.flat_map(fn action -> [Map.get(action, :parent_uuid), current_parent_uuid(action)] end)
+      |> Enum.flat_map(fn action ->
+        [Map.get(action, :parent_uuid), current_parent_uuid(action)]
+      end)
       |> Enum.reject(&is_nil/1)
       |> Enum.uniq()
 

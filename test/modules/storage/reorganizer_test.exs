@@ -674,7 +674,15 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     parent = create_folder!(%{name: "pending-with-child"})
     _child = create_folder!(%{name: "child", parent_uuid: parent.uuid})
 
-    plan = [%{source: "catalogue", kind: :pending, label: "pending-with-child", op: :trash, folder: parent}]
+    plan = [
+      %{
+        source: "catalogue",
+        kind: :pending,
+        label: "pending-with-child",
+        op: :trash,
+        folder: parent
+      }
+    ]
 
     report = run!(plan)
     [action] = report.actions

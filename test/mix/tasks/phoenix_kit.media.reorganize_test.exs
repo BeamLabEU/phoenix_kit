@@ -57,7 +57,10 @@ defmodule Mix.Tasks.PhoenixKit.Media.ReorganizeTest do
     end
 
     test "is 0 after --apply when nothing failed or conflicted" do
-      assert ReorganizeTask.exit_code(%{actions: [%{outcome: :moved}, %{outcome: :trashed}]}, true) ==
+      assert ReorganizeTask.exit_code(
+               %{actions: [%{outcome: :moved}, %{outcome: :trashed}]},
+               true
+             ) ==
                0
     end
 
