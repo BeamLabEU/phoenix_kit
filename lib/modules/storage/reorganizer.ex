@@ -228,25 +228,37 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp do_apply_one(%{op: :trash, folder: nil} = action),
     do: Map.merge(action, %{outcome: :reported, reason: "no folder to trash"})
 
-  defp do_apply_one(%{op: :move, folder: %Folder{} = folder} = action) do
-    case repo().transaction(fn -> do_move(folder, action) end) do
+  defp do_apply_one(%{op: :move, folder: %Folder{uuid: uuid}} = action) do
+    case repo().transaction(fn -> do_move(lock_folder(uuid), action) end) do
       {:ok, result} -> result
       {:error, {:conflict, reason}} -> conflicted(action, reason)
       {:error, reason} -> failed(action, reason)
     end
   end
 
-  defp do_apply_one(%{op: :trash, folder: %Folder{} = folder} = action) do
-    case repo().transaction(fn -> do_trash(folder, action) end) do
+  defp do_apply_one(%{op: :trash, folder: %Folder{uuid: uuid}} = action) do
+    case repo().transaction(fn -> do_trash(lock_folder(uuid), action) end) do
       {:ok, result} -> result
       {:error, reason} -> failed(action, reason)
+    end
+  end
+
+  # The action's `folder` is a plan-time snapshot — by apply time another
+  # action (or an outside process) may have already moved, renamed, trashed,
+  # or deleted it. Re-reading it `FOR UPDATE` inside the transaction, and
+  # diffing against THIS fresh row instead of the stale struct, is what makes
+  # every decision below (what changed, whether it's already trashed) correct
+  # under that race instead of silently redoing or missing part of the move.
+  defp lock_folder(uuid) do
+    case from(f in Folder, where: f.uuid == ^uuid, lock: "FOR UPDATE") |> repo().one() do
+      nil -> repo().rollback({:folder_missing, uuid})
+      folder -> folder
     end
   end
 
   defp do_move(folder, action) do
     with :ok <- verify_counts(folder.uuid, Map.get(action, :counts)),
          :ok <- verify_target_parent(Map.get(action, :parent_uuid)),
-         folder = restore_if_trashed(folder),
          attrs = move_attrs(folder, action),
          {:ok, updated, final_attrs} <- perform_update(folder, attrs, action),
          :ok <- run_after_move(action),
@@ -300,6 +312,9 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     end
   end
 
+  # Only LIVE child folders block a `:trash` — a folder whose only children
+  # are already trashed is still "empty" for this purpose; their
+  # `trashed_at` is simply left as-is (already set) when the parent trashes.
   defp child_folder_count(folder_uuid) do
     from(f in Folder,
       where: f.parent_uuid == ^folder_uuid and is_nil(f.trashed_at),
@@ -308,20 +323,23 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
     |> repo().one()
   end
 
-  defp restore_if_trashed(%Folder{trashed_at: nil} = folder), do: folder
-
-  defp restore_if_trashed(%Folder{} = folder) do
-    case Storage.restore_folder(folder) do
-      {:ok, _} -> Storage.get_folder(folder.uuid)
-      {:error, _reason} -> folder
-    end
-  end
-
   defp move_attrs(folder, action) do
     %{}
     |> maybe_put_parent(folder, action)
     |> maybe_put_name(folder, action)
+    |> maybe_put_restore(folder)
   end
+
+  # Un-trashing goes into the SAME `Storage.update_folder` call as the
+  # move/rename, never a separate `Storage.restore_folder` write at the
+  # folder's OLD parent/name first: a live twin may already sit exactly
+  # there (created while this one was trashed), and restoring in place would
+  # hit that folder's real unique constraint as a raw, uncaught error. Folded
+  # into one call, the existing collision handling below (`on_conflict:
+  # :suffix` pre-check, or the `:name_taken` conflict path) covers it too —
+  # restore-and-move succeeds when the target is free, else `:conflict`.
+  defp maybe_put_restore(attrs, %Folder{trashed_at: nil}), do: attrs
+  defp maybe_put_restore(attrs, %Folder{}), do: Map.put(attrs, :trashed_at, nil)
 
   defp maybe_put_parent(attrs, folder, action) do
     wanted = Map.get(action, :parent_uuid)
@@ -583,8 +601,8 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
         ""
 
       list ->
-        "\n\nDetails:\n" <>
-          Enum.map_join(list, "\n", &detail_line(&1, resolve_parent_names(list)))
+        parent_names = resolve_parent_names(list)
+        "\n\nDetails:\n" <> Enum.map_join(list, "\n", &detail_line(&1, parent_names))
     end
   end
 
@@ -616,20 +634,53 @@ defmodule PhoenixKit.Modules.Storage.Reorganizer do
   defp detail_line(%{source: source, kind: kind, op: op, label: label} = action, parent_names) do
     "  [#{source}/#{kind}] #{op} #{label}"
     |> append_transition(action, parent_names)
+    |> maybe_append(Map.get(action, :counts), &" (#{format_counts(&1)})")
     |> maybe_append(Map.get(action, :outcome), &" -> #{&1}")
     |> maybe_append(Map.get(action, :reason) || Map.get(action, :error), &" (#{inspect(&1)})")
   end
 
+  defp format_counts({files, links}), do: "#{files} file(s), #{links} link(s)"
+
   defp append_transition(line, %{op: :move, folder: %Folder{} = folder} = action, parent_names) do
-    from_name = Map.get(parent_names, folder.parent_uuid, "root")
-    to_name = Map.get(parent_names, Map.get(action, :parent_uuid), "root")
+    from_name = parent_label(folder.parent_uuid, parent_names)
+    to_name = parent_label(Map.get(action, :parent_uuid), parent_names)
     old_name = folder.name
-    new_name = Map.get(action, :name) || old_name
+    new_name = display_new_name(folder, action)
 
     line <> ": #{from_name} → #{to_name}, name \"#{old_name}\" → \"#{new_name}\""
   end
 
   defp append_transition(line, _action, _parent_names), do: line
+
+  # "root" means the parent really is the system root (`nil`) — anything
+  # else that isn't resolvable (a target/current parent uuid the batched
+  # lookup didn't find, e.g. deleted between plan and report) says so
+  # explicitly instead of silently reading as root too.
+  defp parent_label(nil, _parent_names), do: "root"
+
+  defp parent_label(uuid, parent_names) do
+    Map.get(parent_names, uuid, "(missing parent)")
+  end
+
+  # The name shown here is only what `--apply` would ATTEMPT — for
+  # `on_conflict: :suffix` it peeks at the same collision check
+  # `maybe_presuffix/3` runs at apply time, so a dry-run doesn't show a name
+  # that would actually land as "name (2)".
+  defp display_new_name(folder, action) do
+    wanted = Map.get(action, :name) || folder.name
+
+    if Map.get(action, :on_conflict) == :suffix and not Action.matches_name?(folder.name, wanted) do
+      target_parent = Map.get(action, :parent_uuid)
+
+      if name_taken?(wanted, target_parent, folder.uuid) do
+        free_name(wanted, target_parent, folder.uuid)
+      else
+        wanted
+      end
+    else
+      wanted
+    end
+  end
 
   defp maybe_append(line, nil, _fun), do: line
   defp maybe_append(line, value, fun), do: line <> fun.(value)

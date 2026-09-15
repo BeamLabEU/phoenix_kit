@@ -1,5 +1,8 @@
 defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
-  use PhoenixKit.DataCase, async: true
+  # async: false — a test in this suite registers a fake module in the
+  # global ModuleRegistry (`persistent_term`), which would leak into any
+  # test running concurrently in another process.
+  use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
@@ -367,7 +370,32 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
 
     reloaded = Storage.get_folder(folder.uuid)
     assert reloaded.trashed_at == nil
-    assert reloaded.parent_uuid == target.uuid
+  end
+
+  # ---------------------------------------------------------------------
+  # N5 — restoring in place tolerates a live twin at the current spot
+  # ---------------------------------------------------------------------
+
+  test "restoring into a spot with a live twin reports a conflict instead of crashing" do
+    parent = create_folder!(%{name: "Parent"})
+    trashed = create_folder!(%{name: "x-legacy", parent_uuid: parent.uuid})
+    {:ok, _} = Storage.trash_folder(trashed)
+    # Created after the trash, so it doesn't collide with `trashed` on
+    # creation — only when `trashed` tries to restore back into this spot.
+    _live_twin = create_folder!(%{name: "x-legacy", parent_uuid: parent.uuid})
+    trashed_folder = Storage.get_folder(trashed.uuid)
+
+    plan = [
+      move_action(%{folder: trashed_folder, parent_uuid: parent.uuid, counts: {0, 0}})
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.outcome == :conflict
+
+    reloaded = Storage.get_folder(trashed.uuid)
+    assert reloaded.trashed_at != nil
   end
 
   test "trashes an empty folder and reports a non-empty one" do
@@ -658,6 +686,26 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert Enum.all?(report.actions, &(&1.kind == :invalid_action and &1.outcome == :reported))
   end
 
+  test "an after_move with the wrong arity becomes an invalid_action report, not a silent noop" do
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{folder: folder, counts: {0, 0}, after_move: fn _unexpected_arg -> :ok end})
+    ]
+
+    report = run!(plan)
+    [action] = report.actions
+
+    assert action.kind == :invalid_action
+    assert action.outcome == :reported
+
+    # Not silently dropped as a noop: the folder was already at its wanted
+    # parent/name, which is exactly the shape that used to slip through.
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.parent_uuid == nil
+    assert reloaded.name == "x-legacy"
+  end
+
   # ---------------------------------------------------------------------
   # M3 — unknown action keys are dropped with a warning, never raised
   # ---------------------------------------------------------------------
@@ -771,6 +819,72 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert action.outcome == :reported
     assert action.reason =~ "already trashed"
     assert Storage.get_folder(folder.uuid).trashed_at == original_trashed_at
+  end
+
+  # ---------------------------------------------------------------------
+  # m1 — apply diffs against a freshly re-read (FOR UPDATE) folder, not the
+  # stale plan-time struct captured in the action
+  # ---------------------------------------------------------------------
+
+  test "a stale :trash action re-reads the folder instead of re-trashing one already trashed" do
+    folder = create_folder!(%{name: "pending-race"})
+    # The action carries the plan-time (not-yet-trashed) snapshot.
+    action = %{
+      source: "catalogue",
+      kind: :pending,
+      label: "pending-race",
+      op: :trash,
+      folder: folder
+    }
+
+    {:ok, _} = Storage.trash_folder(folder)
+    original_trashed_at = Storage.get_folder(folder.uuid).trashed_at
+
+    report = run!([action])
+    [result] = report.actions
+
+    assert result.outcome == :reported
+    assert result.reason =~ "already trashed"
+    assert Storage.get_folder(folder.uuid).trashed_at == original_trashed_at
+  end
+
+  test "a move diffs against the freshly re-read folder, not the stale plan-time parent" do
+    target = create_folder!(%{name: "Target"})
+    elsewhere = create_folder!(%{name: "Elsewhere"})
+    folder = create_folder!(%{name: "x-legacy", parent_uuid: target.uuid})
+
+    # The action's stale snapshot already shows `target` as the parent, so a
+    # diff against it alone would treat the move as already done. Something
+    # else (another action, another process) moves the folder away before
+    # apply runs.
+    {:ok, _} = Storage.update_folder(folder, %{parent_uuid: elsewhere.uuid})
+
+    stale_action =
+      move_action(%{folder: folder, parent_uuid: target.uuid, name: "New", counts: {0, 0}})
+
+    report = run!([stale_action])
+    [action] = report.actions
+
+    assert action.outcome in [:moved, :moved_renamed]
+
+    reloaded = Storage.get_folder(folder.uuid)
+    assert reloaded.parent_uuid == target.uuid
+    assert reloaded.name == "New"
+  end
+
+  test "a move against a folder deleted between plan and apply fails instead of crashing" do
+    folder = create_folder!(%{name: "x-legacy"})
+    target = create_folder!(%{name: "Target"})
+
+    stale_action = move_action(%{folder: folder, parent_uuid: target.uuid, counts: {0, 0}})
+
+    {:ok, _} = Storage.delete_folder(folder)
+
+    report = run!([stale_action])
+    [action] = report.actions
+
+    assert action.outcome == :failed
+    assert action.error == {:folder_missing, folder.uuid}
   end
 
   # ---------------------------------------------------------------------
@@ -929,6 +1043,60 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     assert text =~ "root → Target"
   end
 
+  test "dry-run detail line marks a target parent that no longer exists instead of showing root" do
+    origin = create_folder!(%{name: "Origin"})
+    folder = create_folder!(%{name: "x-legacy", parent_uuid: origin.uuid})
+    missing_parent_uuid = Ecto.UUID.generate()
+
+    plan = [move_action(%{folder: folder, parent_uuid: missing_parent_uuid, counts: {0, 0}})]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "Origin → (missing parent)"
+    refute text =~ "Origin → root"
+  end
+
+  test "dry-run detail line includes the measured file/link counts" do
+    target = create_folder!(%{name: "Target"})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [move_action(%{folder: folder, parent_uuid: target.uuid, counts: {3, 2}})]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "3 file(s)"
+    assert text =~ "2 link(s)"
+  end
+
+  test "dry-run detail line shows the suffixed name apply would actually pick, not the raw wanted name" do
+    target = create_folder!(%{name: "Target"})
+    _existing = create_folder!(%{name: "New", parent_uuid: target.uuid})
+    folder = create_folder!(%{name: "x-legacy"})
+
+    plan = [
+      move_action(%{
+        folder: folder,
+        parent_uuid: target.uuid,
+        name: "New",
+        counts: {0, 0},
+        on_conflict: :suffix
+      })
+    ]
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    text = Reorganizer.format_report(report)
+
+    assert text =~ "\"New (2)\""
+  end
+
   # ---------------------------------------------------------------------
   # M9 — disabled module's Source is skipped by sources: :all
   # ---------------------------------------------------------------------
@@ -940,5 +1108,60 @@ defmodule PhoenixKit.Modules.Storage.ReorganizerTest do
     plan = Reorganizer.plan(nil, sources: :all)
 
     refute Enum.any?(plan, &(&1.source == "disabled_reorganizer_module"))
+  end
+
+  # ---------------------------------------------------------------------
+  # N1 — resolve_parent_names is one batched query for the whole report,
+  # not one query per detail line
+  # ---------------------------------------------------------------------
+
+  test "resolving parent names for the details section is one query regardless of how many lines need it" do
+    origin = create_folder!(%{name: "Origin"})
+    target = create_folder!(%{name: "Target"})
+
+    plan =
+      for n <- 1..5 do
+        folder = create_folder!(%{name: "x-legacy-#{n}", parent_uuid: origin.uuid})
+
+        move_action(%{
+          folder: folder,
+          parent_uuid: target.uuid,
+          counts: {0, 0},
+          on_conflict: :report
+        })
+      end
+
+    {:ok, report} =
+      Reorganizer.run(nil, apply?: false, sources: [StubSource], stub_actions: plan)
+
+    query_count = count_repo_queries(fn -> Reorganizer.format_report(report) end)
+
+    assert query_count == 1
+  end
+
+  # Counts Ecto query telemetry events fired on this process while running
+  # `fun`. :telemetry.attach is process-global, so the handler filters on
+  # self() to isolate this test's own queries from anything concurrent.
+  defp count_repo_queries(fun) do
+    handler_id = "count-repo-queries-#{inspect(self())}-#{System.unique_integer()}"
+    counter = :counters.new(1, [])
+    test_pid = self()
+
+    :telemetry.attach(
+      handler_id,
+      [:phoenix_kit, :test, :repo, :query],
+      fn _event, _measurements, _metadata, _config ->
+        if self() == test_pid, do: :counters.add(counter, 1, 1)
+      end,
+      nil
+    )
+
+    try do
+      fun.()
+    after
+      :telemetry.detach(handler_id)
+    end
+
+    :counters.get(counter, 1)
   end
 end
