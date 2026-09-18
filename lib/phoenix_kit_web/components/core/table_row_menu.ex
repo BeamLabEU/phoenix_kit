@@ -64,6 +64,15 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
     - `"inline"` — always show actions as inline buttons (no dropdown)
     - `"auto"` — inline buttons on `md+` screens, dropdown on mobile
   * `class` - Additional CSS classes for the wrapper (optional)
+  * `trigger_class` - Additional CSS classes appended to the trigger button (optional)
+  * `trigger_size` - Size of the ⋮ trigger (optional, default: "xs"):
+    - `"xs"` — 24px, compact (table rows; the original size)
+    - `"sm"` — 32px
+    - `"md"` — 40px, a comfortable touch target
+
+    Pass this instead of a `btn-sm` in `trigger_class`: the trigger's size class
+    is *replaced*, not appended, because in the built CSS `.btn-xs` sorts after
+    `.btn-sm` and would win if both were present.
 
   ## Slots
 
@@ -75,6 +84,7 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   attr :mode, :string, default: "dropdown", values: ["dropdown", "inline", "auto"]
   attr :class, :string, default: nil
   attr :trigger_class, :string, default: nil
+  attr :trigger_size, :string, default: "xs", values: ["xs", "sm", "md"]
 
   slot :inner_block, required: true
 
@@ -118,9 +128,9 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
         aria-label={@label}
         aria-expanded="false"
         aria-haspopup="menu"
-        class={["btn btn-xs btn-ghost btn-circle", @trigger_class]}
+        class={[trigger_base_class(@trigger_size), @trigger_class]}
       >
-        <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+        <.icon name="hero-ellipsis-vertical" class={trigger_icon_class(@trigger_size)} />
       </button>
 
       <%!-- Floating menu — hidden by default, positioned via JS hook.
@@ -252,6 +262,16 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  # Whole literal class strings, never one built by interpolating the size:
+  # Tailwind's scanner only emits classes it can read verbatim in the source.
+  defp trigger_base_class("sm"), do: "btn btn-sm btn-ghost btn-circle"
+  defp trigger_base_class("md"), do: "btn btn-md btn-ghost btn-circle"
+  defp trigger_base_class(_), do: "btn btn-xs btn-ghost btn-circle"
+
+  defp trigger_icon_class("sm"), do: "w-5 h-5"
+  defp trigger_icon_class("md"), do: "w-6 h-6"
+  defp trigger_icon_class(_), do: "w-4 h-4"
 
   defp item_color_class("primary"), do: "text-primary"
   defp item_color_class("secondary"), do: "text-secondary"
