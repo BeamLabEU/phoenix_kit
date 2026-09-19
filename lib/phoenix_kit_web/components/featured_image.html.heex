@@ -1,0 +1,242 @@
+<div
+  id={@id}
+  role={if not blank?(assigns), do: "group"}
+  aria-label={if not blank?(assigns), do: label_text(@label)}
+  data-role={role(@id, "featured-image")}
+  data-state={@display}
+  class="flex w-fit flex-col items-start gap-1"
+>
+  <%!-- Thumbnail and menu share one row, the menu centred against the thumbnail;
+       the error line below stays left-aligned with the root's items-start. --%>
+  <div data-role={role(@id, "row")} class="flex items-center gap-1">
+    <%= case @display do %>
+      <% :empty -> %>
+        <%= cond do %>
+          <% @readonly -> %>
+            <%!-- A viewer sees no placeholder, but still sees a host-supplied
+                 one (an avatar's initials). --%>
+            <.frame
+              :if={@empty != []}
+              id={@id}
+              name="empty"
+              size={@size}
+              shape={@shape}
+              tone={:solid}
+            >
+              {render_slot(@empty)}
+            </.frame>
+          <% choosable?(assigns) and @empty == [] -> %>
+            <.frame
+              as={:button}
+              id={@id}
+              name="open-picker"
+              size={@size}
+              shape={@shape}
+              tone={:dashed}
+              phx-click="open_picker"
+              phx-target={@myself}
+              aria-busy={to_string(@pending_scope)}
+              title={gettext("Choose image")}
+            >
+              <span :if={@pending_scope} class="loading loading-spinner loading-sm"></span>
+              <.icon :if={not @pending_scope} name="hero-photo" class={icon_class(@size)} />
+              <span class={caption_class(@size)}>{gettext("Choose image")}</span>
+            </.frame>
+          <% choosable?(assigns) -> %>
+            <.frame
+              as={:button}
+              id={@id}
+              name="open-picker"
+              size={@size}
+              shape={@shape}
+              tone={:solid}
+              phx-click="open_picker"
+              phx-target={@myself}
+              aria-label={gettext("Choose image")}
+              aria-busy={to_string(@pending_scope)}
+              title={gettext("Choose image")}
+            >
+              {render_slot(@empty)}
+            </.frame>
+          <% @empty_hint != [] -> %>
+            <div data-role={role(@id, "empty-hint")}>{render_slot(@empty_hint)}</div>
+          <% @empty != [] -> %>
+            <.frame id={@id} name="empty" size={@size} shape={@shape} tone={:solid}>
+              {render_slot(@empty)}
+            </.frame>
+          <% true -> %>
+            <.frame
+              id={@id}
+              name="empty"
+              size={@size}
+              shape={@shape}
+              tone={:solid}
+              role="img"
+              aria-label={label_text(@label)}
+            >
+              <.icon name="hero-photo" class={icon_class(@size) <> " opacity-60"} />
+            </.frame>
+        <% end %>
+      <% :ok -> %>
+        <%= cond do %>
+          <% @preview_click -> %>
+            <.frame
+              as={:button}
+              id={@id}
+              name="thumb"
+              size={@size}
+              shape={@shape}
+              tone={:image}
+              phx-click={@preview_click}
+              aria-label={gettext("View")}
+              title={gettext("View")}
+              {@preview_values}
+            >
+              <.thumb_img id={@id} file={@file} size={@size} />
+            </.frame>
+          <% not @readonly and choosable?(assigns) -> %>
+            <.frame
+              as={:button}
+              id={@id}
+              name="thumb"
+              size={@size}
+              shape={@shape}
+              tone={:image}
+              phx-click="open_picker"
+              phx-target={@myself}
+              aria-label={gettext("Change image")}
+              title={gettext("Change image")}
+            >
+              <.thumb_img id={@id} file={@file} size={@size} />
+            </.frame>
+          <% true -> %>
+            <.frame id={@id} name="thumb" size={@size} shape={@shape} tone={:image}>
+              <.thumb_img id={@id} file={@file} size={@size} />
+            </.frame>
+        <% end %>
+      <% :processing -> %>
+        <.frame
+          id={@id}
+          name="processing"
+          size={@size}
+          shape={@shape}
+          tone={:solid}
+          role="status"
+          title={gettext("Processing image…")}
+        >
+          <span class="loading loading-spinner loading-md"></span>
+          <span class="sr-only">{gettext("Processing image…")}</span>
+        </.frame>
+      <% :dangling -> %>
+        <%= cond do %>
+          <% @readonly and @empty == [] -> %>
+            <%!-- A viewer cannot act on a missing image, so it gets what an
+                 empty control gets: nothing, or the host's own placeholder. --%>
+          <% @readonly -> %>
+            <.frame id={@id} name="empty" size={@size} shape={@shape} tone={:solid}>
+              {render_slot(@empty)}
+            </.frame>
+          <% @empty != [] -> %>
+            <%!-- Avatars keep their initials; the missing image is only marked
+                 (title + screen-reader text) and the menu still offers Remove. --%>
+            <.frame
+              id={@id}
+              name="dangling"
+              size={@size}
+              shape={@shape}
+              tone={:solid}
+              title={gettext("Image missing")}
+            >
+              {render_slot(@empty)}
+              <span class="sr-only">{gettext("Image missing")}</span>
+            </.frame>
+          <% true -> %>
+            <.frame
+              id={@id}
+              name="dangling"
+              size={@size}
+              shape={@shape}
+              tone={:warning}
+              role="img"
+              aria-label={gettext("Image missing")}
+              title={gettext("Image missing")}
+            >
+              <.icon name="hero-exclamation-triangle" class={icon_class(@size)} />
+              <span class={caption_class(@size)}>{gettext("Image missing")}</span>
+            </.frame>
+        <% end %>
+    <% end %>
+
+    <%!-- Always visible, beside the thumbnail rather than over it: a hover-only
+         control is unreachable on a touch screen. --%>
+    <div
+      :if={not @readonly and @display != :empty}
+      data-role={role(@id, "menu")}
+      class="shrink-0"
+    >
+      <.table_row_menu
+        id={"#{@id}-menu"}
+        label={gettext("Image actions")}
+        trigger_size={trigger_size(@size)}
+      >
+        <.table_row_menu_button
+          :if={@display == :ok and @preview_click}
+          icon="hero-eye"
+          label={gettext("View")}
+          data-role={role(@id, "view")}
+          phx-click={@preview_click}
+          {@preview_values}
+        />
+        <.table_row_menu_button
+          :if={choosable?(assigns)}
+          icon="hero-photo"
+          label={gettext("Change image")}
+          data-role={role(@id, "change")}
+          phx-click="open_picker"
+          phx-target={@myself}
+        />
+        <.table_row_menu_divider :if={
+          choosable?(assigns) or (@display == :ok and @preview_click != nil)
+        } />
+        <.table_row_menu_button
+          icon="hero-trash"
+          label={gettext("Remove image")}
+          variant="error"
+          data-role={role(@id, "remove")}
+          data-confirm={@confirm_remove}
+          phx-click="clear"
+          phx-target={@myself}
+        />
+      </.table_row_menu>
+    </div>
+  </div>
+
+  <p
+    :if={@error && not @readonly}
+    role="alert"
+    data-role={role(@id, "error")}
+    class="max-w-xs text-xs text-error"
+  >
+    {@error}
+  </p>
+
+  <%!-- `MediaSelectorModal` carries a <form> and a file input of its own, and
+       most hosts put this control inside their own <form>: nested forms are
+       invalid, so the modal is teleported to <body>. Mounted only while open —
+       it re-opens itself if it is passed `show` again after closing. --%>
+  <.portal :if={@show_picker and not @readonly} id={"#{@id}-portal"} target="body">
+    <.live_component
+      module={MediaSelectorModal}
+      id={"#{@id}-selector"}
+      show={true}
+      mode={:single}
+      file_type_filter={:image}
+      lock_file_type
+      scope_folder_id={folder_uuid(@picker_scope)}
+      selected_uuids={selected_uuids(assigns)}
+      phoenix_kit_current_user={@phoenix_kit_current_user}
+      title={label_text(@label)}
+      notify={{__MODULE__, @id}}
+    />
+  </.portal>
+</div>

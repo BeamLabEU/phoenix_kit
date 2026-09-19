@@ -33,12 +33,14 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenuTest do
   end
 
   describe "trigger_size" do
-    test "defaults to xs and leaves the trigger exactly as it was before the attr existed" do
-      # The default keeps today's 24px kebab — same classes in the same order,
-      # same icon — so every existing caller renders unchanged.
+    test "defaults to xs: the same classes in the same order, and the same icon, as before" do
+      # Same tokens as the trigger rendered before `trigger_size` existed. (The
+      # old class attribute also ended in a space, `"... btn-circle "`; that
+      # whitespace is not reproduced.)
       assert trigger_class([]) |> String.split() == ~w(btn btn-xs btn-ghost btn-circle)
       assert trigger_icon_class([]) == "hero-ellipsis-vertical w-4 h-4"
 
+      # and asking for "xs" is asking for the default
       assert trigger_html(trigger_size: "xs") |> LazyHTML.to_html() ==
                trigger_html([]) |> LazyHTML.to_html()
     end

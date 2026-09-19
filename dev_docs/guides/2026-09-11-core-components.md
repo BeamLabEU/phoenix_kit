@@ -69,6 +69,27 @@ use PhoenixKitWeb.Components.MediaBrowser.Embed
 
 **URL sync (shareable folder deep links):** `use …Embed, url_sync: true` puts folder/search/page/view in the URL via lifecycle hooks (`attach_hook`, **not** injected clauses) — composes with a host LV that has its own `handle_params`/`handle_info`. Reference: `lib/phoenix_kit_web/live/users/media.ex`.
 
+## FeaturedImage Component
+
+One entity's "main image" (order/product image, logo, avatar): a thumbnail, an always-visible Change/Remove menu and the whole media-picker protocol — `lib/phoenix_kit_web/components/featured_image.ex`. Reach for it instead of hand-writing the pencil/×/picker trio; the moduledoc has every attr and the host wiring.
+
+```heex
+<.live_component module={PhoenixKitWeb.Components.FeaturedImage}
+  id="order-featured" uuid={@order.featured_image_uuid}
+  picker_scope={@order.storage_folder_uuid && {:folder, @order.storage_folder_uuid}}
+  phoenix_kit_current_user={@current_user} readonly={@order.deleted?} />
+```
+
+```elixir
+def handle_info({PhoenixKitWeb.Components.FeaturedImage, "order-featured", {:set_featured, uuid}}, socket)
+```
+
+- **The `:set_featured` handler is required** (`uuid` is a file uuid, or `nil` on Remove) — without it the choice is silently dropped. Same payload shape as `MediaBrowser`'s `:featured`.
+- **Controlled and write-free:** it draws only the `uuid` you pass and writes nothing; you authorize, persist and assign the new value back. It checks that a chosen file exists, is an image and is not trashed — never that the user may change this entity.
+- **`picker_scope`** is `{:folder, uuid}`, `:lazy` (folder created on the first click: answer `:scope_requested` with `send_update(FeaturedImage, id: id, open_picker: true | false)` or `error: msg`) or `nil` (choosing unavailable; the modal is never mounted).
+- The picker renders through `<.portal>` so it can sit inside a host `<.form>`; `has_element?/2` cannot see into it in tests — assert on `#<id>-portal`. Recommended Phoenix LiveView ≥ 1.2.12.
+- One `Storage` query per instance: not for lists — draw list thumbnails from data you already have.
+
 ## Charts and lanes
 
 `PhoenixKitWeb.Components.Core.Chart` draws zero-JS SVG charts (`<.line_chart>` and friends; imported everywhere through `use PhoenixKitWeb`). `<.chart_lanes>` (`Core.ChartLanes`, imported with `only: [chart_lanes: 1]`) draws rows of horizontal bands on the same x axis: what was scheduled, on or booked over the stretch the chart shows. It knows nothing about the domain; each band says only how it is drawn and in what colour.
