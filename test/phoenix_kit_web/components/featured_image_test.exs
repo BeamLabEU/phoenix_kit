@@ -713,6 +713,28 @@ defmodule PhoenixKitWeb.Components.FeaturedImageTest do
     end
   end
 
+  describe "translations" do
+    test "the control speaks the reader's language (ru, et), from PhoenixKitWeb.Gettext" do
+      {folder, file} = folder_and_file()
+
+      for {locale, choose, remove, missing} <- [
+            {"ru", "Выбрать изображение", "Удалить изображение", "Изображение отсутствует"},
+            {"et", "Vali pilt", "Eemalda pilt", "Pilt puudub"}
+          ] do
+        Gettext.with_locale(PhoenixKitWeb.Gettext, locale, fn ->
+          empty = render_fi(picker_scope: {:folder, folder.uuid})
+          assert attr(empty, role("open-picker"), "title") == [choose]
+
+          set = render_fi(uuid: file.uuid, picker_scope: {:folder, folder.uuid})
+          assert set |> LazyHTML.query(role("remove")) |> LazyHTML.text() =~ remove
+
+          dangling = render_fi(uuid: Ecto.UUID.generate())
+          assert attr(dangling, role("dangling"), "title") == [missing]
+        end)
+      end
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Guard memoization and the `processing` re-check
   # ---------------------------------------------------------------------------

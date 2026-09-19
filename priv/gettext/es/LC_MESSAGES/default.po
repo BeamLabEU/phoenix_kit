@@ -15436,3 +15436,41 @@ msgstr "Qué se guarda cuando un inicio de sesión con contraseña no tiene éxi
 #, elixir-autogen, elixir-format
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:39
+#: lib/phoenix_kit_web/components/featured_image.html.heex:43
+#: lib/phoenix_kit_web/components/featured_image.html.heex:55
+#: lib/phoenix_kit_web/components/featured_image.html.heex:57
+#, elixir-autogen, elixir-format
+msgid "Choose image"
+msgstr "Elegir imagen"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:179
+#, elixir-autogen, elixir-format
+msgid "Image actions"
+msgstr "Acciones de la imagen"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:148
+#: lib/phoenix_kit_web/components/featured_image.html.heex:151
+#: lib/phoenix_kit_web/components/featured_image.html.heex:161
+#: lib/phoenix_kit_web/components/featured_image.html.heex:162
+#: lib/phoenix_kit_web/components/featured_image.html.heex:165
+#, elixir-autogen, elixir-format
+msgid "Image missing"
+msgstr "Falta la imagen"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:125
+#: lib/phoenix_kit_web/components/featured_image.html.heex:128
+#, elixir-autogen, elixir-format
+msgid "Processing image…"
+msgstr "Procesando la imagen…"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:203
+#, elixir-autogen, elixir-format
+msgid "Remove image"
+msgstr "Quitar la imagen"
+
+#: lib/phoenix_kit_web/components/featured_image.ex:367
+#, elixir-autogen, elixir-format
+msgid "The selected file is not an available image"
+msgstr "El archivo seleccionado no es una imagen disponible"

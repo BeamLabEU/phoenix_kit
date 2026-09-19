@@ -15428,3 +15428,41 @@ msgstr "Ce qui est stocké lorsqu'une connexion par mot de passe échoue"
 #, elixir-autogen, elixir-format
 msgid "Wrong password"
 msgstr "Mot de passe incorrect"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:39
+#: lib/phoenix_kit_web/components/featured_image.html.heex:43
+#: lib/phoenix_kit_web/components/featured_image.html.heex:55
+#: lib/phoenix_kit_web/components/featured_image.html.heex:57
+#, elixir-autogen, elixir-format
+msgid "Choose image"
+msgstr "Choisir une image"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:179
+#, elixir-autogen, elixir-format
+msgid "Image actions"
+msgstr "Actions sur l’image"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:148
+#: lib/phoenix_kit_web/components/featured_image.html.heex:151
+#: lib/phoenix_kit_web/components/featured_image.html.heex:161
+#: lib/phoenix_kit_web/components/featured_image.html.heex:162
+#: lib/phoenix_kit_web/components/featured_image.html.heex:165
+#, elixir-autogen, elixir-format
+msgid "Image missing"
+msgstr "Image manquante"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:125
+#: lib/phoenix_kit_web/components/featured_image.html.heex:128
+#, elixir-autogen, elixir-format
+msgid "Processing image…"
+msgstr "Traitement de l’image…"
+
+#: lib/phoenix_kit_web/components/featured_image.html.heex:203
+#, elixir-autogen, elixir-format
+msgid "Remove image"
+msgstr "Supprimer l’image"
+
+#: lib/phoenix_kit_web/components/featured_image.ex:367
+#, elixir-autogen, elixir-format
+msgid "The selected file is not an available image"
+msgstr "Le fichier sélectionné n’est pas une image disponible"
