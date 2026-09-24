@@ -202,10 +202,20 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
-  # V202 (2026-09-23, storage libraries, the partition) DECLARES 34 objects
+  # V203 (2026-09-24, a library's URL name) DECLARES two of the objects the
+  # V202 note below describes: `column:phoenix_kit_storage_libraries.slug`
+  # and `index:phoenix_kit_storage_libraries_owner_slug_index`, moved out of
+  # V202 and re-tagged `since: 203`. They shipped inside V202 first, added by
+  # an `ALTER … IF NOT EXISTS` meant to reach databases that had run an
+  # earlier build of that version — which the chain cannot do: it records the
+  # version it has RUN, so an install already at 202 is never offered 202
+  # again. A version of its own is what makes an amendment arrive. Nothing
+  # about the shape changes; `slug` is still the twelfth column, added by its
+  # own ALTER after the table exists.
+  #
+  # V202 (2026-09-23, storage libraries, the partition) DECLARES 32 objects
   # here and RESHAPES one. New: `table:phoenix_kit_storage_libraries` with
-  # its 12 columns (`slug` last: it is added by its own ALTER, so a database
-  # that ran an earlier build of V202 gets it at the same position), 5
+  # its 11 columns (the twelfth, `slug`, is V203's above), 5
   # constraints (pkey, owner FK, kind/visibility/owner checks) and 5 indexes; the Media seed row (fixed uuid
   # `00000000-0000-7000-8000-000000000001`); `library_uuid` on files, media
   # folders and folder links (NOT NULL, DEFAULT Media's uuid) with their
@@ -455,7 +465,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "b96144c1fe3e788f58325da4b43715ad6e6bed3de94dd4401a8ffcfa92dd94bf"
+  @chain_hash "8bf172a7c6e0822227603838ecce4dc47c352dc809c599100ab6dceceea61954"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -73026,10 +73036,10 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
           {:catalog, %{table: "phoenix_kit_storage_libraries", column: "slug", kind: :column}},
         create:
           "ALTER TABLE __SCHEMA__.phoenix_kit_storage_libraries ADD COLUMN IF NOT EXISTS \"slug\" character varying(64)",
-        since: 202,
+        since: 203,
         class: :column,
         revisions: [
-          {202, %{default: nil, type: "character varying(64)", pos: 12, not_null: false}}
+          {203, %{default: nil, type: "character varying(64)", pos: 12, not_null: false}}
         ],
         presence: :required,
         backfill: nil
@@ -73046,10 +73056,10 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
            }},
         create:
           "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_storage_libraries_owner_slug_index ON __SCHEMA__.phoenix_kit_storage_libraries USING btree (COALESCE(owner_uuid, '00000000-0000-0000-0000-000000000000'::uuid), slug) WHERE (slug IS NOT NULL)",
-        since: 202,
+        since: 203,
         class: :index,
         revisions: [
-          {202,
+          {203,
            %{
              table: "phoenix_kit_storage_libraries",
              keys: ["COALESCE(owner_uuid, '00000000-0000-0000-0000-000000000000'::uuid)", "slug"],

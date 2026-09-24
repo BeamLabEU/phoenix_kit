@@ -7,7 +7,9 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V202 - Storage libraries (the partition) ⚡ LATEST
+  ### V203 - A library's URL name (slug) ⚡ LATEST
+
+  ### V202 - Storage libraries (the partition)
 
   Adds `phoenix_kit_storage_libraries` and seeds one system library, Media
   (fixed uuid `00000000-0000-7000-8000-000000000001`), and `library_uuid`
@@ -858,7 +860,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 202
+  @current_version 203
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries
