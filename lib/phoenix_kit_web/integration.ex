@@ -1804,7 +1804,10 @@ defmodule PhoenixKitWeb.Integration do
       # Recompile router when deps change (mix.lock is updated by mix deps.get)
       @external_resource unquote(mix_lock_path)
 
-      # Precise check: recompile if the set of PhoenixKit modules changed, or
+      # Precise check: recompile if the set of PhoenixKit modules changed (the
+      # fast variant of `module_hash/0`: Mix evaluates this on every compile and
+      # the dev code reloader compiles on every request, so it must not re-read
+      # every dependency's beams each time), or
       # if the host's extra_live_session_on_mount config no longer matches the
       # value baked in at compile time (plain Application.get_env at macro
       # expansion is not tracked by the compiler's compile_env mechanism).
@@ -1819,7 +1822,7 @@ defmodule PhoenixKitWeb.Integration do
       # that it defaults to `false`.
       @doc false
       def __mix_recompile__? do
-        unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash() or
+        unquote(current_hash) != PhoenixKit.ModuleDiscovery.module_hash_fast() or
           unquote(Macro.escape(extra_on_mount())) !=
             Application.get_env(:phoenix_kit, :extra_live_session_on_mount, []) or
           unquote(PhoenixKit.Config.get_admin_path()) != PhoenixKit.Config.get_admin_path() or
