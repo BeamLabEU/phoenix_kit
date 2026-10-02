@@ -74,7 +74,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, Sessions}
+  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, Sessions, WelcomeEmail}
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.Pagination
@@ -1545,6 +1545,8 @@ defmodule PhoenixKit.Users.Auth do
         metadata: %{"method" => "email_link", "actor_role" => "user"}
       })
 
+      WelcomeEmail.after_confirmation(updated_user)
+
       {:ok, updated_user}
     else
       _ -> :error
@@ -1559,6 +1561,11 @@ defmodule PhoenixKit.Users.Auth do
 
   @doc """
   Manually confirms a user account (admin function).
+
+  Sends no welcome email (`PhoenixKit.Users.WelcomeEmail`): an administrator
+  confirming an account is not the reader proving their address. A flow that
+  confirms through here on the reader's behalf — magic-link registration —
+  calls `WelcomeEmail.after_confirmation/1` itself.
 
   ## Examples
 
@@ -1614,6 +1621,7 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %{user: confirmed_user, tokens: {_count, revoked}}} ->
         disconnect_revoked_sessions(revoked)
         Events.broadcast_user_confirmed(confirmed_user)
+        WelcomeEmail.after_confirmation(confirmed_user)
         {:ok, confirmed_user}
 
       {:error, :user, changeset, _} ->

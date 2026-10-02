@@ -7,6 +7,13 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   `configured?/2` is always true and the Email column is available from the
   start. There's no per-user connection or config beyond the routing/cadence the
   matrix + aggregation popup write.
+
+  The message is core's `notification` email (`PhoenixKit.Email.Content`), so
+  it is sent in the shared layout with the site's branding, can be rewritten
+  with override files like any other email, and shows in the admin preview.
+  Its variables are `{{subject}}` (the notification's title, or the start of
+  its text), `{{text}}` and `{{url}}` (empty when the notification has no
+  link) — all already rendered in the reader's language.
   """
 
   @behaviour PhoenixKit.Notifications.Channel
@@ -15,6 +22,9 @@ defmodule PhoenixKit.Notifications.Channels.Email do
 
   import Swoosh.Email
 
+  alias PhoenixKit.Email.Content
+  alias PhoenixKit.Email.CoreTemplates
+  alias PhoenixKit.Email.Provider
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.Auth
 
@@ -35,8 +45,8 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   @impl true
   def deliver(envelope, _config) do
     case Auth.get_user(envelope.recipient_uuid) do
-      %{email: address} when is_binary(address) and address != "" ->
-        send_email(address, envelope)
+      %{email: address} = user when is_binary(address) and address != "" ->
+        send_email(user, address, envelope)
 
       _ ->
         {:error, {:permanent, :no_recipient_email}}
@@ -48,13 +58,28 @@ defmodule PhoenixKit.Notifications.Channels.Email do
 
   # --- Internals ------------------------------------------------------------
 
-  defp send_email(address, envelope) do
+  defp send_email(user, address, envelope) do
+    content =
+      Content.resolve(
+        "notification",
+        user,
+        %{
+          "subject" => subject_for(envelope),
+          "text" => envelope.text,
+          "url" => envelope.url || ""
+        },
+        &CoreTemplates.notification_defaults/0
+      )
+
+    if content.db_template, do: Provider.current().track_usage(content.db_template)
+
     email =
       new()
       |> to(address)
       |> from({Mailer.get_from_name(), Mailer.get_from_email()})
-      |> subject(subject_for(envelope))
-      |> text_body(body_for(envelope))
+      |> subject(content.subject)
+      |> text_body(trim(content.text))
+      |> html_body(content.html)
 
     case Mailer.deliver_email(email, category: "notifications") do
       {:ok, _} -> :ok
@@ -67,8 +92,7 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   defp subject_for(%{title: title}) when is_binary(title) and title != "", do: title
   defp subject_for(%{text: text}), do: String.slice(text, 0, 120)
 
-  defp body_for(%{text: text, url: url}) when is_binary(url) and url != "",
-    do: "#{text}\n\n#{url}"
-
-  defp body_for(%{text: text}), do: text
+  # A notification without a link leaves the default's `{{url}}` line empty.
+  defp trim(text) when is_binary(text), do: String.trim_trailing(text)
+  defp trim(text), do: text
 end

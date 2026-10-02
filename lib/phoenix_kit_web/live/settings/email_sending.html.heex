@@ -186,6 +186,38 @@
           </p>
         </div>
       </.form_section>
+
+      <.form_section
+        title={gettext("Welcome email")}
+        icon="hero-hand-raised"
+        body_class="space-y-4"
+        class="mt-6"
+      >
+        <:subtitle>
+          {gettext(
+            "Sent once to each user, right after they confirm their email address — by the confirmation link, a magic link, or a sign-in with a provider that verified the address. Not sent when an administrator confirms an account."
+          )}
+        </:subtitle>
+        <:actions>
+          <.pk_link_button
+            id="email-welcome-preview-link"
+            navigate="/admin/settings/email-sending/preview?email=welcome"
+            variant="outline"
+            class="btn-sm"
+          >
+            <.icon name="hero-eye" class="w-4 h-4" /> {gettext("Preview")}
+          </.pk_link_button>
+        </:actions>
+
+        <form id="email-welcome-form" phx-change="toggle_welcome_email">
+          <.checkbox
+            id="email_welcome_enabled"
+            name="enabled"
+            checked={@welcome_email_enabled}
+            label={gettext("Send a welcome email after an address is confirmed")}
+          />
+        </form>
+      </.form_section>
     </div>
 
     <div class={@active_tab != "transport" && "hidden"}>

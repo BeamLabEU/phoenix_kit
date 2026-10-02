@@ -181,6 +181,7 @@ defmodule PhoenixKit.Settings do
     magic_link_registration_enabled
     qr_login_enabled
     new_login_alert_enabled
+    email_welcome_enabled
     login_attempt_logging_enabled
     login_attempt_retention_days
     failed_login_alert_enabled
@@ -322,6 +323,9 @@ defmodule PhoenixKit.Settings do
       # is failures within one hour; one alert silences the next for 24h.
       "failed_login_alert_enabled" => "false",
       "failed_login_alert_threshold" => "10",
+      # The welcome email after a confirmed address (PhoenixKit.Users.WelcomeEmail).
+      # OFF by default: it is new mail an existing install never sent.
+      "email_welcome_enabled" => "false",
       # Cross-module @ mentions and # record links. On by default: the
       # feature is inert until someone actually types a trigger, and
       # everything it stores degrades to plain text when it is off.

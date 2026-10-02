@@ -154,6 +154,22 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   end
 
   @doc """
+  Deliver the welcome email to a user who has just confirmed their address.
+
+  Called only by `PhoenixKit.Users.WelcomeEmail`, which decides whether and
+  when — it is off by default and sent at most once.
+  """
+  def deliver_welcome(user) do
+    deliver_templated(
+      user,
+      user.email,
+      "welcome",
+      CoreTemplates.welcome_variables(user.email),
+      &CoreTemplates.welcome_defaults/0
+    )
+  end
+
+  @doc """
   Deliver organization invitation email to a new (unregistered) user.
 
   Sends a registration link containing the invitation token so the invitee

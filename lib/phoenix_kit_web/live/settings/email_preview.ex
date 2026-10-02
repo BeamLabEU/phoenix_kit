@@ -225,6 +225,26 @@ defmodule PhoenixKitWeb.Live.Settings.EmailPreview do
     )
   end
 
+  # Which file wins, in the order `PhoenixKit.Email.Content` applies — every
+  # host file before every built-in default for the HTML, so a host's
+  # `text` reaches the HTML version too.
+  defp html_order_note do
+    gettext(
+      "The HTML version comes from the first of: your %{html}, your %{markdown}, your %{text} (as paragraphs, without buttons), then the built-in HTML, Markdown and text.",
+      html: "html.html",
+      markdown: "markdown.md",
+      text: "text.txt"
+    )
+  end
+
+  defp text_order_note do
+    gettext(
+      "The text version comes from the first of: your %{text}, your %{markdown}, then the built-in text and Markdown. Override %{markdown} to change both versions at once.",
+      markdown: "markdown.md",
+      text: "text.txt"
+    )
+  end
+
   defp part_file(name, part, ext, locale), do: "#{name}/#{part}.#{base_language(locale)}.#{ext}"
 
   # No layout was used (sent with `layout: false`, a whole document, or no
