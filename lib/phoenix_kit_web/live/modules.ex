@@ -497,7 +497,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Build list of external/plugin modules (auto-discovered from deps).
   # Each entry has the info needed to render a generic module card.
   defp load_external_modules(module_configs) do
-    ModuleDiscovery.discover_external_modules()
+    ModuleDiscovery.cached_external_modules()
     |> Enum.filter(fn mod ->
       Code.ensure_loaded?(mod) and function_exported?(mod, :module_key, 0)
     end)

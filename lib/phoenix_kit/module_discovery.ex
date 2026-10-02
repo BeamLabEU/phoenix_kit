@@ -21,6 +21,8 @@ defmodule PhoenixKit.ModuleDiscovery do
 
   require Logger
 
+  @cache_key {__MODULE__, :external_modules}
+
   @doc """
   Discovers external PhoenixKit modules from beam files + config fallback.
 
@@ -36,10 +38,53 @@ defmodule PhoenixKit.ModuleDiscovery do
   end
 
   @doc """
+  Like `discover_external_modules/0`, but scans the disk once per VM and then
+  answers from `:persistent_term`.
+
+  **Runtime callers only** (the admin Modules page, `PhoenixKit.ModuleRegistry`).
+  The scan reads every beam file of every phoenix_kit-dependent dep, which takes
+  seconds on a cold or busy disk, while the set it finds only changes when the
+  release is rebuilt. Compile-time callers (router macros, `module_hash/0`, the
+  Mix compilers) must keep using `discover_external_modules/0`: a long-lived
+  `iex -S mix` / code-reloader VM recompiles against a changing disk and has to
+  see it.
+
+  The cache is dropped by `clear_cache/0` and rebuilt by `refresh_cache/0`;
+  `PhoenixKit.ModuleRegistry` does both wherever it registers, unregisters or
+  rescans. It also reflects `config :phoenix_kit, :modules` as of the first read.
+  """
+  @spec cached_external_modules() :: [module()]
+  def cached_external_modules do
+    case :persistent_term.get(@cache_key, :unset) do
+      :unset -> refresh_cache()
+      modules -> modules
+    end
+  end
+
+  @doc """
+  Scans the disk now (`discover_external_modules/0`), stores the result for
+  `cached_external_modules/0` and returns it.
+  """
+  @spec refresh_cache() :: [module()]
+  def refresh_cache do
+    modules = discover_external_modules()
+    :persistent_term.put(@cache_key, modules)
+    modules
+  end
+
+  @doc "Drops the cached scan; the next `cached_external_modules/0` call scans again."
+  @spec clear_cache() :: :ok
+  def clear_cache do
+    :persistent_term.erase(@cache_key)
+    :ok
+  end
+
+  @doc """
   Returns a deterministic hash of the current set of discovered external modules.
 
   Used by `__mix_recompile__?/0` (injected into the host router) to detect when
-  modules are added or removed, triggering router recompilation.
+  modules are added or removed, triggering router recompilation. Always scans the
+  disk — it must never be answered from the runtime cache.
   """
   @spec module_hash() :: binary()
   def module_hash do

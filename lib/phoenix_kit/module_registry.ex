@@ -403,8 +403,11 @@ defmodule PhoenixKit.ModuleRegistry do
   """
   @spec not_installed_packages() :: [map()]
   def not_installed_packages do
+    # Computed once: the capture form re-evaluated it for every catalog entry.
+    installed = installed_otp_apps()
+
     known_external_packages()
-    |> Enum.reject(&MapSet.member?(installed_otp_apps(), &1.package))
+    |> Enum.reject(&MapSet.member?(installed, &1.package))
   end
 
   # "Installed" is the union of two questions, because a `phoenix_kit_*` package
@@ -419,7 +422,7 @@ defmodule PhoenixKit.ModuleRegistry do
   # other, so both are consulted.
   defp installed_otp_apps do
     discovered =
-      PhoenixKit.ModuleDiscovery.discover_external_modules()
+      PhoenixKit.ModuleDiscovery.cached_external_modules()
       |> Enum.map(&Application.get_application/1)
       |> Enum.reject(&is_nil/1)
       |> MapSet.new(&Atom.to_string/1)
@@ -705,6 +708,7 @@ defmodule PhoenixKit.ModuleRegistry do
   # installed provider cannot be connected at all until a restart.
   defp invalidate_module_derived_caches do
     Providers.clear_cache()
+    PhoenixKit.ModuleDiscovery.clear_cache()
     :ok
   end
 
@@ -778,7 +782,9 @@ defmodule PhoenixKit.ModuleRegistry do
 
   defp load_modules do
     internal = internal_modules()
-    external = PhoenixKit.ModuleDiscovery.discover_external_modules()
+    # A real scan, which also refreshes the runtime cache (boot and `rescan/0`
+    # both come through here, so the admin pages never pay for a cold scan).
+    external = PhoenixKit.ModuleDiscovery.refresh_cache()
     (internal ++ external) |> Enum.uniq()
   end
 
