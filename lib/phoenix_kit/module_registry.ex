@@ -657,6 +657,10 @@ defmodule PhoenixKit.ModuleRegistry do
       updated = modules ++ [module]
       :persistent_term.put(@pterm_key, updated)
       invalidate_module_derived_caches()
+      # Not part of `invalidate_module_derived_caches/0`: `rescan/0` calls that
+      # right after `load_modules/0` has refreshed the scan cache and must not
+      # wipe it.
+      PhoenixKit.ModuleDiscovery.clear_cache()
       {:reply, :ok, %{state | modules: updated}}
     end
   end
@@ -665,6 +669,7 @@ defmodule PhoenixKit.ModuleRegistry do
     updated = List.delete(modules, module)
     :persistent_term.put(@pterm_key, updated)
     invalidate_module_derived_caches()
+    PhoenixKit.ModuleDiscovery.clear_cache()
     {:reply, :ok, %{state | modules: updated}}
   end
 
@@ -708,7 +713,6 @@ defmodule PhoenixKit.ModuleRegistry do
   # installed provider cannot be connected at all until a restart.
   defp invalidate_module_derived_caches do
     Providers.clear_cache()
-    PhoenixKit.ModuleDiscovery.clear_cache()
     :ok
   end
 
@@ -782,8 +786,9 @@ defmodule PhoenixKit.ModuleRegistry do
 
   defp load_modules do
     internal = internal_modules()
-    # A real scan, which also refreshes the runtime cache (boot and `rescan/0`
-    # both come through here, so the admin pages never pay for a cold scan).
+    # A real scan that also refreshes the runtime scan cache. Boot and `rescan/0`
+    # both come through here, so the admin pages find it warm and never pay for
+    # a cold scan; nothing after this in either path may clear it.
     external = PhoenixKit.ModuleDiscovery.refresh_cache()
     (internal ++ external) |> Enum.uniq()
   end

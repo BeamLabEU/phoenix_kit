@@ -49,16 +49,29 @@ defmodule PhoenixKit.ModuleDiscovery do
   `iex -S mix` / code-reloader VM recompiles against a changing disk and has to
   see it.
 
-  The cache is dropped by `clear_cache/0` and rebuilt by `refresh_cache/0`;
-  `PhoenixKit.ModuleRegistry` does both wherever it registers, unregisters or
-  rescans. It also reflects `config :phoenix_kit, :modules` as of the first read.
+  The cache is dropped by `clear_cache/0` and rebuilt by `refresh_cache/0`.
+  `PhoenixKit.ModuleRegistry` refreshes it at boot and on `rescan/0` and drops it
+  on `register/1` / `unregister/1`. Concurrent cold readers share one scan. The
+  cache also reflects `config :phoenix_kit, :modules` as of the scan.
   """
   @spec cached_external_modules() :: [module()]
   def cached_external_modules do
     case :persistent_term.get(@cache_key, :unset) do
-      :unset -> refresh_cache()
+      :unset -> scan_once()
       modules -> modules
     end
+  end
+
+  # Concurrent cold readers (several LiveView mounts after a restart) queue on
+  # one lock instead of each running the full scan; whoever gets it second finds
+  # the cache already filled.
+  defp scan_once do
+    :global.trans({{__MODULE__, :scan}, self()}, fn ->
+      case :persistent_term.get(@cache_key, :unset) do
+        :unset -> refresh_cache()
+        modules -> modules
+      end
+    end)
   end
 
   @doc """

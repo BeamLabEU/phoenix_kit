@@ -1,17 +1,32 @@
 defmodule PhoenixKitWeb.ModulesPageScanTest do
   @moduledoc """
-  The admin Modules page must not scan the disk for external modules on every
-  mount and toggle: the scan reads every beam of every phoenix_kit-dependent dep
-  (seconds on a busy disk) and its result only changes with a rebuild.
+  The admin Modules page must not scan the disk for external modules on mount,
+  on a toggle, or when another admin's toggle reaches it over PubSub: the scan
+  reads every beam of every phoenix_kit-dependent dep (seconds on a busy disk)
+  and its result only changes with a rebuild.
 
   Sync: the beam-read counter is a global trace and the scan cache is global.
   """
   use PhoenixKitWeb.ConnCase, async: false
 
+  alias PhoenixKit.Admin.Events
   alias PhoenixKit.KnownPackages
   alias PhoenixKit.ModuleDiscovery
+  alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.TestSupport.ModuleScanFixture, as: Fixture
 
   @moduletag :tmp_dir
+
+  # Registered so the page's toggle finds a module by key; it is not a dep on
+  # disk, so it never shows up in the scan itself.
+  defmodule ToggleFixture do
+    def module_key, do: "modules_page_scan_toggle"
+    def module_name, do: "Modules page scan toggle"
+    def enabled?, do: false
+    def get_config, do: %{enabled: false}
+    def enable_system, do: :ok
+    def disable_system, do: :ok
+  end
 
   setup %{conn: conn, tmp_dir: tmp_dir} do
     {admin, _token} = create_admin_user()
@@ -19,13 +34,17 @@ defmodule PhoenixKitWeb.ModulesPageScanTest do
     # Core's own test env has no phoenix_kit-dependent deps, so a scan would
     # read no beams and the counters below could never fail. One fixture dep
     # makes every scan visible.
-    write_fixture_dep(tmp_dir, :modules_page_scan_fixture)
+    Fixture.write_dep(tmp_dir, :"modules_page_scan_fixture_#{System.unique_integer([:positive])}")
+
+    ModuleRegistry.register(ToggleFixture)
+    on_exit(fn -> ModuleRegistry.unregister(ToggleFixture) end)
 
     # The page reads the Hex catalog; answer it from an empty page, no network.
     KnownPackages.clear_cache()
     plug = fn conn -> Req.Test.json(conn, []) end
     KnownPackages.list(req_options: [plug: plug])
 
+    # After register/1, which drops the cache: warm it the way boot does.
     ModuleDiscovery.refresh_cache()
     on_exit(fn -> ModuleDiscovery.clear_cache() end)
 
@@ -33,34 +52,20 @@ defmodule PhoenixKitWeb.ModulesPageScanTest do
   end
 
   test "a scan is visible to the counter (guards the assertions below)" do
-    mfa = {:beam_lib, :chunks, 2}
-    :erlang.trace_pattern(mfa, true, [:call_count])
-
-    try do
+    Fixture.count_beam_reads(fn reads ->
       ModuleDiscovery.discover_external_modules()
-      assert {:call_count, n} = :erlang.trace_info(mfa, :call_count)
-      assert n > 0
-    after
-      :erlang.trace_pattern(mfa, false, [:call_count])
-    end
+      assert reads.() > 0
+    end)
   end
 
-  test "renders, and mounting and switching tabs never rescan the disk", %{conn: conn} do
-    mfa = {:beam_lib, :chunks, 2}
-    :erlang.trace_pattern(mfa, true, [:call_count])
-
-    try do
+  test "renders, and a warm mount reads no beam", %{conn: conn} do
+    Fixture.count_beam_reads(fn reads ->
       {:ok, view, html} = live(conn, "/phoenix_kit/admin/modules")
       assert html =~ "Not Installed"
+      assert has_element?(view, ~s(button[phx-value-tab="not_installed"]))
 
-      for tab <- ~w(disabled not_installed active) do
-        view |> element(~s(button[phx-value-tab="#{tab}"])) |> render_click()
-      end
-
-      assert {:call_count, 0} = :erlang.trace_info(mfa, :call_count)
-    after
-      :erlang.trace_pattern(mfa, false, [:call_count])
-    end
+      assert reads.() == 0
+    end)
   end
 
   test "a cold cache is filled by the first mount, then left alone", %{conn: conn} do
@@ -68,45 +73,34 @@ defmodule PhoenixKitWeb.ModulesPageScanTest do
 
     {:ok, _view, _html} = live(conn, "/phoenix_kit/admin/modules")
 
-    mfa = {:beam_lib, :chunks, 2}
-    :erlang.trace_pattern(mfa, true, [:call_count])
-
-    try do
+    Fixture.count_beam_reads(fn reads ->
       {:ok, _view, _html} = live(conn, "/phoenix_kit/admin/modules")
-      assert {:call_count, 0} = :erlang.trace_info(mfa, :call_count)
-    after
-      :erlang.trace_pattern(mfa, false, [:call_count])
-    end
+      assert reads.() == 0
+    end)
   end
 
-  # A fake dep ebin: a `<app>.app` depending on :phoenix_kit plus one beam
-  # carrying `@phoenix_kit_module true`, on the code path until the test ends.
-  defp write_fixture_dep(tmp_dir, app) do
-    dir = Path.join(tmp_dir, to_string(app))
-    File.mkdir_p!(dir)
-    module = Module.concat([Macro.camelize(to_string(app))])
+  test "toggling a module reads no beam", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/phoenix_kit/admin/modules")
 
-    [{^module, binary}] =
-      Code.compile_string("""
-      defmodule #{inspect(module)} do
-        Module.register_attribute(__MODULE__, :phoenix_kit_module, persist: true)
-        @phoenix_kit_module true
-      end
-      """)
+    Fixture.count_beam_reads(fn reads ->
+      render_hook(view, "toggle_module", %{"key" => ToggleFixture.module_key()})
 
-    File.write!(Path.join(dir, "#{module}.beam"), binary)
+      # The toggle really ran (a flash proves it did not bail out early).
+      assert render(view) =~ "Modules page scan toggle enabled"
+      assert reads.() == 0
+    end)
+  end
 
-    File.write!(Path.join(dir, "#{app}.app"), """
-    {application, #{app}, [
-      {description, "fixture"},
-      {vsn, "0.1.0"},
-      {modules, ['#{module}']},
-      {applications, [kernel, stdlib, phoenix_kit]}
-    ]}.
-    """)
+  test "another admin's toggle arriving over PubSub reads no beam", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/phoenix_kit/admin/modules")
 
-    Code.append_path(dir)
-    on_exit(fn -> Code.delete_path(dir) end)
-    module
+    Fixture.count_beam_reads(fn reads ->
+      Events.broadcast_module_enabled(ToggleFixture.module_key())
+
+      # `render/1` round-trips through the LiveView, so the broadcast has been
+      # handled by the time it returns.
+      render(view)
+      assert reads.() == 0
+    end)
   end
 end

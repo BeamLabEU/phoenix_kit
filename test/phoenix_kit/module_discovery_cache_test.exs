@@ -4,8 +4,8 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
   paths that must NOT be answered from it.
 
   DB-free. Sync on purpose: the cache is one global `:persistent_term`, the
-  registry is one named process, and the beam-file counter below is a global
-  trace — nothing here may interleave with another test.
+  registry is one named process, and the call counters are global traces —
+  nothing here may interleave with another test.
 
   "How many times did it scan" is measured, not mocked: every scan reads each
   beam through `:beam_lib.chunks/2`, so the call count of that function is the
@@ -16,6 +16,7 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
   alias PhoenixKit.KnownPackages
   alias PhoenixKit.ModuleDiscovery
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.TestSupport.ModuleScanFixture, as: Fixture
 
   @moduletag :tmp_dir
 
@@ -32,9 +33,9 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
 
   describe "cached_external_modules/0" do
     test "scans the disk once, however often it is read", %{tmp_dir: tmp_dir} do
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_once)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_once)
 
-      with_beam_read_counter(fn reads ->
+      Fixture.count_beam_reads(fn reads ->
         first = ModuleDiscovery.cached_external_modules()
         scan_cost = reads.()
 
@@ -47,11 +48,26 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
       end)
     end
 
+    test "concurrent cold readers share one scan", %{tmp_dir: tmp_dir} do
+      Fixture.write_dep(tmp_dir, :scan_cache_fixture_concurrent)
+      one_scan = scan_cost()
+
+      Fixture.count_beam_reads(fn reads ->
+        results =
+          1..8
+          |> Enum.map(fn _ -> Task.async(&ModuleDiscovery.cached_external_modules/0) end)
+          |> Task.await_many(30_000)
+
+        assert results |> Enum.uniq() |> length() == 1
+        assert reads.() == one_scan
+      end)
+    end
+
     test "keeps answering from the cache until it is cleared", %{tmp_dir: tmp_dir} do
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_stale)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_stale)
       assert mod in ModuleDiscovery.cached_external_modules()
 
-      File.rm_rf!(Path.join(tmp_dir, "scan_cache_fixture_stale"))
+      Fixture.remove_dep(tmp_dir, :scan_cache_fixture_stale)
 
       # The honest scan sees the disk change; the cache deliberately does not.
       refute mod in ModuleDiscovery.discover_external_modules()
@@ -64,7 +80,7 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
     test "refresh_cache/0 rescans and replaces the cached value", %{tmp_dir: tmp_dir} do
       assert is_list(ModuleDiscovery.cached_external_modules())
 
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_refresh)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_refresh)
       refute mod in ModuleDiscovery.cached_external_modules()
 
       assert mod in ModuleDiscovery.refresh_cache()
@@ -79,7 +95,7 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
       warm = ModuleDiscovery.cached_external_modules()
       before_hash = ModuleDiscovery.module_hash()
 
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_hash)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_hash)
 
       assert ModuleDiscovery.module_hash() != before_hash,
              "a router recompile check answered from a stale cache would never fire"
@@ -87,21 +103,20 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
       assert mod in ModuleDiscovery.discover_external_modules()
       assert ModuleDiscovery.cached_external_modules() == warm
 
-      File.rm_rf!(Path.join(tmp_dir, "scan_cache_fixture_hash"))
+      Fixture.remove_dep(tmp_dir, :scan_cache_fixture_hash)
       assert ModuleDiscovery.module_hash() == before_hash
     end
 
     test "module_hash/0 and discover_external_modules/0 scan on every call", %{
       tmp_dir: tmp_dir
     } do
-      write_fixture_dep(tmp_dir, :scan_cache_fixture_honest)
+      Fixture.write_dep(tmp_dir, :scan_cache_fixture_honest)
       ModuleDiscovery.refresh_cache()
+      one_scan = scan_cost()
+      assert one_scan > 0
 
-      with_beam_read_counter(fn reads ->
+      Fixture.count_beam_reads(fn reads ->
         ModuleDiscovery.discover_external_modules()
-        one_scan = reads.()
-        assert one_scan > 0
-
         ModuleDiscovery.discover_external_modules()
         ModuleDiscovery.module_hash()
         assert reads.() == one_scan * 3
@@ -110,17 +125,37 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
   end
 
   describe "ModuleRegistry" do
-    test "rescan/0 rebuilds the cache from the disk", %{tmp_dir: tmp_dir} do
+    test "rescan/0 leaves the cache warm and current", %{tmp_dir: tmp_dir} do
       assert is_list(ModuleDiscovery.cached_external_modules())
 
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_rescan)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_rescan)
+      on_exit(fn -> ModuleRegistry.unregister(mod) end)
       refute mod in ModuleDiscovery.cached_external_modules()
 
       assert {:ok, new_modules} = ModuleRegistry.rescan()
       assert mod in new_modules
-      assert mod in ModuleDiscovery.cached_external_modules()
 
-      ModuleRegistry.unregister(mod)
+      # Warm: reading it costs no scan. A rescan that cleared (or never filled)
+      # the cache would make the next page load pay for it.
+      Fixture.count_beam_reads(fn reads ->
+        assert mod in ModuleDiscovery.cached_external_modules()
+        assert reads.() == 0
+      end)
+    end
+
+    test "rescan/0 with nothing new also leaves the cache warm", %{tmp_dir: tmp_dir} do
+      # Registered by a first rescan, so the second finds nothing new.
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_rescan_idle)
+      on_exit(fn -> ModuleRegistry.unregister(mod) end)
+      assert {:ok, [^mod]} = ModuleRegistry.rescan()
+
+      ModuleDiscovery.clear_cache()
+      assert {:ok, []} = ModuleRegistry.rescan()
+
+      Fixture.count_beam_reads(fn reads ->
+        ModuleDiscovery.cached_external_modules()
+        assert reads.() == 0
+      end)
     end
 
     test "register/1 and unregister/1 drop the cache", %{tmp_dir: tmp_dir} do
@@ -128,34 +163,42 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
         def module_key, do: "scan_cache_drop"
       end
 
+      on_exit(fn -> ModuleRegistry.unregister(CacheDropFixture) end)
+
       assert is_list(ModuleDiscovery.cached_external_modules())
-      mod = write_fixture_dep(tmp_dir, :scan_cache_fixture_register)
+      mod = Fixture.write_dep(tmp_dir, :scan_cache_fixture_register)
       refute mod in ModuleDiscovery.cached_external_modules()
 
       ModuleRegistry.register(CacheDropFixture)
       assert mod in ModuleDiscovery.cached_external_modules()
 
-      File.rm_rf!(Path.join(tmp_dir, "scan_cache_fixture_register"))
+      Fixture.remove_dep(tmp_dir, :scan_cache_fixture_register)
       ModuleRegistry.unregister(CacheDropFixture)
       refute mod in ModuleDiscovery.cached_external_modules()
     end
 
-    test "not_installed_packages/0 scans at most once for a whole catalog", %{tmp_dir: tmp_dir} do
-      write_fixture_dep(tmp_dir, :scan_cache_fixture_catalog)
+    test "not_installed_packages/0 scans once and computes the installed set once", %{
+      tmp_dir: tmp_dir
+    } do
+      Fixture.write_dep(tmp_dir, :scan_cache_fixture_catalog)
       prime_catalog(for n <- 1..8, do: "phoenix_kit_scan_cache_catalog_#{n}")
       one_scan = scan_cost()
       assert one_scan > 0
 
       try do
-        with_beam_read_counter(fn reads ->
-          assert length(ModuleRegistry.not_installed_packages()) == 8
-          first_call = reads.()
+        Fixture.count_calls({:application, :loaded_applications, 0}, fn installed_sets ->
+          Fixture.count_beam_reads(fn reads ->
+            assert length(ModuleRegistry.not_installed_packages()) == 8
 
-          # Cold cache: exactly one scan, not one per catalog entry (8 here).
-          assert first_call == one_scan
+            # Cold cache: exactly one scan, not one per catalog entry (8 here)…
+            assert reads.() == one_scan
+            # …and one installed-apps computation, not one per entry.
+            assert installed_sets.() == 1
 
-          for _ <- 1..5, do: ModuleRegistry.not_installed_packages()
-          assert reads.() == first_call
+            for _ <- 1..5, do: ModuleRegistry.not_installed_packages()
+            assert reads.() == one_scan
+            assert installed_sets.() == 6
+          end)
         end)
       after
         Application.delete_env(:phoenix_kit, :extra_known_packages)
@@ -166,7 +209,7 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
 
   # What one full scan of the current code path costs, in beam reads.
   defp scan_cost do
-    with_beam_read_counter(fn reads ->
+    Fixture.count_beam_reads(fn reads ->
       ModuleDiscovery.discover_external_modules()
       reads.()
     end)
@@ -185,54 +228,5 @@ defmodule PhoenixKit.ModuleDiscoveryCacheTest do
 
     plug = fn conn -> Req.Test.json(conn, []) end
     KnownPackages.list(req_options: [plug: plug])
-  end
-
-  # Calls `fun` with a zero-arity reader of how many beam files have been read
-  # since the counter started. Tracing is global, hence the sync module.
-  defp with_beam_read_counter(fun) do
-    mfa = {:beam_lib, :chunks, 2}
-    :erlang.trace_pattern(mfa, true, [:call_count])
-
-    try do
-      fun.(fn ->
-        {:call_count, count} = :erlang.trace_info(mfa, :call_count)
-        count
-      end)
-    after
-      :erlang.trace_pattern(mfa, false, [:call_count])
-    end
-  end
-
-  # A fake dep ebin in `<tmp_dir>/<app>`: a `<app>.app` that depends on
-  # :phoenix_kit plus one beam carrying `@phoenix_kit_module true`, put on the
-  # code path (removed again on exit). The app is never loaded or started.
-  defp write_fixture_dep(tmp_dir, app) do
-    dir = Path.join(tmp_dir, to_string(app))
-    File.mkdir_p!(dir)
-    module = Module.concat([Macro.camelize(to_string(app))])
-
-    [{^module, binary}] =
-      Code.compile_string("""
-      defmodule #{inspect(module)} do
-        Module.register_attribute(__MODULE__, :phoenix_kit_module, persist: true)
-        @phoenix_kit_module true
-      end
-      """)
-
-    File.write!(Path.join(dir, "#{module}.beam"), binary)
-
-    File.write!(Path.join(dir, "#{app}.app"), """
-    {application, #{app}, [
-      {description, "fixture"},
-      {vsn, "0.1.0"},
-      {modules, ['#{module}']},
-      {applications, [kernel, stdlib, phoenix_kit]}
-    ]}.
-    """)
-
-    Code.append_path(dir)
-    on_exit(fn -> Code.delete_path(dir) end)
-
-    module
   end
 end
