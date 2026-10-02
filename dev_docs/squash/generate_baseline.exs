@@ -1436,6 +1436,7 @@ defmodule PhoenixKit.Squash.Generate.Emitter do
 
     objects
     |> Enum.reject(&skip_seed_row?/1)
+    |> Enum.reject(&module_owned?/1)
     |> Enum.sort_by(
       &{&1.since, Differ.class_rank(&1.class),
        Differ.constraint_fk_rank(&1.class, newest_shape(&1)), &1.id}
@@ -1454,6 +1455,22 @@ defmodule PhoenixKit.Squash.Generate.Emitter do
       }
     end)
   end
+
+  # Objects the chain creates that a module owns and reshapes later, so core
+  # must neither check nor create them: asserting core's shape would report
+  # the module's own change as `:wrong_shape` and offer to undo it. Left out
+  # of the MANIFEST only — the baseline (`render_baseline/4`) still creates
+  # them, because the chain does. Exact ids; each one is also noted where it
+  # used to sit in `ExpectedSchema`.
+  @module_owned_ids [
+    # newsletters repoints it from phoenix_kit_email_templates at its own
+    # layouts table, under the same name
+    "constraint:phoenix_kit_newsletters_broadcasts.fk_newsletters_broadcasts_template"
+  ]
+
+  def module_owned_ids, do: @module_owned_ids
+
+  defp module_owned?(%{id: id}), do: id in @module_owned_ids
 
   defp skip_seed_row?(%{class: :seed, key: {table, _key}} = object) do
     Map.get(@seed_strategies, table) == :skip and not Map.has_key?(object, :create_override)
@@ -3322,11 +3339,12 @@ defmodule PhoenixKit.Squash.Generate.Main do
     check_config_parsing!()
     check_seed_tables_sync!()
     check_owner_mapping!()
+    check_module_owned!()
 
     IO.puts(
       "OK generate_baseline.exs --check: helper self-checks, inventory-doc cross-check, " <>
         "fixture differ/bimodality/guard, manifest+baseline emit/parse/compile, " <>
-        "config parsing, owner mapping — all offline gates passed"
+        "config parsing, owner mapping, module-owned exclusion — all offline gates passed"
     )
 
     :ok
@@ -3403,6 +3421,52 @@ defmodule PhoenixKit.Squash.Generate.Main do
   # need. Then at least one REAL table name must resolve to a non-:core
   # owner — proves the family-mapping DATA actually matches real
   # `phoenix_kit_*` names, not just that every branch returns some atom.
+  # build_objects/1 leaves a module-owned object out of the manifest; the
+  # baseline is not filtered by it.
+  defp check_module_owned! do
+    [owned_id | _] = Emitter.module_owned_ids()
+    table = "phoenix_kit_newsletters_broadcasts"
+    kept_id = "constraint:#{table}.fk_newsletters_broadcasts_kept"
+
+    fk = fn id, name ->
+      %{
+        id: id,
+        class: :constraint,
+        key: {table, name},
+        since: 79,
+        presence: :required,
+        revisions: [
+          {79,
+           %{
+             type: "f",
+             columns: ["template_uuid"],
+             definition:
+               "FOREIGN KEY (template_uuid) REFERENCES __SCHEMA__.phoenix_kit_email_templates(uuid) ON DELETE SET NULL",
+             name_template: nil,
+             foreign_table: "phoenix_kit_email_templates",
+             foreign_columns: ["uuid"],
+             on_delete: "n",
+             on_update: "a"
+           }}
+        ]
+      }
+    end
+
+    objects = [
+      fk.(owned_id, "fk_newsletters_broadcasts_template"),
+      fk.(kept_id, "fk_newsletters_broadcasts_kept")
+    ]
+
+    emitted = objects |> Emitter.build_objects() |> Enum.map(& &1.id)
+
+    unless emitted == [kept_id] do
+      raise "module-owned check failed: build_objects/1 emitted #{inspect(emitted)}, " <>
+              "expected only #{kept_id}"
+    end
+
+    :ok
+  end
+
   defp check_owner_mapping! do
     minimal_objects_by_class = [
       %{class: :table, key: "phoenix_kit_cat_items"},
