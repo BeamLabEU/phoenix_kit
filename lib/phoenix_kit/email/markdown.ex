@@ -36,6 +36,20 @@ defmodule PhoenixKit.Email.Markdown do
   The accent colour is the `accent_color` variable, checked by
   `PhoenixKit.Email.Branding.normalize_color/1`.
 
+  ## A paragraph that is only placeholders
+
+  A top-level paragraph of plain text whose placeholders all fill in blank —
+  `{{failed_attempts}}` on its own line, with nothing to report — is left
+  out of both bodies, rather than sent as an empty paragraph. A value that
+  is a sentence ending in a blank line, written as its own paragraph, stays
+  its own paragraph.
+
+  A paragraph that is exactly one `{{{variable}}}` is the value alone, with
+  no `<p>` around it — the way to place a block of HTML a caller built (a
+  table of invoice lines) between Markdown paragraphs. The text body
+  substitutes it as is, so a caller that passes HTML that way gives the
+  email a `text` part of its own.
+
   ## Raw HTML
 
   HTML written inside the Markdown is not rendered: a placeholder inside an
@@ -78,6 +92,7 @@ defmodule PhoenixKit.Email.Markdown do
 
     case MDEx.parse_document(protected, @mdex_options) do
       {:ok, document} ->
+        document = drop_blank_paragraphs(document, tokens, variables)
         {document, extracted} = extract(document, %{nonce: tokens.nonce, elements: [], count: 0})
 
         html =
@@ -89,6 +104,7 @@ defmodule PhoenixKit.Email.Markdown do
 
         html
         |> assemble(tokens.nonce, elements, accent)
+        |> unwrap_raw_paragraphs(tokens)
         |> String.replace("<p>", @paragraph)
         |> restore(tokens)
         |> Substitution.substitute(variables, escape: true)
@@ -109,8 +125,10 @@ defmodule PhoenixKit.Email.Markdown do
 
   Headings and paragraphs are lines separated by a blank line, list items
   start with `- ` (`1. ` when numbered), `[label](url)` becomes
-  `label: url`, an image becomes its alt text, and emphasis, code and raw
-  HTML marks are dropped.
+  `label: url` — just `url` when the label is the address itself, as in
+  `[{{url}}]({{url}})` — an image becomes its alt text, and emphasis, code
+  and raw HTML marks are dropped. A value that ends in blank lines never
+  leaves more than one blank line in a row.
   """
   @spec to_text(String.t(), Substitution.variables()) :: String.t()
   def to_text(markdown, variables) when is_binary(markdown) do
@@ -124,6 +142,7 @@ defmodule PhoenixKit.Email.Markdown do
 
     case MDEx.parse_document(protected, @mdex_options) do
       {:ok, document} ->
+        document = drop_blank_paragraphs(document, tokens, variables)
         {document, {urls, _count}} = text_urls(document, {%{}, 0}, tokens, variables)
 
         document.nodes
@@ -132,6 +151,7 @@ defmodule PhoenixKit.Email.Markdown do
         |> restore(tokens)
         |> Substitution.substitute(variables)
         |> restore_attributes(tokens.nonce, urls)
+        |> collapse_blank_lines()
 
       {:error, _reason} ->
         markdown |> String.trim() |> Substitution.substitute(variables)
@@ -178,6 +198,24 @@ defmodule PhoenixKit.Email.Markdown do
   defp nonce(source) do
     nonce = 6 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
     if String.contains?(source, "pk" <> nonce), do: nonce(source), else: nonce
+  end
+
+  # A paragraph that is exactly one `{{{raw}}}` placeholder holds a block of
+  # HTML (a table), and a block inside `<p>` is split by every parser into an
+  # empty paragraph, the block and a stray `</p>`. Such a paragraph is the
+  # value alone, the way a button replaces its paragraph.
+  defp unwrap_raw_paragraphs(html, %{placeholders: placeholders})
+       when map_size(placeholders) == 0,
+       do: html
+
+  defp unwrap_raw_paragraphs(html, %{nonce: nonce, placeholders: placeholders}) do
+    "<p>(0pk#{nonce}x[0-9]+x)</p>"
+    |> Regex.compile!()
+    |> Regex.replace(html, fn paragraph, token ->
+      if String.starts_with?(Map.get(placeholders, token, ""), "{{{"),
+        do: token,
+        else: paragraph
+    end)
   end
 
   # Puts the placeholders back, in one pass.
@@ -409,11 +447,19 @@ defmodule PhoenixKit.Email.Markdown do
       {urls, count} = acc
       url = fill(link.url, tokens, variables)
 
-      if safe_url?(url, :link) do
-        token = "pk#{tokens.nonce}z#{count}z"
-        {%{link | url: token}, {Map.put(urls, token, String.trim(url)), count + 1}}
-      else
-        {%{link | url: ""}, acc}
+      cond do
+        # `[{{url}}]({{url}})` — the address written out as its own label —
+        # reads `url`, not `url: url`. Compared filled, so it holds for a
+        # placeholder and for a literal address alike.
+        safe_url?(url, :link) and label_is_address?(link.nodes, url, tokens, variables) ->
+          {%{link | url: ""}, acc}
+
+        safe_url?(url, :link) ->
+          token = "pk#{tokens.nonce}z#{count}z"
+          {%{link | url: token}, {Map.put(urls, token, String.trim(url)), count + 1}}
+
+        true ->
+          {%{link | url: ""}, acc}
       end
     end
   end
@@ -428,6 +474,37 @@ defmodule PhoenixKit.Email.Markdown do
   defp text_urls_list(nodes, acc, tokens, variables) do
     Enum.map_reduce(nodes, acc, &text_urls(&1, &2, tokens, variables))
   end
+
+  defp label_is_address?(nodes, url, tokens, variables) do
+    nodes |> inline_text() |> fill(tokens, variables) |> String.trim() == String.trim(url)
+  end
+
+  # A value ending in a blank line (`{{failed_attempts}}`), in its own
+  # paragraph, would otherwise leave two blank lines where the paragraphs
+  # meet. Linear: one class, one quantifier.
+  defp collapse_blank_lines(text), do: Regex.replace(~r/\n[ \t]*\n(?:[ \t]*\n)+/, text, "\n\n")
+
+  ## Paragraphs that are only placeholders
+
+  # A top-level paragraph of plain text (no link, image or emphasis) that
+  # fills in blank is dropped before rendering, from both bodies. Before
+  # filling it cannot be blank — the parser keeps no empty paragraph — so
+  # only a paragraph whose placeholders all came out empty goes.
+  defp drop_blank_paragraphs(%MDEx.Document{nodes: nodes} = document, tokens, variables) do
+    %{document | nodes: Enum.reject(nodes, &blank_paragraph?(&1, tokens, variables))}
+  end
+
+  defp blank_paragraph?(%MDEx.Paragraph{nodes: nodes}, tokens, variables) do
+    Enum.all?(nodes, &plain_inline?/1) and
+      nodes |> inline_text() |> fill(tokens, variables) |> String.trim() == ""
+  end
+
+  defp blank_paragraph?(_node, _tokens, _variables), do: false
+
+  defp plain_inline?(%MDEx.Text{}), do: true
+  defp plain_inline?(%MDEx.SoftBreak{}), do: true
+  defp plain_inline?(%MDEx.LineBreak{}), do: true
+  defp plain_inline?(_node), do: false
 
   defp blocks_text(nodes, separator \\ "\n\n") do
     nodes
