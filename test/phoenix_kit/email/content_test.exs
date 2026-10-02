@@ -322,12 +322,12 @@ defmodule PhoenixKit.Email.ContentTest do
       assert resolved.subject == "Bestätigen Sie Ihr Konto"
     end
 
-    test "a host's text next to a caller's html default: each part on its own, as in 2.43.0",
+    test "a host's text outranks a caller's html default in the HTML body too",
          %{tmp_dir: root} do
       write(root, "host_text_probe", "text.txt", "host words")
 
-      resolved =
-        Content.resolve(
+      {resolved, sources} =
+        Content.resolve_with_sources(
           "host_text_probe",
           user("en"),
           %{},
@@ -335,8 +335,52 @@ defmodule PhoenixKit.Email.ContentTest do
           paths: [root]
         )
 
-      assert resolved.html =~ "<p>module html</p>"
+      assert resolved.html =~ "host words</p>"
+      refute resolved.html =~ "module html"
       assert resolved.text == "host words"
+      assert sources.html_from == :text
+      assert sources.html == :default
+    end
+
+    # The case the reorder exists for: core's defaults are Markdown, and a host
+    # that rewrote `text.txt` before they were must not be sent an HTML version
+    # that still carries core's copy.
+    test "a host's text outranks a caller's markdown default: HTML and text agree",
+         %{tmp_dir: root} do
+      write(root, "host_text_md_probe", "text.txt", "Host copy: {{url}}")
+
+      {resolved, sources} =
+        Content.resolve_with_sources(
+          "host_text_md_probe",
+          user("en"),
+          %{"url" => "https://a.test/c"},
+          fn -> %{subject: "s", markdown: "Core copy\n\n[Confirm]({{url}})"} end,
+          paths: [root]
+        )
+
+      assert resolved.text == "Host copy: https://a.test/c"
+      assert resolved.html =~ "Host copy:"
+      assert resolved.html =~ ~s(<a href="https://a.test/c">https://a.test/c</a>)
+      refute resolved.html =~ "Core copy"
+      refute resolved.html =~ "Confirm"
+      assert sources.html_from == :text
+      assert sources.text_from == :text
+    end
+
+    test "without a host file a caller's markdown default builds both bodies" do
+      {resolved, sources} =
+        Content.resolve_with_sources(
+          "md_default_probe",
+          user("en"),
+          %{"url" => "https://a.test/c"},
+          fn -> %{subject: "s", markdown: "Core copy\n\n[Confirm]({{url}})"} end
+        )
+
+      assert resolved.html =~ "Core copy"
+      assert resolved.html =~ ~r/<table role="presentation".*href="https:\/\/a.test\/c"/s
+      assert resolved.text == "Core copy\n\nConfirm: https://a.test/c"
+      assert sources.html_from == :markdown
+      assert sources.text_from == :markdown
     end
 
     test "a host's markdown outranks a caller's html default", %{tmp_dir: root} do
@@ -374,9 +418,9 @@ defmodule PhoenixKit.Email.ContentTest do
     @html_order [
       {:host, :html},
       {:host, :markdown},
+      {:host, :text},
       {:default, :html},
       {:default, :markdown},
-      {:host, :text},
       {:default, :text}
     ]
     @text_order [{:host, :text}, {:host, :markdown}, {:default, :text}, {:default, :markdown}]

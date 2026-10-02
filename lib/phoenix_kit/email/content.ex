@@ -52,18 +52,27 @@ defmodule PhoenixKit.Email.Content do
   |---|---|---|
   | 1 | host `html` | host `text` |
   | 2 | host `markdown`, rendered | host `markdown`, as text |
-  | 3 | default `html` | default `text` |
-  | 4 | default `markdown`, rendered | default `markdown`, as text |
-  | 5 | host `text`, escaped into paragraphs | |
+  | 3 | host `text`, escaped into paragraphs | default `text` |
+  | 4 | default `html` | default `markdown`, as text |
+  | 5 | default `markdown`, rendered | |
   | 6 | default `text`, escaped into paragraphs | |
 
-  Markdown feeds both bodies, so a host's `markdown.md` replaces core's
-  default text in the HTML and in the text alike, and outranks a module's
-  `html` default. Between `html` and `text` alone nothing changed from
-  2.43.0: each resolves on its own, and the HTML is built from text only
-  when no layer has `html` or `markdown`. Markdown is rendered by
+  For the HTML body every host part outranks every default: a host that
+  overrides only `text.txt` gets its own words in the HTML too, rather than
+  an HTML version built from the caller's `markdown` or `html` default that
+  no longer says what the text does. Markdown feeds both bodies, so a host's
+  `markdown.md` replaces the default copy in the HTML and in the text alike.
+  A host's `text` builds the HTML only from escaped paragraphs (addresses
+  linked, no buttons) — a host that wants buttons or a module's richer HTML
+  overrides `markdown.md` or `html.html` instead. Markdown is rendered by
   `PhoenixKit.Email.Markdown` (buttons, accent-coloured links); text is
   escaped into paragraphs by `Layout.text_to_html/1`.
+
+  > Up to 2.45, a host's `text` came after the defaults for the HTML body
+  > (`html` default, then `markdown` default). It changes only an email whose
+  > caller ships an `html` or `markdown` default *and* whose host overrides
+  > `text` alone — which core's own emails began to be when their defaults
+  > became Markdown.
 
   A blank `html`, `text` or `markdown` (an empty override file, whitespace
   only) counts as no part, with or without the layout, so an empty
@@ -120,16 +129,16 @@ defmodule PhoenixKit.Email.Content do
 
   require Logger
 
-  # Which part each body comes from, first match wins. Markdown feeds both
-  # bodies, and a host's markdown outranks the caller's html or text; between
-  # html and text alone each part resolves on its own, as it always did — the
-  # HTML is built from text only when no layer has html (or markdown).
+  # Which part each body comes from, first match wins. For the HTML every host
+  # part outranks every default, so a host that rewrote only `text.txt` is not
+  # sent an HTML version built from the caller's Markdown (or html) default
+  # that says something else. Markdown feeds both bodies.
   @html_order [
     {:file, :html},
     {:file, :markdown},
+    {:file, :text},
     {:default, :html},
     {:default, :markdown},
-    {:file, :text},
     {:default, :text}
   ]
 
