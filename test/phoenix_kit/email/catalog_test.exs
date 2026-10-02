@@ -18,6 +18,7 @@ defmodule PhoenixKit.Email.CatalogTest do
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Notifications.Channels.Email, as: EmailChannel
   alias PhoenixKit.Templates
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -663,7 +664,7 @@ defmodule PhoenixKit.Email.CatalogTest do
             })
 
           envelope = %{recipient_uuid: reader.uuid, title: "Hi", text: "Body", url: nil}
-          :ok = PhoenixKit.Notifications.Channels.Email.deliver(envelope, %{})
+          :ok = EmailChannel.deliver(envelope, %{})
           {:ok, :sent}
         end
       }

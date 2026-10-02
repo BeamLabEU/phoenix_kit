@@ -53,7 +53,7 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   @setting "email_welcome_enabled"
   @sent_key "welcome_email_sent_at"
 
-  @doc "The setting that switches the welcome email on (`\"true\"`/`\"false\"`)."
+  @doc ~s(The setting that switches the welcome email on: `"true"` or `"false"`.)
   @spec setting_key() :: String.t()
   def setting_key, do: @setting
 

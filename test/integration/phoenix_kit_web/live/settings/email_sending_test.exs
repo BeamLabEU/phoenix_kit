@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingTest do
   alias PhoenixKit.Email.Branding
   alias PhoenixKit.Integrations
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.Routes
 
   @path Routes.path("/admin/settings/email-sending")
@@ -376,12 +377,12 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingTest do
 
       view |> form("#email-welcome-form", %{"enabled" => "true"}) |> render_change()
       assert Settings.get_setting("email_welcome_enabled") == "true"
-      assert PhoenixKit.Users.WelcomeEmail.enabled?()
+      assert WelcomeEmail.enabled?()
       assert has_element?(view, "#email_welcome_enabled[checked]")
 
       view |> form("#email-welcome-form", %{"enabled" => "false"}) |> render_change()
       assert Settings.get_setting("email_welcome_enabled") == "false"
-      refute PhoenixKit.Users.WelcomeEmail.enabled?()
+      refute WelcomeEmail.enabled?()
     end
   end
 end

@@ -1,7 +1,8 @@
 # Customizing emails with template files
 
 PhoenixKit's emails — account confirmation, password reset, magic link, the
-new-login alert, and anything a module sends through
+new-login alert, the welcome email ([the full list](#phoenixkits-own-emails)),
+and anything a module sends through
 `PhoenixKit.Mailer.send_from_template/4` — ship with translated default copy.
 A host changes that copy, or the HTML every email is wrapped in, by adding
 **override files** to its own application. No database rows, no template
@@ -68,16 +69,24 @@ the module's) default. Each body then takes the first match:
 |---|---|---|
 | 1 | your `html` | your `text` |
 | 2 | your `markdown` | your `markdown`, as plain text |
-| 3 | default `html` | default `text` |
-| 4 | default `markdown` | default `markdown`, as plain text |
-| 5 | your `text`, escaped into paragraphs (addresses linked — see below) | |
+| 3 | your `text`, escaped into paragraphs (addresses linked — see below) | default `text` |
+| 4 | default `html` | default `markdown`, as plain text |
+| 5 | default `markdown` | |
 | 6 | default `text`, escaped into paragraphs | |
 
-So one `markdown.md` is enough for both bodies, and it replaces the default
-copy in both — add `text.txt` only when the plain-text version should say
-something different. Between `html` and `text` alone each part resolves on
-its own, as before: overriding `text.txt` under a module's `html` default
-changes the text body and leaves the module's HTML.
+For the HTML body every file of yours comes before every default. So one
+`markdown.md` is enough for both bodies, and it replaces the default copy in
+both — add `text.txt` only when the plain-text version should say something
+different. A `text.txt` on its own changes **both** bodies too: the HTML is
+built from your text (paragraphs, addresses linked, no buttons), not from the
+default Markdown that no longer says the same thing. To keep buttons — or a
+module's richer HTML, such as an invoice's table of lines — override
+`markdown.md` or `html.html` instead.
+
+> Up to 2.45 a `text.txt` came after the defaults for the HTML body. It made
+> no difference while PhoenixKit's own defaults were plain text; since they
+> are Markdown, a host that had overridden `text.txt` would otherwise have
+> been sent PhoenixKit's wording in the HTML version.
 
 An empty or whitespace-only file counts as missing for the bodies. It still
 hides the default of the same part: an empty `text.txt` does **not** bring
@@ -121,8 +130,72 @@ address *after* the placeholder is filled.
 `- ` (`1. ` when numbered), `[label](url)` becomes `label: url`, an image
 becomes its alt text, and emphasis marks are dropped.
 
+**The address written out.** `[{{url}}]({{url}})` is a link whose label is
+the address itself; the plain-text version shows the address once. PhoenixKit's
+own emails put one under each button — `If the button doesn't work, open this
+link: [{{confirmation_url}}]({{confirmation_url}})` — for a reader whose
+client does not draw the button.
+
+**Optional paragraphs.** A paragraph of plain text whose placeholders all
+come out empty is left out of both versions, so a value with nothing to say
+(the new-login alert's `{{failed_attempts}}`) leaves no empty paragraph or
+gap. Write such a placeholder on a line of its own.
+
+**A block of HTML.** A paragraph that is exactly one `{{{variable}}}` is the
+value alone, with no `<p>` around it — the way a caller places a table it
+built between Markdown paragraphs. The plain-text version inserts the value
+as is, so an email that does this needs a `text` of its own.
+
 **HTML inside Markdown is not rendered** — it is dropped. A body that needs
 markup of its own goes in `html.html`.
+
+## PhoenixKit's own emails
+
+Each one is a directory name under `priv/phoenix_kit_templates/`. Their
+default copy is Markdown — the main action is a button, with the address
+written out under it — translated into German, English, Spanish, Estonian,
+French, Italian, Polish and Russian. Every email also sees `{{logo_url}}` and
+`{{accent_color}}` (see [Branding](#branding-logo-and-accent-colour)).
+
+| name | sent when | variables |
+|---|---|---|
+| `register` | after registration, to confirm the address | `user_email`, `confirmation_url` |
+| `reset_password` | someone asks to reset a forgotten password | `user_email`, `reset_url` |
+| `update_email` | a user changes their address (sent to the new one) | `user_email`, `update_url` |
+| `magic_link` | signing in with a one-time link | `user_email`, `magic_link_url` |
+| `magic_link_registration` | registering with a one-time link | `user_email`, `registration_url` |
+| `organization_invitation` | an address is invited to an organization | `user_email`, `organization_name`, `registration_url` |
+| `new_login_alert` | a sign-in from a device the account has not used | `user_email`, `login_time`, `ip_address`, `location`, `browser_os`, `failed_attempts`, `security_url` |
+| `failed_login_alert` | repeated failed sign-ins | `user_email`, `attempt_count`, `window_hours`, `security_url` |
+| `welcome` | once, after the address is confirmed — [off by default](#the-welcome-email) | `user_email`, `site_name`, `site_url` |
+| `notification` | a notification the reader routes to email | `subject`, `text`, `url` |
+
+`failed_attempts` is a sentence ending in a blank line, or empty when there
+were none; `location` already says "(approximate)". `security_url` is the
+account settings page. `notification` has no translated copy: its
+`subject` (the notification's title, or the start of its text), `text` and
+`url` (empty when the notification has no link) arrive already in the
+reader's language; its default is `text`, `{{text}}` and then `{{url}}`.
+
+### The welcome email
+
+Off until you switch it on: **Settings → Emails Transactional → Branding →
+Welcome email** (the `email_welcome_enabled` setting). It is then sent once
+to each user, right after they confirm their address — by the link in the
+confirmation email, by signing in with a magic link or with an OAuth
+provider that verified the address while the account was unconfirmed, or by
+registering with a magic link. An administrator confirming an account by
+hand sends nothing.
+
+"Once" is recorded on the account (`welcome_email_sent_at` in its custom
+fields) before the email is sent, so a confirmation repeated later, or two
+racing, never sends a second one; a send that fails is logged and not
+retried. Sending never holds up the confirmation: whatever happens to the
+email, the account is confirmed.
+
+The button leads to `{{site_url}}` — the site URL the footer shows. To say
+more, or link elsewhere, override `welcome/markdown.md` like any other
+email.
 
 ## The layout every email is wrapped in
 

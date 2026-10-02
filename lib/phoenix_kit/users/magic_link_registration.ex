@@ -18,8 +18,8 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
   alias PhoenixKit.Users.RateLimiter
-  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"

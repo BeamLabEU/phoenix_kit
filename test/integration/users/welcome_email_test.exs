@@ -14,6 +14,7 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.WelcomeEmail
+  alias PhoenixKit.Utils.Routes
 
   @password "ValidPassword123!"
 
@@ -77,7 +78,7 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
       assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(confirmation_token(user))
 
       assert [email] = welcome_emails(user.email)
-      site_url = PhoenixKit.Utils.Routes.base_url()
+      site_url = Routes.base_url()
       assert email.html_body =~ "<!DOCTYPE html>"
       assert email.html_body =~ ~s(<a href="#{site_url}" style="display:inline-block;)
       assert email.text_body =~ user.email
