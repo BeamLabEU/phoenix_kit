@@ -429,8 +429,8 @@
           <div class={if @active_tab != "editor", do: "hidden"}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <%!-- Default Editor Mode Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">
                     {gettext("Default Editor Mode")}
                   </span>
@@ -442,7 +442,7 @@
                   name="settings[editor_default_mode]"
                   value={@settings["editor_default_mode"]}
                   options={@setting_options["editor_default_mode"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <div>
                   <span class="block text-xs text-base-content/50">
