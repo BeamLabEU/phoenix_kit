@@ -21,9 +21,10 @@ defmodule PhoenixKit.ModuleHashFastTest do
 
   setup_all do
     # `module_hash_fast/0` never remembers a fingerprint holding an mtime newer
-    # than ~2 s, and the suite has just compiled and written files. Let the
-    # environment settle once so the memo-hit tests are deterministic.
-    Process.sleep(2_200)
+    # than 2 s, and mtimes are whole seconds: a file written at t is "settled"
+    # from t + 3 at the latest. The suite has just compiled and written files, so
+    # let the environment settle once; the memo-hit tests depend on it.
+    Process.sleep(3_200)
     :ok
   end
 
@@ -120,8 +121,119 @@ defmodule PhoenixKit.ModuleHashFastTest do
     end)
   end
 
-  defp reads_during(fun) do
-    mfa = {:beam_lib, :chunks, 2}
+  test "an .app rewritten in place to depend on :phoenix_kit is noticed", %{tmp_dir: tmp_dir} do
+    # The dep starts out NOT depending on :phoenix_kit, so its marked beam is
+    # ignored. Rewriting its .app in place leaves the directory's mtime alone:
+    # only the `.app` file's own stat can show it.
+    mod = write_dep(tmp_dir, :hash_fast_fixture_app, aged: true, depends?: false)
+    before_hash = ModuleDiscovery.module_hash_fast()
+    refute mod in ModuleDiscovery.scan_beam_files()
+
+    app_file = Path.join([tmp_dir, "hash_fast_fixture_app", "hash_fast_fixture_app.app"])
+    File.write!(app_file, app_spec(:hash_fast_fixture_app, mod, true))
+    File.touch!(app_file, @older)
+
+    refute ModuleDiscovery.module_hash_fast() == before_hash
+    assert ModuleDiscovery.module_hash_fast() == ModuleDiscovery.module_hash()
+    assert mod in ModuleDiscovery.scan_beam_files()
+  end
+
+  test "files created in a code-path directory that was empty are noticed", %{tmp_dir: tmp_dir} do
+    # An existing, aged, empty directory on the code path when the memo is taken;
+    # the beam and .app appear later. Neither is in the inventory, so only the
+    # directory's own mtime can show it.
+    dir = Path.join(tmp_dir, "hash_fast_fixture_late")
+    File.mkdir_p!(dir)
+    File.touch!(dir, @old)
+    Code.append_path(dir)
+    on_exit(fn -> Code.delete_path(dir) end)
+
+    before_hash = ModuleDiscovery.module_hash_fast()
+
+    mod = write_beam(dir, :hash_fast_fixture_late, true)
+
+    File.write!(
+      Path.join(dir, "hash_fast_fixture_late.app"),
+      app_spec(:hash_fast_fixture_late, mod, true)
+    )
+
+    refute ModuleDiscovery.module_hash_fast() == before_hash
+    assert ModuleDiscovery.module_hash_fast() == ModuleDiscovery.module_hash()
+    assert mod in ModuleDiscovery.scan_beam_files()
+  end
+
+  test "a dependent ebin that is deleted and rebuilt is noticed", %{tmp_dir: tmp_dir} do
+    mod = write_dep(tmp_dir, :hash_fast_fixture_rebuilt, aged: true)
+    marked = ModuleDiscovery.module_hash_fast()
+    assert mod in ModuleDiscovery.scan_beam_files()
+
+    # Rebuilt: same directory, same file names, but the module lost its marker.
+    dir = Path.join(tmp_dir, "hash_fast_fixture_rebuilt")
+    File.rm_rf!(dir)
+    File.mkdir_p!(dir)
+    write_beam(dir, :hash_fast_fixture_rebuilt, false)
+
+    File.write!(
+      Path.join(dir, "hash_fast_fixture_rebuilt.app"),
+      app_spec(:hash_fast_fixture_rebuilt, mod, true)
+    )
+
+    refute ModuleDiscovery.module_hash_fast() == marked
+    assert ModuleDiscovery.module_hash_fast() == ModuleDiscovery.module_hash()
+    refute mod in ModuleDiscovery.scan_beam_files()
+  end
+
+  test "a memo of another shape falls back to the honest hash" do
+    :persistent_term.put({ModuleDiscovery, :module_hash_memo}, {:stale, :layout})
+    assert ModuleDiscovery.module_hash_fast() == ModuleDiscovery.module_hash()
+
+    :persistent_term.put({ModuleDiscovery, :module_hash_memo}, :garbage)
+    assert ModuleDiscovery.module_hash_fast() == ModuleDiscovery.module_hash()
+  end
+
+  test "a miss does no more directory and .app reading than one scan", %{tmp_dir: tmp_dir} do
+    write_dep(tmp_dir, :hash_fast_fixture_cost, aged: true)
+
+    for mfa <- [{:beam_lib, :chunks, 2}, {:file, :consult, 1}, {:file, :list_dir, 1}] do
+      scan =
+        calls_during(mfa, fn calls ->
+          ModuleDiscovery.module_hash()
+          calls.()
+        end)
+
+      ModuleDiscovery.clear_hash_memo()
+
+      miss =
+        calls_during(mfa, fn calls ->
+          ModuleDiscovery.module_hash_fast()
+          calls.()
+        end)
+
+      assert miss <= scan, "#{inspect(mfa)}: a miss made #{miss} calls, one scan makes #{scan}"
+    end
+  end
+
+  test "the router's __mix_recompile__?/0 does not re-read beams on a second call", %{
+    tmp_dir: tmp_dir
+  } do
+    # The router is what Mix actually asks, on every compile. Reverting its check
+    # to `module_hash/0` must fail here.
+    assert function_exported?(PhoenixKitWeb.Router, :__mix_recompile__?, 0)
+    write_dep(tmp_dir, :hash_fast_fixture_router, aged: true)
+
+    reads_during(fn reads ->
+      PhoenixKitWeb.Router.__mix_recompile__?()
+      first = reads.()
+      assert first > 0, "the first check has to scan"
+
+      for _ <- 1..5, do: PhoenixKitWeb.Router.__mix_recompile__?()
+      assert reads.() == first
+    end)
+  end
+
+  defp reads_during(fun), do: calls_during({:beam_lib, :chunks, 2}, fun)
+
+  defp calls_during(mfa, fun) do
     :erlang.trace_pattern(mfa, true, [:call_count])
 
     try do
@@ -134,39 +246,60 @@ defmodule PhoenixKit.ModuleHashFastTest do
     end
   end
 
-  # A fake dep ebin in `<tmp_dir>/<app>`: a `<app>.app` depending on :phoenix_kit
-  # plus one beam carrying `@phoenix_kit_module true`, on the code path until the
-  # test exits. `aged: true` back-dates everything so it counts as settled.
+  # A fake dep ebin in `<tmp_dir>/<app>`: a `<app>.app` (depending on
+  # :phoenix_kit unless `depends?: false`) plus one beam carrying
+  # `@phoenix_kit_module true`, on the code path until the test exits. `aged: true`
+  # back-dates everything so it counts as settled.
   defp write_dep(tmp_dir, app, opts) do
     dir = Path.join(tmp_dir, to_string(app))
     File.mkdir_p!(dir)
-    module = Module.concat([Macro.camelize(to_string(app))])
 
-    [{^module, binary}] =
-      Code.compile_string("""
-      defmodule #{inspect(module)} do
-        Module.register_attribute(__MODULE__, :phoenix_kit_module, persist: true)
-        @phoenix_kit_module true
-      end
-      """)
-
-    beam = Path.join(dir, "#{module}.beam")
+    module = write_beam(dir, app, true)
     app_file = Path.join(dir, "#{app}.app")
-    File.write!(beam, binary)
+    File.write!(app_file, app_spec(app, module, Keyword.get(opts, :depends?, true)))
 
-    File.write!(app_file, """
-    {application, #{app}, [
-      {description, "fixture"},
-      {vsn, "0.1.0"},
-      {modules, ['#{module}']},
-      {applications, [kernel, stdlib, phoenix_kit]}
-    ]}.
-    """)
-
-    if opts[:aged], do: Enum.each([beam, app_file, dir], &File.touch!(&1, @old))
+    if opts[:aged] do
+      beam = Path.join(dir, "#{module}.beam")
+      Enum.each([beam, app_file, dir], &File.touch!(&1, @old))
+    end
 
     Code.append_path(dir)
     on_exit(fn -> Code.delete_path(dir) end)
     module
+  end
+
+  # Writes `<Module>.beam` into `dir` and returns the module. The module name comes
+  # from `app`; an unmarked beam is compiled under another name (the scan ignores
+  # an unmarked beam's name) so the loaded marked module is never redefined.
+  defp write_beam(dir, app, marked?) do
+    module = Module.concat([Macro.camelize(to_string(app))])
+    compiled = if marked?, do: module, else: Module.concat(module, Unmarked)
+
+    marker =
+      if marked? do
+        "Module.register_attribute(__MODULE__, :phoenix_kit_module, persist: true)\n@phoenix_kit_module true"
+      else
+        ""
+      end
+
+    # A marked module is compiled once per name (each test uses its own app).
+    [{^compiled, binary}] =
+      Code.compile_string("defmodule #{inspect(compiled)} do\n#{marker}\nend")
+
+    File.write!(Path.join(dir, "#{module}.beam"), binary)
+    module
+  end
+
+  defp app_spec(app, module, depends?) do
+    extra = if depends?, do: ", phoenix_kit", else: ""
+
+    """
+    {application, #{app}, [
+      {description, "fixture"},
+      {vsn, "0.1.0"},
+      {modules, ['#{module}']},
+      {applications, [kernel, stdlib#{extra}]}
+    ]}.
+    """
   end
 end
