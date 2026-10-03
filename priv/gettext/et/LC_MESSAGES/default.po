@@ -5505,17 +5505,17 @@ msgstr "Mine avalehele"
 msgid "Hide Current"
 msgstr "Peida praegune"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:452
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:454
 #, elixir-autogen
 msgid "Generated Code"
 msgstr "Genereeritud kood"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:467
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:469
 #, elixir-autogen
 msgid "Implementation Notes"
 msgstr "Rakenduse märkused"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:485
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:487
 #, elixir-autogen
 msgid "Enable and Configure Languages"
 msgstr "Luba ja seadista keeled"
@@ -6937,7 +6937,7 @@ msgstr "Määrab, kuidas põhikeel kuvatakse URL-ides kogu saidil — haldusleht
 msgid "Default Language Without Prefix"
 msgstr "Vaikekeel ilma prefiksita"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:95
+#: lib/phoenix_kit_web/live/modules/languages.ex:110
 #, elixir-autogen, elixir-format
 msgid "Failed to update URL behavior setting"
 msgstr "URL-i käitumise seade uuendamine ebaõnnestus"
@@ -17912,7 +17912,7 @@ msgstr "replika"
 msgid "the \"%{profile}\" profile (%{use})"
 msgstr "profiil „%{profile}“ (%{use})"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:141
+#: lib/phoenix_kit_web/live/modules/languages.ex:156
 #, elixir-autogen, elixir-format
 msgid "Failed to update languages"
 msgstr "Keelte uuendamine ebaõnnestus"
@@ -17928,15 +17928,16 @@ msgstr "Lubage külastajatel kasutada saiti mitmes keeles: keeleprefiksiga URL-i
 msgid "Multiple languages"
 msgstr "Mitu keelt"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:134
+#: lib/phoenix_kit_web/live/modules/languages.ex:92
+#: lib/phoenix_kit_web/live/modules/languages.ex:149
 #, elixir-autogen, elixir-format
 msgid "Multiple languages turned off"
 msgstr "Mitu keelt on välja lülitatud"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:133
+#: lib/phoenix_kit_web/live/modules/languages.ex:148
 #, elixir-autogen, elixir-format
-msgid "Multiple languages turned on, with English as the default"
-msgstr "Mitu keelt on sisse lülitatud, vaikekeeleks on inglise keel"
+msgid "Multiple languages turned on"
+msgstr "Mitu keelt sisse lülitatud"
 
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:46
 #, elixir-autogen, elixir-format

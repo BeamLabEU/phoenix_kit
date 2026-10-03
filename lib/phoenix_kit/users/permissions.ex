@@ -589,7 +589,7 @@ defmodule PhoenixKit.Users.Permissions do
   @spec admin_baseline_exclusions() :: [String.t()]
   def admin_baseline_exclusions, do: @opt_in_admin_keys ++ opt_out_custom_keys()
 
-  @doc "Returns the 5 core section keys."
+  @doc "Returns the core section permission keys."
   @spec core_section_keys() :: [String.t()]
   def core_section_keys, do: @core_section_keys
 

@@ -229,7 +229,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     assigns = prepare_dropdown_assigns(assigns)
 
     ~H"""
-    <div class={["relative", @class]}>
+    <div :if={@languages != []} class={["relative", @class]}>
       <details
         class="dropdown dropdown-end dropdown-bottom"
         id="language-switcher-dropdown"
@@ -650,7 +650,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> assign(:languages, filtered_languages)
 
     ~H"""
-    <div class={["flex gap-2", @class]}>
+    <div :if={@languages != []} class={["flex gap-2", @class]}>
       <%= for language <- @languages do %>
         <% url = resolve_url(language["base_code"], @current_path, @per_translation_urls, @goto_home) %>
         <a
@@ -777,7 +777,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> assign(:languages, filtered_languages)
 
     ~H"""
-    <div class={["flex gap-4 items-center", @class]}>
+    <div :if={@languages != []} class={["flex gap-4 items-center", @class]}>
       <%= for {language, index} <- Enum.with_index(@languages) do %>
         <% url = resolve_url(language["base_code"], @current_path, @per_translation_urls, @goto_home) %>
         <div class="flex items-center gap-1">

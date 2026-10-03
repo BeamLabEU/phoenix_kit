@@ -5503,17 +5503,17 @@ msgstr "Przejdź do strony głównej"
 msgid "Hide Current"
 msgstr "Ukryj bieżący"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:452
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:454
 #, elixir-autogen
 msgid "Generated Code"
 msgstr "Wygenerowany kod"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:467
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:469
 #, elixir-autogen
 msgid "Implementation Notes"
 msgstr "Uwagi wdrożeniowe"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:485
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:487
 #, elixir-autogen
 msgid "Enable and Configure Languages"
 msgstr "Włącz i skonfiguruj języki"
@@ -6951,7 +6951,7 @@ msgstr "Określa, jak język główny pojawia się w adresach URL w całej witry
 msgid "Default Language Without Prefix"
 msgstr "Język domyślny bez prefiksu"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:95
+#: lib/phoenix_kit_web/live/modules/languages.ex:110
 #, elixir-autogen, elixir-format
 msgid "Failed to update URL behavior setting"
 msgstr "Nie udało się zaktualizować ustawienia"
@@ -17955,7 +17955,7 @@ msgstr "replika"
 msgid "the \"%{profile}\" profile (%{use})"
 msgstr "profil „%{profile}” (%{use})"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:141
+#: lib/phoenix_kit_web/live/modules/languages.ex:156
 #, elixir-autogen, elixir-format
 msgid "Failed to update languages"
 msgstr "Nie udało się zaktualizować języków"
@@ -17971,15 +17971,16 @@ msgstr "Pozwól odwiedzającym korzystać ze strony w więcej niż jednym język
 msgid "Multiple languages"
 msgstr "Wiele języków"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:134
+#: lib/phoenix_kit_web/live/modules/languages.ex:92
+#: lib/phoenix_kit_web/live/modules/languages.ex:149
 #, elixir-autogen, elixir-format
 msgid "Multiple languages turned off"
 msgstr "Wiele języków wyłączono"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:133
+#: lib/phoenix_kit_web/live/modules/languages.ex:148
 #, elixir-autogen, elixir-format
-msgid "Multiple languages turned on, with English as the default"
-msgstr "Wiele języków włączono, a językiem domyślnym jest angielski"
+msgid "Multiple languages turned on"
+msgstr "Włączono wiele języków"
 
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:46
 #, elixir-autogen, elixir-format

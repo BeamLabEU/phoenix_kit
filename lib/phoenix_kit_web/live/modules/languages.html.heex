@@ -34,7 +34,7 @@
           <input
             id="languages-enabled-toggle"
             type="checkbox"
-            class="toggle toggle-primary"
+            class="toggle toggle-primary shrink-0"
             checked={@ml_enabled}
             phx-click="toggle_languages"
             aria-label={gettext("Multiple languages")}
@@ -361,7 +361,7 @@
               <div class="space-y-4">
                 <%!-- Show Flags Toggle --%>
                 <div class="fieldset">
-                  <label class="label cursor-pointer">
+                  <label class="flex items-center justify-between gap-3 cursor-pointer">
                     <span class="fieldset-legend">{gettext("Show Flags")}</span>
                     <input
                       type="checkbox"
@@ -375,7 +375,7 @@
 
                 <%!-- Show Language Names Toggle --%>
                 <div class="fieldset">
-                  <label class="label cursor-pointer">
+                  <label class="flex items-center justify-between gap-3 cursor-pointer">
                     <span class="fieldset-legend">{gettext("Show Names")}</span>
                     <input
                       type="checkbox"
@@ -389,7 +389,7 @@
 
                 <%!-- Show Native Names Toggle --%>
                 <div class="fieldset">
-                  <label class="label cursor-pointer">
+                  <label class="flex items-center justify-between gap-3 cursor-pointer">
                     <span class="fieldset-legend">{gettext("Native Names")}</span>
                     <input
                       type="checkbox"
@@ -403,7 +403,7 @@
 
                 <%!-- Go to Home Page Toggle --%>
                 <div class="fieldset">
-                  <label class="label cursor-pointer">
+                  <label class="flex items-center justify-between gap-3 cursor-pointer">
                     <span class="fieldset-legend">{gettext("Go to Home")}</span>
                     <input
                       type="checkbox"
@@ -417,7 +417,7 @@
 
                 <%!-- Hide Current Language Toggle --%>
                 <div class="fieldset">
-                  <label class="label cursor-pointer">
+                  <label class="flex items-center justify-between gap-3 cursor-pointer">
                     <span class="fieldset-legend">{gettext("Hide Current")}</span>
                     <input
                       type="checkbox"
@@ -442,6 +442,8 @@
                     show_flags={@switcher_show_flags}
                     show_names={@switcher_show_names}
                     show_native_names={@switcher_show_native_names}
+                    goto_home={@switcher_goto_home}
+                    hide_current={@switcher_hide_current}
                     _language_update_key={@language_count}
                   />
                 </div>

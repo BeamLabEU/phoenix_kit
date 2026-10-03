@@ -37,6 +37,14 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
     """)
   end
 
+  defp switcher_inline_html do
+    assigns = %{}
+
+    rendered_to_string(~H"""
+    <LanguageSwitcher.language_switcher_inline current_locale="en-US" />
+    """)
+  end
+
   defp admin_menu_html do
     {:ok, user} =
       Auth.register_user(%{
@@ -68,6 +76,8 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
     test "the frontend switcher offers no language" do
       assert offered(switcher_html()) == []
       assert offered(switcher_buttons_html()) == []
+      assert offered(switcher_inline_html()) == []
+      refute switcher_html() =~ "language-switcher-dropdown"
     end
 
     test "the admin user menu has no language section" do
@@ -108,6 +118,7 @@ defmodule PhoenixKit.Integration.Languages.SwitcherGatingTest do
 
       refute "ko" in offered(switcher_html())
       refute "ko" in offered(switcher_buttons_html())
+      refute "ko" in offered(switcher_inline_html())
       refute "ko" in offered(admin_menu_html())
     end
   end

@@ -168,3 +168,177 @@ A verdict on each row of §4 (agree / partial is acceptable / not acceptable for
 §5 you think are real with a severity (`BUG - …` / `IMPROVEMENT - …` / `NITPICK`, as the project's review
 docs use), and anything that contradicts how Jobs was made core. Please append it to this file as
 `## 8. Codex review`, so the request and its answer stay together.
+
+
+## 8. Codex review
+
+Reviewed by Codex, 2026-10-03, against `3d5457962..b5f4453b6` and the local
+handoff commit `af7a60af2`. Existing uncommitted storage changes were retained.
+
+**Verdict: approve the Languages changes with the fixes below.** The core refactor
+is sound and follows Jobs' registry/permission/tab shape, and the menu fix is
+correct. No remaining blocker was identified in the Languages scope. The full
+suite has one non-reproduced storage UI failure, recorded below rather than
+claimed as a clean run. All review fixes remain local.
+
+### Findings and fixes
+
+1. **BUG - MEDIUM: the path stripper still consumed preview and disabled locales.**
+   With Languages off, `locale_switch_path("/phoenix_kit/nl/products", "en")`
+   returned `/phoenix_kit/en/products`, deleting a host-owned segment. With
+   Languages on, a configured but disabled `nl` was also stripped. The premise
+   in §2/§5.3 that nothing can call this while off is too broad: this is a public
+   API, and disabled configured languages affected active menus too. The
+   stripper now uses served locale codes and an explicit `current_locale` only.
+   Both real menu callers already pass that option, preserving switching away
+   from a locale disabled since the page opened. The original stacking tests
+   now prime a settings cache with actual configured languages; three added
+   tests cover host segments, off-state defaults, and disabled locales.
+
+2. **BUG - MEDIUM: an empty dropdown remained visible while Languages was off.**
+   The original tests proved that no choices were offered, but the dropdown
+   still rendered its globe trigger and an empty menu. That contradicted the
+   new card's “no language switcher is shown” copy. Empty dropdown, button and
+   inline variants now omit their wrappers. Gating tests include the inline
+   variant and reject the dropdown trigger while off. Explicit caller-supplied
+   language lists retain their behavior.
+
+3. **BUG - MEDIUM: all five preview controls silently did nothing.**
+   `@toggleable_settings` contained `public_form_*` keys from another page;
+   every actual `switcher_*` event fell through. The allowlist now contains
+   the five assigned preview settings, and the live preview receives
+   `goto_home` and `hide_current` as well as the flags/names options. A LiveView
+   test clicks every option and verifies that unrelated keys are ignored.
+   Generated examples explicitly emit `show_flags={false}` and
+   `show_names={false}` when switched off; omitting those attributes would
+   restore the component's true defaults in a host that copied the example.
+   Preview labels use flex layout rather than daisyUI's input-addon `.label`.
+
+4. **BUG - MEDIUM: restoring saved configuration announced a false default.**
+   `enable_system/0` correctly restores the existing primary language, but the
+   new flash always said “with English as the default”. It now says “Multiple
+   languages turned on”, translated in every existing catalogue. A test restores
+   Japanese as primary, a disabled English entry and custom order, verifying
+   that the complete saved JSON remains identical.
+
+5. **IMPROVEMENT - MEDIUM: stale pages could write hidden configuration.**
+   The page checks the current enabled setting before language/default/order
+   or URL-prefix writes. A click after another admin turns Languages off
+   refreshes the page and leaves both saved settings unchanged. The default
+   language's success message also reads the current language instead of
+   dereferencing the old list from assigns. This handles the stale-page
+   sequence; it does not add PubSub or serialize simultaneous admin edits.
+
+6. **NITPICK: documentation overstated API and default-language preservation.**
+   Configuration APIs keep their behavior, but removing `use PhoenixKit.Module`
+   removes generated public callbacks and the explicitly defined `module_key`,
+   `module_name`, `permission_metadata` and `settings_tabs`. CHANGELOG now
+   distinguishes those callbacks from language configuration APIs. While off,
+   `enabled_locale_codes/0` uses `Config.default_locale/0`, and
+   `get_default_language/0` returns nil; it does **not** serve the saved
+   multi-language primary automatically. README/CHANGELOG now call this the
+   configured fallback locale. The preview helper's docs no longer claim the
+   current admin page uses it, and stale core-key counts were removed.
+
+7. **IMPROVEMENT - MEDIUM: tolerate dead-pool exits in the moved startup path.**
+   The language startup task now catches `:exit` as well as rescuing exceptions,
+   following the documented soft-failure contract when a settings write hits a
+   dead database pool.
+
+### Verdict on the coverage rows in §4
+
+| Claim | Codex verdict |
+|---|---|
+| Off-state menus and switcher choices | Agree, strengthened: inline is covered and the empty dropdown is now absent. |
+| On-state configured/disabled/single-language behavior | Agree. Excluding disabled languages and omitting a one-language admin menu are correct. |
+| Off-state page access, toggle, hidden configuration and preservation | Agree, strengthened with full JSON/default/order/disabled-entry restoration and stale-event tests. |
+| Core permission, registry removal, core settings tab | Agree; the `languages` key remains effective while the site switch is off. |
+| No Languages card on Modules | Agree; Active and Disabled are exercised. |
+| Gettext catalogues | Agree; the revised flash is translated, and extraction/merge reports zero new, removed or fuzzy messages. |
+| Browser appearance | Partial is acceptable here. HEEx compilation and LiveView clicks/rendering are covered; no browser screenshot or CSS rendering audit was performed. |
+| Supervisor migration wiring | Previously insufficient; now covered by executing the actual `:normalize_languages` task callback from `Supervisor.init/1`, with Languages off and an existing legacy setting. A second execution preserves an explicit new-key choice. |
+| Owner / Admin without `languages` | Previously partial; now covered. Owner mounts while off, and an Admin whose grant is revoked is redirected. |
+| Second admin's stale page | Previously unguarded; all four persisted configuration events are now tested after the switch is turned off externally. Automatic refresh before the next event remains outside scope. |
+| Hosts and sibling packages | Partial is acceptable. Sibling `lib/` and `test/` were searched for preview helper/direct callback/dependency uses; no sibling application was executed or upgraded. |
+
+### Answers to §5
+
+1. **Keep the stricter full-access baseline; do not backfill custom roles.** A role
+   without `languages` should not qualify as able to operate every always
+   reachable section. Backfilling would grant new authority, including turning
+   the site multi-language, to roles whose grants omit it. Admin retains its
+   existing grant; an intentional revocation still denies access. A new test
+   pins the custom-role baseline while off. This follows Jobs' choice not to
+   infer additional grants for existing holders.
+
+2. **No additional registry contribution was lost.** Checked tab/permission
+   collection, children, routes, sitemap/media contributions, discovery and
+   dependency warnings against the former behavior defaults. Only the settings
+   tab, permission metadata and migration had contributions; all have
+   replacements. No searched sibling declares Languages in `required_modules`.
+   Losing its namespace lookup is an expected consequence of registry removal.
+
+3. **Rewrite the tests and narrow the strip set.** Implemented as finding 1.
+   A settings-less test preserving obsolete preview behavior is not a reason
+   to keep it in the public URL builder. The cache-backed tests also work
+   without PostgreSQL.
+
+4. **Keep configuration hidden while off.** The switch stays reachable and
+   the saved JSON survives intact. A disabled preview of languages the site
+   does not serve is unnecessary.
+
+5. **Keep `get_display_languages/0` for compatibility; no deprecation yet.**
+   The CRM caller is a mailing-list/contact preference selector, not a visitor
+   menu: it saves a locale and bulk-applies it to contacts, and its source
+   explicitly intends a curated fallback while Languages is off. It does not
+   emit broken locale routes. Therefore §5.5's claim that it has “the same bug”
+   is not established. Restricting contact preferences to served languages
+   needs a separate product decision, including what an off-state selector
+   should offer. No sibling edits were made here.
+
+6. **Both accompanying behavior corrections are appropriate.** Disabled
+   languages cannot be site-menu destinations; one language does not provide
+   a switching choice. These changes are documented.
+
+7. **Stored-state preservation is supported; a real-host upgrade is unverified.**
+   Setting keys, role-grant keys and their schemas are unchanged; no migration
+   rewrites them. The added restoration test compares full saved JSON. This
+   supports the scoped claim, but neither a production dump nor an actual host
+   upgrade was exercised. The changed full-access predicate and removed module
+   callbacks are documented separately above.
+
+### Validation
+
+- **Final focused PostgreSQL run:** 387 tests, zero failures. Covers the Languages
+  integration directory, settings-page clicks/access, locale path rewriting,
+  registry/permission/scope behavior, module cards, all switcher suites, and all
+  seven Libraries Sync tests.
+- **Full PostgreSQL run:** 76 doctests and 8,058 tests; one failure, six skipped,
+  one excluded. The failure was
+  `test/integration/phoenix_kit_web/live/libraries_sync_test.exs:79`, “follows the
+  run when something else moves it”: the paused-state UI assertion at line 88
+  was false immediately after an external transition. It passed in the final
+  focused rerun. This is outside the reviewed Languages changes; a timing issue
+  is plausible, but its root cause was not established. The run used
+  `PGPOOL=10 mix test --max-cases 8` and exercised integration tests; only
+  `:requires_createrole` was excluded for the database role. The final snippet
+  and startup-exit-handler adjustments came after this full run and were
+  covered by the final focused run and gate.
+- **Without PostgreSQL:** the cache-backed locale-path file passes, 13 tests,
+  zero failures, using `PGHOST=no-such-postgres.invalid`. Its old prefix-stacking
+  assertions now test real configured values rather than the preview fallback.
+- **`mix precommit`: exit 0.** Compile, unused-lock check, test-file compilation,
+  format check, strict Credo, Dialyzer and JavaScript checks completed. All 254
+  JavaScript tests passed. Dialyzer retains the reported baseline: 267 skipped
+  findings and four unnecessary skips. Test-file compilation still prints the
+  unrelated existing unreachable `{:ok, _}` clause warning in
+  `EmailPreviewTest.revoke/1`; it was not introduced or changed here.
+- **Gettext:** `mix gettext.extract --merge` exits 0 with zero new, removed or
+  fuzzy messages; hashing every PO/POT before and after the final run confirms
+  an exact no-op. The shortened enable flash has translations in the seven
+  non-English locales; English uses its source string.
+- **`git diff --check`: clean.** Unrelated storage implementation/test changes
+  and their shared CHANGELOG/catalogue entries were preserved.
+
+No browser/CSS audit, production-dump upgrade or sibling suite was run. No
+version bump, commit, release, push or sibling change was made by this review.

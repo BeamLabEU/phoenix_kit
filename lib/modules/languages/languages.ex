@@ -5,7 +5,7 @@ defmodule PhoenixKit.Modules.Languages do
   Languages is **core and always on**; it is not a toggleable feature module (it
   has no card on the Modules page and is not in `PhoenixKit.ModuleRegistry`). What an
   admin switches on or off, at **Admin → Settings → Languages**, is *multi-language
-  support for the site*: `enabled?/0`. Off, the site serves its default locale only
+  support for the site*: `enabled?/0`. Off, the site serves its configured fallback locale only
   (`enabled_locale_codes/0`), `get_languages/0` and `get_enabled_languages/0` are
   empty, and no menu or switcher offers a language. On, the configured languages are
   routed and offered. The `languages` permission key is a core section key, so the
@@ -769,11 +769,11 @@ defmodule PhoenixKit.Modules.Languages do
   end
 
   @doc """
-  Gets the language list for the admin Languages page.
+  Gets the legacy language preview list.
 
   Returns the configured languages if the module is enabled.
-  Otherwise, returns the default languages, so the page can preview what turning
-  the module on offers.
+  Otherwise, returns the hardcoded preview defaults. The admin Languages page
+  now uses `get_languages/0`; this helper retains its behavior for existing callers.
 
   ⚠️ **Not a list to offer a visitor.** With the module off, the defaults are
   languages the site does not serve (`enabled_locale_codes/0` is just the default
@@ -788,7 +788,7 @@ defmodule PhoenixKit.Modules.Languages do
 
       # When disabled
       iex> PhoenixKit.Modules.Languages.get_display_languages()
-      [%{"code" => "en-US", ...}, %{"code" => "es-ES", ...}, ...]  # Top 12 default
+      [%{"code" => "en-US", ...}, %{"code" => "es-ES", ...}, ...]  # Preview defaults
   """
   def get_display_languages do
     if enabled?() do

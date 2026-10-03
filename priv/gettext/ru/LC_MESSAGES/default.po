@@ -5511,17 +5511,17 @@ msgstr "Перейти на главную"
 msgid "Hide Current"
 msgstr "Скрыть текущий"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:452
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:454
 #, elixir-autogen
 msgid "Generated Code"
 msgstr "Сгенерированный код"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:467
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:469
 #, elixir-autogen
 msgid "Implementation Notes"
 msgstr "Заметки по внедрению"
 
-#: lib/phoenix_kit_web/live/modules/languages.html.heex:485
+#: lib/phoenix_kit_web/live/modules/languages.html.heex:487
 #, elixir-autogen
 msgid "Enable and Configure Languages"
 msgstr "Включить и настроить языки"
@@ -6959,7 +6959,7 @@ msgstr "Определяет, как основной язык отобража�
 msgid "Default Language Without Prefix"
 msgstr "Язык по умолчанию без префикса"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:95
+#: lib/phoenix_kit_web/live/modules/languages.ex:110
 #, elixir-autogen, elixir-format
 msgid "Failed to update URL behavior setting"
 msgstr "Не удалось обновить настройку поведения URL"
@@ -17968,7 +17968,7 @@ msgstr "реплика"
 msgid "the \"%{profile}\" profile (%{use})"
 msgstr "профиль «%{profile}» (%{use})"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:141
+#: lib/phoenix_kit_web/live/modules/languages.ex:156
 #, elixir-autogen, elixir-format
 msgid "Failed to update languages"
 msgstr "Не удалось обновить языки"
@@ -17984,15 +17984,16 @@ msgstr "Позвольте посетителям пользоваться са�
 msgid "Multiple languages"
 msgstr "Несколько языков"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:134
+#: lib/phoenix_kit_web/live/modules/languages.ex:92
+#: lib/phoenix_kit_web/live/modules/languages.ex:149
 #, elixir-autogen, elixir-format
 msgid "Multiple languages turned off"
 msgstr "Несколько языков выключено"
 
-#: lib/phoenix_kit_web/live/modules/languages.ex:133
+#: lib/phoenix_kit_web/live/modules/languages.ex:148
 #, elixir-autogen, elixir-format
-msgid "Multiple languages turned on, with English as the default"
-msgstr "Несколько языков включено, языком по умолчанию выбран английский"
+msgid "Multiple languages turned on"
+msgstr "Несколько языков включены"
 
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:46
 #, elixir-autogen, elixir-format

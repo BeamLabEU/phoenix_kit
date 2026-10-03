@@ -8,10 +8,10 @@ Languages is **core and always on** — not a toggleable feature module. It has 
 
 | Switch | The site |
 |--------|----------|
-| **Off** (default) | Serves its default locale only. `get_languages/0` and `get_enabled_languages/0` are `[]`, `enabled_locale_codes/0` is just the default, and **no menu or switcher offers a language**. The page shows only the switch. |
-| **On** | Routes and offers the configured languages. Turning it on seeds English; turning it off keeps the configured list. |
+| **Off** (default) | Serves the configured fallback locale (`PhoenixKit.Config.default_locale/0`) only. `get_languages/0` and `get_enabled_languages/0` are `[]`, `enabled_locale_codes/0` is just the default, and **no menu or switcher offers a language**. The page shows only the switch. |
+| **On** | Routes and offers the configured languages. Turning it on restores the saved configuration, or seeds English on first use; turning it off keeps the configured list. |
 
-⚠️ **A menu or switcher reads `get_enabled_languages/0`, never `get_display_languages/0`.** The latter returns a dozen hardcoded defaults while the switch is off (a preview list from when the admin page showed one) — languages the site does not serve, so a switcher built from it links to routes that do not exist.
+⚠️ **A menu or switcher reads `get_enabled_languages/0`, never `get_display_languages/0`.** The latter returns hardcoded defaults while the switch is off (a legacy preview list) — languages the site does not serve, so a switcher built from it links to routes that do not exist.
 
 ## Quick Links
 

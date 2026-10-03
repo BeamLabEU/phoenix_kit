@@ -10,18 +10,28 @@
   `PhoenixKit.Modules.Languages` is no longer a `PhoenixKit.Module` or in `ModuleRegistry`. The first card
   of Settings → Languages is **Multiple languages**, the same `languages_enabled` setting
   (`Languages.enabled?/0`, `enable_system/0`, `disable_system/0`), so an existing install keeps its state,
-  its role grants (the key is unchanged) and its configured languages. Off, the site serves its default
-  locale only and the page shows just the switch; on, the configuration, URL behaviour and switcher preview
+  its role grants (the key is unchanged) and its configured languages. Off, the site serves its
+  configured fallback locale only and the page shows just the switch; on, the configuration, URL behaviour and switcher preview
   appear. The page used to be refused by `Auth` while the module was off, so the switch could only be
   reached from Modules; the core key is what lets it live on the page.
-  - The public Languages API is unchanged. `get_languages/0` now backs the settings page (empty while off)
+  - Language configuration APIs keep their behavior; the former `PhoenixKit.Module` callbacks are removed.
+    `get_languages/0` now backs the settings page (empty while off)
     instead of the preview list, which no admin screen shows any more.
+  - Full operator-access checks now require `languages` even while the site's multi-language switch
+    is off. Custom roles keep their existing grants; no additional authority is backfilled.
   - `migrate_legacy/0` (the one-time copy of `publishing_default_language_no_prefix`) was run by the registry's
     boot sweep; `PhoenixKit.Supervisor` now calls it next to `normalize_language_settings/0`.
   - Packages that call `Languages.enabled?/0` or `get_enabled_languages/0` are unaffected. Anything that
     looked the module up as `ModuleRegistry.get_by_key("languages")` now gets `nil`.
 
 ### Fixed
+
+- **Language settings and navigation review fixes.** Locale switching preserves an unrelated host
+  segment such as `/nl/products` when Dutch is not enabled; an explicit current locale still strips
+  a language that has since been disabled. An empty frontend dropdown no longer renders a globe menu.
+  The Languages page's preview controls now update both its generated code and live preview, restoring
+  saved languages no longer claims English is the default, and configuration events from an already-open
+  page are refused after another admin turns multiple languages off.
 
 - **A language menu offered languages the site does not serve when the Languages module was off.**
   The admin user menu and the frontend `Core.LanguageSwitcher` read `Languages.get_display_languages/0`,

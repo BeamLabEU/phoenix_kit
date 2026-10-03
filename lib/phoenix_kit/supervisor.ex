@@ -158,6 +158,13 @@ defmodule PhoenixKit.Supervisor do
                Logger.error(
                  "[PhoenixKit] Failed to normalize language settings at startup: #{inspect(error)}"
                )
+           catch
+             :exit, reason ->
+               require Logger
+
+               Logger.error(
+                 "[PhoenixKit] Language settings migration exited at startup: #{inspect(reason)}"
+               )
            end
          end},
         id: :normalize_languages
