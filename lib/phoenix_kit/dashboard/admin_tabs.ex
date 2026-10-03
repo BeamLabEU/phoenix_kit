@@ -16,6 +16,59 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.Scope
 
+  # Sidebar position of the top-level tabs that feature modules register.
+  #
+  # The admin sidebar draws group by group (`:admin_main` 100, `:admin_modules`
+  # 500, `:admin_system` 900) and only then by priority inside a group. Modules
+  # used to pick their own numbers, and the result was the bottom of the
+  # sidebar for the modules people work in every day (Catalogues and Projects at
+  # 660, Document Creator and CRM at 650 — below Modules and AI), plus many
+  # ties: 650 ×7, 645 ×4, 600 ×3, 640 ×3, 520 ×2, 660 ×2 in an app with every
+  # module installed. Core owns the global order here:
+  #
+  #   * daily work joins `:admin_main` right after the dashboard and the host's
+  #     own entries — Catalogues, Warehouse, Manufacturing, Projects, Document
+  #     Creator, CRM; Staff sits next to Users;
+  #   * every other module stays in `:admin_modules` near where it was, moved
+  #     only as far as needed to give every tab a priority of its own (Emails
+  #     and Notifications go among the system entries).
+  #
+  # A tab id not listed keeps the module's own values; a host overrides any
+  # entry with `config :phoenix_kit, :admin_tab_order` (see Registry).
+  @module_tab_order %{
+    admin_catalogue: %{priority: 151, group: :admin_main},
+    warehouse: %{priority: 153, group: :admin_main},
+    manufacturing: %{priority: 154, group: :admin_main},
+    admin_projects: %{priority: 155, group: :admin_main},
+    admin_document_creator: %{priority: 156, group: :admin_main},
+    admin_crm: %{priority: 157, group: :admin_main},
+    admin_staff: %{priority: 210, group: :admin_main},
+    admin_billing: %{priority: 520},
+    admin_newsletters: %{priority: 525},
+    admin_shop: %{priority: 530},
+    admin_entities: %{priority: 540},
+    admin_db: %{priority: 570},
+    admin_posts: %{priority: 580},
+    admin_comments: %{priority: 590},
+    admin_publishing: %{priority: 595},
+    admin_emails: %{priority: 600},
+    admin_connections: %{priority: 602},
+    admin_referrals: %{priority: 604},
+    admin_customer_support: %{priority: 620},
+    admin_ai: %{priority: 640},
+    admin_sync: %{priority: 642},
+    admin_notifications: %{priority: 645},
+    admin_boards: %{priority: 646},
+    admin_calendar: %{priority: 647},
+    admin_inbox: %{priority: 648},
+    admin_stats: %{priority: 649},
+    admin_dashboards: %{priority: 650},
+    admin_bookings: %{priority: 652},
+    admin_phoenix_kit_og: %{priority: 654},
+    admin_web_analytics: %{priority: 656},
+    admin_locations: %{priority: 670}
+  }
+
   # Builder helper to reduce repetition across admin subtab definitions.
   # All admin tabs share level: :admin; subtabs share parent and permission.
   defp admin_subtab(id, label, icon, path, priority, parent, permission, opts \\ []) do
@@ -206,7 +259,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   """
   @spec module_tabs() :: [Tab.t()]
   def module_tabs do
-    ModuleRegistry.all_admin_tabs() ++
+    apply_module_tab_order(ModuleRegistry.all_admin_tabs()) ++
       [
         # Modules management page (core admin, not a feature module)
         Tab.resolve_path(
@@ -225,6 +278,35 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
           :admin
         )
       ]
+  end
+
+  @doc """
+  Core's default sidebar position (`:priority`, and `:group` where it changes)
+  for the top-level tabs of known feature modules, keyed by tab id.
+  """
+  @spec module_tab_order() :: %{atom() => map()}
+  def module_tab_order, do: @module_tab_order
+
+  @doc """
+  Applies `module_tab_order/0` to module tabs: a listed top-level tab takes
+  core's priority (and group, where given); subtabs and unlisted tabs are
+  returned unchanged.
+
+  Public so the ordering can be tested as the pure function it is — this is
+  the exact step `module_tabs/0` applies to `ModuleRegistry.all_admin_tabs/0`.
+  """
+  @spec apply_module_tab_order([Tab.t()]) :: [Tab.t()]
+  def apply_module_tab_order(tabs) do
+    Enum.map(tabs, fn
+      %Tab{parent: nil, id: id} = tab ->
+        case Map.fetch(@module_tab_order, id) do
+          {:ok, attrs} -> struct(tab, attrs)
+          :error -> tab
+        end
+
+      tab ->
+        tab
+    end)
   end
 
   @doc """

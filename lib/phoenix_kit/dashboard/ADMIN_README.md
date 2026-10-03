@@ -113,6 +113,27 @@ It applies at registry init, so it survives a restart — the registry rebuilds
 itself from the defaults, and a runtime `unregister_tab/1` does not come back
 with it.
 
+**Order.** The sidebar draws group by group — `:admin_main` (100),
+`:admin_modules` (500), `:admin_system` (900) — and by `priority` inside a
+group; equal priorities are ordered by tab id. Core sets the position of known
+module tabs in `AdminTabs.module_tab_order/0`: the modules used for daily work
+(Catalogues, Warehouse, Manufacturing, Projects, Document Creator, CRM) sit in
+`:admin_main` right after the dashboard, Staff next to Users, and every other
+module tab has a priority of its own in `:admin_modules`. To change the order
+in your app, use config — not a runtime `update_tab/2`:
+
+```elixir
+config :phoenix_kit, :admin_tab_order, %{
+  admin_catalogue: 120,                                 # priority only
+  admin_crm: %{priority: 125, group: :admin_main}       # priority and group
+}
+```
+
+Like `hidden_admin_tabs`, it is applied inside the registry on every rebuild
+and to every source of admin tabs, so neither a restart nor a module's
+`load_defaults/0` brings the old order back. Give every top-level tab its own
+priority — two tabs with one value fall back to ordering by id.
+
 Update or remove default tabs at runtime:
 
 ```elixir
