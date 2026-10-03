@@ -49,20 +49,25 @@ defmodule PhoenixKit.Integration.AdminTabOrderRegistryTest do
     ])
 
     Application.put_env(:phoenix_kit, :admin_tab_order, %{
-      admin_dashboard: 999,
+      # a core group is known at boot, before the registry has written its
+      # groups to ETS — otherwise this group would be dropped with a warning
+      admin_dashboard: %{priority: 999, group: :admin_modules},
       admin_order_host_tab: 124,
       admin_custom_0: 123,
+      admin_custom_0_0: 122,
       admin_order_runtime_tab: %{priority: 125, group: :admin_main}
     })
 
     start_registry!()
 
     # kit defaults (load_admin_defaults_internal/0)
-    assert Registry.get_tab(:admin_dashboard).priority == 999
+    dashboard = Registry.get_tab(:admin_dashboard)
+    assert {dashboard.priority, dashboard.group} == {999, :admin_modules}
     # host :admin_dashboard_tabs
     assert Registry.get_tab(:admin_order_host_tab).priority == 124
-    # legacy :admin_dashboard_categories
+    # legacy :admin_dashboard_categories — the category tab and its subsection
     assert Registry.get_tab(:admin_custom_0).priority == 123
+    assert Registry.get_tab(:admin_custom_0_0).priority == 122
 
     # runtime register/2
     :ok =

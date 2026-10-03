@@ -31,7 +31,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   #     Creator, CRM; Staff sits next to Users;
   #   * every other module stays in `:admin_modules` near where it was, moved
   #     only as far as needed to give every tab a priority of its own (Emails
-  #     moves from 510 to 600, next to Jobs and Modules).
+  #     moves from 510 to 600, between Publishing and Connections).
   #
   # A tab id not listed keeps the module's own values; a host overrides any
   # entry with `config :phoenix_kit, :admin_tab_order` (see Registry).

@@ -162,7 +162,8 @@ defmodule PhoenixKit.AdminTabOrderTest do
       Application.put_env(:phoenix_kit, :admin_tab_order, %{
         admin_nil_group: %{group: nil},
         admin_true_group: [group: true],
-        admin_struct_value: ~D[2026-10-03]
+        admin_struct_value: ~D[2026-10-03],
+        admin_string_priority: %{priority: "5"}
       })
 
       assert Registry.admin_tab_order() == %{}
