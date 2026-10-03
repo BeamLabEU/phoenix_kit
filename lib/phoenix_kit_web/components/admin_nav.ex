@@ -209,7 +209,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         Map.put(language, :active?, DialectMapper.extract_base(language.code) == current_base)
       end)
 
-    show_language_section = not Enum.empty?(admin_languages)
+    # One language is nothing to switch between (same rule as UserDashboardNav).
+    show_language_section = length(admin_languages) > 1
     show_language_divider = PhoenixKit.Config.user_dashboard_enabled?() and show_language_section
 
     assigns =
@@ -696,7 +697,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to get languages for admin nav display
-  # Uses the unified Languages module as the single source of truth.
+  # Uses the unified Languages module as the single source of truth. Only the
+  # languages the site actually serves: with the module off there are none
+  # (`get_display_languages/0` is the admin Languages page's preview list, not
+  # something to offer a visitor).
   # The final `dedupe_names/1` call drops the country qualifier from
   # `:name` when only one dialect of a given base language is
   # configured (e.g. "German (Germany)" → "German") — same rule the
@@ -704,8 +708,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   # `Core.LanguageSwitcher` so all menus share one implementation.
   defp get_admin_languages do
     if Code.ensure_loaded?(Languages) do
-      Languages.get_display_languages()
-      |> Enum.filter(fn lang -> is_map(lang) and Map.get(lang, :is_enabled, false) end)
+      Languages.get_enabled_languages()
+      |> Enum.filter(&is_map/1)
       |> Enum.map(&enrich_language/1)
       |> Enum.reject(&is_nil/1)
       |> LanguageSwitcher.dedupe_names()

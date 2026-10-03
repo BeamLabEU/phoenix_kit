@@ -489,10 +489,7 @@ defmodule PhoenixKit.Modules.Languages do
       [{"Asia", [%{code: "ja", name: "Japanese", ...}]}, {"Europe", [%{code: "de-DE", ...}]}, ...]
   """
   def get_enabled_languages_by_continent do
-    enabled_codes =
-      get_display_languages()
-      |> Enum.filter(& &1.is_enabled)
-      |> MapSet.new(& &1.code)
+    enabled_codes = MapSet.new(get_enabled_languages(), & &1.code)
 
     get_languages_grouped_by_continent()
     |> Enum.map(fn {continent, countries} ->
@@ -808,13 +805,16 @@ defmodule PhoenixKit.Modules.Languages do
   end
 
   @doc """
-  Gets the appropriate language list for frontend display.
+  Gets the language list for the admin Languages page.
 
   Returns the configured languages if the module is enabled.
-  Otherwise, returns the default languages for display.
+  Otherwise, returns the default languages, so the page can preview what turning
+  the module on offers.
 
-  This allows the frontend to always show a language list, reverting to defaults when
-  the module is disabled.
+  ⚠️ **Not a list to offer a visitor.** With the module off, the defaults are
+  languages the site does not serve (`enabled_locale_codes/0` is just the default
+  locale), so a switcher built from them links to routes that do not exist. A menu
+  or switcher takes `get_enabled_languages/0`, which is empty while the module is off.
 
   ## Examples
 

@@ -99,14 +99,9 @@ defmodule PhoenixKit.Integration.Languages.NormalizeTest do
   end
 
   describe "get_enabled_languages_by_continent/0" do
-    test "returns default languages grouped by continent when system is disabled" do
-      # When disabled, get_display_languages returns defaults, so continent grouping uses those
-      grouped = Languages.get_enabled_languages_by_continent()
-      assert is_list(grouped)
-      assert grouped != []
-
-      continents = Enum.map(grouped, fn {c, _} -> c end)
-      assert Enum.all?(continents, &is_binary/1)
+    test "returns nothing when the system is disabled" do
+      # The default list is the admin page's preview, not languages the site serves.
+      assert Languages.get_enabled_languages_by_continent() == []
     end
 
     test "groups enabled languages by continent" do

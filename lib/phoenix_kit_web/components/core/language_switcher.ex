@@ -605,7 +605,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     # Get enabled languages - these are full dialect codes with names
     # Ensure we always have a list, even if nil is returned
-    languages_config = assigns.languages || Languages.get_display_languages() || []
+    languages_config = assigns.languages || Languages.get_enabled_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
     # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
@@ -732,7 +732,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     # Get enabled languages - these are full dialect codes with names
     # Ensure we always have a list, even if nil is returned
-    languages_config = assigns.languages || Languages.get_display_languages() || []
+    languages_config = assigns.languages || Languages.get_enabled_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
     # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
@@ -843,7 +843,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     languages_config =
       case assigns.languages do
-        nil -> Languages.get_display_languages()
+        nil -> Languages.get_enabled_languages()
         list when is_list(list) -> list
         _ -> []
       end

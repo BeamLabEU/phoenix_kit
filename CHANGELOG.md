@@ -1,3 +1,18 @@
+## Unreleased
+
+### Fixed
+
+- **A language menu offered languages the site does not serve when the Languages module was off.**
+  The admin user menu and the frontend `Core.LanguageSwitcher` read `Languages.get_display_languages/0`,
+  which returns a dozen hardcoded defaults while the module is off (it feeds the admin Languages page's
+  preview), so a host with the module disabled showed ja, es, fr and the rest, each linking to a
+  locale route that does not exist. Both now read `Languages.get_enabled_languages/0`, which is empty
+  while the module is off, and the continent grouping (`get_enabled_languages_by_continent/0`)
+  follows. Two lesser corrections ride along: a language switched off inside an enabled module is no
+  longer offered by the frontend switcher, and the admin user menu hides its language section when
+  there is only one language, as the dashboard menu already did.
+  `get_display_languages/0` keeps its behaviour and now says it is the admin page's preview list.
+
 ## 2.49.1 - 2026-10-03
 
 ### Added
