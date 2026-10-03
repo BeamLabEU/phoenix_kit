@@ -497,6 +497,12 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   #   incrementally upgraded installs); verify reports info-level either way, repair
   #   NEVER creates them (create: nil).
   # * Oban objects are deliberately absent — delegated to Oban.Migration (spec 6.1).
+  # * So are objects the chain creates but a module owns and reshapes: core
+  #   neither checks nor creates them. `@module_owned_ids` in the generator
+  #   (`PhoenixKit.Squash.Generate.Emitter`, dev_docs/squash/generate_baseline.exs)
+  #   keeps a regeneration from bringing them back; each
+  #   removal is noted where the object was. Today:
+  #   `constraint:phoenix_kit_newsletters_broadcasts.fk_newsletters_broadcasts_template`.
   # * The version-marker COMMENT is not an object; migration entry points own it.
   # * data_invariants assert SQL returns one row/one boolean column; true = holds.
   #   Report-only; also the --adopt gate (spec 6.4 R4).
@@ -40205,37 +40211,18 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         presence: :required,
         backfill: nil
       },
-      %{
-        id: "constraint:phoenix_kit_newsletters_broadcasts.fk_newsletters_broadcasts_template",
-        owner: :newsletters,
-        check:
-          {:catalog,
-           %{
-             name: "fk_newsletters_broadcasts_template",
-             table: "phoenix_kit_newsletters_broadcasts",
-             kind: :constraint
-           }},
-        create:
-          "DO $$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_constraint c\n    JOIN pg_class t ON t.oid = c.conrelid\n    JOIN pg_namespace n ON n.oid = t.relnamespace\n    WHERE c.conname = 'fk_newsletters_broadcasts_template'\n      AND t.relname = 'phoenix_kit_newsletters_broadcasts'\n      AND n.nspname = '__SCHEMA__'\n  ) THEN\n    ALTER TABLE __SCHEMA__.phoenix_kit_newsletters_broadcasts ADD CONSTRAINT fk_newsletters_broadcasts_template FOREIGN KEY (template_uuid) REFERENCES __SCHEMA__.phoenix_kit_email_templates(uuid) ON DELETE SET NULL;\n  END IF;\nEND\n$$",
-        since: 79,
-        class: :constraint,
-        revisions: [
-          {79,
-           %{
-             type: "f",
-             columns: ["template_uuid"],
-             definition:
-               "FOREIGN KEY (template_uuid) REFERENCES __SCHEMA__.phoenix_kit_email_templates(uuid) ON DELETE SET NULL",
-             name_template: nil,
-             foreign_table: "phoenix_kit_email_templates",
-             foreign_columns: ["uuid"],
-             on_delete: "n",
-             on_update: "a"
-           }}
-        ],
-        presence: :required,
-        backfill: nil
-      },
+      # REMOVED POST-GENERATION (2026-10-02):
+      # `constraint:phoenix_kit_newsletters_broadcasts.fk_newsletters_broadcasts_template`.
+      # V135 still creates it (template_uuid -> phoenix_kit_email_templates,
+      # ON DELETE SET NULL), but its target belongs to the newsletters module:
+      # the module repoints this FK, under the same name, at a table of its
+      # own. A core-asserted shape would then report a healthy install as
+      # `:wrong_shape`, and `mix phoenix_kit.repair` would offer to put back
+      # an FK to a table the module no longer uses. The object is therefore
+      # not core's to check or create — the same as Oban's objects, see the
+      # conventions above. Removing it reports nothing in its place: repair
+      # flags extra COLUMNS only, never an extra constraint. The filesystem
+      # templates plan drops it from V135 later; this anticipates that.
       %{
         id: "constraint:phoenix_kit_newsletters_deliveries.fk_newsletters_deliveries_broadcast",
         owner: :newsletters,
