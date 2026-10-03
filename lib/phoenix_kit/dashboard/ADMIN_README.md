@@ -131,8 +131,10 @@ config :phoenix_kit, :admin_tab_order, %{
 
 Like `hidden_admin_tabs`, it is applied inside the registry on every rebuild
 and to every source of admin tabs, so neither a restart nor a module's
-`load_defaults/0` brings the old order back. Give every top-level tab its own
-priority — two tabs with one value fall back to ordering by id.
+`load_defaults/0` brings the old order back. A group that is not a registered
+sidebar group is ignored with a warning (the sidebar draws registered groups
+only). Give every top-level tab its own priority — two tabs with one value fall
+back to ordering by id.
 
 Update or remove default tabs at runtime:
 

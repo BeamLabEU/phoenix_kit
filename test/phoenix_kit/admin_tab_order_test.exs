@@ -13,6 +13,8 @@ defmodule PhoenixKit.AdminTabOrderTest do
   """
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias PhoenixKit.Dashboard.{AdminTabs, Registry, Tab}
 
   setup do
@@ -67,7 +69,16 @@ defmodule PhoenixKit.AdminTabOrderTest do
     test "daily work joins :admin_main between the dashboard and Users" do
       order = AdminTabs.module_tab_order()
 
-      for id <- [:admin_catalogue, :admin_projects, :admin_document_creator, :admin_crm] do
+      daily = [
+        :admin_catalogue,
+        :warehouse,
+        :manufacturing,
+        :admin_projects,
+        :admin_document_creator,
+        :admin_crm
+      ]
+
+      for id <- daily do
         assert order[id].group == :admin_main
         assert order[id].priority > core_priority(:admin_dashboard)
         assert order[id].priority < core_priority(:admin_users)
@@ -91,6 +102,13 @@ defmodule PhoenixKit.AdminTabOrderTest do
       assert {unknown.priority, unknown.group} == {777, :admin_modules}
     end
 
+    test "a subtab is not moved even when its id is in the table" do
+      [subtab] =
+        AdminTabs.apply_module_tab_order([tab(:admin_catalogue, 10, parent: :admin_other)])
+
+      assert {subtab.priority, subtab.group} == {10, :admin_modules}
+    end
+
     test "an entry without a group keeps the module's own group" do
       [emails] = AdminTabs.apply_module_tab_order([tab(:admin_emails, 510)])
 
@@ -112,6 +130,48 @@ defmodule PhoenixKit.AdminTabOrderTest do
                admin_catalogue: %{priority: 120},
                admin_crm: %{priority: 125, group: :admin_main}
              }
+    end
+
+    test "the host order wins over core's table" do
+      Application.put_env(:phoenix_kit, :admin_tab_order, %{admin_catalogue: 120})
+
+      [catalogue] =
+        [tab(:admin_catalogue, 660)]
+        |> AdminTabs.apply_module_tab_order()
+        |> Registry.apply_admin_tab_order()
+
+      # priority from the host, group from core's table
+      assert {catalogue.priority, catalogue.group} == {120, :admin_main}
+    end
+
+    test "a group that is not a sidebar group is dropped with a warning — the tab keeps its own" do
+      Application.put_env(:phoenix_kit, :admin_tab_order, %{
+        admin_typo: %{priority: 5, group: :admin_mian}
+      })
+
+      log =
+        capture_log(fn ->
+          [typo] = Registry.apply_admin_tab_order([tab(:admin_typo, 700)])
+          assert {typo.priority, typo.group} == {5, :admin_modules}
+        end)
+
+      assert log =~ "not a sidebar group"
+    end
+
+    test "nil and boolean groups, structs and improper lists are ignored, not crashed on" do
+      Application.put_env(:phoenix_kit, :admin_tab_order, %{
+        admin_nil_group: %{group: nil},
+        admin_true_group: [group: true],
+        admin_struct_value: ~D[2026-10-03]
+      })
+
+      assert Registry.admin_tab_order() == %{}
+
+      Application.put_env(:phoenix_kit, :admin_tab_order, ~D[2026-10-03])
+      assert Registry.admin_tab_order() == %{}
+
+      Application.put_env(:phoenix_kit, :admin_tab_order, [{:admin_catalogue, 120} | :tail])
+      assert Registry.admin_tab_order() == %{}
     end
 
     test "a keyword list config works the same" do

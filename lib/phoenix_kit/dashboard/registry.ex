@@ -603,7 +603,9 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   A value is a priority, or a map / keyword list with `:priority` and/or
   `:group`. Entries with a non-atom id or an unusable value are ignored rather
-  than taking the sidebar down on boot.
+  than taking the sidebar down on boot. A group that is not a registered
+  sidebar group is dropped with a warning — the sidebar draws registered
+  groups only, so it would hide the tab — and the tab keeps its own group.
 
   Core already orders known module tabs (`AdminTabs.module_tab_order/0`); this
   is for the host's own preference. Like `:hidden_admin_tabs` it is applied
@@ -616,41 +618,55 @@ defmodule PhoenixKit.Dashboard.Registry do
   @spec admin_tab_order() :: %{atom() => map()}
   def admin_tab_order do
     case Application.get_env(:phoenix_kit, :admin_tab_order, %{}) do
-      entries when is_map(entries) or is_list(entries) ->
-        Enum.reduce(entries, %{}, fn
-          {id, value}, acc when is_atom(id) ->
-            case tab_order_attrs(value) do
-              attrs when map_size(attrs) == 0 -> acc
-              attrs -> Map.put(acc, id, attrs)
-            end
+      entries when is_map(entries) and not is_struct(entries) ->
+        collect_tab_order(entries)
 
-          _other, acc ->
-            acc
-        end)
+      entries when is_list(entries) ->
+        if List.improper?(entries), do: %{}, else: collect_tab_order(entries)
 
       _ ->
         %{}
     end
   end
 
+  defp collect_tab_order(entries) do
+    Enum.reduce(entries, %{}, fn
+      {id, value}, acc when is_atom(id) ->
+        case tab_order_attrs(value) do
+          attrs when map_size(attrs) == 0 -> acc
+          attrs -> Map.put(acc, id, attrs)
+        end
+
+      _other, acc ->
+        acc
+    end)
+  end
+
   defp tab_order_attrs(priority) when is_integer(priority), do: %{priority: priority}
 
-  defp tab_order_attrs(value) when is_map(value) or is_list(value) do
-    if is_list(value) and not Keyword.keyword?(value) do
-      %{}
-    else
-      value
-      |> Map.new()
-      |> Map.take([:priority, :group])
-      |> Enum.filter(fn
-        {:priority, p} -> is_integer(p)
-        {:group, g} -> is_atom(g)
-      end)
-      |> Map.new()
-    end
+  defp tab_order_attrs(value) when is_map(value) and not is_struct(value),
+    do: take_tab_order_keys(Map.to_list(value))
+
+  defp tab_order_attrs(value) when is_list(value) do
+    if not List.improper?(value) and Keyword.keyword?(value),
+      do: take_tab_order_keys(value),
+      else: %{}
   end
 
   defp tab_order_attrs(_), do: %{}
+
+  defp take_tab_order_keys(pairs) do
+    Enum.reduce(pairs, %{}, fn
+      {:priority, priority}, acc when is_integer(priority) ->
+        Map.put(acc, :priority, priority)
+
+      {:group, group}, acc when is_atom(group) and group not in [nil, true, false] ->
+        Map.put(acc, :group, group)
+
+      _other, acc ->
+        acc
+    end)
+  end
 
   @doc """
   Applies `admin_tab_order/0` to `tabs` (admin tabs only — a user dashboard
@@ -670,12 +686,28 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   defp order_admin_tab(%Tab{level: :admin, id: id} = tab, order) do
     case Map.fetch(order, id) do
-      {:ok, attrs} -> struct(tab, attrs)
+      {:ok, attrs} -> struct(tab, known_group_only(attrs, id))
       :error -> tab
     end
   end
 
   defp order_admin_tab(tab, _order), do: tab
+
+  defp known_group_only(%{group: group} = attrs, id) do
+    if group in Enum.map(AdminTabs.default_groups() ++ get_groups(), & &1.id) do
+      attrs
+    else
+      Logger.warning(
+        "[Registry] :admin_tab_order gives #{inspect(id)} the group #{inspect(group)}, " <>
+          "which is not a sidebar group — the sidebar draws registered groups only, " <>
+          "so the tab keeps its own group"
+      )
+
+      Map.delete(attrs, :group)
+    end
+  end
+
+  defp known_group_only(attrs, _id), do: attrs
 
   @impl true
   def handle_continue(:initialize_tabs, state) do
@@ -890,9 +922,9 @@ defmodule PhoenixKit.Dashboard.Registry do
     Enum.filter(tabs, &Tab.visible?(&1, scope))
   end
 
-  # Ties are broken by id: `all_tabs/0` reads an ETS set, whose order is not
-  # stable across restarts, so two tabs with one priority used to swap places
-  # from boot to boot.
+  # Ties are broken by id: `all_tabs/0` reads an ETS set, whose order depends
+  # on what the table holds — switching a module on or adding a CRM role could
+  # swap two tabs that share a priority.
   @doc false
   def sort_tabs(tabs) do
     Enum.sort_by(tabs, &{&1.priority, to_string(&1.id)})
@@ -1326,6 +1358,8 @@ defmodule PhoenixKit.Dashboard.Registry do
           }
           |> Tab.resolve_path(:admin)
 
+        [parent] = apply_admin_tab_order([parent])
+
         unless hidden_admin_tab?(parent) do
           :ets.insert(@ets_table, {{:tab, parent.id}, parent})
           :ets.insert(@ets_table, {{:namespace, :admin_legacy, parent.id}, true})
@@ -1364,7 +1398,7 @@ defmodule PhoenixKit.Dashboard.Registry do
     # Auto-infer live_view module from URL path
     child = maybe_add_live_view(child, subsection.url)
 
-    child = Tab.resolve_path(child, :admin)
+    [child] = child |> Tab.resolve_path(:admin) |> List.wrap() |> apply_admin_tab_order()
 
     unless hidden_admin_tab?(child) do
       :ets.insert(@ets_table, {{:tab, child.id}, child})
