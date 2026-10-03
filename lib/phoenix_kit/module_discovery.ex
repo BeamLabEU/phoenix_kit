@@ -21,6 +21,17 @@ defmodule PhoenixKit.ModuleDiscovery do
 
   require Logger
 
+  # `:persistent_term` rather than a process or ETS table: there is no process of
+  # ours to own one (Mix calls the check from its own compiler tasks, and
+  # `PhoenixKit.KnownPackages` avoids persistent_term for a value that churns),
+  # and this one is written only when the disk really changed.
+  @hash_memo_key {__MODULE__, :module_hash_memo}
+
+  # An mtime this recent cannot be told apart from "changed again a moment
+  # later" on a filesystem with whole-second timestamps, so a fingerprint that
+  # contains one is never remembered.
+  @settled_after_seconds 2
+
   @doc """
   Discovers external PhoenixKit modules from beam files + config fallback.
 
@@ -38,7 +49,8 @@ defmodule PhoenixKit.ModuleDiscovery do
   @doc """
   Returns a deterministic hash of the current set of discovered external modules.
 
-  Used by `__mix_recompile__?/0` (injected into the host router) to detect when
+  Used at compile time for the hash baked into the host router (see
+  `module_hash_fast/0` for the per-compile check in `__mix_recompile__?/0`) to detect when
   modules are added or removed, triggering router recompilation.
   """
   @spec module_hash() :: binary()
@@ -47,6 +59,193 @@ defmodule PhoenixKit.ModuleDiscovery do
     |> Enum.sort()
     |> :erlang.term_to_binary()
     |> then(&:erlang.md5/1)
+  end
+
+  @doc """
+  Same answer as `module_hash/0`, without re-reading the beams when nothing on
+  disk changed since the last call.
+
+  Meant for `__mix_recompile__?/0`, which Mix evaluates on every compile — and
+  `Phoenix.CodeReloader` compiles on every dev request, so `module_hash/0` there
+  re-ran the whole scan per HTTP request.
+
+  It fingerprints what the scan reads, with `stat` only — no beam is opened and no
+  directory is listed: the mtime of every code-path directory (a file added to or
+  removed from one changes it), plus mtime and size of the `.app` files and of the
+  beams of the dependent apps found by the last full scan (a dep that starts or
+  stops depending on `:phoenix_kit`, a module gaining or losing
+  `@phoenix_kit_module`), and `config :phoenix_kit, :modules`. The full scan runs
+  when the fingerprint differs from the remembered one, and nothing is remembered
+  while any of it is newer than #{@settled_after_seconds} seconds, so a change
+  within the filesystem's timestamp resolution is never missed.
+
+  The assumption is that a rebuild leaves a new mtime or size on the files it
+  writes, as Mix and `erlc` do. A file replaced by one of the same size *and* the
+  same mtime (`cp -p`, `rsync -t` from an older build) is not seen — use
+  `module_hash/0` where that matters.
+
+  A miss costs one scan plus the `stat`s of the fingerprint (it builds the hash
+  from the same directory listings the fingerprint needs, so nothing is listed or
+  read twice); the first call of a VM is always a miss. Any error falls back to
+  `module_hash/0`.
+  """
+  @spec module_hash_fast() :: binary()
+  def module_hash_fast do
+    with {fingerprint, hash, %{app_files: _, beam_files: _} = inventory} <-
+           :persistent_term.get(@hash_memo_key, nil),
+         {^fingerprint, _newest} <- scan_fingerprint(inventory, candidate_ebin_dirs()) do
+      hash
+    else
+      _ -> recompute_module_hash()
+    end
+  rescue
+    # A memo of another shape (module reloaded with a different layout) or a
+    # failing stat must never take a Mix compile down; the honest answer exists.
+    _ -> module_hash()
+  end
+
+  # Order matters: the fingerprint is taken BEFORE the scan, so a change landing
+  # in between leaves a stale fingerprint (one more scan next time), never a
+  # fresh one paired with an old hash. The code path is read ONCE, so the
+  # inventory and the fingerprint describe the same directories.
+  defp recompute_module_hash do
+    dirs = candidate_ebin_dirs()
+    inventory = scan_inventory(dirs)
+    {fingerprint, newest} = scan_fingerprint(inventory, dirs)
+    hash = hash_from_inventory(inventory)
+
+    if newest < System.os_time(:second) - @settled_after_seconds do
+      :persistent_term.put(@hash_memo_key, {fingerprint, hash, inventory})
+    else
+      :persistent_term.erase(@hash_memo_key)
+    end
+
+    hash
+  end
+
+  @doc false
+  # Drops the remembered `module_hash_fast/0` fingerprint. For tests.
+  @spec clear_hash_memo() :: :ok
+  def clear_hash_memo do
+    :persistent_term.erase(@hash_memo_key)
+    :ok
+  end
+
+  # What the fingerprint stats: the `.app` files of every code-path dir, and the
+  # beams of the dependent apps. Lists each directory once — slow path only —
+  # and is what `hash_from_inventory/1` computes the hash from.
+  defp scan_inventory(dirs) do
+    app_files = Map.new(dirs, &{&1, files_with_extension(&1, ".app")})
+
+    beam_files =
+      for dir <- dirs, depends_on_phoenix_kit?(dir, app_files[dir]), into: %{} do
+        {dir, files_with_extension(dir, ".beam")}
+      end
+
+    %{app_files: app_files, beam_files: beam_files}
+  end
+
+  # Same selection as `read_app_spec/1` + `ebin_depends_on_phoenix_kit?/1`: the
+  # first `.app` of the directory.
+  defp depends_on_phoenix_kit?(_dir, []), do: false
+
+  defp depends_on_phoenix_kit?(dir, [app_file | _]) do
+    case :file.consult(String.to_charlist(Path.join(dir, app_file))) do
+      {:ok, [{:application, app, keys}]} ->
+        app != :phoenix_kit and :phoenix_kit in Keyword.get(keys, :applications, [])
+
+      _ ->
+        false
+    end
+  rescue
+    _ -> false
+  end
+
+  # `module_hash/0`, from the listings already in hand instead of walking the
+  # disk again. Bit-for-bit the same value (a test compares them).
+  defp hash_from_inventory(%{beam_files: beam_files}) do
+    scanned =
+      beam_files
+      |> Enum.flat_map(fn {dir, names} ->
+        Enum.map(names, &beam_phoenix_kit_module(Path.join(dir, &1)))
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    (scanned ++ Application.get_env(:phoenix_kit, :modules, []))
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> :erlang.term_to_binary()
+    |> then(&:erlang.md5/1)
+  rescue
+    _ -> module_hash()
+  end
+
+  # Names with `extension`, sorted, excluding dotfiles exactly as the
+  # `Path.wildcard/1` the scan itself uses does.
+  defp files_with_extension(dir, extension) do
+    case :file.list_dir(String.to_charlist(dir)) do
+      {:ok, names} ->
+        names
+        |> Enum.map(&List.to_string/1)
+        |> Enum.filter(&(Path.extname(&1) == extension and not String.starts_with?(&1, ".")))
+        |> Enum.sort()
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  # `{fingerprint, newest_mtime}` for the current disk state of `dirs`, by `stat`
+  # alone. A dir the inventory has never seen fingerprints as `:unknown`, so a
+  # changed code path never matches — and such a fingerprint is never
+  # remembered (its newest mtime is reported as `:infinity`; an atom sorts after
+  # every number, so the "settled" comparison is false).
+  defp scan_fingerprint(%{app_files: app_files, beam_files: beam_files}, dirs) do
+    app_stats =
+      Enum.map(dirs, fn dir ->
+        case app_files do
+          %{^dir => names} -> dir_stats(dir, names)
+          _ -> {dir, :unknown}
+        end
+      end)
+
+    beam_stats =
+      beam_files |> Enum.sort() |> Enum.map(fn {dir, names} -> dir_stats(dir, names) end)
+
+    mtimes =
+      for {_dir, dir_mtime, files} <-
+            Enum.reject(app_stats, &match?({_, :unknown}, &1)) ++ beam_stats,
+          mtime <- [dir_mtime | Enum.map(files, fn {_name, mtime, _size} -> mtime end)],
+          do: mtime
+
+    newest =
+      if Enum.any?(app_stats, &match?({_, :unknown}, &1)),
+        do: :infinity,
+        else: Enum.max(mtimes, fn -> 0 end)
+
+    {{app_stats, beam_stats, Application.get_env(:phoenix_kit, :modules, [])}, newest}
+  end
+
+  # `{dir, dir_mtime, [{name, mtime, size}]}`, mtimes in POSIX seconds. A missing
+  # path stats as mtime 0 / size -1, so its disappearing changes the fingerprint.
+  defp dir_stats(dir, names) do
+    {dir_mtime, _size} = stat(dir)
+
+    {dir, dir_mtime,
+     Enum.map(names, fn name ->
+       {mtime, size} = stat(Path.join(dir, name))
+       {name, mtime, size}
+     end)}
+  end
+
+  # `:file_info` is `{:file_info, size, type, access, atime, mtime, ...}`: element
+  # 1 is the size, element 5 the mtime (POSIX seconds here).
+  defp stat(path) do
+    case :file.read_file_info(String.to_charlist(path), [:raw, {:time, :posix}]) do
+      {:ok, info} -> {elem(info, 5), elem(info, 1)}
+      {:error, _} -> {0, -1}
+    end
   end
 
   @doc """
