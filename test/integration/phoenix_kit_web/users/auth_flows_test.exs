@@ -719,6 +719,20 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       refute html =~ "No confirmation email on record"
     end
 
+    test "waiting screen shows the sent time only when a confirmation was sent", %{conn: conn} do
+      user = register_user()
+      conn = login_conn(conn, user)
+
+      {:ok, lv, _html} = live(conn, Routes.path("/users/confirm"))
+      refute has_element?(lv, "#confirmation-sent-at")
+
+      extract_token(fn url_fun -> Auth.deliver_user_confirmation_instructions(user, url_fun) end)
+
+      {:ok, lv, html} = live(conn, Routes.path("/users/confirm"))
+      assert has_element?(lv, "#confirmation-sent-at")
+      assert html =~ "Sent"
+    end
+
     test "parked user is moved along live when an admin confirms them", %{conn: conn} do
       user = register_user()
       conn = login_conn(conn, user)

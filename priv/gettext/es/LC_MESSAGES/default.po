@@ -130,8 +130,8 @@ msgstr "Crear nueva cuenta"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:687
 #: lib/phoenix_kit_web/live/users/users.html.heex:308
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:44
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:52
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:42
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:50
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:15
 #: lib/phoenix_kit_web/users/magic_link.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:56
@@ -669,7 +669,7 @@ msgstr "Lista con viñetas"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:900
 #: lib/phoenix_kit_web/live/users/users.html.heex:75
 #: lib/phoenix_kit_web/live/users/users.html.heex:999
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:71
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
 #, elixir-autogen, elixir-format
 msgid "Cancel"
 msgstr "Cancelar"
@@ -1311,7 +1311,7 @@ msgstr "Salto de línea"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:596
 #: lib/phoenix_kit_web/users/confirmation.html.heex:33
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:138
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:136
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:32
 #: lib/phoenix_kit_web/users/login.ex:20
 #: lib/phoenix_kit_web/users/login.html.heex:79
@@ -7113,7 +7113,7 @@ msgstr "Nueva contraseña"
 msgid "Next steps:"
 msgstr "Próximos pasos:"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:32
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "No confirmation instructions received?"
 msgstr "¿No recibió las instrucciones de confirmación?"
@@ -7145,7 +7145,7 @@ msgid "Referral Code"
 msgstr "Código de referencia"
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:131
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:129
 #: lib/phoenix_kit_web/users/registration.ex:24
 #: lib/phoenix_kit_web/users/reset_password.html.heex:45
 #, elixir-autogen, elixir-format
@@ -7173,7 +7173,7 @@ msgstr "Registrarse con contraseña"
 msgid "Remember your password?"
 msgstr "¿Recuerda su contraseña?"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:40
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:38
 #, elixir-autogen, elixir-format
 msgid "Resend Confirmation"
 msgstr "Reenviar la confirmación"
@@ -7218,7 +7218,7 @@ msgstr "Enviar instrucciones para restablecer la contraseña"
 msgid "Sending magic link..."
 msgstr "Enviando el enlace mágico…"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:56
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:54
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Sending..."
@@ -7229,7 +7229,7 @@ msgstr "Enviando…"
 msgid "Sign in with password"
 msgstr "Iniciar sesión con contraseña"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:35
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "We'll send a new confirmation link to your inbox"
 msgstr "Enviaremos un nuevo enlace de confirmación a su bandeja de entrada"
@@ -11166,7 +11166,7 @@ msgstr "Instrucciones para los rastreadores"
 msgid "Enter your referral code"
 msgstr "Introduzca su código de referencia"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:124
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:122
 #: lib/phoenix_kit_web/users/referral_gate.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Log out"
@@ -13762,7 +13762,7 @@ msgstr "Zoom"
 msgid "Auto"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:84
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "Change Email"
 msgstr ""
@@ -13793,7 +13793,7 @@ msgstr ""
 msgid "Email changed and confirmed. Welcome!"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:85
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:83
 #, elixir-autogen, elixir-format
 msgid "New email"
 msgstr ""
@@ -13818,12 +13818,12 @@ msgstr ""
 msgid "Showing %{from} to %{to} of %{total} %{noun}"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:110
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:108
 #, elixir-autogen, elixir-format
 msgid "Update email & resend confirmation"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:107
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:105
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr ""
@@ -13838,7 +13838,7 @@ msgstr ""
 msgid "We've sent a new confirmation link to %{email}."
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:71
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
 #, elixir-autogen, elixir-format
 msgid "Wrong email? Change it"
 msgstr ""
@@ -13913,17 +13913,17 @@ msgstr "Este es un correo de prueba enviado desde la página de ajustes Correos 
 msgid "Confirm your email to continue"
 msgstr "Confirma tu correo electrónico para continuar"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:59
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:57
 #, elixir-autogen, elixir-format
 msgid "Resend email"
 msgstr "Reenviar correo"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:20
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:21
 #, elixir-autogen, elixir-format
 msgid "Sent"
 msgstr "Enviado"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:13
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:16
 #, elixir-autogen, elixir-format
 msgid "We sent a confirmation link to %{email}."
 msgstr "Te enviamos un enlace de confirmación a %{email}."
@@ -14113,12 +14113,12 @@ msgstr "Actuando como"
 msgid "Acting as %{role}"
 msgstr "Actuando como %{role}"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:95
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Current password"
 msgstr "Contraseña actual"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:100
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:98
 #, elixir-autogen, elixir-format
 msgid "We ask for your password again as a safety check before moving your account to a new email address."
 msgstr "Te pedimos tu contraseña de nuevo como medida de seguridad antes de trasladar tu cuenta a una nueva dirección de correo."
