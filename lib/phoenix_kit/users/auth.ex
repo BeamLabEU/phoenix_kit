@@ -783,7 +783,8 @@ defmodule PhoenixKit.Users.Auth do
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, %{user: updated_user}} <- Repo.transaction(user_email_multi(user, email, context)) do
+         {:ok, %{user: updated_user}} <-
+           Repo.transaction(user_email_multi(user, email, context, was_unconfirmed?)) do
       # Only a genuine unconfirmed -> confirmed transition, not every email
       # change (an already-confirmed user changing their address re-runs
       # confirm_changeset too, but did not just newly confirm) — otherwise a
@@ -807,7 +808,7 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
-  defp user_email_multi(user, email, context) do
+  defp user_email_multi(user, email, context, was_unconfirmed?) do
     changeset =
       user
       |> User.email_changeset(%{email: email})
@@ -815,7 +816,13 @@ defmodule PhoenixKit.Users.Auth do
 
     multi = Ecto.Multi.new()
     multi = Ecto.Multi.update(multi, :user, changeset)
-    Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, [context]))
+
+    multi =
+      Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, [context]))
+
+    # "Wrong email?" on an unconfirmed account: the new address is the first
+    # one the reader has proven, so this is their confirmation too.
+    if was_unconfirmed?, do: WelcomeEmail.multi(multi), else: multi
   end
 
   @doc ~S"""
@@ -1531,7 +1538,8 @@ defmodule PhoenixKit.Users.Auth do
   def confirm_user(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query),
-         {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
+         {:ok, %{user: updated_user}} <-
+           Repo.transaction(confirm_user_multi(user) |> WelcomeEmail.multi()) do
       # Broadcast confirmation event
       Events.broadcast_user_confirmed(updated_user)
 
@@ -1544,8 +1552,6 @@ defmodule PhoenixKit.Users.Auth do
         resource_uuid: updated_user.uuid,
         metadata: %{"method" => "email_link", "actor_role" => "user"}
       })
-
-      WelcomeEmail.after_confirmation(updated_user)
 
       {:ok, updated_user}
     else
@@ -1616,12 +1622,14 @@ defmodule PhoenixKit.Users.Auth do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
     |> Ecto.Multi.delete_all(:tokens, revoked_tokens_query(user))
+    # Enqueued in this transaction — and in the OAuth callback's around it —
+    # so a rollback takes the welcome email with the confirmation.
+    |> WelcomeEmail.multi()
     |> Repo.transaction()
     |> case do
       {:ok, %{user: confirmed_user, tokens: {_count, revoked}}} ->
         disconnect_revoked_sessions(revoked)
         Events.broadcast_user_confirmed(confirmed_user)
-        WelcomeEmail.after_confirmation(confirmed_user)
         {:ok, confirmed_user}
 
       {:error, :user, changeset, _} ->

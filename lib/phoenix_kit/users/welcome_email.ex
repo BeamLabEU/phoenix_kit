@@ -9,13 +9,15 @@ defmodule PhoenixKit.Users.WelcomeEmail do
 
   ## When it is sent
 
-  `after_confirmation/1` is called by every path where a user proves they
-  own their address — and by nothing else:
+  `after_confirmation/1` is called where a user's own action confirms their
+  address:
 
     * `Auth.confirm_user/1` — the link in the confirmation email;
     * `Auth.confirm_user_from_external_proof/1` — signing in with a magic
       link, or with an OAuth provider that verified the address, while the
       account is unconfirmed (a new OAuth account included);
+    * `Auth.update_user_email/2` — an unconfirmed account that corrects its
+      address ("Wrong email?") and so confirms the new one;
     * magic-link registration, which confirms the new account itself.
 
   An administrator confirming an account by hand (`Auth.toggle_user_confirmation/2`,
@@ -24,31 +26,42 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   them. `admin_confirm_user/1` stays silent for the same reason — magic-link
   registration calls this module itself, after it.
 
+  ## After the confirmation commits
+
+  `after_confirmation/1` only enqueues a job
+  (`PhoenixKit.Users.WelcomeEmailWorker`, queue `notifications`). The
+  confirmation paths enqueue it inside the transaction that confirms the
+  address (`multi/1`), so the job exists exactly when the confirmation does:
+  a rollback — of the confirmation, or of a caller's transaction around it,
+  such as the OAuth callback's — takes the job with it. Nothing is claimed
+  and nothing is sent while a transaction is open, and no mail server ever
+  holds a row lock.
+
   ## Once
 
-  Before sending, the account is claimed with one conditional `UPDATE` that
-  records `welcome_email_sent_at` in its `custom_fields` only if it is not
-  there yet. Postgres serialises concurrent updates of a row, so of two
-  confirmations racing (two magic-link tabs) exactly one claims it, and a
-  confirmation repeated later (an address unconfirmed and confirmed again)
-  finds the mark and sends nothing. The mark is set before the send, so a
-  send that fails is logged and not retried: at most once, never twice.
+  The job is unique per user, and before sending it claims the account with
+  one conditional `UPDATE` that records `welcome_email_sent_at` in its
+  `custom_fields` only if it is not there yet. A confirmation repeated later
+  (an address unconfirmed and confirmed again) finds the mark and sends
+  nothing. A send that fails clears the mark again and the job is retried
+  (up to three attempts).
 
   ## Never in the way
 
-  The send runs in the confirming request, after the confirmation is
-  committed, and nothing it raises or exits with reaches the caller — the
-  confirmation succeeds whatever happens to the email; a failure is logged.
+  A node without Oban running logs that the job could not be enqueued, and
+  the confirmation goes on. An error from the insert itself is re-raised
+  inside a transaction rather than swallowed: a statement failed, so the
+  transaction is aborted already, and hiding the error would only move the
+  failure to the caller's next statement (or turn the confirmation into a
+  silent rollback).
   """
-
-  import Ecto.Query, only: [from: 2]
 
   require Logger
 
   alias PhoenixKit.RepoHelper, as: Repo
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.Auth.UserNotifier
+  alias PhoenixKit.Users.WelcomeEmailWorker
 
   @setting "email_welcome_enabled"
   @sent_key "welcome_email_sent_at"
@@ -66,76 +79,68 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   def enabled?, do: Settings.get_boolean_setting(@setting, false)
 
   @doc """
-  Sends the welcome email to a user who has just confirmed their address,
-  unless it is switched off or was already sent.
+  Enqueues the welcome email for a user who has just confirmed their
+  address, unless it is switched off.
 
-  Returns `:sent`, `:skipped` (off, already sent, not confirmed) or
-  `:error` (logged). Never raises.
+  Returns `:enqueued`, `:skipped` (off, not confirmed) or `:error` (logged).
   """
-  @spec after_confirmation(User.t() | term()) :: :sent | :skipped | :error
-  def after_confirmation(%User{confirmed_at: %_{}} = user) do
-    with true <- enabled?(),
-         {:ok, claimed} <- claim(user) do
-      deliver(claimed)
-    else
-      _ -> :skipped
-    end
-  rescue
-    error ->
-      log_failure(user, Exception.message(error))
-      :error
-  catch
-    kind, reason ->
-      log_failure(user, inspect({kind, reason}))
-      :error
+  @spec after_confirmation(User.t() | term()) :: :enqueued | :skipped | :error
+  def after_confirmation(%User{confirmed_at: %_{}, uuid: uuid} = user) when is_binary(uuid) do
+    if enabled?(), do: enqueue(user), else: :skipped
   end
 
   def after_confirmation(_user), do: :skipped
 
-  # One statement: the mark is written only where it is absent, so the row
-  # lock decides which of two racing confirmations sends.
-  defp claim(user) do
-    sent_at = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+  @doc """
+  `after_confirmation/1` as a step of `multi`, after the step that confirms
+  the user (`:user`) — so the job is inserted in the confirmation's own
+  transaction.
+  """
+  @spec multi(Ecto.Multi.t()) :: Ecto.Multi.t()
+  def multi(multi) do
+    Ecto.Multi.run(multi, :welcome_email, fn _repo, %{user: user} ->
+      {:ok, after_confirmation(user)}
+    end)
+  end
 
-    query =
-      from(u in User,
-        where:
-          u.uuid == ^user.uuid and not is_nil(u.confirmed_at) and
-            fragment("(? -> ?) IS NULL", u.custom_fields, ^@sent_key),
-        update: [
-          set: [
-            custom_fields:
-              fragment(
-                "COALESCE(?, '{}'::jsonb) || jsonb_build_object(?::text, ?::text)",
-                u.custom_fields,
-                ^@sent_key,
-                ^sent_at
-              )
-          ]
-        ],
-        select: u
-      )
-
-    case Repo.update_all(query, []) do
-      {1, [claimed]} -> {:ok, claimed}
-      {0, _} -> :already_sent
+  # Oban not running on this node is the expected miss, told apart before any
+  # SQL runs. Anything the insert itself raises inside a transaction is
+  # re-raised: a statement failed, so the transaction is aborted already.
+  defp enqueue(user) do
+    if Oban.whereis(Oban) do
+      insert(user)
+    else
+      log_failure(user, "Oban is not running on this node")
+      :error
     end
   end
 
-  defp deliver(user) do
-    case UserNotifier.deliver_welcome(user) do
-      {:ok, _email} ->
-        :sent
+  defp insert(user) do
+    case Oban.insert(WelcomeEmailWorker.new(%{"user_uuid" => user.uuid})) do
+      {:ok, _job} ->
+        :enqueued
 
       {:error, reason} ->
         log_failure(user, inspect(reason))
         :error
     end
+  rescue
+    error ->
+      if Repo.repo().in_transaction?(), do: reraise(error, __STACKTRACE__)
+
+      log_failure(user, Exception.message(error))
+      :error
+  catch
+    :exit, reason ->
+      if Repo.repo().in_transaction?(), do: exit(reason)
+
+      log_failure(user, inspect(reason))
+      :error
   end
 
   defp log_failure(user, reason) do
     Logger.error(
-      "[PhoenixKit] Welcome email to user #{inspect(Map.get(user, :uuid))} failed: #{reason}"
+      "[PhoenixKit] Could not enqueue the welcome email for user #{inspect(user.uuid)}: #{reason}"
     )
   end
 end

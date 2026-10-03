@@ -156,8 +156,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   @doc """
   Deliver the welcome email to a user who has just confirmed their address.
 
-  Called only by `PhoenixKit.Users.WelcomeEmail`, which decides whether and
-  when — it is off by default and sent at most once.
+  Called only by `PhoenixKit.Users.WelcomeEmailWorker`, after the
+  confirmation commits — see `PhoenixKit.Users.WelcomeEmail` for when and
+  how often.
   """
   def deliver_welcome(user) do
     deliver_templated(
