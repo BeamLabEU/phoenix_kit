@@ -83,14 +83,21 @@ default Markdown that no longer says the same thing. To keep buttons — or a
 module's richer HTML, such as an invoice's table of lines — override
 `markdown.md` or `html.html` instead.
 
-> Up to 2.45 a `text.txt` came after the defaults for the HTML body. It made
-> no difference while PhoenixKit's own defaults were plain text; since they
-> are Markdown, a host that had overridden `text.txt` would otherwise have
-> been sent PhoenixKit's wording in the HTML version.
+> Earlier releases put a `text.txt` after the defaults for the HTML body. It
+> made no difference while PhoenixKit's own defaults were plain text; now
+> that they are Markdown, a host that had overridden `text.txt` would
+> otherwise have been sent PhoenixKit's wording in the HTML version.
+
+The exception is an email sent [without the layout](#sending-one-email-without-the-layout)
+(`layout: false`): there your `text.txt` builds no HTML, so the HTML version
+still comes from the default `html` or `markdown`. Override `markdown.md` or
+`html.html` for such an email to change both versions.
 
 An empty or whitespace-only file counts as missing for the bodies. It still
-hides the default of the same part: an empty `text.txt` does **not** bring
-back the default text.
+hides the default of the same part — an empty `text.txt` does not bring back
+a default `text` — but the next part in line is used: for PhoenixKit's own
+emails, whose defaults are Markdown, an empty `text.txt` leaves the text
+version to the default `markdown.md`.
 
 Files are read once and cached; changing one takes a restart (a deploy).
 
@@ -181,21 +188,37 @@ reader's language; its default is `text`, `{{text}}` and then `{{url}}`.
 
 Off until you switch it on: **Settings → Emails Transactional → Branding →
 Welcome email** (the `email_welcome_enabled` setting). It is then sent once
-to each user, right after they confirm their address — by the link in the
+to each user, after they confirm their own address — by the link in the
 confirmation email, by signing in with a magic link or with an OAuth
-provider that verified the address while the account was unconfirmed, or by
-registering with a magic link. An administrator confirming an account by
+provider that verified the address while the account was unconfirmed, by
+registering with a magic link, or by correcting an address they had not
+confirmed yet ("Wrong email?"). An administrator confirming an account by
 hand sends nothing.
 
+The confirmation enqueues a background job (Oban, queue `notifications`) in
+its own transaction; the job sends the email once the confirmation has
+committed. So the email needs Oban running on some node, as notification
+delivery already does — on a node without it the confirmation still
+succeeds and the log says the welcome email could not be enqueued. Sending
+never holds up the confirmation, and a confirmation that is rolled back
+never sends one.
+
 "Once" is recorded on the account (`welcome_email_sent_at` in its custom
-fields) before the email is sent, so a confirmation repeated later, or two
-racing, never sends a second one; a send that fails is logged and not
-retried. Sending never holds up the confirmation: whatever happens to the
-email, the account is confirmed.
+fields) before the email goes out, so a confirmation repeated later never
+sends a second one. A send that fails clears the mark and the job is retried
+(up to three attempts).
 
 The button leads to `{{site_url}}` — the site URL the footer shows. To say
 more, or link elsewhere, override `welcome/markdown.md` like any other
 email.
+
+### Names PhoenixKit uses
+
+The names in the table above belong to PhoenixKit — `welcome` and
+`notification` among them. Give your own emails other names: a file
+directory under one of these names rewrites PhoenixKit's email, and an
+active database template of the emails module with one of these names
+replaces it outright.
 
 ## The layout every email is wrapped in
 
@@ -359,7 +382,9 @@ PhoenixKit.Mailer.send_from_template("export_ready", email, vars,
 
 With `layout: false` a text-only email is sent as plain text, an `html`
 part is sent exactly as written, and a `markdown` part is sent as the bare
-HTML it renders to.
+HTML it renders to. Your `text.txt` does not become HTML here, so if the
+email has a default `html` or `markdown`, that still makes the HTML version
+— override `markdown.md` or `html.html` to change both.
 
 ### Using the header and footer in your own document
 

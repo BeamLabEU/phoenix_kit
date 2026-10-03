@@ -68,11 +68,18 @@ defmodule PhoenixKit.Email.Content do
   `PhoenixKit.Email.Markdown` (buttons, accent-coloured links); text is
   escaped into paragraphs by `Layout.text_to_html/1`.
 
-  > Up to 2.45, a host's `text` came after the defaults for the HTML body
-  > (`html` default, then `markdown` default). It changes only an email whose
-  > caller ships an `html` or `markdown` default *and* whose host overrides
-  > `text` alone — which core's own emails began to be when their defaults
-  > became Markdown.
+  > Earlier releases put a host's `text` after the defaults for the HTML
+  > body (`html` default, then `markdown` default). The order matters only
+  > for an email whose caller ships an `html` or `markdown` default *and*
+  > whose host overrides `text` alone — which core's own emails began to be
+  > when their defaults became Markdown.
+
+  **With `layout: false`** a host's `text` builds no HTML (see "The
+  layout"), so its row is skipped and the HTML comes from the caller's
+  `html` or `markdown` default, if there is one, while the text body is the
+  host's. A caller that sends without the layout and ships an `html` or
+  `markdown` default keeps the two versions in step only through a host's
+  `markdown.md` or `html.html`.
 
   A blank `html`, `text` or `markdown` (an empty override file, whitespace
   only) counts as no part, with or without the layout, so an empty
@@ -96,7 +103,9 @@ defmodule PhoenixKit.Email.Content do
       alone; it already carries its own chrome.
     * no `html`, `markdown` or `text` — nothing to wrap, `html` stays `nil`.
     * `layout: false` — nothing is wrapped, and a text-only message stays
-      text-only (`html` is `nil`).
+      text-only (`html` is `nil`). A host's `text` then builds no HTML at
+      all, so the HTML body may still come from the caller's `html` or
+      `markdown` default (see "Which part makes which body").
 
   **Groups.** `layout: "billing"` wraps the message in the `billing` group's
   chrome (`_layout-billing`, `_header-billing`, `_footer-billing`, each
