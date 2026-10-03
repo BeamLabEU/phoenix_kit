@@ -535,6 +535,21 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
       assert jobs() == []
     end
 
+    test "the caller's own lock_timeout is back after the welcome email is enqueued" do
+      user = create_user()
+      token = confirmation_token(user)
+
+      assert {:ok, after_confirming} =
+               Repo.transaction(fn ->
+                 Repo.query!("SET LOCAL lock_timeout = '5s'")
+                 assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(token)
+                 Repo.query!("SELECT current_setting('lock_timeout')").rows
+               end)
+
+      assert after_confirming == [["5s"]]
+      assert [_] = jobs()
+    end
+
     test "oban_jobs locked by another connection: the confirmation commits without a job" do
       parent = self()
 
