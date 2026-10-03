@@ -26,35 +26,53 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   them. `admin_confirm_user/1` stays silent for the same reason — magic-link
   registration calls this module itself, after it.
 
+  ## Only a real transition
+
+  The transactional paths record, before they confirm, whether the row is
+  still unconfirmed as their transaction sees it (`track_transition/2`, a
+  `SELECT … FOR UPDATE`), and enqueue only then (`multi/1`). A confirmation
+  link clicked after an administrator already confirmed the account, or a
+  second tab holding a stale unconfirmed struct, confirms nothing new and
+  enqueues nothing. Magic-link registration confirms an account it has just
+  created, so its transition is real by construction.
+
   ## After the confirmation commits
 
   `after_confirmation/1` only enqueues a job
   (`PhoenixKit.Users.WelcomeEmailWorker`, queue `notifications`). The
-  confirmation paths enqueue it inside the transaction that confirms the
+  confirmation link, the external-proof confirmation and the address
+  correction enqueue it as a step of the transaction that confirms the
   address (`multi/1`), so the job exists exactly when the confirmation does:
   a rollback — of the confirmation, or of a caller's transaction around it,
-  such as the OAuth callback's — takes the job with it. Nothing is claimed
-  and nothing is sent while a transaction is open, and no mail server ever
-  holds a row lock.
+  such as the OAuth callback's — takes the job with it. Magic-link
+  registration enqueues it right after `admin_confirm_user/1` has committed,
+  outside any transaction. Nothing is claimed and nothing is sent while a
+  transaction is open, and no mail server ever holds a row lock — except
+  under Oban's `testing: :inline`, which runs a job the moment it is
+  inserted (a host's test setup, never production).
 
-  ## Once
+  ## Once — at most
 
-  The job is unique per user, and before sending it claims the account with
-  one conditional `UPDATE` that records `welcome_email_sent_at` in its
-  `custom_fields` only if it is not there yet. A confirmation repeated later
-  (an address unconfirmed and confirmed again) finds the mark and sends
-  nothing. A send that fails clears the mark again and the job is retried
-  (up to three attempts).
+  One job is enqueued per real transition, and before sending it claims
+  the account with one conditional `UPDATE` that records
+  `welcome_email_sent_at` in its `custom_fields` only if it is not there
+  yet. A confirmation repeated later (an address unconfirmed and confirmed
+  again) finds the mark and sends nothing. The mark is cleared for a retry
+  only when the email is known not to have gone out; see
+  `PhoenixKit.Users.WelcomeEmailWorker` for why a failure during delivery,
+  or a node dying between the claim and the send, loses the email instead
+  of risking a second one.
 
   ## Never in the way
 
-  A node without Oban running logs that the job could not be enqueued, and
-  the confirmation goes on. An error from the insert itself is re-raised
-  inside a transaction rather than swallowed: a statement failed, so the
-  transaction is aborted already, and hiding the error would only move the
-  failure to the caller's next statement (or turn the confirmation into a
-  silent rollback).
+  Nothing about the welcome email fails a confirmation. A node without Oban
+  running logs that the job could not be enqueued. Inside a transaction the
+  insert runs under its own savepoint: if it fails, only the savepoint is
+  rolled back, the error is logged, and the confirmation commits without a
+  job.
   """
+
+  import Ecto.Query, only: [from: 2]
 
   require Logger
 
@@ -92,50 +110,93 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   def after_confirmation(_user), do: :skipped
 
   @doc """
+  Records, as a step of `multi` placed **before** the step that confirms
+  `user`, whether the user's row is still unconfirmed — locked
+  (`FOR UPDATE`), so of two transactions confirming the same row only the
+  first sees the transition. `multi/1` reads it.
+  """
+  @spec track_transition(Ecto.Multi.t(), User.t()) :: Ecto.Multi.t()
+  def track_transition(multi, %User{uuid: uuid}) do
+    Ecto.Multi.run(multi, :welcome_transition, fn repo, _changes ->
+      unconfirmed? =
+        repo.one(
+          from(u in User,
+            where: u.uuid == ^uuid,
+            select: is_nil(u.confirmed_at),
+            lock: "FOR UPDATE"
+          )
+        )
+
+      {:ok, unconfirmed? == true}
+    end)
+  end
+
+  @doc """
   `after_confirmation/1` as a step of `multi`, after the step that confirms
   the user (`:user`) — so the job is inserted in the confirmation's own
-  transaction.
+  transaction — when `track_transition/2` saw the row unconfirmed. Without
+  that step nothing is enqueued.
   """
   @spec multi(Ecto.Multi.t()) :: Ecto.Multi.t()
   def multi(multi) do
-    Ecto.Multi.run(multi, :welcome_email, fn _repo, %{user: user} ->
-      {:ok, after_confirmation(user)}
+    Ecto.Multi.run(multi, :welcome_email, fn _repo, changes ->
+      case changes do
+        %{welcome_transition: true, user: user} -> {:ok, after_confirmation(user)}
+        _ -> {:ok, :skipped}
+      end
     end)
   end
 
   # Oban not running on this node is the expected miss, told apart before any
-  # SQL runs. Anything the insert itself raises inside a transaction is
-  # re-raised: a statement failed, so the transaction is aborted already.
+  # SQL runs.
   defp enqueue(user) do
     if Oban.whereis(Oban) do
-      insert(user)
+      guarded_insert(user)
     else
       log_failure(user, "Oban is not running on this node")
       :error
     end
   end
 
+  # Inside a transaction the insert gets a savepoint of its own: a statement
+  # that fails would otherwise abort the confirmation's transaction too.
+  defp guarded_insert(user) do
+    repo = Repo.repo()
+
+    if repo.in_transaction?() do
+      repo.query!("SAVEPOINT pk_welcome_email")
+
+      case insert(user) do
+        {:ok, result} ->
+          repo.query!("RELEASE SAVEPOINT pk_welcome_email")
+          result
+
+        {:failed, reason} ->
+          repo.query!("ROLLBACK TO SAVEPOINT pk_welcome_email")
+          log_failure(user, reason)
+          :error
+      end
+    else
+      case insert(user) do
+        {:ok, result} ->
+          result
+
+        {:failed, reason} ->
+          log_failure(user, reason)
+          :error
+      end
+    end
+  end
+
   defp insert(user) do
     case Oban.insert(WelcomeEmailWorker.new(%{"user_uuid" => user.uuid})) do
-      {:ok, _job} ->
-        :enqueued
-
-      {:error, reason} ->
-        log_failure(user, inspect(reason))
-        :error
+      {:ok, _job} -> {:ok, :enqueued}
+      {:error, reason} -> {:failed, inspect(reason)}
     end
   rescue
-    error ->
-      if Repo.repo().in_transaction?(), do: reraise(error, __STACKTRACE__)
-
-      log_failure(user, Exception.message(error))
-      :error
+    error -> {:failed, Exception.message(error)}
   catch
-    :exit, reason ->
-      if Repo.repo().in_transaction?(), do: exit(reason)
-
-      log_failure(user, inspect(reason))
-      :error
+    kind, reason -> {:failed, inspect({kind, reason})}
   end
 
   defp log_failure(user, reason) do

@@ -27,9 +27,31 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
     def get_active_template_by_name(_name), do: raise("provider down")
   end
 
+  # Fails after the message was handed over: whether it went out is unknown.
+  defmodule RaisingAdapter do
+    @moduledoc false
+    use Swoosh.Adapter
+
+    @impl true
+    def deliver(_email, _config), do: raise("connection reset after DATA")
+  end
+
+  defp put_env_for_test(key, value) do
+    previous = Application.get_env(:phoenix_kit, key)
+    Application.put_env(:phoenix_kit, key, value)
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:phoenix_kit, key, previous),
+        else: Application.delete_env(:phoenix_kit, key)
+    end)
+  end
+
+  defp perform(user), do: WelcomeEmailWorker.perform(%Oban.Job{args: %{"user_uuid" => user.uuid}})
+
   setup do
     # No Oban runs under `mix test` otherwise. `:manual` inserts the job row
-    # (enforcing `unique:`) without running it; `run_jobs/0` runs them.
+    # without running it; `run_jobs/0` runs them.
     start_supervised!(
       {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
     )
@@ -163,8 +185,8 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
       assert {:ok, confirmed} = Auth.confirm_user_from_external_proof(user)
       # Already confirmed: nothing to confirm, nothing to enqueue.
       assert {:ok, _} = Auth.confirm_user_from_external_proof(confirmed)
-      # A second tab with the stale, unconfirmed struct confirms again: the
-      # job is unique per user.
+      # A second tab with the stale, unconfirmed struct confirms again, but
+      # the row is no longer unconfirmed: no transition, no job.
       assert {:ok, _} = Auth.confirm_user_from_external_proof(user)
 
       assert [_] = jobs()
@@ -290,10 +312,9 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
     test "a second run for the same user finds the mark and sends nothing" do
       user = create_user()
       {:ok, _confirmed} = Auth.admin_confirm_user(user)
-      job = %Oban.Job{args: %{"user_uuid" => user.uuid}}
 
-      assert :ok = WelcomeEmailWorker.perform(job)
-      assert :ok = WelcomeEmailWorker.perform(job)
+      assert :ok = perform(user)
+      assert :ok = perform(user)
       assert [_] = welcome_emails(user.email)
     end
 
@@ -309,56 +330,146 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
       assert log =~ "Could not enqueue the welcome email"
     end
 
-    # The transaction is aborted by then: swallowing the error would only fail
-    # the caller's next statement (25P02) — or, as the last step, turn the
-    # confirmation into a silent rollback.
-    test "a database error while enqueueing inside the confirmation's transaction is raised" do
-      # An insert the database refuses — rolled back with the test's sandbox
-      # transaction.
+    # Nothing about the welcome email fails a confirmation: the insert runs
+    # under its own savepoint, so a statement the database refuses rolls back
+    # only that savepoint.
+    defp refuse_welcome_jobs do
       Repo.query!(
         "ALTER TABLE oban_jobs ADD CONSTRAINT pk_test_refuse_welcome " <>
           "CHECK (worker <> 'PhoenixKit.Users.WelcomeEmailWorker')"
       )
+    end
 
+    test "an enqueue the database refuses: the confirmation link still confirms, without a job" do
+      refuse_welcome_jobs()
       user = create_user()
       token = confirmation_token(user)
 
-      assert_raise Ecto.ConstraintError, fn -> Auth.confirm_user(token) end
-      assert reload(user).confirmed_at == nil
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(token)
+        end)
+
+      assert log =~ "Could not enqueue the welcome email"
+      assert reload(user).confirmed_at
+      assert jobs() == []
     end
 
-    test "a send that fails clears the mark, so the job's retry can send it" do
-      previous = Application.get_env(:phoenix_kit, :email_provider)
-      Application.put_env(:phoenix_kit, :email_provider, __MODULE__.RaisingProvider)
-
-      on_exit(fn ->
-        if previous,
-          do: Application.put_env(:phoenix_kit, :email_provider, previous),
-          else: Application.delete_env(:phoenix_kit, :email_provider)
-      end)
-
+    test "an enqueue the database refuses: a magic-link or OAuth confirmation still confirms" do
+      refuse_welcome_jobs()
       user = create_user()
-      assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(confirmation_token(user))
 
       log =
         ExUnit.CaptureLog.capture_log(fn ->
-          assert_raise RuntimeError, "provider down", fn ->
-            WelcomeEmailWorker.perform(%Oban.Job{args: %{"user_uuid" => user.uuid}})
-          end
+          assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user_from_external_proof(user)
         end)
 
-      assert log =~ "Welcome email to user"
+      assert log =~ "Could not enqueue the welcome email"
+      assert reload(user).confirmed_at
+      assert jobs() == []
+    end
+
+    test "building the email fails: the mark is cleared and the retry sends it" do
+      put_env_for_test(:email_provider, __MODULE__.RaisingProvider)
+      user = create_user()
+      assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(confirmation_token(user))
+
+      log = ExUnit.CaptureLog.capture_log(fn -> assert {:error, _} = perform(user) end)
+
+      assert log =~ "provider down (will retry)"
       refute marked?(user)
 
-      Application.put_env(
-        :phoenix_kit,
-        :email_provider,
-        previous || PhoenixKit.Email.DefaultProvider
-      )
-
-      assert :ok = WelcomeEmailWorker.perform(%Oban.Job{args: %{"user_uuid" => user.uuid}})
+      Application.delete_env(:phoenix_kit, :email_provider)
+      assert :ok = perform(user)
       assert [_] = welcome_emails(user.email)
       assert marked?(user)
+    end
+
+    test "the mailer refuses it: the mark is cleared and the retry sends one" do
+      user = create_user()
+      assert {:ok, _} = Auth.confirm_user(confirmation_token(user))
+
+      # A default send integration missing a required field: the mailer
+      # answers {:error, _} without handing the message to anyone.
+      {:ok, %{uuid: uuid}} = PhoenixKit.Integrations.add_connection("smtp", "half relay")
+
+      {:ok, _} =
+        PhoenixKit.Integrations.save_setup(uuid, %{
+          "host" => "smtp.example.com",
+          "port" => "587",
+          "username" => "user",
+          "password" => "pw"
+        })
+
+      :ok = PhoenixKit.Integrations.record_validation(uuid, :ok)
+      {:ok, _} = Settings.update_setting("default_email_integration_uuid", uuid)
+      {:ok, _} = PhoenixKit.Integrations.save_setup(uuid, %{"host" => ""})
+
+      log = ExUnit.CaptureLog.capture_log(fn -> assert {:error, _} = perform(user) end)
+      assert log =~ "will retry"
+      refute marked?(user)
+
+      {:ok, _} = Settings.update_setting("default_email_integration_uuid", "")
+      assert :ok = perform(user)
+      assert [_] = welcome_emails(user.email)
+    end
+
+    test "delivery raises: the mark stays and the job is cancelled, never retried" do
+      user = create_user()
+      assert {:ok, _} = Auth.confirm_user(confirmation_token(user))
+      put_env_for_test(PhoenixKit.Mailer, adapter: __MODULE__.RaisingAdapter)
+
+      log = ExUnit.CaptureLog.capture_log(fn -> assert {:cancel, _} = perform(user) end)
+
+      assert log =~ "it may have been sent; not retried"
+      assert marked?(user)
+    end
+
+    test "an address unconfirmed again before the job runs gets nothing" do
+      user = create_user()
+      assert {:ok, confirmed} = Auth.confirm_user(confirmation_token(user))
+      {:ok, _} = Auth.admin_unconfirm_user(confirmed)
+
+      run_jobs()
+      assert welcome_emails(user.email) == []
+      refute marked?(user)
+    end
+
+    test "a user deactivated before the job runs gets nothing" do
+      user = create_user()
+      assert {:ok, confirmed} = Auth.confirm_user(confirmation_token(user))
+      {:ok, _} = confirmed |> Ecto.Changeset.change(is_active: false) |> Repo.update()
+
+      log = ExUnit.CaptureLog.capture_log(fn -> run_jobs() end)
+
+      assert log =~ "skipped: deactivated"
+      assert welcome_emails(user.email) == []
+      refute marked?(user)
+    end
+
+    test "an old confirmation link clicked after an administrator confirmed enqueues nothing" do
+      user = create_user()
+      token = confirmation_token(user)
+      {:ok, _} = Auth.admin_confirm_user(user)
+
+      assert {:ok, _} = Auth.confirm_user(token)
+      assert jobs() == []
+    end
+
+    test "a job that ran while it was switched off does not block a later one" do
+      user = create_user()
+      assert {:ok, confirmed} = Auth.confirm_user(confirmation_token(user))
+      {:ok, _} = Settings.update_setting(WelcomeEmail.setting_key(), "false")
+      run_jobs()
+      assert welcome_emails(user.email) == []
+
+      enable()
+      {:ok, unconfirmed} = Auth.admin_unconfirm_user(confirmed)
+      assert {:ok, _} = Auth.confirm_user(confirmation_token(unconfirmed))
+      assert length(jobs()) == 2
+
+      run_jobs()
+      assert [_] = welcome_emails(user.email)
     end
   end
 end

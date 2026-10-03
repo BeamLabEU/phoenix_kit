@@ -10,20 +10,34 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
   ## What a run does
 
     1. Nothing, when the welcome email has been switched off since, or the
-       user is gone or no longer confirmed.
+       user is gone. A deactivated user (`is_active` false) gets nothing
+       either, with a line in the log.
     2. Claims the account: one conditional `UPDATE` writes
-       `welcome_email_sent_at` into `custom_fields` only where it is absent.
-       No row updated means it was sent already — done.
-    3. Sends. A failed send clears the mark and returns the error, so Oban
-       retries; a mark is only left behind by a send that went out.
+       `welcome_email_sent_at` into `custom_fields` only where it is absent
+       and the address is confirmed. No row updated means it was sent
+       already, or the address is no longer confirmed — done.
+    3. Builds the message, then hands it to the mailer.
+
+  ## At most once
+
+  The mark is cleared — and the job retried — only when the message is known
+  not to have gone out: building it failed (rendering, a template, the
+  provider; raised, thrown or exited), or the mailer answered
+  `{:error, reason}`. A raise or exit *during* delivery leaves it unknown
+  whether the message went out, so the mark stays, the error is logged and
+  the job is cancelled rather than retried. So is a node that dies between
+  the claim and the send: that welcome email is lost. Both are deliberate —
+  a missing welcome email is a smaller harm than a second one.
   """
 
-  use Oban.Worker,
-    queue: :notifications,
-    max_attempts: 3,
-    # One job per user for as long as Oban keeps it; the claim in the user's
-    # row is what holds for ever.
-    unique: [keys: [:user_uuid], period: :infinity]
+  # No `unique:` on purpose. Oban checks uniqueness inside a nested
+  # transaction of its own, and a failed nested transaction marks the
+  # caller's — the confirmation's — for rollback; the plain insert can be
+  # guarded with a savepoint instead (`PhoenixKit.Users.WelcomeEmail`). A job
+  # is enqueued once per real unconfirmed -> confirmed transition, and the
+  # mark in the user's row keeps a second job (an address confirmed, unconfirmed
+  # and confirmed again before the first ran) from sending a second email.
+  use Oban.Worker, queue: :notifications, max_attempts: 3
 
   import Ecto.Query, only: [from: 2]
 
@@ -36,33 +50,73 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"user_uuid" => uuid}}) when is_binary(uuid) do
-    if WelcomeEmail.enabled?(), do: claim_and_send(uuid), else: :ok
+    if WelcomeEmail.enabled?(), do: run(uuid), else: :ok
   end
 
   def perform(_job), do: :ok
 
+  defp run(uuid) do
+    case Repo.get(User, uuid) do
+      %User{is_active: false} ->
+        Logger.warning("[PhoenixKit] Welcome email to user #{inspect(uuid)} skipped: deactivated")
+        :ok
+
+      %User{} ->
+        claim_and_send(uuid)
+
+      nil ->
+        :ok
+    end
+  end
+
   defp claim_and_send(uuid) do
     case claim(uuid) do
-      {:ok, user} -> send_claimed(user)
+      {:ok, user} -> build_and_send(user)
       :not_claimed -> :ok
     end
   end
 
-  defp send_claimed(user) do
-    case UserNotifier.deliver_welcome(user) do
-      {:ok, _email} ->
-        :ok
+  defp build_and_send(user) do
+    case build(user) do
+      {:ok, email} ->
+        send_built(user, email)
 
       {:error, reason} ->
-        release(user.uuid)
-        log_failure(user.uuid, inspect(reason))
-        {:error, reason}
+        not_sent(user, reason)
+    end
+  end
+
+  # Before the mailer: whatever goes wrong here, nothing was sent.
+  defp build(user) do
+    {:ok, UserNotifier.build_welcome(user)}
+  rescue
+    error -> {:error, Exception.message(error)}
+  catch
+    kind, reason -> {:error, inspect({kind, reason})}
+  end
+
+  defp send_built(user, email) do
+    case UserNotifier.deliver_built(email) do
+      {:ok, _email} -> :ok
+      {:error, reason} -> not_sent(user, inspect(reason))
     end
   rescue
-    error ->
-      release(user.uuid)
-      log_failure(user.uuid, Exception.message(error))
-      reraise error, __STACKTRACE__
+    error -> unknown(user, Exception.message(error))
+  catch
+    kind, reason -> unknown(user, inspect({kind, reason}))
+  end
+
+  # Known not to have gone out: clear the mark so the retry can send it.
+  defp not_sent(user, reason) do
+    release(user.uuid)
+    log_failure(user.uuid, reason <> " (will retry)")
+    {:error, reason}
+  end
+
+  # It may have gone out: keep the mark, do not retry.
+  defp unknown(user, reason) do
+    log_failure(user.uuid, reason <> " (it may have been sent; not retried)")
+    {:cancel, reason}
   end
 
   # One statement: the mark is written only where it is absent and the

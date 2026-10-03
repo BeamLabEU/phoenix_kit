@@ -46,28 +46,35 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   # address where no account exists yet); `address` is who it is sent to. They
   # differ only on the magic-link registration path.
   defp deliver_templated(recipient, address, name, variables, defaults) do
+    recipient
+    |> build_templated(address, name, variables, defaults)
+    |> deliver_built()
+  end
+
+  # Resolves the content and builds the message; nothing is handed to the
+  # mailer yet.
+  defp build_templated(recipient, address, name, variables, defaults) do
     content = Content.resolve(name, recipient, variables, defaults)
 
     if content.db_template, do: Provider.current().track_usage(content.db_template)
 
-    deliver(address, content.subject, content.text, content.html)
+    new()
+    |> to(address)
+    |> from({get_from_name(), get_from_email()})
+    |> subject(content.subject)
+    |> text_body(content.text)
+    |> html_body(content.html)
   end
 
-  # Delivers the email using the appropriate mailer.
-  # Uses the configured parent application mailer if available,
-  # otherwise falls back to PhoenixKit's built-in mailer.
-  defp deliver(recipient, subject, text_body, html_body) do
-    from_email = get_from_email()
-    from_name = get_from_name()
+  @doc """
+  Hands a message built here (`build_welcome/1`) to the mailer — the
+  configured parent application mailer if there is one, otherwise
+  PhoenixKit's built-in one.
 
-    email =
-      new()
-      |> to(recipient)
-      |> from({from_name, from_email})
-      |> subject(subject)
-      |> text_body(text_body)
-      |> html_body(html_body)
-
+  `{:error, reason}` means the mailer refused it: it was not sent.
+  """
+  @spec deliver_built(Swoosh.Email.t()) :: {:ok, Swoosh.Email.t()} | {:error, term()}
+  def deliver_built(%Swoosh.Email{} = email) do
     with {:ok, _metadata} <-
            Mailer.deliver_email(email,
              user_uuid: nil,
@@ -154,14 +161,22 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   end
 
   @doc """
-  Deliver the welcome email to a user who has just confirmed their address.
+  Builds and delivers the welcome email to `user` in one call.
 
-  Called only by `PhoenixKit.Users.WelcomeEmailWorker`, after the
-  confirmation commits — see `PhoenixKit.Users.WelcomeEmail` for when and
-  how often.
+  The welcome email itself is sent by `PhoenixKit.Users.WelcomeEmailWorker`
+  (see `PhoenixKit.Users.WelcomeEmail` for when and how often), which uses
+  `build_welcome/1` and `deliver_built/1` separately.
   """
-  def deliver_welcome(user) do
-    deliver_templated(
+  def deliver_welcome(user), do: user |> build_welcome() |> deliver_built()
+
+  @doc """
+  The welcome email for `user`, built but not sent — so
+  `PhoenixKit.Users.WelcomeEmailWorker` can tell a failure before the mailer
+  (nothing sent) from one during delivery (unknown).
+  """
+  @spec build_welcome(map()) :: Swoosh.Email.t()
+  def build_welcome(user) do
+    build_templated(
       user,
       user.email,
       "welcome",
