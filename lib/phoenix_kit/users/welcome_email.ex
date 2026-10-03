@@ -30,7 +30,7 @@ defmodule PhoenixKit.Users.WelcomeEmail do
 
   The transactional paths record, before they confirm, whether the row is
   still unconfirmed as their transaction sees it (`track_transition/2`, a
-  `SELECT … FOR UPDATE`), and enqueue only then (`multi/1`). A confirmation
+  `SELECT … FOR NO KEY UPDATE`), and enqueue only then (`multi/1`). A confirmation
   link clicked after an administrator already confirmed the account, or a
   second tab holding a stale unconfirmed struct, confirms nothing new and
   enqueues nothing. Magic-link registration confirms an account it has just
@@ -65,11 +65,13 @@ defmodule PhoenixKit.Users.WelcomeEmail do
 
   ## Never in the way
 
-  Nothing about the welcome email fails a confirmation. A node without Oban
-  running logs that the job could not be enqueued. Inside a transaction the
-  insert runs under its own savepoint: if it fails, only the savepoint is
-  rolled back, the error is logged, and the confirmation commits without a
-  job.
+  Enqueueing the welcome email never fails a confirmation that would
+  otherwise succeed. A node without Oban running logs that the job could not
+  be enqueued. Inside a transaction the insert runs under its own savepoint,
+  with a two-second `lock_timeout`: if it fails — refused, or kept
+  waiting on a locked `oban_jobs` — the error is logged, only the savepoint
+  is rolled back, and the confirmation commits without a job. (A connection
+  lost in the middle of the transaction fails the confirmation either way.)
   """
 
   import Ecto.Query, only: [from: 2]
@@ -82,6 +84,9 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   alias PhoenixKit.Users.WelcomeEmailWorker
 
   @setting "email_welcome_enabled"
+  # How long the job insert waits for a lock on `oban_jobs` inside the
+  # confirmation's transaction.
+  @lock_timeout "2s"
   @sent_key "welcome_email_sent_at"
 
   @doc ~s(The setting that switches the welcome email on: `"true"` or `"false"`.)
@@ -112,8 +117,10 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   @doc """
   Records, as a step of `multi` placed **before** the step that confirms
   `user`, whether the user's row is still unconfirmed — locked
-  (`FOR UPDATE`), so of two transactions confirming the same row only the
-  first sees the transition. `multi/1` reads it.
+  (`FOR NO KEY UPDATE`: it serialises confirmations of the row without
+  blocking foreign-key checks that only share its key), so of two
+  transactions confirming the same row only the first sees the transition.
+  `multi/1` reads it.
   """
   @spec track_transition(Ecto.Multi.t(), User.t()) :: Ecto.Multi.t()
   def track_transition(multi, %User{uuid: uuid}) do
@@ -123,7 +130,7 @@ defmodule PhoenixKit.Users.WelcomeEmail do
           from(u in User,
             where: u.uuid == ^uuid,
             select: is_nil(u.confirmed_at),
-            lock: "FOR UPDATE"
+            lock: "FOR NO KEY UPDATE"
           )
         )
 
@@ -159,21 +166,31 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   end
 
   # Inside a transaction the insert gets a savepoint of its own: a statement
-  # that fails would otherwise abort the confirmation's transaction too.
+  # that fails would otherwise abort the confirmation's transaction too. Under
+  # it, a short `lock_timeout`: a table held by a migration or `VACUUM FULL`
+  # would otherwise keep the insert waiting past the client's timeout, and a
+  # connection error cannot be rolled back to a savepoint. Rolling back to the
+  # savepoint undoes the `SET LOCAL` too; on success the caller's own value is
+  # put back before the savepoint is released.
   defp guarded_insert(user) do
     repo = Repo.repo()
 
     if repo.in_transaction?() do
       repo.query!("SAVEPOINT pk_welcome_email")
+      %{rows: [[previous]]} = repo.query!("SELECT current_setting('lock_timeout')")
+      repo.query!("SET LOCAL lock_timeout = '#{@lock_timeout}'")
 
       case insert(user) do
         {:ok, result} ->
+          repo.query!("SELECT set_config('lock_timeout', $1, true)", [previous])
           repo.query!("RELEASE SAVEPOINT pk_welcome_email")
           result
 
         {:failed, reason} ->
-          repo.query!("ROLLBACK TO SAVEPOINT pk_welcome_email")
+          # Logged first: should rolling back fail as well, the reason is
+          # still on record.
           log_failure(user, reason)
+          repo.query!("ROLLBACK TO SAVEPOINT pk_welcome_email")
           :error
       end
     else

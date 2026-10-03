@@ -10,12 +10,14 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
   # name: not async.
   use PhoenixKit.DataCase, async: false
 
+  alias Ecto.Adapters.SQL.Sandbox
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Users.OAuth
+  alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Users.WelcomeEmailWorker
   alias PhoenixKit.Utils.Routes
@@ -27,13 +29,31 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
     def get_active_template_by_name(_name), do: raise("provider down")
   end
 
-  # Fails after the message was handed over: whether it went out is unknown.
+  defmodule ExitingProvider do
+    @moduledoc false
+    def get_active_template_by_name(_name), do: exit(:provider_gone)
+  end
+
+  defmodule ThrowingProvider do
+    @moduledoc false
+    def get_active_template_by_name(_name), do: throw(:provider_threw)
+  end
+
+  # Fail after the message was handed over: whether it went out is unknown.
   defmodule RaisingAdapter do
     @moduledoc false
     use Swoosh.Adapter
 
     @impl true
     def deliver(_email, _config), do: raise("connection reset after DATA")
+  end
+
+  defmodule ExitingAdapter do
+    @moduledoc false
+    use Swoosh.Adapter
+
+    @impl true
+    def deliver(_email, _config), do: exit(:timeout)
   end
 
   defp put_env_for_test(key, value) do
@@ -456,6 +476,102 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
       assert jobs() == []
     end
 
+    test "delivery exits: the mark stays and the job is cancelled" do
+      user = create_user()
+      assert {:ok, _} = Auth.confirm_user(confirmation_token(user))
+      put_env_for_test(PhoenixKit.Mailer, adapter: __MODULE__.ExitingAdapter)
+
+      log = ExUnit.CaptureLog.capture_log(fn -> assert {:cancel, _} = perform(user) end)
+
+      assert log =~ "it may have been sent; not retried"
+      assert marked?(user)
+    end
+
+    for {provider, label} <- [{ExitingProvider, "exits"}, {ThrowingProvider, "throws"}] do
+      test "building the email #{label}: the mark is cleared for a retry" do
+        put_env_for_test(:email_provider, unquote(provider))
+        user = create_user()
+        assert {:ok, _} = Auth.confirm_user(confirmation_token(user))
+
+        log = ExUnit.CaptureLog.capture_log(fn -> assert {:error, _} = perform(user) end)
+
+        assert log =~ "(will retry)"
+        refute marked?(user)
+      end
+    end
+
+    test "the last attempt says it gives up" do
+      put_env_for_test(:email_provider, __MODULE__.RaisingProvider)
+      user = create_user()
+      assert {:ok, _} = Auth.confirm_user(confirmation_token(user))
+      job = %Oban.Job{args: %{"user_uuid" => user.uuid}, attempt: 3, max_attempts: 3}
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, _} = WelcomeEmailWorker.perform(job)
+        end)
+
+      assert log =~ "(giving up)"
+      refute log =~ "(will retry)"
+    end
+
+    test "Wrong email? after an administrator confirmed the account in between enqueues nothing" do
+      user = create_user()
+      new_email = unique_email()
+      {:ok, applied} = Auth.apply_user_email(user, @password, %{email: new_email})
+
+      {:ok, change_email} =
+        Auth.deliver_user_update_email_instructions(
+          applied,
+          user.email,
+          &"http://example.com/confirm_email/#{&1}"
+        )
+
+      [_, token] = Regex.run(~r/confirm_email\/([^\s"<)\]]+)/, change_email.text_body)
+      {:ok, _} = Auth.admin_confirm_user(user)
+
+      # The struct still says unconfirmed; the row no longer is.
+      assert :ok = Auth.update_user_email(user, token)
+      assert jobs() == []
+    end
+
+    test "oban_jobs locked by another connection: the confirmation commits without a job" do
+      parent = self()
+
+      holder =
+        Task.async(fn ->
+          Sandbox.unboxed_run(Repo, fn ->
+            Repo.transaction(fn ->
+              Repo.query!("LOCK TABLE oban_jobs IN ACCESS EXCLUSIVE MODE")
+              send(parent, :locked)
+
+              receive do
+                :release -> :ok
+              after
+                30_000 -> :ok
+              end
+            end)
+          end)
+        end)
+
+      assert_receive :locked, 10_000
+      user = create_user()
+      token = confirmation_token(user)
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:ok, %User{confirmed_at: %_{}}} = Auth.confirm_user(token)
+        end)
+
+      send(holder.pid, :release)
+      Task.await(holder, 15_000)
+
+      assert log =~ "Could not enqueue the welcome email"
+      assert log =~ "lock"
+      assert reload(user).confirmed_at
+      assert jobs() == []
+    end
+
     test "a job that ran while it was switched off does not block a later one" do
       user = create_user()
       assert {:ok, confirmed} = Auth.confirm_user(confirmation_token(user))
@@ -470,6 +586,90 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
 
       run_jobs()
       assert [_] = welcome_emails(user.email)
+    end
+  end
+
+  # On real connections, outside the sandbox: the only way two transactions
+  # can race. A third connection holds the user's row while both start, so
+  # both read it only after it is released — one after the other, thanks to
+  # `track_transition/2`'s lock, or both as unconfirmed without it.
+  describe "two confirmations of one stale struct, on separate connections" do
+    defp unboxed(fun), do: Sandbox.unboxed_run(Repo, fun)
+
+    setup do
+      previous = unboxed(fn -> Settings.get_setting(WelcomeEmail.setting_key()) end)
+      unboxed(fn -> {:ok, _} = Settings.update_setting(WelcomeEmail.setting_key(), "true") end)
+
+      user =
+        unboxed(fn ->
+          {:ok, user} = Auth.register_user(%{email: unique_email(), password: @password})
+          user
+        end)
+
+      on_exit(fn ->
+        unboxed(fn ->
+          Repo.delete_all(
+            from(j in Oban.Job, where: fragment("?->>'user_uuid' = ?", j.args, ^user.uuid))
+          )
+
+          Repo.delete_all(from(t in UserToken, where: t.user_uuid == ^user.uuid))
+          Repo.delete_all(from(a in RoleAssignment, where: a.user_uuid == ^user.uuid))
+          Repo.delete_all(from(u in User, where: u.uuid == ^user.uuid))
+          {:ok, _} = Settings.update_setting(WelcomeEmail.setting_key(), previous || "false")
+        end)
+      end)
+
+      %{user: user}
+    end
+
+    test "enqueue one job", %{user: user} do
+      parent = self()
+
+      holder =
+        Task.async(fn ->
+          unboxed(fn ->
+            Repo.transaction(fn ->
+              Repo.one!(
+                from(u in User, where: u.uuid == ^user.uuid, lock: "FOR UPDATE", select: u.uuid)
+              )
+
+              send(parent, :held)
+
+              receive do
+                :release -> :ok
+              after
+                30_000 -> :ok
+              end
+            end)
+          end)
+        end)
+
+      assert_receive :held, 10_000
+
+      racers =
+        for _ <- 1..2 do
+          Task.async(fn -> unboxed(fn -> Auth.confirm_user_from_external_proof(user) end) end)
+        end
+
+      # Both are waiting on the held row by now.
+      Process.sleep(500)
+      send(holder.pid, :release)
+      Task.await(holder, 15_000)
+
+      assert [{:ok, _}, {:ok, _}] = Task.await_many(racers, 15_000)
+
+      jobs =
+        unboxed(fn ->
+          Repo.all(
+            from(j in Oban.Job,
+              where:
+                j.worker == "PhoenixKit.Users.WelcomeEmailWorker" and
+                  fragment("?->>'user_uuid' = ?", j.args, ^user.uuid)
+            )
+          )
+        end)
+
+      assert length(jobs) == 1
     end
   end
 end

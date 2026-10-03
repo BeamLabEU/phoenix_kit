@@ -22,8 +22,8 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
 
   The mark is cleared — and the job retried — only when the message is known
   not to have gone out: building it failed (rendering, a template, the
-  provider; raised, thrown or exited), or the mailer answered
-  `{:error, reason}`. A raise or exit *during* delivery leaves it unknown
+  provider; raised, thrown or exited), or the mailer reported that it was not
+  sent (`{:error, reason}`). A raise or exit *during* delivery leaves it unknown
   whether the message went out, so the mark stays, the error is logged and
   the job is cancelled rather than retried. So is a node that dies between
   the claim and the send: that welcome email is lost. Both are deliberate —
@@ -49,40 +49,42 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
   alias PhoenixKit.Users.WelcomeEmail
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"user_uuid" => uuid}}) when is_binary(uuid) do
-    if WelcomeEmail.enabled?(), do: run(uuid), else: :ok
+  def perform(%Oban.Job{args: %{"user_uuid" => uuid}} = job) when is_binary(uuid) do
+    if WelcomeEmail.enabled?(), do: run(uuid, retry?(job)), else: :ok
   end
 
   def perform(_job), do: :ok
 
-  defp run(uuid) do
+  defp retry?(%Oban.Job{attempt: attempt, max_attempts: max}), do: attempt < max
+
+  defp run(uuid, retry?) do
     case Repo.get(User, uuid) do
       %User{is_active: false} ->
         Logger.warning("[PhoenixKit] Welcome email to user #{inspect(uuid)} skipped: deactivated")
         :ok
 
       %User{} ->
-        claim_and_send(uuid)
+        claim_and_send(uuid, retry?)
 
       nil ->
         :ok
     end
   end
 
-  defp claim_and_send(uuid) do
+  defp claim_and_send(uuid, retry?) do
     case claim(uuid) do
-      {:ok, user} -> build_and_send(user)
+      {:ok, user} -> build_and_send(user, retry?)
       :not_claimed -> :ok
     end
   end
 
-  defp build_and_send(user) do
+  defp build_and_send(user, retry?) do
     case build(user) do
       {:ok, email} ->
-        send_built(user, email)
+        send_built(user, email, retry?)
 
       {:error, reason} ->
-        not_sent(user, reason)
+        not_sent(user, reason, retry?)
     end
   end
 
@@ -95,10 +97,10 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
     kind, reason -> {:error, inspect({kind, reason})}
   end
 
-  defp send_built(user, email) do
+  defp send_built(user, email, retry?) do
     case UserNotifier.deliver_built(email) do
       {:ok, _email} -> :ok
-      {:error, reason} -> not_sent(user, inspect(reason))
+      {:error, reason} -> not_sent(user, inspect(reason), retry?)
     end
   rescue
     error -> unknown(user, Exception.message(error))
@@ -106,10 +108,11 @@ defmodule PhoenixKit.Users.WelcomeEmailWorker do
     kind, reason -> unknown(user, inspect({kind, reason}))
   end
 
-  # Known not to have gone out: clear the mark so the retry can send it.
-  defp not_sent(user, reason) do
+  # Known not to have gone out: clear the mark so a retry, or a later
+  # confirmation, can send it.
+  defp not_sent(user, reason, retry?) do
     release(user.uuid)
-    log_failure(user.uuid, reason <> " (will retry)")
+    log_failure(user.uuid, reason <> if(retry?, do: " (will retry)", else: " (giving up)"))
     {:error, reason}
   end
 
