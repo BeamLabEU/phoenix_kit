@@ -97,7 +97,7 @@ An empty or whitespace-only file counts as missing for the bodies. It still
 hides the default of the same part — an empty `text.txt` does not bring back
 a default `text` — but the next part in line is used: for PhoenixKit's own
 emails, whose defaults are Markdown, an empty `text.txt` leaves the text
-version to the default `markdown.md`.
+version to the default Markdown.
 
 Files are read once and cached; changing one takes a restart (a deploy).
 
@@ -195,18 +195,31 @@ registering with a magic link, or by correcting an address they had not
 confirmed yet ("Wrong email?"). An administrator confirming an account by
 hand sends nothing.
 
+Only a real change from unconfirmed to confirmed counts: an old confirmation
+link clicked after an administrator confirmed the account sends nothing.
+
 The confirmation enqueues a background job (Oban, queue `notifications`) in
 its own transaction; the job sends the email once the confirmation has
-committed. So the email needs Oban running on some node, as notification
-delivery already does — on a node without it the confirmation still
-succeeds and the log says the welcome email could not be enqueued. Sending
-never holds up the confirmation, and a confirmation that is rolled back
-never sends one.
+committed, and a confirmation that is rolled back never sends one. So the
+email needs Oban running on some node, as notification delivery already
+does. Nothing about it can fail a confirmation: on a node without Oban, or
+when the job cannot be stored, the account is confirmed and the log says
+why the welcome email was not enqueued.
 
-"Once" is recorded on the account (`welcome_email_sent_at` in its custom
-fields) before the email goes out, so a confirmation repeated later never
-sends a second one. A send that fails clears the mark and the job is retried
-(up to three attempts).
+The email is sent **at most once**. The account is marked
+(`welcome_email_sent_at` in its custom fields) before the email goes out, so
+a confirmation repeated later never sends a second one. The mark is cleared
+and the job retried (up to three attempts) only when the email certainly did
+not go out — building it failed, or the mailer refused it. A failure during
+delivery, or a node that dies between the mark and the send, leaves it
+unknown whether the email went out; then it is not sent again. A lost
+welcome email is the smaller harm.
+
+> **Tests in your app.** With Oban's `testing: :inline` a job runs the
+> moment it is inserted — inside the confirmation's transaction — so a
+> welcome email is sent even for a confirmation the test then rolls back.
+> That only concerns a test environment; use `:manual` and run the jobs to
+> see what production does.
 
 The button leads to `{{site_url}}` — the site URL the footer shows. To say
 more, or link elsewhere, override `welcome/markdown.md` like any other
