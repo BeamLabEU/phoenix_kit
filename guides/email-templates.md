@@ -198,22 +198,25 @@ hand sends nothing.
 Only a real change from unconfirmed to confirmed counts: an old confirmation
 link clicked after an administrator confirmed the account sends nothing.
 
-The confirmation enqueues a background job (Oban, queue `notifications`) in
-its own transaction; the job sends the email once the confirmation has
-committed, and a confirmation that is rolled back never sends one. So the
-email needs Oban running on some node, as notification delivery already
-does. Nothing about it can fail a confirmation: on a node without Oban, or
-when the job cannot be stored, the account is confirmed and the log says
-why the welcome email was not enqueued.
+The confirmation enqueues a background job (Oban, queue `notifications`) —
+in the confirmation's own transaction, or, for magic-link registration,
+right after the new account is confirmed. The job sends the email once the
+confirmation has committed, and a confirmation that is rolled back never
+sends one. So the email needs Oban running on some node, as notification
+delivery already does. Enqueueing it never fails a confirmation that would
+otherwise succeed: on a node without Oban, when the job cannot be stored, or
+when `oban_jobs` is locked for more than two seconds (a migration,
+`VACUUM FULL`), the account is confirmed and the log says why the welcome
+email was not enqueued.
 
 The email is sent **at most once**. The account is marked
 (`welcome_email_sent_at` in its custom fields) before the email goes out, so
 a confirmation repeated later never sends a second one. The mark is cleared
-and the job retried (up to three attempts) only when the email certainly did
-not go out — building it failed, or the mailer refused it. A failure during
-delivery, or a node that dies between the mark and the send, leaves it
-unknown whether the email went out; then it is not sent again. A lost
-welcome email is the smaller harm.
+and the job retried (up to three attempts) only when the email is known not
+to have gone out: building it failed, or the mailer reported that it was not
+sent. A failure during delivery, or a node that dies between the mark and
+the send, leaves it unknown whether the email went out; then it is not sent
+again. A lost welcome email is the smaller harm.
 
 > **Tests in your app.** With Oban's `testing: :inline` a job runs the
 > moment it is inserted — inside the confirmation's transaction — so a
