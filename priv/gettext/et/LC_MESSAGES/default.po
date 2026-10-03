@@ -624,8 +624,8 @@ msgstr "Paks"
 msgid "Bullet List"
 msgstr "Punktloend"
 
-#: lib/modules/storage/web/bucket_form.html.heex:442
-#: lib/modules/storage/web/bucket_form.html.heex:467
+#: lib/modules/storage/web/bucket_form.html.heex:465
+#: lib/modules/storage/web/bucket_form.html.heex:490
 #: lib/modules/storage/web/dimension_form.html.heex:240
 #: lib/modules/storage/web/libraries_component.ex:414
 #: lib/modules/storage/web/libraries_component.ex:460
@@ -2729,12 +2729,12 @@ msgstr "Kopeeri lõikelauale"
 msgid "Crawlers are allowed to index the site. Enable the toggle to hide staging deployments."
 msgstr "Roomajad võivad saiti indekseerida. Luba lüliti, et peita vahe-paigaldused."
 
-#: lib/modules/storage/web/bucket_form.html.heex:474
+#: lib/modules/storage/web/bucket_form.html.heex:497
 #, elixir-autogen, elixir-format
 msgid "Create Path"
 msgstr "Loo tee"
 
-#: lib/modules/storage/web/bucket_form.html.heex:459
+#: lib/modules/storage/web/bucket_form.html.heex:482
 #, elixir-autogen, elixir-format
 msgid "Create Storage Path"
 msgstr "Loo salvestustee"
@@ -2967,7 +2967,7 @@ msgstr "Jäta tühjaks algse vormingu säilitamiseks või täpsusta jpg/png/webp
 msgid "Legal"
 msgstr "Juriidiline"
 
-#: lib/modules/storage/web/bucket_form.ex:531
+#: lib/modules/storage/web/bucket_form.ex:559
 #: lib/modules/storage/web/bucket_form.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Local Filesystem"
@@ -3332,7 +3332,7 @@ msgstr "Esimene kasutaja (Omanik) on alati aktiivne, sõltumata sellest seadest.
 msgid "The migration seeds 8 default dimensions: 4 image sizes (thumbnail, small, medium, large) and 4 video variants (360p, 720p, 1080p, video_thumbnail)."
 msgstr "Migratsioon loob 8 vaikimisi dimensiooni: 4 pildi suurust (pisipilt, väike, keskmine, suur) ja 4 videovarianti (360p, 720p, 1080p, video_thumbnail)."
 
-#: lib/modules/storage/web/bucket_form.html.heex:461
+#: lib/modules/storage/web/bucket_form.html.heex:484
 #, elixir-autogen, elixir-format
 msgid "The storage path"
 msgstr "Salvestustee"
@@ -3451,7 +3451,7 @@ msgstr "Kui lubatud, kogutakse analüütika jaoks registreerimise IP-aadressid j
 msgid "Width (px)"
 msgstr "Laius (px)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:464
+#: lib/modules/storage/web/bucket_form.html.heex:487
 #, elixir-autogen, elixir-format
 msgid "Would you like to create it now?"
 msgstr "Kas soovid selle nüüd luua?"
@@ -3498,7 +3498,7 @@ msgstr "ja"
 msgid "and generate/copy"
 msgstr "ja genereeri/kopeeri"
 
-#: lib/modules/storage/web/bucket_form.html.heex:462
+#: lib/modules/storage/web/bucket_form.html.heex:485
 #, elixir-autogen, elixir-format
 msgid "does not exist."
 msgstr "ei eksisteeri."
@@ -4606,7 +4606,7 @@ msgstr "Eemaldada see liige organisatsioonist?"
 msgid "Repair Media Module"
 msgstr "Paranda meediamoodul"
 
-#: lib/modules/storage/web/bucket_form.html.heex:449
+#: lib/modules/storage/web/bucket_form.html.heex:472
 #, elixir-autogen, elixir-format
 msgid "Save Bucket"
 msgstr "Salvesta bucket"
@@ -9204,7 +9204,7 @@ msgstr "Bucket keelati edukalt"
 msgid "Bucket enabled successfully"
 msgstr "Bucket lubati edukalt"
 
-#: lib/modules/storage/web/bucket_form.ex:58
+#: lib/modules/storage/web/bucket_form.ex:60
 #: lib/modules/storage/web/settings.ex:206
 #: lib/modules/storage/web/settings.ex:298
 #, elixir-autogen, elixir-format
@@ -9853,12 +9853,12 @@ msgstr "Ühtegi faili ei vasta otsingule."
 msgid "Try a different term or clear the search"
 msgstr "Proovi teist otsingusõna või tühjenda otsing"
 
-#: lib/modules/storage/web/bucket_form.ex:495
+#: lib/modules/storage/web/bucket_form.ex:523
 #, elixir-autogen, elixir-format
 msgid "Add Storage Bucket"
 msgstr "Lisa salvestusbucket"
 
-#: lib/modules/storage/web/bucket_form.ex:496
+#: lib/modules/storage/web/bucket_form.ex:524
 #, elixir-autogen, elixir-format
 msgid "Edit Storage Bucket"
 msgstr "Muuda salvestusbucketit"
@@ -15925,6 +15925,7 @@ msgstr "Suurused muudetud. Olemasolevate failide suurust muudetakse taustal."
 msgid "Storage"
 msgstr "Salvestus"
 
+#: lib/modules/storage/web/bucket_form.html.heex:419
 #: lib/modules/storage/web/libraries_component.ex:492
 #, elixir-autogen, elixir-format
 msgid "Storage profile"
@@ -16308,7 +16309,7 @@ msgid_plural "Moved the keys of %{count} buckets into an integration."
 msgstr[0] "%{count} bucketi võtmed teisaldati integratsiooni."
 msgstr[1] "%{count} bucketi võtmed teisaldati integratsiooni."
 
-#: lib/modules/storage/web/bucket_form.ex:147
+#: lib/modules/storage/web/bucket_form.ex:153
 #, elixir-autogen, elixir-format
 msgid "Moving keys creates an integration, which needs access to Integrations."
 msgstr "Võtmete teisaldamine loob integratsiooni, mis nõuab juurdepääsu integratsioonidele."
@@ -16374,17 +16375,17 @@ msgstr "Lõpp-punkt ei tohi olla kohalik, privaatne ega metaandmete aadress"
 msgid "The endpoint must use https"
 msgstr "Lõpp-punkt peab kasutama https-i"
 
-#: lib/modules/storage/web/bucket_form.ex:272
+#: lib/modules/storage/web/bucket_form.ex:278
 #, elixir-autogen, elixir-format
 msgid "The keys could not be moved. Nothing was changed."
 msgstr "Võtmeid ei õnnestunud teisaldada. Midagi ei muudetud."
 
-#: lib/modules/storage/web/bucket_form.ex:258
+#: lib/modules/storage/web/bucket_form.ex:264
 #, elixir-autogen, elixir-format
 msgid "The keys now live in an integration."
 msgstr "Võtmed asuvad nüüd integratsioonis."
 
-#: lib/modules/storage/web/bucket_form.ex:265
+#: lib/modules/storage/web/bucket_form.ex:271
 #, elixir-autogen, elixir-format
 msgid "The saved keys could not be read, so they were not moved. Pick a connection with working keys instead."
 msgstr "Salvestatud võtmeid ei õnnestunud lugeda, seega neid ei teisaldatud. Valige selle asemel ühendus töötavate võtmetega."
@@ -17376,12 +17377,13 @@ msgstr "See on saidi vaikeväärtus; raamatukogu saab vahekaardil Raamatukogud v
 msgid "Each original is stored on the primary bucket only. The other buckets take over only if a write to it fails, and hold nothing otherwise. Set the copies to 2 to keep every file on a second bucket."
 msgstr "Iga originaal salvestatakse ainult peamisse bucketisse. Teised bucketid astuvad sisse ainult siis, kui sinna kirjutamine ebaõnnestub, ja muidu ei sisalda midagi. Määra koopiate arvuks 2, et iga fail oleks ka teises bucketis."
 
-#: lib/modules/storage/web/bucket_form.ex:478
+#: lib/modules/storage/web/bucket_form.ex:491
+#: lib/modules/storage/web/bucket_form.ex:499
 #, elixir-autogen, elixir-format
 msgid "Bucket created successfully"
 msgstr "Bucket on loodud"
 
-#: lib/modules/storage/web/bucket_form.ex:485
+#: lib/modules/storage/web/bucket_form.ex:506
 #, elixir-autogen, elixir-format
 msgid "Each original is stored on %{copies} of the %{count} primary buckets, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab."
 msgstr "Iga originaal salvestatakse %{copies}-sse %{count}-st peamisest bucketist, seega failid jaotatakse nende vahel, mitte ei peegeldata. Muuda koopiate arvu vahekaardil Salvestusprofiilid."
@@ -17851,12 +17853,12 @@ msgstr[1] "(kokku %{count} kogu)"
 msgid "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
 msgstr "Kas kustutada see bucket? Bucketit, mida salvestusprofiil kasutab või mis sisaldab veel faile, ei kustutata."
 
-#: lib/modules/storage/web/bucket_form.html.heex:423
+#: lib/modules/storage/web/bucket_form.html.heex:446
 #, elixir-autogen, elixir-format
 msgid "It is used by %{used_by}. It cannot be disabled or deleted until it is taken out of those storage profiles."
 msgstr "Seda kasutatakse: %{used_by}. Seda ei saa keelata ega kustutada, kuni see on nendest salvestusprofiilidest eemaldatud."
 
-#: lib/modules/storage/web/bucket_form.html.heex:429
+#: lib/modules/storage/web/bucket_form.html.heex:452
 #, elixir-autogen, elixir-format
 msgid "Open the storage profiles"
 msgstr "Ava salvestusprofiilid"
@@ -17871,7 +17873,7 @@ msgstr "Vaikeprofiili ei saa kustutada."
 msgid "The storage profile could not be deleted."
 msgstr "Salvestusprofiili ei õnnestunud kustutada."
 
-#: lib/modules/storage/web/bucket_form.html.heex:421
+#: lib/modules/storage/web/bucket_form.html.heex:444
 #, elixir-autogen, elixir-format
 msgid "This bucket is in use"
 msgstr "See bucket on kasutusel"
@@ -17911,6 +17913,31 @@ msgstr "replika"
 #, elixir-autogen, elixir-format
 msgid "the \"%{profile}\" profile (%{use})"
 msgstr "profiil „%{profile}“ (%{use})"
+
+#: lib/modules/storage/web/bucket_form.ex:519
+#, elixir-autogen, elixir-format
+msgid "%{name} (Default)"
+msgstr "%{name} (Vaikimisi)"
+
+#: lib/modules/storage/web/bucket_form.html.heex:424
+#, elixir-autogen, elixir-format
+msgid "None: just add the bucket"
+msgstr "Puudub: lisa ainult bucket"
+
+#: lib/modules/storage/web/bucket_form.html.heex:431
+#, elixir-autogen, elixir-format
+msgid "The bucket is only added to the system: it receives and serves nothing until a storage profile lists it (Storage profiles tab)."
+msgstr "Bucket lisatakse ainult süsteemi: see ei võta vastu ega edasta midagi, kuni mõni salvestusprofiil seda ei loetle (vaheleht „Salvestusprofiilid“)."
+
+#: lib/modules/storage/web/bucket_form.html.heex:435
+#, elixir-autogen, elixir-format
+msgid "The bucket joins this profile as a primary (written and served), and the profile's files are placed again. Change its role there."
+msgstr "Bucket liitub selle profiiliga peamisena (kirjutatakse ja serveeritakse) ning profiili failid paigutatakse uuesti. Muuda selle rolli seal."
+
+#: lib/modules/storage/web/bucket_form.ex:493
+#, elixir-autogen, elixir-format
+msgid "It is in no storage profile yet, so nothing is written to it: add it to one on the Storage profiles tab."
+msgstr "See ei kuulu veel ühtegi salvestusprofiili, seega sinna ei kirjutata midagi: lisa see profiili vahelehel „Salvestusprofiilid“."
 
 #: lib/phoenix_kit_web/live/modules/languages.ex:156
 #, elixir-autogen, elixir-format

@@ -24,6 +24,15 @@
   - Packages that call `Languages.enabled?/0` or `get_enabled_languages/0` are unaffected. Anything that
     looked the module up as `ModuleRegistry.get_by_key("languages")` now gets `nil`.
 
+- **The new-bucket form asks which storage profile the bucket joins, and offers "None" first.**
+  Before, every bucket created in Settings → Media silently joined the Default profile, so it
+  was written to by every library that names no profile of its own. With none chosen the bucket is
+  only added to the system: it receives and serves nothing until a profile lists it (Storage
+  profiles tab). A chosen profile takes it as a primary and the profile's files are placed again.
+  `Storage.create_bucket/2` takes `profile:` (`nil`, a site profile's uuid, or `:default`, which is
+  what it did and still does when no option is given, so existing callers are unchanged);
+  `Profiles.add_bucket/3` is the general form of `add_to_default/1`.
+
 ### Fixed
 
 - **Language settings and navigation review fixes.** Locale switching preserves an unrelated host
@@ -48,6 +57,7 @@
 
 - The Multiple languages card and its flash messages in all seven locales; the three Modules-card strings
   that nothing uses any more are gone.
+- The new-bucket form's storage profile strings in all seven locales.
 
 ## 2.49.1 - 2026-10-03
 

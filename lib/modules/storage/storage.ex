@@ -430,9 +430,19 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Creates a new bucket.
 
+  Option `:profile` says where the bucket is placed: `:default` (when not given)
+  puts it in the Default storage profile; `nil` leaves it in no profile, so it is
+  known to the system but receives and serves nothing until a profile lists it;
+  a uuid puts it in that site profile as a primary (`Profiles.add_bucket/3`,
+  recorded in the history). The settings form offers the choice, defaulting to none.
+  The other options are the audit's (`:actor_uuid`).
+
   ## Examples
 
       iex> create_bucket(%{name: "Local Storage", provider: "local"})
+      {:ok, %Bucket{}}
+
+      iex> create_bucket(%{name: "Cold", provider: "local"}, profile: nil)
       {:ok, %Bucket{}}
 
       iex> create_bucket(%{name: nil})
@@ -444,16 +454,17 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp do_create_bucket(attrs, opts) do
-    # A new bucket joins the Default storage profile, as every new bucket
+    # Where the new bucket is placed is the caller's choice (`:profile`); with
+    # none given it joins the Default storage profile, as every new bucket
     # joined the one pool before profiles (V205).
-    repo().transaction(fn ->
-      case %Bucket{} |> Bucket.changeset(attrs) |> repo().insert() do
-        {:ok, bucket} ->
-          :ok = Profiles.add_to_default(bucket)
-          bucket
+    {profile, opts} = Keyword.pop(opts, :profile, :default)
 
-        {:error, changeset} ->
-          repo().rollback(changeset)
+    repo().transaction(fn ->
+      with {:ok, bucket} <- %Bucket{} |> Bucket.changeset(attrs) |> repo().insert(),
+           :ok <- place_new_bucket(bucket, profile, opts) do
+        bucket
+      else
+        {:error, %Ecto.Changeset{} = changeset} -> repo().rollback(changeset)
       end
     end)
     |> tap(&bucket_changed/1)
@@ -468,6 +479,28 @@ defmodule PhoenixKit.Modules.Storage do
       _error ->
         :ok
     end)
+  end
+
+  # `:default` joins the Default profile (the long-standing behaviour); nil or ""
+  # leaves the bucket in no profile (known to the system, nothing written to
+  # it); a uuid puts it in that site profile, on the record.
+  defp place_new_bucket(bucket, :default, _opts), do: Profiles.add_to_default(bucket)
+  defp place_new_bucket(_bucket, profile, _opts) when profile in [nil, ""], do: :ok
+
+  defp place_new_bucket(bucket, profile_uuid, opts) do
+    case Profiles.add_bucket(profile_uuid, bucket, opts) do
+      :ok ->
+        :ok
+
+      {:error, :not_found} ->
+        {:error,
+         bucket
+         |> Ecto.Changeset.change()
+         |> Ecto.Changeset.add_error(:profile, "is not one of the site's storage profiles")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, changeset}
+    end
   end
 
   # The site's buckets are in the history; a user's own bucket is theirs and private.

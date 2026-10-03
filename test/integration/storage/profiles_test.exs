@@ -196,6 +196,93 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
     end
   end
 
+  describe "where a new bucket is placed" do
+    defp attrs(extra \\ %{}) do
+      Map.merge(
+        %{
+          name: "placed-#{System.unique_integer([:positive])}",
+          provider: "local",
+          endpoint: Path.join(System.tmp_dir!(), "pk_profiles"),
+          enabled: true,
+          priority: 0
+        },
+        extra
+      )
+    end
+
+    defp profile_uuids_of(bucket) do
+      Repo.all(
+        from(r in ProfileBucket, where: r.bucket_uuid == ^bucket.uuid, select: r.profile_uuid)
+      )
+      |> Enum.map(&to_string/1)
+    end
+
+    test "with no choice it joins the Default, as it always did" do
+      {:ok, bucket} = Storage.create_bucket(attrs())
+      assert profile_uuids_of(bucket) == [Profiles.default_uuid()]
+    end
+
+    test "profile: nil (or blank) leaves it in no profile, and the Default is untouched" do
+      before = revision(Profiles.default_uuid())
+
+      {:ok, none} = Storage.create_bucket(attrs(), profile: nil)
+      {:ok, blank} = Storage.create_bucket(attrs(), profile: "")
+
+      assert profile_uuids_of(none) == []
+      assert profile_uuids_of(blank) == []
+      assert Storage.get_bucket(none.uuid)
+      assert revision(Profiles.default_uuid()) == before
+    end
+
+    test "a profile's uuid puts it there as a primary, and only there" do
+      {:ok, profile} = Profiles.create_profile(%{name: "Chosen"})
+      before = revision(profile.uuid)
+
+      {:ok, bucket} = Storage.create_bucket(attrs(%{priority: 3}), profile: profile.uuid)
+
+      assert profile_uuids_of(bucket) == [to_string(profile.uuid)]
+
+      assert [%{role: "primary", stores: "all", status: "active", write_priority: 3}] =
+               Profiles.get_profile(profile.uuid).buckets
+
+      assert revision(profile.uuid) == before + 1
+    end
+
+    test "the Default can be chosen by uuid too" do
+      {:ok, bucket} = Storage.create_bucket(attrs(), profile: Profiles.default_uuid())
+      assert profile_uuids_of(bucket) == [Profiles.default_uuid()]
+    end
+
+    test "a uuid that is no site profile is refused and nothing is created" do
+      name = "refused-#{System.unique_integer([:positive])}"
+
+      assert {:error, changeset} =
+               Storage.create_bucket(attrs(%{name: name}), profile: Ecto.UUID.generate())
+
+      assert %{profile: [_]} = errors_on(changeset)
+      refute Storage.get_bucket_by_name(name)
+    end
+
+    test "a user's own profile is not one a site bucket is added to" do
+      {:ok, owner} =
+        Auth.register_user(%{
+          "email" => "placed-#{System.unique_integer([:positive])}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      personal =
+        Repo.insert!(%StorageProfile{
+          name: "Theirs #{System.unique_integer([:positive])}",
+          owner_uuid: owner.uuid
+        })
+
+      name = "personal-#{System.unique_integer([:positive])}"
+
+      assert {:error, _} = Storage.create_bucket(attrs(%{name: name}), profile: personal.uuid)
+      refute Storage.get_bucket_by_name(name)
+    end
+  end
+
   describe "a bucket in use" do
     # Out of every profile, the way an admin frees a bucket.
     defp free!(bucket) do

@@ -3,7 +3,8 @@ defmodule PhoenixKitWeb.Live.BucketUsageUITest do
   A bucket a storage profile lists is neither disabled nor deleted, and the
   admin is told which profiles hold it: the Buckets tab's "Used by" column, the
   refusals of Disable and Delete, the notice and refusal on the bucket's edit
-  form, and the profile delete that names the libraries standing in the way.
+  form, the profile delete that names the libraries standing in the way, and the
+  new-bucket form's choice of profile (none by default).
   """
 
   use PhoenixKitWeb.ConnCase, async: false
@@ -149,6 +150,89 @@ defmodule PhoenixKitWeb.Live.BucketUsageUITest do
       |> render_submit()
 
       refute Storage.get_bucket(ctx.bucket.uuid).enabled
+    end
+  end
+
+  describe "adding a bucket" do
+    defp new_path, do: Routes.path("/admin/settings/media/buckets/new")
+
+    defp add_local_bucket(conn, profile_uuid) do
+      root = Path.join(System.tmp_dir!(), "pk_usage_ui_new_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(root)
+      name = "added-#{System.unique_integer([:positive])}"
+
+      {:ok, view, _html} = live(conn, new_path())
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "local"}})
+
+      view
+      |> form("#bucket-form", %{
+        "bucket" => %{
+          "name" => name,
+          "storage_type" => "local",
+          "endpoint" => root,
+          "profile_uuid" => profile_uuid
+        }
+      })
+      |> render_submit()
+
+      Storage.get_bucket_by_name(name)
+    end
+
+    defp in_profiles(bucket) do
+      for profile <- Profiles.list_profiles(),
+          Enum.any?(profile.buckets, &(&1.bucket_uuid == bucket.uuid)),
+          do: profile.name
+    end
+
+    test "the form asks which profile, and offers none first", ctx do
+      {:ok, _profile} = Profiles.create_profile(%{name: "Offered"})
+      {:ok, _view, html} = live(ctx.conn, new_path())
+
+      assert html =~ "Storage profile"
+      assert html =~ "None: just add the bucket"
+      assert html =~ "Default (Default)"
+      assert html =~ "Offered"
+      assert html =~ "only added to the system"
+
+      # None is what is selected, whatever the list holds.
+      assert html =~ ~r/<option[^>]*value=""[^>]*selected|<option[^>]*selected[^>]*value=""/
+    end
+
+    test "choosing a profile says what joining it means", ctx do
+      {:ok, view, _html} = live(ctx.conn, new_path())
+
+      html =
+        render_change(view, "validate", %{
+          "bucket" => %{"profile_uuid" => Profiles.default_uuid()}
+        })
+
+      assert html =~ "joins this profile as a primary"
+      refute html =~ "only added to the system"
+    end
+
+    test "with none chosen the bucket is in no profile", ctx do
+      before = Profiles.default_profile().revision
+
+      bucket = add_local_bucket(ctx.conn, "")
+
+      assert bucket
+      assert in_profiles(bucket) == []
+      assert Profiles.default_profile().revision == before
+    end
+
+    test "with a profile chosen the bucket is in that one only", ctx do
+      {:ok, profile} = Profiles.create_profile(%{name: "Picked"})
+
+      bucket = add_local_bucket(ctx.conn, profile.uuid)
+
+      assert in_profiles(bucket) == ["Picked"]
+    end
+
+    test "the edit form has no profile choice", ctx do
+      {:ok, _view, html} =
+        live(ctx.conn, Routes.path("/admin/settings/media/buckets/#{ctx.bucket.uuid}/edit"))
+
+      refute html =~ ~s(name="bucket[profile_uuid]")
     end
   end
 

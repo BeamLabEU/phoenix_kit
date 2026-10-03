@@ -442,36 +442,56 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   bucket joined the pool before profiles: primary, stores everything,
   active, its `priority` as the write priority (0 is the shuffled pool),
   served after the Default's other buckets (a local one before the remote
-  ones).
+  ones). The default of `Storage.create_bucket/2`; a caller that wants none or
+  another profile says so there (`:profile`).
   """
   @spec add_to_default(PhoenixKit.Modules.Storage.Bucket.t()) :: :ok
   def add_to_default(bucket) do
-    serve_order =
-      from(r in ProfileBucket,
-        where: r.profile_uuid == ^@default_uuid,
-        select: coalesce(max(r.serve_order), 0)
-      )
-      |> repo().one()
-
     # Profiles are seeded by V205; before that (or on a database repair has
     # not reached yet) there is no Default to add to.
     if repo().get(StorageProfile, @default_uuid) do
-      {:ok, _} =
-        put_bucket(
-          %StorageProfile{uuid: @default_uuid},
-          bucket.uuid,
-          %{
-            role: "primary",
-            stores: "all",
-            status: "active",
-            write_priority: write_priority(bucket.priority),
-            serve_order: serve_order + 1
-          },
-          audit: false
-        )
+      :ok = add_bucket(@default_uuid, bucket, audit: false)
     end
 
     :ok
+  end
+
+  @doc """
+  Puts `bucket` into one of the site's profiles as a primary that stores
+  everything, active, its `priority` as the write priority, served after the
+  profile's other buckets, and bumps the profile's revision (its files are
+  placed again). Change the role, order or status afterwards with
+  `put_bucket/4`.
+
+  `{:error, :not_found}` for a uuid that is no site profile: a user's own
+  profile is never one an admin adds a site bucket to. `opts` are `put_bucket/4`'s
+  (`:actor_uuid`, `audit: false`).
+  """
+  @spec add_bucket(term(), PhoenixKit.Modules.Storage.Bucket.t(), keyword()) ::
+          :ok | {:error, :not_found | Ecto.Changeset.t()}
+  def add_bucket(profile_uuid, bucket, opts \\ []) do
+    case get_profile(profile_uuid) do
+      %StorageProfile{owner_uuid: nil} = profile ->
+        serve_order =
+          from(r in ProfileBucket,
+            where: r.profile_uuid == ^profile.uuid,
+            select: coalesce(max(r.serve_order), 0)
+          )
+          |> repo().one()
+
+        attrs = %{
+          role: "primary",
+          stores: "all",
+          status: "active",
+          write_priority: write_priority(bucket.priority),
+          serve_order: serve_order + 1
+        }
+
+        with {:ok, _row} <- put_bucket(profile, bucket.uuid, attrs, opts), do: :ok
+
+      _ ->
+        {:error, :not_found}
+    end
   end
 
   @doc false

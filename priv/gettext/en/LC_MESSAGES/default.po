@@ -621,8 +621,8 @@ msgstr ""
 msgid "Bullet List"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:442
-#: lib/modules/storage/web/bucket_form.html.heex:467
+#: lib/modules/storage/web/bucket_form.html.heex:465
+#: lib/modules/storage/web/bucket_form.html.heex:490
 #: lib/modules/storage/web/dimension_form.html.heex:240
 #: lib/modules/storage/web/libraries_component.ex:414
 #: lib/modules/storage/web/libraries_component.ex:460
@@ -2725,12 +2725,12 @@ msgstr ""
 msgid "Crawlers are allowed to index the site. Enable the toggle to hide staging deployments."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:474
+#: lib/modules/storage/web/bucket_form.html.heex:497
 #, elixir-autogen, elixir-format
 msgid "Create Path"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:459
+#: lib/modules/storage/web/bucket_form.html.heex:482
 #, elixir-autogen, elixir-format
 msgid "Create Storage Path"
 msgstr ""
@@ -2963,7 +2963,7 @@ msgstr ""
 msgid "Legal"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:531
+#: lib/modules/storage/web/bucket_form.ex:559
 #: lib/modules/storage/web/bucket_form.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Local Filesystem"
@@ -3328,7 +3328,7 @@ msgstr ""
 msgid "The migration seeds 8 default dimensions: 4 image sizes (thumbnail, small, medium, large) and 4 video variants (360p, 720p, 1080p, video_thumbnail)."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:461
+#: lib/modules/storage/web/bucket_form.html.heex:484
 #, elixir-autogen, elixir-format
 msgid "The storage path"
 msgstr ""
@@ -3446,7 +3446,7 @@ msgstr ""
 msgid "Width (px)"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:464
+#: lib/modules/storage/web/bucket_form.html.heex:487
 #, elixir-autogen, elixir-format
 msgid "Would you like to create it now?"
 msgstr ""
@@ -3493,7 +3493,7 @@ msgstr ""
 msgid "and generate/copy"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:462
+#: lib/modules/storage/web/bucket_form.html.heex:485
 #, elixir-autogen, elixir-format
 msgid "does not exist."
 msgstr ""
@@ -4601,7 +4601,7 @@ msgstr ""
 msgid "Repair Media Module"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:449
+#: lib/modules/storage/web/bucket_form.html.heex:472
 #, elixir-autogen, elixir-format
 msgid "Save Bucket"
 msgstr ""
@@ -9197,7 +9197,7 @@ msgstr ""
 msgid "Bucket enabled successfully"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:58
+#: lib/modules/storage/web/bucket_form.ex:60
 #: lib/modules/storage/web/settings.ex:206
 #: lib/modules/storage/web/settings.ex:298
 #, elixir-autogen, elixir-format
@@ -9844,12 +9844,12 @@ msgstr ""
 msgid "Try a different term or clear the search"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:495
+#: lib/modules/storage/web/bucket_form.ex:523
 #, elixir-autogen, elixir-format
 msgid "Add Storage Bucket"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:496
+#: lib/modules/storage/web/bucket_form.ex:524
 #, elixir-autogen, elixir-format
 msgid "Edit Storage Bucket"
 msgstr ""
@@ -15916,6 +15916,7 @@ msgstr ""
 msgid "Storage"
 msgstr ""
 
+#: lib/modules/storage/web/bucket_form.html.heex:419
 #: lib/modules/storage/web/libraries_component.ex:492
 #, elixir-autogen, elixir-format
 msgid "Storage profile"
@@ -16299,7 +16300,7 @@ msgid_plural "Moved the keys of %{count} buckets into an integration."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/modules/storage/web/bucket_form.ex:147
+#: lib/modules/storage/web/bucket_form.ex:153
 #, elixir-autogen, elixir-format
 msgid "Moving keys creates an integration, which needs access to Integrations."
 msgstr ""
@@ -16365,17 +16366,17 @@ msgstr ""
 msgid "The endpoint must use https"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:272
+#: lib/modules/storage/web/bucket_form.ex:278
 #, elixir-autogen, elixir-format
 msgid "The keys could not be moved. Nothing was changed."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:258
+#: lib/modules/storage/web/bucket_form.ex:264
 #, elixir-autogen, elixir-format
 msgid "The keys now live in an integration."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:265
+#: lib/modules/storage/web/bucket_form.ex:271
 #, elixir-autogen, elixir-format
 msgid "The saved keys could not be read, so they were not moved. Pick a connection with working keys instead."
 msgstr ""
@@ -17367,12 +17368,13 @@ msgstr ""
 msgid "Each original is stored on the primary bucket only. The other buckets take over only if a write to it fails, and hold nothing otherwise. Set the copies to 2 to keep every file on a second bucket."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:478
+#: lib/modules/storage/web/bucket_form.ex:491
+#: lib/modules/storage/web/bucket_form.ex:499
 #, elixir-autogen, elixir-format
 msgid "Bucket created successfully"
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.ex:485
+#: lib/modules/storage/web/bucket_form.ex:506
 #, elixir-autogen, elixir-format
 msgid "Each original is stored on %{copies} of the %{count} primary buckets, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab."
 msgstr ""
@@ -17842,12 +17844,12 @@ msgstr[1] ""
 msgid "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:423
+#: lib/modules/storage/web/bucket_form.html.heex:446
 #, elixir-autogen, elixir-format
 msgid "It is used by %{used_by}. It cannot be disabled or deleted until it is taken out of those storage profiles."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:429
+#: lib/modules/storage/web/bucket_form.html.heex:452
 #, elixir-autogen, elixir-format
 msgid "Open the storage profiles"
 msgstr ""
@@ -17862,7 +17864,7 @@ msgstr ""
 msgid "The storage profile could not be deleted."
 msgstr ""
 
-#: lib/modules/storage/web/bucket_form.html.heex:421
+#: lib/modules/storage/web/bucket_form.html.heex:444
 #, elixir-autogen, elixir-format
 msgid "This bucket is in use"
 msgstr ""
@@ -17901,6 +17903,31 @@ msgstr ""
 #: lib/modules/storage/web/bucket_usage.ex:50
 #, elixir-autogen, elixir-format
 msgid "the \"%{profile}\" profile (%{use})"
+msgstr ""
+
+#: lib/modules/storage/web/bucket_form.ex:519
+#, elixir-autogen, elixir-format
+msgid "%{name} (Default)"
+msgstr ""
+
+#: lib/modules/storage/web/bucket_form.html.heex:424
+#, elixir-autogen, elixir-format
+msgid "None: just add the bucket"
+msgstr ""
+
+#: lib/modules/storage/web/bucket_form.html.heex:431
+#, elixir-autogen, elixir-format
+msgid "The bucket is only added to the system: it receives and serves nothing until a storage profile lists it (Storage profiles tab)."
+msgstr ""
+
+#: lib/modules/storage/web/bucket_form.html.heex:435
+#, elixir-autogen, elixir-format
+msgid "The bucket joins this profile as a primary (written and served), and the profile's files are placed again. Change its role there."
+msgstr ""
+
+#: lib/modules/storage/web/bucket_form.ex:493
+#, elixir-autogen, elixir-format
+msgid "It is in no storage profile yet, so nothing is written to it: add it to one on the Storage profiles tab."
 msgstr ""
 
 #: lib/phoenix_kit_web/live/modules/languages.ex:156
