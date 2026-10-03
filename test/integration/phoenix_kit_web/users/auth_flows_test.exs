@@ -708,6 +708,17 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       assert {:error, {:redirect, %{to: "/welcome"}}} = live(conn, Routes.path("/users/confirm"))
     end
 
+    test "waiting screen is short: one line with the address, no long hint", %{conn: conn} do
+      user = register_user()
+      conn = login_conn(conn, user)
+
+      {:ok, _lv, html} = live(conn, Routes.path("/users/confirm"))
+
+      assert html =~ "We sent a confirmation link to #{user.email}."
+      refute html =~ "no need to come back to this page"
+      refute html =~ "No confirmation email on record"
+    end
+
     test "parked user is moved along live when an admin confirms them", %{conn: conn} do
       user = register_user()
       conn = login_conn(conn, user)

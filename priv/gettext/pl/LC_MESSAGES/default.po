@@ -13931,11 +13931,6 @@ msgstr "To e-mail testowy wysłany ze strony ustawień E-maile transakcyjne."
 msgid "Confirm your email to continue"
 msgstr "Potwierdź swój adres e-mail, aby kontynuować"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:27
-#, elixir-autogen, elixir-format
-msgid "No confirmation email on record — use Resend below."
-msgstr "Brak informacji o wysłanej wiadomości potwierdzającej — użyj przycisku „Wyślij ponownie” poniżej."
-
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:59
 #, elixir-autogen, elixir-format
 msgid "Resend email"
@@ -13948,8 +13943,8 @@ msgstr "Wysłano"
 
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:13
 #, elixir-autogen, elixir-format
-msgid "We emailed a confirmation link to %{email}. Open it to continue — you'll land back in the app automatically, no need to come back to this page."
-msgstr "Wysłaliśmy link potwierdzający na adres %{email}. Otwórz go, aby kontynuować — zostaniesz automatycznie przeniesiony z powrotem do aplikacji, bez potrzeby wracania na tę stronę."
+msgid "We sent a confirmation link to %{email}."
+msgstr "Wysłaliśmy link potwierdzający na adres %{email}."
 
 #: lib/phoenix_kit/users/auth.ex:3221
 #, elixir-autogen, elixir-format
