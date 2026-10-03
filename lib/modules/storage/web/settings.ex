@@ -12,12 +12,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   import Ecto.Query
 
   alias PhoenixKit.Activity
-  alias PhoenixKit.Integrations
-  alias PhoenixKit.Integrations.ObjectStorageServices, as: Services
   alias PhoenixKit.Jobs.Events
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.BucketCredentials
-  alias PhoenixKit.Modules.Storage.Endpoint
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
@@ -26,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Live.Modules.Storage.BucketInfo
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
   alias PhoenixKitWeb.Live.Settings.UrlTabs
 
@@ -414,56 +412,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     Routes.path("/admin/settings/media")
   end
 
-  # The Object Storage connections a bucket may use, reduced to a name and the
-  # service each is for — what the list shows next to a cloud bucket. Nothing
-  # secret is kept: `list_connections/1` returns decrypted data, only the
-  # service is taken from it.
-  defp bucket_connections do
-    "object_storage"
-    |> Integrations.list_connections()
-    |> Map.new(fn %{uuid: uuid, name: name, data: data} ->
-      {uuid, %{name: name, service: Services.current(data)}}
-    end)
-  rescue
-    _ -> %{}
-  end
-
-  defp bucket_type(%{provider: "local"}), do: gettext("Local")
-  defp bucket_type(_bucket), do: gettext("Cloud")
-
-  # The service a cloud bucket is on: the one its integration is for, else what
-  # the provider says (a bucket that carries its own keys has no integration).
-  defp bucket_service(%{provider: "local"}, _connections), do: nil
-
-  defp bucket_service(bucket, connections) do
-    case connections[bucket.integration_uuid] do
-      %{service: service} when is_binary(service) -> Services.name(service)
-      _ -> provider_name(bucket.provider)
-    end
-  end
-
-  defp provider_name("s3"), do: "AWS S3"
-  defp provider_name("b2"), do: "Backblaze B2"
-  defp provider_name("r2"), do: "Cloudflare R2"
-  defp provider_name("tigris"), do: "Tigris"
-  defp provider_name(provider), do: String.upcase(to_string(provider))
-
-  # Where the files go, in words: a path for a local bucket, otherwise the
-  # bucket's name on the service and the host it is reached at (or its region).
-  defp bucket_location(%{provider: "local"} = bucket),
-    do: bucket.endpoint || gettext("No path configured")
-
-  defp bucket_location(bucket) do
-    host =
-      case Endpoint.parse(bucket.endpoint) do
-        %{host: host} -> host
-        _ -> bucket.region
-      end
-
-    [bucket.bucket_name || gettext("No bucket name"), host]
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" · ")
-  end
+  defp bucket_connections, do: BucketInfo.connections()
+  defp bucket_type(bucket), do: BucketInfo.type(bucket)
+  defp bucket_service(bucket, connections), do: BucketInfo.service(bucket, connections)
+  defp bucket_location(bucket), do: BucketInfo.location(bucket)
 
   # Get count of unique files stored on each bucket
   defp get_bucket_file_counts(buckets) do

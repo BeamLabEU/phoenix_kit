@@ -5,6 +5,20 @@ on the bucket page. Nothing here is built yet except what "Already done" lists.
 
 State at handoff: `main` at `32edc704e` (2.50.0, published to Hex, tagged `v2.50.0`), tree clean, pushed.
 
+## Status (2026-10-03, later the same day)
+
+Decisions confirmed by the user: **separate `:show` page** (Edit stays the form), **probe is a button only**,
+**the log (section 6) comes later as its own release**, **section 7 (retire checklist) skipped for now**.
+Sections 1–5 are built (unreleased, `## Unreleased` in the CHANGELOG): `Live.Modules.Storage.BucketPage`,
+`BucketInfo` (the lifted display helpers), `Storage.bucket_contents/1`, `bucket_location_health/1`,
+`probe_bucket/1`; tests in `test/integration/phoenix_kit_web/live/bucket_page_test.exs`.
+
+Left out on purpose: the per-bucket **"files missing a copy here"** number (the reconciler has no per-bucket
+query for it; Health shows location rows by status, the last verification stamp, the global count of
+instances not yet checked against any bucket, and the files still on a draining bucket), and the **serve
+order** column in "Used by" (`Profiles.bucket_usage/1` does not return it). The probe result lives in the
+LiveView only; it is lost on reload until the log exists.
+
 ## Already done (do not redo)
 
 **2.49.1 — a bucket in use is protected, and the Buckets list says who uses it.**

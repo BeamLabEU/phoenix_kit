@@ -759,6 +759,22 @@ defmodule PhoenixKit.Modules.Storage do
     error -> {:error, "Connection test failed: #{Exception.message(error)}"}
   end
 
+  @doc """
+  Probes a saved bucket: the same write, read and delete of a real object as
+  `test_connection/1`, run from the stored row so no secret passes through the
+  caller's assigns. Returns `:ok` or `{:error, reason}`.
+  """
+  @spec probe_bucket(Bucket.t()) :: :ok | {:error, term()}
+  def probe_bucket(%Bucket{} = bucket) do
+    with :ok <- check_probe_provider(bucket),
+         :ok <- check_endpoint(bucket),
+         {:ok, provider_module} <- ProviderRegistry.get_provider(bucket.provider) do
+      probe(provider_module, bucket)
+    end
+  rescue
+    error -> {:error, "Connection test failed: #{Exception.message(error)}"}
+  end
+
   # A local bucket's check is a few file operations; a remote one talks to the
   # network, through a client that retries, so it runs in `Integrations.Probe`:
   # isolated from the caller and under a hard deadline.
@@ -867,6 +883,136 @@ defmodule PhoenixKit.Modules.Storage do
     bucket = get_bucket(bucket_uuid)
     if bucket, do: calculate_bucket_free_space(bucket), else: 0
   end
+
+  @doc """
+  What a bucket holds, from its active location rows: `%{files, objects,
+  bytes, original_objects, original_bytes, derived_objects, derived_bytes,
+  libraries, personal}`.
+
+  An object is counted once however many location rows name its key (cross-user
+  copies share one). `libraries` lists the site's libraries that have files
+  here (`%{uuid, name, files, objects, bytes}`, largest first); a user's
+  libraries are private to them, so they are only counted in `personal`
+  (`%{libraries, files, objects, bytes}`), never named.
+
+  Reads every location row of the bucket: call it off the render path.
+  """
+  @spec bucket_contents(term()) :: map()
+  def bucket_contents(bucket_uuid) do
+    objects =
+      from(fl in FileLocation,
+        join: fi in FileInstance,
+        on: fl.file_instance_uuid == fi.uuid,
+        join: f in PhoenixKit.Modules.Storage.File,
+        on: f.uuid == fi.file_uuid,
+        where: fl.bucket_uuid == ^bucket_uuid and fl.status == "active",
+        distinct: fl.path,
+        select: %{
+          path: fl.path,
+          size: fi.size,
+          original: fi.variant_name == "original",
+          file_uuid: f.uuid,
+          library_uuid: f.library_uuid
+        }
+      )
+
+    rows =
+      from(o in subquery(objects),
+        group_by: o.library_uuid,
+        select: %{
+          library_uuid: o.library_uuid,
+          files: count(o.file_uuid, :distinct),
+          objects: count(o.path),
+          bytes: coalesce(sum(o.size), 0),
+          original_objects: filter(count(o.path), o.original),
+          original_bytes: coalesce(filter(sum(o.size), o.original), 0)
+        }
+      )
+      |> repo().all()
+      |> Enum.map(fn row ->
+        %{row | bytes: to_int(row.bytes), original_bytes: to_int(row.original_bytes)}
+      end)
+
+    libraries =
+      from(l in Library,
+        where: l.uuid in ^Enum.map(rows, & &1.library_uuid),
+        select: {l.uuid, %{name: l.name, kind: l.kind}}
+      )
+      |> repo().all()
+      |> Map.new(fn {uuid, info} -> {to_string(uuid), info} end)
+
+    {personal, site} =
+      Enum.split_with(rows, fn row ->
+        match?(%{kind: "user"}, Map.get(libraries, to_string(row.library_uuid)))
+      end)
+
+    sum = fn rows, key -> rows |> Enum.map(&Map.fetch!(&1, key)) |> Enum.sum() end
+
+    %{
+      files: sum.(rows, :files),
+      objects: sum.(rows, :objects),
+      bytes: sum.(rows, :bytes),
+      original_objects: sum.(rows, :original_objects),
+      original_bytes: sum.(rows, :original_bytes),
+      derived_objects: sum.(rows, :objects) - sum.(rows, :original_objects),
+      derived_bytes: sum.(rows, :bytes) - sum.(rows, :original_bytes),
+      libraries:
+        site
+        |> Enum.map(fn row ->
+          %{
+            uuid: row.library_uuid && to_string(row.library_uuid),
+            name: get_in(libraries, [to_string(row.library_uuid), :name]),
+            files: row.files,
+            objects: row.objects,
+            bytes: row.bytes
+          }
+        end)
+        |> Enum.sort_by(&{-&1.bytes, &1.name || ""}),
+      personal: %{
+        libraries: length(personal),
+        files: sum.(personal, :files),
+        objects: sum.(personal, :objects),
+        bytes: sum.(personal, :bytes)
+      }
+    }
+  end
+
+  @doc """
+  How a bucket's location rows stand: `%{active, syncing, failed, deleted,
+  last_verified_at}` (`last_verified_at` is the newest verification stamp of
+  any row, or nil). A `failed` row is a copy that was not made.
+  """
+  @spec bucket_location_health(term()) :: map()
+  def bucket_location_health(bucket_uuid) do
+    by_status =
+      from(fl in FileLocation,
+        where: fl.bucket_uuid == ^bucket_uuid,
+        group_by: fl.status,
+        select: {fl.status, count(fl.uuid)}
+      )
+      |> repo().all()
+      |> Map.new()
+
+    last =
+      repo().one(
+        from(fl in FileLocation,
+          where: fl.bucket_uuid == ^bucket_uuid,
+          select: max(fl.last_verified_at)
+        )
+      )
+
+    %{
+      active: Map.get(by_status, "active", 0),
+      syncing: Map.get(by_status, "syncing", 0),
+      failed: Map.get(by_status, "failed", 0),
+      deleted: Map.get(by_status, "deleted", 0),
+      last_verified_at: last
+    }
+  end
+
+  defp to_int(%Decimal{} = value), do: Decimal.to_integer(Decimal.round(value))
+  defp to_int(value) when is_integer(value), do: value
+  defp to_int(_value), do: 0
 
   # ===== DIMENSIONS =====
 

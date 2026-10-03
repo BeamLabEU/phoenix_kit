@@ -1,3 +1,29 @@
+## Unreleased
+
+### Added
+
+- **A page per bucket** (Settings → Media → Buckets → the bucket's name, `/admin/settings/media/buckets/:id`).
+  Edit stays the form; the page links to it and offers Enable/Disable, Delete and Add to profile, all through
+  the guarded context calls (a bucket in use is refused with the usual message). Five sections:
+  - **Overview** — location, service, the Integrations connection (linked for a holder of
+    `integrations_system`), the "Keys on bucket" badge, access type, priority, maximum size, CDN, created and
+    updated. The type/service/location wording now lives in `Storage.BucketInfo`, shared with the list.
+  - **Used by** — each site profile with role, status and the libraries behind it; a user's profile and
+    libraries are counted, never named.
+  - **Contents** — files, objects, bytes, originals apart from derived, a capacity bar against `max_size_mb`
+    (the disk's free space for a local bucket) and a per-library breakdown (user libraries aggregated).
+    New `Storage.bucket_contents/1`; loaded with `start_async`, never in `mount/3`.
+  - **Health** — a **Test connection** button (never run on open: it writes, reads and deletes a real object)
+    over the new `Storage.probe_bucket/1`, which probes the saved bucket without passing a key through the
+    assigns; location rows by status (`Storage.bucket_location_health/1`); the files still on a draining bucket.
+  - **History** — every change to the bucket and to its rows in profiles, kept permanently, following live.
+  A user's own bucket (V206) does not open here. The Buckets list links each name to its page. Gated by
+  `media.manage` like the other storage screens.
+
+### i18n
+
+- New strings translated in all seven locales, 0 fuzzy.
+
 ## 2.50.0 - 2026-10-03
 
 ### Changed
