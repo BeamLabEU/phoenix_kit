@@ -21,11 +21,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Mount
   # ============================================================================
 
-  # Internal modules still rendered as hardcoded cards on this page. Storage
-  # and Notifications are core capabilities (not real install/uninstall
-  # toggles — see their moduledocs) and are configured entirely from their
-  # own Settings pages, so they're deliberately excluded from this list.
-  @internal_module_keys ["languages", "crawlers", "sitemap"]
+  # Internal modules still rendered as hardcoded cards on this page. Storage,
+  # Notifications, Jobs and Languages are core capabilities (not real
+  # install/uninstall toggles — see their moduledocs) and are configured entirely
+  # from their own pages (Languages: its multi-language switch is on
+  # Settings → Languages), so they're deliberately excluded from this list.
+  @internal_module_keys ["crawlers", "sitemap"]
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: Events.subscribe_to_modules()

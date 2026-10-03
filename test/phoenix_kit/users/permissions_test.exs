@@ -44,7 +44,9 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert "modules" in keys
       # Jobs is core, not a module with a toggle
       assert "jobs" in keys
-      assert length(keys) == 6
+      # Languages is core too: its settings page holds the multi-language switch
+      assert "languages" in keys
+      assert length(keys) == 7
     end
   end
 
@@ -54,6 +56,7 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert is_list(keys)
       assert "storage" in keys
       refute "jobs" in keys
+      refute "languages" in keys
     end
 
     test "jobs.manage is a sub-permission of the core jobs section, implying jobs" do

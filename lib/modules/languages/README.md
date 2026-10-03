@@ -1,14 +1,25 @@
-# Languages Module
+# Languages
 
-The PhoenixKit Languages module provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It provides a unified language configuration used across the whole app: the public-facing language switcher, the pre-login language dropdown on the sign-in page, and the Language section inside the admin panel's user (avatar) menu. The admin header no longer has a separate globe switcher — admins change locale from the user avatar menu.
+PhoenixKit's Languages feature provides multi-language support with a two-tier locale system (base codes for URLs, full dialects for translations). It provides a unified language configuration used across the whole app: the public-facing language switcher, the pre-login language dropdown on the sign-in page, and the Language section inside the admin panel's user (avatar) menu. The admin header no longer has a separate globe switcher — admins change locale from the user avatar menu.
+
+## Core, with one switch
+
+Languages is **core and always on** — not a toggleable feature module. It has no card on the Modules page, is not in `PhoenixKit.ModuleRegistry`, and `languages` is a core permission key (so its settings page stays reachable). What an admin turns on or off, with the first card on **Admin → Settings → Languages**, is *multi-language support for the site* (`Languages.enabled?/0`):
+
+| Switch | The site |
+|--------|----------|
+| **Off** (default) | Serves its default locale only. `get_languages/0` and `get_enabled_languages/0` are `[]`, `enabled_locale_codes/0` is just the default, and **no menu or switcher offers a language**. The page shows only the switch. |
+| **On** | Routes and offers the configured languages. Turning it on seeds English; turning it off keeps the configured list. |
+
+⚠️ **A menu or switcher reads `get_enabled_languages/0`, never `get_display_languages/0`.** The latter returns a dozen hardcoded defaults while the switch is off (a preview list from when the admin page showed one) — languages the site does not serve, so a switcher built from it links to routes that do not exist.
 
 ## Quick Links
 
 - **Admin Interface**: `/{prefix}/admin/settings/languages`
-- **Enable Module**: `PhoenixKit.Modules.Languages.enable_system/0`
+- **Switch on / off**: `PhoenixKit.Modules.Languages.enable_system/0` / `disable_system/0`
 - **Check Status**: `PhoenixKit.Modules.Languages.enabled?/0`
 - **Get Primary Language**: `PhoenixKit.Modules.Languages.get_default_language/0`
-- **Get All Languages**: `PhoenixKit.Modules.Languages.get_display_languages/0`
+- **Get the languages the site serves**: `PhoenixKit.Modules.Languages.get_enabled_languages/0`
 
 ## Storage Details
 
@@ -24,8 +35,8 @@ The PhoenixKit Languages module provides multi-language support with a two-tier 
 **From within the application** (recommended):
 
 ```elixir
-# Get all configured languages
-PhoenixKit.Modules.Languages.get_display_languages()
+# Get all configured languages (empty while the switch is off)
+PhoenixKit.Modules.Languages.get_languages()
 
 # Get the default/primary language
 PhoenixKit.Modules.Languages.get_default_language()
@@ -35,7 +46,7 @@ PhoenixKit.Modules.Languages.get_default_language()
 PhoenixKit.Settings.get_content_language()
 # => "en"
 
-# Check if module is enabled
+# Check if multi-language support is switched on
 PhoenixKit.Modules.Languages.enabled?()
 # => true
 ```
@@ -254,10 +265,10 @@ SELECT value_json FROM phoenix_kit_settings WHERE key = 'languages_config';
 Or use the application API:
 
 ```elixir
-PhoenixKit.Modules.Languages.get_display_languages()
+PhoenixKit.Modules.Languages.get_languages()
 ```
 
-### Module enabled but no languages showing
+### Switch on but no languages showing
 
 Check if `languages_config` has the `{"languages": [...]}` structure:
 

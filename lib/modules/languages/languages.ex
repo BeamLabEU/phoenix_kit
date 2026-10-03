@@ -2,7 +2,15 @@ defmodule PhoenixKit.Modules.Languages do
   @moduledoc """
   Languages management for PhoenixKit - complete language configuration in a single module.
 
-  This module provides management for language module in PhoenixKit applications.
+  Languages is **core and always on**; it is not a toggleable feature module (it
+  has no card on the Modules page and is not in `PhoenixKit.ModuleRegistry`). What an
+  admin switches on or off, at **Admin → Settings → Languages**, is *multi-language
+  support for the site*: `enabled?/0`. Off, the site serves its default locale only
+  (`enabled_locale_codes/0`), `get_languages/0` and `get_enabled_languages/0` are
+  empty, and no menu or switcher offers a language. On, the configured languages are
+  routed and offered. The `languages` permission key is a core section key, so the
+  settings page stays reachable while the switch is off.
+
   It handles language configuration, settings, and language data through JSON settings.
 
   ## Language Structure
@@ -16,9 +24,9 @@ defmodule PhoenixKit.Modules.Languages do
   ## Core Functions
 
   ### Languages Management
-  - `enabled?/0` - Check if languages are enabled
-  - `enable_system/0` - Enable languages with default English
-  - `disable_system/0` - Disable languages
+  - `enabled?/0` - Whether multi-language support is switched on for the site
+  - `enable_system/0` - Switch it on, with default English
+  - `disable_system/0` - Switch it off (the configured languages are kept)
   - `get_config/0` - Get complete configuration
 
   ### Language Management
@@ -94,12 +102,9 @@ defmodule PhoenixKit.Modules.Languages do
       }
   """
 
-  use PhoenixKit.Module
-
   require Logger
 
   alias PhoenixKit.Config
-  alias PhoenixKit.Dashboard.Tab
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Languages.Language
   alias PhoenixKit.Settings
@@ -260,15 +265,15 @@ defmodule PhoenixKit.Modules.Languages do
     :enable_failed -> :ok
   end
 
-  @impl PhoenixKit.Module
   @doc """
   Backfills the `default_language_no_prefix` setting from the legacy
   `publishing_default_language_no_prefix` key the first time this runs
   on an install that predates the site-wide setting. Idempotent — once
   the new key is set, subsequent calls are no-ops.
 
-  Called by `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`
-  from the host app's `Application.start/2`.
+  Called once at startup by `PhoenixKit.Supervisor`, next to
+  `normalize_language_settings/0`. (Languages is core, not a registered module,
+  so `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0` no longer reaches it.)
   """
   @spec migrate_legacy() :: :ok | {:ok, map()}
   def migrate_legacy do
@@ -295,11 +300,11 @@ defmodule PhoenixKit.Modules.Languages do
     end
   end
 
-  @impl PhoenixKit.Module
   @doc """
-  Checks if the language module is enabled.
+  Whether multi-language support is switched on for the site (the switch on
+  Admin → Settings → Languages).
 
-  Returns true if the module is enabled, false otherwise.
+  Returns true if it is on, false otherwise.
 
   ## Examples
 
@@ -310,9 +315,8 @@ defmodule PhoenixKit.Modules.Languages do
     Settings.get_boolean_setting(@enabled_key, false)
   end
 
-  @impl PhoenixKit.Module
   @doc """
-  Enables the language module and creates default configuration.
+  Switches multi-language support on and creates the default configuration.
 
   Creates the initial module configuration with English as the default language.
   If a previous configuration exists, it will be restored instead of reset.
@@ -344,11 +348,9 @@ defmodule PhoenixKit.Modules.Languages do
     end
   end
 
-  @impl PhoenixKit.Module
   @doc """
-  Disables the language module.
-
-  Turns off the language module but preserves the language configuration.
+  Switches multi-language support off. The configured languages are kept, so
+  switching it on again restores them.
 
   Returns `{:ok, setting}` on success, `{:error, changeset}` on failure.
 
@@ -361,7 +363,6 @@ defmodule PhoenixKit.Modules.Languages do
     Settings.update_boolean_setting_with_module(@enabled_key, false, @module_name)
   end
 
-  @impl PhoenixKit.Module
   @doc """
   Gets the complete language module configuration.
 
@@ -391,43 +392,6 @@ defmodule PhoenixKit.Modules.Languages do
       enabled_count: length(enabled_languages),
       default_language: default_language
     }
-  end
-
-  # ============================================================================
-  # Module Behaviour Callbacks
-  # ============================================================================
-
-  @impl PhoenixKit.Module
-  def module_key, do: "languages"
-
-  @impl PhoenixKit.Module
-  def module_name, do: "Languages"
-
-  @impl PhoenixKit.Module
-  def permission_metadata do
-    %{
-      key: "languages",
-      label: "Languages",
-      icon: "hero-language",
-      description: "Multi-language support and locale management"
-    }
-  end
-
-  @impl PhoenixKit.Module
-  def settings_tabs do
-    [
-      Tab.new!(
-        id: :admin_settings_languages,
-        label: "Languages",
-        icon: "hero-language",
-        path: "languages",
-        priority: 928,
-        level: :admin,
-        parent: :admin_settings,
-        permission: "languages",
-        gettext_backend: PhoenixKitWeb.Gettext
-      )
-    ]
   end
 
   ## --- Language Management Functions ---

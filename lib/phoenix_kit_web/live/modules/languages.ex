@@ -1,8 +1,12 @@
 defmodule PhoenixKitWeb.Live.Modules.Languages do
   @moduledoc """
-  Languages module settings LiveView for PhoenixKit admin panel.
+  Languages settings LiveView for PhoenixKit admin panel.
 
   Provides interface for managing available languages and localization settings.
+
+  Languages is core and this page is always reachable; its first card is the site's
+  multi-language switch (`toggle_languages`). With the switch off nothing below it is
+  shown, and no language is configured or offered anywhere.
   """
   use PhoenixKitWeb, :live_view
 
@@ -28,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     # Load languages configuration
     ml_config = Languages.get_config()
-    display_languages = Languages.get_display_languages()
+    display_languages = Languages.get_languages()
 
     # Get ALL languages grouped by continent -> country for display
     grouped_languages = Languages.get_languages_grouped_by_continent()
@@ -126,15 +130,15 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "Languages enabled with default English",
-              else: "Languages disabled"
+              do: gettext("Multiple languages turned on, with English as the default"),
+              else: gettext("Multiple languages turned off")
             )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update languages")
+        socket = put_flash(socket, :error, gettext("Failed to update languages"))
         {:noreply, socket}
     end
   end
@@ -225,7 +229,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   # Helper function to reload display languages from the Languages module
   defp reload_display_languages(socket, enabled \\ nil) do
     enabled = enabled || Languages.enabled?()
-    display_languages = Languages.get_display_languages()
+    display_languages = Languages.get_languages()
     grouped_languages = Languages.get_languages_grouped_by_continent()
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)

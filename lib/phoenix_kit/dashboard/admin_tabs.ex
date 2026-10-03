@@ -342,6 +342,17 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         :admin_settings,
         "integrations_system"
       ),
+      # Languages: always on (it was a module with a toggle). The multi-language
+      # switch lives on this page, so the page has to be reachable while it is off.
+      admin_subtab(
+        :admin_settings_languages,
+        gettext_noop("Languages"),
+        "hero-language",
+        "languages",
+        928,
+        :admin_settings,
+        "languages"
+      ),
       %Tab{
         id: :admin_settings_media,
         label: gettext_noop("Media"),

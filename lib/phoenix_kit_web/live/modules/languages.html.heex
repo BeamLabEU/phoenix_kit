@@ -15,8 +15,44 @@
     class="flex flex-col px-4 py-6"
     phx-hook="PreserveScroll"
   >
-    <%!-- Summary Section --%>
+    <%!-- The site's multi-language switch. Languages is core and this page is always
+         reachable, so the switch can be turned back on from here. --%>
     <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <.icon name="hero-language" class="w-5 h-5 text-base-content/70" />
+            <div>
+              <h2 class="card-title text-xl">{gettext("Multiple languages")}</h2>
+              <p class="text-sm text-base-content/70 mt-1">
+                {gettext(
+                  "Let visitors use the site in more than one language: locale-prefixed URLs, a language switcher and translated content."
+                )}
+              </p>
+            </div>
+          </div>
+          <input
+            id="languages-enabled-toggle"
+            type="checkbox"
+            class="toggle toggle-primary"
+            checked={@ml_enabled}
+            phx-click="toggle_languages"
+            aria-label={gettext("Multiple languages")}
+          />
+        </div>
+        <div :if={not @ml_enabled} class="alert alert-info mt-4">
+          <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
+          <span class="text-sm">
+            {gettext(
+              "Off: the site is served in its default language only, and no language switcher is shown. Turn it on to choose the languages."
+            )}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Summary Section --%>
+    <div :if={@ml_enabled} class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <h3 class="card-title text-xl">{gettext("Summary")}</h3>
 
@@ -160,7 +196,7 @@
     </div>
 
     <%!-- Languages Management Section --%>
-    <div class="card bg-base-100 shadow-xl">
+    <div :if={@ml_enabled} class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <div class="mb-4">
           <h3 class="card-title text-xl">{gettext("Available Languages")}</h3>
@@ -262,7 +298,7 @@
     </div>
 
     <%!-- Help Section --%>
-    <div class="alert alert-info mt-6">
+    <div :if={@ml_enabled} class="alert alert-info mt-6">
       <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
       <div>
         <h3 class="font-bold">{gettext("Language Configuration")}</h3>
@@ -275,7 +311,7 @@
     </div>
 
     <%!-- URL Behavior Section --%>
-    <div class="card bg-base-100 shadow-xl mt-6">
+    <div :if={@ml_enabled} class="card bg-base-100 shadow-xl mt-6">
       <div class="card-body">
         <h2 class="card-title text-xl mb-2">{gettext("URL Behavior")}</h2>
         <p class="text-base-content/70 mb-4">
@@ -309,7 +345,7 @@
     </div>
 
     <%!-- Frontend Language Switcher Component Section --%>
-    <div class="card bg-base-100 shadow-xl mt-6">
+    <div :if={@ml_enabled} class="card bg-base-100 shadow-xl mt-6">
       <div class="card-body">
         <h2 class="card-title text-xl mb-4">{gettext("Frontend Language Switcher")}</h2>
         <p class="text-base-content/70 mb-6">
@@ -448,11 +484,7 @@
             <div>
               <h3 class="font-bold">{gettext("Enable and Configure Languages")}</h3>
               <p class="text-sm mt-2">
-                <%= if not @ml_enabled do %>
-                  First, enable the Languages module using the toggle at the top, then add at least one language to see live previews of the language switcher component.
-                <% else %>
-                  Add at least one language using the form above to see live previews of the language switcher component.
-                <% end %>
+                Add at least one language using the form above to see live previews of the language switcher component.
               </p>
             </div>
           </div>

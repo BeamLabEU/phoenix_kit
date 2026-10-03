@@ -20,7 +20,6 @@ defmodule PhoenixKit.ModuleRegistryTest do
       # Verify known modules are present rather than asserting a hardcoded count,
       # so this test doesn't break when modules are extracted or added.
       expected = [
-        PhoenixKit.Modules.Languages,
         PhoenixKit.Modules.Crawlers,
         PhoenixKit.Modules.Sitemap,
         PhoenixKit.Modules.Storage
@@ -50,6 +49,16 @@ defmodule PhoenixKit.ModuleRegistryTest do
       assert ModuleRegistry.get_by_key("jobs") == nil
       assert PhoenixKit.Jobs.enabled?()
       assert "jobs" in Permissions.core_section_keys()
+    end
+
+    test "Languages is core, not a module: no toggle in the registry, its key always enabled" do
+      refute PhoenixKit.Modules.Languages in ModuleRegistry.all_modules()
+      assert ModuleRegistry.get_by_key("languages") == nil
+      assert "languages" in Permissions.core_section_keys()
+      # The settings page holds the multi-language switch, so the key must stay
+      # enabled while the switch is off (Auth refuses a page whose key is disabled).
+      assert Permissions.feature_enabled?("languages")
+      refute "languages" in ModuleRegistry.all_feature_keys()
     end
 
     test "does not contain duplicates" do
@@ -228,7 +237,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a list of permission metadata maps" do
       metadata = ModuleRegistry.all_permission_metadata()
       assert is_list(metadata)
-      assert length(metadata) >= 5
+      assert length(metadata) >= 4
 
       for meta <- metadata do
         assert is_map(meta)
@@ -242,8 +251,9 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "contains known permission keys" do
       keys = Enum.map(ModuleRegistry.all_permission_metadata(), & &1.key)
       assert "sitemap" in keys
-      # Jobs is a core section, not a module's feature key
+      # Jobs and Languages are core sections, not a module's feature key
       refute "jobs" in keys
+      refute "languages" in keys
     end
   end
 
@@ -251,7 +261,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns sorted list of feature keys" do
       keys = ModuleRegistry.all_feature_keys()
       assert is_list(keys)
-      assert length(keys) >= 5
+      assert length(keys) >= 4
       assert keys == Enum.sort(keys)
     end
 
@@ -274,7 +284,7 @@ defmodule PhoenixKit.ModuleRegistryTest do
     test "returns a map of key => {module, :enabled?}" do
       checks = ModuleRegistry.feature_enabled_checks()
       assert is_map(checks)
-      assert map_size(checks) >= 5
+      assert map_size(checks) >= 4
 
       for {key, {mod, fun}} <- checks do
         assert is_binary(key)

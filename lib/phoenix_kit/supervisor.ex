@@ -148,6 +148,9 @@ defmodule PhoenixKit.Supervisor do
          fn ->
            try do
              Languages.normalize_language_settings()
+             # Languages is core, not a registered module, so the registry's
+             # boot-time `migrate_legacy/0` sweep no longer reaches it.
+             Languages.migrate_legacy()
            rescue
              error ->
                require Logger

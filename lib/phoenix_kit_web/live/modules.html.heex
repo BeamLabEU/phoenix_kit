@@ -67,66 +67,6 @@
       :if={@modules_tab in ["active", "disabled"]}
       class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
     >
-      <%!-- Languages Module --%>
-      <%= if "languages" in @accessible_modules and modules_tab_match?(@modules_tab, module_enabled?(@module_configs["languages"] || %{})) do %>
-        <% cfg = @module_configs["languages"] || %{} %>
-        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-          title={gettext("Languages")}
-          description={gettext("Manage language module and translations")}
-          icon="🌐"
-          enabled={cfg[:enabled] || false}
-          toggle_event="toggle_module"
-          toggle_key="languages"
-        >
-          <:status_badges>
-            <span class={[
-              "badge",
-              if(cfg[:enabled], do: "badge-success", else: "badge-neutral")
-            ]}>
-              {if cfg[:enabled], do: gettext("Enabled"), else: gettext("Disabled")}
-            </span>
-            <%= if cfg[:enabled] do %>
-              <span class="badge badge-outline ml-2 whitespace-nowrap">
-                {if cfg[:default_language],
-                  do: cfg[:default_language].name,
-                  else: gettext("No Default")}
-              </span>
-            <% end %>
-          </:status_badges>
-
-          <:action_buttons>
-            <%= if cfg[:enabled] do %>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
-                class="btn btn-primary btn-sm"
-              >
-                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
-              </.link>
-            <% else %>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
-                class="btn btn-outline btn-sm"
-              >
-                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
-              </.link>
-            <% end %>
-          </:action_buttons>
-
-          <:stats>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span class="text-base-content/70">{gettext("Total languages")}:</span>
-                <span class="font-medium">{cfg[:language_count]}</span>
-              </div>
-              <div>
-                <span class="text-base-content/70">{gettext("Enabled")}:</span>
-                <span class="font-medium">{cfg[:enabled_count]}</span>
-              </div>
-            </div>
-          </:stats>
-        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-      <% end %>
-
       <%!-- Crawlers Module --%>
       <%= if "crawlers" in @accessible_modules and modules_tab_match?(@modules_tab, module_enabled?(@module_configs["crawlers"] || %{})) do %>
         <% cfg = @module_configs["crawlers"] || %{} %>
