@@ -50,6 +50,39 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebarDynamicChildrenTest do
     end
   end
 
+  describe "expand_dynamic_children/3 keeps the priority order" do
+    # The sidebar draws `tabs` in the order this returns, grouped. Parents with
+    # dynamic_children used to be moved behind every other tab, so they were
+    # drawn last in their group whatever their priority.
+    test "a tab with dynamic_children stays where its priority puts it" do
+      child = Tab.new!(id: :order_child, label: "Child", path: "c", priority: 1, level: :admin)
+
+      tabs = [
+        Tab.new!(id: :order_first, label: "First", path: "a", priority: 100, level: :admin),
+        Tab.new!(
+          id: :order_dynamic,
+          label: "Dynamic",
+          path: "b",
+          priority: 200,
+          level: :admin,
+          dynamic_children: fn _scope -> [child] end
+        ),
+        Tab.new!(id: :order_last, label: "Last", path: "d", priority: 300, level: :admin)
+      ]
+
+      expanded = AdminSidebar.__expand_dynamic_children_for_test__(tabs, %{}, "en")
+
+      assert Enum.map(expanded, & &1.id) == [
+               :order_first,
+               :order_dynamic,
+               :order_last,
+               :order_child
+             ]
+
+      assert Enum.find(expanded, &(&1.id == :order_child)).parent == :order_dynamic
+    end
+  end
+
   describe "invoke_dynamic_children/3 dispatch (via __invoke_dynamic_children_for_test__/3)" do
     test "arity-1 callback receives only the scope" do
       parent = self()

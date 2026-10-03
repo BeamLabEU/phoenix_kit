@@ -593,6 +593,122 @@ defmodule PhoenixKit.Dashboard.Registry do
     end
   end
 
+  @doc """
+  Host overrides of where admin tabs sit in the sidebar:
+
+      config :phoenix_kit, :admin_tab_order, %{
+        admin_catalogue: 120,
+        admin_crm: %{priority: 125, group: :admin_main}
+      }
+
+  A value is a priority, or a map / keyword list with `:priority` and/or
+  `:group`. Entries with a non-atom id or an unusable value are ignored rather
+  than taking the sidebar down on boot. A group that is not a registered
+  sidebar group is dropped with a warning — the sidebar draws registered
+  groups only, so it would hide the tab — and the tab keeps its own group.
+
+  Core already orders known module tabs (`AdminTabs.module_tab_order/0`); this
+  is for the host's own preference. Like `:hidden_admin_tabs` it is applied
+  inside the registry — on every rebuild and to every source of admin tabs
+  (defaults, host `:admin_dashboard_tabs`, legacy categories, runtime
+  `register/2`) — so neither a supervisor restart nor a module's
+  `load_defaults/0` brings the old order back. `update_tab/2` from a host's
+  boot code has neither property.
+  """
+  @spec admin_tab_order() :: %{atom() => map()}
+  def admin_tab_order do
+    case Application.get_env(:phoenix_kit, :admin_tab_order, %{}) do
+      entries when is_map(entries) and not is_struct(entries) ->
+        collect_tab_order(entries)
+
+      entries when is_list(entries) ->
+        if List.improper?(entries), do: %{}, else: collect_tab_order(entries)
+
+      _ ->
+        %{}
+    end
+  end
+
+  defp collect_tab_order(entries) do
+    Enum.reduce(entries, %{}, fn
+      {id, value}, acc when is_atom(id) ->
+        case tab_order_attrs(value) do
+          attrs when map_size(attrs) == 0 -> acc
+          attrs -> Map.put(acc, id, attrs)
+        end
+
+      _other, acc ->
+        acc
+    end)
+  end
+
+  defp tab_order_attrs(priority) when is_integer(priority), do: %{priority: priority}
+
+  defp tab_order_attrs(value) when is_map(value) and not is_struct(value),
+    do: take_tab_order_keys(Map.to_list(value))
+
+  defp tab_order_attrs(value) when is_list(value) do
+    if not List.improper?(value) and Keyword.keyword?(value),
+      do: take_tab_order_keys(value),
+      else: %{}
+  end
+
+  defp tab_order_attrs(_), do: %{}
+
+  defp take_tab_order_keys(pairs) do
+    Enum.reduce(pairs, %{}, fn
+      {:priority, priority}, acc when is_integer(priority) ->
+        Map.put(acc, :priority, priority)
+
+      {:group, group}, acc when is_atom(group) and group not in [nil, true, false] ->
+        Map.put(acc, :group, group)
+
+      _other, acc ->
+        acc
+    end)
+  end
+
+  @doc """
+  Applies `admin_tab_order/0` to `tabs` (admin tabs only — a user dashboard
+  tab with the same id is not touched).
+
+  Public so the override can be tested as the pure function it is — this is
+  the exact step `load_admin_defaults_internal/0` applies after
+  `apply_hidden_admin_tabs/1`.
+  """
+  @spec apply_admin_tab_order([Tab.t()]) :: [Tab.t()]
+  def apply_admin_tab_order(tabs) do
+    case admin_tab_order() do
+      order when map_size(order) == 0 -> tabs
+      order -> Enum.map(tabs, &order_admin_tab(&1, order))
+    end
+  end
+
+  defp order_admin_tab(%Tab{level: :admin, id: id} = tab, order) do
+    case Map.fetch(order, id) do
+      {:ok, attrs} -> struct(tab, known_group_only(attrs, id))
+      :error -> tab
+    end
+  end
+
+  defp order_admin_tab(tab, _order), do: tab
+
+  defp known_group_only(%{group: group} = attrs, id) do
+    if group in Enum.map(AdminTabs.default_groups() ++ get_groups(), & &1.id) do
+      attrs
+    else
+      Logger.warning(
+        "[Registry] :admin_tab_order gives #{inspect(id)} the group #{inspect(group)}, " <>
+          "which is not a sidebar group — the sidebar draws registered groups only, " <>
+          "so the tab keeps its own group"
+      )
+
+      Map.delete(attrs, :group)
+    end
+  end
+
+  defp known_group_only(attrs, _id), do: attrs
+
   @impl true
   def handle_continue(:initialize_tabs, state) do
     # Load user dashboard defaults (includes enabled_user_dashboard_tabs → DB queries)
@@ -621,7 +737,9 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   @impl true
   def handle_call({:register, namespace, tabs}, _from, state) do
-    Enum.each(tabs, fn tab ->
+    tabs
+    |> apply_admin_tab_order()
+    |> Enum.each(fn tab ->
       unless hidden_admin_tab?(tab) do
         :ets.insert(@ets_table, {{:tab, tab.id}, tab})
         :ets.insert(@ets_table, {{:namespace, namespace, tab.id}, true})
@@ -804,8 +922,12 @@ defmodule PhoenixKit.Dashboard.Registry do
     Enum.filter(tabs, &Tab.visible?(&1, scope))
   end
 
-  defp sort_tabs(tabs) do
-    Enum.sort_by(tabs, & &1.priority)
+  # Ties are broken by id: `all_tabs/0` reads an ETS set, whose order depends
+  # on what the table holds — switching a module on or adding a CRM role could
+  # swap two tabs that share a priority.
+  @doc false
+  def sort_tabs(tabs) do
+    Enum.sort_by(tabs, &{&1.priority, to_string(&1.id)})
   end
 
   # Filter tabs by level. :admin returns admin+all, :user returns user+all
@@ -1026,7 +1148,7 @@ defmodule PhoenixKit.Dashboard.Registry do
   defp load_admin_defaults_internal do
     clear_namespace_tabs(:phoenix_kit_admin)
 
-    tabs = AdminTabs.default_tabs() |> apply_hidden_admin_tabs()
+    tabs = AdminTabs.default_tabs() |> apply_hidden_admin_tabs() |> apply_admin_tab_order()
     groups = AdminTabs.default_groups()
 
     Enum.each(tabs, fn tab ->
@@ -1079,6 +1201,8 @@ defmodule PhoenixKit.Dashboard.Registry do
   end
 
   defp insert_config_admin_tab(tab) do
+    [tab] = apply_admin_tab_order([tab])
+
     unless hidden_admin_tab?(tab) do
       :ets.insert(@ets_table, {{:tab, tab.id}, tab})
       :ets.insert(@ets_table, {{:namespace, :admin_config, tab.id}, true})
@@ -1234,6 +1358,8 @@ defmodule PhoenixKit.Dashboard.Registry do
           }
           |> Tab.resolve_path(:admin)
 
+        [parent] = apply_admin_tab_order([parent])
+
         unless hidden_admin_tab?(parent) do
           :ets.insert(@ets_table, {{:tab, parent.id}, parent})
           :ets.insert(@ets_table, {{:namespace, :admin_legacy, parent.id}, true})
@@ -1272,7 +1398,7 @@ defmodule PhoenixKit.Dashboard.Registry do
     # Auto-infer live_view module from URL path
     child = maybe_add_live_view(child, subsection.url)
 
-    child = Tab.resolve_path(child, :admin)
+    [child] = child |> Tab.resolve_path(:admin) |> List.wrap() |> apply_admin_tab_order()
 
     unless hidden_admin_tab?(child) do
       :ets.insert(@ets_table, {{:tab, child.id}, child})
