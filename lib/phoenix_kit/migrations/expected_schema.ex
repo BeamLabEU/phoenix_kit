@@ -499,7 +499,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # * Oban objects are deliberately absent — delegated to Oban.Migration (spec 6.1).
   # * So are objects the chain creates but a module owns and reshapes: core
   #   neither checks nor creates them. `@module_owned_ids` in the generator
-  #   (`ModuleOwned`) keeps a regeneration from bringing them back; each
+  #   (`PhoenixKit.Squash.Generate.Emitter`, dev_docs/squash/generate_baseline.exs)
+  #   keeps a regeneration from bringing them back; each
   #   removal is noted where the object was. Today:
   #   `constraint:phoenix_kit_newsletters_broadcasts.fk_newsletters_broadcasts_template`.
   # * The version-marker COMMENT is not an object; migration entry points own it.

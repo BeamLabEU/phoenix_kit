@@ -1472,6 +1472,11 @@ defmodule PhoenixKit.Squash.Generate.Emitter do
 
   defp module_owned?(%{id: id}), do: id in @module_owned_ids
 
+  # The ids as comment lines of the manifest header, which render_manifest/3
+  # emits two spaces deep (its heredoc strips four of the six on the line).
+  defp module_owned_comment,
+    do: Enum.map_join(@module_owned_ids, "\n  ", &"#   `#{&1}`.")
+
   defp skip_seed_row?(%{class: :seed, key: {table, _key}} = object) do
     Map.get(@seed_strategies, table) == :skip and not Map.has_key?(object, :create_override)
   end
@@ -1667,6 +1672,11 @@ defmodule PhoenixKit.Squash.Generate.Emitter do
       #   incrementally upgraded installs); verify reports info-level either way, repair
       #   NEVER creates them (create: nil).
       # * Oban objects are deliberately absent — delegated to Oban.Migration (spec 6.1).
+      # * So are objects the chain creates but a module owns and reshapes: core
+      #   neither checks nor creates them. `@module_owned_ids` in the generator
+      #   (`PhoenixKit.Squash.Generate.Emitter`, dev_docs/squash/generate_baseline.exs)
+      #   leaves them out of this file; the baseline still creates them. Left out:
+      #{module_owned_comment()}
       # * The version-marker COMMENT is not an object; migration entry points own it.
       # * data_invariants assert SQL returns one row/one boolean column; true = holds.
       #   Report-only; also the --adopt gate (spec 6.4 R4).
@@ -3421,52 +3431,6 @@ defmodule PhoenixKit.Squash.Generate.Main do
   # need. Then at least one REAL table name must resolve to a non-:core
   # owner — proves the family-mapping DATA actually matches real
   # `phoenix_kit_*` names, not just that every branch returns some atom.
-  # build_objects/1 leaves a module-owned object out of the manifest; the
-  # baseline is not filtered by it.
-  defp check_module_owned! do
-    [owned_id | _] = Emitter.module_owned_ids()
-    table = "phoenix_kit_newsletters_broadcasts"
-    kept_id = "constraint:#{table}.fk_newsletters_broadcasts_kept"
-
-    fk = fn id, name ->
-      %{
-        id: id,
-        class: :constraint,
-        key: {table, name},
-        since: 79,
-        presence: :required,
-        revisions: [
-          {79,
-           %{
-             type: "f",
-             columns: ["template_uuid"],
-             definition:
-               "FOREIGN KEY (template_uuid) REFERENCES __SCHEMA__.phoenix_kit_email_templates(uuid) ON DELETE SET NULL",
-             name_template: nil,
-             foreign_table: "phoenix_kit_email_templates",
-             foreign_columns: ["uuid"],
-             on_delete: "n",
-             on_update: "a"
-           }}
-        ]
-      }
-    end
-
-    objects = [
-      fk.(owned_id, "fk_newsletters_broadcasts_template"),
-      fk.(kept_id, "fk_newsletters_broadcasts_kept")
-    ]
-
-    emitted = objects |> Emitter.build_objects() |> Enum.map(& &1.id)
-
-    unless emitted == [kept_id] do
-      raise "module-owned check failed: build_objects/1 emitted #{inspect(emitted)}, " <>
-              "expected only #{kept_id}"
-    end
-
-    :ok
-  end
-
   defp check_owner_mapping! do
     minimal_objects_by_class = [
       %{class: :table, key: "phoenix_kit_cat_items"},
@@ -3520,6 +3484,70 @@ defmodule PhoenixKit.Squash.Generate.Main do
 
     unless non_core > 0 do
       raise "owner mapping check failed: spot-check table has zero non-:core entries"
+    end
+
+    :ok
+  end
+
+  # A module-owned object (`Emitter.module_owned_ids/0`) is left out of the
+  # manifest — build_objects/1 drops it and the header names it — while the
+  # baseline still creates it, because the chain does. One object of the same
+  # shape that is not module-owned must survive, so the check is not vacuous.
+  defp check_module_owned! do
+    [owned_id | _] = Emitter.module_owned_ids()
+    table = "phoenix_kit_newsletters_broadcasts"
+    owned_name = "fk_newsletters_broadcasts_template"
+    kept_id = "constraint:#{table}.fk_newsletters_broadcasts_kept"
+
+    fk = fn id, name ->
+      %{
+        id: id,
+        class: :constraint,
+        key: {table, name},
+        since: 79,
+        presence: :required,
+        revisions: [
+          {79,
+           %{
+             type: "f",
+             columns: ["template_uuid"],
+             definition:
+               "FOREIGN KEY (template_uuid) REFERENCES __SCHEMA__.phoenix_kit_email_templates(uuid) ON DELETE SET NULL",
+             name_template: nil,
+             foreign_table: "phoenix_kit_email_templates",
+             foreign_columns: ["uuid"],
+             on_delete: "n",
+             on_update: "a"
+           }}
+        ]
+      }
+    end
+
+    objects = [fk.(owned_id, owned_name), fk.(kept_id, "fk_newsletters_broadcasts_kept")]
+    meta = %{initial: 1, current: 80, chain_hash: String.duplicate("ab", 32), file_count: 1}
+
+    emitted = objects |> Emitter.build_objects() |> Enum.map(& &1.id)
+
+    unless emitted == [kept_id] do
+      raise "module-owned check failed: build_objects/1 emitted #{inspect(emitted)}, " <>
+              "expected only #{kept_id}"
+    end
+
+    manifest = Emitter.render_manifest(objects, meta)
+
+    unless String.contains?(manifest, "#   `#{owned_id}`.") and
+             not String.contains?(manifest, ~s(id: "#{owned_id}")) do
+      raise "module-owned check failed: the manifest must name #{owned_id} in its header " <>
+              "and carry no object for it"
+    end
+
+    baseline =
+      Emitter.render_baseline(objects, 80, meta,
+        module: "PhoenixKit.Squash.Generate.ModuleOwnedBaselineCheck"
+      )
+
+    unless String.contains?(baseline, "ADD CONSTRAINT #{owned_name}") do
+      raise "module-owned check failed: the baseline no longer creates #{owned_name}"
     end
 
     :ok

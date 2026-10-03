@@ -7,22 +7,26 @@ defmodule PhoenixKit.Integration.ModuleOwnedManifestTest do
   The case: V135 creates `fk_newsletters_broadcasts_template`
   (`template_uuid` → `phoenix_kit_email_templates`), and the newsletters
   module repoints it, under the same name, at a table of its own. While core's
-  manifest described the FK, every install that had done so was reported as
-  `:wrong_shape`. These tests make that change inside the sandbox transaction
-  and read the database the way the repair engine does (`Probe` + `Differ`).
+  manifest described the FK, `verify` reported such an install as
+  `:wrong_shape`, and on an install where the FK was gone `repair` re-created
+  it pointing at the email templates table.
+
+  Each test puts the FK in one state inside the sandbox transaction (which
+  rolls every change back) and runs the real `Repair.verify/1` or
+  `Repair.repair/1` against the suite's migrated database. Only findings about
+  the broadcasts table are asserted: the shared test database may carry
+  unrelated drift left by other packages' runs.
   """
 
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Migrations.ExpectedSchema
-  alias PhoenixKit.Migrations.Repair.Differ
-  alias PhoenixKit.Migrations.Repair.Probe
+  alias PhoenixKit.Migrations.Repair
   alias PhoenixKit.Test.Repo
 
   @table "phoenix_kit_newsletters_broadcasts"
   @fk "fk_newsletters_broadcasts_template"
   @id "constraint:#{@table}.#{@fk}"
-  @check {:catalog, %{kind: :constraint, table: @table, name: @fk}}
 
   test "the manifest does not describe the FK, under its id or its name" do
     objects = ExpectedSchema.objects("public")
@@ -31,12 +35,13 @@ defmodule PhoenixKit.Integration.ModuleOwnedManifestTest do
     refute Enum.any?(objects, &match?(%{check: {:catalog, %{name: @fk}}}, &1))
   end
 
-  test "the chain still creates it, pointing at the email templates table" do
-    assert %{type: "f", foreign_table: "phoenix_kit_email_templates"} =
-             Probe.lookup(Probe.snapshot(Repo, "public"), @check)
+  test "(a) as the chain creates it: verify says nothing about it" do
+    assert fk_target() == "phoenix_kit_email_templates"
+
+    assert table_findings(verify()) == []
   end
 
-  test "repointed at a module's own table, nothing on the broadcasts table is drift" do
+  test "(b) repointed at a module's own table: verify says nothing about it" do
     Repo.query!("CREATE TABLE public.phoenix_kit_newsletters_layouts (uuid uuid PRIMARY KEY)")
     Repo.query!("ALTER TABLE public.#{@table} DROP CONSTRAINT #{@fk}")
 
@@ -46,47 +51,78 @@ defmodule PhoenixKit.Integration.ModuleOwnedManifestTest do
       ON DELETE SET NULL
     """)
 
-    snapshot = Probe.snapshot(Repo, "public")
-
-    assert %{foreign_table: "phoenix_kit_newsletters_layouts"} = Probe.lookup(snapshot, @check)
-
-    objects =
-      for %{presence: :required} = object <- ExpectedSchema.objects("public"),
-          on_table?(object),
-          do: object
-
-    # The table, its columns, its other constraints and indexes are still
-    # core's and still checked.
-    assert Enum.any?(objects, &(&1.class == :constraint))
-    assert Enum.any?(objects, &(&1.class == :column))
-
-    problems =
-      for object <- objects,
-          problem = problem(object, Probe.lookup(snapshot, object.check)),
-          do: {object.id, problem}
-
-    assert problems == []
+    assert fk_target() == "phoenix_kit_newsletters_layouts"
+    assert table_findings(verify()) == []
   end
 
-  defp on_table?(%{check: {:catalog, %{kind: :table, name: @table}}}), do: true
-  defp on_table?(%{check: {:catalog, %{table: @table}}}), do: true
-  defp on_table?(%{class: :index} = object), do: newest_shape(object).table == @table
-  defp on_table?(_object), do: false
+  test "(c) gone: verify says nothing, and repair does not put it back" do
+    Repo.query!("ALTER TABLE public.#{@table} DROP CONSTRAINT #{@fk}")
 
-  defp newest_shape(%{revisions: revisions}) do
-    {_version, shape} = Enum.max_by(revisions, fn {version, _} -> version end)
-    shape
+    assert table_findings(verify()) == []
+
+    assert {:ok, report} = Repair.repair(repo: Repo, prefix: "public")
+    assert table_findings(report) == []
+    assert fk_target() == nil
   end
 
-  defp problem(_object, nil), do: :missing
+  test "the rest of the broadcasts table is still core's: a dropped FK is repaired" do
+    other = "fk_newsletters_broadcasts_created_by"
+    other_id = "constraint:#{@table}.#{other}"
+    Repo.query!("ALTER TABLE public.#{@table} DROP CONSTRAINT #{@fk}")
+    Repo.query!("ALTER TABLE public.#{@table} DROP CONSTRAINT #{other}")
 
-  defp problem(object, observed) do
-    case Differ.compare(object.class, newest_shape(object), observed) do
-      :match ->
-        nil
+    assert [%{kind: :missing, object_id: ^other_id}] =
+             table_findings(verify())
 
-      {:mismatch, _} = mismatch ->
-        if Differ.deparse_text_only?(mismatch), do: nil, else: mismatch
+    assert {:ok, report} = Repair.repair(repo: Repo, prefix: "public")
+
+    assert [%{kind: :repaired, object_id: ^other_id}] =
+             table_findings(report)
+
+    assert constraint_exists?(other)
+    assert fk_target() == nil
+  end
+
+  defp verify do
+    assert {:ok, report} = Repair.verify(repo: Repo, prefix: "public")
+    report
+  end
+
+  # Findings about the broadcasts table or the FK, whatever their severity.
+  defp table_findings(report) do
+    Enum.filter(report.findings, fn finding ->
+      id = finding.object_id || ""
+      String.contains?(id, @table) or String.contains?(id, @fk)
+    end)
+  end
+
+  defp fk_target do
+    %{rows: rows} =
+      Repo.query!(
+        """
+        SELECT f.relname
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_class f ON f.oid = c.confrelid
+        WHERE c.conname = $1 AND t.relname = $2 AND n.nspname = 'public'
+        """,
+        [@fk, @table]
+      )
+
+    case rows do
+      [[target]] -> target
+      [] -> nil
     end
+  end
+
+  defp constraint_exists?(name) do
+    %{rows: [[exists]]} =
+      Repo.query!(
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = $1)",
+        [name]
+      )
+
+    exists
   end
 end
