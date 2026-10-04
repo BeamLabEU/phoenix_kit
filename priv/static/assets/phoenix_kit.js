@@ -3818,11 +3818,20 @@ if (typeof window.Chart === "undefined") {
 
   // Chrome: things you grab, things that only say "this one is selected",
   // and things still being drawn. None of it belongs in the picture.
+  //
+  // `.etcher-text-editor` is the inline label editor — a <foreignObject>
+  // with a live <textarea> over the shape being typed into. Closing or
+  // stepping the viewer burns in capture phase, BEFORE Etcher's own
+  // click-outside commit can take the editor down, so without this a
+  // burn taken mid-edit rendered the input box — placeholder text,
+  // borders and all — into the stored copy. The committed label (when
+  // there is one) is the <text> the shape itself carries; the editor is
+  // only ever the form control.
   var BURN_CHROME = [
     ".etcher-handle", ".etcher-grab", ".etcher-handle-line", ".etcher-handle-midpoint",
     ".etcher-handle-edge", ".etcher-connector-hit", ".etcher-connector-dot",
     ".etcher-title-handle", ".etcher-snap-guide", ".etcher-marquee", ".is-draft",
-    ".etcher-badge"
+    ".etcher-badge", ".etcher-text-editor"
   ];
 
   // Momentary looks, suspended while the styles are read and restored in the

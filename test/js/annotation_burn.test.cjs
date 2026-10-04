@@ -200,6 +200,35 @@ test("a straight line — one side 0, the other not — is ink and widens the ca
   );
 });
 
+// Reported from the field: open a label, type nothing, close the popup —
+// and the burned copy showed the input box (placeholder, borders and all)
+// where the label would have gone. The editor is a <foreignObject> with a
+// live <textarea>, and closing/stepping burns in capture phase, before
+// Etcher's own click-outside commit can take it down — so the burn must
+// treat it as chrome.
+test("the inline label editor is chrome: stripped from the copy, never measured", () => {
+  const m = src.match(/var BURN_CHROME = \[([^\]]*)\]/);
+  assert.ok(m, "could not find BURN_CHROME");
+  const chrome = m[1].match(/"[^"]+"/g).map((s) => s.slice(1, -1));
+
+  assert.ok(chrome.includes(".etcher-text-editor"),
+    "a burn taken mid-edit must not render the label editor's input box into the copy");
+
+  // Through burnInkBounds with the REAL chrome list: an editor hanging
+  // past the picture's edge must not stretch the canvas either.
+  const realBounds = new Function(
+    "BURN_CHROME",
+    sliceFn("burnIsChrome") + "\n" + sliceFn("burnInkBounds") + "\n" +
+    "return { burnInkBounds };"
+  )(chrome);
+
+  const editorPastTheEdge = fakeEl([900, 500, 1900, 560], ["etcher-shape", "etcher-text-editor"]);
+  assert.deepStrictEqual(
+    realBounds.burnInkBounds([editorPastTheEdge], same, 1408, 768),
+    { minX: 0, minY: 0, maxX: 1408, maxY: 768 }
+  );
+});
+
 test("burnCapturePlan sizes the canvas with burnInkBounds over shapes and their descendants", () => {
   const plan = sliceFn("burnCapturePlan");
   assert.match(plan, /burnInkBounds\(\s*svg\.querySelectorAll\("\.etcher-shape, \.etcher-shape \*"\)/);
