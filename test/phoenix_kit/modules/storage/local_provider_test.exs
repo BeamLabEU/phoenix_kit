@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.LocalTest do
   # Not async: one test swaps the remembered start directory.
   use ExUnit.Case, async: false
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Providers.Local
 
   @moduletag :tmp_dir
@@ -30,6 +31,41 @@ defmodule PhoenixKit.Modules.Storage.Providers.LocalTest do
       File.write!(source, "bytes")
       assert {:ok, stored} = Local.store_file(%{endpoint: "relative"}, source, "k.bin")
       assert stored == Path.join([dir, "relative", "k.bin"])
+    after
+      if started_in,
+        do: :persistent_term.put(key, started_in),
+        else: :persistent_term.erase(key)
+    end
+  end
+
+  test "a path's status names the directory files really go to", %{tmp_dir: dir} do
+    key = {Local, :cwd}
+    started_in = :persistent_term.get(key, nil)
+    :persistent_term.put(key, dir)
+
+    try do
+      assert Local.resolve_path("priv/media") == Path.join(dir, "priv/media")
+      assert Local.resolve_path("/srv/media") == "/srv/media"
+
+      # Relative to the start directory, whatever the working directory is.
+      assert {:missing, Path.join(dir, "priv/media")} ==
+               Storage.local_path_status("priv/media")
+
+      File.mkdir_p!(Path.join(dir, "priv/media"))
+
+      assert {:ok, Path.join(dir, "priv/media")} ==
+               Storage.local_path_status("priv/media")
+
+      assert {:ok, "priv/media"} ==
+               Storage.validate_and_normalize_path("priv/media")
+
+      File.write!(Path.join(dir, "a-file"), "x")
+
+      assert {:not_directory, Path.join(dir, "a-file")} ==
+               Storage.local_path_status("a-file")
+
+      assert {:error, :does_not_exist, Path.join(dir, "nope")} ==
+               Storage.validate_and_normalize_path("nope")
     after
       if started_in,
         do: :persistent_term.put(key, started_in),

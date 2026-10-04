@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       |> assign(:pending_bucket_params, nil)
       |> assign(:show_create_path_modal, false)
       |> assign(:missing_path, nil)
+      |> assign(:path_status, nil)
       |> assign(:connection_status, nil)
       |> assign(:connection_error, nil)
       |> assign(:testing_connection, false)
@@ -75,6 +76,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
        |> assign(:changeset, changeset)
        |> assign(:current_provider, get_current_provider(changeset, bucket))
        |> assign(:selected_connection_uuid, bucket && bucket.integration_uuid)
+       |> assign_path_status()
        |> assign_connections()}
     end
   end
@@ -91,6 +93,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       |> assign(:profile_uuid, profile_uuid || socket.assigns.profile_uuid)
       |> assign(:changeset, changeset)
       |> assign(:current_provider, get_current_provider(changeset, socket.assigns.bucket))
+      |> assign_path_status()
       |> assign(
         :selected_connection_uuid,
         Ecto.Changeset.get_field(changeset, :integration_uuid)
@@ -279,30 +282,54 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     end
   end
 
-  defp handle_local_bucket_save(socket, bucket_params, endpoint) do
-    case Storage.validate_and_normalize_path(endpoint) do
-      {:ok, _relative_path} ->
+  defp handle_local_bucket_save(socket, bucket_params, endpoint) when is_binary(endpoint) do
+    case Storage.local_path_status(endpoint) do
+      {:ok, _path} ->
         # Path exists, proceed with save
         save_bucket(socket, bucket_params)
 
-      {:error, :does_not_exist, expanded_path} ->
+      {:missing, expanded_path} ->
         # Path doesn't exist, show confirmation modal
         {:noreply, show_path_creation_modal(socket, bucket_params, expanded_path)}
 
-      {:error, :invalid_path} ->
-        # Invalid path format, redirect back with error
-        socket =
-          socket
-          |> put_flash(
-            :error,
-            "Invalid storage path format. Please check the path and try again."
-          )
-          |> push_navigate(
-            to: socket.assigns.current_path || Routes.path("/admin/settings/media")
-          )
+      {:not_directory, path} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("%{path} is a file, not a folder.", path: path))}
 
-        {:noreply, socket}
+      {:not_writable, path} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("The application cannot write to %{path}.", path: path)
+         )}
     end
+  end
+
+  defp handle_local_bucket_save(socket, _bucket_params, _endpoint) do
+    # Invalid path format, redirect back with error
+    socket =
+      socket
+      |> put_flash(
+        :error,
+        "Invalid storage path format. Please check the path and try again."
+      )
+      |> push_navigate(to: socket.assigns.current_path || Routes.path("/admin/settings/media"))
+
+    {:noreply, socket}
+  end
+
+  # What the typed storage path comes to on disk, for the line under the input.
+  # Only a local bucket has one; a blank field has nothing to resolve yet.
+  defp assign_path_status(socket) do
+    endpoint = Ecto.Changeset.get_field(socket.assigns.changeset, :endpoint)
+
+    status =
+      if socket.assigns.current_provider == "local" and is_binary(endpoint) and
+           String.trim(endpoint) != "",
+         do: Storage.local_path_status(endpoint)
+
+    assign(socket, :path_status, status)
   end
 
   defp save_bucket(socket, bucket_params) do

@@ -249,6 +249,67 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
       refute html =~ ~s(name="bucket[integration_uuid]")
     end
 
+    @tag :tmp_dir
+    test "local shows where the typed path lands on disk, and whether it can be used",
+         %{conn: conn, tmp_dir: dir} do
+      {:ok, view, _html} = live(conn, @new_path)
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "local"}})
+
+      ok =
+        render_change(view, "validate", %{
+          "bucket" => %{"storage_type" => "local", "endpoint" => dir}
+        })
+
+      assert ok =~ "Files are stored in"
+      assert ok =~ dir
+
+      missing = Path.join(dir, "not-yet")
+
+      html =
+        render_change(view, "validate", %{
+          "bucket" => %{"storage_type" => "local", "endpoint" => missing}
+        })
+
+      assert html =~ missing
+      assert html =~ "does not exist yet"
+
+      file = Path.join(dir, "a-file")
+      File.write!(file, "x")
+
+      html =
+        render_change(view, "validate", %{
+          "bucket" => %{"storage_type" => "local", "endpoint" => file}
+        })
+
+      assert html =~ "is a file, not a folder"
+
+      # A relative path is shown as the absolute one it resolves to.
+      html =
+        render_change(view, "validate", %{
+          "bucket" => %{"storage_type" => "local", "endpoint" => "priv/media"}
+        })
+
+      assert html =~ Path.expand("priv/media", File.cwd!())
+    end
+
+    @tag :tmp_dir
+    test "saving a path that is a file says so instead of crashing the form",
+         %{conn: conn, tmp_dir: dir} do
+      file = Path.join(dir, "a-file")
+      File.write!(file, "x")
+
+      {:ok, view, _html} = live(conn, @new_path)
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "local"}})
+
+      html =
+        render_submit(view, "save", %{
+          "bucket" => %{"name" => "Disk", "provider" => "local", "endpoint" => file}
+        })
+
+      assert html =~ "is a file, not a folder"
+      assert Process.alive?(view.pid)
+    end
+
     test "cloud lists the integrations with their service, and hides the bucket until one is picked",
          %{conn: conn} do
       uuid =

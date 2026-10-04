@@ -117,6 +117,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.ProcessFileJob
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.ProviderRegistry
+  alias PhoenixKit.Modules.Storage.Providers.Local
   alias PhoenixKit.Modules.Storage.RemoteFetch
   alias PhoenixKit.Modules.Storage.Sniff
   alias PhoenixKit.Modules.Storage.StorageProfile
@@ -4289,9 +4290,29 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Gets the absolute path for local storage.
   """
-  def get_absolute_path do
-    default_path = get_default_path()
-    Path.expand(default_path, Elixir.File.cwd!())
+  def get_absolute_path, do: Local.resolve_path(get_default_path())
+
+  @doc """
+  What a local storage path comes to on disk.
+
+  A relative path is taken from the directory the application started in, the
+  same one the local provider writes under (`Local.resolve_path/1`).
+
+  Returns `{:ok, absolute}` for a writable directory, `{:missing, absolute}`
+  when nothing is there yet, `{:not_directory, absolute}` for a file and
+  `{:not_writable, absolute}` for a directory that cannot be written to.
+  """
+  @spec local_path_status(String.t()) ::
+          {:ok | :missing | :not_directory | :not_writable, String.t()}
+  def local_path_status(path) when is_binary(path) do
+    expanded_path = Local.resolve_path(path)
+
+    cond do
+      not Elixir.File.exists?(expanded_path) -> {:missing, expanded_path}
+      not Elixir.File.dir?(expanded_path) -> {:not_directory, expanded_path}
+      not writable?(expanded_path) -> {:not_writable, expanded_path}
+      true -> {:ok, expanded_path}
+    end
   end
 
   @doc """
@@ -4300,21 +4321,18 @@ defmodule PhoenixKit.Modules.Storage do
   Returns `{:ok, relative_path}` if valid, or error tuple if invalid.
   """
   def validate_and_normalize_path(path) when is_binary(path) do
-    expanded_path = Path.expand(path, Elixir.File.cwd!())
+    case local_path_status(path) do
+      {:ok, expanded_path} ->
+        {:ok, Path.relative_to(expanded_path, Local.resolve_path("."))}
 
-    cond do
-      not Elixir.File.exists?(expanded_path) ->
+      {:missing, expanded_path} ->
         {:error, :does_not_exist, expanded_path}
 
-      not Elixir.File.dir?(expanded_path) ->
+      {:not_directory, expanded_path} ->
         {:error, "Path is not a directory: #{expanded_path}"}
 
-      not writable?(expanded_path) ->
+      {:not_writable, expanded_path} ->
         {:error, "Directory is not writable: #{expanded_path}"}
-
-      true ->
-        relative_path = Path.relative_to(expanded_path, Elixir.File.cwd!())
-        {:ok, relative_path}
     end
   end
 

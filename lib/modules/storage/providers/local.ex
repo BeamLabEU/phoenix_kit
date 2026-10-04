@@ -21,7 +21,17 @@ defmodule PhoenixKit.Modules.Storage.Providers.Local do
   window lands in the dependency's directory.
   """
   @spec root(map()) :: String.t()
-  def root(bucket), do: Path.expand(bucket.endpoint || "priv/media", start_dir())
+  def root(bucket), do: resolve_path(bucket.endpoint || "priv/media")
+
+  @doc """
+  Where a storage path points on disk: absolute as it stands, a relative one
+  taken from the directory the application started in (see `root/1`).
+
+  The one place a path is made absolute, so the form's preview, its existence
+  check and the files themselves can never name different directories.
+  """
+  @spec resolve_path(String.t()) :: String.t()
+  def resolve_path(path) when is_binary(path), do: Path.expand(path, start_dir())
 
   @doc false
   # Called at application start, while the working directory is still the

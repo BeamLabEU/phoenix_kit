@@ -95,12 +95,51 @@
                 name="bucket[endpoint]"
                 value={Ecto.Changeset.get_field(@changeset, :endpoint)}
                 class={input_class(@changeset, :endpoint)}
-                placeholder="/path/to/storage"
+                placeholder="priv/media"
                 required
               />
               <p class="text-xs text-base-content/50 mt-1">
-                {gettext("Absolute path where files will be stored on disk")}
+                {gettext(
+                  "Use an absolute path, or one relative to the folder the application runs from, such as priv/media."
+                )}
               </p>
+              <%= case @path_status do %>
+                <% {:ok, path} -> %>
+                  <p class="text-xs text-success mt-2 flex items-start gap-1.5">
+                    <.icon name="hero-check-circle" class="w-4 h-4 shrink-0" />
+                    <span>
+                      {gettext("Files are stored in")}
+                      <code class="break-all font-semibold">{path}</code>
+                    </span>
+                  </p>
+                <% {:missing, path} -> %>
+                  <p class="text-xs text-warning mt-2 flex items-start gap-1.5">
+                    <.icon name="hero-exclamation-triangle" class="w-4 h-4 shrink-0" />
+                    <span>
+                      <code class="break-all font-semibold">{path}</code>
+                      {gettext(
+                        "does not exist yet. You will be asked to create it when you save."
+                      )}
+                    </span>
+                  </p>
+                <% {:not_directory, path} -> %>
+                  <p class="text-xs text-error mt-2 flex items-start gap-1.5">
+                    <.icon name="hero-x-circle" class="w-4 h-4 shrink-0" />
+                    <span>
+                      <code class="break-all font-semibold">{path}</code>
+                      {gettext("is a file, not a folder.")}
+                    </span>
+                  </p>
+                <% {:not_writable, path} -> %>
+                  <p class="text-xs text-error mt-2 flex items-start gap-1.5">
+                    <.icon name="hero-x-circle" class="w-4 h-4 shrink-0" />
+                    <span>
+                      {gettext("The application cannot write to")}
+                      <code class="break-all font-semibold">{path}</code>
+                    </span>
+                  </p>
+                <% nil -> %>
+              <% end %>
             </fieldset>
           </div>
         </div>

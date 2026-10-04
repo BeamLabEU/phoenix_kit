@@ -626,8 +626,8 @@ msgstr "Жирный"
 msgid "Bullet List"
 msgstr "Маркированный список"
 
-#: lib/modules/storage/web/bucket_form.html.heex:465
-#: lib/modules/storage/web/bucket_form.html.heex:490
+#: lib/modules/storage/web/bucket_form.html.heex:504
+#: lib/modules/storage/web/bucket_form.html.heex:529
 #: lib/modules/storage/web/dimension_form.html.heex:240
 #: lib/modules/storage/web/libraries_component.ex:414
 #: lib/modules/storage/web/libraries_component.ex:460
@@ -1599,7 +1599,7 @@ msgstr "Основной"
 msgid "Primary: %{lang}"
 msgstr "Основной: %{lang}"
 
-#: lib/modules/storage/web/bucket_form.html.heex:376
+#: lib/modules/storage/web/bucket_form.html.heex:415
 #: lib/modules/storage/web/bucket_page.html.heex:97
 #: lib/modules/storage/web/settings.html.heex:113
 #: lib/modules/storage/web/settings.html.heex:144
@@ -1869,7 +1869,7 @@ msgstr "Выберите, к каким разделам и модулям эт�
 #: lib/modules/maintenance/web/maintenance_page_live.ex:127
 #: lib/modules/sitemap/web/settings.html.heex:5
 #: lib/modules/storage/web/bucket_form.html.heex:5
-#: lib/modules/storage/web/bucket_form.html.heex:356
+#: lib/modules/storage/web/bucket_form.html.heex:395
 #: lib/modules/storage/web/bucket_page.html.heex:5
 #: lib/modules/storage/web/dimension_form.html.heex:5
 #: lib/modules/storage/web/dimensions.html.heex:5
@@ -2469,7 +2469,7 @@ msgstr "4. Нажмите «Проверить учётные данные», ч
 msgid "Access Key ID"
 msgstr "ID ключа доступа"
 
-#: lib/modules/storage/web/bucket_form.html.heex:362
+#: lib/modules/storage/web/bucket_form.html.heex:401
 #, elixir-autogen, elixir-format
 msgid "Access Type"
 msgstr "Тип доступа"
@@ -2631,7 +2631,7 @@ msgstr "Фоновое изображение для страниц аутент
 msgid "Background image for auth pages on mobile screens (768px and below). Falls back to desktop image if not set."
 msgstr "Фоновое изображение для страниц аутентификации на мобильных экранах (768px и меньше). Если не задано, используется изображение для рабочего стола."
 
-#: lib/modules/storage/web/bucket_form.html.heex:244
+#: lib/modules/storage/web/bucket_form.html.heex:283
 #, elixir-autogen, elixir-format
 msgid "Bucket Name"
 msgstr "Название бакета"
@@ -2747,12 +2747,12 @@ msgstr "Скопировать в буфер обмена"
 msgid "Crawlers are allowed to index the site. Enable the toggle to hide staging deployments."
 msgstr "Поисковые роботы могут индексировать сайт. Включите переключатель, чтобы скрыть тестовые развёртывания."
 
-#: lib/modules/storage/web/bucket_form.html.heex:497
+#: lib/modules/storage/web/bucket_form.html.heex:536
 #, elixir-autogen, elixir-format
 msgid "Create Path"
 msgstr "Создать путь"
 
-#: lib/modules/storage/web/bucket_form.html.heex:482
+#: lib/modules/storage/web/bucket_form.html.heex:521
 #, elixir-autogen, elixir-format
 msgid "Create Storage Path"
 msgstr "Создать путь хранилища"
@@ -2832,7 +2832,7 @@ msgstr "Включить Magic Link для регистрации"
 msgid "Enable OAuth (Master Switch)"
 msgstr "Включить OAuth (главный переключатель)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:263
+#: lib/modules/storage/web/bucket_form.html.heex:302
 #: lib/phoenix_kit/integrations/object_storage_services.ex:316
 #: lib/phoenix_kit/integrations/providers.ex:1028
 #: lib/phoenix_kit_web/live/components/library_settings.ex:687
@@ -2985,7 +2985,7 @@ msgstr "Оставьте пустым для сохранения оригина
 msgid "Legal"
 msgstr "Юридическая информация"
 
-#: lib/modules/storage/web/bucket_form.ex:559
+#: lib/modules/storage/web/bucket_form.ex:586
 #: lib/modules/storage/web/bucket_form.html.heex:61
 #, elixir-autogen, elixir-format
 msgid "Local Filesystem"
@@ -3352,7 +3352,7 @@ msgstr "Первый пользователь (Владелец) всегда б
 msgid "The migration seeds 8 default dimensions: 4 image sizes (thumbnail, small, medium, large) and 4 video variants (360p, 720p, 1080p, video_thumbnail)."
 msgstr "Миграция создаёт 8 размеров по умолчанию: 4 размера изображений (thumbnail, small, medium, large) и 4 варианта видео (360p, 720p, 1080p, video_thumbnail)."
 
-#: lib/modules/storage/web/bucket_form.html.heex:484
+#: lib/modules/storage/web/bucket_form.html.heex:523
 #, elixir-autogen, elixir-format
 msgid "The storage path"
 msgstr "Путь хранилища"
@@ -3471,7 +3471,7 @@ msgstr "При включении IP-адреса регистрации и пр
 msgid "Width (px)"
 msgstr "Ширина (пкс)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:487
+#: lib/modules/storage/web/bucket_form.html.heex:526
 #, elixir-autogen, elixir-format
 msgid "Would you like to create it now?"
 msgstr "Вы хотите создать его сейчас?"
@@ -3518,7 +3518,7 @@ msgstr "и"
 msgid "and generate/copy"
 msgstr "и сгенерируйте/скопируйте"
 
-#: lib/modules/storage/web/bucket_form.html.heex:485
+#: lib/modules/storage/web/bucket_form.html.heex:524
 #, elixir-autogen, elixir-format
 msgid "does not exist."
 msgstr "не существует."
@@ -3672,7 +3672,7 @@ msgstr "Используются для персонализированной �
 msgid "%{language} (Disabled — %{status})"
 msgstr "%{language} (Отключено — %{status})"
 
-#: lib/modules/storage/web/bucket_form.html.heex:386
+#: lib/modules/storage/web/bucket_form.html.heex:425
 #, elixir-autogen, elixir-format
 msgid "0 = auto, 1+ = higher priority"
 msgstr "0 = авто, 1+ = более высокий приоритет"
@@ -3708,11 +3708,6 @@ msgstr "Учётные данные API"
 #, elixir-autogen, elixir-format
 msgid "API Key"
 msgstr "API-ключ"
-
-#: lib/modules/storage/web/bucket_form.html.heex:102
-#, elixir-autogen, elixir-format
-msgid "Absolute path where files will be stored on disk"
-msgstr "Абсолютный путь на диске для хранения файлов"
 
 #: lib/phoenix_kit_web/components/invitation_banner.ex:53
 #, elixir-autogen, elixir-format
@@ -3947,7 +3942,7 @@ msgstr "Подключено"
 msgid "Connection Name"
 msgstr "Название соединения"
 
-#: lib/modules/storage/web/bucket_form.html.heex:335
+#: lib/modules/storage/web/bucket_form.html.heex:374
 #: lib/modules/storage/web/bucket_page.html.heex:361
 #, elixir-autogen, elixir-format
 msgid "Connection failed"
@@ -4085,7 +4080,7 @@ msgstr "Изменить интеграцию"
 msgid "Enable Tax"
 msgstr "Включить налог"
 
-#: lib/modules/storage/web/bucket_form.html.heex:411
+#: lib/modules/storage/web/bucket_form.html.heex:450
 #, elixir-autogen, elixir-format
 msgid "Enable bucket"
 msgstr "Включить бакет"
@@ -4510,7 +4505,7 @@ msgstr "Настройки уведомлений сохранены."
 msgid "Notifications"
 msgstr "Уведомления"
 
-#: lib/modules/storage/web/bucket_form.html.heex:413
+#: lib/modules/storage/web/bucket_form.html.heex:452
 #, elixir-autogen, elixir-format
 msgid "Only enabled buckets receive new uploads"
 msgstr "Только включённые бакеты принимают новые загрузки"
@@ -4592,7 +4587,7 @@ msgstr "Введите название соединения."
 msgid "Please save your Client ID first"
 msgstr "Сначала сохраните ваш ID клиента"
 
-#: lib/modules/storage/web/bucket_form.html.heex:369
+#: lib/modules/storage/web/bucket_form.html.heex:408
 #: lib/modules/storage/web/bucket_page.ex:425
 #, elixir-autogen, elixir-format
 msgid "Private (proxied)"
@@ -4603,7 +4598,7 @@ msgstr "Приватный (через прокси)"
 msgid "Project Logo"
 msgstr "Логотип проекта"
 
-#: lib/modules/storage/web/bucket_form.html.heex:367
+#: lib/modules/storage/web/bucket_form.html.heex:406
 #, elixir-autogen, elixir-format
 msgid "Public (direct URL)"
 msgstr "Публичный (прямой URL)"
@@ -4629,7 +4624,7 @@ msgstr "Удалить этого участника из организации
 msgid "Repair Media Module"
 msgstr "Восстановить медиамодуль"
 
-#: lib/modules/storage/web/bucket_form.html.heex:472
+#: lib/modules/storage/web/bucket_form.html.heex:511
 #, elixir-autogen, elixir-format
 msgid "Save Bucket"
 msgstr "Сохранить бакет"
@@ -4728,7 +4723,7 @@ msgstr "Налоговые настройки"
 msgid "Tax settings saved"
 msgstr "Налоговые настройки сохранены"
 
-#: lib/modules/storage/web/bucket_form.html.heex:322
+#: lib/modules/storage/web/bucket_form.html.heex:361
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:656
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:667
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:315
@@ -4747,7 +4742,7 @@ msgstr "Проверить соединение"
 msgid "Test failed"
 msgstr "Проверка не удалась"
 
-#: lib/modules/storage/web/bucket_form.html.heex:319
+#: lib/modules/storage/web/bucket_form.html.heex:358
 #: lib/phoenix_kit_web/live/components/library_settings.ex:745
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:667
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:192
@@ -9266,7 +9261,7 @@ msgstr "Бакет успешно отключён"
 msgid "Bucket enabled successfully"
 msgstr "Бакет успешно включён"
 
-#: lib/modules/storage/web/bucket_form.ex:60
+#: lib/modules/storage/web/bucket_form.ex:61
 #: lib/modules/storage/web/bucket_page.ex:78
 #: lib/modules/storage/web/bucket_page.ex:138
 #: lib/modules/storage/web/bucket_page.ex:281
@@ -9706,7 +9701,7 @@ msgstr "Уведомления о входе"
 msgid "Port"
 msgstr "Порт"
 
-#: lib/modules/storage/web/bucket_form.html.heex:222
+#: lib/modules/storage/web/bucket_form.html.heex:261
 #: lib/phoenix_kit/integrations/object_storage_services.ex:198
 #: lib/phoenix_kit/integrations/object_storage_services.ex:252
 #: lib/phoenix_kit/integrations/object_storage_services.ex:284
@@ -9924,12 +9919,12 @@ msgstr "Ни один файл не соответствует поиску."
 msgid "Try a different term or clear the search"
 msgstr "Попробуйте другой запрос или очистите поиск"
 
-#: lib/modules/storage/web/bucket_form.ex:523
+#: lib/modules/storage/web/bucket_form.ex:550
 #, elixir-autogen, elixir-format
 msgid "Add Storage Bucket"
 msgstr "Добавить бакет хранилища"
 
-#: lib/modules/storage/web/bucket_form.ex:524
+#: lib/modules/storage/web/bucket_form.ex:551
 #, elixir-autogen, elixir-format
 msgid "Edit Storage Bucket"
 msgstr "Изменить бакет хранилища"
@@ -10835,7 +10830,7 @@ msgstr "Как после входа"
 msgid "Save sender identity"
 msgstr "Сохранить данные отправителя"
 
-#: lib/modules/storage/web/bucket_form.html.heex:128
+#: lib/modules/storage/web/bucket_form.html.heex:167
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "Select an integration..."
@@ -15764,7 +15759,7 @@ msgstr "У страницы может быть однострочное опи�
 msgid "Show page descriptions in the admin header"
 msgstr "Показывать описания страниц в шапке админки"
 
-#: lib/modules/storage/web/bucket_form.html.heex:368
+#: lib/modules/storage/web/bucket_form.html.heex:407
 #, elixir-autogen, elixir-format
 msgid "Signed (short-lived link)"
 msgstr "Подписанный (кратковременная ссылка)"
@@ -15969,7 +15964,7 @@ msgstr "Размеры изменены. Существующие файлы м�
 msgid "Storage"
 msgstr "Хранилище"
 
-#: lib/modules/storage/web/bucket_form.html.heex:419
+#: lib/modules/storage/web/bucket_form.html.heex:458
 #: lib/modules/storage/web/bucket_page.html.heex:145
 #: lib/modules/storage/web/libraries_component.ex:492
 #, elixir-autogen, elixir-format
@@ -16297,7 +16292,7 @@ msgstr[0] "%{count} бакет хранилища использует это с
 msgstr[1] "%{count} бакета хранилища используют это соединение и перестанут работать. Удалить его навсегда?"
 msgstr[2] "%{count} бакетов хранилища используют это соединение и перестанут работать. Удалить его навсегда?"
 
-#: lib/modules/storage/web/bucket_form.html.heex:153
+#: lib/modules/storage/web/bucket_form.html.heex:192
 #: lib/phoenix_kit_web/live/components/library_settings.ex:633
 #, elixir-autogen, elixir-format
 msgid "Add a connection"
@@ -16308,12 +16303,12 @@ msgstr "Добавить соединение"
 msgid "Connection"
 msgstr "Соединение"
 
-#: lib/modules/storage/web/bucket_form.html.heex:302
+#: lib/modules/storage/web/bucket_form.html.heex:341
 #, elixir-autogen, elixir-format
 msgid "Files are served from this address instead of the bucket's own URL. Optional."
 msgstr "Файлы отдаются с этого адреса, а не с собственного URL бакета. Необязательно."
 
-#: lib/modules/storage/web/bucket_form.html.heex:175
+#: lib/modules/storage/web/bucket_form.html.heex:214
 #, elixir-autogen, elixir-format
 msgid "It keeps working. Move the keys into an integration to manage them in one place."
 msgstr "Он продолжает работать. Перенесите ключи в интеграцию, чтобы управлять ими в одном месте."
@@ -16324,7 +16319,7 @@ msgstr "Он продолжает работать. Перенесите клю�
 msgid "Keys on bucket"
 msgstr "Ключи в бакете"
 
-#: lib/modules/storage/web/bucket_form.html.heex:272
+#: lib/modules/storage/web/bucket_form.html.heex:311
 #, elixir-autogen, elixir-format
 msgid "Leave empty for AWS S3. Set it for an S3-compatible service such as MinIO, Wasabi or DigitalOcean Spaces."
 msgstr "Для AWS S3 оставьте пустым. Укажите для S3-совместимого сервиса, например MinIO, Wasabi или DigitalOcean Spaces."
@@ -16334,7 +16329,7 @@ msgstr "Для AWS S3 оставьте пустым. Укажите для S3-с
 msgid "Move all to integrations"
 msgstr "Перенести всё в интеграции"
 
-#: lib/modules/storage/web/bucket_form.html.heex:192
+#: lib/modules/storage/web/bucket_form.html.heex:231
 #, elixir-autogen, elixir-format
 msgid "Move keys to an integration"
 msgstr "Перенести ключи в интеграцию"
@@ -16344,7 +16339,7 @@ msgstr "Перенести ключи в интеграцию"
 msgid "Move the keys of every such bucket into integrations?"
 msgstr "Перенести ключи всех таких бакетов в интеграции?"
 
-#: lib/modules/storage/web/bucket_form.html.heex:186
+#: lib/modules/storage/web/bucket_form.html.heex:225
 #, elixir-autogen, elixir-format
 msgid "Move this bucket's keys into an integration? The bucket keeps working."
 msgstr "Перенести ключи этого бакета в интеграцию? Бакет продолжит работать."
@@ -16362,7 +16357,7 @@ msgstr[0] "Ключи %{count} бакета перенесены в интегр
 msgstr[1] "Ключи %{count} бакетов перенесены в интеграцию."
 msgstr[2] "Ключи %{count} бакетов перенесены в интеграцию."
 
-#: lib/modules/storage/web/bucket_form.ex:153
+#: lib/modules/storage/web/bucket_form.ex:156
 #, elixir-autogen, elixir-format
 msgid "Moving keys creates an integration, which needs access to Integrations."
 msgstr "Перенос ключей создаёт интеграцию, для чего нужен доступ к разделу «Интеграции»."
@@ -16372,17 +16367,17 @@ msgstr "Перенос ключей создаёт интеграцию, для 
 msgid "Moving keys creates integrations, which needs access to Integrations."
 msgstr "Перенос ключей создаёт интеграции, для чего нужен доступ к разделу «Интеграции»."
 
-#: lib/modules/storage/web/bucket_form.html.heex:159
+#: lib/modules/storage/web/bucket_form.html.heex:198
 #, elixir-autogen, elixir-format
 msgid "No Object Storage connection exists yet."
 msgstr "Соединения с объектным хранилищем пока нет."
 
-#: lib/modules/storage/web/bucket_form.html.heex:397
+#: lib/modules/storage/web/bucket_form.html.heex:436
 #, elixir-autogen, elixir-format
 msgid "No limit"
 msgstr "Без ограничений"
 
-#: lib/modules/storage/web/bucket_form.html.heex:287
+#: lib/modules/storage/web/bucket_form.html.heex:326
 #, elixir-autogen, elixir-format
 msgid "Public URL (CDN)"
 msgstr "Публичный URL (CDN)"
@@ -16392,23 +16387,23 @@ msgstr "Публичный URL (CDN)"
 msgid "Select a connection..."
 msgstr "Выберите соединение…"
 
-#: lib/modules/storage/web/bucket_form.html.heex:391
+#: lib/modules/storage/web/bucket_form.html.heex:430
 #, elixir-autogen, elixir-format
 msgid "Size limit (MB)"
 msgstr "Лимит размера (МБ)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:401
+#: lib/modules/storage/web/bucket_form.html.heex:440
 #, elixir-autogen, elixir-format
 msgid "Stop storing new files here once it holds this much. Empty = no limit."
 msgstr "Перестать сохранять здесь новые файлы, когда в бакете накопится столько данных. Пусто = без ограничений."
 
-#: lib/modules/storage/web/bucket_form.html.heex:329
+#: lib/modules/storage/web/bucket_form.html.heex:368
 #: lib/phoenix_kit_web/live/components/library_settings.ex:748
 #, elixir-autogen, elixir-format
 msgid "The bucket can be read, written to and deleted from"
 msgstr "Бакет можно читать, записывать в него и удалять из него файлы"
 
-#: lib/modules/storage/web/bucket_form.html.heex:298
+#: lib/modules/storage/web/bucket_form.html.heex:337
 #, elixir-autogen, elixir-format
 msgid "The bucket's r2.dev or custom domain. Without one, files are served through this server."
 msgstr "Домен r2.dev или собственный домен бакета. Без него файлы отдаются через этот сервер."
@@ -16428,22 +16423,22 @@ msgstr "Эндпоинт не должен быть локальным, част
 msgid "The endpoint must use https"
 msgstr "Эндпоинт должен использовать https"
 
-#: lib/modules/storage/web/bucket_form.ex:278
+#: lib/modules/storage/web/bucket_form.ex:281
 #, elixir-autogen, elixir-format
 msgid "The keys could not be moved. Nothing was changed."
 msgstr "Не удалось перенести ключи. Ничего не изменилось."
 
-#: lib/modules/storage/web/bucket_form.ex:264
+#: lib/modules/storage/web/bucket_form.ex:267
 #, elixir-autogen, elixir-format
 msgid "The keys now live in an integration."
 msgstr "Теперь ключи хранятся в интеграции."
 
-#: lib/modules/storage/web/bucket_form.ex:271
+#: lib/modules/storage/web/bucket_form.ex:274
 #, elixir-autogen, elixir-format
 msgid "The saved keys could not be read, so they were not moved. Pick a connection with working keys instead."
 msgstr "Сохранённые ключи не удалось прочитать, поэтому они не были перенесены. Выберите вместо этого соединение с рабочими ключами."
 
-#: lib/modules/storage/web/bucket_form.html.heex:342
+#: lib/modules/storage/web/bucket_form.html.heex:381
 #, elixir-autogen, elixir-format
 msgid "The test saves and removes a small file. It is optional: a bucket can be saved without it."
 msgstr "Тест сохраняет и удаляет небольшой файл. Он необязателен: бакет можно сохранить и без него."
@@ -16453,7 +16448,7 @@ msgstr "Тест сохраняет и удаляет небольшой фай�
 msgid "They keep working. Move the keys into an integration to rotate or revoke them in one place."
 msgstr "Они продолжают работать. Перенесите ключи в интеграцию, чтобы менять или отзывать их в одном месте."
 
-#: lib/modules/storage/web/bucket_form.html.heex:172
+#: lib/modules/storage/web/bucket_form.html.heex:211
 #, elixir-autogen, elixir-format
 msgid "This bucket uses keys saved on the bucket itself."
 msgstr "Этот бакет использует ключи, сохранённые в самом бакете."
@@ -17225,17 +17220,17 @@ msgstr "Где находится бакет — указано на стран�
 msgid "A name for this storage location in PhoenixKit — not the bucket's name on the storage service."
 msgstr "Название этого хранилища в PhoenixKit — не имя бакета в сервисе хранения."
 
-#: lib/modules/storage/web/bucket_form.html.heex:161
+#: lib/modules/storage/web/bucket_form.html.heex:200
 #, elixir-autogen, elixir-format
 msgid "Ask an administrator to add one."
 msgstr "Попросите администратора добавить её."
 
-#: lib/modules/storage/web/bucket_form.html.heex:243
+#: lib/modules/storage/web/bucket_form.html.heex:282
 #, elixir-autogen, elixir-format
 msgid "Bucket name on %{service}"
 msgstr "Имя бакета в %{service}"
 
-#: lib/modules/storage/web/bucket_form.html.heex:115
+#: lib/modules/storage/web/bucket_form.html.heex:154
 #, elixir-autogen, elixir-format
 msgid "Cloud storage"
 msgstr "Облачное хранилище"
@@ -17245,7 +17240,7 @@ msgstr "Облачное хранилище"
 msgid "Cloud storage (S3-compatible)"
 msgstr "Облачное хранилище (совместимое с S3)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:223
+#: lib/modules/storage/web/bucket_form.html.heex:262
 #, elixir-autogen, elixir-format
 msgid "Search regions..."
 msgstr "Поиск регионов..."
@@ -17255,17 +17250,17 @@ msgstr "Поиск регионов..."
 msgid "Select type..."
 msgstr "Выберите тип..."
 
-#: lib/modules/storage/web/bucket_form.html.heex:120
+#: lib/modules/storage/web/bucket_form.html.heex:159
 #, elixir-autogen, elixir-format
 msgid "Storage integration"
 msgstr "Интеграция хранилища"
 
-#: lib/modules/storage/web/bucket_form.html.heex:255
+#: lib/modules/storage/web/bucket_form.html.heex:294
 #, elixir-autogen, elixir-format
 msgid "The bucket's own name on the storage service, as its console shows it."
 msgstr "Собственное имя бакета в сервисе хранения — так, как его показывает консоль сервиса."
 
-#: lib/modules/storage/web/bucket_form.html.heex:141
+#: lib/modules/storage/web/bucket_form.html.heex:180
 #, elixir-autogen, elixir-format
 msgid "The keys and endpoint come from an Object Storage integration."
 msgstr "Ключи и конечная точка берутся из интеграции Object Storage."
@@ -17433,13 +17428,13 @@ msgstr "Это значение сайта по умолчанию; библио
 msgid "Each original is stored on the primary bucket only. The other buckets take over only if a write to it fails, and hold nothing otherwise. Set the copies to 2 to keep every file on a second bucket."
 msgstr "Каждый оригинал сохраняется только в основном бакете. Остальные бакеты подхватывают файл, лишь если запись в основной не удалась, а иначе ничего не хранят. Установите число копий 2, чтобы каждый файл хранился и во втором бакете."
 
-#: lib/modules/storage/web/bucket_form.ex:491
-#: lib/modules/storage/web/bucket_form.ex:499
+#: lib/modules/storage/web/bucket_form.ex:518
+#: lib/modules/storage/web/bucket_form.ex:526
 #, elixir-autogen, elixir-format
 msgid "Bucket created successfully"
 msgstr "Бакет успешно создан"
 
-#: lib/modules/storage/web/bucket_form.ex:506
+#: lib/modules/storage/web/bucket_form.ex:533
 #, elixir-autogen, elixir-format
 msgid "Each original is stored on %{copies} of the %{count} primary buckets, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab."
 msgstr "Каждый оригинал сохраняется в %{copies} из %{count} основных бакетов, поэтому файлы распределяются между ними, а не дублируются. Измените число копий на вкладке «Профили хранения»."
@@ -17928,12 +17923,12 @@ msgstr[2] "(всего библиотек: %{count})"
 msgid "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
 msgstr "Удалить этот бакет? Бакет, который используется профилем хранения или всё ещё содержит файлы, не удаляется."
 
-#: lib/modules/storage/web/bucket_form.html.heex:446
+#: lib/modules/storage/web/bucket_form.html.heex:485
 #, elixir-autogen, elixir-format
 msgid "It is used by %{used_by}. It cannot be disabled or deleted until it is taken out of those storage profiles."
 msgstr "Он используется — %{used_by}. Его нельзя отключить или удалить, пока он не убран из этих профилей хранения."
 
-#: lib/modules/storage/web/bucket_form.html.heex:452
+#: lib/modules/storage/web/bucket_form.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Open the storage profiles"
 msgstr "Открыть профили хранения"
@@ -17948,7 +17943,7 @@ msgstr "Профиль по умолчанию нельзя удалить."
 msgid "The storage profile could not be deleted."
 msgstr "Не удалось удалить профиль хранения."
 
-#: lib/modules/storage/web/bucket_form.html.heex:444
+#: lib/modules/storage/web/bucket_form.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "This bucket is in use"
 msgstr "Этот бакет используется"
@@ -17995,27 +17990,27 @@ msgstr "реплика"
 msgid "the \"%{profile}\" profile (%{use})"
 msgstr "профиль «%{profile}» (%{use})"
 
-#: lib/modules/storage/web/bucket_form.ex:519
+#: lib/modules/storage/web/bucket_form.ex:546
 #, elixir-autogen, elixir-format
 msgid "%{name} (Default)"
 msgstr "%{name} (По умолчанию)"
 
-#: lib/modules/storage/web/bucket_form.html.heex:424
+#: lib/modules/storage/web/bucket_form.html.heex:463
 #, elixir-autogen, elixir-format
 msgid "None: just add the bucket"
 msgstr "Нет: только добавить бакет"
 
-#: lib/modules/storage/web/bucket_form.html.heex:431
+#: lib/modules/storage/web/bucket_form.html.heex:470
 #, elixir-autogen, elixir-format
 msgid "The bucket is only added to the system: it receives and serves nothing until a storage profile lists it (Storage profiles tab)."
 msgstr "Бакет только добавляется в систему: он ничего не принимает и не отдаёт, пока его не включит профиль хранения (вкладка «Профили хранения»)."
 
-#: lib/modules/storage/web/bucket_form.html.heex:435
+#: lib/modules/storage/web/bucket_form.html.heex:474
 #, elixir-autogen, elixir-format
 msgid "The bucket joins this profile as a primary (written and served), and the profile's files are placed again. Change its role there."
 msgstr "Бакет войдёт в этот профиль как основной (запись и выдача), а файлы профиля будут размещены заново. Измените его роль там."
 
-#: lib/modules/storage/web/bucket_form.ex:493
+#: lib/modules/storage/web/bucket_form.ex:520
 #, elixir-autogen, elixir-format
 msgid "It is in no storage profile yet, so nothing is written to it: add it to one on the Storage profiles tab."
 msgstr "Он пока не входит ни в один профиль хранения, поэтому в него ничего не записывается: добавьте его в профиль на вкладке «Профили хранения»."
@@ -18410,3 +18405,38 @@ msgstr "Добро пожаловать на сайт {{site_name}}"
 #, elixir-autogen, elixir-format
 msgid "No confirmation email on record — use Resend below."
 msgstr "Нет данных об отправке письма с подтверждением — воспользуйтесь кнопкой «Отправить ещё раз» ниже."
+
+#: lib/modules/storage/web/bucket_form.ex:297
+#, elixir-autogen, elixir-format
+msgid "%{path} is a file, not a folder."
+msgstr "%{path} — это файл, а не папка."
+
+#: lib/modules/storage/web/bucket_form.html.heex:111
+#, elixir-autogen, elixir-format
+msgid "Files are stored in"
+msgstr "Файлы хранятся в"
+
+#: lib/modules/storage/web/bucket_form.html.heex:137
+#, elixir-autogen, elixir-format
+msgid "The application cannot write to"
+msgstr "Приложение не может записывать в"
+
+#: lib/modules/storage/web/bucket_form.ex:304
+#, elixir-autogen, elixir-format
+msgid "The application cannot write to %{path}."
+msgstr "Приложение не может записывать в %{path}."
+
+#: lib/modules/storage/web/bucket_form.html.heex:102
+#, elixir-autogen, elixir-format
+msgid "Use an absolute path, or one relative to the folder the application runs from, such as priv/media."
+msgstr "Укажите абсолютный путь или путь относительно папки, из которой запущено приложение, например priv/media."
+
+#: lib/modules/storage/web/bucket_form.html.heex:120
+#, elixir-autogen, elixir-format
+msgid "does not exist yet. You will be asked to create it when you save."
+msgstr "пока не существует. Вам предложат создать её при сохранении."
+
+#: lib/modules/storage/web/bucket_form.html.heex:130
+#, elixir-autogen, elixir-format
+msgid "is a file, not a folder."
+msgstr "— это файл, а не папка."
