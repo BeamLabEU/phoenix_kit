@@ -25,6 +25,9 @@ defmodule PhoenixKit.Email.Layout do
   Only the `html` part is read, and only the variables below are bound — not
   the message's own, since every email shares these parts.
 
+  `render_parts/2` renders the header and footer alone, chosen the same way,
+  for a caller that builds its own document around them.
+
   An empty or whitespace-only `_header`/`_footer` file counts as missing.
   Neither needs a placeholder. A `_layout` with no `content` placeholder (an
   empty file, a typo such as `{{{contnet}}}`) would drop the body of every
@@ -98,6 +101,7 @@ defmodule PhoenixKit.Email.Layout do
   """
 
   alias PhoenixKit.Email.Branding
+  alias PhoenixKit.Email.Content
   alias PhoenixKit.Settings
   alias PhoenixKit.Templates.Overrides
   alias PhoenixKit.Templates.Substitution
@@ -135,6 +139,35 @@ defmodule PhoenixKit.Email.Layout do
           header: source() | nil,
           footer: source() | nil,
           ignored: [{:blank_file | :no_content, Path.t()}]
+        }
+
+  @typedoc """
+  The header and footer of one message, rendered on their own (see
+  `render_parts/2`).
+
+    * `header`, `footer` — **already HTML**, to be placed with three braces.
+    * `variables` — the variables the parts were rendered with (see
+      "Variables" above, without `content`/`header`/`footer`), for a caller
+      whose own wrapper names `{{site_name}}`, `{{accent_color}}` and the like.
+      These are **raw text, not HTML**: `subject`, `site_name`, `site_url`
+      and `logo_url` are not escaped. Place them with two braces and
+      substitute with `escape: true`; only `header` and `footer` take three.
+      Any other key of a caller's `:branding` map is carried through as given
+      (`render/3` places it in the layout the same way); `subject`,
+      `site_name` and `site_url` always win over a key of the same name.
+    * `sources` — where each part came from (`{:file, path}` or `:default`),
+      and under `ignored` the files passed over on the way
+      (`{:blank_file, path}` for an empty one).
+  """
+  @type parts :: %{
+          header: String.t(),
+          footer: String.t(),
+          variables: %{String.t() => term()},
+          sources: %{
+            header: source(),
+            footer: source(),
+            ignored: [{:blank_file, Path.t()}]
+          }
         }
 
   @doc "The reserved template name the layout resolves under."
@@ -303,9 +336,84 @@ defmodule PhoenixKit.Email.Layout do
   """
   @spec render(String.t(), String.t() | nil, keyword()) :: {String.t(), sources()}
   def render(content, subject, opts \\ []) when is_binary(content) do
-    locale = Keyword.get(opts, :locale)
-    paths = Keyword.get(opts, :paths) || []
-    group = group(Keyword.get(opts, :group))
+    options = options(opts)
+    parts = parts(subject, options, opts)
+
+    accent_bar? =
+      Keyword.get_lazy(opts, :accent_bar, fn -> Branding.configured_accent_color() != nil end)
+
+    {layout, layout_source, layout_ignored} =
+      layout(options.group, options.locale, options.paths, accent_bar?)
+
+    placed = Substitution.variables(layout)
+
+    variables =
+      Map.merge(parts.variables, %{
+        "content" => content,
+        "header" => parts.header,
+        "footer" => parts.footer
+      })
+
+    sources = %{
+      layout: layout_source,
+      header: if("header" in placed, do: parts.sources.header),
+      footer: if("footer" in placed, do: parts.sources.footer),
+      ignored: layout_ignored ++ parts.sources.ignored
+    }
+
+    {Substitution.substitute(layout, variables, escape: true), sources}
+  end
+
+  @doc """
+  The header and footer for a message, rendered on their own, without the
+  layout around them.
+
+  For a caller that builds its own document but wants the site's chrome in
+  it — a newsletter's wrapper, say, placing `{{{header}}}` and `{{{footer}}}`
+  around its own body. The parts are chosen exactly as `render/3` chooses
+  them — both use the same private resolution: per group, locale and
+  override root, an empty file counting as missing, core's own part last
+  (see "Groups" and "Core's defaults" above).
+
+  Takes `render/3`'s `:locale`, `:paths`, `:group` and `:branding` options;
+  `subject` may be `nil`. One default differs: without `:paths` (or with
+  `paths: nil`) the host's override roots are read,
+  `PhoenixKit.Email.Content.override_paths/0` — the same roots
+  `PhoenixKit.Email.Content.resolve/5` reads — so a caller gets the host's
+  `_header`/`_footer` files without naming them. Pass `paths: []` for core's
+  parts only. Returns `t:parts/0`:
+
+      parts = Layout.render_parts(subject, locale: "de", group: "newsletters")
+
+      variables =
+        Map.merge(parts.variables, %{
+          "header" => parts.header,
+          "footer" => parts.footer,
+          "content" => body_html
+        })
+
+      Substitution.substitute(wrapper, variables, escape: true)
+
+  `header` and `footer` are HTML: place them with three braces. Everything
+  in `variables` is raw text: place it with two braces, under `escape: true`.
+  """
+  @spec render_parts(String.t() | nil, keyword()) :: parts()
+  def render_parts(subject, opts \\ []) do
+    opts = Keyword.put(opts, :paths, Keyword.get(opts, :paths) || Content.override_paths())
+    parts(subject, options(opts), opts)
+  end
+
+  # The options both `render/3` and `render_parts/2` read, normalised once so
+  # an invalid group is warned about once per render.
+  defp options(opts) do
+    %{
+      locale: Keyword.get(opts, :locale),
+      paths: Keyword.get(opts, :paths) || [],
+      group: group(Keyword.get(opts, :group))
+    }
+  end
+
+  defp parts(subject, %{locale: locale, paths: paths, group: group}, opts) do
     site_url = Routes.base_url()
 
     # A caller's branding is checked like any other: only a `#rrggbb` colour
@@ -322,12 +430,8 @@ defmodule PhoenixKit.Email.Layout do
           Branding.variables()
       end
 
-    accent_bar? =
-      Keyword.get_lazy(opts, :accent_bar, fn -> Branding.configured_accent_color() != nil end)
-
     variables =
-      branding
-      |> Map.merge(%{
+      Map.merge(branding, %{
         "subject" => subject || "",
         "site_name" => Settings.get_project_title(),
         "site_url" => site_url
@@ -340,21 +444,16 @@ defmodule PhoenixKit.Email.Layout do
     {footer, footer_source, footer_ignored} =
       found.(@footer, default_footer_html(link: http_url?(site_url)))
 
-    {layout, layout_source, layout_ignored} = layout(group, locale, paths, accent_bar?)
-
-    placed = Substitution.variables(layout)
-
-    variables =
-      Map.merge(variables, %{"content" => content, "header" => header, "footer" => footer})
-
-    sources = %{
-      layout: layout_source,
-      header: if("header" in placed, do: header_source),
-      footer: if("footer" in placed, do: footer_source),
-      ignored: layout_ignored ++ header_ignored ++ footer_ignored
+    %{
+      header: header,
+      footer: footer,
+      variables: variables,
+      sources: %{
+        header: header_source,
+        footer: footer_source,
+        ignored: header_ignored ++ footer_ignored
+      }
     }
-
-    {Substitution.substitute(layout, variables, escape: true), sources}
   end
 
   @doc """

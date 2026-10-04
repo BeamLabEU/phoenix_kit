@@ -229,7 +229,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     assigns = prepare_dropdown_assigns(assigns)
 
     ~H"""
-    <div class={["relative", @class]}>
+    <div :if={@languages != []} class={["relative", @class]}>
       <details
         class="dropdown dropdown-end dropdown-bottom"
         id="language-switcher-dropdown"
@@ -605,7 +605,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     # Get enabled languages - these are full dialect codes with names
     # Ensure we always have a list, even if nil is returned
-    languages_config = assigns.languages || Languages.get_display_languages() || []
+    languages_config = assigns.languages || Languages.get_enabled_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
     # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
@@ -650,7 +650,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> assign(:languages, filtered_languages)
 
     ~H"""
-    <div class={["flex gap-2", @class]}>
+    <div :if={@languages != []} class={["flex gap-2", @class]}>
       <%= for language <- @languages do %>
         <% url = resolve_url(language["base_code"], @current_path, @per_translation_urls, @goto_home) %>
         <a
@@ -732,7 +732,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     # Get enabled languages - these are full dialect codes with names
     # Ensure we always have a list, even if nil is returned
-    languages_config = assigns.languages || Languages.get_display_languages() || []
+    languages_config = assigns.languages || Languages.get_enabled_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
     # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
@@ -777,7 +777,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       |> assign(:languages, filtered_languages)
 
     ~H"""
-    <div class={["flex gap-4 items-center", @class]}>
+    <div :if={@languages != []} class={["flex gap-4 items-center", @class]}>
       <%= for {language, index} <- Enum.with_index(@languages) do %>
         <% url = resolve_url(language["base_code"], @current_path, @per_translation_urls, @goto_home) %>
         <div class="flex items-center gap-1">
@@ -843,7 +843,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     languages_config =
       case assigns.languages do
-        nil -> Languages.get_display_languages()
+        nil -> Languages.get_enabled_languages()
         list when is_list(list) -> list
         _ -> []
       end

@@ -794,10 +794,8 @@ defmodule PhoenixKit.Utils.Routes do
 
   # Whether the leading segment of a served path (after `url_prefix` has been
   # split off) is already a locale this site recognises. Deliberately the
-  # narrower ENABLED set, not the wider display set `switchable_locale_codes/1`
-  # checks for the language switcher — an override's existing segment came
-  # from an administrator, not from a link this module itself emitted, so
-  # there is no need to recognise a locale the site does not actually enable.
+  # enabled set. An explicit current locale is only added when switching away
+  # from a page whose locale may have since been disabled.
   defp served_locale_segment?(rest_path) do
     case String.split(rest_path, "/", parts: 3) do
       ["", segment | _] -> segment in enabled_locale_codes_with_base()
@@ -859,10 +857,10 @@ defmodule PhoenixKit.Utils.Routes do
       which strips `ja` correctly but would also eat an unrelated two-letter
       path segment and misses 3-letter codes entirely.
 
-  The set used here is the one the switcher itself can emit — every display
-  language plus every enabled code, with base codes for both. A path the
-  switcher produced is therefore always recognised on the next switch, and a
-  segment it could never have produced (`/api`, `/id`) is left alone.
+  The set used here is the site's enabled locale codes, including their base
+  codes, plus an explicitly supplied `:current_locale`. Preview defaults and
+  disabled languages are excluded: a host path such as `/nl/products` keeps
+  its first segment when Dutch is not served by the site.
 
   ## Options
 
@@ -897,29 +895,9 @@ defmodule PhoenixKit.Utils.Routes do
   defp nonempty(""), do: "/"
   defp nonempty(path), do: path
 
-  # Everything the switcher could have put in a URL. Deliberately wider than
-  # "enabled": the dropdown lists display languages, so those are exactly the
-  # codes that can come back at us.
+  # Only served locales, plus the page's explicit locale to handle stale links.
   defp switchable_locale_codes(current_locale) do
-    display =
-      if Code.ensure_loaded?(Languages) and
-           function_exported?(Languages, :get_display_languages, 0) do
-        Languages.get_display_languages()
-        |> Enum.map(fn lang -> if is_struct(lang), do: lang.code, else: lang[:code] end)
-        |> Enum.filter(&is_binary/1)
-      else
-        []
-      end
-
-    enabled =
-      if Code.ensure_loaded?(Languages) and
-           function_exported?(Languages, :enabled_locale_codes, 0),
-         do: Languages.enabled_locale_codes(),
-         else: []
-
-    codes = display ++ enabled ++ List.wrap(current_locale)
-
-    codes
+    (enabled_locale_codes_with_base() ++ List.wrap(current_locale))
     |> Enum.flat_map(fn code -> [code, DialectMapper.extract_base(code)] end)
     |> Enum.filter(&is_binary/1)
     |> Enum.uniq()

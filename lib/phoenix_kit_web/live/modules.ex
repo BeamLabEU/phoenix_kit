@@ -21,11 +21,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Mount
   # ============================================================================
 
-  # Internal modules still rendered as hardcoded cards on this page. Storage
-  # and Notifications are core capabilities (not real install/uninstall
-  # toggles — see their moduledocs) and are configured entirely from their
-  # own Settings pages, so they're deliberately excluded from this list.
-  @internal_module_keys ["languages", "crawlers", "sitemap", "jobs"]
+  # Internal modules still rendered as hardcoded cards on this page. Storage,
+  # Notifications, Jobs and Languages are core capabilities (not real
+  # install/uninstall toggles — see their moduledocs) and are configured entirely
+  # from their own pages (Languages: its multi-language switch is on
+  # Settings → Languages), so they're deliberately excluded from this list.
+  @internal_module_keys ["crawlers", "sitemap"]
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: Events.subscribe_to_modules()
@@ -497,7 +498,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Build list of external/plugin modules (auto-discovered from deps).
   # Each entry has the info needed to render a generic module card.
   defp load_external_modules(module_configs) do
-    ModuleDiscovery.discover_external_modules()
+    ModuleDiscovery.cached_external_modules()
     |> Enum.filter(fn mod ->
       Code.ensure_loaded?(mod) and function_exported?(mod, :module_key, 0)
     end)

@@ -593,7 +593,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
   re-introduce the Owner-vs-custom asymmetry this is meant to remove (Owner's
   set is a superset that trivially satisfies the subset test either way). The
   `size > 0` guard stops an empty grantable set from making `subset?/2`
-  vacuously true (a fail-open) for every scope; in practice the 5 core + 2
+  vacuously true (a fail-open) for every scope; in practice the core and
   integration keys are a non-disableable floor, but the guard never rots.
   """
   @spec holds_all_enabled_permissions?(t()) :: boolean()

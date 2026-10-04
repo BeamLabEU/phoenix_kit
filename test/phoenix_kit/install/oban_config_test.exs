@@ -621,12 +621,53 @@ defmodule PhoenixKit.Install.ObanConfigTest do
           {Oban.Plugins.Cron,
            crontab: [
              {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
-             {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}
+             {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
+             {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
+             {"15 4 * * *", PhoenixKit.Jobs.PruneWorker},
+             {"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker}
            ]}
         ]
       """
 
       assert ObanConfig.ensure_worker_cron_entries(content, "my_app") == content
+    end
+
+    test "backfills the job runs' sweeper and prune, so an orphaned run is rescued on an older host" do
+      content = """
+      config :my_app, Oban,
+        plugins: [
+          {Oban.Plugins.Cron,
+           crontab: [
+             {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
+             {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}
+           ]}
+        ]
+      """
+
+      updated = ObanConfig.ensure_worker_cron_entries(content, "my_app")
+
+      assert updated =~ ~s({"*/5 * * * *", PhoenixKit.Jobs.SweepWorker})
+      assert updated =~ ~s({"15 4 * * *", PhoenixKit.Jobs.PruneWorker})
+      assert {:ok, _} = Code.string_to_quoted(updated)
+    end
+
+    test "backfills the bucket log's prune, so the table does not grow forever on an older host" do
+      content = """
+      config :my_app, Oban,
+        plugins: [
+          {Oban.Plugins.Cron,
+           crontab: [
+             {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}
+           ]}
+        ]
+      """
+
+      updated = ObanConfig.ensure_worker_cron_entries(content, "my_app")
+
+      assert updated =~
+               ~s({"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker})
+
+      assert {:ok, _} = Code.string_to_quoted(updated)
     end
 
     test "backfills only the entry a host is missing" do

@@ -9,7 +9,8 @@ defmodule PhoenixKit.Modules.Storage.ServingOrderTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Locations, Manager, Profiles}
+  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Locations, Manager, Profiles}
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
   @cache :phoenix_kit_buckets_cache
@@ -75,6 +76,15 @@ defmodule PhoenixKit.Modules.Storage.ServingOrderTest do
 
   defp from?(path, bucket), do: is_binary(path) and String.starts_with?(path, bucket.endpoint)
 
+  # The emergency stop, set on the table: `Storage.update_bucket/3` refuses to
+  # disable a bucket a storage profile lists, and these tests keep it listed.
+  defp disable!(bucket) do
+    {1, _} =
+      Repo.update_all(from(b in Bucket, where: b.uuid == ^bucket.uuid), set: [enabled: false])
+
+    Manager.invalidate_bucket_cache()
+  end
+
   test "the first primary in serve order is served", ctx do
     assert from?(served_from(ctx.key), ctx.a)
 
@@ -114,7 +124,9 @@ defmodule PhoenixKit.Modules.Storage.ServingOrderTest do
   end
 
   test "a disabled bucket is not served from", ctx do
-    {:ok, _} = Storage.update_bucket(ctx.a, %{enabled: false})
+    # The emergency stop applies whatever the profile says: set on the table,
+    # because `update_bucket/3` refuses to disable a bucket a profile lists.
+    disable!(ctx.a)
     assert from?(served_from(ctx.key), ctx.b)
   end
 end

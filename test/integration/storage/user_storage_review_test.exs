@@ -21,8 +21,10 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Probe
+  alias PhoenixKit.Jobs.Run
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.{Bucket, Endpoint, Libraries, Library, Manager, Profiles}
+  alias PhoenixKit.Modules.Storage.Jobs.PurgeLibrary
   alias PhoenixKit.Modules.Storage.Providers.S3
   alias PhoenixKit.Modules.Storage.Workers.PurgeLibraryJob
   alias PhoenixKit.Settings
@@ -634,17 +636,80 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       assert Storage.get_bucket(bucket.uuid) == nil
     end
 
-    test "the job is retried, not dropped, while objects remain", %{root: root, store: store} do
+    test "the purge run is retried, not dropped, while objects remain", %{
+      root: root,
+      store: store
+    } do
+      start_supervised!(
+        {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
+      )
+
       user = user!()
       {library, _profile} = own_library!(user, :only)
       {:ok, _file} = upload!(user, library, root, "private bytes")
       memory_s3(store, deny: ["DELETE"])
       library = trash!(library)
 
-      assert {:error, :objects_remain} =
+      # The Oban job every place queues starts the run ...
+      assert :ok =
                PurgeLibraryJob.perform(%Oban.Job{
                  args: %{"library_uuid" => library.uuid}
                })
+
+      assert %Run{kind: "storage.purge_library", state: "queued", title: title} =
+               run = Repo.one!(from r in Run, where: r.kind == "storage.purge_library")
+
+      # a user's library is private: its name is not in the title
+      assert title == "Delete a user's library and its files"
+      refute title =~ library.name
+
+      # ... which tries again each time the objects remain, and then fails
+      # visibly (the daily prune starts it again) — it is never silently dropped.
+      Oban.drain_queue(queue: :file_processing, with_scheduled: true, with_recursion: true)
+
+      assert %Run{state: "failed", error: error, interruptions: 4} = Repo.get!(Run, run.uuid)
+      assert error =~ "objects remain"
+      assert Libraries.get_library(library.uuid)
+
+      # Not controllable while it works: it has no pause or cancel to offer.
+      assert PurgeLibrary.controls() == []
+    end
+
+    test "the purge run finishes the job once the objects can be deleted", %{
+      root: root,
+      store: store
+    } do
+      start_supervised!(
+        {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
+      )
+
+      user = user!()
+      {library, _profile} = own_library!(user, :only)
+      {:ok, _file} = upload!(user, library, root, "private bytes")
+      memory_s3(store)
+      library = trash!(library)
+
+      assert :ok = PurgeLibraryJob.perform(%Oban.Job{args: %{"library_uuid" => library.uuid}})
+      Oban.drain_queue(queue: :file_processing, with_scheduled: true, with_recursion: true)
+
+      assert %Run{state: "completed", result: %{"purged" => true}} =
+               Repo.one!(from r in Run, where: r.kind == "storage.purge_library")
+
+      assert Libraries.get_library(library.uuid) == nil
+    end
+
+    test "a library that is gone ends its run with nothing to do" do
+      start_supervised!(
+        {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
+      )
+
+      assert :ok =
+               PurgeLibraryJob.perform(%Oban.Job{args: %{"library_uuid" => Ecto.UUID.generate()}})
+
+      Oban.drain_queue(queue: :file_processing, with_scheduled: true, with_recursion: true)
+
+      assert %Run{state: "completed", result: %{"skipped" => "the library is gone"}} =
+               Repo.one!(from r in Run, where: r.kind == "storage.purge_library")
     end
 
     test "with the credentials gone nothing can wait for the bucket: the purge goes on", %{

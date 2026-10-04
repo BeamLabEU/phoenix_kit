@@ -25,11 +25,14 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   # older versions at compile time and degrade gracefully at runtime.
   @compile {:no_warn_undefined, Etcher.Raster}
 
+  import Ecto.Query, only: [from: 2]
+
   alias PhoenixKit.Modules.Storage.ImageProcessor
   require Logger
 
   alias PhoenixKit.Annotations
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.VariantGenerator
   alias PhoenixKit.Settings
 
@@ -43,12 +46,66 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   def variant_name, do: @variant_name
 
   @doc """
-  Whether baked annotated thumbnails are enabled (media setting; default `false`).
-
-  Gates generation and display — see the media settings page, "Media
-  Configuration" section.
+  The site-wide default for annotated thumbnails (media setting; default
+  `false`). A library may choose otherwise (`enabled_for?/1`, which is what
+  generation and display ask) — see the media settings page, "Media
+  Configuration" section for this default and the Libraries tab for the
+  per-library choice.
   """
   def enabled?, do: Settings.get_boolean_setting(@setting_key, false)
+
+  @doc """
+  Whether annotated thumbnails are on for a library: its own choice
+  (`Libraries.setting/2`, per library) when it has made one, otherwise the site
+  setting (`enabled?/0`). Takes a library or a library uuid (nil is Media).
+  """
+  @spec enabled_for?(term()) :: boolean()
+  def enabled_for?(library) do
+    case Libraries.setting(library, :annotated_thumbnails) do
+      nil -> enabled?()
+      own -> own
+    end
+  end
+
+  @doc "`enabled_for?/1` for the library `file` is in."
+  @spec enabled_for_file?(map()) :: boolean()
+  def enabled_for_file?(%{library_uuid: library_uuid}), do: enabled_for?(library_uuid)
+
+  @doc """
+  `enabled_for?/1` for the library of the file with `file_uuid`. A file that is
+  not there follows the site setting.
+  """
+  @spec enabled_for_file_uuid?(term()) :: boolean()
+  def enabled_for_file_uuid?(file_uuid) do
+    case Ecto.UUID.cast(file_uuid) do
+      {:ok, uuid} ->
+        library_uuid =
+          PhoenixKit.RepoHelper.repo().one(
+            from(f in Storage.File, where: f.uuid == ^uuid, select: f.library_uuid)
+          )
+
+        enabled_for?(library_uuid)
+
+      :error ->
+        enabled?()
+    end
+  end
+
+  @doc """
+  The libraries of `library_uuids` that have annotated thumbnails on, as a set
+  of uuid strings (nil stands for Media) — one query for a page of files.
+  """
+  @spec enabled_among([term()]) :: MapSet.t(String.t())
+  def enabled_among(library_uuids) do
+    own = Libraries.setting_among(library_uuids, :annotated_thumbnails)
+    default? = enabled?()
+
+    library_uuids
+    |> Enum.map(&to_string(&1 || Libraries.media_uuid()))
+    |> Enum.uniq()
+    |> Enum.filter(&Map.get(own, &1, default?))
+    |> MapSet.new()
+  end
 
   @doc """
   Regenerate (or remove) the baked annotated thumbnail for `file_uuid`.
@@ -59,7 +116,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   def refresh(file_uuid) when is_binary(file_uuid) do
     case Storage.get_file(file_uuid) do
       %Storage.File{file_type: "image"} = file ->
-        if enabled?() do
+        if enabled_for_file?(file) do
           annotations = Annotations.list_for_file(file_uuid)
 
           case draw_args(annotations, file) do

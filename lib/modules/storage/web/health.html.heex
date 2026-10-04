@@ -65,6 +65,13 @@
 
     <%!-- Actions --%>
     <div class="flex justify-end gap-2 mb-4">
+      <.pk_link
+        id="health-runs"
+        navigate="/admin/jobs?run_module=storage"
+        class="btn btn-outline btn-sm"
+      >
+        <.icon name="hero-queue-list" class="w-4 h-4" /> {gettext("Storage runs")}
+      </.pk_link>
       <button
         :if={@report.stale > 0}
         id="health-reconcile"

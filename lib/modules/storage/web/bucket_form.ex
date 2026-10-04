@@ -18,10 +18,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.BucketCredentials
+  alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   @cloud_providers ~w(s3 b2 r2 tigris)
 
@@ -40,6 +42,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       |> assign(:testing_connection, false)
       |> assign(:connections, [])
       |> assign(:selected_connection_uuid, nil)
+      |> assign(:usage, [])
+      |> assign(:profiles, [])
+      |> assign(:profile_uuid, "")
 
     {:ok, socket}
   end
@@ -65,6 +70,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
        |> assign(:bucket_uuid, bucket_uuid)
        |> assign(:page_title, page_title(mode))
        |> assign(:bucket, bucket)
+       |> assign(:usage, bucket_usage(bucket))
+       |> assign(:profiles, if(mode == :new, do: Profiles.list_profiles(), else: []))
        |> assign(:changeset, changeset)
        |> assign(:current_provider, get_current_provider(changeset, bucket))
        |> assign(:selected_connection_uuid, bucket && bucket.integration_uuid)
@@ -73,12 +80,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   end
 
   def handle_event("validate", %{"bucket" => bucket_params}, socket) do
+    # The profile choice is not a bucket field: it is kept apart from the changeset.
+    {profile_uuid, bucket_params} = Map.pop(bucket_params, "profile_uuid")
     bucket_params = normalize_params(bucket_params, socket)
     changeset = Storage.change_bucket(socket.assigns.bucket || %Bucket{}, bucket_params)
 
     # A changed form is no longer what the last test ran against.
     socket =
       socket
+      |> assign(:profile_uuid, profile_uuid || socket.assigns.profile_uuid)
       |> assign(:changeset, changeset)
       |> assign(:current_provider, get_current_provider(changeset, socket.assigns.bucket))
       |> assign(
@@ -309,12 +319,17 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     |> assign(:missing_path, expanded_path)
   end
 
+  # The profile is the form's choice: none (the default) leaves the bucket in no
+  # profile, a profile's uuid puts it there as a primary.
   defp create_bucket(socket, bucket_params) do
-    case Storage.create_bucket(bucket_params) do
+    {profile_uuid, bucket_params} = Map.pop(bucket_params, "profile_uuid")
+    opts = [profile: blank_to_nil(profile_uuid)] ++ Actor.opts(socket)
+
+    case Storage.create_bucket(bucket_params, opts) do
       {:ok, _bucket} ->
         socket =
           socket
-          |> put_flash(:info, "Bucket created successfully")
+          |> put_flash(:info, created_message(opts[:profile]))
           |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
@@ -332,7 +347,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   defp update_bucket(socket, bucket_params) do
     bucket = Storage.get_site_bucket(socket.assigns.bucket_uuid)
 
-    case Storage.update_bucket(bucket, bucket_params) do
+    case Storage.update_bucket(bucket, bucket_params, Actor.opts(socket)) do
       {:ok, _bucket} ->
         socket =
           socket
@@ -340,6 +355,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
           |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
+
+      {:error, {:in_use, usage}} ->
+        {:noreply,
+         put_flash(socket, :error, BucketUsage.refusal_message(:disable, bucket, usage))}
 
       {:error, changeset} ->
         socket =
@@ -350,6 +369,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
         {:noreply, socket}
     end
   end
+
+  # The profiles that use the bucket being edited (none for a new one).
+  defp bucket_usage(nil), do: []
+
+  defp bucket_usage(%Bucket{uuid: uuid}),
+    do: Map.get(Profiles.bucket_usage([uuid]), to_string(uuid), [])
 
   # What the params need before they reach the changeset:
   #
@@ -456,6 +481,44 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
 
     assign(socket, :connections, connections)
   end
+
+  # What the admin is told once the bucket exists. In no profile it receives
+  # nothing yet, which is worth saying where it was just created. In a profile,
+  # as a primary: when that leaves the profile spreading files across its
+  # primaries rather than mirroring them, say so now, since adding the second
+  # bucket is when it begins.
+  defp created_message(nil) do
+    gettext("Bucket created successfully") <>
+      ". " <>
+      gettext(
+        "It is in no storage profile yet, so nothing is written to it: add it to one on the Storage profiles tab."
+      )
+  end
+
+  defp created_message(profile_uuid) do
+    base = gettext("Bucket created successfully")
+
+    with %{} = profile <- Profiles.get_profile(profile_uuid),
+         %{primaries: primaries, copies: copies} when primaries > copies <-
+           Profiles.copies_advice(profile) do
+      base <>
+        ". " <>
+        gettext(
+          "Each original is stored on %{copies} of the %{count} primary buckets, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab.",
+          copies: copies,
+          count: primaries
+        )
+    else
+      _ -> base
+    end
+  end
+
+  # The Default is marked: a bucket added to it is written to by every library
+  # that names no profile of its own.
+  defp profile_label(%{is_default: true, name: name}),
+    do: gettext("%{name} (Default)", name: name)
+
+  defp profile_label(%{name: name}), do: name
 
   defp page_title(:new), do: gettext("Add Storage Bucket")
   defp page_title(:edit), do: gettext("Edit Storage Bucket")

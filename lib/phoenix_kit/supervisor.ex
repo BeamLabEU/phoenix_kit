@@ -5,6 +5,7 @@ defmodule PhoenixKit.Supervisor do
   use Supervisor
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Storage.BucketLog
 
   alias PhoenixKit.Modules.Storage.Workers.{
     ChecksumBackfillJob,
@@ -148,12 +149,22 @@ defmodule PhoenixKit.Supervisor do
          fn ->
            try do
              Languages.normalize_language_settings()
+             # Languages is core, not a registered module, so the registry's
+             # boot-time `migrate_legacy/0` sweep no longer reaches it.
+             Languages.migrate_legacy()
            rescue
              error ->
                require Logger
 
                Logger.error(
                  "[PhoenixKit] Failed to normalize language settings at startup: #{inspect(error)}"
+               )
+           catch
+             :exit, reason ->
+               require Logger
+
+               Logger.error(
+                 "[PhoenixKit] Language settings migration exited at startup: #{inspect(reason)}"
                )
            end
          end},
@@ -163,6 +174,10 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)
       {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
+      Supervisor.child_spec(
+        {Task.Supervisor, name: BucketLog.task_supervisor(), max_children: 4},
+        id: :bucket_log_tasks
+      ),
       # OAuth config loader - now guaranteed to have critical settings in cache
       PhoenixKit.Workers.OAuthConfigLoader
     ] ++

@@ -288,6 +288,7 @@ defmodule PhoenixKit.Activity do
   - `:page` — page number (default: 1)
   - `:per_page` — items per page (default: 50)
   - `:preload` — associations to preload (default: [:actor])
+  - `:query` — an Ecto queryable to filter and paginate (default: `Entry`)
   """
   def list(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
@@ -295,7 +296,7 @@ defmodule PhoenixKit.Activity do
     preloads = Keyword.get(opts, :preload, [:actor])
 
     query =
-      Entry
+      Keyword.get(opts, :query, Entry)
       |> order_by([e], desc: e.inserted_at, desc: e.uuid)
       |> apply_filters(opts)
 

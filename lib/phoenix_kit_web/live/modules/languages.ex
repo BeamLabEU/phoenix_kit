@@ -1,8 +1,12 @@
 defmodule PhoenixKitWeb.Live.Modules.Languages do
   @moduledoc """
-  Languages module settings LiveView for PhoenixKit admin panel.
+  Languages settings LiveView for PhoenixKit admin panel.
 
   Provides interface for managing available languages and localization settings.
+
+  Languages is core and this page is always reachable; its first card is the site's
+  multi-language switch (`toggle_languages`). With the switch off nothing below it is
+  shown. Saved configuration is kept, and menus offer no language choices.
   """
   use PhoenixKitWeb, :live_view
 
@@ -28,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     # Load languages configuration
     ml_config = Languages.get_config()
-    display_languages = Languages.get_display_languages()
+    display_languages = Languages.get_languages()
 
     # Get ALL languages grouped by continent -> country for display
     grouped_languages = Languages.get_languages_grouped_by_continent()
@@ -76,11 +80,26 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_reorder", _params, socket) do
+  @configuration_events ~w(toggle_language_availability set_default reorder_languages toggle_default_language_no_prefix)
+
+  def handle_event(event, params, socket) do
+    # An already-open page can outlive another admin turning the switch off.
+    # Recheck before writing settings hidden by the current switch state.
+    if event in @configuration_events and not Languages.enabled?() do
+      {:noreply,
+       socket
+       |> reload_display_languages()
+       |> put_flash(:info, gettext("Multiple languages turned off"))}
+    else
+      handle_language_event(event, params, socket)
+    end
+  end
+
+  defp handle_language_event("toggle_reorder", _params, socket) do
     {:noreply, assign(socket, :show_reorder, !socket.assigns.show_reorder)}
   end
 
-  def handle_event("toggle_default_language_no_prefix", _params, socket) do
+  defp handle_language_event("toggle_default_language_no_prefix", _params, socket) do
     new_value = !socket.assigns.default_language_no_prefix
 
     case Languages.set_default_language_no_prefix(new_value) do
@@ -92,7 +111,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
-  def handle_event("reorder_languages", %{"ordered_ids" => ordered_codes}, socket) do
+  defp handle_language_event("reorder_languages", %{"ordered_ids" => ordered_codes}, socket) do
     case Languages.reorder_languages(ordered_codes) do
       {:ok, _} ->
         socket = reload_display_languages(socket, true)
@@ -103,7 +122,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
-  def handle_event("toggle_languages", _params, socket) do
+  defp handle_language_event("toggle_languages", _params, socket) do
     # Toggle languages
     new_enabled = !socket.assigns.ml_enabled
 
@@ -126,23 +145,23 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "Languages enabled with default English",
-              else: "Languages disabled"
+              do: gettext("Multiple languages turned on"),
+              else: gettext("Multiple languages turned off")
             )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update languages")
+        socket = put_flash(socket, :error, gettext("Failed to update languages"))
         {:noreply, socket}
     end
   end
 
-  def handle_event("set_default", %{"code" => code}, socket) do
+  defp handle_language_event("set_default", %{"code" => code}, socket) do
     case Languages.set_default_language(code) do
       {:ok, _config} ->
-        language = Enum.find(socket.assigns.languages, &(&1.code == code))
+        language = Languages.get_language(code)
 
         socket =
           socket
@@ -161,24 +180,24 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
-  @toggleable_settings ~w(public_form_collect_metadata public_form_debug_mode public_form_honeypot public_form_honeypot_action public_form_time_check public_form_time_check_action public_form_rate_limit public_form_rate_limit_action)
+  @toggleable_settings ~w(switcher_show_names switcher_show_flags switcher_goto_home switcher_hide_current switcher_show_native_names)
 
-  def handle_event("toggle_switcher_setting", %{"setting" => setting}, socket)
-      when setting in @toggleable_settings do
+  defp handle_language_event("toggle_switcher_setting", %{"setting" => setting}, socket)
+       when setting in @toggleable_settings do
     setting_atom = String.to_existing_atom(setting)
     current_value = socket.assigns[setting_atom]
     {:noreply, assign(socket, setting_atom, !current_value)}
   end
 
-  def handle_event("toggle_switcher_setting", _params, socket) do
+  defp handle_language_event("toggle_switcher_setting", _params, socket) do
     {:noreply, socket}
   end
 
-  def handle_event("search_countries", %{"value" => query}, socket) do
+  defp handle_language_event("search_countries", %{"value" => query}, socket) do
     {:noreply, assign(socket, :search_query, query)}
   end
 
-  def handle_event("toggle_language_availability", %{"code" => code}, socket) do
+  defp handle_language_event("toggle_language_availability", %{"code" => code}, socket) do
     # Check if language is currently enabled
     is_enabled = code in socket.assigns.enabled_codes
 
@@ -225,7 +244,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   # Helper function to reload display languages from the Languages module
   defp reload_display_languages(socket, enabled \\ nil) do
     enabled = enabled || Languages.enabled?()
-    display_languages = Languages.get_display_languages()
+    display_languages = Languages.get_languages()
     grouped_languages = Languages.get_languages_grouped_by_continent()
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)
@@ -245,8 +264,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
   # Helper function to generate the language switcher code based on current settings
   defp generate_switcher_code(show_flags, show_names, goto_home, hide_current, show_native_names) do
-    flags_line = if show_flags, do: "\n  show_flags={true}", else: ""
-    names_line = if show_names, do: "\n  show_names={true}", else: ""
+    flags_line = "\n  show_flags={#{show_flags}}"
+    names_line = "\n  show_names={#{show_names}}"
     home_line = if goto_home, do: "\n  goto_home={true}", else: ""
     hide_line = if hide_current, do: "\n  hide_current={true}", else: ""
     native_names_line = if show_native_names, do: "\n  show_native_names={true}", else: ""

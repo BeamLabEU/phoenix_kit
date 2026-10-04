@@ -11,18 +11,23 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
   import Ecto.Query
 
-  alias PhoenixKit.Integrations
-  alias PhoenixKit.Integrations.ObjectStorageServices, as: Services
+  alias PhoenixKit.Activity
+  alias PhoenixKit.Jobs.Events
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.BucketCredentials
-  alias PhoenixKit.Modules.Storage.Endpoint
   alias PhoenixKit.Modules.Storage.ImageEditing
+  alias PhoenixKit.Modules.Storage.Profiles
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.System.Dependencies
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Live.Modules.Storage.BucketInfo
+  alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
   alias PhoenixKitWeb.Live.Settings.UrlTabs
+
+  @sync_refresh_interval 30_000
 
   def mount(_params, _session, socket) do
     # Get current path for navigation
@@ -38,27 +43,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     bucket_file_counts = get_bucket_file_counts(buckets)
 
     # Load storage settings from database (using basic function to avoid cache issues)
-    redundancy_copies = to_string(Storage.redundancy_copies())
-    auto_generate_variants = to_string(Storage.get_auto_generate_variants())
     max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
-    tile_generation_enabled = to_string(Storage.tile_generation_enabled?())
+
+    # What the missing-tools notice needs: whether the Default variant set makes
+    # tiles. Redundancy, sizes and tiles are edited on the Storage profiles tab
+    # and the variant sets page, not here.
+    tile_generation_enabled = Storage.tile_generation_enabled?()
 
     annotated_thumbnails_enabled =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
     image_edit_mode = ImageEditing.mode()
 
-    # Calculate maximum redundancy based on available buckets
-    active_buckets = Enum.count(buckets, & &1.enabled)
-    max_redundancy = if active_buckets > 0, do: active_buckets, else: 1
-
-    # Keep user's current redundancy setting unchanged
-    current_redundancy = String.to_integer(redundancy_copies)
-
     # Store form values for batch updates
-    form_redundancy = current_redundancy
-    form_auto_generate_variants = auto_generate_variants == "true"
-    form_tile_generation_enabled = tile_generation_enabled == "true"
     form_annotated_thumbnails_enabled = annotated_thumbnails_enabled == "true"
     current_max_upload_size_mb = String.to_integer(max_upload_size_mb)
 
@@ -70,15 +67,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:buckets, buckets)
       |> assign(:bucket_connections, bucket_connections())
       |> assign(:bucket_file_counts, bucket_file_counts)
-      |> assign(:redundancy_copies, current_redundancy)
-      |> assign(:auto_generate_variants, auto_generate_variants == "true")
-      |> assign(:tile_generation_enabled, tile_generation_enabled == "true")
+      |> assign(:bucket_usage, %{})
+      |> assign(:tile_generation_enabled, tile_generation_enabled)
       |> assign(:annotated_thumbnails_enabled, annotated_thumbnails_enabled == "true")
-      |> assign(:active_buckets_count, active_buckets)
-      |> assign(:max_redundancy, max_redundancy)
-      |> assign(:form_redundancy, form_redundancy)
-      |> assign(:form_auto_generate_variants, form_auto_generate_variants)
-      |> assign(:form_tile_generation_enabled, form_tile_generation_enabled)
       |> assign(:form_annotated_thumbnails_enabled, form_annotated_thumbnails_enabled)
       |> assign(:max_upload_size_mb, current_max_upload_size_mb)
       |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
@@ -86,13 +77,33 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_image_edit_mode, image_edit_mode)
       |> assign(:external_tools, Dependencies.external_tools())
 
+    # A library's reconcile run moving updates the Libraries tab's sync column.
+    if connected?(socket) do
+      Events.subscribe()
+      PubSubManager.subscribe(Activity.pubsub_topic())
+      Process.send_after(self(), :refresh_library_sync, @sync_refresh_interval)
+    end
+
     {:ok, socket}
   end
 
   # The tab lives in the URL (`?tab=libraries`); see `UrlTabs`.
+  # The Buckets tab reads which profiles use each bucket, which the Storage
+  # profiles tab (or another admin) changes: it is read whenever the tab opens.
   def handle_params(params, _url, socket) do
-    {:noreply, assign(socket, :active_tab, UrlTabs.active(params, tabs()))}
+    active_tab = UrlTabs.active(params, tabs())
+    socket = assign(socket, :active_tab, active_tab)
+
+    {:noreply, if(active_tab == "buckets", do: load_bucket_usage(socket), else: socket)}
   end
+
+  defp load_bucket_usage(socket),
+    do:
+      assign(
+        socket,
+        :bucket_usage,
+        Profiles.bucket_usage(Enum.map(socket.assigns.buckets, & &1.uuid))
+      )
 
   defp tabs do
     [
@@ -101,6 +112,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       %{id: "libraries", label: gettext("Libraries"), icon: "hero-rectangle-stack"},
       %{id: "configuration", label: gettext("Configuration"), icon: "hero-cog-6-tooth"},
       %{id: "tools", label: gettext("Tools"), icon: "hero-wrench-screwdriver"},
+      %{id: "history", label: gettext("History"), icon: "hero-clock"},
       %{
         id: "external_libraries",
         label: gettext("External libraries"),
@@ -114,104 +126,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     {:noreply, assign(socket, :external_tools, Dependencies.external_tools())}
   end
 
-  def handle_event("update_redundancy", %{"redundancy_copies" => copies}, socket) do
-    requested_copies = String.to_integer(copies)
-    max_redundancy = socket.assigns.max_redundancy
-
-    if requested_copies > max_redundancy do
-      socket =
-        socket
-        |> put_flash(
-          :error,
-          gettext(
-            "Cannot set redundancy to %{count} copies. Only %{max} active bucket(s) available.",
-            count: requested_copies,
-            max: max_redundancy
-          )
-        )
-
-      {:noreply, socket}
-    else
-      case Storage.set_redundancy_copies(requested_copies) do
-        {:ok, _setting} ->
-          # Settings.update_setting already handles cache invalidation
-          socket =
-            socket
-            |> assign(:redundancy_copies, requested_copies)
-            |> put_flash(
-              :info,
-              ngettext(
-                "Redundancy settings updated to %{count} copy",
-                "Redundancy settings updated to %{count} copies",
-                requested_copies
-              )
-            )
-
-          {:noreply, socket}
-
-        {:error, _changeset} ->
-          socket = put_flash(socket, :error, gettext("Failed to update redundancy settings"))
-          {:noreply, socket}
-      end
-    end
-  end
-
-  def handle_event("update_form_redundancy", %{"form_redundancy" => copies}, socket) do
-    # Handle both string and integer inputs
-    form_redundancy =
-      cond do
-        is_integer(copies) -> copies
-        is_binary(copies) -> String.to_integer(copies)
-        # fallback
-        true -> 1
-      end
-
-    socket =
-      socket
-      |> assign(:form_redundancy, form_redundancy)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("update_form_variants", %{"form_auto_generate_variants" => value}, socket) do
-    form_auto_generate_variants = value == "true"
-
-    socket =
-      socket
-      |> assign(:form_auto_generate_variants, form_auto_generate_variants)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("toggle_form_tile_generation", _params, socket) do
-    new_value = not socket.assigns.form_tile_generation_enabled
-    {:noreply, assign(socket, :form_tile_generation_enabled, new_value)}
-  end
-
   def handle_event("toggle_form_annotated_thumbnails", _params, socket) do
     new_value = not socket.assigns.form_annotated_thumbnails_enabled
     {:noreply, assign(socket, :form_annotated_thumbnails_enabled, new_value)}
   end
 
-  def handle_event("toggle_form_variants", _params, socket) do
-    new_value = not socket.assigns.form_auto_generate_variants
-
-    socket =
-      socket
-      |> assign(:form_auto_generate_variants, new_value)
-
-    {:noreply, socket}
-  end
-
   def handle_event("update_storage_form", params, socket) do
-    form_redundancy =
-      case params["form_redundancy"] do
-        nil -> socket.assigns.form_redundancy
-        val when is_integer(val) -> val
-        val when is_binary(val) -> parse_integer(val, socket.assigns.form_redundancy)
-        _ -> socket.assigns.form_redundancy
-      end
-
     form_max_upload_size_mb =
       case params["form_max_upload_size_mb"] do
         nil ->
@@ -234,7 +154,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
     socket =
       socket
-      |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_max_upload_size_mb, form_max_upload_size_mb)
       |> assign(:form_image_edit_mode, form_image_edit_mode)
 
@@ -242,127 +161,41 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   end
 
   def handle_event("apply_storage_settings", _params, socket) do
-    # Get current form values
-    new_redundancy = socket.assigns.form_redundancy
-    new_variants = if socket.assigns.form_auto_generate_variants, do: "true", else: "false"
+    Settings.update_setting(
+      "storage_annotated_thumbnails_enabled",
+      if(socket.assigns.form_annotated_thumbnails_enabled, do: "true", else: "false"),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
 
-    new_tile_generation =
-      if socket.assigns.form_tile_generation_enabled, do: "true", else: "false"
+    Settings.update_setting(
+      "storage_max_upload_size_mb",
+      to_string(socket.assigns.form_max_upload_size_mb),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
 
-    new_annotated_thumbnails =
-      if socket.assigns.form_annotated_thumbnails_enabled, do: "true", else: "false"
+    Settings.update_setting(
+      ImageEditing.mode_setting(),
+      socket.assigns.form_image_edit_mode,
+      Actor.opts(socket) ++ [source: "settings"]
+    )
 
-    new_max_upload_size_mb = socket.assigns.form_max_upload_size_mb
+    # Read back what was saved, so the form shows what is stored
+    saved_annotated_thumbnails =
+      Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
-    # Validate redundancy doesn't exceed available buckets
-    max_redundancy = socket.assigns.max_redundancy
+    saved_max_upload = Settings.get_setting("storage_max_upload_size_mb", "500")
 
-    if new_redundancy != socket.assigns.redundancy_copies and new_redundancy > max_redundancy do
-      socket =
-        socket
-        |> put_flash(
-          :error,
-          gettext(
-            "Cannot set redundancy to %{count} copies. Only %{max} active bucket(s) available.",
-            count: new_redundancy,
-            max: max_redundancy
-          )
-        )
+    socket =
+      socket
+      |> assign(:annotated_thumbnails_enabled, saved_annotated_thumbnails == "true")
+      |> assign(:form_annotated_thumbnails_enabled, saved_annotated_thumbnails == "true")
+      |> assign(:max_upload_size_mb, String.to_integer(saved_max_upload))
+      |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
+      |> assign(:image_edit_mode, ImageEditing.mode())
+      |> assign(:form_image_edit_mode, ImageEditing.mode())
+      |> put_flash(:info, gettext("Storage settings updated successfully"))
 
-      {:noreply, socket}
-    else
-      # Update all settings
-      # Only a changed count is saved: saving it rewrites the Default
-      # storage profile (and every file of it is checked again).
-      redundancy_result =
-        if new_redundancy == socket.assigns.redundancy_copies,
-          do: {:ok, :unchanged},
-          else: Storage.set_redundancy_copies(new_redundancy)
-
-      variants_result = Storage.set_auto_generate_variants(new_variants == "true")
-
-      Storage.set_tile_generation(new_tile_generation == "true")
-
-      Settings.update_setting(
-        "storage_annotated_thumbnails_enabled",
-        new_annotated_thumbnails
-      )
-
-      Settings.update_setting(
-        "storage_max_upload_size_mb",
-        to_string(new_max_upload_size_mb)
-      )
-
-      Settings.update_setting(ImageEditing.mode_setting(), socket.assigns.form_image_edit_mode)
-
-      case {redundancy_result, variants_result} do
-        {{:ok, _}, {:ok, _}} ->
-          # Verify the settings were saved correctly by reading them back
-          saved_redundancy = to_string(Storage.redundancy_copies())
-          saved_variants = to_string(Storage.get_auto_generate_variants())
-          saved_tile_generation = to_string(Storage.tile_generation_enabled?())
-
-          saved_annotated_thumbnails =
-            Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
-
-          saved_max_upload = Settings.get_setting("storage_max_upload_size_mb", "500")
-
-          socket =
-            socket
-            |> assign(:redundancy_copies, String.to_integer(saved_redundancy))
-            |> assign(:auto_generate_variants, saved_variants == "true")
-            |> assign(:tile_generation_enabled, saved_tile_generation == "true")
-            |> assign(:annotated_thumbnails_enabled, saved_annotated_thumbnails == "true")
-            |> assign(:form_redundancy, String.to_integer(saved_redundancy))
-            |> assign(:form_auto_generate_variants, saved_variants == "true")
-            |> assign(:form_tile_generation_enabled, saved_tile_generation == "true")
-            |> assign(:form_annotated_thumbnails_enabled, saved_annotated_thumbnails == "true")
-            |> assign(:max_upload_size_mb, String.to_integer(saved_max_upload))
-            |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
-            |> assign(:image_edit_mode, ImageEditing.mode())
-            |> assign(:form_image_edit_mode, ImageEditing.mode())
-            |> put_flash(:info, gettext("Storage settings updated successfully"))
-
-          {:noreply, socket}
-
-        {{:error, _}, {:ok, _}} ->
-          socket = put_flash(socket, :error, gettext("Failed to update redundancy settings"))
-          {:noreply, socket}
-
-        {{:ok, _}, {:error, _}} ->
-          socket = put_flash(socket, :error, gettext("Failed to update variant settings"))
-          {:noreply, socket}
-
-        {{:error, _}, {:error, _}} ->
-          socket = put_flash(socket, :error, gettext("Failed to update storage settings"))
-          {:noreply, socket}
-      end
-    end
-  end
-
-  def handle_event("toggle_variants", _params, socket) do
-    new_value = if socket.assigns.auto_generate_variants, do: "false", else: "true"
-
-    case Storage.set_auto_generate_variants(new_value == "true") do
-      {:ok, _setting} ->
-        # Settings.update_setting already handles cache invalidation
-        socket =
-          socket
-          |> assign(:auto_generate_variants, new_value == "true")
-          |> put_flash(
-            :info,
-            if(new_value == "true",
-              do: gettext("Auto-variant generation enabled"),
-              else: gettext("Auto-variant generation disabled")
-            )
-          )
-
-        {:noreply, socket}
-
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, gettext("Failed to update variant settings"))
-        {:noreply, socket}
-    end
+    {:noreply, socket}
   end
 
   def handle_event("toggle_bucket", %{"id" => bucket_uuid}, socket) do
@@ -373,7 +206,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       bucket ->
         new_enabled = !bucket.enabled
 
-        case Storage.update_bucket(bucket, %{enabled: new_enabled}) do
+        case Storage.update_bucket(bucket, %{enabled: new_enabled}, Actor.opts(socket)) do
           {:ok, _bucket} ->
             message =
               if new_enabled,
@@ -382,6 +215,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
             socket = reload_settings_data(socket)
             {:noreply, put_flash(socket, :info, message)}
+
+          {:error, {:in_use, usage}} ->
+            {:noreply,
+             put_flash(socket, :error, BucketUsage.refusal_message(:disable, bucket, usage))}
 
           {:error, _changeset} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to update bucket"))}
@@ -435,7 +272,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   end
 
   def handle_event("delete_bucket", %{"id" => bucket_uuid}, socket) do
-    case bucket_uuid |> Storage.get_site_bucket() |> delete_site_bucket() do
+    bucket = Storage.get_site_bucket(bucket_uuid)
+
+    case delete_site_bucket(bucket, Actor.opts(socket)) do
       {:ok, _bucket} ->
         # Reload buckets and recalculate max redundancy
         buckets = Storage.list_buckets()
@@ -448,12 +287,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
           |> assign(:bucket_connections, bucket_connections())
           |> assign(:active_buckets_count, active_buckets_count)
           |> assign(:max_redundancy, max_redundancy)
+          |> load_bucket_usage()
           |> put_flash(:info, gettext("Bucket deleted successfully"))
 
         {:noreply, socket}
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, gettext("Bucket not found"))}
+
+      {:error, {:in_use, usage}} ->
+        {:noreply, put_flash(socket, :error, BucketUsage.refusal_message(:delete, bucket, usage))}
 
       {:error, changeset} ->
         message =
@@ -505,8 +348,59 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     {:noreply, put_flash(socket, kind, message)}
   end
 
-  defp delete_site_bucket(nil), do: {:error, :not_found}
-  defp delete_site_bucket(bucket), do: Storage.delete_bucket(bucket)
+  def handle_info({:job_run, _action, %{kind: "storage.reconcile"}}, socket) do
+    send_update(PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent,
+      id: "media-libraries",
+      reload_sync: true
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:job_run, _action, _run}, socket), do: {:noreply, socket}
+
+  # A storage entry reached the Activity log: the History tab shows it, if it is open.
+  def handle_info({:activity_logged, entry}, socket) do
+    storage? =
+      entry.module == "storage" or
+        (entry.action == "setting.changed" and
+           String.starts_with?(entry.metadata["key"] || "", "storage_"))
+
+    if storage? and socket.assigns.active_tab == "history" do
+      send_update(PhoenixKitWeb.Live.Modules.Storage.HistoryComponent,
+        id: "media-history",
+        reload: true
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  # Eligibility changes with time, and a settings change need not create a run
+  # (e.g. every stale file is waiting for an edit or retry). PubSub alone cannot
+  # keep those derived states current.
+  def handle_info(:refresh_library_sync, socket) do
+    Process.send_after(self(), :refresh_library_sync, @sync_refresh_interval)
+
+    if socket.assigns.active_tab == "libraries" do
+      send_update(PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent,
+        id: "media-libraries",
+        reload_sync: true
+      )
+    end
+
+    if socket.assigns.active_tab == "history" do
+      send_update(PhoenixKitWeb.Live.Modules.Storage.HistoryComponent,
+        id: "media-history",
+        reload: true
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  defp delete_site_bucket(nil, _opts), do: {:error, :not_found}
+  defp delete_site_bucket(bucket, opts), do: Storage.delete_bucket(bucket, opts)
 
   defp legacy_bucket_count(buckets), do: Enum.count(buckets, &BucketCredentials.legacy?/1)
 
@@ -518,56 +412,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     Routes.path("/admin/settings/media")
   end
 
-  # The Object Storage connections a bucket may use, reduced to a name and the
-  # service each is for — what the list shows next to a cloud bucket. Nothing
-  # secret is kept: `list_connections/1` returns decrypted data, only the
-  # service is taken from it.
-  defp bucket_connections do
-    "object_storage"
-    |> Integrations.list_connections()
-    |> Map.new(fn %{uuid: uuid, name: name, data: data} ->
-      {uuid, %{name: name, service: Services.current(data)}}
-    end)
-  rescue
-    _ -> %{}
-  end
-
-  defp bucket_type(%{provider: "local"}), do: gettext("Local")
-  defp bucket_type(_bucket), do: gettext("Cloud")
-
-  # The service a cloud bucket is on: the one its integration is for, else what
-  # the provider says (a bucket that carries its own keys has no integration).
-  defp bucket_service(%{provider: "local"}, _connections), do: nil
-
-  defp bucket_service(bucket, connections) do
-    case connections[bucket.integration_uuid] do
-      %{service: service} when is_binary(service) -> Services.name(service)
-      _ -> provider_name(bucket.provider)
-    end
-  end
-
-  defp provider_name("s3"), do: "AWS S3"
-  defp provider_name("b2"), do: "Backblaze B2"
-  defp provider_name("r2"), do: "Cloudflare R2"
-  defp provider_name("tigris"), do: "Tigris"
-  defp provider_name(provider), do: String.upcase(to_string(provider))
-
-  # Where the files go, in words: a path for a local bucket, otherwise the
-  # bucket's name on the service and the host it is reached at (or its region).
-  defp bucket_location(%{provider: "local"} = bucket),
-    do: bucket.endpoint || gettext("No path configured")
-
-  defp bucket_location(bucket) do
-    host =
-      case Endpoint.parse(bucket.endpoint) do
-        %{host: host} -> host
-        _ -> bucket.region
-      end
-
-    [bucket.bucket_name || gettext("No bucket name"), host]
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" · ")
-  end
+  defp bucket_connections, do: BucketInfo.connections()
+  defp bucket_type(bucket), do: BucketInfo.type(bucket)
+  defp bucket_service(bucket, connections), do: BucketInfo.service(bucket, connections)
+  defp bucket_location(bucket), do: BucketInfo.location(bucket)
 
   # Get count of unique files stored on each bucket
   defp get_bucket_file_counts(buckets) do
@@ -659,29 +507,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     buckets = Storage.list_buckets()
     bucket_file_counts = get_bucket_file_counts(buckets)
 
-    # Reload storage settings
-    redundancy_copies = to_string(Storage.redundancy_copies())
-    auto_generate_variants = to_string(Storage.get_auto_generate_variants())
-    max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
-
-    # Recalculate max redundancy
-    active_buckets_count = Enum.count(buckets, & &1.enabled)
-    max_redundancy = if active_buckets_count > 0, do: active_buckets_count, else: 1
-    current_redundancy = String.to_integer(redundancy_copies)
-    current_max_upload_size_mb = String.to_integer(max_upload_size_mb)
-
     socket
     |> assign(:buckets, buckets)
     |> assign(:bucket_connections, bucket_connections())
     |> assign(:bucket_file_counts, bucket_file_counts)
-    |> assign(:redundancy_copies, current_redundancy)
-    |> assign(:auto_generate_variants, auto_generate_variants == "true")
-    |> assign(:active_buckets_count, active_buckets_count)
-    |> assign(:max_redundancy, max_redundancy)
-    |> assign(:form_redundancy, current_redundancy)
-    |> assign(:form_auto_generate_variants, auto_generate_variants == "true")
-    |> assign(:max_upload_size_mb, current_max_upload_size_mb)
-    |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
+    |> load_bucket_usage()
   end
 
   defp parse_integer(val, fallback) do

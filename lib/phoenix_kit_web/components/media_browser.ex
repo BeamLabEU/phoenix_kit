@@ -4512,10 +4512,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     folder_paths = Map.new(folder_uuids, fn fuuid -> {fuuid, breadcrumb_path(fuuid)} end)
 
-    # Read the annotated-thumbnail toggle once for the whole batch (cached
-    # setting) — when off, the baked variant is hidden so the grid falls back
-    # to the plain thumbnail.
-    annotated_enabled? = Storage.AnnotationThumbnail.enabled?()
+    # Which libraries of the batch have annotated thumbnails on (a library's
+    # own choice, else the site setting), in one query — when off, the baked
+    # variant is hidden so the grid falls back to the plain thumbnail.
+    annotated_libraries =
+      files |> Enum.map(& &1.library_uuid) |> Storage.AnnotationThumbnail.enabled_among()
 
     # The language and the site's primary language, read once for the batch.
     alt_opts = MediaThumbnail.alt_opts()
@@ -4531,7 +4532,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       urls =
         generate_urls_from_instances(instances, file.uuid, file.mime_type,
-          annotated_enabled?: annotated_enabled?,
+          annotated_enabled?:
+            to_string(file.library_uuid || Libraries.media_uuid()) in annotated_libraries,
           private: to_string(file.library_uuid) in private,
           tiles: to_string(file.library_uuid || Libraries.media_uuid()) in tiles
         )

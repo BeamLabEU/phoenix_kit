@@ -29,20 +29,46 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   """
   use PhoenixKitWeb, :live_component
 
-  alias PhoenixKit.Modules.Storage.{Libraries, Profiles, VariantSets}
+  alias PhoenixKit.Jobs
+  alias PhoenixKit.Modules.Storage.Jobs.Reconcile
+
+  alias PhoenixKit.Modules.Storage.{
+    AnnotationThumbnail,
+    Audit,
+    Libraries,
+    LibraryState,
+    Profiles,
+    VariantSets
+  }
+
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.SaveButton, only: [save_button: 1]
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, creating: false, renaming: nil, rows: nil)}
+    {:ok,
+     assign(socket,
+       creating: false,
+       renaming: nil,
+       rows: nil,
+       scope: nil,
+       sync: %{},
+       dirty: MapSet.new(),
+       saved: MapSet.new()
+     )}
   end
 
   @impl true
+  # `reload_sync` comes from the settings page when a reconcile run moves.
+  def update(%{reload_sync: true}, socket) do
+    {:ok, if(socket.assigns.rows, do: load_sync(socket), else: socket)}
+  end
+
   def update(assigns, socket) do
     socket = assign(socket, assigns)
     {:ok, if(socket.assigns.rows, do: socket, else: load(socket))}
@@ -58,7 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   def handle_event("create", %{"name" => name}, socket) do
-    case Libraries.create_system_library(%{name: name}) do
+    case Libraries.create_system_library(%{name: name}, actor(socket)) do
       {:ok, library} ->
         {:noreply,
          socket
@@ -71,13 +97,27 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     end
   end
 
+  # Check now / Pause / Resume on a library's sync. The permission check is the
+  # Jobs context's (`jobs.manage` and `media.manage`, against the active role);
+  # the buttons are only shown to those who pass it, and a hand-made event is
+  # refused all the same.
+  def handle_event("sync", %{"action" => action, "uuid" => uuid}, socket) do
+    with %{} = library <- find(socket, uuid),
+         {:ok, _} <- sync_action(action, library, socket) do
+      {:noreply, load_sync(socket)}
+    else
+      nil -> {:noreply, socket}
+      {:error, reason} -> {:noreply, socket |> load_sync() |> flash(:error, sync_error(reason))}
+    end
+  end
+
   def handle_event("start_rename", %{"uuid" => uuid}, socket) do
     {:noreply, assign(socket, renaming: uuid, creating: false)}
   end
 
   def handle_event("rename", %{"uuid" => uuid, "name" => name}, socket) do
     with %{} = library <- find(socket, uuid),
-         {:ok, renamed} <- Libraries.rename_library(library, name) do
+         {:ok, renamed} <- Libraries.rename_library(library, name, actor(socket)) do
       {:noreply,
        socket
        |> assign(:renaming, nil)
@@ -91,7 +131,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
 
   def handle_event("delete", %{"uuid" => uuid}, socket) do
     with %{} = library <- find(socket, uuid),
-         {:ok, _} <- Libraries.delete_library(library) do
+         {:ok, _} <- Libraries.delete_library(library, actor(socket)) do
       {:noreply, socket |> load() |> flash(:info, gettext("Library deleted"))}
     else
       nil ->
@@ -107,18 +147,40 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     end
   end
 
-  def handle_event("set_storage", %{"uuid" => uuid, "storage" => params}, socket) do
+  # A library's form changed: its Save button comes alive and says so. Nothing is
+  # saved until it is pressed — a different profile or variant set moves and
+  # resizes the library's files, which a stray click on a dropdown must not start.
+  def handle_event("dirty", %{"key" => key}, socket) when is_binary(key) do
+    {:noreply,
+     assign(socket,
+       dirty: MapSet.put(socket.assigns.dirty, key),
+       saved: MapSet.delete(socket.assigns.saved, key)
+     )}
+  end
+
+  # The library's storage (profile, variant set) and its own settings
+  # (annotated thumbnails: on, off, or none — it follows the site setting,
+  # Settings → Media → Configuration), saved together.
+  def handle_event("save_library", %{"uuid" => uuid} = params, socket) do
+    storage = Map.get(params, "storage", %{})
+
+    value =
+      case params["annotated"] do
+        "on" -> true
+        "off" -> false
+        _ -> nil
+      end
+
     with %{} = library <- find(socket, uuid),
-         {:ok, _library} <- set_storage(library, params) do
+         storage_changed? = storage_changed?(library, storage),
+         {:ok, library} <- set_storage(library, storage, actor(socket)),
+         {:ok, _library} <-
+           Libraries.put_setting(library, :annotated_thumbnails, value, actor(socket)) do
       {:noreply,
        socket
        |> load()
-       |> flash(
-         :info,
-         gettext(
-           "Library storage saved. Its files are moved and resized in the background; the Health page shows what is left."
-         )
-       )}
+       |> mark_saved(library_key(uuid))
+       |> flash(:info, saved_message(storage_changed?))}
     else
       nil -> {:noreply, socket}
       {:error, _reason} -> {:noreply, flash(socket, :error, gettext("Could not save"))}
@@ -141,10 +203,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
         _ -> div(URLSigner.private_url_window_seconds(), 3600)
       end
 
-    with {:ok, _} <- Settings.update_boolean_setting("storage_user_libraries_enabled", enabled?),
-         {:ok, _} <- Settings.update_boolean_setting("storage_user_buckets_enabled", buckets?),
-         {:ok, _} <- Settings.update_setting("storage_user_library_limit", to_string(limit)),
-         {:ok, _} <- Settings.update_setting("storage_private_url_window_hours", to_string(hours)) do
+    opts = actor(socket) ++ [source: "settings"]
+
+    with {:ok, _} <-
+           Settings.update_boolean_setting("storage_user_libraries_enabled", enabled?, opts),
+         {:ok, _} <-
+           Settings.update_boolean_setting("storage_user_buckets_enabled", buckets?, opts),
+         {:ok, _} <- Settings.update_setting("storage_user_library_limit", to_string(limit), opts),
+         {:ok, _} <-
+           Settings.update_setting("storage_private_url_window_hours", to_string(hours), opts) do
       {:noreply, socket |> load() |> flash(:info, gettext("User library settings saved"))}
     else
       _ -> {:noreply, flash(socket, :error, gettext("User library settings could not be saved"))}
@@ -152,43 +219,104 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   # Both or neither.
-  defp set_storage(library, params) do
-    PhoenixKit.RepoHelper.repo().transaction(fn ->
-      with {:ok, library} <- maybe_set_profile(library, params["profile"]),
-           {:ok, library} <- maybe_set_variant_set(library, params["set"]) do
-        library
+  defp library_key(uuid), do: "library:#{uuid}"
+
+  defp mark_saved(socket, key) do
+    assign(socket,
+      dirty: MapSet.delete(socket.assigns.dirty, key),
+      saved: MapSet.put(socket.assigns.saved, key)
+    )
+  end
+
+  defp storage_changed?(library, params) do
+    new_profile = params["profile"]
+    new_set = params["set"]
+
+    (is_binary(new_profile) and new_profile != "" and
+       new_profile != Profiles.profile_uuid_for(library)) or
+      (is_binary(new_set) and new_set != "" and new_set != VariantSets.set_uuid_for(library))
+  end
+
+  defp saved_message(true) do
+    gettext(
+      "Library storage saved. Its files are moved and resized in the background; the Health page shows what is left."
+    )
+  end
+
+  defp saved_message(false), do: gettext("Library setting saved")
+
+  defp set_storage(library, params, actor) do
+    Audit.transaction(fn ->
+      with {:ok, library} <- maybe_set_profile(library, params["profile"], actor),
+           {:ok, library} <- maybe_set_variant_set(library, params["set"], actor) do
+        {:ok, library}
       else
-        {:error, reason} -> PhoenixKit.RepoHelper.repo().rollback(reason)
+        {:error, reason} -> {:error, reason}
       end
     end)
   end
 
-  defp maybe_set_profile(library, uuid) when is_binary(uuid) and uuid != "" do
+  defp maybe_set_profile(library, uuid, actor) when is_binary(uuid) and uuid != "" do
     if Profiles.profile_uuid_for(library) == uuid,
       do: {:ok, library},
-      else: Profiles.set_library_profile(library, uuid)
+      else: Profiles.set_library_profile(library, uuid, actor)
   end
 
-  defp maybe_set_profile(library, _uuid), do: {:ok, library}
+  defp maybe_set_profile(library, _uuid, _actor), do: {:ok, library}
 
-  defp maybe_set_variant_set(library, uuid) when is_binary(uuid) and uuid != "" do
+  defp maybe_set_variant_set(library, uuid, actor) when is_binary(uuid) and uuid != "" do
     if VariantSets.set_uuid_for(library) == uuid,
       do: {:ok, library},
-      else: VariantSets.set_library_variant_set(library, uuid)
+      else: VariantSets.set_library_variant_set(library, uuid, actor)
   end
 
-  defp maybe_set_variant_set(library, _uuid), do: {:ok, library}
+  defp maybe_set_variant_set(library, _uuid, _actor), do: {:ok, library}
 
   # Only a library this tab listed: the uuid arrives from the client.
+  defp sync_action("check", library, socket) do
+    case Jobs.start(socket.assigns.scope, Reconcile, {"library", to_string(library.uuid)}) do
+      {:ok, run, _how} -> {:ok, run}
+      error -> error
+    end
+  end
+
+  defp sync_action("pause", library, socket), do: control(&Jobs.pause/2, library, socket)
+  defp sync_action("resume", library, socket), do: control(&Jobs.resume/2, library, socket)
+  defp sync_action(_action, _library, _socket), do: {:error, :unknown_action}
+
+  defp control(fun, library, socket) do
+    case socket.assigns.sync[to_string(library.uuid)] do
+      %{run: %{} = run} -> fun.(socket.assigns.scope, run)
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp sync_error(:unauthorized), do: gettext("You may not do that.")
+
+  defp sync_error(:draining),
+    do: gettext("The current batch is still finishing; try again in a moment.")
+
+  defp sync_error(_reason), do: gettext("That did not work.")
+
+  # Who is acting, for the history (`Storage.Audit`).
+  defp actor(socket), do: PhoenixKitWeb.Actor.opts(socket.assigns.scope)
+
   defp find(socket, uuid) do
     Enum.find_value(socket.assigns.rows, fn %{library: library} ->
       if library.uuid == uuid, do: library
     end)
   end
 
+  # The state of every library's sync (three queries however many libraries).
+  defp load_sync(socket) do
+    uuids = Enum.map(socket.assigns.rows, fn %{library: library} -> library.uuid end)
+    assign(socket, :sync, LibraryState.for_libraries(uuids))
+  end
+
   defp load(socket) do
     socket
     |> assign(:rows, Libraries.list_system_libraries_with_stats())
+    |> load_sync()
     |> assign(:user_rows, Libraries.list_user_libraries_for_admin())
     |> assign(:user_libraries_enabled, Libraries.user_libraries_enabled?())
     |> assign(:user_buckets_enabled, Libraries.user_buckets_enabled?())
@@ -196,6 +324,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     |> assign(:window_hours, div(URLSigner.private_url_window_seconds(), 3600))
     |> assign(:profiles, Profiles.list_profiles())
     |> assign(:variant_sets, VariantSets.list_variant_sets())
+    |> assign(:annotated_default, AnnotationThumbnail.enabled?())
   end
 
   # A component's own `put_flash` reaches the page only when it also
@@ -220,6 +349,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
 
   # Where a user library keeps its files, for the admin's list. The bucket's
   # name and provider only: never its connection, keys or endpoint.
+  defp annotated_choice(library) do
+    case Libraries.setting(library, :annotated_thumbnails) do
+      true -> "on"
+      false -> "off"
+      nil -> "default"
+    end
+  end
+
   defp storage_label(nil), do: gettext("Site storage")
 
   defp storage_label(%{mode: :only, bucket: bucket}),
@@ -288,6 +425,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                   <th class="text-right">{gettext("Folders")}</th>
                   <th class="text-right">{gettext("Size")}</th>
                   <th>{gettext("Storage")}</th>
+                  <th>{gettext("Sync")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -340,38 +478,75 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                   <td>
                     <form
                       id={"#{@id}-storage-#{library.uuid}"}
-                      phx-change="set_storage"
+                      phx-change="dirty"
+                      phx-submit="save_library"
                       phx-target={@myself}
-                      class="flex flex-wrap gap-1"
+                      class="flex flex-col gap-1"
                     >
                       <input type="hidden" name="uuid" value={library.uuid} />
-                      <select
-                        name="storage[profile]"
-                        class="select select-xs select-bordered"
-                        title={gettext("Storage profile")}
-                      >
-                        <option
-                          :for={profile <- @profiles}
-                          value={profile.uuid}
-                          selected={Profiles.profile_uuid_for(library) == to_string(profile.uuid)}
+                      <input type="hidden" name="key" value={library_key(library.uuid)} />
+                      <div class="flex flex-wrap gap-1">
+                        <select
+                          name="storage[profile]"
+                          class="select select-xs select-bordered"
+                          title={gettext("Storage profile")}
                         >
-                          {profile.name}
+                          <option
+                            :for={profile <- @profiles}
+                            value={profile.uuid}
+                            selected={Profiles.profile_uuid_for(library) == to_string(profile.uuid)}
+                          >
+                            {profile.name}
+                          </option>
+                        </select>
+                        <select
+                          name="storage[set]"
+                          class="select select-xs select-bordered"
+                          title={gettext("Variant set")}
+                        >
+                          <option
+                            :for={set <- @variant_sets}
+                            value={set.uuid}
+                            selected={VariantSets.set_uuid_for(library) == to_string(set.uuid)}
+                          >
+                            {set.name}
+                          </option>
+                        </select>
+                      </div>
+                      <select
+                        name="annotated"
+                        class="select select-xs select-bordered"
+                        title={
+                          gettext(
+                            "Annotated thumbnails: bake annotation shapes into the grid thumbnail"
+                          )
+                        }
+                      >
+                        <option value="default" selected={annotated_choice(library) == "default"}>
+                          {if @annotated_default,
+                            do: gettext("Annotated thumbnails: site setting (on)"),
+                            else: gettext("Annotated thumbnails: site setting (off)")}
+                        </option>
+                        <option value="on" selected={annotated_choice(library) == "on"}>
+                          {gettext("Annotated thumbnails: on")}
+                        </option>
+                        <option value="off" selected={annotated_choice(library) == "off"}>
+                          {gettext("Annotated thumbnails: off")}
                         </option>
                       </select>
-                      <select
-                        name="storage[set]"
-                        class="select select-xs select-bordered"
-                        title={gettext("Variant set")}
-                      >
-                        <option
-                          :for={set <- @variant_sets}
-                          value={set.uuid}
-                          selected={VariantSets.set_uuid_for(library) == to_string(set.uuid)}
-                        >
-                          {set.name}
-                        </option>
-                      </select>
+                      <.save_button
+                        dirty={MapSet.member?(@dirty, library_key(library.uuid))}
+                        saved={MapSet.member?(@saved, library_key(library.uuid))}
+                      />
                     </form>
+                  </td>
+                  <td id={"#{@id}-sync-#{library.uuid}"} class="whitespace-nowrap">
+                    <.sync_cell
+                      state={@sync[to_string(library.uuid)]}
+                      uuid={library.uuid}
+                      scope={@scope}
+                      target={@myself}
+                    />
                   </td>
                   <td class="text-right whitespace-nowrap">
                     <button
@@ -525,4 +700,102 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     </div>
     """
   end
+
+  # ---- the sync column --------------------------------------------------------
+
+  attr :state, :map, default: nil
+  attr :uuid, :any, required: true
+  attr :scope, :any, default: nil
+  attr :target, :any, required: true
+
+  defp sync_cell(%{state: nil} = assigns), do: ~H""
+
+  defp sync_cell(assigns) do
+    assigns =
+      assigns
+      |> assign(:controls, run_controls(assigns))
+      |> assign(:can_check?, Jobs.can_start?(assigns.scope, Reconcile))
+
+    ~H"""
+    <div class="flex flex-col gap-1">
+      <div class="flex items-center gap-2">
+        <span class={["badge badge-sm", sync_badge(@state.state)]} data-sync-state={@state.state}>
+          {sync_label(@state.state)}
+        </span>
+        <span :if={@state.state in [:syncing, :paused, :waiting]} class="text-xs text-base-content/60">
+          {ngettext("%{count} file left", "%{count} files left", @state.out_of_date)}
+        </span>
+        <span :if={@state.state == :attention and @state.failing > 0} class="text-xs text-warning">
+          {ngettext(
+            "%{count} file could not be finished",
+            "%{count} files could not be finished",
+            @state.failing
+          )}
+        </span>
+      </div>
+      <div class="flex flex-wrap items-center gap-1">
+        <button
+          :if={:pause in @controls and @state.state == :syncing}
+          type="button"
+          class="btn btn-xs"
+          phx-click="sync"
+          phx-value-action="pause"
+          phx-value-uuid={@uuid}
+          phx-target={@target}
+        >
+          <.icon name="hero-pause" class="w-3 h-3" /> {gettext("Pause")}
+        </button>
+        <button
+          :if={:resume in @controls and @state.state == :paused}
+          type="button"
+          class="btn btn-xs btn-primary"
+          phx-click="sync"
+          phx-value-action="resume"
+          phx-value-uuid={@uuid}
+          phx-target={@target}
+        >
+          <.icon name="hero-play" class="w-3 h-3" /> {gettext("Resume")}
+        </button>
+        <button
+          :if={@can_check? and @state.state in [:up_to_date, :waiting, :attention]}
+          type="button"
+          class="btn btn-xs btn-ghost"
+          phx-click="sync"
+          phx-value-action="check"
+          phx-value-uuid={@uuid}
+          phx-target={@target}
+        >
+          <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Check now")}
+        </button>
+        <.link
+          :if={@state.run}
+          navigate={Routes.path("/admin/jobs") <> "?run=" <> to_string(@state.run.uuid)}
+          class="link link-hover text-xs"
+        >
+          {gettext("Details")}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
+  defp run_controls(%{state: %{run: %{state: state} = run}, scope: scope})
+       when state in ~w(queued running pausing paused cancelling),
+       do: Jobs.controls_for(scope, run)
+
+  defp run_controls(_assigns), do: []
+
+  defp sync_badge(:up_to_date), do: "badge-success"
+  defp sync_badge(:syncing), do: "badge-info"
+  defp sync_badge(:paused), do: "badge-warning"
+  defp sync_badge(:waiting), do: "badge-warning"
+  defp sync_badge(:attention), do: "badge-error"
+
+  # "Up to date" says the files carry their library's current revisions; it does not
+  # verify that every object is still on its bucket (LibraryState).
+  defp sync_label(:up_to_date), do: gettext("Up to date")
+  defp sync_label(:syncing), do: gettext("Syncing")
+  defp sync_label(:paused), do: gettext("Paused")
+  defp sync_label(:waiting), do: gettext("Waiting")
+  defp sync_label(:attention), do: gettext("Needs attention")
 end

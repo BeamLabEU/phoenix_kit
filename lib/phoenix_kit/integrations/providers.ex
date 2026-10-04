@@ -1635,7 +1635,8 @@ defmodule PhoenixKit.Integrations.Providers do
   """
   @spec setup_label(provider() | nil, map()) :: String.t() | nil
   def setup_label(%{setup_module: module}, data) when is_atom(module) and is_map(data) do
-    if function_exported?(module, :label, 1), do: module.label(data)
+    if Code.ensure_loaded?(module) and function_exported?(module, :label, 1),
+      do: module.label(data)
   end
 
   def setup_label(_provider, _data), do: nil

@@ -288,6 +288,50 @@ With `layout: false` a text-only email is sent as plain text, an `html`
 part is sent exactly as written, and a `markdown` part is sent as the bare
 HTML it renders to.
 
+### Using the header and footer in your own document
+
+Code that builds its own document — a module's newsletter wrapper, say —
+can still show the site's header and footer.
+`PhoenixKit.Email.Layout.render_parts/2` renders those two parts on their
+own. It chooses them the same way the layout does: the group's file, then
+the shared one, then PhoenixKit's; the reader's language file first; an
+empty file counts as missing. It takes the layout's `:locale`, `:paths`,
+`:group` and `:branding` options. Without `:paths` it reads the same
+directories as every email (`config :phoenix_kit, template_paths:`, else the
+host app's `priv/phoenix_kit_templates`); pass `paths: []` for PhoenixKit's
+own parts only.
+
+```elixir
+alias PhoenixKit.Email.Layout
+alias PhoenixKit.Templates.Substitution
+
+parts = Layout.render_parts(subject, locale: "de", group: "newsletters")
+
+variables =
+  Map.merge(parts.variables, %{
+    "header" => parts.header,
+    "footer" => parts.footer,
+    "content" => body_html
+  })
+
+Substitution.substitute(wrapper_html, variables, escape: true)
+```
+
+- `parts.header` and `parts.footer` are HTML. Place them with three braces
+  (`{{{header}}}`, `{{{footer}}}`).
+- `parts.variables` are the variables the parts were rendered with, from
+  the table above: `subject`, `site_name`, `site_url`, `logo_url`,
+  `accent_color`, plus any other key of a `:branding` map you pass, as
+  given. They are **raw text, not HTML**: nothing in them is escaped. Write
+  them with two braces (`{{site_name}}`) and substitute with
+  `escape: true`, as above. Only `header` and `footer` take three.
+- `parts.sources` says which file each part came from (`{:file, path}`),
+  or `:default` for PhoenixKit's own. Its `ignored` list names the files
+  passed over on the way, such as an empty `_header`.
+
+A wrapped email's header and footer are chosen by the same code, so the
+two cannot differ.
+
 ## Branding: logo and accent colour
 
 Two variables carry the site's branding into every part — the layout, the

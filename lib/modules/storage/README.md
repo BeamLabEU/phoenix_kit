@@ -337,6 +337,22 @@ touches profiles behaves as before. A profile has:
   `status` (`active`; `read_only` serves but gets no new files; `draining`
   has its files moved to the profile's other buckets).
 
+**A bucket a profile lists is protected.** `Storage.delete_bucket/2` and
+`Storage.update_bucket/3` (disabling) refuse it with
+`{:error, {:in_use, usage}}` while any profile has a row for it, whatever the
+row's role or status, and a user's own profile counts; nothing is taken out of
+a profile on the way (the delete used to strip an empty bucket from every
+profile, which could leave a library with nowhere to write). The bucket-row FK
+is `RESTRICT`, so a row added in between is refused by the database too. The
+admin frees the bucket first (Storage profiles tab: `draining` to move its
+files, then remove it), and only then disables or deletes it. Enabling is
+always allowed, and a user's own bucket is not guarded on disable (it goes with
+its library). `Profiles.bucket_usage/1` says which profiles use which buckets
+and how many libraries stand behind each (the Buckets tab's "Used by" column);
+`Profiles.delete_profile/2` refuses a profile a library uses, and
+`Profiles.library_names_using/1` names the site libraries in the way (a user's
+library is counted, never named).
+
 **Writes** (`Manager.store_file/2` with `:profile` and `:kind`, reached
 through `Storage.store_by_profile/4`): the profile's buckets that are
 enabled, `active`, store that kind and are under their `max_size_mb`,
@@ -403,9 +419,47 @@ Every set has the **standard sizes** `thumbnail`, `small`, `medium`,
 
 ### The reconciler (V205)
 
-`Storage.Reconciler`, run by `Workers.ReconcileJob` (10 files a run, 2 s
-apart, one file at a time under a session advisory lock), makes every
-**stale** file match its library's profile and set. A file is stale when
+`Storage.Reconciler`, run as a **job run per library** (`Storage.Jobs.Reconcile`,
+`storage.reconcile`: 10 files a batch, 2 s apart, one file at a time under a
+session advisory lock), makes every **stale** file match its library's profile
+and set. `Workers.ReconcileJob` is the Oban job every change to storage
+settings still queues; it starts those runs (`Reconcile.trigger/1`) for the
+libraries that have files to bring up to date, so it works inside a
+transaction. Each library's state — **Up to date**, **Syncing**, **Paused**,
+**Waiting** (files out of date and no run) or **Needs attention** — is derived
+by `Storage.LibraryState` and shown on Settings → Media → Libraries with
+**Check now**, **Pause** and **Resume**; "out of date" is
+`Reconciler.out_of_date_query/1`, the work-selection query `stale_query/1` its
+subset. The location and checksum backfills and the library purge are runs too
+(`storage.location_backfill`, `storage.checksum_backfill`,
+`storage.purge_library` — the purge is visible but cannot be paused or cancelled).
+
+### History
+
+Every change to the site's storage configuration (buckets, profiles and their
+bucket rows, libraries and their profile / variant set / annotated-thumbnail
+choice, variant sets and sizes) is written to the Activity log by
+`Storage.Audit` — who, when, and what changed from → to — permanently, never
+naming a key or secret, and never for a user's own library, profile or bucket.
+The context functions take `actor_uuid:` (the LiveViews pass
+`PhoenixKitWeb.Actor.opts(socket)`). Settings → Media → **History** lists these
+with the storage job runs' entries and the existing permanent `setting.changed`
+entries for global `storage_*` settings. The list identifies the resource and
+shows the actor and changed values; full Activity links require `dashboard`.
+
+Audited context mutations lock and reload the current resource, and commit the
+configuration and audit entry together through `Audit.transaction/1`. A failed
+audit insert rolls the mutation back. Announcements and compatibility-setting
+sync run after the transaction owned by Audit commits. For a transaction opened
+by a caller, storage audit announcements are suppressed (Ecto has no after-commit
+hook); History refreshes every 30 seconds while visible. Call
+`Audit.transaction/1` at the outer boundary for immediate announcements. Cache
+and compatibility-setting callbacks are best effort; inside caller-owned repo
+transactions they retain their existing immediate behavior.
+
+### Reconcile behavior
+
+A file is stale when
 its placement stamp differs from its profile, or — for an active file only
 — its variant stamp differs from its set; trashed and unfinished files keep
 their size stamp until they are active again.

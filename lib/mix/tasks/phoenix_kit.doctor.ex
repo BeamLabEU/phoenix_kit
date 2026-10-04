@@ -115,7 +115,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   @aliases [p: :prefix]
 
   # The longest timeout/1 any worker PhoenixKit ships declares
-  # (Storage.Workers.ReconcileJob). A Lifeline rescue_after at or below this is
+  # (Storage.Jobs.Reconcile). A Lifeline rescue_after at or below this is
   # unsafe by construction — see check_lifeline_plugin/2.
   @lifeline_min_rescue_after :timer.minutes(30)
 
@@ -1930,7 +1930,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
          base <>
            " Oban.Plugins.Lifeline is configured with rescue_after: #{div(rescue_after, 60_000)} " <>
            "minutes, at or below the longest job PhoenixKit ships " <>
-           "(Storage.Workers.ReconcileJob, #{div(@lifeline_min_rescue_after, 60_000)} minutes). " <>
+           "(Storage.Jobs.Reconcile, #{div(@lifeline_min_rescue_after, 60_000)} minutes). " <>
            "Lifeline rescues purely by elapsed time and never checks whether the executing node " <>
            "is alive, so a job still running at that mark is rescued and executes a second time " <>
            "concurrently. Raise it above your longest-running job (60 minutes is Oban's default)."}

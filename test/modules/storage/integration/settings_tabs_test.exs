@@ -66,7 +66,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     refute tab_visible?(html, "media-tab-buckets")
     assert tab_visible?(html, "media-tab-configuration")
     refute tab_visible?(html, "media-tab-tools")
-    assert html =~ "Redundancy Copies"
+    assert html =~ "Annotated Thumbnails"
+    assert html =~ "Image Editing"
+
+    # Copies, sizes and tiles are set on the profile and the variant set, not
+    # here: this tab has no second editor for them.
+    refute html =~ "Redundancy Copies"
+    refute html =~ ~s(name="form_redundancy")
+    refute html =~ "Auto-Generate Variants"
+    refute html =~ "Deep Zoom Tile Generation"
+    assert html =~ "Copies, sizes and tiles are set per library"
   end
 
   test "switching to Tools reveals its action buttons", %{conn: conn} do
@@ -115,5 +124,25 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
       |> render_click()
 
     assert html_after =~ "Not found on this server" == before_tools
+  end
+
+  test "Apply Changes still saves what this tab keeps", %{conn: conn} do
+    original = PhoenixKit.Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
+
+    # The row is rolled back with the sandbox; the cached copy is not.
+    on_exit(fn ->
+      PhoenixKit.Cache.invalidate(:settings, "storage_annotated_thumbnails_enabled")
+    end)
+
+    {:ok, view, _html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+
+    flipped = if original == "true", do: "false", else: "true"
+    render_click(view, "toggle_form_annotated_thumbnails", %{})
+    html = render_click(view, "apply_storage_settings", %{})
+
+    assert html =~ "Storage settings updated successfully"
+
+    assert PhoenixKit.Settings.get_setting("storage_annotated_thumbnails_enabled", "false") ==
+             flipped
   end
 end

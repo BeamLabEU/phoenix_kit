@@ -59,7 +59,7 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentials do
   read back and returns exactly the keys the bucket had; any failure rolls the
   whole move back, the new connection included.
 
-  Options: `:actor_uuid` (recorded on the connection's activity entries).
+  Options: `:actor_uuid` (recorded on the connection's and bucket's activity entries).
   """
   @spec move_to_integration(Bucket.t(), keyword()) :: {:ok, Bucket.t()} | {:error, reason()}
   def move_to_integration(%Bucket{} = bucket, opts \\ []) do
@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentials do
            {:ok, keys} <- read_keys(bucket),
            {:ok, uuid} <- find_or_create_connection(bucket, keys, actor_uuid),
            :ok <- verify_round_trip(bucket, uuid, keys),
-           {:ok, moved} <- clear_keys(bucket, uuid) do
+           {:ok, moved} <- clear_keys(bucket, uuid, opts) do
         moved
       else
         {:error, reason} -> repo.rollback(reason)
@@ -149,12 +149,12 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentials do
       else: {:error, :credentials_mismatch}
   end
 
-  defp clear_keys(bucket, uuid) do
-    Storage.update_bucket(bucket, %{
-      integration_uuid: uuid,
-      access_key_id: nil,
-      secret_access_key: nil
-    })
+  defp clear_keys(bucket, uuid, opts) do
+    Storage.update_bucket(
+      bucket,
+      %{integration_uuid: uuid, access_key_id: nil, secret_access_key: nil},
+      opts
+    )
   end
 
   defp present?(nil), do: false

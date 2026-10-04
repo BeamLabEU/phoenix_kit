@@ -62,7 +62,21 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       })
       |> render_change()
 
+      # Changing a row saves nothing: its Save button comes alive and says so.
+      assert [%{role: "primary", status: "active"}] = Profiles.get_profile(profile.uuid).buckets
+      html = render(view)
+      assert html =~ "Unsaved changes"
+
+      view
+      |> form("#media-profiles-row-#{profile.uuid}-#{ctx.bucket.uuid}", %{
+        "row" => %{"role" => "backup", "status" => "read_only"}
+      })
+      |> render_submit()
+
       assert [%{role: "backup", status: "read_only"}] = Profiles.get_profile(profile.uuid).buckets
+      html = render(view)
+      refute html =~ "Unsaved changes"
+      assert html =~ "Saved"
 
       view
       |> form("#media-profiles-form-#{profile.uuid}", %{
@@ -125,6 +139,70 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert html =~ "Each original should have 5 copies, but only"
     end
 
+    test "a replica holds nothing at one copy, and the line says so", ctx do
+      # The test database's Default already has its own primary ("Local
+      # Storage"); the bucket this test made becomes the replica.
+      default = Profiles.default_profile()
+      {:ok, _} = Profiles.put_bucket(default, ctx.bucket.uuid, %{role: "replica"})
+
+      html = view_html(ctx.conn)
+      assert html =~ "stored on the primary bucket only"
+      refute html =~ "not mirrored"
+
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_originals" => "2"})
+      assert view_html(ctx.conn) =~ "Each original is stored on 2 of the 2 buckets"
+    end
+
+    test "offers to put an idle replica to use, and applies only that count", ctx do
+      default = Profiles.default_profile()
+      {:ok, _} = Profiles.put_bucket(default, ctx.bucket.uuid, %{role: "replica"})
+
+      view = settings(ctx.conn)
+      html = render(view)
+
+      assert html =~ "Not used at this copy count: #{ctx.bucket.name}"
+      assert html =~ "Keep every original on 2 buckets"
+
+      # a hand-made event naming another count is ignored
+      view
+      |> with_target("#media-profiles")
+      |> render_click("apply_copies", %{"uuid" => default.uuid, "copies" => "5"})
+
+      assert Profiles.default_profile().copies_originals == 1
+
+      view
+      |> element(
+        "#media-profiles-advice-#{default.uuid} button",
+        "Keep every original on 2 buckets"
+      )
+      |> render_click()
+
+      assert Profiles.default_profile().copies_originals == 2
+      refute render(view) =~ "Not used at this copy count"
+    end
+
+    test "the profile's own form saves on its Save button, with a sign of it", ctx do
+      view = settings(ctx.conn)
+      default = Profiles.default_uuid()
+      form = "#media-profiles-form-#{default}"
+
+      before = Profiles.default_profile().copies_variants
+
+      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_change()
+      assert Profiles.default_profile().copies_variants == before
+      assert render(view) =~ "Unsaved changes"
+
+      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_submit()
+      assert Profiles.default_profile().copies_variants == 3
+      refute render(view) =~ "Unsaved changes"
+    end
+
+    test "offers nothing when every bucket is already used", ctx do
+      html = view_html(ctx.conn)
+      refute html =~ "Not used at this copy count"
+      refute html =~ "Keep every original on"
+    end
+
     test "the bucket rows sit on one grid, each control under its heading", ctx do
       html = view_html(ctx.conn)
 
@@ -134,6 +212,26 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert html =~ "Draining (moving files out)"
       assert html =~ "Read-only (no new files)"
       assert html =~ "Copies of each original"
+    end
+
+    test "a library chooses annotated thumbnails on the Libraries tab", ctx do
+      {:ok, library} =
+        Libraries.create_system_library(%{
+          name: "Annotated #{System.unique_integer([:positive])}"
+        })
+
+      {:ok, view, _html} = live(ctx.conn, Routes.path("/admin/settings/media?tab=libraries"))
+      assert render(view) =~ "Annotated thumbnails: site setting"
+
+      form = "#media-libraries-storage-#{library.uuid}"
+
+      for {choice, expected} <- [{"on", true}, {"off", false}, {"default", nil}] do
+        view |> form(form, %{"annotated" => choice}) |> render_submit()
+        assert Libraries.setting(library.uuid, :annotated_thumbnails) == expected
+      end
+
+      # A setting alone is not a storage change: no files are moved for it.
+      assert render(view) =~ "Library setting saved"
     end
 
     test "the Default profile lists the buckets and cannot be deleted", ctx do
@@ -201,9 +299,23 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       })
       |> render_change()
 
+      # A dropdown moves nothing by itself: the files of a library are moved and
+      # resized when Save is pressed.
+      assert render(view) =~ "Unsaved changes"
+      assert Libraries.get_library(library.uuid).storage_profile_uuid == nil
+
+      view
+      |> form("#media-libraries-storage-#{library.uuid}", %{
+        "storage" => %{"profile" => profile.uuid, "set" => set.uuid}
+      })
+      |> render_submit()
+
+      html = render(view)
       library = Libraries.get_library(library.uuid)
       assert library.storage_profile_uuid == profile.uuid
       assert library.variant_set_uuid == set.uuid
+      assert html =~ "Library storage saved"
+      refute html =~ "Unsaved changes"
     end
   end
 end

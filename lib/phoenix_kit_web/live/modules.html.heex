@@ -67,66 +67,6 @@
       :if={@modules_tab in ["active", "disabled"]}
       class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
     >
-      <%!-- Languages Module --%>
-      <%= if "languages" in @accessible_modules and modules_tab_match?(@modules_tab, module_enabled?(@module_configs["languages"] || %{})) do %>
-        <% cfg = @module_configs["languages"] || %{} %>
-        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-          title={gettext("Languages")}
-          description={gettext("Manage language module and translations")}
-          icon="🌐"
-          enabled={cfg[:enabled] || false}
-          toggle_event="toggle_module"
-          toggle_key="languages"
-        >
-          <:status_badges>
-            <span class={[
-              "badge",
-              if(cfg[:enabled], do: "badge-success", else: "badge-neutral")
-            ]}>
-              {if cfg[:enabled], do: gettext("Enabled"), else: gettext("Disabled")}
-            </span>
-            <%= if cfg[:enabled] do %>
-              <span class="badge badge-outline ml-2 whitespace-nowrap">
-                {if cfg[:default_language],
-                  do: cfg[:default_language].name,
-                  else: gettext("No Default")}
-              </span>
-            <% end %>
-          </:status_badges>
-
-          <:action_buttons>
-            <%= if cfg[:enabled] do %>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
-                class="btn btn-primary btn-sm"
-              >
-                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
-              </.link>
-            <% else %>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
-                class="btn btn-outline btn-sm"
-              >
-                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
-              </.link>
-            <% end %>
-          </:action_buttons>
-
-          <:stats>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span class="text-base-content/70">{gettext("Total languages")}:</span>
-                <span class="font-medium">{cfg[:language_count]}</span>
-              </div>
-              <div>
-                <span class="text-base-content/70">{gettext("Enabled")}:</span>
-                <span class="font-medium">{cfg[:enabled_count]}</span>
-              </div>
-            </div>
-          </:stats>
-        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-      <% end %>
-
       <%!-- Crawlers Module --%>
       <%= if "crawlers" in @accessible_modules and modules_tab_match?(@modules_tab, module_enabled?(@module_configs["crawlers"] || %{})) do %>
         <% cfg = @module_configs["crawlers"] || %{} %>
@@ -261,71 +201,6 @@
       <% end %>
 
       <%!-- Pages module remains disabled but code retained for future use --%>
-
-      <%!-- Jobs Module --%>
-      <%= if "jobs" in @accessible_modules and modules_tab_match?(@modules_tab, module_enabled?(@module_configs["jobs"] || %{})) do %>
-        <% cfg = @module_configs["jobs"] || %{} %>
-        <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-          title={gettext("Jobs")}
-          description={gettext("View-only dashboard for background job status and history")}
-          icon="⚙️"
-          enabled={cfg[:enabled] || false}
-          toggle_event="toggle_module"
-          toggle_key="jobs"
-        >
-          <:status_badges>
-            <span class={[
-              "badge",
-              if(cfg[:enabled], do: "badge-success", else: "badge-neutral")
-            ]}>
-              {if cfg[:enabled], do: gettext("Enabled"), else: gettext("Disabled")}
-            </span>
-            <%= if cfg[:enabled] && cfg[:stats].executing > 0 do %>
-              <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
-                {gettext("%{count} running", count: cfg[:stats].executing)}
-              </span>
-            <% end %>
-          </:status_badges>
-
-          <:action_buttons>
-            <div class="flex flex-col gap-2 w-full">
-              <%= if cfg[:enabled] do %>
-                <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/jobs")}
-                  class="btn btn-primary btn-sm"
-                >
-                  <.icon name="hero-queue-list" class="w-4 h-4 mr-1" /> {gettext("View Jobs")}
-                </.link>
-              <% else %>
-                <span class="text-xs text-base-content/50 text-center">
-                  {gettext("Enable module to view background jobs")}
-                </span>
-              <% end %>
-            </div>
-          </:action_buttons>
-
-          <:stats>
-            <div class="grid grid-cols-4 gap-2 text-xs">
-              <div>
-                <span class="text-base-content/70">{gettext("Available")}:</span>
-                <span class="font-medium">{cfg[:stats].available}</span>
-              </div>
-              <div>
-                <span class="text-base-content/70">{gettext("Completed")}:</span>
-                <span class="font-medium">{cfg[:stats].completed}</span>
-              </div>
-              <div>
-                <span class="text-base-content/70">{gettext("Retryable")}:</span>
-                <span class="font-medium">{cfg[:stats].retryable}</span>
-              </div>
-              <div>
-                <span class="text-base-content/70">{gettext("Discarded")}:</span>
-                <span class="font-medium">{cfg[:stats].discarded}</span>
-              </div>
-            </div>
-          </:stats>
-        </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-      <% end %>
 
       <%!-- Legal Module --%>
       <%!-- External Modules (auto-discovered) --%>

@@ -66,6 +66,25 @@ defmodule PhoenixKit.Email.ContentTest do
       assert resolved.text =~ "{{confirmation_url}}"
     end
 
+    test "a feature module's defaults are in the recipient's language too" do
+      # Billing's defaults translate through its own backend, which reads the
+      # process-global locale, not `PhoenixKitWeb.Gettext`'s. The sender here
+      # is an admin working in Portuguese.
+      module_defaults = fn ->
+        %{
+          subject: Gettext.dgettext(PhoenixKit.Test.ModuleGettext, "default", "Your invoice"),
+          text: "{{invoice_number}}"
+        }
+      end
+
+      Gettext.put_locale("pt")
+
+      assert Content.resolve("billing_invoice", user("es-ES"), %{}, module_defaults).subject ==
+               "Su factura"
+
+      assert Gettext.get_locale() == "pt"
+    end
+
     test "reports no database template on this path" do
       assert Content.resolve("register", user("de"), %{}, defaults()).db_template == nil
     end

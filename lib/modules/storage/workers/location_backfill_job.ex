@@ -38,18 +38,22 @@ defmodule PhoenixKit.Modules.Storage.Workers.LocationBackfillJob do
 
   require Logger
 
+  alias PhoenixKit.Jobs.System, as: JobsSystem
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Jobs.LocationBackfill
   alias PhoenixKit.Modules.Storage.{Locations, ProviderRegistry}
 
   @batch_size 50
-  @pause_seconds 5
 
-  @doc "Queues a pass when any instance is unchecked. Never raises."
+  @doc """
+  Starts a pass as a job run (`Storage.Jobs.LocationBackfill`) when any instance is
+  unchecked, unless one is already active. Never raises.
+  """
   @spec maybe_enqueue() :: :queued | :nothing_to_do | :unavailable
   def maybe_enqueue do
     if pending?() do
-      case %{} |> new() |> Oban.insert() do
-        {:ok, _job} -> :queued
+      case JobsSystem.start(LocationBackfill, :site, source: "backfill") do
+        {:ok, _run, _how} -> :queued
         _ -> :unavailable
       end
     else
@@ -71,18 +75,15 @@ defmodule PhoenixKit.Modules.Storage.Workers.LocationBackfillJob do
   @spec pending_count() :: non_neg_integer()
   def pending_count, do: Locations.missing_count()
 
+  # The pass is a job run now. A job queued by an earlier release (this worker used
+  # to chain itself with a cursor) starts that run and ends: its old cursor is
+  # dropped, which is safe — checking an instance twice does no harm. This clause
+  # stays until `mix phoenix_kit.doctor` finds no job left for it.
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
-    case run_batch(args["after"], %{}) do
-      {:more, last_uuid, _totals} ->
-        {:ok, _job} =
-          %{"after" => last_uuid} |> new(schedule_in: @pause_seconds) |> Oban.insert()
-
-        :ok
-
-      {:done, totals} ->
-        Logger.info("LocationBackfillJob: pass finished #{inspect(totals)}")
-        :ok
+  def perform(%Oban.Job{}) do
+    case JobsSystem.start(LocationBackfill, :site, source: "backfill") do
+      {:error, reason} -> {:error, reason}
+      _started_or_existing -> :ok
     end
   end
 
@@ -108,8 +109,10 @@ defmodule PhoenixKit.Modules.Storage.Workers.LocationBackfillJob do
   end
 
   # One batch after `cursor`: `{:more, last_uuid, totals}` while a full batch
-  # was read, `{:done, totals}` once the walk has passed the last instance.
-  defp run_batch(cursor, totals) do
+  # was read, `{:done, totals}` once the walk has passed the last instance. What
+  # `Storage.Jobs.LocationBackfill` calls for each batch.
+  @doc false
+  def run_batch(cursor, totals) do
     buckets = Storage.list_enabled_buckets()
 
     batch =

@@ -1,0 +1,7 @@
+## Fixture for PhoenixKit.Test.ModuleGettext — a feature module's catalogue.
+msgid ""
+msgstr ""
+"Language: en\n"
+
+msgid "Your invoice"
+msgstr "Your invoice"

@@ -250,6 +250,23 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
   end
 
   describe "label/1" do
+    test "the list's service label works before a form loads the setup module" do
+      code = """
+      alias PhoenixKit.Integrations.ObjectStorageServices, as: Services
+      alias PhoenixKit.Integrations.Providers
+      false = :code.is_loaded(Services)
+      "Tigris" = Providers.setup_label(%{setup_module: Services}, %{"service" => "tigris"})
+      """
+
+      beam_dir = Providers |> :code.which() |> List.to_string() |> Path.dirname()
+
+      assert {_output, 0} =
+               System.cmd("elixir", ["-pa", beam_dir, "-e", code],
+                 stderr_to_stdout: true,
+                 env: [{"ERL_FLAGS", "+S 2:2"}]
+               )
+    end
+
     test "names the service of a connection, inferring it for an old one" do
       assert Services.label(%{"service" => "tigris"}) == "Tigris"
       assert Services.label(%{"endpoint" => "s3.us-west-002.backblazeb2.com"}) == "Backblaze B2"

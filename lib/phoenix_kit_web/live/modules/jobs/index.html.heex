@@ -45,9 +45,14 @@
 
     <%!-- Tabs --%>
     <% jobs_tabs = [
-      %{id: "oban", label: "Oban Jobs"},
       Map.merge(
-        %{id: "scheduled", label: "Scheduled Tasks"},
+        %{id: "runs", label: gettext("Runs"), icon: "hero-play-circle"},
+        (@active_run_count > 0 && %{badge: @active_run_count, badge_class: "badge-primary"}) ||
+          %{}
+      ),
+      %{id: "queue", label: gettext("Queue"), icon: "hero-queue-list"},
+      Map.merge(
+        %{id: "scheduled", label: gettext("Scheduled"), icon: "hero-clock"},
         (length(@scheduled_jobs) > 0 && %{badge: length(@scheduled_jobs)}) || %{}
       )
     ] %>
@@ -58,8 +63,105 @@
       class="mb-4 w-fit"
     />
 
-    <%!-- Oban Jobs Tab --%>
-    <div class={if @active_tab != "oban", do: "hidden"}>
+    <%!-- Runs Tab --%>
+    <div class={if @active_tab != "runs", do: "hidden"} id="jobs-runs-tab">
+      <div :if={not @sweeper_seen?} id="jobs-sweeper-warning" class="alert alert-warning mb-4">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+        <div class="text-sm">
+          <div class="font-semibold">{gettext("No sweeper pass in the last 15 minutes")}</div>
+          {gettext(
+            "Runs are waiting, and nothing has checked on them lately. A run whose batch died is only recovered by the sweeper, which runs from Oban's cron every five minutes: check that PhoenixKit.Jobs.SweepWorker is in your crontab (mix phoenix_kit.update adds it)."
+          )}
+        </div>
+      </div>
+
+      <div :if={@stalled_queues != []} id="jobs-stalled-queues" class="alert alert-warning mb-4">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+        <div class="text-sm">
+          <div class="font-semibold">
+            {gettext("Runs are waiting on a queue that is not working: %{queues}",
+              queues: Enum.join(@stalled_queues, ", ")
+            )}
+          </div>
+          {gettext(
+            "A batch has been waiting for ten minutes and nothing in that queue has run since. Check that the queue is configured in Oban and that a node which runs it is up."
+          )}
+        </div>
+      </div>
+
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4">
+          <div class="flex flex-wrap items-end gap-4 mb-4">
+            <form id="runs-filter-state-form" phx-change="filter_run_state">
+              <.select
+                id="runs-filter-state"
+                name="run_state"
+                label={gettext("State")}
+                value={@run_state}
+                class="select-sm"
+                options={
+                  [{gettext("All"), "all"}, {gettext("Unfinished"), "active"}] ++
+                    Enum.map(PhoenixKit.Jobs.Run.states(), &{state_label(&1), &1})
+                }
+              />
+            </form>
+            <form
+              :if={length(@run_modules) > 1}
+              id="runs-filter-module-form"
+              phx-change="filter_run_module"
+            >
+              <.select
+                id="runs-filter-module"
+                name="run_module"
+                label={gettext("Module")}
+                value={@run_module}
+                class="select-sm"
+                options={[{gettext("All"), "all"} | Enum.map(@run_modules, &{&1, &1})]}
+              />
+            </form>
+            <span class="text-sm text-base-content/60 ml-auto">
+              {ngettext("%{count} run", "%{count} runs", @run_total)} · {gettext("live")}
+            </span>
+          </div>
+
+          <.runs_table runs={@runs} controls={@run_controls} actors={@run_actors} />
+
+          <% run_pages = PhoenixKit.Utils.Pagination.total_pages(@run_total, @per_page) %>
+          <div :if={run_pages > 1} class="flex justify-center gap-2 mt-4">
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="change_page"
+              phx-value-page={max(1, @current_page - 1)}
+              disabled={@current_page == 1}
+            >
+              {gettext("Previous")}
+            </button>
+            <span class="btn btn-sm btn-ghost no-animation">
+              {gettext("Page %{page} of %{pages}", page: @current_page, pages: run_pages)}
+            </span>
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="change_page"
+              phx-value-page={min(run_pages, @current_page + 1)}
+              disabled={@current_page >= run_pages}
+            >
+              {gettext("Next")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Queue Tab: Oban's own jobs --%>
+    <div class={if @active_tab != "queue", do: "hidden"}>
+      <div :if={not @oban_available?} id="jobs-oban-unavailable" class="alert alert-warning mb-4">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+        <span class="text-sm">
+          {gettext(
+            "Oban is not running on this node, so its jobs cannot be listed here. Open this page on a node that runs it."
+          )}
+        </span>
+      </div>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-4">
           <div class="flex flex-wrap gap-4 mb-4">
@@ -562,5 +664,14 @@
         <div class="modal-backdrop" phx-click="close_scheduled_job"></div>
       </div>
     <% end %>
+
+    <%!-- Run detail --%>
+    <.run_modal
+      :if={@selected_run}
+      run={@selected_run}
+      history={@run_history}
+      controls={@selected_run_controls}
+      actors={@run_actors}
+    />
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.Live.Modules.Storage.Dimensions
 
   def mount(params, _session, socket) do
@@ -83,7 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   end
 
   defp create_dimension(socket, dimension_params) do
-    case Storage.create_dimension(dimension_params, socket.assigns.set.uuid) do
+    case Storage.create_dimension(dimension_params, socket.assigns.set.uuid, Actor.opts(socket)) do
       {:ok, _dimension} ->
         socket =
           socket
@@ -105,7 +106,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   defp update_dimension(socket, dimension_params) do
     dimension = Storage.get_dimension(socket.assigns.dimension_uuid)
 
-    case Storage.update_dimension(dimension, dimension_params) do
+    case Storage.update_dimension(dimension, dimension_params, Actor.opts(socket)) do
       {:ok, _dimension} ->
         socket =
           socket

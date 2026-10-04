@@ -137,6 +137,13 @@ Full reference: `dev_docs/guides/2026-07-28-login-and-registration.md`. All sett
   - Access decisions read the scope; rules protecting against a user's REAL roles read `Scope.held_roles/1`. `Roles.*`/`User.get_roles` DB reads ignore the active role. Removing a role signs out the sessions acting as it (`Sessions.revoke_user_sessions_in_role/2`).
   - ⚠️ **Internal `custom_fields` keys: `Auth.merge_user_custom_fields/3`, never a whole-map replace from a struct held in assigns** — a stale replace restores every other key's old value.
 
+## Languages
+
+Core and always on — **not** a feature module (no Modules card, not in `ModuleRegistry`; `languages` is a core permission key). The switch is the first card of Settings → Languages: `Languages.enabled?/0`. Reference: `lib/modules/languages/README.md`. Landmines:
+
+- ⚠️ **A menu or switcher reads `Languages.get_enabled_languages/0`, never `get_display_languages/0`** — the latter returns hardcoded defaults while the switch is off (languages with no route behind them).
+- ⚠️ **The page must stay reachable while the switch is off** (it holds the switch). That is why the key is core: `Auth` refuses a page whose key is `feature_enabled?` false.
+
 ## Integrations System
 
 Centralized OAuth / API key / bot token / credential management. Full reference: `dev_docs/guides/2026-07-27-integrations-system.md`; design: `dev_docs/plans/integrations-system.md`.

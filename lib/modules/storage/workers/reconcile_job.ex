@@ -1,27 +1,19 @@
 defmodule PhoenixKit.Modules.Storage.Workers.ReconcileJob do
   @moduledoc """
-  Runs `PhoenixKit.Modules.Storage.Reconciler` over the stale files (V205):
-  copies objects where a library's storage profile wants them, unlinks them
-  where it no longer does, and makes, remakes or deletes sizes by its
-  variant set.
+  The trigger of the storage reconciler (V205). It queues nothing to walk files
+  itself any more: since job runs (`PhoenixKit.Jobs`) the walk is a run per
+  library, `Storage.Jobs.Reconcile`, which an admin can watch and pause on
+  Settings → Media → Libraries and Admin → Jobs. This worker is what every place
+  that *changes* storage settings still queues (`enqueue/0`): its job starts those
+  runs (`Reconcile.trigger/1`) for the libraries that have files to bring up to
+  date.
 
-  **Throttled**, like the location backfill: `@batch_size` files per run,
-  the next run `@pause_seconds` later, on the `file_processing` queue, so
-  its copying and its ImageMagick/FFmpeg work stay bounded by that queue.
-  Only one pending run exists at a time (`unique` over `[:worker, :queue]`,
-  ignoring the cursor): a change queued while a pass is under way starts
-  the walk again from the beginning (a waiting next batch is replaced).
-  A file that could not be finished waits ten minutes before it is tried
-  again (`reconcile_attempted_at`), so a restart does not retry the same
-  failing files ahead of the rest.
-
-  **Queued by itself** (`enqueue/0`): whenever a profile, a variant set or
-  one of their rows changes (their revision is bumped), a library moves to
-  another profile or set, an upload makes fewer copies or sizes than
-  wanted, and by the daily trash prune and on boot while any file is stale.
-  It never waits for a person; the Health page shows what is left.
-
-  It replaces `SyncFilesJob`, the Health page's manual sync.
+  Why a job rather than starting the runs directly: a profile or variant set
+  changes inside a transaction in several places, and a run cannot be started
+  from inside one (the engine refuses, so nothing it announces escapes a
+  rollback). An Oban insert commits with the caller's transaction and runs after
+  it. Only one pending trigger exists at a time (`unique` over `[:worker, :queue]`);
+  a job queued by an earlier release, with a cursor in its args, simply triggers.
   """
 
   use Oban.Worker,
@@ -29,26 +21,18 @@ defmodule PhoenixKit.Modules.Storage.Workers.ReconcileJob do
     max_attempts: 3,
     unique: [period: :infinity, fields: [:worker, :queue], states: [:available, :scheduled]]
 
-  require Logger
-
+  alias PhoenixKit.Modules.Storage.Jobs.Reconcile
   alias PhoenixKit.Modules.Storage.Reconciler
 
   @batch_size 10
-  @pause_seconds 2
 
   @doc """
-  Queues a pass from the beginning. Never raises: a change must not fail
-  because Oban is not running (a test, a Mix task); the daily prune and the
-  next boot queue one anyway.
+  Queues the trigger. Never raises: a change must not fail because Oban is not
+  running (a test, a Mix task); the daily prune and the next boot queue one anyway.
   """
-  # A pass already waiting (between batches, or queued behind other jobs) is
-  # replaced, not kept: its cursor would skip the files before it that this
-  # change made stale.
   @spec enqueue() :: :queued | :unavailable
   def enqueue do
-    replace = [scheduled: [:args, :scheduled_at], available: [:args]]
-
-    case %{} |> new(replace: replace) |> Oban.insert() do
+    case Oban.insert(new(%{})) do
       {:ok, _job} -> :queued
       _ -> :unavailable
     end
@@ -58,7 +42,7 @@ defmodule PhoenixKit.Modules.Storage.Workers.ReconcileJob do
     :exit, _ -> :unavailable
   end
 
-  @doc "Queues a pass when any file is stale. Never raises."
+  @doc "Queues the trigger when any file is stale. Never raises."
   @spec maybe_enqueue() :: :queued | :nothing_to_do | :unavailable
   def maybe_enqueue do
     if Reconciler.pending?(), do: enqueue(), else: :nothing_to_do
@@ -69,23 +53,12 @@ defmodule PhoenixKit.Modules.Storage.Workers.ReconcileJob do
   end
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
-    case Reconciler.run_batch(args["after"], @batch_size) do
-      {:more, last_uuid, _totals} ->
-        {:ok, _job} =
-          %{"after" => last_uuid} |> new(schedule_in: @pause_seconds) |> Oban.insert()
-
-        :ok
-
-      {:done, totals} ->
-        Logger.info("ReconcileJob: pass finished #{inspect(totals)}")
-        :ok
+  def perform(%Oban.Job{}) do
+    case Reconcile.trigger() do
+      {:ok, _libraries} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
-
-  # A batch copies objects and makes sizes: video transcodes take minutes.
-  @impl Oban.Worker
-  def timeout(_job), do: :timer.minutes(30)
 
   @doc """
   Runs a whole pass in the calling process and returns the totals

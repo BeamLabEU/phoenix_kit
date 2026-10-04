@@ -18,8 +18,12 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
       `storage_class` is allowed only on a `backup` row, because archive
       tiers need a restore before a read.
 
-  A bucket's global `enabled` flag is still the emergency stop: a disabled
-  bucket is neither written nor read, whatever its profile rows say.
+  A bucket's global `enabled` flag is still the stop: a disabled bucket is
+  neither written nor read, whatever its profile rows say. Because that would
+  strand the libraries on the profile, `Storage.update_bucket/3` refuses to
+  disable a bucket while any profile has a row for it, and `Storage.delete_bucket/2`
+  refuses to delete it (`Profiles.bucket_usage/1` says which profiles); a row
+  is removed first, on purpose.
   """
 
   use Ecto.Schema

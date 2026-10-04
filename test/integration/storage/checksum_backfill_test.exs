@@ -92,4 +92,54 @@ defmodule PhoenixKit.Modules.Storage.ChecksumBackfillTest do
     ChecksumBackfillJob.run_pass()
     assert Storage.get_file(old.uuid).metadata["checksum_backfill"] == "duplicate"
   end
+
+  describe "as a job run (storage.checksum_backfill)" do
+    alias PhoenixKit.Jobs
+    alias PhoenixKit.Jobs.Run
+    alias PhoenixKit.Modules.Storage.Jobs.ChecksumBackfill
+    alias PhoenixKit.Test.Repo
+
+    setup do
+      start_supervised!(
+        {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
+      )
+
+      :ok
+    end
+
+    test "recomputes every MD5 row, with progress and the pass's outcomes", %{user: user} do
+      content_a = "run a #{System.unique_integer([:positive])}"
+      content_b = "run b #{System.unique_integer([:positive])}"
+      a = stored!(user, content_a)
+      b = stored!(user, content_b)
+
+      assert ChecksumBackfillJob.pending?()
+
+      assert {:ok, %Run{state: "completed", mode: "script", failed_count: 0} = run} =
+               Jobs.run_inline(ChecksumBackfill, :site)
+
+      assert run.done >= 2 and run.total >= 2
+      assert run.result["outcomes"]["updated"] >= 2
+      assert Storage.get_file(a.uuid).file_checksum == sha(content_a)
+      assert Storage.get_file(b.uuid).file_checksum == sha(content_b)
+    end
+
+    test "maybe_enqueue/0 starts the run only while a row is left, and the old job joins it",
+         %{user: user} do
+      stored!(user, "pending #{System.unique_integer([:positive])}")
+
+      assert ChecksumBackfillJob.maybe_enqueue() == :queued
+      assert %Run{mode: "auto"} = Jobs.active_run(ChecksumBackfill.kind(), :site)
+
+      assert :ok =
+               ChecksumBackfillJob.perform(%Oban.Job{args: %{"after" => Ecto.UUID.generate()}})
+
+      assert [_] = Repo.all(from r in Run, where: r.kind == "storage.checksum_backfill")
+    end
+
+    test "is declared by the storage module and needs media.manage" do
+      assert ChecksumBackfill in Jobs.kinds()
+      assert ChecksumBackfill.permission() == "media.manage"
+    end
+  end
 end

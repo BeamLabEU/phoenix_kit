@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   import Ecto.Query
 
-  alias PhoenixKit.Modules.Storage.{Dimension, Library, VariantGenerator, VariantSet}
+  alias PhoenixKit.Modules.Storage.{Audit, Dimension, Library, VariantGenerator, VariantSet}
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.Workers.ReconcileJob
@@ -140,8 +140,13 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   Creates a set. It starts with a copy of the Default's standard slots,
   so it keeps the contract every set has.
   """
-  @spec create_variant_set(map()) :: {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t()}
-  def create_variant_set(attrs) do
+  @spec create_variant_set(map(), keyword()) ::
+          {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t()}
+  def create_variant_set(attrs, opts \\ []) do
+    Audit.transaction(fn -> do_create_variant_set(attrs, opts) end)
+  end
+
+  defp do_create_variant_set(attrs, opts) do
     changeset = VariantSet.changeset(%VariantSet{}, attrs)
 
     transact(fn ->
@@ -149,6 +154,15 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
         copy_standard_slots(set.uuid)
         {:ok, set}
       end
+    end)
+    |> tap(fn
+      {:ok, set} ->
+        Audit.log("storage.variant_set.created", "storage_variant_set", set.uuid, opts, %{
+          "name" => set.name
+        })
+
+      _error ->
+        :ok
     end)
   end
 
@@ -185,13 +199,20 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     repo().insert_all(Dimension, rows)
   end
 
+  # The fields of a set whose change is written to the history.
+  @audited_fields [:name, :selectable, :generate_variants, :generate_tiles]
+
   @doc """
   Updates a set's name or flags. Turning variant or tile generation on or
   off bumps its revision; a rename or `selectable` does not.
   """
-  @spec update_variant_set(VariantSet.t(), map()) ::
+  @spec update_variant_set(VariantSet.t(), map(), keyword()) ::
           {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t()}
-  def update_variant_set(%VariantSet{} = set, attrs) do
+  def update_variant_set(%VariantSet{} = set, attrs, opts \\ []) do
+    Audit.change(set, &do_update_variant_set(&1, attrs, opts))
+  end
+
+  defp do_update_variant_set(set, attrs, opts) do
     changeset = VariantSet.changeset(set, attrs)
 
     transact(fn ->
@@ -205,7 +226,17 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     |> case do
       {:ok, uuid} ->
         set = get_variant_set(uuid)
-        if set.is_default, do: sync_settings(set)
+        if set.is_default, do: Audit.after_commit(fn -> sync_settings(set, opts) end)
+
+        Audit.log_update(
+          "storage.variant_set.updated",
+          "storage_variant_set",
+          set.uuid,
+          opts,
+          Audit.changes(changeset, @audited_fields),
+          %{"name" => set.name}
+        )
+
         {:ok, set}
 
       error ->
@@ -215,18 +246,31 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   # The Default's flags are what two settings were before variant sets; the
   # rows are kept in step for code that still reads them.
-  defp sync_settings(%VariantSet{} = set) do
-    Settings.update_setting("storage_auto_generate_variants", to_string(set.generate_variants))
-    Settings.update_setting("storage_tile_generation_enabled", to_string(set.generate_tiles))
+  defp sync_settings(%VariantSet{} = set, opts) do
+    Settings.update_setting(
+      "storage_auto_generate_variants",
+      to_string(set.generate_variants),
+      opts
+    )
+
+    Settings.update_setting(
+      "storage_tile_generation_enabled",
+      to_string(set.generate_tiles),
+      opts
+    )
   end
 
   @doc """
   Deletes a set and its sizes. The Default cannot be deleted
   (`{:error, :default}`), nor a set a library uses (`{:error, :in_use}`).
   """
-  @spec delete_variant_set(VariantSet.t()) ::
+  @spec delete_variant_set(VariantSet.t(), keyword()) ::
           {:ok, VariantSet.t()} | {:error, :default | :in_use | Ecto.Changeset.t()}
-  def delete_variant_set(%VariantSet{} = set) do
+  def delete_variant_set(%VariantSet{} = set, opts \\ []) do
+    Audit.change(set, &do_delete_variant_set(&1, opts))
+  end
+
+  defp do_delete_variant_set(set, opts) do
     cond do
       default?(set) ->
         {:error, :default}
@@ -242,6 +286,15 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           message: "is used by a library"
         )
         |> repo().delete()
+        |> tap(fn
+          {:ok, deleted} ->
+            Audit.log("storage.variant_set.deleted", "storage_variant_set", deleted.uuid, opts, %{
+              "name" => deleted.name
+            })
+
+          _error ->
+            :ok
+        end)
     end
   end
 
@@ -256,9 +309,13 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   Points `library` at `set_uuid` (nil for the Default). A user library may
   only use a selectable set (`{:error, :not_selectable}`).
   """
-  @spec set_library_variant_set(Library.t(), term()) ::
+  @spec set_library_variant_set(Library.t(), term(), keyword()) ::
           {:ok, Library.t()} | {:error, Ecto.Changeset.t() | :not_found | :not_selectable}
-  def set_library_variant_set(%Library{} = library, set_uuid) do
+  def set_library_variant_set(%Library{} = library, set_uuid, opts \\ []) do
+    Audit.change(library, &do_set_library_variant_set(&1, set_uuid, opts))
+  end
+
+  defp do_set_library_variant_set(library, set_uuid, opts) do
     set_uuid = if default?(set_uuid), do: nil, else: set_uuid
     set = set_uuid && get_variant_set(set_uuid)
 
@@ -277,6 +334,37 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
         )
         |> repo().update()
         |> tap(&if(match?({:ok, _}, &1), do: ReconcileJob.enqueue()))
+        |> tap(fn
+          {:ok, updated} -> audit_library_set(library, updated, opts)
+          _error -> :ok
+        end)
+    end
+  end
+
+  # A system library moving to another variant set, by name. A user's library is
+  # theirs and private, and is not in the history.
+  defp audit_library_set(%Library{kind: "system"} = before, %Library{} = updated, opts) do
+    if set_uuid_for(before) != set_uuid_for(updated) do
+      Audit.log("storage.library.variant_set_changed", "storage_library", updated.uuid, opts, %{
+        "library" => updated.name,
+        PhoenixKit.Activity.changes_key() => %{
+          "variant_set" => %{
+            "from" => set_name(set_uuid_for(before)),
+            "to" => set_name(set_uuid_for(updated))
+          }
+        }
+      })
+    end
+
+    :ok
+  end
+
+  defp audit_library_set(_before, _updated, _opts), do: :ok
+
+  defp set_name(uuid) do
+    case get_variant_set(uuid) do
+      %VariantSet{name: name} -> name
+      nil -> to_string(uuid)
     end
   end
 
@@ -286,15 +374,39 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   rendered (`@pipeline`). Lazy: the reconciler works through files in
   batches in the background; nothing is regenerated in this call.
   """
-  @spec remake_all() :: :ok
-  def remake_all do
+  @spec remake_all(keyword()) :: :ok | {:error, term()}
+  def remake_all(opts \\ []) do
+    Audit.transaction(fn -> do_remake_all(opts) end)
+  end
+
+  defp do_remake_all(opts) do
     repo().update_all(VariantSet,
       inc: [revision: 1],
       set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
     )
 
     ReconcileJob.enqueue()
+
+    Audit.log("storage.variant_set.remade", "storage_variant_set", nil, opts, %{
+      "scope" => "every set"
+    })
+
     :ok
+  end
+
+  @doc "Requests a check of one set's files and records the person who requested it."
+  @spec check_files(VariantSet.t(), keyword()) :: :ok | {:error, term()}
+  def check_files(%VariantSet{} = set, opts \\ []) do
+    Audit.change(set, fn current ->
+      :ok = bump_revision(current.uuid)
+
+      Audit.log("storage.variant_set.remade", "storage_variant_set", current.uuid, opts, %{
+        "name" => current.name,
+        "scope" => "one set"
+      })
+
+      :ok
+    end)
   end
 
   @doc "Bumps a set's revision: every file whose variants it made is stale."

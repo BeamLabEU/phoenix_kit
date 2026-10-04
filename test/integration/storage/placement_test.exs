@@ -11,8 +11,9 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Locations, Manager, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Locations, Manager, Profiles, VariantSets}
   alias PhoenixKit.Settings
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
   setup do
@@ -50,6 +51,15 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       })
 
     user
+  end
+
+  # The emergency stop, set on the table: `Storage.update_bucket/3` refuses to
+  # disable a bucket a storage profile lists, and these tests keep it listed.
+  defp disable!(bucket) do
+    {1, _} =
+      Repo.update_all(from(b in Bucket, where: b.uuid == ^bucket.uuid), set: [enabled: false])
+
+    Manager.invalidate_bucket_cache()
   end
 
   defp put!(profile, bucket, attrs \\ %{}) do
@@ -162,7 +172,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       # making a bucket active again bumps the revision and makes it stale.
       assert placed(file) == {to_string(profile.uuid), profile.revision}
 
-      {:ok, _} = Storage.update_bucket(ctx.c, %{enabled: false})
+      disable!(ctx.c)
       assert {:error, _} = upload(ctx.user, ctx.library, "nowhere")
     end
 

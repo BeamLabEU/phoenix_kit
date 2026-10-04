@@ -98,7 +98,9 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Integrations.Probe
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
+  alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.Endpoint
@@ -429,30 +431,87 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Creates a new bucket.
 
+  Option `:profile` says where the bucket is placed: `:default` (when not given)
+  puts it in the Default storage profile; `nil` leaves it in no profile, so it is
+  known to the system but receives and serves nothing until a profile lists it;
+  a uuid puts it in that site profile as a primary (`Profiles.add_bucket/3`,
+  recorded in the history). The settings form offers the choice, defaulting to none.
+  The other options are the audit's (`:actor_uuid`).
+
   ## Examples
 
       iex> create_bucket(%{name: "Local Storage", provider: "local"})
+      {:ok, %Bucket{}}
+
+      iex> create_bucket(%{name: "Cold", provider: "local"}, profile: nil)
       {:ok, %Bucket{}}
 
       iex> create_bucket(%{name: nil})
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_bucket(attrs \\ %{}) do
-    # A new bucket joins the Default storage profile, as every new bucket
-    # joined the one pool before profiles (V205).
-    repo().transaction(fn ->
-      case %Bucket{} |> Bucket.changeset(attrs) |> repo().insert() do
-        {:ok, bucket} ->
-          :ok = Profiles.add_to_default(bucket)
-          bucket
+  def create_bucket(attrs \\ %{}, opts \\ []) do
+    Audit.transaction(fn -> do_create_bucket(attrs, opts) end)
+  end
 
-        {:error, changeset} ->
-          repo().rollback(changeset)
+  defp do_create_bucket(attrs, opts) do
+    # Where the new bucket is placed is the caller's choice (`:profile`); with
+    # none given it joins the Default storage profile, as every new bucket
+    # joined the one pool before profiles (V205).
+    {profile, opts} = Keyword.pop(opts, :profile, :default)
+
+    repo().transaction(fn ->
+      with {:ok, bucket} <- %Bucket{} |> Bucket.changeset(attrs) |> repo().insert(),
+           :ok <- place_new_bucket(bucket, profile, opts) do
+        bucket
+      else
+        {:error, %Ecto.Changeset{} = changeset} -> repo().rollback(changeset)
       end
     end)
     |> tap(&bucket_changed/1)
+    |> tap(fn
+      {:ok, bucket} ->
+        audit_bucket("storage.bucket.created", bucket, opts, %{
+          "name" => bucket.name,
+          "provider" => bucket.provider,
+          "enabled" => bucket.enabled
+        })
+
+      _error ->
+        :ok
+    end)
   end
+
+  # `:default` joins the Default profile (the long-standing behaviour); nil or ""
+  # leaves the bucket in no profile (known to the system, nothing written to
+  # it); a uuid puts it in that site profile, on the record.
+  defp place_new_bucket(bucket, :default, _opts), do: Profiles.add_to_default(bucket)
+  defp place_new_bucket(_bucket, profile, _opts) when profile in [nil, ""], do: :ok
+
+  defp place_new_bucket(bucket, profile_uuid, opts) do
+    case Profiles.add_bucket(profile_uuid, bucket, opts) do
+      :ok ->
+        :ok
+
+      {:error, :not_found} ->
+        {:error,
+         bucket
+         |> Ecto.Changeset.change()
+         |> Ecto.Changeset.add_error(:profile, "is not one of the site's storage profiles")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  # The site's buckets are in the history; a user's own bucket is theirs and private.
+  # Never a key or a secret: `Audit.bucket_fields/0` is the whole list of what is named.
+  defp audit_bucket(action, %Bucket{owner_uuid: nil} = bucket, opts, metadata) do
+    Audit.log(action, "storage_bucket", bucket.uuid, opts, metadata)
+    :ok
+  end
+
+  defp audit_bucket(_action, _bucket, _opts, _metadata), do: :ok
 
   @doc """
   Creates a user's own bucket (V206).
@@ -486,6 +545,12 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Updates a bucket.
 
+  Disabling one of the site's buckets is refused with
+  `{:error, {:in_use, usage}}` while any storage profile lists it
+  (`Profiles.bucket_usage/1` describes `usage`): a disabled bucket is neither
+  written nor read, which would strand the libraries on those profiles. Take it
+  out of the profiles first. Enabling is always allowed.
+
   ## Examples
 
       iex> update_bucket(bucket, %{name: "New Name"})
@@ -494,10 +559,41 @@ defmodule PhoenixKit.Modules.Storage do
       iex> update_bucket(bucket, %{name: nil})
       {:error, %Ecto.Changeset{}}
 
+      iex> update_bucket(bucket_in_a_profile, %{enabled: false})
+      {:error, {:in_use, [%{name: "Default", ...}]}}
+
   """
-  def update_bucket(%Bucket{} = bucket, attrs) do
+  @spec update_bucket(Bucket.t(), map(), keyword()) ::
+          {:ok, Bucket.t()} | {:error, Ecto.Changeset.t() | :not_found | {:in_use, [map()]}}
+  def update_bucket(%Bucket{} = bucket, attrs, opts \\ []) do
+    Audit.change(bucket, &do_update_bucket(&1, attrs, opts))
+  end
+
+  defp do_update_bucket(bucket, attrs, opts) do
     changeset = bucket_update_changeset(bucket, attrs)
 
+    with :ok <- refuse_disable_while_in_profiles(bucket, changeset) do
+      update_bucket_row(changeset, opts)
+    end
+  end
+
+  # A disabled bucket is neither written nor read, whatever its profiles say,
+  # so disabling one a profile lists would strand the libraries on it. Refused
+  # until the admin has taken it out of every profile. Only the site's buckets:
+  # a user's own bucket belongs to their library and goes with it. Enabling is
+  # always allowed.
+  defp refuse_disable_while_in_profiles(
+         %Bucket{enabled: true, owner_uuid: nil} = bucket,
+         changeset
+       ) do
+    if Map.get(changeset.changes, :enabled) == false,
+      do: refuse_while_in_profiles(bucket),
+      else: :ok
+  end
+
+  defp refuse_disable_while_in_profiles(_bucket, _changeset), do: :ok
+
+  defp update_bucket_row(changeset, opts) do
     repo().transaction(fn ->
       case repo().update(changeset) do
         {:ok, updated} ->
@@ -511,6 +607,20 @@ defmodule PhoenixKit.Modules.Storage do
       end
     end)
     |> tap(&bucket_changed/1)
+    |> tap(fn
+      {:ok, updated} ->
+        changes = Audit.changes(changeset, Audit.bucket_fields())
+
+        unless changes == %{},
+          do:
+            audit_bucket("storage.bucket.updated", updated, opts, %{
+              "name" => updated.name,
+              PhoenixKit.Activity.changes_key() => changes
+            })
+
+      _error ->
+        :ok
+    end)
   end
 
   # A user's own bucket is edited under the rules it was created under (its
@@ -528,9 +638,14 @@ defmodule PhoenixKit.Modules.Storage do
       %{buckets: rows} = profile ->
         if Enum.any?(rows, &(&1.bucket_uuid == bucket.uuid)) do
           {:ok, _} =
-            Profiles.put_bucket(profile, bucket.uuid, %{
-              write_priority: Profiles.write_priority(bucket.priority)
-            })
+            Profiles.put_bucket(
+              profile,
+              bucket.uuid,
+              %{
+                write_priority: Profiles.write_priority(bucket.priority)
+              },
+              audit: false
+            )
         end
 
       nil ->
@@ -541,42 +656,82 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Deletes a bucket.
 
+  Refused with `{:error, {:in_use, usage}}` while any storage profile lists it
+  (`Profiles.bucket_usage/1` describes `usage`), and with a changeset error on
+  `:file_locations` while it still holds files. Nothing is removed from a
+  profile on the way: the bucket has to be freed first.
+
   ## Examples
 
       iex> delete_bucket(bucket)
       {:ok, %Bucket{}}
 
-      iex> delete_bucket(bucket)
+      iex> delete_bucket(bucket_in_a_profile)
+      {:error, {:in_use, [%{name: "Default", ...}]}}
+
+      iex> delete_bucket(bucket_with_files)
       {:error, %Ecto.Changeset{}}
 
   """
-  def delete_bucket(%Bucket{} = bucket) do
-    # A bucket that still holds files is refused (V204: the location FK is
-    # RESTRICT); before, deleting it dropped every location row it had and
-    # left its objects behind. An empty bucket leaves the storage profiles
-    # that use it first (their bucket FK is RESTRICT too); a refused delete
-    # rolls that back.
-    repo().transaction(fn ->
-      :ok = Profiles.remove_bucket_everywhere(bucket.uuid)
+  @spec delete_bucket(Bucket.t(), keyword()) ::
+          {:ok, Bucket.t()} | {:error, Ecto.Changeset.t() | :not_found | {:in_use, [map()]}}
+  def delete_bucket(%Bucket{} = bucket, opts \\ []) do
+    Audit.change(bucket, &do_delete_bucket(&1, opts))
+  end
 
-      bucket
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.no_assoc_constraint(:file_locations,
-        name: :phoenix_kit_file_locations_bucket_id_fkey,
-        message: "still holds files"
-      )
-      |> repo().delete()
-      |> case do
-        {:ok, deleted} -> deleted
-        {:error, changeset} -> repo().rollback(changeset)
-      end
-    end)
-    |> tap(&bucket_changed/1)
+  defp do_delete_bucket(bucket, opts) do
+    # A bucket a storage profile still lists is refused, and so is one that
+    # still holds files (V204: the location FK is RESTRICT); before, deleting
+    # it dropped every location row it had and left its objects behind, and an
+    # empty one was silently taken out of every profile, which could leave a
+    # library with nowhere to write. The admin frees it from its profiles
+    # first, on purpose and on the record. The profile-row FK is RESTRICT too,
+    # so a profile that takes the bucket in between is refused by the database.
+    with :ok <- refuse_while_in_profiles(bucket) do
+      repo().transaction(fn ->
+        bucket
+        |> Ecto.Changeset.change()
+        |> Ecto.Changeset.no_assoc_constraint(:file_locations,
+          name: :phoenix_kit_file_locations_bucket_id_fkey,
+          message: "still holds files"
+        )
+        |> Ecto.Changeset.foreign_key_constraint(:uuid,
+          name: :phoenix_kit_storage_profile_buckets_bucket_fkey,
+          message: "is used by a storage profile"
+        )
+        |> repo().delete()
+        |> case do
+          {:ok, deleted} -> deleted
+          {:error, changeset} -> repo().rollback(changeset)
+        end
+      end)
+      |> tap(&bucket_changed/1)
+      |> tap(fn
+        {:ok, deleted} ->
+          audit_bucket("storage.bucket.deleted", deleted, opts, %{"name" => deleted.name})
+          BucketLog.delete_for_bucket(deleted.uuid)
+
+        _error ->
+          :ok
+      end)
+    end
+  end
+
+  # `{:error, {:in_use, usage}}` while any storage profile has a row for the
+  # bucket (`Profiles.bucket_usage/1` says which, and how many libraries stand
+  # behind each).
+  defp refuse_while_in_profiles(%Bucket{uuid: uuid}) do
+    case Map.get(Profiles.bucket_usage([uuid]), to_string(uuid), []) do
+      [] -> :ok
+      usage -> {:error, {:in_use, usage}}
+    end
   end
 
   # The manager keeps the enabled buckets in a cache; a bucket that was
   # added, edited or removed must apply at once, not when it expires.
-  defp bucket_changed({:ok, _bucket}), do: Manager.invalidate_bucket_cache()
+  defp bucket_changed({:ok, _bucket}),
+    do: Audit.after_commit(&Manager.invalidate_bucket_cache/0)
+
   defp bucket_changed(_result), do: :ok
 
   @doc """
@@ -605,6 +760,41 @@ defmodule PhoenixKit.Modules.Storage do
   rescue
     error -> {:error, "Connection test failed: #{Exception.message(error)}"}
   end
+
+  @doc """
+  Probes a saved bucket: the same write, read and delete of a real object as
+  `test_connection/1`, run from the stored row so no secret passes through the
+  caller's assigns. Returns `:ok` or `{:error, reason}`. The result and how long
+  it took go to the bucket's log (`Storage.BucketLog`) when it is a site bucket.
+  """
+  @spec probe_bucket(Bucket.t()) :: :ok | {:error, term()}
+  def probe_bucket(%Bucket{} = bucket) do
+    started = System.monotonic_time(:millisecond)
+
+    result =
+      try do
+        with :ok <- check_probe_provider(bucket),
+             :ok <- check_endpoint(bucket),
+             {:ok, provider_module} <- ProviderRegistry.get_provider(bucket.provider) do
+          probe(provider_module, bucket)
+        end
+      rescue
+        error -> {:error, BucketLog.safe_message(error)}
+      catch
+        :exit, _ -> {:error, "Connection test exited"}
+      end
+
+    BucketLog.record(bucket, "probe", result == :ok,
+      latency_ms: System.monotonic_time(:millisecond) - started,
+      message: probe_message(result)
+    )
+
+    result
+  end
+
+  defp probe_message(:ok), do: nil
+  defp probe_message({:error, reason}), do: BucketLog.safe_message(reason)
+  defp probe_message(other), do: BucketLog.safe_message(other)
 
   # A local bucket's check is a few file operations; a remote one talks to the
   # network, through a client that retries, so it runs in `Integrations.Probe`:
@@ -715,6 +905,186 @@ defmodule PhoenixKit.Modules.Storage do
     if bucket, do: calculate_bucket_free_space(bucket), else: 0
   end
 
+  @doc """
+  What a bucket holds, from its active location rows: `%{files, objects,
+  bytes, original_objects, original_bytes, derived_objects, derived_bytes,
+  libraries, personal}`.
+
+  An object is counted once however many location rows name its key (cross-user
+  copies share one). `libraries` lists the site's libraries that have files
+  here (`%{uuid, name, files, objects, bytes}`, largest first). Shared keys
+  count once in each library using them, but only once in the bucket totals.
+  A user's libraries are private to them, so they are only counted in `personal`
+  (`%{libraries, files, objects, bytes}`), never named.
+
+  Reads every location row of the bucket: call it off the render path.
+  """
+  @spec bucket_contents(term()) :: map()
+  def bucket_contents(bucket_uuid) do
+    locations =
+      from(fl in FileLocation,
+        join: fi in FileInstance,
+        on: fl.file_instance_uuid == fi.uuid,
+        join: f in PhoenixKit.Modules.Storage.File,
+        on: f.uuid == fi.file_uuid,
+        where: fl.bucket_uuid == ^bucket_uuid and fl.status == "active",
+        select: %{
+          path: fl.path,
+          size: fi.size,
+          original: fi.variant_name == "original",
+          file_uuid: f.uuid,
+          library_uuid: f.library_uuid
+        }
+      )
+
+    # Logical files must be counted before shared physical keys are collapsed.
+    files_by_library =
+      from(o in subquery(locations),
+        group_by: o.library_uuid,
+        select: {o.library_uuid, count(o.file_uuid, :distinct)}
+      )
+      |> repo().all()
+      |> Map.new()
+
+    objects =
+      from(o in subquery(locations),
+        group_by: [o.library_uuid, o.path],
+        select: %{
+          library_uuid: o.library_uuid,
+          path: o.path,
+          size: max(o.size),
+          original: fragment("bool_or(?)", o.original)
+        }
+      )
+
+    rows =
+      objects
+      |> bucket_object_totals(true)
+      |> Enum.map(fn row ->
+        Map.put(row, :files, Map.fetch!(files_by_library, row.library_uuid))
+      end)
+
+    # A shared key can belong to several libraries. Their rows describe each
+    # library's usage; the bucket total counts the bytes on disk only once.
+    totals =
+      from(o in subquery(locations),
+        group_by: o.path,
+        select: %{
+          path: o.path,
+          size: max(o.size),
+          original: fragment("bool_or(?)", o.original)
+        }
+      )
+      |> bucket_object_totals(false)
+      |> hd()
+
+    libraries =
+      from(l in Library,
+        where: l.uuid in ^Enum.map(rows, & &1.library_uuid),
+        select: {l.uuid, %{name: l.name, kind: l.kind}}
+      )
+      |> repo().all()
+      |> Map.new(fn {uuid, info} -> {to_string(uuid), info} end)
+
+    {personal, site} =
+      Enum.split_with(rows, fn row ->
+        match?(%{kind: "user"}, Map.get(libraries, to_string(row.library_uuid)))
+      end)
+
+    sum = fn rows, key -> rows |> Enum.map(&Map.fetch!(&1, key)) |> Enum.sum() end
+
+    %{
+      files: sum.(rows, :files),
+      objects: totals.objects,
+      bytes: totals.bytes,
+      original_objects: totals.original_objects,
+      original_bytes: totals.original_bytes,
+      derived_objects: totals.objects - totals.original_objects,
+      derived_bytes: totals.bytes - totals.original_bytes,
+      libraries:
+        site
+        |> Enum.map(fn row ->
+          %{
+            uuid: row.library_uuid && to_string(row.library_uuid),
+            name: get_in(libraries, [to_string(row.library_uuid), :name]),
+            files: row.files,
+            objects: row.objects,
+            bytes: row.bytes
+          }
+        end)
+        |> Enum.sort_by(&{-&1.bytes, &1.name || ""}),
+      personal: %{
+        libraries: length(personal),
+        files: sum.(personal, :files),
+        objects: sum.(personal, :objects),
+        bytes: sum.(personal, :bytes)
+      }
+    }
+  end
+
+  defp bucket_object_totals(objects, by_library?) do
+    query =
+      from(o in subquery(objects),
+        select: %{
+          objects: count(o.path),
+          bytes: coalesce(sum(o.size), 0),
+          original_objects: filter(count(o.path), o.original),
+          original_bytes: coalesce(filter(sum(o.size), o.original), 0)
+        }
+      )
+
+    query =
+      if by_library?,
+        do:
+          query
+          |> group_by([o], o.library_uuid)
+          |> select_merge([o], %{library_uuid: o.library_uuid}),
+        else: query
+
+    query
+    |> repo().all()
+    |> Enum.map(fn row ->
+      %{row | bytes: to_int(row.bytes), original_bytes: to_int(row.original_bytes)}
+    end)
+  end
+
+  @doc """
+  How a bucket's location rows stand: `%{active, syncing, failed, deleted,
+  last_verified_at}` (`last_verified_at` is the newest verification stamp of
+  any row, or nil). A `failed` row is a copy that was not made.
+  """
+  @spec bucket_location_health(term()) :: map()
+  def bucket_location_health(bucket_uuid) do
+    by_status =
+      from(fl in FileLocation,
+        where: fl.bucket_uuid == ^bucket_uuid,
+        group_by: fl.status,
+        select: {fl.status, count(fl.uuid)}
+      )
+      |> repo().all()
+      |> Map.new()
+
+    last =
+      repo().one(
+        from(fl in FileLocation,
+          where: fl.bucket_uuid == ^bucket_uuid,
+          select: max(fl.last_verified_at)
+        )
+      )
+
+    %{
+      active: Map.get(by_status, "active", 0),
+      syncing: Map.get(by_status, "syncing", 0),
+      failed: Map.get(by_status, "failed", 0),
+      deleted: Map.get(by_status, "deleted", 0),
+      last_verified_at: last
+    }
+  end
+
+  defp to_int(%Decimal{} = value), do: Decimal.to_integer(Decimal.round(value))
+  defp to_int(value) when is_integer(value), do: value
+  defp to_int(_value), do: 0
+
   # ===== DIMENSIONS =====
 
   @doc """
@@ -762,7 +1132,11 @@ defmodule PhoenixKit.Modules.Storage do
   Deletes its current dimensions and recreates the 8 default ones. Other
   variant sets are left alone.
   """
-  def reset_dimensions_to_defaults do
+  def reset_dimensions_to_defaults(opts \\ []) do
+    Audit.transaction(fn -> do_reset_dimensions_to_defaults(opts) end)
+  end
+
+  defp do_reset_dimensions_to_defaults(opts) do
     repo().transaction(fn ->
       # Delete the Default set's dimensions; its files are checked against
       # the sizes put back (a size whose spec changed is remade, one that is
@@ -891,6 +1265,19 @@ defmodule PhoenixKit.Modules.Storage do
         |> Dimension.changeset(dim)
         |> repo().insert!()
       end)
+    end)
+    |> tap(fn
+      {:ok, _} ->
+        Audit.log(
+          "storage.variant_set.sizes_reset",
+          "storage_variant_set",
+          VariantSets.default_uuid(),
+          opts,
+          %{"variant_set" => "Default"}
+        )
+
+      _error ->
+        :ok
     end)
   end
 
@@ -1084,12 +1471,34 @@ defmodule PhoenixKit.Modules.Storage do
       {:error, %Ecto.Changeset{}}
 
   """
-  def create_dimension(attrs \\ %{}, variant_set_uuid \\ VariantSets.default_uuid()) do
+  def create_dimension(
+        attrs \\ %{},
+        variant_set_uuid \\ VariantSets.default_uuid(),
+        opts \\ []
+      ) do
+    Audit.transaction(fn -> do_create_dimension(attrs, variant_set_uuid, opts) end)
+  end
+
+  defp do_create_dimension(attrs, variant_set_uuid, opts) do
     %Dimension{variant_set_uuid: variant_set_uuid}
     |> Dimension.changeset(attrs)
     |> repo().insert()
     |> tap(&size_changed/1)
+    |> tap(&audit_size(&1, "storage.variant_set.size_created", opts))
   end
+
+  # The fields of a size whose change is written to the history (not its order).
+  @audited_size_fields [
+    :name,
+    :width,
+    :height,
+    :quality,
+    :format,
+    :applies_to,
+    :enabled,
+    :maintain_aspect_ratio,
+    :alternative_formats
+  ]
 
   @doc """
   Updates a dimension.
@@ -1103,13 +1512,31 @@ defmodule PhoenixKit.Modules.Storage do
       {:error, %Ecto.Changeset{}}
 
   """
-  def update_dimension(%Dimension{} = dimension, attrs) do
+  def update_dimension(%Dimension{} = dimension, attrs, opts \\ []) do
+    Audit.change(dimension, &do_update_dimension(&1, attrs, opts))
+  end
+
+  defp do_update_dimension(dimension, attrs, opts) do
     changeset = Dimension.changeset(dimension, attrs)
 
     # Reordering the list changes no pixels.
     changeset
     |> repo().update()
     |> tap(&if(Map.drop(changeset.changes, [:order]) != %{}, do: size_changed(&1)))
+    |> tap(fn
+      {:ok, updated} ->
+        Audit.log_update(
+          "storage.variant_set.size_updated",
+          "storage_variant_set",
+          updated.variant_set_uuid,
+          opts,
+          Audit.changes(changeset, @audited_size_fields),
+          size_metadata(updated)
+        )
+
+      _error ->
+        :ok
+    end)
   end
 
   @doc """
@@ -1124,12 +1551,44 @@ defmodule PhoenixKit.Modules.Storage do
       {:error, %Ecto.Changeset{}}
 
   """
-  def delete_dimension(%Dimension{} = dimension) do
+  def delete_dimension(%Dimension{} = dimension, opts \\ []) do
+    Audit.change(dimension, &do_delete_dimension(&1, opts))
+  end
+
+  defp do_delete_dimension(dimension, opts) do
     if Dimension.standard_slot?(dimension) do
       {:error, :standard_slot}
     else
-      dimension |> repo().delete() |> tap(&size_changed/1)
+      dimension
+      |> repo().delete()
+      |> tap(&size_changed/1)
+      |> tap(&audit_size(&1, "storage.variant_set.size_deleted", opts))
     end
+  end
+
+  defp audit_size({:ok, %Dimension{} = dimension}, action, opts) do
+    Audit.log(
+      action,
+      "storage_variant_set",
+      dimension.variant_set_uuid,
+      opts,
+      size_metadata(dimension)
+    )
+
+    :ok
+  end
+
+  defp audit_size(_result, _action, _opts), do: :ok
+
+  defp size_metadata(%Dimension{} = dimension) do
+    set = dimension.variant_set_uuid && VariantSets.get_variant_set(dimension.variant_set_uuid)
+
+    %{
+      "size" => dimension.name,
+      "variant_set" => set && set.name,
+      "width" => dimension.width,
+      "height" => dimension.height
+    }
   end
 
   # A size was added, changed or removed: every file of its set is stale,
@@ -3769,6 +4228,17 @@ defmodule PhoenixKit.Modules.Storage do
 
   @impl PhoenixKit.Module
   def module_key, do: "storage"
+
+  @impl PhoenixKit.Module
+  def job_kinds do
+    [
+      PhoenixKit.Modules.Storage.Jobs.CaptureDateBackfill,
+      PhoenixKit.Modules.Storage.Jobs.ChecksumBackfill,
+      PhoenixKit.Modules.Storage.Jobs.LocationBackfill,
+      PhoenixKit.Modules.Storage.Jobs.PurgeLibrary,
+      PhoenixKit.Modules.Storage.Jobs.Reconcile
+    ]
+  end
 
   @impl PhoenixKit.Module
   def module_name, do: "Storage"

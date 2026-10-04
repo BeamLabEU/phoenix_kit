@@ -100,6 +100,9 @@ defmodule PhoenixKit.Module do
   - `media_reorganizer/0` - Module implementing
     `PhoenixKit.Modules.Storage.Reorganizer.Source` for this module's own
     records (default: `nil`).
+  - `job_kinds/0` - Kinds of job run this module contributes (modules
+    implementing `PhoenixKit.Jobs.Kind`), for the admin Jobs page
+    (default: `[]`).
   """
 
   @typedoc """
@@ -571,6 +574,28 @@ defmodule PhoenixKit.Module do
   """
   @callback media_reorganizer() :: module() | nil
 
+  @doc """
+  The kinds of job run this module contributes — modules implementing
+  `PhoenixKit.Jobs.Kind`.
+
+  A *run* is a durable record of one logical piece of long background work (an
+  import, a broadcast, a backfill) that an admin can watch, pause, resume and
+  cancel from **Admin → Jobs**; Oban executes it batch by batch. Declaring a
+  kind here is what makes `PhoenixKit.Jobs.start/4` accept it and the Jobs page
+  describe it. Collected from **enabled** modules by
+  `PhoenixKit.ModuleRegistry.all_job_kinds/0`: a run whose module was disabled
+  fails with "kind unavailable" rather than looping, and can be retried once the
+  module is back.
+
+  ## Example
+
+      @impl PhoenixKit.Module
+      def job_kinds, do: [MyModule.Jobs.ImportRows]
+
+  A module with no long-running work skips this callback — the default is `[]`.
+  """
+  @callback job_kinds() :: [module()]
+
   @optional_callbacks [
     get_config: 0,
     permission_metadata: 0,
@@ -596,7 +621,8 @@ defmodule PhoenixKit.Module do
     migrate_legacy: 0,
     email_settings_sections: 0,
     email_templates: 0,
-    media_reorganizer: 0
+    media_reorganizer: 0,
+    job_kinds: 0
   ]
 
   defmacro __using__(_opts) do
@@ -681,6 +707,9 @@ defmodule PhoenixKit.Module do
       @impl PhoenixKit.Module
       def media_reorganizer, do: nil
 
+      @impl PhoenixKit.Module
+      def job_kinds, do: []
+
       defoverridable get_config: 0,
                      permission_metadata: 0,
                      admin_tabs: 0,
@@ -704,7 +733,8 @@ defmodule PhoenixKit.Module do
                      migrate_legacy: 0,
                      email_settings_sections: 0,
                      email_templates: 0,
-                     media_reorganizer: 0
+                     media_reorganizer: 0,
+                     job_kinds: 0
     end
   end
 end

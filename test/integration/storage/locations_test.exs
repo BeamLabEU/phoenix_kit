@@ -9,7 +9,7 @@ defmodule PhoenixKit.Modules.Storage.LocationsTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{FileLocation, Locations, Manager}
+  alias PhoenixKit.Modules.Storage.{FileLocation, Locations, Manager, ProfileBucket}
   alias PhoenixKit.Modules.Storage.Workers.LocationBackfillJob
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
@@ -42,6 +42,11 @@ defmodule PhoenixKit.Modules.Storage.LocationsTest do
 
     %{a: a, b: b}
   end
+
+  # Out of every storage profile, the way an admin frees a bucket: a bucket a
+  # profile lists is neither deleted nor disabled.
+  defp free!(bucket),
+    do: Repo.delete_all(from(r in ProfileBucket, where: r.bucket_uuid == ^bucket.uuid))
 
   defp source!(content) do
     path = Path.join(System.tmp_dir!(), "pk_locations_src_#{System.unique_integer([:positive])}")
@@ -228,6 +233,8 @@ defmodule PhoenixKit.Modules.Storage.LocationsTest do
     key = key()
     instance!(key)
     Locations.record(key, ctx.a.uuid)
+    free!(ctx.a)
+    free!(ctx.b)
 
     assert {:error, changeset} = Storage.delete_bucket(ctx.a)
     assert changeset.errors[:file_locations]
@@ -239,6 +246,8 @@ defmodule PhoenixKit.Modules.Storage.LocationsTest do
   test "a bucket change applies at once, not after the cache expires", ctx do
     assert Manager.file_exists?("warm/the/cache") == false
     assert :persistent_term.get(@cache, nil)
+
+    free!(ctx.a)
 
     {:ok, _} = Storage.update_bucket(ctx.a, %{enabled: false})
     assert :persistent_term.get(@cache, nil) == nil

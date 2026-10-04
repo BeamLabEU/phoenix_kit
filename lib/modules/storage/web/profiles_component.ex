@@ -24,10 +24,18 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   alias PhoenixKit.Modules.Storage.{ProfileBucket, Profiles, StorageProfile}
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.SaveButton, only: [save_button: 1]
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, profiles: nil, creating: false)}
+    {:ok,
+     assign(socket,
+       profiles: nil,
+       scope: nil,
+       creating: false,
+       dirty: MapSet.new(),
+       saved: MapSet.new()
+     )}
   end
 
   @impl true
@@ -45,12 +53,23 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     |> assign(:in_use, Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)}))
   end
 
+  # A form changed (`phx-change`): its Save button comes alive and says so. The
+  # key names the form — `profile_key/1`, `row_key/2` — and arrives from the
+  # client, so it is only ever a member of a set.
   @impl true
+  def handle_event("dirty", %{"key" => key}, socket) when is_binary(key) do
+    {:noreply,
+     assign(socket,
+       dirty: MapSet.put(socket.assigns.dirty, key),
+       saved: MapSet.delete(socket.assigns.saved, key)
+     )}
+  end
+
   def handle_event("new", _params, socket), do: {:noreply, assign(socket, :creating, true)}
   def handle_event("cancel", _params, socket), do: {:noreply, assign(socket, :creating, false)}
 
   def handle_event("create", %{"profile" => params}, socket) do
-    case Profiles.create_profile(params) do
+    case Profiles.create_profile(params, actor(socket)) do
       {:ok, profile} ->
         {:noreply,
          socket
@@ -65,8 +84,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   def handle_event("save_profile", %{"uuid" => uuid, "profile" => params}, socket) do
     with %StorageProfile{} = profile <- find(socket, uuid),
-         {:ok, _} <- Profiles.update_profile(profile, params) do
-      {:noreply, socket |> load() |> flash(:info, gettext("Storage profile saved"))}
+         {:ok, _} <- Profiles.update_profile(profile, params, actor(socket)) do
+      {:noreply,
+       socket
+       |> load()
+       |> mark_saved(profile_key(uuid))
+       |> flash(:info, gettext("Storage profile saved"))}
     else
       nil -> {:noreply, socket}
       {:error, changeset} -> {:noreply, flash(socket, :error, error_message(changeset))}
@@ -75,19 +98,36 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   def handle_event("delete_profile", %{"uuid" => uuid}, socket) do
     with %StorageProfile{} = profile <- find(socket, uuid),
-         {:ok, _} <- Profiles.delete_profile(profile) do
+         {:ok, _} <- Profiles.delete_profile(profile, actor(socket)) do
       {:noreply, socket |> load() |> flash(:info, gettext("Storage profile deleted"))}
     else
       nil ->
         {:noreply, socket}
 
-      {:error, _reason} ->
-        {:noreply,
-         flash(
-           socket,
-           :error,
-           gettext("The Default profile, and a profile a library uses, cannot be deleted.")
-         )}
+      {:error, :default} ->
+        {:noreply, flash(socket, :error, gettext("The Default profile cannot be deleted."))}
+
+      {:error, :in_use} ->
+        {:noreply, flash(socket, :error, in_use_message(find(socket, uuid)))}
+
+      {:error, _changeset} ->
+        {:noreply, flash(socket, :error, gettext("The storage profile could not be deleted."))}
+    end
+  end
+
+  # The recommended copy count, applied. Only the count `Profiles.copies_advice/1`
+  # recommends for the profile as it is now: the number arrives from the client.
+  def handle_event("apply_copies", %{"uuid" => uuid, "copies" => copies}, socket) do
+    with %StorageProfile{} = profile <- find(socket, uuid),
+         %{recommended: recommended} when is_integer(recommended) <-
+           Profiles.copies_advice(profile),
+         true <- to_string(recommended) == copies,
+         {:ok, _} <-
+           Profiles.update_profile(profile, %{"copies_originals" => recommended}, actor(socket)) do
+      {:noreply, socket |> load() |> flash(:info, gettext("Storage profile saved"))}
+    else
+      {:error, changeset} -> {:noreply, flash(socket, :error, error_message(changeset))}
+      _ -> {:noreply, socket}
     end
   end
 
@@ -95,7 +135,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
     with %StorageProfile{} = profile <- find(socket, uuid),
          true <- Enum.any?(socket.assigns.buckets, &(to_string(&1.uuid) == bucket_uuid)),
          {:ok, _} <-
-           Profiles.put_bucket(profile, bucket_uuid, %{serve_order: next_serve_order(profile)}) do
+           Profiles.put_bucket(
+             profile,
+             bucket_uuid,
+             %{serve_order: next_serve_order(profile)},
+             actor(socket)
+           ) do
       {:noreply, socket |> load() |> flash(:info, gettext("Bucket added to the profile"))}
     else
       {:error, changeset} -> {:noreply, flash(socket, :error, error_message(changeset))}
@@ -108,8 +153,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
     with %StorageProfile{} = profile <- find(socket, uuid),
          true <- Enum.any?(profile.buckets, &(to_string(&1.bucket_uuid) == bucket_uuid)),
-         {:ok, _} <- Profiles.put_bucket(profile, bucket_uuid, attrs) do
-      {:noreply, load(socket)}
+         {:ok, _} <- Profiles.put_bucket(profile, bucket_uuid, attrs, actor(socket)) do
+      {:noreply,
+       socket
+       |> load()
+       |> mark_saved(row_key(uuid, bucket_uuid))
+       |> flash(:info, gettext("Bucket settings saved"))}
     else
       {:error, changeset} ->
         {:noreply, socket |> load() |> flash(:error, error_message(changeset))}
@@ -122,24 +171,59 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   def handle_event("remove_bucket", %{"uuid" => uuid, "bucket_uuid" => bucket_uuid}, socket) do
     case find(socket, uuid) do
       %StorageProfile{} = profile ->
-        :ok = Profiles.remove_bucket(profile, bucket_uuid)
+        case Profiles.remove_bucket(profile, bucket_uuid, actor(socket)) do
+          :ok ->
+            {:noreply,
+             socket
+             |> load()
+             |> flash(
+               :info,
+               gettext(
+                 "Bucket taken out of the profile. Its files are copied to the profile's other buckets, then removed from it."
+               )
+             )}
 
-        {:noreply,
-         socket
-         |> load()
-         |> flash(
-           :info,
-           gettext(
-             "Bucket taken out of the profile. Its files are copied to the profile's other buckets, then removed from it."
-           )
-         )}
+          {:error, reason} ->
+            {:noreply, flash(socket, :error, error_message(reason))}
+        end
 
       nil ->
         {:noreply, socket}
     end
   end
 
+  defp profile_key(profile_uuid), do: "profile:#{profile_uuid}"
+  defp row_key(profile_uuid, bucket_uuid), do: "row:#{profile_uuid}:#{bucket_uuid}"
+
+  defp mark_saved(socket, key) do
+    assign(socket,
+      dirty: MapSet.delete(socket.assigns.dirty, key),
+      saved: MapSet.put(socket.assigns.saved, key)
+    )
+  end
+
   # Only a profile this tab listed: the uuid arrives from the client.
+  # Who is acting, for the history (`Storage.Audit`).
+  defp actor(socket), do: PhoenixKitWeb.Actor.opts(socket.assigns.scope)
+
+  # Names the site libraries that stand in the way; a user's library is private
+  # to its owner, so those are only counted.
+  defp in_use_message(%StorageProfile{} = profile) do
+    %{names: names, user_libraries: users} = Profiles.library_names_using(profile.uuid)
+
+    libraries =
+      names ++
+        if users > 0,
+          do: [ngettext("%{count} personal library", "%{count} personal libraries", users)],
+          else: []
+
+    gettext(
+      "\"%{profile}\" cannot be deleted: it is used by %{libraries}. Move them to another storage profile first (Libraries tab).",
+      profile: profile.name,
+      libraries: Enum.join(libraries, ", ")
+    )
+  end
+
   defp find(socket, uuid), do: Enum.find(socket.assigns.profiles, &(to_string(&1.uuid) == uuid))
 
   defp next_serve_order(profile),
@@ -173,21 +257,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   # The columns of the bucket rows. The header and every row share it, so each
   # control sits under its own heading.
   defp columns,
-    do: "grid grid-cols-[minmax(11rem,2fr)_7rem_10rem_6rem_6rem_13rem_2.5rem] items-center gap-3"
-
-  # The buckets that can take new originals right now (a bucket's size limit is
-  # not counted: it is not a setting of the profile).
-  defp writable_count(profile) do
-    Enum.count(profile.buckets, fn row ->
-      row.status == "active" and row.stores in ["all", "originals"] and row.bucket.enabled
-    end)
-  end
+    do:
+      "grid grid-cols-[minmax(10rem,2fr)_7rem_10rem_6rem_6rem_13rem_10rem_2.5rem] items-center gap-3"
 
   # One sentence on what the copy counts mean with the buckets the profile has
-  # now: the numbers alone read the same with one bucket and with five.
+  # now: the numbers alone read the same with one bucket and with five. The
+  # arithmetic is `Profiles.copies_advice/1`'s, which the bucket form shares.
   defp copies_hint(profile) do
-    buckets = writable_count(profile)
-    copies = profile.copies_originals
+    %{writable: buckets, primaries: primaries, copies: copies} = Profiles.copies_advice(profile)
 
     cond do
       buckets == 0 ->
@@ -205,11 +282,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
       buckets == 1 ->
         {:info, gettext("One bucket takes new files, so every original is stored there.")}
 
-      copies == 1 ->
+      # One copy goes to the first role that has a bucket: primaries, then
+      # replicas, then backups. Replicas and backups get a file only when a write
+      # to the primary fails, so they are not part of the spread.
+      copies == 1 and primaries == 1 ->
+        {:info,
+         gettext(
+           "Each original is stored on the primary bucket only. The other buckets take over only if a write to it fails, and hold nothing otherwise. Set the copies to 2 to keep every file on a second bucket."
+         )}
+
+      copies == 1 and primaries > 1 ->
         {:info,
          gettext(
            "%{count} buckets take new files and each original is stored on 1 of them, picked by upload order, otherwise at random: files are spread across the buckets, not mirrored. Set the copies to 2 to keep every file on 2 buckets.",
-           count: buckets
+           count: primaries
          )}
 
       true ->
@@ -290,11 +376,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
         <div class="card-body">
           <form
             id={"#{@id}-form-#{profile.uuid}"}
+            phx-change="dirty"
             phx-submit="save_profile"
             phx-target={@myself}
             class="flex flex-wrap items-end gap-4"
           >
             <input type="hidden" name="uuid" value={profile.uuid} />
+            <input type="hidden" name="key" value={profile_key(profile.uuid)} />
             <label class="form-control">
               <span class="label-text text-sm">{gettext("Name")}</span>
               <input
@@ -339,7 +427,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 class="input input-sm input-bordered w-24"
               />
             </label>
-            <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
+            <.save_button
+              dirty={MapSet.member?(@dirty, profile_key(profile.uuid))}
+              saved={MapSet.member?(@saved, profile_key(profile.uuid))}
+            />
             <span :if={profile.is_default} class="badge badge-ghost">{gettext("Default")}</span>
             <span class="text-sm text-base-content/60">
               {ngettext(
@@ -369,8 +460,36 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             {elem(copies_hint(profile), 1)}
           </p>
 
+          <% advice = Profiles.copies_advice(profile) %>
+          <div
+            :if={advice.idle != []}
+            id={"#{@id}-advice-#{profile.uuid}"}
+            class="mt-2 flex flex-wrap items-center gap-3 rounded-box bg-base-200 px-3 py-2 text-sm"
+          >
+            <span>
+              {gettext("Not used at this copy count: %{names}.", names: Enum.join(advice.idle, ", "))}
+            </span>
+            <button
+              :if={advice.recommended}
+              type="button"
+              class="btn btn-sm btn-primary"
+              phx-click="apply_copies"
+              phx-value-uuid={profile.uuid}
+              phx-value-copies={advice.recommended}
+              phx-target={@myself}
+              data-confirm={
+                gettext(
+                  "Set Copies of each original to %{count}? Files already stored are copied to the extra bucket in the background; the Health page shows what is left.",
+                  count: advice.recommended
+                )
+              }
+            >
+              {gettext("Keep every original on %{count} buckets", count: advice.recommended)}
+            </button>
+          </div>
+
           <div class="overflow-x-auto mt-4">
-            <div class="min-w-[58rem]">
+            <div class="min-w-[70rem]">
               <div class={[
                 columns(),
                 "px-2 pb-2 text-xs font-semibold uppercase text-base-content/60"
@@ -409,6 +528,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 </span>
                 <span>{gettext("Status")}</span>
                 <span></span>
+                <span></span>
               </div>
 
               <p
@@ -421,12 +541,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               <form
                 :for={row <- profile.buckets}
                 id={"#{@id}-row-#{profile.uuid}-#{row.bucket_uuid}"}
-                phx-change="save_row"
+                phx-change="dirty"
+                phx-submit="save_row"
                 phx-target={@myself}
                 class={[columns(), "border-t border-base-200 px-2 py-2"]}
               >
                 <input type="hidden" name="uuid" value={profile.uuid} />
                 <input type="hidden" name="bucket_uuid" value={row.bucket_uuid} />
+                <input type="hidden" name="key" value={row_key(profile.uuid, row.bucket_uuid)} />
 
                 <div id={"#{@id}-#{profile.uuid}-#{row.bucket_uuid}"} class="min-w-0">
                   <span class="font-medium break-words">{row.bucket.name}</span>
@@ -460,7 +582,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   min="1"
                   value={row.write_priority}
                   placeholder={gettext("Any")}
-                  phx-debounce="600"
                   class="input input-sm input-bordered w-full"
                 />
                 <input
@@ -468,7 +589,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   name="row[serve_order]"
                   min="0"
                   value={row.serve_order}
-                  phx-debounce="600"
                   class="input input-sm input-bordered w-full"
                 />
                 <select name="row[status]" class="select select-sm select-bordered w-full">
@@ -480,18 +600,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     {status_label(status)}
                   </option>
                 </select>
+                <.save_button
+                  dirty={MapSet.member?(@dirty, row_key(profile.uuid, row.bucket_uuid))}
+                  saved={MapSet.member?(@saved, row_key(profile.uuid, row.bucket_uuid))}
+                />
                 <button
                   type="button"
                   class="btn btn-xs btn-ghost text-error"
-                  title={gettext("Remove")}
-                  aria-label={gettext("Remove")}
+                  title={gettext("Remove from profile")}
+                  aria-label={gettext("Remove from profile")}
                   phx-click="remove_bucket"
                   phx-value-uuid={profile.uuid}
                   phx-value-bucket_uuid={row.bucket_uuid}
                   phx-target={@myself}
                   data-confirm={
                     gettext(
-                      "Take this bucket out of the profile? Its files are copied to the profile's other buckets first, then removed from it."
+                      "Take this bucket out of the profile? Its files are copied to the profile's other buckets first, then deleted from this bucket. The bucket itself stays, and this profile no longer sends it files."
                     )
                   }
                 >

@@ -429,8 +429,8 @@
           <div class={if @active_tab != "editor", do: "hidden"}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <%!-- Default Editor Mode Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">
                     {gettext("Default Editor Mode")}
                   </span>
@@ -442,7 +442,7 @@
                   name="settings[editor_default_mode]"
                   value={@settings["editor_default_mode"]}
                   options={@setting_options["editor_default_mode"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <div>
                   <span class="block text-xs text-base-content/50">
@@ -512,8 +512,8 @@
           <div class={if @active_tab != "datetime", do: "hidden"}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <%!-- Week Start Day Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">{gettext("Week Start On")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("First day of the week")}
@@ -523,7 +523,7 @@
                   name="settings[week_start_day]"
                   value={@settings["week_start_day"]}
                   options={@setting_options["week_start_day"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <.unsaved_hint
                   dirty={@settings["week_start_day"] != @saved_settings["week_start_day"]}
@@ -537,8 +537,8 @@
               </div>
 
               <%!-- Time Zone Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">{gettext("Time Zone")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("System default timezone")}
@@ -548,7 +548,7 @@
                   name="settings[time_zone]"
                   value={@settings["time_zone"]}
                   options={@setting_options["time_zone"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <.unsaved_hint
                   dirty={@settings["time_zone"] != @saved_settings["time_zone"]}
@@ -557,8 +557,8 @@
               </div>
 
               <%!-- Date Format Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">{gettext("Date Format")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("How dates are displayed")}
@@ -568,7 +568,7 @@
                   name="settings[date_format]"
                   value={@settings["date_format"]}
                   options={@setting_options["date_format"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <div>
                   <span class="block text-xs text-base-content/50">
@@ -587,8 +587,8 @@
               </div>
 
               <%!-- Time Format Setting --%>
-              <div class="fieldset w-full">
-                <label class="label">
+              <div class="fieldset w-full min-w-0">
+                <label class="label flex-wrap">
                   <span class="fieldset-legend text-base font-medium">{gettext("Time Format")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("How times are displayed")}
@@ -598,7 +598,7 @@
                   name="settings[time_format]"
                   value={@settings["time_format"]}
                   options={@setting_options["time_format"]}
-                  class="focus-within:select-primary"
+                  class="min-w-0 max-w-full focus-within:select-primary [&_select]:min-w-0 [&_select]:truncate"
                 />
                 <div>
                   <span class="block text-xs text-base-content/50">

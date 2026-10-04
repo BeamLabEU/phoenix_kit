@@ -33,15 +33,22 @@ defmodule PhoenixKit.Modules.Storage.Workers.CaptureDateBackfillJob do
 
   require Logger
 
+  alias PhoenixKit.Jobs.System, as: JobsSystem
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.Jobs.CaptureDateBackfill
 
   @batch_size 50
 
-  @doc "Starts a backfill pass from the beginning, unless one is already queued."
-  @spec enqueue() :: {:ok, Oban.Job.t()} | {:error, term()}
-  def enqueue, do: %{} |> new() |> Oban.insert()
+  @doc """
+  Starts a backfill pass as a job run (`PhoenixKit.Modules.Storage.Jobs.CaptureDateBackfill`),
+  unless one is already active. Returns `{:ok, run, :started | :existing}`.
+  """
+  @spec enqueue() :: {:ok, PhoenixKit.Jobs.Run.t(), :started | :existing} | {:error, term()}
+  def enqueue do
+    JobsSystem.start(CaptureDateBackfill, :site, source: "backfill")
+  end
 
   @doc "How many images and videos still have no capture date."
   @spec pending_count() :: non_neg_integer()
@@ -49,15 +56,15 @@ defmodule PhoenixKit.Modules.Storage.Workers.CaptureDateBackfillJob do
     repo().aggregate(pending_query(), :count)
   end
 
+  # The pass is a job run now. A job queued by an earlier release (this worker used
+  # to chain itself with a cursor) starts that run and ends: its old cursor is
+  # dropped, which is safe — a file already dated is not a candidate any more.
+  # This clause stays until `mix phoenix_kit.doctor` finds no job left for it.
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
-    case run_batch(args["after"], %{}) do
-      {:more, last_uuid, _totals} ->
-        {:ok, _job} = %{"after" => last_uuid} |> new() |> Oban.insert()
-        :ok
-
-      {:done, _totals} ->
-        :ok
+  def perform(%Oban.Job{}) do
+    case enqueue() do
+      {:error, reason} -> {:error, reason}
+      _started_or_existing -> :ok
     end
   end
 
@@ -82,8 +89,10 @@ defmodule PhoenixKit.Modules.Storage.Workers.CaptureDateBackfillJob do
   end
 
   # One batch after `after_uuid`: `{:more, last_uuid, totals}` while a full
-  # batch came back, `{:done, totals}` once the pass has reached the end.
-  defp run_batch(after_uuid, totals) do
+  # batch came back, `{:done, totals}` once the pass has reached the end. What
+  # `PhoenixKit.Modules.Storage.Jobs.CaptureDateBackfill` calls for each batch.
+  @doc false
+  def run_batch(after_uuid, totals) do
     uuids = next_batch(after_uuid)
 
     totals =

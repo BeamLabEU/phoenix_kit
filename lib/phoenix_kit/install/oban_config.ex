@@ -51,7 +51,7 @@ if Code.ensure_loaded?(Igniter) do
     # longest job a host can legitimately run or that job is rescued mid-flight
     # and executes a second time concurrently. 60 minutes is Oban's own default;
     # 30 is the longest timeout/1 PhoenixKit itself ships
-    # (Storage.Workers.ReconcileJob), and is therefore the floor below which an
+    # (Storage.Jobs.Reconcile), and is therefore the floor below which an
     # existing entry gets raised rather than left alone.
     @lifeline_rescue_after_minutes 60
     @lifeline_min_rescue_after_minutes 30
@@ -247,7 +247,7 @@ if Code.ensure_loaded?(Igniter) do
           # still alive, so a job that legitimately runs longer is rescued
           # mid-flight and executes a second time concurrently. 60 minutes
           # is Oban's own default and 2x PhoenixKit's longest worker
-          # timeout (ReconcileJob, 30 min).
+          # timeout (Storage.Jobs.Reconcile, 30 min).
           #{lifeline_entry()},
           {Oban.Plugins.Cron,
            crontab: [
@@ -256,6 +256,9 @@ if Code.ensure_loaded?(Igniter) do
              {"0 4 * * *", PhoenixKit.Notifications.PruneWorker},
              {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
              {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
+             {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
+             {"15 4 * * *", PhoenixKit.Jobs.PruneWorker},
+             {"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker},
              {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
              {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
              {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
@@ -716,7 +719,7 @@ if Code.ensure_loaded?(Igniter) do
     `rescue_after` is flipped back to `:available` (or `:discarded`, if its
     attempts are exhausted) while the original process is still working,
     and re-executes concurrently. PhoenixKit's longest declared worker
-    timeout is 30 minutes (`Storage.Workers.ReconcileJob`); workers with no
+    timeout is 30 minutes (`Storage.Jobs.Reconcile`); workers with no
     `timeout/1` callback have no bound at all, which is the case the margin
     is really protecting.
 
@@ -1152,7 +1155,15 @@ if Code.ensure_loaded?(Igniter) do
       # Shipped in 2.31.0. Without the backfill an existing host never
       # prunes failed sign-in buckets and the table grows for the life
       # of the install.
-      {"45 4 * * *", "PhoenixKit.Users.LoginAttemptsPruneWorker"}
+      {"45 4 * * *", "PhoenixKit.Users.LoginAttemptsPruneWorker"},
+      # Job runs (2.48.0). Without the sweeper an existing host never rescues a run
+      # whose batch died, and without the prune the table grows for the life of
+      # the install.
+      {"*/5 * * * *", "PhoenixKit.Jobs.SweepWorker"},
+      {"15 4 * * *", "PhoenixKit.Jobs.PruneWorker"},
+      # The bucket log (V208). Without the prune the table grows for the life
+      # of the install.
+      {"20 4 * * *", "PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker"}
     ]
 
     @doc """

@@ -6,8 +6,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Health do
   profile and variant set want (V205), and lists the ones the reconciler
   (`Storage.Workers.ReconcileJob`) has not brought up to date yet: copies
   missing or on buckets the profile no longer uses, sizes missing or made
-  from an older spec. The reconciler runs by itself; "Reconcile now" only
-  queues a pass sooner.
+  from an older spec. The reconciler runs by itself, a run per library
+  (`Storage.Jobs.Reconcile`, watched on Admin → Jobs and on the Libraries tab);
+  "Reconcile now" only starts those runs sooner.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext

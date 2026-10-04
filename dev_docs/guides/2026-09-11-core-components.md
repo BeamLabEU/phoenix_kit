@@ -134,6 +134,10 @@ def handle_info({PhoenixKitWeb.Components.FeaturedImage, "order-featured", {:set
 
 Reference: the lanes demos in `phoenix_kit_parent`'s core components showcase.
 
+### Save button with a state
+
+`<.save_button dirty={…} saved={…} />` (`Core.SaveButton`, opt-in import) is a form's Save button that says where the form stands: disabled until something changed, then "Unsaved changes", then "Saved". It only draws — send a `phx-change` from the form with a `key` per form, keep `dirty` / `saved` sets, move the key between them on change and on save (the moduledoc has the six lines). Use it where a change does real work (a different storage profile moves files) and wherever a control that saved on change gave no sign it had.
+
 ### Crosshair readout
 
 `<.line_chart hover={:crosshair}>` adds a snapping crosshair with a readout on top of the per-point hover bands (`hover={true}` keeps the native tooltip only; every band carries `data-x` / `data-y` for a host's own hook). `point_note` is a 1-arity function given `%{x, y, index, rank, count}` that returns one more readout line or `nil` — `rank` is the point's place with the series sorted ascending by y, ties sharing a place. `rows` (`%{label:, color:, bands: [{from, to}]}`, bands right-open in x units) lists what runs over the hovered x, in the order given.

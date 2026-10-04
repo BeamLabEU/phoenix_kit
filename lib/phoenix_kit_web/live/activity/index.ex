@@ -13,6 +13,8 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   # moment core wired this one in project-wide.
   import PhoenixKitWeb.Components.Core.RowLink, only: [row_link: 1]
 
+  alias PhoenixKitWeb.Components.Core.ActivityList
+
   alias PhoenixKit.Activity
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
@@ -274,97 +276,7 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
     |> Enum.any?(&(&1 not in [nil, ""]))
   end
 
-  # The Details column is where a reader first meets the event, and it should
-  # say what MOVED — the owner started on this list, saw only the row's name,
-  # clicked through, and found no answer (boss via Max, 2026-09-20). A change
-  # therefore leads; identity and operational keys are the fallback for rows
-  # that record none.
-  @summary_change_limit 3
-
-  defp summarize_details(metadata) do
-    case Activity.split_changes(metadata || %{}) do
-      {changes, rest} when map_size(changes) > 0 -> summarize_changes(changes, rest)
-      {_none, rest} -> summarize_plain(rest)
-    end
-  end
-
-  defp summarize_changes(changes, rest) do
-    shown = changes |> Enum.sort() |> Enum.take(@summary_change_limit)
-    hidden = map_size(changes) - length(shown)
-
-    summary =
-      Enum.map_join(shown, ", ", fn {field, change} ->
-        "#{Activity.humanize_metadata_key(field)} #{summarize_change(change)}"
-      end)
-
-    # Only the change. The row's identity is already the Subject column —
-    # a titled deep link since the resource templates landed — so repeating
-    # it here just pushes the answer off the end of the line.
-    _ = rest
-
-    [summary, more_label(hidden)]
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.join(" · ")
-  end
-
-  # The flag shape carries no value, only the word — translated here for the
-  # same reason the detail page does it: `Activity` has no Gettext backend,
-  # and its own "changed" would reach every locale in English.
-  defp summarize_change(%{"changed" => true}), do: gettext("changed")
-  defp summarize_change(change), do: Activity.humanize_metadata_value(change)
-
-  defp more_label(count) when count > 0, do: "+#{count}"
-  defp more_label(_count), do: nil
-
-  defp summarize_plain(meta) do
-    if meta["added"] || meta["removed"] do
-      # For role updates, show added/removed summary
-      parts = []
-
-      parts =
-        if meta["added"],
-          do: parts ++ ["added: #{Activity.humanize_metadata_value(meta["added"])}"],
-          else: parts
-
-      parts =
-        if meta["removed"],
-          do: parts ++ ["removed: #{Activity.humanize_metadata_value(meta["removed"])}"],
-          else: parts
-
-      Enum.join(parts, ", ")
-    else
-      # For profile updates, extract field names from _from/_to pairs
-      changed_fields =
-        meta
-        |> Map.keys()
-        |> Enum.filter(&String.ends_with?(&1, "_to"))
-        |> Enum.map(&String.trim_trailing(&1, "_to"))
-        |> Enum.reject(&(&1 == ""))
-
-      if changed_fields != [] do
-        fields = Enum.map_join(changed_fields, ", ", &String.replace(&1, "_", " "))
-        "#{fields} updated"
-      else
-        summarize_remaining_meta(meta)
-      end
-    end
-  end
-
-  defp summarize_remaining_meta(meta) do
-    meta
-    |> Map.drop(["method", "actor_role"])
-    |> Enum.reject(fn {_k, v} -> v == nil or v == "" end)
-    |> case do
-      [] ->
-        nil
-
-      entries ->
-        # Values may be nested maps (e.g. a `%{"from" => _, "to" => _}` field
-        # diff) — Activity.humanize_metadata_value/1 renders those as "1 → 2"
-        # rather than raising String.Chars on a Map (the crash this fixes).
-        Enum.map_join(entries, ", ", fn {k, v} ->
-          "#{k}: #{Activity.humanize_metadata_value(v)}"
-        end)
-    end
-  end
+  # The Details column's summary is shared with every other list of activity
+  # (`ActivityList`).
+  defp summarize_details(metadata), do: ActivityList.summarize_details(metadata)
 end

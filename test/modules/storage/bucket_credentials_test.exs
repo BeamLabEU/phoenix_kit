@@ -71,8 +71,9 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentialsTest do
   describe "move_to_integration/2" do
     test "creates a connection, points the bucket at it and clears the bucket's own keys" do
       bucket = legacy_bucket("Legacy R2")
+      actor = Ecto.UUID.generate()
 
-      assert {:ok, moved} = BucketCredentials.move_to_integration(bucket)
+      assert {:ok, moved} = BucketCredentials.move_to_integration(bucket, actor_uuid: actor)
 
       assert is_binary(moved.integration_uuid)
       assert moved.access_key_id == nil
@@ -94,6 +95,15 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentialsTest do
       # And it is what was stored, not only what was returned.
       assert Storage.get_bucket(bucket.uuid).integration_uuid == uuid
       assert Storage.get_bucket(bucket.uuid).secret_access_key == nil
+
+      entry =
+        Repo.one!(
+          from e in PhoenixKit.Activity.Entry,
+            where: e.action == "storage.bucket.updated" and e.resource_uuid == ^bucket.uuid
+        )
+
+      assert entry.actor_uuid == actor
+      assert entry.metadata["changes"]["integration_uuid"]["to"] == uuid
     end
 
     test "buckets on the same key pair share one connection" do

@@ -4,6 +4,8 @@ defmodule PhoenixKitWeb.Live.ModulesTabsTest do
   (`/admin/modules`), and that Storage and Notifications no longer render as
   cards there — both are core capabilities configured entirely from their own
   Settings pages, not real install/uninstall toggles (see their moduledocs).
+  Languages and Jobs are core too: Languages' multi-language switch is on
+  Settings → Languages, so it has no card either.
   """
 
   use PhoenixKitWeb.ConnCase, async: false
@@ -38,6 +40,15 @@ defmodule PhoenixKitWeb.Live.ModulesTabsTest do
     assert html =~ "Active"
     assert html =~ "Disabled"
     assert html =~ "Not Installed"
+  end
+
+  test "Languages is not a module card: its switch is on its own settings page", %{conn: conn} do
+    {view, html} = mount_as_admin(conn)
+
+    refute html =~ "Manage language module and translations"
+
+    disabled_html = render_click(view, "switch_modules_tab", %{"tab" => "disabled"})
+    refute disabled_html =~ "Manage language module and translations"
   end
 
   test "Storage and Notifications no longer render as module cards", %{conn: conn} do

@@ -3,14 +3,23 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
   Storage profiles and variant sets (V205), the contexts: a library with no
   profile or set resolves to the Default, every placement change bumps a
   revision (a rename does not), the Default and anything in use cannot be
-  deleted, a bucket joins the Default when created and leaves every profile
-  when deleted, a new set starts with the standard slots, and a user
+  deleted, a bucket joins the Default when created and is neither deleted nor
+  disabled while any profile lists it, a new set starts with the standard slots, and a user
   library may only pick a selectable set.
   """
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Library, Profiles, StorageProfile, VariantSets}
+
+  alias PhoenixKit.Modules.Storage.{
+    Libraries,
+    Library,
+    ProfileBucket,
+    Profiles,
+    StorageProfile,
+    VariantSets
+  }
+
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
@@ -185,18 +194,226 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
       row = Enum.find(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
       assert row.write_priority == 2
     end
+  end
 
-    test "deleting an empty bucket takes it out of every profile" do
-      bucket = bucket!()
-      {:ok, profile} = Profiles.create_profile(%{name: "Holds it"})
-      {:ok, _} = Profiles.put_bucket(profile, bucket.uuid, %{})
+  describe "where a new bucket is placed" do
+    defp attrs(extra \\ %{}) do
+      Map.merge(
+        %{
+          name: "placed-#{System.unique_integer([:positive])}",
+          provider: "local",
+          endpoint: Path.join(System.tmp_dir!(), "pk_profiles"),
+          enabled: true,
+          priority: 0
+        },
+        extra
+      )
+    end
+
+    defp profile_uuids_of(bucket) do
+      Repo.all(
+        from(r in ProfileBucket, where: r.bucket_uuid == ^bucket.uuid, select: r.profile_uuid)
+      )
+      |> Enum.map(&to_string/1)
+    end
+
+    test "with no choice it joins the Default, as it always did" do
+      {:ok, bucket} = Storage.create_bucket(attrs())
+      assert profile_uuids_of(bucket) == [Profiles.default_uuid()]
+    end
+
+    test "profile: nil (or blank) leaves it in no profile, and the Default is untouched" do
+      before = revision(Profiles.default_uuid())
+
+      {:ok, none} = Storage.create_bucket(attrs(), profile: nil)
+      {:ok, blank} = Storage.create_bucket(attrs(), profile: "")
+
+      assert profile_uuids_of(none) == []
+      assert profile_uuids_of(blank) == []
+      assert Storage.get_bucket(none.uuid)
+      assert revision(Profiles.default_uuid()) == before
+    end
+
+    test "a profile's uuid puts it there as a primary, and only there" do
+      {:ok, profile} = Profiles.create_profile(%{name: "Chosen"})
       before = revision(profile.uuid)
 
-      assert {:ok, _} = Storage.delete_bucket(bucket)
+      {:ok, bucket} = Storage.create_bucket(attrs(%{priority: 3}), profile: profile.uuid)
 
-      refute Enum.any?(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
-      assert Profiles.get_profile(profile.uuid).buckets == []
+      assert profile_uuids_of(bucket) == [to_string(profile.uuid)]
+
+      assert [%{role: "primary", stores: "all", status: "active", write_priority: 3}] =
+               Profiles.get_profile(profile.uuid).buckets
+
       assert revision(profile.uuid) == before + 1
+    end
+
+    test "the Default can be chosen by uuid too" do
+      {:ok, bucket} = Storage.create_bucket(attrs(), profile: Profiles.default_uuid())
+      assert profile_uuids_of(bucket) == [Profiles.default_uuid()]
+    end
+
+    test "a uuid that is no site profile is refused and nothing is created" do
+      name = "refused-#{System.unique_integer([:positive])}"
+
+      assert {:error, changeset} =
+               Storage.create_bucket(attrs(%{name: name}), profile: Ecto.UUID.generate())
+
+      assert %{profile: [_]} = errors_on(changeset)
+      refute Storage.get_bucket_by_name(name)
+    end
+
+    test "a user's own profile is not one a site bucket is added to" do
+      {:ok, owner} =
+        Auth.register_user(%{
+          "email" => "placed-#{System.unique_integer([:positive])}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      personal =
+        Repo.insert!(%StorageProfile{
+          name: "Theirs #{System.unique_integer([:positive])}",
+          owner_uuid: owner.uuid
+        })
+
+      name = "personal-#{System.unique_integer([:positive])}"
+
+      assert {:error, _} = Storage.create_bucket(attrs(%{name: name}), profile: personal.uuid)
+      refute Storage.get_bucket_by_name(name)
+    end
+  end
+
+  describe "a bucket in use" do
+    # Out of every profile, the way an admin frees a bucket.
+    defp free!(bucket) do
+      for profile <- Profiles.list_profiles(),
+          do: :ok = Profiles.remove_bucket(profile, bucket.uuid)
+    end
+
+    defp user_profile_with!(bucket) do
+      {:ok, owner} =
+        Auth.register_user(%{
+          "email" => "in-use-#{System.unique_integer([:positive])}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      profile =
+        Repo.insert!(%StorageProfile{
+          name: "Personal #{System.unique_integer([:positive])}",
+          owner_uuid: owner.uuid
+        })
+
+      Repo.insert!(%ProfileBucket{profile_uuid: profile.uuid, bucket_uuid: bucket.uuid})
+      {owner, profile}
+    end
+
+    test "deleting is refused while any profile lists it, and nothing is taken out" do
+      bucket = bucket!()
+      {:ok, profile} = Profiles.create_profile(%{name: "Holds it"})
+      {:ok, _} = Profiles.put_bucket(profile, bucket.uuid, %{status: "draining"})
+      before = revision(profile.uuid)
+
+      assert {:error, {:in_use, usage}} = Storage.delete_bucket(bucket)
+
+      # The Default (it took the bucket in when it was created) and the other
+      # profile, whatever the row's status.
+      assert [%{is_default: true, role: "primary"}, %{name: "Holds it", status: "draining"}] =
+               usage
+
+      assert Storage.get_bucket(bucket.uuid)
+      assert Enum.any?(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
+      assert [_] = Profiles.get_profile(profile.uuid).buckets
+      assert revision(profile.uuid) == before
+    end
+
+    test "a bucket is deleted once it is out of every profile" do
+      bucket = bucket!()
+      {:ok, profile} = Profiles.create_profile(%{name: "Held it"})
+      {:ok, _} = Profiles.put_bucket(profile, bucket.uuid, %{})
+
+      assert {:error, {:in_use, _}} = Storage.delete_bucket(bucket)
+
+      free!(bucket)
+
+      assert {:ok, _} = Storage.delete_bucket(bucket)
+      refute Storage.get_bucket(bucket.uuid)
+    end
+
+    test "a user's own profile counts, and is not named" do
+      bucket = bucket!()
+      free!(bucket)
+      {_owner, _profile} = user_profile_with!(bucket)
+
+      assert {:error, {:in_use, [%{owner_uuid: owner}]}} = Storage.delete_bucket(bucket)
+      assert is_binary(owner)
+      assert {:error, {:in_use, _}} = Storage.update_bucket(bucket, %{enabled: false})
+    end
+
+    test "disabling is refused while any profile lists it; enabling and other edits are not" do
+      bucket = bucket!()
+
+      assert {:error, {:in_use, [%{is_default: true}]}} =
+               Storage.update_bucket(bucket, %{enabled: false})
+
+      assert Storage.get_bucket(bucket.uuid).enabled
+
+      assert {:ok, renamed} = Storage.update_bucket(bucket, %{name: "Renamed in use"})
+      assert renamed.enabled
+
+      free!(bucket)
+      assert {:ok, %{enabled: false}} = Storage.update_bucket(bucket, %{enabled: false})
+    end
+
+    test "a disabled bucket a profile lists can still be enabled" do
+      bucket = bucket!(%{enabled: false})
+      assert Enum.any?(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
+
+      assert {:ok, %{enabled: true}} = Storage.update_bucket(bucket, %{enabled: true})
+    end
+
+    test "usage counts the libraries behind each profile, the Default's unnamed ones too" do
+      bucket = bucket!()
+      {:ok, profile} = Profiles.create_profile(%{name: "Behind it"})
+      {:ok, _} = Profiles.put_bucket(profile, bucket.uuid, %{role: "backup"})
+      {:ok, _library} = Profiles.set_library_profile(library!(), profile.uuid)
+      {:ok, _library} = Profiles.set_library_profile(library!(), profile.uuid)
+      unnamed = Profiles.libraries_using(Profiles.default_uuid())
+
+      usage = Profiles.bucket_usage([bucket.uuid])[to_string(bucket.uuid)]
+
+      assert [
+               %{is_default: true, libraries: default_libraries},
+               %{name: "Behind it", role: "backup", libraries: 2}
+             ] = usage
+
+      assert default_libraries == unnamed
+      assert Profiles.bucket_usage([]) == %{}
+      assert Profiles.bucket_usage([Ecto.UUID.generate()]) == %{}
+    end
+
+    test "library names: site libraries are named, a user's is only counted" do
+      {:ok, profile} = Profiles.create_profile(%{name: "Shared"})
+      site = library!()
+      {:ok, _} = Profiles.set_library_profile(site, profile.uuid)
+
+      {:ok, owner} =
+        Auth.register_user(%{
+          "email" => "names-#{System.unique_integer([:positive])}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      Repo.insert!(%Library{
+        name: "Private name",
+        kind: "user",
+        visibility: "private",
+        owner_uuid: owner.uuid,
+        key_prefix: "lib-#{System.unique_integer([:positive])}",
+        slug: "private",
+        storage_profile_uuid: profile.uuid
+      })
+
+      assert %{names: [name], user_libraries: 1} = Profiles.library_names_using(profile.uuid)
+      assert name == site.name
     end
   end
 

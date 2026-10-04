@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   alias PhoenixKit.Modules.Storage.{Dimension, VariantSet, VariantSets}
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Actor
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale]
@@ -60,7 +61,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   def handle_event("delete_dimension", %{"id" => id}, socket) do
     dimension = Storage.get_dimension(id)
 
-    case Storage.delete_dimension(dimension) do
+    case Storage.delete_dimension(dimension, Actor.opts(socket)) do
       {:ok, _} ->
         {:noreply,
          socket |> reload() |> put_flash(:info, gettext("Dimension deleted successfully"))}
@@ -83,7 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   def handle_event("toggle_dimension", %{"id" => id}, socket) do
     dimension = Storage.get_dimension(id)
 
-    case Storage.update_dimension(dimension, %{enabled: !dimension.enabled}) do
+    case Storage.update_dimension(dimension, %{enabled: !dimension.enabled}, Actor.opts(socket)) do
       {:ok, _dimension} ->
         {:noreply, socket |> reload() |> put_flash(:info, gettext("Dimension status updated"))}
 
@@ -93,7 +94,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("reset_dimensions_to_defaults", _params, socket) do
-    case Storage.reset_dimensions_to_defaults() do
+    case Storage.reset_dimensions_to_defaults(Actor.opts(socket)) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -111,7 +112,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("create_set", %{"new_set" => %{"name" => name}}, socket) do
-    case VariantSets.create_variant_set(%{name: name}) do
+    case VariantSets.create_variant_set(%{name: name}, Actor.opts(socket)) do
       {:ok, set} ->
         {:noreply,
          socket
@@ -124,7 +125,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("save_set", %{"variant_set" => params}, socket) do
-    case VariantSets.update_variant_set(socket.assigns.set, params) do
+    case VariantSets.update_variant_set(socket.assigns.set, params, Actor.opts(socket)) do
       {:ok, _set} ->
         {:noreply, socket |> reload() |> put_flash(:info, gettext("Variant set saved"))}
 
@@ -134,7 +135,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("delete_set", _params, socket) do
-    case VariantSets.delete_variant_set(socket.assigns.set) do
+    case VariantSets.delete_variant_set(socket.assigns.set, Actor.opts(socket)) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -155,15 +156,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("check_set", _params, socket) do
-    :ok = VariantSets.bump_revision(socket.assigns.set.uuid)
+    case VariantSets.check_files(socket.assigns.set, Actor.opts(socket)) do
+      :ok ->
+        {:noreply,
+         socket
+         |> reload()
+         |> put_flash(
+           :info,
+           gettext("Every file of this variant set will be checked, and missing sizes made.")
+         )}
 
-    {:noreply,
-     socket
-     |> reload()
-     |> put_flash(
-       :info,
-       gettext("Every file of this variant set will be checked, and missing sizes made.")
-     )}
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not save"))}
+    end
   end
 
   defp first_error(%Ecto.Changeset{errors: [{field, {message, _}} | _]}),

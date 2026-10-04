@@ -29,7 +29,9 @@ defmodule PhoenixKit.Utils.RecipientLocale do
   how a Gettext-backed default reaches the right language: these render on a
   background worker or on behalf of another user, so the locale arrives as a
   value rather than being ambient. `nil` means "leave the current locale alone"
-  — what a screen rendering for its own viewer wants.
+  — what a screen rendering for its own viewer wants. It installs the locale
+  for the core backend and for every feature module's backend alike, as the
+  web does (`PhoenixKitWeb.Users.Auth.put_gettext_locale/2`).
 
   ## Failure
 
@@ -103,20 +105,43 @@ defmodule PhoenixKit.Utils.RecipientLocale do
   A `nil` locale runs `fun` untouched, so a caller with no recipient preference
   keeps whatever locale is already in force.
 
-  The locale is installed through `gettext_locale/1`, so a dialect the
-  catalogue does not have reads its base language's translation.
+  Two locales are installed, both restored afterwards (also when `fun` raises):
+
+  - `PhoenixKitWeb.Gettext` gets `gettext_locale/1`, so a dialect the core
+    catalogue does not have reads its base language's translation.
+  - The process-global Gettext locale gets the **base** language (`"es"` for
+    `"es-ES"`). This is the one a feature module's own backend reads
+    (`PhoenixKitBilling.Gettext` in a billing default, any backend called while
+    `PhoenixKit.Email.Content` resolves a default or a notification renders):
+    a backend with no locale of its own falls back to the global one. Without
+    it a module's text came out in the *sender's* language — the global locale
+    of the worker or of the admin's LiveView — not the recipient's.
+
+  The global value is the base code because that is how module catalogues are
+  named (`es`, `et`, `ru`), and Gettext matches a locale exactly: `"es-ES"` or
+  `"es_ES"` would match none of them. A module that ships a dialect catalogue
+  (`pt_BR`) is read in its base language here; its backend, unlike the core
+  one, is not known to this module.
+
+  A backend that already has a locale of its own on this process
+  (`Gettext.put_locale(backend, _)`) keeps it — that is an explicit choice
+  this function does not override.
 
       iex> alias PhoenixKit.Utils.RecipientLocale
       iex> RecipientLocale.in_locale(nil, fn -> :ran end)
       :ran
       iex> RecipientLocale.in_locale("es-ES", fn -> Gettext.get_locale(PhoenixKitWeb.Gettext) end)
       "es"
+      iex> RecipientLocale.in_locale("es-ES", fn -> Gettext.get_locale() end)
+      "es"
   """
   @spec in_locale(String.t() | nil, (-> result)) :: result when result: term()
   def in_locale(nil, fun), do: fun.()
 
   def in_locale(locale, fun) when is_binary(locale) do
-    Gettext.with_locale(PhoenixKitWeb.Gettext, gettext_locale(locale), fun)
+    Gettext.with_locale(base_locale(locale), fn ->
+      Gettext.with_locale(PhoenixKitWeb.Gettext, gettext_locale(locale), fun)
+    end)
   end
 
   @doc """
@@ -158,6 +183,16 @@ defmodule PhoenixKit.Utils.RecipientLocale do
         base = String.downcase(base)
         candidates = [locale, Enum.join([base | upcase_region(rest)], "_")]
         Enum.find(candidates, base, &(&1 in known))
+    end
+  end
+
+  # The base language of `locale`, as module catalogues name it: `es` for
+  # "es-ES", "ES_es" or "es". The fallback for an empty one, like
+  # `gettext_locale/2`.
+  defp base_locale(locale) do
+    case locale |> String.split(["-", "_"]) |> hd() do
+      "" -> @fallback
+      base -> String.downcase(base)
     end
   end
 

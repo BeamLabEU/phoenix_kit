@@ -72,15 +72,38 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
   @doc """
   The files that are not where, or not what, their library's profile and
-  variant set want. Not a file an upload is still processing, nor one with
-  an image edit pending, nor one tried in the last few minutes.
+  variant set want — **and that the reconciler may work on now**: not a file
+  an upload is still processing, nor one with an image edit pending, nor one
+  tried in the last few minutes. This is the work-selection query; what a
+  library's *state* counts is `out_of_date_query/1`.
+
+  `library_uuid:` limits it to one library.
   """
-  @spec stale_query() :: Ecto.Query.t()
-  def stale_query do
+  @spec stale_query(keyword()) :: Ecto.Query.t()
+  def stale_query(opts \\ []) do
+    retry_before = NaiveDateTime.add(NaiveDateTime.utc_now(), -@retry_after_seconds)
+
+    opts
+    |> out_of_date_query()
+    |> where([f], is_nil(f.edit_state) or f.edit_state != "pending")
+    |> where([f], is_nil(f.reconcile_attempted_at) or f.reconcile_attempted_at < ^retry_before)
+  end
+
+  @doc """
+  The files whose placement or sizes are out of date — the revision of their
+  library's profile or variant set is not the one they were placed by —
+  **whether or not the reconciler may take them now**. A file waiting out its
+  retry window, one with an image edit pending: all are out of date. That is
+  what "this library is not up to date" means; `stale_query/1` is the subset
+  the reconciler picks next (plan `2026-10-03-job-runs.md`, R8).
+
+  Takes the same `library_uuid:` option.
+  """
+  @spec out_of_date_query(keyword()) :: Ecto.Query.t()
+  def out_of_date_query(opts \\ []) do
     profile = Profiles.default_uuid()
     set = VariantSets.default_uuid()
     now = NaiveDateTime.utc_now()
-    retry_before = NaiveDateTime.add(now, -@retry_after_seconds)
     processing_before = NaiveDateTime.add(now, -@processing_grace_seconds)
 
     from(f in StorageFile,
@@ -94,8 +117,6 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
       where:
         f.status in ["active", "trashed", "failed"] or
           (f.status == "processing" and f.updated_at < ^processing_before),
-      where: is_nil(f.edit_state) or f.edit_state != "pending",
-      where: is_nil(f.reconcile_attempted_at) or f.reconcile_attempted_at < ^retry_before,
       where:
         coalesce(f.placed_profile_uuid, type(^profile, UUIDv7)) != p.uuid or
           coalesce(f.placed_revision, 1) != p.revision or
@@ -103,6 +124,63 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
              (coalesce(f.placed_variant_set_uuid, type(^set, UUIDv7)) != s.uuid or
                 coalesce(f.placed_variant_revision, 1) != s.revision))
     )
+    |> in_library(opts[:library_uuid])
+  end
+
+  defp in_library(query, nil), do: query
+
+  defp in_library(query, library_uuid),
+    do: where(query, [f], f.library_uuid == type(^library_uuid, UUIDv7))
+
+  @doc """
+  What each library has to do, from one grouped query: for every library with
+  at least one out-of-date file, `%{out_of_date:, eligible:, failing:}` —
+
+    * `out_of_date` — files not at their library's revisions (`out_of_date_query/1`);
+    * `eligible` — of those, the ones the reconciler may take now (`stale_query/1`);
+    * `failing` — of those, the ones it tried and could not finish in the last
+      few minutes (they wait out `@retry_after_seconds` before the next try).
+
+  Keyed by the library's uuid as a string. A library absent from the map has
+  nothing out of date. An optional uuid list limits the query to the libraries
+  a screen is showing; omitted, it counts every library.
+  """
+  @spec counts_by_library([String.t()] | nil) :: %{String.t() => map()}
+  def counts_by_library(library_uuids \\ nil) do
+    retry_before = NaiveDateTime.add(NaiveDateTime.utc_now(), -@retry_after_seconds)
+    query = out_of_date_query()
+
+    query =
+      if is_list(library_uuids),
+        do: where(query, [f], f.library_uuid in ^library_uuids),
+        else: query
+
+    from([f] in query,
+      group_by: f.library_uuid,
+      select: {
+        f.library_uuid,
+        %{
+          out_of_date: count(f.uuid),
+          eligible:
+            filter(
+              count(f.uuid),
+              (is_nil(f.edit_state) or f.edit_state != "pending") and
+                (is_nil(f.reconcile_attempted_at) or f.reconcile_attempted_at < ^retry_before)
+            ),
+          failing: filter(count(f.uuid), f.reconcile_attempted_at >= ^retry_before)
+        }
+      }
+    )
+    |> repo().all()
+    |> Map.new(fn {uuid, counts} -> {to_string(uuid), counts} end)
+  end
+
+  @doc "The libraries that have files the reconciler may take now, as uuid strings."
+  @spec libraries_with_work() :: [String.t()]
+  def libraries_with_work do
+    from([f] in stale_query(), distinct: true, select: f.library_uuid)
+    |> repo().all()
+    |> Enum.map(&to_string/1)
   end
 
   @doc "How many files the reconciler looks after (active and trashed ones)."
@@ -113,12 +191,12 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   end
 
   @doc "How many files are stale."
-  @spec stale_count() :: non_neg_integer()
-  def stale_count, do: stale_query() |> select([f], count(f.uuid)) |> repo().one()
+  @spec stale_count(keyword()) :: non_neg_integer()
+  def stale_count(opts \\ []), do: stale_query(opts) |> select([f], count(f.uuid)) |> repo().one()
 
   @doc "Whether any file is stale."
-  @spec pending?() :: boolean()
-  def pending?, do: repo().exists?(stale_query())
+  @spec pending?(keyword()) :: boolean()
+  def pending?(opts \\ []), do: repo().exists?(stale_query(opts))
 
   @doc """
   Up to `limit` stale files for the Health page: the file, its library's
@@ -155,13 +233,13 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   from the start), in uuid order. Returns `{:more, last_uuid, totals}`
   while a full batch was read, `{:done, totals}` once the walk has passed
   the last one; `totals` counts files `:reconciled`, `:stale` (still) and
-  `:skipped`.
+  `:skipped`. `library_uuid:` walks one library's files only.
   """
-  @spec run_batch(String.t() | nil, pos_integer(), map()) ::
+  @spec run_batch(String.t() | nil, pos_integer(), map(), keyword()) ::
           {:more, String.t(), map()} | {:done, map()}
-  def run_batch(cursor, limit, totals \\ %{}) do
+  def run_batch(cursor, limit, totals \\ %{}, opts \\ []) do
     batch =
-      stale_query()
+      stale_query(opts)
       |> after_cursor(cursor)
       |> order_by([f], asc: f.uuid)
       |> limit(^limit)

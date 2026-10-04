@@ -774,7 +774,7 @@ defmodule PhoenixKit.Modules.Storage.ApplyImageEditJob do
   defp maybe_refresh_annotated_thumbnail(file) do
     alias PhoenixKit.Modules.Storage.AnnotationThumbnail
 
-    if Code.ensure_loaded?(AnnotationThumbnail) and AnnotationThumbnail.enabled?() do
+    if Code.ensure_loaded?(AnnotationThumbnail) and AnnotationThumbnail.enabled_for_file?(file) do
       AnnotationThumbnail.refresh(file.uuid)
     end
   rescue

@@ -155,6 +155,19 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         group: :admin_main,
         gettext_backend: PhoenixKitWeb.Gettext
       },
+      # Jobs: always on (it was a module with a toggle; background work now runs through it)
+      %Tab{
+        id: :admin_jobs,
+        label: gettext_noop("Jobs"),
+        icon: "hero-queue-list",
+        path: "jobs",
+        priority: 260,
+        level: :admin,
+        permission: "jobs",
+        match: :prefix,
+        group: :admin_main,
+        gettext_backend: PhoenixKitWeb.Gettext
+      },
       # Media
       %Tab{
         id: :admin_media,
@@ -328,6 +341,17 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         920,
         :admin_settings,
         "integrations_system"
+      ),
+      # Languages: always on (it was a module with a toggle). The multi-language
+      # switch lives on this page, so the page has to be reachable while it is off.
+      admin_subtab(
+        :admin_settings_languages,
+        gettext_noop("Languages"),
+        "hero-language",
+        "languages",
+        928,
+        :admin_settings,
+        "languages"
       ),
       %Tab{
         id: :admin_settings_media,

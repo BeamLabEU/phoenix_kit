@@ -21,6 +21,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   import Ecto.Query
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.{Library, ProfileBucket, StorageProfile}
@@ -115,22 +116,95 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   def copies(%StorageProfile{copies_originals: n}, :original), do: n
   def copies(%StorageProfile{copies_variants: n}, :derived), do: n
 
-  @doc "Creates a profile with no buckets."
-  @spec create_profile(map()) :: {:ok, StorageProfile.t()} | {:error, Ecto.Changeset.t()}
-  def create_profile(attrs) do
+  @doc """
+  What a profile's copy count means for the buckets it has now, for the screens
+  that tell an admin and the one place that must agree with what they say.
+
+  An original is written to the first `copies_originals` writable buckets in
+  role order — primaries, then replicas, then backups — so the count says how
+  many of them get it:
+
+    * `writable` — the buckets that can take a new original (active in the
+      profile, storing originals, and enabled);
+    * `primaries` — how many of those are primaries;
+    * `copies` — the profile's count;
+    * `idle` — the names of the replicas and backups the count never reaches
+      (it does not exceed the primaries), which hold nothing unless a write to a
+      primary fails;
+    * `recommended` — the count that would put the one replica or backup to
+      use, or nil. Only offered where it is unambiguous: one primary, one copy,
+      and a bucket waiting. With several primaries a higher count would also put
+      every file on every primary, which is a different decision.
+
+  Takes a profile with its buckets loaded.
+  """
+  @spec copies_advice(StorageProfile.t()) :: %{
+          writable: non_neg_integer(),
+          primaries: non_neg_integer(),
+          copies: pos_integer(),
+          idle: [String.t()],
+          recommended: pos_integer() | nil
+        }
+  def copies_advice(%StorageProfile{} = profile) do
+    rows =
+      Enum.filter(profile.buckets, fn row ->
+        row.status == "active" and row.stores in ["all", "originals"] and row.bucket.enabled
+      end)
+
+    primaries = Enum.count(rows, &(&1.role == "primary"))
+    others = Enum.reject(rows, &(&1.role == "primary"))
+    copies = profile.copies_originals
+    idle = if copies <= primaries, do: Enum.map(others, & &1.bucket.name), else: []
+
+    %{
+      writable: length(rows),
+      primaries: primaries,
+      copies: copies,
+      idle: idle,
+      recommended: if(primaries == 1 and copies == 1 and others != [], do: 2)
+    }
+  end
+
+  @doc """
+  Creates a profile with no buckets. `opts` (`:actor_uuid`, `:mode`) say who did it,
+  for the history (`Storage.Audit`).
+  """
+  @spec create_profile(map(), keyword()) ::
+          {:ok, StorageProfile.t()} | {:error, Ecto.Changeset.t()}
+  def create_profile(attrs, opts \\ []) do
+    Audit.transaction(fn -> do_create_profile(attrs, opts) end)
+  end
+
+  defp do_create_profile(attrs, opts) do
     %StorageProfile{}
     |> StorageProfile.changeset(attrs)
     |> repo().insert()
     |> case do
-      {:ok, profile} -> {:ok, preload_buckets(profile)}
-      error -> error
+      {:ok, profile} ->
+        audit_profile(profile, "storage.profile.created", opts, %{"name" => profile.name})
+        {:ok, preload_buckets(profile)}
+
+      error ->
+        error
     end
   end
 
+  # A user's own profile is theirs and private: only the site's are in the history.
+  defp audit_profile(%StorageProfile{owner_uuid: nil} = profile, action, opts, metadata) do
+    Audit.log(action, "storage_profile", profile.uuid, opts, metadata)
+    :ok
+  end
+
+  defp audit_profile(_profile, _action, _opts, _metadata), do: :ok
+
   @doc "Updates a profile's name or copy counts; a real change bumps its revision."
-  @spec update_profile(StorageProfile.t(), map()) ::
+  @spec update_profile(StorageProfile.t(), map(), keyword()) ::
           {:ok, StorageProfile.t()} | {:error, Ecto.Changeset.t()}
-  def update_profile(%StorageProfile{} = profile, attrs) do
+  def update_profile(%StorageProfile{} = profile, attrs, opts \\ []) do
+    Audit.change(profile, fn current -> do_update_profile(current, attrs, opts) end)
+  end
+
+  defp do_update_profile(profile, attrs, opts) do
     changeset = StorageProfile.changeset(profile, attrs)
 
     transact(fn ->
@@ -139,7 +213,27 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         {:ok, updated.uuid}
       end
     end)
-    |> reload()
+    |> reload(opts)
+    |> tap(fn
+      {:ok, updated} ->
+        changes =
+          Audit.changes(changeset, [
+            :name,
+            :copies_originals,
+            :copies_variants,
+            :min_copies_on_write
+          ])
+
+        unless changes == %{},
+          do:
+            audit_profile(updated, "storage.profile.updated", opts, %{
+              "name" => updated.name,
+              PhoenixKit.Activity.changes_key() => changes
+            })
+
+      _error ->
+        :ok
+    end)
   end
 
   # A rename moves no bytes, and neither does how many copies an upload
@@ -152,9 +246,13 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   (`{:error, :default}`), nor a profile a library uses
   (`{:error, :in_use}`).
   """
-  @spec delete_profile(StorageProfile.t()) ::
+  @spec delete_profile(StorageProfile.t(), keyword()) ::
           {:ok, StorageProfile.t()} | {:error, :default | :in_use | Ecto.Changeset.t()}
-  def delete_profile(%StorageProfile{} = profile) do
+  def delete_profile(%StorageProfile{} = profile, opts \\ []) do
+    Audit.change(profile, &do_delete_profile(&1, opts))
+  end
+
+  defp do_delete_profile(profile, opts) do
     cond do
       default?(profile) ->
         {:error, :default}
@@ -170,6 +268,13 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
           message: "is used by a library"
         )
         |> repo().delete()
+        |> tap(fn
+          {:ok, deleted} ->
+            audit_profile(deleted, "storage.profile.deleted", opts, %{"name" => deleted.name})
+
+          _error ->
+            :ok
+        end)
     end
   end
 
@@ -195,12 +300,14 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   Adds `bucket_uuid` to `profile`, or changes how the profile uses it, and
   bumps the profile's revision.
   """
-  @spec put_bucket(StorageProfile.t(), term(), map()) ::
+  @spec put_bucket(StorageProfile.t(), term(), map(), keyword()) ::
           {:ok, ProfileBucket.t()} | {:error, Ecto.Changeset.t()}
-  def put_bucket(%StorageProfile{uuid: profile_uuid}, bucket_uuid, attrs) do
-    with :ok <- check_same_owner(profile_uuid, bucket_uuid) do
-      do_put_bucket(profile_uuid, bucket_uuid, attrs)
-    end
+  def put_bucket(%StorageProfile{} = profile, bucket_uuid, attrs, opts \\ []) do
+    Audit.change(profile, fn current ->
+      with :ok <- check_same_owner(current.uuid, bucket_uuid) do
+        do_put_bucket(current, bucket_uuid, attrs, opts)
+      end
+    end)
   end
 
   # A user's bucket is only ever in its owner's profile, and a user's profile
@@ -223,21 +330,74 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
       else: {:error, :foreign_bucket}
   end
 
-  defp do_put_bucket(profile_uuid, bucket_uuid, attrs) do
+  defp do_put_bucket(%StorageProfile{uuid: profile_uuid} = profile, bucket_uuid, attrs, opts) do
     row =
       repo().get_by(ProfileBucket, profile_uuid: profile_uuid, bucket_uuid: bucket_uuid) ||
         %ProfileBucket{profile_uuid: profile_uuid, bucket_uuid: bucket_uuid}
 
     changeset = ProfileBucket.changeset(row, attrs)
+    added? = row.__meta__.state == :built
 
     transact(fn ->
       with {:ok, saved} <- repo().insert_or_update(changeset) do
-        if row.__meta__.state == :built or moves_bytes?(changeset),
-          do: bump_revision(profile_uuid)
+        if added? or moves_bytes?(changeset), do: bump_revision(profile_uuid)
 
         {:ok, saved}
       end
     end)
+    |> tap(fn
+      {:ok, saved} -> audit_bucket_row(profile, saved, changeset, added?, opts)
+      _error -> :ok
+    end)
+  end
+
+  # Adding a bucket to a profile, or changing how the profile uses it. Only the
+  # row's own fields are named, with their old and new values.
+  @row_fields [:role, :stores, :status, :serve_order, :write_priority, :storage_class]
+
+  defp audit_bucket_row(profile, saved, changeset, added?, opts) do
+    bucket = bucket_name(saved.bucket_uuid)
+
+    base = %{
+      "profile" => profile.name,
+      "bucket" => bucket,
+      "bucket_uuid" => to_string(saved.bucket_uuid)
+    }
+
+    if added? do
+      detail =
+        Map.new(@row_fields, fn field ->
+          {Atom.to_string(field), loggable_row(Map.get(saved, field))}
+        end)
+
+      audit_profile(profile, "storage.profile.bucket_added", opts, Map.merge(base, detail))
+    else
+      changes = Audit.changes(changeset, @row_fields)
+
+      if changes != %{},
+        do:
+          audit_profile(
+            profile,
+            "storage.profile.bucket_changed",
+            opts,
+            Map.put(base, PhoenixKit.Activity.changes_key(), changes)
+          )
+    end
+
+    :ok
+  end
+
+  defp loggable_row(nil), do: nil
+
+  defp loggable_row(value) when is_atom(value) and not is_boolean(value),
+    do: Atom.to_string(value)
+
+  defp loggable_row(value), do: value
+
+  defp bucket_name(bucket_uuid) do
+    repo().one(
+      from(b in PhoenixKit.Modules.Storage.Bucket, where: b.uuid == ^bucket_uuid, select: b.name)
+    )
   end
 
   # What a file's placement depends on: what a bucket stores, its status,
@@ -248,9 +408,13 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     do: Map.take(changeset.changes, [:stores, :status, :role]) != %{}
 
   @doc "Takes `bucket_uuid` out of `profile` and bumps the profile's revision."
-  @spec remove_bucket(StorageProfile.t(), term()) :: :ok
-  def remove_bucket(%StorageProfile{uuid: profile_uuid}, bucket_uuid) do
-    {:ok, :ok} =
+  @spec remove_bucket(StorageProfile.t(), term(), keyword()) :: :ok | {:error, term()}
+  def remove_bucket(%StorageProfile{} = profile, bucket_uuid, opts \\ []) do
+    Audit.change(profile, &do_remove_bucket(&1, bucket_uuid, opts))
+  end
+
+  defp do_remove_bucket(%StorageProfile{uuid: profile_uuid} = profile, bucket_uuid, opts) do
+    {:ok, count} =
       transact(fn ->
         {count, _} =
           from(r in ProfileBucket,
@@ -259,8 +423,16 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
           |> repo().delete_all()
 
         if count > 0, do: bump_revision(profile_uuid)
-        {:ok, :ok}
+        {:ok, count}
       end)
+
+    if count > 0 do
+      audit_profile(profile, "storage.profile.bucket_removed", opts, %{
+        "profile" => profile.name,
+        "bucket" => bucket_name(bucket_uuid),
+        "bucket_uuid" => to_string(bucket_uuid)
+      })
+    end
 
     :ok
   end
@@ -270,31 +442,56 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   bucket joined the pool before profiles: primary, stores everything,
   active, its `priority` as the write priority (0 is the shuffled pool),
   served after the Default's other buckets (a local one before the remote
-  ones).
+  ones). The default of `Storage.create_bucket/2`; a caller that wants none or
+  another profile says so there (`:profile`).
   """
   @spec add_to_default(PhoenixKit.Modules.Storage.Bucket.t()) :: :ok
   def add_to_default(bucket) do
-    serve_order =
-      from(r in ProfileBucket,
-        where: r.profile_uuid == ^@default_uuid,
-        select: coalesce(max(r.serve_order), 0)
-      )
-      |> repo().one()
-
     # Profiles are seeded by V205; before that (or on a database repair has
     # not reached yet) there is no Default to add to.
     if repo().get(StorageProfile, @default_uuid) do
-      {:ok, _} =
-        put_bucket(%StorageProfile{uuid: @default_uuid}, bucket.uuid, %{
+      :ok = add_bucket(@default_uuid, bucket, audit: false)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Puts `bucket` into one of the site's profiles as a primary that stores
+  everything, active, its `priority` as the write priority, served after the
+  profile's other buckets, and bumps the profile's revision (its files are
+  placed again). Change the role, order or status afterwards with
+  `put_bucket/4`.
+
+  `{:error, :not_found}` for a uuid that is no site profile: a user's own
+  profile is never one an admin adds a site bucket to. `opts` are `put_bucket/4`'s
+  (`:actor_uuid`, `audit: false`).
+  """
+  @spec add_bucket(term(), PhoenixKit.Modules.Storage.Bucket.t(), keyword()) ::
+          :ok | {:error, :not_found | Ecto.Changeset.t()}
+  def add_bucket(profile_uuid, bucket, opts \\ []) do
+    case get_profile(profile_uuid) do
+      %StorageProfile{owner_uuid: nil} = profile ->
+        serve_order =
+          from(r in ProfileBucket,
+            where: r.profile_uuid == ^profile.uuid,
+            select: coalesce(max(r.serve_order), 0)
+          )
+          |> repo().one()
+
+        attrs = %{
           role: "primary",
           stores: "all",
           status: "active",
           write_priority: write_priority(bucket.priority),
           serve_order: serve_order + 1
-        })
-    end
+        }
 
-    :ok
+        with {:ok, _row} <- put_bucket(profile, bucket.uuid, attrs, opts), do: :ok
+
+      _ ->
+        {:error, :not_found}
+    end
   end
 
   @doc false
@@ -304,33 +501,120 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   def write_priority(_priority), do: nil
 
   @doc """
-  Takes `bucket_uuid` out of every profile, bumping each one's revision.
-  Called when an empty bucket is deleted.
+  Which profiles use each of `bucket_uuids`, and how many libraries stand
+  behind each one: `%{bucket_uuid => [usage]}`, a bucket no profile uses
+  absent from the map. Every profile row counts, whatever its role or status
+  (`draining` and `read_only` still hold or serve objects), and a user's own
+  profile counts too — a site bucket may be one half of their backup.
+
+  A `usage` is `%{profile_uuid, name, is_default, owner_uuid, role, status,
+  libraries}`, the Default first. `libraries` counts the libraries on the
+  profile, trashed ones included, and for the Default those that name no
+  profile. Callers that show it must not name a user's profile or library
+  (`owner_uuid` is set on the first; count the second).
+
+  This is what refuses deleting or disabling a bucket (`Storage.delete_bucket/2`,
+  `Storage.update_bucket/3`) and what the Buckets list shows.
   """
-  @spec remove_bucket_everywhere(term()) :: :ok
-  def remove_bucket_everywhere(bucket_uuid) do
-    {:ok, :ok} =
-      transact(fn ->
-        {_count, profile_uuids} =
-          from(r in ProfileBucket, where: r.bucket_uuid == ^bucket_uuid, select: r.profile_uuid)
-          |> repo().delete_all()
+  @spec bucket_usage([term()]) :: %{optional(String.t()) => [map()]}
+  def bucket_usage([]), do: %{}
 
-        Enum.each(Enum.uniq(profile_uuids), &bump_revision/1)
-        {:ok, :ok}
-      end)
+  def bucket_usage(bucket_uuids) when is_list(bucket_uuids) do
+    rows =
+      from(r in ProfileBucket,
+        join: p in StorageProfile,
+        on: p.uuid == r.profile_uuid,
+        where: r.bucket_uuid in ^bucket_uuids,
+        order_by: [desc: p.is_default, asc: fragment("lower(?)", p.name), asc: p.uuid],
+        select: %{
+          bucket_uuid: r.bucket_uuid,
+          profile_uuid: p.uuid,
+          name: p.name,
+          is_default: p.is_default,
+          owner_uuid: p.owner_uuid,
+          role: r.role,
+          status: r.status
+        }
+      )
+      |> repo().all()
 
-    :ok
+    counts = rows |> Enum.map(& &1.profile_uuid) |> Enum.uniq() |> library_counts()
+
+    rows
+    |> Enum.map(fn row ->
+      row
+      |> Map.update!(:bucket_uuid, &to_string/1)
+      |> Map.update!(:profile_uuid, &to_string/1)
+      |> Map.put(:libraries, Map.get(counts, to_string(row.profile_uuid), 0))
+    end)
+    |> Enum.group_by(& &1.bucket_uuid)
+  end
+
+  # Libraries per profile, as `libraries_using/1` counts them, in one pass.
+  defp library_counts([]), do: %{}
+
+  defp library_counts(profile_uuids) do
+    explicit =
+      from(l in Library,
+        where: l.storage_profile_uuid in ^profile_uuids,
+        group_by: l.storage_profile_uuid,
+        select: {l.storage_profile_uuid, count()}
+      )
+      |> repo().all()
+      |> Map.new(fn {uuid, count} -> {to_string(uuid), count} end)
+
+    if Enum.any?(profile_uuids, &default?/1) do
+      unnamed =
+        repo().one(from(l in Library, where: is_nil(l.storage_profile_uuid), select: count()))
+
+      Map.update(explicit, @default_uuid, unnamed, &(&1 + unnamed))
+    else
+      explicit
+    end
+  end
+
+  @doc """
+  The names of the site libraries on `profile_uuid` (the Default's include
+  those that name no profile), and how many user libraries are on it besides.
+  A user's library is private to its owner, so it is counted, never named.
+  """
+  @spec library_names_using(term()) :: %{names: [String.t()], user_libraries: non_neg_integer()}
+  def library_names_using(profile_uuid) do
+    base =
+      if default?(profile_uuid),
+        do:
+          from(l in Library,
+            where: is_nil(l.storage_profile_uuid) or l.storage_profile_uuid == ^profile_uuid
+          ),
+        else: from(l in Library, where: l.storage_profile_uuid == ^profile_uuid)
+
+    names =
+      from(l in base,
+        where: l.kind != "user",
+        order_by: fragment("lower(?)", l.name),
+        select: l.name
+      )
+      |> repo().all()
+
+    users = repo().one(from(l in base, where: l.kind == "user", select: count()))
+
+    %{names: names, user_libraries: users}
   end
 
   @doc """
   Points `library` at `profile_uuid` (nil for the Default). Its files
   become stale unless the new profile is the one they were placed by.
   """
-  @spec set_library_profile(Library.t(), term()) ::
+  @spec set_library_profile(Library.t(), term(), keyword()) ::
           {:ok, Library.t()}
           | {:error, Ecto.Changeset.t() | :not_found | :user_storage_locked}
-  def set_library_profile(%Library{uuid: uuid}, profile_uuid) do
+  def set_library_profile(%Library{} = library, profile_uuid, opts \\ []) do
+    Audit.change(library, &do_change_library_profile(&1, profile_uuid, opts))
+  end
+
+  defp do_change_library_profile(%Library{uuid: uuid} = library, profile_uuid, opts) do
     profile_uuid = if default?(profile_uuid), do: nil, else: profile_uuid
+    before = profile_uuid_for(library)
 
     # Decided on the library as it is NOW, under a row lock: the struct the
     # caller holds may be stale (another request may have put the library on a
@@ -348,6 +632,36 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         true -> do_set_library_profile(current, profile_uuid)
       end
     end)
+    |> tap(fn
+      {:ok, updated} -> audit_library_profile(updated, before, opts)
+      _error -> :ok
+    end)
+  end
+
+  # A system library moving to another profile: from and to, by name. A user's
+  # library is theirs and private, and is not in the history.
+  defp audit_library_profile(%Library{kind: "system"} = library, before_uuid, opts) do
+    now = profile_uuid_for(library)
+
+    if now != before_uuid do
+      Audit.log("storage.library.profile_changed", "storage_library", library.uuid, opts, %{
+        "library" => library.name,
+        PhoenixKit.Activity.changes_key() => %{
+          "profile" => %{"from" => profile_name(before_uuid), "to" => profile_name(now)}
+        }
+      })
+    end
+
+    :ok
+  end
+
+  defp audit_library_profile(_library, _before, _opts), do: :ok
+
+  defp profile_name(uuid) do
+    case get_profile(uuid) do
+      %StorageProfile{name: name} -> name
+      nil -> to_string(uuid)
+    end
   end
 
   @doc false
@@ -667,19 +981,25 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     repo().preload(profile_or_profiles, buckets: {rows, :bucket})
   end
 
-  defp reload({:ok, uuid}) do
+  defp reload({:ok, uuid}, opts) do
     profile = get_profile(uuid)
 
     # The Default's copy count is what `storage_redundancy_copies` was; the
     # row is kept in step for code that still reads it.
-    if profile.is_default,
-      do:
-        Settings.update_setting("storage_redundancy_copies", to_string(profile.copies_originals))
+    if profile.is_default do
+      Audit.after_commit(fn ->
+        Settings.update_setting(
+          "storage_redundancy_copies",
+          to_string(profile.copies_originals),
+          opts
+        )
+      end)
+    end
 
     {:ok, profile}
   end
 
-  defp reload(error), do: error
+  defp reload(error, _opts), do: error
 
   defp transact(fun) do
     repo().transaction(fn ->

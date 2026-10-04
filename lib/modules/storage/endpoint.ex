@@ -64,6 +64,38 @@ defmodule PhoenixKit.Modules.Storage.Endpoint do
 
   def parse(_endpoint), do: nil
 
+  @doc """
+  A URL's audit representation, with credentials, query and fragment withheld.
+  Absolute local paths stay paths unless `local_path: false` (for CDN URLs).
+  """
+  @spec audit_value(String.t() | nil, keyword()) :: String.t() | nil
+  def audit_value(value, opts \\ [])
+
+  def audit_value(value, opts) when is_binary(value) do
+    value = String.trim(value)
+    uri = URI.parse(value)
+
+    cond do
+      uri.host ->
+        URI.to_string(%{uri | userinfo: nil, query: nil, fragment: nil})
+
+      String.starts_with?(value, "/") and Keyword.get(opts, :local_path, true) ->
+        value
+
+      String.starts_with?(value, "/") ->
+        URI.to_string(%{uri | userinfo: nil, query: nil, fragment: nil})
+
+      true ->
+        # Scheme-less endpoints are supported, too; keep their representation.
+        uri = URI.parse("https://" <> value)
+
+        URI.to_string(%{uri | userinfo: nil, query: nil, fragment: nil})
+        |> String.trim_leading("https://")
+    end
+  end
+
+  def audit_value(value, _opts), do: value
+
   defp parse_trimmed(trimmed) do
     with_scheme =
       if trimmed =~ ~r{\A[a-zA-Z][a-zA-Z0-9+.-]*://}, do: trimmed, else: "https://" <> trimmed

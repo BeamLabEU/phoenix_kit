@@ -4,11 +4,9 @@ defmodule PhoenixKit.ModuleTest do
   alias PhoenixKit.ModuleRegistry
 
   @all_internal_modules [
-    PhoenixKit.Modules.Languages,
     PhoenixKit.Modules.Crawlers,
     PhoenixKit.Modules.Sitemap,
     PhoenixKit.Modules.Storage,
-    PhoenixKit.Jobs,
     PhoenixKit.Notifications
   ]
 

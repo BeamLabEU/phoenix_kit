@@ -1,0 +1,592 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  page_section={gettext("Settings")}
+  page_section_path={PhoenixKit.Utils.Routes.path("/admin/settings")}
+  page_crumbs={[
+    %{label: gettext("Media"), path: PhoenixKit.Utils.Routes.path("/admin/settings/media")}
+  ]}
+  page_subtitle={gettext("Everything about this storage bucket")}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div :if={@bucket} class="mx-auto px-4 py-8 max-w-4xl space-y-6" id="bucket-page">
+    <%!-- Actions --%>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span :if={@bucket.enabled} class="badge badge-success">{gettext("Enabled")}</span>
+        <span :if={!@bucket.enabled} class="badge badge-error">{gettext("Disabled")}</span>
+        <span class="badge badge-ghost">{BucketInfo.type(@bucket)}</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <.pk_link_button
+          navigate={"/admin/settings/media/buckets/#{@bucket.uuid}/edit"}
+          variant="outline"
+          class="btn-sm"
+        >
+          <.icon name="hero-pencil" class="w-4 h-4" /> {gettext("Edit bucket")}
+        </.pk_link_button>
+        <button id="bucket-toggle" type="button" phx-click="toggle" class="btn btn-outline btn-sm">
+          <.icon
+            name={if @bucket.enabled, do: "hero-eye-slash", else: "hero-eye"}
+            class="w-4 h-4"
+          />
+          {if @bucket.enabled, do: gettext("Disable"), else: gettext("Enable")}
+        </button>
+        <button
+          id="bucket-delete"
+          type="button"
+          phx-click="delete"
+          data-confirm={
+            gettext(
+              "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
+            )
+          }
+          class="btn btn-outline btn-error btn-sm"
+        >
+          <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete bucket")}
+        </button>
+      </div>
+    </div>
+
+    <%!-- 1. Overview --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-overview">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-information-circle" class="w-5 h-5" /> {gettext("Overview")}
+        </h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-[12rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="text-base-content/60">{gettext("Location")}</dt>
+          <dd class="font-mono break-all">{BucketInfo.location(@bucket)}</dd>
+
+          <dt :if={@bucket.provider != "local"} class="text-base-content/60">
+            {gettext("Service")}
+          </dt>
+          <dd :if={@bucket.provider != "local"}>
+            {BucketInfo.service(@bucket, @connections)}
+          </dd>
+
+          <dt :if={@bucket.provider != "local"} class="text-base-content/60">
+            {gettext("Integration")}
+          </dt>
+          <dd :if={@bucket.provider != "local"} id="bucket-integration">
+            <%= cond do %>
+              <% connection_name(@bucket, @connections) && can_manage_integrations?(assigns) -> %>
+                <.pk_link
+                  navigate={"/admin/settings/integrations/#{@bucket.integration_uuid}"}
+                  class="link link-primary"
+                >
+                  {connection_name(@bucket, @connections)}
+                </.pk_link>
+              <% connection_name(@bucket, @connections) -> %>
+                {connection_name(@bucket, @connections)}
+              <% @legacy_keys? -> %>
+                <span class="badge badge-warning badge-soft badge-sm h-auto">
+                  {gettext("Keys on bucket")}
+                </span>
+              <% true -> %>
+                <span class="text-base-content/50">{gettext("None")}</span>
+            <% end %>
+          </dd>
+
+          <dt class="text-base-content/60">{gettext("Access")}</dt>
+          <dd>{access_label(@bucket.access_type)}</dd>
+
+          <dt class="text-base-content/60">{gettext("Priority")}</dt>
+          <dd>
+            <%= if @bucket.priority == 0 do %>
+              {gettext("Random")} (0)
+            <% else %>
+              {@bucket.priority}
+            <% end %>
+          </dd>
+
+          <dt class="text-base-content/60">{gettext("Maximum size")}</dt>
+          <dd>
+            <%= if @bucket.max_size_mb do %>
+              {format_bytes(@bucket.max_size_mb * 1_048_576)}
+            <% else %>
+              {gettext("Unlimited")}
+            <% end %>
+          </dd>
+
+          <dt :if={@bucket.cdn_url} class="text-base-content/60">{gettext("CDN")}</dt>
+          <dd :if={@bucket.cdn_url} class="font-mono break-all">{@bucket.cdn_url}</dd>
+
+          <dt class="text-base-content/60">{gettext("Created")}</dt>
+          <dd>{format_time(@bucket.inserted_at)}</dd>
+
+          <dt class="text-base-content/60">{gettext("Updated")}</dt>
+          <dd>{format_time(@bucket.updated_at)}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <%!-- 2. Used by --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-usage">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-server-stack" class="w-5 h-5" /> {gettext("Used by")}
+        </h2>
+
+        <%= if @usage == [] do %>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "No storage profile uses this bucket, so it receives and serves nothing. Add it to a profile to start using it."
+            )}
+          </p>
+        <% else %>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>{gettext("Storage profile")}</th>
+                  <th>{gettext("Role")}</th>
+                  <th>{gettext("Libraries")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={row <- @usage} id={"bucket-usage-#{row.profile_uuid}"}>
+                  <td>
+                    <%= if is_binary(row.owner_uuid) do %>
+                      <span class="text-base-content/60">
+                        {gettext("A personal storage profile")}
+                      </span>
+                    <% else %>
+                      <span class="font-semibold">{row.name}</span>
+                      <span :if={row.is_default} class="badge badge-ghost badge-sm">
+                        {gettext("Default")}
+                      </span>
+                    <% end %>
+                  </td>
+                  <td>
+                    {role_label(row.role)}
+                    <span :if={row.status != "active"} class="badge badge-warning badge-sm">
+                      {status_label(row.status)}
+                    </span>
+                  </td>
+                  <td class="text-sm">
+                    <% libs = Map.get(@libraries_by_profile, row.profile_uuid) %>
+                    <%= if libs do %>
+                      {Enum.join(libs.names, ", ")}
+                      <span :if={libs.user_libraries > 0} class="text-base-content/60">
+                        <%= if libs.names != [] do %>
+                          +
+                        <% end %>
+                        {ngettext(
+                          "%{count} personal library",
+                          "%{count} personal libraries",
+                          libs.user_libraries
+                        )}
+                      </span>
+                    <% else %>
+                      {ngettext("%{count} library", "%{count} libraries", row.libraries)}
+                    <% end %>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-base-content/60">
+            {gettext("Change a bucket's role, order or status on the Storage profiles tab.")}
+          </p>
+        <% end %>
+
+        <form
+          :if={@addable_profiles != []}
+          id="bucket-add-to-profile"
+          phx-submit="add_to_profile"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <.select
+            id="bucket-add-profile-select"
+            name="profile_uuid"
+            value=""
+            class="select-sm"
+            options={Enum.map(@addable_profiles, &{&1.name, &1.uuid})}
+          />
+          <button type="submit" class="btn btn-sm btn-primary">
+            <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add to profile")}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <%!-- 3. Contents --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-contents">
+      <div class="card-body gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="card-title text-lg">
+            <.icon name="hero-circle-stack" class="w-5 h-5" /> {gettext("Contents")}
+          </h2>
+          <button type="button" phx-click="refresh" class="btn btn-ghost btn-xs">
+            <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Refresh")}
+          </button>
+        </div>
+
+        <%= cond do %>
+          <% @contents_failed? -> %>
+            <p class="text-sm text-error">{gettext("The contents could not be read.")}</p>
+          <% is_nil(@contents) -> %>
+            <span class="loading loading-dots loading-sm"></span>
+          <% true -> %>
+            <div class="stats stats-vertical sm:stats-horizontal shadow-none border border-base-200">
+              <div class="stat">
+                <div class="stat-title">{gettext("Files")}</div>
+                <div class="stat-value text-2xl" id="bucket-files-count">{@contents.files}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-title">{gettext("Objects")}</div>
+                <div class="stat-value text-2xl" id="bucket-objects-count">
+                  {@contents.objects}
+                </div>
+              </div>
+              <div class="stat">
+                <div class="stat-title">{gettext("Size")}</div>
+                <div class="stat-value text-2xl" id="bucket-bytes">
+                  {format_bytes(@contents.bytes)}
+                </div>
+              </div>
+            </div>
+
+            <p class="text-sm text-base-content/70" id="bucket-originals">
+              {gettext(
+                "%{originals} originals (%{original_size}), %{derived} derived (%{derived_size})",
+                originals: @contents.original_objects,
+                original_size: format_bytes(@contents.original_bytes),
+                derived: @contents.derived_objects,
+                derived_size: format_bytes(@contents.derived_bytes)
+              )}
+            </p>
+
+            <% percent = capacity_percent(@bucket, @contents) %>
+            <div :if={percent} id="bucket-capacity">
+              <progress
+                class={["progress w-full", percent >= 90 && "progress-error"]}
+                value={percent}
+                max="100"
+              ></progress>
+              <p class="text-xs text-base-content/60">
+                {gettext("%{percent}% of the configured %{max}",
+                  percent: percent,
+                  max: format_bytes(@bucket.max_size_mb * 1_048_576)
+                )}
+              </p>
+            </div>
+            <p
+              :if={@bucket.provider == "local" && @free_space_mb}
+              class="text-xs text-base-content/60"
+            >
+              {gettext("%{free} free on the disk",
+                free: format_bytes(round(@free_space_mb * 1_048_576))
+              )}
+            </p>
+
+            <div :if={@contents.libraries != [] or @contents.personal.libraries > 0}>
+              <h3 class="font-semibold text-sm mb-1">{gettext("By library")}</h3>
+              <table class="table table-sm" id="bucket-libraries">
+                <tbody>
+                  <tr :for={lib <- @contents.libraries}>
+                    <td>{lib.name}</td>
+                    <td class="text-right">
+                      {ngettext("%{count} file", "%{count} files", lib.files)}
+                    </td>
+                    <td class="text-right">{format_bytes(lib.bytes)}</td>
+                  </tr>
+                  <tr :if={@contents.personal.libraries > 0}>
+                    <td class="text-base-content/60">
+                      {ngettext(
+                        "%{count} personal library",
+                        "%{count} personal libraries",
+                        @contents.personal.libraries
+                      )}
+                    </td>
+                    <td class="text-right">
+                      {ngettext("%{count} file", "%{count} files", @contents.personal.files)}
+                    </td>
+                    <td class="text-right">{format_bytes(@contents.personal.bytes)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- 4. Health --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-health">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-heart" class="w-5 h-5" /> {gettext("Health")}
+        </h2>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            id="bucket-probe"
+            type="button"
+            phx-click="probe"
+            class="btn btn-sm btn-outline"
+            disabled={@probing?}
+          >
+            <%= if @probing? do %>
+              <span class="loading loading-spinner loading-xs"></span>
+            <% else %>
+              <.icon name="hero-signal" class="w-4 h-4" />
+            <% end %>
+            {gettext("Test connection")}
+          </button>
+          <span :if={is_nil(@probe)} class="text-xs text-base-content/60">
+            {gettext(
+              "Writes, reads and deletes a small test object. Not run when the page opens."
+            )}
+          </span>
+        </div>
+
+        <div :if={@probe} id="bucket-probe-result">
+          <%= if @probe.ok? do %>
+            <div class="alert alert-success alert-soft py-2">
+              <.icon name="hero-check-circle" class="w-5 h-5" />
+              <span>
+                {gettext("Connection works")}
+                <%= if @probe.ms do %>
+                  · {@probe.ms} ms
+                <% end %>
+              </span>
+            </div>
+          <% else %>
+            <div class="alert alert-error alert-soft py-2">
+              <.icon name="hero-x-circle" class="w-5 h-5" />
+              <span>{gettext("Connection failed")}: {@probe.error}</span>
+            </div>
+          <% end %>
+          <p class="text-xs text-base-content/60 mt-1">
+            {gettext("Tested %{time}", time: format_time(@probe.at))}
+          </p>
+        </div>
+
+        <%= if @location_health do %>
+          <dl
+            class="grid grid-cols-1 sm:grid-cols-[14rem_1fr] gap-x-4 gap-y-1 text-sm"
+            id="bucket-location-health"
+          >
+            <dt class="text-base-content/60">{gettext("Copies stored here")}</dt>
+            <dd>{@location_health.active}</dd>
+            <dt class="text-base-content/60">{gettext("Copies being made")}</dt>
+            <dd>{@location_health.syncing}</dd>
+            <dt class="text-base-content/60">{gettext("Copies that failed")}</dt>
+            <dd class={@location_health.failed > 0 && "text-error font-semibold"}>
+              {@location_health.failed}
+            </dd>
+            <dt class="text-base-content/60">{gettext("Last verified")}</dt>
+            <dd>{format_time(@location_health.last_verified_at) || gettext("Never")}</dd>
+            <dt
+              :if={@unchecked_instances && @unchecked_instances > 0}
+              class="text-base-content/60"
+            >
+              {gettext("Not yet checked against any bucket")}
+            </dt>
+            <dd :if={@unchecked_instances && @unchecked_instances > 0}>
+              {@unchecked_instances}
+            </dd>
+          </dl>
+        <% end %>
+
+        <div
+          :if={draining?(@usage) && @contents}
+          class="alert alert-warning alert-soft py-2"
+          id="bucket-draining"
+        >
+          <.icon name="hero-arrow-path" class="w-5 h-5" />
+          <span>
+            {ngettext(
+              "This bucket is draining: %{count} file is still stored here and will be moved off by the reconciler.",
+              "This bucket is draining: %{count} files are still stored here and will be moved off by the reconciler.",
+              @contents.files
+            )}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <%!-- 6. Log --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-log">
+      <div class="card-body gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="card-title text-lg">
+            <.icon name="hero-clipboard-document-list" class="w-5 h-5" /> {gettext("Log")}
+          </h2>
+          <form id="bucket-log-filter" phx-change="log_filter">
+            <.select
+              id="bucket-log-filter-select"
+              name="filter"
+              value={@log_filter}
+              class="select-sm"
+              options={[{gettext("Everything"), "all"}, {gettext("Failures only"), "failures"}]}
+            />
+          </form>
+        </div>
+
+        <%= if @log == :unavailable do %>
+          <p class="text-sm text-base-content/70" id="bucket-log-unavailable">
+            {gettext("The log is not available. Run the database update to create it.")}
+          </p>
+        <% else %>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "Failed writes, reads and deletes on this bucket, and every connection test, with how long the test took. Kept for %{days} days.",
+              days: @log_retention_days
+            )}
+          </p>
+
+          <div :if={@log_summary} class="flex flex-wrap gap-6" id="bucket-log-summary">
+            <div>
+              <div class="text-xs text-base-content/60">
+                {gettext("Failures in the last 24 hours")}
+              </div>
+              <div
+                id="bucket-log-failures"
+                class={["text-2xl font-semibold", @log_summary.failures_24h > 0 && "text-error"]}
+              >
+                {@log_summary.failures_24h}
+              </div>
+            </div>
+            <div :if={@log_summary.last_failure}>
+              <div class="text-xs text-base-content/60">{gettext("Last failure")}</div>
+              <div class="text-sm" id="bucket-log-last-failure">
+                {format_time(@log_summary.last_failure.last_at)} · {kind_label(
+                  @log_summary.last_failure.kind
+                )}
+              </div>
+            </div>
+            <div :if={@log_summary.probes != []} id="bucket-log-latency">
+              <div class="text-xs text-base-content/60">
+                {gettext("Connection test time, latest %{count}",
+                  count: length(@log_summary.probes)
+                )}
+              </div>
+              <div class="flex items-end gap-1 h-10 mt-1">
+                <div
+                  :for={entry <- @log_summary.probes}
+                  class={["w-2 rounded-sm", (entry.ok && "bg-success") || "bg-error"]}
+                  style={"height: #{bar_height(entry, @log_summary.probes)}%"}
+                  title={"#{format_time(entry.last_at)} · #{entry.latency_ms || "?"} ms"}
+                >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="table table-sm" id="bucket-log-table">
+              <thead>
+                <tr>
+                  <th>{gettext("When")}</th>
+                  <th>{gettext("What")}</th>
+                  <th>{gettext("Result")}</th>
+                  <th>{gettext("Time")}</th>
+                  <th>{gettext("Message")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :if={@log && @log.entries == []}>
+                  <td colspan="5" class="text-center text-base-content/50 py-6">
+                    {gettext("Nothing logged yet.")}
+                  </td>
+                </tr>
+                <tr :for={entry <- (@log && @log.entries) || []} id={"bucket-log-#{entry.uuid}"}>
+                  <td class="whitespace-nowrap text-xs">{format_time(entry.last_at)}</td>
+                  <td>{kind_label(entry.kind)}</td>
+                  <td>
+                    <span :if={entry.ok} class="badge badge-success badge-sm">{gettext("OK")}</span>
+                    <span :if={!entry.ok} class="badge badge-error badge-sm">
+                      {gettext("Failed")}
+                    </span>
+                    <span :if={entry.count > 1} class="text-xs text-base-content/60">
+                      × {entry.count}
+                    </span>
+                  </td>
+                  <td class="text-xs">
+                    {if entry.latency_ms, do: "#{entry.latency_ms} ms"}
+                  </td>
+                  <td class="text-xs break-all max-w-md">
+                    {BucketLog.safe_message(entry.message)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div :if={@log && @log.total_pages > 1} class="flex justify-center gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline"
+              phx-click="log_page"
+              phx-value-page={max(1, @log.page - 1)}
+              disabled={@log.page <= 1}
+            >
+              {gettext("Previous")}
+            </button>
+            <span class="btn btn-sm btn-ghost no-animation">
+              {gettext("Page %{page} of %{pages}", page: @log.page, pages: @log.total_pages)}
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline"
+              phx-click="log_page"
+              phx-value-page={min(@log.total_pages, @log.page + 1)}
+              disabled={@log.page >= @log.total_pages}
+            >
+              {gettext("Next")}
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- 5. History --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-history">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-clock" class="w-5 h-5" /> {gettext("History")}
+        </h2>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Who changed this bucket and its place in the storage profiles. These entries are kept permanently."
+          )}
+        </p>
+        <.activity_list
+          :if={@history}
+          id="bucket-history-list"
+          entries={@history.entries}
+          detail_links={can_view_activity?(assigns)}
+          empty={gettext("Nothing recorded yet.")}
+        />
+        <div :if={@history && @history.total_pages > 1} class="flex justify-center gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline"
+            phx-click="history_page"
+            phx-value-page={max(1, @history_page - 1)}
+            disabled={@history_page <= 1}
+          >
+            {gettext("Previous")}
+          </button>
+          <span class="btn btn-sm btn-ghost no-animation">
+            {gettext("Page %{page} of %{pages}", page: @history_page, pages: @history.total_pages)}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline"
+            phx-click="history_page"
+            phx-value-page={min(@history.total_pages, @history_page + 1)}
+            disabled={@history_page >= @history.total_pages}
+          >
+            {gettext("Next")}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

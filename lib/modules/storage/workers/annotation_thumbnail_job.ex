@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnailJob do
   Oban isn't running). Returns `:ok` regardless.
   """
   def enqueue(file_uuid) when is_binary(file_uuid) do
-    if AnnotationThumbnail.enabled?() do
+    if AnnotationThumbnail.enabled_for_file_uuid?(file_uuid) do
       %{file_uuid: file_uuid}
       |> new(schedule_in: @debounce_seconds)
       |> Oban.insert()

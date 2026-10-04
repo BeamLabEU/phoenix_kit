@@ -315,7 +315,8 @@ defmodule PhoenixKit.Email.LayoutTest do
       assert log =~ "has no {{{content}}} placeholder"
 
       # Once per roots and locale, not on every send.
-      assert capture_log(fn -> Layout.wrap("<p>again</p>", "s", paths: [root]) end) == ""
+      refute capture_log(fn -> Layout.wrap("<p>again</p>", "s", paths: [root]) end) =~
+               "has no {{{content}}} placeholder"
 
       assert capture_log(fn -> Layout.wrap("<p>x</p>", "s", paths: [root], locale: "de") end) =~
                "has no {{{content}}} placeholder"
@@ -561,6 +562,190 @@ defmodule PhoenixKit.Email.LayoutTest do
       refute Layout.valid_group?("a/b")
       refute Layout.valid_group?("")
       refute Layout.valid_group?(nil)
+    end
+  end
+
+  describe "render_parts/2" do
+    @branding %{"logo_url" => "", "accent_color" => "#1d4ed8"}
+
+    test "without host files: core's header and footer, and the variables they saw" do
+      parts = Layout.render_parts("Hi", paths: [], branding: @branding)
+
+      site_name = Settings.get_project_title()
+
+      assert parts.header == escape(site_name)
+
+      assert parts.footer ==
+               escape(site_name) <>
+                 ~s(<br><a href="#{Routes.base_url()}" style="color:#71717a;">#{Routes.base_url()}</a>)
+
+      assert parts.variables == %{
+               "subject" => "Hi",
+               "site_name" => site_name,
+               "site_url" => Routes.base_url(),
+               "logo_url" => "",
+               "accent_color" => "#1d4ed8"
+             }
+
+      assert parts.sources == %{header: :default, footer: :default, ignored: []}
+    end
+
+    test "a host _header and _footer are used, with their sources", %{tmp_dir: root} do
+      write(root, "_header", "html.html", "<b>{{site_name}}</b>")
+      write(root, "_footer", "html.html", "<i>{{accent_color}}</i>")
+
+      parts = Layout.render_parts("s", paths: [root], branding: @branding)
+
+      assert parts.header == "<b>#{escape(Settings.get_project_title())}</b>"
+      assert parts.footer == "<i>#1d4ed8</i>"
+
+      assert parts.sources == %{
+               header: {:file, Path.join([root, "_header", "html.html"])},
+               footer: {:file, Path.join([root, "_footer", "html.html"])},
+               ignored: []
+             }
+    end
+
+    test "a group: its own part, else the shared one, else core's", %{tmp_dir: root} do
+      write(root, "_header-newsletter", "html.html", "group-header")
+      write(root, "_header", "html.html", "shared-header")
+      write(root, "_footer", "html.html", "shared-footer")
+
+      grouped = Layout.render_parts("s", paths: [root], group: "newsletter", branding: @branding)
+      assert {grouped.header, grouped.footer} == {"group-header", "shared-footer"}
+
+      shared = Layout.render_parts("s", paths: [root], branding: @branding)
+      assert {shared.header, shared.footer} == {"shared-header", "shared-footer"}
+
+      other = Layout.render_parts("s", paths: [root], group: "billing", branding: @branding)
+      assert other.header == "shared-header"
+
+      core = Layout.render_parts("s", paths: [], group: "newsletter", branding: @branding)
+      assert core.sources == %{header: :default, footer: :default, ignored: []}
+    end
+
+    test "the reader's locale picks the locale file", %{tmp_dir: root} do
+      write(root, "_footer", "html.html", "any-footer")
+      write(root, "_footer", "html.de.html", "de-footer")
+      write(root, "_header-newsletter", "html.et.html", "et-group-header")
+      write(root, "_header", "html.html", "any-header")
+
+      de = Layout.render_parts("s", paths: [root], locale: "de", branding: @branding)
+      fr = Layout.render_parts("s", paths: [root], locale: "fr", branding: @branding)
+
+      assert {de.header, de.footer} == {"any-header", "de-footer"}
+      assert {fr.header, fr.footer} == {"any-header", "any-footer"}
+
+      et =
+        Layout.render_parts("s",
+          paths: [root],
+          locale: "et",
+          group: "newsletter",
+          branding: @branding
+        )
+
+      assert et.header == "et-group-header"
+
+      ru = Layout.render_parts("s", paths: [root], locale: "ru", group: "newsletter")
+      assert ru.header == "any-header"
+    end
+
+    test "branding: the logo in core's header; invalid values read as none" do
+      logo =
+        Layout.render_parts("s",
+          paths: [],
+          branding: %{"logo_url" => "https://a.test/logo.jpg", "accent_color" => "#1d4ed8"}
+        )
+
+      assert logo.header =~ ~s(<img src="https://a.test/logo.jpg")
+      assert logo.variables["logo_url"] == "https://a.test/logo.jpg"
+
+      bad =
+        Layout.render_parts("s",
+          paths: [],
+          branding: %{"logo_url" => "javascript:alert(1)", "accent_color" => "red;x:url(y)"}
+        )
+
+      refute bad.header =~ "<img"
+      assert bad.variables["logo_url"] == ""
+      assert bad.variables["accent_color"] == "#18181b"
+    end
+
+    test "an empty or blank file counts as missing and is reported", %{tmp_dir: root} do
+      write(root, "_header-newsletter", "html.html", "")
+      write(root, "_header", "html.html", " \n ")
+      write(root, "_footer", "html.html", "")
+
+      parts = Layout.render_parts("s", paths: [root], group: "newsletter", branding: @branding)
+
+      assert parts.header == escape(Settings.get_project_title())
+      assert parts.footer =~ "<br>"
+
+      assert parts.sources == %{
+               header: :default,
+               footer: :default,
+               ignored: [
+                 {:blank_file, Path.join([root, "_header-newsletter", "html.html"])},
+                 {:blank_file, Path.join([root, "_header", "html.html"])},
+                 {:blank_file, Path.join([root, "_footer", "html.html"])}
+               ]
+             }
+    end
+
+    test "variables in the parts are escaped where written with two braces; nil subject",
+         %{tmp_dir: root} do
+      write(root, "_header", "html.html", "<h1>{{subject}}</h1>")
+
+      assert Layout.render_parts("<i>s</i>", paths: [root]).header ==
+               "<h1>&lt;i&gt;s&lt;/i&gt;</h1>"
+
+      parts = Layout.render_parts(nil, paths: [root])
+      assert parts.header == "<h1></h1>"
+      assert parts.variables["subject"] == ""
+    end
+
+    test "an invalid group is ignored, with one warning per call", %{tmp_dir: root} do
+      write(root, "_header", "html.html", "shared-header")
+      write(root, "_layout", "html.html", "[{{{header}}}|{{{content}}}]")
+
+      # A group name no other test uses, so the count is this call's alone.
+      group = "../render-parts-#{System.unique_integer([:positive])}"
+
+      parts_log =
+        capture_log(fn ->
+          assert Layout.render_parts("s", paths: [root], group: group).header ==
+                   "shared-header"
+        end)
+
+      render_log =
+        capture_log(fn ->
+          assert Layout.wrap("x", "s", paths: [root], group: group) == "[shared-header|x]"
+        end)
+
+      for log <- [parts_log, render_log] do
+        assert length(Regex.scan(~r/#{Regex.escape(inspect(group))} is not a valid group/, log)) ==
+                 1
+      end
+    end
+
+    test "render/3 places exactly these parts", %{tmp_dir: root} do
+      write(root, "_layout", "html.html", "[{{{header}}}|{{{content}}}|{{{footer}}}]")
+      write(root, "_header-newsletter", "html.de.html", "<b>{{subject}}</b>")
+      write(root, "_footer", "html.html", "")
+
+      for opts <- [
+            [paths: [root], branding: @branding],
+            [paths: [root], group: "newsletter", locale: "de", branding: @branding],
+            [paths: [root], group: "newsletter", locale: "fr"]
+          ] do
+        parts = Layout.render_parts("<s>", opts)
+        {html, sources} = Layout.render("<p>x</p>", "<s>", opts)
+
+        assert html == "[#{parts.header}|<p>x</p>|#{parts.footer}]"
+        assert sources.header == parts.sources.header
+        assert sources.footer == parts.sources.footer
+        assert sources.ignored == parts.sources.ignored
+      end
     end
   end
 

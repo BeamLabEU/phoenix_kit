@@ -414,6 +414,45 @@
               </:description>
             </.checkbox>
           </div>
+
+          <fieldset :if={@mode == :new} class="fieldset">
+            <legend class="fieldset-legend font-semibold">{gettext("Storage profile")}</legend>
+            <.select
+              name="bucket[profile_uuid]"
+              value={@profile_uuid}
+              options={
+                [{gettext("None: just add the bucket"), ""}] ++
+                  Enum.map(@profiles, &{profile_label(&1), &1.uuid})
+              }
+            />
+            <p class="text-xs text-base-content/50 mt-1">
+              {if @profile_uuid in [nil, ""],
+                do:
+                  gettext(
+                    "The bucket is only added to the system: it receives and serves nothing until a storage profile lists it (Storage profiles tab)."
+                  ),
+                else:
+                  gettext(
+                    "The bucket joins this profile as a primary (written and served), and the profile's files are placed again. Change its role there."
+                  )}
+            </p>
+          </fieldset>
+
+          <div :if={@usage != []} class="alert alert-info alert-soft text-sm" role="note">
+            <.icon name="hero-lock-closed" class="w-5 h-5 shrink-0" />
+            <div>
+              <p class="font-semibold">{gettext("This bucket is in use")}</p>
+              <p>
+                {gettext(
+                  "It is used by %{used_by}. It cannot be disabled or deleted until it is taken out of those storage profiles.",
+                  used_by: BucketUsage.used_by_text(@usage)
+                )}
+              </p>
+              <.pk_link navigate="/admin/settings/media?tab=profiles" class="link link-primary">
+                {gettext("Open the storage profiles")}
+              </.pk_link>
+            </div>
+          </div>
         </div>
       </div>
 

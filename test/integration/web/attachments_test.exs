@@ -10,6 +10,8 @@ defmodule PhoenixKitWeb.AttachmentsTest do
   import ExUnit.CaptureLog
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
   alias PhoenixKitWeb.Attachments
 
@@ -18,9 +20,9 @@ defmodule PhoenixKitWeb.AttachmentsTest do
   setup do
     :persistent_term.erase(@buckets_cache)
 
-    # Stored files go to every enabled bucket; keep them all in this one.
-    for bucket <- Storage.list_enabled_buckets(),
-        do: {:ok, _} = Storage.update_bucket(bucket, %{enabled: false})
+    # Stored files go to every enabled bucket; keep them all in this one. Set on
+    # the table: `update_bucket/3` refuses to disable a bucket a profile lists.
+    Repo.update_all(Bucket, set: [enabled: false])
 
     n = System.unique_integer([:positive])
     tmp_root = Path.join(System.tmp_dir!(), "pk_attachments_#{n}")

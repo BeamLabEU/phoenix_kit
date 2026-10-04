@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.BucketCredentials
+  alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.Providers.S3
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
@@ -115,6 +116,61 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
 
       assert %{integration_uuid: ^uuid, access_key_id: nil, secret_access_key: nil} =
                Storage.get_bucket_by_name("R2 media")
+    end
+
+    test "creating a bucket that makes the Default spread files says so", %{conn: conn} do
+      uuid = connection("acct", %{"service" => "cloudflare_r2"})
+      {:ok, view, _html} = live(conn, @new_path)
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "cloud"}})
+
+      render_change(view, "validate", %{
+        "bucket" => %{
+          "storage_type" => "cloud",
+          "provider" => "s3",
+          "integration_uuid" => uuid,
+          "name" => "Second",
+          "bucket_name" => "media"
+        }
+      })
+
+      # The notice is about the profile the bucket joined: here, the Default.
+      result =
+        view
+        |> form("#bucket-form", %{"bucket" => %{"profile_uuid" => Profiles.default_uuid()}})
+        |> render_submit()
+
+      assert {:error, {:live_redirect, _}} = result
+
+      {:ok, _view, html} = follow_redirect(result, conn)
+      assert html =~ "Bucket created successfully"
+      assert html =~ "files are spread across them, not mirrored"
+    end
+
+    test "a bucket created in no profile says nothing is written to it yet", %{conn: conn} do
+      uuid = connection("acct", %{"service" => "cloudflare_r2"})
+      {:ok, view, _html} = live(conn, @new_path)
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "cloud"}})
+
+      render_change(view, "validate", %{
+        "bucket" => %{
+          "storage_type" => "cloud",
+          "provider" => "s3",
+          "integration_uuid" => uuid,
+          "name" => "Unplaced",
+          "bucket_name" => "media"
+        }
+      })
+
+      result = view |> form("#bucket-form") |> render_submit()
+      assert {:error, {:live_redirect, _}} = result
+
+      {:ok, _view, html} = follow_redirect(result, conn)
+      assert html =~ "Bucket created successfully"
+      assert html =~ "It is in no storage profile yet"
+      refute html =~ "spread across them"
+
+      bucket = Storage.get_bucket_by_name("Unplaced")
+      refute Enum.any?(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
     end
 
     test "picking a connection fills a blank region and endpoint from it", %{conn: conn} do

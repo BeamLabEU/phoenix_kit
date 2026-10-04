@@ -103,4 +103,63 @@ defmodule PhoenixKit.Modules.Storage.LocationBackfillTest do
     # shape of the answer is fixed here.
     assert LocationBackfillJob.maybe_enqueue() in [:queued, :nothing_to_do, :unavailable]
   end
+
+  describe "as a job run (storage.location_backfill)" do
+    alias PhoenixKit.Jobs
+    alias PhoenixKit.Jobs.Run
+    alias PhoenixKit.Modules.Storage.Jobs.LocationBackfill
+
+    setup do
+      start_supervised!(
+        {Oban, name: Oban, repo: PhoenixKit.Test.Repo, testing: :manual, queues: [], plugins: []}
+      )
+
+      :ok
+    end
+
+    test "records where each key is and reports the pass as a run", %{bucket: bucket} do
+      stored_key = "backfill/#{System.unique_integer([:positive])}/run.txt"
+
+      source =
+        Path.join(System.tmp_dir!(), "pk_backfill_run_#{System.unique_integer([:positive])}")
+
+      File.write!(source, "stored")
+      on_exit(fn -> File.rm(source) end)
+
+      {:ok, _} =
+        Manager.store_file(source, path_prefix: stored_key, force_bucket_ids: [bucket.uuid])
+
+      stored = instance!(stored_key)
+      _lost = instance!("backfill/#{System.unique_integer([:positive])}/gone2.txt")
+
+      assert {:ok, %Run{state: "completed", mode: "script", failed_count: 0} = run} =
+               Jobs.run_inline(LocationBackfill, :site)
+
+      assert run.done >= 2
+      assert run.total >= 2
+      assert run.result["outcomes"]["recorded"] >= 1
+      assert run.result["outcomes"]["missing"] >= 1
+      assert [_] = locations(stored)
+    end
+
+    test "maybe_enqueue/0 starts the run, and the old queued job starts it too" do
+      _ = instance!("backfill/#{System.unique_integer([:positive])}/queued.txt")
+
+      assert LocationBackfillJob.maybe_enqueue() == :queued
+
+      assert %Run{kind: "storage.location_backfill", mode: "auto"} =
+               Jobs.active_run(LocationBackfill.kind(), :site)
+
+      # a job queued by an earlier release, cursor and all: it joins the active run
+      assert :ok =
+               LocationBackfillJob.perform(%Oban.Job{args: %{"after" => Ecto.UUID.generate()}})
+
+      assert [_] = Repo.all(from r in Run, where: r.kind == "storage.location_backfill")
+    end
+
+    test "is declared by the storage module and needs media.manage" do
+      assert LocationBackfill in Jobs.kinds()
+      assert LocationBackfill.permission() == "media.manage"
+    end
+  end
 end

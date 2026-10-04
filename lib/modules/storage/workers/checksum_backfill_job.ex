@@ -31,18 +31,22 @@ defmodule PhoenixKit.Modules.Storage.Workers.ChecksumBackfillJob do
 
   require Logger
 
+  alias PhoenixKit.Jobs.System, as: JobsSystem
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.Jobs.ChecksumBackfill
 
   @batch_size 20
-  @pause_seconds 5
 
-  @doc "Queues a pass when any file has an MD5 checksum. Never raises."
+  @doc """
+  Starts a pass as a job run (`Storage.Jobs.ChecksumBackfill`) when any file has an
+  MD5 checksum, unless one is already active. Never raises.
+  """
   @spec maybe_enqueue() :: :queued | :nothing_to_do | :unavailable
   def maybe_enqueue do
-    if repo().exists?(md5_query(nil)) do
-      case %{} |> new() |> Oban.insert() do
-        {:ok, _job} -> :queued
+    if pending?() do
+      case JobsSystem.start(ChecksumBackfill, :site, source: "backfill") do
+        {:ok, _run, _how} -> :queued
         _ -> :unavailable
       end
     else
@@ -54,18 +58,23 @@ defmodule PhoenixKit.Modules.Storage.Workers.ChecksumBackfillJob do
     :exit, _ -> :unavailable
   end
 
+  @doc "Whether any file still has an MD5 checksum to recompute."
+  @spec pending?() :: boolean()
+  def pending?, do: repo().exists?(md5_query(nil))
+
+  @doc "How many files still have an MD5 checksum to recompute."
+  @spec pending_count() :: non_neg_integer()
+  def pending_count, do: repo().aggregate(md5_query(nil), :count)
+
+  # The pass is a job run now. A job queued by an earlier release starts that run
+  # and ends: its old cursor is dropped, which is safe — a file already recomputed
+  # is not a candidate any more. This clause stays until `mix phoenix_kit.doctor`
+  # finds no job left for it.
   @impl Oban.Worker
-  def perform(%Oban.Job{args: args}) do
-    case run_batch(args["after"], %{}) do
-      {:more, last_uuid, _totals} ->
-        {:ok, _job} =
-          %{"after" => last_uuid} |> new(schedule_in: @pause_seconds) |> Oban.insert()
-
-        :ok
-
-      {:done, totals} ->
-        Logger.info("ChecksumBackfillJob: pass finished #{inspect(totals)}")
-        :ok
+  def perform(%Oban.Job{}) do
+    case JobsSystem.start(ChecksumBackfill, :site, source: "backfill") do
+      {:error, reason} -> {:error, reason}
+      _started_or_existing -> :ok
     end
   end
 
@@ -84,7 +93,9 @@ defmodule PhoenixKit.Modules.Storage.Workers.ChecksumBackfillJob do
     end
   end
 
-  defp run_batch(cursor, totals) do
+  # One batch after `cursor`; what `Storage.Jobs.ChecksumBackfill` calls for each.
+  @doc false
+  def run_batch(cursor, totals) do
     batch =
       cursor
       |> md5_query()
