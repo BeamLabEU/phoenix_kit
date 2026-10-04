@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.BucketCredentials
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.Locations
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
@@ -60,7 +61,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
      |> assign(:probing?, false)
      |> assign(:probe, nil)
      |> assign(:history, nil)
-     |> assign(:history_page, 1)}
+     |> assign(:history_page, 1)
+     |> assign(:log, nil)
+     |> assign(:log_summary, nil)
+     |> assign(:log_filter, "all")
+     |> assign(:log_page, 1)
+     |> assign(:log_retention_days, nil)}
   end
 
   def handle_params(%{"id" => id}, _uri, socket) do
@@ -78,8 +84,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
          |> assign(:page_title, bucket.name)
          |> assign(:connections, BucketInfo.connections())
          |> assign(:history_page, 1)
+         |> assign(:log_page, 1)
          |> load_usage()
          |> load_history()
+         |> load_log()
          |> load_async()}
     end
   end
@@ -189,8 +197,18 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
     end
   end
 
+  def handle_event("log_filter", %{"filter" => filter}, socket) when filter in ~w(all failures),
+    do: {:noreply, socket |> assign(log_filter: filter, log_page: 1) |> load_log()}
+
+  def handle_event("log_page", %{"page" => page}, socket) do
+    case Integer.parse(to_string(page)) do
+      {page, ""} when page > 0 -> {:noreply, socket |> assign(:log_page, page) |> load_log()}
+      _ -> {:noreply, socket}
+    end
+  end
+
   def handle_event("refresh", _params, socket),
-    do: {:noreply, socket |> load_usage() |> load_history() |> load_async()}
+    do: {:noreply, socket |> load_usage() |> load_history() |> load_log() |> load_async()}
 
   # ---- async results ----
 
@@ -209,7 +227,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
     do: {:noreply, assign(socket, :contents_failed?, true)}
 
   def handle_async(:probe, {:ok, {result, ms}}, socket) do
-    {:noreply, assign(socket, probing?: false, probe: probe_result(result, ms))}
+    {:noreply, socket |> assign(probing?: false, probe: probe_result(result, ms)) |> load_log()}
   end
 
   def handle_async(:probe, {:exit, _reason}, socket) do
@@ -266,6 +284,40 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
     assign(socket, usage: usage, libraries_by_profile: libraries, addable_profiles: addable)
   end
 
+  # The log is read afresh each time the page opens, a filter changes or a
+  # probe finishes. A host that has not run V208 yet has no table: the page
+  # says so rather than failing.
+  defp load_log(socket) do
+    uuid = socket.assigns.bucket.uuid
+    filter = if socket.assigns.log_filter == "failures", do: :failures, else: :all
+
+    summary = BucketLog.summary(uuid)
+
+    log =
+      BucketLog.recent(uuid, page: socket.assigns.log_page, per_page: 10, filter: filter)
+
+    # What the last probe said outlives a reload: it comes from the log until
+    # this session has probed.
+    probe =
+      socket.assigns.probe ||
+        case summary.last_probe do
+          nil -> nil
+          entry -> probe_from_entry(entry)
+        end
+
+    assign(socket,
+      log: log,
+      log_page: log.page,
+      log_summary: summary,
+      log_retention_days: BucketLog.retention_days(),
+      probe: probe
+    )
+  rescue
+    _ -> assign(socket, log: :unavailable, log_summary: nil)
+  catch
+    :exit, _ -> assign(socket, log: :unavailable, log_summary: nil)
+  end
+
   defp load_async(socket) do
     bucket = socket.assigns.bucket
 
@@ -311,6 +363,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
           (e.resource_uuid == ^uuid or fragment("?->>'bucket_uuid' = ?", e.metadata, ^uuid))
     )
   end
+
+  defp probe_from_entry(entry),
+    do: %{ok?: entry.ok, error: entry.message, ms: entry.latency_ms, at: entry.last_at}
 
   defp probe_result(:ok, ms), do: %{ok?: true, error: nil, ms: ms, at: DateTime.utc_now()}
 
@@ -362,6 +417,21 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
     do: min(100, round(bytes / (max * 1_048_576) * 100))
 
   defp capacity_percent(_bucket, _contents), do: nil
+
+  defp kind_label("probe"), do: gettext("Probe")
+  defp kind_label("write"), do: gettext("Write")
+  defp kind_label("read"), do: gettext("Read")
+  defp kind_label("delete"), do: gettext("Delete")
+  defp kind_label(other), do: to_string(other)
+
+  # Bar heights for the probe latency chart: each probe as a share of the
+  # slowest one shown, never invisible.
+  defp bar_height(%{latency_ms: ms}, probes) when is_integer(ms) do
+    max = probes |> Enum.map(&(&1.latency_ms || 0)) |> Enum.max(fn -> 1 end) |> max(1)
+    max(4, round(ms / max * 100))
+  end
+
+  defp bar_height(_entry, _probes), do: 4
 
   defp format_time(nil), do: nil
   defp format_time(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M:%S UTC")

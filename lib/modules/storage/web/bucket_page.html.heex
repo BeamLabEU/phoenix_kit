@@ -410,6 +410,139 @@
       </div>
     </div>
 
+    <%!-- 6. Log --%>
+    <div class="card bg-base-100 shadow-sm" id="bucket-log">
+      <div class="card-body gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="card-title text-lg">
+            <.icon name="hero-clipboard-document-list" class="w-5 h-5" /> {gettext("Log")}
+          </h2>
+          <form id="bucket-log-filter" phx-change="log_filter">
+            <.select
+              id="bucket-log-filter-select"
+              name="filter"
+              value={@log_filter}
+              class="select-sm"
+              options={[{gettext("Everything"), "all"}, {gettext("Failures only"), "failures"}]}
+            />
+          </form>
+        </div>
+
+        <%= if @log == :unavailable do %>
+          <p class="text-sm text-base-content/70" id="bucket-log-unavailable">
+            {gettext("The log is not available. Run the database update to create it.")}
+          </p>
+        <% else %>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "Failed writes, reads and deletes on this bucket, and every connection test, with how long the test took. Kept for %{days} days.",
+              days: @log_retention_days
+            )}
+          </p>
+
+          <div :if={@log_summary} class="flex flex-wrap gap-6" id="bucket-log-summary">
+            <div>
+              <div class="text-xs text-base-content/60">
+                {gettext("Failures in the last 24 hours")}
+              </div>
+              <div
+                id="bucket-log-failures"
+                class={["text-2xl font-semibold", @log_summary.failures_24h > 0 && "text-error"]}
+              >
+                {@log_summary.failures_24h}
+              </div>
+            </div>
+            <div :if={@log_summary.last_failure}>
+              <div class="text-xs text-base-content/60">{gettext("Last failure")}</div>
+              <div class="text-sm" id="bucket-log-last-failure">
+                {format_time(@log_summary.last_failure.last_at)} · {kind_label(
+                  @log_summary.last_failure.kind
+                )}
+              </div>
+            </div>
+            <div :if={@log_summary.probes != []} id="bucket-log-latency">
+              <div class="text-xs text-base-content/60">
+                {gettext("Connection test time, latest %{count}",
+                  count: length(@log_summary.probes)
+                )}
+              </div>
+              <div class="flex items-end gap-1 h-10 mt-1">
+                <div
+                  :for={entry <- @log_summary.probes}
+                  class={["w-2 rounded-sm", (entry.ok && "bg-success") || "bg-error"]}
+                  style={"height: #{bar_height(entry, @log_summary.probes)}%"}
+                  title={"#{format_time(entry.last_at)} · #{entry.latency_ms || "?"} ms"}
+                >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="table table-sm" id="bucket-log-table">
+              <thead>
+                <tr>
+                  <th>{gettext("When")}</th>
+                  <th>{gettext("What")}</th>
+                  <th>{gettext("Result")}</th>
+                  <th>{gettext("Time")}</th>
+                  <th>{gettext("Message")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :if={@log && @log.entries == []}>
+                  <td colspan="5" class="text-center text-base-content/50 py-6">
+                    {gettext("Nothing logged yet.")}
+                  </td>
+                </tr>
+                <tr :for={entry <- (@log && @log.entries) || []} id={"bucket-log-#{entry.uuid}"}>
+                  <td class="whitespace-nowrap text-xs">{format_time(entry.last_at)}</td>
+                  <td>{kind_label(entry.kind)}</td>
+                  <td>
+                    <span :if={entry.ok} class="badge badge-success badge-sm">{gettext("OK")}</span>
+                    <span :if={!entry.ok} class="badge badge-error badge-sm">
+                      {gettext("Failed")}
+                    </span>
+                    <span :if={entry.count > 1} class="text-xs text-base-content/60">
+                      × {entry.count}
+                    </span>
+                  </td>
+                  <td class="text-xs">
+                    {if entry.latency_ms, do: "#{entry.latency_ms} ms"}
+                  </td>
+                  <td class="text-xs break-all max-w-md">{entry.message}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div :if={@log && @log.total_pages > 1} class="flex justify-center gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline"
+              phx-click="log_page"
+              phx-value-page={max(1, @log.page - 1)}
+              disabled={@log.page <= 1}
+            >
+              {gettext("Previous")}
+            </button>
+            <span class="btn btn-sm btn-ghost no-animation">
+              {gettext("Page %{page} of %{pages}", page: @log.page, pages: @log.total_pages)}
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline"
+              phx-click="log_page"
+              phx-value-page={min(@log.total_pages, @log.page + 1)}
+              disabled={@log.page >= @log.total_pages}
+            >
+              {gettext("Next")}
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
     <%!-- 5. History --%>
     <div class="card bg-base-100 shadow-sm" id="bucket-history">
       <div class="card-body gap-3">

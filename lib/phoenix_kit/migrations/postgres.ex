@@ -7,7 +7,16 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V207 - Job runs ⚡ LATEST
+  ### V208 - Bucket log ⚡ LATEST
+
+  `phoenix_kit_bucket_log`: what went wrong with a site storage bucket (a write,
+  read or delete that failed) and what its connection probes said, with the
+  time each took, for the bucket's own page. A repeat of the same failure within
+  a minute is one row with a count. No foreign key; pruned daily to
+  `bucket_log_retention_days` (default 30).
+  `dev_docs/plans/2026-10-03-bucket-page.md`.
+
+  ### V207 - Job runs
 
   `phoenix_kit_job_runs`: a durable record of one logical piece of long
   background work — a backfill, a reconcile of one library — that Oban runs
@@ -910,7 +919,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 207
+  @current_version 208
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

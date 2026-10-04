@@ -312,6 +312,64 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
     end
   end
 
+  describe "the log" do
+    alias PhoenixKit.Modules.Storage.BucketLog
+
+    test "is empty until something is logged", ctx do
+      view = open(ctx.conn, ctx.bucket)
+
+      assert has_element?(view, "#bucket-log-table", "Nothing logged yet.")
+      assert has_element?(view, "#bucket-log-failures", "0")
+    end
+
+    test "shows failures, repeats once with their count, and the day's total", ctx do
+      for _ <- 1..3, do: BucketLog.record_failure(ctx.bucket, "write", "Disk full")
+      BucketLog.record_failure(ctx.bucket, "read", "Timed out")
+
+      view = open(ctx.conn, ctx.bucket)
+
+      assert has_element?(view, "#bucket-log-failures", "4")
+      assert has_element?(view, "#bucket-log-table", "Disk full")
+      assert has_element?(view, "#bucket-log-table", "× 3")
+      assert has_element?(view, "#bucket-log-last-failure")
+    end
+
+    test "a probe lands in the log, and the last result outlives a reload", ctx do
+      view = open(ctx.conn, ctx.bucket)
+      view |> element("#bucket-probe") |> render_click()
+      render_async(view)
+
+      assert has_element?(view, "#bucket-log-table", "Probe")
+      assert has_element?(view, "#bucket-log-latency")
+
+      # A new visit has not probed, yet the page knows what the last probe said.
+      reopened = open(ctx.conn, ctx.bucket)
+      assert has_element?(reopened, "#bucket-probe-result", "Connection works")
+    end
+
+    test "can be narrowed to failures", ctx do
+      Storage.probe_bucket(ctx.bucket)
+      BucketLog.record_failure(ctx.bucket, "delete", "Access denied")
+
+      view = open(ctx.conn, ctx.bucket)
+      assert has_element?(view, "#bucket-log-table", "Probe")
+
+      view |> form("#bucket-log-filter", %{"filter" => "failures"}) |> render_change()
+
+      refute has_element?(view, "#bucket-log-table", "Probe")
+      assert has_element?(view, "#bucket-log-table", "Access denied")
+    end
+
+    test "says so, instead of failing, where the table does not exist", ctx do
+      # A host that has not run V208 yet: the page still opens.
+      Repo.query!("DROP TABLE public.phoenix_kit_bucket_log")
+
+      view = open(ctx.conn, ctx.bucket)
+      assert has_element?(view, "#bucket-log-unavailable")
+      assert has_element?(view, "#bucket-overview")
+    end
+  end
+
   describe "history" do
     test "lists the changes to the bucket and to its place in a profile", ctx do
       {:ok, profile} =

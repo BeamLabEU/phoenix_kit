@@ -100,6 +100,7 @@ defmodule PhoenixKit.Modules.Storage do
 
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.Endpoint
@@ -708,6 +709,7 @@ defmodule PhoenixKit.Modules.Storage do
       |> tap(fn
         {:ok, deleted} ->
           audit_bucket("storage.bucket.deleted", deleted, opts, %{"name" => deleted.name})
+          BucketLog.delete_for_bucket(deleted.uuid)
 
         _error ->
           :ok
@@ -762,18 +764,36 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Probes a saved bucket: the same write, read and delete of a real object as
   `test_connection/1`, run from the stored row so no secret passes through the
-  caller's assigns. Returns `:ok` or `{:error, reason}`.
+  caller's assigns. Returns `:ok` or `{:error, reason}`. The result and how long
+  it took go to the bucket's log (`Storage.BucketLog`) when it is a site bucket.
   """
   @spec probe_bucket(Bucket.t()) :: :ok | {:error, term()}
   def probe_bucket(%Bucket{} = bucket) do
-    with :ok <- check_probe_provider(bucket),
-         :ok <- check_endpoint(bucket),
-         {:ok, provider_module} <- ProviderRegistry.get_provider(bucket.provider) do
-      probe(provider_module, bucket)
-    end
-  rescue
-    error -> {:error, "Connection test failed: #{Exception.message(error)}"}
+    started = System.monotonic_time(:millisecond)
+
+    result =
+      try do
+        with :ok <- check_probe_provider(bucket),
+             :ok <- check_endpoint(bucket),
+             {:ok, provider_module} <- ProviderRegistry.get_provider(bucket.provider) do
+          probe(provider_module, bucket)
+        end
+      rescue
+        error -> {:error, "Connection test failed: #{Exception.message(error)}"}
+      end
+
+    BucketLog.record(bucket, "probe", result == :ok,
+      latency_ms: System.monotonic_time(:millisecond) - started,
+      message: probe_message(result)
+    )
+
+    result
   end
+
+  defp probe_message(:ok), do: nil
+  defp probe_message({:error, reason}) when is_binary(reason), do: reason
+  defp probe_message({:error, reason}), do: inspect(reason, limit: 10)
+  defp probe_message(other), do: inspect(other, limit: 10)
 
   # A local bucket's check is a few file operations; a remote one talks to the
   # network, through a client that retries, so it runs in `Integrations.Probe`:

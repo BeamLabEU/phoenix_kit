@@ -56,6 +56,7 @@ config :phoenix_kit, Oban,
        {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
        {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
        {"15 4 * * *", PhoenixKit.Jobs.PruneWorker},
+       {"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker},
        # Notification digest sweeps — one per cadence (fixed windows).
        {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
        {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},

@@ -904,6 +904,7 @@ msgstr "BD / najnowsza migracja"
 msgid "DPO contact saved"
 msgstr "Kontakt do IOD zapisany"
 
+#: lib/modules/storage/web/bucket_page.ex:424
 #: lib/modules/storage/web/dimensions.html.heex:343
 #: lib/modules/storage/web/dimensions.html.heex:379
 #: lib/modules/storage/web/dimensions.html.heex:550
@@ -1452,6 +1453,7 @@ msgstr "Notatki"
 msgid "Numbered List"
 msgstr "Lista numerowana"
 
+#: lib/modules/storage/web/bucket_page.html.heex:502
 #: lib/phoenix_kit_web/components/core/modal.ex:488
 #, elixir-autogen, elixir-format
 msgid "OK"
@@ -4583,7 +4585,7 @@ msgid "Please save your Client ID first"
 msgstr "Najpierw zapisz identyfikator klienta"
 
 #: lib/modules/storage/web/bucket_form.html.heex:369
-#: lib/modules/storage/web/bucket_page.ex:345
+#: lib/modules/storage/web/bucket_page.ex:399
 #, elixir-autogen, elixir-format
 msgid "Private (proxied)"
 msgstr "Prywatne (przez proxy)"
@@ -5314,6 +5316,7 @@ msgstr "Ostatnie generowanie"
 msgid "Manage modules"
 msgstr "Zarządzaj modułami"
 
+#: lib/modules/storage/web/bucket_page.html.heex:489
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:344
 #, elixir-autogen, elixir-format
 msgid "Message"
@@ -6111,7 +6114,8 @@ msgstr[2] "Przenieść %{count} plików do kosza?"
 msgid "New folder"
 msgstr "Nowy folder"
 
-#: lib/modules/storage/web/bucket_page.html.heex:451
+#: lib/modules/storage/web/bucket_page.html.heex:539
+#: lib/modules/storage/web/bucket_page.html.heex:584
 #: lib/modules/storage/web/history_component.ex:186
 #: lib/phoenix_kit_web/components/core/preview_card.ex:210
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2484
@@ -6880,7 +6884,8 @@ msgstr "Nie znaleziono plików multimedialnych"
 msgid "Preview"
 msgstr "Podgląd"
 
-#: lib/modules/storage/web/bucket_page.html.heex:439
+#: lib/modules/storage/web/bucket_page.html.heex:527
+#: lib/modules/storage/web/bucket_page.html.heex:572
 #: lib/modules/storage/web/history_component.ex:173
 #: lib/phoenix_kit_web/components/core/preview_card.ex:201
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:137
@@ -9232,35 +9237,35 @@ msgstr "zapisano:"
 msgid "New User Defaults"
 msgstr "Wartości domyślne nowych użytkowników"
 
-#: lib/modules/storage/web/bucket_page.ex:143
+#: lib/modules/storage/web/bucket_page.ex:152
 #: lib/modules/storage/web/settings.ex:291
 #, elixir-autogen, elixir-format
 msgid "Bucket deleted successfully"
 msgstr "Zasobnik został usunięty"
 
-#: lib/modules/storage/web/bucket_page.ex:122
+#: lib/modules/storage/web/bucket_page.ex:131
 #: lib/modules/storage/web/settings.ex:214
 #, elixir-autogen, elixir-format
 msgid "Bucket disabled successfully"
 msgstr "Zasobnik został wyłączony"
 
-#: lib/modules/storage/web/bucket_page.ex:121
+#: lib/modules/storage/web/bucket_page.ex:130
 #: lib/modules/storage/web/settings.ex:213
 #, elixir-autogen, elixir-format
 msgid "Bucket enabled successfully"
 msgstr "Zasobnik został włączony"
 
 #: lib/modules/storage/web/bucket_form.ex:60
-#: lib/modules/storage/web/bucket_page.ex:70
-#: lib/modules/storage/web/bucket_page.ex:244
+#: lib/modules/storage/web/bucket_page.ex:77
+#: lib/modules/storage/web/bucket_page.ex:263
 #: lib/modules/storage/web/settings.ex:204
 #: lib/modules/storage/web/settings.ex:296
 #, elixir-autogen, elixir-format
 msgid "Bucket not found"
 msgstr "Nie znaleziono zasobnika"
 
-#: lib/modules/storage/web/bucket_page.ex:156
-#: lib/modules/storage/web/bucket_page.ex:161
+#: lib/modules/storage/web/bucket_page.ex:165
+#: lib/modules/storage/web/bucket_page.ex:170
 #: lib/modules/storage/web/settings.ex:308
 #, elixir-autogen, elixir-format
 msgid "Failed to delete bucket"
@@ -9271,7 +9276,7 @@ msgstr "Nie udało się usunąć zasobnika"
 msgid "Failed to repair: %{reason}"
 msgstr "Nie udało się naprawić: %{reason}"
 
-#: lib/modules/storage/web/bucket_page.ex:132
+#: lib/modules/storage/web/bucket_page.ex:141
 #: lib/modules/storage/web/settings.ex:224
 #, elixir-autogen, elixir-format
 msgid "Failed to update bucket"
@@ -13000,6 +13005,7 @@ msgstr "Przekieruj na produkcję"
 msgid "Redirecting visitors to production"
 msgstr "Odwiedzający są przekierowywani na produkcję"
 
+#: lib/modules/storage/web/bucket_page.html.heex:487
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:236
 #: lib/phoenix_kit_web/live/settings/website_access.ex:404
 #, elixir-autogen, elixir-format
@@ -13095,6 +13101,7 @@ msgstr "Odwiedzający proszący o publiczny adres są kierowani na tę samą śc
 msgid "Website access"
 msgstr "Dostęp do strony"
 
+#: lib/modules/storage/web/bucket_page.html.heex:485
 #: lib/phoenix_kit_web/components/core/activity_list.ex:35
 #: lib/phoenix_kit_web/live/settings/website_access.ex:403
 #, elixir-autogen, elixir-format
@@ -15752,7 +15759,7 @@ msgstr[0] "%{count} zapisany obiekt nie ma jeszcze zapisanej lokalizacji. Jest w
 msgstr[1] "%{count} zapisane obiekty nie mają jeszcze zapisanej lokalizacji. Są wyszukiwane w tle i do tego czasu nadal udostępniane."
 msgstr[2] "%{count} zapisanych obiektów nie ma jeszcze zapisanej lokalizacji. Są wyszukiwane w tle i do tego czasu nadal udostępniane."
 
-#: lib/modules/storage/web/bucket_page.ex:153
+#: lib/modules/storage/web/bucket_page.ex:162
 #: lib/modules/storage/web/settings.ex:305
 #, elixir-autogen, elixir-format
 msgid "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
@@ -15818,7 +15825,7 @@ msgstr "Dodaj zasobnik"
 msgid "Backup"
 msgstr "Kopia zapasowa"
 
-#: lib/modules/storage/web/bucket_page.ex:48
+#: lib/modules/storage/web/bucket_page.ex:50
 #: lib/modules/storage/web/profiles_component.ex:497
 #, elixir-autogen, elixir-format
 msgid "Bucket"
@@ -15889,6 +15896,7 @@ msgstr "Każdy plik tego zestawu wariantów zostanie sprawdzony, a brakujące ro
 msgid "Every library without its own set uses this one."
 msgstr "Każda biblioteka bez własnego zestawu używa tego."
 
+#: lib/modules/storage/web/bucket_page.html.heex:426
 #: lib/modules/storage/web/history_component.ex:142
 #: lib/modules/storage/web/profiles_component.ex:249
 #, elixir-autogen, elixir-format
@@ -17552,6 +17560,7 @@ msgstr "Anulowanie…"
 msgid "Duration"
 msgstr "Czas trwania"
 
+#: lib/modules/storage/web/bucket_page.html.heex:504
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:355
 #, elixir-autogen, elixir-format
@@ -17563,7 +17572,7 @@ msgstr "Nie powiodło się"
 msgid "Finished"
 msgstr "Zakończono"
 
-#: lib/modules/storage/web/bucket_page.html.heex:417
+#: lib/modules/storage/web/bucket_page.html.heex:550
 #: lib/modules/storage/web/history_component.ex:133
 #: lib/modules/storage/web/settings.ex:115
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:250
@@ -17591,7 +17600,7 @@ msgstr "Brak pasujących uruchomień."
 msgid "No sweeper pass in the last 15 minutes"
 msgstr "Brak przebiegu sweepera w ciągu ostatnich 15 minut"
 
-#: lib/modules/storage/web/bucket_page.html.heex:429
+#: lib/modules/storage/web/bucket_page.html.heex:562
 #: lib/modules/storage/web/history_component.ex:161
 #: lib/phoenix_kit_web/components/core/activity_list.ex:46
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:253
@@ -17599,7 +17608,8 @@ msgstr "Brak przebiegu sweepera w ciągu ostatnich 15 minut"
 msgid "Nothing recorded yet."
 msgstr "Nic jeszcze nie zapisano."
 
-#: lib/modules/storage/web/bucket_page.html.heex:442
+#: lib/modules/storage/web/bucket_page.html.heex:530
+#: lib/modules/storage/web/bucket_page.html.heex:575
 #: lib/modules/storage/web/history_component.ex:176
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:140
 #, elixir-autogen, elixir-format
@@ -17862,6 +17872,7 @@ msgstr "Uruchomienia zadań"
 msgid "Settings changes"
 msgstr "Zmiany ustawień"
 
+#: lib/modules/storage/web/bucket_page.html.heex:486
 #: lib/phoenix_kit_web/components/core/activity_list.ex:37
 #, elixir-autogen, elixir-format
 msgid "What"
@@ -17979,31 +17990,31 @@ msgstr "Ten zasobnik jest używany"
 msgid "Used by"
 msgstr "Używany przez"
 
-#: lib/modules/storage/web/bucket_page.ex:351
+#: lib/modules/storage/web/bucket_page.ex:405
 #: lib/modules/storage/web/bucket_usage.ex:89
 #, elixir-autogen, elixir-format
 msgid "backup"
 msgstr "kopia zapasowa"
 
-#: lib/modules/storage/web/bucket_page.ex:356
+#: lib/modules/storage/web/bucket_page.ex:410
 #: lib/modules/storage/web/bucket_usage.ex:93
 #, elixir-autogen, elixir-format
 msgid "draining"
 msgstr "opróżniany"
 
-#: lib/modules/storage/web/bucket_page.ex:349
+#: lib/modules/storage/web/bucket_page.ex:403
 #: lib/modules/storage/web/bucket_usage.ex:87
 #, elixir-autogen, elixir-format
 msgid "primary"
 msgstr "główny"
 
-#: lib/modules/storage/web/bucket_page.ex:355
+#: lib/modules/storage/web/bucket_page.ex:409
 #: lib/modules/storage/web/bucket_usage.ex:92
 #, elixir-autogen, elixir-format
 msgid "read only"
 msgstr "tylko do odczytu"
 
-#: lib/modules/storage/web/bucket_page.ex:350
+#: lib/modules/storage/web/bucket_page.ex:404
 #: lib/modules/storage/web/bucket_usage.ex:88
 #, elixir-autogen, elixir-format
 msgid "replica"
@@ -18101,7 +18112,7 @@ msgstr "Dostęp"
 msgid "Add to profile"
 msgstr "Dodaj do profilu"
 
-#: lib/modules/storage/web/bucket_page.ex:174
+#: lib/modules/storage/web/bucket_page.ex:183
 #, elixir-autogen, elixir-format
 msgid "Bucket added to the storage profile"
 msgstr "Zasobnik dodano do profilu magazynu"
@@ -18146,7 +18157,7 @@ msgstr "Nieudane kopie"
 msgid "Everything about this storage bucket"
 msgstr "Wszystko o tym zasobniku"
 
-#: lib/modules/storage/web/bucket_page.ex:177
+#: lib/modules/storage/web/bucket_page.ex:186
 #, elixir-autogen, elixir-format
 msgid "Failed to add the bucket to the profile"
 msgstr "Nie udało się dodać zasobnika do profilu"
@@ -18181,12 +18192,12 @@ msgstr "Obiekty"
 msgid "Overview"
 msgstr "Przegląd"
 
-#: lib/modules/storage/web/bucket_page.ex:344
+#: lib/modules/storage/web/bucket_page.ex:398
 #, elixir-autogen, elixir-format
 msgid "Public"
 msgstr "Publiczny"
 
-#: lib/modules/storage/web/bucket_page.ex:346
+#: lib/modules/storage/web/bucket_page.ex:400
 #, elixir-autogen, elixir-format
 msgid "Signed URLs"
 msgstr "Podpisane adresy URL"
@@ -18201,7 +18212,7 @@ msgstr "Testuj połączenie"
 msgid "Tested %{time}"
 msgstr "Przetestowano: %{time}"
 
-#: lib/modules/storage/web/bucket_page.ex:218
+#: lib/modules/storage/web/bucket_page.ex:237
 #, elixir-autogen, elixir-format
 msgid "The connection test crashed unexpectedly"
 msgstr "Test połączenia nieoczekiwanie się zawiesił"
@@ -18219,7 +18230,7 @@ msgstr[0] "Ten zasobnik jest opróżniany: %{count} plik nadal tu leży i zostan
 msgstr[1] "Ten zasobnik jest opróżniany: %{count} pliki nadal tu leżą i zostaną przeniesione przez mechanizm uzgadniania."
 msgstr[2] "Ten zasobnik jest opróżniany: %{count} plików nadal tu leży i zostanie przeniesionych przez mechanizm uzgadniania."
 
-#: lib/modules/storage/web/bucket_page.ex:320
+#: lib/modules/storage/web/bucket_page.ex:376
 #, elixir-autogen, elixir-format
 msgid "Unknown result"
 msgstr "Nieznany wynik"
@@ -18234,7 +18245,7 @@ msgstr "Bez limitu"
 msgid "Updated"
 msgstr "Zaktualizowano"
 
-#: lib/modules/storage/web/bucket_page.html.heex:420
+#: lib/modules/storage/web/bucket_page.html.heex:553
 #, elixir-autogen, elixir-format
 msgid "Who changed this bucket and its place in the storage profiles. These entries are kept permanently."
 msgstr "Kto zmienił ten zasobnik i jego miejsce w profilach magazynu. Te wpisy są przechowywane bezterminowo."
@@ -18244,7 +18255,67 @@ msgstr "Kto zmienił ten zasobnik i jego miejsce w profilach magazynu. Te wpisy 
 msgid "Writes, reads and deletes a small test object. Not run when the page opens."
 msgstr "Zapisuje, odczytuje i usuwa niewielki obiekt testowy. Nie jest uruchamiany po otwarciu strony."
 
-#: lib/modules/storage/web/bucket_page.ex:354
+#: lib/modules/storage/web/bucket_page.ex:408
 #, elixir-autogen, elixir-format
 msgid "active"
 msgstr "aktywny"
+
+#: lib/modules/storage/web/bucket_page.html.heex:465
+#, elixir-autogen, elixir-format
+msgid "Connection test time, latest %{count}"
+msgstr "Czas testów połączenia, ostatnie %{count}"
+
+#: lib/modules/storage/web/bucket_page.html.heex:437
+#, elixir-autogen, elixir-format
+msgid "Failed writes, reads and deletes on this bucket, and every connection test, with how long the test took. Kept for %{days} days."
+msgstr "Nieudane zapisy, odczyty i usunięcia w tym zasobniku oraz każdy test połączenia wraz z czasem jego trwania. Przechowywane przez %{days} dni."
+
+#: lib/modules/storage/web/bucket_page.html.heex:446
+#, elixir-autogen, elixir-format
+msgid "Failures in the last 24 hours"
+msgstr "Błędy w ostatnich 24 godzinach"
+
+#: lib/modules/storage/web/bucket_page.html.heex:426
+#, elixir-autogen, elixir-format
+msgid "Failures only"
+msgstr "Tylko błędy"
+
+#: lib/modules/storage/web/bucket_page.html.heex:456
+#, elixir-autogen, elixir-format
+msgid "Last failure"
+msgstr "Ostatni błąd"
+
+#: lib/modules/storage/web/bucket_page.html.heex:418
+#, elixir-autogen, elixir-format
+msgid "Log"
+msgstr "Dziennik"
+
+#: lib/modules/storage/web/bucket_page.html.heex:495
+#, elixir-autogen, elixir-format
+msgid "Nothing logged yet."
+msgstr "Nic jeszcze nie zapisano."
+
+#: lib/modules/storage/web/bucket_page.ex:421
+#, elixir-autogen, elixir-format
+msgid "Probe"
+msgstr "Test połączenia"
+
+#: lib/modules/storage/web/bucket_page.ex:423
+#, elixir-autogen, elixir-format
+msgid "Read"
+msgstr "Odczyt"
+
+#: lib/modules/storage/web/bucket_page.html.heex:433
+#, elixir-autogen, elixir-format
+msgid "The log is not available. Run the database update to create it."
+msgstr "Dziennik jest niedostępny. Uruchom aktualizację bazy danych, aby go utworzyć."
+
+#: lib/modules/storage/web/bucket_page.html.heex:488
+#, elixir-autogen, elixir-format
+msgid "Time"
+msgstr "Czas"
+
+#: lib/modules/storage/web/bucket_page.ex:422
+#, elixir-autogen, elixir-format
+msgid "Write"
+msgstr "Zapis"

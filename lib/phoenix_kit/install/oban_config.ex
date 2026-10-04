@@ -258,6 +258,7 @@ if Code.ensure_loaded?(Igniter) do
              {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
              {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
              {"15 4 * * *", PhoenixKit.Jobs.PruneWorker},
+             {"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker},
              {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
              {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
              {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
@@ -1159,7 +1160,10 @@ if Code.ensure_loaded?(Igniter) do
       # whose batch died, and without the prune the table grows for the life of
       # the install.
       {"*/5 * * * *", "PhoenixKit.Jobs.SweepWorker"},
-      {"15 4 * * *", "PhoenixKit.Jobs.PruneWorker"}
+      {"15 4 * * *", "PhoenixKit.Jobs.PruneWorker"},
+      # The bucket log (V208). Without the prune the table grows for the life
+      # of the install.
+      {"20 4 * * *", "PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker"}
     ]
 
     @doc """

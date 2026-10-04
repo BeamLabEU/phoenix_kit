@@ -20,6 +20,23 @@
   A user's own bucket (V206) does not open here. The Buckets list links each name to its page. Gated by
   `media.manage` like the other storage screens.
 
+- **V208: the bucket log, and a Log section on the bucket page.** `phoenix_kit_bucket_log` (no foreign key,
+  so it never blocks deleting a bucket; `Storage.delete_bucket/2` removes the bucket's rows) records, for a
+  **site** bucket only (a user's own bucket and an unsaved form test are never logged):
+  - every write, read or delete that **failed** (`Manager` reports it in the background through
+    `PhoenixKit.TaskSupervisor`, so it can neither fail nor slow the request), with the provider's reason;
+    a miss ("not found") is how a failover starts and is not logged, and a success is not logged either — a
+    row per request would swamp a busy site;
+  - every **probe** of a saved bucket (`Storage.probe_bucket/1`) with its result and how long it took, so
+    latency over time comes from the probes;
+  - the same failure within a minute is **one row** with a count, so a bucket that is down does not write a
+    row per request.
+  The page shows the failures of the last day, the last failure, a chart of the latest probe times, and the
+  entries (all, or failures only). The last probe's result now outlives a reload. A host that has not run the
+  update yet gets a notice instead of an error. Entries are pruned daily to `bucket_log_retention_days`
+  (default 30) by `Storage.Workers.BucketLogPruneWorker`; `mix phoenix_kit.update` adds its cron entry
+  (`20 4 * * *`) to existing hosts. The manifest declares the table, its columns, constraints and indexes.
+
 ### i18n
 
 - New strings translated in all seven locales, 0 fuzzy.

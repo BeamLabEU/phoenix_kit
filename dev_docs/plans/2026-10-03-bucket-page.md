@@ -13,6 +13,10 @@ Sections 1–5 are built (unreleased, `## Unreleased` in the CHANGELOG): `Live.M
 `BucketInfo` (the lifted display helpers), `Storage.bucket_contents/1`, `bucket_location_health/1`,
 `probe_bucket/1`; tests in `test/integration/phoenix_kit_web/live/bucket_page_test.exs`.
 
+**Section 6 (the log) shipped next, as V208** (`phoenix_kit_bucket_log`, `Storage.BucketLog`, the Log card,
+`BucketLogPruneWorker`). Not built: a scheduled probe (latency over time comes from the clicks), a retention
+setting in the UI (`bucket_log_retention_days`, default 30, is a plain setting), and logging of successes.
+
 Left out on purpose: the per-bucket **"files missing a copy here"** number (the reconciler has no per-bucket
 query for it; Health shows location rows by status, the last verification stamp, the global count of
 instances not yet checked against any bucket, and the files still on a draining bucket), and the **serve

@@ -23,6 +23,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.Locations
   alias PhoenixKit.Modules.Storage.ProfileBucket
   alias PhoenixKit.Modules.Storage.Profiles
@@ -268,7 +269,9 @@ defmodule PhoenixKit.Modules.Storage.Manager do
       buckets
       |> Enum.map(fn bucket ->
         provider = get_provider_for_bucket(bucket)
-        provider.delete_file(bucket, file_path)
+        result = provider.delete_file(bucket, file_path)
+        unless result == :ok, do: report(bucket, "delete", result)
+        result
       end)
 
     # Return success if at least one deletion succeeded
@@ -362,9 +365,13 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   that bucket needs it (G11).
   """
   def delete_from_bucket(bucket, key) do
-    get_provider_for_bucket(bucket).delete_file(bucket, key)
+    result = get_provider_for_bucket(bucket).delete_file(bucket, key)
+    unless result == :ok, do: report(bucket, "delete", result)
+    result
   rescue
-    error -> {:error, Exception.message(error)}
+    error ->
+      report(bucket, "delete", error)
+      {:error, Exception.message(error)}
   end
 
   # Private functions
@@ -406,6 +413,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
         "Storage: could not check #{file_path} on bucket #{bucket.name}: #{Exception.message(error)}"
       )
 
+      report(bucket, "read", error)
       false
   end
 
@@ -538,7 +546,9 @@ defmodule PhoenixKit.Modules.Storage.Manager do
           error -> {:error, Exception.message(error)}
         end
 
-      result == :ok or match?({:ok, _}, result)
+      ok? = result == :ok or match?({:ok, _}, result)
+      unless ok?, do: report(bucket, "write", result)
+      ok?
     end)
   end
 
@@ -565,10 +575,24 @@ defmodule PhoenixKit.Modules.Storage.Manager do
 
   # A bucket that raises while reading fails over like one that errors.
   defp safe_retrieve(provider, bucket, file_path, destination_path) do
-    provider.retrieve_file(bucket, file_path, destination_path)
+    case provider.retrieve_file(bucket, file_path, destination_path) do
+      :ok ->
+        :ok
+
+      {:error, _reason} = error ->
+        report(bucket, "read", error)
+        error
+    end
   rescue
-    error -> {:error, Exception.message(error)}
+    error ->
+      report(bucket, "read", error)
+      {:error, Exception.message(error)}
   end
+
+  # What a bucket got wrong goes to its log (`Storage.BucketLog`): in the
+  # background, never in the way of the request. A miss is not a failure.
+  defp report(bucket, kind, {:error, reason}), do: BucketLog.record_failure(bucket, kind, reason)
+  defp report(bucket, kind, reason), do: BucketLog.record_failure(bucket, kind, reason)
 
   defp get_provider_for_bucket(bucket) do
     {:ok, provider_module} = ProviderRegistry.get_provider(bucket.provider)
