@@ -1,3 +1,45 @@
+## 2.52.2 - 2026-10-04
+
+### Added
+
+- **The local bucket form shows where the storage path lands on disk.** Under the Storage Path input a
+  line shows the absolute path the files go to as you type, and says when the folder does not exist yet
+  (you are asked to create it on save), is a file, or cannot be written to. The hint no longer asks for an
+  absolute path: a relative one (`priv/media`, the seeded default) is accepted and resolved from the
+  directory the application started in.
+- **A bucket that several storage profiles list says so** (Settings → Media → Storage profiles). A badge
+  under the bucket's name in each profile names the other profiles that use it, the Add bucket picker marks
+  such buckets "also in …" (free ones first) with a note, and adding one confirms that it is now shared:
+  its on/off switch, size limit and keys belong to the bucket, so they apply to every profile that lists it.
+
+### Changed
+
+- **The storage profiles bucket table fits a normal screen.** The columns are narrower (about 60rem instead
+  of 70), and Save and remove share one column that stays in view when the table still scrolls, so the
+  remove button is never scrolled out of sight. The headings that carry a tooltip keep the header's
+  capitals like the rest.
+
+### Fixed
+
+- **Every form on the Storage profiles and Libraries tabs showed "Unsaved changes" after a reconnect.**
+  LiveView replays each form's values to its `phx-change` event when the socket reconnects (a tablet that
+  slept, a dropped network), which marked every row dirty. Those forms now recover through an event that
+  does nothing (`phx-auto-recover`); `SaveButton`'s docs say a form using it must do the same.
+- **Saving a local bucket whose path is a file, or a folder the application cannot write to, crashed the
+  form** on an unmatched `case` clause; it now shows an error and stays on the form.
+- **The local path's existence check and the "Create path" prompt expanded a relative path from the
+  working directory, while files are written under the directory the application started in** (they differ
+  in development, where the code reloader changes the working directory). Both now go through
+  `Local.resolve_path/1`, as `Local.root/1` does. `Storage.local_path_status/1` is new.
+- **The doctor no longer tells a host to delete a duplicate sitemap route that leads to the same controller
+  and action** (#904). Such a repeat is usually deliberate (a `/sitemap.xml` declared ahead of
+  `scope "/:locale"` so the locale segment cannot capture it) and removing it breaks the route. A repeat
+  that leads elsewhere is still reported, now naming the action when both sides share a controller.
+
+### i18n
+
+- Twelve new strings in ru, de, fr, es, it, pl and et; the local path hint was reworded. 0 fuzzy entries.
+
 ## 2.52.1 - 2026-10-04
 
 ### Fixed
