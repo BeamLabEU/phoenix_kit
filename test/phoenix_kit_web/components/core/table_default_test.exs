@@ -290,6 +290,9 @@ defmodule PhoenixKitWeb.Components.Core.TableDefaultTest do
 
       assert html =~ ~s(id="people-fit")
       assert html =~ ~s(phx-hook="TableFit")
+      # the first-paint restore sits right after the wrapper it reads
+      assert html =~ ~r{</table>\s*</div>\s*<script>}
+      assert html =~ "phoenix_kit:table-fit:"
       assert html =~ ~r/<th[^>]*data-col-lead[^>]*>\s*Name/
       assert html =~ ~r/<th[^>]*data-col-priority="3"[^>]*style="width: 8rem; min-width: 8rem"/
       assert html =~ ~r/<th[^>]*data-col-priority="1"/
@@ -335,6 +338,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefaultTest do
 
       refute html =~ "TableFit"
       refute html =~ "data-col-"
+      refute html =~ "<script>"
     end
 
     test "fit without an id is refused" do

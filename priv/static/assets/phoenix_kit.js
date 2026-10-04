@@ -5629,6 +5629,13 @@ if (typeof window.Chart === "undefined") {
         hidden.push(order[hidden.length]);
         this.styleEl.textContent = fitHideCss(this.el.id, hidden);
       }
+      // For the next hard load: the component's inline script puts this back
+      // before first paint, so the table does not flash its full width.
+      try {
+        const key = "phoenix_kit:table-fit:" + this.el.id;
+        if (hidden.length > 0) localStorage.setItem(key, this.styleEl.textContent);
+        else localStorage.removeItem(key);
+      } catch (_e) {}
     }
   };
 

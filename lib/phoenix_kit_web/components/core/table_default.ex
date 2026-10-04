@@ -325,6 +325,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         {render_slot(@inner_block)}
       </table>
     </div>
+    <.fit_restore :if={@fit} />
     """
   end
 
@@ -465,6 +466,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
             {render_slot(@inner_block)}
           </table>
         </div>
+        <.fit_restore :if={@fit} />
       </div>
       <%!-- Cards: always shown on mobile, hidden on desktop (JS controls md: classes).
            In controlled mode, visibility is purely driven by @view_mode. --%>
@@ -608,6 +610,33 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   # combinators keep a table nested inside a cell out of it. A lead BODY cell
   # (`max-w-0` + `overflow-hidden`) gives its width up to the column instead
   # of dictating it, which is what lets a long name truncate.
+  # A hard page load paints before the hook can measure, so the table would
+  # show every column for a frame and then lose some. The hook remembers the
+  # last stylesheet it settled on per table (localStorage); this puts it back
+  # while the page is still being parsed. It is a guess from the last visit —
+  # the hook measures again on mount and corrects it. Inline because nothing
+  # else runs before first paint (a script LiveView inserts later is never
+  # executed, and by then the hook is already there). It names nothing from
+  # the server: it finds its table as the element just before it.
+  defp fit_restore(assigns) do
+    ~H"""
+    <script>
+      (function () {
+        try {
+          var wrap = document.currentScript && document.currentScript.previousElementSibling;
+          if (!wrap || !wrap.id) return;
+          var css = localStorage.getItem("phoenix_kit:table-fit:" + wrap.id);
+          if (!css) return;
+          var style = document.createElement("style");
+          style.setAttribute("data-pk-table-fit", wrap.id);
+          style.textContent = css;
+          document.head.appendChild(style);
+        } catch (_e) {}
+      })();
+    </script>
+    """
+  end
+
   # Always with `fit`, packed or not: the room the lead column keeps. Without
   # it a name wraps down to its longest word before the table overflows, and
   # overflow is the only thing that drops a column.
