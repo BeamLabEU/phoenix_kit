@@ -122,7 +122,7 @@ msgstr "Lisa kasutaja"
 msgid "Create new account"
 msgstr "Loo uus konto"
 
-#: lib/phoenix_kit/notifications/channels/email.ex:25
+#: lib/phoenix_kit/notifications/channels/email.ex:35
 #: lib/phoenix_kit/users/table_columns.ex:266
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:188
 #: lib/phoenix_kit_web/live/components/library_settings.ex:996
@@ -907,7 +907,7 @@ msgstr "DB / Viimane migratsioon"
 msgid "DPO contact saved"
 msgstr "Andmekaitsejärelevaataja kontakt salvestatud"
 
-#: lib/modules/storage/web/bucket_page.ex:424
+#: lib/modules/storage/web/bucket_page.ex:450
 #: lib/modules/storage/web/dimensions.html.heex:343
 #: lib/modules/storage/web/dimensions.html.heex:379
 #: lib/modules/storage/web/dimensions.html.heex:550
@@ -1061,7 +1061,7 @@ msgstr "Sisesta rolli nimi (nt Manager, Editor)"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:28
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:178
 #: lib/phoenix_kit_web/components/core/modal.ex:552
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:445
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:470
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:99
 #: lib/phoenix_kit_web/live/settings/integrations.ex:279
 #, elixir-autogen, elixir-format
@@ -1154,7 +1154,7 @@ msgstr "Funktsionaalsed moodulid"
 #: lib/modules/storage/web/libraries_component.ex:666
 #: lib/modules/storage/web/settings.html.heex:129
 #: lib/modules/storage/web/settings.html.heex:146
-#: lib/phoenix_kit/users/auth.ex:3241
+#: lib/phoenix_kit/users/auth.ex:3268
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:105
 #, elixir-autogen, elixir-format
@@ -1417,8 +1417,8 @@ msgstr "Autentimata"
 #: lib/phoenix_kit/integrations/integrations.ex:1271
 #: lib/phoenix_kit/integrations/integrations.ex:1275
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:29
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:446
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:212
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:471
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
 #: lib/phoenix_kit_web/live/settings/integrations.ex:280
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:600
 #, elixir-autogen, elixir-format
@@ -1882,7 +1882,7 @@ msgstr "Vali, millistele lõikudele ja moodulitele see roll pääseb juurde. Sa 
 #: lib/phoenix_kit_web/live/settings/authorization.ex:50
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:43
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:44
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:69
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:72
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:6
 #: lib/phoenix_kit_web/live/settings/integrations.ex:40
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
@@ -1942,7 +1942,7 @@ msgstr "Maakond/provints"
 #: lib/phoenix_kit/users/table_columns.ex:291
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:189
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:244
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:276
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:63
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:129
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:98
@@ -2067,8 +2067,8 @@ msgstr "Tüüp"
 msgid "Unconfirmed"
 msgstr "Kinnitamata"
 
-#: lib/phoenix_kit/email/core_templates.ex:306
-#: lib/phoenix_kit/users/auth/user_notifier.ex:221
+#: lib/phoenix_kit/email/core_templates.ex:408
+#: lib/phoenix_kit/users/auth/user_notifier.ex:253
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:64
 #: lib/phoenix_kit_web/components/core/time_display.ex:183
 #: lib/phoenix_kit_web/components/language_switcher.ex:832
@@ -3033,7 +3033,7 @@ msgstr "Halda kasutajate registreerimist, vaikimisi seadeid ja kohandatud välju
 #: lib/phoenix_kit_web/live/components/library_settings.ex:791
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:204
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:242
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:243
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:275
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:80
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:127
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:19
@@ -3922,7 +3922,7 @@ msgstr "Ühenda välised teenused kasutamiseks kõigis moodulites"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:25
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:173
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:218
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:442
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:467
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:148
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:343
@@ -4475,7 +4475,7 @@ msgstr "Ootel kutseid pole"
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:365
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:27
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:180
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:444
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:469
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:101
 #: lib/phoenix_kit_web/live/settings/integrations.ex:278
 #, elixir-autogen, elixir-format
@@ -4485,7 +4485,7 @@ msgstr "Ühendamata"
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:363
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:26
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:176
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:443
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:468
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:97
 #: lib/phoenix_kit_web/live/settings/integrations.ex:277
 #, elixir-autogen, elixir-format
@@ -4590,7 +4590,7 @@ msgid "Please save your Client ID first"
 msgstr "Palun salvesta kõigepealt oma Kliendi ID"
 
 #: lib/modules/storage/web/bucket_form.html.heex:369
-#: lib/modules/storage/web/bucket_page.ex:399
+#: lib/modules/storage/web/bucket_page.ex:425
 #, elixir-autogen, elixir-format
 msgid "Private (proxied)"
 msgstr "Privaatne (puhverdatud)"
@@ -4667,7 +4667,7 @@ msgstr "Vali lisatav kasutaja..."
 #: lib/phoenix_kit/integrations/providers.ex:989
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:201
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:241
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:242
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:274
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:75
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:126
 #, elixir-autogen, elixir-format
@@ -5254,7 +5254,7 @@ msgstr "Saadaval"
 msgid "Body Saved"
 msgstr "Sisu salvestatud"
 
-#: lib/phoenix_kit/users/auth.ex:3228
+#: lib/phoenix_kit/users/auth.ex:3255
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:721
 #: lib/phoenix_kit_web/live/modules.ex:128
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:378
@@ -5637,7 +5637,7 @@ msgstr "Üksused"
 
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
-#: lib/phoenix_kit/users/auth.ex:3226
+#: lib/phoenix_kit/users/auth.ex:3253
 #: lib/phoenix_kit_web/live/modules.ex:140
 #, elixir-autogen
 msgid "Posts"
@@ -6111,8 +6111,8 @@ msgstr[1] "Liiguta %{count} faili prügikasti?"
 msgid "New folder"
 msgstr "Uus kaust"
 
-#: lib/modules/storage/web/bucket_page.html.heex:539
-#: lib/modules/storage/web/bucket_page.html.heex:584
+#: lib/modules/storage/web/bucket_page.html.heex:541
+#: lib/modules/storage/web/bucket_page.html.heex:586
 #: lib/modules/storage/web/history_component.ex:186
 #: lib/phoenix_kit_web/components/core/preview_card.ex:210
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2484
@@ -6865,13 +6865,14 @@ msgstr "Meediafaile ei leitud"
 #: lib/phoenix_kit_web/components/core/preview_card.ex:105
 #: lib/phoenix_kit_web/components/core/preview_card.ex:157
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:67
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:208
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:386
 #, elixir-autogen, elixir-format
 msgid "Preview"
 msgstr "Eelvaade"
 
-#: lib/modules/storage/web/bucket_page.html.heex:527
-#: lib/modules/storage/web/bucket_page.html.heex:572
+#: lib/modules/storage/web/bucket_page.html.heex:529
+#: lib/modules/storage/web/bucket_page.html.heex:574
 #: lib/modules/storage/web/history_component.ex:173
 #: lib/phoenix_kit_web/components/core/preview_card.ex:201
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:137
@@ -9126,7 +9127,7 @@ msgstr "Kaitstud pipeline'id"
 msgid "Public base URL of this application"
 msgstr "Selle rakenduse avalik baas-URL"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:349
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:381
 #, elixir-autogen, elixir-format
 msgid "Recipient"
 msgstr "Saaja"
@@ -9222,35 +9223,36 @@ msgstr "salvestatud:"
 msgid "New User Defaults"
 msgstr "Uue kasutaja vaikeseaded"
 
-#: lib/modules/storage/web/bucket_page.ex:152
+#: lib/modules/storage/web/bucket_page.ex:238
 #: lib/modules/storage/web/settings.ex:291
 #, elixir-autogen, elixir-format
 msgid "Bucket deleted successfully"
 msgstr "Bucket kustutati edukalt"
 
-#: lib/modules/storage/web/bucket_page.ex:131
+#: lib/modules/storage/web/bucket_page.ex:220
 #: lib/modules/storage/web/settings.ex:214
 #, elixir-autogen, elixir-format
 msgid "Bucket disabled successfully"
 msgstr "Bucket keelati edukalt"
 
-#: lib/modules/storage/web/bucket_page.ex:130
+#: lib/modules/storage/web/bucket_page.ex:219
 #: lib/modules/storage/web/settings.ex:213
 #, elixir-autogen, elixir-format
 msgid "Bucket enabled successfully"
 msgstr "Bucket lubati edukalt"
 
 #: lib/modules/storage/web/bucket_form.ex:60
-#: lib/modules/storage/web/bucket_page.ex:77
-#: lib/modules/storage/web/bucket_page.ex:263
+#: lib/modules/storage/web/bucket_page.ex:78
+#: lib/modules/storage/web/bucket_page.ex:138
+#: lib/modules/storage/web/bucket_page.ex:281
 #: lib/modules/storage/web/settings.ex:204
 #: lib/modules/storage/web/settings.ex:296
 #, elixir-autogen, elixir-format
 msgid "Bucket not found"
 msgstr "Salvestuskohta ei leitud"
 
-#: lib/modules/storage/web/bucket_page.ex:165
-#: lib/modules/storage/web/bucket_page.ex:170
+#: lib/modules/storage/web/bucket_page.ex:251
+#: lib/modules/storage/web/bucket_page.ex:256
 #: lib/modules/storage/web/settings.ex:308
 #, elixir-autogen, elixir-format
 msgid "Failed to delete bucket"
@@ -9261,7 +9263,7 @@ msgstr "Bucketi kustutamine ebaõnnestus"
 msgid "Failed to repair: %{reason}"
 msgstr "Parandamine ebaõnnestus: %{reason}"
 
-#: lib/modules/storage/web/bucket_page.ex:141
+#: lib/modules/storage/web/bucket_page.ex:229
 #: lib/modules/storage/web/settings.ex:224
 #, elixir-autogen, elixir-format
 msgid "Failed to update bucket"
@@ -10014,7 +10016,7 @@ msgstr "AWS SES on hõivatud — proovige hetke pärast uuesti"
 msgid "Acme Newsletter"
 msgstr "Acme Newsletter"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:235
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:267
 #, elixir-autogen, elixir-format
 msgid "Add one"
 msgstr "Lisa uus"
@@ -10040,7 +10042,7 @@ msgstr "Koondteated"
 msgid "Aggregation updated."
 msgstr "Koondteadete seaded on uuendatud."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:319
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:351
 #, elixir-autogen, elixir-format
 msgid "All outbound core mail — authentication, notifications — routes through this integration when set. Leave unset to use the static mailer above. For newsletter broadcasts, see"
 msgstr "Kogu väljuv süsteemipost — autentimine, teavitused — saadetakse selle integratsiooni kaudu, kui see on valitud. Jätke määramata, et kasutada ülalolevat staatilist mailerit. Uudiskirjade kohta vaadake"
@@ -10140,7 +10142,7 @@ msgstr "Komadega eraldatud sildid, mis lisatakse igale kirjale Brevo statistikas
 msgid "Configuration set"
 msgstr "Konfiguratsioonikomplekt"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:212
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
 #, elixir-autogen, elixir-format
 msgid "Configured"
 msgstr "Seadistatud"
@@ -10221,17 +10223,17 @@ msgstr "Salvestamine ebaõnnestus"
 msgid "Could not save notification preferences."
 msgstr "Teavituste eelistuste salvestamine ebaõnnestus."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:143
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:146
 #, elixir-autogen, elixir-format
 msgid "Could not save sender identity"
 msgstr "Saatja andmeid ei saanud salvestada"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:284
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:308
 #, elixir-autogen, elixir-format
 msgid "Could not send test email: %{reason}"
 msgstr "Testkirja ei saanud saata: %{reason}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:273
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:297
 #, elixir-autogen, elixir-format
 msgid "Could not send test email: the send integration is missing required field(s): %{fields}"
 msgstr "Testkirja ei saanud saata: saatmisintegratsioonis on täitmata kohustuslikud väljad: %{fields}"
@@ -10246,7 +10248,7 @@ msgstr "Vaikimisi saatmisprofiili ei saanud määrata"
 msgid "Could not update aggregation."
 msgstr "Koondteadete seadeid ei saanud uuendada."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:157
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:160
 #, elixir-autogen, elixir-format
 msgid "Could not update default send integration"
 msgstr "Vaikimisi saatmisintegratsiooni ei saanud uuendada"
@@ -10302,12 +10304,12 @@ msgstr "Redaktori vaikerežiim"
 msgid "Default Newsletter Profile"
 msgstr "Vaikimisi uudiskirja profiil"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:315
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:347
 #, elixir-autogen, elixir-format
 msgid "Default Transactional Integration"
 msgstr "Vaikimisi tehinguintegratsioon"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:152
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:155
 #, elixir-autogen, elixir-format
 msgid "Default send integration updated"
 msgstr "Vaikimisi saatmisintegratsioon on uuendatud"
@@ -10357,7 +10359,7 @@ msgstr "Saatmisprofiili muutmine: %{name}"
 msgid "Email confirmed. Welcome!"
 msgstr "E-post kinnitatud. Tere tulemast!"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:227
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:259
 #, elixir-autogen, elixir-format
 msgid "Email-capable integrations"
 msgstr "E-posti toega integratsioonid"
@@ -10367,7 +10369,7 @@ msgstr "E-posti toega integratsioonid"
 msgid "Encryption"
 msgstr "Krüpteerimine"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:240
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:264
 #, elixir-autogen, elixir-format
 msgid "Enter a recipient email address"
 msgstr "Sisestage saaja e-posti aadress"
@@ -10582,7 +10584,7 @@ msgstr "Minu seaded"
 msgid "New send profile"
 msgstr "Uus saatmisprofiil"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:219
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:251
 #, elixir-autogen, elixir-format
 msgid "No adapter configured for the static mailer. Set one in your application config, or connect an email-capable integration below and pick it as the default transactional integration."
 msgstr "Staatilisele mailerile pole adapterit seadistatud. Määrake see rakenduse seadistuses või ühendage allpool e-posti toega integratsioon ja valige see vaikimisi tehinguintegratsiooniks."
@@ -10597,7 +10599,7 @@ msgstr "Boti tokenit pole määratud"
 msgid "No dismissed notifications"
 msgstr "Eemaldatud teavitusi pole"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:230
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:262
 #, elixir-autogen, elixir-format
 msgid "No email-capable integrations connected yet."
 msgstr "Ühtegi e-posti toega integratsiooni pole veel ühendatud."
@@ -10627,7 +10629,7 @@ msgstr "Lugemata teavitusi pole"
 msgid "None — plaintext"
 msgstr "Puudub — krüpteerimata"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:330
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:362
 #, elixir-autogen, elixir-format
 msgid "None — use the static mailer"
 msgstr "Puudub — kasuta staatilist mailerit"
@@ -10836,7 +10838,7 @@ msgstr "Saatmisprofiili ei leitud"
 msgid "Send profile saved successfully"
 msgstr "Saatmisprofiil edukalt salvestatud"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:355
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:387
 #, elixir-autogen, elixir-format
 msgid "Send test email"
 msgstr "Saada testkiri"
@@ -10846,23 +10848,23 @@ msgstr "Saada testkiri"
 msgid "Sender ID"
 msgstr "Saatja ID"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:94
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:97
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:27
 #, elixir-autogen, elixir-format
 msgid "Sender Identity"
 msgstr "Saatja andmed"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:131
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:134
 #, elixir-autogen, elixir-format
 msgid "Sender identity updated"
 msgstr "Saatja andmed on uuendatud"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:134
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:137
 #, elixir-autogen, elixir-format
 msgid "Sender identity updated, but %{email} is not a full address — the email tracking module will silently skip logging messages sent from it."
 msgstr "Saatja andmed on uuendatud, kuid %{email} pole täisaadress — e-posti jälgimise moodul ei kirjuta sellelt saadetud kirju logisse ega teata sellest."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:65
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:68
 #, elixir-autogen, elixir-format
 msgid "Sender identity, transport, and the default integration used to deliver outbound email"
 msgstr "Saatja andmed, transport ja vaikimisi integratsioon väljuva posti edastamiseks"
@@ -10882,12 +10884,12 @@ msgstr "Allkiri (HTML)"
 msgid "Signature (plain text)"
 msgstr "Allkiri (lihttekst)"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:202
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:234
 #, elixir-autogen, elixir-format
 msgid "Static mailer: built-in PhoenixKit mailer"
 msgstr "Staatiline mailer: sisseehitatud PhoenixKiti mailer"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:204
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:236
 #, elixir-autogen, elixir-format
 msgid "Static mailer: parent app mailer (%{module})"
 msgstr "Staatiline mailer: ülemrakenduse mailer (%{module})"
@@ -10914,18 +10916,18 @@ msgstr "Telegram"
 msgid "Telegram error %{status}"
 msgstr "Telegrami viga %{status}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:108
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:339
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:111
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:371
 #, elixir-autogen, elixir-format
 msgid "Test Send"
 msgstr "Testsaatmine"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:253
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:277
 #, elixir-autogen, elixir-format
 msgid "Test email from %{site}"
 msgstr "Testkiri saidilt %{site}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:265
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:289
 #, elixir-autogen, elixir-format
 msgid "Test email sent to %{recipient}"
 msgstr "Testkiri saadeti aadressile %{recipient}"
@@ -10981,8 +10983,8 @@ msgstr "Seda saatja aadressi ei saa logisse kirjutada"
 msgid "Timeout (seconds)"
 msgstr "Ajalimiit (sekundites)"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:96
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:192
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:99
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:224
 #, elixir-autogen, elixir-format
 msgid "Transport"
 msgstr "Transport"
@@ -11007,7 +11009,7 @@ msgstr "Lahti seotud. Uuesti sidumiseks kirjutage botile ja vajutage „Testi“
 msgid "Update send profile"
 msgstr "Uuenda saatmisprofiili"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:194
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:226
 #, elixir-autogen, elixir-format
 msgid "Used when no default transactional integration is selected below."
 msgstr "Kasutatakse, kui allpool pole valitud vaikimisi tehinguintegratsiooni."
@@ -11067,7 +11069,7 @@ msgstr "Olete siin kõik läbi lugenud."
 msgid "Your own service connections — only you can see these"
 msgstr "Teie enda teenuseühendused — neid näete ainult teie"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:216
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:248
 #, elixir-autogen, elixir-format
 msgid "adapter"
 msgstr "adapter"
@@ -11361,7 +11363,7 @@ msgstr "Amazon Bedrock"
 msgid "Answer 403 to requests whose User-Agent matches a blocked group, for bots that ignore robots.txt."
 msgstr "Vasta 403-ga päringutele, mille User-Agent vastab blokeeritud rühmale — botidele, kes eiravad robots.txt-i."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:290
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:322
 #, elixir-autogen, elixir-format
 msgid "Auth mail carries single-use tokens, and /dev/mailbox has no authentication — anyone who can reach this server can read them. Only for closed environments."
 msgstr "Autentimiskirjad sisaldavad ühekordseid tokeneid ja /dev/mailbox ei nõua autentimist — igaüks, kes selle serverini pääseb, saab neid lugeda. Ainult suletud keskkondadeks."
@@ -11422,7 +11424,7 @@ msgstr "Bedrockiga ei saanud regioonis %{region} ühendust"
 msgid "Could not send that request."
 msgstr "Päringut ei õnnestunud saata."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:181
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:184
 #, elixir-autogen, elixir-format
 msgid "Could not update the mailbox setting"
 msgstr "Postkasti seadet ei saanud uuendada"
@@ -11468,7 +11470,7 @@ msgstr "Loo sellele kasutajale pääsuvõti (Security credentials → Create acc
 msgid "Decide who may read this site — indexing directives, per-bot access, and what crawlers and AI assistants are told."
 msgstr "Otsusta, kes tohib seda saiti lugeda — indekseerimisjuhised, botipõhine ligipääs ja see, mida roomajatele ja AI-assistentidele öeldakse."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:307
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:339
 #, elixir-autogen, elixir-format
 msgid "Deliver development mail to /dev/mailbox"
 msgstr "Toimeta arenduskirjad kausta /dev/mailbox"
@@ -11554,17 +11556,17 @@ msgstr "Võti autenditi, kuid sellel puuduvad õigused regioonis %{region} — l
 msgid "Lets people type @ to mention someone and # to link a record, anywhere they can write free text. Turning it off stops the suggestions; mentions already written stay readable as plain text."
 msgstr "Lubab inimestel kirjutada @, et kedagi mainida, ja #, et kirjele viidata — kõikjal, kus saab vaba teksti kirjutada. Väljalülitamine peatab soovitused; juba kirjutatud mainimised jäävad tavatekstina loetavaks."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:277
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:309
 #, elixir-autogen, elixir-format
 msgid "Local dev mailbox"
 msgstr "Kohalik arenduse postkast"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:172
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:175
 #, elixir-autogen, elixir-format
 msgid "Local mailbox disabled — outgoing dev mail goes to the server log"
 msgstr "Kohalik postkast on välja lülitatud — väljuvad arenduskirjad lähevad serveri logisse"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:168
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:171
 #, elixir-autogen, elixir-format
 msgid "Local mailbox enabled — tokens in auth mail are now readable at /dev/mailbox"
 msgstr "Kohalik postkast on sisse lülitatud — autentimiskirjade tokenid on nüüd loetavad aadressil /dev/mailbox"
@@ -11689,7 +11691,7 @@ msgstr "OpenAI-ga ühilduv lõpp-punkt (`…/openai/v1`) teenindab praegu ainult
 msgid "The key's IAM identity must allow the `bedrock:CallWithBearerToken` action — without it every Bearer call answers 403 even when invoke permissions are in place."
 msgstr "Võtme IAM identiteet peab lubama tegevuse `bedrock:CallWithBearerToken` — ilma selleta vastab iga Bearer-päring 403-ga isegi siis, kui väljakutsumisõigused on olemas."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:298
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:330
 #, elixir-autogen, elixir-format
 msgid "The mailbox is off: outgoing mail is written to the server log instead."
 msgstr "Postkast on välja lülitatud: väljuvad kirjad kirjutatakse selle asemel serveri logisse."
@@ -11747,7 +11749,7 @@ msgstr "Kinnita saatja SES-is"
 msgid "What do you need it for?"
 msgstr "Milleks sa seda vajad?"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:282
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:314
 #, elixir-autogen, elixir-format
 msgid "Where development mail goes while the resolved transport is the local adapter."
 msgstr "Kuhu lähevad arenduskirjad, kui lahendatud transport on kohalik adapter."
@@ -13382,48 +13384,23 @@ msgstr "Administraator eemaldas teie kontolt märkuse."
 msgid "An administrator signed in to your account for support."
 msgstr "Administraator logis kasutajatoe eesmärgil teie kontole sisse."
 
-#: lib/phoenix_kit/email/core_templates.ex:206
+#: lib/phoenix_kit/email/core_templates.ex:282
 #, elixir-autogen, elixir-format
 msgid "Complete your registration"
 msgstr "Lõpetage oma registreerimine"
 
-#: lib/phoenix_kit/email/core_templates.ex:139
+#: lib/phoenix_kit/email/core_templates.ex:202
 #: lib/phoenix_kit_web/users/confirmation.ex:18
 #, elixir-autogen, elixir-format
 msgid "Confirm your account"
 msgstr "Kinnitage oma konto"
 
-#: lib/phoenix_kit/email/core_templates.ex:175
+#: lib/phoenix_kit/email/core_templates.ex:242
 #, elixir-autogen, elixir-format
 msgid "Confirm your email change"
 msgstr "Kinnitage oma e-posti muutmine"
 
-#: lib/phoenix_kit/email/core_templates.ex:208
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nWelcome! To complete your registration, please visit the URL below:\n\n{{registration_url}}\n\nThis link will expire in 30 minutes for your security.\n\nIf you didn't request this registration, please ignore this email.\n"
-msgstr "Tere {{user_email}},\n\nTere tulemast! Registreerimise lõpetamiseks külastage allolevat aadressi:\n\n{{registration_url}}\n\nSee link aegub teie turvalisuse huvides 30 minuti pärast.\n\nKui te seda registreerimist ei taotlenud, eirake seda kirja.\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:177
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nYou can change your email by visiting the URL below:\n\n{{update_url}}\n\nIf you didn't request this change, please ignore this.\n"
-msgstr "Tere {{user_email}},\n\nSaate oma e-posti aadressi muuta alloleval aadressil:\n\n{{update_url}}\n\nKui te seda muudatust ei taotlenud, eirake seda kirja.\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:141
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nYou can confirm your account by visiting the URL below:\n\n{{confirmation_url}}\n\nIf you didn't create an account with us, please ignore this.\n"
-msgstr "Tere {{user_email}},\n\nSaate oma konto kinnitada alloleval aadressil:\n\n{{confirmation_url}}\n\nKui te meil kontot ei loonud, eirake seda kirja.\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:159
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nYou can reset your password by visiting the URL below:\n\n{{reset_url}}\n\nIf you didn't request this change, please ignore this.\n"
-msgstr "Tere {{user_email}},\n\nSaate oma parooli lähtestada alloleval aadressil:\n\n{{reset_url}}\n\nKui te seda muudatust ei taotlenud, eirake seda kirja.\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:228
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to join their organization.\n\nTo accept the invitation, register an account by visiting the link below:\n\n{{registration_url}}\n\nThis invitation link will expire in 7 days.\n\nIf you did not expect this invitation, you can safely ignore this email.\n"
-msgstr "Tere {{user_email}},\n\n{{organization_name}} on teid kutsunud oma organisatsiooniga liituma.\n\nKutse vastuvõtmiseks registreerige konto alloleval lingil:\n\n{{registration_url}}\n\nSee kutselink aegub 7 päeva pärast.\n\nKui te seda kutset ei oodanud, võite selle kirja rahulikult eirata.\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:248
+#: lib/phoenix_kit/email/core_templates.ex:328
 #, elixir-autogen, elixir-format
 msgid "New login to your account"
 msgstr "Uus sisselogimine teie kontole"
@@ -13433,7 +13410,7 @@ msgstr "Uus sisselogimine teie kontole"
 msgid "New notification."
 msgstr "Uus teavitus."
 
-#: lib/phoenix_kit/email/core_templates.ex:157
+#: lib/phoenix_kit/email/core_templates.ex:222
 #, elixir-autogen, elixir-format
 msgid "Reset your password"
 msgstr "Lähtestage oma parool"
@@ -13468,7 +13445,7 @@ msgstr "Näib, et asute ajavööndis %{zone}, mis ei ole teie salvestatud ajavö
 msgid "You have a new notification."
 msgstr "Teil on uus teavitus."
 
-#: lib/phoenix_kit/email/core_templates.ex:226
+#: lib/phoenix_kit/email/core_templates.ex:304
 #, elixir-autogen, elixir-format
 msgid "You've been invited to join {{organization_name}}"
 msgstr "Teid on kutsutud liituma organisatsiooniga {{organization_name}}"
@@ -13513,11 +13490,6 @@ msgstr "Teie e-post muudeti."
 msgid "Your email was confirmed."
 msgstr "Teie e-post kinnitati."
 
-#: lib/phoenix_kit/email/core_templates.ex:195
-#, elixir-autogen, elixir-format
-msgid "Your login link: {{magic_link_url}}\nThis link expires in 15 minutes.\n"
-msgstr "Teie sisselogimislink: {{magic_link_url}}\nSee link aegub 15 minuti pärast.\n"
-
 #: lib/phoenix_kit/notifications/render.ex:109
 #, elixir-autogen, elixir-format
 msgid "Your password was changed by an administrator."
@@ -13543,7 +13515,7 @@ msgstr "Teie rolle uuendati (lisatud: %{roles})."
 msgid "Your roles were updated."
 msgstr "Teie rolle uuendati."
 
-#: lib/phoenix_kit/email/core_templates.ex:193
+#: lib/phoenix_kit/email/core_templates.ex:262
 #, elixir-autogen, elixir-format
 msgid "Your secure login link"
 msgstr "Teie turvaline sisselogimislink"
@@ -13723,12 +13695,12 @@ msgstr "Väljalogitud külastaja sihtleht"
 msgid "Where a visitor who isn't signed in lands — including right after logging out. Empty = the sign-in page."
 msgstr "Kuhu jõuab sisse logimata külastaja — sh kohe pärast väljalogimist. Tühi = sisselogimisleht."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:105
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:108
 #, elixir-autogen, elixir-format
 msgid "Default Integration"
 msgstr "Vaikimisi integratsioon"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:99
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:102
 #, elixir-autogen, elixir-format
 msgid "Local Dev Mailbox"
 msgstr "Kohalik arenduse postkast"
@@ -13885,7 +13857,7 @@ msgid "OG"
 msgstr "OG"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:322
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:323
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:355
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
 #, elixir-autogen, elixir-format
@@ -13894,7 +13866,7 @@ msgstr "Massmeilid"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:313
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:48
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:62
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:65
 #, elixir-autogen, elixir-format
 msgid "Emails Transactional"
 msgstr "Tehingukirjad"
@@ -13924,7 +13896,7 @@ msgstr "Pole paigaldatud"
 msgid "Service-wide default profile used by newsletter broadcasts. Transactional mail (auth, notifications) is routed by the Default Transactional Integration on the Emails Transactional page."
 msgstr "Kogu teenuse vaikeprofiil uudiskirjade saatmiseks. Tehingupost (autentimine, teavitused) suunatakse vaikimisi tehinguintegratsiooni kaudu lehel „Tehingu e-kirjad“."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:256
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:280
 #, elixir-autogen, elixir-format
 msgid "This is a test email sent from the Emails Transactional settings page."
 msgstr "See on testkiri, mis saadeti seadete lehelt „Tehingu e-kirjad“."
@@ -13954,27 +13926,27 @@ msgstr "Saadetud"
 msgid "We emailed a confirmation link to %{email}. Open it to continue — you'll land back in the app automatically, no need to come back to this page."
 msgstr "Saatsime kinnituslingi aadressile %{email}. Ava see jätkamiseks — jõuate automaatselt tagasi rakendusse, ilma et peaksite sellele lehele naasma."
 
-#: lib/phoenix_kit/users/auth.ex:3221
+#: lib/phoenix_kit/users/auth.ex:3248
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Administraatori märkmed"
 
-#: lib/phoenix_kit/users/auth.ex:3218
+#: lib/phoenix_kit/users/auth.ex:3245
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Arveldusprofiilid"
 
-#: lib/phoenix_kit/users/auth.ex:3239
+#: lib/phoenix_kit/users/auth.ex:3266
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "E-posti logid"
 
-#: lib/phoenix_kit/users/auth.ex:3217
+#: lib/phoenix_kit/users/auth.ex:3244
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth-ühendused"
 
-#: lib/phoenix_kit/users/auth.ex:3224
+#: lib/phoenix_kit/users/auth.ex:3251
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Tellimused"
@@ -13990,22 +13962,22 @@ msgstr "Kustuta jäädavalt"
 msgid "Permanently Delete User"
 msgstr "Kustuta kasutaja jäädavalt"
 
-#: lib/phoenix_kit/users/auth.ex:3216
+#: lib/phoenix_kit/users/auth.ex:3243
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Rollide määramised"
 
-#: lib/phoenix_kit/users/auth.ex:3215
+#: lib/phoenix_kit/users/auth.ex:3242
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Seansi- ja muud tokenid"
 
-#: lib/phoenix_kit/users/auth.ex:3220
+#: lib/phoenix_kit/users/auth.ex:3247
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Ostukorvid"
 
-#: lib/phoenix_kit/users/auth.ex:3237
+#: lib/phoenix_kit/users/auth.ex:3264
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Tugipäringud"
@@ -14981,7 +14953,7 @@ msgstr "Valitud fail ei ole saadaolev pilt"
 msgid "Title & description"
 msgstr "Pealkiri ja kirjeldus"
 
-#: lib/phoenix_kit/email/core_templates.ex:304
+#: lib/phoenix_kit/email/core_templates.ex:406
 #, elixir-autogen, elixir-format
 msgid "%{location} (approximate)"
 msgstr "%{location} (ligikaudne)"
@@ -15008,7 +14980,7 @@ msgstr "Katsed"
 msgid "Failed sign-in attempts"
 msgstr "Ebaõnnestunud sisselogimiskatsed"
 
-#: lib/phoenix_kit/email/core_templates.ex:273
+#: lib/phoenix_kit/email/core_templates.ex:357
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in attempts on your account"
 msgstr "Ebaõnnestunud sisselogimiskatsed teie kontol"
@@ -15018,16 +14990,6 @@ msgstr "Ebaõnnestunud sisselogimiskatsed teie kontol"
 #, elixir-autogen, elixir-format
 msgid "Failed sign-ins"
 msgstr "Ebaõnnestunud sisselogimised"
-
-#: lib/phoenix_kit/email/core_templates.ex:275
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nSomeone has been trying to sign in to your account and failing.\n\nFailed attempts: {{attempt_count}}\nIn the last: {{window_hours}} hour(s)\n\nNobody has signed in. You do not need to do anything if you recognize\nthis as your own mistyped password.\n\nIf you do not, your password may be being guessed. Change it to\nsomething you do not use anywhere else:\n\n{{security_url}}\n"
-msgstr "Tere {{user_email}},\n\nkeegi üritab korduvalt teie kontosse sisse logida ja ebaõnnestub.\n\nEbaõnnestunud katseid: {{attempt_count}}\nViimase: {{window_hours}} tunni jooksul\n\nKeegi ei ole sisse loginud. Kui see oli teie enda valesti sisestatud\nparool, ei pea te midagi tegema.\n\nKui ei olnud, võidakse teie parooli ära arvata. Vahetage see millegi\nvastu, mida te mujal ei kasuta:\n\n{{security_url}}\n"
-
-#: lib/phoenix_kit/email/core_templates.ex:250
-#, elixir-autogen, elixir-format
-msgid "Hi {{user_email}},\n\nWe noticed a new login to your account from an unrecognized device:\n\nTime: {{login_time}}\nIP address: {{ip_address}}\nLocation: {{location}}\nDevice: {{browser_os}}\n\n{{failed_attempts}}If this was you, no action is needed.\n\nIf you don't recognize this activity, secure your account here:\n\n{{security_url}}\n"
-msgstr "Tere {{user_email}},\n\nmärkasime teie kontole uut sisselogimist tundmatust seadmest:\n\nAeg: {{login_time}}\nIP-aadress: {{ip_address}}\nAsukoht: {{location}}\nSeade: {{browser_os}}\n\n{{failed_attempts}}Kui see olite teie, ei ole vaja midagi teha.\n\nKui te seda tegevust ei tunne, turvake oma konto siin:\n\n{{security_url}}\n"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:101
 #, elixir-autogen, elixir-format
@@ -15044,7 +15006,7 @@ msgstr "Võrk"
 msgid "Sign-ins to your account that did not succeed. Nobody got in."
 msgstr "Sisselogimised teie kontosse, mis ebaõnnestusid. Keegi ei pääsenud sisse."
 
-#: lib/phoenix_kit/email/core_templates.ex:318
+#: lib/phoenix_kit/email/core_templates.ex:420
 #, elixir-autogen, elixir-format
 msgid "There was also %{count} failed sign-in attempt on your account in the last 24 hours."
 msgid_plural "There were also %{count} failed sign-in attempts on your account in the last 24 hours."
@@ -15734,7 +15696,7 @@ msgid_plural "%{count} stored objects have no recorded location yet. They are be
 msgstr[0] "%{count} salvestatud objektil pole veel salvestatud asukohta. Seda otsitakse taustal ja seni jagatakse seda edasi."
 msgstr[1] "%{count} salvestatud objektil pole veel salvestatud asukohta. Neid otsitakse taustal ja seni jagatakse neid edasi."
 
-#: lib/modules/storage/web/bucket_page.ex:162
+#: lib/modules/storage/web/bucket_page.ex:248
 #: lib/modules/storage/web/settings.ex:305
 #, elixir-autogen, elixir-format
 msgid "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
@@ -16740,7 +16702,7 @@ msgstr "(teema puudub)"
 msgid "Accent colour"
 msgstr "Rõhuvärv"
 
-#: lib/phoenix_kit/email/core_templates.ex:35
+#: lib/phoenix_kit/email/core_templates.ex:47
 #, elixir-autogen, elixir-format
 msgid "Account confirmation"
 msgstr "Konto kinnitamine"
@@ -16750,7 +16712,7 @@ msgstr "Konto kinnitamine"
 msgid "An active database template answers this email, so files and the built-in default are not used. Deactivate it in the Emails module to send from files."
 msgstr "Seda e-kirja teenindab aktiivne andmebaasimall, seega faile ja sisseehitatud vaikimisi malli ei kasutata. Failidest saatmiseks deaktiveeri see moodulis E-kirjad."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:95
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:98
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "Branding"
@@ -16766,7 +16728,7 @@ msgstr "Koostab HTML-versiooni"
 msgid "Builds the text version"
 msgstr "Koostab tekstiversiooni"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:284
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:304
 #, elixir-autogen, elixir-format
 msgid "Built-in default"
 msgstr "Sisseehitatud vaikimisi"
@@ -16786,27 +16748,27 @@ msgstr "Logo, saidi nime või saidi URL-i saab muuta jaotises Seaded → Üldine
 msgid "Core"
 msgstr "Tuum"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:226
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:250
 #, elixir-autogen, elixir-format
 msgid "Could not save the accent colour"
 msgstr "Rõhuvärvi salvestamine ebaõnnestus"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:278
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:298
 #, elixir-autogen, elixir-format
 msgid "Database template"
 msgstr "Andmebaasimall"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:220
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:244
 #, elixir-autogen, elixir-format
 msgid "Email accent colour reset to the default"
 msgstr "E-kirjade rõhuvärv lähtestati vaikeväärtusele"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:221
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:245
 #, elixir-autogen, elixir-format
 msgid "Email accent colour updated"
 msgstr "E-kirjade rõhuvärv uuendatud"
 
-#: lib/phoenix_kit/email/core_templates.ex:53
+#: lib/phoenix_kit/email/core_templates.ex:65
 #, elixir-autogen, elixir-format
 msgid "Email change confirmation"
 msgstr "E-posti muutmise kinnitus"
@@ -16816,12 +16778,12 @@ msgstr "E-posti muutmise kinnitus"
 msgid "Email preview"
 msgstr "E-kirja eelvaade"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:282
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:302
 #, elixir-autogen, elixir-format
 msgid "Empty file, ignored"
 msgstr "Tühi fail, ignoreeritud"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:410
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:435
 #, elixir-autogen, elixir-format
 msgid "Enter the colour as #RRGGBB, for example #1d4ed8"
 msgstr "Sisesta värv kujul #RRGGBB, näiteks #1d4ed8"
@@ -16831,12 +16793,12 @@ msgstr "Sisesta värv kujul #RRGGBB, näiteks #1d4ed8"
 msgid "Every email the site sends, rendered with sample values, and where each part comes from"
 msgstr "Iga e-kiri, mille sait saadab, näidisväärtustega kuvatuna, ning kust iga osa pärineb"
 
-#: lib/phoenix_kit/email/core_templates.ex:118
+#: lib/phoenix_kit/email/core_templates.ex:130
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in alert"
 msgstr "Ebaõnnestunud sisselogimise teavitus"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.html.heex:193
+#: lib/phoenix_kit_web/live/settings/email_preview.html.heex:198
 #, elixir-autogen, elixir-format
 msgid "Files found but not used"
 msgstr "Leitud, kuid kasutamata failid"
@@ -16866,7 +16828,7 @@ msgstr "E-kirja HTML-versioon"
 msgid "Header"
 msgstr "Päis"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:280
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:300
 #, elixir-autogen, elixir-format
 msgid "Host file"
 msgstr "Hostrakenduse fail"
@@ -16891,12 +16853,12 @@ msgstr "Kujunduse grupp"
 msgid "Logo"
 msgstr "Logo"
 
-#: lib/phoenix_kit/email/core_templates.ex:75
+#: lib/phoenix_kit/email/core_templates.ex:87
 #, elixir-autogen, elixir-format
 msgid "Magic link registration"
 msgstr "Magic Linkiga registreerumine"
 
-#: lib/phoenix_kit/email/core_templates.ex:65
+#: lib/phoenix_kit/email/core_templates.ex:77
 #, elixir-autogen, elixir-format
 msgid "Magic link sign-in"
 msgstr "Magic Linkiga sisselogimine"
@@ -16906,7 +16868,7 @@ msgstr "Magic Linkiga sisselogimine"
 msgid "Markdown body"
 msgstr "Markdown-sisu"
 
-#: lib/phoenix_kit/email/core_templates.ex:100
+#: lib/phoenix_kit/email/core_templates.ex:112
 #, elixir-autogen, elixir-format
 msgid "New login alert"
 msgstr "Uue sisselogimise teavitus"
@@ -16933,13 +16895,13 @@ msgstr "Tekstiversiooni pole."
 
 #: lib/modules/storage/web/bucket_usage.ex:109
 #: lib/modules/storage/web/settings.html.heex:124
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:246
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:288
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:266
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:308
 #, elixir-autogen, elixir-format
 msgid "Not used"
 msgstr "Ei kasutata"
 
-#: lib/phoenix_kit/email/core_templates.ex:87
+#: lib/phoenix_kit/email/core_templates.ex:99
 #, elixir-autogen, elixir-format
 msgid "Organization invitation"
 msgstr "Organisatsiooni kutse"
@@ -16954,7 +16916,7 @@ msgstr "Ülekirjutavad failid asuvad hostrakenduse lähtekoodipuus, kataloogis %
 msgid "Part"
 msgstr "Osa"
 
-#: lib/phoenix_kit/email/core_templates.ex:44
+#: lib/phoenix_kit/email/core_templates.ex:56
 #, elixir-autogen, elixir-format
 msgid "Password reset"
 msgstr "Parooli lähtestamine"
@@ -16979,48 +16941,48 @@ msgstr "E-kirjade eelvaade"
 msgid "Save accent colour"
 msgstr "Salvesta rõhuvärv"
 
-#: lib/phoenix_kit/email/core_templates.ex:36
+#: lib/phoenix_kit/email/core_templates.ex:48
 #, elixir-autogen, elixir-format
 msgid "Sent after registration, with the link that confirms the address."
 msgstr "Saadetakse pärast registreerumist koos lingiga, mis aadressi kinnitab."
 
-#: lib/phoenix_kit/email/core_templates.ex:88
+#: lib/phoenix_kit/email/core_templates.ex:100
 #, elixir-autogen, elixir-format
 msgid "Sent to an address that is invited to join an organization."
 msgstr "Saadetakse aadressile, mis on kutsutud organisatsiooniga liituma."
 
-#: lib/phoenix_kit/email/core_templates.ex:54
+#: lib/phoenix_kit/email/core_templates.ex:66
 #, elixir-autogen, elixir-format
 msgid "Sent to the new address when a user changes their email."
 msgstr "Saadetakse uuele aadressile, kui kasutaja muudab oma e-posti."
 
-#: lib/phoenix_kit/email/core_templates.ex:67
+#: lib/phoenix_kit/email/core_templates.ex:79
 #, elixir-autogen, elixir-format
 msgid "Sent when a user signs in with a one-time link instead of a password."
 msgstr "Saadetakse, kui kasutaja logib sisse parooli asemel ühekordse lingiga."
 
-#: lib/phoenix_kit/email/core_templates.ex:119
+#: lib/phoenix_kit/email/core_templates.ex:131
 #, elixir-autogen, elixir-format
 msgid "Sent when an account sees repeated failed sign-in attempts."
 msgstr "Saadetakse, kui kontol esineb korduvaid ebaõnnestunud sisselogimiskatseid."
 
-#: lib/phoenix_kit/email/core_templates.ex:102
+#: lib/phoenix_kit/email/core_templates.ex:114
 #, elixir-autogen, elixir-format
 msgid "Sent when an account signs in from a device it has not used before."
 msgstr "Saadetakse, kui konto logitakse sisse seadmest, mida pole varem kasutatud."
 
-#: lib/phoenix_kit/email/core_templates.ex:45
+#: lib/phoenix_kit/email/core_templates.ex:57
 #, elixir-autogen, elixir-format
 msgid "Sent when someone asks to reset a forgotten password."
 msgstr "Saadetakse, kui keegi taotleb unustatud parooli lähtestamist."
 
-#: lib/phoenix_kit/email/core_templates.ex:76
+#: lib/phoenix_kit/email/core_templates.ex:88
 #, elixir-autogen, elixir-format
 msgid "Sent when someone registers with a one-time link."
 msgstr "Saadetakse, kui keegi registreerub ühekordse lingiga."
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:244
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:286
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:264
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:306
 #, elixir-autogen, elixir-format
 msgid "Set by the sending code"
 msgstr "Määrab saatev kood"
@@ -17055,7 +17017,7 @@ msgstr "Seda e-kirja ei õnnestunud kuvada: %{reason}"
 msgid "To override, create"
 msgstr "Ülekirjutamiseks loo"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:451
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:476
 #, elixir-autogen, elixir-format
 msgid "Used for buttons and links in every email, and for the accent bar of the standard layout. Leave blank for neutral buttons and links (%{color}) and no accent bar. Email files read it as %{placeholder}."
 msgstr "Kasutatakse nuppude ja linkide jaoks igas e-kirjas ning standardkujunduse rõhuribal. Jäta tühjaks, kui soovid neutraalseid nuppe ja linke (%{color}) ning rõhuriba ilma. E-kirja failid loevad seda kui %{placeholder}."
@@ -17065,17 +17027,17 @@ msgstr "Kasutatakse nuppude ja linkide jaoks igas e-kirjas ning standardkujundus
 msgid "Where each part comes from"
 msgstr "Kust iga osa pärineb"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:297
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:317
 #, elixir-autogen, elixir-format
 msgid "empty file"
 msgstr "tühi fail"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:302
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:322
 #, elixir-autogen, elixir-format
 msgid "ignored"
 msgstr "ignoreeritud"
 
-#: lib/phoenix_kit_web/live/settings/email_preview.ex:300
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:320
 #, elixir-autogen, elixir-format
 msgid "layout does not place the content placeholder"
 msgstr "kujundus ei paiguta sisu kohatäidet"
@@ -17536,7 +17498,7 @@ msgstr "Ebaõnnestus"
 msgid "Finished"
 msgstr "Lõppenud"
 
-#: lib/modules/storage/web/bucket_page.html.heex:550
+#: lib/modules/storage/web/bucket_page.html.heex:552
 #: lib/modules/storage/web/history_component.ex:133
 #: lib/modules/storage/web/settings.ex:115
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:250
@@ -17564,7 +17526,7 @@ msgstr "Ühtegi sobivat käivitust pole."
 msgid "No sweeper pass in the last 15 minutes"
 msgstr "Viimase 15 minuti jooksul pole sweeper'it käivitatud"
 
-#: lib/modules/storage/web/bucket_page.html.heex:562
+#: lib/modules/storage/web/bucket_page.html.heex:564
 #: lib/modules/storage/web/history_component.ex:161
 #: lib/phoenix_kit_web/components/core/activity_list.ex:46
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:253
@@ -17572,8 +17534,8 @@ msgstr "Viimase 15 minuti jooksul pole sweeper'it käivitatud"
 msgid "Nothing recorded yet."
 msgstr "Midagi pole veel registreeritud."
 
-#: lib/modules/storage/web/bucket_page.html.heex:530
-#: lib/modules/storage/web/bucket_page.html.heex:575
+#: lib/modules/storage/web/bucket_page.html.heex:532
+#: lib/modules/storage/web/bucket_page.html.heex:577
 #: lib/modules/storage/web/history_component.ex:176
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:140
 #, elixir-autogen, elixir-format
@@ -17947,31 +17909,31 @@ msgstr "See bucket on kasutusel"
 msgid "Used by"
 msgstr "Kasutab"
 
-#: lib/modules/storage/web/bucket_page.ex:405
+#: lib/modules/storage/web/bucket_page.ex:431
 #: lib/modules/storage/web/bucket_usage.ex:89
 #, elixir-autogen, elixir-format
 msgid "backup"
 msgstr "varukoopia"
 
-#: lib/modules/storage/web/bucket_page.ex:410
+#: lib/modules/storage/web/bucket_page.ex:436
 #: lib/modules/storage/web/bucket_usage.ex:93
 #, elixir-autogen, elixir-format
 msgid "draining"
 msgstr "tühjendamisel"
 
-#: lib/modules/storage/web/bucket_page.ex:403
+#: lib/modules/storage/web/bucket_page.ex:429
 #: lib/modules/storage/web/bucket_usage.ex:87
 #, elixir-autogen, elixir-format
 msgid "primary"
 msgstr "peamine"
 
-#: lib/modules/storage/web/bucket_page.ex:409
+#: lib/modules/storage/web/bucket_page.ex:435
 #: lib/modules/storage/web/bucket_usage.ex:92
 #, elixir-autogen, elixir-format
 msgid "read only"
 msgstr "ainult lugemiseks"
 
-#: lib/modules/storage/web/bucket_page.ex:404
+#: lib/modules/storage/web/bucket_page.ex:430
 #: lib/modules/storage/web/bucket_usage.ex:88
 #, elixir-autogen, elixir-format
 msgid "replica"
@@ -18069,7 +18031,7 @@ msgstr "Juurdepääs"
 msgid "Add to profile"
 msgstr "Lisa profiili"
 
-#: lib/modules/storage/web/bucket_page.ex:183
+#: lib/modules/storage/web/bucket_page.ex:267
 #, elixir-autogen, elixir-format
 msgid "Bucket added to the storage profile"
 msgstr "Bucket lisati salvestusprofiili"
@@ -18114,7 +18076,7 @@ msgstr "Ebaõnnestunud koopiad"
 msgid "Everything about this storage bucket"
 msgstr "Kõik selle salvestus-bucketi kohta"
 
-#: lib/modules/storage/web/bucket_page.ex:186
+#: lib/modules/storage/web/bucket_page.ex:270
 #, elixir-autogen, elixir-format
 msgid "Failed to add the bucket to the profile"
 msgstr "Bucketi lisamine profiili ebaõnnestus"
@@ -18149,12 +18111,12 @@ msgstr "Objektid"
 msgid "Overview"
 msgstr "Ülevaade"
 
-#: lib/modules/storage/web/bucket_page.ex:398
+#: lib/modules/storage/web/bucket_page.ex:424
 #, elixir-autogen, elixir-format
 msgid "Public"
 msgstr "Avalik"
 
-#: lib/modules/storage/web/bucket_page.ex:400
+#: lib/modules/storage/web/bucket_page.ex:426
 #, elixir-autogen, elixir-format
 msgid "Signed URLs"
 msgstr "Allkirjastatud URL-id"
@@ -18169,7 +18131,7 @@ msgstr "Testi ühendust"
 msgid "Tested %{time}"
 msgstr "Testitud: %{time}"
 
-#: lib/modules/storage/web/bucket_page.ex:237
+#: lib/modules/storage/web/bucket_page.ex:193
 #, elixir-autogen, elixir-format
 msgid "The connection test crashed unexpectedly"
 msgstr "Ühenduse test jooksis ootamatult kokku"
@@ -18186,7 +18148,7 @@ msgid_plural "This bucket is draining: %{count} files are still stored here and 
 msgstr[0] "See bucket tühjendatakse: %{count} fail on veel siin ja ühtlustaja viib selle ära."
 msgstr[1] "See bucket tühjendatakse: %{count} faili on veel siin ja ühtlustaja viib need ära."
 
-#: lib/modules/storage/web/bucket_page.ex:376
+#: lib/modules/storage/web/bucket_page.ex:399
 #, elixir-autogen, elixir-format
 msgid "Unknown result"
 msgstr "Tundmatu tulemus"
@@ -18201,7 +18163,7 @@ msgstr "Piiramatu"
 msgid "Updated"
 msgstr "Uuendatud"
 
-#: lib/modules/storage/web/bucket_page.html.heex:553
+#: lib/modules/storage/web/bucket_page.html.heex:555
 #, elixir-autogen, elixir-format
 msgid "Who changed this bucket and its place in the storage profiles. These entries are kept permanently."
 msgstr "Kes seda bucketit ja selle kohta salvestusprofiilides muutis. Need kirjed säilitatakse alaliselt."
@@ -18211,7 +18173,7 @@ msgstr "Kes seda bucketit ja selle kohta salvestusprofiilides muutis. Need kirje
 msgid "Writes, reads and deletes a small test object. Not run when the page opens."
 msgstr "Kirjutab, loeb ja kustutab väikese katseobjekti. Lehe avamisel ei käivitata."
 
-#: lib/modules/storage/web/bucket_page.ex:408
+#: lib/modules/storage/web/bucket_page.ex:434
 #, elixir-autogen, elixir-format
 msgid "active"
 msgstr "aktiivne"
@@ -18251,12 +18213,12 @@ msgstr "Logi"
 msgid "Nothing logged yet."
 msgstr "Midagi pole veel logitud."
 
-#: lib/modules/storage/web/bucket_page.ex:421
+#: lib/modules/storage/web/bucket_page.ex:447
 #, elixir-autogen, elixir-format
 msgid "Probe"
 msgstr "Ühenduse test"
 
-#: lib/modules/storage/web/bucket_page.ex:423
+#: lib/modules/storage/web/bucket_page.ex:449
 #, elixir-autogen, elixir-format
 msgid "Read"
 msgstr "Lugemine"
@@ -18271,7 +18233,123 @@ msgstr "Logi pole saadaval. Selle loomiseks käivita andmebaasi uuendus."
 msgid "Time"
 msgstr "Kestus"
 
-#: lib/modules/storage/web/bucket_page.ex:422
+#: lib/modules/storage/web/bucket_page.ex:448
 #, elixir-autogen, elixir-format
 msgid "Write"
 msgstr "Kirjutamine"
+
+#: lib/phoenix_kit/email/core_templates.ex:156
+#, elixir-autogen, elixir-format
+msgid "A notification delivered by email, one at a time or as a digest, when the reader routes it to email."
+msgstr "E-postiga saadetud teavitus, ükshaaval või kokkuvõttena, kui lugeja on selle suunanud e-postile."
+
+#: lib/phoenix_kit/email/core_templates.ex:162
+#: lib/phoenix_kit/email/core_templates.ex:163
+#, elixir-autogen, elixir-format
+msgid "Acme Ltd commented on your order"
+msgstr "Acme Ltd kommenteeris teie tellimust"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:205
+#, elixir-autogen, elixir-format
+msgid "Could not update the welcome email setting"
+msgstr "Tervituskirja seadet ei õnnestunud muuta"
+
+#: lib/phoenix_kit/email/core_templates.ex:204
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nPlease confirm your account with the button below.\n\n[Confirm account]({{confirmation_url}})\n\nIf the button doesn't work, open this link: [{{confirmation_url}}]({{confirmation_url}})\n\nIf you didn't create an account with us, please ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\npalun kinnitage oma konto alloleva nupuga.\n\n[Kinnita konto]({{confirmation_url}})\n\nKui nupp ei tööta, avage see link: [{{confirmation_url}}]({{confirmation_url}})\n\nKui te ei loonud meie juures kontot, jätke see e-kiri tähelepanuta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:359
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nSomeone has been trying to sign in to your account and failing.\n\n- Failed attempts: {{attempt_count}}\n- In the last: {{window_hours}} hour(s)\n\nNobody has signed in. You do not need to do anything if you recognize this as your own mistyped password.\n\nIf you do not, your password may be being guessed. Change it to something you do not use anywhere else:\n\n[Change password]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
+msgstr "Tere, {{user_email}},\n\nkeegi üritab korduvalt teie kontosse sisse logida ja ebaõnnestub.\n\n- Ebaõnnestunud katseid: {{attempt_count}}\n- Viimase: {{window_hours}} tunni jooksul\n\nKeegi ei ole sisse loginud. Kui see oli teie enda valesti sisestatud parool, ei pea te midagi tegema.\n\nKui ei olnud, võidakse teie parooli ära arvata. Vahetage see parooli vastu, mida te mujal ei kasuta:\n\n[Vaheta parool]({{security_url}})\n\nKui nupp ei tööta, avage see link: [{{security_url}}]({{security_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:264
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nUse the button below to sign in. This link expires in 15 minutes.\n\n[Sign in]({{magic_link_url}})\n\nIf the button doesn't work, open this link: [{{magic_link_url}}]({{magic_link_url}})\n\nIf you didn't ask for this link, you can ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\nlogige sisse alloleva nupuga. See link aegub 15 minuti pärast.\n\n[Logi sisse]({{magic_link_url}})\n\nKui nupp ei tööta, avage see link: [{{magic_link_url}}]({{magic_link_url}})\n\nKui te seda linki ei küsinud, võite selle e-kirja tähelepanuta jätta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:330
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nWe noticed a new login to your account from an unrecognized device:\n\n- Time: {{login_time}}\n- IP address: {{ip_address}}\n- Location: {{location}}\n- Device: {{browser_os}}\n\n{{failed_attempts}}\n\nIf this was you, no action is needed.\n\nIf you don't recognize this activity, secure your account:\n\n[Review account security]({{security_url}})\n\nIf the button doesn't work, open this link: [{{security_url}}]({{security_url}})\n"
+msgstr "Tere, {{user_email}},\n\nmärkasime teie kontole uut sisselogimist tundmatust seadmest:\n\n- Aeg: {{login_time}}\n- IP-aadress: {{ip_address}}\n- Asukoht: {{location}}\n- Seade: {{browser_os}}\n\n{{failed_attempts}}\n\nKui see olite teie, ei ole vaja midagi teha.\n\nKui te seda tegevust ei tunne, turvake oma konto:\n\n[Kontrolli konto turvalisust]({{security_url}})\n\nKui nupp ei tööta, avage see link: [{{security_url}}]({{security_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:384
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nWelcome to {{site_name}}! Your email address is confirmed and your account is ready.\n\n[Go to {{site_name}}]({{site_url}})\n\nIf the button doesn't work, open this link: [{{site_url}}]({{site_url}})\n"
+msgstr "Tere, {{user_email}},\n\nmeil on hea meel teid näha! Teie e-posti aadress on kinnitatud ja konto on kasutamiseks valmis.\n\n[Ava {{site_name}}]({{site_url}})\n\nKui nupp ei tööta, avage see link: [{{site_url}}]({{site_url}})\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:284
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nWelcome! To complete your registration, use the button below.\n\n[Complete registration]({{registration_url}})\n\nIf the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})\n\nThis link will expire in 30 minutes for your security.\n\nIf you didn't request this registration, please ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\nmeil on hea meel, et liitute! Registreerimise lõpetamiseks kasutage allolevat nuppu.\n\n[Lõpeta registreerimine]({{registration_url}})\n\nKui nupp ei tööta, avage see link: [{{registration_url}}]({{registration_url}})\n\nTeie turvalisuse huvides aegub see link 30 minuti pärast.\n\nKui te seda registreerimist ei taotlenud, jätke see e-kiri tähelepanuta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:244
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nYou can change your email with the button below.\n\n[Confirm email change]({{update_url}})\n\nIf the button doesn't work, open this link: [{{update_url}}]({{update_url}})\n\nIf you didn't request this change, please ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\nsaate oma e-posti aadressi muuta alloleva nupuga.\n\n[Kinnita e-posti aadressi muutmine]({{update_url}})\n\nKui nupp ei tööta, avage see link: [{{update_url}}]({{update_url}})\n\nKui te seda muudatust ei taotlenud, jätke see e-kiri tähelepanuta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:224
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\nYou can reset your password with the button below.\n\n[Reset password]({{reset_url}})\n\nIf the button doesn't work, open this link: [{{reset_url}}]({{reset_url}})\n\nIf you didn't request this change, please ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\nsaate oma parooli lähtestada alloleva nupuga.\n\n[Lähtesta parool]({{reset_url}})\n\nKui nupp ei tööta, avage see link: [{{reset_url}}]({{reset_url}})\n\nKui te seda muudatust ei taotlenud, jätke see e-kiri tähelepanuta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:306
+#, elixir-autogen, elixir-format
+msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to join their organization.\n\nTo accept the invitation, register an account with the button below.\n\n[Accept invitation]({{registration_url}})\n\nIf the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})\n\nThis invitation link will expire in 7 days.\n\nIf you did not expect this invitation, you can safely ignore this email.\n"
+msgstr "Tere, {{user_email}},\n\n{{organization_name}} kutsus teid oma organisatsiooniga liituma.\n\nKutse vastuvõtmiseks registreerige alloleva nupuga konto.\n\n[Võta kutse vastu]({{registration_url}})\n\nKui nupp ei tööta, avage see link: [{{registration_url}}]({{registration_url}})\n\nSee kutselink aegub 7 päeva pärast.\n\nKui te seda kutset ei oodanud, võite selle e-kirja julgelt tähelepanuta jätta.\n"
+
+#: lib/phoenix_kit/email/core_templates.ex:154
+#, elixir-autogen, elixir-format
+msgid "Notification"
+msgstr "Teavitus"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:217
+#, elixir-autogen, elixir-format
+msgid "Send a welcome email after an address is confirmed"
+msgstr "Saada pärast aadressi kinnitamist tervituskiri"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:197
+#, elixir-autogen, elixir-format
+msgid "Sent once to each user, after they confirm their own email address — by the confirmation link, a magic link, a sign-in with a provider that verified the address, or by correcting an address they had not confirmed yet. Not sent when an administrator confirms an account."
+msgstr "Saadetakse igale kasutajale üks kord pärast seda, kui ta on oma e-posti aadressi ise kinnitanud – kinnituslingi, maagilise lingi, aadressi kinnitanud teenusepakkuja kaudu sisselogimise või veel kinnitamata aadressi parandamisega. Ei saadeta, kui konto kinnitab administraator."
+
+#: lib/phoenix_kit/email/core_templates.ex:146
+#, elixir-autogen, elixir-format
+msgid "Sent once, after an address is confirmed — only while the welcome email is switched on."
+msgstr "Saadetakse üks kord pärast aadressi kinnitamist – ainult siis, kui tervituskiri on sisse lülitatud."
+
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:232
+#, elixir-autogen, elixir-format
+msgid "The HTML version comes from the first of: your %{html}, your %{markdown}, your %{text} (as paragraphs, without buttons), then the built-in HTML, Markdown and text."
+msgstr "HTML-versioon tuleb esimesest olemasolevast osast: teie %{html}, teie %{markdown}, teie %{text} (lõikudena, nuppudeta), seejärel sisseehitatud HTML, Markdown ja tekst."
+
+#: lib/phoenix_kit_web/live/settings/email_preview.ex:241
+#, elixir-autogen, elixir-format
+msgid "The text version comes from the first of: your %{text}, your %{markdown}, then the built-in text and Markdown. Override %{markdown} to change both versions at once."
+msgstr "Tekstiversioon tuleb esimesest olemasolevast osast: teie %{text}, teie %{markdown}, seejärel sisseehitatud tekst ja Markdown. Mõlema versiooni korraga muutmiseks kirjutage üle %{markdown}."
+
+#: lib/phoenix_kit/email/core_templates.ex:144
+#, elixir-autogen, elixir-format
+msgid "Welcome"
+msgstr "Tervitus"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:191
+#, elixir-autogen, elixir-format
+msgid "Welcome email"
+msgstr "Tervituskiri"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:196
+#, elixir-autogen, elixir-format
+msgid "Welcome email switched off"
+msgstr "Tervituskiri on välja lülitatud"
+
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:195
+#, elixir-autogen, elixir-format
+msgid "Welcome email switched on"
+msgstr "Tervituskiri on sisse lülitatud"
+
+#: lib/phoenix_kit/email/core_templates.ex:382
+#, elixir-autogen, elixir-format
+msgid "Welcome to {{site_name}}"
+msgstr "{{site_name}} tervitab teid"
