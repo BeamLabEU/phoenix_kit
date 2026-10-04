@@ -59,6 +59,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
           | :option_disabled
           | :plugins_disabled
           | :plugins_not_literal
+          | :cron_only_nested
           | :key_not_found
           | :not_literal_list
           | :combined_list
@@ -166,14 +167,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
         return: :index
       )
 
-    # An indented block runs while the following lines are indented deeper
-    # than its own `config` line (or blank).
-    nested =
-      Regex.scan(
-        ~r/^([ \t]+)config\s+:\w+,\s+Oban\b[^\n]*(?:\n(?:\1[ \t]+[^\n]*|[ \t]*(?=\n)))*/m,
-        masked,
-        return: :index
-      )
+    nested = nested_block_ranges(masked)
 
     Enum.reduce(top ++ nested, mask(content, opts), fn [{start, len} | _], acc ->
       blank_range(acc, start, len)
@@ -331,6 +325,11 @@ defmodule PhoenixKit.Install.ConfigSplice do
       "the Oban `plugins:` are not a literal list (a variable, module attribute or " <>
         "function call), so the crontab inside cannot be found"
 
+  def reason_text(:cron_only_nested, _key),
+    do:
+      "Cron is configured only in a nested `config` for an environment; add the entries " <>
+        "there, or add `Oban.Plugins.Cron` to this block"
+
   def reason_text(:key_not_found, :crontab),
     do: "the Oban block has no `Oban.Plugins.Cron` with a `crontab:` option"
 
@@ -392,28 +391,45 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   # Offset of the `[` opening `key: [` inside the block.
+  #
+  # For `:crontab` it is the list of the Cron plugin, in any spelling the file
+  # uses: `{Oban.Plugins.Cron, crontab: [...]}`, an aliased or Oban 2.24
+  # `{Oban.Cron, …}`, the keyword-list form `{Cron, [crontab: [...]]}`, 2.24's
+  # top-level `cron: [crontab: [...]]` and the legacy top-level `crontab: [...]`
+  # (the last two only at the block's own level — a `crontab:` inside another
+  # plugin's tuple, `DynamicCron`, is not the list entries belong in).
   defp find_open(masked, {start, stop}, :crontab, names) do
     block = binary_part(masked, start, stop - start)
     cron = Enum.map_join(names, "|", &Regex.escape/1)
+    crontab = "(?<![A-Za-z0-9_])crontab:[ \\t\\r\\n]*(\\S)"
 
-    case Regex.run(
-           Regex.compile!(
-             "\\{\\s*(?:" <>
-               cron <>
-               ")\\s*,\\s*\\[?[^{}\\[\\]]*?(?<![A-Za-z0-9_])crontab:[ \\t\\r\\n]*(\\S)"
-           ),
-           block,
-           return: :index
-         ) do
-      [_, {at, 1}] ->
-        classify_open(block, start, at, :crontab)
+    patterns = [
+      {"\\{\\s*(?:" <> cron <> ")\\s*,\\s*\\[?[^{}\\[\\]]*?" <> crontab, false},
+      {"(?<![A-Za-z0-9_])cron:[ \\t\\r\\n]*\\[?[^{}\\[\\]]*?" <> crontab, true},
+      {crontab, true}
+    ]
 
+    found =
+      Enum.find_value(patterns, fn {source, top_level?} ->
+        source
+        |> Regex.compile!()
+        |> Regex.scan(block, return: :index)
+        |> Enum.find_value(fn [{at, _}, {char_at, 1}] ->
+          if not top_level? or depth_at(block, at) == 0, do: char_at
+        end)
+      end)
+
+    case found do
       nil ->
         cond do
           option_value(block, "plugins") in [:false_value] -> {:error, :plugins_disabled}
           option_value(block, "plugins") == :not_a_list -> {:error, :plugins_not_literal}
+          cron_only_nested?(masked, block, names) -> {:error, :cron_only_nested}
           true -> {:error, :key_not_found}
         end
+
+      char_at ->
+        classify_open(block, start, char_at, :crontab)
     end
   end
 
@@ -438,6 +454,29 @@ defmodule PhoenixKit.Install.ConfigSplice do
       true ->
         {:error, :not_literal_list}
     end
+  end
+
+  # Bracket depth of `block` at byte `at` (the block's own options are at 0).
+  defp depth_at(block, at) do
+    block
+    |> binary_part(0, at)
+    |> :binary.bin_to_list()
+    |> Enum.reduce(0, fn
+      c, d when c in [?[, ?{, ?(] -> d + 1
+      c, d when c in [?], ?}, ?)] -> d - 1
+      _, d -> d
+    end)
+  end
+
+  # The block has no Cron of its own, but a `config :app, Oban` nested in an
+  # `if`/`case` (an environment's) does: Config merges it over this one, so the
+  # entries belong there, not here.
+  defp cron_only_nested?(masked, _block, names) do
+    cron = Enum.map_join(names, "|", &Regex.escape/1)
+
+    masked
+    |> nested_blocks()
+    |> Enum.any?(&Regex.match?(Regex.compile!("(?:" <> cron <> ")\\b"), &1))
   end
 
   # What `plugins:` holds, when the block has it: `:list`, `:false_value`,
@@ -537,54 +576,126 @@ defmodule PhoenixKit.Install.ConfigSplice do
   # --- the file as a tree ---------------------------------------------------
   #
   # Text decides where an edit goes; the tree answers "what does this file
-  # mean" — which plugin modules the block lists once `alias` is resolved, and
-  # whether an edit left a duplicate behind.
+  # mean" — which services (Cron, Lifeline, Pruner…) the block configures once
+  # `alias` and Oban's own renaming are applied, and whether an edit left a
+  # duplicate behind.
+  #
+  # Oban 2.24 renamed `Oban.Plugins.Cron` to `Oban.Cron` (likewise Lifeline,
+  # Pruner, Reindexer) and added top-level `cron:`, `lifeline:`, `pruner:`,
+  # `reindexer:` and the legacy `crontab:` options. `Oban.Config` renames first,
+  # then looks for duplicates, so every check here goes through `service/1`'s
+  # view of the names, not the spelling in the file.
 
-  @cron_module [:Oban, :Plugins, :Cron]
+  @renamed_services %{
+    Oban.Plugins.Cron => Oban.Cron,
+    Oban.Plugins.Lifeline => Oban.Lifeline,
+    Oban.Plugins.Pruner => Oban.Pruner,
+    Oban.Plugins.Reindexer => Oban.Reindexer
+  }
+
+  # Top-level option => the service it configures (Oban's `@service_plugins`).
+  @service_keys [
+    cron: Oban.Cron,
+    pruner: Oban.Pruner,
+    lifeline: Oban.Lifeline,
+    reindexer: Oban.Reindexer
+  ]
 
   @doc """
-  Every spelling of `Oban.Plugins.Cron` the file uses: the full name, plus each
-  short name an `alias` gives it (`alias Oban.Plugins.Cron`,
-  `alias Oban.Plugins.{Cron, Pruner}`, `alias Oban.Plugins.Cron, as: C`).
+  Oban's name for a plugin module: `Oban.Plugins.Cron` and `Oban.Cron` are the
+  same service, as are the other renamed plugins.
+  """
+  @spec service(module()) :: module()
+  def service(module), do: Map.get(@renamed_services, module, module)
+
+  @doc """
+  Every spelling of the Cron plugin the file can use: both module names, plus
+  each short form its `alias` lines give them (`alias Oban.Plugins.Cron`,
+  `alias Oban.Plugins.{Cron, Pruner}`, `alias Oban.{Plugins.Cron}`,
+  `alias Oban.Plugins.Cron, as: C`, `alias Oban.Plugins` + `Plugins.Cron`).
   """
   @spec cron_names(String.t()) :: [String.t()]
   def cron_names(content) do
-    case parse(content) do
-      {:ok, ast} ->
-        short =
-          for {name, parts} <- alias_map(ast), parts == @cron_module, do: Atom.to_string(name)
+    targets = [[:Oban, :Plugins, :Cron], [:Oban, :Cron]]
+    full = Enum.map(targets, &Enum.join(&1, "."))
 
-        ["Oban.Plugins.Cron" | short]
+    short =
+      case parse(content) do
+        {:ok, ast} ->
+          for {name, expansion} <- alias_map(ast),
+              target <- targets,
+              {^expansion, rest} <- [Enum.split(target, length(expansion))],
+              Enum.take(target, length(expansion)) == expansion,
+              do: Enum.join([Atom.to_string(name) | Enum.map(rest, &Atom.to_string/1)], ".")
 
-      _ ->
-        ["Oban.Plugins.Cron"]
-    end
+        _ ->
+          []
+      end
+
+    Enum.uniq(full ++ short)
   end
 
   @doc """
-  The plugin modules of the app's `plugins: [...]`, with `alias` resolved, read
-  from the tree. `:error` when the file does not parse or the list is not a
-  literal one.
+  The services the app's Oban config sets up, as Oban sees them: the modules of
+  `plugins:` (aliases resolved, renamed), the top-level `cron:`, `pruner:`,
+  `lifeline:`, `reindexer:` options, and a legacy non-empty `crontab:`. `:error`
+  when the file does not parse, there is no `config :app, Oban`, or an option
+  holds something the tree cannot read (a variable).
   """
-  @spec plugin_modules(String.t(), atom() | String.t()) :: {:ok, [module()]} | :error
-  def plugin_modules(content, app_name) do
+  @spec services(String.t(), atom() | String.t()) :: {:ok, [module()]} | :error
+  def services(content, app_name) do
     with {:ok, ast} <- parse(content),
-         [_ | _] = blocks <- oban_option_lists(ast, app_name, :plugins) do
+         [_ | _] = calls <- oban_calls(ast, app_name) do
       aliases = alias_map(ast)
+      results = Enum.map(calls, &call_services(&1.opts, aliases))
 
-      {:ok,
-       blocks |> Enum.concat() |> Enum.map(&plugin_module(&1, aliases)) |> Enum.reject(&is_nil/1)}
+      if Enum.any?(results, &(&1 == :unknown)),
+        do: :error,
+        else: {:ok, results |> Enum.concat() |> Enum.uniq()}
     else
       _ -> :error
     end
   end
 
   @doc """
-  True when `candidate` has a duplicate that `original` did not: the same
-  module twice in `plugins:`, the same tuple twice in one `crontab:`, the same
-  key twice in `queues:`. Oban refuses a duplicate plugin at boot, so this is
-  the check that catches a splice whose idea of the block was wrong, whatever
-  the reason.
+  True when `module` (a full name, as a string) is used in the code of the app's
+  TOP-LEVEL Oban block, with `alias` resolved: `alias PhoenixKit.Jobs.SweepWorker`
+  plus `{"*/5 * * * *", SweepWorker}` uses `PhoenixKit.Jobs.SweepWorker`.
+  """
+  @spec module_used?(String.t(), atom() | String.t(), String.t()) :: boolean()
+  def module_used?(content, app_name, module) do
+    target = Module.concat([module])
+
+    with {:ok, ast} <- parse(content),
+         [_ | _] = calls <- oban_calls(ast, app_name) do
+      aliases = alias_map(ast)
+
+      calls
+      |> Enum.reject(& &1.nested?)
+      |> Enum.any?(fn %{opts: opts} ->
+        {_, found} =
+          Macro.prewalk(opts, false, fn
+            {:__aliases__, _, parts} = node, acc ->
+              {node, acc or resolve(parts, aliases) == target}
+
+            node, acc ->
+              {node, acc}
+          end)
+
+        found
+      end)
+    else
+      _ -> false
+    end
+  end
+
+  @doc """
+  True when `candidate` has a duplicate that `original` did not: the same service
+  twice (`plugins:` and the top-level service options together, names as Oban
+  renames them), the same tuple twice in one crontab (worker aliases resolved),
+  the same key twice in `queues:`. Oban refuses a duplicate plugin at boot, so
+  this is the check that catches a splice whose idea of the block was wrong,
+  whatever the reason.
   """
   @spec introduces_duplicates?(String.t(), String.t(), atom() | String.t()) :: boolean()
   def introduces_duplicates?(original, candidate, app_name),
@@ -595,56 +706,96 @@ defmodule PhoenixKit.Install.ConfigSplice do
       {:ok, ast} ->
         aliases = alias_map(ast)
 
-        plugin_dups =
-          for list <- oban_option_lists(ast, app_name, :plugins),
-              mods = list |> Enum.map(&plugin_module(&1, aliases)) |> Enum.reject(&is_nil/1),
-              mod <- Enum.uniq(mods -- Enum.uniq(mods)),
-              do: {:plugin, mod}
-
-        cron_dups =
-          for list <- oban_option_lists(ast, app_name, :plugins),
-              crontab <-
-                list |> crontabs_in() |> Enum.map(&Enum.map(&1, fn e -> normalize(e) end)),
-              elem <- Enum.uniq(crontab -- Enum.uniq(crontab)),
-              do: {:cron_entry, elem}
-
-        queue_dups =
-          for list <- oban_option_lists(ast, app_name, :queues),
-              keys = for({k, _v} <- list, do: k),
-              key <- Enum.uniq(keys -- Enum.uniq(keys)),
-              do: {:queue, key}
-
-        plugin_dups ++ cron_dups ++ queue_dups
+        for %{opts: opts} <- oban_calls(ast, app_name),
+            dup <- opts_duplicates(opts, aliases),
+            do: dup
 
       _ ->
         []
     end
   end
 
-  # The literal list under `key:` of every `config :app, Oban, …` in the tree
-  # (nested ones included).
-  defp oban_option_lists(ast, app_name, key) do
-    target = if is_atom(app_name), do: app_name, else: String.to_atom(app_name)
+  defp opts_duplicates(opts, aliases) do
+    service_dups =
+      case call_services(opts, aliases) do
+        :unknown -> []
+        mods -> for mod <- Enum.uniq(mods -- Enum.uniq(mods)), do: {:service, mod}
+      end
 
-    {_, found} =
-      Macro.prewalk(ast, [], fn
-        {:config, _meta, [app, {:__aliases__, _, [:Oban]}, opts]} = node, acc
-        when app == target and is_list(opts) ->
-          case List.keyfind(opts, key, 0) do
-            {^key, list} when is_list(list) -> {node, [list | acc]}
-            _ -> {node, acc}
-          end
+    cron_dups =
+      for crontab <- crontabs_in(opts),
+          entries = Enum.map(crontab, &(&1 |> expand_aliases(aliases) |> normalize())),
+          entry <- Enum.uniq(entries -- Enum.uniq(entries)),
+          do: {:cron_entry, entry}
 
-        node, acc ->
-          {node, acc}
-      end)
+    queue_dups =
+      case List.keyfind(opts, :queues, 0) do
+        {:queues, list} when is_list(list) ->
+          keys = for {k, _v} <- list, do: k
+          for key <- Enum.uniq(keys -- Enum.uniq(keys)), do: {:queue, key}
 
-    Enum.reverse(found)
+        _ ->
+          []
+      end
+
+    service_dups ++ cron_dups ++ queue_dups
   end
 
-  defp crontabs_in(plugins_list) do
+  # The services one `config :app, Oban, opts` sets up, or `:unknown` when an
+  # option cannot be read.
+  defp call_services(opts, aliases) do
+    plugins = plugin_services(opts, aliases)
+    legacy = legacy_crontab_services(opts)
+
+    if :unknown in [plugins, legacy],
+      do: :unknown,
+      else:
+        (plugins ++ keyed_services(opts, aliases) ++ legacy)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.map(&service/1)
+  end
+
+  defp plugin_services(opts, aliases) do
+    case List.keyfind(opts, :plugins, 0) do
+      {:plugins, list} when is_list(list) -> Enum.map(list, &plugin_module(&1, aliases))
+      {:plugins, other} when other in [nil, false] -> []
+      nil -> []
+      {:plugins, _other} -> :unknown
+    end
+  end
+
+  defp keyed_services(opts, aliases) do
+    Enum.flat_map(@service_keys, fn {key, default} ->
+      case List.keyfind(opts, key, 0) do
+        nil -> []
+        {^key, false} -> []
+        {^key, value} -> [service_module(value, default, aliases)]
+      end
+    end)
+  end
+
+  # Oban's legacy top-level `crontab:` (a non-empty list) is a Cron plugin too.
+  defp legacy_crontab_services(opts) do
+    case List.keyfind(opts, :crontab, 0) do
+      nil -> []
+      {:crontab, []} -> []
+      {:crontab, [_ | _]} -> [Oban.Cron]
+      {:crontab, _other} -> :unknown
+    end
+  end
+
+  # `cron: [opts]`, `cron: Module`, `cron: {Module, opts}`.
+  defp service_module({:__aliases__, _, parts}, _default, aliases), do: resolve(parts, aliases)
+
+  defp service_module({{:__aliases__, _, parts}, _opts}, _default, aliases),
+    do: resolve(parts, aliases)
+
+  defp service_module(_options, default, _aliases), do: default
+
+  # Every `crontab: [...]` list in the options, wherever it sits.
+  defp crontabs_in(opts) do
     {_, found} =
-      Macro.prewalk(plugins_list, [], fn
+      Macro.prewalk(opts, [], fn
         {:crontab, list} = node, acc when is_list(list) -> {node, [list | acc]}
         node, acc -> {node, acc}
       end)
@@ -652,11 +803,53 @@ defmodule PhoenixKit.Install.ConfigSplice do
     Enum.reverse(found)
   end
 
+  # Every `config :app, Oban, opts` of the file: %{opts: keyword, nested?: bool}.
+  # The top-level statements are the un-nested ones; a call found deeper (inside
+  # an `if`, a `case`) is an environment's.
+  defp oban_calls(ast, app_name) do
+    target = if is_atom(app_name), do: app_name, else: String.to_atom(app_name)
+
+    top =
+      case ast do
+        {:__block__, _, list} -> list
+        other -> [other]
+      end
+
+    top_calls = for node <- top, opts = config_opts(node, target), opts != nil, do: opts
+
+    {_, all} =
+      Macro.prewalk(ast, [], fn node, acc ->
+        case config_opts(node, target) do
+          nil -> {node, acc}
+          opts -> {node, [opts | acc]}
+        end
+      end)
+
+    nested = all |> Enum.reverse() |> Enum.reject(&Enum.any?(top_calls, fn t -> t === &1 end))
+
+    Enum.map(top_calls, &%{opts: &1, nested?: false}) ++
+      Enum.map(nested, &%{opts: &1, nested?: true})
+  end
+
+  defp config_opts({:config, _meta, [app, {:__aliases__, _, [:Oban]}, opts]}, target)
+       when app == target and is_list(opts),
+       do: opts
+
+  defp config_opts(_node, _target), do: nil
+
   defp plugin_module({:__aliases__, _, parts}, aliases), do: resolve(parts, aliases)
   defp plugin_module({{:__aliases__, _, parts}, _opts}, aliases), do: resolve(parts, aliases)
 
   defp plugin_module({:{}, _, [{:__aliases__, _, parts} | _]}, aliases),
     do: resolve(parts, aliases)
+
+  # `:"Elixir.Oban.Plugins.Cron"` is the module itself.
+  defp plugin_module(atom, _aliases) when is_atom(atom) and atom not in [nil, true, false],
+    do: atom
+
+  defp plugin_module({atom, _opts}, _aliases)
+       when is_atom(atom) and atom not in [nil, true, false],
+       do: atom
 
   defp plugin_module(_, _), do: nil
 
@@ -670,7 +863,20 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end
   end
 
-  # short name => full module parts, from the file's top-level `alias` lines.
+  # Replaces every alias node in `ast` by the full module it stands for.
+  defp expand_aliases(ast, aliases) do
+    Macro.prewalk(ast, fn
+      {:__aliases__, meta, [first | rest]} when is_atom(first) ->
+        {:__aliases__, meta, (Map.get(aliases, first) || [first]) ++ rest}
+
+      other ->
+        other
+    end)
+  end
+
+  # short name => full module parts, from the file's top-level `alias` lines, in
+  # order (a later alias sees the earlier ones: `alias Oban.Plugins` then
+  # `alias Plugins.Cron`).
   defp alias_map(ast) do
     statements =
       case ast do
@@ -680,14 +886,20 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
     Enum.reduce(statements, %{}, fn
       {:alias, _, [{:__aliases__, _, parts}]}, acc ->
-        Map.put(acc, List.last(parts), parts)
+        full = expand_parts(parts, acc)
+        Map.put(acc, List.last(parts), full)
 
-      {:alias, _, [{:__aliases__, _, parts}, [as: {:__aliases__, _, [name]}]]}, acc ->
-        Map.put(acc, name, parts)
+      {:alias, _, [{:__aliases__, _, parts}, opts]}, acc when is_list(opts) ->
+        case Keyword.get(opts, :as) do
+          {:__aliases__, _, [name]} -> Map.put(acc, name, expand_parts(parts, acc))
+          _ -> acc
+        end
 
       {:alias, _, [{{:., _, [{:__aliases__, _, base}, :{}]}, _, members}]}, acc ->
+        base = expand_parts(base, acc)
+
         Enum.reduce(members, acc, fn
-          {:__aliases__, _, [name | _] = tail}, inner -> Map.put(inner, name, base ++ tail)
+          {:__aliases__, _, tail}, inner -> Map.put(inner, List.last(tail), base ++ tail)
           _, inner -> inner
         end)
 
@@ -696,11 +908,48 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end)
   end
 
-  @doc "True when an indented (nested in `if`/`case`) `config :app, Oban` follows or precedes the top-level one."
+  defp expand_parts([first | rest], aliases) when is_atom(first),
+    do: (Map.get(aliases, first) || [first]) ++ rest
+
+  defp expand_parts(parts, _aliases), do: parts
+
+  @doc "True when an indented (nested in `if`/`case`) `config :app, Oban` exists."
   @spec nested_block?(String.t(), atom() | String.t()) :: boolean()
   def nested_block?(content, app_name) do
     app = Regex.escape(to_string(app_name))
     Regex.match?(~r/^[ \t]+config\s+:#{app},\s+Oban\b/m, span_mask(content))
+  end
+
+  @doc """
+  True when a nested `config :app, Oban` comes AFTER the app's top-level block —
+  the order Config evaluates them in, so the nested one can override it.
+  """
+  @spec nested_block_follows?(String.t(), atom() | String.t()) :: boolean()
+  def nested_block_follows?(content, app_name) do
+    masked = span_mask(content)
+
+    case oban_block(masked, app_name) do
+      {:ok, {_start, stop}} ->
+        masked |> nested_block_ranges() |> Enum.any?(fn [{at, _} | _] -> at >= stop end)
+
+      _ ->
+        false
+    end
+  end
+
+  # Text of every indented `config :x, Oban` block of the masked content. An
+  # indented block runs while the following lines are indented deeper than its
+  # own `config` line (or blank).
+  defp nested_blocks(masked) do
+    for [{start, len} | _] <- nested_block_ranges(masked), do: binary_part(masked, start, len)
+  end
+
+  defp nested_block_ranges(masked) do
+    Regex.scan(
+      ~r/^([ \t]+)config\s+:\w+,\s+Oban\b[^\n]*(?:\n(?:\1[ \t]+[^\n]*|[ \t]*(?=\n)))*/m,
+      masked,
+      return: :index
+    )
   end
 
   # --- editing ------------------------------------------------------------

@@ -1769,7 +1769,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
                  fn _ast -> true end
                )
 
-      assert why =~ "changed or duplicated something"
+      assert why =~ "changed something else"
     end
   end
 
@@ -1834,9 +1834,16 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
   # --- round 6: the third final review ------------------------------------------
 
-  # Oban refuses a config that lists a plugin twice at boot; this is the same
-  # check, through the config reader and Oban's own validation.
-  defp oban_plugins_valid?(content) do
+  @oban_renames %{
+    Oban.Plugins.Cron => Oban.Cron,
+    Oban.Plugins.Lifeline => Oban.Lifeline,
+    Oban.Plugins.Pruner => Oban.Pruner,
+    Oban.Plugins.Reindexer => Oban.Reindexer
+  }
+
+  # The app's Oban options as the config reader EVALUATES them: the file's
+  # aliases are resolved by Elixir itself, not by the code under test.
+  defp oban_opts(content) do
     path = Path.join(System.tmp_dir!(), "pk_cron_cfg_#{System.unique_integer([:positive])}.exs")
 
     File.write!(
@@ -1845,26 +1852,72 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     )
 
     try do
-      cfg = Config.Reader.read!(path, env: :dev)
-
-      mods =
-        for plugin <- get_in(cfg, [:myapp, Oban, :plugins]) || [] do
-          case plugin do
-            {mod, _opts} -> mod
-            mod -> mod
-          end
-        end
-
-      Oban.Config.validate(plugins: mods) == :ok
+      path |> Config.Reader.read!(env: :dev) |> get_in([:myapp, Oban]) || []
     after
       File.rm(path)
     end
   end
 
-  # How many times the Cron plugin is listed in `plugins:` (alias resolved).
-  defp cron_plugin_count(content) do
-    {:ok, modules} = ConfigSplice.plugin_modules(content, "myapp")
-    Enum.count(modules, &(&1 == Oban.Plugins.Cron))
+  # Oban refuses a config that lists a plugin twice at boot. This is Oban's own
+  # validation of the options as written — the plugins WITH their options, so
+  # two Cron plugins are not collapsed into one by `uniq` the way bare modules
+  # would be.
+  defp oban_valid?(content) do
+    opts =
+      content
+      |> oban_opts()
+      |> Keyword.take([
+        :plugins,
+        :queues,
+        :crontab,
+        :cron,
+        :lifeline,
+        :pruner,
+        :reindexer,
+        :timezone
+      ])
+
+    Oban.Config.validate(opts) == :ok
+  end
+
+  # How many times the config sets up `service` (plugins, 2.24's top-level
+  # options and the legacy `crontab:` together), counted from the evaluated
+  # options — independent of the code under test.
+  defp service_count(content, service) do
+    opts = oban_opts(content)
+
+    plugins =
+      for plugin <- opts[:plugins] || [],
+          mod = if(is_tuple(plugin), do: elem(plugin, 0), else: plugin),
+          Map.get(@oban_renames, mod, mod) == service,
+          do: mod
+
+    keyed = fn key -> if opts[key] in [nil, false], do: 0, else: 1 end
+
+    extra =
+      case service do
+        Oban.Cron -> keyed.(:cron) + if(opts[:crontab] in [nil, []], do: 0, else: 1)
+        Oban.Lifeline -> keyed.(:lifeline)
+        Oban.Pruner -> keyed.(:pruner)
+        _ -> 0
+      end
+
+    length(plugins) + extra
+  end
+
+  defp cron_plugin_count(content), do: service_count(content, Oban.Cron)
+
+  # How many crontab tuples (plugin options, `cron:` or `crontab:`) name `module`.
+  defp crontab_entries(content, module) do
+    opts = oban_opts(content)
+
+    lists =
+      for plugin <- opts[:plugins] || [], is_tuple(plugin), is_list(elem(plugin, 1)) do
+        Keyword.get(elem(plugin, 1), :crontab, [])
+      end ++
+        [Keyword.get(List.wrap(opts[:cron]), :crontab, []), opts[:crontab] || []]
+
+    lists |> Enum.concat() |> Enum.count(&(elem(&1, 1) == module))
   end
 
   defmodule Banner do
@@ -1881,10 +1934,11 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     def init(opts), do: {:ok, opts}
   end
 
+  # The cron steps twice over; the steps of both runs.
   defp run_twice(content) do
-    first = quiet(fn -> ObanConfig.update_content(content, "myapp") end)
-    second = quiet(fn -> ObanConfig.update_content(first, "myapp") end)
-    {first, second}
+    {first, _out, _err, steps1} = cron_backfill(content)
+    {second, _out, _err, steps2} = cron_backfill(first)
+    {first, second, steps1 ++ steps2}
   end
 
   describe "a string delimiter in column 0 does not end the block" do
@@ -1907,12 +1961,14 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       assert Code.format_string!(@banner_config) |> IO.iodata_to_binary() |> Kernel.<>("\n") ==
                @banner_config
 
-      {first, second} = run_twice(@banner_config)
+      {first, second, steps} = run_twice(@banner_config)
+
+      assert steps == []
 
       assert cron_plugin_count(first) == 1
       assert cron_plugin_count(second) == 1
       assert second == first
-      assert oban_plugins_valid?(first)
+      assert oban_valid?(first)
     end
 
     @col0_forms [
@@ -1930,11 +1986,12 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
             "x\n#{unquote(closer)}}}\n     ]}\n  ]\n"
 
         assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
-        {first, second} = run_twice(content)
+        {first, second, steps} = run_twice(content)
 
+        assert steps == []
         assert second == first
         assert cron_plugin_count(first) == 1
-        assert length(String.split(first, "PhoenixKit.Jobs.SweepWorker")) == 2
+        assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
       end
     end
 
@@ -1959,8 +2016,9 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         )
 
       assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
-      {first, second} = run_twice(content)
+      {first, second, steps} = run_twice(content)
 
+      assert steps == []
       assert second == first
       assert cron_plugin_count(first) == 1
     end
@@ -2018,7 +2076,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
                  fn _ast -> true end
                )
 
-      assert why =~ "duplicated"
+      assert why =~ "twice"
     end
 
     test "queue keys are checked too" do
@@ -2043,13 +2101,13 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         content =
           "import Config\n\n#{unquote(alias_line)}\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n    {#{unquote(short)}, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}\n  ]\n"
 
-        {first, second} = run_twice(content)
+        {first, second, _steps} = run_twice(content)
 
         assert cron_plugin_count(first) == 1
         assert second == first
         assert first =~ "ProcessScheduledJobsWorker"
         assert first =~ "SweepWorker"
-        assert oban_plugins_valid?(first)
+        assert oban_valid?(first)
       end
     end
   end
@@ -2166,6 +2224,257 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
       assert updated != content
       assert host_preserved?(content, updated)
+    end
+  end
+
+  # --- round 7: Oban 2.24 names, aliases, and tests that guard themselves ---------
+
+  describe "the test helpers see what Oban sees" do
+    test "oban_valid?/1 fails on two Cron plugins with their options, spelled differently" do
+      twice =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n" <>
+          "    {Oban.Plugins.Cron, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]},\n" <>
+          "    {Oban.Cron, crontab: [{\"0 4 * * *\", PhoenixKit.Jobs.SweepWorker}]}\n  ]\n"
+
+      refute oban_valid?(twice)
+      assert cron_plugin_count(twice) == 2
+    end
+
+    test "service_count/2 counts the 2.24 top-level options and the legacy crontab:" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  cron: [crontab: []],\n  lifeline: [rescue_after: {30, :minutes}],\n" <>
+          "  plugins: [{Oban.Plugins.Lifeline, rescue_after: 60_000}]\n"
+
+      assert service_count(content, Oban.Cron) == 1
+      assert service_count(content, Oban.Lifeline) == 2
+    end
+  end
+
+  describe "Oban 2.24 names: Oban.Plugins.X and Oban.X are the same plugin" do
+    @cron_forms [
+      {"{Oban.Cron, crontab: [...]}",
+       "  plugins: [\n    {Oban.Cron, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}\n  ]\n"},
+      {"top-level cron: [crontab: [...]] next to plugins:",
+       "  cron: [crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]],\n  plugins: [{Oban.Plugins.Pruner, max_age: 60}]\n"},
+      {"the legacy top-level crontab: [...]",
+       "  crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}],\n  plugins: [{Oban.Plugins.Pruner, max_age: 60}]\n"},
+      {"cron: only, no plugins: at all",
+       "  cron: [crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]]\n"}
+    ]
+
+    for {name, body} <- @cron_forms do
+      test "#{name}: no second Cron, entries go into that list, a rerun is quiet" do
+        content = "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n#{unquote(body)}"
+
+        {first, second, steps} = run_twice(content)
+
+        assert steps == []
+        assert second == first
+        assert cron_plugin_count(first) == 1
+        assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+
+        assert crontab_entries(first, PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker) ==
+                 1
+
+        assert oban_valid?(first)
+      end
+    end
+
+    test "Lifeline: {Oban.Lifeline, …}, a top-level lifeline: and the docs' lifeline: [rescue_after: {30, :minutes}] are all Lifeline" do
+      for lifeline <- [
+            "  lifeline: [rescue_after: {30, :minutes}],\n  plugins: [{Oban.Plugins.Pruner, max_age: 60}]\n",
+            "  plugins: [{Oban.Plugins.Pruner, max_age: 60}, {Oban.Lifeline, rescue_after: 1_800_000}]\n"
+          ] do
+        content = "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n" <> lifeline
+
+        if match?({:ok, _}, Code.string_to_quoted(content, emit_warnings: false)) do
+          updated = quiet(fn -> ObanConfig.ensure_lifeline_plugin(content, "myapp") end)
+
+          assert updated == content
+          assert service_count(updated, Oban.Lifeline) == 1
+        end
+      end
+    end
+
+    test "the full 2.24 style (cron:, pruner:, lifeline:, no plugins:): nothing duplicated, entries land in cron:" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  cron: [crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]],\n" <>
+          "  pruner: [max_age: {7, :days}],\n  lifeline: [rescue_after: {30, :minutes}]\n"
+
+      {first, second, steps} = run_twice(content)
+
+      assert steps == []
+      assert second == first
+      assert service_count(first, Oban.Lifeline) == 1
+      assert service_count(first, Oban.Cron) == 1
+      assert oban_valid?(first)
+    end
+
+    test "ConfigSplice.service/1 maps the plugin names the way Oban does" do
+      assert ConfigSplice.service(Oban.Plugins.Cron) == Oban.Cron
+      assert ConfigSplice.service(Oban.Plugins.Lifeline) == Oban.Lifeline
+      assert ConfigSplice.service(Oban.Plugins.Pruner) == Oban.Pruner
+      assert ConfigSplice.service(Oban.Plugins.Reindexer) == Oban.Reindexer
+      assert ConfigSplice.service(MyApp.Banner) == MyApp.Banner
+    end
+  end
+
+  describe "alias forms of the Cron plugin" do
+    @more_alias_forms [
+      {"alias Oban.{Plugins.Cron}", "alias Oban.{Plugins.Cron}\n", "Cron"},
+      {"alias Oban.Plugins.Cron, as: C, warn: false",
+       "alias Oban.Plugins.Cron, as: C, warn: false\n", "C"},
+      {"alias Oban.Plugins + Plugins.Cron", "alias Oban.Plugins\n", "Plugins.Cron"},
+      {"alias Oban.Plugins then alias Plugins.Cron", "alias Oban.Plugins\nalias Plugins.Cron\n",
+       "Cron"},
+      {"alias Oban, as: O + O.Cron (2.24 name)", "alias Oban, as: O\n", "O.Cron"}
+    ]
+
+    for {name, alias_line, short} <- @more_alias_forms do
+      test "#{name}: no second Cron plugin, a rerun is quiet" do
+        content =
+          "import Config\n\n#{unquote(alias_line)}\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n    {#{unquote(short)}, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}\n  ]\n"
+
+        {first, second, steps} = run_twice(content)
+
+        assert steps == []
+        assert second == first
+        assert cron_plugin_count(first) == 1
+        assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+        assert oban_valid?(first)
+      end
+    end
+
+    test "the Cron plugin as the atom :\"Elixir.Oban.Plugins.Cron\" is not duplicated" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [{:\"Elixir.Oban.Plugins.Cron\", crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}]\n"
+
+      {first, second, _steps} = run_twice(content)
+
+      assert second == first
+      assert cron_plugin_count(first) == 1
+      assert oban_valid?(first)
+    end
+  end
+
+  describe "aliases of the crontab's workers" do
+    test "alias PhoenixKit.Jobs.SweepWorker + SweepWorker in the crontab: not added again" do
+      content =
+        "import Config\n\nalias PhoenixKit.Jobs.SweepWorker\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n    {Oban.Plugins.Cron, crontab: [{\"*/5 * * * *\", SweepWorker}]}\n  ]\n"
+
+      {first, second, steps} = run_twice(content)
+
+      assert steps == []
+      assert second == first
+      assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+      assert oban_valid?(first)
+    end
+
+    test "alias PhoenixKit.Jobs.{SweepWorker, PruneWorker}: both found" do
+      content =
+        "import Config\n\nalias PhoenixKit.Jobs.{SweepWorker, PruneWorker}\n\nconfig :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron, crontab: [{\"*/5 * * * *\", SweepWorker}, {\"15 4 * * *\", PruneWorker}]}\n  ]\n"
+
+      {first, _second, _steps} = run_twice(content)
+
+      assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+      assert crontab_entries(first, PhoenixKit.Jobs.PruneWorker) == 1
+    end
+
+    test "the duplicate net resolves worker aliases: the same tuple spelled two ways is a duplicate" do
+      base =
+        "alias PhoenixKit.Jobs.SweepWorker\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"*/5 * * * *\", SweepWorker}]}]\n"
+
+      added =
+        "alias PhoenixKit.Jobs.SweepWorker\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"*/5 * * * *\", SweepWorker}, {\"*/5 * * * *\", PhoenixKit.Jobs.SweepWorker}]}]\n"
+
+      assert ConfigSplice.introduces_duplicates?(base, added, "myapp")
+    end
+  end
+
+  describe "a Cron plugin only in a nested block" do
+    test "N1: the reason says the Cron is in an environment's block, and what to do" do
+      content = """
+      config :myapp, Oban,
+        repo: MyApp.Repo,
+        plugins: [{Oban.Plugins.Pruner, max_age: 60}]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [{Oban.Plugins.Cron, crontab: [{"0 5 * * *", MyApp.ProdOnly}]}]
+      end
+      """
+
+      {result, _out, err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert err =~ "Cron is configured only in a nested `config` for an environment"
+      assert err =~ "add the entries there, or add `Oban.Plugins.Cron` to this block"
+      refute err =~ "Please manually add"
+      assert steps != []
+    end
+  end
+
+  describe "a refusal because of a duplicate does not tell the host to add the entry" do
+    test "the step says the entry is probably there under another name" do
+      content = "config :myapp, Oban,\n  plugins: [Oban.Plugins.Cron]\n"
+
+      ObanConfig.take_manual_steps()
+
+      assert {:error, why} =
+               ObanConfig.append_entries(content, "myapp", :plugins, ["Oban.Cron"], fn _ ->
+                 true
+               end)
+
+      assert why =~ "probably already there under an alias or another name"
+    end
+  end
+
+  describe "ConfigSplice.block_code/3 on a column-0 string delimiter" do
+    test "the block runs through a multi-line string that closes in column 0" do
+      content = ~S'''
+      import Config
+
+      config :myapp, Oban,
+        plugins: [
+          {PhoenixKit.Install.ObanCronInsertionTest.Banner, text: "a
+      "},
+          {Oban.Plugins.Cron, crontab: []}
+        ]
+
+      config :other, Oban, queues: [x: 1]
+      '''
+
+      code = ConfigSplice.block_code(content, "myapp", strings: true)
+
+      assert code =~ "Oban.Plugins.Cron"
+      refute code =~ "config :other"
+    end
+
+    test "and through a heredoc with a column-0 terminator" do
+      content =
+        "config :myapp, Oban,\n  note: ~S\"\"\"\nx\n\"\"\",\n  plugins: [{Oban.Plugins.Cron, crontab: []}]\n\nconfig :other, Oban, queues: [x: 1]\n"
+
+      code = ConfigSplice.block_code(content, "myapp", strings: true)
+
+      assert code =~ "Oban.Plugins.Cron"
+      refute code =~ "config :other"
+    end
+  end
+
+  describe "the nested-block note" do
+    test "is printed only when the nested block follows the top-level one" do
+      top = "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: []}]\n"
+
+      nested =
+        "\nif config_env() == :prod do\n  config :myapp, Oban,\n    plugins: [Oban.Plugins.Pruner]\nend\n"
+
+      {_, out_after, _, _} = backfill(top <> nested)
+      {_, out_before, _, _} = backfill(String.trim_leading(nested) <> "\n" <> top)
+      {_, out_none, _, _} = backfill(top)
+
+      assert out_after =~ "nested `config :myapp, Oban` for an environment follows"
+      refute out_before =~ "follows"
+      refute out_none =~ "follows"
     end
   end
 

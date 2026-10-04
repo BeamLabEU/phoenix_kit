@@ -370,7 +370,7 @@ if Code.ensure_loaded?(Igniter) do
     # one is merged over it by Config: its `plugins:` replaces the top-level
     # one there. The updater edits the top-level block only.
     defp note_nested_block(content, app_name) do
-      if ConfigSplice.nested_block?(content, app_name) do
+      if ConfigSplice.nested_block_follows?(content, app_name) do
         Mix.shell().info(
           "  ℹ️  A nested `config :#{app_name}, Oban` for an environment follows; " <>
             "it may override `plugins:` there — check it"
@@ -622,6 +622,12 @@ if Code.ensure_loaded?(Igniter) do
     # updater leaves the file alone. A list the host switched off (`false`,
     # `config :app, Oban, false`) is not a failure: one info line, the content
     # back unchanged, no manual step.
+    # The refusal when an edit would list something twice. The entry is usually
+    # there already, under another spelling (an alias, Oban 2.24's new names, a
+    # top-level `lifeline:`), so the step must not tell the host to add it.
+    @duplicate_text "the edit would have listed a plugin, crontab entry or queue twice — " <>
+                      "it is probably already there under an alias or another name (Oban 2.24 renamed its plugins)"
+
     @doc false
     def append_entries(content, app_name, key, entries, verify, opts \\ []) do
       {fallback, opts} = Keyword.pop(opts, :fallback)
@@ -654,14 +660,15 @@ if Code.ensure_loaded?(Igniter) do
 
     defp verify_candidate(content, candidate, entries, verify, app_name) do
       with {:ok, result} <- verified(content, candidate, verify),
-           true <- ConfigSplice.preserves_original?(content, result, entries),
-           false <- ConfigSplice.introduces_duplicates?(content, result, app_name) do
-        {:ok, result}
+           true <- ConfigSplice.preserves_original?(content, result, entries) do
+        if ConfigSplice.introduces_duplicates?(content, result, app_name),
+          do: {:error, @duplicate_text},
+          else: {:ok, result}
       else
         _ ->
           {:error,
-           "the edited file would not have parsed, would have changed or duplicated something " <>
-             "in the config, or the entries would have landed in the wrong place"}
+           "the edited file would not have parsed, would have changed something else in the " <>
+             "config, or the entries would have landed in the wrong place"}
       end
     end
 
@@ -925,7 +932,7 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_lifeline_plugin(String.t(), atom() | String.t()) :: String.t()
     def ensure_lifeline_plugin(content, app_name) do
-      if Regex.match?(~r/Oban\.Plugins\.Lifeline/, content) do
+      if lifeline_present?(content, app_name) do
         maybe_raise_lifeline_rescue_after(content)
       else
         Mix.shell().info("  ➕ Adding Oban.Plugins.Lifeline to Oban configuration...")
@@ -953,6 +960,17 @@ if Code.ensure_loaded?(Igniter) do
             lifeline_manual_notice(app_name, why)
             content
         end
+      end
+    end
+
+    # By the tree and Oban's own naming — `{Oban.Lifeline, …}`, a top-level
+    # `lifeline:`, an aliased `{Lifeline, …}` all count; adding another makes Oban
+    # refuse to start ("found duplicate plugins"). A config the tree cannot read
+    # falls back to the text.
+    defp lifeline_present?(content, app_name) do
+      case ConfigSplice.services(content, app_name) do
+        {:ok, services} -> Oban.Lifeline in services
+        :error -> Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content)
       end
     end
 
@@ -1092,7 +1110,7 @@ if Code.ensure_loaded?(Igniter) do
       # a comment elsewhere in the file, says nothing about this crontab. A
       # worker that appears only in a comment inside the list is a declined
       # entry — see `ensure_worker_cron_entries/2`.
-      worker = crontab_state(content, app_name, {:module, "ProcessScheduledJobsWorker"})
+      worker = crontab_state(content, app_name, {:module, @new_worker})
       block = ConfigSplice.block_code(content, app_name, strings: true) || ""
       old_worker? = Regex.match?(@old_posts_worker, block)
 
@@ -1170,9 +1188,12 @@ if Code.ensure_loaded?(Igniter) do
     # too — adding a second one makes Oban refuse to start. A `plugins:` the tree
     # cannot read (a variable, a file that does not parse) falls back to the text.
     defp cron_plugin?(content, app_name, block) do
-      case ConfigSplice.plugin_modules(content, app_name) do
-        {:ok, modules} -> Oban.Plugins.Cron in modules
-        :error -> String.contains?(block, "Oban.Plugins.Cron")
+      case ConfigSplice.services(content, app_name) do
+        {:ok, services} ->
+          Oban.Cron in services
+
+        :error ->
+          String.contains?(block, "Oban.Plugins.Cron") or String.contains?(block, "Oban.Cron")
       end
     end
 
@@ -1335,9 +1356,16 @@ if Code.ensure_loaded?(Igniter) do
     defp probe_in_block?(probe, content, app_name) do
       case ConfigSplice.block_code(content, app_name, probe_mask(probe)) do
         nil -> false
-        code -> probe_matches?(probe, code)
+        code -> probe_matches?(probe, code) or probe_by_alias?(probe, content, app_name)
       end
     end
+
+    # `alias PhoenixKit.Jobs.SweepWorker` + `{"*/5 * * * *", SweepWorker}` uses
+    # the worker without ever spelling its full name.
+    defp probe_by_alias?({:module, mod}, content, app_name),
+      do: ConfigSplice.module_used?(content, app_name, mod)
+
+    defp probe_by_alias?(_probe, _content, _app_name), do: false
 
     defp probe_in_file?(probe, content),
       do: probe_matches?(probe, ConfigSplice.file_code(content, probe_mask(probe)))
@@ -1476,7 +1504,7 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp declining_hint(why) do
-      if nested?(why),
+      if nested?(why) or duplicate?(why) or cron_nested?(why),
         do: [],
         else: [
           "To decline one instead, leave it in the crontab as a comment " <>
@@ -1488,11 +1516,16 @@ if Code.ensure_loaded?(Igniter) do
     # the host has there is unknown: the entries are listed as what to look for,
     # not as something to add.
     defp nested?(why), do: why == ConfigSplice.reason_text(:nested_block, :crontab)
+    defp cron_nested?(why), do: why == ConfigSplice.reason_text(:cron_only_nested, :crontab)
+    defp duplicate?(why), do: why == @duplicate_text
 
     defp add_line(why, text) do
-      if nested?(why),
-        do: "Expected there (check by hand): " <> text,
-        else: "Please manually add: " <> text
+      cond do
+        nested?(why) -> "Expected there (check by hand): " <> text
+        cron_nested?(why) -> "Entries for the nested block (check by hand): " <> text
+        duplicate?(why) -> "Check whether it is already there (not added): " <> text
+        true -> "Please manually add: " <> text
+      end
     end
 
     # True if `ast` has a `crontab: [...]` list containing, for EVERY
