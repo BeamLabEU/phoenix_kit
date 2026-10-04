@@ -62,6 +62,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.TimeZone
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
   alias PhoenixKitWeb.Components.ProfileSettingsTabs
 
   # `:integrations` deliberately NOT in the default list — unlike every
@@ -180,6 +181,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign_new(:timezone_mismatch_warning, fn -> nil end)
       |> assign_new(:start_page_message, fn -> nil end)
       |> assign_new(:etcher_reset_message, fn -> nil end)
+      # Plain assign, not assign_new: reads the user row handed in, so a
+      # toggle elsewhere (another tab, an admin) shows after any update.
+      |> assign(:viewer_open_annotating, MediaCanvasViewer.open_annotating?(user))
       |> assign_start_page()
       |> assign_new(:trigger_submit, fn -> false end)
       |> assign_new(:oauth_providers, fn -> OAuth.get_user_oauth_providers(user.uuid) end)
@@ -635,6 +639,31 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
      |> assign(:user, updated)
      |> assign(:etcher_reset_message, gettext("Annotation settings reset."))
      |> Phoenix.LiveView.push_event("phoenix_kit:etcher-reset", %{})}
+  end
+
+  # The "open media ready to annotate" switch. One per-user flag on the
+  # user row, read by MediaCanvasViewer at viewer-open (see
+  # `open_annotating?/1` there — that module owns the key and the
+  # default). Written through `merge_user_custom_fields`, never a
+  # whole-map replace: a stale struct here must not resurrect old values
+  # of every other key.
+  def handle_event("toggle_viewer_open_annotating", _params, socket) do
+    next = not socket.assigns.viewer_open_annotating
+
+    case Auth.merge_user_custom_fields(
+           socket.assigns.user,
+           %{MediaCanvasViewer.open_annotating_key() => next},
+           ensure_definitions: false
+         ) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(:user, updated)
+         |> assign(:viewer_open_annotating, next)}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("update_notification_prefs", params, socket) do
@@ -1984,6 +2013,32 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <.icon name="hero-pencil-square" class="w-5 h-5 text-primary" />
               {gettext("Annotation tools")}
             </h2>
+            <%!-- Which face of the media viewer greets this user: the     --%>
+            <%!-- finished picture (shipped default), or the editor with   --%>
+            <%!-- the tools already up. Per-user on purpose — one person   --%>
+            <%!-- opens files to look, another to work — and read by       --%>
+            <%!-- MediaCanvasViewer at every viewer-open.                  --%>
+            <div class="form-control mb-4">
+              <label class="label cursor-pointer justify-start items-start gap-3">
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary mt-0.5"
+                  checked={@viewer_open_annotating}
+                  phx-click="toggle_viewer_open_annotating"
+                  phx-target={@myself}
+                />
+                <span class="min-w-0">
+                  <span class="label-text font-medium block">
+                    {gettext("Open media ready to annotate")}
+                  </span>
+                  <span class="label-text text-xs text-base-content/60 block mt-0.5">
+                    {gettext(
+                      "The viewer opens with the drawing tools already on, so you can edit and move things right away. Switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
+                    )}
+                  </span>
+                </span>
+              </label>
+            </div>
             <p class="text-sm text-base-content/60 mb-3">
               {gettext(
                 "Your drawing colours, line thickness, label size and toolbar layout are remembered as you work. Reset them to start fresh."

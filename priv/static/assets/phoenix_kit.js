@@ -4202,25 +4202,34 @@ if (typeof window.Chart === "undefined") {
       document.addEventListener("keydown", this._onClosing, true);
     },
 
-    // The two nav buttons of the burned side of the viewer:
+    // The viewer's own nav buttons, on whichever canvas is up:
     //
-    // - The pencil: burned ⇄ live. The burn is one flat picture with the
-    //   markup already in it; the live layer is the picture with shapes
-    //   you can select and edit over the top. Only one of them can be on
-    //   screen, so this is the switch between them rather than a
-    //   visibility toggle.
+    // - The pencil: picture ⇄ editor. The burn is one flat picture with
+    //   the markup already in it; the live layer is the picture with
+    //   shapes you can select and edit over the top. Only one of them
+    //   can be on screen, so this is the switch between them rather
+    //   than a visibility toggle. Offered on the burned picture and on
+    //   the clean one; in the editor, Etcher's own pencil is the one on
+    //   screen.
     // - The eye: markup shown ⇄ the clean original. Hiding the etchings
-    //   cannot be a client-side flip here — the markup is baked into the
-    //   bitmap — so the press asks the server to swap the canvas for the
-    //   picture with nothing in it. Deliberately not persisted: every
-    //   open starts with the markup showing. In the live layer Etcher's
-    //   own eye does this job.
+    //   cannot be a client-side flip — on the burned picture the markup
+    //   is baked into the bitmap — so the press asks the server to swap
+    //   the canvas for the picture with nothing in it. From the editor
+    //   it also ends the session: the drawing is composed for the burn
+    //   first, while the overlay still exists. Deliberately not
+    //   persisted: every open starts with the markup showing.
+    //
+    // The one surface that gets neither is a read-only live layer (no
+    // burn to show, nothing to edit): Etcher's own :visibility eye is
+    // there, and hiding the locked overlay is the whole job.
     _addModeButton() {
       var self = this;
-      if (this.el.dataset.hasBurn !== "true") return;
 
       var burned = this.el.dataset.burnMode === "true";
       var hidden = this.el.dataset.etchingsHidden === "true";
+      var canAnnotate = this.el.dataset.canAnnotate === "true";
+      if (!burned && !hidden && !canAnnotate) return;
+
       var frescoId = this.el.dataset.frescoId;
       var handle = window.Fresco && window.Fresco.viewerFor && window.Fresco.viewerFor(frescoId);
 
@@ -4277,23 +4286,29 @@ if (typeof window.Chart === "undefined") {
       // edit (pencil)" top to bottom — the order Etcher's own pair uses.
       // Everyone gets it, drawer or not: seeing the picture under the
       // markup is a viewing affordance, not an editing one.
-      if (burned) {
-        this._eyeButton = handle.appendNavButton(
-          hidden ? eyeSlash : eye,
-          hidden ? "Show annotations" : "Hide annotations",
-          function() { self.pushEventTo(self.el, "toggle_etchings", {}); }
-        );
-      }
+      //
+      // Pressed in the editor (!burned && !hidden), the session ends —
+      // so the drawing is composed for the burn HERE, before the server
+      // replaces the canvas and the overlay being composed goes with it.
+      // Same capture discipline as _onMode and _onClosing.
+      this._eyeButton = handle.appendNavButton(
+        hidden ? eyeSlash : eye,
+        hidden ? "Show annotations" : "Hide annotations",
+        function() {
+          if (!burned && !hidden) self.burnIfChanged();
+          self.pushEventTo(self.el, "toggle_etchings", {});
+        }
+      );
 
       // The pencil IS the mode. On, you are in the editor — the picture
-      // with a live layer over it. Off, you are looking at the burned
-      // copy. (The eye above is not a second mode switch: it never arms
-      // the tools, it only chooses which picture is on screen.)
+      // with a live layer over it. Off, you are looking at a finished
+      // picture (burned or clean). The eye never arms the tools; the
+      // pencil is how you ask to work, from either picture.
       //
-      // In the burned view there is no Etcher to own a pencil, so this is
-      // ours; in the editor Etcher's own is the one on screen, and
-      // switching it off brings the burned picture back (see `_onMode`).
-      if (burned && this.el.dataset.canAnnotate === "true") {
+      // On the finished pictures there is no Etcher to own a pencil, so
+      // this is ours; in the editor Etcher's own is the one on screen,
+      // and switching it off brings the burned picture back (`_onMode`).
+      if ((burned || hidden) && canAnnotate) {
         this._pencilButton = handle.appendNavButton(pencil, "Annotate", function() {
           self.pushEventTo(self.el, "toggle_burn_mode", { annotate: true });
         });
@@ -4310,9 +4325,8 @@ if (typeof window.Chart === "undefined") {
     },
 
     // Right-click → Copy image, on the burned picture — and on the clean
-    // original the eye swaps in (dataset.burnMode stays "true" there,
-    // which is exactly right: copying the picture without the markup is
-    // what the eye is FOR).
+    // original the eye swaps in (copying the picture without the markup
+    // is what the eye is FOR).
     //
     // Fresco sets `pointer-events: none` on its stage images so a drag
     // anywhere over the picture pans instead of dragging the bitmap. That
@@ -4325,7 +4339,8 @@ if (typeof window.Chart === "undefined") {
     _allowCopy(tries) {
       var self = this;
       var left = tries == null ? 20 : tries;
-      var burned = this.el.dataset.burnMode === "true";
+      var finished = this.el.dataset.burnMode === "true" ||
+                     this.el.dataset.etchingsHidden === "true";
       var host = document.getElementById(this.el.dataset.frescoId);
       var img = host && host.querySelector("img[data-fresco-canvas-img]");
 
@@ -4335,7 +4350,7 @@ if (typeof window.Chart === "undefined") {
       }
       // Live view: leave Fresco's rule alone. The picture there is the
       // plain one anyway — copying it would leave the markup behind.
-      img.style.pointerEvents = burned ? "auto" : "";
+      img.style.pointerEvents = finished ? "auto" : "";
     },
 
     // Etcher mounts with the canvas it decorates, which may be a moment

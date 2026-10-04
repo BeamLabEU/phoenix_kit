@@ -122,7 +122,7 @@
             data-etchings-hidden={to_string(@etchings_hidden)}
             data-fresco-id={
               cond do
-                @burn_mode && @burn_canvas && @etchings_hidden && @viewer_canvas ->
+                @etchings_hidden && @viewer_canvas ->
                   "media-plain-" <> f.file_uuid
 
                 @burn_mode && @burn_canvas ->
@@ -184,38 +184,43 @@
               <%!--   past the top raster for deep zoom on gigapixel images. Only   --%>
               <%!--   variants that exist on the file are included; tile + manifest --%>
               <%!--   fetches are lazy so unviewed regions never hit storage.       --%>
-              <%!-- Opens on the burned copy: the picture with its markup     --%>
+              <%!-- Opens on the burned copy: the picture with its markup      --%>
               <%!-- already in it, one flat image, nothing drawn over it. That --%>
               <%!-- is what someone came to look at and what they can          --%>
-              <%!-- right-click and send on. The eye switches to the live      --%>
-              <%!-- layer — the picture plus shapes you can select and edit —  --%>
-              <%!-- and that is the only mode Etcher appears in.               --%>
-              <%= if @burn_mode and @burn_canvas do %>
-                <%= if @etchings_hidden and @viewer_canvas do %>
-                  <%!-- The eye, pressed: the original with nothing over it   --%>
-                  <%!-- and nothing burned into it — what someone hides the   --%>
-                  <%!-- etchings to see, or to right-click and copy clean.    --%>
-                  <%!-- No Etcher layer mounts here (and plain_canvas strips  --%>
-                  <%!-- the extension), so no shape reaches the DOM; the zoom --%>
-                  <%!-- ladder still runs, because looking at the clean       --%>
-                  <%!-- picture closely is the point of asking for it.        --%>
-                  <% {plain_sources, plain_dzi} = tessera_ladder(f) %>
-                  <Fresco.canvas
-                    id={"media-plain-" <> f.file_uuid}
-                    canvas={plain_canvas(@viewer_canvas)}
-                    class="w-full h-full lg:rounded"
-                    theme={:light}
-                    initial_rotation={@viewer_rotation}
-                    persist_rotation={@persist_rotation}
+              <%!-- right-click and send on. The exception is a user who asked --%>
+              <%!-- to open annotating (see maybe_open_annotating/3): they     --%>
+              <%!-- start on the live layer with Etcher armed. The pencil      --%>
+              <%!-- switches between the two; the eye hides the markup         --%>
+              <%!-- entirely, from either of them.                             --%>
+              <%= if @etchings_hidden and @viewer_canvas do %>
+                <%!-- The eye, pressed: the original with nothing over it    --%>
+                <%!-- and nothing burned into it — what someone hides the    --%>
+                <%!-- etchings to see, or to right-click and copy clean.     --%>
+                <%!-- Reachable from the burned view AND from the editor     --%>
+                <%!-- (whose session the press ends), with or without a      --%>
+                <%!-- burn on file. No Etcher layer mounts here (and         --%>
+                <%!-- plain_canvas strips the extension), so no shape        --%>
+                <%!-- reaches the DOM; the zoom ladder still runs, because   --%>
+                <%!-- looking at the clean picture closely is the point of   --%>
+                <%!-- asking for it.                                         --%>
+                <% {plain_sources, plain_dzi} = tessera_ladder(f) %>
+                <Fresco.canvas
+                  id={"media-plain-" <> f.file_uuid}
+                  canvas={plain_canvas(@viewer_canvas)}
+                  class="w-full h-full lg:rounded"
+                  theme={:light}
+                  initial_rotation={@viewer_rotation}
+                  persist_rotation={@persist_rotation}
+                />
+                <%= if plain_sources != [] do %>
+                  <Tessera.layer
+                    fresco_id={"media-plain-" <> f.file_uuid}
+                    sources={plain_sources}
+                    dzi_url={plain_dzi}
                   />
-                  <%= if plain_sources != [] do %>
-                    <Tessera.layer
-                      fresco_id={"media-plain-" <> f.file_uuid}
-                      sources={plain_sources}
-                      dzi_url={plain_dzi}
-                    />
-                  <% end %>
-                <% else %>
+                <% end %>
+              <% else %>
+                <%= if @burn_mode and @burn_canvas do %>
                   <%!-- theme={:light}: the burned copy is composed on white,   --%>
                   <%!-- so a dark viewer around it would make switching to the  --%>
                   <%!-- live layer a flash from white to black and back. Both   --%>
@@ -231,84 +236,86 @@
                     initial_rotation={@viewer_rotation}
                     persist_rotation={@persist_rotation}
                   />
-                <% end %>
-              <% else %>
-                <%= if @viewer_canvas do %>
-                  <%!-- Light for the same reason as the burn above: the two --%>
-                  <%!-- are the same picture, and the pencil switches between --%>
-                  <%!-- them.                                                 --%>
-                  <Fresco.canvas
-                    id={"media-zoom-" <> f.file_uuid}
-                    canvas={@viewer_canvas}
-                    class="w-full h-full lg:rounded"
-                    theme={:light}
-                    initial_rotation={@viewer_rotation}
-                    persist_rotation={@persist_rotation}
-                  />
-                  <%!-- connectors={:off} is the HARD form (Etcher 0.13): the      --%>
-                  <%!-- soft default loses to the user's saved toggle, which is    --%>
-                  <%!-- shared across every Etcher surface in the browser — a      --%>
-                  <%!-- toggle flipped on a board followed people here, where the  --%>
-                  <%!-- anchors point at nothing (no arrow tool below). Hard off   --%>
-                  <%!-- also hides the toggle from the toolbar.                    --%>
-                  <%!-- panel_offset: the viewer's details-minimizer button      --%>
-                  <%!-- (top-3 right-14 above) owns the top-right corner, and    --%>
-                  <%!-- Etcher's style-panel chevron landed in the same row.     --%>
-                  <%!-- Anchor the panel cluster below it (Etcher 0.13.2).         --%>
-                  <%!-- tooltip_dock={:panel} moves a shape's tooltip into the  --%>
-                  <%!-- style panel, under the stroke and colour controls: click --%>
-                  <%!-- a shape and its label, comment and delete actions are    --%>
-                  <%!-- there with everything else you can do to it; click away  --%>
-                  <%!-- and the panel is just stroke and colour again. Nothing   --%>
-                  <%!-- pops up over the photograph people came here to look at, --%>
-                  <%!-- and with Etcher off the shapes are simply part of the    --%>
-                  <%!-- image — no hover, no outline. Etcher's own default       --%>
-                  <%!-- (beside the shape) is untouched for its other consumers. --%>
-                  <%!-- nav_buttons: the eye rides along in every live view —    --%>
-                  <%!-- Etcher's own visibility toggle, hiding the overlay       --%>
-                  <%!-- client-side. Session-only and always back to visible on  --%>
-                  <%!-- the next open, same contract as the burned view's eye.   --%>
-                  <Etcher.layer
-                    fresco_id={"media-zoom-" <> f.file_uuid}
-                    colors={@etcher_colors}
-                    line_params={@etcher_line_params}
-                    panel_offset={%{top: 56}}
-                    tooltip_dock={:panel}
-                    connectors={:off}
-                    toolbar={@can_annotate}
-                    nav_buttons={
-                      if @can_annotate, do: [:pencil, :visibility], else: [:visibility]
-                    }
-                    tools={
-                      if @can_annotate,
-                        do: [
-                          :grabber,
-                          :image,
-                          :rectangle,
-                          :circle,
-                          :polygon,
-                          :freehand,
-                          :marker,
-                          :highlighter,
-                          :callout,
-                          :text,
-                          :dimension,
-                          :arrow,
-                          :line,
-                          :eraser
-                        ],
-                        else: []
-                    }
-                  />
-                  <%!-- Zoom ladder — see tessera_ladder/1 for why it opens on --%>
-                  <%!-- `small` and tops out at `large` (DZI tiles past 4K).   --%>
-                  <% {tessera_sources, tessera_dzi} = tessera_ladder(f) %>
-                  <%= if tessera_sources != [] do %>
-                    <Tessera.layer
-                      fresco_id={"media-zoom-" <> f.file_uuid}
-                      sources={tessera_sources}
-                      dzi_url={tessera_dzi}
+                <% else %>
+                  <%= if @viewer_canvas do %>
+                    <%!-- Light for the same reason as the burn above: the two --%>
+                    <%!-- are the same picture, and the pencil switches between --%>
+                    <%!-- them.                                                 --%>
+                    <Fresco.canvas
+                      id={"media-zoom-" <> f.file_uuid}
+                      canvas={@viewer_canvas}
+                      class="w-full h-full lg:rounded"
+                      theme={:light}
+                      initial_rotation={@viewer_rotation}
+                      persist_rotation={@persist_rotation}
                     />
+                    <%!-- connectors={:off} is the HARD form (Etcher 0.13): the      --%>
+                    <%!-- soft default loses to the user's saved toggle, which is    --%>
+                    <%!-- shared across every Etcher surface in the browser — a      --%>
+                    <%!-- toggle flipped on a board followed people here, where the  --%>
+                    <%!-- anchors point at nothing (no arrow tool below). Hard off   --%>
+                    <%!-- also hides the toggle from the toolbar.                    --%>
+                    <%!-- panel_offset: the viewer's details-minimizer button      --%>
+                    <%!-- (top-3 right-14 above) owns the top-right corner, and    --%>
+                    <%!-- Etcher's style-panel chevron landed in the same row.     --%>
+                    <%!-- Anchor the panel cluster below it (Etcher 0.13.2).         --%>
+                    <%!-- tooltip_dock={:panel} moves a shape's tooltip into the  --%>
+                    <%!-- style panel, under the stroke and colour controls: click --%>
+                    <%!-- a shape and its label, comment and delete actions are    --%>
+                    <%!-- there with everything else you can do to it; click away  --%>
+                    <%!-- and the panel is just stroke and colour again. Nothing   --%>
+                    <%!-- pops up over the photograph people came here to look at, --%>
+                    <%!-- and with Etcher off the shapes are simply part of the    --%>
+                    <%!-- image — no hover, no outline. Etcher's own default       --%>
+                    <%!-- (beside the shape) is untouched for its other consumers. --%>
+                    <%!-- nav_buttons: an annotator's eye is the AnnotationBurn    --%>
+                    <%!-- hook's, not Etcher's — the press has to end the editing  --%>
+                    <%!-- session (composing the burn while the overlay is still   --%>
+                    <%!-- up) and swap to the clean original, which a client-side  --%>
+                    <%!-- overlay toggle cannot do. Etcher's own :visibility stays --%>
+                    <%!-- for read-only viewers, where there is no session to end  --%>
+                    <%!-- and hiding the locked overlay IS the whole job. Both are --%>
+                    <%!-- session-only: the next open starts with markup showing.  --%>
+                    <Etcher.layer
+                      fresco_id={"media-zoom-" <> f.file_uuid}
+                      colors={@etcher_colors}
+                      line_params={@etcher_line_params}
+                      panel_offset={%{top: 56}}
+                      tooltip_dock={:panel}
+                      connectors={:off}
+                      toolbar={@can_annotate}
+                      nav_buttons={if @can_annotate, do: [:pencil], else: [:visibility]}
+                      tools={
+                        if @can_annotate,
+                          do: [
+                            :grabber,
+                            :image,
+                            :rectangle,
+                            :circle,
+                            :polygon,
+                            :freehand,
+                            :marker,
+                            :highlighter,
+                            :callout,
+                            :text,
+                            :dimension,
+                            :arrow,
+                            :line,
+                            :eraser
+                          ],
+                          else: []
+                      }
+                    />
+                    <%!-- Zoom ladder — see tessera_ladder/1 for why it opens on --%>
+                    <%!-- `small` and tops out at `large` (DZI tiles past 4K).   --%>
+                    <% {tessera_sources, tessera_dzi} = tessera_ladder(f) %>
+                    <%= if tessera_sources != [] do %>
+                      <Tessera.layer
+                        fresco_id={"media-zoom-" <> f.file_uuid}
+                        sources={tessera_sources}
+                        dzi_url={tessera_dzi}
+                      />
+                    <% end %>
                   <% end %>
                 <% end %>
               <% end %>

@@ -300,27 +300,36 @@ test("a drawing that matches the copy on file is left alone", () => {
 // Hide the etchings and see the clean original. The burned picture IS the
 // markup — baked into the bitmap — so the eye cannot be a client-side
 // visibility flip there: it asks the server to swap the canvas instead.
+// From the editor the same press also ends the session.
 
-test("the burned view carries an eye, offered to every viewer, not only to drawers", () => {
-  // Gated on `burned` alone — no canAnnotate in sight: seeing the picture
-  // under the markup is a viewing affordance, not an editing one.
-  assert.match(section, /if \(burned\) \{\s*this\._eyeButton = handle\.appendNavButton\(/);
+test("the eye is on every surface of ours; only a read-only live layer is left to Etcher", () => {
+  // The hook bows out exactly once: a read-only live layer (no burn to
+  // show, nothing to edit), where Etcher's own :visibility eye does the
+  // job. Everywhere else the eye appends unconditionally — no canAnnotate
+  // gate on the button itself, because seeing the picture under the
+  // markup is a viewing affordance, not an editing one.
+  assert.match(section, /if \(!burned && !hidden && !canAnnotate\) return;/);
+  assert.match(section, /this\._eyeButton = handle\.appendNavButton\(\s*hidden \? eyeSlash : eye,\s*hidden \? "Show annotations" : "Hide annotations"/);
 });
 
-test("the eye asks the server to swap the picture, and reads its state from the assigns", () => {
-  const start = section.indexOf("this._eyeButton = handle.appendNavButton(");
-  assert.ok(start !== -1, "could not find the eye button");
-  const call = section.slice(start, section.indexOf(");", start));
+test("the eye pressed in the editor composes the burn before the canvas is replaced", () => {
+  // Same capture discipline as _onMode and _onClosing: the overlay being
+  // composed from is destroyed by the swap the push triggers, so the
+  // composition must come first, and only the editor needs it.
+  assert.match(section,
+    /if \(!burned && !hidden\) self\.burnIfChanged\(\);\s*self\.pushEventTo\(self\.el, "toggle_etchings", \{\}\);/);
+});
 
-  assert.match(call, /hidden \? eyeSlash : eye/);
-  assert.match(call, /hidden \? "Show annotations" : "Hide annotations"/);
-  assert.match(call, /"toggle_etchings"/);
-
+test("the eye reads its state from the assigns, and nothing of it is persisted", () => {
   // `hidden` comes from the server's assign, pushed back down — the state
   // lives in the LiveComponent for the length of the open and nowhere else.
   assert.match(section, /var hidden = this\.el\.dataset\.etchingsHidden === "true";/);
   assert.doesNotMatch(section, /localStorage|sessionStorage/,
     "the eye must never be persisted — every open starts with the markup showing");
+});
+
+test("the pencil is offered from both finished pictures, to annotators only", () => {
+  assert.match(section, /if \(\(burned \|\| hidden\) && canAnnotate\) \{/);
 });
 
 test("the eye is cleaned up with the pencil when the rail is replaced, and on teardown", () => {

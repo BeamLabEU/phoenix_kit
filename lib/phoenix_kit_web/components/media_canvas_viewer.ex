@@ -135,6 +135,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Etcher palette, so it survives prev/next remounts, reopen, and reload.
   @viewer_info_collapsed_key "media_viewer_info_collapsed"
 
+  # Whether the viewer opens straight into the annotation editor (Etcher
+  # armed, toolbar up) instead of on the burned copy. Per-user opt-in,
+  # stored in `custom_fields` like the sidebar flag above and toggled on
+  # the profile settings page's "Annotation tools" section — the shipped
+  # default stays the burned picture, because most people open a file to
+  # look at it, not to work on it. Honored only where it means something:
+  # an image, with annotation rights.
+  @viewer_open_annotating_key "media_viewer_open_annotating"
+
   # Canvas extent used when the file row recorded no dimensions. Sets only
   # the coordinate space — the image itself keeps its true ratio, see
   # put_natural_size/2.
@@ -323,6 +332,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
             |> assign(:sidebar_collapsed, load_sidebar_collapsed(prefs))
+            |> maybe_open_annotating(prefs, file)
           end)
 
         socket.assigns[:viewer_canvas] == nil and is_map(board) ->
@@ -617,14 +627,28 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:auto_annotate, to_live? and params["annotate"] == true)}
   end
 
-  # The eye, in the burned view: markup shown ⇄ the clean original. The
-  # burned picture IS the markup — baked into the bitmap — so hiding the
-  # etchings there cannot be a client-side visibility flip; this swaps
-  # the canvas for the original with nothing over it (see the heex),
-  # which is also what makes right-click → Copy image copy a clean
-  # picture. In the live layer Etcher's own eye does this job.
+  # The eye: markup shown ⇄ the clean original. The burned picture IS the
+  # markup — baked into the bitmap — so hiding the etchings cannot be a
+  # client-side visibility flip; this swaps the canvas for the original
+  # with nothing over it (see the heex), which is also what makes
+  # right-click → Copy image copy a clean picture.
+  #
+  # Pressed in the editor (live mode), the eye ends the session too:
+  # whatever was drawn is already captured for the burn by the hook
+  # (which composes BEFORE pushing this, while the overlay still
+  # exists), and the viewer lands on the clean picture. Un-hiding from
+  # there goes to the burned copy, not back into the editor — "show me
+  # the markup" is a look, and the pencil is how you ask to work.
   def handle_event("toggle_etchings", _params, socket) do
-    {:noreply, assign(socket, :etchings_hidden, not socket.assigns[:etchings_hidden])}
+    if socket.assigns[:burn_mode] do
+      {:noreply, assign(socket, :etchings_hidden, not socket.assigns[:etchings_hidden])}
+    else
+      {:noreply,
+       socket
+       |> assign(:burn_mode, true)
+       |> assign(:etchings_hidden, true)
+       |> assign(:auto_annotate, false)}
+    end
   end
 
   def handle_event("toggle_viewer_sidebar", _params, socket) do
@@ -846,6 +870,47 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   end
 
   defp load_sidebar_collapsed(_), do: false
+
+  # ──────────────────────────────────────────────────────────────
+  # Open-in-editor preference (see @viewer_open_annotating_key)
+  # ──────────────────────────────────────────────────────────────
+
+  @doc """
+  Whether this user has chosen to open the media viewer straight into
+  the annotation editor (Etcher armed, toolbar up) instead of on the
+  burned picture.
+
+  The shipped default is `false` — the viewer opens on the picture with
+  its markup already in it, which is what most people came to look at.
+  This per-user flag is for the people who open files to work on them:
+  with it on, the editor is live the moment the popup is, no pencil
+  press first. Toggled on the profile settings page ("Annotation
+  tools"); anything but a stored `true` means the default.
+  """
+  def open_annotating?(user) when is_map(user) do
+    Auth.get_user_field(user, @viewer_open_annotating_key) == true
+  end
+
+  def open_annotating?(_), do: false
+
+  @doc false
+  # The custom_fields key the settings page writes. One name, owned here.
+  def open_annotating_key, do: @viewer_open_annotating_key
+
+  # Apply the preference at viewer-open. Only where it means something:
+  # an image (nothing else has an editor), with annotation rights — a
+  # read-only viewer keeps the burned picture whatever the flag says.
+  # `auto_annotate` is what makes the hook arm Etcher once the live
+  # canvas is up, exactly as if the pencil had been pressed.
+  defp maybe_open_annotating(socket, prefs, file) do
+    if socket.assigns.can_annotate and image_file?(file) and open_annotating?(prefs) do
+      socket
+      |> assign(:burn_mode, false)
+      |> assign(:auto_annotate, true)
+    else
+      socket
+    end
+  end
 
   @doc """
   Whether the viewer's info sidebar will be open for this user.

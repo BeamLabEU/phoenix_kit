@@ -144,20 +144,33 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
       assert html =~ ~s(id="media-burn-#{@file_uuid}-v1")
       refute html =~ "media-plain-"
     end
+
+    test "hidden from the editor — no burn on file at all — still shows the clean original" do
+      html = render_html(%{etchings_hidden: true, burn_canvas: nil, burn_version: nil})
+
+      assert html =~ ~s(id="media-plain-#{@file_uuid}")
+      assert html =~ ~s(data-fresco-id="media-plain-#{@file_uuid}")
+      refute html =~ ~s(phx-hook="EtcherLayer")
+      refute html =~ @shape_uuid
+    end
   end
 
-  describe "the live layer's eye (Etcher's own :visibility nav button)" do
-    test "an annotator gets the pencil and the eye" do
+  describe "the live layer's nav buttons" do
+    test "an annotator gets Etcher's pencil alone — their eye is the hook's" do
+      # The annotator's eye must end the editing session (composing the
+      # burn while the overlay is still up) before swapping to the clean
+      # picture; Etcher's client-side overlay toggle cannot do that, so
+      # the AnnotationBurn hook owns the eye on every surface of theirs.
       html = render_html(%{burn_canvas: nil, burn_version: nil})
 
-      assert html =~ ~s(data-nav-buttons="pencil,visibility")
+      assert html =~ ~s(data-nav-buttons="pencil")
+      refute html =~ ~s(data-nav-buttons="pencil,visibility")
     end
 
-    test "a read-only viewer still gets the eye" do
+    test "a read-only viewer gets Etcher's eye — no session to end, nothing to swap" do
       html = render_html(%{burn_canvas: nil, burn_version: nil, can_annotate: false})
 
       assert html =~ ~s(data-nav-buttons="visibility")
-      refute html =~ "pencil,"
     end
   end
 
@@ -174,13 +187,55 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
 
     test "the eye flips the state, and back" do
       {:noreply, hidden} =
-        MediaCanvasViewer.handle_event("toggle_etchings", %{}, socket(%{etchings_hidden: false}))
+        MediaCanvasViewer.handle_event(
+          "toggle_etchings",
+          %{},
+          socket(%{burn_mode: true, etchings_hidden: false})
+        )
 
       assert hidden.assigns.etchings_hidden
 
       {:noreply, shown} = MediaCanvasViewer.handle_event("toggle_etchings", %{}, hidden)
 
       refute shown.assigns.etchings_hidden
+    end
+
+    test "the eye pressed in the editor ends the session onto the clean picture" do
+      {:noreply, plain} =
+        MediaCanvasViewer.handle_event(
+          "toggle_etchings",
+          %{},
+          socket(%{burn_mode: false, etchings_hidden: false, auto_annotate: true})
+        )
+
+      assert plain.assigns.burn_mode
+      assert plain.assigns.etchings_hidden
+      refute plain.assigns.auto_annotate
+
+      # Un-hiding from there is a look at the markup, not a trip back
+      # into the editor: it lands on the burned copy.
+      {:noreply, shown} = MediaCanvasViewer.handle_event("toggle_etchings", %{}, plain)
+
+      assert shown.assigns.burn_mode
+      refute shown.assigns.etchings_hidden
+    end
+
+    test "the open-annotating preference reads a stored true and nothing else" do
+      stored = fn value ->
+        %PhoenixKit.Users.Auth.User{
+          custom_fields: %{MediaCanvasViewer.open_annotating_key() => value}
+        }
+      end
+
+      assert MediaCanvasViewer.open_annotating?(stored.(true))
+
+      # The shipped default is the finished picture: an absent key, a
+      # never-written user, no user at all, and garbage all mean "off".
+      refute MediaCanvasViewer.open_annotating?(%PhoenixKit.Users.Auth.User{custom_fields: %{}})
+      refute MediaCanvasViewer.open_annotating?(%PhoenixKit.Users.Auth.User{custom_fields: nil})
+      refute MediaCanvasViewer.open_annotating?(nil)
+      refute MediaCanvasViewer.open_annotating?(stored.("true"))
+      refute MediaCanvasViewer.open_annotating?(stored.(1))
     end
 
     test "a mode switch always lands with the markup showing" do
@@ -209,5 +264,95 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
       assert burned.assigns.burn_mode
       refute burned.assigns.etchings_hidden
     end
+  end
+end
+
+defmodule PhoenixKitWeb.Components.MediaCanvasViewerOpenAnnotatingTest do
+  @moduledoc """
+  The per-user "open media ready to annotate" preference, applied at
+  viewer-open: with it, the editor is live the moment the popup is
+  (Etcher armed via `auto_annotate`, no pencil press first); without it
+  — or where it means nothing — the viewer opens on the picture.
+  """
+  use PhoenixKit.DataCase, async: true
+
+  alias PhoenixKit.Users.Auth
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
+
+  @file_uuid "01900000-0000-7000-8000-00000000f11e"
+
+  defp register!(custom_fields) do
+    {:ok, user} =
+      Auth.register_user(%{
+        email: "open-annotating-viewer-#{System.unique_integer([:positive])}@example.com",
+        password: "hello world!"
+      })
+
+    case custom_fields do
+      map when map_size(map) > 0 ->
+        {:ok, user} = Auth.merge_user_custom_fields(user, map)
+        user
+
+      _ ->
+        user
+    end
+  end
+
+  defp open_viewer(user, overrides) do
+    {:ok, socket} =
+      MediaCanvasViewer.mount(%Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}})
+
+    assigns =
+      Map.merge(
+        %{
+          id: "viewer-open-test",
+          file: %{
+            file_uuid: @file_uuid,
+            filename: "test.jpg",
+            file_type: "image",
+            mime_type: "image/jpeg",
+            width: 800,
+            height: 600,
+            urls: %{"small" => "/f/small.jpg"}
+          },
+          current_user: user,
+          parent_id: "mb-test"
+        },
+        overrides
+      )
+
+    {:ok, socket} = MediaCanvasViewer.update(assigns, socket)
+    socket.assigns
+  end
+
+  test "the flag opens the viewer in the editor, Etcher armed" do
+    user = register!(%{MediaCanvasViewer.open_annotating_key() => true})
+    assigns = open_viewer(user, %{})
+
+    refute assigns.burn_mode
+    assert assigns.auto_annotate
+    refute assigns.etchings_hidden, "the editor shows the shapes it edits"
+  end
+
+  test "without the flag the viewer opens on the picture — the shipped default" do
+    assigns = open_viewer(register!(%{}), %{})
+
+    assert assigns.burn_mode
+    refute assigns.auto_annotate
+  end
+
+  test "a read-only viewer keeps the picture whatever the flag says" do
+    user = register!(%{MediaCanvasViewer.open_annotating_key() => true})
+    assigns = open_viewer(user, %{can_annotate: false})
+
+    assert assigns.burn_mode
+    refute assigns.auto_annotate
+  end
+
+  test "no user at all (a public lightbox) opens on the picture" do
+    assigns = open_viewer(nil, %{})
+
+    assert assigns.burn_mode
+    refute assigns.auto_annotate
   end
 end
