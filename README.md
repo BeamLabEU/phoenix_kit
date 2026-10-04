@@ -62,6 +62,22 @@ Without `rustler` present the build fails with a compilation error from
 `mdex_native` rather than anything naming PhoenixKit, which is why this is
 worth stating up front.
 
+## Updating
+
+`mix phoenix_kit.update` migrates PhoenixKit's schema and repairs the
+configuration it depends on; `mix phoenix_kit.status` and
+`mix phoenix_kit.doctor` report what is out of date.
+
+**Oban's schema follows the Oban library, not PhoenixKit's migrations.**
+PhoenixKit creates Oban's tables once, at the version the Oban of that day
+shipped; a newer Oban can need a newer schema (Oban 2.24's version 14 —
+without it every unique job insert fails, cron included).
+`mix phoenix_kit.update` compares the version on `oban_jobs` with what the
+installed Oban expects and, when it is behind, adds a
+`phoenix_kit_update_oban_vNN_to_vMM` migration that runs with the rest —
+even when PhoenixKit itself is already current. `status` shows the version,
+`doctor` warns when it is behind, and the application logs one warning at boot.
+
 ## Upgrading to 2.0
 
 **New installs need nothing from this section.**
