@@ -935,11 +935,13 @@ defmodule PhoenixKit.Install.ObanConfigTest do
       assert crontab_has_module?(ast, MyApp.Workers.Nightly)
     end
 
-    test "MUTATION A — a comment containing ']' before the real entries rolls back instead of corrupting" do
-      # Reproduced live before this fix: an entirely ordinary explanatory
-      # comment ("...took a priority list, e.g. [1, 2] - removed") makes the
+    test "MUTATION A — a comment containing ']' before the real entries is inserted around, not into" do
+      # Reproduced live before the anchor fix: an entirely ordinary explanatory
+      # comment ("...took a priority list, e.g. [1, 2] - removed") makes an
       # unanchored `.*?` stop at the comment's own bracket, producing a real
-      # `MismatchedDelimiterError` when the host next compiles config.exs.
+      # `MismatchedDelimiterError` when the host next compiles config.exs. That
+      # first became a rollback + manual step; the splice now matches brackets
+      # on a comment-masked copy, so the entry simply lands.
       content = """
       config :my_app, Oban,
         repo: MyApp.Repo,
@@ -955,17 +957,19 @@ defmodule PhoenixKit.Install.ObanConfigTest do
 
       updated = ObanConfig.ensure_cron_plugin(content, "my_app")
 
-      assert updated == content, "a rollback must return the ORIGINAL content unchanged"
-      assert {:ok, _} = Code.string_to_quoted(updated)
-      refute updated =~ "ProcessScheduledJobsWorker"
+      assert {:ok, ast} = Code.string_to_quoted(updated)
+      assert updated =~ "# historically this queue took a priority list, e.g. [1, 2] - removed"
+      assert crontab_has_module?(ast, PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker)
+      assert crontab_has_module?(ast, MyApp.Workers.Nightly)
     end
 
-    test "MUTATION B — a nested-list value that still parses rolls back instead of silently misplacing the entry" do
+    test "MUTATION B — a nested-list value (args tags) does not capture the entry; it lands as a crontab sibling" do
       # The other way this can fail: no comment at all, just an ordinary
-      # Oban shape (a tag list in an existing entry's own args). The lazy
+      # Oban shape (a tag list in an existing entry's own args). A lazy
       # regex stops at THAT list's closing ']' — the result still parses
       # (a green a parse-only check would have accepted), but the new
       # tuple lands nested inside `tags:` instead of as a crontab sibling.
+      # Bracket depth skips it; the verify step still insists on a sibling.
       content = """
       config :my_app, Oban,
         repo: MyApp.Repo,
@@ -980,13 +984,10 @@ defmodule PhoenixKit.Install.ObanConfigTest do
 
       updated = ObanConfig.ensure_cron_plugin(content, "my_app")
 
-      assert updated == content, "a rollback must return the ORIGINAL content unchanged"
       assert {:ok, ast} = Code.string_to_quoted(updated)
 
-      refute crontab_has_module?(
-               ast,
-               PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker
-             )
+      assert crontab_has_module?(ast, PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker)
+      assert crontab_has_module?(ast, MyApp.Workers.TagSweeper)
     end
 
     defp crontab_has_module?(ast, module) do

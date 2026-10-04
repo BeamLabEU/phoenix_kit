@@ -299,6 +299,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
                 result = super(argv)
                 post_igniter_tasks(elem(opts, 0))
+                print_manual_steps()
 
                 # Clean retry flag
                 Process.delete(:phoenix_kit_retry_pass)
@@ -764,6 +765,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           """
 
       Igniter.add_notice(igniter, final_instructions)
+    end
+
+    # Everything the Oban config pass could not edit by itself, repeated as one
+    # block at the very end — after the migration and asset output that buried
+    # the one-line warnings in the run that left a host without a cron entry.
+    defp print_manual_steps do
+      case ObanConfig.manual_steps_summary(ObanConfig.take_manual_steps()) do
+        "" -> :ok
+        summary -> Mix.shell().error(summary)
+      end
     end
 
     # Handle tasks that need to run after igniter completes
