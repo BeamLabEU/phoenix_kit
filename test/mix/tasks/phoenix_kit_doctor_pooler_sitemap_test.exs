@@ -136,6 +136,12 @@ defmodule Mix.Tasks.PhoenixKit.DoctorPoolerSitemapTest do
 
       assert [finding] = Doctor.duplicate_root_route_findings(routes)
       assert finding =~ "declared 2 times"
+
+      # Same controller on both sides: the action tells them apart.
+      assert finding =~ "PhoenixKit.Modules.Sitemap.Web.Controller (:index_xml) answers it"
+
+      assert finding =~
+               "declaration by PhoenixKit.Modules.Sitemap.Web.Controller (:index_html) never runs"
     end
 
     test "only the declarations that differ from the winner are named" do

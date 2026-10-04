@@ -2780,11 +2780,29 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
     do: a.plug == b.plug and Map.get(a, :plug_opts) == Map.get(b, :plug_opts)
 
   defp duplicate_finding(path, winner, dead, count) do
-    "GET #{path} is declared #{count} times: #{inspect(winner.plug)} " <>
+    # When a dead declaration shares the winner's controller, the controller
+    # alone would read "X answers it … the declaration by X never runs" — name
+    # the action on both sides so the difference is visible.
+    with_action? = Enum.any?(dead, &(&1.plug == winner.plug))
+    dead_names = dead |> Enum.map(&route_label(&1, with_action?)) |> Enum.uniq()
+
+    "GET #{path} is declared #{count} times: #{route_label(winner, with_action?)} " <>
       "answers it (declared first), and the declaration by " <>
-      "#{dead |> Enum.map(& &1.plug) |> Enum.uniq() |> Enum.map_join(", ", &inspect/1)} never runs. " <>
+      "#{Enum.join(dead_names, ", ")} never runs. " <>
       "Delete the one you no longer want — usually a pre-2.0 copy of PhoenixKit's route."
   end
+
+  defp route_label(route, true) do
+    case Map.get(route, :plug_opts) do
+      action when is_atom(action) and not is_nil(action) ->
+        "#{inspect(route.plug)} (#{inspect(action)})"
+
+      _ ->
+        inspect(route.plug)
+    end
+  end
+
+  defp route_label(route, false), do: inspect(route.plug)
 
   @doc false
   # Pure: whether the sitemap is falling back from `site_url`, and to what.
