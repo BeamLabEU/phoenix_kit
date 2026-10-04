@@ -403,8 +403,11 @@ defmodule PhoenixKit.ModuleRegistry do
   """
   @spec not_installed_packages() :: [map()]
   def not_installed_packages do
+    # Computed once: the capture form re-evaluated it for every catalog entry.
+    installed = installed_otp_apps()
+
     known_external_packages()
-    |> Enum.reject(&MapSet.member?(installed_otp_apps(), &1.package))
+    |> Enum.reject(&MapSet.member?(installed, &1.package))
   end
 
   # "Installed" is the union of two questions, because a `phoenix_kit_*` package
@@ -419,7 +422,7 @@ defmodule PhoenixKit.ModuleRegistry do
   # other, so both are consulted.
   defp installed_otp_apps do
     discovered =
-      PhoenixKit.ModuleDiscovery.discover_external_modules()
+      PhoenixKit.ModuleDiscovery.cached_external_modules()
       |> Enum.map(&Application.get_application/1)
       |> Enum.reject(&is_nil/1)
       |> MapSet.new(&Atom.to_string/1)
@@ -654,6 +657,10 @@ defmodule PhoenixKit.ModuleRegistry do
       updated = modules ++ [module]
       :persistent_term.put(@pterm_key, updated)
       invalidate_module_derived_caches()
+      # Not part of `invalidate_module_derived_caches/0`: `rescan/0` calls that
+      # right after `load_modules/0` has refreshed the scan cache and must not
+      # wipe it.
+      PhoenixKit.ModuleDiscovery.clear_cache()
       {:reply, :ok, %{state | modules: updated}}
     end
   end
@@ -662,6 +669,7 @@ defmodule PhoenixKit.ModuleRegistry do
     updated = List.delete(modules, module)
     :persistent_term.put(@pterm_key, updated)
     invalidate_module_derived_caches()
+    PhoenixKit.ModuleDiscovery.clear_cache()
     {:reply, :ok, %{state | modules: updated}}
   end
 
@@ -778,7 +786,10 @@ defmodule PhoenixKit.ModuleRegistry do
 
   defp load_modules do
     internal = internal_modules()
-    external = PhoenixKit.ModuleDiscovery.discover_external_modules()
+    # A real scan that also refreshes the runtime scan cache. Boot and `rescan/0`
+    # both come through here, so the admin pages find it warm and never pay for
+    # a cold scan; nothing after this in either path may clear it.
+    external = PhoenixKit.ModuleDiscovery.refresh_cache()
     (internal ++ external) |> Enum.uniq()
   end
 
