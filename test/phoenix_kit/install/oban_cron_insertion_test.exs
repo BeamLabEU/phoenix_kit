@@ -46,7 +46,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
   # `module` is a direct member of `:myapp`'s `crontab:` list.
   defp in_crontab?(content, module) do
-    {:ok, ast} = Code.string_to_quoted(content)
+    {:ok, ast} = Code.string_to_quoted(content, emit_warnings: false)
 
     ConfigVerify.app_config_satisfies?(ast, "myapp", Oban, :crontab, fn list ->
       Enum.any?(list, &ConfigVerify.tuple_names_module?(&1, module))
@@ -69,7 +69,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
 
         refute updated == content, "the entries were rolled back instead of added"
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         refute updated =~ ",,"
 
         assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
@@ -92,7 +92,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_digest_cron_entries(content, "myapp") end)
 
         refute updated == content, "the entries were rolled back instead of added"
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
 
         for cadence <- ~w(hourly 12h daily weekly) do
           assert updated =~ ~s(cadence: "#{cadence}")
@@ -110,7 +110,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
 
         refute updated == content, "the entry was rolled back instead of added"
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         assert in_crontab?(updated, @posts_worker)
         assert tail_comments(unquote(tail)) |> Enum.all?(&String.contains?(updated, &1))
       end
@@ -141,7 +141,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_lifeline_plugin(content, "myapp") end)
 
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         assert updated =~ "Oban.Plugins.Lifeline"
       end
 
@@ -150,7 +150,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
 
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         assert in_crontab?(updated, @posts_worker)
       end
     end
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
 
         refute updated == content
-        assert {:ok, ast} = Code.string_to_quoted(updated)
+        assert {:ok, ast} = Code.string_to_quoted(updated, emit_warnings: false)
 
         assert ConfigVerify.keyword_list_satisfies?(ast, :queues, fn list ->
                  {:media, 3} in list
@@ -249,7 +249,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(@real_host, "myapp") end)
 
       refute updated == @real_host
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
       assert in_crontab?(updated, PhoenixKit.Users.LoginAttemptsPruneWorker)
       # Entries sit between the last tuple and the host's closing comment.
@@ -261,7 +261,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_digest_cron_entries(@real_host, "myapp") end)
 
       refute updated == @real_host
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert updated =~ ~s(cadence: "weekly")
     end
 
@@ -269,7 +269,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_cron_plugin(@real_host, "myapp") end)
 
       refute updated == @real_host
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, @posts_worker)
     end
 
@@ -277,7 +277,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_queue(@real_host, "myapp", "media", 3) end)
 
       refute updated == @real_host
-      assert {:ok, ast} = Code.string_to_quoted(updated)
+      assert {:ok, ast} = Code.string_to_quoted(updated, emit_warnings: false)
 
       assert ConfigVerify.keyword_list_satisfies?(ast, :queues, fn list ->
                {:media, 3} in list
@@ -298,7 +298,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       end
 
       once = run.(@real_host)
-      assert {:ok, _} = Code.string_to_quoted(once)
+      assert {:ok, _} = Code.string_to_quoted(once, emit_warnings: false)
       assert run.(once) == once
     end
   end
@@ -308,7 +308,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       content = "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron, crontab: []}\n  ]\n"
       updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
     end
 
@@ -325,7 +325,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
       updated = quiet(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, @posts_worker)
       assert updated =~ "# nothing scheduled yet"
     end
@@ -336,7 +336,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
       updated = quiet(fn -> ObanConfig.ensure_digest_cron_entries(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert updated =~ ~s(cadence: "daily")
     end
 
@@ -346,7 +346,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
       updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, MyApp.Nightly)
       assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
     end
@@ -374,7 +374,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           ] do
         updated = quiet(fn -> fun.(content, "myapp") end)
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         assert in_crontab?(updated, MyApp.Nightly)
       end
     end
@@ -389,7 +389,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           ] do
         updated = quiet(fn -> fun.(content, "myapp") end)
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         # New lines use the host's tab, not spaces.
         refute updated =~ ~r/\n {2,}\{"/
       end
@@ -399,7 +399,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       content = crontab_config("", "    ")
       updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
     end
 
@@ -422,7 +422,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           ] do
         updated = quiet(fn -> fun.(content, "myapp") end)
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       end
     end
 
@@ -465,7 +465,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       [theirs | _] = String.split(updated, "config :myapp")
       refute theirs =~ "SweepWorker"
       assert updated =~ "SweepWorker"
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
     end
   end
 
@@ -525,7 +525,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         end)
 
       assert_received {:r, updated}
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       refute in_crontab?(updated, PhoenixKit.Users.Referrals.PruneWorker)
       assert out =~ "Referrals.PruneWorker"
       assert out =~ "commented out"
@@ -653,7 +653,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
   # removed from every list, the AST equals the original's.
   defp host_preserved?(original, updated) do
     strip = fn content ->
-      {:ok, ast} = Code.string_to_quoted(content)
+      {:ok, ast} = Code.string_to_quoted(content, emit_warnings: false)
 
       ast
       |> Macro.prewalk(fn
@@ -716,7 +716,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     for {name, lines} <- @tricky_last_entries do
       test "#{name}" do
         content = crontab_around(unquote(lines))
-        assert {:ok, _} = Code.string_to_quoted(content)
+        assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
 
         for fun <- [
               &ObanConfig.ensure_worker_cron_entries/2,
@@ -726,7 +726,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           updated = quiet(fn -> fun.(content, "myapp") end)
 
           refute updated == content, "rolled back instead of added"
-          assert {:ok, _} = Code.string_to_quoted(updated)
+          assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
           assert host_preserved?(content, updated)
         end
       end
@@ -922,7 +922,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       content = "config :myapp, Oban,\n  plugins: [Oban.Plugins.Pruner, Oban.Plugins.Lifeline]\n"
       updated = quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end)
 
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
       assert updated =~ "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}, Oban.Plugins.Lifeline"
     end
 
@@ -933,7 +933,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end)
 
       refute updated == content
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
     end
 
     test "a Pruner with other options is left alone" do
@@ -1033,7 +1033,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", :media, 3) end)
 
       assert updated =~ "media: 3"
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
     end
 
     test "a queue named only in an end-of-line comment is still added" do
@@ -1041,7 +1041,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
 
       refute updated == content
-      assert {:ok, ast} = Code.string_to_quoted(updated)
+      assert {:ok, ast} = Code.string_to_quoted(updated, emit_warnings: false)
       assert ConfigVerify.keyword_list_satisfies?(ast, :queues, fn l -> {:media, 3} in l end)
     end
   end
@@ -1059,7 +1059,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         updated = quiet(fn -> fun.(content, "myapp") end)
 
         refute updated == content
-        assert {:ok, _} = Code.string_to_quoted(updated)
+        assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
         refute updated =~ ~r/(?<!\r)\n/, "a bare LF was written into a CRLF file"
         refute updated =~ "\r\r"
       end
@@ -1070,7 +1070,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
 
       refute updated =~ ~r/(?<!\r)\n/
-      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert {:ok, _} = Code.string_to_quoted(updated, emit_warnings: false)
     end
   end
 
@@ -1119,7 +1119,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
     test "with every entry in the variable's list: already configured, nothing to do by hand" do
       content = var_config(@worker_lines ++ @digest_lines)
-      assert {:ok, _} = Code.string_to_quoted(content)
+      assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
 
       {result, out, steps} = run_all(content)
 
@@ -1203,7 +1203,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           Enum.join(@worker_lines ++ @digest_lines, ",\n  ") <>
           "\n]\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: @crontab}]\n"
 
-      assert {:ok, _} = Code.string_to_quoted(content)
+      assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
       {result, out, steps} = run_all(content)
 
       assert result == content
@@ -1481,7 +1481,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       refute out =~ "Adding PhoenixKit worker"
       refute out =~ "Adding notification digest"
       refute out =~ "Pruner configuration not found"
-      assert {:ok, _} = Code.string_to_quoted(result)
+      assert {:ok, _} = Code.string_to_quoted(result, emit_warnings: false)
     end
 
     test "K: a block nested in an if says so; not 'not verified'" do
@@ -1769,7 +1769,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
                  fn _ast -> true end
                )
 
-      assert why =~ "changed something else"
+      assert why =~ "changed or duplicated something"
     end
   end
 
@@ -1829,6 +1829,343 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
         end)
 
       assert err =~ "Manual steps needed"
+    end
+  end
+
+  # --- round 6: the third final review ------------------------------------------
+
+  # Oban refuses a config that lists a plugin twice at boot; this is the same
+  # check, through the config reader and Oban's own validation.
+  defp oban_plugins_valid?(content) do
+    path = Path.join(System.tmp_dir!(), "pk_cron_cfg_#{System.unique_integer([:positive])}.exs")
+
+    File.write!(
+      path,
+      if(content =~ "import Config", do: content, else: "import Config\n" <> content)
+    )
+
+    try do
+      cfg = Config.Reader.read!(path, env: :dev)
+
+      mods =
+        for plugin <- get_in(cfg, [:myapp, Oban, :plugins]) || [] do
+          case plugin do
+            {mod, _opts} -> mod
+            mod -> mod
+          end
+        end
+
+      Oban.Config.validate(plugins: mods) == :ok
+    after
+      File.rm(path)
+    end
+  end
+
+  # How many times the Cron plugin is listed in `plugins:` (alias resolved).
+  defp cron_plugin_count(content) do
+    {:ok, modules} = ConfigSplice.plugin_modules(content, "myapp")
+    Enum.count(modules, &(&1 == Oban.Plugins.Cron))
+  end
+
+  defmodule Banner do
+    @moduledoc false
+    # A stand-in host plugin, so the configs below validate as a whole.
+    @behaviour Oban.Plugin
+    use GenServer
+
+    @impl Oban.Plugin
+    def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
+    @impl Oban.Plugin
+    def validate(_opts), do: :ok
+    @impl GenServer
+    def init(opts), do: {:ok, opts}
+  end
+
+  defp run_twice(content) do
+    first = quiet(fn -> ObanConfig.update_content(content, "myapp") end)
+    second = quiet(fn -> ObanConfig.update_content(first, "myapp") end)
+    {first, second}
+  end
+
+  describe "a string delimiter in column 0 does not end the block" do
+    @banner_config ~S'''
+    import Config
+
+    config :myapp, Oban,
+      repo: MyApp.Repo,
+      queues: [default: 10],
+      plugins: [
+        {PhoenixKit.Install.ObanCronInsertionTest.Banner, text: "Jobs are paused during deploys
+    "},
+        {Oban.Plugins.Pruner, max_age: 60},
+        {Oban.Plugins.Cron, crontab: [{"0 3 * * *", PhoenixKit.Jobs.SweepWorker}]}
+      ]
+    '''
+
+    test "a formatter-stable multi-line string before the Cron plugin: one Cron plugin, every run" do
+      # `mix format` leaves this file as it is.
+      assert Code.format_string!(@banner_config) |> IO.iodata_to_binary() |> Kernel.<>("\n") ==
+               @banner_config
+
+      {first, second} = run_twice(@banner_config)
+
+      assert cron_plugin_count(first) == 1
+      assert cron_plugin_count(second) == 1
+      assert second == first
+      assert oban_plugins_valid?(first)
+    end
+
+    @col0_forms [
+      {"a heredoc", ~S|~s"""|, ~S|"""|},
+      {"a ~S heredoc", ~S|~S"""|, ~S|"""|},
+      {"a charlist heredoc", ~S|'''|, ~S|'''|}
+    ]
+
+    for {name, opener, closer} <- @col0_forms do
+      test "#{name} closing in column 0 inside a crontab entry: the second run changes nothing" do
+        content =
+          "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n" <>
+            "    {Oban.Plugins.Cron,\n     crontab: [\n" <>
+            "       {\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker, args: %{t: #{unquote(opener)}\n" <>
+            "x\n#{unquote(closer)}}}\n     ]}\n  ]\n"
+
+        assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
+        {first, second} = run_twice(content)
+
+        assert second == first
+        assert cron_plugin_count(first) == 1
+        assert length(String.split(first, "PhoenixKit.Jobs.SweepWorker")) == 2
+      end
+    end
+
+    test "a heredoc with a mid-line triple quote and a column-0 closer" do
+      content =
+        Enum.join(
+          [
+            "import Config",
+            "",
+            "config :myapp, Oban,",
+            "  plugins: [",
+            "    {Oban.Plugins.Cron,",
+            "     crontab: [",
+            ~S|       {"0 3 * * *", PhoenixKit.Jobs.PruneWorker, args: %{t: ~s"""|,
+            ~S|x """ y ]|,
+            ~S|"""}}|,
+            "     ]}",
+            "  ]",
+            ""
+          ],
+          "\n"
+        )
+
+      assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
+      {first, second} = run_twice(content)
+
+      assert second == first
+      assert cron_plugin_count(first) == 1
+    end
+  end
+
+  describe "the fourth net: a candidate that gains a duplicate is refused" do
+    test "introduces_duplicates?/3 sees a second plugin, a repeated tuple and a repeated queue" do
+      base = "config :myapp, Oban,\n  queues: [default: 10],\n  plugins: [Oban.Plugins.Cron]\n"
+
+      dup_plugin =
+        "config :myapp, Oban,\n  queues: [default: 10],\n  plugins: [Oban.Plugins.Cron, Oban.Plugins.Cron]\n"
+
+      dup_queue =
+        "config :myapp, Oban,\n  queues: [default: 10, default: 5],\n  plugins: [Oban.Plugins.Cron]\n"
+
+      dup_tuple =
+        "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"* * * * *\", A}, {\"* * * * *\", A}]}]\n"
+
+      # The same tuple on different lines (so different source positions).
+      spread_base =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", A},\n       {\"0 1 * * *\", B}\n     ]}\n  ]\n"
+
+      spread_dup =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", A},\n       {\"0 1 * * *\", B},\n       {\"* * * * *\", A}\n     ]}\n  ]\n"
+
+      assert ConfigSplice.introduces_duplicates?(spread_base, spread_dup, "myapp")
+
+      assert ConfigSplice.introduces_duplicates?(base, dup_plugin, "myapp")
+      assert ConfigSplice.introduces_duplicates?(base, dup_queue, "myapp")
+      assert ConfigSplice.introduces_duplicates?(base, dup_tuple, "myapp")
+      refute ConfigSplice.introduces_duplicates?(base, base, "myapp")
+
+      # A duplicate the host already had is not this edit's.
+      refute ConfigSplice.introduces_duplicates?(dup_plugin, dup_plugin, "myapp")
+    end
+
+    test "alias is resolved: Cron and Oban.Plugins.Cron are the same plugin" do
+      base = "alias Oban.Plugins.Cron\n\nconfig :myapp, Oban,\n  plugins: [{Cron, crontab: []}]\n"
+
+      added =
+        "alias Oban.Plugins.Cron\n\nconfig :myapp, Oban,\n  plugins: [{Cron, crontab: []}, {Oban.Plugins.Cron, crontab: []}]\n"
+
+      assert ConfigSplice.introduces_duplicates?(base, added, "myapp")
+    end
+
+    test "append_entries/6 refuses an edit that would list a plugin twice" do
+      content = "config :myapp, Oban,\n  plugins: [Oban.Plugins.Cron]\n"
+
+      assert {:error, why} =
+               ObanConfig.append_entries(
+                 content,
+                 "myapp",
+                 :plugins,
+                 ["Oban.Plugins.Cron"],
+                 fn _ast -> true end
+               )
+
+      assert why =~ "duplicated"
+    end
+
+    test "queue keys are checked too" do
+      content = "config :myapp, Oban,\n  queues: [default: 10]\n"
+
+      assert {:error, _} =
+               ObanConfig.append_entries(content, "myapp", :queues, ["default: 5"], fn _ ->
+                 true
+               end)
+    end
+  end
+
+  describe "an aliased Cron plugin is a Cron plugin" do
+    @alias_forms [
+      {"alias Oban.Plugins.Cron", "alias Oban.Plugins.Cron\n", "Cron"},
+      {"alias Oban.Plugins.{Cron, Pruner}", "alias Oban.Plugins.{Cron, Pruner}\n", "Cron"},
+      {"alias Oban.Plugins.Cron, as: C", "alias Oban.Plugins.Cron, as: C\n", "C"}
+    ]
+
+    for {name, alias_line, short} <- @alias_forms do
+      test "#{name}: no second Cron plugin, the worker goes into the aliased one, and a rerun is quiet" do
+        content =
+          "import Config\n\n#{unquote(alias_line)}\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n    {#{unquote(short)}, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}\n  ]\n"
+
+        {first, second} = run_twice(content)
+
+        assert cron_plugin_count(first) == 1
+        assert second == first
+        assert first =~ "ProcessScheduledJobsWorker"
+        assert first =~ "SweepWorker"
+        assert oban_plugins_valid?(first)
+      end
+    end
+  end
+
+  describe "shapes the block rule and the Cron regex must accept" do
+    test "Cron with an explicit keyword list: {Oban.Plugins.Cron, [crontab: [...]]}" do
+      content =
+        "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, [crontab: [{\"0 3 * * *\", MyApp.Nightly}]]}]\n"
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      assert in_crontab?(result, PhoenixKit.Jobs.SweepWorker)
+    end
+
+    test "options in column 0 (an unformatted block) are still the block" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\nrepo: MyApp.Repo,\nqueues: [default: 10],\nplugins: [\n{Oban.Plugins.Cron, crontab: [{\"0 3 * * *\", MyApp.Nightly}]}\n]\n"
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      assert in_crontab?(result, PhoenixKit.Jobs.SweepWorker)
+    end
+
+    test "a queue that exists only in a following nested block is added to the top-level one" do
+      content =
+        "config :myapp, Oban,\n  repo: MyApp.Repo,\n  queues: [default: 10]\n\nif config_env() == :prod do\n  config :myapp, Oban,\n    queues: [media: 3]\n  end\n"
+
+      updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
+
+      assert updated =~ ~r/queues: \[default: 10,\s+media: 3/
+    end
+  end
+
+  describe "nested blocks" do
+    test "all entries present in the nested block: a step to check by hand, not 'Please manually add'" do
+      worker_lines = Enum.join(@all_pk_worker_lines, ", ")
+
+      content =
+        "if config_env() == :prod do\n  config :myapp, Oban,\n    plugins: [{Oban.Plugins.Cron, crontab: [#{worker_lines}]}]\nend\n"
+
+      {result, _out, err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert err =~ "check it by hand"
+      refute err =~ "Please manually add"
+      refute err =~ "To decline one instead"
+      assert err =~ "Expected there (check by hand)"
+      assert steps != []
+    end
+
+    test "a following nested block that may override plugins gets one info line" do
+      content = """
+      config :myapp, Oban,
+        queues: [default: 10],
+        plugins: [{Oban.Plugins.Cron, crontab: [{"0 3 * * *", MyApp.Nightly}]}]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [Oban.Plugins.Pruner]
+      end
+      """
+
+      {_result, out, _err, _steps} = backfill(content)
+
+      assert out =~ "nested `config :myapp, Oban` for an environment follows"
+      assert length(String.split(out, "nested `config :myapp, Oban`")) == 2
+    end
+  end
+
+  describe "closing lines and the declined worker" do
+    test "a commented-out core worker gives one line, not two" do
+      content =
+        crontab_config(~S|,
+      # {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|)
+
+      out = capture_io(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
+
+      assert out =~ "Left out"
+      refute out =~ "already configured"
+    end
+
+    test "plugins: false does not claim the cron plugin and Lifeline are present" do
+      content = "config :myapp, Oban,\n  queues: [default: 10],\n  plugins: false\n"
+      {_result, out, _err, _steps} = backfill(content)
+
+      refute out =~ "already up-to-date"
+      refute out =~ "Lifeline present"
+    end
+
+    test "the old-worker rename leaves comments as they were" do
+      content =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n       # PublishScheduledPostsJob was moved here from the posts package\n       {\"* * * * *\", PhoenixKitPosts.Workers.PublishScheduledPostsJob}\n     ]}\n  ]\n"
+
+      updated = quiet(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
+
+      assert updated =~ "# PublishScheduledPostsJob was moved here"
+
+      assert updated =~
+               ~s({"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker})
+    end
+  end
+
+  describe "the lexer's identifier forms" do
+    test "a sigil name with digits (~HTML1) and a non-ASCII identifier before ?" do
+      content =
+        crontab_around([
+          ~S|{"0 2 * * *", MyApp.B, args: %{v: ~HTML1(x] # y), w: MyApp.olé?({1})}}|
+        ])
+
+      assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      assert updated != content
+      assert host_preserved?(content, updated)
     end
   end
 

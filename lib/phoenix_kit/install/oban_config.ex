@@ -46,6 +46,8 @@ if Code.ensure_loaded?(Igniter) do
     @dialyzer {:nowarn_function, note_unverified: 1}
     @dialyzer {:nowarn_function, refused: 4}
     @dialyzer {:nowarn_function, report_update: 2}
+    @dialyzer {:nowarn_function, report_update: 3}
+    @dialyzer {:nowarn_function, note_nested_block: 2}
     @dialyzer {:nowarn_function, update_content: 2}
 
     alias Igniter.Libs.Phoenix
@@ -340,7 +342,7 @@ if Code.ensure_loaded?(Igniter) do
             "  ℹ️  Oban plugins are switched off (`plugins: false`) — no cron, Lifeline or Pruner entries to add"
           )
 
-          report_update(content, updated)
+          report_update(content, updated, "queues checked; plugins are switched off")
 
         true ->
           # Every queue PhoenixKit or an installed module declares
@@ -359,13 +361,26 @@ if Code.ensure_loaded?(Igniter) do
             |> ensure_pruner_max_age(app_name)
             |> ensure_lifeline_plugin(app_name)
 
+          note_nested_block(content, app_name)
           report_update(content, updated)
+      end
+    end
+
+    # A prod-only (or any environment's) `config :app, Oban` after the top-level
+    # one is merged over it by Config: its `plugins:` replaces the top-level
+    # one there. The updater edits the top-level block only.
+    defp note_nested_block(content, app_name) do
+      if ConfigSplice.nested_block?(content, app_name) do
+        Mix.shell().info(
+          "  ℹ️  A nested `config :#{app_name}, Oban` for an environment follows; " <>
+            "it may override `plugins:` there — check it"
+        )
       end
     end
 
     # The closing line of the phase. It must not say "up-to-date" while a step
     # is waiting for the host.
-    defp report_update(content, updated) do
+    defp report_update(content, updated, what \\ nil) do
       pending = manual_step_count()
 
       cond do
@@ -373,6 +388,9 @@ if Code.ensure_loaded?(Igniter) do
           Mix.shell().info(
             "⚠️  Oban configuration: #{pending} step(s) need you — listed again at the end of the update"
           )
+
+        what != nil ->
+          Mix.shell().info("✅ Oban configuration: #{what}")
 
         updated == content ->
           Mix.shell().info(
@@ -543,17 +561,10 @@ if Code.ensure_loaded?(Igniter) do
       )
     end
 
-    # The body of `config :app_name, Oban, ...` up to the next top-level
-    # `config`/`import_config`, comment lines removed; nil when there is none.
-    defp app_oban_block(content, app_name) do
-      case Regex.run(
-             ~r/^config\s+:#{app_name},\s+Oban\b((?:(?!\n(?:config\s|import_config\s)).)*)/ms,
-             ConfigSplice.mask(content)
-           ) do
-        [_, block] -> block
-        nil -> nil
-      end
-    end
+    # The body of `config :app_name, Oban, ...` (`ConfigSplice`'s span), comments
+    # and string bodies blanked; nil when there is none.
+    defp app_oban_block(content, app_name),
+      do: ConfigSplice.block_code(content, app_name, strings: true)
 
     # An empty `queues: []` deliberately takes the manual path: Oban documents
     # an empty list as equivalent to `false` — "prevents any queues from
@@ -574,7 +585,7 @@ if Code.ensure_loaded?(Igniter) do
              ["#{queue}: #{limit}"],
              &keyword_list_has_key?(&1, :queues, queue_atom, limit),
              allow_empty: false,
-             fallback: fn -> queue_in_file_code?(content, app_name, queue) end
+             fallback: fn -> queue_in_file_code?(content, queue) end
            ) do
         {:ok, result} ->
           if result != content,
@@ -591,10 +602,10 @@ if Code.ensure_loaded?(Igniter) do
     # `queues: my_queues` — nothing can be checked inside it, so a queue named
     # in the file's code (not in a comment, a string or another app's block)
     # counts as configured, unverified.
-    defp queue_in_file_code?(content, app_name, queue) do
+    defp queue_in_file_code?(content, queue) do
       Regex.match?(
         ~r/(?<![A-Za-z0-9_])#{Regex.escape(queue)}:\s*\S/,
-        ConfigSplice.file_code(content, app_name, strings: true)
+        ConfigSplice.file_code(content, strings: true)
       )
     end
 
@@ -617,7 +628,7 @@ if Code.ensure_loaded?(Igniter) do
 
       case ConfigSplice.append_to_list(content, app_name, key, entries, opts) do
         {:ok, candidate} ->
-          verify_candidate(content, candidate, entries, verify)
+          verify_candidate(content, candidate, entries, verify, app_name)
 
         {:error, reason} ->
           refused(content, key, reason, fallback)
@@ -641,15 +652,16 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp verify_candidate(content, candidate, entries, verify) do
+    defp verify_candidate(content, candidate, entries, verify, app_name) do
       with {:ok, result} <- verified(content, candidate, verify),
-           true <- ConfigSplice.preserves_original?(content, result, entries) do
+           true <- ConfigSplice.preserves_original?(content, result, entries),
+           false <- ConfigSplice.introduces_duplicates?(content, result, app_name) do
         {:ok, result}
       else
         _ ->
           {:error,
-           "the edited file would not have parsed, would have changed something else in the config, " <>
-             "or the entries would have landed in the wrong place"}
+           "the edited file would not have parsed, would have changed or duplicated something " <>
+             "in the config, or the entries would have landed in the wrong place"}
       end
     end
 
@@ -663,7 +675,7 @@ if Code.ensure_loaded?(Igniter) do
     defp queue_manual_notice(app_name, queue, limit, why) do
       manual_notice(
         "Could not add the #{queue} queue to the queues block for :#{app_name}: #{why}.",
-        ["Please manually add: #{queue}: #{limit}"]
+        [add_line(why, "#{queue}: #{limit}")]
       )
     end
 
@@ -947,7 +959,7 @@ if Code.ensure_loaded?(Igniter) do
     defp lifeline_manual_notice(app_name, why) do
       manual_notice(
         "Could not add Lifeline to the plugins block for :#{app_name}: #{why}.",
-        ["Please manually add: #{lifeline_entry()}"]
+        [add_line(why, lifeline_entry())]
       )
     end
 
@@ -1083,7 +1095,8 @@ if Code.ensure_loaded?(Igniter) do
       worker = crontab_state(content, app_name, {:module, "ProcessScheduledJobsWorker"})
       block = ConfigSplice.block_code(content, app_name, strings: true) || ""
       old_worker? = Regex.match?(@old_posts_worker, block)
-      cron_plugin? = String.contains?(block, "Oban.Plugins.Cron")
+
+      cron_plugin? = cron_plugin?(content, app_name, block)
 
       if worker == :declined, do: note_declined([@new_worker])
 
@@ -1105,9 +1118,7 @@ if Code.ensure_loaded?(Igniter) do
             "  🔄 Replacing PublishScheduledPostsJob with ProcessScheduledJobsWorker..."
           )
 
-          ConfigSplice.update_block(content, app_name, fn block ->
-            Regex.replace(@old_posts_worker, block, @new_worker)
-          end)
+          ConfigSplice.update_block(content, app_name, &rename_old_worker/1)
 
         # Case 1b: both are scheduled. Rewriting the old entry would leave two
         # identical crontab lines, so say what is there and change nothing —
@@ -1132,6 +1143,10 @@ if Code.ensure_loaded?(Igniter) do
           note_unverified([@new_worker])
           content
 
+        # A commented-out worker was announced above ("left out"); no second line.
+        worker == :declined ->
+          content
+
         worker != :missing ->
           Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
           content
@@ -1149,6 +1164,29 @@ if Code.ensure_loaded?(Igniter) do
           Mix.shell().info("  ➕ Adding Oban.Plugins.Cron with ProcessScheduledJobsWorker...")
           add_cron_plugin_to_plugins(content, app_name)
       end
+    end
+
+    # By the tree, so `alias Oban.Plugins.Cron` + `{Cron, …}` is a Cron plugin
+    # too — adding a second one makes Oban refuse to start. A `plugins:` the tree
+    # cannot read (a variable, a file that does not parse) falls back to the text.
+    defp cron_plugin?(content, app_name, block) do
+      case ConfigSplice.plugin_modules(content, app_name) do
+        {:ok, modules} -> Oban.Plugins.Cron in modules
+        :error -> String.contains?(block, "Oban.Plugins.Cron")
+      end
+    end
+
+    # The rename touches code only: the same words in a comment stay as written.
+    defp rename_old_worker(block) do
+      code = ConfigSplice.mask(block, strings: true)
+
+      @old_posts_worker
+      |> Regex.scan(code, return: :index)
+      |> Enum.reverse()
+      |> Enum.reduce(block, fn [{at, len} | _], acc ->
+        binary_part(acc, 0, at) <>
+          @new_worker <> binary_part(acc, at + len, byte_size(acc) - at - len)
+      end)
     end
 
     # Add ProcessScheduledJobsWorker to existing crontab.
@@ -1199,7 +1237,7 @@ if Code.ensure_loaded?(Igniter) do
     defp scheduled_posts_job_manual_notice(app_name, entry, why) do
       manual_notice(
         "Could not add ProcessScheduledJobsWorker to the crontab for :#{app_name}: #{why}.",
-        ["Please manually add: #{entry}"]
+        [add_line(why, entry)]
       )
     end
 
@@ -1287,7 +1325,7 @@ if Code.ensure_loaded?(Igniter) do
             if probe_in_comment?(probe, original), do: :declined, else: :missing
 
           {:error, reason} ->
-            if ConfigSplice.not_literal?(reason) and probe_in_file?(probe, content, app_name),
+            if ConfigSplice.not_literal?(reason) and probe_in_file?(probe, content),
               do: :unverified,
               else: :missing
         end
@@ -1301,8 +1339,8 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp probe_in_file?(probe, content, app_name),
-      do: probe_matches?(probe, ConfigSplice.file_code(content, app_name, probe_mask(probe)))
+    defp probe_in_file?(probe, content),
+      do: probe_matches?(probe, ConfigSplice.file_code(content, probe_mask(probe)))
 
     # A module name is looked for with string bodies blanked (a name inside a
     # string is not an entry); the digest probe needs `cadence: "daily"`, which
@@ -1432,14 +1470,29 @@ if Code.ensure_loaded?(Igniter) do
     defp worker_entries_manual_notice(app_name, missing, why) do
       manual_notice(
         "Could not add worker cron entries for :#{app_name}: #{why}.",
-        Enum.map(missing, fn {cron, mod} -> "Please manually add: {\"#{cron}\", #{mod}}" end) ++
-          [declining_hint()]
+        Enum.map(missing, fn {cron, mod} -> add_line(why, "{\"#{cron}\", #{mod}}") end) ++
+          declining_hint(why)
       )
     end
 
-    defp declining_hint do
-      "To decline one instead, leave it in the crontab as a comment " <>
-        "(# {\"…\", Module}) — a commented-out entry is not offered again."
+    defp declining_hint(why) do
+      if nested?(why),
+        do: [],
+        else: [
+          "To decline one instead, leave it in the crontab as a comment " <>
+            "(# {\"…\", Module}) — a commented-out entry is not offered again."
+        ]
+    end
+
+    # A block nested in an expression is not edited and not searched, so what
+    # the host has there is unknown: the entries are listed as what to look for,
+    # not as something to add.
+    defp nested?(why), do: why == ConfigSplice.reason_text(:nested_block, :crontab)
+
+    defp add_line(why, text) do
+      if nested?(why),
+        do: "Expected there (check by hand): " <> text,
+        else: "Please manually add: " <> text
     end
 
     # True if `ast` has a `crontab: [...]` list containing, for EVERY
@@ -1483,7 +1536,7 @@ if Code.ensure_loaded?(Igniter) do
     defp digest_entries_manual_notice(app_name, entries, why) do
       manual_notice(
         "Could not add digest cron entries for :#{app_name}: #{why}.",
-        Enum.map(entries, &("Please manually add: " <> &1)) ++ [declining_hint()]
+        Enum.map(entries, &add_line(why, &1)) ++ declining_hint(why)
       )
     end
 
@@ -1562,7 +1615,7 @@ if Code.ensure_loaded?(Igniter) do
     defp cron_plugin_manual_notice(app_name, why) do
       manual_notice(
         "Could not add Oban.Plugins.Cron to the plugins block for :#{app_name}: #{why}.",
-        ["Please manually add Oban.Plugins.Cron configuration"]
+        [add_line(why, "Oban.Plugins.Cron configuration")]
       )
     end
 

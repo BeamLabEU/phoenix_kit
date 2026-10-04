@@ -70,7 +70,9 @@ defmodule PhoenixKit.Install.ConfigSplice do
   Replaces comments with spaces (newlines kept). With `strings: true`, string,
   sigil, heredoc and character-literal bodies are blanked too (their delimiters
   stay) — use that before matching brackets or module names; leave it off (the
-  default) when the text of a string matters, e.g. `cadence: "daily"`.
+  default) when the text of a string matters, e.g. `cadence: "daily"`. With
+  `strings: :all` the delimiters go as well: nothing of a string is left, so
+  a `"` or `\"""` standing in column 0 cannot be mistaken for code there.
 
   The result has the same byte length as the input and the same newlines.
   """
@@ -114,8 +116,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
     masked = mask(content, strings: true)
 
     with :ok <- balanced(masked),
-         {:ok, block} <- oban_block(masked, app_name),
-         {:ok, open} <- find_open(masked, block, key),
+         {:ok, block} <- oban_block(span_mask(content), app_name),
+         {:ok, open} <- find_open(masked, block, key, cron_names(content)),
          {:ok, close} <- find_close(masked, open),
          :ok <- check_followed_by(masked, close) do
       {:ok, %{masked: masked, open: open, close: close}}
@@ -142,7 +144,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   """
   @spec block_code(String.t(), atom() | String.t(), keyword()) :: String.t() | nil
   def block_code(content, app_name, opts \\ []) do
-    case oban_block(mask(content, strings: true), app_name) do
+    case oban_block(span_mask(content), app_name) do
       {:ok, {start, stop}} -> content |> mask(opts) |> binary_part(start, stop - start)
       _ -> nil
     end
@@ -155,11 +157,14 @@ defmodule PhoenixKit.Install.ConfigSplice do
   is what a presence check may read when the app's own list is not a literal
   one: the variable or attribute defined outside any Oban block.
   """
-  @spec file_code(String.t(), atom() | String.t(), keyword()) :: String.t()
-  def file_code(content, _app_name, opts \\ []) do
-    masked = mask(content, strings: true)
+  @spec file_code(String.t(), keyword()) :: String.t()
+  def file_code(content, opts \\ []) do
+    masked = span_mask(content)
 
-    top = Regex.scan(~r/^config\s+:\w+,\s+Oban\b#{block_body()}/ms, masked, return: :index)
+    top =
+      Regex.scan(Regex.compile!("^config\\s+:\\w+,\\s+Oban\\b" <> block_body(), "ms"), masked,
+        return: :index
+      )
 
     # An indented block runs while the following lines are indented deeper
     # than its own `config` line (or blank).
@@ -181,7 +186,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   """
   @spec update_block(String.t(), atom() | String.t(), (String.t() -> String.t())) :: String.t()
   def update_block(content, app_name, fun) do
-    case oban_block(mask(content, strings: true), app_name) do
+    case oban_block(span_mask(content), app_name) do
       {:ok, {start, stop}} ->
         binary_part(content, 0, start) <>
           fun.(binary_part(content, start, stop - start)) <>
@@ -195,7 +200,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   @doc "True when the app's block is `config :app, Oban, false` (or `nil`)."
   @spec oban_disabled?(String.t(), atom() | String.t()) :: boolean()
   def oban_disabled?(content, app_name),
-    do: oban_block(mask(content, strings: true), app_name) == {:error, :oban_disabled}
+    do: oban_block(span_mask(content), app_name) == {:error, :oban_disabled}
 
   @doc "True when the block says `key: false` (or `nil`)."
   @spec option_off?(String.t(), atom() | String.t(), atom()) :: boolean()
@@ -309,8 +314,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   def reason_text(:nested_block, _key),
     do:
-      "the `config :app, Oban` block is nested in an expression (an `if`, a `case`…), " <>
-        "which the updater does not edit"
+      "the `config :app, Oban` block is nested in an expression (an `if`, a `case`…) — " <>
+        "check it by hand"
 
   def reason_text(:oban_disabled, _key),
     do: "Oban is disabled in this config (`config :app, Oban, false`), nothing to add"
@@ -352,17 +357,25 @@ defmodule PhoenixKit.Install.ConfigSplice do
   # --- locating -----------------------------------------------------------
 
   # A top-level block runs up to the next line that starts in column 0 with
-  # something other than whitespace or a closing bracket — the next `config`,
-  # an `import_config`, an `if … do` that wraps another block. (Its own lines
-  # are indented.)
-  defp block_body, do: ~S|((?:(?!\n(?=[^\s)\]}])).)*)|
+  # something that is not part of it: not whitespace, not a closing bracket, not
+  # a list/tuple/map/sigil opener and not a keyword option (`repo: …` — an
+  # unformatted block has its options in column 0). That is the next `config`,
+  # an `import_config`, an `if … do` wrapping another block.
+  #
+  # The text it runs over is the span mask (`strings: :all`), where no string
+  # delimiter is left: a `"` or `"""` in column 0 is not a line start.
+  defp block_body, do: "((?:(?!\\n(?=[^\\s)\\]}{\\[%~<])(?![a-z_]\\w*:)).)*)"
+
+  defp span_mask(content), do: mask(content, strings: :all)
 
   # The span of `config :app, Oban ...` as {start, stop} offsets into the
   # masked content.
   defp oban_block(masked, app_name) do
     app = Regex.escape(to_string(app_name))
 
-    case Regex.run(~r/^config\s+:#{app},\s+Oban\b#{block_body()}/ms, masked, return: :index) do
+    case Regex.run(Regex.compile!("^config\\s+:#{app},\\s+Oban\\b" <> block_body(), "ms"), masked,
+           return: :index
+         ) do
       [{start, len}, {body, body_len}] ->
         if Regex.match?(
              ~r/\A\s*,\s*(?:false|nil)\s*(?:\n|\z)/,
@@ -379,11 +392,16 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   # Offset of the `[` opening `key: [` inside the block.
-  defp find_open(masked, {start, stop}, :crontab) do
+  defp find_open(masked, {start, stop}, :crontab, names) do
     block = binary_part(masked, start, stop - start)
+    cron = Enum.map_join(names, "|", &Regex.escape/1)
 
     case Regex.run(
-           ~r/\{\s*Oban\.Plugins\.Cron\s*,[^{}\[\]]*?(?<![A-Za-z0-9_])crontab:[ \t\r\n]*(\S)/,
+           Regex.compile!(
+             "\\{\\s*(?:" <>
+               cron <>
+               ")\\s*,\\s*\\[?[^{}\\[\\]]*?(?<![A-Za-z0-9_])crontab:[ \\t\\r\\n]*(\\S)"
+           ),
            block,
            return: :index
          ) do
@@ -399,7 +417,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end
   end
 
-  defp find_open(masked, {start, stop}, key) do
+  defp find_open(masked, {start, stop}, key, _names) do
     block = binary_part(masked, start, stop - start)
     key_s = Regex.escape(to_string(key))
 
@@ -514,6 +532,175 @@ defmodule PhoenixKit.Install.ConfigSplice do
     binary_part(text, 0, start) <>
       blank(binary_part(text, start, len)) <>
       binary_part(text, start + len, byte_size(text) - start - len)
+  end
+
+  # --- the file as a tree ---------------------------------------------------
+  #
+  # Text decides where an edit goes; the tree answers "what does this file
+  # mean" — which plugin modules the block lists once `alias` is resolved, and
+  # whether an edit left a duplicate behind.
+
+  @cron_module [:Oban, :Plugins, :Cron]
+
+  @doc """
+  Every spelling of `Oban.Plugins.Cron` the file uses: the full name, plus each
+  short name an `alias` gives it (`alias Oban.Plugins.Cron`,
+  `alias Oban.Plugins.{Cron, Pruner}`, `alias Oban.Plugins.Cron, as: C`).
+  """
+  @spec cron_names(String.t()) :: [String.t()]
+  def cron_names(content) do
+    case parse(content) do
+      {:ok, ast} ->
+        short =
+          for {name, parts} <- alias_map(ast), parts == @cron_module, do: Atom.to_string(name)
+
+        ["Oban.Plugins.Cron" | short]
+
+      _ ->
+        ["Oban.Plugins.Cron"]
+    end
+  end
+
+  @doc """
+  The plugin modules of the app's `plugins: [...]`, with `alias` resolved, read
+  from the tree. `:error` when the file does not parse or the list is not a
+  literal one.
+  """
+  @spec plugin_modules(String.t(), atom() | String.t()) :: {:ok, [module()]} | :error
+  def plugin_modules(content, app_name) do
+    with {:ok, ast} <- parse(content),
+         [_ | _] = blocks <- oban_option_lists(ast, app_name, :plugins) do
+      aliases = alias_map(ast)
+
+      {:ok,
+       blocks |> Enum.concat() |> Enum.map(&plugin_module(&1, aliases)) |> Enum.reject(&is_nil/1)}
+    else
+      _ -> :error
+    end
+  end
+
+  @doc """
+  True when `candidate` has a duplicate that `original` did not: the same
+  module twice in `plugins:`, the same tuple twice in one `crontab:`, the same
+  key twice in `queues:`. Oban refuses a duplicate plugin at boot, so this is
+  the check that catches a splice whose idea of the block was wrong, whatever
+  the reason.
+  """
+  @spec introduces_duplicates?(String.t(), String.t(), atom() | String.t()) :: boolean()
+  def introduces_duplicates?(original, candidate, app_name),
+    do: duplicates(candidate, app_name) -- duplicates(original, app_name) != []
+
+  defp duplicates(content, app_name) do
+    case parse(content) do
+      {:ok, ast} ->
+        aliases = alias_map(ast)
+
+        plugin_dups =
+          for list <- oban_option_lists(ast, app_name, :plugins),
+              mods = list |> Enum.map(&plugin_module(&1, aliases)) |> Enum.reject(&is_nil/1),
+              mod <- Enum.uniq(mods -- Enum.uniq(mods)),
+              do: {:plugin, mod}
+
+        cron_dups =
+          for list <- oban_option_lists(ast, app_name, :plugins),
+              crontab <-
+                list |> crontabs_in() |> Enum.map(&Enum.map(&1, fn e -> normalize(e) end)),
+              elem <- Enum.uniq(crontab -- Enum.uniq(crontab)),
+              do: {:cron_entry, elem}
+
+        queue_dups =
+          for list <- oban_option_lists(ast, app_name, :queues),
+              keys = for({k, _v} <- list, do: k),
+              key <- Enum.uniq(keys -- Enum.uniq(keys)),
+              do: {:queue, key}
+
+        plugin_dups ++ cron_dups ++ queue_dups
+
+      _ ->
+        []
+    end
+  end
+
+  # The literal list under `key:` of every `config :app, Oban, …` in the tree
+  # (nested ones included).
+  defp oban_option_lists(ast, app_name, key) do
+    target = if is_atom(app_name), do: app_name, else: String.to_atom(app_name)
+
+    {_, found} =
+      Macro.prewalk(ast, [], fn
+        {:config, _meta, [app, {:__aliases__, _, [:Oban]}, opts]} = node, acc
+        when app == target and is_list(opts) ->
+          case List.keyfind(opts, key, 0) do
+            {^key, list} when is_list(list) -> {node, [list | acc]}
+            _ -> {node, acc}
+          end
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    Enum.reverse(found)
+  end
+
+  defp crontabs_in(plugins_list) do
+    {_, found} =
+      Macro.prewalk(plugins_list, [], fn
+        {:crontab, list} = node, acc when is_list(list) -> {node, [list | acc]}
+        node, acc -> {node, acc}
+      end)
+
+    Enum.reverse(found)
+  end
+
+  defp plugin_module({:__aliases__, _, parts}, aliases), do: resolve(parts, aliases)
+  defp plugin_module({{:__aliases__, _, parts}, _opts}, aliases), do: resolve(parts, aliases)
+
+  defp plugin_module({:{}, _, [{:__aliases__, _, parts} | _]}, aliases),
+    do: resolve(parts, aliases)
+
+  defp plugin_module(_, _), do: nil
+
+  defp resolve(parts, aliases) do
+    case parts do
+      [first | rest] when is_atom(first) ->
+        Module.concat((Map.get(aliases, first) || [first]) ++ rest)
+
+      _ ->
+        nil
+    end
+  end
+
+  # short name => full module parts, from the file's top-level `alias` lines.
+  defp alias_map(ast) do
+    statements =
+      case ast do
+        {:__block__, _, list} -> list
+        other -> [other]
+      end
+
+    Enum.reduce(statements, %{}, fn
+      {:alias, _, [{:__aliases__, _, parts}]}, acc ->
+        Map.put(acc, List.last(parts), parts)
+
+      {:alias, _, [{:__aliases__, _, parts}, [as: {:__aliases__, _, [name]}]]}, acc ->
+        Map.put(acc, name, parts)
+
+      {:alias, _, [{{:., _, [{:__aliases__, _, base}, :{}]}, _, members}]}, acc ->
+        Enum.reduce(members, acc, fn
+          {:__aliases__, _, [name | _] = tail}, inner -> Map.put(inner, name, base ++ tail)
+          _, inner -> inner
+        end)
+
+      _, acc ->
+        acc
+    end)
+  end
+
+  @doc "True when an indented (nested in `if`/`case`) `config :app, Oban` follows or precedes the top-level one."
+  @spec nested_block?(String.t(), atom() | String.t()) :: boolean()
+  def nested_block?(content, app_name) do
+    app = Regex.escape(to_string(app_name))
+    Regex.match?(~r/^[ \t]+config\s+:#{app},\s+Oban\b/m, span_mask(content))
   end
 
   # --- editing ------------------------------------------------------------
@@ -651,13 +838,13 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
       {:quoted, open, body, close, rest} ->
         do_mask(rest, strings?, last_byte(close, open), [
-          close,
+          delim_out(close, strings?),
           body_out(body, strings?),
-          open | acc
+          delim_out(open, strings?) | acc
         ])
 
       {:char, head, char, rest} ->
-        do_mask(rest, strings?, ?x, [body_out(char, strings?), head | acc])
+        do_mask(rest, strings?, ?x, [body_out(char, strings?), delim_out(head, strings?) | acc])
 
       {:byte, b, rest} ->
         do_mask(rest, strings?, b, [<<b>> | acc])
@@ -692,7 +879,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   # Sigils: `~w(...)`, `~r/.../`, `~s[...]`, `~S"""`, `~HTML(...)`. Lowercase
   # sigils interpolate, uppercase ones do not.
   defp token(<<"~", rest::binary>>, _prev) do
-    case Regex.run(~r/\A([a-z]|[A-Z]+)("""|'''|[(\[{<\/|"'])/, rest) do
+    case Regex.run(~r/\A([a-z]|[A-Z][A-Z0-9]*)("""|'''|[(\[{<\/|"'])/, rest) do
       [head, name, d] ->
         after_head = binary_part(rest, byte_size(head), byte_size(rest) - byte_size(head))
         interp? = name =~ ~r/\A[a-z]\z/
@@ -725,7 +912,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
   defp take_char(rest, n),
     do: {:char, "?", binary_part(rest, 0, n), binary_part(rest, n, byte_size(rest) - n)}
 
-  defp ident_byte?(b), do: b in ?a..?z or b in ?A..?Z or b in ?0..?9 or b == ?_
+  # Bytes above 127 are the parts of a multi-byte (non-ASCII) identifier.
+  defp ident_byte?(b), do: b in ?a..?z or b in ?A..?Z or b in ?0..?9 or b == ?_ or b > 127
 
   defp closer(<<?(>>), do: ")"
   defp closer(<<?[>>), do: "]"
@@ -733,8 +921,12 @@ defmodule PhoenixKit.Install.ConfigSplice do
   defp closer(<<?<>>), do: ">"
   defp closer(c), do: c
 
-  defp body_out(body, true), do: blank(body)
   defp body_out(body, false), do: body
+  defp body_out(body, _blank), do: blank(body)
+
+  # Delimiters stay unless the mask is `strings: :all`.
+  defp delim_out(delim, :all), do: blank(delim)
+  defp delim_out(delim, _), do: delim
 
   # Everything except newlines becomes a space — same length, same lines.
   # Byte-wise on purpose: offsets must line up with the original binary.
