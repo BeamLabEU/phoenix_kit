@@ -5534,17 +5534,52 @@ if (typeof window.Chart === "undefined") {
       .map((c) => c.index);
   }
 
+  // Pure: header cells -> [{index, priority}]. `index` is the 1-based child
+  // position the BODY cells of that column have, so a header cell spanning
+  // two columns pushes the ones after it along; a spanning header is itself
+  // never a candidate (hiding one position would take half of it).
+  function fitColumns(headers) {
+    let next = 1;
+    return headers.map((h) => {
+      const span = h.colSpan > 1 ? h.colSpan : 1;
+      const col = {
+        index: next,
+        priority: span > 1 || h.priority === undefined ? NaN : Number(h.priority)
+      };
+      next += span;
+      return col;
+    });
+  }
+
+  // An id is not always a valid CSS identifier (a leading digit — a uuid —
+  // a dot, a colon), so it is escaped; the fallback is for node, which has
+  // no CSS object.
+  function fitEscapeId(id) {
+    if (typeof CSS !== "undefined" && CSS && typeof CSS.escape === "function") {
+      return CSS.escape(id);
+    }
+    return String(id).replace(/^(\d)/, "\\3$1 ").replace(/([^\w\s\\-])/g, "\\$1");
+  }
+
   // Pure: the stylesheet hiding the given 1-based column positions.
   function fitHideCss(wrapperId, indexes) {
     if (indexes.length === 0) return "";
+    const id = fitEscapeId(wrapperId);
     const sel = indexes
-      .map((i) => `#${wrapperId} > table > * > tr > :nth-child(${i}):not([colspan])`)
+      .map((i) => `#${id} > table > * > tr > :nth-child(${i}):not([colspan])`)
       .join(",\n");
     return `@media screen {\n${sel} { display: none; }\n}`;
   }
 
   window.PhoenixKitHooks.TableFit = {
     mounted() {
+      // A table removed without destroyed() running leaves its stylesheet
+      // behind, still hiding positions of whatever takes its id next.
+      document.head
+        .querySelectorAll("style[data-pk-table-fit]")
+        .forEach((el) => {
+          if (el.getAttribute("data-pk-table-fit") === this.el.id) el.remove();
+        });
       this.styleEl = document.createElement("style");
       this.styleEl.setAttribute("data-pk-table-fit", this.el.id);
       document.head.appendChild(this.styleEl);
@@ -5571,10 +5606,12 @@ if (typeof window.Chart === "undefined") {
     columns() {
       const row = this.el.querySelector(":scope > table > thead > tr");
       if (!row) return [];
-      return Array.from(row.children).map((th, i) => ({
-        index: i + 1,
-        priority: th.dataset.colPriority === undefined ? NaN : Number(th.dataset.colPriority)
-      }));
+      return fitColumns(
+        Array.from(row.children).map((th) => ({
+          colSpan: th.colSpan,
+          priority: th.dataset.colPriority
+        }))
+      );
     },
     fit() {
       const table = this.el.querySelector(":scope > table");
@@ -5598,6 +5635,8 @@ if (typeof window.Chart === "undefined") {
   if (typeof module === "object" && module.exports) {
     module.exports.fitEvictionOrder = fitEvictionOrder;
     module.exports.fitHideCss = fitHideCss;
+    module.exports.fitColumns = fitColumns;
+    module.exports.fitEscapeId = fitEscapeId;
   }
 
   // ============================================================================

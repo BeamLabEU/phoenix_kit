@@ -143,7 +143,10 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   sidebar makes the viewport width useless here) on mount, on resize and
   after every patch, so a table with three columns keeps all of them where
   one with nine sheds four. Printing shows every column. A cell with a
-  `colspan` is left alone.
+  `colspan` is left alone (an empty-state row), and a header cell that
+  spans columns is counted as that many. Columns are hidden by position,
+  so every body and footer row must have the header's cells, in its order:
+  a row with a `rowspan` continuation or an extra cell loses the wrong one.
 
   `fit_pack={false}` keeps the dropping and leaves the sizing to the
   caller, for a table that sets its own column widths.

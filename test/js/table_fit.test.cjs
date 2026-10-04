@@ -61,7 +61,7 @@ global.MutationObserver = class { observe() {} disconnect() {} };
 global.IntersectionObserver = class { observe() {} disconnect() {} };
 
 
-const { fitEvictionOrder, fitHideCss } = require("../../priv/static/assets/phoenix_kit.js");
+const { fitEvictionOrder, fitHideCss, fitColumns, fitEscapeId } = require("../../priv/static/assets/phoenix_kit.js");
 
 test("the highest priority number goes first, 1 last", () => {
   const cols = [
@@ -104,4 +104,24 @@ test("hides whole columns by position, on screen only, sparing colspan cells", (
   assert.ok(css.includes("#t-fit > table > * > tr > :nth-child(4):not([colspan])"));
   assert.ok(css.includes("#t-fit > table > * > tr > :nth-child(2):not([colspan])"));
   assert.ok(css.includes("display: none"));
+});
+
+test("columns take their body position; a spanning header shifts the rest and never goes", () => {
+  const cols = fitColumns([
+    { colSpan: 1, priority: undefined },
+    { colSpan: 2, priority: "5" },
+    { colSpan: 1, priority: "2" },
+  ]);
+  assert.deepEqual(cols.map((c) => c.index), [1, 2, 4]);
+  assert.ok(Number.isNaN(cols[0].priority));
+  assert.ok(Number.isNaN(cols[1].priority));
+  assert.equal(cols[2].priority, 2);
+  assert.deepEqual(fitEvictionOrder(cols), [4]);
+});
+
+test("an id that is not a CSS identifier is escaped in the selector", () => {
+  assert.equal(fitEscapeId("users-table-fit"), "users-table-fit");
+  assert.notEqual(fitEscapeId("01a0-fit"), "01a0-fit");
+  assert.ok(!fitHideCss("a.b:c-fit", [2]).includes("#a.b:c-fit"));
+  assert.ok(fitHideCss("a.b:c-fit", [2]).includes("#a\\.b\\:c-fit"));
 });
