@@ -1,3 +1,20 @@
+## 2.52.1 - 2026-10-04
+
+### Fixed
+
+- **`mix phoenix_kit.update` no longer reports success when its Oban schema migration did not take
+  effect.** After the staged `phoenix_kit_update_oban_vNN_to_vMM` migration ran, a schema that was still
+  behind, unversioned or missing only printed an error and the update carried on; it now raises, stops the
+  module migrations that follow, and names the target and the migration path to check.
+- **A comment in `PhoenixKit.ObanSchema` named the wrong Oban version**: the Postgres engine's
+  `current_version/0` already exists in Oban 2.20, not 2.21.
+
+### Known limitations
+
+- The welcome email is enqueued inside the confirmation's transaction only when Oban runs on the same
+  repo as PhoenixKit. With Oban on a separate repo, a confirmation that rolls back leaves its welcome job
+  committed, and the email can still be sent.
+
 ## 2.52.0 - 2026-10-04
 
 ### Added
