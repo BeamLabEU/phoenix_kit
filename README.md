@@ -77,6 +77,9 @@ installed Oban expects and, when it is behind, adds a
 `phoenix_kit_update_oban_vNN_to_vMM` migration that runs with the rest —
 even when PhoenixKit itself is already current. `status` shows the version,
 `doctor` warns when it is behind, and the application logs one warning at boot.
+If your Oban config runs on a different repo than the first of `:ecto_repos`
+(`repo:` in `config :my_app, Oban`), the update checks that repo too but
+writes no file for it — it prints the migration to add to that repo instead.
 
 ## Upgrading to 2.0
 

@@ -29,6 +29,16 @@ defmodule PhoenixKit.ObanSchema do
 
   Postgres only: Oban's MySQL and SQLite engines are outside what core
   installs, and `check/2` says so rather than guessing.
+
+  ## Which schema, on which repo
+
+  Two places are checked (`targets/3`): PhoenixKit's prefix on the host repo
+  (where the baseline created the tables, and the repo `mix ecto.migrate`
+  runs), and the prefix the host's Oban config runs at, on the repo that
+  config names (`repo:`). When Oban runs on a repo other than the one the
+  updater writes migrations for, no file is written for it — a migration
+  there would run against the wrong database — and the updater prints the
+  migration to add to that repo instead.
   """
 
   require Logger
@@ -36,7 +46,9 @@ defmodule PhoenixKit.ObanSchema do
   @typedoc """
   What `check/2` found at one prefix.
 
-    * `{:current, version}` — the schema matches the library
+    * `{:current, version}` — the schema matches the library; `version` is
+      `:infinity` when the comment is `∞`, which Oban itself reads as "never
+      migrate this schema" (`Oban.Migrations.Postgres.migrated_version/1`)
     * `{:behind, migrated, expected}` — the library expects a newer schema
     * `{:ahead, migrated, expected}` — the schema is newer than the library
       (a newer Oban migrated it, then the dependency moved back)
@@ -48,7 +60,7 @@ defmodule PhoenixKit.ObanSchema do
     * `{:error, reason}` — the database could not be asked
   """
   @type status ::
-          {:current, pos_integer()}
+          {:current, pos_integer() | :infinity}
           | {:behind, non_neg_integer(), pos_integer()}
           | {:ahead, pos_integer(), pos_integer()}
           | :no_table
@@ -101,7 +113,16 @@ defmodule PhoenixKit.ObanSchema do
   def classify(:no_table, _expected), do: :no_table
 
   def classify({:comment, comment}, expected) when is_binary(comment) do
-    case Integer.parse(String.trim(comment)) do
+    case String.trim(comment) do
+      "∞" -> {:current, :infinity}
+      trimmed -> classify_number(trimmed, comment, expected)
+    end
+  end
+
+  def classify({:comment, nil}, _expected), do: {:unversioned, nil}
+
+  defp classify_number(trimmed, comment, expected) do
+    case Integer.parse(trimmed) do
       {migrated, ""} when migrated > 0 and migrated == expected -> {:current, migrated}
       {migrated, ""} when migrated > 0 and migrated < expected -> {:behind, migrated, expected}
       {migrated, ""} when migrated > 0 -> {:ahead, migrated, expected}
@@ -109,37 +130,65 @@ defmodule PhoenixKit.ObanSchema do
     end
   end
 
-  def classify({:comment, nil}, _expected), do: {:unversioned, nil}
+  @typedoc "A schema to check: the repo it lives on, and its prefix."
+  @type target :: {module(), String.t()}
 
   @doc """
-  The prefixes worth checking: PhoenixKit's own (where its baseline created
-  Oban's tables), and the prefix the host's Oban config runs at, when that
-  differs. Oban defaults to `"public"` when its config names no prefix. A
-  config that is not a keyword list (built at runtime) adds nothing.
+  The schemas worth checking: PhoenixKit's prefix on the host repo (where its
+  baseline created Oban's tables), and the prefix the host's Oban config runs
+  at — on the repo that config names, defaulting to the host repo — when that
+  is a different schema. Oban defaults to `"public"` when its config names no
+  prefix. A config that is not a keyword list (built at runtime) adds nothing.
 
-      iex> PhoenixKit.ObanSchema.prefixes("auth", repo: MyApp.Repo, prefix: "auth")
-      ["auth"]
+      iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "auth", repo: MyApp.Repo, prefix: "auth")
+      [{MyApp.Repo, "auth"}]
 
-      iex> PhoenixKit.ObanSchema.prefixes("auth", repo: MyApp.Repo)
-      ["auth", "public"]
+      iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "auth", repo: MyApp.Repo)
+      [{MyApp.Repo, "auth"}, {MyApp.Repo, "public"}]
 
-      iex> PhoenixKit.ObanSchema.prefixes("public", nil)
-      ["public"]
+      iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "public", repo: MyApp.JobsRepo)
+      [{MyApp.Repo, "public"}, {MyApp.JobsRepo, "public"}]
+
+      iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "public", nil)
+      [{MyApp.Repo, "public"}]
   """
-  @spec prefixes(String.t(), term()) :: [String.t()]
-  def prefixes(phoenix_kit_prefix, oban_config) do
-    oban_prefix =
-      if Keyword.keyword?(oban_config || :none) do
-        case Keyword.get(oban_config, :prefix, "public") do
-          prefix when is_binary(prefix) -> [prefix]
-          _ -> []
-        end
-      else
-        []
-      end
-
-    Enum.uniq([phoenix_kit_prefix | oban_prefix])
+  @spec targets(module(), String.t(), term()) :: [target()]
+  def targets(host_repo, phoenix_kit_prefix, oban_config) do
+    Enum.uniq([{host_repo, phoenix_kit_prefix} | oban_target(host_repo, oban_config)])
   end
+
+  defp oban_target(host_repo, oban_config) do
+    if Keyword.keyword?(oban_config || :none) do
+      repo =
+        case Keyword.get(oban_config, :repo) do
+          repo when is_atom(repo) and not is_nil(repo) -> repo
+          _ -> host_repo
+        end
+
+      case Keyword.get(oban_config, :prefix, "public") do
+        prefix when is_binary(prefix) -> [{repo, prefix}]
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  @doc """
+  Checks every target. Returns `{label, status}` pairs for the tasks' output:
+  the label is the prefix, with the repo in front when it is not `host_repo`.
+  """
+  @spec check_all(module(), [target()]) :: [{String.t(), status()}]
+  def check_all(host_repo, targets) do
+    Enum.map(targets, fn {repo, prefix} = target ->
+      {label(target, host_repo), check(repo, prefix)}
+    end)
+  end
+
+  @doc false
+  @spec label(target(), module()) :: String.t()
+  def label({host_repo, prefix}, host_repo), do: prefix
+  def label({repo, prefix}, _host_repo), do: "#{inspect(repo)} #{prefix}"
 
   @doc """
   The filename suffix of the migration that brings `prefix` from `from` to
@@ -160,7 +209,9 @@ defmodule PhoenixKit.ObanSchema do
   @doc """
   The source of the host migration bringing `prefix` from `from` to `to`.
 
-  `namespace` is the host's module namespace (`"MyApp"`). `create_schema:
+  `namespace` is the module namespace of the repo's migrations
+  (`"MyApp.Repo.Migrations"`). The prefix must pass `generatable_prefix?/1`
+  (it goes into the module name) — anything else raises `ArgumentError`. `create_schema:
   false` because the schema already holds `oban_jobs` — and a low-privilege
   role cannot `CREATE SCHEMA`, even `IF NOT EXISTS`. `down` passes `from + 1`:
   `Oban.Migration.down/1` reverts every version down to and including the one
@@ -169,8 +220,10 @@ defmodule PhoenixKit.ObanSchema do
   @spec migration_source(String.t(), String.t(), non_neg_integer(), pos_integer()) ::
           String.t()
   def migration_source(namespace, prefix, from, to) do
+    ensure_generatable!(prefix)
+
     """
-    defmodule #{namespace}.Repo.Migrations.#{module_name(prefix, from, to)} do
+    defmodule #{namespace}.#{module_name(prefix, from, to)} do
       @moduledoc false
       use Ecto.Migration
 
@@ -194,7 +247,8 @@ defmodule PhoenixKit.ObanSchema do
   there (an earlier run wrote it and it was never applied — a second copy
   would carry a duplicate module name, which Ecto refuses outright).
 
-  `timestamp` is the migration version to put in front of a new file.
+  `timestamp` is the migration version to put in front of a new file. The
+  prefix must pass `generatable_prefix?/1`, as for `migration_source/4`.
   """
   @spec write_migration(
           Path.t(),
@@ -204,6 +258,7 @@ defmodule PhoenixKit.ObanSchema do
           String.t()
         ) :: {:created, Path.t()} | {:exists, Path.t()}
   def write_migration(dir, namespace, prefix, {from, to}, timestamp) do
+    ensure_generatable!(prefix)
     suffix = migration_suffix(prefix, from, to)
 
     case Path.wildcard(Path.join(dir, "*_" <> suffix)) do
@@ -219,43 +274,50 @@ defmodule PhoenixKit.ObanSchema do
   end
 
   @typedoc """
-  One checked prefix, as `stage/5` returns it. `file` is what happened to the
+  One checked target, as `stage/4` returns it. `file` is what happened to the
   migration: written, found from an earlier run, refused (a schema name that
-  cannot go into a filename), failed to write, or `nil` when nothing was due.
+  cannot go into a filename, or a schema on another repo than the one the
+  migrations are written for), failed to write, or `nil` when nothing was due.
   """
   @type staged :: %{
+          repo: module(),
           prefix: String.t(),
           status: status(),
           file:
             {:created, Path.t()}
             | {:exists, Path.t()}
             | :not_generatable
+            | :other_repo
             | {:error, String.t()}
             | nil
         }
 
   @doc """
-  Checks every prefix on `repo` and writes the step-up migration into `dir`
-  for each one that is behind — what `mix phoenix_kit.update` does before it
-  migrates, independent of whether PhoenixKit's own chain had anything to do.
+  Checks every target and writes the step-up migration into `dir` — the
+  migrations directory of `host_repo` — for each one on `host_repo` that is
+  behind. That is what `mix phoenix_kit.update` does before it migrates,
+  independent of whether PhoenixKit's own chain had anything to do.
 
-  `timestamp` is called with the entry's index for each file it writes. A
-  failed write is returned, not raised, so one prefix cannot take the rest of
-  the update down with it.
+  A behind schema on another repo gets no file (`:other_repo`): it would be
+  applied to `host_repo`'s database. `timestamp` is called with the entry's
+  index for each file written. A failed write is returned, not raised, so one
+  schema cannot take the rest of the update down with it.
   """
-  @spec stage(module(), [String.t()], Path.t(), String.t(), (non_neg_integer() -> String.t())) ::
-          [staged()]
-  def stage(repo, prefixes, dir, namespace, timestamp) do
-    prefixes
+  @spec stage(module(), [target()], Path.t(), (non_neg_integer() -> String.t())) :: [staged()]
+  def stage(host_repo, targets, dir, timestamp) do
+    namespace = migrations_namespace(host_repo)
+
+    targets
     |> Enum.with_index()
-    |> Enum.map(fn {prefix, index} ->
+    |> Enum.map(fn {{repo, prefix}, index} ->
       status = check(repo, prefix)
 
-      %{
-        prefix: prefix,
-        status: status,
-        file: stage_file(status, prefix, dir, namespace, timestamp, index)
-      }
+      file =
+        if repo == host_repo,
+          do: stage_file(status, prefix, dir, namespace, timestamp, index),
+          else: other_repo_file(status)
+
+      %{repo: repo, prefix: prefix, status: status, file: file}
     end)
   end
 
@@ -271,12 +333,37 @@ defmodule PhoenixKit.ObanSchema do
 
   defp stage_file(_status, _prefix, _dir, _namespace, _timestamp, _index), do: nil
 
+  defp other_repo_file({:behind, _from, _to}), do: :other_repo
+  defp other_repo_file(_status), do: nil
+
+  @doc """
+  The module namespace for a repo's migrations, as `mix ecto.gen.migration`
+  names them.
+
+      iex> PhoenixKit.ObanSchema.migrations_namespace(MyApp.Repo)
+      "MyApp.Repo.Migrations"
+  """
+  @spec migrations_namespace(module()) :: String.t()
+  def migrations_namespace(repo), do: inspect(repo) <> ".Migrations"
+
   @doc """
   Whether `prefix` can be written into a migration's filename and module
-  name. Oban accepts any schema name; a generated file only takes plain ones.
+  name. Oban accepts any schema name; a generated file only takes plain ones
+  (`\\A`/`\\z`, not `^`/`$`: a trailing newline must not pass).
   """
   @spec generatable_prefix?(String.t()) :: boolean()
-  def generatable_prefix?(prefix), do: Regex.match?(~r/^[a-z_][a-z0-9_]*$/, prefix)
+  def generatable_prefix?(prefix) when is_binary(prefix),
+    do: Regex.match?(~r/\A[a-z_][a-z0-9_]*\z/, prefix)
+
+  def generatable_prefix?(_prefix), do: false
+
+  defp ensure_generatable!(prefix) do
+    unless generatable_prefix?(prefix) do
+      raise ArgumentError,
+            "cannot write an Oban migration for schema #{inspect(prefix)}: " <>
+              "only lower-case letters, digits and underscores go into its file and module name"
+    end
+  end
 
   @doc """
   One line describing a status, for the tasks' output.
@@ -285,6 +372,9 @@ defmodule PhoenixKit.ObanSchema do
       "schema v13, Oban expects v14"
   """
   @spec describe(status()) :: String.t()
+  def describe({:current, :infinity}),
+    do: "v∞ — marked as never needing migration, which Oban honours"
+
   def describe({:current, version}), do: "v#{version}, matches Oban"
 
   def describe({:behind, migrated, expected}),
@@ -338,9 +428,14 @@ defmodule PhoenixKit.ObanSchema do
       "inserts (cron included) fail until it is migrated. Run `mix phoenix_kit.update`."
   end
 
-  defp module_name(prefix, from, to) do
-    "PhoenixKitUpdateOban#{prefix_part(prefix, "") |> Macro.camelize()}V#{pad(from)}ToV#{pad(to)}"
-  end
+  # The prefix goes in verbatim: `Macro.camelize/1` folds distinct schema
+  # names together ("a_1b" and "a1b" both become "A1b"), and two migrations
+  # with one module name cannot both load. An alias segment may carry
+  # underscores and digits after its capital.
+  defp module_name("public", from, to), do: "PhoenixKitUpdateObanV#{pad(from)}ToV#{pad(to)}"
+
+  defp module_name(prefix, from, to),
+    do: "PhoenixKitUpdateOban_#{prefix}_V#{pad(from)}ToV#{pad(to)}"
 
   defp prefix_part("public", _sep), do: ""
   defp prefix_part(prefix, sep), do: sep <> prefix

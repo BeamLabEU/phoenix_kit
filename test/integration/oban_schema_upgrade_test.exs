@@ -56,6 +56,15 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
     def change, do: Oban.Migration.up(prefix: prefix(), create_schema: false)
   end
 
+  # Another repo module on the same database — enough for "Oban runs on a
+  # repo other than the host's": what matters is the module identity.
+  defmodule OtherRepo do
+    @moduledoc false
+    defdelegate __adapter__, to: PhoenixKit.Test.Repo
+    defdelegate query!(sql, params, opts), to: PhoenixKit.Test.Repo
+    defdelegate config(), to: PhoenixKit.Test.Repo
+  end
+
   defmodule UniqueWorker do
     @moduledoc false
     use Oban.Worker, queue: :default, unique: [period: 60]
@@ -163,21 +172,21 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
       # `Oban.insert!`: the unique one takes every other job down with it.
       before = count_jobs(@behind)
 
-      # The connection logs "disconnected: transaction rolling back" — the
-      # line a host sees every five minutes.
-      {batch, _log} =
-        with_log(fn ->
-          try do
-            Repo.transaction(fn ->
-              Oban.insert!(oban, PlainWorker.new(%{batch: true}))
-              Oban.insert!(oban, UniqueWorker.new(%{batch: true}))
-            end)
-          rescue
-            exception -> {:raised, exception}
-          end
-        end)
+      # Inside the outer transaction Oban's own insert transaction is nested,
+      # so the failed query surfaces as `{:error, :rollback}` and `insert!`
+      # raises that — the `RuntimeError :rollback` Oban.Cron dies with.
+      batch =
+        try do
+          Repo.transaction(fn ->
+            Oban.insert!(oban, PlainWorker.new(%{batch: true}))
+            Oban.insert!(oban, UniqueWorker.new(%{batch: true}))
+          end)
+        rescue
+          exception -> {:raised, exception}
+        end
 
-      assert {:raised, _} = batch
+      assert {:raised, %RuntimeError{} = exception} = batch
+      assert Exception.message(exception) =~ "rollback"
       assert count_jobs(@behind) == before
     end
 
@@ -202,10 +211,10 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
       assert Postgres.migrated_version_runtime(%{prefix: "public", escaped_prefix: "public"}) ==
                Postgres.current_version()
 
-      prefixes = [@current, @behind, @empty]
+      targets = [{Repo, @current}, {Repo, @behind}, {Repo, @empty}]
       timestamp = fn index -> "2026100412000#{index}" end
 
-      staged = ObanSchema.stage(Repo, prefixes, dir, "PhoenixKitTest", timestamp)
+      staged = ObanSchema.stage(Repo, targets, dir, timestamp)
 
       assert [
                %{prefix: @current, status: {:current, ^expected}, file: nil},
@@ -219,13 +228,16 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
       source = File.read!(path)
 
       assert source =~
+               "defmodule PhoenixKit.Test.Repo.Migrations.PhoenixKitUpdateOban_#{@behind}_V13ToV#{expected} do"
+
+      assert source =~
                ~s|Oban.Migration.up(version: #{expected}, prefix: "#{@behind}", create_schema: false)|
 
       assert source =~ ~s|Oban.Migration.down(version: #{@migrated_at + 1}, prefix: "#{@behind}")|
 
       # A second run before the migration is applied finds the same file.
       assert [_, %{file: {:exists, ^path}}, _] =
-               ObanSchema.stage(Repo, prefixes, dir, "PhoenixKitTest", timestamp)
+               ObanSchema.stage(Repo, targets, dir, timestamp)
 
       assert File.ls!(dir) == [Path.basename(path)]
 
@@ -244,7 +256,7 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
 
       # Applied: nothing more to write, and the file is left as it was.
       assert [_, %{status: {:current, ^expected}, file: nil}, _] =
-               ObanSchema.stage(Repo, prefixes, dir, "PhoenixKitTest", timestamp)
+               ObanSchema.stage(Repo, targets, dir, timestamp)
 
       assert File.ls!(dir) == [Path.basename(path)]
 
@@ -255,11 +267,61 @@ defmodule PhoenixKit.Integration.ObanSchemaUpgradeTest do
 
     test "nothing is written when every prefix matches or has no Oban tables",
          %{tmp_dir: dir} do
-      staged =
-        ObanSchema.stage(Repo, [@current, @empty], dir, "PhoenixKitTest", fn _ -> "1" end)
+      staged = ObanSchema.stage(Repo, [{Repo, @current}, {Repo, @empty}], dir, fn _ -> "1" end)
 
       assert Enum.all?(staged, &is_nil(&1.file))
       assert File.ls!(dir) == []
+    end
+
+    test "Oban on another repo: checked there, but no file is written for it",
+         %{tmp_dir: dir, expected: expected} do
+      # The host's Oban config names `repo: OtherRepo` (not the first of
+      # :ecto_repos). The behind schema is found on that repo — and a file in
+      # the host repo's migrations would run against the host repo's
+      # database, so none is written.
+      assert [{Repo, "public"}, {OtherRepo, @behind}] =
+               targets = ObanSchema.targets(Repo, "public", repo: OtherRepo, prefix: @behind)
+
+      assert [
+               %{repo: Repo, prefix: "public", file: nil},
+               %{repo: OtherRepo, status: {:behind, 13, ^expected}, file: :other_repo}
+             ] = ObanSchema.stage(Repo, targets, dir, fn _ -> "1" end)
+
+      assert File.ls!(dir) == []
+
+      assert [{"public", _}, {label, {:behind, 13, ^expected}}] =
+               ObanSchema.check_all(Repo, targets)
+
+      assert label == "#{inspect(OtherRepo)} #{@behind}"
+    end
+  end
+
+  describe "the boot check" do
+    test "the supervisor's delayed Oban check names a schema behind the library" do
+      oban = start_oban(@behind)
+
+      log =
+        capture_log(fn ->
+          assert PhoenixKit.Supervisor.oban_boot_checks(delay: 0, oban: oban) == :ok
+        end)
+
+      assert log =~ "Oban schema v13, Oban expects v"
+    end
+
+    test "the full child list runs that check" do
+      previous = Application.get_env(:phoenix_kit, :update_mode)
+      Application.put_env(:phoenix_kit, :update_mode, false)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:phoenix_kit, :update_mode),
+          else: Application.put_env(:phoenix_kit, :update_mode, previous)
+      end)
+
+      {:ok, {_flags, children}} = PhoenixKit.Supervisor.init([])
+      check = Enum.find(children, &(&1.id == :oban_queue_check))
+
+      assert check.start == {Task, :start_link, [PhoenixKit.Supervisor, :oban_boot_checks, []]}
     end
   end
 

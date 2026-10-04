@@ -35,6 +35,8 @@ defmodule PhoenixKit.Install.StatusReport do
     * `{:check_modules, names}` — a module's version could not be read
     * `{:modules_ahead_of_code, names}` — a module's database schema is newer
       than the code now running (a rollback, or a dependency pinned backwards)
+    * `{:check_oban_schema, labels}` — Oban's schema version could not be read
+      (no readable comment on `oban_jobs`, or the query failed)
     * `{:ready, message}` — database and code agree
   """
   @type action ::
@@ -44,6 +46,7 @@ defmodule PhoenixKit.Install.StatusReport do
           | {:update, String.t(), [String.t()]}
           | {:check_modules, [String.t()]}
           | {:modules_ahead_of_code, [String.t()]}
+          | {:check_oban_schema, [String.t()]}
           | {:ready, String.t()}
 
   @doc """
@@ -161,6 +164,11 @@ defmodule PhoenixKit.Install.StatusReport do
       Enum.join(names, ", ") <> " (schema version unknown — run with --verbose)"
   end
 
+  def describe({:check_oban_schema, labels}) do
+    "Oban schema version unreadable at " <>
+      Enum.join(labels, ", ") <> " — run mix phoenix_kit.doctor"
+  end
+
   def describe({:modules_ahead_of_code, names}) do
     "Module(s) ahead of code: " <>
       Enum.join(names, ", ") <>
@@ -176,6 +184,13 @@ defmodule PhoenixKit.Install.StatusReport do
   current and whose Oban schema is behind is not "Ready": every unique insert
   fails. States that need a person first (install, connection, an unreadable
   version) keep their action.
+
+  An Oban version that could not be read (`{:unversioned, _}` — Oban itself
+  would read it as 0 — or `{:error, _}`) is not "Ready" either, for the same
+  reason an unreadable module is not: the schema may well be behind, and
+  `--exit-code` must not pass a deploy on a check that did not run. It is
+  `{:check_oban_schema, labels}`, not an update — nothing can be generated
+  from an unknown version.
 
       iex> alias PhoenixKit.Install.StatusReport
       iex> StatusReport.with_oban_schema({:ready, "Ready"}, [{"public", {:behind, 13, 14}}], "public")
@@ -193,13 +208,19 @@ defmodule PhoenixKit.Install.StatusReport do
       for {oban_prefix, {:behind, from, to}} <- oban,
           do: "Oban schema at #{oban_prefix} is v#{from}, Oban expects v#{to}"
 
-    case {action, behind} do
-      {_action, []} -> action
-      {{:update, command, reasons}, _} -> {:update, command, reasons ++ behind}
-      {{:ready, _message}, _} -> {:update, update_command(prefix), behind}
+    unknown = for {label, status} <- oban, oban_unknown?(status), do: label
+
+    case {action, behind, unknown} do
+      {{:update, command, reasons}, [_ | _], _} -> {:update, command, reasons ++ behind}
+      {{:ready, _message}, [_ | _], _} -> {:update, update_command(prefix), behind}
+      {{:ready, _message}, [], [_ | _]} -> {:check_oban_schema, unknown}
       _ -> action
     end
   end
+
+  defp oban_unknown?({:unversioned, _}), do: true
+  defp oban_unknown?({:error, _}), do: true
+  defp oban_unknown?(_status), do: false
 
   @doc "The `mix phoenix_kit.update` invocation for a prefix."
   @spec update_command(String.t()) :: String.t()

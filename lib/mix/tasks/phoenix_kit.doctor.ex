@@ -70,7 +70,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
    17. **Oban Cron Queues** — Does every crontab worker have its queue configured?
    18. **Oban Schema** — Is Oban's schema (the version on `oban_jobs`) the one the
        installed Oban library expects? Checked at PhoenixKit's prefix and at the
-       Oban config's prefix when that differs. Behind is a warning — every unique
+       Oban config's prefix (on the repo that config names) when that differs. Behind is a warning — every unique
        insert fails until `mix phoenix_kit.update` steps it up; newer than the
        library is reported, not warned.
    19. **PhoenixKit Supervisor** — What's running (update_mode vs full)?
@@ -1840,14 +1840,15 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   defp check_oban_schema(prefix, oban_config) do
     repo = get_repo!()
 
-    prefix
-    |> PhoenixKit.ObanSchema.prefixes(oban_config)
-    |> Enum.map(&{&1, PhoenixKit.ObanSchema.check(repo, &1)})
+    repo
+    |> PhoenixKit.ObanSchema.check_all(PhoenixKit.ObanSchema.targets(repo, prefix, oban_config))
     |> oban_schema_verdict()
   end
 
   @doc false
-  # Pure: the verdict for `[{prefix, PhoenixKit.ObanSchema.status()}]`.
+  # Pure: the verdict for `PhoenixKit.ObanSchema.check_all/2`'s
+  # `[{label, status}]` (the label is the prefix, repo first when it is not
+  # the host repo).
   def oban_schema_verdict(results) do
     reported = Enum.reject(results, fn {_prefix, status} -> status == :no_table end)
     lines = Enum.map_join(reported, "\n       ", &oban_schema_line/1)

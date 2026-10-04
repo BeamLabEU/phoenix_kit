@@ -35,8 +35,16 @@ defmodule PhoenixKit.ObanSchemaTest do
       assert ObanSchema.classify({:comment, nil}, 14) == {:unversioned, nil}
     end
 
+    test "∞ is current: Oban reads it as \"never migrate this schema\"" do
+      # Oban.Migrations.Postgres.migrated_version/1 returns :infinity for it, and
+      # up/1 then migrates nothing — advising a restamp would be harmful.
+      assert ObanSchema.classify({:comment, "∞"}, 14) == {:current, :infinity}
+      assert ObanSchema.classify({:comment, " ∞ "}, 14) == {:current, :infinity}
+      assert ObanSchema.describe({:current, :infinity}) =~ "v∞"
+    end
+
     test "a comment that is not a positive integer is unversioned" do
-      for comment <- ["", "0", "∞", "v13", "13 rows", "-1"] do
+      for comment <- ["", "0", "v13", "13 rows", "-1", "∞∞"] do
         assert ObanSchema.classify({:comment, comment}, 14) == {:unversioned, comment},
                "expected #{inspect(comment)} to be unversioned"
       end
@@ -68,32 +76,53 @@ defmodule PhoenixKit.ObanSchemaTest do
     end
   end
 
-  describe "prefixes/2" do
-    test "core's prefix always comes first" do
-      assert ObanSchema.prefixes("auth", prefix: "jobs") == ["auth", "jobs"]
+  describe "targets/3 — which schema, on which repo" do
+    test "core's prefix on the host repo always comes first" do
+      assert ObanSchema.targets(Host, "auth", prefix: "jobs") == [{Host, "auth"}, {Host, "jobs"}]
     end
 
     test "an Oban config without prefix runs at public, Oban's default" do
-      assert ObanSchema.prefixes("auth", queues: [default: 10]) == ["auth", "public"]
-      assert ObanSchema.prefixes("public", queues: [default: 10]) == ["public"]
+      assert ObanSchema.targets(Host, "auth", queues: [default: 10]) ==
+               [{Host, "auth"}, {Host, "public"}]
+
+      assert ObanSchema.targets(Host, "public", queues: [default: 10]) == [{Host, "public"}]
+    end
+
+    test "Oban's prefix is checked on the repo Oban's config names" do
+      assert ObanSchema.targets(Host, "public", repo: Jobs) == [
+               {Host, "public"},
+               {Jobs, "public"}
+             ]
+
+      assert ObanSchema.targets(Host, "auth", repo: Jobs, prefix: "auth") == [
+               {Host, "auth"},
+               {Jobs, "auth"}
+             ]
+
+      assert ObanSchema.targets(Host, "auth", repo: Host, prefix: "auth") == [{Host, "auth"}]
     end
 
     test "a config that is not a keyword list, or a non-string prefix, adds nothing" do
-      assert ObanSchema.prefixes("auth", nil) == ["auth"]
-      assert ObanSchema.prefixes("auth", %{prefix: "x"}) == ["auth"]
-      assert ObanSchema.prefixes("auth", prefix: false) == ["auth"]
+      assert ObanSchema.targets(Host, "auth", nil) == [{Host, "auth"}]
+      assert ObanSchema.targets(Host, "auth", %{prefix: "x"}) == [{Host, "auth"}]
+      assert ObanSchema.targets(Host, "auth", prefix: false) == [{Host, "auth"}]
+    end
+
+    test "labels name the repo only when it is not the host's" do
+      assert ObanSchema.label({Host, "auth"}, Host) == "auth"
+      assert ObanSchema.label({Jobs, "auth"}, Host) == "Jobs auth"
     end
   end
 
   describe "migration_source/4" do
     setup do
-      source = ObanSchema.migration_source("MyApp", "auth", 13, 14)
+      source = ObanSchema.migration_source("MyApp.Repo.Migrations", "auth", 13, 14)
       %{source: source, ast: Code.string_to_quoted!(source)}
     end
 
     test "is valid Elixir defining a host migration module", %{ast: ast, source: source} do
       assert {:defmodule, _, [{:__aliases__, _, parts}, _]} = ast
-      assert parts == [:MyApp, :Repo, :Migrations, :PhoenixKitUpdateObanAuthV13ToV14]
+      assert parts == [:MyApp, :Repo, :Migrations, :PhoenixKitUpdateOban_auth_V13ToV14]
       assert source =~ "use Ecto.Migration"
     end
 
@@ -108,17 +137,30 @@ defmodule PhoenixKit.ObanSchemaTest do
       # one it is given — so `from + 1` lands back on `from`.
       assert source =~ ~s|Oban.Migration.down(version: 14, prefix: "auth")|
 
-      multi = ObanSchema.migration_source("MyApp", "public", 11, 14)
+      multi = ObanSchema.migration_source("MyApp.Repo.Migrations", "public", 11, 14)
       assert multi =~ ~s|Oban.Migration.up(version: 14, prefix: "public", create_schema: false)|
       assert multi =~ ~s|Oban.Migration.down(version: 12, prefix: "public")|
     end
 
     test "the module name follows the prefix, so two prefixes never collide" do
-      public = ObanSchema.migration_source("MyApp", "public", 13, 14)
+      public = ObanSchema.migration_source("MyApp.Repo.Migrations", "public", 13, 14)
       assert public =~ "defmodule MyApp.Repo.Migrations.PhoenixKitUpdateObanV13ToV14 do"
 
       assert ObanSchema.migration_suffix("public", 13, 14) !=
                ObanSchema.migration_suffix("auth", 13, 14)
+
+      # Macro.camelize/1 would fold these pairs into one module name; the
+      # prefix goes in verbatim, so every pair stays apart.
+      for {a, b} <- [{"x", "_x"}, {"a_1b", "a1b"}, {"a_b", "a__b"}] do
+        refute module_of(a) == module_of(b), "#{a} and #{b} collide"
+        assert {:defmodule, _, _} = Code.string_to_quoted!(src(a))
+      end
+    end
+
+    test "a schema name that cannot go into a file or module name is refused" do
+      for prefix <- ["jobs\n", "My-Schema", "jobs\"; drop", ""] do
+        assert_raise ArgumentError, fn -> src(prefix) end
+      end
     end
   end
 
@@ -127,30 +169,65 @@ defmodule PhoenixKit.ObanSchemaTest do
 
     test "writes the file once and finds it on the next run", %{tmp_dir: dir} do
       assert {:created, path} =
-               ObanSchema.write_migration(dir, "MyApp", "public", {13, 14}, "20261004120000")
+               ObanSchema.write_migration(
+                 dir,
+                 "MyApp.Repo.Migrations",
+                 "public",
+                 {13, 14},
+                 "20261004120000"
+               )
 
       assert Path.basename(path) == "20261004120000_phoenix_kit_update_oban_v13_to_v14.exs"
-      assert File.read!(path) == ObanSchema.migration_source("MyApp", "public", 13, 14)
+
+      assert File.read!(path) ==
+               ObanSchema.migration_source("MyApp.Repo.Migrations", "public", 13, 14)
 
       # An interrupted update (file written, migrate failed) re-runs: a second
       # copy would carry a duplicate module name, which Ecto refuses outright.
-      assert ObanSchema.write_migration(dir, "MyApp", "public", {13, 14}, "20261004130000") ==
+      assert ObanSchema.write_migration(
+               dir,
+               "MyApp.Repo.Migrations",
+               "public",
+               {13, 14},
+               "20261004130000"
+             ) ==
                {:exists, path}
 
       assert File.ls!(dir) == [Path.basename(path)]
     end
 
     test "a different step or prefix is a different file", %{tmp_dir: dir} do
-      {:created, _} = ObanSchema.write_migration(dir, "MyApp", "public", {13, 14}, "1")
-      {:created, _} = ObanSchema.write_migration(dir, "MyApp", "auth", {13, 14}, "2")
-      {:created, _} = ObanSchema.write_migration(dir, "MyApp", "public", {14, 15}, "3")
+      {:created, _} =
+        ObanSchema.write_migration(dir, "MyApp.Repo.Migrations", "public", {13, 14}, "1")
+
+      {:created, _} =
+        ObanSchema.write_migration(dir, "MyApp.Repo.Migrations", "auth", {13, 14}, "2")
+
+      {:created, _} =
+        ObanSchema.write_migration(dir, "MyApp.Repo.Migrations", "public", {14, 15}, "3")
 
       assert length(File.ls!(dir)) == 3
     end
 
+    test "refuses a schema name it cannot write, before touching the disk", %{tmp_dir: dir} do
+      assert_raise ArgumentError, fn ->
+        ObanSchema.write_migration(dir, "MyApp.Repo.Migrations", "jobs\n", {13, 14}, "1")
+      end
+
+      assert File.ls!(dir) == []
+    end
+
     test "creates the directory when the host has none yet", %{tmp_dir: dir} do
       nested = Path.join(dir, "priv/repo/migrations")
-      assert {:created, _} = ObanSchema.write_migration(nested, "MyApp", "public", {13, 14}, "1")
+
+      assert {:created, _} =
+               ObanSchema.write_migration(
+                 nested,
+                 "MyApp.Repo.Migrations",
+                 "public",
+                 {13, 14},
+                 "1"
+               )
     end
   end
 
@@ -161,6 +238,9 @@ defmodule PhoenixKit.ObanSchemaTest do
       refute ObanSchema.generatable_prefix?("My-Schema")
       refute ObanSchema.generatable_prefix?("1jobs")
       refute ObanSchema.generatable_prefix?("jobs\"; drop")
+      # ^/$ would let a trailing newline through; \\A/\\z do not.
+      refute ObanSchema.generatable_prefix?("jobs\n")
+      refute ObanSchema.generatable_prefix?("")
     end
   end
 
@@ -184,6 +264,9 @@ defmodule PhoenixKit.ObanSchemaTest do
     test "matching the library passes" do
       assert {:pass, detail} = Doctor.oban_schema_verdict([{"public", {:current, 14}}])
       assert detail =~ ~s("public": v14, matches Oban)
+
+      assert {:pass, detail} = Doctor.oban_schema_verdict([{"public", {:current, :infinity}}])
+      assert detail =~ "v∞"
     end
 
     test "behind warns, naming both versions and the command" do
@@ -222,5 +305,12 @@ defmodule PhoenixKit.ObanSchemaTest do
 
       refute detail =~ "public"
     end
+  end
+
+  defp src(prefix), do: ObanSchema.migration_source("MyApp.Repo.Migrations", prefix, 13, 14)
+
+  defp module_of(prefix) do
+    {:defmodule, _, [{:__aliases__, _, parts}, _]} = Code.string_to_quoted!(src(prefix))
+    parts
   end
 end

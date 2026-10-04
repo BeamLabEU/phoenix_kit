@@ -274,11 +274,8 @@ defmodule Mix.Tasks.PhoenixKit.Status do
         :not_queried
 
       repo ->
-        app = Mix.Project.config()[:app]
-
-        prefix
-        |> ObanSchema.prefixes(Application.get_env(app, Oban))
-        |> Enum.map(&{&1, ObanSchema.check(repo, &1)})
+        oban_config = Application.get_env(Mix.Project.config()[:app], Oban)
+        ObanSchema.check_all(repo, ObanSchema.targets(repo, prefix, oban_config))
     end
   end
 
@@ -307,6 +304,9 @@ defmodule Mix.Tasks.PhoenixKit.Status do
         ]
     end
   end
+
+  defp format_oban_schema({:current, :infinity}),
+    do: "#{IO.ANSI.green()}v∞ ✅#{IO.ANSI.reset()}"
 
   defp format_oban_schema({:current, version}),
     do: "#{IO.ANSI.green()}v#{version} ✅#{IO.ANSI.reset()}"
@@ -589,6 +589,10 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   end
 
   defp format_next_action({:check_modules, _names} = action) do
+    "#{IO.ANSI.red()}#{StatusReport.describe(action)}#{IO.ANSI.reset()}"
+  end
+
+  defp format_next_action({:check_oban_schema, _labels} = action) do
     "#{IO.ANSI.red()}#{StatusReport.describe(action)}#{IO.ANSI.reset()}"
   end
 

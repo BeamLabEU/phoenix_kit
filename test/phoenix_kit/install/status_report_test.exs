@@ -278,6 +278,31 @@ defmodule PhoenixKit.Install.StatusReportTest do
       end
     end
 
+    test "an unreadable Oban version is not Ready — the check did not run" do
+      for status <- [{:unversioned, nil}, {:error, "permission denied"}] do
+        action = StatusReport.with_oban_schema({:ready, "Ready"}, [{"public", status}], "public")
+        assert action == {:check_oban_schema, ["public"]}
+        assert StatusReport.describe(action) =~ "mix phoenix_kit.doctor"
+        assert StatusReport.command(action) == nil
+      end
+    end
+
+    test "∞ is current, and an unreadable schema beside a behind one still points at update" do
+      assert StatusReport.with_oban_schema(
+               {:ready, "Ready"},
+               [{"public", {:current, :infinity}}],
+               "public"
+             ) ==
+               {:ready, "Ready"}
+
+      assert {:update, _, ["Oban schema at public is v13, Oban expects v14"]} =
+               StatusReport.with_oban_schema(
+                 {:ready, "Ready"},
+                 [{"public", {:behind, 13, 14}}, {"Jobs public", {:error, "closed"}}],
+                 "public"
+               )
+    end
+
     test "states that need a person first keep their action" do
       oban = [{"public", {:behind, 13, 14}}]
 
