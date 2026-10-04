@@ -2018,26 +2018,24 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
             <%!-- the tools already up. Per-user on purpose — one person   --%>
             <%!-- opens files to look, another to work — and read by       --%>
             <%!-- MediaCanvasViewer at every viewer-open.                  --%>
-            <div class="form-control mb-4">
-              <label class="label cursor-pointer justify-start items-start gap-3">
-                <input
-                  type="checkbox"
-                  class="toggle toggle-primary mt-0.5"
-                  checked={@viewer_open_annotating}
-                  phx-click="toggle_viewer_open_annotating"
-                  phx-target={@myself}
-                />
-                <span class="min-w-0">
-                  <span class="label-text font-medium block">
-                    {gettext("Open media ready to annotate")}
-                  </span>
-                  <span class="label-text text-xs text-base-content/60 block mt-0.5">
-                    {gettext(
-                      "The viewer opens with the drawing tools already on, so you can edit and move things right away. Switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
-                    )}
-                  </span>
-                </span>
-              </label>
+            <%!-- <.checkbox>, not a hand-rolled daisyUI label: `.label`   --%>
+            <%!-- does not wrap its text, so the description ran clean off --%>
+            <%!-- the card. The component's description slot wraps.        --%>
+            <div class="mb-4">
+              <.checkbox
+                variant="toggle"
+                name="viewer_open_annotating"
+                checked={@viewer_open_annotating}
+                label={gettext("Open media ready to annotate")}
+                phx-click="toggle_viewer_open_annotating"
+                phx-target={@myself}
+              >
+                <:description>
+                  {gettext(
+                    "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
+                  )}
+                </:description>
+              </.checkbox>
             </div>
             <p class="text-sm text-base-content/60 mb-3">
               {gettext(
