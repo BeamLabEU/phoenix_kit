@@ -2750,22 +2750,40 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   @kit_root_paths ~w(/llms.txt /sitemap.xml /sitemap.html /sitemaps/:filename /sitemap.xsl)
 
   @doc false
-  # Pure: one finding per kit root path declared more than once. Phoenix
-  # matches routes in the order they were declared, so the first declaration
-  # answers and every later one is dead code — which of the two is the host's
-  # depends on where the host put `phoenix_kit_routes()`, so both are named.
+  # Pure: one finding per kit root path declared more than once WITH different
+  # handlers. Phoenix matches routes in the order they were declared, so the
+  # first declaration answers and every later one is dead code — which of the
+  # two is the host's depends on where the host put `phoenix_kit_routes()`, so
+  # both are named.
+  #
+  # A repeat that points at the same controller AND action as the one that
+  # answers is not reported: the response is the same whichever of them wins,
+  # so there is nothing to delete — and it is usually deliberate (a host that
+  # declares `/sitemap.xml` ahead of its `scope "/:locale"` so the locale
+  # segment cannot swallow it; advising removal of the copy that is doing that
+  # job would break the route). Pipelines can differ between the two, which is
+  # not worth a warning.
   def duplicate_root_route_findings(routes) do
     routes
     |> Enum.filter(&(&1.verb == :get and &1.path in @kit_root_paths))
     |> Enum.group_by(& &1.path)
-    |> Enum.filter(fn {_path, declared} -> length(declared) > 1 end)
     |> Enum.sort_by(fn {path, _} -> path end)
-    |> Enum.map(fn {path, [winner | dead]} ->
-      "GET #{path} is declared #{length(dead) + 1} times: #{inspect(winner.plug)} " <>
-        "answers it (declared first), and the declaration by " <>
-        "#{Enum.map_join(dead, ", ", &inspect(&1.plug))} never runs. " <>
-        "Delete the one you no longer want — usually a pre-2.0 copy of PhoenixKit's route."
+    |> Enum.flat_map(fn {path, [winner | rest] = declared} ->
+      case Enum.reject(rest, &same_handler?(&1, winner)) do
+        [] -> []
+        dead -> [duplicate_finding(path, winner, dead, length(declared))]
+      end
     end)
+  end
+
+  defp same_handler?(a, b),
+    do: a.plug == b.plug and Map.get(a, :plug_opts) == Map.get(b, :plug_opts)
+
+  defp duplicate_finding(path, winner, dead, count) do
+    "GET #{path} is declared #{count} times: #{inspect(winner.plug)} " <>
+      "answers it (declared first), and the declaration by " <>
+      "#{dead |> Enum.map(& &1.plug) |> Enum.uniq() |> Enum.map_join(", ", &inspect/1)} never runs. " <>
+      "Delete the one you no longer want — usually a pre-2.0 copy of PhoenixKit's route."
   end
 
   @doc false

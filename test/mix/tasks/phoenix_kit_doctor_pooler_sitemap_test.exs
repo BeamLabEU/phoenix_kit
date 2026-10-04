@@ -112,6 +112,63 @@ defmodule Mix.Tasks.PhoenixKit.DoctorPoolerSitemapTest do
       assert finding =~ "/llms.txt"
     end
 
+    test "a repeat that points at the same controller and action is not reported" do
+      # A host declares /sitemap.xml ahead of `scope "/:locale"` (otherwise
+      # `:locale` captures "sitemap.xml"); the kit declares it again. Both lead
+      # to the same controller and action, so there is nothing to delete.
+      same = PhoenixKit.Modules.Sitemap.Web.Controller
+
+      routes = [
+        %{verb: :get, path: "/sitemap.xml", plug: same, plug_opts: :index_xml},
+        %{verb: :get, path: "/sitemap.xml", plug: same, plug_opts: :index_xml}
+      ]
+
+      assert Doctor.duplicate_root_route_findings(routes) == []
+    end
+
+    test "the same controller with a different action is still reported" do
+      same = PhoenixKit.Modules.Sitemap.Web.Controller
+
+      routes = [
+        %{verb: :get, path: "/sitemap.xml", plug: same, plug_opts: :index_xml},
+        %{verb: :get, path: "/sitemap.xml", plug: same, plug_opts: :index_html}
+      ]
+
+      assert [finding] = Doctor.duplicate_root_route_findings(routes)
+      assert finding =~ "declared 2 times"
+    end
+
+    test "only the declarations that differ from the winner are named" do
+      kit = PhoenixKit.Modules.Sitemap.Web.Controller
+
+      routes = [
+        %{verb: :get, path: "/sitemap.xml", plug: kit, plug_opts: :index_xml},
+        %{verb: :get, path: "/sitemap.xml", plug: kit, plug_opts: :index_xml},
+        %{verb: :get, path: "/sitemap.xml", plug: HostWeb.SitemapController, plug_opts: :show}
+      ]
+
+      assert [finding] = Doctor.duplicate_root_route_findings(routes)
+      assert finding =~ "declared 3 times"
+      assert finding =~ "HostWeb.SitemapController never runs"
+      refute finding =~ "#{inspect(kit)}, "
+    end
+
+    test "a real router with the host's early declaration and the kit's later one reports nothing" do
+      defmodule DuplicateSitemapRouter do
+        use Phoenix.Router
+
+        get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :index_xml
+
+        scope "/:locale" do
+          get "/page", HostWeb.PageController, :show
+        end
+
+        get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :index_xml
+      end
+
+      assert Doctor.duplicate_root_route_findings(DuplicateSitemapRouter.__routes__()) == []
+    end
+
     test "single declarations and other paths report nothing" do
       routes = [
         route("/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller),
