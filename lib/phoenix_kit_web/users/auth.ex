@@ -98,6 +98,12 @@ defmodule PhoenixKitWeb.Users.Auth do
   ]
 
   @doc """
+  The name of the remember-me cookie, for a plug that has to know whether one
+  is present without verifying it.
+  """
+  def remember_me_cookie, do: @remember_me_cookie
+
+  @doc """
   Logs the user in.
 
   It renews the session ID and clears the whole session
