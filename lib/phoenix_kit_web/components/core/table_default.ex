@@ -144,6 +144,9 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   after every patch, so a table with three columns keeps all of them where
   one with nine sheds four. Printing shows every column. A cell with a
   `colspan` is left alone.
+
+  `fit_pack={false}` keeps the dropping and leaves the sizing to the
+  caller, for a table that sets its own column widths.
   """
   attr :id, :string, default: nil
   attr :class, :any, default: ""
@@ -157,6 +160,11 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
     default: false,
     doc:
       "Drop the least important columns when the table is wider than its wrapper, and pack every column but the `lead` one against the right edge. Needs an `id`. See \"Fitting columns to the width\" in the moduledoc."
+
+  attr :fit_pack, :boolean,
+    default: true,
+    doc:
+      "With `fit`: also size and right-pack the columns. Pass `false` when the table already sizes its own columns (a prose column that must wrap) and only wants columns dropped."
 
   attr :card_title, :any, default: nil
   attr :card_fields, :any, default: nil
@@ -305,7 +313,8 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
           "table",
           table_variant_class(@variant),
           table_size_class(@size),
-          @fit && fit_table_class(),
+          @fit && fit_lead_class(),
+          @fit && @fit_pack && fit_table_class(),
           @class
         ]}
         {@rest}
@@ -444,7 +453,8 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
               table_variant_class(@variant),
               table_size_class(@size),
               "[.pk-comfy_&]:[&_:where(td,th)]:py-3.5",
-              @fit && fit_table_class(),
+              @fit && fit_lead_class(),
+              @fit && @fit_pack && fit_table_class(),
               @class
             ]}
             {@rest}
@@ -594,11 +604,15 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   # takes all the slack, every other column shrinks to its content. Child
   # combinators keep a table nested inside a cell out of it. A lead BODY cell
   # (`max-w-0` + `overflow-hidden`) gives its width up to the column instead
-  # of dictating it, which is what lets a long name truncate; its `min-w`
-  # is the room the name keeps before a column is dropped for it.
+  # of dictating it, which is what lets a long name truncate.
+  # Always with `fit`, packed or not: the room the lead column keeps. Without
+  # it a name wraps down to its longest word before the table overflows, and
+  # overflow is the only thing that drops a column.
+  defp fit_lead_class, do: "[&>thead>tr>th[data-col-lead]]:min-w-48"
+
   defp fit_table_class do
     [
-      "[&>thead>tr>th[data-col-lead]]:w-full [&>thead>tr>th[data-col-lead]]:min-w-48",
+      "[&>thead>tr>th[data-col-lead]]:w-full",
       "[&>thead>tr>th:not([data-col-lead])]:w-px [&>thead>tr>th:not([data-col-lead])]:whitespace-nowrap",
       "[&>tbody>tr>td:not([data-col-lead]):not([colspan])]:whitespace-nowrap",
       "[&>tbody>tr>td[data-col-lead]]:max-w-0 [&>tbody>tr>td[data-col-lead]]:overflow-hidden"
