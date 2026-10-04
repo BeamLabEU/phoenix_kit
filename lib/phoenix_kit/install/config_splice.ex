@@ -1,10 +1,10 @@
 defmodule PhoenixKit.Install.ConfigSplice do
   @moduledoc """
-  Appends entries to a literal list (`crontab: [...]`, `plugins: [...]`,
+  Reads and appends to the literal lists (`crontab: [...]`, `plugins: [...]`,
   `queues: [...]`) inside a host's own `config :app, Oban` block, by text.
 
   Every list-append in `PhoenixKit.Install.ObanConfig` used to do the same
-  thing: trim the list body, look at whether it ends in `,`, and glue
+  thing: trim the list body, look at whether it ended in `,`, and glue
   `",\\n" <> entries` on. That reads the *tail of the source text* as if it
   were the tail of the list, and a host's list is full of things that are not
   list elements — a `# every minute` after the last tuple, a block of comment
@@ -16,15 +16,15 @@ defmodule PhoenixKit.Install.ConfigSplice do
   ## How it avoids reading the tail
 
   The content is first **masked**: comments (and, for bracket matching, the
-  insides of strings and sigils) are overwritten with spaces, byte for byte,
-  newlines kept — so every offset in the masked copy is the same offset in the
-  original. All decisions (where the list opens, where it closes, which
-  character is the last real token) are made on the masked copy; the edit is
-  made on the original. The new entries go **after the last real token** and
-  the comma that separates them goes right behind that token — in front of
-  any trailing comment, never inside it. Whatever the host wrote after that
-  token (comment lines, an end-of-line comment, an unusual indent) stays where
-  it was.
+  insides of strings, sigils, heredocs and character literals) are overwritten
+  with spaces, byte for byte, newlines kept — so every offset in the masked
+  copy is the same offset in the original. All decisions (where the block and
+  the list open and close, which character is the last real token) are made
+  on the masked copy; the edit is made on the original. The new entries go
+  **after the last real token** and the comma that separates them goes right
+  behind that token — in front of any trailing comment, never inside it.
+  Whatever the host wrote after that token (comment lines, an end-of-line
+  comment, an unusual indent) stays where it was.
 
   Inserting at the *start* of the list was the alternative: it makes the tail
   irrelevant too. It was not chosen because it reorders a host's list (Lifeline
@@ -32,10 +32,17 @@ defmodule PhoenixKit.Install.ConfigSplice do
   PhoenixKit rewriting its config; appending keeps the diff a pure addition at
   the end.
 
-  This is still string surgery, so callers keep
-  `ConfigVerify.verify_or_rollback/3` as the net: the masking is a heuristic
-  (it does not parse interpolation nested inside a string, for one), and a
-  wrong guess must come out as a rolled-back candidate, never a corrupted file.
+  ## Two nets
+
+  The masking is a lexer written for this purpose, not Elixir's, so it can be
+  wrong about an unusual file. Two checks keep a wrong guess from becoming a
+  corrupted file:
+
+    * a file whose masked text does not balance its brackets is refused as
+      `:unreadable` — the usual symptom of a construct the masker lost track of;
+    * callers verify the candidate (`ConfigVerify.verify_or_rollback/3`: it
+      parses and the entries are members of the intended list) and then
+      `preserves_original?/3` (nothing but the entries changed).
 
   ## Refusals
 
@@ -47,45 +54,58 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   @type reason ::
           :no_block
+          | :nested_block
+          | :oban_disabled
+          | :option_disabled
+          | :plugins_disabled
+          | :plugins_not_literal
           | :key_not_found
           | :not_literal_list
           | :combined_list
           | :unbalanced
+          | :unreadable
           | :empty_list
 
   @doc """
-  Replaces comments with spaces (newlines kept). With `strings: true`, string
-  and sigil bodies are blanked too (their delimiters stay) — use that before
-  matching brackets or keywords; leave it off (the default) when the text of a
-  string matters, e.g. `cadence: "daily"`.
+  Replaces comments with spaces (newlines kept). With `strings: true`, string,
+  sigil, heredoc and character-literal bodies are blanked too (their delimiters
+  stay) — use that before matching brackets or module names; leave it off (the
+  default) when the text of a string matters, e.g. `cadence: "daily"`.
 
   The result has the same byte length as the input and the same newlines.
   """
   @spec mask(String.t(), keyword()) :: String.t()
   def mask(content, opts \\ []) when is_binary(content) do
-    content |> do_mask(Keyword.get(opts, :strings, false), []) |> IO.iodata_to_binary()
+    content |> do_mask(Keyword.get(opts, :strings, false), 0, []) |> IO.iodata_to_binary()
   end
 
   @doc """
-  True when `module_name` occurs in the code of `content` (not only in a
-  comment).
+  The comments of `content` and nothing else: code and string bodies are
+  blanked, the `#` markers and the comment text stay, newlines are kept. A
+  commented-out entry that spans several lines reads as consecutive text.
   """
-  @spec active?(String.t(), String.t()) :: boolean()
-  def active?(content, module_name), do: String.contains?(mask(content), module_name)
+  @spec comments_only(String.t()) :: String.t()
+  def comments_only(content) when is_binary(content) do
+    code = mask(content)
 
-  @doc """
-  True when `module_name` occurs in a comment of `content` but nowhere in its
-  code — the host commented the entry out. `ObanConfig` treats that as a
-  deliberate refusal.
-  """
-  @spec declined?(String.t(), String.t()) :: boolean()
-  def declined?(content, module_name),
-    do: String.contains?(content, module_name) and not active?(content, module_name)
+    for {a, b} <- Enum.zip(:binary.bin_to_list(content), :binary.bin_to_list(code)),
+        into: "" do
+      cond do
+        a == b and a == ?\n -> "\n"
+        a == b -> " "
+        true -> <<a>>
+      end
+    end
+  end
 
   @doc """
   Where `key:`'s literal list sits inside `config :app_name, Oban`: the offsets
   of its `[` and its matching `]`, and the masked copy they index into.
   `{:error, reason}` when there is no such list (see `reason_text/2`).
+
+  For `:crontab` only the list of an `Oban.Plugins.Cron` tuple counts — a
+  `crontab:` of another plugin (`DynamicCron`) is not the one entries belong
+  in.
   """
   @spec locate_list(String.t(), atom() | String.t(), atom()) ::
           {:ok, %{masked: String.t(), open: non_neg_integer(), close: non_neg_integer()}}
@@ -93,7 +113,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
   def locate_list(content, app_name, key) do
     masked = mask(content, strings: true)
 
-    with {:ok, block} <- oban_block(masked, app_name),
+    with :ok <- balanced(masked),
+         {:ok, block} <- oban_block(masked, app_name),
          {:ok, open} <- find_open(masked, block, key),
          {:ok, close} <- find_close(masked, open),
          :ok <- check_followed_by(masked, close) do
@@ -103,9 +124,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   @doc """
   The text between the brackets of `key:`'s list, as written (`:original`) and
-  with comments blanked (`:code`). Presence and refusal checks read these, so
-  a mention anywhere else in the file — another app's block, a note outside
-  the list — means nothing.
+  with comments blanked (`:code`).
   """
   @spec list_text(String.t(), atom() | String.t(), atom()) ::
           {:ok, %{original: String.t(), code: String.t()}} | {:error, reason()}
@@ -117,16 +136,70 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   @doc """
-  `config :app_name, Oban`'s own text with comments blanked, or the whole
-  file's when there is no literal block to scope to.
+  `config :app_name, Oban`'s own text with comments blanked (`strings: true`
+  blanks string bodies too), or `nil` when there is no literal block to scope
+  to.
   """
-  @spec block_code(String.t(), atom() | String.t()) :: String.t()
-  def block_code(content, app_name) do
+  @spec block_code(String.t(), atom() | String.t(), keyword()) :: String.t() | nil
+  def block_code(content, app_name, opts \\ []) do
+    case oban_block(mask(content, strings: true), app_name) do
+      {:ok, {start, stop}} -> content |> mask(opts) |> binary_part(start, stop - start)
+      _ -> nil
+    end
+  end
+
+  @doc """
+  The whole file's code with comments blanked and every OTHER app's
+  `config :x, Oban` block blanked too — what a presence check may read when the
+  app's own list is not a literal one (a variable defined above the block).
+  """
+  @spec file_code(String.t(), atom() | String.t(), keyword()) :: String.t()
+  def file_code(content, app_name, opts \\ []) do
+    own = to_string(app_name)
     masked = mask(content, strings: true)
 
-    case oban_block(masked, app_name) do
-      {:ok, {start, stop}} -> content |> mask() |> binary_part(start, stop - start)
-      _ -> mask(content)
+    other_blocks =
+      Regex.scan(~r/^config\s+:(\w+),\s+Oban\b#{block_body()}/ms, masked, return: :index)
+
+    Enum.reduce(other_blocks, mask(content, opts), fn [{start, len}, {n_at, n_len} | _], acc ->
+      if binary_part(masked, n_at, n_len) == own, do: acc, else: blank_range(acc, start, len)
+    end)
+  end
+
+  @doc """
+  Applies `fun` to the original text of `config :app_name, Oban` and splices the
+  result back. The content is returned untouched when there is no literal block.
+  """
+  @spec update_block(String.t(), atom() | String.t(), (String.t() -> String.t())) :: String.t()
+  def update_block(content, app_name, fun) do
+    case oban_block(mask(content, strings: true), app_name) do
+      {:ok, {start, stop}} ->
+        binary_part(content, 0, start) <>
+          fun.(binary_part(content, start, stop - start)) <>
+          binary_part(content, stop, byte_size(content) - stop)
+
+      _ ->
+        content
+    end
+  end
+
+  @doc "True when the app's block is `config :app, Oban, false` (or `nil`)."
+  @spec oban_disabled?(String.t(), atom() | String.t()) :: boolean()
+  def oban_disabled?(content, app_name),
+    do: oban_block(mask(content, strings: true), app_name) == {:error, :oban_disabled}
+
+  @doc "True when the block says `key: false` (or `nil`)."
+  @spec option_off?(String.t(), atom() | String.t(), atom()) :: boolean()
+  def option_off?(content, app_name, key) do
+    case block_code(content, app_name, strings: true) do
+      nil ->
+        false
+
+      block ->
+        Regex.match?(
+          ~r/(?<![A-Za-z0-9_])#{Regex.escape(to_string(key))}:[ \t\r\n]*(?:false|nil)\b/,
+          block
+        )
     end
   end
 
@@ -135,8 +208,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
   list opened by `key:` inside `config :app_name, Oban`.
 
   Continuation lines of an entry are re-indented to the list's entry indent,
-  and the file's own line ending (LF or CRLF) is kept. Returns
-  `{:ok, candidate}` — still to be verified by the caller — or
+  and the line ending (LF or CRLF) of the list's own neighbourhood is kept.
+  Returns `{:ok, candidate}` — still to be verified by the caller — or
   `{:error, reason}`.
 
   Options: `allow_empty: false` refuses a list with no real element.
@@ -146,7 +219,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   def append_to_list(content, app_name, key, entries, opts \\ []) when entries != [] do
     with {:ok, %{masked: masked, open: open, close: close}} <-
            locate_list(content, app_name, key) do
-      nl = if String.contains?(content, "\r\n"), do: "\r\n", else: "\n"
+      nl = line_ending(content, open, close)
       inner = binary_part(masked, open + 1, close - open - 1)
       first_code = first_code_index(inner)
 
@@ -167,27 +240,31 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   @doc """
-  True when `candidate` is `original` plus the `entries` and nothing else: with
-  every list element equal to one of the entries removed from both, the two
-  parse to the same tree (source positions ignored).
+  True when `candidate` equals `original` apart from the `entries`: with every
+  list element equal to one of the entries removed from both, the two parse to
+  the same tree (source positions ignored).
 
   This is the net under the masking heuristic. A splice that put the comma
   inside one of the host's strings, or merged two of its elements, still
   parses — and still contains the new entries — but changes something the
-  host wrote, which this catches.
+  host wrote, which this catches. It does not say *where* the entries went;
+  callers confirm that with their own check on the parsed candidate.
   """
   @spec preserves_original?(String.t(), String.t(), [String.t()]) :: boolean()
   def preserves_original?(original, candidate, entries) do
-    with {:ok, a} <- Code.string_to_quoted(original),
-         {:ok, b} <- Code.string_to_quoted(candidate),
-         {:ok, new} when is_list(new) <-
-           Code.string_to_quoted("[" <> Enum.join(entries, ",\n") <> "]") do
-      drop = new |> Enum.map(&normalize/1)
+    with {:ok, a} <- parse(original),
+         {:ok, b} <- parse(candidate),
+         {:ok, new} when is_list(new) <- parse("[" <> Enum.join(entries, ",\n") <> "]") do
+      drop = Enum.map(new, &normalize/1)
       without(normalize(a), drop) == without(normalize(b), drop)
     else
       _ -> false
     end
   end
+
+  # `emit_warnings: false`: a host's single-quoted charlists would otherwise
+  # print a deprecation warning for every parse the updater does.
+  defp parse(text), do: Code.string_to_quoted(text, emit_warnings: false)
 
   defp normalize(ast) do
     Macro.prewalk(ast, fn
@@ -205,9 +282,14 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   @doc "Whether a refusal is the host's own choice (nothing to add), not a failure."
   @spec quiet?(reason()) :: boolean()
-  def quiet?(reason), do: reason in [:oban_disabled, :option_disabled]
+  def quiet?(reason), do: reason in [:oban_disabled, :option_disabled, :plugins_disabled]
 
-  @doc "Operator-facing explanation of an `append_to_list/5` refusal."
+  @doc "Whether a refusal means the list is not a literal one (`crontab: some_var`)."
+  @spec not_literal?(reason()) :: boolean()
+  def not_literal?(reason),
+    do: reason in [:not_literal_list, :combined_list, :plugins_not_literal]
+
+  @doc "Operator-facing explanation of a refusal."
   @spec reason_text(reason(), atom()) :: String.t()
   def reason_text(reason, key)
 
@@ -227,6 +309,17 @@ defmodule PhoenixKit.Install.ConfigSplice do
   def reason_text(:option_disabled, key),
     do: "`#{key}:` is switched off (`false`/`nil`), nothing to add"
 
+  def reason_text(:plugins_disabled, _key),
+    do: "Oban plugins are switched off (`plugins: false`), nothing to add"
+
+  def reason_text(:plugins_not_literal, _key),
+    do:
+      "the Oban `plugins:` are not a literal list (a variable, module attribute or " <>
+        "function call), so the crontab inside cannot be found"
+
+  def reason_text(:key_not_found, :crontab),
+    do: "the Oban block has no `Oban.Plugins.Cron` with a `crontab:` option"
+
   def reason_text(:key_not_found, key),
     do: "the Oban block has no `#{key}:` option"
 
@@ -239,21 +332,28 @@ defmodule PhoenixKit.Install.ConfigSplice do
   def reason_text(:unbalanced, key),
     do: "the `#{key}:` list could not be matched to its closing bracket"
 
+  def reason_text(:unreadable, _key),
+    do:
+      "could not read the Oban block safely (the file uses a construct the updater " <>
+        "cannot follow)"
+
   def reason_text(:empty_list, key),
     do: "`#{key}: []` is empty, which Oban reads as \"run none\" — left as the host wrote it"
 
   # --- locating -----------------------------------------------------------
 
-  # The span of `config :app, Oban ...` up to the next top-level `config` /
-  # `import_config`, as {start, stop} offsets into the masked content.
+  # A top-level block runs up to the next line that starts in column 0 with
+  # something other than whitespace or a closing bracket — the next `config`,
+  # an `import_config`, an `if … do` that wraps another block. (Its own lines
+  # are indented.)
+  defp block_body, do: ~S|((?:(?!\n(?=[^\s)\]}])).)*)|
+
+  # The span of `config :app, Oban ...` as {start, stop} offsets into the
+  # masked content.
   defp oban_block(masked, app_name) do
     app = Regex.escape(to_string(app_name))
 
-    case Regex.run(
-           ~r/^config\s+:#{app},\s+Oban\b((?:(?!\n(?:config\s|import_config\s)).)*)/ms,
-           masked,
-           return: :index
-         ) do
+    case Regex.run(~r/^config\s+:#{app},\s+Oban\b#{block_body()}/ms, masked, return: :index) do
       [{start, len}, {body, body_len}] ->
         if Regex.match?(
              ~r/\A\s*,\s*(?:false|nil)\s*(?:\n|\z)/,
@@ -270,25 +370,67 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   # Offset of the `[` opening `key: [` inside the block.
+  defp find_open(masked, {start, stop}, :crontab) do
+    block = binary_part(masked, start, stop - start)
+
+    case Regex.run(
+           ~r/\{\s*Oban\.Plugins\.Cron\s*,[^{}\[\]]*?(?<![A-Za-z0-9_])crontab:[ \t\r\n]*(\S)/,
+           block,
+           return: :index
+         ) do
+      [_, {at, 1}] ->
+        classify_open(block, start, at, :crontab)
+
+      nil ->
+        cond do
+          option_value(block, "plugins") in [:false_value] -> {:error, :plugins_disabled}
+          option_value(block, "plugins") == :not_a_list -> {:error, :plugins_not_literal}
+          true -> {:error, :key_not_found}
+        end
+    end
+  end
+
   defp find_open(masked, {start, stop}, key) do
     block = binary_part(masked, start, stop - start)
-    key = Regex.escape(to_string(key))
+    key_s = Regex.escape(to_string(key))
 
+    case Regex.run(~r/(?<![A-Za-z0-9_])#{key_s}:[ \t\r\n]*(\S)/, block, return: :index) do
+      [_, {at, 1}] -> classify_open(block, start, at, key)
+      nil -> {:error, :key_not_found}
+    end
+  end
+
+  defp classify_open(block, start, at, _key) do
+    cond do
+      binary_part(block, at, 1) == "[" ->
+        {:ok, start + at}
+
+      Regex.match?(~r/\A(?:false|nil)\b/, binary_part(block, at, byte_size(block) - at)) ->
+        {:error, :option_disabled}
+
+      true ->
+        {:error, :not_literal_list}
+    end
+  end
+
+  # What `plugins:` holds, when the block has it: `:list`, `:false_value`,
+  # `:not_a_list`, or nil.
+  defp option_value(block, key) do
     case Regex.run(~r/(?<![A-Za-z0-9_])#{key}:[ \t\r\n]*(\S)/, block, return: :index) do
       [_, {at, 1}] ->
         cond do
           binary_part(block, at, 1) == "[" ->
-            {:ok, start + at}
+            :list
 
           Regex.match?(~r/\A(?:false|nil)\b/, binary_part(block, at, byte_size(block) - at)) ->
-            {:error, :option_disabled}
+            :false_value
 
           true ->
-            {:error, :not_literal_list}
+            :not_a_list
         end
 
       nil ->
-        {:error, :key_not_found}
+        nil
     end
   end
 
@@ -313,6 +455,25 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   defp scan_depth(<<_, rest::binary>>, depth, i), do: scan_depth(rest, depth, i + 1)
+
+  # Every bracket of the masked file is closed, and none is closed twice. A
+  # file that fails this is one the masker lost track of (or one that is not
+  # valid Elixir) — either way not a file to edit by text.
+  defp balanced(masked) do
+    if balanced?(masked, []), do: :ok, else: {:error, :unreadable}
+  end
+
+  defp balanced?(<<>>, stack), do: stack == []
+
+  defp balanced?(<<c, rest::binary>>, stack) when c in [?[, ?{, ?(],
+    do: balanced?(rest, [c | stack])
+
+  defp balanced?(<<c, rest::binary>>, [top | stack])
+       when (c == ?] and top == ?[) or (c == ?} and top == ?{) or (c == ?) and top == ?(),
+       do: balanced?(rest, stack)
+
+  defp balanced?(<<c, _::binary>>, _stack) when c in [?], ?}, ?)], do: false
+  defp balanced?(<<_, rest::binary>>, stack), do: balanced?(rest, stack)
 
   # `crontab: [...] ++ extra` / `|> f()`: the list is only part of the value,
   # so a new element would not be where the caller means it.
@@ -340,7 +501,42 @@ defmodule PhoenixKit.Install.ConfigSplice do
     byte_size(trimmed) - 1
   end
 
+  defp blank_range(text, start, len) do
+    binary_part(text, 0, start) <>
+      blank(binary_part(text, start, len)) <>
+      binary_part(text, start + len, byte_size(text) - start - len)
+  end
+
   # --- editing ------------------------------------------------------------
+
+  # The line ending to write: CRLF when the list's own neighbourhood (the line
+  # that opens it through the one that closes it) uses it, LF when that holds
+  # an LF-only line; a one-line list falls back to whichever the whole file
+  # uses more.
+  defp line_ending(content, open, close) do
+    from = line_start(content, open)
+    span = binary_part(content, from, close - from + 1)
+
+    case {count(span, "\r\n"), count(span, "\n")} do
+      {0, 0} -> if count(content, "\r\n") * 2 > count(content, "\n"), do: "\r\n", else: "\n"
+      {crlf, lf} -> if crlf * 2 > lf, do: "\r\n", else: "\n"
+    end
+  end
+
+  defp count(text, pattern), do: length(:binary.matches(text, pattern))
+
+  defp line_start(content, index) do
+    head = binary_part(content, 0, index)
+
+    case :binary.matches(head, "\n") do
+      [] ->
+        0
+
+      matches ->
+        {at, _} = List.last(matches)
+        at + 1
+    end
+  end
 
   # `[` ... `]` holding nothing but blanks/comments.
   defp splice_empty(content, open, close, entries, nl) do
@@ -422,18 +618,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   # Leading whitespace of the line that holds `index`.
   defp line_indent(content, index) do
-    head = binary_part(content, 0, index)
-
-    line =
-      case :binary.matches(head, "\n") do
-        [] ->
-          head
-
-        matches ->
-          {at, _} = List.last(matches)
-          binary_part(head, at + 1, byte_size(head) - at - 1)
-      end
-
+    from = line_start(content, index)
+    line = binary_part(content, from, index - from)
     [indent] = Regex.run(~r/^[ \t]*/, line)
     indent
   end
@@ -441,84 +627,101 @@ defmodule PhoenixKit.Install.ConfigSplice do
   defp unit(base), do: if(String.contains?(base, "\t"), do: "\t", else: "  ")
 
   # --- masking ------------------------------------------------------------
+  #
+  # One lexer, used twice: at the top level of the file, and inside `#{...}` of
+  # a string (the code in an interpolation has comments, strings, character
+  # literals and sigils of its own). `token/2` reads one lexical unit; the
+  # callers decide what to emit for it.
 
-  defp do_mask(<<>>, _strings?, acc), do: Enum.reverse(acc)
+  defp do_mask(<<>>, _strings?, _prev, acc), do: Enum.reverse(acc)
 
-  # Comment: blank to end of line.
-  defp do_mask(<<"#", rest::binary>>, strings?, acc) do
-    {comment, tail} = take_until_newline(rest)
-    do_mask(tail, strings?, [blank(comment), " " | acc])
+  defp do_mask(bin, strings?, prev, acc) do
+    case token(bin, prev) do
+      {:comment, text, rest} ->
+        do_mask(rest, strings?, ?\n, [blank(text) | acc])
+
+      {:quoted, open, body, close, rest} ->
+        do_mask(rest, strings?, last_byte(close, open), [
+          close,
+          body_out(body, strings?),
+          open | acc
+        ])
+
+      {:char, head, char, rest} ->
+        do_mask(rest, strings?, ?x, [body_out(char, strings?), head | acc])
+
+      {:byte, b, rest} ->
+        do_mask(rest, strings?, b, [<<b>> | acc])
+    end
   end
 
-  # Heredocs (`"""`, `'''`) and heredoc sigils (`~S"""`, `~s'''`).
-  defp do_mask(<<"~", l, q::binary-size(3), rest::binary>>, strings?, acc)
-       when (l in ?a..?z or l in ?A..?Z) and q in ["\"\"\"", "'''"] do
-    {body, tail} = take_heredoc(rest, q)
-    do_mask(tail, strings?, [q, body_out(body, strings?), <<"~", l>> <> q | acc])
+  defp last_byte("", open), do: :binary.last(open)
+  defp last_byte(close, _open), do: :binary.last(close)
+
+  # `#` comment to the end of the line.
+  defp token(<<"#", rest::binary>>, _prev) do
+    {text, tail} = take_until_newline(rest)
+    {:comment, "#" <> text, tail}
   end
 
-  defp do_mask(<<q::binary-size(3), rest::binary>>, strings?, acc)
-       when q in ["\"\"\"", "'''"] do
-    {body, tail} = take_heredoc(rest, q)
-    do_mask(tail, strings?, [q, body_out(body, strings?), q | acc])
+  # Heredoc (`"""`, `'''`).
+  defp token(<<q::binary-size(3), rest::binary>>, _prev) when q in ["\"\"\"", "'''"] do
+    {body, tail, closed} = take_heredoc(rest, q)
+    {:quoted, q, body, closed, tail}
   end
 
-  defp do_mask(<<"\"", rest::binary>>, strings?, acc) do
-    {body, tail} = take_quoted(rest, ?", true)
-    do_mask(tail, strings?, ["\"", body_out(body, strings?), "\"" | acc])
+  defp token(<<"\"", rest::binary>>, _prev) do
+    {body, tail, closed} = take_quoted(rest, ?", true)
+    {:quoted, "\"", body, closed, tail}
   end
 
-  defp do_mask(<<"'", rest::binary>>, strings?, acc) do
-    {body, tail} = take_quoted(rest, ?', true)
-    do_mask(tail, strings?, ["'", body_out(body, strings?), "'" | acc])
+  defp token(<<"'", rest::binary>>, _prev) do
+    {body, tail, closed} = take_quoted(rest, ?', true)
+    {:quoted, "'", body, closed, tail}
+  end
+
+  # Sigils: `~w(...)`, `~r/.../`, `~s[...]`, `~S"""`, `~HTML(...)`. Lowercase
+  # sigils interpolate, uppercase ones do not.
+  defp token(<<"~", rest::binary>>, _prev) do
+    case Regex.run(~r/\A([a-z]|[A-Z]+)("""|'''|[(\[{<\/|"'])/, rest) do
+      [head, name, d] ->
+        after_head = binary_part(rest, byte_size(head), byte_size(rest) - byte_size(head))
+        interp? = name =~ ~r/\A[a-z]\z/
+
+        {body, tail, closed} =
+          if d in ["\"\"\"", "'''"],
+            do: take_heredoc(after_head, d),
+            else: take_quoted(after_head, closer(d), interp?)
+
+        {:quoted, "~" <> name <> d, body, closed, tail}
+
+      _ ->
+        {:byte, ?~, rest}
+    end
   end
 
   # `?x`, `?\x` — a character literal (`?}`, `?"`, `?#`, `?\"`), not a bracket,
   # a quote or a comment. A `?` that ends an identifier (`valid?(x)`) is not one.
-  defp do_mask(<<"?", rest::binary>>, strings?, acc) do
-    if ident_before?(acc),
-      do: do_mask(rest, strings?, ["?" | acc]),
-      else: char_literal(rest, strings?, acc)
-  end
-
-  # Sigil with a delimiter: `~w(...)`, `~r/.../`, `~s[...]`. Lowercase sigils
-  # interpolate, uppercase ones do not.
-  defp do_mask(<<"~", l, d, rest::binary>>, strings?, acc)
-       when l in ?a..?z or l in ?A..?Z do
-    if d in [?(, ?[, ?{, ?<, ?/, ?|, ?", ?'] do
-      {body, tail} = take_quoted(rest, closer(d), l in ?a..?z)
-      do_mask(tail, strings?, [<<closer(d)>>, body_out(body, strings?), <<"~", l, d>> | acc])
-    else
-      do_mask(<<d, rest::binary>>, strings?, [<<"~", l>> | acc])
+  defp token(<<"?", rest::binary>>, prev) do
+    cond do
+      ident_byte?(prev) -> {:byte, ??, rest}
+      match?(<<"\\", _, _::binary>>, rest) -> take_char(rest, 2)
+      match?(<<c, _::binary>> when c not in [?\s, ?\t, ?\r, ?\n], rest) -> take_char(rest, 1)
+      true -> {:byte, ??, rest}
     end
   end
 
-  defp do_mask(<<c, rest::binary>>, strings?, acc), do: do_mask(rest, strings?, [<<c>> | acc])
+  defp token(<<b, rest::binary>>, _prev), do: {:byte, b, rest}
 
-  # The literal's character is blanked along with string bodies: a `}` or `]`
-  # in it must not count as a bracket.
-  defp char_literal(<<"\\", c, rest::binary>>, strings?, acc),
-    do: do_mask(rest, strings?, [<<"?">> <> body_out(<<"\\", c>>, strings?) | acc])
-
-  defp char_literal(<<c, rest::binary>>, strings?, acc) when c not in [?\s, ?\t, ?\r, ?\n],
-    do: do_mask(rest, strings?, [<<"?">> <> body_out(<<c>>, strings?) | acc])
-
-  defp char_literal(rest, strings?, acc), do: do_mask(rest, strings?, ["?" | acc])
-
-  # Whether the last emitted byte is part of an identifier.
-  defp ident_before?(acc) do
-    case Enum.find(acc, &(&1 != "")) do
-      nil -> false
-      bin -> ident_byte?(:binary.last(bin))
-    end
-  end
+  defp take_char(rest, n),
+    do: {:char, "?", binary_part(rest, 0, n), binary_part(rest, n, byte_size(rest) - n)}
 
   defp ident_byte?(b), do: b in ?a..?z or b in ?A..?Z or b in ?0..?9 or b == ?_
 
-  defp closer(?(), do: ?)
-  defp closer(?[), do: ?]
-  defp closer(?{), do: ?}
-  defp closer(?<), do: ?>
+  defp closer(<<?(>>), do: ")"
+  defp closer(<<?[>>), do: "]"
+  defp closer(<<?{>>), do: "}"
+  defp closer(<<?<>>), do: ">"
   defp closer(c), do: c
 
   defp body_out(body, true), do: blank(body)
@@ -538,65 +741,73 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   # A heredoc ends at the marker that opens a line (after indentation) — the
-  # same marker in the middle of a line is body text.
+  # same marker in the middle of a line is body text. Returns the closing
+  # marker only when there was one, so an unterminated run keeps its length.
   defp take_heredoc(bin, marker) do
     case Regex.run(~r/\n[ \t]*#{Regex.escape(marker)}/, bin, return: :index) do
       [{at, len}] ->
         stop = at + len - byte_size(marker)
-        {binary_part(bin, 0, stop), binary_part(bin, at + len, byte_size(bin) - at - len)}
+        {binary_part(bin, 0, stop), binary_part(bin, at + len, byte_size(bin) - at - len), marker}
 
       nil ->
-        {bin, ""}
+        {bin, "", ""}
     end
   end
 
-  # Body of a quoted run up to the unescaped `close`; the closing delimiter is
-  # consumed (the caller re-emits it). With `interp?`, `#{ ... }` is scanned as
-  # code — its own strings and braces included — so a quote or a `}` inside an
-  # interpolation does not end the run.
-  defp take_quoted(bin, close, interp?), do: take_quoted(bin, close, interp?, [])
+  # Body of a quoted run up to the unescaped `close` (a byte or a one-byte
+  # string); returns {body, rest, closing_delimiter_or_""}. With `interp?`,
+  # `#{ ... }` is scanned as code, so a quote or a `}` inside an interpolation
+  # does not end the run.
+  defp take_quoted(bin, close, interp?) when is_integer(close),
+    do: take_quoted(bin, <<close>>, interp?, [])
 
-  defp take_quoted(<<>>, _close, _i, acc), do: {join(acc), ""}
+  defp take_quoted(bin, close, interp?) when is_binary(close),
+    do: take_quoted(bin, close, interp?, [])
+
+  defp take_quoted(<<>>, _close, _i, acc), do: {join(acc), "", ""}
 
   defp take_quoted(<<"\\", c, rest::binary>>, close, i, acc),
     do: take_quoted(rest, close, i, [<<"\\", c>> | acc])
 
   defp take_quoted(<<"\#{", rest::binary>>, close, true, acc) do
-    {code, tail} = take_interp(rest, 0, [])
+    {code, tail} = take_interp(rest, 0, 0, [])
     take_quoted(tail, close, true, [code, "\#{" | acc])
   end
 
-  defp take_quoted(bin, close, i, acc) when is_binary(close) do
-    if String.starts_with?(bin, close) do
-      {join(acc), binary_part(bin, byte_size(close), byte_size(bin) - byte_size(close))}
-    else
-      <<c, rest::binary>> = bin
-      take_quoted(rest, close, i, [<<c>> | acc])
-    end
-  end
-
-  defp take_quoted(<<c, rest::binary>>, close, _i, acc) when c == close,
-    do: {join(acc), rest}
+  defp take_quoted(<<c, rest::binary>>, <<c>> = close, _i, acc), do: {join(acc), rest, close}
 
   defp take_quoted(<<c, rest::binary>>, close, i, acc),
     do: take_quoted(rest, close, i, [<<c>> | acc])
 
-  # Code inside `#{ ... }`, up to and including the matching `}`.
-  defp take_interp(<<>>, _depth, acc), do: {join(acc), ""}
-  defp take_interp(<<"}", rest::binary>>, 0, acc), do: {join(["}" | acc]), rest}
+  # Code inside `#{ ... }`, up to and including the matching `}`. It is read
+  # with the same lexer, so a `"` in a character literal, a quote inside a
+  # comment or a sigil does not confuse it.
+  defp take_interp(<<>>, _depth, _prev, acc), do: {join(acc), ""}
 
-  defp take_interp(<<"}", rest::binary>>, depth, acc),
-    do: take_interp(rest, depth - 1, ["}" | acc])
+  defp take_interp(bin, depth, prev, acc) do
+    case token(bin, prev) do
+      {:byte, ?}, rest} when depth == 0 ->
+        {join(["}" | acc]), rest}
 
-  defp take_interp(<<"{", rest::binary>>, depth, acc),
-    do: take_interp(rest, depth + 1, ["{" | acc])
+      {:byte, ?}, rest} ->
+        take_interp(rest, depth - 1, ?}, ["}" | acc])
 
-  defp take_interp(<<"\"", rest::binary>>, depth, acc) do
-    {body, tail} = take_quoted(rest, ?", true, [])
-    take_interp(tail, depth, ["\"", body, "\"" | acc])
+      {:byte, ?{, rest} ->
+        take_interp(rest, depth + 1, ?{, ["{" | acc])
+
+      {:byte, b, rest} ->
+        take_interp(rest, depth, b, [<<b>> | acc])
+
+      {:comment, text, rest} ->
+        take_interp(rest, depth, ?\n, [text | acc])
+
+      {:char, head, char, rest} ->
+        take_interp(rest, depth, ?x, [char, head | acc])
+
+      {:quoted, open, body, close, rest} ->
+        take_interp(rest, depth, ?", [close, body, open | acc])
+    end
   end
-
-  defp take_interp(<<c, rest::binary>>, depth, acc), do: take_interp(rest, depth, [<<c>> | acc])
 
   defp join(acc), do: acc |> Enum.reverse() |> IO.iodata_to_binary()
 end

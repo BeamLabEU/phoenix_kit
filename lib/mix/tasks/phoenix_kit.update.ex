@@ -298,8 +298,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 DbConnectionCheck.ensure_connected!()
 
                 result = super(argv)
-                post_igniter_tasks(elem(opts, 0))
-                print_manual_steps()
+                finish_update(elem(opts, 0))
 
                 # Clean retry flag
                 Process.delete(:phoenix_kit_retry_pass)
@@ -765,6 +764,20 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           """
 
       Igniter.add_notice(igniter, final_instructions)
+    end
+
+    defp finish_update(opts),
+      do: with_manual_steps_summary(fn -> post_igniter_tasks(opts) end)
+
+    @doc false
+    # Runs `fun` (the migration, asset and schema steps) and prints the closing
+    # manual-steps block AFTER it — also when it raises. A declined or failed
+    # migration ends in `Mix.raise/1`, and the summary is exactly what such a
+    # run must not lose: the raise would otherwise cut it off.
+    def with_manual_steps_summary(fun) do
+      fun.()
+    after
+      print_manual_steps()
     end
 
     # Everything the Oban config pass could not edit by itself, repeated as one

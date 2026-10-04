@@ -41,6 +41,12 @@ if Code.ensure_loaded?(Igniter) do
     @dialyzer {:nowarn_function, pruner_manual_notice: 0}
     @dialyzer {:nowarn_function, manual_notice: 2}
     @dialyzer {:nowarn_function, apply_pruner_max_age: 2}
+    @dialyzer {:nowarn_function, ensure_pruner_in: 3}
+    @dialyzer {:nowarn_function, note_declined: 1}
+    @dialyzer {:nowarn_function, note_unverified: 1}
+    @dialyzer {:nowarn_function, refused: 4}
+    @dialyzer {:nowarn_function, report_update: 2}
+    @dialyzer {:nowarn_function, update_content: 2}
 
     alias Igniter.Libs.Phoenix
     alias Igniter.Project.Application
@@ -305,34 +311,81 @@ if Code.ensure_loaded?(Igniter) do
     # Update existing Oban configuration to add posts/sitemap queues and cron plugin
     defp update_existing_oban_config(source, content, app_name) do
       Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
+      Rewrite.Source.update(source, :content, update_content(content, app_name))
+    end
 
-      # Every queue PhoenixKit or an installed module declares
-      # (`PhoenixKit.ObanQueues`) is added when missing — an idle queue costs
-      # nothing, and the reverse is the failure this exists to prevent: Oban
-      # only fetches for queues the node lists, so a job enqueued into a
-      # missing queue sits `available` forever (Pruner deletes terminal states
-      # only) while the feature looks fine. A limit already present is never
-      # changed.
-      updated_content =
-        content
-        |> ensure_declared_queues(app_name)
-        |> ensure_cron_plugin(app_name)
-        |> ensure_digest_cron_entries(app_name)
-        |> ensure_worker_cron_entries(app_name)
-        |> ensure_pruner_max_age(app_name)
-        |> ensure_lifeline_plugin(app_name)
+    @doc """
+    The whole backfill of an existing Oban block, on content: queues, cron
+    plugin and entries, Pruner retention, Lifeline. Public so it can be tested
+    against content strings.
 
-      if updated_content == content do
-        Mix.shell().info(
-          "✅ Oban configuration already up-to-date (queues, cron plugin, pruner max_age, and Lifeline present)"
-        )
-      else
-        Mix.shell().info(
-          "✅ Updated Oban configuration (queues, cron plugin, pruner retention, Lifeline)"
-        )
+    A block the host switched off is not a to-do list: `config :app, Oban, false`
+    ends the phase with one line, and `plugins: false` skips every plugin step
+    with one line (queues are still checked).
+    """
+    @spec update_content(String.t(), atom() | String.t()) :: String.t()
+    def update_content(content, app_name) do
+      cond do
+        ConfigSplice.oban_disabled?(content, app_name) ->
+          Mix.shell().info(
+            "  ℹ️  Oban is disabled in this config (`config :#{app_name}, Oban, false`) — nothing to add"
+          )
+
+          content
+
+        ConfigSplice.option_off?(content, app_name, :plugins) ->
+          updated = ensure_declared_queues(content, app_name)
+
+          Mix.shell().info(
+            "  ℹ️  Oban plugins are switched off (`plugins: false`) — no cron, Lifeline or Pruner entries to add"
+          )
+
+          report_update(content, updated)
+
+        true ->
+          # Every queue PhoenixKit or an installed module declares
+          # (`PhoenixKit.ObanQueues`) is added when missing — an idle queue costs
+          # nothing, and the reverse is the failure this exists to prevent: Oban
+          # only fetches for queues the node lists, so a job enqueued into a
+          # missing queue sits `available` forever (Pruner deletes terminal
+          # states only) while the feature looks fine. A limit already present is
+          # never changed.
+          updated =
+            content
+            |> ensure_declared_queues(app_name)
+            |> ensure_cron_plugin(app_name)
+            |> ensure_digest_cron_entries(app_name)
+            |> ensure_worker_cron_entries(app_name)
+            |> ensure_pruner_max_age(app_name)
+            |> ensure_lifeline_plugin(app_name)
+
+          report_update(content, updated)
+      end
+    end
+
+    # The closing line of the phase. It must not say "up-to-date" while a step
+    # is waiting for the host.
+    defp report_update(content, updated) do
+      pending = manual_step_count()
+
+      cond do
+        pending > 0 ->
+          Mix.shell().info(
+            "⚠️  Oban configuration: #{pending} step(s) need you — listed again at the end of the update"
+          )
+
+        updated == content ->
+          Mix.shell().info(
+            "✅ Oban configuration already up-to-date (queues, cron plugin, pruner max_age, and Lifeline present)"
+          )
+
+        true ->
+          Mix.shell().info(
+            "✅ Updated Oban configuration (queues, cron plugin, pruner retention, Lifeline)"
+          )
       end
 
-      Rewrite.Source.update(source, :content, updated_content)
+      updated
     end
 
     @doc """
@@ -520,7 +573,8 @@ if Code.ensure_loaded?(Igniter) do
              :queues,
              ["#{queue}: #{limit}"],
              &keyword_list_has_key?(&1, :queues, queue_atom, limit),
-             allow_empty: false
+             allow_empty: false,
+             fallback: fn -> queue_in_file_code?(content, app_name, queue) end
            ) do
         {:ok, result} ->
           if result != content,
@@ -532,6 +586,16 @@ if Code.ensure_loaded?(Igniter) do
           queue_manual_notice(app_name, queue, limit, why)
           content
       end
+    end
+
+    # `queues: my_queues` — nothing can be checked inside it, so a queue named
+    # in the file's code (not in a comment, a string or another app's block)
+    # counts as configured, unverified.
+    defp queue_in_file_code?(content, app_name, queue) do
+      Regex.match?(
+        ~r/(?<![A-Za-z0-9_])#{Regex.escape(queue)}:\s*\S/,
+        ConfigSplice.file_code(content, app_name, strings: true)
+      )
     end
 
     # Splice `entries` onto the end of `app_name`'s `key:` list and check the
@@ -549,19 +613,31 @@ if Code.ensure_loaded?(Igniter) do
     # back unchanged, no manual step.
     @doc false
     def append_entries(content, app_name, key, entries, verify, opts \\ []) do
+      {fallback, opts} = Keyword.pop(opts, :fallback)
+
       case ConfigSplice.append_to_list(content, app_name, key, entries, opts) do
         {:ok, candidate} ->
           verify_candidate(content, candidate, entries, verify)
 
         {:error, reason} ->
-          why = ConfigSplice.reason_text(reason, key)
+          refused(content, key, reason, fallback)
+      end
+    end
 
-          if ConfigSplice.quiet?(reason) do
-            Mix.shell().info("  ℹ️  " <> why)
-            {:ok, content}
-          else
-            {:error, why}
-          end
+    defp refused(content, key, reason, fallback) do
+      why = ConfigSplice.reason_text(reason, key)
+
+      cond do
+        ConfigSplice.quiet?(reason) ->
+          Mix.shell().info("  ℹ️  " <> why)
+          {:ok, content}
+
+        fallback && ConfigSplice.not_literal?(reason) && fallback.() ->
+          Mix.shell().info("  ℹ️  Already configured (#{key} is not a literal list; not verified)")
+          {:ok, content}
+
+        true ->
+          {:error, why}
       end
     end
 
@@ -670,8 +746,9 @@ if Code.ensure_loaded?(Igniter) do
               "  #{n}. #{headline}\n" <> Enum.map_join(lines, "", &"       #{&1}\n")
             end)
 
-          "\n⚠️  Manual steps needed — the update finished, but could not edit your config " <>
-            "for #{length(steps)} thing(s); until you do, the features named stay off:\n\n" <>
+          "\n⚠️  Manual steps needed — the update finished, but #{length(steps)} thing(s) in your " <>
+            "config are left to you. Each says what to do; an entry that is missing means " <>
+            "that feature stays off until it is added:\n\n" <>
             body
         end
 
@@ -1004,12 +1081,11 @@ if Code.ensure_loaded?(Igniter) do
       # worker that appears only in a comment inside the list is a declined
       # entry — see `ensure_worker_cron_entries/2`.
       worker = crontab_state(content, app_name, {:module, "ProcessScheduledJobsWorker"})
-      old_worker? = Regex.match?(@old_posts_worker, ConfigSplice.block_code(content, app_name))
+      block = ConfigSplice.block_code(content, app_name, strings: true) || ""
+      old_worker? = Regex.match?(@old_posts_worker, block)
+      cron_plugin? = String.contains?(block, "Oban.Plugins.Cron")
 
-      cron_plugin? =
-        String.contains?(ConfigSplice.block_code(content, app_name), "Oban.Plugins.Cron")
-
-      if worker == :declined, do: note_declined(["ProcessScheduledJobsWorker"])
+      if worker == :declined, do: note_declined([@new_worker])
 
       cond do
         # Case 1: the old worker is scheduled and the core worker is not.
@@ -1029,13 +1105,15 @@ if Code.ensure_loaded?(Igniter) do
             "  🔄 Replacing PublishScheduledPostsJob with ProcessScheduledJobsWorker..."
           )
 
-          Regex.replace(@old_posts_worker, content, @new_worker)
+          ConfigSplice.update_block(content, app_name, fn block ->
+            Regex.replace(@old_posts_worker, block, @new_worker)
+          end)
 
         # Case 1b: both are scheduled. Rewriting the old entry would leave two
         # identical crontab lines, so say what is there and change nothing —
         # the two are independently cronned callers of the same sweep, and
         # which one to drop is the host's decision, not ours.
-        old_worker? and worker == :active ->
+        old_worker? and worker in [:active, :unverified] ->
           manual_notice(
             "Both PublishScheduledPostsJob and ProcessScheduledJobsWorker are in the crontab.",
             [
@@ -1047,12 +1125,14 @@ if Code.ensure_loaded?(Igniter) do
 
           content
 
-        # Case 2: Cron plugin exists with new worker - already configured
+        # Case 2: the core worker is already scheduled — by the Cron plugin, or
+        # (a host on Oban Pro) by another plugin's crontab; adding it to the
+        # Cron plugin as well would run it twice.
         worker == :unverified ->
-          note_unverified(["ProcessScheduledJobsWorker"])
+          note_unverified([@new_worker])
           content
 
-        cron_plugin? and worker != :missing ->
+        worker != :missing ->
           Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
           content
 
@@ -1153,14 +1233,13 @@ if Code.ensure_loaded?(Igniter) do
     @spec ensure_digest_cron_entries(String.t(), atom() | String.t()) :: String.t()
     def ensure_digest_cron_entries(content, app_name) do
       {missing, declined, unverified} = split_digest_entries(content, app_name)
-      note_declined(Enum.map(declined, fn {_cron, cadence} -> "DigestWorker (#{cadence})" end))
-
-      note_unverified(
-        Enum.map(unverified, fn {_cron, cadence} -> "DigestWorker (#{cadence})" end)
-      )
+      note_declined(Enum.map(declined, &digest_name/1))
+      note_unverified(Enum.map(unverified, &digest_name/1))
 
       if missing == [] do
-        Mix.shell().info("  ℹ️  notification digest cron entries already configured")
+        if declined == [] and unverified == [],
+          do: Mix.shell().info("  ℹ️  notification digest cron entries already configured")
+
         content
       else
         Mix.shell().info("  ➕ Adding notification digest cron entries...")
@@ -1185,39 +1264,51 @@ if Code.ensure_loaded?(Igniter) do
       end)
     end
 
-    # What this app's own `crontab:` list says about an entry: `:active` (it is
-    # scheduled), `:declined` (it appears only in a comment inside the list), or
-    # `:missing`. When the list is not a literal one the updater can take
-    # (`crontab: some_var`, an attribute, a call), nothing can be verified inside
-    # it: an active mention anywhere in the file's code — the variable is
-    # usually defined above the Oban block — means `:unverified` (present, as
-    # far as the text tells), and only an entry mentioned nowhere is `:missing`.
-    # Calling those "missing" sent a host with the whole list in a variable a
-    # manual step per entry, and following it would have scheduled them twice.
+    # What this app's config says about a crontab entry:
+    #
+    #   * `:active` — its code mentions it anywhere in the app's own Oban block
+    #     (any `crontab:`: a `DynamicCron` list counts as scheduling it too, and
+    #     adding it to the Cron plugin as well would run it twice);
+    #   * `:declined` — it appears only in a comment inside the Cron plugin's list;
+    #   * `:unverified` — the Cron plugin's list is not a literal one
+    #     (`crontab: some_var`, `++`, `plugins: some_var`), nothing can be read
+    #     inside it, but the entry is in the file's code (not a comment, a string
+    #     or another app's block) — the variable is usually defined above the
+    #     block;
+    #   * `:missing` — none of those. Only this one earns a manual step: calling
+    #     an unreadable list "missing" sent a host one step per entry, and
+    #     following them would have scheduled everything twice.
     defp crontab_state(content, app_name, probe) do
-      case ConfigSplice.list_text(content, app_name, :crontab) do
-        {:ok, %{original: original, code: code}} ->
-          cond do
-            probe_matches?(probe, code) -> :active
-            probe_in_comment?(probe, original) -> :declined
-            true -> :missing
-          end
+      if probe_in_block?(probe, content, app_name) do
+        :active
+      else
+        case ConfigSplice.list_text(content, app_name, :crontab) do
+          {:ok, %{original: original}} ->
+            if probe_in_comment?(probe, original), do: :declined, else: :missing
 
-        {:error, _reason} ->
-          if probe_matches?(probe, ConfigSplice.mask(content)),
-            do: :unverified,
-            else: :missing
+          {:error, reason} ->
+            if ConfigSplice.not_literal?(reason) and probe_in_file?(probe, content, app_name),
+              do: :unverified,
+              else: :missing
+        end
       end
     end
 
-    defp note_unverified([]), do: :ok
-
-    defp note_unverified(names) do
-      Mix.shell().info(
-        "  ℹ️  Already configured (crontab is not a literal list; not verified): " <>
-          Enum.join(names, ", ")
-      )
+    defp probe_in_block?(probe, content, app_name) do
+      case ConfigSplice.block_code(content, app_name, probe_mask(probe)) do
+        nil -> false
+        code -> probe_matches?(probe, code)
+      end
     end
+
+    defp probe_in_file?(probe, content, app_name),
+      do: probe_matches?(probe, ConfigSplice.file_code(content, app_name, probe_mask(probe)))
+
+    # A module name is looked for with string bodies blanked (a name inside a
+    # string is not an entry); the digest probe needs `cadence: "daily"`, which
+    # is a string.
+    defp probe_mask({:module, _}), do: [strings: true]
+    defp probe_mask({:digest, _}), do: []
 
     # One tuple at a time: `[^{}]*` cannot cross a tuple's own braces, so
     # `cadence: "daily"` of one entry is never credited to another's
@@ -1228,10 +1319,21 @@ if Code.ensure_loaded?(Igniter) do
       Regex.match?(~r/DigestWorker[^{}]*%\{[^{}]*cadence:\s*"#{Regex.escape(cadence)}"/, code)
     end
 
-    defp probe_in_comment?({:module, mod}, original), do: String.contains?(original, mod)
+    # The same test on the list's comments alone (`#` markers kept, code blanked),
+    # so an entry commented out over several lines reads the way it was written.
+    defp probe_in_comment?(probe, original),
+      do: probe_matches?(probe, ConfigSplice.comments_only(original))
 
-    defp probe_in_comment?({:digest, cadence}, original) do
-      Regex.match?(~r/#[^\n]*DigestWorker[^\n]*cadence:\s*"#{Regex.escape(cadence)}"/, original)
+    defp digest_name({_cron, cadence}),
+      do: "PhoenixKit.Notifications.DigestWorker (#{cadence})"
+
+    defp note_unverified([]), do: :ok
+
+    defp note_unverified(names) do
+      Mix.shell().info(
+        "  ℹ️  Already configured (crontab is not a literal list; not verified): " <>
+          Enum.join(names, ", ")
+      )
     end
 
     defp note_declined([]), do: :ok

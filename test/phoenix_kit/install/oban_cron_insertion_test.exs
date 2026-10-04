@@ -645,12 +645,6 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       refute masked =~ "in # here"
       assert masked =~ "d = 1"
     end
-
-    test "declined?/2 tells a commented-out module from an active one" do
-      assert ConfigSplice.declined?("# {\"x\", Foo.Worker}\n", "Foo.Worker")
-      refute ConfigSplice.declined?("{\"x\", Foo.Worker} # still on\n", "Foo.Worker")
-      refute ConfigSplice.declined?("nothing\n", "Foo.Worker")
-    end
   end
 
   # --- second round: masker forms, scoping, reasons, CRLF ---------------------
@@ -1205,15 +1199,582 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
     test "a module attribute behaves the same" do
       content =
-        "defmodule Crons do\n  @crontab [\n    " <>
-          Enum.join(@worker_lines ++ @digest_lines, ",\n    ") <>
-          "\n  ]\nend\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: Crons.all()}]\n"
+        "@crontab [\n  " <>
+          Enum.join(@worker_lines ++ @digest_lines, ",\n  ") <>
+          "\n]\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: @crontab}]\n"
 
+      assert {:ok, _} = Code.string_to_quoted(content)
       {result, out, steps} = run_all(content)
 
       assert result == content
       assert steps == []
       assert out =~ "not verified"
+    end
+  end
+
+  # --- round 4: the final review's findings --------------------------------
+
+  # The whole backfill, with what it printed and the steps it left.
+  defp backfill(content) do
+    ObanConfig.take_manual_steps()
+    ObanConfig.take_declined()
+
+    err =
+      capture_io(:stderr, fn ->
+        out =
+          capture_io(fn -> send(self(), {:r, ObanConfig.update_content(content, "myapp")}) end)
+
+        send(self(), {:out, out})
+      end)
+
+    assert_received {:r, result}
+    assert_received {:out, out}
+    {result, out, err, ObanConfig.take_manual_steps()}
+  end
+
+  # The crontab steps only (no queues, Pruner or Lifeline).
+  defp cron_backfill(content) do
+    ObanConfig.take_manual_steps()
+
+    err =
+      capture_io(:stderr, fn ->
+        out =
+          capture_io(fn ->
+            result =
+              content
+              |> ObanConfig.ensure_cron_plugin("myapp")
+              |> ObanConfig.ensure_digest_cron_entries("myapp")
+              |> ObanConfig.ensure_worker_cron_entries("myapp")
+
+            send(self(), {:r, result})
+          end)
+
+        send(self(), {:out, out})
+      end)
+
+    assert_received {:r, result}
+    assert_received {:out, out}
+    {result, out, err, ObanConfig.take_manual_steps()}
+  end
+
+  defp info_lines(out), do: out |> String.split("\n", trim: true)
+
+  @all_pk_worker_lines [
+    ~S|{"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|,
+    ~S|{"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}|,
+    ~S|{"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}|,
+    ~S|{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}|,
+    ~S|{"15 4 * * *", PhoenixKit.Jobs.PruneWorker}|,
+    ~S|{"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker}|,
+    ~S|{"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}}|,
+    ~S|{"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}}|,
+    ~S|{"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}}|,
+    ~S|{"0 6 * * 1", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "weekly"}}|
+  ]
+
+  describe "a mention elsewhere is not presence (the file-wide fallback is narrow)" do
+    test "A: another app's Oban block has Cron with every entry; this app has no Cron" do
+      other =
+        "config :other_app, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n" <>
+          Enum.map_join(@all_pk_worker_lines, ",\n", &("       " <> &1)) <> "\n     ]}\n  ]\n\n"
+
+      content = other <> "config :myapp, Oban,\n  plugins: [Oban.Plugins.Pruner]\n"
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      assert String.starts_with?(result, other)
+      assert in_crontab?(result, @posts_worker)
+      assert in_crontab?(result, PhoenixKit.Jobs.SweepWorker)
+    end
+
+    test "B: a bare Oban.Plugins.Cron with no crontab: option gets a manual step, not 'configured'" do
+      other =
+        "config :other_app, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [#{Enum.join(@all_pk_worker_lines, ", ")}]}]\n\n"
+
+      content = other <> "config :myapp, Oban,\n  plugins: [Oban.Plugins.Cron]\n"
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert Enum.any?(steps, fn {h, _} -> h =~ "worker cron entries" end)
+    end
+
+    test "C: crontab: my_cron with no entries anywhere in it, entries only in another app" do
+      other =
+        "config :other_app, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [#{Enum.join(@all_pk_worker_lines, ", ")}]}]\n\n"
+
+      content =
+        other <>
+          "my_cron = [{\"0 3 * * *\", MyApp.Nightly}]\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: my_cron}]\n"
+
+      {result, out, _err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert Enum.any?(steps, fn {h, _} -> h =~ "worker cron entries" end)
+      refute out =~ "not verified"
+    end
+
+    test "D: a module name inside a string is not an entry" do
+      content =
+        "note = \"PhoenixKit.Jobs.SweepWorker PhoenixKit.Jobs.PruneWorker\"\n\n" <>
+          "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: my_cron}]\n"
+
+      {_result, out, _err, steps} = cron_backfill(content)
+
+      assert Enum.any?(steps, fn {h, _} -> h =~ "worker cron entries" end)
+      refute out =~ "SweepWorker"
+    end
+
+    test "E: entries in a variable the Cron plugin does not use still count as unverified, never as added" do
+      # The text cannot tell a used variable from an unused one; it says so.
+      content =
+        "unused = [#{Enum.join(@all_pk_worker_lines, ", ")}]\n\n" <>
+          "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: other_var}]\n"
+
+      {result, out, _err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert steps == []
+      assert out =~ "not verified"
+    end
+  end
+
+  describe "every crontab: of the block counts as presence; entries go only to Oban.Plugins.Cron" do
+    defp dynamic_config(dynamic_lines, cron_lines \\ nil) do
+      list = fn lines -> Enum.map_join(lines, ",\n         ", & &1) end
+
+      cron =
+        if cron_lines,
+          do: ",\n    {Oban.Plugins.Cron,\n     crontab: [\n       #{list.(cron_lines)}\n     ]}",
+          else: ""
+
+      "config :myapp, Oban,\n  plugins: [\n    {Oban.Pro.Plugins.DynamicCron,\n     crontab: [\n         #{list.(dynamic_lines)}\n     ]}#{cron}\n  ]\n"
+    end
+
+    test "DynamicCron only, holding the worker: nothing is added to it, and a run changes nothing more" do
+      content = dynamic_config([hd(@all_pk_worker_lines)])
+
+      {first, _out, _err, steps} = cron_backfill(content)
+
+      # The worker is scheduled (by DynamicCron): not added again. The rest
+      # cannot go into DynamicCron, and there is no Cron plugin to take them.
+      assert first == content
+      assert Enum.any?(steps, fn {h, _} -> h =~ "worker cron entries" end)
+      refute Enum.any?(steps, fn {h, _} -> h =~ "ProcessScheduledJobsWorker" end)
+
+      {second, _, _, _} = cron_backfill(first)
+      {third, _, _, _} = cron_backfill(second)
+      assert second == first and third == first
+      assert length(String.split(third, "ProcessScheduledJobsWorker")) == 2
+    end
+
+    test "DynamicCron first, then Cron with every entry: nothing is duplicated" do
+      content = dynamic_config([~S|{"0 3 * * *", MyApp.Nightly}|], @all_pk_worker_lines)
+
+      {first, _out, _err, steps} = cron_backfill(content)
+      assert first == content
+      assert steps == []
+
+      {second, _, _, _} = cron_backfill(first)
+      {third, _, _, _} = cron_backfill(second)
+      assert second == content and third == content
+    end
+
+    test "DynamicCron first, then a Cron missing some: they land in Cron, once" do
+      content =
+        dynamic_config([~S|{"0 3 * * *", MyApp.Nightly}|], [hd(@all_pk_worker_lines)])
+
+      {first, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      assert in_crontab?(first, PhoenixKit.Jobs.SweepWorker)
+
+      # Inside the Cron plugin's tuple, not the DynamicCron one.
+      [dynamic_part, cron_part] = String.split(first, "{Oban.Plugins.Cron,")
+      assert dynamic_part =~ "MyApp.Nightly"
+      refute dynamic_part =~ "SweepWorker"
+      assert cron_part =~ "SweepWorker"
+
+      {second, _, _, _} = cron_backfill(first)
+      assert second == first
+    end
+  end
+
+  describe "refusal texts and the quiet cases" do
+    test "F: config :app, Oban, false — one info line for the whole phase, no steps, no 'Adding'" do
+      {result, out, err, steps} = backfill("config :myapp, Oban, false\n")
+
+      assert result == "config :myapp, Oban, false\n"
+      assert steps == []
+      assert err == ""
+      assert [_header, line] = info_lines(out) |> Enum.take(2) |> then(&[hd(&1), List.last(&1)])
+      assert line =~ "Oban is disabled"
+      assert length(info_lines(out)) == 1
+      refute out =~ "Adding"
+      refute out =~ "up-to-date"
+    end
+
+    test "G: plugins: false — queues are still checked, plugins are one info line, no steps" do
+      content =
+        "config :myapp, Oban,\n  repo: MyApp.Repo,\n  queues: [default: 10],\n  plugins: false\n"
+
+      {result, out, err, steps} = backfill(content)
+
+      assert steps == []
+      assert err == ""
+      assert out =~ "Oban plugins are switched off"
+      refute out =~ "Adding PhoenixKit worker"
+      refute out =~ "Adding notification digest"
+      refute out =~ "Pruner configuration not found"
+      assert {:ok, _} = Code.string_to_quoted(result)
+    end
+
+    test "K: a block nested in an if says so; not 'not verified'" do
+      content =
+        "if config_env() == :prod do\n  config :myapp, Oban,\n    plugins: [{Oban.Plugins.Cron, crontab: []}]\nend\n"
+
+      {result, out, err, steps} = backfill(content)
+
+      assert result == content
+      assert err =~ "nested in an expression"
+      refute out =~ "not verified"
+      assert steps != []
+    end
+
+    test "17: a nested prod block that follows the app's block is not edited" do
+      content = """
+      config :myapp, Oban,
+        repo: MyApp.Repo,
+        plugins: [
+          {Oban.Plugins.Cron,
+           crontab: [
+             {"0 3 * * *", MyApp.Nightly}
+           ]}
+        ]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [
+            {Oban.Plugins.Cron,
+             crontab: [
+               {"0 5 * * *", MyApp.ProdOnly}
+             ]}
+          ]
+      end
+      """
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      [outer, nested] = String.split(result, "if config_env()")
+      assert outer =~ "SweepWorker"
+      refute nested =~ "SweepWorker"
+      refute nested =~ "PruneWorker"
+    end
+
+    test "17b: the app's own block has no plugins; the nested prod block is still not edited" do
+      content = """
+      config :myapp, Oban,
+        repo: MyApp.Repo,
+        queues: [default: 10]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [{Oban.Plugins.Cron, crontab: [{"0 3 * * *", MyApp.Nightly}]}]
+      end
+      """
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      refute result =~ "SweepWorker"
+      refute result =~ "DigestWorker"
+      refute result =~ "ProcessScheduledJobsWorker"
+      assert Enum.any?(steps, fn {h, _} -> h =~ "worker cron entries" end)
+    end
+
+    test "a plugins: variable gives a text that blames the plugins, not a missing crontab:" do
+      content = "config :myapp, Oban,\n  plugins: my_plugins\n"
+      {_result, _out, err, steps} = backfill(content)
+
+      assert err =~ "`plugins:` are not a literal list"
+      refute err =~ "no `crontab:` option"
+      assert steps != []
+    end
+  end
+
+  describe "queues from a variable" do
+    test "every queue present in the file's code: already configured, no step" do
+      content =
+        "my_queues = [default: 10, media: 3, mailers: 5]\n\nconfig :myapp, Oban,\n  queues: my_queues\n"
+
+      out =
+        capture_io(fn ->
+          capture_io(:stderr, fn ->
+            send(self(), {:r, ObanConfig.ensure_queue(content, "myapp", "media", 3)})
+          end)
+        end)
+
+      assert_received {:r, ^content}
+      assert out =~ "not a literal list; not verified"
+    end
+
+    test "a queue named only in a comment, a string or another app is still a manual step" do
+      content =
+        "# media: 3\nnote = \"media: 3\"\nconfig :other, Oban, queues: [media: 3]\n\nconfig :myapp, Oban,\n  queues: my_queues\n"
+
+      ObanConfig.take_manual_steps()
+
+      capture_io(:stderr, fn ->
+        send(self(), {:r, ObanConfig.ensure_queue(content, "myapp", "media", 3)})
+      end)
+
+      assert_received {:r, ^content}
+      assert [{headline, _}] = ObanConfig.take_manual_steps()
+      assert headline =~ "media queue"
+    end
+  end
+
+  describe "declined entries" do
+    test "a digest entry commented out over two lines is declined" do
+      content =
+        crontab_config(~S|,
+      # {"0 6 * * 1", PhoenixKit.Notifications.DigestWorker,
+      #  args: %{cadence: "weekly"}}|)
+
+      ObanConfig.take_declined()
+      updated = quiet(fn -> ObanConfig.ensure_digest_cron_entries(content, "myapp") end)
+
+      refute updated =~ ~r/^\s+\{"0 6 \* \* 1"/m
+      assert ObanConfig.take_declined() == ["PhoenixKit.Notifications.DigestWorker (weekly)"]
+    end
+
+    test "names are the full module names, with the cadence for a digest" do
+      content =
+        crontab_config(~S|,
+      # {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}
+      # {"0 6 * * 1", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "weekly"}}
+      # {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|)
+
+      {_result, _out, _err, _steps} = backfill(content)
+      # backfill/1 already drained the list; run again to read it.
+      ObanConfig.take_declined()
+      quiet(fn -> ObanConfig.update_content(content, "myapp") end)
+
+      assert ObanConfig.take_declined() |> Enum.sort() == [
+               "PhoenixKit.Notifications.DigestWorker (weekly)",
+               "PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker",
+               "PhoenixKit.Users.Referrals.PruneWorker"
+             ]
+    end
+  end
+
+  describe "ensure_cron_plugin/2 with the old worker in a combined list" do
+    test "[old_worker] ++ extra holding the core worker: the double-run warning, not 'configured'" do
+      content =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [{\"* * * * *\", PhoenixKitPosts.Workers.PublishScheduledPostsJob}] ++ extra()}\n  ]\n\nextra = [{\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}]\n"
+
+      ObanConfig.take_manual_steps()
+
+      err =
+        capture_io(:stderr, fn ->
+          capture_io(fn ->
+            send(self(), {:r, ObanConfig.ensure_cron_plugin(content, "myapp")})
+          end)
+        end)
+
+      assert_received {:r, ^content}
+      assert err =~ "Both PublishScheduledPostsJob and ProcessScheduledJobsWorker"
+      assert [{headline, _}] = ObanConfig.take_manual_steps()
+      assert headline =~ "Both PublishScheduledPostsJob"
+    end
+
+    test "the old-worker rename stays inside this app's block" do
+      other =
+        "config :other, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"* * * * *\", Other.PublishScheduledPostsJob}]}]\n\n"
+
+      mine =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKitPosts.Workers.PublishScheduledPostsJob}\n     ]}\n  ]\n"
+
+      updated = quiet(fn -> ObanConfig.ensure_cron_plugin(other <> mine, "myapp") end)
+
+      assert String.starts_with?(updated, other)
+      assert updated =~ "ProcessScheduledJobsWorker"
+      refute updated =~ "PhoenixKitPosts.Workers.PublishScheduledPostsJob"
+    end
+  end
+
+  describe "the masker follows the lexical forms inside interpolation" do
+    @interp_forms [
+      {~S|#{?"}|, "a character literal"},
+      {~S|#{'"'}|, "a charlist"},
+      {~S|#{~s(")}|, "a sigil"},
+      {~S|#{?{}|, "a brace character literal"},
+      {~S|#{"x" # "
+        }|, "a comment holding a quote"},
+      {~S|#{~HTML(x])}|, "a multi-letter sigil with a bracket"}
+    ]
+
+    for {interp, name} <- @interp_forms do
+      test "an interpolation holding #{name}" do
+        content =
+          crontab_around([
+            ~s({"0 2 * * *", MyApp.I, args: %{n: "a #{unquote(interp)} ] b"}}),
+            ~S|{"0 3 * * *", MyApp.J, args: %{note: "x # y"}} # tail|
+          ])
+
+        case Code.string_to_quoted(content, emit_warnings: false) do
+          {:ok, _} ->
+            updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+            assert updated != content
+            assert host_preserved?(content, updated)
+
+          {:error, _} ->
+            # Not valid Elixir after all: nothing to assert about it.
+            :ok
+        end
+      end
+    end
+
+    test "a file the masker cannot balance is called unreadable, not diagnosed" do
+      content =
+        "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [\"unterminated]}]\n"
+
+      ObanConfig.take_manual_steps()
+      err = capture_io(:stderr, fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      assert err =~ "could not read the Oban block safely"
+      refute err =~ "no `crontab:`"
+    end
+  end
+
+  describe "line endings follow the list's own neighbourhood" do
+    test "a CRLF list in an otherwise LF file is written with CRLF" do
+      lf_head = String.duplicate("# note\n", 12)
+      list = String.replace(crontab_config(" # tail"), "\n", "\r\n")
+
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(lf_head <> list, "myapp") end)
+
+      assert String.starts_with?(updated, lf_head)
+      added = updated |> String.split("SweepWorker") |> hd() |> String.split("\n") |> List.last()
+      assert added != nil
+      refute String.replace(String.replace_prefix(updated, lf_head, ""), "\r\n", "") =~ "\n"
+    end
+
+    test "an LF list in an otherwise CRLF file is written with LF" do
+      crlf_head = String.duplicate("# note\r\n", 12)
+
+      updated =
+        quiet(fn ->
+          ObanConfig.ensure_worker_cron_entries(crlf_head <> crontab_config(" # tail"), "myapp")
+        end)
+
+      body = String.replace_prefix(updated, crlf_head, "")
+      refute body =~ "\r"
+    end
+  end
+
+  describe "rollback and refusal branches" do
+    test "a rescue_after raise that cannot be verified becomes a recorded manual step" do
+      # The first match is inside a comment, so the replacement changes the
+      # comment only and the real entry keeps its low value.
+      content = """
+      config :myapp, Oban,
+        plugins: [
+          # {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(5)}
+          {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(10)}
+        ]
+      """
+
+      ObanConfig.take_manual_steps()
+
+      err =
+        capture_io(:stderr, fn ->
+          send(self(), {:r, ObanConfig.ensure_lifeline_plugin(content, "myapp")})
+        end)
+
+      assert_received {:r, ^content}
+      assert err =~ "Could not safely raise Lifeline rescue_after"
+      assert [{headline, lines}] = ObanConfig.take_manual_steps()
+      assert headline =~ "Lifeline rescue_after"
+      assert Enum.any?(lines, &(&1 =~ "minutes(60)"))
+    end
+
+    test "append_entries/6 refuses through preserves_original? when only that check fails" do
+      content = "config :myapp, Oban,\n  queues: [default: 10]\n"
+
+      # The verify check is satisfied and the candidate parses, but the entry
+      # text closes the list early and reopens another option: the entries do
+      # not parse as list elements, so the original cannot be shown preserved.
+      assert {:error, why} =
+               ObanConfig.append_entries(
+                 content,
+                 "myapp",
+                 :queues,
+                 ["a: 1], other: [2"],
+                 fn _ast -> true end
+               )
+
+      assert why =~ "changed something else"
+    end
+  end
+
+  describe "the closing line of the phase and of the update" do
+    test "'up-to-date' is not printed while a step is waiting" do
+      content = "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: my_cron}]\n"
+      {_result, out, _err, steps} = backfill(content)
+
+      assert steps != []
+      refute out =~ "already up-to-date"
+      assert out =~ "step(s) need you"
+    end
+
+    test "the summary header does not promise that every item switches a feature off" do
+      ObanConfig.take_manual_steps()
+
+      steps = [
+        {"Both PublishScheduledPostsJob and ProcessScheduledJobsWorker are in the crontab.",
+         ["x"]}
+      ]
+
+      summary = ObanConfig.manual_steps_summary(steps)
+
+      refute summary =~ "stay off"
+      assert summary =~ "Manual steps needed"
+    end
+
+    test "the manual-steps block is printed after a run that raises, and the error still propagates" do
+      alias Mix.Tasks.PhoenixKit.Update, as: Update
+
+      ObanConfig.take_manual_steps()
+      content = "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: my_cron}]\n"
+      capture_io(:stderr, fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      err =
+        capture_io(:stderr, fn ->
+          assert_raise Mix.Error, ~r/migration declined/, fn ->
+            Update.with_manual_steps_summary(fn -> Mix.raise("migration declined") end)
+          end
+        end)
+
+      assert err =~ "Manual steps needed"
+      assert err =~ "worker cron entries"
+      assert ObanConfig.take_manual_steps() == []
+    end
+
+    test "and after a run that completes" do
+      alias Mix.Tasks.PhoenixKit.Update, as: Update
+
+      ObanConfig.take_manual_steps()
+      content = "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: my_cron}]\n"
+      capture_io(:stderr, fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      err =
+        capture_io(:stderr, fn ->
+          assert Update.with_manual_steps_summary(fn -> :done end) == :done
+        end)
+
+      assert err =~ "Manual steps needed"
     end
   end
 
