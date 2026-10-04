@@ -383,8 +383,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
     # Find tabs with dynamic_children (arity 1 or 2) and expand them.
     # The 2-arity variant receives locale so modules can render translated
     # child labels without falling back to `Gettext.get_locale/1`.
-    {parents_with_dynamic, other_tabs} =
-      Enum.split_with(tabs, fn tab ->
+    parents_with_dynamic =
+      Enum.filter(tabs, fn tab ->
         is_function(tab.dynamic_children, 1) or is_function(tab.dynamic_children, 2)
       end)
 
@@ -411,8 +411,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
         end)
       end)
 
-    # Active state is applied after this function by add_active_state/2
-    other_tabs ++ parents_with_dynamic ++ dynamic_children
+    # Active state is applied after this function by add_active_state/2.
+    # `tabs` arrives sorted by priority; parents keep their place. Moving the
+    # parents that have dynamic_children behind the other tabs drew them last
+    # in their group whatever their priority (Entities and Publishing ended up
+    # below Locations).
+    tabs ++ dynamic_children
   end
 
   # Dispatches on arity so modules can opt in to locale-aware rendering
@@ -439,6 +443,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.AdminSidebar do
   # compact-mode flyout markup can be pinned without that machinery.
   @doc false
   def __tab_with_subtabs_for_test__(assigns), do: admin_tab_with_subtabs(assigns)
+
+  # Test-only public delegate, same reasoning as above: pins the order in
+  # which tabs with dynamic_children are drawn without a started registry.
+  @doc false
+  def __expand_dynamic_children_for_test__(tabs, scope, locale),
+    do: expand_dynamic_children(tabs, scope, locale)
 
   # Recursively checks if any descendant (children, grandchildren, etc.) is active.
   # Includes depth limit and cycle detection for safety with parent-app-registered tabs.
