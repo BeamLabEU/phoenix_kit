@@ -26,6 +26,19 @@ defmodule PhoenixKit.Supervisor do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
+  @doc false
+  # The once-per-boot Oban checks the `:oban_queue_check` child runs: declared
+  # queues this node does not run, and an Oban schema behind the Oban library.
+  # Named (not an anonymous fn in the child list) so the wiring is testable;
+  # `:delay` and `:oban` are for tests.
+  @spec oban_boot_checks(keyword()) :: :ok
+  def oban_boot_checks(opts \\ []) do
+    Process.sleep(Keyword.get(opts, :delay, :timer.seconds(10)))
+    oban = Keyword.take(opts, [:oban])
+    PhoenixKit.ObanQueues.warn_about_missing_queues(oban)
+    PhoenixKit.ObanSchema.warn_if_behind(oban)
+  end
+
   # Minimal set of children needed when running mix phoenix_kit.update.
   # Skips Dashboard.Registry, OAuthConfigLoader, module workers, and presence
   # so the update task only needs 1-2 DB connections for migrations.
@@ -116,15 +129,16 @@ defmodule PhoenixKit.Supervisor do
       # Once per boot: say which declared Oban queues this node does not run
       # (see PhoenixKit.ObanQueues). Delayed, because the host usually starts
       # Oban after PhoenixKit; best-effort and silent when Oban is absent, in
-      # testing mode, or deliberately runs no queues on this node.
-      Supervisor.child_spec(
-        {Task,
-         fn ->
-           Process.sleep(:timer.seconds(10))
-           PhoenixKit.ObanQueues.warn_about_missing_queues()
-         end},
-        id: :oban_queue_check
-      ),
+      # testing mode, or deliberately runs no queues on this node. The same
+      # pass says when the running Oban's schema is behind the Oban library
+      # (one catalog query; see PhoenixKit.ObanSchema) — for hosts that never
+      # run `mix phoenix_kit.update`, where unique inserts would otherwise fail
+      # with nothing pointing at the cause.
+      %{
+        id: :oban_queue_check,
+        start: {Task, :start_link, [__MODULE__, :oban_boot_checks, []]},
+        restart: :temporary
+      },
       # Once per boot: queue the storage location backfill (V204) while any
       # stored object has no location row, and the checksum backfill while
       # any file still has the upload API's old MD5 checksum, and the storage

@@ -62,6 +62,16 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   The row is omitted entirely when no installed module owns migrations, so a
   core-only install keeps the compact tree.
 
+  The `Oban schema` row is the version on `oban_jobs` against the one the
+  installed Oban library expects. Oban's schema follows the Oban library, not
+  PhoenixKit's chain, and a schema left behind fails every unique insert — so
+  a behind schema turns `Next` into `mix phoenix_kit.update`, which steps it up:
+
+      ├── Installed: V208 ✅
+      ├── Database: Connected ✅
+      ├── Oban schema: v13 ⚠ (Oban expects v14)
+      └── Next: mix phoenix_kit.update — Oban schema at public is v13, Oban expects v14
+
   ## "code expects", not "update available"
 
   Everything reported here is measured against the version compiled into the
@@ -92,6 +102,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   alias PhoenixKit.Install.StatusTree
   alias PhoenixKit.Migrations.Modules, as: MigrationModules
   alias PhoenixKit.Migrations.Postgres
+  alias PhoenixKit.ObanSchema
 
   @impl Mix.Task
   @spec run([String.t()]) :: :ok
@@ -199,7 +210,12 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     # queried when the database answered — otherwise every coordinator would
     # time out one after another producing a wall of identical errors.
     modules = module_entries(database_status, prefix)
-    next_action = determine_next_action(installation_status, modules, prefix)
+    oban = oban_schema_entries(database_status, prefix)
+
+    next_action =
+      installation_status
+      |> determine_next_action(modules, prefix)
+      |> StatusReport.with_oban_schema(oban, prefix)
 
     # Display header
     IO.puts("\n#{IO.ANSI.bright()}PhoenixKit v#{phoenix_kit_version}#{IO.ANSI.reset()}")
@@ -211,6 +227,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
         {"Database", format_database_status(database_status)}
       ] ++
         module_tree_rows(modules) ++
+        oban_schema_rows(oban, prefix) ++
         [{"Next", format_next_action(next_action)}]
     )
 
@@ -245,6 +262,63 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   end
 
   defp maybe_hint_no_start(_), do: :ok
+
+  # ── Oban schema ─────────────────────────────────────────────────────────────
+
+  # Oban's schema follows the Oban library, not PhoenixKit's chain (see
+  # PhoenixKit.ObanSchema). Asked only when the database answered, same as the
+  # module versions; at core's prefix and at the Oban config's when it differs.
+  defp oban_schema_entries({:connected_with_tables, _version}, prefix) do
+    case get_repo_with_fallback() do
+      nil ->
+        :not_queried
+
+      repo ->
+        oban_config = Application.get_env(Mix.Project.config()[:app], Oban)
+        ObanSchema.check_all(repo, ObanSchema.targets(repo, prefix, oban_config))
+    end
+  end
+
+  defp oban_schema_entries(_database_status, _prefix), do: :not_queried
+
+  #   ├── Oban schema: v14 ✅
+  #
+  # Omitted when nothing was asked, or no checked prefix has an `oban_jobs`
+  # table. The prefix is named only when it is not simply core's own.
+  defp oban_schema_rows(:not_queried, _prefix), do: []
+
+  defp oban_schema_rows(entries, prefix) do
+    case Enum.reject(entries, fn {_prefix, status} -> status == :no_table end) do
+      [] ->
+        []
+
+      [{^prefix, status}] ->
+        [{"Oban schema", format_oban_schema(status)}]
+
+      reported ->
+        [
+          {"Oban schema",
+           Enum.map_join(reported, ", ", fn {p, status} ->
+             "#{p}: #{format_oban_schema(status)}"
+           end)}
+        ]
+    end
+  end
+
+  defp format_oban_schema({:current, :infinity}),
+    do: "#{IO.ANSI.green()}v∞ ✅#{IO.ANSI.reset()}"
+
+  defp format_oban_schema({:current, version}),
+    do: "#{IO.ANSI.green()}v#{version} ✅#{IO.ANSI.reset()}"
+
+  defp format_oban_schema({:behind, migrated, expected}),
+    do: "#{IO.ANSI.yellow()}v#{migrated} ⚠ (Oban expects v#{expected})#{IO.ANSI.reset()}"
+
+  defp format_oban_schema({:ahead, migrated, expected}),
+    do: "#{IO.ANSI.yellow()}v#{migrated} (newer than this Oban, v#{expected})#{IO.ANSI.reset()}"
+
+  defp format_oban_schema(status),
+    do: "#{IO.ANSI.red()}#{ObanSchema.describe(status)}#{IO.ANSI.reset()}"
 
   # ── Module schema versions ──────────────────────────────────────────────────
 
@@ -515,6 +589,10 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   end
 
   defp format_next_action({:check_modules, _names} = action) do
+    "#{IO.ANSI.red()}#{StatusReport.describe(action)}#{IO.ANSI.reset()}"
+  end
+
+  defp format_next_action({:check_oban_schema, _labels} = action) do
     "#{IO.ANSI.red()}#{StatusReport.describe(action)}#{IO.ANSI.reset()}"
   end
 

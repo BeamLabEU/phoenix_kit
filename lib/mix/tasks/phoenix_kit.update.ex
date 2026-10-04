@@ -26,6 +26,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     - Updates CSS configuration (enables daisyUI themes if disabled)
     - Rebuilds assets using the Phoenix asset pipeline
     - Applies database migrations (with optional interactive prompt)
+    - Steps up Oban's schema when the installed Oban library expects a newer
+      one (see "Oban schema" below)
+
+    ## Oban schema
+
+    Oban's tables are versioned by the Oban library, not by PhoenixKit's chain:
+    core installs them once, at whatever version the Oban of that day shipped,
+    and a later Oban may need a newer schema (Oban 2.24's version 14 — without
+    it every unique insert fails, cron included). The update compares the
+    version on `oban_jobs` with `Oban.Migration.current_version/1` — at
+    PhoenixKit's prefix, and at your Oban config's prefix (on the repo that
+    config names) when that differs — and when the schema is behind writes
+    `<timestamp>_phoenix_kit_update_oban_vNN_to_vMM.exs`, applied with the
+    rest of the update's migrations. This happens whether or not core itself
+    had anything to migrate. No `oban_jobs` table (a fresh install), a schema
+    matching the library, or a non-Postgres repo writes nothing; a schema
+    newer than the library is only reported. When your Oban config runs on a
+    different repo than the one this task migrates (its `repo:` is not the
+    first of `:ecto_repos`), no file is written for it — the task prints the
+    migration to add to that repo instead.
 
     ## Usage
 
@@ -128,6 +148,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     alias PhoenixKit.Migrations.Modules, as: MigrationModules
     alias PhoenixKit.Migrations.Postgres, as: MigrationsPostgres
+    alias PhoenixKit.ObanSchema
     # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
     # application config that isn't available during mix task execution.
 
@@ -768,14 +789,46 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         AssetRebuild.check_and_rebuild(verbose: true)
       end
 
-      # Handle interactive migration execution
-      run_interactive_migration_update(opts)
-
-      # Run migrations for registered PhoenixKit modules (e.g. Document Creator)
-      run_module_migrations(opts)
+      # Oban's schema step-up, the migrate step, and module migrations
+      run_schema_steps(opts)
 
       # Show migration status summary
       show_migration_status(prefix)
+    end
+
+    @doc false
+    # The database half of the post-Igniter work, in order:
+    #
+    #   1. Oban's schema step-up (PhoenixKit.ObanSchema) — written BEFORE the
+    #      migrate step so a single `ecto.migrate` applies core and Oban
+    #      together, and a declined prompt leaves the file on disk for a later
+    #      `mix ecto.migrate`, exactly like the core file Igniter just wrote.
+    #   2. the migrate step (prompt, or automatic with --yes)
+    #   3. re-reading the Oban schema version after it
+    #   4. migrations for registered PhoenixKit modules
+    #
+    # Deliberately takes no core installation status: the Oban step runs
+    # whether or not core had anything to migrate — a host already on the
+    # latest core is precisely the one an Oban upgrade leaves behind. `steps`
+    # replaces any of the four (tests observe what runs, and in what order).
+    def run_schema_steps(opts, steps \\ %{}) do
+      steps = Map.merge(default_schema_steps(), steps)
+      prefix = PrefixConfig.resolve_prefix(opts)
+
+      oban_staged = steps.stage_oban.(prefix)
+      migrate_opts = Keyword.put(opts, :oban_staged, oban_staged)
+      steps.migrate.(migrate_opts)
+      steps.verify_oban.(oban_staged)
+      steps.modules.(opts)
+    end
+
+    defp default_schema_steps do
+      %{
+        stage_oban: &stage_oban_schema_migrations/1,
+        migrate: &run_interactive_migration_update/1,
+        verify_oban: &verify_oban_schema_migrations/1,
+        modules: &run_module_migrations/1
+      }
     end
 
     # Run interactive migration for updates
@@ -860,8 +913,19 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         mix phoenix_kit.update --yes     # re-run this task and migrate without prompting
                                          # (this is the one for CI/CD and deploy scripts)
         mix ecto.migrate                 # apply the migrations written so far
-      #{staged_module_note(staged)}
+      #{staged_oban_note(Keyword.get(opts, :oban_staged, []))}#{staged_module_note(staged)}
       """)
+    end
+
+    @doc false
+    # The line the "not migrated" error adds for an Oban step written to disk.
+    def staged_oban_note([]), do: ""
+
+    def staged_oban_note(staged) do
+      steps = Enum.map_join(staged, ", ", &"#{&1.prefix} v#{&1.from} → v#{&1.to}")
+
+      "\n  An Oban schema migration is written too (#{steps}); until it runs, " <>
+        "unique Oban inserts fail."
     end
 
     # Raising here aborts the task BEFORE `run_module_migrations/1` runs, so a
@@ -1192,6 +1256,159 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end)
     end
 
+    # ── Oban schema ─────────────────────────────────────────────────────────
+    #
+    # Files go to the host repo's migrations — the repo `ecto.migrate -r` runs
+    # and the one core's baseline created Oban's tables on. Checked there at
+    # core's prefix, and at the host Oban config's prefix on the repo that
+    # config names (see PhoenixKit.ObanSchema.targets/3). Returns the steps
+    # that have a migration file waiting to run.
+    defp stage_oban_schema_migrations(prefix) do
+      case resolve_host_repo_module() do
+        nil ->
+          []
+
+        repo ->
+          dir = module_migrations_dir()
+          oban_config = Application.get_env(Mix.Project.config()[:app], Oban)
+
+          repo
+          |> ObanSchema.stage(
+            ObanSchema.targets(repo, prefix, oban_config),
+            dir,
+            &unique_timestamp(dir, &1)
+          )
+          |> Enum.flat_map(&report_oban_schema(&1, repo))
+      end
+    end
+
+    defp report_oban_schema(
+           %{status: {:behind, from, to} = status, file: file} = entry,
+           host_repo
+         ) do
+      where = oban_schema_where(entry, host_repo)
+      Mix.shell().info("\n⏳ Oban schema at #{where}: #{ObanSchema.describe(status)}")
+      staged = [%{repo: entry.repo, prefix: entry.prefix, from: from, to: to}]
+
+      case file do
+        {:created, path} ->
+          Mix.shell().info("  Created migration: #{path}")
+          staged
+
+        {:exists, path} ->
+          Mix.shell().info(
+            "  Migration already exists: #{path}\n     Reusing it. To regenerate, delete the file first."
+          )
+
+          staged
+
+        :other_repo ->
+          Mix.shell().info(other_repo_hint(entry, host_repo, from, to))
+          []
+
+        :not_generatable ->
+          Mix.shell().info(
+            "⚠️  Not generating a migration for this schema name; add one by hand:\n" <>
+              "    #{oban_up_call(entry.prefix, to)}"
+          )
+
+          []
+
+        {:error, message} ->
+          Mix.shell().info("⚠️  Could not write the Oban schema migration — #{message}")
+          []
+      end
+    end
+
+    defp report_oban_schema(%{status: {:current, _} = status} = entry, host_repo) do
+      Mix.shell().info(
+        "✅ Oban schema at #{oban_schema_where(entry, host_repo)}: #{ObanSchema.describe(status)}"
+      )
+
+      []
+    end
+
+    # Fresh or Oban-less schema: core's baseline installs the library's
+    # version itself, so there is nothing to step up.
+    defp report_oban_schema(%{status: :no_table}, _host_repo), do: []
+
+    defp report_oban_schema(%{status: {:ahead, _, _} = status} = entry, host_repo) do
+      Mix.shell().info(
+        "⚠️  Oban #{ObanSchema.describe(status)} at #{oban_schema_where(entry, host_repo)} — " <>
+          "a newer Oban migrated it; nothing to do, but check the Oban version you pin."
+      )
+
+      []
+    end
+
+    defp report_oban_schema(%{status: {:unversioned, _} = status} = entry, host_repo) do
+      Mix.shell().info(
+        "⚠️  Oban schema at #{oban_schema_where(entry, host_repo)}: #{ObanSchema.describe(status)}.\n" <>
+          "    Not generating a migration from an unknown version. Establish it and restamp:\n" <>
+          "    COMMENT ON TABLE \"#{entry.prefix}\".oban_jobs IS '<version>';"
+      )
+
+      []
+    end
+
+    defp report_oban_schema(%{status: status} = entry, host_repo) do
+      Mix.shell().info(
+        "⚠️  Oban schema at #{oban_schema_where(entry, host_repo)}: #{ObanSchema.describe(status)}"
+      )
+
+      []
+    end
+
+    defp oban_schema_where(%{repo: repo, prefix: prefix}, host_repo),
+      do: inspect(ObanSchema.label({repo, prefix}, host_repo))
+
+    # A migration written here would run against the host repo's database,
+    # not the one Oban uses — so hand over the migration for that repo instead.
+    defp other_repo_hint(%{repo: repo, prefix: prefix}, host_repo, from, to) do
+      source =
+        if ObanSchema.generatable_prefix?(prefix) do
+          ObanSchema.migration_source(ObanSchema.migrations_namespace(repo), prefix, from, to)
+        else
+          oban_up_call(prefix, to)
+        end
+
+      "⚠️  Your Oban config runs on #{inspect(repo)}, not #{inspect(host_repo)} (where this " <>
+        "task writes migrations), so no file was written. Add this to #{inspect(repo)}'s " <>
+        "migrations and run them:\n\n" <> indent(source)
+    end
+
+    defp oban_up_call(prefix, to),
+      do: "Oban.Migration.up(version: #{to}, prefix: #{inspect(prefix)}, create_schema: false)"
+
+    defp indent(text) do
+      text
+      |> String.trim_trailing()
+      |> String.split("\n")
+      |> Enum.map_join("\n", &("    " <> &1))
+    end
+
+    # Re-read rather than trust the migrator: `ecto.migrate` exits 0 when the
+    # file sat somewhere it does not scan (see `verify_module_migrations/2`).
+    defp verify_oban_schema_migrations([]), do: :ok
+
+    defp verify_oban_schema_migrations(staged) do
+      Enum.each(staged, fn %{repo: repo, prefix: prefix, to: to} ->
+        case ObanSchema.check(repo, prefix) do
+          {:current, _} = status ->
+            Mix.shell().info(
+              "✅ Oban schema at #{inspect(prefix)} migrated: #{ObanSchema.describe(status)}"
+            )
+
+          status ->
+            Mix.shell().error(
+              "❌ Oban schema at #{inspect(prefix)}: #{ObanSchema.describe(status)} " <>
+                "(expected v#{to} after migrating). Check that #{inspect(module_migrations_dir())} " <>
+                "is the migration path of the repo `mix ecto.migrate` used."
+            )
+        end
+      end)
+    end
+
     defp migrate_host_repo do
       Mix.Task.reenable("ecto.migrate")
 
@@ -1245,10 +1462,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       target = entry.target
       filename = "#{unique_timestamp(migrations_dir, index)}_#{suffix}"
 
-      app_module =
-        Mix.Project.config()[:app]
-        |> to_string()
-        |> Macro.camelize()
+      app_module = host_namespace()
 
       class_name =
         "#{slug |> Macro.camelize()}UpdateV#{pad_version(current)}ToV#{pad_version(target)}"
@@ -1271,6 +1485,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       path = Path.join(migrations_dir, filename)
       File.write!(path, content)
       Mix.shell().info("  Created migration: #{path}")
+    end
+
+    defp host_namespace do
+      Mix.Project.config()[:app]
+      |> to_string()
+      |> Macro.camelize()
     end
 
     # Where the repo `mix ecto.migrate` will run against actually reads its
@@ -1367,6 +1587,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         • configuration repair (Ueberauth, Hammer, Oban, supervisor order)
         • asset rebuild and JS/CSS integration
         • migrations for registered PhoenixKit modules
+
+      Not checked either: the Oban schema. It needs only the repo, but this
+      path starts nothing before ecto.migrate — mix phoenix_kit.doctor reports
+      it, and the full update writes its migration.
 
       Run the full update once #{Mix.Project.config()[:app]} boots again:
 
