@@ -318,7 +318,7 @@ defmodule PhoenixKit.Integration.Users.WelcomeEmailTest do
     end
 
     test "an administrator's confirmation enqueues nothing" do
-      user = create_user()
+      %User{} = user = create_user()
 
       assert {:ok, %User{confirmed_at: %_{}}} = Auth.toggle_user_confirmation(user)
 

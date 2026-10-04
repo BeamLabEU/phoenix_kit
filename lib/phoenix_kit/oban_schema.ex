@@ -91,7 +91,7 @@ defmodule PhoenixKit.ObanSchema do
 
   # `Oban.Migration.current_version/1` is public from Oban 2.22 only, while core's
   # pin is `~> 2.20`; the Postgres engine's own `current_version/0` exists from
-  # 2.21. Older than that, there is no version to compare with — `check/2`
+  # 2.20. Without either API, there is no version to compare with — `check/2`
   # reports it as `{:error, _}` rather than guessing.
   defp library_version(repo) do
     Code.ensure_loaded(Oban.Migration)

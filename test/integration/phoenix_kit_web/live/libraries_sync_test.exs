@@ -98,6 +98,9 @@ defmodule PhoenixKitWeb.Live.LibrariesSyncTest do
     # Simulate a missed notification: the next periodic refresh must catch up.
     Repo.update_all(from(r in Run, where: r.uuid == ^run.uuid), set: [state: "paused"])
     send(view.pid, :refresh_library_sync)
+    # The handler queues a send_update to itself. Wait until it has handled
+    # the refresh before asking the test proxy to inspect the component.
+    :sys.get_state(view.pid)
 
     assert has_element?(view, "#{cell(ctx.library)} [data-sync-state=paused]")
   end

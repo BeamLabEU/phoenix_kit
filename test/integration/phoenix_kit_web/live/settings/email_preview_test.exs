@@ -81,13 +81,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailPreviewTest do
     on_exit(fn -> ModuleRegistry.unregister(module) end)
   end
 
-  defp revoke(role_uuid) do
-    case Permissions.revoke_permission(role_uuid, "settings") do
-      :ok -> :ok
-      {:ok, _} -> :ok
-      other -> other
-    end
-  end
+  defp revoke(role_uuid), do: Permissions.revoke_permission(role_uuid, "settings")
 
   defp with_template_root(files) do
     root = Path.join(System.tmp_dir!(), "pk_preview_#{System.unique_integer([:positive])}")

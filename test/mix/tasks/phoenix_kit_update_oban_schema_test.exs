@@ -11,6 +11,21 @@ defmodule Mix.Tasks.PhoenixKit.UpdateObanSchemaTest do
 
   @staged [%{repo: SomeRepo, prefix: "public", from: 13, to: 14}]
 
+  defmodule SchemaRepo do
+    @moduledoc false
+    def __adapter__, do: Ecto.Adapters.Postgres
+
+    def query!(_sql, [prefix], _opts) do
+      case prefix do
+        "behind" -> %{rows: [["13"]]}
+        "current" -> %{rows: [[to_string(Oban.Migrations.Postgres.current_version())]]}
+        "unversioned" -> %{rows: [[nil]]}
+        "missing" -> %{rows: []}
+        "closed" -> exit(:connection_closed)
+      end
+    end
+  end
+
   defp recording_steps(test_pid, overrides \\ %{}) do
     Map.merge(
       %{
@@ -64,6 +79,37 @@ defmodule Mix.Tasks.PhoenixKit.UpdateObanSchemaTest do
     end
 
     assert steps_run() == [{:stage_oban, "public"}]
+  end
+
+  test "a successful migrate step fails the update when Oban is still behind or unreadable" do
+    for prefix <- ["behind", "unversioned", "missing", "closed"] do
+      staged = [%{repo: SchemaRepo, prefix: prefix, from: 13, to: 14}]
+
+      steps = %{
+        stage_oban: fn _prefix -> staged end,
+        migrate: fn _opts -> :ok end,
+        modules: fn _opts -> send(self(), :modules_ran) end
+      }
+
+      assert_raise Mix.Error, ~r/Oban schema migration was not verified/, fn ->
+        Update.run_schema_steps([prefix: "public"], steps)
+      end
+
+      refute_received :modules_ran
+    end
+  end
+
+  test "a verified Oban migration lets the update continue to module migrations" do
+    staged = [%{repo: SchemaRepo, prefix: "current", from: 13, to: 14}]
+
+    steps = %{
+      stage_oban: fn _prefix -> staged end,
+      migrate: fn _opts -> :ok end,
+      modules: fn _opts -> send(self(), :modules_ran) end
+    }
+
+    Update.run_schema_steps([prefix: "public"], steps)
+    assert_received :modules_ran
   end
 
   describe "staged_oban_note/1 — the not-migrated message names the Oban step" do

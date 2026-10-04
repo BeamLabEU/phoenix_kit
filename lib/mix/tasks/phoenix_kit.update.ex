@@ -1400,8 +1400,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             )
 
           status ->
-            Mix.shell().error(
-              "❌ Oban schema at #{inspect(prefix)}: #{ObanSchema.describe(status)} " <>
+            Mix.raise(
+              "Oban schema migration was not verified at #{inspect(prefix)}: " <>
+                "#{ObanSchema.describe(status)} " <>
                 "(expected v#{to} after migrating). Check that #{inspect(module_migrations_dir())} " <>
                 "is the migration path of the repo `mix ecto.migrate` used."
             )
