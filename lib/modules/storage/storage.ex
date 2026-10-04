@@ -779,7 +779,9 @@ defmodule PhoenixKit.Modules.Storage do
           probe(provider_module, bucket)
         end
       rescue
-        error -> {:error, "Connection test failed: #{Exception.message(error)}"}
+        error -> {:error, BucketLog.safe_message(error)}
+      catch
+        :exit, _ -> {:error, "Connection test exited"}
       end
 
     BucketLog.record(bucket, "probe", result == :ok,
@@ -791,9 +793,8 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp probe_message(:ok), do: nil
-  defp probe_message({:error, reason}) when is_binary(reason), do: reason
-  defp probe_message({:error, reason}), do: inspect(reason, limit: 10)
-  defp probe_message(other), do: inspect(other, limit: 10)
+  defp probe_message({:error, reason}), do: BucketLog.safe_message(reason)
+  defp probe_message(other), do: BucketLog.safe_message(other)
 
   # A local bucket's check is a few file operations; a remote one talks to the
   # network, through a client that retries, so it runs in `Integrations.Probe`:
@@ -911,22 +912,22 @@ defmodule PhoenixKit.Modules.Storage do
 
   An object is counted once however many location rows name its key (cross-user
   copies share one). `libraries` lists the site's libraries that have files
-  here (`%{uuid, name, files, objects, bytes}`, largest first); a user's
-  libraries are private to them, so they are only counted in `personal`
+  here (`%{uuid, name, files, objects, bytes}`, largest first). Shared keys
+  count once in each library using them, but only once in the bucket totals.
+  A user's libraries are private to them, so they are only counted in `personal`
   (`%{libraries, files, objects, bytes}`), never named.
 
   Reads every location row of the bucket: call it off the render path.
   """
   @spec bucket_contents(term()) :: map()
   def bucket_contents(bucket_uuid) do
-    objects =
+    locations =
       from(fl in FileLocation,
         join: fi in FileInstance,
         on: fl.file_instance_uuid == fi.uuid,
         join: f in PhoenixKit.Modules.Storage.File,
         on: f.uuid == fi.file_uuid,
         where: fl.bucket_uuid == ^bucket_uuid and fl.status == "active",
-        distinct: fl.path,
         select: %{
           path: fl.path,
           size: fi.size,
@@ -936,22 +937,46 @@ defmodule PhoenixKit.Modules.Storage do
         }
       )
 
-    rows =
-      from(o in subquery(objects),
+    # Logical files must be counted before shared physical keys are collapsed.
+    files_by_library =
+      from(o in subquery(locations),
         group_by: o.library_uuid,
-        select: %{
-          library_uuid: o.library_uuid,
-          files: count(o.file_uuid, :distinct),
-          objects: count(o.path),
-          bytes: coalesce(sum(o.size), 0),
-          original_objects: filter(count(o.path), o.original),
-          original_bytes: coalesce(filter(sum(o.size), o.original), 0)
-        }
+        select: {o.library_uuid, count(o.file_uuid, :distinct)}
       )
       |> repo().all()
+      |> Map.new()
+
+    objects =
+      from(o in subquery(locations),
+        group_by: [o.library_uuid, o.path],
+        select: %{
+          library_uuid: o.library_uuid,
+          path: o.path,
+          size: max(o.size),
+          original: fragment("bool_or(?)", o.original)
+        }
+      )
+
+    rows =
+      objects
+      |> bucket_object_totals(true)
       |> Enum.map(fn row ->
-        %{row | bytes: to_int(row.bytes), original_bytes: to_int(row.original_bytes)}
+        Map.put(row, :files, Map.fetch!(files_by_library, row.library_uuid))
       end)
+
+    # A shared key can belong to several libraries. Their rows describe each
+    # library's usage; the bucket total counts the bytes on disk only once.
+    totals =
+      from(o in subquery(locations),
+        group_by: o.path,
+        select: %{
+          path: o.path,
+          size: max(o.size),
+          original: fragment("bool_or(?)", o.original)
+        }
+      )
+      |> bucket_object_totals(false)
+      |> hd()
 
     libraries =
       from(l in Library,
@@ -970,12 +995,12 @@ defmodule PhoenixKit.Modules.Storage do
 
     %{
       files: sum.(rows, :files),
-      objects: sum.(rows, :objects),
-      bytes: sum.(rows, :bytes),
-      original_objects: sum.(rows, :original_objects),
-      original_bytes: sum.(rows, :original_bytes),
-      derived_objects: sum.(rows, :objects) - sum.(rows, :original_objects),
-      derived_bytes: sum.(rows, :bytes) - sum.(rows, :original_bytes),
+      objects: totals.objects,
+      bytes: totals.bytes,
+      original_objects: totals.original_objects,
+      original_bytes: totals.original_bytes,
+      derived_objects: totals.objects - totals.original_objects,
+      derived_bytes: totals.bytes - totals.original_bytes,
       libraries:
         site
         |> Enum.map(fn row ->
@@ -995,6 +1020,32 @@ defmodule PhoenixKit.Modules.Storage do
         bytes: sum.(personal, :bytes)
       }
     }
+  end
+
+  defp bucket_object_totals(objects, by_library?) do
+    query =
+      from(o in subquery(objects),
+        select: %{
+          objects: count(o.path),
+          bytes: coalesce(sum(o.size), 0),
+          original_objects: filter(count(o.path), o.original),
+          original_bytes: coalesce(filter(sum(o.size), o.original), 0)
+        }
+      )
+
+    query =
+      if by_library?,
+        do:
+          query
+          |> group_by([o], o.library_uuid)
+          |> select_merge([o], %{library_uuid: o.library_uuid}),
+        else: query
+
+    query
+    |> repo().all()
+    |> Enum.map(fn row ->
+      %{row | bytes: to_int(row.bytes), original_bytes: to_int(row.original_bytes)}
+    end)
   end
 
   @doc """

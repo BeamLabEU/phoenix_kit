@@ -5,6 +5,7 @@ defmodule PhoenixKit.Supervisor do
   use Supervisor
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Storage.BucketLog
 
   alias PhoenixKit.Modules.Storage.Workers.{
     ChecksumBackfillJob,
@@ -173,6 +174,10 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Users.RateLimiter.Backend,
       # Task supervisor for fire-and-forget background work (e.g. stale fixer)
       {Task.Supervisor, name: PhoenixKit.TaskSupervisor},
+      Supervisor.child_spec(
+        {Task.Supervisor, name: BucketLog.task_supervisor(), max_children: 4},
+        id: :bucket_log_tasks
+      ),
       # OAuth config loader - now guaranteed to have critical settings in cache
       PhoenixKit.Workers.OAuthConfigLoader
     ] ++

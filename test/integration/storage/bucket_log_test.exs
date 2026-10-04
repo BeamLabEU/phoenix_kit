@@ -14,6 +14,7 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
   alias PhoenixKit.Test.Repo
 
   setup do
+    start_supervised!({Task.Supervisor, name: BucketLog.task_supervisor(), max_children: 4})
     root = Path.join(System.tmp_dir!(), "pk_bucket_log_#{System.unique_integer([:positive])}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf(root) end)
@@ -33,26 +34,41 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
     %{bucket: bucket, root: root}
   end
 
-  defp entries(bucket),
-    do: Repo.all(from(e in BucketLogEntry, where: e.bucket_uuid == ^bucket.uuid))
+  defp await_writes do
+    for pid <- Task.Supervisor.children(BucketLog.task_supervisor()) do
+      ref = Process.monitor(pid)
+      assert_receive {:DOWN, ^ref, :process, ^pid, _}, 5000
+    end
+  end
+
+  defp report_failure(bucket, kind, reason) do
+    result = BucketLog.record_failure(bucket, kind, reason)
+    await_writes()
+    result
+  end
+
+  defp entries(bucket) do
+    await_writes()
+    Repo.all(from(e in BucketLogEntry, where: e.bucket_uuid == ^bucket.uuid))
+  end
 
   describe "record_failure/3" do
     test "writes a failure with its reason", %{bucket: bucket} do
-      :ok = BucketLog.record_failure(bucket, "write", "Disk full")
+      :ok = report_failure(bucket, "write", "Disk full")
 
       assert [%{kind: "write", ok: false, message: "Disk full", count: 1}] = entries(bucket)
     end
 
     test "the same failure again within a minute is one row with a count", %{bucket: bucket} do
-      for _ <- 1..3, do: BucketLog.record_failure(bucket, "read", "timeout")
+      for _ <- 1..3, do: report_failure(bucket, "read", "timeout")
 
       assert [%{count: 3, kind: "read"}] = entries(bucket)
     end
 
     test "a different message, kind or an older row is a row of its own", %{bucket: bucket} do
-      BucketLog.record_failure(bucket, "read", "timeout")
-      BucketLog.record_failure(bucket, "read", "denied")
-      BucketLog.record_failure(bucket, "write", "timeout")
+      report_failure(bucket, "read", "timeout")
+      report_failure(bucket, "read", "denied")
+      report_failure(bucket, "write", "timeout")
 
       assert length(entries(bucket)) == 3
 
@@ -61,31 +77,110 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
         set: [last_at: NaiveDateTime.add(NaiveDateTime.utc_now(), -3600)]
       )
 
-      BucketLog.record_failure(bucket, "read", "timeout")
+      report_failure(bucket, "read", "timeout")
       assert length(entries(bucket)) == 4
     end
 
     test "a miss is not a failure", %{bucket: bucket} do
-      BucketLog.record_failure(bucket, "read", "Failed to copy file: :enoent")
-      BucketLog.record_failure(bucket, "read", ~s|{:http_error, 404, "NoSuchKey"}|)
+      report_failure(bucket, "read", "Failed to copy file: :enoent")
+      report_failure(bucket, "read", ~s|{:http_error, 404, "NoSuchKey"}|)
 
       assert entries(bucket) == []
+    end
+
+    test "a number or a missing source does not hide a write failure", %{bucket: bucket} do
+      report_failure(bucket, "read", "Connection refused at https://host:4040/object")
+      report_failure(bucket, "read", {:http_error, 403, "NoSuchKey in an error body"})
+
+      report_failure(
+        bucket,
+        "read",
+        ~s|Failed to download from S3: {:http_error, 403, ":enoent"}|
+      )
+
+      report_failure(bucket, "read", {:http_error, 404, "<Code>NoSuchBucket</Code>"})
+      report_failure(bucket, "write", "Failed to copy file: :enoent")
+      report_failure(bucket, "write", "File copy reported success but file not found")
+
+      assert Enum.sort(Enum.map(entries(bucket), & &1.kind)) == [
+               "read",
+               "read",
+               "read",
+               "write",
+               "write"
+             ]
+    end
+
+    test "response bodies, headers, credentials and signed URLs are not persisted", %{
+      bucket: bucket
+    } do
+      reason =
+        {:http_error, 403,
+         %{
+           body: "secret_access_key=super-secret",
+           headers: [{"Authorization", "AWS4-HMAC-SHA256 secret-signature"}],
+           url: "https://host/object?X-Amz-Signature=secret-signature"
+         }}
+
+      report_failure(bucket, "read", reason)
+      BucketLog.record(bucket, "probe", false, message: inspect(reason))
+      assert Enum.all?(entries(bucket), &(&1.message == "HTTP 403"))
+
+      assert BucketLog.safe_message("secret_access_key=super-secret") ==
+               "Storage operation failed"
+    end
+
+    test "a continuous failure starts a new row after a minute", %{bucket: bucket} do
+      report_failure(bucket, "read", "timeout")
+
+      Repo.update_all(from(e in BucketLogEntry, where: e.bucket_uuid == ^bucket.uuid),
+        set: [inserted_at: NaiveDateTime.add(NaiveDateTime.utc_now(), -120), count: 99]
+      )
+
+      report_failure(bucket, "read", "timeout")
+      assert Enum.sort(Enum.map(entries(bucket), & &1.count)) == [1, 99]
+    end
+
+    test "an unavailable supervisor never writes inside the caller's transaction", %{
+      bucket: bucket
+    } do
+      stop_supervised!(BucketLog.task_supervisor())
+      Repo.query!("DROP TABLE public.phoenix_kit_bucket_log")
+      assert :ok = BucketLog.record_failure(bucket, "read", "timeout")
+      assert %{rows: [[1]]} = Repo.query!("SELECT 1")
+    end
+
+    test "a saturated supervisor drops diagnostics", %{bucket: bucket} do
+      parent = self()
+
+      for _ <- 1..4 do
+        {:ok, _} =
+          Task.Supervisor.start_child(BucketLog.task_supervisor(), fn ->
+            send(parent, :busy)
+            receive do: (:stop -> :ok)
+          end)
+
+        assert_receive :busy
+      end
+
+      assert :ok = BucketLog.record_failure(bucket, "read", "timeout")
+      assert Repo.aggregate(BucketLogEntry, :count) == 0
     end
 
     test "a user's own bucket and an unsaved one are never logged", %{bucket: bucket} do
-      BucketLog.record_failure(%{bucket | owner_uuid: Ecto.UUID.generate()}, "write", "x")
-      BucketLog.record_failure(%{bucket | uuid: nil}, "write", "x")
-      BucketLog.record_failure(nil, "write", "x")
+      report_failure(%{bucket | owner_uuid: Ecto.UUID.generate()}, "write", "x")
+      report_failure(%{bucket | uuid: nil}, "write", "x")
+      report_failure(nil, "write", "x")
 
       assert entries(bucket) == []
     end
 
-    test "keeps the message to a sane length and never raises", %{bucket: bucket} do
-      assert :ok = BucketLog.record_failure(bucket, "write", String.duplicate("x", 5000))
+    test "unknown diagnostics are controlled and never raise", %{bucket: bucket} do
+      assert :ok = report_failure(bucket, "write", String.duplicate("x", 5000))
       assert [%{message: message}] = entries(bucket)
-      assert String.length(message) == 500
+      assert message == "Storage operation failed"
 
-      assert :ok = BucketLog.record_failure(bucket, "nonsense", "x")
+      assert :ok = report_failure(bucket, "nonsense", "x")
     end
   end
 
@@ -162,7 +257,7 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
   describe "reading it back" do
     test "recent/2 is newest first, paged, and can show only failures", %{bucket: bucket} do
       Storage.probe_bucket(bucket)
-      for n <- 1..12, do: BucketLog.record_failure(bucket, "write", "failure #{n}")
+      for _ <- 1..12, do: BucketLog.record(bucket, "probe", false, message: "timeout")
 
       page = BucketLog.recent(bucket.uuid, per_page: 5)
       assert page.total == 13
@@ -174,8 +269,38 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
       assert Enum.all?(failures.entries, &(not &1.ok))
     end
 
+    test "probes in the same second have a deterministic latest result", %{bucket: bucket} do
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+      first =
+        Repo.insert!(%BucketLogEntry{
+          uuid: "01a10458-d600-7000-8000-000000000001",
+          bucket_uuid: bucket.uuid,
+          kind: "probe",
+          ok: true,
+          latency_ms: 12,
+          inserted_at: now,
+          last_at: now
+        })
+
+      second =
+        Repo.insert!(%BucketLogEntry{
+          uuid: "01a10458-d601-7000-8000-000000000001",
+          bucket_uuid: bucket.uuid,
+          kind: "probe",
+          ok: false,
+          latency_ms: 24,
+          inserted_at: now,
+          last_at: now
+        })
+
+      summary = BucketLog.summary(bucket.uuid)
+      assert summary.last_probe.uuid == second.uuid
+      assert Enum.map(summary.probes, & &1.uuid) == [first.uuid, second.uuid]
+    end
+
     test "summary/1 counts every failure of the day, merged repeats included", %{bucket: bucket} do
-      for _ <- 1..4, do: BucketLog.record_failure(bucket, "read", "timeout")
+      for _ <- 1..4, do: report_failure(bucket, "read", "timeout")
       Storage.probe_bucket(bucket)
 
       summary = BucketLog.summary(bucket.uuid)
@@ -189,20 +314,20 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
 
   describe "keeping it small" do
     test "prune/0 removes what was last seen before the retention, and no more", %{bucket: bucket} do
-      BucketLog.record_failure(bucket, "write", "old")
-      BucketLog.record_failure(bucket, "read", "new")
+      report_failure(bucket, "write", "Disk full")
+      report_failure(bucket, "read", "timeout")
 
       Repo.update_all(
-        from(e in BucketLogEntry, where: e.message == "old"),
+        from(e in BucketLogEntry, where: e.message == "Disk full"),
         set: [last_at: NaiveDateTime.add(NaiveDateTime.utc_now(), -31 * 86_400)]
       )
 
       assert BucketLog.prune() == 1
-      assert [%{message: "new"}] = entries(bucket)
+      assert [%{message: "timeout"}] = entries(bucket)
     end
 
     test "the worker prunes", %{bucket: bucket} do
-      BucketLog.record_failure(bucket, "write", "old")
+      report_failure(bucket, "write", "Disk full")
 
       Repo.update_all(
         from(e in BucketLogEntry, where: e.bucket_uuid == ^bucket.uuid),
@@ -214,7 +339,7 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
     end
 
     test "deleting a bucket removes its log", %{bucket: bucket} do
-      BucketLog.record_failure(bucket, "write", "x")
+      report_failure(bucket, "write", "x")
       assert length(entries(bucket)) == 1
 
       assert {:ok, _} = Storage.delete_bucket(bucket)

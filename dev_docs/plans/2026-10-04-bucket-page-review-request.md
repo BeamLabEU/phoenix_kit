@@ -110,3 +110,117 @@ test/integration/storage/bucket_log_test.exs test/phoenix_kit/migrations/v208_te
 `dev_docs/pull_requests/2026/<n>-bucket-page/CODEX_REVIEW.md`, or append a section to this file. Severities as
 in `AGENTS.md`: `BUG - CRITICAL/HIGH/MEDIUM`, `IMPROVEMENT - HIGH/MEDIUM`, `NITPICK`. Please fix nothing;
 report, and say which finding you would block a release on.
+
+## 8. Codex review and improvements — 2026-10-04
+
+Reviewed `32edc704e..f412df994`, including the surrounding providers, profile guards, supervision and
+migration machinery. The maintainer subsequently asked to **review and improve** this work, so the
+report-only instruction above was superseded. `f412df994` and the request commit were pushed before
+making these changes. This review does not publish, tag or bump the version.
+
+### Findings (fixed)
+
+1. **BUG - HIGH — Provider diagnostics can persist credentials and signed URLs. Release blocker.**
+   `BucketLog.reason_text/1` and `Storage.probe_message/1` copied strings or inspected provider errors,
+   including ExAws response bodies and headers. Truncation is not redaction, and `media.manage` does not
+   imply access to integration secrets. `safe_message/1` now returns only controlled diagnostics: HTTP
+   status, known S3 error codes, known filesystem error atoms, a few exact operational messages, or a
+   generic fallback. Both persistence and the page's probe/log display use it. Arbitrary response text,
+   object paths and credentials are discarded; unknown errors consequently lose detail. Tests cover a
+   response containing authorization headers, a secret key and a signed URL.
+
+2. **BUG - HIGH — Failure logging can enter a file transaction or exhaust the process/DB pool.
+   Release blocker.** The missing-supervisor fallback executed SQL synchronously. Rescuing a SQL error
+   does not restore an aborted caller transaction. The shared supervisor also had no task cap, so a dead
+   DB could accumulate a task per storage failure. A dedicated supervisor now admits at most four log
+   tasks per node and drops diagnostics when absent or saturated. There is no synchronous fallback;
+   supervisor exits are caught as well as exceptions. Tests verify both saturation and a missing log
+   table inside a caller transaction with the supervisor stopped. `record/4` remains the explicitly
+   synchronous API used by administrative probes; file operations use `record_failure/3`.
+
+3. **BUG - MEDIUM — Missing-object detection hides genuine failures. Release blocker.** The original
+   unanchored `404|…|not found` matched an endpoint on port 4040, and skipped writes reporting a missing
+   source or failed copy verification. Only reads/deletes now suppress missing objects, using structured
+   HTTP 404 / `:enoent` or their provider wrappers. A missing bucket is logged even on HTTP 404,
+   and a 403 body mentioning `NoSuchKey` or `:enoent` is still a failure.
+   Tests cover the port, missing write source, failed verification, ordinary misses and a misleading body.
+
+4. **BUG - MEDIUM — Shared physical keys remove logical files and libraries from Contents.
+   Release blocker.** `DISTINCT ON (path)` ran before file counts and library grouping, retaining just
+   one arbitrary file/library for each shared key. File counts now come from all active locations;
+   per-library objects group by library and key, and bucket totals independently group by key. Tests
+   cover two files sharing a key, first in one library and then across site/personal libraries. A shared
+   key's bytes are attributed to each library using it, while the bucket's physical bytes count once.
+
+5. **BUG - MEDIUM — A continuous failure merges forever, inflating the last-day total.** The merge
+   window was based only on the moving `last_at`. A failure every 30 seconds could keep a month's count
+   in a row still considered wholly within the last day. Merging now also requires `inserted_at` within
+   the minute. A regression test gives an old row a fresh `last_at` and verifies a new row is created.
+   The 24-hour metric remains approximate at its boundary by at most one merge window, and diagnostics
+   dropped under load are not counted. This is an operational count, not an exact event ledger.
+
+6. **BUG - MEDIUM — Reusing the LiveView for another bucket retains the previous probe and contents.**
+   `handle_params/3` left `probe`, `probing?`, health and contents unchanged; `load_log/1` preferred that
+   stale probe over the new bucket's history. Navigation now cancels the outstanding probe and resets
+   these assigns before loading the selected bucket. A LiveView patch test verifies the old successful
+   probe disappears when the new bucket has no recorded probe.
+
+7. **BUG - MEDIUM — Latest probe selection is ambiguous within one second.** Log timestamps have
+   second precision, but summary queries ordered only by `last_at`. Reloading could show an earlier
+   result instead of the most recent probe, and chart order could change. Queries now break ties with
+   the UUIDv7, like `recent/2` already did. UUIDv7 orders milliseconds; probes in the same
+   millisecond have a stable but arbitrary tie order. A regression test inserts success and failure at the same
+   timestamp and verifies both the last result and chart order.
+
+8. **IMPROVEMENT - MEDIUM — The claimed absence of keys in page assigns was inaccurate.** The page
+   assigned the entire bucket row, including legacy credential fields. The display bucket now clears
+   both key fields and retains only a separate legacy-credentials badge flag. Mutating actions reload
+   the saved site bucket before calling the guarded context functions, preserving its credentials and
+   using current state. A cloud bucket test verifies the assigns, badge and credential-preserving toggle.
+   This was server-side retention, not evidence that credentials were rendered to the browser.
+
+### Checks and remaining limits
+
+- V208's SQL, schema-prefix use, manifest shapes and chain hash agree with the real-DB checks. No
+  migration or expected-schema changes were needed. The named-schema full-chain test passes.
+- Route order and `media.manage` mapping are correct. The existing page tests reject a media-only user
+  and a personal bucket. Site profile/library names and personal counts stay separate, including shared
+  keys; profile writes continue through the existing ownership guards.
+- Cron installation/backfill includes the prune worker and preserves an existing entry. The Oban
+  configuration tests pass. Deletion cleanup and eventual pruning of racing orphan rows are acceptable
+  for this operational log.
+- Contents still scans the bucket's active locations, now with separate logical and physical aggregates.
+  Async loading keeps it off the render path, but is not a performance guarantee. No million-row
+  benchmark, browser layout check, or real S3 credentials/network probe was performed. The secret tests
+  use representative ExAws error shapes; they do not claim a live cloud test.
+- Existing stored messages are sanitized on display, but earlier raw values are not rewritten in the
+  database. This code remains unreleased. If it was deployed privately, investigate any existing log
+  rows before treating the new writer as remediation of historical secret exposure.
+
+### Answers and release decision
+
+1. Keep best-effort logging with a bounded dedicated task supervisor for now. Oban would add durable
+   work precisely when the DB/provider is failing. A batching process can be justified later if measured
+   failure volume requires it; do not promise exact counts with the current drop-on-overload policy.
+2. Do not persist unsaved form tests in the bucket log. They have no stable saved-bucket identity and
+   can include personal configuration. Show the result to the form's caller.
+3. Thirty days is a reasonable operational default. A retention UI, scheduled probes, serve-order display
+   and a per-bucket missing-copy query can follow separately. Their omission does not block this change.
+   A 20-probe latency chart is useful as a recent sample, but does not establish long-term availability.
+
+The four explicit release blockers above are fixed. The remaining limitations are acceptable for an
+operational diagnostics page; publishing remains a separate task with the repository's release gate.
+
+**Final verification:**
+
+- `PGDATABASE=phoenix_kit_test PGPOOL=10 mix test --max-cases 6`: exit 0;
+  **76 doctests, 8,114 tests, 0 failures, 6 skipped, 1 excluded**, with PostgreSQL available.
+- The final bucket log/page run after the last classifier and tie-order test refinements: exit 0;
+  **48 tests, 0 failures**.
+- Expanded migration, real-manifest, hand-declared-manifest, prefix-chain, repair, Oban-config and
+  bucket tests: exit 0; **136 tests, 0 failures**.
+- Final `mix precommit`: exit 0, including compile, test compilation, formatting, Credo, Dialyzer
+  and **254 JavaScript tests**. An existing unreachable-clause warning in
+  `test/integration/phoenix_kit_web/live/settings/email_preview_test.exs:87` remains outside this change.
+- `git diff --check`: clean. Browser layout, real S3 probing and large-bucket performance remain
+  unverified as described above.

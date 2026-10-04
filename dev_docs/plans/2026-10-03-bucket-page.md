@@ -1,7 +1,7 @@
 # Bucket page — handoff for the next stage
 
 Written 2026-10-03 at the end of a session that shipped **2.49.1** and **2.50.0**. Read this first, then start
-on the bucket page. Nothing here is built yet except what "Already done" lists.
+on the bucket page. The original proposal follows; the Status section records later progress.
 
 State at handoff: `main` at `32edc704e` (2.50.0, published to Hex, tagged `v2.50.0`), tree clean, pushed.
 
@@ -13,15 +13,22 @@ Sections 1–5 are built (unreleased, `## Unreleased` in the CHANGELOG): `Live.M
 `BucketInfo` (the lifted display helpers), `Storage.bucket_contents/1`, `bucket_location_health/1`,
 `probe_bucket/1`; tests in `test/integration/phoenix_kit_web/live/bucket_page_test.exs`.
 
-**Section 6 (the log) shipped next, as V208** (`phoenix_kit_bucket_log`, `Storage.BucketLog`, the Log card,
+**Section 6 (the log) was implemented next, still unreleased, as V208** (`phoenix_kit_bucket_log`,
+`Storage.BucketLog`, the Log card,
 `BucketLogPruneWorker`). Not built: a scheduled probe (latency over time comes from the clicks), a retention
 setting in the UI (`bucket_log_retention_days`, default 30, is a plain setting), and logging of successes.
 
 Left out on purpose: the per-bucket **"files missing a copy here"** number (the reconciler has no per-bucket
 query for it; Health shows location rows by status, the last verification stamp, the global count of
 instances not yet checked against any bucket, and the files still on a draining bucket), and the **serve
-order** column in "Used by" (`Profiles.bucket_usage/1` does not return it). The probe result lives in the
-LiveView only; it is lost on reload until the log exists.
+order** column in "Used by" (`Profiles.bucket_usage/1` does not return it). The probe result is restored
+from the log on reload.
+
+**Codex review (2026-10-04).** Findings and fixes are appended to
+`2026-10-04-bucket-page-review-request.md`. The review covers the page and V208 together; no release,
+version bump or tag is part of this review. The log now writes through a dedicated task supervisor capped
+at four children, with no synchronous fallback. Diagnostics are controlled messages, not provider
+response text. Shared objects no longer drop logical files or libraries from the contents counts.
 
 ## Already done (do not redo)
 

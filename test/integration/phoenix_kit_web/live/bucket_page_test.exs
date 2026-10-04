@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
 
   import Ecto.Query
 
+  alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.{FileLocation, ProfileBucket, Profiles, StorageProfile}
   alias PhoenixKit.Test.Repo
@@ -141,6 +142,34 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
       assert {:error, {:live_redirect, _}} = live(conn, page_path(bucket))
     end
 
+    test "keeps legacy credentials out of assigns and preserves them on toggle", ctx do
+      bucket =
+        Repo.insert!(%Storage.Bucket{
+          name: "Legacy cloud bucket",
+          provider: "s3",
+          bucket_name: "legacy",
+          region: "us-east-1",
+          access_key_id: "legacy-id",
+          secret_access_key: "legacy-secret",
+          enabled: true
+        })
+
+      view = open(ctx.conn, bucket)
+      socket = :sys.get_state(view.pid).socket
+      assert socket.assigns.bucket.access_key_id == nil
+      assert socket.assigns.bucket.secret_access_key == nil
+      assert socket.assigns.legacy_keys?
+      assert render(view) =~ "Keys on bucket"
+
+      view |> element("#bucket-toggle") |> render_click()
+      updated = Storage.get_bucket(bucket.uuid)
+      refute updated.enabled
+      assert updated.access_key_id == "legacy-id"
+
+      assert Encryption.decrypt_value(updated.secret_access_key) ==
+               {:ok, "legacy-secret"}
+    end
+
     test "the Buckets list links to it", %{conn: conn, bucket: bucket} do
       {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media"))
 
@@ -226,6 +255,38 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
       html = view |> element("#bucket-libraries") |> render()
       assert html =~ "1 personal library"
       refute html =~ "Private diary"
+    end
+
+    test "shared keys count every logical file and each library", ctx do
+      first = location!(ctx.bucket, "original", 300)
+      second = location!(ctx.bucket, "original", 300)
+
+      Repo.update_all(from(l in FileLocation, where: l.uuid == ^second.uuid),
+        set: [path: first.path]
+      )
+
+      contents = Storage.bucket_contents(ctx.bucket.uuid)
+      assert %{files: 2, objects: 1, bytes: 300} = contents
+      assert [%{files: 2, objects: 1, bytes: 300}] = contents.libraries
+
+      slug = "shared#{System.unique_integer([:positive])}"
+
+      personal =
+        Repo.insert!(%Storage.Library{
+          name: "Private shared library",
+          kind: "user",
+          owner_uuid: ctx.user.uuid,
+          visibility: "private",
+          key_prefix: slug,
+          slug: slug
+        })
+
+      move_to_library!(second, personal.uuid)
+
+      contents = Storage.bucket_contents(ctx.bucket.uuid)
+      assert %{files: 2, objects: 1, bytes: 300} = contents
+      assert [%{files: 1, objects: 1, bytes: 300}] = contents.libraries
+      assert %{libraries: 1, files: 1, objects: 1, bytes: 300} = contents.personal
     end
 
     test "a draining bucket says how many files are still on it", ctx do
@@ -323,8 +384,8 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
     end
 
     test "shows failures, repeats once with their count, and the day's total", ctx do
-      for _ <- 1..3, do: BucketLog.record_failure(ctx.bucket, "write", "Disk full")
-      BucketLog.record_failure(ctx.bucket, "read", "Timed out")
+      for _ <- 1..3, do: BucketLog.record(ctx.bucket, "write", false, message: "Disk full")
+      BucketLog.record(ctx.bucket, "read", false, message: "Timed out")
 
       view = open(ctx.conn, ctx.bucket)
 
@@ -347,9 +408,26 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
       assert has_element?(reopened, "#bucket-probe-result", "Connection works")
     end
 
+    test "patching to another bucket resets the previous probe", ctx do
+      Storage.probe_bucket(ctx.bucket)
+
+      {:ok, other} =
+        Storage.create_bucket(
+          %{name: "Other bucket", provider: "local", endpoint: ctx.root, enabled: true},
+          profile: nil
+        )
+
+      view = open(ctx.conn, ctx.bucket)
+      assert has_element?(view, "#bucket-probe-result", "Connection works")
+      render_patch(view, page_path(other))
+      render_async(view)
+      refute has_element?(view, "#bucket-probe-result")
+      assert has_element?(view, "#bucket-log-table", "Nothing logged yet.")
+    end
+
     test "can be narrowed to failures", ctx do
       Storage.probe_bucket(ctx.bucket)
-      BucketLog.record_failure(ctx.bucket, "delete", "Access denied")
+      BucketLog.record(ctx.bucket, "delete", false, message: "Access denied")
 
       view = open(ctx.conn, ctx.bucket)
       assert has_element?(view, "#bucket-log-table", "Probe")

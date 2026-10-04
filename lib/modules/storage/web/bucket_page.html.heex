@@ -82,7 +82,7 @@
                 </.pk_link>
               <% connection_name(@bucket, @connections) -> %>
                 {connection_name(@bucket, @connections)}
-              <% legacy?(@bucket) -> %>
+              <% @legacy_keys? -> %>
                 <span class="badge badge-warning badge-soft badge-sm h-auto">
                   {gettext("Keys on bucket")}
                 </span>
@@ -510,7 +510,9 @@
                   <td class="text-xs">
                     {if entry.latency_ms, do: "#{entry.latency_ms} ms"}
                   </td>
-                  <td class="text-xs break-all max-w-md">{entry.message}</td>
+                  <td class="text-xs break-all max-w-md">
+                    {BucketLog.safe_message(entry.message)}
+                  </td>
                 </tr>
               </tbody>
             </table>

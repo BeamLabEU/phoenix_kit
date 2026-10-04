@@ -49,6 +49,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
      |> assign(:current_path, Routes.path("/admin/settings/media"))
      |> assign(:page_title, gettext("Bucket"))
      |> assign(:bucket, nil)
+     |> assign(:legacy_keys?, false)
      |> assign(:connections, %{})
      |> assign(:usage, [])
      |> assign(:libraries_by_profile, %{})
@@ -80,7 +81,17 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
       bucket ->
         {:noreply,
          socket
-         |> assign(:bucket, bucket)
+         |> cancel_async(:probe)
+         |> assign(
+           probing?: false,
+           probe: nil,
+           contents: nil,
+           contents_failed?: false,
+           location_health: nil,
+           unchecked_instances: nil,
+           free_space_mb: nil
+         )
+         |> assign_bucket(bucket)
          |> assign(:page_title, bucket.name)
          |> assign(:connections, BucketInfo.connections())
          |> assign(:history_page, 1)
@@ -119,71 +130,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
      end)}
   end
 
-  def handle_event("toggle", _params, socket) do
-    bucket = socket.assigns.bucket
-    enabled = !bucket.enabled
-
-    case Storage.update_bucket(bucket, %{enabled: enabled}, Actor.opts(socket)) do
-      {:ok, bucket} ->
-        message =
-          if enabled,
-            do: gettext("Bucket enabled successfully"),
-            else: gettext("Bucket disabled successfully")
-
-        {:noreply,
-         socket |> assign(:bucket, bucket) |> load_history() |> put_flash(:info, message)}
-
-      {:error, {:in_use, usage}} ->
-        {:noreply,
-         put_flash(socket, :error, BucketUsage.refusal_message(:disable, bucket, usage))}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to update bucket"))}
-    end
-  end
-
-  def handle_event("delete", _params, socket) do
-    bucket = socket.assigns.bucket
-
-    case Storage.delete_bucket(bucket, Actor.opts(socket)) do
-      {:ok, _bucket} ->
+  def handle_event(event, params, socket) when event in ~w(toggle delete add_to_profile) do
+    case Storage.get_site_bucket(socket.assigns.bucket.uuid) do
+      nil ->
         {:noreply,
          socket
-         |> put_flash(:info, gettext("Bucket deleted successfully"))
+         |> put_flash(:error, gettext("Bucket not found"))
          |> push_navigate(to: Routes.path("/admin/settings/media"))}
 
-      {:error, {:in_use, usage}} ->
-        {:noreply, put_flash(socket, :error, BucketUsage.refusal_message(:delete, bucket, usage))}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        message =
-          if Keyword.has_key?(changeset.errors, :file_locations),
-            do:
-              gettext(
-                "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
-              ),
-            else: gettext("Failed to delete bucket")
-
-        {:noreply, put_flash(socket, :error, message)}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to delete bucket"))}
-    end
-  end
-
-  def handle_event("add_to_profile", %{"profile_uuid" => profile_uuid}, socket) do
-    bucket = socket.assigns.bucket
-
-    case Profiles.add_bucket(profile_uuid, bucket, Actor.opts(socket)) do
-      :ok ->
-        {:noreply,
-         socket
-         |> load_usage()
-         |> load_history()
-         |> put_flash(:info, gettext("Bucket added to the storage profile"))}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to add the bucket to the profile"))}
+      bucket ->
+        handle_bucket_event(event, params, socket, bucket)
     end
   end
 
@@ -253,6 +209,68 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
+  defp handle_bucket_event("toggle", _params, socket, bucket) do
+    enabled = !bucket.enabled
+
+    case Storage.update_bucket(bucket, %{enabled: enabled}, Actor.opts(socket)) do
+      {:ok, bucket} ->
+        message =
+          if enabled,
+            do: gettext("Bucket enabled successfully"),
+            else: gettext("Bucket disabled successfully")
+
+        {:noreply, socket |> assign_bucket(bucket) |> load_history() |> put_flash(:info, message)}
+
+      {:error, {:in_use, usage}} ->
+        {:noreply,
+         put_flash(socket, :error, BucketUsage.refusal_message(:disable, bucket, usage))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to update bucket"))}
+    end
+  end
+
+  defp handle_bucket_event("delete", _params, socket, bucket) do
+    case Storage.delete_bucket(bucket, Actor.opts(socket)) do
+      {:ok, _bucket} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Bucket deleted successfully"))
+         |> push_navigate(to: Routes.path("/admin/settings/media"))}
+
+      {:error, {:in_use, usage}} ->
+        {:noreply, put_flash(socket, :error, BucketUsage.refusal_message(:delete, bucket, usage))}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        message =
+          if Keyword.has_key?(changeset.errors, :file_locations),
+            do:
+              gettext(
+                "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
+              ),
+            else: gettext("Failed to delete bucket")
+
+        {:noreply, put_flash(socket, :error, message)}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to delete bucket"))}
+    end
+  end
+
+  defp handle_bucket_event("add_to_profile", %{"profile_uuid" => profile_uuid}, socket, bucket) do
+    case Profiles.add_bucket(profile_uuid, bucket, Actor.opts(socket)) do
+      :ok ->
+        {:noreply,
+         socket
+         |> load_usage()
+         |> load_history()
+         |> put_flash(:info, gettext("Bucket added to the storage profile"))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to add the bucket to the profile"))}
+    end
+  end
+
   # ---- loading ----
 
   # Another admin may have edited or removed the bucket since the page opened.
@@ -264,7 +282,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
         |> push_navigate(to: Routes.path("/admin/settings/media"))
 
       bucket ->
-        assign(socket, bucket: bucket, page_title: bucket.name)
+        socket |> assign_bucket(bucket) |> assign(:page_title, bucket.name)
     end
   end
 
@@ -365,7 +383,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
   end
 
   defp probe_from_entry(entry),
-    do: %{ok?: entry.ok, error: entry.message, ms: entry.latency_ms, at: entry.last_at}
+    do: %{
+      ok?: entry.ok,
+      error: BucketLog.safe_message(entry.message),
+      ms: entry.latency_ms,
+      at: entry.last_at
+    }
 
   defp probe_result(:ok, ms), do: %{ok?: true, error: nil, ms: ms, at: DateTime.utc_now()}
 
@@ -375,8 +398,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
   defp probe_result(_other, ms),
     do: %{ok?: false, error: gettext("Unknown result"), ms: ms, at: DateTime.utc_now()}
 
-  defp error_text(reason) when is_binary(reason), do: reason
-  defp error_text(reason), do: inspect(reason)
+  defp error_text(reason), do: BucketLog.safe_message(reason)
 
   # ---- helpers for the template ----
 
@@ -393,7 +415,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
     end
   end
 
-  defp legacy?(bucket), do: BucketCredentials.legacy?(bucket)
+  defp assign_bucket(socket, bucket) do
+    legacy_keys? = BucketCredentials.legacy?(bucket)
+    bucket = %{bucket | access_key_id: nil, secret_access_key: nil}
+    assign(socket, bucket: bucket, legacy_keys?: legacy_keys?)
+  end
 
   defp access_label("public"), do: gettext("Public")
   defp access_label("private"), do: gettext("Private (proxied)")
