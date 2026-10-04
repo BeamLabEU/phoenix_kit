@@ -2505,8 +2505,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Add notice about Oban configuration being updated with new queues
     defp add_oban_config_updated_notice(igniter) do
+      headline =
+        case ObanConfig.manual_step_count() do
+          0 ->
+            "⚙️  Oban configuration verified/updated in config.exs"
+
+          n ->
+            "⚙️  Oban configuration checked in config.exs — #{n} step(s) need you (listed below)"
+        end
+
       notice = """
-      ⚙️  Oban configuration verified/updated in config.exs
+      #{headline}
          Any queue PhoenixKit or an installed module declares was added if it
          was missing (existing limits are never changed).
          IMPORTANT: If your server is running, restart it to apply changes.

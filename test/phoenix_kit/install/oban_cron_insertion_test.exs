@@ -1401,6 +1401,60 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     end
   end
 
+  describe "g4: a prod-only block after the app's block is not part of the fallback" do
+    test "an entry that is only in a nested prod block is still a manual step" do
+      content = """
+      some_var = [{"0 3 * * *", MyApp.Nightly}]
+
+      config :myapp, Oban,
+        plugins: [{Oban.Plugins.Cron, crontab: some_var}]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [
+            {Oban.Plugins.Cron,
+             crontab: [
+               {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}
+               # comment
+             ]}
+          ]
+      end
+      """
+
+      {result, out, _err, steps} = cron_backfill(content)
+
+      assert result == content
+      text = steps |> Enum.flat_map(fn {h, l} -> [h | l] end) |> Enum.join("\n")
+
+      assert text =~ "PhoenixKit.Jobs.SweepWorker"
+
+      refute out =~
+               "Already configured (crontab is not a literal list; not verified): PhoenixKit.Jobs.SweepWorker"
+    end
+
+    test "an entry in the variable's own definition still counts, next to such a block" do
+      content = """
+      some_var = [{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}]
+
+      config :myapp, Oban,
+        plugins: [{Oban.Plugins.Cron, crontab: some_var}]
+
+      if config_env() == :prod do
+        config :myapp, Oban,
+          plugins: [{Oban.Plugins.Cron, crontab: [{"0 5 * * *", MyApp.ProdOnly}]}]
+      end
+      """
+
+      {_result, out, _err, steps} = cron_backfill(content)
+
+      refute Enum.any?(steps, fn {h, l} ->
+               Enum.any?([h | l], &(&1 =~ "SweepWorker"))
+             end)
+
+      assert out =~ "not verified): PhoenixKit.Jobs.SweepWorker"
+    end
+  end
+
   describe "refusal texts and the quiet cases" do
     test "F: config :app, Oban, false — one info line for the whole phase, no steps, no 'Adding'" do
       {result, out, err, steps} = backfill("config :myapp, Oban, false\n")

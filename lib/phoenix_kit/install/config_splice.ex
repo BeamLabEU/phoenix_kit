@@ -149,20 +149,29 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   @doc """
-  The whole file's code with comments blanked and every OTHER app's
-  `config :x, Oban` block blanked too — what a presence check may read when the
-  app's own list is not a literal one (a variable defined above the block).
+  The whole file's code with comments blanked and every `config :x, Oban` block
+  blanked too — the app's own, other apps', and any nested in an `if` / `case`
+  (a prod-only block says nothing about the other environments). What is left
+  is what a presence check may read when the app's own list is not a literal
+  one: the variable or attribute defined outside any Oban block.
   """
   @spec file_code(String.t(), atom() | String.t(), keyword()) :: String.t()
-  def file_code(content, app_name, opts \\ []) do
-    own = to_string(app_name)
+  def file_code(content, _app_name, opts \\ []) do
     masked = mask(content, strings: true)
 
-    other_blocks =
-      Regex.scan(~r/^config\s+:(\w+),\s+Oban\b#{block_body()}/ms, masked, return: :index)
+    top = Regex.scan(~r/^config\s+:\w+,\s+Oban\b#{block_body()}/ms, masked, return: :index)
 
-    Enum.reduce(other_blocks, mask(content, opts), fn [{start, len}, {n_at, n_len} | _], acc ->
-      if binary_part(masked, n_at, n_len) == own, do: acc, else: blank_range(acc, start, len)
+    # An indented block runs while the following lines are indented deeper
+    # than its own `config` line (or blank).
+    nested =
+      Regex.scan(
+        ~r/^([ \t]+)config\s+:\w+,\s+Oban\b[^\n]*(?:\n(?:\1[ \t]+[^\n]*|[ \t]*(?=\n)))*/m,
+        masked,
+        return: :index
+      )
+
+    Enum.reduce(top ++ nested, mask(content, opts), fn [{start, len} | _], acc ->
+      blank_range(acc, start, len)
     end)
   end
 
