@@ -9,23 +9,21 @@
     <h1 class="text-2xl font-bold text-center mb-2">
       {gettext("Confirm your email to continue")}
     </h1>
-    <p class="text-center text-base-content/60 text-sm mb-1">
-      {gettext(
-        "We emailed a confirmation link to %{email}. Open it to continue — you'll land back in the app automatically, no need to come back to this page.",
+    <p class={[
+      "text-center text-base-content/60 text-sm",
+      (@confirmation_sent_at && "mb-1") || "mb-6"
+    ]}>
+      {gettext("We sent a confirmation link to %{email}.",
         email: @phoenix_kit_current_user.email
       )}
     </p>
-    <p class="text-center text-base-content/40 text-xs mb-6">
-      <%= if @confirmation_sent_at do %>
-        {gettext("Sent")}
-        <.time_ago
-          datetime={@confirmation_sent_at}
-          class="text-base-content/40 text-xs"
-          id="confirmation-sent-at"
-        />
-      <% else %>
-        {gettext("No confirmation email on record — use Resend below.")}
-      <% end %>
+    <p :if={@confirmation_sent_at} class="text-center text-base-content/40 text-xs mb-6">
+      {gettext("Sent")}
+      <.time_ago
+        datetime={@confirmation_sent_at}
+        class="text-base-content/40 text-xs"
+        id="confirmation-sent-at"
+      />
     </p>
   <% else %>
     <h1 class="text-2xl font-bold text-center mb-2">

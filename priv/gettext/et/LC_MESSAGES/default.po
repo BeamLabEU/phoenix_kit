@@ -130,8 +130,8 @@ msgstr "Loo uus konto"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:687
 #: lib/phoenix_kit_web/live/users/users.html.heex:308
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:44
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:52
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:42
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:50
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:15
 #: lib/phoenix_kit_web/users/magic_link.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:56
@@ -669,7 +669,7 @@ msgstr "Punktloend"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:900
 #: lib/phoenix_kit_web/live/users/users.html.heex:75
 #: lib/phoenix_kit_web/live/users/users.html.heex:999
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:71
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
 #, elixir-autogen, elixir-format
 msgid "Cancel"
 msgstr "Tühista"
@@ -1312,7 +1312,7 @@ msgstr "Reavahe"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:596
 #: lib/phoenix_kit_web/users/confirmation.html.heex:33
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:138
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:136
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:32
 #: lib/phoenix_kit_web/users/login.ex:20
 #: lib/phoenix_kit_web/users/login.html.heex:79
@@ -7116,7 +7116,7 @@ msgstr "Uus parool"
 msgid "Next steps:"
 msgstr "Järgmised sammud:"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:32
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:30
 #, elixir-autogen, elixir-format
 msgid "No confirmation instructions received?"
 msgstr "Ei saanud kinnitusjuhiseid?"
@@ -7148,7 +7148,7 @@ msgid "Referral Code"
 msgstr "Soovituskood"
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:131
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:129
 #: lib/phoenix_kit_web/users/registration.ex:24
 #: lib/phoenix_kit_web/users/reset_password.html.heex:45
 #, elixir-autogen, elixir-format
@@ -7176,7 +7176,7 @@ msgstr "Registreeru parooliga"
 msgid "Remember your password?"
 msgstr "Mäletad oma parooli?"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:40
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:38
 #, elixir-autogen, elixir-format
 msgid "Resend Confirmation"
 msgstr "Saada kinnitus uuesti"
@@ -7221,7 +7221,7 @@ msgstr "Saada parooli lähtestamise juhised"
 msgid "Sending magic link..."
 msgstr "Magic Linki saatmine..."
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:56
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:54
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Sending..."
@@ -7232,7 +7232,7 @@ msgstr "Saatmine..."
 msgid "Sign in with password"
 msgstr "Logi sisse parooliga"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:35
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "We'll send a new confirmation link to your inbox"
 msgstr "Saadame uue kinnituslingi sinu postkasti"
@@ -11187,7 +11187,7 @@ msgstr "Juhised otsingurobotitele"
 msgid "Enter your referral code"
 msgstr "Sisesta oma soovituskood"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:124
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:122
 #: lib/phoenix_kit_web/users/referral_gate.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Log out"
@@ -13755,7 +13755,7 @@ msgstr "Suum"
 msgid "Auto"
 msgstr "Automaatne"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:84
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "Change Email"
 msgstr "Muuda e-posti"
@@ -13786,7 +13786,7 @@ msgstr "Kinnitamine lõpetab ühtlasi ka sinu konto kinnitamise."
 msgid "Email changed and confirmed. Welcome!"
 msgstr "E-post on muudetud ja kinnitatud. Tere tulemast!"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:85
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:83
 #, elixir-autogen, elixir-format
 msgid "New email"
 msgstr "Uus e-post"
@@ -13811,12 +13811,12 @@ msgstr "Kuvatakse %{from}–%{to} %{noun}"
 msgid "Showing %{from} to %{to} of %{total} %{noun}"
 msgstr "Kuvatakse %{from}–%{to}, kokku %{total} %{noun}"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:110
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:108
 #, elixir-autogen, elixir-format
 msgid "Update email & resend confirmation"
 msgstr "Uuenda e-posti ja saada kinnitus uuesti"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:107
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:105
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr "Uuendamine..."
@@ -13831,7 +13831,7 @@ msgstr "Saatsime kinnituslingi aadressile %{email}. Klõpsa sellel, et e-posti m
 msgid "We've sent a new confirmation link to %{email}."
 msgstr "Saatsime uue kinnituslingi aadressile %{email}."
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:71
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
 #, elixir-autogen, elixir-format
 msgid "Wrong email? Change it"
 msgstr "Vale e-post? Muuda seda"
@@ -13904,27 +13904,22 @@ msgstr "See on testkiri, mis saadeti seadete lehelt „Tehingu e-kirjad“."
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:10
 #, elixir-autogen, elixir-format
 msgid "Confirm your email to continue"
-msgstr "Kinnitage jätkamiseks oma e-posti aadress"
+msgstr "Kinnitage oma e-post"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:27
-#, elixir-autogen, elixir-format
-msgid "No confirmation email on record — use Resend below."
-msgstr "Kinnituskirja saatmise kohta pole kirjet — kasuta allolevat nuppu „Saada uuesti“."
-
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:59
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:57
 #, elixir-autogen, elixir-format
 msgid "Resend email"
 msgstr "Saada e-kiri uuesti"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:20
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:21
 #, elixir-autogen, elixir-format
 msgid "Sent"
 msgstr "Saadetud"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:13
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:16
 #, elixir-autogen, elixir-format
-msgid "We emailed a confirmation link to %{email}. Open it to continue — you'll land back in the app automatically, no need to come back to this page."
-msgstr "Saatsime kinnituslingi aadressile %{email}. Ava see jätkamiseks — jõuate automaatselt tagasi rakendusse, ilma et peaksite sellele lehele naasma."
+msgid "We sent a confirmation link to %{email}."
+msgstr "Saatsime kinnituslingi aadressile %{email}."
 
 #: lib/phoenix_kit/users/auth.ex:3248
 #, elixir-autogen, elixir-format
@@ -14111,12 +14106,12 @@ msgstr "Tegutseb rollis"
 msgid "Acting as %{role}"
 msgstr "Tegutseb rollis %{role}"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:95
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Current password"
 msgstr "Praegune parool"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:100
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:98
 #, elixir-autogen, elixir-format
 msgid "We ask for your password again as a safety check before moving your account to a new email address."
 msgstr "Küsime uuesti teie parooli turvakontrollina, enne kui viime teie konto uuele e-posti aadressile."
