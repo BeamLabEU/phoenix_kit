@@ -52,6 +52,7 @@ if (typeof window.Chart === "undefined") {
  *   - PreserveScroll ........... Preserve scroll position during LiveView updates
  *   - FlashAutoDismiss ......... Auto-dismiss flash messages with progress bar
  *   - TableCardView ............ Card/table view toggle with localStorage
+ *   - TableFit ................. Drop low-priority table columns that do not fit
  *   - EmailCharts .............. Chart.js delivery trend and engagement charts
  *
  * @version 2.0.0
@@ -5511,6 +5512,93 @@ if (typeof window.Chart === "undefined") {
     }
   };
 
+
+  // ============================================================================
+  // Section: TableFit - drop the least important columns that do not fit
+  // ============================================================================
+  //
+  // On the scroll wrapper of a `<.table_default fit>`. Header cells carry
+  // `data-col-priority`; the hook hides whole columns, by position, through
+  // one stylesheet in <head> — so rows that arrive later (streams, patches)
+  // are already right without touching a cell, and LiveView has no attribute
+  // of ours to strip. It measures the real table against the wrapper rather
+  // than trusting declared widths: a badge is as wide as its translation.
+
+  // Pure: the order columns are dropped in. Highest priority number first;
+  // among equals the rightmost first. `cols` is [{index, priority}].
+  function fitEvictionOrder(cols) {
+    return cols
+      .filter((c) => Number.isFinite(c.priority))
+      .slice()
+      .sort((a, b) => b.priority - a.priority || b.index - a.index)
+      .map((c) => c.index);
+  }
+
+  // Pure: the stylesheet hiding the given 1-based column positions.
+  function fitHideCss(wrapperId, indexes) {
+    if (indexes.length === 0) return "";
+    const sel = indexes
+      .map((i) => `#${wrapperId} > table > * > tr > :nth-child(${i}):not([colspan])`)
+      .join(",\n");
+    return `@media screen {\n${sel} { display: none; }\n}`;
+  }
+
+  window.PhoenixKitHooks.TableFit = {
+    mounted() {
+      this.styleEl = document.createElement("style");
+      this.styleEl.setAttribute("data-pk-table-fit", this.el.id);
+      document.head.appendChild(this.styleEl);
+      this.lastWidth = -1;
+      if (typeof ResizeObserver === "function") {
+        this.observer = new ResizeObserver(() => {
+          // Only a width change can alter what fits; a row arriving (height)
+          // comes through updated().
+          const w = this.el.clientWidth;
+          if (w === this.lastWidth) return;
+          this.fit();
+        });
+        this.observer.observe(this.el);
+      }
+      this.fit();
+    },
+    updated() {
+      this.fit();
+    },
+    destroyed() {
+      if (this.observer) this.observer.disconnect();
+      if (this.styleEl) this.styleEl.remove();
+    },
+    columns() {
+      const row = this.el.querySelector(":scope > table > thead > tr");
+      if (!row) return [];
+      return Array.from(row.children).map((th, i) => ({
+        index: i + 1,
+        priority: th.dataset.colPriority === undefined ? NaN : Number(th.dataset.colPriority)
+      }));
+    },
+    fit() {
+      const table = this.el.querySelector(":scope > table");
+      const width = this.el.clientWidth;
+      // Not laid out (the card view is showing, a hidden tab): keep what we
+      // had; the observer fires again when the wrapper gets a width.
+      if (!table || width === 0) return;
+      this.lastWidth = width;
+      const order = fitEvictionOrder(this.columns());
+      const hidden = [];
+      // All in one task: show everything, then drop columns until the table
+      // stops overflowing. The browser paints only the final state.
+      this.styleEl.textContent = "";
+      while (table.scrollWidth > this.el.clientWidth && hidden.length < order.length) {
+        hidden.push(order[hidden.length]);
+        this.styleEl.textContent = fitHideCss(this.el.id, hidden);
+      }
+    }
+  };
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.fitEvictionOrder = fitEvictionOrder;
+    module.exports.fitHideCss = fitHideCss;
+  }
 
   // ============================================================================
   // Section: TableCardView - Card/Table view toggle

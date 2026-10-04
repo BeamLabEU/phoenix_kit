@@ -262,6 +262,101 @@ defmodule PhoenixKitWeb.Components.Core.TableDefaultTest do
 
   # ── table_default_row/1 ───────────────────────────────────────────
 
+  describe "fit" do
+    test "the hook goes on the scroll wrapper, keyed by the table id" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.table_default id="people" fit>
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell lead>Name</.table_default_header_cell>
+              <.table_default_header_cell priority={3} width="8rem">Email</.table_default_header_cell>
+              <.sort_header_cell field={:status} priority={1}>Status</.sort_header_cell>
+              <.table_default_header_cell />
+            </.table_default_row>
+          </.table_default_header>
+          <.table_default_body>
+            <.table_default_row>
+              <.table_default_cell lead>Ann</.table_default_cell>
+              <.table_default_cell>ann@example.com</.table_default_cell>
+              <.table_default_cell>Active</.table_default_cell>
+              <.table_default_cell>…</.table_default_cell>
+            </.table_default_row>
+          </.table_default_body>
+        </.table_default>
+        """)
+
+      assert html =~ ~s(id="people-fit")
+      assert html =~ ~s(phx-hook="TableFit")
+      assert html =~ ~r/<th[^>]*data-col-lead[^>]*>\s*Name/
+      assert html =~ ~r/<th[^>]*data-col-priority="3"[^>]*style="width: 8rem; min-width: 8rem"/
+      assert html =~ ~r/<th[^>]*data-col-priority="1"/
+      assert html =~ ~r/<td[^>]*data-col-lead[^>]*>\s*Ann/
+      # the actions header and the plain body cells declare nothing
+      assert length(Regex.scan(~r/data-col-priority/, html)) == 2
+      assert length(Regex.scan(~r/data-col-lead/, html)) == 2 + lead_selector_count(html)
+    end
+
+    test "the card-capable path carries the hook too, beside TableCardView" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.table_default id="people" fit toggleable>
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell lead>Name</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+        </.table_default>
+        """)
+
+      assert html =~ ~s(phx-hook="TableCardView")
+
+      assert html =~
+               ~r/id="people-fit"[^>]*phx-hook="TableFit"|phx-hook="TableFit"[^>]*id="people-fit"/
+    end
+
+    test "a table without fit renders no hook and no column attributes" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <.table_default id="people">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>Name</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+        </.table_default>
+        """)
+
+      refute html =~ "TableFit"
+      refute html =~ "data-col-"
+    end
+
+    test "fit without an id is refused" do
+      assigns = %{}
+
+      assert_raise ArgumentError, ~r/needs an id/, fn ->
+        rendered_to_string(~H"""
+        <.table_default fit>
+          <.table_default_header></.table_default_header>
+        </.table_default>
+        """)
+      end
+    end
+
+    # The right-packing classes on <table> name `data-col-lead` in their
+    # selectors; count those out so the assertion above is about cells.
+    defp lead_selector_count(html) do
+      [table_tag] = Regex.run(~r/<table[^>]*>/, html)
+      length(Regex.scan(~r/data-col-lead/, table_tag))
+    end
+  end
+
   describe "table_default_row/1" do
     test "carries the `group/row` Tailwind marker for group-hover children" do
       assigns = %{}

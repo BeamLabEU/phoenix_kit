@@ -108,6 +108,42 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   `phx-value-mode="card"|"comfy"|"table"` so the consumer can drive
   state via `push_patch` (URL-backed) or `assign`. Use this when the
   view choice must survive across LV navigation or be part of the URL.
+
+  ## Fitting columns to the width (`fit`)
+
+  Pass `fit` (with an `id`) and the table drops its least important
+  columns when they do not fit, instead of scrolling sideways:
+
+      <.table_default id="users-table" fit>
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell lead>Name</.table_default_header_cell>
+            <.table_default_header_cell priority={3}>Email</.table_default_header_cell>
+            <.table_default_header_cell priority={1}>Status</.table_default_header_cell>
+            <.table_default_header_cell />
+          </.table_default_row>
+        </.table_default_header>
+        <.table_default_body>
+          <.table_default_row :for={u <- @users}>
+            <.table_default_cell lead>{u.name}</.table_default_cell>
+            ...
+
+  * `lead` marks the one column that stays on the left and takes the slack
+    (the name). Put it on the header cell AND on the body cell — the body
+    cell then truncates instead of pushing the other columns out. Every
+    other column is sized to its content and packed against the right
+    edge, so no column sits alone in the middle of the table.
+  * `priority` on a HEADER cell says how soon the column goes: the highest
+    number goes first, `1` last; equal priorities go from the right. A
+    column without a priority never goes (a checkbox, the row actions).
+    Body cells declare nothing — the hook hides a column by its position.
+  * `width` on a header cell pins that column's width (`"8rem"`).
+
+  The `TableFit` hook measures the real table against its wrapper (the
+  sidebar makes the viewport width useless here) on mount, on resize and
+  after every patch, so a table with three columns keeps all of them where
+  one with nine sheds four. Printing shows every column. A cell with a
+  `colspan` is left alone.
   """
   attr :id, :string, default: nil
   attr :class, :any, default: ""
@@ -116,6 +152,12 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :toggleable, :boolean, default: false
   attr :show_toggle, :boolean, default: true
   attr :items, :list, default: []
+
+  attr :fit, :boolean,
+    default: false,
+    doc:
+      "Drop the least important columns when the table is wider than its wrapper, and pack every column but the `lead` one against the right edge. Needs an `id`. See \"Fitting columns to the width\" in the moduledoc."
+
   attr :card_title, :any, default: nil
   attr :card_fields, :any, default: nil
 
@@ -227,6 +269,10 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
       "The page's primary action (a create button), rendered after the view toggle so it sits in the far-right corner"
 
   def table_default(assigns) do
+    if assigns.fit and is_nil(assigns.id) do
+      raise ArgumentError, "<.table_default fit> needs an id: the TableFit hook is keyed by it"
+    end
+
     if assigns.items == [] and not assigns.toggleable do
       table_default_classic(assigns)
     else
@@ -253,12 +299,13 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         {render_slot(@toolbar_primary)}
       </div>
     </div>
-    <div class={@wrapper_class}>
+    <div class={@wrapper_class} {fit_wrapper_attrs(@fit, @id)}>
       <table
         class={[
           "table",
           table_variant_class(@variant),
           table_size_class(@size),
+          @fit && fit_table_class(),
           @class
         ]}
         {@rest}
@@ -386,7 +433,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
           ]
         }
       >
-        <div class={@wrapper_class}>
+        <div class={@wrapper_class} {fit_wrapper_attrs(@fit, @id)}>
           <%!-- The stacked-variant utilities react to the `pk-comfy` marker
                (comfortable view): roomier cell padding without changing the
                table's size class. daisyUI's own paddings sit in :where()
@@ -397,6 +444,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
               table_variant_class(@variant),
               table_size_class(@size),
               "[.pk-comfy_&]:[&_:where(td,th)]:py-3.5",
+              @fit && fit_table_class(),
               @class
             ]}
             {@rest}
@@ -537,9 +585,32 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
     end)
   end
 
+  # The hook sits on the scroll wrapper, not on the component root: the root
+  # already carries TableCardView, and an element takes one hook.
+  defp fit_wrapper_attrs(false, _id), do: []
+  defp fit_wrapper_attrs(true, id), do: [id: "#{id}-fit", "phx-hook": "TableFit"]
+
+  # Right-packing, in CSS so the first paint already has it: the lead column
+  # takes all the slack, every other column shrinks to its content. Child
+  # combinators keep a table nested inside a cell out of it. A lead BODY cell
+  # (`max-w-0` + `overflow-hidden`) gives its width up to the column instead
+  # of dictating it, which is what lets a long name truncate; its `min-w`
+  # is the room the name keeps before a column is dropped for it.
+  defp fit_table_class do
+    [
+      "[&>thead>tr>th[data-col-lead]]:w-full [&>thead>tr>th[data-col-lead]]:min-w-48",
+      "[&>thead>tr>th:not([data-col-lead])]:w-px [&>thead>tr>th:not([data-col-lead])]:whitespace-nowrap",
+      "[&>tbody>tr>td:not([data-col-lead]):not([colspan])]:whitespace-nowrap",
+      "[&>tbody>tr>td[data-col-lead]]:max-w-0 [&>tbody>tr>td[data-col-lead]]:overflow-hidden"
+    ]
+  end
+
   defp sortable_scope_value(nil), do: ""
   defp sortable_scope_value(v) when is_binary(v), do: v
   defp sortable_scope_value(v), do: to_string(v)
+
+  defp col_width_style(nil), do: nil
+  defp col_width_style(width), do: "width: #{width}; min-width: #{width}"
 
   defp sortable_scope_dash(name), do: name |> String.replace("_", "-") |> String.downcase()
 
@@ -656,16 +727,34 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   ## Attributes
 
   * `class` - Additional CSS classes (optional)
+  * `priority`, `lead`, `width` - column fitting, for a `<.table_default fit>`
+    (see its moduledoc)
   * `rest` - Additional HTML attributes (optional)
   """
   attr :class, :any, default: ""
+
+  attr :priority, :integer,
+    default: nil,
+    doc: "In a `fit` table: how soon this column is dropped. Highest goes first; nil never goes."
+
+  attr :lead, :boolean,
+    default: false,
+    doc: "In a `fit` table: the column that stays left and takes the slack."
+
+  attr :width, :string, default: nil, doc: "A fixed CSS width for the column, e.g. `\"8rem\"`."
   attr :rest, :global
 
   slot :inner_block
 
   def table_default_header_cell(assigns) do
     ~H"""
-    <th class={@class} {@rest}>
+    <th
+      class={@class}
+      data-col-priority={@priority}
+      data-col-lead={@lead}
+      style={col_width_style(@width)}
+      {@rest}
+    >
       {render_slot(@inner_block)}
     </th>
     """
@@ -685,13 +774,18 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :colspan, :integer, default: nil
   attr :rowspan, :integer, default: nil
 
+  attr :lead, :boolean,
+    default: false,
+    doc:
+      "In a `fit` table: this cell is in the lead column, so it truncates rather than widening the table. Wrap its text in a `truncate` element."
+
   attr :rest, :global
 
   slot :inner_block, required: true
 
   def table_default_cell(assigns) do
     ~H"""
-    <td class={@class} colspan={@colspan} rowspan={@rowspan} {@rest}>
+    <td class={@class} colspan={@colspan} rowspan={@rowspan} data-col-lead={@lead} {@rest}>
       {render_slot(@inner_block)}
     </td>
     """
@@ -789,6 +883,16 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   attr :target, :any, default: nil
   attr :align, :atom, default: :left, values: [:left, :right, :center]
   attr :class, :any, default: ""
+
+  attr :priority, :integer,
+    default: nil,
+    doc: "In a `fit` table: how soon this column is dropped. Highest goes first; nil never goes."
+
+  attr :lead, :boolean,
+    default: false,
+    doc: "In a `fit` table: the column that stays left and takes the slack."
+
+  attr :width, :string, default: nil, doc: "A fixed CSS width for the column, e.g. `\"8rem\"`."
   attr :rest, :global, include: ~w(colspan rowspan)
 
   slot :inner_block, required: true
@@ -813,6 +917,9 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         @class
       ]}
       aria-sort={sort_header_aria_sort(@sort, @field)}
+      data-col-priority={@priority}
+      data-col-lead={@lead}
+      style={col_width_style(@width)}
       {@rest}
     >
       <%= if @sortable? do %>
