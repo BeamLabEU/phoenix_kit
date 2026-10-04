@@ -110,6 +110,20 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
     bucket
   end
 
+  # A cloud bucket nothing can be written to: no connection, no keys. Inserted
+  # as a row, because the form's rules want a real connection.
+  defp cloud_bucket! do
+    Repo.insert!(%Bucket{
+      name: "placement-cloud-#{System.unique_integer([:positive])}",
+      provider: "r2",
+      bucket_name: "nowhere",
+      endpoint: "127.0.0.1:9",
+      access_type: "signed",
+      enabled: true,
+      priority: 0
+    })
+  end
+
   defp stored_files(bucket) do
     Path.join(bucket.endpoint, "**/*") |> Path.wildcard() |> Enum.filter(&File.regular?/1)
   end
@@ -130,7 +144,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
     test "go to the profile's buckets only, up to its copy count", ctx do
       profile = put!(ctx.profile, ctx.a)
       profile = put!(profile, ctx.b)
-      {:ok, profile} = Profiles.update_profile(profile, %{copies_originals: 2})
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 2})
 
       {:ok, file} = upload(ctx.user, ctx.library, "two copies")
 
@@ -158,12 +172,11 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       end
     end
 
-    test "a bucket that stores only derived files, or is not active, or is disabled, is skipped",
-         ctx do
-      profile = put!(ctx.profile, ctx.a, %{stores: "derived"})
+    test "a bucket that is not active, or is disabled, is skipped", ctx do
+      profile = put!(ctx.profile, ctx.a, %{status: "draining"})
       profile = put!(profile, ctx.b, %{status: "read_only"})
       profile = put!(profile, ctx.c)
-      {:ok, profile} = Profiles.update_profile(profile, %{copies_originals: 3})
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 3})
 
       {:ok, file} = upload(ctx.user, ctx.library, "only c")
       assert original_buckets(file) == uuids([ctx.c])
@@ -197,7 +210,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       profile = put!(profile, ctx.b, %{status: "draining"})
 
       {:ok, _} =
-        Profiles.update_profile(profile, %{copies_originals: 2, min_copies_on_write: 2})
+        Profiles.update_profile(profile, %{copies_local: 2, min_copies_on_write: 2})
 
       assert {:error, _} = upload(ctx.user, ctx.library, "needs two")
       assert stored_files(ctx.a) == []
@@ -206,7 +219,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
     test "a copy that fails leaves the file stale for the reconciler", ctx do
       profile = put!(ctx.profile, ctx.a)
       profile = put!(profile, broken_bucket!())
-      {:ok, profile} = Profiles.update_profile(profile, %{copies_originals: 2})
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 2})
 
       {:ok, file} = upload(ctx.user, ctx.library, "one of two")
 
@@ -219,7 +232,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       profile = put!(profile, broken_bucket!())
 
       {:ok, _} =
-        Profiles.update_profile(profile, %{copies_originals: 2, min_copies_on_write: 2})
+        Profiles.update_profile(profile, %{copies_local: 2, min_copies_on_write: 2})
 
       assert {:error, _} = upload(ctx.user, ctx.library, "both or nothing")
       assert stored_files(ctx.a) == []
@@ -235,13 +248,64 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
     end
   end
 
+  describe "local and cloud copies" do
+    test "a kind the profile wants no copy of is not written, whatever buckets it has", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, cloud_bucket!())
+
+      {:ok, file} = upload(ctx.user, ctx.library, "local only")
+
+      assert original_buckets(file) == uuids([ctx.a])
+      # Nothing was wanted from the cloud bucket, so the file is placed whole.
+      assert placed(file) == {to_string(profile.uuid), profile.revision}
+    end
+
+    test "the local count is per kind: two copies on local buckets, none in the cloud", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, ctx.b)
+      profile = put!(profile, ctx.c)
+      _ = put!(profile, cloud_bucket!())
+      {:ok, _} = Profiles.update_profile(Profiles.get_profile(profile.uuid), %{copies_local: 2})
+
+      {:ok, file} = upload(ctx.user, ctx.library, "two local")
+
+      assert MapSet.size(original_buckets(file)) == 2
+      assert MapSet.subset?(original_buckets(file), uuids([ctx.a, ctx.b, ctx.c]))
+    end
+
+    test "a cloud copy that cannot be written leaves the local one, and the file stale", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, cloud_bucket!())
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 1, copies_cloud: 1})
+
+      {:ok, file} = upload(ctx.user, ctx.library, "cloud is down")
+
+      assert original_buckets(file) == uuids([ctx.a])
+      assert placed(file) == {to_string(profile.uuid), 0}
+    end
+
+    test "the plan lists each kind's buckets with the copies wanted there", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, ctx.b, %{role: "replica"})
+      cloud = cloud_bucket!()
+      profile = put!(profile, cloud)
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 2, copies_cloud: 1})
+
+      assert [{:local, local, 2}, {:cloud, [only_cloud], 1}] = Manager.placement_plan(profile)
+      # A primary before a replica.
+      assert Enum.map(local, & &1.uuid) == [ctx.a.uuid, ctx.b.uuid]
+      assert only_cloud.uuid == cloud.uuid
+    end
+  end
+
   describe "derived files" do
-    test "a variant goes where the profile puts derived files, not with its original", ctx do
-      profile = put!(ctx.profile, ctx.a, %{stores: "originals"})
-      _profile = put!(profile, ctx.b, %{stores: "derived"})
+    test "a variant is placed like its original: on the same buckets", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, ctx.b)
+      {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2})
 
       {:ok, file} = upload(ctx.user, ctx.library, "variant")
-      assert original_buckets(file) == uuids([ctx.a])
+      assert original_buckets(file) == uuids([ctx.a, ctx.b])
 
       variant = source!("variant bytes")
       key = "#{file.file_path}/variant_small.txt"
@@ -249,7 +313,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       assert {:ok, info} =
                Storage.store_by_profile(variant, file.library_uuid, :derived, path_prefix: key)
 
-      assert MapSet.new(info.bucket_ids, &to_string/1) == uuids([ctx.b])
+      assert MapSet.new(info.bucket_ids, &to_string/1) == uuids([ctx.a, ctx.b])
       assert info.complete?
     end
 
@@ -273,8 +337,8 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
 
     test "a derived copy that fails is reported incomplete", ctx do
       profile = put!(ctx.profile, ctx.a)
-      profile = put!(profile, broken_bucket!(), %{stores: "derived"})
-      {:ok, _} = Profiles.update_profile(profile, %{copies_variants: 2})
+      profile = put!(profile, broken_bucket!())
+      {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2})
       {:ok, file} = upload(ctx.user, ctx.library, "short variant")
 
       {:ok, info} =
@@ -333,11 +397,12 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
   end
 
   describe "the redundancy setting" do
-    test "is the Default profile's copy count, for originals and variants" do
+    test "is the Default profile's copy count in all, local buckets first" do
       {:ok, _} = Storage.set_redundancy_copies(2)
 
       default = Profiles.default_profile()
-      assert {default.copies_originals, default.copies_variants} == {2, 2}
+      assert Profiles.copies_total(default) == 2
+      assert {default.copies_local, default.copies_cloud} == {2, 0}
       assert Storage.redundancy_copies() == 2
       assert Settings.get_setting("storage_redundancy_copies") == "2"
     end

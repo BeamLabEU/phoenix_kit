@@ -84,7 +84,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcileKindTest do
     {:ok, _} = Profiles.put_bucket(profile, bucket.uuid, %{})
 
     {:ok, _} =
-      Profiles.update_profile(Profiles.get_profile(side.profile.uuid), %{copies_originals: 2})
+      Profiles.update_profile(Profiles.get_profile(side.profile.uuid), %{copies_local: 2})
   end
 
   # Storing a file queues its processing, and every change to a profile queues the

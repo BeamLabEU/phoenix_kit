@@ -202,6 +202,18 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V209 (2026-10-04, local and cloud copies) DECLARES three objects:
+  # `column:phoenix_kit_storage_profiles.copies_local` (integer NOT NULL
+  # DEFAULT 1), `…copies_cloud` (integer NOT NULL DEFAULT 0) and the
+  # `phoenix_kit_storage_profiles_local_cloud_check` constraint (each 0..5, and
+  # their sum equals `copies_originals`, which stays as the total). Shapes are
+  # catalog-exact from a test database migrated through V209 (columns from
+  # `information_schema`, the constraint from `pg_get_constraintdef`); the
+  # backfill is row data, which the manifest does not track. `chain_hash`
+  # restamped; `verify.exs --scenario s7,s8` needs a generated baseline this
+  # environment does not have, so the real-database manifest and migration
+  # suites re-ran clean against a DB migrated through V209.
+  #
   # V208 (2026-10-04, the bucket log) DECLARES the table
   # `phoenix_kit_bucket_log`, its nine columns, three constraints (pkey, the
   # kind check, the count check) and two indexes, hand-declared like V207's.
@@ -526,7 +538,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "9901b96ef0e77291f594128a7e1446215d0669e8fbdb19c8d66a0d4afc82f1f1"
+  @chain_hash "7aa29093ef3d2c277b8e40240a56d75a707516e8e86c434384f235fa4f01e032"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -74881,6 +74893,66 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         since: 206,
         class: :column,
         revisions: [{206, %{default: nil, type: "uuid", pos: 10, not_null: false}}],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_storage_profiles.copies_local",
+        owner: :core,
+        check:
+          {:catalog,
+           %{table: "phoenix_kit_storage_profiles", column: "copies_local", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_profiles ADD COLUMN IF NOT EXISTS \"copies_local\" integer DEFAULT 1 NOT NULL",
+        since: 209,
+        class: :column,
+        revisions: [{209, %{default: "1", type: "integer", pos: 11, not_null: true}}],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_storage_profiles.copies_cloud",
+        owner: :core,
+        check:
+          {:catalog,
+           %{table: "phoenix_kit_storage_profiles", column: "copies_cloud", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_profiles ADD COLUMN IF NOT EXISTS \"copies_cloud\" integer DEFAULT 0 NOT NULL",
+        since: 209,
+        class: :column,
+        revisions: [{209, %{default: "0", type: "integer", pos: 12, not_null: true}}],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id:
+          "constraint:phoenix_kit_storage_profiles.phoenix_kit_storage_profiles_local_cloud_check",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_storage_profiles_local_cloud_check",
+             table: "phoenix_kit_storage_profiles",
+             kind: :constraint
+           }},
+        create:
+          "DO $$\nBEGIN\n  IF NOT EXISTS (\n    SELECT 1\n    FROM pg_constraint c\n    JOIN pg_class t ON t.oid = c.conrelid\n    JOIN pg_namespace n ON n.oid = t.relnamespace\n    WHERE c.conname = 'phoenix_kit_storage_profiles_local_cloud_check'\n      AND t.relname = 'phoenix_kit_storage_profiles'\n      AND n.nspname = '__SCHEMA__'\n  ) THEN\n    ALTER TABLE __SCHEMA__.phoenix_kit_storage_profiles ADD CONSTRAINT phoenix_kit_storage_profiles_local_cloud_check CHECK ((((copies_local >= 0) AND (copies_local <= 5)) AND ((copies_cloud >= 0) AND (copies_cloud <= 5)) AND ((copies_local + copies_cloud) = copies_originals)));\n  END IF;\nEND\n$$",
+        since: 209,
+        class: :constraint,
+        revisions: [
+          {209,
+           %{
+             type: "c",
+             columns: ["copies_local", "copies_cloud", "copies_originals"],
+             definition:
+               "CHECK ((((copies_local >= 0) AND (copies_local <= 5)) AND ((copies_cloud >= 0) AND (copies_cloud <= 5)) AND ((copies_local + copies_cloud) = copies_originals)))",
+             on_delete: nil,
+             on_update: nil,
+             name_template: nil,
+             foreign_columns: nil,
+             foreign_table: nil
+           }}
+        ],
         presence: :required,
         backfill: nil
       },

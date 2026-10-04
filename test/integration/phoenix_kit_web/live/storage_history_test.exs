@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
 
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.Jobs
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Jobs.Reconcile
   alias PhoenixKit.Modules.Storage.{Libraries, Profiles}
@@ -33,7 +34,7 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
 
   test "lists who changed what, newest first, with the person and the change", ctx do
     {:ok, profile} = Profiles.create_profile(%{name: "Cold storage"}, ctx.actor)
-    {:ok, _} = Profiles.update_profile(profile, %{copies_originals: 2}, ctx.actor)
+    {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2}, ctx.actor)
 
     view = history(ctx.conn)
     html = render(view)
@@ -41,7 +42,7 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
     assert html =~ "storage.profile.created"
     assert html =~ "storage.profile.updated"
     assert html =~ ctx.user.email
-    assert html =~ "Copies originals"
+    assert html =~ "Copies local"
     assert html =~ "1 → 2"
 
     entry =
@@ -157,17 +158,23 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
   test "every field of an entry can be read in place, with no access to the Activity page", ctx do
     admin = Roles.get_role_by_name("Admin")
     :ok = Permissions.revoke_permission(admin.uuid, "dashboard")
-    {:ok, profile} = Profiles.create_profile(%{name: "Many fields"}, ctx.actor)
+
+    {:ok, bucket} =
+      Storage.create_bucket(
+        %{
+          name: "Many fields",
+          provider: "local",
+          endpoint: Path.join(System.tmp_dir!(), "pk_history_fields"),
+          enabled: true,
+          priority: 0
+        },
+        ctx.actor
+      )
 
     {:ok, _} =
-      Profiles.update_profile(
-        profile,
-        %{
-          name: "Many fields v2",
-          copies_originals: 2,
-          copies_variants: 2,
-          min_copies_on_write: 2
-        },
+      Storage.update_bucket(
+        bucket,
+        %{name: "Many fields v2", priority: 3, max_size_mb: 500, region: "eu"},
         ctx.actor
       )
 
@@ -176,7 +183,7 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
     # the one-line summary stops at three fields; the disclosure holds all four
     assert has_element?(view, "#media-history-list details summary", "Show every field")
 
-    for field <- ["Name", "Copies originals", "Copies variants", "Min copies on write"] do
+    for field <- ["Name", "Priority", "Max size mb", "Region"] do
       assert has_element?(view, "#media-history-list details dt", field)
     end
 
@@ -307,7 +314,7 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
 
   test "each row opens its entry on the Activity page", ctx do
     {:ok, profile} = Profiles.create_profile(%{name: "Linked"}, ctx.actor)
-    {:ok, _} = Profiles.update_profile(profile, %{copies_originals: 3}, ctx.actor)
+    {:ok, _} = Profiles.update_profile(profile, %{copies_local: 3}, ctx.actor)
 
     entry =
       Repo.one!(
@@ -320,6 +327,6 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
 
     assert html =~ "storage.profile.updated"
     assert render(view) =~ "storage_profile"
-    assert html =~ "Copies originals"
+    assert html =~ "Copies local"
   end
 end

@@ -353,10 +353,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
     opts = [profile: blank_to_nil(profile_uuid)] ++ Actor.opts(socket)
 
     case Storage.create_bucket(bucket_params, opts) do
-      {:ok, _bucket} ->
+      {:ok, bucket} ->
         socket =
           socket
-          |> put_flash(:info, created_message(opts[:profile]))
+          |> put_flash(:info, created_message(opts[:profile], bucket))
           |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
@@ -514,7 +514,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   # as a primary: when that leaves the profile spreading files across its
   # primaries rather than mirroring them, say so now, since adding the second
   # bucket is when it begins.
-  defp created_message(nil) do
+  defp created_message(nil, _bucket) do
     gettext("Bucket created successfully") <>
       ". " <>
       gettext(
@@ -522,22 +522,45 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       )
   end
 
-  defp created_message(profile_uuid) do
+  defp created_message(profile_uuid, bucket) do
     base = gettext("Bucket created successfully")
+    group = Bucket.group(bucket)
 
     with %{} = profile <- Profiles.get_profile(profile_uuid),
-         %{primaries: primaries, copies: copies} when primaries > copies <-
-           Profiles.copies_advice(profile) do
-      base <>
-        ". " <>
-        gettext(
-          "Each original is stored on %{copies} of the %{count} primary buckets, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab.",
-          copies: copies,
-          count: primaries
-        )
+         %{} = advice <- Map.fetch!(Profiles.copies_advice(profile), group) do
+      case advice do
+        # The profile asks for none of this kind of copy: the bucket is in it and
+        # holds nothing until a count is set.
+        %{copies: 0} ->
+          base <> ". " <> no_copies_message(group)
+
+        %{primaries: primaries, copies: copies} when primaries > copies ->
+          base <>
+            ". " <>
+            gettext(
+              "Each file is stored on %{copies} of the %{count} primary buckets of its kind, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab.",
+              copies: copies,
+              count: primaries
+            )
+
+        _ ->
+          base
+      end
     else
       _ -> base
     end
+  end
+
+  defp no_copies_message(:local) do
+    gettext(
+      "The profile keeps no local copies, so nothing is written to this bucket yet: set Local copies on the Storage profiles tab."
+    )
+  end
+
+  defp no_copies_message(:cloud) do
+    gettext(
+      "The profile keeps no cloud copies, so nothing is written to this bucket yet: set Cloud copies on the Storage profiles tab."
+    )
   end
 
   # The Default is marked: a bucket added to it is written to by every library

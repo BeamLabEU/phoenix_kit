@@ -4,8 +4,9 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   A library points at a profile (`PhoenixKit.Modules.Storage.StorageProfile`),
   and the profile lists its buckets with how it uses each
-  (`PhoenixKit.Modules.Storage.ProfileBucket`: role, what it stores, write
-  priority, serve order, status) and how many copies an object gets. A
+  (`PhoenixKit.Modules.Storage.ProfileBucket`: role, write priority, serve
+  order, status) and how many copies an object gets, on local buckets and on
+  cloud ones. A
   library with no profile uses the **Default**, seeded by V205 from the
   install's buckets and `storage_redundancy_copies` under a fixed uuid
   (`default_uuid/0`), so an install that never touches profiles behaves as
@@ -22,6 +23,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
+  alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.{Library, ProfileBucket, StorageProfile}
@@ -109,59 +111,112 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   def for_file(%StorageFile{library_uuid: library_uuid}), do: for_library(library_uuid)
 
   @doc """
-  The number of copies `profile` wants of an object: `:original` for an
-  original upload, `:derived` for anything made from one.
+  The copies `profile` wants on one kind of bucket: `:local` (the server's
+  disks) or `:cloud`. Every file, an original and what is made from it, gets the
+  same.
   """
-  @spec copies(StorageProfile.t(), :original | :derived) :: pos_integer()
-  def copies(%StorageProfile{copies_originals: n}, :original), do: n
-  def copies(%StorageProfile{copies_variants: n}, :derived), do: n
+  @spec copies(StorageProfile.t(), :local | :cloud) :: non_neg_integer()
+  def copies(%StorageProfile{copies_local: n}, :local), do: n
+  def copies(%StorageProfile{copies_cloud: n}, :cloud), do: n
+
+  @doc "How many copies of a file `profile` wants in all: local plus cloud."
+  @spec copies_total(StorageProfile.t()) :: pos_integer()
+  def copies_total(%StorageProfile{copies_local: local, copies_cloud: cloud}), do: local + cloud
 
   @doc """
-  What a profile's copy count means for the buckets it has now, for the screens
+  `total` copies split over the profile's buckets, local first: the cloud share
+  is what the local buckets cannot take, up to the cloud buckets it has (active
+  and enabled); the rest is local. `%{copies_local: n, copies_cloud: m}` with
+  `n + m == total`. How a count that knows no kinds (the old redundancy setting)
+  becomes the two.
+  """
+  @spec split_copies(StorageProfile.t(), pos_integer()) :: %{
+          copies_local: non_neg_integer(),
+          copies_cloud: non_neg_integer()
+        }
+  def split_copies(%StorageProfile{buckets: rows}, total) do
+    writable = Enum.filter(rows, &(&1.status == "active" and &1.bucket.enabled))
+    local = Enum.count(writable, &(Bucket.group(&1.bucket) == :local))
+    cloud = Enum.count(writable, &(Bucket.group(&1.bucket) == :cloud))
+    share = min(cloud, max(total - local, 0))
+
+    %{copies_local: total - share, copies_cloud: share}
+  end
+
+  @doc """
+  The counts `profile` can actually keep: each kind's count lowered to the
+  writable buckets (active, enabled) it has of that kind, never raised. When that
+  leaves nothing (it wants only a kind it has no bucket of), the total is split
+  over the buckets it has instead (`split_copies/2`).
+  """
+  @spec fit_copies(StorageProfile.t()) :: %{
+          copies_local: non_neg_integer(),
+          copies_cloud: non_neg_integer()
+        }
+  def fit_copies(%StorageProfile{} = profile) do
+    %{local: local, cloud: cloud} = copies_advice(profile)
+
+    fitted = %{
+      copies_local: min(profile.copies_local, local.buckets),
+      copies_cloud: min(profile.copies_cloud, cloud.buckets)
+    }
+
+    if fitted.copies_local + fitted.copies_cloud >= 1 do
+      fitted
+    else
+      split_copies(profile, min(copies_total(profile), max(local.buckets + cloud.buckets, 1)))
+    end
+  end
+
+  @doc """
+  What a profile's copy counts mean for the buckets it has now, for the screens
   that tell an admin and the one place that must agree with what they say.
 
-  An original is written to the first `copies_originals` writable buckets in
-  role order — primaries, then replicas, then backups — so the count says how
-  many of them get it:
+  A file is written to the first `copies_local` writable local buckets and the
+  first `copies_cloud` writable cloud buckets, each in role order — primaries,
+  then replicas, then backups — so a count says how many of them get it. For
+  each kind (`local`, `cloud`):
 
-    * `writable` — the buckets that can take a new original (active in the
-      profile, storing originals, and enabled);
+    * `buckets` — how many can take a new file (active in the profile, enabled);
     * `primaries` — how many of those are primaries;
-    * `copies` — the profile's count;
-    * `idle` — the names of the replicas and backups the count never reaches
-      (it does not exceed the primaries), which hold nothing unless a write to a
-      primary fails;
-    * `recommended` — the count that would put the one replica or backup to
-      use, or nil. Only offered where it is unambiguous: one primary, one copy,
-      and a bucket waiting. With several primaries a higher count would also put
-      every file on every primary, which is a different decision.
+    * `copies` — the profile's count for it;
+    * `idle` — the names of the replicas and backups the count never reaches (it
+      does not exceed the primaries), which hold nothing unless a write to a
+      primary fails.
 
-  Takes a profile with its buckets loaded.
+  `writable` is the buckets of both kinds. Takes a profile with its buckets
+  loaded.
   """
   @spec copies_advice(StorageProfile.t()) :: %{
           writable: non_neg_integer(),
-          primaries: non_neg_integer(),
-          copies: pos_integer(),
-          idle: [String.t()],
-          recommended: pos_integer() | nil
+          copies: non_neg_integer(),
+          local: map(),
+          cloud: map()
         }
   def copies_advice(%StorageProfile{} = profile) do
-    rows =
-      Enum.filter(profile.buckets, fn row ->
-        row.status == "active" and row.stores in ["all", "originals"] and row.bucket.enabled
-      end)
-
-    primaries = Enum.count(rows, &(&1.role == "primary"))
-    others = Enum.reject(rows, &(&1.role == "primary"))
-    copies = profile.copies_originals
-    idle = if copies <= primaries, do: Enum.map(others, & &1.bucket.name), else: []
+    rows = Enum.filter(profile.buckets, &(&1.status == "active" and &1.bucket.enabled))
 
     %{
       writable: length(rows),
-      primaries: primaries,
+      copies: copies_total(profile),
+      local: kind_advice(rows, :local, profile.copies_local),
+      cloud: kind_advice(rows, :cloud, profile.copies_cloud)
+    }
+  end
+
+  defp kind_advice(rows, kind, copies) do
+    rows = Enum.filter(rows, &(Bucket.group(&1.bucket) == kind))
+    {primaries, others} = Enum.split_with(rows, &(&1.role == "primary"))
+
+    %{
+      buckets: length(rows),
+      primaries: length(primaries),
       copies: copies,
-      idle: idle,
-      recommended: if(primaries == 1 and copies == 1 and others != [], do: 2)
+      idle:
+        if(copies > 0 and copies <= length(primaries),
+          do: Enum.map(others, & &1.bucket.name),
+          else: []
+        )
     }
   end
 
@@ -219,8 +274,8 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         changes =
           Audit.changes(changeset, [
             :name,
-            :copies_originals,
-            :copies_variants,
+            :copies_local,
+            :copies_cloud,
             :min_copies_on_write
           ])
 
@@ -353,7 +408,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   # Adding a bucket to a profile, or changing how the profile uses it. Only the
   # row's own fields are named, with their old and new values.
-  @row_fields [:role, :stores, :status, :serve_order, :write_priority, :storage_class]
+  @row_fields [:role, :status, :serve_order, :write_priority, :storage_class]
 
   defp audit_bucket_row(profile, saved, changeset, added?, opts) do
     bucket = bucket_name(saved.bucket_uuid)
@@ -400,12 +455,12 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     )
   end
 
-  # What a file's placement depends on: what a bucket stores, its status,
-  # and its role (a file needs a copy it may serve). The serve order is read
+  # What a file's placement depends on: a bucket's status and its role (a file
+  # needs a copy it may serve). The serve order is read
   # when a request is served, and a write priority or storage class only
   # applies to the next write: changing them makes no file stale.
   defp moves_bytes?(changeset),
-    do: Map.take(changeset.changes, [:stores, :status, :role]) != %{}
+    do: Map.take(changeset.changes, [:status, :role]) != %{}
 
   @doc "Takes `bucket_uuid` out of `profile` and bumps the profile's revision."
   @spec remove_bucket(StorageProfile.t(), term(), keyword()) :: :ok | {:error, term()}
@@ -439,8 +494,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   @doc """
   Puts a newly created bucket into the Default profile, the way every new
-  bucket joined the pool before profiles: primary, stores everything,
-  active, its `priority` as the write priority (0 is the shuffled pool),
+  bucket joined the pool before profiles: primary, active, its `priority` as the write priority (0 is the shuffled pool),
   served after the Default's other buckets (a local one before the remote
   ones). The default of `Storage.create_bucket/2`; a caller that wants none or
   another profile says so there (`:profile`).
@@ -481,7 +535,6 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
         attrs = %{
           role: "primary",
-          stores: "all",
           status: "active",
           write_priority: write_priority(bucket.priority),
           serve_order: serve_order + 1
@@ -769,26 +822,24 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     row = %{
       bucket_uuid: bucket.uuid,
       role: "primary",
-      stores: "all",
       write_priority: nil,
       serve_order: 1,
       status: "active"
     }
 
-    {:ok, [row], %{copies_originals: 1, copies_variants: 1, min_copies_on_write: 1}}
+    {:ok, [row], %{copies_local: 0, copies_cloud: 1, min_copies_on_write: 1}}
   end
 
   # Placement writes every primary before any backup, up to the copy count, so
   # a backup only gets a copy when the profile wants MORE copies than it has
-  # writable primaries and replicas. The profile therefore wants one original on
-  # every writable site bucket that stores originals, plus the backup (at most 5
-  # copies). Only the ORIGINAL-capable rows are limited to four (kept: active
-  # before read-only, then by serve order): derived-only buckets do not use up a
-  # copy of an original and all stay, or thumbnails and tiles would have nowhere
-  # to go. An upload succeeds on the Default's terms: `min_copies_on_write` counts
-  # the site's copies only (`Manager`), because a backup is never served; a
-  # backup the write missed is made by the reconciler.
-  @max_original_site_rows 4
+  # writable primaries and replicas. The profile therefore wants a copy on every
+  # writable site bucket, local ones on local and cloud ones on cloud, plus one
+  # more cloud copy for the backup (at most 5 copies, so four site buckets, kept:
+  # active before read-only, then by serve order). An upload succeeds on the
+  # Default's terms: `min_copies_on_write` counts the site's copies only
+  # (`Manager`), because a backup is never served; a backup the write missed is
+  # made by the reconciler.
+  @max_site_rows 4
 
   defp user_profile_plan(:backup, bucket) do
     case default_profile() do
@@ -796,44 +847,31 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         site_rows =
           rows
           |> Enum.filter(&(&1.status in ["active", "read_only"] and &1.bucket.owner_uuid == nil))
-          |> Enum.map(
-            &%{
-              bucket_uuid: &1.bucket_uuid,
-              role: &1.role,
-              stores: &1.stores,
-              write_priority: &1.write_priority,
-              serve_order: &1.serve_order,
-              status: &1.status
-            }
-          )
-          |> keep_room_for_backup()
+          |> Enum.sort_by(&{&1.status != "active", &1.serve_order})
+          |> Enum.take(@max_site_rows)
 
-        writable_originals =
-          Enum.count(site_rows, &(&1.status == "active" and stores?(&1, :originals)))
+        writable = Enum.filter(site_rows, &(&1.status == "active"))
 
-        writable_derived =
-          Enum.count(site_rows, &(&1.status == "active" and stores?(&1, :derived)))
-
-        # Without a bucket an original can be WRITTEN to, the backup alone would
+        # Without a bucket a file can be WRITTEN to, the backup alone would
         # hold it: never served, and gone if the backup is. A read-only site
         # bucket does not count.
-        if writable_originals == 0 do
+        if writable == [] do
           {:error, :no_site_storage}
         else
           backup = %{
             bucket_uuid: bucket.uuid,
             role: "backup",
-            stores: "originals",
             write_priority: nil,
             serve_order: Enum.max(Enum.map(site_rows, & &1.serve_order)) + 1,
             status: "active"
           }
 
-          {:ok, site_rows ++ [backup],
+          {:ok, Enum.map(site_rows, &site_row/1) ++ [backup],
            %{
-             copies_originals: writable_originals + 1,
-             copies_variants: min(default.copies_variants, max(writable_derived, 1)),
-             min_copies_on_write: min(default.min_copies_on_write, writable_originals)
+             copies_local: Enum.count(writable, &(Bucket.group(&1.bucket) == :local)),
+             # The user's bucket is S3-compatible: the backup is a cloud copy.
+             copies_cloud: Enum.count(writable, &(Bucket.group(&1.bucket) == :cloud)) + 1,
+             min_copies_on_write: min(default.min_copies_on_write, length(writable))
            }}
         end
 
@@ -842,20 +880,14 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     end
   end
 
-  defp stores?(%{stores: "all"}, _kind), do: true
-  defp stores?(%{stores: "originals"}, :originals), do: true
-  defp stores?(%{stores: "derived"}, :derived), do: true
-  defp stores?(_row, _kind), do: false
-
-  defp keep_room_for_backup(rows) do
-    {original_capable, derived_only} = Enum.split_with(rows, &stores?(&1, :originals))
-
-    kept =
-      original_capable
-      |> Enum.sort_by(&{&1.status != "active", &1.serve_order})
-      |> Enum.take(@max_original_site_rows)
-
-    kept ++ derived_only
+  defp site_row(row) do
+    %{
+      bucket_uuid: row.bucket_uuid,
+      role: row.role,
+      write_priority: row.write_priority,
+      serve_order: row.serve_order,
+      status: row.status
+    }
   end
 
   defp insert_user_profile(owner_uuid, copies) do

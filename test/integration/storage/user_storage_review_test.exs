@@ -488,47 +488,23 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
   end
 
   describe "6. trimming the snapshot" do
-    test "four original buckets and a derived-only one: the derived one stays", %{root: root} do
+    test "four site buckets and the backup: each one a candidate, counted per kind", %{
+      root: root
+    } do
       user = user!()
       default = Profiles.default_profile()
 
-      for n <- 1..5 do
+      for n <- 1..4 do
         site = site_bucket!(Path.join(root, to_string(n)))
-
-        {:ok, _} =
-          Profiles.put_bucket(default, site.uuid, %{
-            stores: if(n == 5, do: "derived", else: "originals"),
-            serve_order: n
-          })
+        {:ok, _} = Profiles.put_bucket(default, site.uuid, %{serve_order: n})
       end
 
       {:ok, profile} = Profiles.create_user_profile(user.uuid, owned_bucket!(user.uuid), :backup)
 
-      assert length(Manager.placement_candidates(profile, :derived)) == 1
-      assert profile.copies_variants == 1
-      assert length(Manager.placement_candidates(profile, :original)) == 5
+      # The site's buckets are local, the user's is the cloud copy.
+      assert length(Manager.placement_candidates(profile)) == 5
+      assert {profile.copies_local, profile.copies_cloud} == {4, 1}
       assert profile.copies_originals == 5
-    end
-
-    test "a derived-only bucket first does not hide the original ones behind it", %{root: root} do
-      user = user!()
-      default = Profiles.default_profile()
-
-      for n <- 1..3 do
-        site = site_bucket!(Path.join(root, to_string(n)))
-
-        {:ok, _} =
-          Profiles.put_bucket(default, site.uuid, %{
-            stores: if(n == 1, do: "derived", else: "originals"),
-            serve_order: n
-          })
-      end
-
-      assert {:ok, profile} =
-               Profiles.create_user_profile(user.uuid, owned_bucket!(user.uuid), :backup)
-
-      assert length(Manager.placement_candidates(profile, :original)) == 3
-      assert length(Manager.placement_candidates(profile, :derived)) == 1
     end
 
     test "more than four original buckets keep the first four, active before read-only", %{
@@ -542,7 +518,6 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
 
         {:ok, _} =
           Profiles.put_bucket(default, site.uuid, %{
-            stores: "all",
             serve_order: n,
             status: if(n == 1, do: "read_only", else: "active")
           })

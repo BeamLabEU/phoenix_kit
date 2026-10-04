@@ -386,4 +386,12 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   """
   def cloud?(%__MODULE__{provider: provider}) when provider in @cloud_providers, do: true
   def cloud?(_), do: false
+
+  @doc """
+  The kind of place a bucket is for the copies a storage profile counts:
+  `:local` (the server's own disk) or `:cloud` (S3, B2, R2, Tigris).
+  """
+  @spec group(t() | map()) :: :local | :cloud
+  def group(%{provider: "local"}), do: :local
+  def group(_bucket), do: :cloud
 end

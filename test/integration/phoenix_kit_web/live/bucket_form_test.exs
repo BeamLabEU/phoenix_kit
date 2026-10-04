@@ -10,9 +10,11 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.BucketCredentials
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.Providers.S3
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
@@ -118,7 +120,8 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
                Storage.get_bucket_by_name("R2 media")
     end
 
-    test "creating a bucket that makes the Default spread files says so", %{conn: conn} do
+    test "a cloud bucket in a profile that keeps no cloud copies says nothing is written to it yet",
+         %{conn: conn} do
       uuid = connection("acct", %{"service" => "cloudflare_r2"})
       {:ok, view, _html} = live(conn, @new_path)
       render_change(view, "validate", %{"bucket" => %{"storage_type" => "cloud"}})
@@ -129,6 +132,53 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
           "provider" => "s3",
           "integration_uuid" => uuid,
           "name" => "Second",
+          "bucket_name" => "media"
+        }
+      })
+
+      # The notice is about the profile the bucket joined: here, the Default.
+      result =
+        view
+        |> form("#bucket-form", %{"bucket" => %{"profile_uuid" => Profiles.default_uuid()}})
+        |> render_submit()
+
+      assert {:error, {:live_redirect, _}} = result
+
+      {:ok, _view, html} = follow_redirect(result, conn)
+      assert html =~ "Bucket created successfully"
+      assert html =~ "keeps no cloud copies, so nothing is written to this bucket yet"
+      refute html =~ "not mirrored"
+    end
+
+    test "a second cloud bucket in a profile with one cloud copy says files are spread", %{
+      conn: conn
+    } do
+      uuid = connection("acct", %{"service" => "cloudflare_r2"})
+
+      # One cloud bucket already in the Default, which wants one cloud copy:
+      # a second primary turns that into a spread, not a mirror.
+      first =
+        Repo.insert!(%Bucket{
+          name: "First cloud",
+          provider: "r2",
+          bucket_name: "first",
+          endpoint: "127.0.0.1:9",
+          access_type: "signed",
+          enabled: true,
+          priority: 0
+        })
+
+      :ok = Profiles.add_to_default(first)
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_cloud: 1})
+      {:ok, view, _html} = live(conn, @new_path)
+      render_change(view, "validate", %{"bucket" => %{"storage_type" => "cloud"}})
+
+      render_change(view, "validate", %{
+        "bucket" => %{
+          "storage_type" => "cloud",
+          "provider" => "s3",
+          "integration_uuid" => uuid,
+          "name" => "Second cloud",
           "bucket_name" => "media"
         }
       })

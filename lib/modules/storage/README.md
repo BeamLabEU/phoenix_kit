@@ -326,16 +326,27 @@ with none uses the **Default**, seeded by V205 from the buckets and
 `storage_redundancy_copies` under a fixed uuid, so an install that never
 touches profiles behaves as before. A profile has:
 
-- `copies_originals` / `copies_variants` (1..5): copies of an original
-  upload, and of a derived file (a size, a tile, a render);
+- `copies_local` / `copies_cloud` (0..5 each, 1..5 in all): how many copies of
+  every file go to **local** buckets (the server's disks) and to **cloud** buckets
+  (S3, B2, R2, Tigris) — two on disk and one in the cloud survives the server.
+  An original and what is made from it (a size, a tile, a render) get the same.
+  A kind the profile wants no copy of is not written, whatever buckets it has.
+  `copies_originals` is the **total** (a CHECK keeps it `copies_local +
+  copies_cloud`; `min_copies_on_write` is bounded by it) and `copies_variants`
+  is not used; `StorageProfile.changeset/2` keeps both equal to the total (V209).
+  The editor offers Cloud copies only for a profile that has a cloud bucket;
+  `Profiles.split_copies/2` splits a count that knows no kinds (the old
+  redundancy setting) local first, as V209 did for existing profiles;
 - `min_copies_on_write`: an original upload fails (and what was written is
   removed) unless this many copies succeed; the rest are made later;
 - per bucket (`ProfileBucket`): a `role` (`primary` is written and served,
   `replica` is served when no primary has the copy, `backup` is written but
-  never served), what it `stores` (`all`, `originals`, `derived`), a fixed
-  `write_priority` (nil is the shuffled pool), a `serve_order`, and a
+  never served), a fixed `write_priority` (nil is the shuffled pool), a `serve_order`, and a
   `status` (`active`; `read_only` serves but gets no new files; `draining`
-  has its files moved to the profile's other buckets).
+  has its files moved to the profile's other buckets). A bucket holds
+  everything the profile sends it, an original and what is made from it: there
+  is no `stores` choice (V205's column stays in the table, and nothing reads or
+  writes it).
 
 **A bucket a profile lists is protected.** `Storage.delete_bucket/2` and
 `Storage.update_bucket/3` (disabling) refuse it with

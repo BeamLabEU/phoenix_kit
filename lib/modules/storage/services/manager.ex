@@ -23,6 +23,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.Locations
   alias PhoenixKit.Modules.Storage.ProfileBucket
@@ -43,11 +44,12 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   preloaded, `Storage.Profiles.for_library/1`), or the Default profile
   when none is given. `:kind` says what the object is: `:original` (an
   original upload, the default) or `:derived` (a size, a tile, a render),
-  which picks the profile's copy count and the buckets whose `stores`
-  allows it. Buckets that are enabled, `active` in the profile and not over
-  their `max_size_mb` are written, primaries before replicas before
-  backups, each group by fixed write priority and then in random order,
-  up to the copy count.
+  which only matters to the copies an upload must make. Every file gets the
+  profile's copies per kind of bucket: `copies_local` on local buckets and
+  `copies_cloud` on cloud ones. Buckets that are enabled, `active` in the
+  profile and not over their `max_size_mb` are written, primaries before
+  replicas before backups, each role by fixed write priority and then in
+  random order, up to the count for their kind.
 
   An original fails unless at least the profile's `min_copies_on_write`
   copies were written (what was written is removed again). The result
@@ -76,13 +78,14 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     # `force_bucket_ids` are exactly the buckets to write to (an edit's
     # output goes where the key it replaces is): every one that is enabled,
     # in the order given.
-    # `buckets` in write order; the first `target` are written, and a
-    # failed one is replaced by the next (spares only exist for a profile).
-    {buckets, min_copies, target, backups} =
+    # `groups`: `{buckets, want}` pairs, the buckets in write order; the first
+    # `want` of each are written, and a failed one is replaced by the next
+    # (spares only exist for a profile).
+    {groups, min_copies, backups} =
       cond do
         force_bucket_ids != [] ->
           forced = forced_buckets(force_bucket_ids)
-          {forced, 1, length(forced), MapSet.new()}
+          {[{forced, length(forced)}], 1, MapSet.new()}
 
         legacy_selection?(opts) ->
           redundancy = Keyword.get(opts, :redundancy_copies, 1)
@@ -90,7 +93,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
           selected =
             select_buckets_for_storage(redundancy, Keyword.get(opts, :priority_buckets, []))
 
-          {selected, 1, length(selected), MapSet.new()}
+          {[{selected, length(selected)}], 1, MapSet.new()}
 
         profile = Keyword.get(opts, :profile) || Profiles.default_profile() ->
           profile_placement(profile, Keyword.get(opts, :kind, :original))
@@ -98,13 +101,15 @@ defmodule PhoenixKit.Modules.Storage.Manager do
         # No profiles on this database yet: the pre-V205 pool.
         true ->
           selected = select_buckets_for_storage(1, [])
-          {selected, 1, length(selected), MapSet.new()}
+          {[{selected, length(selected)}], 1, MapSet.new()}
       end
 
-    if Enum.empty?(buckets) do
+    target = groups |> Enum.map(&elem(&1, 1)) |> Enum.sum()
+
+    if target == 0 do
       {:error, "No available storage buckets"}
     else
-      with {:ok, info} <- store_until(source_path, buckets, target, opts) do
+      with {:ok, info} <- store_groups(source_path, groups, opts) do
         require_copies(info, min_copies, target, Keyword.get(opts, :file_uuid), backups)
       end
     end
@@ -116,14 +121,20 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     do:
       Keyword.has_key?(opts, :redundancy_copies) or Keyword.get(opts, :priority_buckets, []) != []
 
-  # The buckets `profile` writes an object of `kind` to, how many copies
-  # must succeed, and how many it wants (capped at the buckets it can use).
+  # What `profile` writes an object of `kind` to: per kind of bucket the buckets
+  # in write order and how many copies it wants there (capped at the buckets it
+  # can use), and how many copies an upload must make. A kind it wants no copy of
+  # is not written, whatever buckets it has.
   defp profile_placement(profile, kind) do
-    eligible = placement_candidates(profile, kind)
-    copies = Profiles.copies(profile, kind)
+    groups =
+      for {_group, buckets, copies} <- placement_plan(profile),
+          want = min(copies, length(buckets)),
+          want > 0,
+          do: {buckets, want}
+
     min_copies = if kind == :original, do: profile.min_copies_on_write, else: 1
 
-    {eligible, min_copies, min(copies, length(eligible)), backup_uuids(profile)}
+    {groups, min_copies, backup_uuids(profile)}
   end
 
   # The buckets this profile keeps only as backups: never served, so a copy there
@@ -134,19 +145,16 @@ defmodule PhoenixKit.Modules.Storage.Manager do
         do: to_string(row.bucket_uuid)
   end
 
-  # Writes the first `want` of `buckets`, then, while fewer than `want`
-  # succeeded, the next ones one at a time: a bucket that fails does not
-  # cost a copy while another could take it.
-  defp store_until(source_path, buckets, want, opts) do
-    {first, spares} = Enum.split(buckets, want)
+  # Writes each group's first `want` buckets, then, while a group has fewer than
+  # `want` copies, its next ones one at a time: a bucket that fails does not cost
+  # a copy while another of its kind could take it. A group that fails does not
+  # fail the upload while another wrote: `require_copies/5` decides.
+  defp store_groups(source_path, groups, opts) do
     destination_path = destination_path(source_path, opts)
-    written = write_to(source_path, first, destination_path, opts)
 
     written =
-      Enum.reduce_while(spares, written, fn bucket, acc ->
-        if length(acc) >= want,
-          do: {:halt, acc},
-          else: {:cont, acc ++ write_to(source_path, [bucket], destination_path, opts)}
+      Enum.flat_map(groups, fn {buckets, want} ->
+        write_group(source_path, buckets, want, destination_path, opts)
       end)
 
     if written == [] do
@@ -155,33 +163,59 @@ defmodule PhoenixKit.Modules.Storage.Manager do
       {:ok,
        %{
          destination_path: destination_path,
-         stored_in: want,
+         stored_in: groups |> Enum.map(&elem(&1, 1)) |> Enum.sum(),
          successful_storages: length(written),
          bucket_ids: Enum.map(written, & &1.uuid)
        }}
     end
   end
 
-  @doc false
-  # The buckets `profile` may write an object of `kind` to, in write order:
-  # enabled, active in the profile, storing that kind, not over capacity;
-  # by role, then fixed write priority, then the shuffled pool.
-  def placement_candidates(profile, kind) do
-    stores = if kind == :original, do: "originals", else: "derived"
+  defp write_group(source_path, buckets, want, destination_path, opts) do
+    {first, spares} = Enum.split(buckets, want)
+    written = write_to(source_path, first, destination_path, opts)
 
-    profile.buckets
-    |> Enum.filter(fn row ->
-      row.status == "active" and row.stores in ["all", stores] and
-        match?(%{enabled: true}, row.bucket) and not bucket_full?(row.bucket)
+    Enum.reduce_while(spares, written, fn bucket, acc ->
+      if length(acc) >= want,
+        do: {:halt, acc},
+        else: {:cont, acc ++ write_to(source_path, [bucket], destination_path, opts)}
     end)
-    |> Enum.group_by(& &1.role)
-    |> then(fn by_role ->
-      Enum.flat_map(ProfileBucket.roles(), fn role ->
-        {fixed, pool} = by_role |> Map.get(role, []) |> Enum.split_with(& &1.write_priority)
-        Enum.sort_by(fixed, & &1.write_priority) ++ Enum.shuffle(pool)
+  end
+
+  @doc false
+  # Per kind of bucket (`:local`, then `:cloud`): `{kind, buckets, copies}`, the
+  # buckets `profile` may write to in write order (enabled, active in the
+  # profile, not over capacity; by role, then fixed write priority, then the
+  # shuffled pool) and how many copies the profile wants there, not capped.
+  def placement_plan(profile) do
+    by_kind =
+      profile.buckets
+      |> Enum.filter(fn row ->
+        row.status == "active" and match?(%{enabled: true}, row.bucket) and
+          not bucket_full?(row.bucket)
       end)
-    end)
-    |> Enum.map(& &1.bucket)
+      |> Enum.group_by(&Bucket.group(&1.bucket))
+
+    for kind <- [:local, :cloud] do
+      buckets =
+        by_kind
+        |> Map.get(kind, [])
+        |> Enum.group_by(& &1.role)
+        |> then(fn by_role ->
+          Enum.flat_map(ProfileBucket.roles(), fn role ->
+            {fixed, pool} = by_role |> Map.get(role, []) |> Enum.split_with(& &1.write_priority)
+            Enum.sort_by(fixed, & &1.write_priority) ++ Enum.shuffle(pool)
+          end)
+        end)
+        |> Enum.map(& &1.bucket)
+
+      {kind, buckets, Profiles.copies(profile, kind)}
+    end
+  end
+
+  @doc false
+  # Every bucket `placement_plan/1` lists, whatever the copy counts.
+  def placement_candidates(profile) do
+    profile |> placement_plan() |> Enum.flat_map(&elem(&1, 1))
   end
 
   # Fewer copies than an original needs undo the write; fewer than wanted

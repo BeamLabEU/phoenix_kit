@@ -45,9 +45,9 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   alias PhoenixKit.Modules.Storage
 
   alias PhoenixKit.Modules.Storage.{
+    Bucket,
     FileInstance,
     FileLocation,
-    ImageEditing,
     Library,
     Locations,
     Manager,
@@ -354,7 +354,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
     Enum.reduce(instances, true, fn instance, ok? ->
       if instance.uuid in checked do
-        place_instance(file, instance, profile) and ok?
+        place_instance(instance, profile) and ok?
       else
         false
       end
@@ -371,33 +371,36 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     |> Enum.reject(&(&1 in unchecked))
   end
 
-  # One instance: enough good copies, then no copies where the profile no
-  # longer wants them. True when both hold.
-  defp place_instance(file, instance, profile) do
-    kind = kind(file, instance)
-    stores = if kind == :original, do: "originals", else: "derived"
-
-    # Buckets whose copy counts: in the profile for this kind, active or
-    # read-only, enabled.
+  # One instance: enough good copies of each kind, then no copies where the
+  # profile no longer wants them. True when both hold.
+  defp place_instance(instance, profile) do
+    # Buckets whose copy counts: in the profile, active or read-only, enabled.
     keep =
       for row <- profile.buckets,
-          row.stores in ["all", stores],
           row.status in ["active", "read_only"],
           match?(%{enabled: true}, row.bucket),
           into: %{},
           do: {to_string(row.bucket_uuid), row.bucket}
 
-    writable = Manager.placement_candidates(profile, kind)
+    plan = Manager.placement_plan(profile)
+    writable = Enum.flat_map(plan, &elem(&1, 1))
     located = located_buckets(instance)
     good = located |> Map.keys() |> Enum.filter(&Map.has_key?(keep, &1))
 
-    # As many copies as the profile wants, capped at the buckets that hold
-    # one or can take one: a read-only or full bucket without a copy cannot
-    # get one, and must not keep the file stale for ever.
-    target =
-      min(Profiles.copies(profile, kind), length(Enum.uniq(good ++ Map.keys(by_uuid(writable)))))
+    # As many copies of each kind as the profile wants, capped at the buckets of
+    # that kind that hold one or can take one: a read-only or full bucket without
+    # a copy cannot get one, and must not keep the file stale for ever.
+    {good, target} =
+      Enum.reduce(plan, {good, 0}, fn {kind, candidates, copies}, {good, target} ->
+        held = Enum.filter(good, &(Bucket.group(Map.fetch!(keep, &1)) == kind))
 
-    good = good ++ copy_to_more(instance, writable, good, target - length(good))
+        wanted =
+          min(copies, length(Enum.uniq(held ++ Map.keys(by_uuid(candidates)))))
+
+        added = copy_to_more(instance, candidates, held, wanted - length(held))
+        {good ++ added, target + wanted}
+      end)
+
     good = good ++ servable_copy(instance, profile, writable, good)
     leftovers = Enum.reject(located, fn {uuid, _bucket} -> Map.has_key?(keep, uuid) end)
 
@@ -455,15 +458,6 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
       bucket != nil and Manager.holds?(bucket, instance.file_name)
     end)
   end
-
-  # The G13 rule: an original upload is an original; sizes, tiles, tile
-  # manifests and renders are derived. An edit's hidden backup keeps the
-  # unedited original, so its original is an original too.
-  defp kind(file, %FileInstance{variant_name: "original"}) do
-    if file.system_managed and not ImageEditing.backup?(file), do: :derived, else: :original
-  end
-
-  defp kind(_file, _instance), do: :derived
 
   defp by_uuid(buckets), do: Map.new(buckets, &{to_string(&1.uuid), &1})
 

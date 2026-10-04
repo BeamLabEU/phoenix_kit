@@ -1,10 +1,39 @@
-## Unreleased
+## 2.53.0 - 2026-10-04
+
+### Upgrading
+
+- **Run `mix phoenix_kit.update`: it applies V209** (`copies_local` / `copies_cloud` on
+  `phoenix_kit_storage_profiles`). Existing profiles keep their total and are split by the buckets they
+  have, local first, so no file is placed again. A profile that listed a cloud bucket next to local ones
+  now needs **Cloud copies** set before anything is written to the cloud bucket.
+
+### Added
+
+- **A storage profile counts its copies per kind of bucket: local and cloud** (V209). "Copies of each
+  file" is now **Local copies** (on the server's own disks) and **Cloud copies** (S3, B2, R2, Tigris), so a
+  profile can keep two copies on disk and one in the cloud, which survives the server. Cloud copies can be
+  set only for a profile that has a cloud bucket; a kind the profile wants no copy of is not written,
+  whatever buckets it has. If a bucket is taken out of a profile, the reconciler finds the files that fall
+  below the count and copies them to another bucket of the same kind (the Health page shows what is left).
+  V209 adds `copies_local` and `copies_cloud` to `phoenix_kit_storage_profiles` and splits every existing
+  profile's count by the buckets it has, local first; no file is placed again. `copies_originals` stays as
+  the total (a CHECK keeps it equal to `copies_local + copies_cloud`) and `copies_variants` is no longer used
+  (both follow the counts). A personal backup library's profile gets one cloud copy for the backup and one
+  copy on each site bucket, so its thumbnails and tiles now follow the originals onto every site bucket
+  instead of one.
 
 ### Changed
 
+- **A bucket in a storage profile holds everything the profile sends it.** The choice of storing only
+  originals or only sizes and tiles (the Stores column) is gone, and so is its effect: placement, the
+  reconciler and the copy advice no longer read `phoenix_kit_storage_profile_buckets.stores`, so a row that
+  had it set is treated as storing everything. The column stays in the table, unused.
+- **The copy hints speak of "files" and of local and cloud buckets**, and the "Keep every original on N
+  buckets" button is gone: set Local copies or Cloud copies. A new bucket's confirmation says when its
+  profile keeps no copy of its kind yet.
 - **The storage profiles bucket table's headings are in sentence case**, like the Libraries and Buckets
-  tables (Bucket, Role, Stores, Upload order, Serve order, Status). 2.52.2 had made all six capitals; the
-  rest of Storage settings does not use them.
+  tables (Bucket, Role, Upload order, Serve order, Status). 2.52.2 had made them capitals; the rest of
+  Storage settings does not use them.
 
 ## 2.52.2 - 2026-10-04
 

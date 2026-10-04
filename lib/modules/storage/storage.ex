@@ -1364,14 +1364,20 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  # More copies than the Default can write leaves every upload short; the
-  # count is lowered to what fits, never raised or reset.
+  # More copies of a kind than the Default has buckets of it leaves every upload
+  # short; each count is lowered to what fits, never raised or reset.
   defp repair_default_profile_copies do
     with %StorageProfile{} = profile <- Profiles.default_profile(),
-         writable = Enum.count(profile.buckets, &writable_profile_bucket?/1),
-         true <- writable > 0 and profile.copies_originals > writable,
-         {:ok, _} <- set_redundancy_copies(writable) do
-      [{:copies_lowered, writable}]
+         true <- Enum.any?(profile.buckets, &writable_profile_bucket?/1),
+         fit = Profiles.fit_copies(profile),
+         true <- fit != Map.take(profile, [:copies_local, :copies_cloud]),
+         total = fit.copies_local + fit.copies_cloud,
+         {:ok, _} <-
+           Profiles.update_profile(
+             profile,
+             Map.put(fit, :min_copies_on_write, min(profile.min_copies_on_write, total))
+           ) do
+      [{:copies_lowered, total}]
     else
       _ -> []
     end
@@ -6332,8 +6338,9 @@ defmodule PhoenixKit.Modules.Storage do
   def redundancy_copies, do: Profiles.default_copies()
 
   @doc """
-  Sets the Default storage profile's copy count, for originals and
-  variants alike (as the one redundancy setting did), and keeps the
+  Sets the Default storage profile's copy count, for every file (as the one
+  redundancy setting did), split over its buckets, local first
+  (`Profiles.split_copies/2`), and keeps the
   `storage_redundancy_copies` setting row in step for code that still
   reads it.
   """
@@ -6344,18 +6351,14 @@ defmodule PhoenixKit.Modules.Storage do
 
   def set_redundancy_copies(copies) when is_integer(copies) do
     with %StorageProfile{} = profile <- Profiles.default_profile() || {:error, :no_default} do
-      # Variants follow only while the profile has them equal to originals:
-      # a count set apart on the Storage profiles tab is left alone.
-      variants =
-        if profile.copies_variants == profile.copies_originals,
-          do: copies,
-          else: profile.copies_variants
-
-      Profiles.update_profile(profile, %{
-        copies_originals: copies,
-        copies_variants: variants,
-        min_copies_on_write: min(profile.min_copies_on_write, copies)
-      })
+      Profiles.update_profile(
+        profile,
+        Map.put(
+          Profiles.split_copies(profile, copies),
+          :min_copies_on_write,
+          min(profile.min_copies_on_write, copies)
+        )
+      )
     end
   end
 

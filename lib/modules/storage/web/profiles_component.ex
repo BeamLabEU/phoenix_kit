@@ -5,13 +5,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   A profile lists buckets and says, for each, its role (`primary` is
   written and served, `replica` is served when no primary has the copy,
-  `backup` is written but never served), what it stores (everything,
-  originals only or derived files only), a fixed write priority (empty is
+  `backup` is written but never served), a fixed write priority (empty is
   the shuffled pool), a serve order and a status (`read_only` keeps
   serving and gets no new files, `draining` has its files moved to the
-  profile's other buckets). The profile also says how many copies an
-  original and a derived file get, and how many copies of an original an
-  upload needs to succeed.
+  profile's other buckets). The profile also says how many copies every
+  file gets on local buckets and on cloud ones (the cloud count can be set only
+  where the profile has a cloud bucket), and how many copies an upload needs to
+  succeed. A bucket holds everything the profile sends it, an original and what
+  is made from it.
 
   Every library without its own profile uses the Default, which every
   bucket joins when it is created. Any change bumps the profile's revision,
@@ -21,7 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   use PhoenixKitWeb, :live_component
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{ProfileBucket, Profiles, StorageProfile}
+  alias PhoenixKit.Modules.Storage.{Bucket, ProfileBucket, Profiles, StorageProfile}
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
@@ -120,22 +121,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
       {:error, _changeset} ->
         {:noreply, flash(socket, :error, gettext("The storage profile could not be deleted."))}
-    end
-  end
-
-  # The recommended copy count, applied. Only the count `Profiles.copies_advice/1`
-  # recommends for the profile as it is now: the number arrives from the client.
-  def handle_event("apply_copies", %{"uuid" => uuid, "copies" => copies}, socket) do
-    with %StorageProfile{} = profile <- find(socket, uuid),
-         %{recommended: recommended} when is_integer(recommended) <-
-           Profiles.copies_advice(profile),
-         true <- to_string(recommended) == copies,
-         {:ok, _} <-
-           Profiles.update_profile(profile, %{"copies_originals" => recommended}, actor(socket)) do
-      {:noreply, socket |> load() |> flash(:info, gettext("Storage profile saved"))}
-    else
-      {:error, changeset} -> {:noreply, flash(socket, :error, error_message(changeset))}
-      _ -> {:noreply, socket}
     end
   end
 
@@ -254,10 +239,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   defp role_label("replica"), do: gettext("Replica")
   defp role_label("backup"), do: gettext("Backup")
 
-  defp stores_label("all"), do: gettext("Everything")
-  defp stores_label("originals"), do: gettext("Originals")
-  defp stores_label("derived"), do: gettext("Sizes and tiles")
-
   defp status_label("active"), do: gettext("Active")
   defp status_label("read_only"), do: gettext("Read-only (no new files)")
   defp status_label("draining"), do: gettext("Draining (moving files out)")
@@ -268,58 +249,104 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   # its two controls need, and its note wraps under the button instead of
   # widening it.
   defp columns,
-    do: "grid grid-cols-[minmax(9rem,2fr)_6.5rem_8.5rem_5.5rem_5rem_12rem_9.5rem] gap-2"
+    do: "grid grid-cols-[minmax(9rem,2fr)_6.5rem_5.5rem_5rem_12rem_9.5rem] gap-2"
 
   # Save and remove stay in view when the table is wider than the page: the
   # scrolling part is the settings, not the way to act on them.
   defp actions_cell, do: "sticky right-0 flex items-center justify-end gap-1 bg-base-100"
 
-  # One sentence on what the copy counts mean with the buckets the profile has
-  # now: the numbers alone read the same with one bucket and with five. The
-  # arithmetic is `Profiles.copies_advice/1`'s, which the bucket form shares.
-  defp copies_hint(profile) do
-    %{writable: buckets, primaries: primaries, copies: copies} = Profiles.copies_advice(profile)
+  # What the copy counts mean with the buckets the profile has now: the numbers
+  # alone read the same with one bucket and with five. The arithmetic is
+  # `Profiles.copies_advice/1`'s, which the bucket form shares. A list of
+  # `{severity, text}`, the worst first.
+  defp copies_hints(profile) do
+    %{writable: writable, local: local, cloud: cloud} = Profiles.copies_advice(profile)
 
-    cond do
-      buckets == 0 ->
-        {:error, gettext("No bucket can take new files now, so uploads fail.")}
-
-      copies > buckets ->
-        {:warning,
-         ngettext(
-           "Each original should have %{copies} copies, but only %{count} bucket can take new files, so each gets 1.",
-           "Each original should have %{copies} copies, but only %{count} buckets can take new files, so each gets %{count}.",
-           buckets,
-           copies: copies
-         )}
-
-      buckets == 1 ->
-        {:info, gettext("One bucket takes new files, so every original is stored there.")}
-
-      # One copy goes to the first role that has a bucket: primaries, then
-      # replicas, then backups. Replicas and backups get a file only when a write
-      # to the primary fails, so they are not part of the spread.
-      copies == 1 and primaries == 1 ->
-        {:info,
-         gettext(
-           "Each original is stored on the primary bucket only. The other buckets take over only if a write to it fails, and hold nothing otherwise. Set the copies to 2 to keep every file on a second bucket."
-         )}
-
-      copies == 1 and primaries > 1 ->
-        {:info,
-         gettext(
-           "%{count} buckets take new files and each original is stored on 1 of them, picked by upload order, otherwise at random: files are spread across the buckets, not mirrored. Set the copies to 2 to keep every file on 2 buckets.",
-           count: primaries
-         )}
-
-      true ->
-        {:info,
-         gettext(
-           "Each original is stored on %{copies} of the %{count} buckets that take new files.",
-           copies: copies,
-           count: buckets
-         )}
+    if writable == 0 do
+      [{:error, gettext("No bucket can take new files now, so uploads fail.")}]
+    else
+      Enum.reject(
+        [
+          shortfall(:local, local),
+          shortfall(:cloud, cloud),
+          cloud_unused(cloud),
+          spread(:local, local),
+          spread(:cloud, cloud)
+        ],
+        &is_nil/1
+      )
     end
+  end
+
+  # More copies wanted of a kind than there are buckets of it to hold them.
+  defp shortfall(:local, %{copies: copies, buckets: buckets}) when copies > buckets do
+    {:warning,
+     ngettext(
+       "%{copies} local copies are wanted, but only %{count} local bucket takes new files, so each file gets %{count}.",
+       "%{copies} local copies are wanted, but only %{count} local buckets take new files, so each file gets %{count}.",
+       buckets,
+       copies: copies
+     )}
+  end
+
+  defp shortfall(:cloud, %{copies: copies, buckets: buckets}) when copies > buckets do
+    {:warning,
+     ngettext(
+       "%{copies} cloud copies are wanted, but only %{count} cloud bucket takes new files, so each file gets %{count}.",
+       "%{copies} cloud copies are wanted, but only %{count} cloud buckets take new files, so each file gets %{count}.",
+       buckets,
+       copies: copies
+     )}
+  end
+
+  defp shortfall(_kind, _advice), do: nil
+
+  # A cloud bucket that nothing is sent to: the usual reason is a count never set.
+  defp cloud_unused(%{buckets: buckets, copies: 0}) when buckets > 0 do
+    {:info,
+     gettext(
+       "The cloud buckets hold nothing at 0 cloud copies. Set Cloud copies to keep a copy off this server."
+     )}
+  end
+
+  defp cloud_unused(_advice), do: nil
+
+  # Fewer copies than primaries: each file goes to some of them, picked by
+  # upload order, otherwise at random: spread, not mirrored. Replicas and
+  # backups take part only when the count passes the primaries.
+  defp spread(:local, %{copies: copies, primaries: primaries})
+       when copies > 0 and primaries > copies do
+    {:info,
+     gettext(
+       "%{count} local buckets take new files and each file is stored on %{copies} of them, picked by upload order, otherwise at random: files are spread across them, not mirrored.",
+       count: primaries,
+       copies: copies
+     )}
+  end
+
+  defp spread(:cloud, %{copies: copies, primaries: primaries})
+       when copies > 0 and primaries > copies do
+    {:info,
+     gettext(
+       "%{count} cloud buckets take new files and each file is stored on %{copies} of them, picked by upload order, otherwise at random: files are spread across them, not mirrored.",
+       count: primaries,
+       copies: copies
+     )}
+  end
+
+  defp spread(_kind, _advice), do: nil
+
+  # The replicas and backups no count reaches, of either kind.
+  defp idle_buckets(profile) do
+    %{local: local, cloud: cloud} = Profiles.copies_advice(profile)
+    local.idle ++ cloud.idle
+  end
+
+  # The cloud count can be set only where there is a cloud bucket to hold it.
+  defp cloud_available?(profile) do
+    Enum.any?(profile.buckets, fn row ->
+      row.status == "active" and row.bucket.enabled and Bucket.group(row.bucket) == :cloud
+    end)
   end
 
   defp hint_class(:error), do: "text-error"
@@ -486,24 +513,34 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               />
             </label>
             <label class="form-control">
-              <span class="label-text text-sm">{gettext("Copies of each original")}</span>
+              <span class="label-text text-sm">{gettext("Local copies")}</span>
               <input
                 type="number"
-                name="profile[copies_originals]"
-                min="1"
+                name="profile[copies_local]"
+                min="0"
                 max="5"
-                value={profile.copies_originals}
+                value={profile.copies_local}
+                title={gettext("How many copies of each file are kept on this server's own disks.")}
                 class="input input-sm input-bordered w-24"
               />
             </label>
             <label class="form-control">
-              <span class="label-text text-sm">{gettext("Copies of each size and tile")}</span>
+              <span class="label-text text-sm">{gettext("Cloud copies")}</span>
               <input
                 type="number"
-                name="profile[copies_variants]"
-                min="1"
+                name="profile[copies_cloud]"
+                min="0"
                 max="5"
-                value={profile.copies_variants}
+                value={profile.copies_cloud}
+                disabled={not cloud_available?(profile)}
+                title={
+                  if cloud_available?(profile),
+                    do:
+                      gettext(
+                        "How many copies of each file are kept in the cloud, so a file survives the server."
+                      ),
+                    else: gettext("Add a cloud bucket to this profile to keep copies in the cloud.")
+                }
                 class="input input-sm input-bordered w-24"
               />
             </label>
@@ -513,7 +550,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 type="number"
                 name="profile[min_copies_on_write]"
                 min="1"
-                max={profile.copies_originals}
+                max={Profiles.copies_total(profile)}
                 value={profile.min_copies_on_write}
                 class="input input-sm input-bordered w-24"
               />
@@ -545,42 +582,24 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           </form>
 
           <p
+            :for={{severity, text} <- copies_hints(profile)}
             :if={profile.buckets != []}
-            class={["text-sm mt-3", hint_class(elem(copies_hint(profile), 0))]}
+            class={["text-sm mt-3", hint_class(severity)]}
           >
-            {elem(copies_hint(profile), 1)}
+            {text}
           </p>
 
-          <% advice = Profiles.copies_advice(profile) %>
+          <% idle = idle_buckets(profile) %>
           <div
-            :if={advice.idle != []}
+            :if={idle != []}
             id={"#{@id}-advice-#{profile.uuid}"}
-            class="mt-2 flex flex-wrap items-center gap-3 rounded-box bg-base-200 px-3 py-2 text-sm"
+            class="mt-2 rounded-box bg-base-200 px-3 py-2 text-sm"
           >
-            <span>
-              {gettext("Not used at this copy count: %{names}.", names: Enum.join(advice.idle, ", "))}
-            </span>
-            <button
-              :if={advice.recommended}
-              type="button"
-              class="btn btn-sm btn-primary"
-              phx-click="apply_copies"
-              phx-value-uuid={profile.uuid}
-              phx-value-copies={advice.recommended}
-              phx-target={@myself}
-              data-confirm={
-                gettext(
-                  "Set Copies of each original to %{count}? Files already stored are copied to the extra bucket in the background; the Health page shows what is left.",
-                  count: advice.recommended
-                )
-              }
-            >
-              {gettext("Keep every original on %{count} buckets", count: advice.recommended)}
-            </button>
+            {gettext("Not used at this copy count: %{names}.", names: Enum.join(idle, ", "))}
           </div>
 
           <div class="overflow-x-auto mt-4">
-            <div class="min-w-[60rem]">
+            <div class="min-w-[52rem]">
               <div class={[
                 columns(),
                 "items-end px-2 pb-2 text-xs font-semibold text-base-content/60"
@@ -596,7 +615,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 >
                   {gettext("Role")}
                 </span>
-                <span>{gettext("Stores")}</span>
                 <span
                   class="tooltip tooltip-bottom text-left"
                   data-tip={
@@ -667,15 +685,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     selected={row.role == role}
                   >
                     {role_label(role)}
-                  </option>
-                </select>
-                <select name="row[stores]" class="select select-sm select-bordered w-full">
-                  <option
-                    :for={stores <- ProfileBucket.stores()}
-                    value={stores}
-                    selected={row.stores == stores}
-                  >
-                    {stores_label(stores)}
                   </option>
                 </select>
                 <input
