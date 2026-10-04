@@ -1,3 +1,11 @@
+## Unreleased
+
+### Changed
+
+- **The storage profiles bucket table's headings are in sentence case**, like the Libraries and Buckets
+  tables (Bucket, Role, Stores, Upload order, Serve order, Status). 2.52.2 had made all six capitals; the
+  rest of Storage settings does not use them.
+
 ## 2.52.2 - 2026-10-04
 
 ### Added

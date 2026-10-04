@@ -248,14 +248,16 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert render(view) =~ "Unsaved changes"
     end
 
-    test "the bucket table's headings read in one case and its actions stay in view", ctx do
+    test "the bucket table's headings read like the other tables' and its actions stay in view",
+         ctx do
       html = view_html(ctx.conn)
 
-      # The headings that carry a tooltip keep their label in capitals while the
-      # tooltip text stays as written.
-      for label <- ["Role", "Upload order", "Serve order"] do
-        assert html =~ ~s(<span class="uppercase">#{label}</span>)
-      end
+      # Sentence case, as the Libraries and Buckets tables have it: no heading
+      # (a tooltip one included) is forced into capitals.
+      refute html =~
+               ~r/class="[^"]*\buppercase\b[^"]*"[^>]*>\s*(Role|Upload order|Serve order|Bucket)/
+
+      refute html =~ ~s(<span class="uppercase">)
 
       assert html =~ "sticky right-0"
     end

@@ -583,39 +583,39 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             <div class="min-w-[60rem]">
               <div class={[
                 columns(),
-                "items-end px-2 pb-2 text-xs font-semibold uppercase text-base-content/60"
+                "items-end px-2 pb-2 text-xs font-semibold text-base-content/60"
               ]}>
                 <span>{gettext("Bucket")}</span>
                 <span
-                  class="tooltip tooltip-bottom normal-case text-left"
+                  class="tooltip tooltip-bottom text-left"
                   data-tip={
                     gettext(
                       "Primary: written and served. Replica: written when more copies are wanted than there are primaries; served only if no primary has the file. Backup: written, never served."
                     )
                   }
                 >
-                  <span class="uppercase">{gettext("Role")}</span>
+                  {gettext("Role")}
                 </span>
                 <span>{gettext("Stores")}</span>
                 <span
-                  class="tooltip tooltip-bottom normal-case text-left"
+                  class="tooltip tooltip-bottom text-left"
                   data-tip={
                     gettext(
                       "Lower numbers get new files first. Leave it empty to share them: buckets with no number take turns at random."
                     )
                   }
                 >
-                  <span class="uppercase">{gettext("Upload order")}</span>
+                  {gettext("Upload order")}
                 </span>
                 <span
-                  class="tooltip tooltip-bottom normal-case text-left"
+                  class="tooltip tooltip-bottom text-left"
                   data-tip={
                     gettext(
                       "When a file is on several buckets, the one with the lowest number serves it."
                     )
                   }
                 >
-                  <span class="uppercase">{gettext("Serve order")}</span>
+                  {gettext("Serve order")}
                 </span>
                 <span>{gettext("Status")}</span>
                 <span></span>
