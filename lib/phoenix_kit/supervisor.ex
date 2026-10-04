@@ -116,12 +116,17 @@ defmodule PhoenixKit.Supervisor do
       # Once per boot: say which declared Oban queues this node does not run
       # (see PhoenixKit.ObanQueues). Delayed, because the host usually starts
       # Oban after PhoenixKit; best-effort and silent when Oban is absent, in
-      # testing mode, or deliberately runs no queues on this node.
+      # testing mode, or deliberately runs no queues on this node. The same
+      # pass says when the running Oban's schema is behind the Oban library
+      # (one catalog query; see PhoenixKit.ObanSchema) — for hosts that never
+      # run `mix phoenix_kit.update`, where unique inserts would otherwise fail
+      # with nothing pointing at the cause.
       Supervisor.child_spec(
         {Task,
          fn ->
            Process.sleep(:timer.seconds(10))
            PhoenixKit.ObanQueues.warn_about_missing_queues()
+           PhoenixKit.ObanSchema.warn_if_behind()
          end},
         id: :oban_queue_check
       ),
