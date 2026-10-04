@@ -10,9 +10,9 @@ defmodule PhoenixKit.ObanSchema do
   (the version is the `COMMENT` on `oban_jobs`), and core's open `{:oban, "~> 2.20"}`
   pin lets a host move to a newer Oban without anything migrating its schema.
 
-  That is not harmless. Oban 2.24 added schema version 14 (a `suspended` value
-  in the `oban_job_state` enum), and its unique-insert check looks for jobs in
-  that state by default. Against a version-13 schema every unique insert fails
+  That is not harmless. Schema version 14 added a `suspended` value to the
+  `oban_job_state` enum (it ships with Oban 2.21), and from Oban 2.24 the
+  unique-insert check looks for jobs in that state by default. Against a version-13 schema every unique insert fails
   with `invalid input value for enum oban_job_state: "suspended"`. Cron inserts
   a minute's jobs in one transaction, so one unique cron worker rolls back
   every job scheduled for that minute.
@@ -78,7 +78,7 @@ defmodule PhoenixKit.ObanSchema do
   def check(repo, prefix) when is_atom(repo) and is_binary(prefix) do
     case repo.__adapter__() do
       Ecto.Adapters.Postgres ->
-        classify(read_comment(repo, prefix), Oban.Migration.current_version(repo: repo))
+        classify(read_comment(repo, prefix), library_version(repo))
 
       adapter ->
         {:unsupported_adapter, adapter}
@@ -87,6 +87,26 @@ defmodule PhoenixKit.ObanSchema do
     error -> {:error, Exception.message(error)}
   catch
     :exit, reason -> {:error, {:exit, reason}}
+  end
+
+  # `Oban.Migration.current_version/1` is public from Oban 2.22 only, while core's
+  # pin is `~> 2.20`; the Postgres engine's own `current_version/0` exists from
+  # 2.21. Older than that, there is no version to compare with — `check/2`
+  # reports it as `{:error, _}` rather than guessing.
+  defp library_version(repo) do
+    Code.ensure_loaded(Oban.Migration)
+    Code.ensure_loaded(Oban.Migrations.Postgres)
+
+    cond do
+      function_exported?(Oban.Migration, :current_version, 1) ->
+        Oban.Migration.current_version(repo: repo)
+
+      function_exported?(Oban.Migrations.Postgres, :current_version, 0) ->
+        Oban.Migrations.Postgres.current_version()
+
+      true ->
+        raise "this Oban does not report the schema version it expects"
+    end
   end
 
   # Same catalog lookup as Oban's own `migrated_version/1`, except that a
@@ -149,6 +169,9 @@ defmodule PhoenixKit.ObanSchema do
       iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "public", repo: MyApp.JobsRepo)
       [{MyApp.Repo, "public"}, {MyApp.JobsRepo, "public"}]
 
+      iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "public", repo: {MyApp.JobsRepo, []})
+      [{MyApp.Repo, "public"}, {MyApp.JobsRepo, "public"}]
+
       iex> PhoenixKit.ObanSchema.targets(MyApp.Repo, "public", nil)
       [{MyApp.Repo, "public"}]
   """
@@ -162,6 +185,8 @@ defmodule PhoenixKit.ObanSchema do
       repo =
         case Keyword.get(oban_config, :repo) do
           repo when is_atom(repo) and not is_nil(repo) -> repo
+          # Oban 2.24 also takes `{repo, opts}` (per-repo options)
+          {repo, opts} when is_atom(repo) and not is_nil(repo) and is_list(opts) -> repo
           _ -> host_repo
         end
 

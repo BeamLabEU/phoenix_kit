@@ -1297,7 +1297,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         {:exists, path} ->
           Mix.shell().info(
-            "  Migration already exists: #{path}\n     Reusing it. To regenerate, delete the file first."
+            "  Migration already exists: #{path}\n     Reusing it (it may already have run — if so, the schema would no longer be behind). To regenerate, delete the file first."
           )
 
           staged
@@ -1345,7 +1345,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Mix.shell().info(
         "⚠️  Oban schema at #{oban_schema_where(entry, host_repo)}: #{ObanSchema.describe(status)}.\n" <>
           "    Not generating a migration from an unknown version. Establish it and restamp:\n" <>
-          "    COMMENT ON TABLE \"#{entry.prefix}\".oban_jobs IS '<version>';"
+          "    COMMENT ON TABLE #{inspect(entry.prefix)}.oban_jobs IS '<version>';"
       )
 
       []

@@ -110,6 +110,14 @@ defmodule PhoenixKit.Users.WelcomeEmail do
   @spec after_confirmation(User.t() | term()) :: :enqueued | :skipped | :error
   def after_confirmation(%User{confirmed_at: %_{}, uuid: uuid} = user) when is_binary(uuid) do
     if enabled?(), do: enqueue(user), else: :skipped
+  rescue
+    error ->
+      Logger.warning("[PhoenixKit] welcome email not enqueued: #{Exception.message(error)}")
+      :error
+  catch
+    :exit, reason ->
+      Logger.warning("[PhoenixKit] welcome email not enqueued: exit #{inspect(reason)}")
+      :error
   end
 
   def after_confirmation(_user), do: :skipped

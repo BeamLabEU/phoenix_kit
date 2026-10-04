@@ -63,7 +63,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailPreview do
 
   def handle_params(params, _url, socket) do
     entries = socket.assigns.entries
-    # Core's eight entries are always listed, so there is always one to show.
+    # Core's entries are always listed, so there is always one to show.
     entry = Enum.find(entries, &(&1.name == params["email"])) || hd(entries)
 
     locale =

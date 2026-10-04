@@ -23,6 +23,17 @@ defmodule PhoenixKit.ModuleDiscovery do
 
   @cache_key {__MODULE__, :external_modules}
 
+  # `:persistent_term` rather than a process or ETS table: there is no process of
+  # ours to own one (Mix calls the check from its own compiler tasks, and
+  # `PhoenixKit.KnownPackages` avoids persistent_term for a value that churns),
+  # and this one is written only when the disk really changed.
+  @hash_memo_key {__MODULE__, :module_hash_memo}
+
+  # An mtime this recent cannot be told apart from "changed again a moment
+  # later" on a filesystem with whole-second timestamps, so a fingerprint that
+  # contains one is never remembered.
+  @settled_after_seconds 2
+
   @doc """
   Discovers external PhoenixKit modules from beam files + config fallback.
 
@@ -66,12 +77,16 @@ defmodule PhoenixKit.ModuleDiscovery do
   # one lock instead of each running the full scan; whoever gets it second finds
   # the cache already filled.
   defp scan_once do
-    :global.trans({{__MODULE__, :scan}, self()}, fn ->
-      case :persistent_term.get(@cache_key, :unset) do
-        :unset -> refresh_cache()
-        modules -> modules
-      end
-    end)
+    :global.trans(
+      {{__MODULE__, :scan}, self()},
+      fn ->
+        case :persistent_term.get(@cache_key, :unset) do
+          :unset -> refresh_cache()
+          modules -> modules
+        end
+      end,
+      [node()]
+    )
   end
 
   @doc """
@@ -95,9 +110,10 @@ defmodule PhoenixKit.ModuleDiscovery do
   @doc """
   Returns a deterministic hash of the current set of discovered external modules.
 
-  Used by `__mix_recompile__?/0` (injected into the host router) to detect when
-  modules are added or removed, triggering router recompilation. Always scans the
-  disk — it must never be answered from the runtime cache.
+  The exact reference for `module_hash_fast/0`, which is what `__mix_recompile__?/0`
+  (injected into the host router) calls to detect when modules are added or
+  removed, triggering router recompilation. Always scans the disk — it must
+  never be answered from the runtime cache.
   """
   @spec module_hash() :: binary()
   def module_hash do
@@ -147,7 +163,14 @@ defmodule PhoenixKit.ModuleDiscovery do
   rescue
     # A memo of another shape (module reloaded with a different layout) or a
     # failing stat must never take a Mix compile down; the honest answer exists.
-    _ -> module_hash()
+    # Logged, because a bug in the fast path otherwise looks like a slow one.
+    error ->
+      Logger.debug(
+        "[ModuleDiscovery] module_hash_fast/0 fell back to a full scan: " <>
+          Exception.message(error)
+      )
+
+      module_hash()
   end
 
   # Order matters: the fingerprint is taken BEFORE the scan, so a change landing

@@ -27,7 +27,7 @@ msgstr ""
 msgid "OAuth authentication is not configured. Please contact your administrator."
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:65
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:118
 #: lib/phoenix_kit_web/components/core/admin_label.ex:64
 #: lib/phoenix_kit_web/live/dashboard.html.heex:5
 #: lib/phoenix_kit_web/live/dashboard/index.ex:11
@@ -50,9 +50,9 @@ msgstr ""
 msgid "System Information"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:78
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:93
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:295
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:131
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:146
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:377
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
 #: lib/phoenix_kit_web/live/settings/users.ex:49
 #: lib/phoenix_kit_web/live/users/roles.html.heex:95
@@ -69,7 +69,7 @@ msgstr ""
 msgid "User management"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:129
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:182
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:124
 #: lib/phoenix_kit_web/live/settings/users.ex:97
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:44
@@ -85,7 +85,7 @@ msgstr ""
 msgid "Role management"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:120
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:173
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:140
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:225
 #: lib/phoenix_kit_web/live/settings/authorization.ex:77
@@ -129,8 +129,8 @@ msgstr ""
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:687
 #: lib/phoenix_kit_web/live/users/users.html.heex:308
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:42
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:50
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:45
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:53
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:15
 #: lib/phoenix_kit_web/users/magic_link.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:56
@@ -666,7 +666,7 @@ msgstr ""
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:900
 #: lib/phoenix_kit_web/live/users/users.html.heex:75
 #: lib/phoenix_kit_web/live/users/users.html.heex:999
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Cancel"
 msgstr ""
@@ -1309,7 +1309,7 @@ msgstr ""
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:596
 #: lib/phoenix_kit_web/users/confirmation.html.heex:33
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:136
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:139
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:32
 #: lib/phoenix_kit_web/users/login.ex:20
 #: lib/phoenix_kit_web/users/login.html.heex:79
@@ -1549,7 +1549,7 @@ msgstr ""
 msgid "Permission denied"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:138
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:191
 #: lib/phoenix_kit_web/live/users/permissions_matrix.ex:29
 #: lib/phoenix_kit_web/live/users/permissions_matrix.html.heex:5
 #: lib/phoenix_kit_web/live/users/roles.html.heex:151
@@ -1872,7 +1872,7 @@ msgstr ""
 #: lib/modules/storage/web/dimensions.html.heex:5
 #: lib/modules/storage/web/health.html.heex:5
 #: lib/modules/storage/web/settings.html.heex:5
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:247
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:329
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:170
 #: lib/phoenix_kit_web/live/modules/languages.ex:51
 #: lib/phoenix_kit_web/live/settings.ex:67
@@ -4265,7 +4265,7 @@ msgstr ""
 #: lib/modules/storage/web/health.ex:30
 #: lib/modules/storage/web/health.html.heex:59
 #: lib/modules/storage/web/settings.html.heex:579
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:381
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:463
 #, elixir-autogen, elixir-format
 msgid "Health"
 msgstr ""
@@ -4275,7 +4275,7 @@ msgstr ""
 msgid "Integration deleted"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:338
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:420
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:227
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1937
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
@@ -4522,7 +4522,7 @@ msgstr ""
 msgid "Org"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:286
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:368
 #: lib/phoenix_kit_web/live/settings/organization.ex:46
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:160
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:184
@@ -5294,13 +5294,13 @@ msgstr ""
 msgid "Headers Only"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:161
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:214
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:5
 #, elixir-autogen, elixir-format
 msgid "Jobs"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:349
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:431
 #: lib/phoenix_kit_web/live/modules/languages.ex:50
 #, elixir-autogen, elixir-format
 msgid "Languages"
@@ -5327,7 +5327,7 @@ msgstr ""
 msgid "Module Management"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:215
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:268
 #: lib/phoenix_kit_web/live/modules.html.heex:5
 #, elixir-autogen, elixir-format
 msgid "Modules"
@@ -5392,8 +5392,8 @@ msgstr ""
 #: lib/modules/storage/web/health.html.heex:8
 #: lib/modules/storage/web/settings.ex:65
 #: lib/modules/storage/web/settings.html.heex:4
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:174
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:358
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:227
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:440
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:228
 #: lib/phoenix_kit_web/live/users/media.ex:56
 #: lib/phoenix_kit_web/live/users/media.html.heex:5
@@ -7111,7 +7111,7 @@ msgstr ""
 msgid "Next steps:"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:30
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:33
 #, elixir-autogen, elixir-format
 msgid "No confirmation instructions received?"
 msgstr ""
@@ -7143,7 +7143,7 @@ msgid "Referral Code"
 msgstr ""
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:129
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:132
 #: lib/phoenix_kit_web/users/registration.ex:24
 #: lib/phoenix_kit_web/users/reset_password.html.heex:45
 #, elixir-autogen, elixir-format
@@ -7171,7 +7171,7 @@ msgstr ""
 msgid "Remember your password?"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:38
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:41
 #, elixir-autogen, elixir-format
 msgid "Resend Confirmation"
 msgstr ""
@@ -7216,7 +7216,7 @@ msgstr ""
 msgid "Sending magic link..."
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:54
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:57
 #: lib/phoenix_kit_web/users/magic_link_registration_request.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Sending..."
@@ -7227,7 +7227,7 @@ msgstr ""
 msgid "Sign in with password"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:33
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "We'll send a new confirmation link to your inbox"
 msgstr ""
@@ -7276,7 +7276,7 @@ msgid_plural "%{count} activities"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:148
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:201
 #: lib/phoenix_kit_web/live/activity/index.ex:52
 #: lib/phoenix_kit_web/live/activity/index.html.heex:5
 #: lib/phoenix_kit_web/live/activity/index.html.heex:305
@@ -7420,7 +7420,7 @@ msgstr ""
 msgid "View details"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:277
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:359
 #: lib/phoenix_kit_web/live/settings/authorization.ex:45
 #, elixir-autogen, elixir-format
 msgid "Authorization"
@@ -7649,7 +7649,7 @@ msgstr ""
 msgid "User connections module for PhoenixKit — follows, mutual connections, and blocking"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:267
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:349
 #: lib/phoenix_kit_web/live/settings.ex:65
 #, elixir-autogen, elixir-format
 msgid "General"
@@ -7891,7 +7891,7 @@ msgstr ""
 msgid "LIVE"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:111
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:164
 #: lib/phoenix_kit_web/live/users/live_sessions.ex:69
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:5
 #, elixir-autogen, elixir-format
@@ -8115,7 +8115,7 @@ msgstr ""
 msgid "you"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:372
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:454
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr ""
@@ -11178,7 +11178,7 @@ msgstr ""
 msgid "Enter your referral code"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:122
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:125
 #: lib/phoenix_kit_web/users/referral_gate.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Log out"
@@ -13071,7 +13071,7 @@ msgstr ""
 msgid "Visitors asking for a public URL are sent to the same path on the production site. Logged-in users and admin paths are never redirected. Everyone, or only search-engine crawlers."
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:304
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:386
 #: lib/phoenix_kit_web/live/settings/website_access.ex:48
 #, elixir-autogen, elixir-format
 msgid "Website access"
@@ -13746,7 +13746,7 @@ msgstr ""
 msgid "Auto"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:82
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Change Email"
 msgstr ""
@@ -13777,7 +13777,7 @@ msgstr ""
 msgid "Email changed and confirmed. Welcome!"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:83
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:86
 #, elixir-autogen, elixir-format
 msgid "New email"
 msgstr ""
@@ -13802,12 +13802,12 @@ msgstr ""
 msgid "Showing %{from} to %{to} of %{total} %{noun}"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:108
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:111
 #, elixir-autogen, elixir-format
 msgid "Update email & resend confirmation"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:105
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:108
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr ""
@@ -13822,7 +13822,7 @@ msgstr ""
 msgid "We've sent a new confirmation link to %{email}."
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:69
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Wrong email? Change it"
 msgstr ""
@@ -13847,7 +13847,7 @@ msgstr ""
 msgid "OG"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:322
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:404
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:355
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
@@ -13855,7 +13855,7 @@ msgstr ""
 msgid "Emails Bulk"
 msgstr ""
 
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:313
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:395
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:48
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:65
 #, elixir-autogen, elixir-format
@@ -13897,17 +13897,17 @@ msgstr ""
 msgid "Confirm your email to continue"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:57
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:60
 #, elixir-autogen, elixir-format
 msgid "Resend email"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:21
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:19
 #, elixir-autogen, elixir-format
 msgid "Sent"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:16
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:14
 #, elixir-autogen, elixir-format
 msgid "We sent a confirmation link to %{email}."
 msgstr ""
@@ -14097,12 +14097,12 @@ msgstr ""
 msgid "Acting as %{role}"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:93
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:96
 #, elixir-autogen, elixir-format
 msgid "Current password"
 msgstr ""
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:98
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:101
 #, elixir-autogen, elixir-format
 msgid "We ask for your password again as a safety check before moving your account to a new email address."
 msgstr ""
@@ -15339,7 +15339,7 @@ msgstr ""
 #: lib/modules/storage/web/libraries_component.ex:376
 #: lib/modules/storage/web/settings.ex:112
 #: lib/modules/storage/web/settings.html.heex:406
-#: lib/phoenix_kit/dashboard/admin_tabs.ex:188
+#: lib/phoenix_kit/dashboard/admin_tabs.ex:241
 #: lib/phoenix_kit_web/live/users/libraries.ex:38
 #: lib/phoenix_kit_web/live/users/libraries.ex:113
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:19
@@ -18338,4 +18338,9 @@ msgstr ""
 #: lib/phoenix_kit/email/core_templates.ex:382
 #, elixir-autogen, elixir-format
 msgid "Welcome to {{site_name}}"
+msgstr ""
+
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:28
+#, elixir-autogen, elixir-format
+msgid "No confirmation email on record — use Resend below."
 msgstr ""

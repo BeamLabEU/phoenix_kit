@@ -1,3 +1,58 @@
+## 2.52.0 - 2026-10-04
+
+### Added
+
+- **Core's emails are written in Markdown, with a button** (#899). The eight auth emails (confirmation,
+  password reset, magic link, login alert and the rest) have Markdown defaults with a call-to-action
+  button and the address written out under it, translated into all eight core languages. Markdown email
+  bodies gained optional paragraphs (a top-level paragraph whose placeholders all fill in blank is left out
+  of both bodies), raw-HTML blocks written as a lone triple-brace placeholder, and links whose label is
+  their own address (printed once in the text body).
+- **A welcome email**, off by default (`email_welcome_enabled`, Settings → Emails → Sending). It is sent
+  at most once, after an address is confirmed — by the confirmation link, a magic link, OAuth or
+  magic-link registration. The confirmation only enqueues `WelcomeEmailWorker` inside its own
+  transaction, so a rollback takes the job with it; a refused or locked insert is logged and never fails
+  the confirmation.
+- **The notification email goes through the shared layout** — the email notification channel sends core's
+  `notification` email, so it carries the header, footer and a host's overrides like every other email.
+- **A core-owned sidebar order for module tabs, and `config :phoenix_kit, :admin_tab_order`** (#901). Core
+  now places each module's tab itself instead of leaving the order to load order, with id tie-breaks. A
+  host moves tabs, or whole groups, between groups and positions with `:admin_tab_order` (see
+  `lib/phoenix_kit/dashboard/ADMIN_README.md`); unknown groups are ignored with a warning.
+- **`mix phoenix_kit.update` steps Oban's schema up to the Oban library** (#902). Oban's schema is
+  versioned apart from core's chain, and core's open `~> 2.20` pin lets a host move to a newer Oban that
+  expects a newer schema — under Oban 2.24 (schema v14) every unique insert, cron's included, failed with
+  `invalid input value for enum oban_job_state: "suspended"`. The update checks the schema at core's
+  prefix and at the host Oban config's prefix and writes a host migration
+  (`phoenix_kit_update_oban_vNN_to_vMM`) that runs `Oban.Migration.up/1`; `mix phoenix_kit.doctor` and
+  `status` report the version, and the application logs one warning at boot when it is behind.
+
+### Changed
+
+- **The HTML body of an email is built from the highest-priority host part first.** A host that
+  overrides only `text.txt` of an email now gets its own words in the HTML version too, instead of an
+  HTML version built from the caller's `html` or `markdown` default. The text body order is unchanged.
+- **The email-confirmation waiting screen is shorter** (#900): one line with the address and when it was
+  sent. With no confirmation on record it says so instead of claiming an email went out.
+
+### Fixed
+
+- **The admin Modules page no longer rescans every beam file on each mount** (#895).
+  `ModuleDiscovery.cached_external_modules/0` keeps the scan until `ModuleRegistry` rescans or a module is
+  registered/unregistered; concurrent cold readers share one scan (node-local lock). Compile-time callers
+  still read the disk.
+- **The dev server no longer rescans beam files on every request** (#898). The router's
+  `__mix_recompile__?/0` uses `ModuleDiscovery.module_hash_fast/0`, which fingerprints the code path with
+  `stat` only and runs the full scan when the fingerprint changed. A merge dropped the module attributes
+  behind its memo, which made every call fall back to a full scan; they are restored, and a fall-back is
+  now logged.
+- **The schema manifest no longer carries the newsletters template foreign key** (#896); the newsletters
+  module owns that table's shape.
+- **The Oban schema check works on Oban 2.20–2.21**, where `Oban.Migration.current_version/1` is not
+  public yet, and follows the `{repo, opts}` form of the Oban `:repo` option.
+- **The welcome email enqueue catches an exit** as well as a raise, so a dead pool on a magic-link
+  registration cannot fail the response.
+
 ## 2.51.0 - 2026-10-04
 
 ### Added
