@@ -115,8 +115,9 @@ defmodule PhoenixKit.Migrations.Adoption do
   `phoenix_kit_invoices` and `phoenix_kit_transactions` — a deliberate,
   intentional widening — while core's manifest still declares `user_uuid`
   `NOT NULL` for both (core has not yet gone through the Phase 1 process,
-  `@excluded_exact` + a manifest regeneration, for this specific change —
-  see the extraction guide). A module using `Object.newest_shape/1`
+  `@module_owned_ids` + dropping the objects from the manifest, for this
+  specific change — see the extraction guide). A module using
+  `Object.newest_shape/1`
   unmodified for `user_uuid` on either table would get a false drift on
   every single adoption run, forever, until core catches up. `shape_at/2`
   exists for the rarer case of deliberately pinning to an older, still-valid
@@ -234,8 +235,8 @@ defmodule PhoenixKit.Migrations.Adoption do
       same exemption this module separately compensates for — see below —
       repair has no such compensation, so it would never have seen that
       specific drift either), and any object a module has since gone
-      through Phase 1 for (`@excluded_exact`, core's manifest regenerated
-      to match the module's new shape) simply stops being asserted by core
+      through Phase 1 for (`@module_owned_ids`, the object dropped from
+      core's manifest) simply stops being asserted by core
       at all, at which point repair/doctor cannot see it as a mismatch by
       design, not by omission.
 

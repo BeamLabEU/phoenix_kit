@@ -23,10 +23,15 @@ to core's objects, and stamps a namespaced `COMMENT ON TABLE` marker
 keeps creating the same tables; nothing changes for hosts.
 
 **Phase 1 — first shape change.** Before releasing a module V2 that alters
-one of these tables: add the changed objects to `@excluded_exact` in
-`dev_docs/squash/generate_baseline.exs`, regenerate `ExpectedSchema`, and
-raise the module's core version floor — otherwise `mix phoenix_kit.repair`
-reverts the change on every run.
+one of these tables: add the changed objects' ids to `@module_owned_ids`
+(`PhoenixKit.Squash.Generate.Emitter` in
+`dev_docs/squash/generate_baseline.exs`), take them out of `ExpectedSchema`
+(regenerate, or remove them by hand with a dated note where each was), and
+raise the module's core version floor — otherwise `mix phoenix_kit.doctor`
+reports the change as drift and `mix phoenix_kit.repair` may offer to put
+the old shape back. Not `@excluded_exact`: that list is a refuse-to-emit
+guard for objects the chain no longer creates, and an object core's chain
+still creates would abort the generation there.
 
 **Phase 2 — core stops creating.** Only at core's next baseline squash does
 core drop its copy of the DDL. The module's V1 must already be able to
@@ -80,7 +85,7 @@ across core and `phoenix_kit_legal`'s own adoption step (issue legal#23):
     independently rediscover it: `Differ` itself excludes
     `not_null: true, default: nil` from comparison entirely, and any
     object a module has since gone through Phase 1 for
-    (`@excluded_exact`, core's manifest regenerated) stops being
+    (`@module_owned_ids`, dropped from core's manifest) stops being
     asserted by core at all — see `PhoenixKit.Migrations.Adoption`'s
     moduledoc for the full reasoning.
 
