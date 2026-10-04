@@ -18,14 +18,17 @@ defmodule PhoenixKit.Email.CatalogTest do
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Notifications.Channels.Email, as: EmailChannel
   alias PhoenixKit.Templates
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserNotifier
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
-  @core_names ~w(register reset_password update_email magic_link magic_link_registration
-                 organization_invitation new_login_alert failed_login_alert)
+  @translated_names ~w(register reset_password update_email magic_link magic_link_registration
+                       organization_invitation new_login_alert failed_login_alert welcome)
+  @core_names @translated_names ++ ["notification"]
 
   defmodule EnabledEmailModule do
     @moduledoc false
@@ -145,7 +148,8 @@ defmodule PhoenixKit.Email.CatalogTest do
 
       try do
         capture_log(fn ->
-          assert Enum.take(Catalog.entries(), 8) |> Enum.map(& &1.name) == @core_names
+          assert Enum.take(Catalog.entries(), length(@core_names)) |> Enum.map(& &1.name) ==
+                   @core_names
         end)
       after
         ModuleRegistry.unregister(ThrowingEmailModule)
@@ -182,59 +186,74 @@ defmodule PhoenixKit.Email.CatalogTest do
       Gettext.with_locale(PhoenixKitWeb.Gettext, "en", fn ->
         assert CoreTemplates.register_defaults() == %{
                  subject: "Confirm your account",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
-                 You can confirm your account by visiting the URL below:
+                 Please confirm your account with the button below.
 
-                 {{confirmation_url}}
+                 [Confirm account]({{confirmation_url}})
 
-                 If you didn't create an account with us, please ignore this.
+                 If the button doesn't work, open this link: [{{confirmation_url}}]({{confirmation_url}})
+
+                 If you didn't create an account with us, please ignore this email.
                  """
                }
 
         assert CoreTemplates.reset_password_defaults() == %{
                  subject: "Reset your password",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
-                 You can reset your password by visiting the URL below:
+                 You can reset your password with the button below.
 
-                 {{reset_url}}
+                 [Reset password]({{reset_url}})
 
-                 If you didn't request this change, please ignore this.
+                 If the button doesn't work, open this link: [{{reset_url}}]({{reset_url}})
+
+                 If you didn't request this change, please ignore this email.
                  """
                }
 
         assert CoreTemplates.update_email_defaults() == %{
                  subject: "Confirm your email change",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
-                 You can change your email by visiting the URL below:
+                 You can change your email with the button below.
 
-                 {{update_url}}
+                 [Confirm email change]({{update_url}})
 
-                 If you didn't request this change, please ignore this.
+                 If the button doesn't work, open this link: [{{update_url}}]({{update_url}})
+
+                 If you didn't request this change, please ignore this email.
                  """
                }
 
         assert CoreTemplates.magic_link_defaults() == %{
                  subject: "Your secure login link",
-                 text: """
-                 Your login link: {{magic_link_url}}
-                 This link expires in 15 minutes.
+                 markdown: """
+                 Hi {{user_email}},
+
+                 Use the button below to sign in. This link expires in 15 minutes.
+
+                 [Sign in]({{magic_link_url}})
+
+                 If the button doesn't work, open this link: [{{magic_link_url}}]({{magic_link_url}})
+
+                 If you didn't ask for this link, you can ignore this email.
                  """
                }
 
         assert CoreTemplates.magic_link_registration_defaults() == %{
                  subject: "Complete your registration",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
-                 Welcome! To complete your registration, please visit the URL below:
+                 Welcome! To complete your registration, use the button below.
 
-                 {{registration_url}}
+                 [Complete registration]({{registration_url}})
+
+                 If the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})
 
                  This link will expire in 30 minutes for your security.
 
@@ -244,14 +263,16 @@ defmodule PhoenixKit.Email.CatalogTest do
 
         assert CoreTemplates.organization_invitation_defaults() == %{
                  subject: "You've been invited to join {{organization_name}}",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
                  {{organization_name}} has invited you to join their organization.
 
-                 To accept the invitation, register an account by visiting the link below:
+                 To accept the invitation, register an account with the button below.
 
-                 {{registration_url}}
+                 [Accept invitation]({{registration_url}})
+
+                 If the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})
 
                  This invitation link will expire in 7 days.
 
@@ -261,60 +282,105 @@ defmodule PhoenixKit.Email.CatalogTest do
 
         assert CoreTemplates.new_login_alert_defaults() == %{
                  subject: "New login to your account",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
                  We noticed a new login to your account from an unrecognized device:
 
-                 Time: {{login_time}}
-                 IP address: {{ip_address}}
-                 Location: {{location}}
-                 Device: {{browser_os}}
+                 - Time: {{login_time}}
+                 - IP address: {{ip_address}}
+                 - Location: {{location}}
+                 - Device: {{browser_os}}
 
-                 {{failed_attempts}}If this was you, no action is needed.
+                 {{failed_attempts}}
 
-                 If you don't recognize this activity, secure your account here:
+                 If this was you, no action is needed.
 
-                 {{security_url}}
+                 If you don't recognize this activity, secure your account:
+
+                 [Review account security]({{security_url}})
+
+                 If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
                  """
                }
 
         assert CoreTemplates.failed_login_alert_defaults() == %{
                  subject: "Failed sign-in attempts on your account",
-                 text: """
+                 markdown: """
                  Hi {{user_email}},
 
                  Someone has been trying to sign in to your account and failing.
 
-                 Failed attempts: {{attempt_count}}
-                 In the last: {{window_hours}} hour(s)
+                 - Failed attempts: {{attempt_count}}
+                 - In the last: {{window_hours}} hour(s)
 
-                 Nobody has signed in. You do not need to do anything if you recognize
-                 this as your own mistyped password.
+                 Nobody has signed in. You do not need to do anything if you recognize this as your own mistyped password.
 
-                 If you do not, your password may be being guessed. Change it to
-                 something you do not use anywhere else:
+                 If you do not, your password may be being guessed. Change it to something you do not use anywhere else:
 
-                 {{security_url}}
+                 [Change password]({{security_url}})
+
+                 If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
+                 """
+               }
+
+        assert CoreTemplates.welcome_defaults() == %{
+                 subject: "Welcome to {{site_name}}",
+                 markdown: """
+                 Hi {{user_email}},
+
+                 Welcome to {{site_name}}! Your email address is confirmed and your account is ready.
+
+                 [Go to {{site_name}}]({{site_url}})
+
+                 If the button doesn't work, open this link: [{{site_url}}]({{site_url}})
                  """
                }
       end)
     end
 
-    test "every core subject is translated (a changed msgid would fall back to English)" do
-      for entry <- Enum.take(Catalog.entries(), 8), locale <- ["ru", "de", "et"] do
+    test "every core email is translated into every core language" do
+      for entry <- Catalog.entries(), entry.name in @translated_names do
         english = Gettext.with_locale(PhoenixKitWeb.Gettext, "en", entry.defaults)
-        translated = Gettext.with_locale(PhoenixKitWeb.Gettext, locale, entry.defaults)
+        assert english.subject not in [nil, ""]
+        assert english.markdown not in [nil, ""]
 
-        refute translated.subject == english.subject, "#{entry.name} subject in #{locale}"
-        refute translated.text == english.text, "#{entry.name} text in #{locale}"
+        for locale <- ~w(de es et fr it pl ru) do
+          translated = Gettext.with_locale(PhoenixKitWeb.Gettext, locale, entry.defaults)
+
+          assert translated.subject not in [nil, ""], "#{entry.name} subject in #{locale}"
+          assert translated.markdown not in [nil, ""], "#{entry.name} markdown in #{locale}"
+          refute translated.subject == english.subject, "#{entry.name} subject in #{locale}"
+          refute translated.markdown == english.markdown, "#{entry.name} markdown in #{locale}"
+
+          # A translation keeps every placeholder and the button of the copy
+          # it translates — a lost `{{confirmation_url}}` is a dead email.
+          assert placeholders(translated.markdown) == placeholders(english.markdown),
+                 "#{entry.name} placeholders in #{locale}"
+
+          assert buttons(translated.markdown) == buttons(english.markdown),
+                 "#{entry.name} button in #{locale}"
+        end
       end
     end
   end
 
+  # Which placeholders, not how often: a language may name the site once.
+  defp placeholders(text),
+    do:
+      ~r/\{\{\s*([a-z_]+)\s*\}\}/
+      |> Regex.scan(text, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.uniq()
+      |> Enum.sort()
+
+  # The target of each paragraph that is exactly one link.
+  defp buttons(text),
+    do: ~r/^\[[^\]\n]+\]\(([^)\n]+)\)$/m |> Regex.scan(text, capture: :all_but_first)
+
   describe "preview/3 of core's emails" do
     for name <- ~w(register reset_password update_email magic_link magic_link_registration
-                   organization_invitation new_login_alert failed_login_alert) do
+                   organization_invitation new_login_alert failed_login_alert welcome) do
       test "#{name}: every placeholder has a sample, and all three versions render" do
         entry = Catalog.get(unquote(name))
 
@@ -327,8 +393,12 @@ defmodule PhoenixKit.Email.CatalogTest do
           refute preview.content.text =~ "{{"
           assert preview.content.html =~ "<!DOCTYPE html>"
           assert preview.sources.subject == :default
-          assert preview.sources.text == :default
-          assert preview.sources.html_from == :text
+          assert preview.sources.markdown == :default
+          assert preview.sources.html_from == :markdown
+          assert preview.sources.text_from == :markdown
+          # The main action is a button, and the address is written out too.
+          assert preview.content.html =~ ~s(style="display:inline-block;)
+          refute preview.content.text =~ "]("
         end
       end
     end
@@ -492,7 +562,7 @@ defmodule PhoenixKit.Email.CatalogTest do
 
       # The time is formatted in the reader's zone by the send itself; read it
       # back rather than re-deriving it, and compare everything else.
-      [_, login_time] = Regex.run(~r/^Time: (.+)$/m, email.text_body)
+      [_, login_time] = Regex.run(~r/^- Time: (.+)$/m, email.text_body)
 
       want =
         expected(
@@ -584,6 +654,18 @@ defmodule PhoenixKit.Email.CatalogTest do
         end,
         "failed_login_alert" => fn ->
           UserNotifier.deliver_failed_login_alert(u, %{count: 3, window_hours: 1})
+        end,
+        "welcome" => fn -> UserNotifier.deliver_welcome(u) end,
+        "notification" => fn ->
+          {:ok, reader} =
+            Auth.register_user(%{
+              email: "catalog_reader@example.test",
+              password: "ValidPassword123!"
+            })
+
+          envelope = %{recipient_uuid: reader.uuid, title: "Hi", text: "Body", url: nil}
+          :ok = EmailChannel.deliver(envelope, %{})
+          {:ok, :sent}
         end
       }
 

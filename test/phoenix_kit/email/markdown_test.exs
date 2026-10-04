@@ -312,6 +312,92 @@ defmodule PhoenixKit.Email.MarkdownTest do
     end
   end
 
+  describe "a paragraph that is only placeholders" do
+    @body "Hi.\n\n{{note}}\n\nIf this was you, no action is needed."
+
+    test "it is left out of both bodies when its placeholders fill in blank" do
+      out = html(@body, %{"note" => ""})
+
+      refute out =~ ~r/<p[^>]*>\s*<\/p>/
+      assert out =~ "Hi.</p>"
+
+      assert Markdown.to_text(@body, %{"note" => ""}) ==
+               "Hi.\n\nIf this was you, no action is needed."
+    end
+
+    test "an unbound placeholder is not blank: it stays visible" do
+      assert html(@body) =~ "{{note}}"
+      assert Markdown.to_text(@body, %{}) =~ "{{note}}"
+    end
+
+    test "a value that ends in a blank line stays its own paragraph" do
+      note = "There were also 2 failed sign-in attempts.\n\n"
+      out = html(@body, %{"note" => note})
+
+      assert out =~ ~r/<p[^>]*>There were also 2 failed sign-in attempts\.\s*<\/p>/
+      assert out =~ ~r/<p[^>]*>If this was you/
+
+      assert Markdown.to_text(@body, %{"note" => note}) ==
+               "Hi.\n\nThere were also 2 failed sign-in attempts.\n\nIf this was you, no action is needed."
+    end
+
+    test "text around the placeholder keeps the paragraph" do
+      assert html("Note: {{note}}", %{"note" => ""}) =~ "Note:"
+    end
+
+    test "a paragraph with a link is never dropped, even when its label is blank" do
+      out = html("[{{label}}](https://a.test)\n\nend", %{"label" => ""})
+      assert out =~ ~s(href="https://a.test")
+    end
+  end
+
+  describe "a paragraph that is exactly one raw placeholder" do
+    @table "<table><tr><td>Widget</td></tr></table>"
+
+    test "is the value alone, with no paragraph around it" do
+      out = html("Your order:\n\n{{{items}}}\n\nThanks.", %{"items" => @table})
+
+      assert out =~ ~r/Your order:<\/p>\s*#{Regex.escape(@table)}\s*<p[^>]*>Thanks\.<\/p>/
+      refute out =~ ~r/<p[^>]*>\s*<table/
+    end
+
+    test "a double-brace placeholder alone keeps its paragraph, escaped" do
+      out = html("{{items}}", %{"items" => @table})
+      assert out =~ ~r/<p[^>]*>&lt;table&gt;/
+    end
+
+    test "a raw placeholder with text around it keeps the paragraph" do
+      assert html("Items: {{{items}}}", %{"items" => "<b>x</b>"}) =~
+               ~r/<p[^>]*>Items: <b>x<\/b><\/p>/
+    end
+  end
+
+  describe "the address written out as its own label" do
+    @fallback "If the button does not work, open this link: [{{url}}]({{url}})"
+
+    test "is a link in the HTML" do
+      out = html(@fallback, %{"url" => "https://a.test/c?x=1&y=2"})
+
+      assert out =~
+               ~s(<a href="https://a.test/c?x=1&amp;y=2" style="color:#{@accent};">https://a.test/c?x=1&amp;y=2</a>)
+    end
+
+    test "reads as the address once in the text" do
+      assert Markdown.to_text(@fallback, %{"url" => "https://a.test/c"}) ==
+               "If the button does not work, open this link: https://a.test/c"
+    end
+
+    test "a label that only differs from the address keeps both" do
+      assert Markdown.to_text("[Open {{url}}]({{url}})", %{"url" => "https://a.test"}) ==
+               "Open https://a.test: https://a.test"
+    end
+
+    test "an unsafe address leaves the label alone, still once" do
+      assert Markdown.to_text("Link: [{{url}}]({{url}})", %{"url" => "javascript:x"}) ==
+               "Link: javascript:x"
+    end
+  end
+
   describe "many links and images" do
     # Building them used to rescan the whole HTML and recompile the token set
     # per element: 5000 links took over half a minute. Counted in reductions

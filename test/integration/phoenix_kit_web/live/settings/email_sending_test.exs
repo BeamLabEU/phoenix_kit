@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingTest do
   alias PhoenixKit.Email.Branding
   alias PhoenixKit.Integrations
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.Routes
 
   @path Routes.path("/admin/settings/email-sending")
@@ -353,6 +354,35 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingTest do
 
       assert has_element?(view, "#email-accent-color-error")
       assert Settings.get_setting("email_accent_color") in [nil, ""]
+    end
+  end
+
+  describe "welcome email" do
+    setup :setup_admin
+
+    test "is off by default, next to branding, with a preview link", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      assert has_element?(view, "#email-branding-panel #email-welcome-form")
+      refute has_element?(view, "#email_welcome_enabled[checked]")
+
+      assert has_element?(
+               view,
+               ~s(#email-welcome-preview-link[href$="/admin/settings/email-sending/preview?email=welcome"])
+             )
+    end
+
+    test "the checkbox switches it on and off", %{conn: conn} do
+      {:ok, view, _html} = live(conn, @path)
+
+      view |> form("#email-welcome-form", %{"enabled" => "true"}) |> render_change()
+      assert Settings.get_setting("email_welcome_enabled") == "true"
+      assert WelcomeEmail.enabled?()
+      assert has_element?(view, "#email_welcome_enabled[checked]")
+
+      view |> form("#email-welcome-form", %{"enabled" => "false"}) |> render_change()
+      assert Settings.get_setting("email_welcome_enabled") == "false"
+      refute WelcomeEmail.enabled?()
     end
   end
 end

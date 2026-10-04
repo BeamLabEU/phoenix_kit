@@ -74,7 +74,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, Sessions}
+  alias PhoenixKit.Users.{CustomFields, RateLimiter, Role, Roles, Sessions, WelcomeEmail}
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.Pagination
@@ -783,7 +783,8 @@ defmodule PhoenixKit.Users.Auth do
 
     with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, %{user: updated_user}} <- Repo.transaction(user_email_multi(user, email, context)) do
+         {:ok, %{user: updated_user}} <-
+           Repo.transaction(user_email_multi(user, email, context, was_unconfirmed?)) do
       # Only a genuine unconfirmed -> confirmed transition, not every email
       # change (an already-confirmed user changing their address re-runs
       # confirm_changeset too, but did not just newly confirm) — otherwise a
@@ -807,15 +808,24 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
-  defp user_email_multi(user, email, context) do
+  defp user_email_multi(user, email, context, was_unconfirmed?) do
     changeset =
       user
       |> User.email_changeset(%{email: email})
       |> User.confirm_changeset()
 
-    multi = Ecto.Multi.new()
-    multi = Ecto.Multi.update(multi, :user, changeset)
-    Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, [context]))
+    # "Wrong email?" on an unconfirmed account: the new address is the first
+    # one the reader has proven, so this is their confirmation too — when the
+    # row is still unconfirmed as the transaction sees it.
+    multi =
+      if was_unconfirmed?,
+        do: WelcomeEmail.track_transition(Ecto.Multi.new(), user),
+        else: Ecto.Multi.new()
+
+    multi
+    |> Ecto.Multi.update(:user, changeset)
+    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, [context]))
+    |> WelcomeEmail.multi()
   end
 
   @doc ~S"""
@@ -1531,7 +1541,8 @@ defmodule PhoenixKit.Users.Auth do
   def confirm_user(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query),
-         {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
+         {:ok, %{user: updated_user}} <-
+           Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
       Events.broadcast_user_confirmed(updated_user)
 
@@ -1551,14 +1562,24 @@ defmodule PhoenixKit.Users.Auth do
     end
   end
 
+  # The welcome email is enqueued only on a real unconfirmed -> confirmed
+  # transition: an old link clicked after an administrator confirmed the
+  # account re-runs the confirmation, but confirms nothing new.
   defp confirm_user_multi(user) do
-    multi = Ecto.Multi.new()
-    multi = Ecto.Multi.update(multi, :user, User.confirm_changeset(user))
-    Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, ["confirm"]))
+    Ecto.Multi.new()
+    |> WelcomeEmail.track_transition(user)
+    |> Ecto.Multi.update(:user, User.confirm_changeset(user))
+    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, ["confirm"]))
+    |> WelcomeEmail.multi()
   end
 
   @doc """
   Manually confirms a user account (admin function).
+
+  Sends no welcome email (`PhoenixKit.Users.WelcomeEmail`): an administrator
+  confirming an account is not the reader proving their address. A flow that
+  confirms through here on the reader's behalf — magic-link registration —
+  calls `WelcomeEmail.after_confirmation/1` itself.
 
   ## Examples
 
@@ -1607,8 +1628,14 @@ defmodule PhoenixKit.Users.Auth do
       |> Ecto.Changeset.change(hashed_password: rotated_hash)
 
     Ecto.Multi.new()
+    # A second tab holding the same stale, unconfirmed struct confirms again;
+    # only the transition the database sees enqueues the welcome email.
+    |> WelcomeEmail.track_transition(user)
     |> Ecto.Multi.update(:user, changeset)
     |> Ecto.Multi.delete_all(:tokens, revoked_tokens_query(user))
+    # Enqueued in this transaction — and in the OAuth callback's around it —
+    # so a rollback takes the welcome email with the confirmation.
+    |> WelcomeEmail.multi()
     |> Repo.transaction()
     |> case do
       {:ok, %{user: confirmed_user, tokens: {_count, revoked}}} ->

@@ -21,27 +21,27 @@ msgstr "Für diese E-Mail-Adresse besteht bereits eine offene Einladung"
 msgid "This user already belongs to an organization"
 msgstr "Dieser Benutzer gehört bereits zu einer Organisation"
 
-#: lib/phoenix_kit/users/auth.ex:1249
+#: lib/phoenix_kit/users/auth.ex:1259
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "kann nicht auf „Person“ geändert werden, solange die Organisation Mitglieder hat"
 
-#: lib/phoenix_kit/users/auth.ex:1229
+#: lib/phoenix_kit/users/auth.ex:1239
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "kann nicht auf sich selbst verweisen"
 
-#: lib/phoenix_kit/users/auth.ex:1237
+#: lib/phoenix_kit/users/auth.ex:1247
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "nur Personenkonten können einer Organisation beitreten"
 
-#: lib/phoenix_kit/users/auth.ex:1224
+#: lib/phoenix_kit/users/auth.ex:1234
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "Organisation nicht gefunden"
 
-#: lib/phoenix_kit/users/auth.ex:1223
+#: lib/phoenix_kit/users/auth.ex:1233
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "der Zielbenutzer ist keine Organisation"

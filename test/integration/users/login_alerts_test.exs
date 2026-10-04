@@ -87,7 +87,7 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
         # Whether geolocation resolves here depends on a live lookup, so the
         # invariant is asserted instead of one of the two outcomes: a resolved
         # place is always marked approximate, and "Unknown" never is.
-        assert email.text_body =~ ~r/^Location: (Unknown|.+ \(approximate\))$/m
+        assert email.text_body =~ ~r/^- Location: (Unknown|.+ \(approximate\))$/m
       end)
     end
 
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Integration.Users.LoginAlertsTest do
       assert :ok = LoginAlerts.check(user, conn_with_ua(@firefox_linux))
 
       assert_email_sent(fn email ->
-        assert [_, time_line] = Regex.run(~r/^Time: (.+)$/m, email.text_body)
+        assert [_, time_line] = Regex.run(~r/^- Time: (.+)$/m, email.text_body)
         refute time_line =~ "UTC"
         assert time_line =~ ~r/\bCES?T$/
       end)
