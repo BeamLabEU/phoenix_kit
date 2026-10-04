@@ -48,6 +48,9 @@ if Code.ensure_loaded?(Igniter) do
     @dialyzer {:nowarn_function, report_update: 2}
     @dialyzer {:nowarn_function, report_update: 3}
     @dialyzer {:nowarn_function, note_nested_block: 2}
+    @dialyzer {:nowarn_function, ensure_cron_steps: 2}
+    @dialyzer {:nowarn_function, report_scheduled: 2}
+    @dialyzer {:nowarn_function, add_lifeline_plugin: 2}
     @dialyzer {:nowarn_function, update_content: 2}
 
     alias Igniter.Libs.Phoenix
@@ -355,9 +358,7 @@ if Code.ensure_loaded?(Igniter) do
           updated =
             content
             |> ensure_declared_queues(app_name)
-            |> ensure_cron_plugin(app_name)
-            |> ensure_digest_cron_entries(app_name)
-            |> ensure_worker_cron_entries(app_name)
+            |> ensure_cron_steps(app_name)
             |> ensure_pruner_max_age(app_name)
             |> ensure_lifeline_plugin(app_name)
 
@@ -375,6 +376,31 @@ if Code.ensure_loaded?(Igniter) do
           "  ℹ️  A nested `config :#{app_name}, Oban` for an environment follows; " <>
             "it may override `plugins:` there — check it"
         )
+      end
+    end
+
+    # The cron plugin, digest and worker entries — or one line when the host has
+    # `cron: false` and no Cron anywhere else.
+    defp ensure_cron_steps(content, app_name) do
+      if ConfigSplice.option_off?(content, app_name, :cron) and
+           not cron_service?(content, app_name) do
+        Mix.shell().info(
+          "  ℹ️  Oban cron is switched off in config (`cron: false`) — no cron entries to add"
+        )
+
+        content
+      else
+        content
+        |> ensure_cron_plugin(app_name)
+        |> ensure_digest_cron_entries(app_name)
+        |> ensure_worker_cron_entries(app_name)
+      end
+    end
+
+    defp cron_service?(content, app_name) do
+      case ConfigSplice.known_services(content, app_name) do
+        {services, _unknown?} -> Oban.Cron in services
+        :error -> false
       end
     end
 
@@ -609,8 +635,12 @@ if Code.ensure_loaded?(Igniter) do
       )
     end
 
+    # The refusal when an edit would list something twice. The entry is usually
+    # there already, under another spelling (an alias, Oban 2.24's new names, a
+    # top-level `lifeline:`), so the step must not tell the host to add it.
+
     # Splice `entries` onto the end of `app_name`'s `key:` list and check the
-    # result twice: with `verify` (`ConfigVerify.verify_or_rollback/3`) — the
+    # result three times: with `verify` (`ConfigVerify.verify_or_rollback/3`) — the
     # file must still parse and the entries must be direct members of THAT list
     # — and with `ConfigSplice.preserves_original?/3`: apart from the entries,
     # the host's own config must parse to exactly what it did before. The
@@ -622,9 +652,6 @@ if Code.ensure_loaded?(Igniter) do
     # updater leaves the file alone. A list the host switched off (`false`,
     # `config :app, Oban, false`) is not a failure: one info line, the content
     # back unchanged, no manual step.
-    # The refusal when an edit would list something twice. The entry is usually
-    # there already, under another spelling (an alias, Oban 2.24's new names, a
-    # top-level `lifeline:`), so the step must not tell the host to add it.
     @duplicate_text "the edit would have listed a plugin, crontab entry or queue twice — " <>
                       "it is probably already there under an alias or another name (Oban 2.24 renamed its plugins)"
 
@@ -932,34 +959,48 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_lifeline_plugin(String.t(), atom() | String.t()) :: String.t()
     def ensure_lifeline_plugin(content, app_name) do
-      if lifeline_present?(content, app_name) do
-        maybe_raise_lifeline_rescue_after(content)
-      else
-        Mix.shell().info("  ➕ Adding Oban.Plugins.Lifeline to Oban configuration...")
+      cond do
+        lifeline_present?(content, app_name) ->
+          maybe_raise_lifeline_rescue_after(content)
 
-        # The list is spliced by `ConfigSplice.append_to_list/5` (nested lists
-        # such as the Cron plugin's own `crontab: [...]` are skipped by bracket
-        # depth, not by a lazy match to the first `]`), and bounded to THIS
-        # app's own `config :app_name, Oban` block: a host with any OTHER
-        # `plugins: [...]` list earlier in config.exs once got Lifeline put in
-        # the wrong application's list, with a reported success.
-        case append_entries(
-               content,
-               app_name,
-               :plugins,
-               [lifeline_entry()],
-               &plugins_contains_module?(&1, app_name, Oban.Plugins.Lifeline)
-             ) do
-          {:ok, result} ->
-            if result != content,
-              do: Mix.shell().info("  ✓ Found plugins block, adding Lifeline plugin")
+        # `lifeline: false` is the host's own refusal, like `plugins: false`.
+        ConfigSplice.option_off?(content, app_name, :lifeline) ->
+          Mix.shell().info(
+            "  ℹ️  Oban lifeline is switched off in config (`lifeline: false`) — not added"
+          )
 
-            result
+          content
 
-          {:error, why} ->
-            lifeline_manual_notice(app_name, why)
-            content
-        end
+        true ->
+          add_lifeline_plugin(content, app_name)
+      end
+    end
+
+    defp add_lifeline_plugin(content, app_name) do
+      Mix.shell().info("  ➕ Adding Oban.Plugins.Lifeline to Oban configuration...")
+
+      # The list is spliced by `ConfigSplice.append_to_list/5` (nested lists
+      # such as the Cron plugin's own `crontab: [...]` are skipped by bracket
+      # depth, not by a lazy match to the first `]`), and bounded to THIS
+      # app's own `config :app_name, Oban` block: a host with any OTHER
+      # `plugins: [...]` list earlier in config.exs once got Lifeline put in
+      # the wrong application's list, with a reported success.
+      case append_entries(
+             content,
+             app_name,
+             :plugins,
+             [lifeline_entry()],
+             &plugins_contains_module?(&1, app_name, Oban.Plugins.Lifeline)
+           ) do
+        {:ok, result} ->
+          if result != content,
+            do: Mix.shell().info("  ✓ Found plugins block, adding Lifeline plugin")
+
+          result
+
+        {:error, why} ->
+          lifeline_manual_notice(app_name, why)
+          content
       end
     end
 
@@ -968,9 +1009,13 @@ if Code.ensure_loaded?(Igniter) do
     # refuse to start ("found duplicate plugins"). A config the tree cannot read
     # falls back to the text.
     defp lifeline_present?(content, app_name) do
-      case ConfigSplice.services(content, app_name) do
-        {:ok, services} -> Oban.Lifeline in services
-        :error -> Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content)
+      case ConfigSplice.known_services(content, app_name) do
+        {services, unknown?} ->
+          Oban.Lifeline in services or
+            (unknown? and Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content))
+
+        :error ->
+          Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content)
       end
     end
 
@@ -1154,20 +1199,17 @@ if Code.ensure_loaded?(Igniter) do
 
           content
 
+        # `cron: false` and no Cron anywhere else: the host switched cron off.
+        # Like `plugins: false`, that is a choice, not a gap.
+        cron_switched_off?(content, app_name, cron_plugin?, worker) ->
+          Mix.shell().info("  ℹ️  Oban cron is switched off in config (`cron: false`) — not added")
+          content
+
         # Case 2: the core worker is already scheduled — by the Cron plugin, or
         # (a host on Oban Pro) by another plugin's crontab; adding it to the
         # Cron plugin as well would run it twice.
-        worker == :unverified ->
-          note_unverified([@new_worker])
-          content
-
-        # A commented-out worker was announced above ("left out"); no second line.
-        worker == :declined ->
-          content
-
         worker != :missing ->
-          Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
-          content
+          report_scheduled(worker, content)
 
         # Case 3: Cron plugin exists but no scheduled jobs worker - add new worker
         cron_plugin? ->
@@ -1188,14 +1230,41 @@ if Code.ensure_loaded?(Igniter) do
     # too — adding a second one makes Oban refuse to start. A `plugins:` the tree
     # cannot read (a variable, a file that does not parse) falls back to the text.
     defp cron_plugin?(content, app_name, block) do
-      case ConfigSplice.services(content, app_name) do
-        {:ok, services} ->
-          Oban.Cron in services
+      # A crontab to write into exists — an empty legacy `crontab: []` too:
+      # filling it makes it the Cron plugin, adding a plugin as well would list
+      # Cron twice.
+      if match?({:ok, _}, ConfigSplice.locate_list(content, app_name, :crontab)),
+        do: true,
+        else: cron_in_services?(content, app_name, block)
+    end
 
-        :error ->
-          String.contains?(block, "Oban.Plugins.Cron") or String.contains?(block, "Oban.Cron")
+    defp cron_in_services?(content, app_name, block) do
+      case ConfigSplice.known_services(content, app_name) do
+        {services, unknown?} -> Oban.Cron in services or (unknown? and cron_in_text?(block))
+        :error -> cron_in_text?(block)
       end
     end
+
+    # A commented-out worker was announced above ("left out"): no second line.
+    defp report_scheduled(:declined, content), do: content
+
+    defp report_scheduled(:unverified, content) do
+      note_unverified([@new_worker])
+      content
+    end
+
+    defp report_scheduled(_active, content) do
+      Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
+      content
+    end
+
+    defp cron_switched_off?(content, app_name, cron_plugin?, worker),
+      do:
+        not cron_plugin? and worker == :missing and
+          ConfigSplice.option_off?(content, app_name, :cron)
+
+    defp cron_in_text?(block),
+      do: String.contains?(block, "Oban.Plugins.Cron") or String.contains?(block, "Oban.Cron")
 
     # The rename touches code only: the same words in a comment stay as written.
     defp rename_old_worker(block) do

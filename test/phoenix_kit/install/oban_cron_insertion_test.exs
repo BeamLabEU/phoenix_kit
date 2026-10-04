@@ -2287,12 +2287,11 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
           ] do
         content = "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n" <> lifeline
 
-        if match?({:ok, _}, Code.string_to_quoted(content, emit_warnings: false)) do
-          updated = quiet(fn -> ObanConfig.ensure_lifeline_plugin(content, "myapp") end)
+        assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
+        updated = quiet(fn -> ObanConfig.ensure_lifeline_plugin(content, "myapp") end)
 
-          assert updated == content
-          assert service_count(updated, Oban.Lifeline) == 1
-        end
+        assert updated == content
+        assert service_count(updated, Oban.Lifeline) == 1
       end
     end
 
@@ -2408,7 +2407,9 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
       assert result == content
       assert err =~ "Cron is configured only in a nested `config` for an environment"
-      assert err =~ "add the entries there, or add `Oban.Plugins.Cron` to this block"
+      assert err =~ "add the entries to the crontab there"
+      refute err =~ "add `Oban.Plugins.Cron` to this block"
+      refute err =~ "To decline one instead"
       refute err =~ "Please manually add"
       assert steps != []
     end
@@ -2475,6 +2476,232 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
       assert out_after =~ "nested `config :myapp, Oban` for an environment follows"
       refute out_before =~ "follows"
       refute out_none =~ "follows"
+    end
+  end
+
+  # --- round 8: the fifth final review --------------------------------------------
+
+  defp capture_both(fun) do
+    err =
+      capture_io(:stderr, fn ->
+        out = capture_io(fun)
+        send(self(), {:cb_out, out})
+      end)
+
+    assert_received {:cb_out, out}
+    {out, err}
+  end
+
+  describe "alias with warn: false but no as:" do
+    test "alias Oban.Plugins.Cron, warn: false + {Cron, …}: no second Cron" do
+      content =
+        "import Config\n\nalias Oban.Plugins.Cron, warn: false\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [{Cron, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}]\n"
+
+      {first, second, steps} = run_twice(content)
+
+      assert steps == []
+      assert second == first
+      assert cron_plugin_count(first) == 1
+      assert oban_valid?(first)
+    end
+
+    test "the grouped form alias Oban.Plugins.{Cron, Lifeline}, warn: false: no second Lifeline" do
+      content =
+        "import Config\n\nalias Oban.Plugins.{Cron, Lifeline}, warn: false\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [\n    {Lifeline, rescue_after: :timer.minutes(60)},\n    {Cron, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}\n  ]\n"
+
+      updated = quiet(fn -> ObanConfig.update_content(content, "myapp") end)
+
+      assert service_count(updated, Oban.Lifeline) == 1
+      assert service_count(updated, Oban.Cron) == 1
+      assert oban_valid?(updated)
+    end
+
+    test "alias PhoenixKit.Jobs.SweepWorker, warn: false: the worker is not added again" do
+      content =
+        "import Config\n\nalias PhoenixKit.Jobs.SweepWorker, warn: false\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"*/5 * * * *\", SweepWorker}]}]\n"
+
+      {first, second, steps} = run_twice(content)
+
+      assert steps == []
+      assert second == first
+      assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+    end
+  end
+
+  describe "an empty legacy crontab: [] with no plugins:" do
+    test "the entries go into it and no step tells the host to add a Cron plugin" do
+      content = "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  crontab: []\n"
+
+      {first, second, steps} = run_twice(content)
+
+      assert steps == []
+      assert second == first
+      assert crontab_entries(first, PhoenixKit.Jobs.SweepWorker) == 1
+      assert service_count(first, Oban.Cron) == 1
+      assert oban_valid?(first)
+    end
+  end
+
+  describe "identical Cron lists in two places, which Oban collapses" do
+    test "an edit that would make them differ is refused, and the step does not say to add" do
+      list = ~S|[{"0 3 * * *", PhoenixKit.Jobs.PruneWorker}]|
+
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  cron: [crontab: #{list}],\n  plugins: [{Oban.Plugins.Cron, crontab: #{list}}]\n"
+
+      assert oban_valid?(content)
+
+      {result, _out, err, steps} = cron_backfill(content)
+
+      assert result == content
+      assert oban_valid?(result)
+      assert steps != []
+      assert err =~ "probably already there under an alias or another name"
+      refute err =~ "Please manually add"
+    end
+  end
+
+  describe "readable parts count even when another option is a variable" do
+    test "crontab: my_cron (a variable) is a Cron service: no Cron plugin is added" do
+      content =
+        "import Config\n\nmy_cron = [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  crontab: my_cron,\n  plugins: [{Oban.Plugins.Pruner, max_age: 60}]\n"
+
+      {result, out, _err, _steps} = cron_backfill(content)
+
+      refute out =~ "Adding Oban.Plugins.Cron"
+      assert service_count(result, Oban.Cron) == 1
+      assert oban_valid?(result)
+    end
+
+    test "plugins: a variable + a literal cron: [crontab: …]: entries go into cron:, no Cron step" do
+      content =
+        "import Config\n\nmy_plugins = [Oban.Plugins.Pruner]\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: my_plugins,\n  cron: [crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]]\n"
+
+      {result, out, _err, steps} = cron_backfill(content)
+
+      refute out =~ "Adding Oban.Plugins.Cron"
+      assert steps == []
+      assert crontab_entries(result, PhoenixKit.Jobs.SweepWorker) == 1
+    end
+
+    test "plugins: a variable + a literal lifeline: no step to add Lifeline" do
+      content =
+        "import Config\n\nmy_plugins = [Oban.Plugins.Pruner]\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: my_plugins,\n  lifeline: [rescue_after: {30, :minutes}]\n"
+
+      ObanConfig.take_manual_steps()
+
+      out =
+        capture_io(fn ->
+          capture_io(:stderr, fn ->
+            send(self(), {:r, ObanConfig.ensure_lifeline_plugin(content, "myapp")})
+          end)
+        end)
+
+      assert_received {:r, ^content}
+      refute out =~ "Adding"
+      assert ObanConfig.take_manual_steps() == []
+    end
+  end
+
+  describe "the Lifeline presence decision itself" do
+    for {name, body} <- [
+          {"{Oban.Lifeline, …}", "  plugins: [{Oban.Lifeline, rescue_after: 1_800_000}]\n"},
+          {"a top-level lifeline:",
+           "  lifeline: [rescue_after: {30, :minutes}],\n  plugins: [Oban.Plugins.Pruner]\n"}
+        ] do
+      test "#{name}: no step, no 'Adding', nothing printed on stderr" do
+        content = "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n#{unquote(body)}"
+        assert {:ok, _} = Code.string_to_quoted(content, emit_warnings: false)
+
+        ObanConfig.take_manual_steps()
+
+        {out, err} =
+          capture_both(fn ->
+            send(self(), {:r, ObanConfig.ensure_lifeline_plugin(content, "myapp")})
+          end)
+
+        assert_received {:r, ^content}
+        refute out =~ "Adding"
+        assert err == ""
+        assert ObanConfig.take_manual_steps() == []
+      end
+    end
+  end
+
+  describe "cron: false and lifeline: false are the host's own choice" do
+    test "cron: false with no Cron elsewhere: one info line for the phase, no steps" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  cron: false,\n  lifeline: [rescue_after: {30, :minutes}],\n  queues: [default: 10]\n"
+
+      {result, out, err, steps} = backfill(content)
+
+      assert steps == []
+      assert err == ""
+      assert out =~ "Oban cron is switched off in config"
+      refute out =~ "Adding Oban.Plugins.Cron"
+      refute out =~ "Adding PhoenixKit worker"
+      assert service_count(result, Oban.Cron) == 0
+    end
+
+    test "cron: false next to a Cron plugin that exists: the plugin still gets its entries" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  cron: false,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"0 3 * * *\", PhoenixKit.Jobs.PruneWorker}]}]\n"
+
+      {result, _out, _err, steps} = cron_backfill(content)
+
+      assert steps == []
+      assert crontab_entries(result, PhoenixKit.Jobs.SweepWorker) == 1
+    end
+
+    test "lifeline: false: Lifeline is not added, one info line" do
+      content =
+        "import Config\n\nconfig :myapp, Oban,\n  repo: MyApp.Repo,\n  lifeline: false,\n  plugins: [Oban.Plugins.Pruner]\n"
+
+      ObanConfig.take_manual_steps()
+
+      {out, err} =
+        capture_both(fn ->
+          send(self(), {:r, ObanConfig.ensure_lifeline_plugin(content, "myapp")})
+        end)
+
+      assert_received {:r, ^content}
+      assert out =~ "Oban lifeline is switched off in config"
+      assert err == ""
+      assert ObanConfig.take_manual_steps() == []
+    end
+  end
+
+  describe "nested block texts" do
+    test "a nested Cron plugin: the text says to add the entries there, not to add Cron here" do
+      content =
+        "config :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [Oban.Plugins.Pruner]\n\nif config_env() == :prod do\n  config :myapp, Oban,\n    plugins: [{Oban.Plugins.Cron, crontab: []}]\nend\n"
+
+      {_result, _out, err, _steps} = cron_backfill(content)
+
+      assert err =~ "add the entries to the crontab there"
+      refute err =~ "add `Oban.Plugins.Cron` to this block"
+      refute err =~ "To decline one instead"
+    end
+
+    test "a nested 2.24 cron: gets the same text, not a generic 'Please manually add'" do
+      content =
+        "config :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [Oban.Plugins.Pruner]\n\nif config_env() == :prod do\n  config :myapp, Oban,\n    cron: [crontab: [{\"0 5 * * *\", PhoenixKit.Jobs.PruneWorker}]]\nend\n"
+
+      {_result, _out, err, steps} = cron_backfill(content)
+
+      assert err =~ "Cron is configured only in a nested `config` for an environment"
+      assert err =~ "its `cron: [crontab: …]`"
+      refute err =~ "Please manually add"
+      assert steps != []
+    end
+
+    test "a nested Cron of ANOTHER app is not this app's" do
+      content =
+        "config :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: [Oban.Plugins.Pruner]\n\nif config_env() == :prod do\n  config :other, Oban,\n    plugins: [{Oban.Plugins.Cron, crontab: []}]\nend\n"
+
+      {_result, _out, err, _steps} = cron_backfill(content)
+
+      refute err =~ "configured only in a nested"
     end
   end
 

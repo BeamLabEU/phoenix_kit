@@ -60,6 +60,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
           | :plugins_disabled
           | :plugins_not_literal
           | :cron_only_nested
+          | :cron_disabled
           | :key_not_found
           | :not_literal_list
           | :combined_list
@@ -118,7 +119,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
     with :ok <- balanced(masked),
          {:ok, block} <- oban_block(span_mask(content), app_name),
-         {:ok, open} <- find_open(masked, block, key, cron_names(content)),
+         {:ok, open} <- find_open(masked, block, key, cron_names(content), app_name),
          {:ok, close} <- find_close(masked, open),
          :ok <- check_followed_by(masked, close) do
       {:ok, %{masked: masked, open: open, close: close}}
@@ -290,7 +291,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
 
   @doc "Whether a refusal is the host's own choice (nothing to add), not a failure."
   @spec quiet?(reason()) :: boolean()
-  def quiet?(reason), do: reason in [:oban_disabled, :option_disabled, :plugins_disabled]
+  def quiet?(reason),
+    do: reason in [:oban_disabled, :option_disabled, :plugins_disabled, :cron_disabled]
 
   @doc "Whether a refusal means the list is not a literal one (`crontab: some_var`)."
   @spec not_literal?(reason()) :: boolean()
@@ -328,7 +330,11 @@ defmodule PhoenixKit.Install.ConfigSplice do
   def reason_text(:cron_only_nested, _key),
     do:
       "Cron is configured only in a nested `config` for an environment; add the entries " <>
-        "there, or add `Oban.Plugins.Cron` to this block"
+        "to the crontab there (its Cron plugin's `crontab:`, or its `cron: [crontab: …]`) — " <>
+        "that block's `plugins:` replaces this one in that environment"
+
+  def reason_text(:cron_disabled, _key),
+    do: "Oban cron is switched off in config (`cron: false`) — not added"
 
   def reason_text(:key_not_found, :crontab),
     do: "the Oban block has no `Oban.Plugins.Cron` with a `crontab:` option"
@@ -398,7 +404,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
   # top-level `cron: [crontab: [...]]` and the legacy top-level `crontab: [...]`
   # (the last two only at the block's own level — a `crontab:` inside another
   # plugin's tuple, `DynamicCron`, is not the list entries belong in).
-  defp find_open(masked, {start, stop}, :crontab, names) do
+  defp find_open(masked, {start, stop}, :crontab, names, app_name) do
     block = binary_part(masked, start, stop - start)
     cron = Enum.map_join(names, "|", &Regex.escape/1)
     crontab = "(?<![A-Za-z0-9_])crontab:[ \\t\\r\\n]*(\\S)"
@@ -424,7 +430,8 @@ defmodule PhoenixKit.Install.ConfigSplice do
         cond do
           option_value(block, "plugins") in [:false_value] -> {:error, :plugins_disabled}
           option_value(block, "plugins") == :not_a_list -> {:error, :plugins_not_literal}
-          cron_only_nested?(masked, block, names) -> {:error, :cron_only_nested}
+          option_value(block, "cron") == :false_value -> {:error, :cron_disabled}
+          cron_only_nested?(masked, app_name, names) -> {:error, :cron_only_nested}
           true -> {:error, :key_not_found}
         end
 
@@ -433,7 +440,7 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end
   end
 
-  defp find_open(masked, {start, stop}, key, _names) do
+  defp find_open(masked, {start, stop}, key, _names, _app_name) do
     block = binary_part(masked, start, stop - start)
     key_s = Regex.escape(to_string(key))
 
@@ -468,15 +475,17 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end)
   end
 
-  # The block has no Cron of its own, but a `config :app, Oban` nested in an
-  # `if`/`case` (an environment's) does: Config merges it over this one, so the
+  # The block has no Cron of its own, but a `config :app, Oban` of the SAME app
+  # nested in an `if`/`case` (an environment's) does — as a Cron plugin, a
+  # `cron:` option or a `crontab:`. Config merges it over this one, so the
   # entries belong there, not here.
-  defp cron_only_nested?(masked, _block, names) do
+  defp cron_only_nested?(masked, app_name, names) do
     cron = Enum.map_join(names, "|", &Regex.escape/1)
+    pattern = Regex.compile!("(?:(?:" <> cron <> ")\\b|(?<![A-Za-z0-9_])(?:cron|crontab):)")
 
     masked
-    |> nested_blocks()
-    |> Enum.any?(&Regex.match?(Regex.compile!("(?:" <> cron <> ")\\b"), &1))
+    |> nested_blocks(app_name)
+    |> Enum.any?(&Regex.match?(pattern, &1))
   end
 
   # What `plugins:` holds, when the block has it: `:list`, `:false_value`,
@@ -638,20 +647,38 @@ defmodule PhoenixKit.Install.ConfigSplice do
   @doc """
   The services the app's Oban config sets up, as Oban sees them: the modules of
   `plugins:` (aliases resolved, renamed), the top-level `cron:`, `pruner:`,
-  `lifeline:`, `reindexer:` options, and a legacy non-empty `crontab:`. `:error`
-  when the file does not parse, there is no `config :app, Oban`, or an option
-  holds something the tree cannot read (a variable).
+  `lifeline:`, `reindexer:` options, and a legacy `crontab:`. `:error` when the
+  file does not parse, there is no `config :app, Oban`, or an option holds
+  something the tree cannot read (a variable) — see `known_services/2` for what
+  can be said anyway.
   """
   @spec services(String.t(), atom() | String.t()) :: {:ok, [module()]} | :error
   def services(content, app_name) do
+    case known_services(content, app_name) do
+      {mods, false} -> {:ok, mods}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  The services that ARE known, even when some option is not readable: `{modules,
+  unknown?}`. A `plugins:` held in a variable hides its plugins, but a literal
+  top-level `cron:` or `lifeline:` next to it still counts. `:error` when the file
+  does not parse or has no `config :app, Oban`.
+  """
+  @spec known_services(String.t(), atom() | String.t()) :: {[module()], boolean()} | :error
+  def known_services(content, app_name) do
     with {:ok, ast} <- parse(content),
          [_ | _] = calls <- oban_calls(ast, app_name) do
       aliases = alias_map(ast)
-      results = Enum.map(calls, &call_services(&1.opts, aliases))
+      results = Enum.map(calls, &call_pairs(&1.opts, aliases))
 
-      if Enum.any?(results, &(&1 == :unknown)),
-        do: :error,
-        else: {:ok, results |> Enum.concat() |> Enum.uniq()}
+      mods =
+        results
+        |> Enum.flat_map(fn {pairs, _unknown?} -> Enum.map(pairs, &elem(&1, 0)) end)
+        |> Enum.uniq()
+
+      {mods, Enum.any?(results, fn {_pairs, unknown?} -> unknown? end)}
     else
       _ -> :error
     end
@@ -716,11 +743,17 @@ defmodule PhoenixKit.Install.ConfigSplice do
   end
 
   defp opts_duplicates(opts, aliases) do
+    {pairs, _unknown?} = call_pairs(opts, aliases)
+
+    # A service listed twice is a duplicate; how many DIFFERENT option sets it
+    # carries is part of the finding, because Oban collapses identical pairs
+    # and refuses different ones — an edit that makes two identical copies
+    # diverge turns a working config into one that does not start.
     service_dups =
-      case call_services(opts, aliases) do
-        :unknown -> []
-        mods -> for mod <- Enum.uniq(mods -- Enum.uniq(mods)), do: {:service, mod}
-      end
+      pairs
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> Enum.filter(fn {_mod, opts_list} -> length(opts_list) > 1 end)
+      |> Enum.map(fn {mod, opts_list} -> {:service, mod, length(Enum.uniq(opts_list))} end)
 
     cron_dups =
       for crontab <- crontabs_in(opts),
@@ -741,46 +774,77 @@ defmodule PhoenixKit.Install.ConfigSplice do
     service_dups ++ cron_dups ++ queue_dups
   end
 
-  # The services one `config :app, Oban, opts` sets up, or `:unknown` when an
-  # option cannot be read.
-  defp call_services(opts, aliases) do
-    plugins = plugin_services(opts, aliases)
-    legacy = legacy_crontab_services(opts)
-
-    if :unknown in [plugins, legacy],
-      do: :unknown,
-      else:
-        (plugins ++ keyed_services(opts, aliases) ++ legacy)
-        |> Enum.reject(&is_nil/1)
-        |> Enum.map(&service/1)
+  # The services one `config :app, Oban, opts` sets up, as `{service, options}`
+  # pairs the way Oban normalizes them, and whether some option could not be
+  # read (a variable). The readable parts count even then.
+  defp call_pairs(opts, aliases) do
+    {plugins, unknown?} = plugin_pairs(opts, aliases)
+    pairs = plugins ++ keyed_pairs(opts, aliases) ++ legacy_crontab_pairs(opts, aliases)
+    {Enum.map(pairs, fn {mod, o} -> {service(mod), o} end), unknown?}
   end
 
-  defp plugin_services(opts, aliases) do
+  defp plugin_pairs(opts, aliases) do
     case List.keyfind(opts, :plugins, 0) do
-      {:plugins, list} when is_list(list) -> Enum.map(list, &plugin_module(&1, aliases))
-      {:plugins, other} when other in [nil, false] -> []
-      nil -> []
-      {:plugins, _other} -> :unknown
+      {:plugins, list} when is_list(list) ->
+        pairs = list |> Enum.map(&plugin_pair(&1, aliases)) |> Enum.reject(&is_nil/1)
+        {pairs, false}
+
+      {:plugins, other} when other in [nil, false] ->
+        {[], false}
+
+      nil ->
+        {[], false}
+
+      {:plugins, _other} ->
+        {[], true}
     end
   end
 
-  defp keyed_services(opts, aliases) do
+  defp plugin_pair(node, aliases) do
+    case plugin_module(node, aliases) do
+      nil -> nil
+      mod -> {mod, plugin_options(node, aliases)}
+    end
+  end
+
+  defp plugin_options({{:__aliases__, _, _}, o}, aliases), do: option_tree(o, aliases)
+  defp plugin_options({atom, o}, aliases) when is_atom(atom), do: option_tree(o, aliases)
+  defp plugin_options(_node, _aliases), do: []
+
+  defp option_tree(o, aliases), do: o |> expand_aliases(aliases) |> normalize()
+
+  defp keyed_pairs(opts, aliases) do
     Enum.flat_map(@service_keys, fn {key, default} ->
       case List.keyfind(opts, key, 0) do
-        nil -> []
-        {^key, false} -> []
-        {^key, value} -> [service_module(value, default, aliases)]
+        nil ->
+          []
+
+        {^key, false} ->
+          []
+
+        {^key, value} ->
+          [{service_module(value, default, aliases), keyed_options(value, aliases)}]
       end
     end)
   end
 
-  # Oban's legacy top-level `crontab:` (a non-empty list) is a Cron plugin too.
-  defp legacy_crontab_services(opts) do
+  defp keyed_options({_head, o}, aliases) when is_list(o), do: option_tree(o, aliases)
+  defp keyed_options(value, aliases) when is_list(value), do: option_tree(value, aliases)
+  defp keyed_options(_value, _aliases), do: []
+
+  # Oban's legacy top-level `crontab:` (and `timezone:`) is a Cron plugin once the
+  # list is non-empty. A `crontab:` the tree cannot read (a variable) is assumed
+  # to be one.
+  defp legacy_crontab_pairs(opts, aliases) do
     case List.keyfind(opts, :crontab, 0) do
-      nil -> []
-      {:crontab, []} -> []
-      {:crontab, [_ | _]} -> [Oban.Cron]
-      {:crontab, _other} -> :unknown
+      nil ->
+        []
+
+      {:crontab, []} ->
+        []
+
+      {:crontab, _list} ->
+        [{Oban.Cron, option_tree(Keyword.take(opts, [:crontab, :timezone]), aliases)}]
     end
   end
 
@@ -890,12 +954,16 @@ defmodule PhoenixKit.Install.ConfigSplice do
         Map.put(acc, List.last(parts), full)
 
       {:alias, _, [{:__aliases__, _, parts}, opts]}, acc when is_list(opts) ->
-        case Keyword.get(opts, :as) do
-          {:__aliases__, _, [name]} -> Map.put(acc, name, expand_parts(parts, acc))
-          _ -> acc
-        end
+        # `as:` names it; without `as:` (`alias X, warn: false`) it is the last segment.
+        name =
+          case Keyword.get(opts, :as) do
+            {:__aliases__, _, [as]} -> as
+            _ -> List.last(parts)
+          end
 
-      {:alias, _, [{{:., _, [{:__aliases__, _, base}, :{}]}, _, members}]}, acc ->
+        Map.put(acc, name, expand_parts(parts, acc))
+
+      {:alias, _, [{{:., _, [{:__aliases__, _, base}, :{}]}, _, members} | _opts]}, acc ->
         base = expand_parts(base, acc)
 
         Enum.reduce(members, acc, fn
@@ -912,13 +980,6 @@ defmodule PhoenixKit.Install.ConfigSplice do
     do: (Map.get(aliases, first) || [first]) ++ rest
 
   defp expand_parts(parts, _aliases), do: parts
-
-  @doc "True when an indented (nested in `if`/`case`) `config :app, Oban` exists."
-  @spec nested_block?(String.t(), atom() | String.t()) :: boolean()
-  def nested_block?(content, app_name) do
-    app = Regex.escape(to_string(app_name))
-    Regex.match?(~r/^[ \t]+config\s+:#{app},\s+Oban\b/m, span_mask(content))
-  end
 
   @doc """
   True when a nested `config :app, Oban` comes AFTER the app's top-level block —
@@ -937,11 +998,16 @@ defmodule PhoenixKit.Install.ConfigSplice do
     end
   end
 
-  # Text of every indented `config :x, Oban` block of the masked content. An
-  # indented block runs while the following lines are indented deeper than its
-  # own `config` line (or blank).
-  defp nested_blocks(masked) do
-    for [{start, len} | _] <- nested_block_ranges(masked), do: binary_part(masked, start, len)
+  # Text of every indented `config :app, Oban` block of the masked content (any
+  # app with `:any`). An indented block runs while the following lines are
+  # indented deeper than its own `config` line (or blank).
+  defp nested_blocks(masked, app_name) do
+    app = Regex.escape(to_string(app_name))
+
+    for [{start, len} | _] <- nested_block_ranges(masked),
+        text = binary_part(masked, start, len),
+        Regex.match?(Regex.compile!("config\\s+:" <> app <> ","), text),
+        do: text
   end
 
   defp nested_block_ranges(masked) do
