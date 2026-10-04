@@ -155,6 +155,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      # layer, which is the one you can edit.
      |> assign(:burn_mode, true)
      |> assign(:burn_canvas, nil)
+     # The eye, while the burned copy is up: true means the markup is
+     # hidden and the clean original is on screen instead. Deliberately
+     # session state and nothing more — every open starts with the
+     # markup showing, and the choice is never persisted.
+     |> assign(:etchings_hidden, false)
      |> assign(:auto_annotate, false)
      |> assign(:burn_version, nil)
      |> assign(:viewer_annotations, [])
@@ -604,9 +609,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     {:noreply,
      socket
      |> assign(:burn_mode, not to_live?)
+     # A mode switch always lands with the markup showing: the editor
+     # edits shapes it can see, and coming back lands on the burned copy.
+     |> assign(:etchings_hidden, false)
      # Pressed the pencil rather than the eye: the live layer is what it
      # needs, but what was asked for was to draw.
      |> assign(:auto_annotate, to_live? and params["annotate"] == true)}
+  end
+
+  # The eye, in the burned view: markup shown ⇄ the clean original. The
+  # burned picture IS the markup — baked into the bitmap — so hiding the
+  # etchings there cannot be a client-side visibility flip; this swaps
+  # the canvas for the original with nothing over it (see the heex),
+  # which is also what makes right-click → Copy image copy a clean
+  # picture. In the live layer Etcher's own eye does this job.
+  def handle_event("toggle_etchings", _params, socket) do
+    {:noreply, assign(socket, :etchings_hidden, not socket.assigns[:etchings_hidden])}
   end
 
   def handle_event("toggle_viewer_sidebar", _params, socket) do
@@ -1434,6 +1452,57 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       natural_height: h
     })
   end
+
+  # Zoom ladder for the picture canvases (the live layer and the eye's
+  # plain view): medium → large, then for images over 4K we stream DZI
+  # tiles of the original (only the visible area) instead of ever
+  # loading the whole multi-MB original; for ≤4K images the full
+  # original raster is the top of the ladder (no tiles). DZI tiles also
+  # require the storage tile-generation setting (which is what
+  # populates urls["dzi"]).
+  #
+  # The ladder tops out at `large`, not at the original. Looking at (or
+  # drawing on) a picture needs a picture you can SEE, not every pixel
+  # that was uploaded: a 5000px original is several MB to fetch and
+  # decode before anything happens, and on a slow line that is the
+  # whole experience of opening the viewer. Annotations are stored in
+  # image coordinates and the canvas keeps the original's extent either
+  # way, so which raster is showing changes nothing about where a shape
+  # lands. Deep zoom past `large` still streams tiles where tile
+  # generation is on; the full original stays a download.
+  #
+  # `small` is the FIRST rung, not an outsider. The canvas opens on it
+  # (the bitmap the grid already painted), and Tessera assumes it is
+  # showing sources[0] — so leaving it out meant Tessera believed a
+  # 300px picture was the 800px one, and only swapped when the display
+  # demanded more than 880: straight from `small` to `large`, with
+  # `medium` never chosen on the way up. Listing it makes the ladder
+  # true, so the climb is small → medium → large and each step is the
+  # smallest file that covers the screen.
+  #
+  # Returns `{sources, dzi_url}` for `<Tessera.layer>`; render it only
+  # when sources is non-empty.
+  defp tessera_ladder(f) do
+    over_4k = max(Map.get(f, :width) || 0, Map.get(f, :height) || 0) > 4096
+    has_dzi = is_binary(f.urls["dzi"]) and f.urls["dzi"] != ""
+
+    sources =
+      [{f.urls["small"], 300}, {f.urls["medium"], 800}, {f.urls["large"], 1920}]
+      |> Enum.filter(fn {url, _w} -> is_binary(url) and url != "" end)
+      |> Enum.map(fn {url, width} -> %{url: url, width: width} end)
+
+    {sources, if(over_4k and has_dzi, do: f.urls["dzi"], else: nil)}
+  end
+
+  # The eye's hidden state: the picture with nothing over it. The same
+  # canvas the live layer uses, minus the "etcher" extension — no layer
+  # mounts over this one, so the annotation payload would have no reader;
+  # dropping it keeps every shape out of the DOM rather than merely
+  # unrendered.
+  defp plain_canvas(%Fresco.Canvas{} = canvas),
+    do: %{canvas | extensions: Map.delete(canvas.extensions, "etcher")}
+
+  defp plain_canvas(_), do: nil
 
   defp apply_burn_refresh(socket, file) do
     current = socket.assigns[:burn_version]

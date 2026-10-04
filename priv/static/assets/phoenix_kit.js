@@ -4202,15 +4202,25 @@ if (typeof window.Chart === "undefined") {
       document.addEventListener("keydown", this._onClosing, true);
     },
 
-    // Burned ⇄ live. The burn is one flat picture with the markup already
-    // in it; the live layer is the picture with shapes you can select and
-    // edit over the top. Only one of them can be on screen, so this is the
-    // switch between them rather than a visibility toggle.
+    // The two nav buttons of the burned side of the viewer:
+    //
+    // - The pencil: burned ⇄ live. The burn is one flat picture with the
+    //   markup already in it; the live layer is the picture with shapes
+    //   you can select and edit over the top. Only one of them can be on
+    //   screen, so this is the switch between them rather than a
+    //   visibility toggle.
+    // - The eye: markup shown ⇄ the clean original. Hiding the etchings
+    //   cannot be a client-side flip here — the markup is baked into the
+    //   bitmap — so the press asks the server to swap the canvas for the
+    //   picture with nothing in it. Deliberately not persisted: every
+    //   open starts with the markup showing. In the live layer Etcher's
+    //   own eye does this job.
     _addModeButton() {
       var self = this;
       if (this.el.dataset.hasBurn !== "true") return;
 
       var burned = this.el.dataset.burnMode === "true";
+      var hidden = this.el.dataset.etchingsHidden === "true";
       var frescoId = this.el.dataset.frescoId;
       var handle = window.Fresco && window.Fresco.viewerFor && window.Fresco.viewerFor(frescoId);
 
@@ -4225,8 +4235,8 @@ if (typeof window.Chart === "undefined") {
 
       // Already on THIS nav: nothing to do. On a different one — the mode
       // flipped, so the canvas and its whole nav were replaced — drop the
-      // stale handle and append to the new rail.
-      if (this._modeButtonFor === frescoId && this._modeButton) return;
+      // stale handles and append to the new rail.
+      if (this._modeButtonFor === frescoId && (this._pencilButton || this._eyeButton)) return;
       if (this._modeButton) {
         try { this._modeButton(); } catch (_) {}
         this._modeButton = null;
@@ -4235,6 +4245,10 @@ if (typeof window.Chart === "undefined") {
         try { this._pencilButton(); } catch (_) {}
         this._pencilButton = null;
       }
+      if (this._eyeButton) {
+        try { this._eyeButton(); } catch (_) {}
+        this._eyeButton = null;
+      }
 
       var pencil =
         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" ' +
@@ -4242,15 +4256,39 @@ if (typeof window.Chart === "undefined") {
         '<path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652' +
         'L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>';
 
+      var eye =
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" ' +
+        'stroke-width="1.5" stroke="currentColor" aria-hidden="true">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5' +
+        'c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>' +
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>';
+
+      var eyeSlash =
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" ' +
+        'stroke-width="1.5" stroke="currentColor" aria-hidden="true">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5' +
+        'c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1' +
+        '-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243' +
+        'm4.242 4.242L9.88 9.88"/></svg>';
+
       this._modeButtonFor = frescoId;
 
-      // One control, not two: the pencil IS the mode.
-      //
-      // On, you are in the editor — the picture with a live layer over it.
-      // Off, you are looking at the burned copy. A separate eye asked the
-      // user to hold two ideas (which picture, and whether the tools are
-      // up) that only ever move together, and made "turn the editor off"
-      // and "see what it will look like" two presses instead of one.
+      // The eye sits above the pencil, so the rail reads "look (eye) →
+      // edit (pencil)" top to bottom — the order Etcher's own pair uses.
+      // Everyone gets it, drawer or not: seeing the picture under the
+      // markup is a viewing affordance, not an editing one.
+      if (burned) {
+        this._eyeButton = handle.appendNavButton(
+          hidden ? eyeSlash : eye,
+          hidden ? "Show annotations" : "Hide annotations",
+          function() { self.pushEventTo(self.el, "toggle_etchings", {}); }
+        );
+      }
+
+      // The pencil IS the mode. On, you are in the editor — the picture
+      // with a live layer over it. Off, you are looking at the burned
+      // copy. (The eye above is not a second mode switch: it never arms
+      // the tools, it only chooses which picture is on screen.)
       //
       // In the burned view there is no Etcher to own a pencil, so this is
       // ours; in the editor Etcher's own is the one on screen, and
@@ -4271,15 +4309,19 @@ if (typeof window.Chart === "undefined") {
       if (this.el.dataset.autoAnnotate === "true") this._armEtcher();
     },
 
-    // Right-click → Copy image, on the burned picture.
+    // Right-click → Copy image, on the burned picture — and on the clean
+    // original the eye swaps in (dataset.burnMode stays "true" there,
+    // which is exactly right: copying the picture without the markup is
+    // what the eye is FOR).
     //
     // Fresco sets `pointer-events: none` on its stage images so a drag
     // anywhere over the picture pans instead of dragging the bitmap. That
     // also means a right-click never lands ON the image, so the browser
     // offers no Copy image / Save image at all — the menu is for the div
-    // underneath. In the burned view there is nothing to drag and nothing
-    // drawn over it, so the image can take its own context menu; panning is
-    // unaffected, because Fresco listens on the container these bubble to.
+    // underneath. In the burned and plain views there is nothing to drag
+    // and nothing drawn over the picture, so the image can take its own
+    // context menu; panning is unaffected, because Fresco listens on the
+    // container these bubble to.
     _allowCopy(tries) {
       var self = this;
       var left = tries == null ? 20 : tries;
@@ -4312,13 +4354,14 @@ if (typeof window.Chart === "undefined") {
     },
 
     destroyed() {
-      [this._modeButton, this._pencilButton].forEach(function(off) {
+      [this._modeButton, this._pencilButton, this._eyeButton].forEach(function(off) {
         if (typeof off === "function") {
           try { off(); } catch (_) {}
         }
       });
       this._modeButton = null;
       this._pencilButton = null;
+      this._eyeButton = null;
       this._modeButtonFor = null;
       document.removeEventListener("etcher:mode-changed", this._onMode);
       document.removeEventListener("pointerdown", this._onClosing, true);

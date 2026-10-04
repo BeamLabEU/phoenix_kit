@@ -295,6 +295,39 @@ test("a drawing that matches the copy on file is left alone", () => {
     "…and a drawing that differs by anything at all is burned");
 });
 
+// ── the eye ───────────────────────────────────────────────────────────────
+//
+// Hide the etchings and see the clean original. The burned picture IS the
+// markup — baked into the bitmap — so the eye cannot be a client-side
+// visibility flip there: it asks the server to swap the canvas instead.
+
+test("the burned view carries an eye, offered to every viewer, not only to drawers", () => {
+  // Gated on `burned` alone — no canAnnotate in sight: seeing the picture
+  // under the markup is a viewing affordance, not an editing one.
+  assert.match(section, /if \(burned\) \{\s*this\._eyeButton = handle\.appendNavButton\(/);
+});
+
+test("the eye asks the server to swap the picture, and reads its state from the assigns", () => {
+  const start = section.indexOf("this._eyeButton = handle.appendNavButton(");
+  assert.ok(start !== -1, "could not find the eye button");
+  const call = section.slice(start, section.indexOf(");", start));
+
+  assert.match(call, /hidden \? eyeSlash : eye/);
+  assert.match(call, /hidden \? "Show annotations" : "Hide annotations"/);
+  assert.match(call, /"toggle_etchings"/);
+
+  // `hidden` comes from the server's assign, pushed back down — the state
+  // lives in the LiveComponent for the length of the open and nowhere else.
+  assert.match(section, /var hidden = this\.el\.dataset\.etchingsHidden === "true";/);
+  assert.doesNotMatch(section, /localStorage|sessionStorage/,
+    "the eye must never be persisted — every open starts with the markup showing");
+});
+
+test("the eye is cleaned up with the pencil when the rail is replaced, and on teardown", () => {
+  assert.match(section, /if \(this\._eyeButton\) \{\s*try \{ this\._eyeButton\(\); \} catch \(_\) \{\}\s*this\._eyeButton = null;/);
+  assert.match(section, /\[this\._modeButton, this\._pencilButton, this\._eyeButton\]\.forEach/);
+});
+
 test("the same drawing is not burned twice over one session end", () => {
   // Turning Etcher off ends the session once, but the canvas swap that
   // follows tears the layer down, and a teardown turns the mode off

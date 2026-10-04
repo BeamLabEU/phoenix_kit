@@ -119,11 +119,18 @@
             data-can-annotate={to_string(@can_annotate)}
             data-auto-annotate={to_string(@auto_annotate)}
             data-has-burn={to_string(not is_nil(@burn_canvas))}
+            data-etchings-hidden={to_string(@etchings_hidden)}
             data-fresco-id={
-              if(@burn_mode and @burn_canvas,
-                do: "media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0"),
-                else: "media-zoom-" <> f.file_uuid
-              )
+              cond do
+                @burn_mode && @burn_canvas && @etchings_hidden && @viewer_canvas ->
+                  "media-plain-" <> f.file_uuid
+
+                @burn_mode && @burn_canvas ->
+                  "media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")
+
+                true ->
+                  "media-zoom-" <> f.file_uuid
+              end
             }
             data-burn-fingerprint={Map.get(f, :burn_fingerprint)}
             class="hidden"
@@ -184,21 +191,47 @@
               <%!-- layer — the picture plus shapes you can select and edit —  --%>
               <%!-- and that is the only mode Etcher appears in.               --%>
               <%= if @burn_mode and @burn_canvas do %>
-                <%!-- theme={:light}: the burned copy is composed on white,   --%>
-                <%!-- so a dark viewer around it would make switching to the  --%>
-                <%!-- live layer a flash from white to black and back. Both   --%>
-                <%!-- canvases stay light whatever daisyUI theme the admin    --%>
-                <%!-- is wearing — the picture is the subject here, and a     --%>
-                <%!-- drawing surface that changes colour under the markup    --%>
-                <%!-- changes how the markup reads.                           --%>
-                <Fresco.canvas
-                  id={"media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")}
-                  canvas={@burn_canvas}
-                  class="w-full h-full lg:rounded"
-                  theme={:light}
-                  initial_rotation={@viewer_rotation}
-                  persist_rotation={@persist_rotation}
-                />
+                <%= if @etchings_hidden and @viewer_canvas do %>
+                  <%!-- The eye, pressed: the original with nothing over it   --%>
+                  <%!-- and nothing burned into it — what someone hides the   --%>
+                  <%!-- etchings to see, or to right-click and copy clean.    --%>
+                  <%!-- No Etcher layer mounts here (and plain_canvas strips  --%>
+                  <%!-- the extension), so no shape reaches the DOM; the zoom --%>
+                  <%!-- ladder still runs, because looking at the clean       --%>
+                  <%!-- picture closely is the point of asking for it.        --%>
+                  <% {plain_sources, plain_dzi} = tessera_ladder(f) %>
+                  <Fresco.canvas
+                    id={"media-plain-" <> f.file_uuid}
+                    canvas={plain_canvas(@viewer_canvas)}
+                    class="w-full h-full lg:rounded"
+                    theme={:light}
+                    initial_rotation={@viewer_rotation}
+                    persist_rotation={@persist_rotation}
+                  />
+                  <%= if plain_sources != [] do %>
+                    <Tessera.layer
+                      fresco_id={"media-plain-" <> f.file_uuid}
+                      sources={plain_sources}
+                      dzi_url={plain_dzi}
+                    />
+                  <% end %>
+                <% else %>
+                  <%!-- theme={:light}: the burned copy is composed on white,   --%>
+                  <%!-- so a dark viewer around it would make switching to the  --%>
+                  <%!-- live layer a flash from white to black and back. Both   --%>
+                  <%!-- canvases stay light whatever daisyUI theme the admin    --%>
+                  <%!-- is wearing — the picture is the subject here, and a     --%>
+                  <%!-- drawing surface that changes colour under the markup    --%>
+                  <%!-- changes how the markup reads.                           --%>
+                  <Fresco.canvas
+                    id={"media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")}
+                    canvas={@burn_canvas}
+                    class="w-full h-full lg:rounded"
+                    theme={:light}
+                    initial_rotation={@viewer_rotation}
+                    persist_rotation={@persist_rotation}
+                  />
+                <% end %>
               <% else %>
                 <%= if @viewer_canvas do %>
                   <%!-- Light for the same reason as the burn above: the two --%>
@@ -231,6 +264,10 @@
                   <%!-- and with Etcher off the shapes are simply part of the    --%>
                   <%!-- image — no hover, no outline. Etcher's own default       --%>
                   <%!-- (beside the shape) is untouched for its other consumers. --%>
+                  <%!-- nav_buttons: the eye rides along in every live view —    --%>
+                  <%!-- Etcher's own visibility toggle, hiding the overlay       --%>
+                  <%!-- client-side. Session-only and always back to visible on  --%>
+                  <%!-- the next open, same contract as the burned view's eye.   --%>
                   <Etcher.layer
                     fresco_id={"media-zoom-" <> f.file_uuid}
                     colors={@etcher_colors}
@@ -239,7 +276,9 @@
                     tooltip_dock={:panel}
                     connectors={:off}
                     toolbar={@can_annotate}
-                    nav_buttons={if @can_annotate, do: [:pencil], else: []}
+                    nav_buttons={
+                      if @can_annotate, do: [:pencil, :visibility], else: [:visibility]
+                    }
                     tools={
                       if @can_annotate,
                         do: [
@@ -261,42 +300,9 @@
                         else: []
                     }
                   />
-                  <%!-- Zoom ladder: medium → large, then for images over 4K we stream
-                 DZI tiles of the original (only the visible area) instead of
-                 ever loading the whole multi-MB original; for ≤4K images the
-                 full original raster is the top of the ladder (no tiles). DZI
-                 tiles also require the storage tile-generation setting (which
-                 is what populates urls["dzi"]). --%>
-                  <% over_4k = max(Map.get(f, :width) || 0, Map.get(f, :height) || 0) > 4096
-                  has_dzi = is_binary(f.urls["dzi"]) and f.urls["dzi"] != ""
-                  use_tiles = over_4k and has_dzi
-
-                  # The editor tops out at `large`, not at the original.
-                  # Drawing on a picture needs a picture you can SEE, not every
-                  # pixel that was uploaded: a 5000px original is several MB to
-                  # fetch and decode before the first stroke is possible, and on
-                  # a slow line that is the whole experience of opening the
-                  # editor. Annotations are stored in image coordinates and the
-                  # canvas keeps the original's extent either way, so which
-                  # raster is showing changes nothing about where a shape lands.
-                  # Deep zoom past `large` still streams tiles where tile
-                  # generation is on; the full original stays a download.
-                  #
-                  # `small` is the FIRST rung, not an outsider. The canvas
-                  # opens on it (the bitmap the grid already painted), and
-                  # Tessera assumes it is showing sources[0] — so leaving it
-                  # out meant Tessera believed a 300px picture was the 800px
-                  # one, and only swapped when the display demanded more than
-                  # 880: straight from `small` to `large`, with `medium` never
-                  # chosen on the way up. Listing it makes the ladder true, so
-                  # the climb is small → medium → large and each step is the
-                  # smallest file that covers the screen.
-                  tessera_sources =
-                    [{f.urls["small"], 300}, {f.urls["medium"], 800}, {f.urls["large"], 1920}]
-                    |> Enum.filter(fn {url, _w} -> is_binary(url) and url != "" end)
-                    |> Enum.map(fn {url, width} -> %{url: url, width: width} end)
-
-                  tessera_dzi = if use_tiles, do: f.urls["dzi"], else: nil %>
+                  <%!-- Zoom ladder — see tessera_ladder/1 for why it opens on --%>
+                  <%!-- `small` and tops out at `large` (DZI tiles past 4K).   --%>
+                  <% {tessera_sources, tessera_dzi} = tessera_ladder(f) %>
                   <%= if tessera_sources != [] do %>
                     <Tessera.layer
                       fresco_id={"media-zoom-" <> f.file_uuid}
