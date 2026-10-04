@@ -147,6 +147,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     end
   end
 
+  # After a reconnect LiveView replays every form's values as a change, which is
+  # not an edit: a recovered form goes to this event, not to "dirty"
+  # (`phx-auto-recover`), so nothing shows as unsaved that was never touched.
+  def handle_event("recover", _params, socket), do: {:noreply, socket}
+
   # A library's form changed: its Save button comes alive and says so. Nothing is
   # saved until it is pressed — a different profile or variant set moves and
   # resizes the library's files, which a stray click on a dropdown must not start.
@@ -479,6 +484,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                     <form
                       id={"#{@id}-storage-#{library.uuid}"}
                       phx-change="dirty"
+                      phx-auto-recover="recover"
                       phx-submit="save_library"
                       phx-target={@myself}
                       class="flex flex-col gap-1"

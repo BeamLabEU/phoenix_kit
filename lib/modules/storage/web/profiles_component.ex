@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.{ProfileBucket, Profiles, StorageProfile}
+  alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
   import PhoenixKitWeb.Components.Core.SaveButton, only: [save_button: 1]
@@ -46,10 +47,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   defp load(socket) do
     profiles = Profiles.list_profiles()
+    buckets = Storage.list_buckets()
 
     socket
     |> assign(:profiles, profiles)
-    |> assign(:buckets, Storage.list_buckets())
+    |> assign(:buckets, buckets)
+    |> assign(:bucket_usage, Profiles.bucket_usage(Enum.map(buckets, & &1.uuid)))
     |> assign(:in_use, Map.new(profiles, &{&1.uuid, Profiles.libraries_using(&1.uuid)}))
   end
 
@@ -64,6 +67,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
        saved: MapSet.delete(socket.assigns.saved, key)
      )}
   end
+
+  # After a reconnect LiveView replays every form's values as a change, which is
+  # not an edit: the forms come back as stored and nothing is unsaved. A
+  # recovered form goes to this event, not to "dirty" (`phx-auto-recover`).
+  def handle_event("recover", _params, socket), do: {:noreply, socket}
 
   def handle_event("new", _params, socket), do: {:noreply, assign(socket, :creating, true)}
   def handle_event("cancel", _params, socket), do: {:noreply, assign(socket, :creating, false)}
@@ -141,7 +149,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
              %{serve_order: next_serve_order(profile)},
              actor(socket)
            ) do
-      {:noreply, socket |> load() |> flash(:info, gettext("Bucket added to the profile"))}
+      {:noreply, socket |> load() |> flash(:info, added_message(socket, profile, bucket_uuid))}
     else
       {:error, changeset} -> {:noreply, flash(socket, :error, error_message(changeset))}
       _ -> {:noreply, socket}
@@ -255,10 +263,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   defp status_label("draining"), do: gettext("Draining (moving files out)")
 
   # The columns of the bucket rows. The header and every row share it, so each
-  # control sits under its own heading.
+  # control sits under its own heading. Every row is a grid of its own, so the
+  # widths are fixed, not `auto`: the last column (Save and remove) is as wide as
+  # its two controls need, and its note wraps under the button instead of
+  # widening it.
   defp columns,
-    do:
-      "grid grid-cols-[minmax(10rem,2fr)_7rem_10rem_6rem_6rem_13rem_10rem_2.5rem] items-center gap-3"
+    do: "grid grid-cols-[minmax(9rem,2fr)_6.5rem_8.5rem_5.5rem_5rem_12rem_9.5rem] gap-2"
+
+  # Save and remove stay in view when the table is wider than the page: the
+  # scrolling part is the settings, not the way to act on them.
+  defp actions_cell, do: "sticky right-0 flex items-center justify-end gap-1 bg-base-100"
 
   # One sentence on what the copy counts mean with the buckets the profile has
   # now: the numbers alone read the same with one bucket and with five. The
@@ -311,6 +325,82 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   defp hint_class(:error), do: "text-error"
   defp hint_class(:warning), do: "text-warning"
   defp hint_class(:info), do: "text-base-content/60"
+
+  # The other profiles that list a bucket: what sharing it means. A bucket is
+  # one physical place with one on/off switch, size limit and set of keys, so
+  # a profile that lists it is tied to every other one that does.
+  defp used_elsewhere(usage, bucket_uuid, profile_uuid) do
+    usage
+    |> Map.get(to_string(bucket_uuid), [])
+    |> Enum.reject(&(&1.profile_uuid == to_string(profile_uuid)))
+  end
+
+  # "Default, Archive, 2 personal storage profiles": a user's own profile is
+  # counted, never named.
+  defp profile_names(others) do
+    {personal, site} = Enum.split_with(others, &is_binary(&1.owner_uuid))
+
+    personal_text =
+      case length(personal) do
+        0 ->
+          []
+
+        count ->
+          [
+            ngettext(
+              "%{count} personal storage profile",
+              "%{count} personal storage profiles",
+              count
+            )
+          ]
+      end
+
+    Enum.join(Enum.map(site, & &1.name) ++ personal_text, ", ")
+  end
+
+  defp shared_note(others) do
+    gettext(
+      "Also used by %{used_by}. A bucket's on/off switch, size limit and keys belong to the bucket, so they apply to every profile that lists it.",
+      used_by: BucketUsage.used_by_text(others)
+    )
+  end
+
+  defp added_message(socket, profile, bucket_uuid) do
+    case used_elsewhere(socket.assigns.bucket_usage, bucket_uuid, profile.uuid) do
+      [] ->
+        gettext("Bucket added to the profile")
+
+      others ->
+        gettext(
+          "Bucket added to the profile. It is shared with %{profiles}: its on/off switch, size limit and keys apply to all of them.",
+          profiles: profile_names(others)
+        )
+    end
+  end
+
+  # The buckets a profile can still take, those no other profile uses first,
+  # each one that is used elsewhere saying where.
+  defp add_options(profile, buckets, usage) do
+    profile
+    |> not_in(buckets)
+    |> Enum.map(fn bucket ->
+      case used_elsewhere(usage, bucket.uuid, profile.uuid) do
+        [] ->
+          {0, bucket.name, bucket.uuid, bucket.name}
+
+        others ->
+          label =
+            gettext("%{bucket} (also in %{profiles})",
+              bucket: bucket.name,
+              profiles: profile_names(others)
+            )
+
+          {1, bucket.name, bucket.uuid, label}
+      end
+    end)
+    |> Enum.sort()
+    |> Enum.map(fn {_shared, _name, uuid, label} -> {uuid, label} end)
+  end
 
   defp not_in(profile, buckets) do
     used = MapSet.new(profile.buckets, &to_string(&1.bucket_uuid))
@@ -377,6 +467,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           <form
             id={"#{@id}-form-#{profile.uuid}"}
             phx-change="dirty"
+            phx-auto-recover="recover"
             phx-submit="save_profile"
             phx-target={@myself}
             class="flex flex-wrap items-end gap-4"
@@ -489,10 +580,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           </div>
 
           <div class="overflow-x-auto mt-4">
-            <div class="min-w-[70rem]">
+            <div class="min-w-[60rem]">
               <div class={[
                 columns(),
-                "px-2 pb-2 text-xs font-semibold uppercase text-base-content/60"
+                "items-end px-2 pb-2 text-xs font-semibold uppercase text-base-content/60"
               ]}>
                 <span>{gettext("Bucket")}</span>
                 <span
@@ -503,7 +594,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     )
                   }
                 >
-                  {gettext("Role")}
+                  <span class="uppercase">{gettext("Role")}</span>
                 </span>
                 <span>{gettext("Stores")}</span>
                 <span
@@ -514,7 +605,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     )
                   }
                 >
-                  {gettext("Upload order")}
+                  <span class="uppercase">{gettext("Upload order")}</span>
                 </span>
                 <span
                   class="tooltip tooltip-bottom normal-case text-left"
@@ -524,10 +615,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     )
                   }
                 >
-                  {gettext("Serve order")}
+                  <span class="uppercase">{gettext("Serve order")}</span>
                 </span>
                 <span>{gettext("Status")}</span>
-                <span></span>
                 <span></span>
               </div>
 
@@ -542,9 +632,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 :for={row <- profile.buckets}
                 id={"#{@id}-row-#{profile.uuid}-#{row.bucket_uuid}"}
                 phx-change="dirty"
+                phx-auto-recover="recover"
                 phx-submit="save_row"
                 phx-target={@myself}
-                class={[columns(), "border-t border-base-200 px-2 py-2"]}
+                class={[columns(), "items-center border-t border-base-200 px-2 py-2"]}
               >
                 <input type="hidden" name="uuid" value={profile.uuid} />
                 <input type="hidden" name="bucket_uuid" value={row.bucket_uuid} />
@@ -556,6 +647,17 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   <span :if={not row.bucket.enabled} class="badge badge-error badge-sm ml-1">
                     {gettext("Disabled")}
                   </span>
+                  <% others = used_elsewhere(@bucket_usage, row.bucket_uuid, profile.uuid) %>
+                  <div :if={others != []} class="mt-1">
+                    <span
+                      id={"#{@id}-shared-#{profile.uuid}-#{row.bucket_uuid}"}
+                      class="badge badge-warning badge-sm h-auto gap-1 whitespace-normal text-left"
+                      title={shared_note(others)}
+                    >
+                      <.icon name="hero-link" class="w-3 h-3 shrink-0" />
+                      {gettext("Also in %{profiles}", profiles: profile_names(others))}
+                    </span>
+                  </div>
                 </div>
 
                 <select name="row[role]" class="select select-sm select-bordered w-full">
@@ -600,27 +702,29 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                     {status_label(status)}
                   </option>
                 </select>
-                <.save_button
-                  dirty={MapSet.member?(@dirty, row_key(profile.uuid, row.bucket_uuid))}
-                  saved={MapSet.member?(@saved, row_key(profile.uuid, row.bucket_uuid))}
-                />
-                <button
-                  type="button"
-                  class="btn btn-xs btn-ghost text-error"
-                  title={gettext("Remove from profile")}
-                  aria-label={gettext("Remove from profile")}
-                  phx-click="remove_bucket"
-                  phx-value-uuid={profile.uuid}
-                  phx-value-bucket_uuid={row.bucket_uuid}
-                  phx-target={@myself}
-                  data-confirm={
-                    gettext(
-                      "Take this bucket out of the profile? Its files are copied to the profile's other buckets first, then deleted from this bucket. The bucket itself stays, and this profile no longer sends it files."
-                    )
-                  }
-                >
-                  <.icon name="hero-x-mark" class="w-4 h-4" />
-                </button>
+                <div class={actions_cell()}>
+                  <.save_button
+                    dirty={MapSet.member?(@dirty, row_key(profile.uuid, row.bucket_uuid))}
+                    saved={MapSet.member?(@saved, row_key(profile.uuid, row.bucket_uuid))}
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-ghost text-error"
+                    title={gettext("Remove from profile")}
+                    aria-label={gettext("Remove from profile")}
+                    phx-click="remove_bucket"
+                    phx-value-uuid={profile.uuid}
+                    phx-value-bucket_uuid={row.bucket_uuid}
+                    phx-target={@myself}
+                    data-confirm={
+                      gettext(
+                        "Take this bucket out of the profile? Its files are copied to the profile's other buckets first, then deleted from this bucket. The bucket itself stays, and this profile no longer sends it files."
+                      )
+                    }
+                  >
+                    <.icon name="hero-x-mark" class="w-4 h-4" />
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -634,13 +738,29 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           >
             <input type="hidden" name="uuid" value={profile.uuid} />
             <select name="bucket_uuid" class="select select-sm select-bordered">
-              <option :for={bucket <- not_in(profile, @buckets)} value={bucket.uuid}>
-                {bucket.name}
+              <option
+                :for={{uuid, label} <- add_options(profile, @buckets, @bucket_usage)}
+                value={uuid}
+              >
+                {label}
               </option>
             </select>
             <button type="submit" class="btn btn-sm btn-outline">
               <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Add bucket")}
             </button>
+            <p
+              :if={
+                Enum.any?(
+                  not_in(profile, @buckets),
+                  &(used_elsewhere(@bucket_usage, &1.uuid, profile.uuid) != [])
+                )
+              }
+              class="basis-full text-xs text-warning"
+            >
+              {gettext(
+                "A bucket marked \"also in\" is already used by another profile. Adding it shares it: its on/off switch, size limit and keys apply to every profile that lists it."
+              )}
+            </p>
           </form>
         </div>
       </div>

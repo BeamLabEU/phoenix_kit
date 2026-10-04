@@ -13,7 +13,7 @@ defmodule PhoenixKitWeb.Components.Core.SaveButton do
   the form (`phx-change`), keep a key per form in two sets, and pass the
   booleans:
 
-      <form phx-change="dirty" phx-submit="save_row" id={id}>
+      <form phx-change="dirty" phx-auto-recover="recover" phx-submit="save_row" id={id}>
         <input type="hidden" name="key" value={key} />
         ...
         <.save_button dirty={MapSet.member?(@dirty, key)} saved={MapSet.member?(@saved, key)} />
@@ -25,6 +25,14 @@ defmodule PhoenixKitWeb.Components.Core.SaveButton do
       end
 
   Saving moves the key from `dirty` to `saved`; the next change moves it back.
+
+  `phx-auto-recover="recover"` is not optional. When the socket reconnects (a
+  tablet that slept, a dropped network) LiveView replays every form's values to
+  its `phx-change` event, so without it every form on the page shows "Unsaved
+  changes" though nobody touched it. Point recovery at an event that does
+  nothing:
+
+      def handle_event("recover", _params, socket), do: {:noreply, socket}
 
   Opt-in (not in the global import list): `import
   PhoenixKitWeb.Components.Core.SaveButton, only: [save_button: 1]`.

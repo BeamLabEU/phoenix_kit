@@ -197,6 +197,69 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute render(view) =~ "Unsaved changes"
     end
 
+    test "a bucket used by another profile says so in the picker, the flash and both rows", ctx do
+      view = settings(ctx.conn)
+      default = Profiles.default_uuid()
+      bucket = ctx.bucket
+      default_badge = "#media-profiles-shared-#{default}-#{bucket.uuid}"
+
+      # Alone in the Default, nothing is shared.
+      refute has_element?(view, default_badge)
+
+      view |> element("#media-profiles button", "New profile") |> render_click()
+
+      view
+      |> form("#media-profiles-new", %{"profile" => %{"name" => "Archive"}})
+      |> render_submit()
+
+      profile = Enum.find(Profiles.list_profiles(), &(&1.name == "Archive"))
+
+      # The picker says where the bucket already is, and why that matters.
+      html = render(view)
+      assert html =~ "#{bucket.name} (also in Default)"
+      assert html =~ "is already used by another profile"
+
+      view
+      |> form("#media-profiles-add-#{profile.uuid}", %{"bucket_uuid" => bucket.uuid})
+      |> render_submit()
+
+      assert render(view) =~ "It is shared with Default"
+
+      # Each side names the other.
+      assert view
+             |> element("#media-profiles-shared-#{profile.uuid}-#{bucket.uuid}")
+             |> render() =~ "Also in Default"
+
+      assert view |> element(default_badge) |> render() =~ "Also in Archive"
+    end
+
+    test "a reconnect replays the forms without calling them unsaved", ctx do
+      view = settings(ctx.conn)
+      default = Profiles.default_uuid()
+      form = "#media-profiles-form-#{default}"
+
+      # LiveView recovers a form after a reconnect by sending its values to the
+      # event named by phx-auto-recover; that must not read as an edit.
+      assert render(view) =~ ~s(phx-auto-recover="recover")
+      view |> with_target("#media-profiles") |> render_hook("recover", %{"key" => "x"})
+      refute render(view) =~ "Unsaved changes"
+
+      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_change()
+      assert render(view) =~ "Unsaved changes"
+    end
+
+    test "the bucket table's headings read in one case and its actions stay in view", ctx do
+      html = view_html(ctx.conn)
+
+      # The headings that carry a tooltip keep their label in capitals while the
+      # tooltip text stays as written.
+      for label <- ["Role", "Upload order", "Serve order"] do
+        assert html =~ ~s(<span class="uppercase">#{label}</span>)
+      end
+
+      assert html =~ "sticky right-0"
+    end
+
     test "offers nothing when every bucket is already used", ctx do
       html = view_html(ctx.conn)
       refute html =~ "Not used at this copy count"
