@@ -7,28 +7,13 @@ defmodule PhoenixKit.Email.ContentTest do
   import ExUnit.CaptureLog
 
   alias PhoenixKit.Email.Content
+  alias PhoenixKit.Email.CoreTemplates
 
   @moduletag :tmp_dir
 
   # The real msgids core sends, so the assertions below break if a translation
   # is reworded rather than passing against copy invented for the test.
-  defp defaults do
-    fn ->
-      %{
-        subject: gettext("Confirm your account"),
-        text:
-          gettext("""
-          Hi {{user_email}},
-
-          You can confirm your account by visiting the URL below:
-
-          {{confirmation_url}}
-
-          If you didn't create an account with us, please ignore this.
-          """)
-      }
-    end
-  end
+  defp defaults, do: &CoreTemplates.register_defaults/0
 
   defp user(locale), do: %{email: "a@b.c", custom_fields: %{"preferred_locale" => locale}}
 
@@ -160,7 +145,7 @@ defmodule PhoenixKit.Email.ContentTest do
 
       assert html =~ "<title>Bestätigen Sie Ihr Konto</title>"
       assert html =~ "Hallo a@b.c,"
-      assert html =~ ~s(<a href="https://example.test/c">)
+      assert html =~ ~s(<a href="https://example.test/c" style="display:inline-block;)
     end
 
     test "layout: false leaves a text-only message without HTML" do
@@ -317,17 +302,18 @@ defmodule PhoenixKit.Email.ContentTest do
       assert resolved.html =~ "Custom <strong>a@b.c</strong>"
       # The host chose the body: core's default text does not ride along.
       assert resolved.text == "Custom a@b.c"
-      assert sources.text == :default
+      # Core ships no `text` default any more: its copy is Markdown.
+      assert sources.text == nil
       assert sources.text_from == :markdown
       assert resolved.subject == "Bestätigen Sie Ihr Konto"
     end
 
-    test "a host's text next to a caller's html default: each part on its own, as in 2.43.0",
+    test "a host's text outranks a caller's html default in the HTML body too",
          %{tmp_dir: root} do
       write(root, "host_text_probe", "text.txt", "host words")
 
-      resolved =
-        Content.resolve(
+      {resolved, sources} =
+        Content.resolve_with_sources(
           "host_text_probe",
           user("en"),
           %{},
@@ -335,8 +321,52 @@ defmodule PhoenixKit.Email.ContentTest do
           paths: [root]
         )
 
-      assert resolved.html =~ "<p>module html</p>"
+      assert resolved.html =~ "host words</p>"
+      refute resolved.html =~ "module html"
       assert resolved.text == "host words"
+      assert sources.html_from == :text
+      assert sources.html == :default
+    end
+
+    # The case the reorder exists for: core's defaults are Markdown, and a host
+    # that rewrote `text.txt` before they were must not be sent an HTML version
+    # that still carries core's copy.
+    test "a host's text outranks a caller's markdown default: HTML and text agree",
+         %{tmp_dir: root} do
+      write(root, "host_text_md_probe", "text.txt", "Host copy: {{url}}")
+
+      {resolved, sources} =
+        Content.resolve_with_sources(
+          "host_text_md_probe",
+          user("en"),
+          %{"url" => "https://a.test/c"},
+          fn -> %{subject: "s", markdown: "Core copy\n\n[Confirm]({{url}})"} end,
+          paths: [root]
+        )
+
+      assert resolved.text == "Host copy: https://a.test/c"
+      assert resolved.html =~ "Host copy:"
+      assert resolved.html =~ ~s(<a href="https://a.test/c">https://a.test/c</a>)
+      refute resolved.html =~ "Core copy"
+      refute resolved.html =~ "Confirm"
+      assert sources.html_from == :text
+      assert sources.text_from == :text
+    end
+
+    test "without a host file a caller's markdown default builds both bodies" do
+      {resolved, sources} =
+        Content.resolve_with_sources(
+          "md_default_probe",
+          user("en"),
+          %{"url" => "https://a.test/c"},
+          fn -> %{subject: "s", markdown: "Core copy\n\n[Confirm]({{url}})"} end
+        )
+
+      assert resolved.html =~ "Core copy"
+      assert resolved.html =~ ~r/<table role="presentation".*href="https:\/\/a.test\/c"/s
+      assert resolved.text == "Core copy\n\nConfirm: https://a.test/c"
+      assert sources.html_from == :markdown
+      assert sources.text_from == :markdown
     end
 
     test "a host's markdown outranks a caller's html default", %{tmp_dir: root} do
@@ -374,9 +404,9 @@ defmodule PhoenixKit.Email.ContentTest do
     @html_order [
       {:host, :html},
       {:host, :markdown},
+      {:host, :text},
       {:default, :html},
       {:default, :markdown},
-      {:host, :text},
       {:default, :text}
     ]
     @text_order [{:host, :text}, {:host, :markdown}, {:default, :text}, {:default, :markdown}]
@@ -692,7 +722,9 @@ defmodule PhoenixKit.Email.ContentTest do
                subject: :default,
                text: {:file, Path.join([root, "register", "text.de.txt"])},
                html: nil,
-               markdown: nil,
+               # Core's Markdown default is there, and loses to the host's
+               # text in both bodies.
+               markdown: :default,
                html_from: :text,
                text_from: :text,
                group: nil,
@@ -731,16 +763,18 @@ defmodule PhoenixKit.Email.ContentTest do
       {resolved, sources} =
         Content.resolve_with_sources("register", user("de"), %{}, defaults(), paths: [root])
 
-      assert resolved.text == nil
+      # The blank file hides the default `text` — core has none — and the
+      # text body comes from the next part in line, the Markdown default.
       assert sources.text == {:blank_file, Path.join([root, "register", "text.txt"])}
-      assert sources.text_from == nil
+      assert sources.text_from == :markdown
+      assert resolved.text =~ "Konto bestätigen"
     end
 
     test "layout: false reports no chrome" do
       {_resolved, sources} =
         Content.resolve_with_sources("register", user("de"), %{}, defaults(), layout: false)
 
-      assert %{layout: nil, header: nil, footer: nil, html_from: nil} = sources
+      assert %{layout: nil, header: nil, footer: nil, html_from: :markdown} = sources
     end
   end
 

@@ -19,6 +19,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.Auth.{User, UserToken}
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"
@@ -208,6 +209,10 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   defp confirm_registered_user(user) do
     case Auth.admin_confirm_user(user) do
       {:ok, confirmed} ->
+        # `admin_confirm_user/1` sends no welcome email — an operator's
+        # confirmation is not the reader's — but here the reader's click did
+        # prove the address.
+        WelcomeEmail.after_confirmation(confirmed)
         confirmed
 
       {:error, reason} ->

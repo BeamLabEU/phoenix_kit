@@ -93,6 +93,7 @@ defmodule PhoenixKit.Users.CustomFields do
     source
     timezone_alert_zone
     users_view_mode
+    welcome_email_sent_at
   )
 
   # `notification_channel:<key>` carries one channel's config map. The colon

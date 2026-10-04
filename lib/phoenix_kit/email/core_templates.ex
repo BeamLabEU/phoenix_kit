@@ -11,10 +11,22 @@ defmodule PhoenixKit.Email.CoreTemplates do
   Every `*_defaults/0` is a zero-arity function so `PhoenixKit.Email.Content`
   can evaluate it inside the recipient's locale — see "Why the default is a
   function" there.
+
+  The defaults are Markdown (`PhoenixKit.Email.Markdown`): the main action is
+  a button — a paragraph that is exactly one `[label]({{url}})` link — with
+  the address written out under it for a reader whose client does not show
+  the button, and the plain-text body is derived from the same Markdown. A
+  host that overrides `text.txt` alone still gets its own words in both
+  bodies (see "Which part makes which body" in `PhoenixKit.Email.Content`).
+
+  `notification` is the exception: its body is the notification's own text,
+  already rendered in the reader's language, so its default is a plain `text`
+  part with nothing to translate.
   """
 
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @sample_email "jane.doe@example.com"
@@ -126,26 +138,79 @@ defmodule PhoenixKit.Email.CoreTemplates do
             "security_url" => Routes.base_url() <> Routes.user_settings_path()
           }
         end
+      },
+      %{
+        name: "welcome",
+        label: gettext("Welcome"),
+        description:
+          gettext(
+            "Sent once, after an address is confirmed — only while the welcome email is switched on."
+          ),
+        defaults: &welcome_defaults/0,
+        variables: fn -> welcome_variables(@sample_email) end
+      },
+      %{
+        name: "notification",
+        label: gettext("Notification"),
+        description:
+          gettext(
+            "A notification delivered by email, one at a time or as a digest, when the reader routes it to email."
+          ),
+        defaults: &notification_defaults/0,
+        variables: fn ->
+          %{
+            "subject" => gettext("Acme Ltd commented on your order"),
+            "text" => gettext("Acme Ltd commented on your order"),
+            "url" => Routes.url("/admin/notifications")
+          }
+        end
       }
     ]
   end
 
   defp sample_url(path), do: Routes.url("#{path}/#{@sample_token}")
 
+  @doc """
+  The variables of the welcome email for `email`: the address, and the site
+  name and address the layout's footer shows (`{{site_name}}`,
+  `{{site_url}}`), so the button leads where the footer does.
+  """
+  @spec welcome_variables(String.t()) :: %{String.t() => String.t()}
+  def welcome_variables(email) when is_binary(email) do
+    %{
+      "user_email" => email,
+      "site_name" => Settings.get_project_title(),
+      "site_url" => Routes.base_url()
+    }
+  end
+
+  @doc """
+  Default of the notification email (`notification`): the subject is the
+  notification's title (or the start of its text), the body its text and
+  link. Nothing to translate — both arrive rendered in the reader's
+  language.
+  """
+  @spec notification_defaults() :: PhoenixKit.Templates.defaults()
+  def notification_defaults do
+    %{subject: "{{subject}}", text: "{{text}}\n\n{{url}}"}
+  end
+
   @doc "Default copy of the account confirmation email (`register`)."
   @spec register_defaults() :: PhoenixKit.Templates.defaults()
   def register_defaults do
     %{
       subject: gettext("Confirm your account"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
-        You can confirm your account by visiting the URL below:
+        Please confirm your account with the button below.
 
-        {{confirmation_url}}
+        [Confirm account]({{confirmation_url}})
 
-        If you didn't create an account with us, please ignore this.
+        If the button doesn't work, open this link: [{{confirmation_url}}]({{confirmation_url}})
+
+        If you didn't create an account with us, please ignore this email.
         """)
     }
   end
@@ -155,15 +220,17 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def reset_password_defaults do
     %{
       subject: gettext("Reset your password"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
-        You can reset your password by visiting the URL below:
+        You can reset your password with the button below.
 
-        {{reset_url}}
+        [Reset password]({{reset_url}})
 
-        If you didn't request this change, please ignore this.
+        If the button doesn't work, open this link: [{{reset_url}}]({{reset_url}})
+
+        If you didn't request this change, please ignore this email.
         """)
     }
   end
@@ -173,15 +240,17 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def update_email_defaults do
     %{
       subject: gettext("Confirm your email change"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
-        You can change your email by visiting the URL below:
+        You can change your email with the button below.
 
-        {{update_url}}
+        [Confirm email change]({{update_url}})
 
-        If you didn't request this change, please ignore this.
+        If the button doesn't work, open this link: [{{update_url}}]({{update_url}})
+
+        If you didn't request this change, please ignore this email.
         """)
     }
   end
@@ -191,10 +260,17 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def magic_link_defaults do
     %{
       subject: gettext("Your secure login link"),
-      text:
+      markdown:
         gettext("""
-        Your login link: {{magic_link_url}}
-        This link expires in 15 minutes.
+        Hi {{user_email}},
+
+        Use the button below to sign in. This link expires in 15 minutes.
+
+        [Sign in]({{magic_link_url}})
+
+        If the button doesn't work, open this link: [{{magic_link_url}}]({{magic_link_url}})
+
+        If you didn't ask for this link, you can ignore this email.
         """)
     }
   end
@@ -204,13 +280,15 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def magic_link_registration_defaults do
     %{
       subject: gettext("Complete your registration"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
-        Welcome! To complete your registration, please visit the URL below:
+        Welcome! To complete your registration, use the button below.
 
-        {{registration_url}}
+        [Complete registration]({{registration_url}})
+
+        If the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})
 
         This link will expire in 30 minutes for your security.
 
@@ -224,15 +302,17 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def organization_invitation_defaults do
     %{
       subject: gettext("You've been invited to join {{organization_name}}"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
         {{organization_name}} has invited you to join their organization.
 
-        To accept the invitation, register an account by visiting the link below:
+        To accept the invitation, register an account with the button below.
 
-        {{registration_url}}
+        [Accept invitation]({{registration_url}})
+
+        If the button doesn't work, open this link: [{{registration_url}}]({{registration_url}})
 
         This invitation link will expire in 7 days.
 
@@ -246,22 +326,26 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def new_login_alert_defaults do
     %{
       subject: gettext("New login to your account"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
         We noticed a new login to your account from an unrecognized device:
 
-        Time: {{login_time}}
-        IP address: {{ip_address}}
-        Location: {{location}}
-        Device: {{browser_os}}
+        - Time: {{login_time}}
+        - IP address: {{ip_address}}
+        - Location: {{location}}
+        - Device: {{browser_os}}
 
-        {{failed_attempts}}If this was you, no action is needed.
+        {{failed_attempts}}
 
-        If you don't recognize this activity, secure your account here:
+        If this was you, no action is needed.
 
-        {{security_url}}
+        If you don't recognize this activity, secure your account:
+
+        [Review account security]({{security_url}})
+
+        If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
         """)
     }
   end
@@ -271,22 +355,40 @@ defmodule PhoenixKit.Email.CoreTemplates do
   def failed_login_alert_defaults do
     %{
       subject: gettext("Failed sign-in attempts on your account"),
-      text:
+      markdown:
         gettext("""
         Hi {{user_email}},
 
         Someone has been trying to sign in to your account and failing.
 
-        Failed attempts: {{attempt_count}}
-        In the last: {{window_hours}} hour(s)
+        - Failed attempts: {{attempt_count}}
+        - In the last: {{window_hours}} hour(s)
 
-        Nobody has signed in. You do not need to do anything if you recognize
-        this as your own mistyped password.
+        Nobody has signed in. You do not need to do anything if you recognize this as your own mistyped password.
 
-        If you do not, your password may be being guessed. Change it to
-        something you do not use anywhere else:
+        If you do not, your password may be being guessed. Change it to something you do not use anywhere else:
 
-        {{security_url}}
+        [Change password]({{security_url}})
+
+        If the button doesn't work, open this link: [{{security_url}}]({{security_url}})
+        """)
+    }
+  end
+
+  @doc "Default copy of the welcome email (`welcome`), sent once an address is confirmed."
+  @spec welcome_defaults() :: PhoenixKit.Templates.defaults()
+  def welcome_defaults do
+    %{
+      subject: gettext("Welcome to {{site_name}}"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        Welcome to {{site_name}}! Your email address is confirmed and your account is ready.
+
+        [Go to {{site_name}}]({{site_url}})
+
+        If the button doesn't work, open this link: [{{site_url}}]({{site_url}})
         """)
     }
   end

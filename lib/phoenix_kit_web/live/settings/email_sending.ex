@@ -26,7 +26,9 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
   read by `PhoenixKit.Email.Branding`) and shows the logo emails carry,
   linking to Settings → General where the logo is edited. A preview of every
   known email lives at `/admin/settings/email-sending/preview`
-  (`PhoenixKitWeb.Live.Settings.EmailPreview`).
+  (`PhoenixKitWeb.Live.Settings.EmailPreview`). The same tab switches the
+  welcome email on and off (`email_welcome_enabled`,
+  `PhoenixKit.Users.WelcomeEmail`).
 
   ## Module-contributed sections
 
@@ -51,6 +53,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.WelcomeEmail
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Settings.UrlTabs
 
@@ -179,6 +182,27 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, gettext("Could not update the mailbox setting"))}
+    end
+  end
+
+  def handle_event("toggle_welcome_email", params, socket) do
+    value = if params["enabled"] == "true", do: "true", else: "false"
+
+    case Settings.update_setting(WelcomeEmail.setting_key(), value) do
+      {:ok, _} ->
+        message =
+          if value == "true",
+            do: gettext("Welcome email switched on"),
+            else: gettext("Welcome email switched off")
+
+        {:noreply,
+         socket
+         |> assign(:welcome_email_enabled, value == "true")
+         |> put_flash(:info, message)}
+
+      {:error, _changeset} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Could not update the welcome email setting"))}
     end
   end
 
@@ -379,6 +403,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
     socket
     |> assign(:accent_color, Branding.accent_color())
     |> assign(:email_logo_url, Branding.logo_url())
+    |> assign(:welcome_email_enabled, WelcomeEmail.enabled?())
     |> assign_accent_input(saved)
   end
 
