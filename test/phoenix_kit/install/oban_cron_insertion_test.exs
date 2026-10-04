@@ -653,6 +653,433 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     end
   end
 
+  # --- second round: masker forms, scoping, reasons, CRLF ---------------------
+
+  # Everything the host wrote is still there: with the PhoenixKit-added tuples
+  # removed from every list, the AST equals the original's.
+  defp host_preserved?(original, updated) do
+    strip = fn content ->
+      {:ok, ast} = Code.string_to_quoted(content)
+
+      ast
+      |> Macro.prewalk(fn
+        {form, _meta, args} -> {form, [], args}
+        other -> other
+      end)
+      |> Macro.prewalk(fn
+        list when is_list(list) -> Enum.reject(list, &phoenix_kit_tuple?/1)
+        other -> other
+      end)
+    end
+
+    strip.(original) == strip.(updated)
+  end
+
+  # A crontab tuple `{"cron", PhoenixKit.Some.Worker}` or `{"cron", PhoenixKit.W, opts}`.
+  defp phoenix_kit_tuple?({cron, {:__aliases__, _, [:PhoenixKit | _]}}) when is_binary(cron),
+    do: true
+
+  defp phoenix_kit_tuple?({:{}, _, [cron, {:__aliases__, _, [:PhoenixKit | _]} | _]})
+       when is_binary(cron),
+       do: true
+
+  defp phoenix_kit_tuple?(_), do: false
+
+  defp crontab_around(lines, before \\ "") do
+    before <>
+      "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron,\n     crontab: [\n" <>
+      Enum.map_join(lines, "\n", &("       " <> &1)) <> "\n     ]}\n  ]\n"
+  end
+
+  describe "the masker on forms that used to corrupt the host's strings" do
+    @tricky_last_entries [
+      {"?} and ?\\\" together",
+       [
+         ~S|{"0 2 * * *", MyApp.A4, args: %{c: ?}}},|,
+         ~S|{"0 2 * * *", MyApp.A1, args: %{c: ?\"}}, # "x"|,
+         ~S|{"0 2 * * *", MyApp.W20, args: %{s: "ü ]"}}, # "x"|,
+         ~S|{"0 2 * * *", MyApp.W6, args: %{note: "#{inspect([1, 2])} # x ]"}},|
+       ]},
+      {"?\\\" then a comment holding a quote",
+       [
+         ~S|{"0 2 * * *", MyApp.A1, args: %{c: ?\"}}, # "x"|,
+         ~S|{"0 2 * * *", MyApp.W, args: %{note: "abc"}},|
+       ]},
+      {"?] and ?[", [~S|{"0 2 * * *", MyApp.D, args: %{open: ?[, close: ?]}},|]},
+      {"?# (not a comment)", [~S|{"0 2 * * *", MyApp.E, args: %{sep: ?#, note: "x"}} # tail|]},
+      {"?\\\\", [~S|{"0 2 * * *", MyApp.F, args: %{sep: ?\\, other: "y"}}|]},
+      {"a nested interpolation with a # in its inner string",
+       [~S|{"0 2 * * *", MyApp.B, args: %{n: "a #{"b # c"} d"}}|]},
+      {"an interpolation that holds braces",
+       [~S|{"0 2 * * *", MyApp.G, args: %{n: "#{inspect(%{a: 1})} ]"}}|]},
+      {"a ~s sigil with quotes and a #",
+       [~S|{"0 2 * * *", MyApp.S, args: %{t: ~s(a "b" # c)}},|]},
+      {"a heredoc sigil whose body holds a mid-line triple quote",
+       [~S|{"0 2 * * *", MyApp.A6, args: %{s: ~s"""|, ~S|  x """ y ]|, ~S|  """}}|]},
+      {"a ~S sigil with brackets", [~S|{"0 2 * * *", MyApp.S, args: %{t: ~S{a ] # "b" [}}}|]}
+    ]
+
+    for {name, lines} <- @tricky_last_entries do
+      test "#{name}" do
+        content = crontab_around(unquote(lines))
+        assert {:ok, _} = Code.string_to_quoted(content)
+
+        for fun <- [
+              &ObanConfig.ensure_worker_cron_entries/2,
+              &ObanConfig.ensure_digest_cron_entries/2,
+              &ObanConfig.ensure_cron_plugin/2
+            ] do
+          updated = quiet(fn -> fun.(content, "myapp") end)
+
+          refute updated == content, "rolled back instead of added"
+          assert {:ok, _} = Code.string_to_quoted(updated)
+          assert host_preserved?(content, updated)
+        end
+      end
+    end
+
+    test "a ~S heredoc holding a quote, in ANOTHER config before the Oban block" do
+      before = ~S'''
+      import Config
+
+      config :myapp, MyAppWeb.Endpoint,
+        csp: ~S"""
+        default-src 'self'; script-src 'self' "nonce"
+        """
+
+      '''
+
+      content = crontab_around([~S|{"0 2 * * *", MyApp.B, args: %{note: "x"}},|], before)
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      refute updated == content
+      assert String.starts_with?(updated, before)
+      assert host_preserved?(content, updated)
+    end
+
+    test "a charlist heredoc before the Oban block" do
+      before =
+        "import Config\n\nconfig :myapp, Other, text: " <>
+          "'''\n  it's a \"quote\" # not a comment\n  '''\n\n"
+
+      content = crontab_around([~S|{"0 2 * * *", MyApp.B}|], before)
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      refute updated == content
+      assert host_preserved?(content, updated)
+    end
+
+    test "a splice whose result fails the checks is refused, never half-applied" do
+      content = crontab_config(" # tail")
+      entries = [~s({"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker})]
+
+      # The semantic check says the entry did not land where it should.
+      assert {:error, why} =
+               ObanConfig.append_entries(content, "myapp", :crontab, entries, fn _ast -> false end)
+
+      assert why =~ "wrong place"
+
+      # An entry that does not parse makes the candidate not parse.
+      assert {:error, _} =
+               ObanConfig.append_entries(content, "myapp", :crontab, ["{"], fn _ast -> true end)
+
+      # And the same call with a passing check lands the entry.
+      assert {:ok, updated} =
+               ObanConfig.append_entries(content, "myapp", :crontab, entries, fn _ast -> true end)
+
+      assert updated =~ "Referrals.PruneWorker"
+    end
+
+    test "preserves_original?/3 accepts the entries only, and rejects a change to the host's own text" do
+      original = ~s(config :a, Oban,\n  queues: [x: 1, note: "a # b"]\n)
+      entries = ["media: 3"]
+
+      good = ~s(config :a, Oban,\n  queues: [x: 1, note: "a # b",\n    media: 3]\n)
+      assert ConfigSplice.preserves_original?(original, good, entries)
+
+      # The comma landed inside the host's string — still parses, still has the entry.
+      bad = ~s(config :a, Oban,\n  queues: [x: 1, note: "a ,# b",\n    media: 3]\n)
+      refute ConfigSplice.preserves_original?(original, bad, entries)
+
+      refute ConfigSplice.preserves_original?(original, "config :a, Oban, queues: [", entries)
+    end
+  end
+
+  describe "presence and declining are read from this app's own crontab" do
+    test "a comment naming the module elsewhere in the file is not a refusal" do
+      content =
+        ~s|# TODO add: {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}\n| <> crontab_config("")
+
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
+    end
+
+    test "an entry in ANOTHER app's Oban block is not this app's" do
+      other = """
+      config :other, Oban,
+        plugins: [
+          {Oban.Plugins.Cron, crontab: [{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}]}
+        ]
+
+      """
+
+      content = other <> crontab_config("")
+      updated = quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+
+      assert in_crontab?(updated, PhoenixKit.Jobs.SweepWorker)
+      assert String.starts_with?(updated, other)
+    end
+
+    test "a digest entry reformatted over several lines is found, so a second run changes nothing" do
+      content = """
+      config :myapp, Oban,
+        plugins: [
+          {Oban.Plugins.Cron,
+           crontab: [
+             {"0 * * * *", PhoenixKit.Notifications.DigestWorker,
+              args: %{cadence: "hourly"}},
+             {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker,
+              args: %{
+                cadence: "12h"
+              }},
+             {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},
+             {"0 6 * * 1", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "weekly"}}
+           ]}
+        ]
+      """
+
+      assert quiet(fn -> ObanConfig.ensure_digest_cron_entries(content, "myapp") end) == content
+    end
+
+    test "one cadence is not credited to another tuple's DigestWorker" do
+      content =
+        crontab_config(
+          ~s|,\n      {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}}|
+        )
+
+      updated = quiet(fn -> ObanConfig.ensure_digest_cron_entries(content, "myapp") end)
+
+      for cadence <- ~w(12h daily weekly) do
+        assert updated =~ ~s(cadence: "#{cadence}")
+      end
+
+      assert length(String.split(updated, ~s(cadence: "hourly"))) == 2
+    end
+
+    test "declined entries are remembered for the closing summary" do
+      ObanConfig.take_declined()
+
+      content =
+        crontab_config(~S|,
+      # {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}|)
+
+      quiet(fn -> ObanConfig.ensure_worker_cron_entries(content, "myapp") end)
+      declined = ObanConfig.take_declined()
+
+      assert declined == ["PhoenixKit.Users.Referrals.PruneWorker"]
+      assert ObanConfig.take_declined() == []
+
+      summary = ObanConfig.manual_steps_summary([], declined)
+
+      assert summary =~
+               "Declined (commented out in your crontab), not added: PhoenixKit.Users.Referrals.PruneWorker"
+
+      refute summary =~ "Manual steps needed"
+    end
+  end
+
+  describe "ensure_cron_plugin/2 reads its cases from this app's own block" do
+    test "a ProcessScheduledJobsWorker in another app's block does not count" do
+      other = """
+      config :other, Oban,
+        plugins: [{Oban.Plugins.Cron, crontab: [{"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}]}]
+
+      """
+
+      content = other <> crontab_config("")
+      updated = quiet(fn -> ObanConfig.ensure_cron_plugin(content, "myapp") end)
+
+      assert in_crontab?(updated, @posts_worker)
+    end
+
+    test "both the old and the core worker scheduled is a manual step, not a lost line" do
+      ObanConfig.take_manual_steps()
+
+      content =
+        crontab_config(~S|,
+      {"* * * * *", PhoenixKitPosts.Workers.PublishScheduledPostsJob},
+      {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|)
+
+      err =
+        capture_io(:stderr, fn ->
+          send(self(), {:r, ObanConfig.ensure_cron_plugin(content, "myapp")})
+        end)
+
+      assert_received {:r, ^content}
+      assert err =~ "Both PublishScheduledPostsJob and ProcessScheduledJobsWorker"
+      assert [{headline, _}] = ObanConfig.take_manual_steps()
+      assert headline =~ "Both PublishScheduledPostsJob"
+    end
+  end
+
+  describe "ensure_pruner_max_age/2 shapes" do
+    test "a one-line plugins list" do
+      content = "config :myapp, Oban,\n  plugins: [Oban.Plugins.Pruner, Oban.Plugins.Lifeline]\n"
+      updated = quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end)
+
+      assert {:ok, _} = Code.string_to_quoted(updated)
+      assert updated =~ "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}, Oban.Plugins.Lifeline"
+    end
+
+    test "the tuple form followed by a comma" do
+      content =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Pruner},\n    Oban.Plugins.Lifeline\n  ]\n"
+
+      updated = quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end)
+
+      refute updated == content
+      assert {:ok, _} = Code.string_to_quoted(updated)
+    end
+
+    test "a Pruner with other options is left alone" do
+      content =
+        "config :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Pruner, interval: 1000}\n  ]\n"
+
+      assert quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end) == content
+    end
+
+    test "a Pruner in another app's block, or in a comment, is not this app's" do
+      other = "config :other, Oban,\n  plugins: [Oban.Plugins.Pruner]\n\n"
+
+      mine =
+        "config :myapp, Oban,\n  plugins: [\n    # Oban.Plugins.Pruner,\n    Oban.Plugins.Lifeline\n  ]\n"
+
+      content = other <> mine
+
+      assert quiet(fn -> ObanConfig.ensure_pruner_max_age(content, "myapp") end) == content
+    end
+
+    test "only this app's Pruner is rewritten" do
+      other = "config :other, Oban,\n  plugins: [Oban.Plugins.Pruner]\n\n"
+      mine = "config :myapp, Oban,\n  plugins: [\n    Oban.Plugins.Pruner\n  ]\n"
+      updated = quiet(fn -> ObanConfig.ensure_pruner_max_age(other <> mine, "myapp") end)
+
+      assert String.starts_with?(updated, other)
+      assert updated =~ "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}"
+    end
+  end
+
+  describe "refusal texts" do
+    defp refusal(content, fun \\ &ObanConfig.ensure_worker_cron_entries/2) do
+      ObanConfig.take_manual_steps()
+
+      err =
+        capture_io(:stderr, fn ->
+          out = capture_io(fn -> send(self(), {:r, fun.(content, "myapp")}) end)
+          send(self(), {:out, out})
+        end)
+
+      assert_received {:r, result}
+      assert_received {:out, out}
+      {result, err, out, ObanConfig.take_manual_steps()}
+    end
+
+    test "a block nested in an expression says so" do
+      content =
+        "if config_env() == :prod do\n  config :myapp, Oban,\n    plugins: [{Oban.Plugins.Cron, crontab: []}]\nend\n"
+
+      {result, err, _out, [_step]} = refusal(content)
+
+      assert result == content
+      assert err =~ "nested in an expression"
+      refute err =~ "runtime.exs"
+    end
+
+    test "plugins: false is switched off, not a variable" do
+      content = "config :myapp, Oban,\n  repo: MyApp.Repo,\n  plugins: false\n"
+      {result, err, out, steps} = refusal(content, &ObanConfig.ensure_lifeline_plugin/2)
+
+      assert result == content
+      assert steps == []
+      refute err =~ "variable"
+      assert out =~ "switched off"
+    end
+
+    test "config :app, Oban, false is one info line and no manual step" do
+      content = "config :myapp, Oban, false\n"
+
+      for fun <- [
+            &ObanConfig.ensure_worker_cron_entries/2,
+            &ObanConfig.ensure_digest_cron_entries/2,
+            &ObanConfig.ensure_cron_plugin/2,
+            &ObanConfig.ensure_lifeline_plugin/2
+          ] do
+        {result, err, out, steps} = refusal(content, fun)
+
+        assert result == content
+        assert steps == []
+        assert err == ""
+        assert out =~ "Oban is disabled"
+      end
+    end
+
+    test "the combined-list text mentions --" do
+      content =
+        "config :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: [{\"* * * * *\", MyApp.W}] -- [x]}]\n"
+
+      {_result, err, _out, _steps} = refusal(content)
+      assert err =~ "`--`"
+    end
+  end
+
+  describe "queues" do
+    test "ensure_queue/4 takes the queue as an atom" do
+      content = "config :myapp, Oban,\n  queues: [\n    default: 10\n  ]\n"
+      updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", :media, 3) end)
+
+      assert updated =~ "media: 3"
+      assert {:ok, _} = Code.string_to_quoted(updated)
+    end
+
+    test "a queue named only in an end-of-line comment is still added" do
+      content = "config :myapp, Oban,\n  queues: [\n    default: 10 # was media: 3\n  ]\n"
+      updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
+
+      refute updated == content
+      assert {:ok, ast} = Code.string_to_quoted(updated)
+      assert ConfigVerify.keyword_list_satisfies?(ast, :queues, fn l -> {:media, 3} in l end)
+    end
+  end
+
+  describe "line endings" do
+    test "a CRLF file stays CRLF" do
+      content =
+        String.replace(crontab_config(" # every minute") <> "\n# end\n", "\n", "\r\n")
+
+      for fun <- [
+            &ObanConfig.ensure_worker_cron_entries/2,
+            &ObanConfig.ensure_digest_cron_entries/2,
+            &ObanConfig.ensure_cron_plugin/2
+          ] do
+        updated = quiet(fn -> fun.(content, "myapp") end)
+
+        refute updated == content
+        assert {:ok, _} = Code.string_to_quoted(updated)
+        refute updated =~ ~r/(?<!\r)\n/, "a bare LF was written into a CRLF file"
+        refute updated =~ "\r\r"
+      end
+    end
+
+    test "a CRLF queues list stays CRLF" do
+      content = "config :myapp, Oban,\r\n  queues: [\r\n    default: 10 # main\r\n  ]\r\n"
+      updated = quiet(fn -> ObanConfig.ensure_queue(content, "myapp", "media", 3) end)
+
+      refute updated =~ ~r/(?<!\r)\n/
+      assert {:ok, _} = Code.string_to_quoted(updated)
+    end
+  end
+
   # The comment text a tail carries, to check it survived the splice.
   defp tail_comments(tail) do
     for line <- String.split(tail, "\n"),

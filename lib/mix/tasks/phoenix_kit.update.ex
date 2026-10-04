@@ -771,7 +771,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     # block at the very end — after the migration and asset output that buried
     # the one-line warnings in the run that left a host without a cron entry.
     defp print_manual_steps do
-      case ObanConfig.manual_steps_summary(ObanConfig.take_manual_steps()) do
+      case ObanConfig.manual_steps_summary(
+             ObanConfig.take_manual_steps(),
+             ObanConfig.take_declined()
+           ) do
         "" -> :ok
         summary -> Mix.shell().error(summary)
       end
@@ -1821,10 +1824,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Show success notice after update
+    #
+    # Not a plain "success" while config edits are still waiting on the host:
+    # the closing "Manual steps needed" block follows, and this line must not
+    # read as the last word before it.
     defp show_update_success_notice(opts) do
-      Mix.shell().info("""
-      🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
-      """)
+      case ObanConfig.manual_step_count() do
+        0 ->
+          Mix.shell().info("""
+          🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
+          """)
+
+        n ->
+          Mix.shell().info("""
+          PhoenixKit updated — #{n} manual step(s) below. Visit: #{build_app_path(opts, "/users/register")}
+          """)
+      end
     end
 
     defp build_app_path(opts, path) do
