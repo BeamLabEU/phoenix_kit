@@ -1080,6 +1080,143 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
     end
   end
 
+  describe "a crontab held in a variable" do
+    @worker_lines [
+      ~S|{"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|,
+      ~S|{"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}|,
+      ~S|{"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}|,
+      ~S|{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}|,
+      ~S|{"15 4 * * *", PhoenixKit.Jobs.PruneWorker}|,
+      ~S|{"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker}|
+    ]
+
+    @digest_lines [
+      ~S|{"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}}|,
+      ~S|{"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}}|,
+      ~S|{"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}}|,
+      ~S|{"0 6 * * 1", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "weekly"}}|
+    ]
+
+    defp var_config(lines) do
+      "some_var = [\n" <>
+        Enum.map_join(lines, ",\n", &("  " <> &1)) <>
+        "\n]\n\nconfig :myapp, Oban,\n  plugins: [\n    {Oban.Plugins.Cron, crontab: some_var}\n  ]\n"
+    end
+
+    defp run_all(content) do
+      ObanConfig.take_manual_steps()
+
+      out =
+        capture_io(fn ->
+          capture_io(:stderr, fn ->
+            result =
+              content
+              |> ObanConfig.ensure_cron_plugin("myapp")
+              |> ObanConfig.ensure_digest_cron_entries("myapp")
+              |> ObanConfig.ensure_worker_cron_entries("myapp")
+
+            send(self(), {:result, result})
+          end)
+        end)
+
+      assert_received {:result, result}
+      {result, out, ObanConfig.take_manual_steps()}
+    end
+
+    test "with every entry in the variable's list: already configured, nothing to do by hand" do
+      content = var_config(@worker_lines ++ @digest_lines)
+      assert {:ok, _} = Code.string_to_quoted(content)
+
+      {result, out, steps} = run_all(content)
+
+      assert result == content
+      assert steps == []
+      assert out =~ "not a literal list; not verified"
+      refute out =~ "Adding"
+    end
+
+    test "each function says so on its own" do
+      content = var_config(@worker_lines ++ @digest_lines)
+
+      for fun <- [
+            &ObanConfig.ensure_cron_plugin/2,
+            &ObanConfig.ensure_digest_cron_entries/2,
+            &ObanConfig.ensure_worker_cron_entries/2
+          ] do
+        ObanConfig.take_manual_steps()
+
+        out =
+          capture_io(fn ->
+            capture_io(:stderr, fn -> send(self(), {:r, fun.(content, "myapp")}) end)
+          end)
+
+        assert_received {:r, ^content}
+        assert ObanConfig.take_manual_steps() == []
+        assert out =~ "not verified"
+      end
+    end
+
+    test "with none of them: a manual step for exactly what is missing" do
+      content = var_config([~S|{"0 3 * * *", MyApp.Nightly}|])
+
+      {result, _out, steps} = run_all(content)
+
+      assert result == content
+      headlines = Enum.map(steps, &elem(&1, 0))
+      assert Enum.any?(headlines, &(&1 =~ "ProcessScheduledJobsWorker"))
+      assert Enum.any?(headlines, &(&1 =~ "digest cron entries"))
+      assert Enum.any?(headlines, &(&1 =~ "worker cron entries"))
+    end
+
+    test "with some of them: only the absent ones are listed" do
+      content =
+        var_config(Enum.take(@worker_lines, 3) ++ Enum.take(@digest_lines, 2))
+
+      {result, _out, steps} = run_all(content)
+
+      assert result == content
+      text = steps |> Enum.flat_map(fn {h, lines} -> [h | lines] end) |> Enum.join("\n")
+
+      # Present: not offered again.
+      refute text =~ "ProcessScheduledJobsWorker"
+      refute text =~ "Referrals.PruneWorker"
+      refute text =~ "LoginAttemptsPruneWorker"
+      refute text =~ ~s(cadence: "hourly")
+      refute text =~ ~s(cadence: "12h")
+
+      # Absent: offered.
+      assert text =~ "PhoenixKit.Jobs.SweepWorker"
+      assert text =~ "PhoenixKit.Jobs.PruneWorker"
+      assert text =~ "BucketLogPruneWorker"
+      assert text =~ ~s(cadence: "daily")
+      assert text =~ ~s(cadence: "weekly")
+    end
+
+    test "an entry only in a comment above the block does not count as present" do
+      content =
+        "# {\"*/5 * * * *\", PhoenixKit.Jobs.SweepWorker}\n" <>
+          var_config([~S|{"0 3 * * *", MyApp.Nightly}|])
+
+      {_result, _out, steps} = run_all(content)
+      text = steps |> Enum.flat_map(fn {h, lines} -> [h | lines] end) |> Enum.join("\n")
+
+      assert text =~ "PhoenixKit.Jobs.SweepWorker"
+    end
+
+    test "a module attribute behaves the same" do
+      content =
+        "defmodule Crons do\n  @crontab [\n    " <>
+          Enum.join(@worker_lines ++ @digest_lines, ",\n    ") <>
+          "\n  ]\nend\n\nconfig :myapp, Oban,\n  plugins: [{Oban.Plugins.Cron, crontab: Crons.all()}]\n"
+
+      {result, out, steps} = run_all(content)
+
+      assert result == content
+      assert steps == []
+      assert out =~ "not verified"
+    end
+  end
+
   # The comment text a tail carries, to check it survived the splice.
   defp tail_comments(tail) do
     for line <- String.split(tail, "\n"),

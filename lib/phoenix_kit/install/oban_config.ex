@@ -1048,6 +1048,10 @@ if Code.ensure_loaded?(Igniter) do
           content
 
         # Case 2: Cron plugin exists with new worker - already configured
+        worker == :unverified ->
+          note_unverified(["ProcessScheduledJobsWorker"])
+          content
+
         cron_plugin? and worker != :missing ->
           Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
           content
@@ -1148,8 +1152,12 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_digest_cron_entries(String.t(), atom() | String.t()) :: String.t()
     def ensure_digest_cron_entries(content, app_name) do
-      {missing, declined} = split_digest_entries(content, app_name)
+      {missing, declined, unverified} = split_digest_entries(content, app_name)
       note_declined(Enum.map(declined, fn {_cron, cadence} -> "DigestWorker (#{cadence})" end))
+
+      note_unverified(
+        Enum.map(unverified, fn {_cron, cadence} -> "DigestWorker (#{cadence})" end)
+      )
 
       if missing == [] do
         Mix.shell().info("  ℹ️  notification digest cron entries already configured")
@@ -1166,20 +1174,26 @@ if Code.ensure_loaded?(Igniter) do
     # purpose, and the updater does not put it back (see
     # `ensure_worker_cron_entries/2`).
     defp split_digest_entries(content, app_name) do
-      Enum.reduce(@digest_cron_entries, {[], []}, fn {_cron, cadence} = entry,
-                                                     {missing, declined} ->
+      Enum.reduce(@digest_cron_entries, {[], [], []}, fn {_cron, cadence} = entry,
+                                                         {missing, declined, unverified} ->
         case crontab_state(content, app_name, {:digest, cadence}) do
-          :active -> {missing, declined}
-          :declined -> {missing, declined ++ [entry]}
-          :missing -> {missing ++ [entry], declined}
+          :active -> {missing, declined, unverified}
+          :declined -> {missing, declined ++ [entry], unverified}
+          :unverified -> {missing, declined, unverified ++ [entry]}
+          :missing -> {missing ++ [entry], declined, unverified}
         end
       end)
     end
 
     # What this app's own `crontab:` list says about an entry: `:active` (it is
     # scheduled), `:declined` (it appears only in a comment inside the list), or
-    # `:missing`. When the list is not a literal one the updater can take, only
-    # an active mention anywhere in the app's Oban block counts.
+    # `:missing`. When the list is not a literal one the updater can take
+    # (`crontab: some_var`, an attribute, a call), nothing can be verified inside
+    # it: an active mention anywhere in the file's code — the variable is
+    # usually defined above the Oban block — means `:unverified` (present, as
+    # far as the text tells), and only an entry mentioned nowhere is `:missing`.
+    # Calling those "missing" sent a host with the whole list in a variable a
+    # manual step per entry, and following it would have scheduled them twice.
     defp crontab_state(content, app_name, probe) do
       case ConfigSplice.list_text(content, app_name, :crontab) do
         {:ok, %{original: original, code: code}} ->
@@ -1190,10 +1204,19 @@ if Code.ensure_loaded?(Igniter) do
           end
 
         {:error, _reason} ->
-          if probe_matches?(probe, ConfigSplice.block_code(content, app_name)),
-            do: :active,
+          if probe_matches?(probe, ConfigSplice.mask(content)),
+            do: :unverified,
             else: :missing
       end
+    end
+
+    defp note_unverified([]), do: :ok
+
+    defp note_unverified(names) do
+      Mix.shell().info(
+        "  ℹ️  Already configured (crontab is not a literal list; not verified): " <>
+          Enum.join(names, ", ")
+      )
     end
 
     # One tuple at a time: `[^{}]*` cannot cross a tuple's own braces, so
@@ -1270,6 +1293,7 @@ if Code.ensure_loaded?(Igniter) do
 
       missing = for {entry, :missing} <- states, do: entry
       note_declined(for {{_cron, mod}, :declined} <- states, do: mod)
+      note_unverified(for {{_cron, mod}, :unverified} <- states, do: mod)
 
       if missing == [] do
         content
