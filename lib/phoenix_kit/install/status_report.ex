@@ -167,6 +167,40 @@ defmodule PhoenixKit.Install.StatusReport do
       " (database schema is newer than the running code — rollback or a backwards-pinned dependency?)"
   end
 
+  @doc """
+  Folds an Oban schema that is behind its library into `action`.
+
+  `oban` is a list of `{prefix, PhoenixKit.ObanSchema.status()}`, or
+  `:not_queried`. Oban's schema is not part of PhoenixKit's chain, but
+  `mix phoenix_kit.update` is what steps it up — so a host whose core is
+  current and whose Oban schema is behind is not "Ready": every unique insert
+  fails. States that need a person first (install, connection, an unreadable
+  version) keep their action.
+
+      iex> alias PhoenixKit.Install.StatusReport
+      iex> StatusReport.with_oban_schema({:ready, "Ready"}, [{"public", {:behind, 13, 14}}], "public")
+      {:update, "mix phoenix_kit.update", ["Oban schema at public is v13, Oban expects v14"]}
+
+      iex> alias PhoenixKit.Install.StatusReport
+      iex> StatusReport.with_oban_schema({:ready, "Ready"}, [{"public", {:current, 14}}], "public")
+      {:ready, "Ready"}
+  """
+  @spec with_oban_schema(action(), [{String.t(), term()}] | :not_queried, String.t()) :: action()
+  def with_oban_schema(action, :not_queried, _prefix), do: action
+
+  def with_oban_schema(action, oban, prefix) when is_list(oban) do
+    behind =
+      for {oban_prefix, {:behind, from, to}} <- oban,
+          do: "Oban schema at #{oban_prefix} is v#{from}, Oban expects v#{to}"
+
+    case {action, behind} do
+      {_action, []} -> action
+      {{:update, command, reasons}, _} -> {:update, command, reasons ++ behind}
+      {{:ready, _message}, _} -> {:update, update_command(prefix), behind}
+      _ -> action
+    end
+  end
+
   @doc "The `mix phoenix_kit.update` invocation for a prefix."
   @spec update_command(String.t()) :: String.t()
   def update_command("public"), do: "mix phoenix_kit.update"

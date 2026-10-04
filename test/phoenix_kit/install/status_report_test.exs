@@ -242,6 +242,55 @@ defmodule PhoenixKit.Install.StatusReportTest do
     end
   end
 
+  describe "with_oban_schema/3 — Oban's schema is not core's chain, but update fixes it" do
+    test "core current, Oban behind: not Ready, and update is the action" do
+      assert StatusReport.with_oban_schema(
+               {:ready, "Ready"},
+               [{"auth", {:behind, 13, 14}}],
+               "auth"
+             ) ==
+               {:update, "mix phoenix_kit.update --prefix=auth",
+                ["Oban schema at auth is v13, Oban expects v14"]}
+    end
+
+    test "core behind too: the Oban reason joins core's, one command" do
+      assert StatusReport.with_oban_schema(
+               {:update, "mix phoenix_kit.update", ["database is V207, code expects V208"]},
+               [{"public", {:behind, 13, 14}}],
+               "public"
+             ) ==
+               {:update, "mix phoenix_kit.update",
+                [
+                  "database is V207, code expects V208",
+                  "Oban schema at public is v13, Oban expects v14"
+                ]}
+    end
+
+    test "current, ahead, missing or unqueried Oban leaves the action alone" do
+      for oban <- [
+            [{"public", {:current, 14}}],
+            [{"public", {:ahead, 15, 14}}],
+            [{"public", :no_table}],
+            :not_queried
+          ] do
+        assert StatusReport.with_oban_schema({:ready, "Ready"}, oban, "public") ==
+                 {:ready, "Ready"}
+      end
+    end
+
+    test "states that need a person first keep their action" do
+      oban = [{"public", {:behind, 13, 14}}]
+
+      for action <- [
+            {:install, "mix igniter.install phoenix_kit"},
+            {:fix_connection, "..."},
+            {:check_modules, ["Broken"]}
+          ] do
+        assert StatusReport.with_oban_schema(action, oban, "public") == action
+      end
+    end
+  end
+
   defp entry(name, installed, target, status) do
     %{
       name: name,

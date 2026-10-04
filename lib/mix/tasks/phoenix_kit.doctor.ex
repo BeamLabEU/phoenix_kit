@@ -68,21 +68,26 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
    15. **Orphaned Connections** — Idle-in-transaction or stuck connections
    16. **Oban Configuration** — Queues and plugins that consume pool connections
    17. **Oban Cron Queues** — Does every crontab worker have its queue configured?
-   18. **PhoenixKit Supervisor** — What's running (update_mode vs full)?
-   19. **Child Start Order** — Does the Repo start before PhoenixKit/Oban in application.ex?
-   20. **Update Mode** — Is update_mode active?
-   21. **daisyUI Version** — Is the host's vendored daisyUI recent enough?
-   22. **User Dashboard (deprecated)** — Is the host still on the retired dashboard?
-   23. **Sitemap Discoverability** — Is the sitemap actually reachable?
-   24. **Crawler Visibility** — noindex on a production-looking host, or a
+   18. **Oban Schema** — Is Oban's schema (the version on `oban_jobs`) the one the
+       installed Oban library expects? Checked at PhoenixKit's prefix and at the
+       Oban config's prefix when that differs. Behind is a warning — every unique
+       insert fails until `mix phoenix_kit.update` steps it up; newer than the
+       library is reported, not warned.
+   19. **PhoenixKit Supervisor** — What's running (update_mode vs full)?
+   20. **Child Start Order** — Does the Repo start before PhoenixKit/Oban in application.ex?
+   21. **Update Mode** — Is update_mode active?
+   22. **daisyUI Version** — Is the host's vendored daisyUI recent enough?
+   23. **User Dashboard (deprecated)** — Is the host still on the retired dashboard?
+   24. **Sitemap Discoverability** — Is the sitemap actually reachable?
+   25. **Crawler Visibility** — noindex on a production-looking host, or a
        staging-looking host left indexable
-   25. **Demo Auth Pages** — Are the demo auth routes still exposed?
-   26. **Manifest Repair (dry-run)** — `PhoenixKit.Migrations.Repair.verify/1`
+   26. **Demo Auth Pages** — Are the demo auth routes still exposed?
+   27. **Manifest Repair (dry-run)** — `PhoenixKit.Migrations.Repair.verify/1`
        runs read-only against the generated
        `PhoenixKit.Migrations.ExpectedSchema` manifest as an additional,
        non-fatal check (never `:fail`). Passes and says so if the manifest
        has been removed or overridden away in this checkout.
-   27. **Git Hooks** — does `core.hooksPath` point at a directory that has an
+   28. **Git Hooks** — does `core.hooksPath` point at a directory that has an
        executable `pre-commit` in it? Any directory qualifies — `.githooks`
        is only the convention this checkout happens to track. Only runs
        inside a checkout of phoenix_kit itself (that convention is a
@@ -168,6 +173,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         run_check("Oban Configuration", fn -> check_oban_config(oban_config) end),
         run_check("Declared Oban Queues", fn -> check_declared_queues(oban_config) end),
         run_check("Oban Cron Queues", fn -> check_cron_queues(oban_config) end),
+        run_check("Oban Schema", fn -> check_oban_schema(prefix, oban_config) end),
         run_check("PhoenixKit Supervisor", fn -> check_supervisor_state() end),
         run_check("Child Start Order", fn -> check_child_order() end),
         run_check("Update Mode", fn -> update_mode_verdict(host_update_mode) end),
@@ -1826,6 +1832,56 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         {:warn, "Could not query pg_stat_activity"}
     end
   end
+
+  # Oban's schema follows the Oban library, not PhoenixKit's chain: core
+  # installs it once, and a host that later moves to a newer Oban is left on
+  # the old schema. Since Oban 2.24 (schema v14) that makes every unique insert
+  # fail — cron's included, which rolls back the whole minute's batch.
+  defp check_oban_schema(prefix, oban_config) do
+    repo = get_repo!()
+
+    prefix
+    |> PhoenixKit.ObanSchema.prefixes(oban_config)
+    |> Enum.map(&{&1, PhoenixKit.ObanSchema.check(repo, &1)})
+    |> oban_schema_verdict()
+  end
+
+  @doc false
+  # Pure: the verdict for `[{prefix, PhoenixKit.ObanSchema.status()}]`.
+  def oban_schema_verdict(results) do
+    reported = Enum.reject(results, fn {_prefix, status} -> status == :no_table end)
+    lines = Enum.map_join(reported, "\n       ", &oban_schema_line/1)
+
+    cond do
+      reported == [] ->
+        prefixes = Enum.map_join(results, ", ", fn {prefix, _} -> inspect(prefix) end)
+        {:pass, "No oban_jobs table at #{prefixes}; nothing to check."}
+
+      Enum.any?(reported, fn {_, status} -> match?({:behind, _, _}, status) end) ->
+        {:warn,
+         lines <>
+           "\n       Unique Oban inserts (cron included) fail until it is migrated — " <>
+           "run `mix phoenix_kit.update`."}
+
+      Enum.any?(reported, fn {_, status} -> oban_schema_unknown?(status) end) ->
+        {:warn, lines}
+
+      true ->
+        {:pass, lines}
+    end
+  end
+
+  defp oban_schema_line({prefix, {:ahead, _, _} = status}) do
+    "#{inspect(prefix)}: #{PhoenixKit.ObanSchema.describe(status)} — fine if a newer Oban " <>
+      "migrated it; check the Oban version you pin."
+  end
+
+  defp oban_schema_line({prefix, status}),
+    do: "#{inspect(prefix)}: #{PhoenixKit.ObanSchema.describe(status)}"
+
+  defp oban_schema_unknown?({:unversioned, _}), do: true
+  defp oban_schema_unknown?({:error, _}), do: true
+  defp oban_schema_unknown?(_status), do: false
 
   # Reports the Oban config snapshotted in run/1 BEFORE cap_repo_pool_size/1
   # zeroed its queues/plugins — reading it live here would always show 0/0.
