@@ -101,10 +101,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   # Etcher's toolbar color slots are a single palette shared across every
   # Fresco viewer this user opens — stored in their `custom_fields`
-  # ("user meta") under this key, not per-file like annotations. The
-  # default is used until the user saves a palette of their own.
+  # ("user meta") under this key, not per-file like annotations.
+  #
+  # There is deliberately NO default palette here. A user with nothing
+  # saved gets `nil`, and `<Etcher.layer colors={nil}>` omits the attr,
+  # so Etcher seeds its slots from its own current presets. We used to
+  # keep a copy of those presets as a constant, and it went stale the
+  # way copies do: Etcher moved from pastels to full-strength hues
+  # (0.16, 2026-09-20 — the pastels read as washed out over a
+  # photograph) and this list kept seeding the old pastels, so anyone
+  # who reset their annotation settings — or had never saved a palette —
+  # drew in colors the rest of the product had moved off of.
   @etcher_colors_key "etcher_colors"
-  @default_etcher_colors ["#fca5a5", "#fdba74", "#fde68a", "#86efac", "#93c5fd"]
 
   # The palette arrives from a client JS hook, so it's untrusted: keep only
   # short color-shaped strings and cap the count before persisting into the
@@ -174,7 +182,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:viewer_annotations, [])
      |> assign(:replying_annotation_uuid, nil)
      |> assign(:reply_parent_uuid, nil)
-     |> assign(:etcher_colors, @default_etcher_colors)
+     |> assign(:etcher_colors, nil)
      |> assign(:etcher_line_params, @default_etcher_line_params)
      |> assign(:viewer_only, false)
      |> assign(:can_annotate, true)
@@ -1784,11 +1792,14 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp load_user_colors(user) when is_map(user) do
     case sanitize_colors(Auth.get_user_field(user, @etcher_colors_key)) do
       [_ | _] = colors -> colors
-      [] -> @default_etcher_colors
+      # Nothing saved (or a reset): nil, so Etcher seeds from its own
+      # current presets — see the @etcher_colors_key comment for why no
+      # copy of them lives here.
+      [] -> nil
     end
   end
 
-  defp load_user_colors(_), do: @default_etcher_colors
+  defp load_user_colors(_), do: nil
 
   # Keep only color-shaped strings, trimmed, deduped, and capped — the input
   # is client-supplied. Returns `[]` when nothing valid remains so the caller
