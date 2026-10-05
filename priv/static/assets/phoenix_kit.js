@@ -52,6 +52,7 @@ if (typeof window.Chart === "undefined") {
  *   - PreserveScroll ........... Preserve scroll position during LiveView updates
  *   - FlashAutoDismiss ......... Auto-dismiss flash messages with progress bar
  *   - TableCardView ............ Card/table view toggle with localStorage
+ *   - TableFit ................. Drop low-priority table columns that do not fit
  *   - EmailCharts .............. Chart.js delivery trend and engagement charts
  *
  * @version 2.0.0
@@ -5511,6 +5512,168 @@ if (typeof window.Chart === "undefined") {
     }
   };
 
+
+  // ============================================================================
+  // Section: TableFit - drop the least important columns that do not fit
+  // ============================================================================
+  //
+  // On the scroll wrapper of a `<.table_default fit>`. Header cells carry
+  // `data-col-priority`; the hook hides whole columns, by position, through
+  // one stylesheet in <head> — so rows that arrive later (streams, patches)
+  // are already right without touching a cell, and LiveView has no attribute
+  // of ours to strip. It measures the real table against the wrapper rather
+  // than trusting declared widths: a badge is as wide as its translation.
+
+  // Pure: header cells -> [{index, head, priority}]. `index` is the 1-based
+  // child position the BODY cells of that column have, `head` the position
+  // of the header cell itself — they differ once a header cell spans two
+  // columns. A spanning header is never a candidate: hiding one position
+  // would take half of it.
+  function fitColumns(headers) {
+    let next = 1;
+    return headers.map((h, i) => {
+      const span = h.colSpan > 1 ? h.colSpan : 1;
+      const col = {
+        index: next,
+        head: i + 1,
+        priority: span > 1 || h.priority === undefined ? NaN : Number(h.priority)
+      };
+      next += span;
+      return col;
+    });
+  }
+
+  // Pure: the order columns are dropped in. Highest priority number first;
+  // among equals the rightmost first. Returns the columns, not positions.
+  function fitEvictionOrder(cols) {
+    return cols
+      .filter((c) => Number.isFinite(c.priority))
+      .slice()
+      .sort((a, b) => b.priority - a.priority || b.index - a.index);
+  }
+
+  // Pure: what the header row looks like, as a string. The remembered
+  // stylesheet is positional, so it is only put back on a table whose
+  // columns are the ones it was computed for.
+  function fitSignature(headers) {
+    return headers
+      .map((h) => (h.priority === undefined ? "" : h.priority) + (h.colSpan > 1 ? "x" + h.colSpan : ""))
+      .join(",");
+  }
+
+  // An id is not always a valid CSS identifier (a leading digit — a uuid —
+  // a dot, a colon), so it is escaped; the fallback is for node, which has
+  // no CSS object.
+  function fitEscapeId(id) {
+    if (typeof CSS !== "undefined" && CSS && typeof CSS.escape === "function") {
+      return CSS.escape(id);
+    }
+    return String(id).replace(/^(\d)/, "\\3$1 ").replace(/([^\w\s\\-])/g, "\\$1");
+  }
+
+  // Pure: the stylesheet hiding the given columns ({index, head}), plus a
+  // "+N" on the last header cell so dropped columns do not read as missing
+  // data. Header and body are addressed apart because their positions can
+  // differ; a cell with a colspan (an empty-state row) is left alone.
+  function fitHideCss(wrapperId, cols) {
+    if (cols.length === 0) return "";
+    const id = fitEscapeId(wrapperId);
+    const table = `#${id} > table`;
+    const sel = cols
+      .flatMap((c) => [
+        `${table} > thead > tr > :nth-child(${c.head})`,
+        `${table} > :not(thead) > tr > :nth-child(${c.index}):not([colspan])`
+      ])
+      .join(",\n");
+    const more =
+      `${table} > thead > tr > :last-child::before { content: "+${cols.length}"; ` +
+      "margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }";
+    return `@media screen {\n${sel} { display: none; }\n${more}\n}`;
+  }
+
+  window.PhoenixKitHooks.TableFit = {
+    mounted() {
+      // A table removed without destroyed() running leaves its stylesheet
+      // behind, still hiding positions of whatever takes its id next; and
+      // the component's inline script may have restored one for first paint.
+      document.head
+        .querySelectorAll("style[data-pk-table-fit]")
+        .forEach((el) => {
+          if (el.getAttribute("data-pk-table-fit") === this.el.id) el.remove();
+        });
+      this.styleEl = document.createElement("style");
+      this.styleEl.setAttribute("data-pk-table-fit", this.el.id);
+      document.head.appendChild(this.styleEl);
+      this.lastWidth = -1;
+      if (typeof ResizeObserver === "function") {
+        this.observer = new ResizeObserver(() => {
+          // Only a width change can alter what fits; a row arriving (height)
+          // comes through updated().
+          const w = this.el.clientWidth;
+          if (w === this.lastWidth) return;
+          this.fit();
+        });
+        this.observer.observe(this.el);
+      }
+      this.fit();
+    },
+    updated() {
+      this.fit();
+    },
+    destroyed() {
+      if (this.observer) this.observer.disconnect();
+      if (this.styleEl) this.styleEl.remove();
+    },
+    headers() {
+      const row = this.el.querySelector(":scope > table > thead > tr");
+      if (!row) return [];
+      return Array.from(row.children).map((th) => ({
+        colSpan: th.colSpan,
+        priority: th.dataset.colPriority
+      }));
+    },
+    fit() {
+      const table = this.el.querySelector(":scope > table");
+      const width = this.el.clientWidth;
+      // Not laid out (the card view is showing, a hidden tab): keep what we
+      // had; the observer fires again when the wrapper gets a width.
+      if (!table || width === 0) return;
+      this.lastWidth = width;
+      const headers = this.headers();
+      const order = fitEvictionOrder(fitColumns(headers));
+      const hidden = [];
+      // All in one task: show everything, then drop columns until the table
+      // stops overflowing. The browser paints only the final state.
+      this.styleEl.textContent = "";
+      while (table.scrollWidth > this.el.clientWidth && hidden.length < order.length) {
+        hidden.push(order[hidden.length]);
+        this.styleEl.textContent = fitHideCss(this.el.id, hidden);
+      }
+      // For the next hard load: the component's inline script puts this back
+      // before first paint, so the table does not flash its full width. Kept
+      // with the header's signature — the stylesheet is positional, and the
+      // same id can show other columns on another page.
+      try {
+        const key = "phoenix_kit:table-fit:" + this.el.id;
+        if (hidden.length > 0) {
+          localStorage.setItem(
+            key,
+            JSON.stringify({ sig: fitSignature(headers), css: this.styleEl.textContent })
+          );
+        } else {
+          localStorage.removeItem(key);
+        }
+      } catch (_e) {}
+    }
+  };
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.fitEvictionOrder = fitEvictionOrder;
+    module.exports.fitHideCss = fitHideCss;
+    module.exports.fitColumns = fitColumns;
+    module.exports.fitEscapeId = fitEscapeId;
+    module.exports.fitSignature = fitSignature;
+  }
 
   // ============================================================================
   // Section: TableCardView - Card/Table view toggle

@@ -379,10 +379,65 @@ defmodule PhoenixKit.Mailer do
 
       # Handle post-send tracking updates
       Provider.current().handle_after_send(tracked_email, result)
+      log_delivery(tracked_email, result, mailer)
 
       result
     end
   end
+
+  # One line per message handed to an adapter: what it was, who it went to
+  # and what the adapter answered. The email log table belongs to the optional
+  # `phoenix_kit_emails` package; without it this is the only trace a send
+  # leaves, and without THIS an operator asking "did that reset email go?"
+  # had nothing to read — a send that failed inside the adapter returned
+  # `{:error, _}` to a caller that, for auth mail, deliberately shows the same
+  # page either way.
+  #
+  # The recipient's local part is masked: the log says which mailbox provider
+  # and enough of the address to recognise it, not the address itself. Never
+  # the body — it carries single-use tokens.
+  defp log_delivery(email, {:ok, _} = _result, via) do
+    Logger.info(
+      "[PhoenixKit.Mailer] sent #{inspect(email.subject)} to #{masked_recipients(email)} via #{delivery_label(via)}"
+    )
+  end
+
+  defp log_delivery(email, {:error, reason}, via) do
+    Logger.error(
+      "[PhoenixKit.Mailer] FAILED #{inspect(email.subject)} to #{masked_recipients(email)} via #{delivery_label(via)}: " <>
+        inspect(reason, limit: 20, printable_limit: 500)
+    )
+  end
+
+  defp log_delivery(_email, _other, _via), do: :ok
+
+  defp delivery_label(via) when is_atom(via), do: inspect(via)
+  defp delivery_label(via) when is_binary(via), do: via
+  defp delivery_label(_via), do: "unknown"
+
+  defp masked_recipients(%Swoosh.Email{to: to}) do
+    to
+    |> List.wrap()
+    |> Enum.map_join(", ", fn
+      {_name, address} -> mask_address(address)
+      address -> mask_address(address)
+    end)
+  end
+
+  @doc false
+  # "max@don.ee" -> "m***@don.ee". Anything that is not an address is not
+  # echoed at all.
+  def mask_address(address) when is_binary(address) do
+    case String.split(address, "@", parts: 2) do
+      [local, domain] when local != "" and domain != "" ->
+        String.first(local) <> "***@" <> domain
+
+      _ ->
+        "(unparseable address)"
+    end
+  end
+
+  def mask_address(_address), do: "(unparseable address)"
 
   # Resolves the operator-chosen default send integration, if any. Only
   # returns `{:ok, uuid}` when the setting is a non-blank uuid that actually
@@ -501,6 +556,7 @@ defmodule PhoenixKit.Mailer do
       with {:continue, tracked_email} <- intercept_and_offer_queue(email, tracked_opts) do
         result = Swoosh.Mailer.deliver(tracked_email, [adapter: adapter] ++ config)
         Provider.current().handle_after_send(tracked_email, result)
+        log_delivery(tracked_email, result, "integration #{creds["provider"] || "unknown"}")
         result
       end
     end

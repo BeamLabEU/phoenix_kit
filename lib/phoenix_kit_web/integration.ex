@@ -224,6 +224,14 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
       end
 
+      # Ahead of :browser on the scopes that carry log-out — it has to run
+      # BEFORE the host's CSRF check to exempt a second log-out from an
+      # already logged-out browser, which that check would answer 403 (see
+      # the plug's moduledoc). Pinned by already_logged_out_test.exs.
+      pipeline :phoenix_kit_already_logged_out do
+        plug PhoenixKitWeb.Plugs.AlreadyLoggedOut
+      end
+
       # Define API pipeline for JSON endpoints
       pipeline :phoenix_kit_api do
         plug :accepts, ["json"]
@@ -243,7 +251,7 @@ defmodule PhoenixKitWeb.Integration do
   defp generate_basic_scope(url_prefix) do
     quote do
       scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup]
+        pipe_through [:phoenix_kit_already_logged_out, :browser, :phoenix_kit_auto_setup]
 
         post "/users/log-in", Users.Session, :create
         delete "/users/log-out", Users.Session, :delete
@@ -1482,13 +1490,19 @@ defmodule PhoenixKitWeb.Integration do
     public_pipelines =
       if Code.ensure_loaded?(PhoenixKitEcommerce.Web.Plugs.ShopSession) do
         [
+          :phoenix_kit_already_logged_out,
           :browser,
           :phoenix_kit_auto_setup,
           :phoenix_kit_shop_session,
           :phoenix_kit_locale_validation
         ]
       else
-        [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+        [
+          :phoenix_kit_already_logged_out,
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_locale_validation
+        ]
       end
 
     quote do

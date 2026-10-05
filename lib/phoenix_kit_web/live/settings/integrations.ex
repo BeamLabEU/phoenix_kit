@@ -273,6 +273,20 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
     Routes.path("/admin/settings/integrations", locale: locale)
   end
 
+  # A provider's icon in a tile of fixed size. Heroicons do not fill their
+  # box evenly — an envelope reaches the edges, a sparkle floats in the
+  # middle — so glyphs sized alike looked slim beside padded ones. The tile
+  # is what lines up; the glyph sits centred inside it.
+  attr :name, :string, required: true
+
+  defp provider_icon(assigns) do
+    ~H"""
+    <span class="inline-flex w-7 h-7 shrink-0 items-center justify-center rounded-md bg-base-200 text-base-content/70">
+      <.icon name={@name} class="w-4 h-4" />
+    </span>
+    """
+  end
+
   defp integration_status_badge("connected"), do: {"badge-success", gettext("Connected")}
   defp integration_status_badge("configured"), do: {"badge-warning", gettext("Not tested")}
   defp integration_status_badge("disconnected"), do: {"badge-ghost", gettext("Not connected")}

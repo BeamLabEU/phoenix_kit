@@ -98,6 +98,12 @@ defmodule PhoenixKitWeb.Users.Auth do
   ]
 
   @doc """
+  The name of the remember-me cookie, for a plug that has to know whether one
+  is present without verifying it.
+  """
+  def remember_me_cookie, do: @remember_me_cookie
+
+  @doc """
   Logs the user in.
 
   It renews the session ID and clears the whole session
@@ -2291,7 +2297,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket =
       socket
       |> Phoenix.LiveView.put_flash(:error, message)
-      |> Phoenix.LiveView.redirect(to: Routes.path("/admin/modules"))
+      # The Disabled tab, where the module's card and its switch are. The
+      # default Active tab does not list it at all.
+      |> Phoenix.LiveView.redirect(to: Routes.path("/admin/modules?tab=disabled"))
 
     {:halt, socket}
   end

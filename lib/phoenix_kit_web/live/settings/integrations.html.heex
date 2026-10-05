@@ -52,6 +52,7 @@
       <div :if={@connections != []}>
         <.table_default
           id="integrations-table"
+          fit
           variant="zebra"
           toggleable
           items={@connections}
@@ -107,7 +108,7 @@
           </:toolbar_actions>
           <:card_header :let={conn}>
             <div class="flex items-center gap-2">
-              <.icon name={conn.provider.icon} class="w-5 h-5" />
+              <.provider_icon name={conn.provider.icon} />
               <span class="font-medium">{conn.provider.name}</span>
               <span
                 :if={Providers.setup_label(conn.provider, conn.data)}
@@ -123,10 +124,20 @@
 
           <.table_default_header>
             <.table_default_row>
-              <.table_default_header_cell>{gettext("Service")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Name")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Account")}</.table_default_header_cell>
-              <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+              <%!-- The service leads and takes the slack; the rest pack to the
+                   right and drop, least important first, when the table
+                   does not fit. No `lead` on the body cell: it would clip
+                   the row link that cell stretches over the whole row. --%>
+              <.table_default_header_cell lead>{gettext("Service")}</.table_default_header_cell>
+              <.table_default_header_cell priority={2}>
+                {gettext("Name")}
+              </.table_default_header_cell>
+              <.table_default_header_cell priority={3}>
+                {gettext("Account")}
+              </.table_default_header_cell>
+              <.table_default_header_cell priority={1}>
+                {gettext("Status")}
+              </.table_default_header_cell>
               <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
             </.table_default_row>
           </.table_default_header>
@@ -144,7 +155,7 @@
                   label={conn.provider.name}
                 />
                 <div class="flex items-center gap-2">
-                  <.icon name={conn.provider.icon} class="w-4 h-4 text-base-content/60" />
+                  <.provider_icon name={conn.provider.icon} />
                   <span>{conn.provider.name}</span>
                   <span
                     :if={Providers.setup_label(conn.provider, conn.data)}
@@ -320,7 +331,7 @@
             />
             <span class="flex flex-col">
               <span class="font-medium flex items-center gap-2">
-                <.icon name={provider.icon} class="w-4 h-4" /> {provider.name}
+                <.provider_icon name={provider.icon} /> {provider.name}
               </span>
               <span class="text-xs text-base-content/60">{provider.description}</span>
               <span :if={forced and not enabled} class="text-xs text-info">

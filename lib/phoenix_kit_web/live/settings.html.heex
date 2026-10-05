@@ -53,8 +53,8 @@
 
           <div class={if @active_tab != "identity", do: "hidden"}>
             <%!-- Project Title Setting --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">{gettext("Project Title")}</span>
                 <span class="fieldset-label text-sm text-base-content/60">
                   {gettext("Application name display")}
@@ -75,7 +75,7 @@
             </div>
 
             <%!-- "Admin Panel" chip in the admin header --%>
-            <div class="fieldset w-full">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
               <.checkbox
                 name="settings[show_admin_panel_label]"
                 checked={@settings["show_admin_panel_label"] != "false"}
@@ -90,7 +90,7 @@
             </div>
 
             <%!-- Page descriptions in the admin header --%>
-            <div class="fieldset w-full">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
               <.checkbox
                 name="settings[show_page_descriptions]"
                 checked={@settings["show_page_descriptions"] == "true"}
@@ -105,8 +105,8 @@
             </div>
 
             <%!-- Project Logo --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">{gettext("Project Logo")}</span>
               </label>
               <input
@@ -155,8 +155,8 @@
 
             <%!-- Browser Tab: site icon + default tab title as one identity group,
                with a live browser-chrome preview (WordPress site-icon style). --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">{gettext("Browser Tab")}</span>
                 <span class="fieldset-label text-sm text-base-content/60">
                   {gettext("Site icon and tab title")}
@@ -322,8 +322,8 @@
 
           <div class={if @active_tab != "address", do: "hidden"}>
             <%!-- Site Address URL Setting --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">
                   {gettext("Site Address (URL)")}
                 </span>
@@ -352,8 +352,8 @@
             <%!-- Main Page: where core sends a visitor who is not signed in.
                 Empty = core's own /users/log-in, which exists in every install
                 and every locale. --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">
                   {gettext("Signed-Out Landing Page")}
                 </span>
@@ -384,8 +384,8 @@
 
           <div class={if @active_tab != "features", do: "hidden"}>
             <%!-- Notifications --%>
-            <div class="fieldset w-full">
-              <label class="label">
+            <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+              <label class="label flex-wrap whitespace-normal">
                 <span class="fieldset-legend text-base font-medium">
                   {gettext("Notifications")}
                 </span>
@@ -429,8 +429,8 @@
           <div class={if @active_tab != "editor", do: "hidden"}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <%!-- Default Editor Mode Setting --%>
-              <div class="fieldset w-full min-w-0">
-                <label class="label flex-wrap">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+                <label class="label flex-wrap whitespace-normal">
                   <span class="fieldset-legend text-base font-medium">
                     {gettext("Default Editor Mode")}
                   </span>
@@ -465,33 +465,29 @@
               </div>
 
               <%!-- Mentions --%>
-              <div class="fieldset w-full">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
                 <.checkbox
                   name="settings[mentions_enabled]"
                   checked={@settings["mentions_enabled"] == "true"}
                   label={gettext("Mentions and record links")}
-                  wrapper_class="mb-3"
-                />
-                <div>
-                  <span class="block text-xs text-base-content/50">
+                >
+                  <:description>
                     {gettext(
                       "Lets people type @ to mention someone and # to link a record, anywhere they can write free text. Turning it off stops the suggestions; mentions already written stay readable as plain text."
                     )}
-                  </span>
-                </div>
+                  </:description>
+                </.checkbox>
                 <.checkbox
                   name="settings[mentions_redact_titles]"
                   checked={@settings["mentions_redact_titles"] == "true"}
                   label={gettext("Hide titles of records the reader can't open")}
-                  wrapper_class="mb-3"
-                />
-                <div>
-                  <span class="block text-xs text-base-content/50">
+                >
+                  <:description>
                     {gettext(
                       "By default a mention shows what it names even to someone without access, with a lock icon and no link. Turn this on where the name itself is sensitive; they then see the name as it was when it was written, not its current one."
                     )}
-                  </span>
-                </div>
+                  </:description>
+                </.checkbox>
                 <.unsaved_hint
                   dirty={
                     @settings["mentions_enabled"] != @saved_settings["mentions_enabled"] or
@@ -512,8 +508,8 @@
           <div class={if @active_tab != "datetime", do: "hidden"}>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <%!-- Week Start Day Setting --%>
-              <div class="fieldset w-full min-w-0">
-                <label class="label flex-wrap">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+                <label class="label flex-wrap whitespace-normal">
                   <span class="fieldset-legend text-base font-medium">{gettext("Week Start On")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("First day of the week")}
@@ -537,8 +533,8 @@
               </div>
 
               <%!-- Time Zone Setting --%>
-              <div class="fieldset w-full min-w-0">
-                <label class="label flex-wrap">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+                <label class="label flex-wrap whitespace-normal">
                   <span class="fieldset-legend text-base font-medium">{gettext("Time Zone")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("System default timezone")}
@@ -557,8 +553,8 @@
               </div>
 
               <%!-- Date Format Setting --%>
-              <div class="fieldset w-full min-w-0">
-                <label class="label flex-wrap">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+                <label class="label flex-wrap whitespace-normal">
                   <span class="fieldset-legend text-base font-medium">{gettext("Date Format")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("How dates are displayed")}
@@ -587,8 +583,8 @@
               </div>
 
               <%!-- Time Format Setting --%>
-              <div class="fieldset w-full min-w-0">
-                <label class="label flex-wrap">
+              <div class="fieldset w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+                <label class="label flex-wrap whitespace-normal">
                   <span class="fieldset-legend text-base font-medium">{gettext("Time Format")}</span>
                   <span class="fieldset-label text-sm text-base-content/60">
                     {gettext("How times are displayed")}

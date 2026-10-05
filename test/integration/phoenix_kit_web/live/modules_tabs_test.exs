@@ -34,6 +34,56 @@ defmodule PhoenixKitWeb.Live.ModulesTabsTest do
     {view, html}
   end
 
+  describe "?tab=" do
+    defp mount_tab(conn, query) do
+      {user, _token} = create_admin_user()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Phoenix.Controller.fetch_flash()
+        |> log_in_user(user)
+
+      {:ok, _view, html} = live(conn, @modules_path <> query)
+      html
+    end
+
+    # A disabled module's page sends its visitor here. On the Active tab the
+    # module it is about is not listed at all, which read as a missing route.
+    test "disabled opens the Disabled tab, where a switched-off module's card is", %{conn: conn} do
+      Crawlers.disable_module()
+
+      refute mount_tab(conn, "") =~ @crawlers_description
+      assert mount_tab(conn, "?tab=disabled") =~ @crawlers_description
+    end
+
+    test "anything else is the Active tab", %{conn: conn} do
+      Crawlers.disable_module()
+
+      refute mount_tab(conn, "?tab=nonsense") =~ @crawlers_description
+    end
+
+    test "a disabled module's own page redirects to the Disabled tab, with the reason", %{
+      conn: conn
+    } do
+      Crawlers.disable_module()
+      {user, _token} = create_admin_user()
+
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Phoenix.Controller.fetch_flash()
+        |> log_in_user(user)
+
+      assert {:error, {:redirect, %{to: to, flash: flash}}} =
+               live(conn, Routes.path("/admin/settings/crawlers"))
+
+      assert to =~ "/admin/modules?tab=disabled"
+      # The admin on_mount hook answers before the page's own guard does.
+      assert flash["error"] == "Crawlers module is not enabled"
+    end
+  end
+
   test "renders the Active/Disabled/Not Installed tab strip", %{conn: conn} do
     {_view, html} = mount_as_admin(conn)
 
