@@ -5,8 +5,6 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
     * `role` — `primary` (written and served), `replica` (written; served
       when no primary has the object) or `backup` (written; read only by
       repair and the reconciler, never served).
-    * `stores` — `all`, `originals` (original uploads only) or `derived`
-      (sizes, tiles and renders only).
     * `write_priority` — writes go to buckets with a fixed priority first
       (lowest first), then to the rest in random order (`nil`).
     * `serve_order` — among the buckets that hold an object and may serve
@@ -17,6 +15,11 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
     * `storage_class` and `encryption` are reserved for later (G10);
       `storage_class` is allowed only on a `backup` row, because archive
       tiers need a restore before a read.
+
+  A bucket holds everything the profile sends it, an original and what is made
+  from it. The table still has a `stores` column (V205); nothing reads or writes
+  it any more, and the schema leaves it out, so a row that has it set to
+  something other than `all` is treated as `all`.
 
   A bucket's global `enabled` flag is still the stop: a disabled bucket is
   neither written nor read, whatever its profile rows say. Because that would
@@ -34,14 +37,12 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
   @foreign_key_type UUIDv7
 
   @roles ~w(primary replica backup)
-  @stores ~w(all originals derived)
   @statuses ~w(active read_only draining)
 
   @type t :: %__MODULE__{
           profile_uuid: UUIDv7.t() | nil,
           bucket_uuid: UUIDv7.t() | nil,
           role: String.t(),
-          stores: String.t(),
           write_priority: integer() | nil,
           serve_order: integer(),
           status: String.t(),
@@ -64,7 +65,6 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
       primary_key: true
 
     field :role, :string, default: "primary"
-    field :stores, :string, default: "all"
     field :write_priority, :integer
     field :serve_order, :integer, default: 0
     field :status, :string, default: "active"
@@ -77,19 +77,15 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
   @doc "The roles, in the order buckets are written and served."
   def roles, do: @roles
 
-  @doc "What a bucket may store."
-  def stores, do: @stores
-
   @doc "The statuses."
   def statuses, do: @statuses
 
   @doc "How a profile uses a bucket. The keys are set by the caller."
   def changeset(row, attrs) do
     row
-    |> cast(attrs, [:role, :stores, :write_priority, :serve_order, :status, :storage_class])
-    |> validate_required([:role, :stores, :serve_order, :status])
+    |> cast(attrs, [:role, :write_priority, :serve_order, :status, :storage_class])
+    |> validate_required([:role, :serve_order, :status])
     |> validate_inclusion(:role, @roles)
-    |> validate_inclusion(:stores, @stores)
     |> validate_inclusion(:status, @statuses)
     |> validate_number(:write_priority, greater_than_or_equal_to: 1)
     |> validate_number(:serve_order, greater_than_or_equal_to: 0)

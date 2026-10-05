@@ -94,7 +94,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
       {:ok, profile} = Profiles.update_profile(profile, %{name: "Renamed"})
       assert profile.revision == 1
 
-      {:ok, profile} = Profiles.update_profile(profile, %{copies_originals: 2})
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 2})
       assert profile.revision == 2
 
       bucket = bucket!()
@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
       {:ok, profile} = Profiles.create_profile(%{name: "Min"})
 
       assert {:error, changeset} =
-               Profiles.update_profile(profile, %{copies_originals: 2, min_copies_on_write: 3})
+               Profiles.update_profile(profile, %{copies_local: 2, min_copies_on_write: 3})
 
       assert %{min_copies_on_write: [_]} = errors_on(changeset)
     end
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
 
       rows = Map.new(Profiles.default_profile().buckets, &{&1.bucket_uuid, &1})
 
-      assert %{role: "primary", stores: "all", status: "active", write_priority: nil} =
+      assert %{role: "primary", status: "active", write_priority: nil} =
                rows[first.uuid]
 
       assert rows[second.uuid].write_priority == 3
@@ -242,7 +242,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
 
       assert profile_uuids_of(bucket) == [to_string(profile.uuid)]
 
-      assert [%{role: "primary", stores: "all", status: "active", write_priority: 3}] =
+      assert [%{role: "primary", status: "active", write_priority: 3}] =
                Profiles.get_profile(profile.uuid).buckets
 
       assert revision(profile.uuid) == before + 1

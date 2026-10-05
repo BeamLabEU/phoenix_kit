@@ -49,10 +49,10 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
 
   test "a stale profile records the actual preceding value", ctx do
     {:ok, profile} = Profiles.create_profile(%{name: "Concurrent #{ctx.n}"}, ctx.actor)
-    {:ok, _} = Profiles.update_profile(profile, %{copies_originals: 2}, ctx.actor)
-    {:ok, _} = Profiles.update_profile(profile, %{copies_originals: 3}, ctx.actor)
+    {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2}, ctx.actor)
+    {:ok, _} = Profiles.update_profile(profile, %{copies_local: 3}, ctx.actor)
 
-    assert newest("storage.profile.updated").metadata["changes"]["copies_originals"] ==
+    assert newest("storage.profile.updated").metadata["changes"]["copies_local"] ==
              %{"from" => 2, "to" => 3}
   end
 
@@ -81,7 +81,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
 
     assert {:error, :undone} =
              Repo.transaction(fn ->
-               {:ok, _} = Profiles.update_profile(profile, %{copies_originals: 2}, ctx.actor)
+               {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2}, ctx.actor)
                Repo.rollback(:undone)
              end)
 
@@ -93,7 +93,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
     {:ok, profile} = Profiles.create_profile(%{name: "Atomic #{ctx.n}"}, ctx.actor)
 
     assert {:error, _} =
-             Profiles.update_profile(profile, %{copies_originals: 2}, actor_uuid: "invalid-uuid")
+             Profiles.update_profile(profile, %{copies_local: 2}, actor_uuid: "invalid-uuid")
 
     assert Profiles.get_profile(profile.uuid).copies_originals == 1
   end
@@ -238,7 +238,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
       {:ok, profile} =
         Profiles.update_profile(
           profile,
-          %{name: "Renamed #{ctx.n}", copies_originals: 2},
+          %{name: "Renamed #{ctx.n}", copies_local: 2},
           ctx.actor
         )
 
@@ -246,7 +246,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
                newest("storage.profile.updated")
 
       assert changes["name"] == %{"from" => "Audit #{ctx.n}", "to" => "Renamed #{ctx.n}"}
-      assert changes["copies_originals"] == %{"from" => 1, "to" => 2}
+      assert changes["copies_local"] == %{"from" => 1, "to" => 2}
 
       {:ok, _} = Profiles.delete_profile(profile, ctx.actor)
       assert %Entry{metadata: %{"name" => "Renamed" <> _}} = newest("storage.profile.deleted")

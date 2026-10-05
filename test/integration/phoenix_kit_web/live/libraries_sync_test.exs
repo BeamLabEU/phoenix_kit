@@ -84,6 +84,9 @@ defmodule PhoenixKitWeb.Live.LibrariesSyncTest do
     assert has_element?(view, "#{cell(ctx.library)} [data-sync-state=syncing]")
 
     {:ok, _} = Engine.transition(run.uuid, {:pause, nil})
+    # The event handler queues a component update on the LiveView's mailbox.
+    # Let it handle the event before the test proxy requests the rendered state.
+    :sys.get_state(view.pid)
 
     assert has_element?(view, "#{cell(ctx.library)} [data-sync-state=paused]")
   end

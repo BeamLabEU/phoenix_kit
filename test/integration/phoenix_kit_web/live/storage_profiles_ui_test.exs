@@ -9,7 +9,8 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Profiles, VariantSets}
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Utils.Routes
 
   setup %{conn: conn} do
@@ -80,11 +81,11 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       view
       |> form("#media-profiles-form-#{profile.uuid}", %{
-        "profile" => %{"copies_originals" => "2", "min_copies_on_write" => "2"}
+        "profile" => %{"copies_local" => "2", "min_copies_on_write" => "2"}
       })
       |> render_submit()
 
-      assert %{copies_originals: 2, min_copies_on_write: 2} = Profiles.get_profile(profile.uuid)
+      assert %{copies_local: 2, min_copies_on_write: 2} = Profiles.get_profile(profile.uuid)
 
       view
       |> element("#media-profiles-#{profile.uuid} button", "Delete")
@@ -127,58 +128,99 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
         })
 
       html = view_html(ctx.conn)
-      assert html =~ "each original is stored on 1 of them"
+      assert html =~ "local buckets take new files and each file is stored on 1 of them"
       assert html =~ "not mirrored"
 
-      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_originals" => "2"})
-      html = view_html(ctx.conn)
-      assert html =~ "Each original is stored on 2 of the"
+      # As many local copies as local buckets: every file on every one of them.
+      count = length(Profiles.default_profile().buckets)
 
-      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_originals" => "5"})
+      {:ok, _} =
+        Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "#{count}"})
+
+      refute view_html(ctx.conn) =~ "not mirrored"
+
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "5"})
       html = view_html(ctx.conn)
-      assert html =~ "Each original should have 5 copies, but only"
+      assert html =~ "5 local copies are wanted, but only #{count} local buckets take new files"
     end
 
-    test "a replica holds nothing at one copy, and the line says so", ctx do
+    test "a replica holds nothing while the count stays within the primaries", ctx do
       # The test database's Default already has its own primary ("Local
       # Storage"); the bucket this test made becomes the replica.
       default = Profiles.default_profile()
       {:ok, _} = Profiles.put_bucket(default, ctx.bucket.uuid, %{role: "replica"})
 
-      html = view_html(ctx.conn)
-      assert html =~ "stored on the primary bucket only"
-      refute html =~ "not mirrored"
+      view = settings(ctx.conn)
+      assert render(view) =~ "Not used at this copy count: #{ctx.bucket.name}"
 
-      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_originals" => "2"})
-      assert view_html(ctx.conn) =~ "Each original is stored on 2 of the 2 buckets"
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "2"})
+      refute settings(ctx.conn) |> render() =~ "Not used at this copy count"
     end
 
-    test "offers to put an idle replica to use, and applies only that count", ctx do
-      default = Profiles.default_profile()
-      {:ok, _} = Profiles.put_bucket(default, ctx.bucket.uuid, %{role: "replica"})
+    test "the cloud count is for a profile that has a cloud bucket", ctx do
+      default = Profiles.default_uuid()
+      cloud_input = "#media-profiles-form-#{default} input[name='profile[copies_cloud]']"
 
       view = settings(ctx.conn)
-      html = render(view)
+      assert has_element?(view, cloud_input <> "[disabled]")
 
-      assert html =~ "Not used at this copy count: #{ctx.bucket.name}"
-      assert html =~ "Keep every original on 2 buckets"
+      assert has_element?(
+               view,
+               "#media-profiles-form-#{default} input[name='profile[copies_local]']"
+             )
 
-      # a hand-made event naming another count is ignored
+      cloud =
+        Repo.insert!(%Bucket{
+          name: "ui-cloud-#{System.unique_integer([:positive])}",
+          provider: "r2",
+          bucket_name: "nowhere",
+          endpoint: "127.0.0.1:9",
+          access_type: "signed",
+          enabled: true,
+          priority: 0
+        })
+
+      {:ok, _} = Profiles.put_bucket(Profiles.default_profile(), cloud.uuid, %{})
+
+      view = settings(ctx.conn)
+      assert has_element?(view, cloud_input)
+      refute has_element?(view, cloud_input <> "[disabled]")
+
+      # A cloud bucket with no cloud copies wanted holds nothing: the page says so.
+      assert render(view) =~ "The cloud buckets hold nothing at 0 cloud copies"
+
       view
-      |> with_target("#media-profiles")
-      |> render_click("apply_copies", %{"uuid" => default.uuid, "copies" => "5"})
+      |> form("#media-profiles-form-#{default}", %{"profile" => %{"copies_cloud" => "1"}})
+      |> render_submit()
 
-      assert Profiles.default_profile().copies_originals == 1
+      assert %{copies_local: 1, copies_cloud: 1, copies_originals: 2} = Profiles.default_profile()
+      refute render(view) =~ "The cloud buckets hold nothing"
+    end
+
+    test "cloud copies can be cleared after the last cloud bucket is removed", ctx do
+      {:ok, profile} = Profiles.create_profile(%{name: "Removed cloud", copies_cloud: 1})
+      {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{})
+      view = settings(ctx.conn)
+      selector = "#media-profiles-form-#{profile.uuid}"
+      refute has_element?(view, selector <> " input[name='profile[copies_cloud]'][disabled]")
+      view |> form(selector, %{"profile" => %{"copies_cloud" => "0"}}) |> render_submit()
+      assert Profiles.get_profile(profile.uuid).copies_cloud == 0
+    end
+
+    test "the upload minimum can increase together with the copy counts", ctx do
+      view = settings(ctx.conn)
+      selector = "#media-profiles-form-#{Profiles.default_uuid()}"
+
+      assert has_element?(
+               view,
+               selector <> " input[name='profile[min_copies_on_write]'][max='5']"
+             )
 
       view
-      |> element(
-        "#media-profiles-advice-#{default.uuid} button",
-        "Keep every original on 2 buckets"
-      )
-      |> render_click()
+      |> form(selector, %{"profile" => %{"copies_local" => "2", "min_copies_on_write" => "2"}})
+      |> render_submit()
 
-      assert Profiles.default_profile().copies_originals == 2
-      refute render(view) =~ "Not used at this copy count"
+      assert Profiles.default_profile().min_copies_on_write == 2
     end
 
     test "the profile's own form saves on its Save button, with a sign of it", ctx do
@@ -186,14 +228,14 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       default = Profiles.default_uuid()
       form = "#media-profiles-form-#{default}"
 
-      before = Profiles.default_profile().copies_variants
+      before = Profiles.default_profile().copies_local
 
-      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_change()
-      assert Profiles.default_profile().copies_variants == before
+      view |> form(form, %{"profile" => %{"copies_local" => "3"}}) |> render_change()
+      assert Profiles.default_profile().copies_local == before
       assert render(view) =~ "Unsaved changes"
 
-      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_submit()
-      assert Profiles.default_profile().copies_variants == 3
+      view |> form(form, %{"profile" => %{"copies_local" => "3"}}) |> render_submit()
+      assert Profiles.default_profile().copies_local == 3
       refute render(view) =~ "Unsaved changes"
     end
 
@@ -244,7 +286,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       view |> with_target("#media-profiles") |> render_hook("recover", %{"key" => "x"})
       refute render(view) =~ "Unsaved changes"
 
-      view |> form(form, %{"profile" => %{"copies_variants" => "3"}}) |> render_change()
+      view |> form(form, %{"profile" => %{"copies_local" => "3"}}) |> render_change()
       assert render(view) =~ "Unsaved changes"
     end
 
@@ -276,7 +318,11 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute html =~ ~s(placeholder="Pool")
       assert html =~ "Draining (moving files out)"
       assert html =~ "Read-only (no new files)"
-      assert html =~ "Copies of each original"
+      assert html =~ "Local copies"
+      assert html =~ "Cloud copies"
+      refute html =~ "Copies of each size and tile"
+      refute html =~ ~s(name="row[stores]")
+      refute html =~ "Stores"
     end
 
     test "a library chooses annotated thumbnails on the Libraries tab", ctx do

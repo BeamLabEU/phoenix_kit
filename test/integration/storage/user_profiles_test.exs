@@ -98,10 +98,13 @@ defmodule PhoenixKit.Modules.Storage.UserProfilesTest do
 
       assert profile.owner_uuid == user.uuid
 
-      assert {profile.copies_originals, profile.copies_variants, profile.min_copies_on_write} ==
-               {1, 1, 1}
+      # The user's bucket is S3-compatible: its one copy is a cloud copy.
+      assert {profile.copies_local, profile.copies_cloud, profile.min_copies_on_write} ==
+               {0, 1, 1}
 
-      assert [%{role: "primary", stores: "all", status: "active"}] = profile.buckets
+      assert profile.copies_originals == 1
+
+      assert [%{role: "primary", status: "active"}] = profile.buckets
       assert to_string(hd(profile.buckets).bucket_uuid) == to_string(bucket.uuid)
     end
 
@@ -133,19 +136,20 @@ defmodule PhoenixKit.Modules.Storage.UserProfilesTest do
       assert {:ok, profile} = Profiles.create_user_profile(user.uuid, bucket, :backup)
 
       by_bucket = rows(profile)
-      assert %{role: "backup", stores: "originals"} = by_bucket[to_string(bucket.uuid)]
+      assert %{role: "backup"} = by_bucket[to_string(bucket.uuid)]
       assert %{role: "primary"} = by_bucket[to_string(site.uuid)]
 
       # Every site bucket the Default had, and only those, plus the backup.
       default_uuids = Enum.map(default.buckets, &to_string(&1.bucket_uuid))
       assert Enum.sort(Map.keys(by_bucket)) == Enum.sort([to_string(bucket.uuid) | default_uuids])
 
-      # An original on every site bucket that stores originals, plus the backup:
-      # placement writes all primaries before any backup, so anything less and
-      # the backup would never get a copy.
-      originals = Enum.count(profile.buckets, &(&1.role != "backup" and &1.stores != "derived"))
-      assert profile.copies_originals == originals + 1
-      assert profile.copies_variants <= default.copies_variants
+      # A copy on every site bucket (local ones on local) plus the backup in the
+      # cloud: placement writes all primaries before any backup, so anything
+      # less and the backup would never get a copy.
+      site_rows = Enum.count(profile.buckets, &(&1.role != "backup"))
+      assert profile.copies_local == site_rows
+      assert profile.copies_cloud == 1
+      assert profile.copies_originals == site_rows + 1
       assert profile.min_copies_on_write <= default.min_copies_on_write
     end
 

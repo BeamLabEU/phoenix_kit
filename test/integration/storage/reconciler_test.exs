@@ -14,6 +14,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   alias PhoenixKit.Modules.Storage
 
   alias PhoenixKit.Modules.Storage.{
+    Bucket,
     FileLocation,
     Libraries,
     LocationCheck,
@@ -132,7 +133,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       file = upload!(ctx, "one more copy")
       key = key(file)
       {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{})
-      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_originals: 2})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
 
       assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
 
@@ -173,20 +174,32 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       key = key(file)
       {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.a.uuid, %{status: "read_only"})
       {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{})
-      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_originals: 2})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
 
       assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
       assert buckets_of(key) == uuids([ctx.a, ctx.b])
     end
 
-    test "an original on a bucket that stores only derived files moves", ctx do
-      file = upload!(ctx, "originals only")
+    test "a bucket is held to the count of its own kind: no cloud copies wanted, none made",
+         ctx do
+      file = upload!(ctx, "local is enough")
       key = key(file)
-      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.a.uuid, %{stores: "derived"})
-      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+
+      cloud =
+        Repo.insert!(%Bucket{
+          name: "recon-cloud-#{System.unique_integer([:positive])}",
+          provider: "r2",
+          bucket_name: "nowhere",
+          endpoint: "127.0.0.1:9",
+          access_type: "signed",
+          enabled: true,
+          priority: 0
+        })
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), cloud.uuid, %{})
 
       assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
-      assert buckets_of(key) == uuids([ctx.b])
+      assert buckets_of(key) == uuids([ctx.a])
     end
 
     test "with nowhere to copy to, nothing is unlinked and the file stays stale", ctx do
@@ -317,7 +330,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   test "the job walks every stale file", ctx do
     files = for i <- 1..3, do: upload!(ctx, "walk #{i}")
     {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{})
-    {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_originals: 2})
+    {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
 
     totals = ReconcileJob.run_pass()
 

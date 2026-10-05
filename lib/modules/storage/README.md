@@ -326,16 +326,28 @@ with none uses the **Default**, seeded by V205 from the buckets and
 `storage_redundancy_copies` under a fixed uuid, so an install that never
 touches profiles behaves as before. A profile has:
 
-- `copies_originals` / `copies_variants` (1..5): copies of an original
-  upload, and of a derived file (a size, a tile, a render);
+- `copies_local` / `copies_cloud` (0..5 each, 1..5 in all): how many copies of
+  every file go to **local** buckets (the server's disks) and to **cloud** buckets
+  (S3, B2, R2, Tigris) — two on disk and one in the cloud survives the server.
+  An original and what is made from it (a size, a tile, a render) get the same.
+  A kind the profile wants no copy of is not written, whatever buckets it has.
+  `copies_originals` is the **total** (a CHECK keeps it `copies_local +
+  copies_cloud`; `min_copies_on_write` is bounded by it) and `copies_variants`
+  is not used; `StorageProfile.changeset/2` keeps both equal to the total (V209).
+  The editor enables Cloud copies when a writable cloud bucket is present, or
+  when an existing cloud count needs to be lowered after a bucket is removed;
+  `Profiles.split_copies/2` splits a count that knows no kinds (the old
+  redundancy setting) local first, as V209 did for existing profiles;
 - `min_copies_on_write`: an original upload fails (and what was written is
   removed) unless this many copies succeed; the rest are made later;
 - per bucket (`ProfileBucket`): a `role` (`primary` is written and served,
   `replica` is served when no primary has the copy, `backup` is written but
-  never served), what it `stores` (`all`, `originals`, `derived`), a fixed
-  `write_priority` (nil is the shuffled pool), a `serve_order`, and a
+  never served), a fixed `write_priority` (nil is the shuffled pool), a `serve_order`, and a
   `status` (`active`; `read_only` serves but gets no new files; `draining`
-  has its files moved to the profile's other buckets).
+  has its files moved to the profile's other buckets). A bucket holds
+  everything the profile sends it, an original and what is made from it: there
+  is no `stores` choice (V205's column stays in the table, and nothing reads or
+  writes it).
 
 **A bucket a profile lists is protected.** `Storage.delete_bucket/2` and
 `Storage.update_bucket/3` (disabling) refuse it with
@@ -355,10 +367,11 @@ library is counted, never named).
 
 **Writes** (`Manager.store_file/2` with `:profile` and `:kind`, reached
 through `Storage.store_by_profile/4`): the profile's buckets that are
-enabled, `active`, store that kind and are under their `max_size_mb`,
-primaries before replicas before backups, fixed write priority before the
-pool, up to the copy count; a bucket whose write fails is replaced by the
-next one. A file records the profile and revision that placed it
+enabled, `active` and under their `max_size_mb`, primaries before replicas
+before backups, fixed write priority before the pool. Local and cloud buckets
+are selected separately, up to each kind's copy count; a bucket whose write
+fails is replaced by the next one of its kind. A file records the profile and
+revision that placed it
 (`placed_profile_uuid` / `placed_revision`; NULL is the Default at revision
 1); fewer copies than wanted leave it stale (revision 0). An original with
 fewer than `min_copies_on_write` copies fails, and what it wrote is removed
@@ -464,17 +477,18 @@ its placement stamp differs from its profile, or — for an active file only
 — its variant stamp differs from its set; trashed and unfinished files keep
 their size stamp until they are active again.
 
-- **Copies:** each checked, completed instance (an original upload is an
-  original; sizes, tiles and renders are derived; an edit's hidden backup
-  is an original) gets copies on the profile's buckets up to the copy
-  count, capped at buckets that hold one or can take one. Each copy is
-  made, checked with `Manager.holds?/2` and recorded under the key's
-  directory lock. A file whose only copies are on backups gets one on a
-  primary or replica.
+- **Copies:** each checked, completed instance gets local and cloud copies
+  separately, up to each kind's count, capped at buckets that hold one or can
+  take one. Each copy is made, checked with `Manager.holds?/2` and recorded under
+  the key's directory lock. A file whose only copies are on backups gets one
+  on a primary or replica of a kind with copies wanted. If its remaining
+  serving buckets belong to a zero-count kind, it stays stale until the profile
+  changes, even when those buckets are read-only or full; the fallback never
+  writes that kind or deletes the last serving copy.
 - **Unlinks:** a copy on a bucket the profile no longer uses for it
-  (draining, taken out, storing the other kind) goes only after the copies
-  that stay are checked to be really there, never the last one. The object
-  leaves that bucket only when no other active location there names the
+  (draining, taken out, or a kind with zero copies wanted) goes only after both
+  kinds' remaining copies are checked to be really there, never the last one.
+  The object leaves that bucket only when no other active location there names the
   key, no instance under it is unchecked, and no upload into its directory
   is in flight (`Storage.unlink_location/2`, G11).
 - **Sizes:** missing ones are made, ones with another `spec_hash` remade (a
@@ -486,7 +500,7 @@ their size stamp until they are active again.
   (`reconcile_attempted_at`); a file stuck in `processing` for an hour, or
   `failed`, is placed like any other.
 - Queued by every revision bump (a profile's copies or a bucket row's
-  stores, status or role — not serve order, write priority or storage
+  status or role — not serve order, write priority or storage
   class; a set's flags or sizes), a library moving, an incomplete upload, a
   restore, the daily prune and boot; a queued pass restarts from the
   beginning. The Health page lists what is waiting and can queue a pass.
@@ -732,13 +746,12 @@ picker only while the setting is on).
   is final**: `Profiles.set_library_profile/2` refuses to move a library off or
   onto user storage.
 - **`only`**: the user's bucket is the profile's one `primary`. **`backup`**: the
-  site's buckets stay the primaries (a **snapshot of the Default profile at
+  site's buckets keep their roles (a **snapshot of the Default profile at
   creation**; a site bucket added later is not used) and the user's bucket holds a
-  `backup` of the originals. An original is kept on every snapshotted site bucket
-  that is writable and stores originals, and on the backup (at most 5 copies, so
-  four original-capable site buckets; derived-only ones are kept too: placement
-  writes all primaries before any backup, so anything less and the backup would
-  never get one). Uploads succeed on the Default's terms counting the site's
+  `backup` of every file, including sizes and tiles. Every file gets a copy on
+  each writable snapshotted site bucket, counted per kind, plus a cloud copy on
+  the backup (at most 5 copies, so four site buckets, active first). Uploads
+  succeed on the Default's terms counting the site's
   copies only (`min_copies_on_write` ignores a backup: it is never served); the
   reconciler makes a backup the write missed.
 - **Schema**: `owner_uuid` on `phoenix_kit_buckets` and `phoenix_kit_storage_profiles`

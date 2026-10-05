@@ -212,8 +212,7 @@ defmodule PhoenixKit.Integration.Storage.TrashBroadcastTest do
 
       assert {:ok, _} = Storage.delete_folder_completely(root)
 
-      assert_receive {:phoenix_kit_files_deleted, uuids} when is_list(uuids)
-      assert Enum.sort(uuids) == expected
+      assert receive_batch(expected, :phoenix_kit_files_deleted) == expected
       for uuid <- expected, do: refute_received({:phoenix_kit_file_deleted, ^uuid})
     end
 
@@ -236,19 +235,18 @@ defmodule PhoenixKit.Integration.Storage.TrashBroadcastTest do
     end
   end
 
-  # Trashes `file` as `trash_file/1` would, but at a chosen moment, so a test
-  # can tell its stamp from a folder operation's.
-  # The first `:phoenix_kit_files_trashed` batch holding exactly `expected`
-  # (sorted), skipping other tests' batches on the shared topic.
-  defp receive_batch(expected) do
+  # The batch holding exactly this test's uuids, skipping other tests' batches
+  # on the shared topic. Deletion broadcasts need the same scoping as trash.
+  defp receive_batch(expected, event \\ :phoenix_kit_files_trashed) do
     receive do
-      {:phoenix_kit_files_trashed, uuids} when is_list(uuids) ->
-        if Enum.sort(uuids) == expected, do: expected, else: receive_batch(expected)
+      {^event, uuids} when is_list(uuids) ->
+        if Enum.sort(uuids) == expected, do: expected, else: receive_batch(expected, event)
     after
-      1_000 -> flunk("no :phoenix_kit_files_trashed batch for #{inspect(expected)}")
+      1_000 -> flunk("no #{event} batch for #{inspect(expected)}")
     end
   end
 
+  # Trashes at a chosen moment so a test can distinguish a folder's operation.
   defp trash_at!(file, at) do
     {1, _} =
       Repo.update_all(from(f in StorageFile, where: f.uuid == ^file.uuid),

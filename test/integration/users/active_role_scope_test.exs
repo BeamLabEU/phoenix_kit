@@ -4,10 +4,11 @@ defmodule PhoenixKit.Integration.Users.ActiveRoleScopeTest do
   switcher on, a user acting as one role gets that role's access and nothing
   else.
 
-  The settings cache is not started in the test suite, so settings writes stay
-  inside each test's sandbox transaction and the file can run async.
+  Settings writes stay inside each test's sandbox transaction, but role-order
+  changes also update the shared system roles. Run synchronously to avoid
+  conflicting with another sandbox transaction reordering those same rows.
   """
-  use PhoenixKit.DataCase, async: true
+  use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth

@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.Storage.ServingOrderTest do
     end)
 
     {:ok, library} = Libraries.create_system_library(%{name: "Serving #{n}"})
-    {:ok, profile} = Profiles.create_profile(%{name: "Serving #{n}", copies_originals: 2})
+    {:ok, profile} = Profiles.create_profile(%{name: "Serving #{n}", copies_local: 2})
     {:ok, _} = Profiles.put_bucket(profile, a.uuid, %{serve_order: 1})
     {:ok, _} = Profiles.put_bucket(profile, b.uuid, %{serve_order: 2})
     {:ok, library} = Profiles.set_library_profile(library, profile.uuid)

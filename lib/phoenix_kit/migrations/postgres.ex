@@ -7,7 +7,15 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V208 - Bucket log ⚡ LATEST
+  ### V209 - Local and cloud copies ⚡ LATEST
+
+  `phoenix_kit_storage_profiles.copies_local` / `copies_cloud`: a profile counts
+  its copies per kind of bucket (two on the server's disks, one in the cloud)
+  instead of one number for any bucket. `copies_originals` stays as the total,
+  kept equal by a CHECK. Existing profiles are split by the buckets they have,
+  local first; no file is placed again.
+
+  ### V208 - Bucket log
 
   `phoenix_kit_bucket_log`: what went wrong with a site storage bucket (a write,
   read or delete that failed) and what its connection probes said, with the
@@ -919,7 +927,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 208
+  @current_version 209
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

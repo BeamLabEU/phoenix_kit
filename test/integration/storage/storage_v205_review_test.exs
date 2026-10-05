@@ -135,7 +135,7 @@ defmodule PhoenixKit.Modules.Storage.V205ReviewTest do
     test "a read-only bucket without a copy does not keep the file stale", ctx do
       file = upload!(ctx, "read only spare")
       {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{status: "read_only"})
-      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_originals: 2})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
 
       assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
     end
@@ -298,7 +298,7 @@ defmodule PhoenixKit.Modules.Storage.V205ReviewTest do
       {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{})
 
       {:ok, _} =
-        Profiles.update_profile(profile(ctx), %{copies_originals: 2, min_copies_on_write: 2})
+        Profiles.update_profile(profile(ctx), %{copies_local: 2, min_copies_on_write: 2})
 
       file = upload!(ctx, "spare")
       assert MapSet.new(Locations.bucket_uuids(key(file))) == MapSet.new([ctx.a.uuid, ctx.b.uuid])
@@ -311,7 +311,7 @@ defmodule PhoenixKit.Modules.Storage.V205ReviewTest do
       {:ok, _} = Profiles.put_bucket(profile(ctx), broken_bucket!().uuid, %{})
 
       {:ok, _} =
-        Profiles.update_profile(profile(ctx), %{copies_originals: 2, min_copies_on_write: 2})
+        Profiles.update_profile(profile(ctx), %{copies_local: 2, min_copies_on_write: 2})
 
       assert {:error, _} =
                Manager.store_file(source!("owned bytes"),
@@ -329,28 +329,40 @@ defmodule PhoenixKit.Modules.Storage.V205ReviewTest do
   end
 
   describe "settings and sizes" do
-    test "the redundancy alias leaves a variant count set apart", ctx do
+    test "the redundancy alias sets the copy count in all, local buckets first", ctx do
       default = Profiles.default_profile()
-      {:ok, _} = Profiles.update_profile(default, %{copies_originals: 1, copies_variants: 1})
-
-      {:ok, _} =
-        Profiles.update_profile(Profiles.default_profile(), %{
-          copies_variants: 2,
-          copies_originals: 3
-        })
-
+      {:ok, _} = Profiles.update_profile(default, %{copies_local: 1, copies_cloud: 0})
       _ = ctx
 
       {:ok, _} = Storage.set_redundancy_copies(2)
-      assert %{copies_originals: 2, copies_variants: 2} = Profiles.default_profile()
+      assert %{copies_local: 2, copies_cloud: 0, copies_originals: 2} = Profiles.default_profile()
 
-      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_variants: 1})
       {:ok, _} = Storage.set_redundancy_copies(3)
-      assert %{copies_originals: 3, copies_variants: 1} = Profiles.default_profile()
+      default = Profiles.default_profile()
+      assert Profiles.copies_total(default) == 3
+      assert %{copies_originals: 3, copies_variants: 3} = default
+    end
+
+    test "a rename moves nothing: the counts and the revision stay", ctx do
+      _ = ctx
+      {:ok, profile} = Profiles.create_profile(%{name: "Old counts #{System.unique_integer()}"})
+      {:ok, profile} = Profiles.update_profile(profile, %{copies_local: 2})
+
+      {:ok, renamed} =
+        Profiles.update_profile(profile, %{name: "Renamed #{System.unique_integer()}"})
+
+      # Nothing about where files live changed, so nothing is placed again.
+      assert renamed.revision == profile.revision
+      assert Profiles.copies_total(renamed) == 2
+
+      {:ok, changed} = Profiles.update_profile(renamed, %{copies_local: 3})
+      assert changed.revision > renamed.revision
+      # The total and the older column follow the counts.
+      assert {changed.copies_originals, changed.copies_variants} == {3, 3}
     end
 
     test "how many copies an upload needs changes no revision", ctx do
-      {:ok, profile} = Profiles.update_profile(profile(ctx), %{copies_originals: 2})
+      {:ok, profile} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
       {:ok, updated} = Profiles.update_profile(profile, %{min_copies_on_write: 2})
       assert updated.revision == profile.revision
     end
