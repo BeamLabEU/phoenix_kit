@@ -328,6 +328,62 @@ defmodule PhoenixKit.MailerTest do
     end
   end
 
+  # Without the optional emails package there is no email log, and a send
+  # used to leave no trace at all: an operator asking "did that reset email
+  # go?" had nothing to read.
+  describe "deliver_email/2 — the delivery log line" do
+    # The suite runs at :warning; this line is :info.
+    setup do
+      previous = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: previous) end)
+    end
+
+    test "a send is logged with its subject, the adapter, and the recipient masked" do
+      email =
+        new()
+        |> to({"Max Example", "max.example@example.com"})
+        |> Swoosh.Email.from("from@example.com")
+        |> subject("Reset your password")
+        |> text_body("https://example.com/reset/SECRET-TOKEN")
+
+      log =
+        ExUnit.CaptureLog.capture_log([level: :info], fn ->
+          assert {:ok, _} = Mailer.deliver_email(email)
+        end)
+
+      assert log =~ "[PhoenixKit.Mailer] sent"
+      assert log =~ "Reset your password"
+      assert log =~ "m***@example.com"
+      # never the address itself, the name, or the body with its token
+      refute log =~ "max.example@example.com"
+      refute log =~ "SECRET-TOKEN"
+    end
+
+    test "a blocked recipient is not logged as sent" do
+      email =
+        new()
+        |> to("blocked@example.com")
+        |> Swoosh.Email.from("from@example.com")
+        |> subject("Hi")
+
+      log =
+        ExUnit.CaptureLog.capture_log([level: :info], fn ->
+          assert {:error, {:blocked, :blocklist}} = Mailer.deliver_email(email)
+        end)
+
+      refute log =~ "[PhoenixKit.Mailer] sent"
+    end
+
+    test "mask_address/1 keeps the first letter and the domain, and echoes nothing else" do
+      assert Mailer.mask_address("max@don.ee") == "m***@don.ee"
+      assert Mailer.mask_address("a@b.c") == "a***@b.c"
+      assert Mailer.mask_address("not an address") == "(unparseable address)"
+      assert Mailer.mask_address("@nolocal.example") == "(unparseable address)"
+      assert Mailer.mask_address(nil) == "(unparseable address)"
+    end
+  end
+
   describe "deliver_via_integration/3" do
     test "returns an error when the integration uuid doesn't resolve" do
       email =
