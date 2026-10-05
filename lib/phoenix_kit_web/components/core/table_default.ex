@@ -142,7 +142,9 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   The `TableFit` hook measures the real table against its wrapper (the
   sidebar makes the viewport width useless here) on mount, on resize and
   after every patch, so a table with three columns keeps all of them where
-  one with nine sheds four. Printing shows every column. A cell with a
+  one with nine sheds four. While columns are dropped the last header cell
+  shows "+N", so a missing column does not read as missing data. Printing
+  shows every column. A cell with a
   `colspan` is left alone (an empty-state row), and a header cell that
   spans columns is counted as that many. Columns are hidden by position,
   so every body and footer row must have the header's cells, in its order:
@@ -613,8 +615,11 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   # A hard page load paints before the hook can measure, so the table would
   # show every column for a frame and then lose some. The hook remembers the
   # last stylesheet it settled on per table (localStorage); this puts it back
-  # while the page is still being parsed. It is a guess from the last visit —
-  # the hook measures again on mount and corrects it. Inline because nothing
+  # while the page is still being parsed — only when the header row is the one
+  # it was computed for (same priorities in the same places), since the same
+  # id can show other columns on another page and the stylesheet is
+  # positional. It is still a guess about the width; the hook measures again
+  # on mount and corrects it. Inline because nothing
   # else runs before first paint (a script LiveView inserts later is never
   # executed, and by then the hook is already there). It names nothing from
   # the server: it finds its table as the element just before it.
@@ -625,11 +630,18 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
         try {
           var wrap = document.currentScript && document.currentScript.previousElementSibling;
           if (!wrap || !wrap.id) return;
-          var css = localStorage.getItem("phoenix_kit:table-fit:" + wrap.id);
-          if (!css) return;
+          var saved = JSON.parse(localStorage.getItem("phoenix_kit:table-fit:" + wrap.id) || "null");
+          if (!saved || typeof saved.css !== "string") return;
+          var row = wrap.querySelector(":scope > table > thead > tr");
+          if (!row) return;
+          var sig = Array.prototype.map.call(row.children, function (th) {
+            var p = th.dataset.colPriority;
+            return (p === undefined ? "" : p) + (th.colSpan > 1 ? "x" + th.colSpan : "");
+          }).join(",");
+          if (sig !== saved.sig) return;
           var style = document.createElement("style");
           style.setAttribute("data-pk-table-fit", wrap.id);
-          style.textContent = css;
+          style.textContent = saved.css;
           document.head.appendChild(style);
         } catch (_e) {}
       })();

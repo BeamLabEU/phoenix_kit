@@ -5524,31 +5524,41 @@ if (typeof window.Chart === "undefined") {
   // of ours to strip. It measures the real table against the wrapper rather
   // than trusting declared widths: a badge is as wide as its translation.
 
-  // Pure: the order columns are dropped in. Highest priority number first;
-  // among equals the rightmost first. `cols` is [{index, priority}].
-  function fitEvictionOrder(cols) {
-    return cols
-      .filter((c) => Number.isFinite(c.priority))
-      .slice()
-      .sort((a, b) => b.priority - a.priority || b.index - a.index)
-      .map((c) => c.index);
-  }
-
-  // Pure: header cells -> [{index, priority}]. `index` is the 1-based child
-  // position the BODY cells of that column have, so a header cell spanning
-  // two columns pushes the ones after it along; a spanning header is itself
-  // never a candidate (hiding one position would take half of it).
+  // Pure: header cells -> [{index, head, priority}]. `index` is the 1-based
+  // child position the BODY cells of that column have, `head` the position
+  // of the header cell itself — they differ once a header cell spans two
+  // columns. A spanning header is never a candidate: hiding one position
+  // would take half of it.
   function fitColumns(headers) {
     let next = 1;
-    return headers.map((h) => {
+    return headers.map((h, i) => {
       const span = h.colSpan > 1 ? h.colSpan : 1;
       const col = {
         index: next,
+        head: i + 1,
         priority: span > 1 || h.priority === undefined ? NaN : Number(h.priority)
       };
       next += span;
       return col;
     });
+  }
+
+  // Pure: the order columns are dropped in. Highest priority number first;
+  // among equals the rightmost first. Returns the columns, not positions.
+  function fitEvictionOrder(cols) {
+    return cols
+      .filter((c) => Number.isFinite(c.priority))
+      .slice()
+      .sort((a, b) => b.priority - a.priority || b.index - a.index);
+  }
+
+  // Pure: what the header row looks like, as a string. The remembered
+  // stylesheet is positional, so it is only put back on a table whose
+  // columns are the ones it was computed for.
+  function fitSignature(headers) {
+    return headers
+      .map((h) => (h.priority === undefined ? "" : h.priority) + (h.colSpan > 1 ? "x" + h.colSpan : ""))
+      .join(",");
   }
 
   // An id is not always a valid CSS identifier (a leading digit — a uuid —
@@ -5561,20 +5571,31 @@ if (typeof window.Chart === "undefined") {
     return String(id).replace(/^(\d)/, "\\3$1 ").replace(/([^\w\s\\-])/g, "\\$1");
   }
 
-  // Pure: the stylesheet hiding the given 1-based column positions.
-  function fitHideCss(wrapperId, indexes) {
-    if (indexes.length === 0) return "";
+  // Pure: the stylesheet hiding the given columns ({index, head}), plus a
+  // "+N" on the last header cell so dropped columns do not read as missing
+  // data. Header and body are addressed apart because their positions can
+  // differ; a cell with a colspan (an empty-state row) is left alone.
+  function fitHideCss(wrapperId, cols) {
+    if (cols.length === 0) return "";
     const id = fitEscapeId(wrapperId);
-    const sel = indexes
-      .map((i) => `#${id} > table > * > tr > :nth-child(${i}):not([colspan])`)
+    const table = `#${id} > table`;
+    const sel = cols
+      .flatMap((c) => [
+        `${table} > thead > tr > :nth-child(${c.head})`,
+        `${table} > :not(thead) > tr > :nth-child(${c.index}):not([colspan])`
+      ])
       .join(",\n");
-    return `@media screen {\n${sel} { display: none; }\n}`;
+    const more =
+      `${table} > thead > tr > :last-child::before { content: "+${cols.length}"; ` +
+      "margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }";
+    return `@media screen {\n${sel} { display: none; }\n${more}\n}`;
   }
 
   window.PhoenixKitHooks.TableFit = {
     mounted() {
       // A table removed without destroyed() running leaves its stylesheet
-      // behind, still hiding positions of whatever takes its id next.
+      // behind, still hiding positions of whatever takes its id next; and
+      // the component's inline script may have restored one for first paint.
       document.head
         .querySelectorAll("style[data-pk-table-fit]")
         .forEach((el) => {
@@ -5603,15 +5624,13 @@ if (typeof window.Chart === "undefined") {
       if (this.observer) this.observer.disconnect();
       if (this.styleEl) this.styleEl.remove();
     },
-    columns() {
+    headers() {
       const row = this.el.querySelector(":scope > table > thead > tr");
       if (!row) return [];
-      return fitColumns(
-        Array.from(row.children).map((th) => ({
-          colSpan: th.colSpan,
-          priority: th.dataset.colPriority
-        }))
-      );
+      return Array.from(row.children).map((th) => ({
+        colSpan: th.colSpan,
+        priority: th.dataset.colPriority
+      }));
     },
     fit() {
       const table = this.el.querySelector(":scope > table");
@@ -5620,7 +5639,8 @@ if (typeof window.Chart === "undefined") {
       // had; the observer fires again when the wrapper gets a width.
       if (!table || width === 0) return;
       this.lastWidth = width;
-      const order = fitEvictionOrder(this.columns());
+      const headers = this.headers();
+      const order = fitEvictionOrder(fitColumns(headers));
       const hidden = [];
       // All in one task: show everything, then drop columns until the table
       // stops overflowing. The browser paints only the final state.
@@ -5630,11 +5650,19 @@ if (typeof window.Chart === "undefined") {
         this.styleEl.textContent = fitHideCss(this.el.id, hidden);
       }
       // For the next hard load: the component's inline script puts this back
-      // before first paint, so the table does not flash its full width.
+      // before first paint, so the table does not flash its full width. Kept
+      // with the header's signature — the stylesheet is positional, and the
+      // same id can show other columns on another page.
       try {
         const key = "phoenix_kit:table-fit:" + this.el.id;
-        if (hidden.length > 0) localStorage.setItem(key, this.styleEl.textContent);
-        else localStorage.removeItem(key);
+        if (hidden.length > 0) {
+          localStorage.setItem(
+            key,
+            JSON.stringify({ sig: fitSignature(headers), css: this.styleEl.textContent })
+          );
+        } else {
+          localStorage.removeItem(key);
+        }
       } catch (_e) {}
     }
   };
@@ -5644,6 +5672,7 @@ if (typeof window.Chart === "undefined") {
     module.exports.fitHideCss = fitHideCss;
     module.exports.fitColumns = fitColumns;
     module.exports.fitEscapeId = fitEscapeId;
+    module.exports.fitSignature = fitSignature;
   }
 
   // ============================================================================
