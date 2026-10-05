@@ -1443,6 +1443,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
                 :marker,
                 :callout,
                 :text,
+                :textbox,
                 :dimension,
                 :arrow,
                 :line,
