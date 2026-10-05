@@ -224,9 +224,10 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
       end
 
-      # Ahead of :browser on the scopes that carry log-out: a second log-out
-      # from an already logged-out browser is redirected before the host's
-      # CSRF check can answer it 403 (see the plug's moduledoc).
+      # Ahead of :browser on the scopes that carry log-out — it has to run
+      # BEFORE the host's CSRF check to exempt a second log-out from an
+      # already logged-out browser, which that check would answer 403 (see
+      # the plug's moduledoc). Pinned by already_logged_out_test.exs.
       pipeline :phoenix_kit_already_logged_out do
         plug PhoenixKitWeb.Plugs.AlreadyLoggedOut
       end
