@@ -5949,6 +5949,29 @@ if (typeof window.Chart === "undefined") {
       this._homeParent = this.menu.parentNode;
       this._homeNextSibling = this.menu.nextSibling;
 
+      // Inside a popup shown with showModal() the portal must NOT be <body>:
+      // the dialog is in the top layer, which paints over everything outside
+      // it, and a modal dialog makes everything outside it inert — a menu on
+      // <body> is hidden behind the popup and takes no click. The portal is
+      // then the open <dialog> itself (a descendant is not inert, and the
+      // dialog element — unlike its transformed box — is a plain fixed
+      // origin); and where the Popover API exists the menu is a manual
+      // popover as well, so the top layer paints it over the dialog's own
+      // content. Measured in Chrome, 2026-10-05.
+      this.popover = typeof this.menu.showPopover === "function";
+      if (this.popover) {
+        this.menu.setAttribute("popover", "manual");
+        // The UA sheet centres a popover and gives it a border, padding and
+        // colours of its own; `inset: auto` + `margin: 0` leave only ours.
+        this.menu.style.inset = "auto";
+        this.menu.style.margin = "0";
+      }
+
+      this._portal = () => {
+        var dialog = this.el.closest ? this.el.closest("dialog") : null;
+        return dialog && dialog.open ? dialog : document.body;
+      };
+
       this._onTriggerClick = (e) => {
         e.stopPropagation();
         this.isOpen ? this._close() : this._open();
@@ -6042,8 +6065,9 @@ if (typeof window.Chart === "undefined") {
       // relative to that ancestor instead of the viewport. Moving the
       // menu to <body> makes `getBoundingClientRect()` and the resulting
       // `left`/`top` values consistent.
-      if (this.menu.parentNode !== document.body) {
-        document.body.appendChild(this.menu);
+      var portal = this._portal();
+      if (this.menu.parentNode !== portal) {
+        portal.appendChild(this.menu);
       }
 
       var triggerRect = this.trigger.getBoundingClientRect();
@@ -6053,6 +6077,7 @@ if (typeof window.Chart === "undefined") {
 
       // Show briefly to measure dimensions
       this.menu.classList.remove("hidden");
+      if (this.popover && !this.menu.matches(":popover-open")) this.menu.showPopover();
       var menuWidth = this.menu.offsetWidth || 160;
       var menuHeight = this.menu.offsetHeight || 200;
 
@@ -6099,6 +6124,7 @@ if (typeof window.Chart === "undefined") {
 
     _close() {
       if (!this.isOpen) return;
+      if (this.popover && this.menu.matches(":popover-open")) this.menu.hidePopover();
       this.menu.classList.add("hidden");
       this.isOpen = false;
       if (openRowMenu === this) openRowMenu = null;
