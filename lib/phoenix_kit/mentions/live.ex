@@ -109,7 +109,8 @@ defmodule PhoenixKit.Mentions.Live do
     results =
       Mentions.search(kind, query,
         scope: socket.assigns[:phoenix_kit_current_scope],
-        user_uuid: Actor.uuid(socket)
+        user_uuid: Actor.uuid(socket),
+        context: context(params["context"])
       )
       |> Enum.map(fn r ->
         kind = if r[:kind] == :user, do: :user, else: :resource
@@ -134,6 +135,12 @@ defmodule PhoenixKit.Mentions.Live do
     # query the user has already typed past.
     %{results: results, seq: params["seq"]}
   end
+
+  # The field's `data-mention-context`, as the hook sent it: a map of
+  # strings, or nothing. Handlers narrow by it; they never trust it for
+  # access — the scope decides that.
+  defp context(%{} = map), do: map
+  defp context(_), do: nil
 
   # Falls back to a sanitised label rather than dropping the result: a
   # record whose name happens to contain a delimiter should still be

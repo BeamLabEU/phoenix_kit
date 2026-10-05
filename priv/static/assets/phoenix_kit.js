@@ -5951,6 +5951,29 @@ if (typeof window.Chart === "undefined") {
       this._homeParent = this.menu.parentNode;
       this._homeNextSibling = this.menu.nextSibling;
 
+      // Inside a popup shown with showModal() the portal must NOT be <body>:
+      // the dialog is in the top layer, which paints over everything outside
+      // it, and a modal dialog makes everything outside it inert — a menu on
+      // <body> is hidden behind the popup and takes no click. The portal is
+      // then the open <dialog> itself (a descendant is not inert, and the
+      // dialog element — unlike its transformed box — is a plain fixed
+      // origin); and where the Popover API exists the menu is a manual
+      // popover as well, so the top layer paints it over the dialog's own
+      // content. Measured in Chrome, 2026-10-05.
+      this.popover = typeof this.menu.showPopover === "function";
+      if (this.popover) {
+        this.menu.setAttribute("popover", "manual");
+        // The UA sheet centres a popover and gives it a border, padding and
+        // colours of its own; `inset: auto` + `margin: 0` leave only ours.
+        this.menu.style.inset = "auto";
+        this.menu.style.margin = "0";
+      }
+
+      this._portal = () => {
+        var dialog = this.el.closest ? this.el.closest("dialog") : null;
+        return dialog && dialog.open ? dialog : document.body;
+      };
+
       this._onTriggerClick = (e) => {
         e.stopPropagation();
         this.isOpen ? this._close() : this._open();
@@ -6044,8 +6067,9 @@ if (typeof window.Chart === "undefined") {
       // relative to that ancestor instead of the viewport. Moving the
       // menu to <body> makes `getBoundingClientRect()` and the resulting
       // `left`/`top` values consistent.
-      if (this.menu.parentNode !== document.body) {
-        document.body.appendChild(this.menu);
+      var portal = this._portal();
+      if (this.menu.parentNode !== portal) {
+        portal.appendChild(this.menu);
       }
 
       var triggerRect = this.trigger.getBoundingClientRect();
@@ -6055,6 +6079,7 @@ if (typeof window.Chart === "undefined") {
 
       // Show briefly to measure dimensions
       this.menu.classList.remove("hidden");
+      if (this.popover && !this.menu.matches(":popover-open")) this.menu.showPopover();
       var menuWidth = this.menu.offsetWidth || 160;
       var menuHeight = this.menu.offsetHeight || 200;
 
@@ -6101,6 +6126,7 @@ if (typeof window.Chart === "undefined") {
 
     _close() {
       if (!this.isOpen) return;
+      if (this.popover && this.menu.matches(":popover-open")) this.menu.hidePopover();
       this.menu.classList.add("hidden");
       this.isOpen = false;
       if (openRowMenu === this) openRowMenu = null;
@@ -8956,6 +8982,47 @@ if (typeof window.Chart === "undefined") {
     return null;
   }
 
+  // Where a character of the textarea's value sits, in pixels from the
+  // field's top-left corner (scrolling already subtracted): a hidden mirror
+  // with the field's own type and box metrics holds the text up to that
+  // index and a marker span from there on, so the marker lands where the
+  // character does. The menu opens under the `@`/`#` itself, not under the
+  // whole field.
+  var MIRROR_PROPS = [
+    "boxSizing", "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant", "letterSpacing",
+    "lineHeight", "textTransform", "wordSpacing", "textIndent", "tabSize", "textRendering"
+  ];
+
+  function charBox(el, index) {
+    var cs = window.getComputedStyle(el);
+    var mirror = document.createElement("div");
+    MIRROR_PROPS.forEach(function(prop) { mirror.style[prop] = cs[prop]; });
+    mirror.style.position = "absolute";
+    mirror.style.visibility = "hidden";
+    mirror.style.top = "0";
+    mirror.style.left = "-9999px";
+    mirror.style.height = "auto";
+    mirror.style.overflow = "hidden";
+    mirror.style.whiteSpace = "pre-wrap";
+    mirror.style.overflowWrap = "break-word";
+    mirror.setAttribute("aria-hidden", "true");
+    mirror.textContent = el.value.slice(0, index);
+    var marker = document.createElement("span");
+    marker.textContent = el.value.slice(index) || ".";
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+    var lineHeight = parseFloat(cs.lineHeight);
+    var box = {
+      top: marker.offsetTop + (parseFloat(cs.borderTopWidth) || 0) - el.scrollTop,
+      left: marker.offsetLeft + (parseFloat(cs.borderLeftWidth) || 0) - el.scrollLeft,
+      height: isNaN(lineHeight) ? marker.offsetHeight || 16 : lineHeight
+    };
+    document.body.removeChild(mirror);
+    return box;
+  }
+
   window.PhoenixKitHooks.MentionInput = {
     mounted: function() {
       var self = this;
@@ -8972,16 +9039,80 @@ if (typeof window.Chart === "undefined") {
       this.menu.setAttribute("role", "listbox");
       document.body.appendChild(this.menu);
 
+      // A field inside an open <dialog> (a popup shown with showModal())
+      // sits in the browser's top layer, which paints over everything
+      // outside it whatever its z-index — a menu left on <body> is there,
+      // open, and invisible behind the popup; and a modal dialog makes
+      // everything outside it inert, so a top-layer popover on <body> is
+      // painted but takes no click (measured in Chrome, 2026-10-05). The
+      // menu therefore lives INSIDE the open dialog while the field is in
+      // one, as a manual popover — the top layer paints it over the
+      // dialog's own content, and as a dialog descendant it is not inert.
+      // The dialog is LiveView's to patch, and a patch discards any node it
+      // did not render: a MutationObserver puts the menu back the moment
+      // that happens, before the frame is painted.
+      this.popover = typeof this.menu.showPopover === "function";
+      if (this.popover) {
+        this.menu.setAttribute("popover", "manual");
+        // The UA sheet centres a popover (inset: 0; margin: auto) and gives
+        // it a border, padding and colours of its own.
+        this.menu.style.inset = "auto";
+        this.menu.style.margin = "0";
+        this.menu.style.position = "fixed";
+      }
+
+      this.host = function() {
+        var dialog = self.el.closest ? self.el.closest("dialog") : null;
+        return dialog && dialog.open ? dialog : document.body;
+      };
+
+      this.mount = function() {
+        var host = self.host();
+        if (self.menu.parentNode !== host) host.appendChild(self.menu);
+        // Viewport coordinates whenever the menu does not scroll with the
+        // document: in the top layer, or inside a fixed dialog.
+        self.fixed = self.popover || host !== document.body;
+        if (!self.popover) self.menu.style.position = self.fixed ? "fixed" : "";
+        self.observe(host);
+      };
+
+      this.observe = function(host) {
+        if (self.observedHost === host) return;
+        if (self.observer) self.observer.disconnect();
+        self.observer = null;
+        self.observedHost = host;
+        if (host === document.body || typeof MutationObserver !== "function") return;
+        self.observer = new MutationObserver(function() {
+          if (!self.active || self.menu.parentNode === host || !host.isConnected) return;
+          host.appendChild(self.menu);
+          // Leaving the DOM closed the popover; back in, it reopens.
+          self.show();
+        });
+        self.observer.observe(host, { childList: true });
+      };
+
+      this.show = function() {
+        self.menu.classList.remove("hidden");
+        if (self.popover && self.menu.isConnected !== false && !self.menu.matches(":popover-open")) {
+          self.menu.showPopover();
+        }
+      };
+
+      this.hide = function() {
+        if (self.popover && self.menu.matches(":popover-open")) self.menu.hidePopover();
+        self.menu.classList.add("hidden");
+      };
+
       this.close = function() {
         self.active = null;
         self.results = [];
         self.cursor = 0;
-        self.menu.classList.add("hidden");
+        self.hide();
       };
 
       this.render = function() {
         if (!self.active || !self.results.length) {
-          self.menu.classList.add("hidden");
+          self.hide();
           return;
         }
         self.menu.innerHTML = "";
@@ -9009,21 +9140,43 @@ if (typeof window.Chart === "undefined") {
           li.appendChild(a);
           self.menu.appendChild(li);
         });
+        // Shown first, so the menu has a size to place.
+        self.mount();
+        self.show();
         self.position();
-        self.menu.classList.remove("hidden");
       };
 
-      // Anchored to the field rather than the caret: measuring a caret
-      // inside a textarea needs a mirror element, and being a few lines off
-      // is a much smaller problem than a menu that drifts as the text
-      // reflows.
+      // The trigger character's box in the field — overridable, so the
+      // placement arithmetic can be exercised without a layout engine.
+      this.anchor = function() {
+        var index = self.active ? self.active.start : self.el.selectionStart || 0;
+        return charBox(self.el, index);
+      };
+
+      // Under the `@`/`#` the user typed: its line's bottom, its column —
+      // kept inside the field's width and the viewport, and flipped above
+      // the line when there is no room below.
       this.position = function() {
+        self.mount();
         var rect = self.el.getBoundingClientRect();
-        var top = rect.bottom + window.scrollY + 4;
-        var left = rect.left + window.scrollX;
-        var maxLeft = window.scrollX + document.documentElement.clientWidth - self.menu.offsetWidth - 8;
-        self.menu.style.top = top + "px";
-        self.menu.style.left = Math.max(8, Math.min(left, maxLeft)) + "px";
+        var box = self.anchor();
+        var scrollY = self.fixed ? 0 : window.scrollY;
+        var scrollX = self.fixed ? 0 : window.scrollX;
+        var viewportWidth = document.documentElement.clientWidth;
+        var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        var width = self.menu.offsetWidth || 0;
+        var height = self.menu.offsetHeight || 0;
+
+        var lineTop = rect.top + Math.max(0, Math.min(box.top, rect.height - box.height));
+        var top = lineTop + box.height + 2;
+        if (viewportHeight && top + height > viewportHeight - 8 && lineTop - height - 2 >= 8) {
+          top = lineTop - height - 2;
+        }
+        var left = rect.left + Math.max(0, Math.min(box.left, rect.width));
+        var maxLeft = viewportWidth - width - 8;
+
+        self.menu.style.top = top + scrollY + "px";
+        self.menu.style.left = Math.max(8, Math.min(left, maxLeft)) + scrollX + "px";
       };
 
       this.choose = function(idx) {
@@ -9048,6 +9201,19 @@ if (typeof window.Chart === "undefined") {
         self.el.focus();
       };
 
+      // The page's context for the search, from `data-mention-context`;
+      // null when the field carries none or the JSON is broken.
+      this.context = function() {
+        var raw = self.el.dataset ? self.el.dataset.mentionContext : null;
+        if (!raw) return null;
+        try {
+          var parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_e) {
+          return null;
+        }
+      };
+
       this.search = function() {
         var caret = self.el.selectionStart;
         var found = triggerAt(self.el.value, caret);
@@ -9060,7 +9226,15 @@ if (typeof window.Chart === "undefined") {
         var seq = self.seq;
         self.pushEvent(
           "pk_mention_search",
-          { kind: found.char === "@" ? "user" : "resource", query: found.query, seq: seq },
+          {
+            kind: found.char === "@" ? "user" : "resource",
+            query: found.query,
+            seq: seq,
+            // Where the field is: `data-mention-context` (JSON) names the
+            // record the page is about, so a `#` offers what belongs with
+            // it rather than everything the viewer may see.
+            context: self.context()
+          },
           function(reply) {
             // Out-of-order replies: the user kept typing while this one was
             // in flight, so its results describe a query that no longer
@@ -9112,6 +9286,8 @@ if (typeof window.Chart === "undefined") {
       // The menu lives on document.body, so it outlives the hook's element
       // unless it is taken down explicitly — a LiveView patch that replaces
       // the textarea would otherwise leave an orphan floating over the page.
+      if (this.observer) this.observer.disconnect();
+      if (this.menu && this.hide) this.hide();
       if (this.menu && this.menu.parentNode) this.menu.parentNode.removeChild(this.menu);
       window.removeEventListener("scroll", this.repositionHandler, true);
       window.removeEventListener("resize", this.repositionHandler);
