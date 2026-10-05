@@ -5961,13 +5961,23 @@ if (typeof window.Chart === "undefined") {
       // popover as well, so the top layer paints it over the dialog's own
       // content. Measured in Chrome, 2026-10-05.
       this.popover = typeof this.menu.showPopover === "function";
-      if (this.popover) {
-        this.menu.setAttribute("popover", "manual");
+
+      // The <ul> is server-rendered without `popover`, so a patch of the row
+      // while the menu is closed strips what this sets (the patcher removes
+      // attributes the server did not render) — and showPopover() on an
+      // element with no `popover` attribute throws. Applied again on every
+      // open, so it cannot go stale.
+      this._armPopover = () => {
+        if (!this.popover) return;
+        if (this.menu.getAttribute("popover") !== "manual") {
+          this.menu.setAttribute("popover", "manual");
+        }
         // The UA sheet centres a popover and gives it a border, padding and
         // colours of its own; `inset: auto` + `margin: 0` leave only ours.
         this.menu.style.inset = "auto";
         this.menu.style.margin = "0";
-      }
+      };
+      this._armPopover();
 
       this._portal = () => {
         var dialog = this.el.closest ? this.el.closest("dialog") : null;
@@ -6079,6 +6089,7 @@ if (typeof window.Chart === "undefined") {
 
       // Show briefly to measure dimensions
       this.menu.classList.remove("hidden");
+      this._armPopover();
       if (this.popover && !this.menu.matches(":popover-open")) this.menu.showPopover();
       var menuWidth = this.menu.offsetWidth || 160;
       var menuHeight = this.menu.offsetHeight || 200;

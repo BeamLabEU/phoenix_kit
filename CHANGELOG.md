@@ -1,3 +1,11 @@
+## 2.54.1 - 2026-10-05
+
+### Fixed
+
+- **A row menu could stop opening after its row was patched.** `RowMenu` (2.54.0) set `popover="manual"` on the
+  menu once at mount; a LiveView patch of the row while the menu was closed stripped it, and the next open threw
+  from `showPopover()` and left the menu unpositioned on screen. The attribute is now applied on every open.
+
 ## 2.54.0 - 2026-10-05
 
 ### Upgrading

@@ -157,3 +157,21 @@ test("without the Popover API the dialog portal still applies", () => {
   assert.equal(menu.parentNode, dialog);
   assert.deepEqual(menu.calls, []);
 });
+
+test("a patch that strips the popover attribute while closed does not break the next open", () => {
+  const { hook, menu } = mountMenu();
+  // The patcher removes attributes the server did not render.
+  delete menu.attrs.popover;
+  menu.style = {};
+  // Like the browser: showPopover() throws on an element that is not a popover.
+  const show = menu.showPopover;
+  menu.showPopover = () => {
+    if (menu.attrs.popover !== "manual") throw new Error("NotSupportedError");
+    show();
+  };
+  hook._open();
+  assert.equal(menu.attrs.popover, "manual");
+  assert.equal(menu.style.inset, "auto");
+  assert.equal(menu.popoverOpen, true);
+  assert.equal(hook.isOpen, true);
+});
