@@ -298,7 +298,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
                 DbConnectionCheck.ensure_connected!()
 
                 result = super(argv)
-                post_igniter_tasks(elem(opts, 0))
+                finish_update(elem(opts, 0))
 
                 # Clean retry flag
                 Process.delete(:phoenix_kit_retry_pass)
@@ -764,6 +764,33 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           """
 
       Igniter.add_notice(igniter, final_instructions)
+    end
+
+    defp finish_update(opts),
+      do: with_manual_steps_summary(fn -> post_igniter_tasks(opts) end)
+
+    @doc false
+    # Runs `fun` (the migration, asset and schema steps) and prints the closing
+    # manual-steps block AFTER it — also when it raises. A declined or failed
+    # migration ends in `Mix.raise/1`, and the summary is exactly what such a
+    # run must not lose: the raise would otherwise cut it off.
+    def with_manual_steps_summary(fun) do
+      fun.()
+    after
+      print_manual_steps()
+    end
+
+    # Everything the Oban config pass could not edit by itself, repeated as one
+    # block at the very end — after the migration and asset output that buried
+    # the one-line warnings in the run that left a host without a cron entry.
+    defp print_manual_steps do
+      case ObanConfig.manual_steps_summary(
+             ObanConfig.take_manual_steps(),
+             ObanConfig.take_declined()
+           ) do
+        "" -> :ok
+        summary -> Mix.shell().error(summary)
+      end
     end
 
     # Handle tasks that need to run after igniter completes
@@ -1810,10 +1837,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Show success notice after update
+    #
+    # Not a plain "success" while config edits are still waiting on the host:
+    # the closing "Manual steps needed" block follows, and this line must not
+    # read as the last word before it.
     defp show_update_success_notice(opts) do
-      Mix.shell().info("""
-      🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
-      """)
+      case ObanConfig.manual_step_count() do
+        0 ->
+          Mix.shell().info("""
+          🎉 PhoenixKit updated successfully! Visit: #{build_app_path(opts, "/users/register")}
+          """)
+
+        n ->
+          Mix.shell().info("""
+          PhoenixKit updated — #{n} manual step(s) below. Visit: #{build_app_path(opts, "/users/register")}
+          """)
+      end
     end
 
     defp build_app_path(opts, path) do
@@ -2466,8 +2505,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Add notice about Oban configuration being updated with new queues
     defp add_oban_config_updated_notice(igniter) do
+      headline =
+        case ObanConfig.manual_step_count() do
+          0 ->
+            "⚙️  Oban configuration verified/updated in config.exs"
+
+          n ->
+            "⚙️  Oban configuration checked in config.exs — #{n} step(s) need you (listed below)"
+        end
+
       notice = """
-      ⚙️  Oban configuration verified/updated in config.exs
+      #{headline}
          Any queue PhoenixKit or an installed module declares was added if it
          was missing (existing limits are never changed).
          IMPORTANT: If your server is running, restart it to apply changes.

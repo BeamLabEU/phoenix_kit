@@ -53,7 +53,9 @@ defmodule PhoenixKit.Install.ConfigVerify do
   @spec verify(String.t(), (Macro.t() -> boolean())) :: {:ok, String.t()} | {:error, failure()}
   def verify(candidate, semantic_check)
       when is_binary(candidate) and is_function(semantic_check, 1) do
-    case Code.string_to_quoted(candidate) do
+    # `emit_warnings: false`: a host's single-quoted charlists would otherwise
+    # print a deprecation warning for every parse the updater does.
+    case Code.string_to_quoted(candidate, emit_warnings: false) do
       {:ok, ast} ->
         if semantic_check.(ast) do
           {:ok, candidate}

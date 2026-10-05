@@ -32,17 +32,30 @@ if Code.ensure_loaded?(Igniter) do
     @dialyzer {:nowarn_function, ensure_lifeline_plugin: 2}
     @dialyzer {:nowarn_function, maybe_raise_lifeline_rescue_after: 1}
     @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
-    @dialyzer {:nowarn_function, queue_manual_notice: 3}
-    @dialyzer {:nowarn_function, lifeline_manual_notice: 1}
-    @dialyzer {:nowarn_function, scheduled_posts_job_manual_notice: 0}
-    @dialyzer {:nowarn_function, worker_entries_manual_notice: 2}
-    @dialyzer {:nowarn_function, digest_entries_manual_notice: 2}
-    @dialyzer {:nowarn_function, cron_plugin_manual_notice: 1}
+    @dialyzer {:nowarn_function, queue_manual_notice: 4}
+    @dialyzer {:nowarn_function, lifeline_manual_notice: 2}
+    @dialyzer {:nowarn_function, scheduled_posts_job_manual_notice: 3}
+    @dialyzer {:nowarn_function, worker_entries_manual_notice: 3}
+    @dialyzer {:nowarn_function, digest_entries_manual_notice: 3}
+    @dialyzer {:nowarn_function, cron_plugin_manual_notice: 2}
     @dialyzer {:nowarn_function, pruner_manual_notice: 0}
+    @dialyzer {:nowarn_function, manual_notice: 2}
     @dialyzer {:nowarn_function, apply_pruner_max_age: 2}
+    @dialyzer {:nowarn_function, ensure_pruner_in: 3}
+    @dialyzer {:nowarn_function, note_declined: 1}
+    @dialyzer {:nowarn_function, note_unverified: 1}
+    @dialyzer {:nowarn_function, refused: 4}
+    @dialyzer {:nowarn_function, report_update: 2}
+    @dialyzer {:nowarn_function, report_update: 3}
+    @dialyzer {:nowarn_function, note_nested_block: 2}
+    @dialyzer {:nowarn_function, ensure_cron_steps: 2}
+    @dialyzer {:nowarn_function, report_scheduled: 2}
+    @dialyzer {:nowarn_function, add_lifeline_plugin: 2}
+    @dialyzer {:nowarn_function, update_content: 2}
 
     alias Igniter.Libs.Phoenix
     alias Igniter.Project.Application
+    alias PhoenixKit.Install.ConfigSplice
     alias PhoenixKit.Install.ConfigVerify
     alias PhoenixKit.Install.IgniterHelpers
 
@@ -303,34 +316,120 @@ if Code.ensure_loaded?(Igniter) do
     # Update existing Oban configuration to add posts/sitemap queues and cron plugin
     defp update_existing_oban_config(source, content, app_name) do
       Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
+      Rewrite.Source.update(source, :content, update_content(content, app_name))
+    end
 
-      # Every queue PhoenixKit or an installed module declares
-      # (`PhoenixKit.ObanQueues`) is added when missing — an idle queue costs
-      # nothing, and the reverse is the failure this exists to prevent: Oban
-      # only fetches for queues the node lists, so a job enqueued into a
-      # missing queue sits `available` forever (Pruner deletes terminal states
-      # only) while the feature looks fine. A limit already present is never
-      # changed.
-      updated_content =
+    @doc """
+    The whole backfill of an existing Oban block, on content: queues, cron
+    plugin and entries, Pruner retention, Lifeline. Public so it can be tested
+    against content strings.
+
+    A block the host switched off is not a to-do list: `config :app, Oban, false`
+    ends the phase with one line, and `plugins: false` skips every plugin step
+    with one line (queues are still checked).
+    """
+    @spec update_content(String.t(), atom() | String.t()) :: String.t()
+    def update_content(content, app_name) do
+      cond do
+        ConfigSplice.oban_disabled?(content, app_name) ->
+          Mix.shell().info(
+            "  ℹ️  Oban is disabled in this config (`config :#{app_name}, Oban, false`) — nothing to add"
+          )
+
+          content
+
+        ConfigSplice.option_off?(content, app_name, :plugins) ->
+          updated = ensure_declared_queues(content, app_name)
+
+          Mix.shell().info(
+            "  ℹ️  Oban plugins are switched off (`plugins: false`) — no cron, Lifeline or Pruner entries to add"
+          )
+
+          report_update(content, updated, "queues checked; plugins are switched off")
+
+        true ->
+          # Every queue PhoenixKit or an installed module declares
+          # (`PhoenixKit.ObanQueues`) is added when missing — an idle queue costs
+          # nothing, and the reverse is the failure this exists to prevent: Oban
+          # only fetches for queues the node lists, so a job enqueued into a
+          # missing queue sits `available` forever (Pruner deletes terminal
+          # states only) while the feature looks fine. A limit already present is
+          # never changed.
+          updated =
+            content
+            |> ensure_declared_queues(app_name)
+            |> ensure_cron_steps(app_name)
+            |> ensure_pruner_max_age(app_name)
+            |> ensure_lifeline_plugin(app_name)
+
+          note_nested_block(content, app_name)
+          report_update(content, updated)
+      end
+    end
+
+    # A prod-only (or any environment's) `config :app, Oban` after the top-level
+    # one is merged over it by Config: its `plugins:` replaces the top-level
+    # one there. The updater edits the top-level block only.
+    defp note_nested_block(content, app_name) do
+      if ConfigSplice.nested_block_follows?(content, app_name) do
+        Mix.shell().info(
+          "  ℹ️  A nested `config :#{app_name}, Oban` for an environment follows; " <>
+            "it may override `plugins:` there — check it"
+        )
+      end
+    end
+
+    # The cron plugin, digest and worker entries — or one line when the host has
+    # `cron: false` and no Cron anywhere else.
+    defp ensure_cron_steps(content, app_name) do
+      if ConfigSplice.option_off?(content, app_name, :cron) and
+           not cron_service?(content, app_name) do
+        Mix.shell().info(
+          "  ℹ️  Oban cron is switched off in config (`cron: false`) — no cron entries to add"
+        )
+
         content
-        |> ensure_declared_queues(app_name)
+      else
+        content
         |> ensure_cron_plugin(app_name)
         |> ensure_digest_cron_entries(app_name)
         |> ensure_worker_cron_entries(app_name)
-        |> ensure_pruner_max_age(app_name)
-        |> ensure_lifeline_plugin(app_name)
+      end
+    end
 
-      if updated_content == content do
-        Mix.shell().info(
-          "✅ Oban configuration already up-to-date (queues, cron plugin, pruner max_age, and Lifeline present)"
-        )
-      else
-        Mix.shell().info(
-          "✅ Updated Oban configuration (queues, cron plugin, pruner retention, Lifeline)"
-        )
+    defp cron_service?(content, app_name) do
+      case ConfigSplice.known_services(content, app_name) do
+        {services, _unknown?} -> Oban.Cron in services
+        :error -> false
+      end
+    end
+
+    # The closing line of the phase. It must not say "up-to-date" while a step
+    # is waiting for the host.
+    defp report_update(content, updated, what \\ nil) do
+      pending = manual_step_count()
+
+      cond do
+        pending > 0 ->
+          Mix.shell().info(
+            "⚠️  Oban configuration: #{pending} step(s) need you — listed again at the end of the update"
+          )
+
+        what != nil ->
+          Mix.shell().info("✅ Oban configuration: #{what}")
+
+        updated == content ->
+          Mix.shell().info(
+            "✅ Oban configuration already up-to-date (queues, cron plugin, pruner max_age, and Lifeline present)"
+          )
+
+        true ->
+          Mix.shell().info(
+            "✅ Updated Oban configuration (queues, cron plugin, pruner retention, Lifeline)"
+          )
       end
 
-      Rewrite.Source.update(source, :content, updated_content)
+      updated
     end
 
     @doc """
@@ -437,8 +536,12 @@ if Code.ensure_loaded?(Igniter) do
 
     Public so it can be unit-tested directly against content strings.
     """
-    @spec ensure_queue(String.t(), atom() | String.t(), String.t(), pos_integer()) :: String.t()
-    def ensure_queue(content, app_name, queue, limit) do
+    @spec ensure_queue(String.t(), atom() | String.t(), String.t() | atom(), pos_integer()) ::
+            String.t()
+    def ensure_queue(content, app_name, queue, limit) when is_atom(queue) and not is_nil(queue),
+      do: ensure_queue(content, app_name, Atom.to_string(queue), limit)
+
+    def ensure_queue(content, app_name, queue, limit) when is_binary(queue) do
       if queue_configured?(content, app_name, queue) do
         Mix.shell().info("  ℹ️  #{queue} queue already configured")
         content
@@ -480,85 +583,236 @@ if Code.ensure_loaded?(Igniter) do
     defp queue_configured?(content, app_name, queue) do
       Regex.match?(
         ~r/(?<![A-Za-z0-9_])#{Regex.escape(queue)}:\s*\S/,
-        app_oban_block(content, app_name) || strip_comment_lines(content)
+        app_oban_block(content, app_name) || ConfigSplice.mask(content)
       )
     end
 
-    # The body of `config :app_name, Oban, ...` up to the next top-level
-    # `config`/`import_config`, comment lines removed; nil when there is none.
-    defp app_oban_block(content, app_name) do
-      case Regex.run(
-             ~r/^config\s+:#{app_name},\s+Oban\b((?:(?!\n(?:config\s|import_config\s)).)*)/ms,
-             strip_comment_lines(content)
-           ) do
-        [_, block] -> block
-        nil -> nil
-      end
-    end
+    # The body of `config :app_name, Oban, ...` (`ConfigSplice`'s span), comments
+    # and string bodies blanked; nil when there is none.
+    defp app_oban_block(content, app_name),
+      do: ConfigSplice.block_code(content, app_name, strings: true)
 
-    # Two ways string surgery on a queues list goes wrong, both already paid for
-    # elsewhere in this file:
+    # An empty `queues: []` deliberately takes the manual path: Oban documents
+    # an empty list as equivalent to `false` — "prevents any queues from
+    # starting on init" — so a node that says it runs no queues should not
+    # silently be given one (`allow_empty: false`).
     #
-    #   * stopping at a nested list's bracket rather than the queues list's own
-    #     — `default: [limit: 10]` is legal, and inserting there produces an
-    #     option Oban rejects at boot. `ensure_lifeline_plugin/2` documents the
-    #     fix: anchor the closing `]` to the keyword's own indentation with a
-    #     backreference, which nested entries are always indented past.
-    #
-    #   * running out of this app's Oban block entirely. An Oban block with no
-    #     `queues:` at all let a lazy `.*?` walk into the next `config` entry
-    #     and add the queue to an unrelated application. The block is bounded
-    #     here by the next top-level `config`/`import_config`, the same boundary
-    #     `oban_block_missing_prefix?/1` uses.
-    #
-    # An empty `queues: []` deliberately finds no match and takes the manual
-    # path: Oban documents an empty list as equivalent to `false` — "prevents
-    # any queues from starting on init" — so a node that says it runs no queues
-    # should not silently be given one.
+    # The splice itself — where the list opens and closes, nested lists, comments
+    # and strings — is `ConfigSplice.append_to_list/5`; the queue goes after the
+    # last real element, so a trailing `# comment` or a block of comment lines
+    # at the end of the list cannot swallow the separating comma.
     defp insert_queue(content, app_name, queue, limit) do
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?\n([ \t]+)queues:\s*\[\n)(.*?)(\n\2\])/ms,
+      queue_atom = String.to_atom(queue)
+
+      case append_entries(
              content,
-             capture: :all
+             app_name,
+             :queues,
+             ["#{queue}: #{limit}"],
+             &keyword_list_has_key?(&1, :queues, queue_atom, limit),
+             allow_empty: false,
+             fallback: fn -> queue_in_file_code?(content, queue) end
            ) do
-        [full_match, queues_open, indent, queues_content, queues_close] ->
-          Mix.shell().info("  ✓ Found queues block, adding #{queue} queue")
+        {:ok, result} ->
+          if result != content,
+            do: Mix.shell().info("  ✓ Found queues block, adding #{queue} queue")
 
-          entry = "#{queue}: #{limit}"
+          result
 
-          updated_queues =
-            queues_open <> add_queue_entry(queues_content, indent <> "  ", entry) <> queues_close
-
-          candidate = String.replace(content, full_match, updated_queues, global: false)
-          queue_atom = String.to_atom(queue)
-
-          case ConfigVerify.verify_or_rollback(
-                 content,
-                 candidate,
-                 &keyword_list_has_key?(&1, :queues, queue_atom, limit)
-               ) do
-            {:ok, result} ->
-              result
-
-            {:rolled_back, original, _reason} ->
-              queue_manual_notice(app_name, queue, limit)
-              original
-          end
-
-        nil ->
-          queue_manual_notice(app_name, queue, limit)
+        {:error, why} ->
+          queue_manual_notice(app_name, queue, limit, why)
           content
       end
     end
 
-    defp queue_manual_notice(app_name, queue, limit) do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add #{queue} to the queues block for :#{app_name} " <>
-          "(not found, or the insertion would have produced invalid or misplaced config)"
+    # `queues: my_queues` — nothing can be checked inside it, so a queue named
+    # in the file's code (not in a comment, a string or another app's block)
+    # counts as configured, unverified.
+    defp queue_in_file_code?(content, queue) do
+      Regex.match?(
+        ~r/(?<![A-Za-z0-9_])#{Regex.escape(queue)}:\s*\S/,
+        ConfigSplice.file_code(content, strings: true)
       )
-
-      Mix.shell().error("     Please manually add: #{queue}: #{limit}")
     end
+
+    # The refusal when an edit would list something twice. The entry is usually
+    # there already, under another spelling (an alias, Oban 2.24's new names, a
+    # top-level `lifeline:`), so the step must not tell the host to add it.
+
+    # Splice `entries` onto the end of `app_name`'s `key:` list and check the
+    # result three times: with `verify` (`ConfigVerify.verify_or_rollback/3`) — the
+    # file must still parse and the entries must be direct members of THAT list
+    # — and with `ConfigSplice.preserves_original?/3`: apart from the entries,
+    # the host's own config must parse to exactly what it did before. The
+    # masking behind the splice is a heuristic, and a miss that put the comma
+    # inside one of the host's strings still parses and still contains the
+    # entries.
+    #
+    # `{:error, text}` carries a sentence for the operator saying why the
+    # updater leaves the file alone. A list the host switched off (`false`,
+    # `config :app, Oban, false`) is not a failure: one info line, the content
+    # back unchanged, no manual step.
+    @duplicate_text "the edit would have listed a plugin, crontab entry or queue twice — " <>
+                      "it is probably already there under an alias or another name (Oban 2.24 renamed its plugins)"
+
+    @doc false
+    def append_entries(content, app_name, key, entries, verify, opts \\ []) do
+      {fallback, opts} = Keyword.pop(opts, :fallback)
+
+      case ConfigSplice.append_to_list(content, app_name, key, entries, opts) do
+        {:ok, candidate} ->
+          verify_candidate(content, candidate, entries, verify, app_name)
+
+        {:error, reason} ->
+          refused(content, key, reason, fallback)
+      end
+    end
+
+    defp refused(content, key, reason, fallback) do
+      why = ConfigSplice.reason_text(reason, key)
+
+      cond do
+        ConfigSplice.quiet?(reason) ->
+          Mix.shell().info("  ℹ️  " <> why)
+          {:ok, content}
+
+        fallback && ConfigSplice.not_literal?(reason) && fallback.() ->
+          Mix.shell().info("  ℹ️  Already configured (#{key} is not a literal list; not verified)")
+          {:ok, content}
+
+        true ->
+          {:error, why}
+      end
+    end
+
+    defp verify_candidate(content, candidate, entries, verify, app_name) do
+      with {:ok, result} <- verified(content, candidate, verify),
+           true <- ConfigSplice.preserves_original?(content, result, entries) do
+        if ConfigSplice.introduces_duplicates?(content, result, app_name),
+          do: {:error, @duplicate_text},
+          else: {:ok, result}
+      else
+        _ ->
+          {:error,
+           "the edited file would not have parsed, would have changed something else in the " <>
+             "config, or the entries would have landed in the wrong place"}
+      end
+    end
+
+    defp verified(content, candidate, verify) do
+      case ConfigVerify.verify_or_rollback(content, candidate, verify) do
+        {:ok, result} -> {:ok, result}
+        {:rolled_back, _original, _reason} -> :error
+      end
+    end
+
+    defp queue_manual_notice(app_name, queue, limit, why) do
+      manual_notice(
+        "Could not add the #{queue} queue to the queues block for :#{app_name}: #{why}.",
+        [add_line(why, "#{queue}: #{limit}")]
+      )
+    end
+
+    # Every "could not edit your config" message goes through here: printed
+    # now, and remembered so the update can repeat all of them in one block at
+    # the end — a line in the middle of a long run is easy to scroll past, and
+    # a host went a release without a cron entry that way.
+    defp manual_notice(headline, lines) do
+      Mix.shell().error("  ⚠️  " <> headline)
+      Enum.each(lines, &Mix.shell().error("     " <> &1))
+      record_manual_step(headline, lines)
+    end
+
+    @manual_steps_key {__MODULE__, :manual_steps}
+
+    # Deduplicated: `phoenix_kit.update` runs the config pass twice when it has
+    # to add the base configuration first, and a step must not be listed twice.
+    defp record_manual_step(headline, lines) do
+      step = {headline, lines}
+      steps = Process.get(@manual_steps_key, [])
+      unless step in steps, do: Process.put(@manual_steps_key, [step | steps])
+      :ok
+    end
+
+    @doc """
+    The manual steps the config editing of this run could not do itself, oldest
+    first, as `{headline, lines}` — and forgets them. The update task prints
+    them again as one closing block.
+    """
+    @spec take_manual_steps() :: [{String.t(), [String.t()]}]
+    def take_manual_steps do
+      steps = @manual_steps_key |> Process.get([]) |> Enum.reverse()
+      Process.delete(@manual_steps_key)
+      steps
+    end
+
+    @declined_key {__MODULE__, :declined}
+
+    defp record_declined(names) do
+      known = Process.get(@declined_key, [])
+      Process.put(@declined_key, known ++ (names -- known))
+      :ok
+    end
+
+    @doc """
+    The entries this run left out because the host commented them out, in the
+    order met — and forgets them. Shown by `manual_steps_summary/2`.
+    """
+    @spec take_declined() :: [String.t()]
+    def take_declined do
+      names = Process.get(@declined_key, [])
+      Process.delete(@declined_key)
+      names
+    end
+
+    @doc """
+    The closing block for `take_manual_steps/0`'s result — printed LAST by the
+    update, after the migration and asset output that would otherwise bury
+    the one-line warnings. `""` when there is nothing to do by hand.
+
+    The exit code stays 0 on purpose: the app boots and the schema is current;
+    what is missing is a cron entry (a recovery sweep, a prune), i.e. a feature
+    that is off, not a mismatch that breaks the host — unlike a pending
+    migration, which does fail the task. A non-zero exit after a finished
+    migration also makes a deploy script treat a completed update as failed.
+    """
+    @spec manual_steps_summary([{String.t(), [String.t()]}], [String.t()]) :: String.t()
+    def manual_steps_summary(steps, declined \\ [])
+    def manual_steps_summary([], []), do: ""
+
+    def manual_steps_summary(steps, declined) do
+      steps_block =
+        if steps == [] do
+          ""
+        else
+          body =
+            steps
+            |> Enum.with_index(1)
+            |> Enum.map_join("\n", fn {{headline, lines}, n} ->
+              "  #{n}. #{headline}\n" <> Enum.map_join(lines, "", &"       #{&1}\n")
+            end)
+
+          "\n⚠️  Manual steps needed — the update finished, but #{length(steps)} thing(s) in your " <>
+            "config are left to you. Each says what to do; an entry that is missing means " <>
+            "that feature stays off until it is added:\n\n" <>
+            body
+        end
+
+      declined_block =
+        if declined == [],
+          do: "",
+          else:
+            "\nℹ️  Declined (commented out in your crontab), not added: #{Enum.join(declined, ", ")}\n"
+
+      steps_block <> declined_block
+    end
+
+    @doc """
+    How many manual steps have been recorded so far, without taking them — for
+    a message that must not claim a clean update while some are pending.
+    """
+    @spec manual_step_count() :: non_neg_integer()
+    def manual_step_count, do: @manual_steps_key |> Process.get([]) |> length()
 
     # True if `ast` has a `root_key: [...]` list containing `{key, value}` or
     # `{key, [limit: value]}` — the two shapes Oban accepts for a queue entry,
@@ -579,43 +833,6 @@ if Code.ensure_loaded?(Igniter) do
       end)
     end
 
-    # The entry goes after the last line carrying code, not at the end of the
-    # block. A queues list can end in comment lines, and appending the
-    # separating comma there puts it inside the comment — which leaves the
-    # previous entry and the new one with nothing between them, and a
-    # config.exs that no longer parses.
-    defp add_queue_entry(queues_content, entry_indent, entry_text) do
-      entry = entry_indent <> entry_text
-      lines = String.split(queues_content, "\n")
-
-      case last_code_line_index(lines) do
-        nil when queues_content == "" ->
-          entry
-
-        nil ->
-          queues_content <> "\n" <> entry
-
-        index ->
-          lines
-          |> List.update_at(index, fn line ->
-            if String.ends_with?(String.trim(line), ","), do: line, else: line <> ","
-          end)
-          |> List.insert_at(index + 1, entry)
-          |> Enum.join("\n")
-      end
-    end
-
-    defp last_code_line_index(lines) do
-      lines
-      |> Enum.with_index()
-      |> Enum.reverse()
-      |> Enum.find_value(fn {line, index} ->
-        trimmed = String.trim(line)
-
-        if trimmed != "" and not String.starts_with?(trimmed, "#"), do: index
-      end)
-    end
-
     # Ensure Pruner has max_age configured for 30-day retention
     # I103: exposed (not `defp`) and `@doc false`, same reason as
     # `ensure_lifeline_plugin/2` above — a real unit-test seam for the
@@ -623,44 +840,57 @@ if Code.ensure_loaded?(Igniter) do
     # Igniter/Rewrite context (this is only otherwise reachable through the
     # full `update_existing_oban_config/3` pipeline).
     @doc false
-    def ensure_pruner_max_age(content, _app_name) do
-      # Check if max_age is already configured
-      if Regex.match?(~r/Oban\.Plugins\.Pruner.*max_age:/s, content) do
-        Mix.shell().info("  ℹ️  Pruner max_age already configured")
-        content
-      else
-        # Check for bare Oban.Plugins.Pruner (without tuple)
-        if Regex.match?(~r/Oban\.Plugins\.Pruner\s*[,\]]/, content) do
-          Mix.shell().info("  ➕ Adding max_age to Oban.Plugins.Pruner...")
+    def ensure_pruner_max_age(content, app_name) do
+      # Scoped to THIS app's own `plugins:` list, and to its code: a Pruner in
+      # another app's block, in a comment, or anywhere else in the file is not
+      # this node's Pruner. The edit is made on the original text at the offsets
+      # found on the masked copy, and only the first match is rewritten.
+      case ConfigSplice.locate_list(content, app_name, :plugins) do
+        {:ok, %{masked: masked, open: open, close: close}} ->
+          inner = binary_part(masked, open + 1, close - open - 1)
+          ensure_pruner_in(content, inner, open + 1)
 
-          # Replace bare Pruner with tuple form including max_age
-          candidate =
-            Regex.replace(
-              ~r/Oban\.Plugins\.Pruner(\s*)(,|\])/,
-              content,
-              "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}\\1\\2  # Keep jobs for 30 days"
-            )
-
-          apply_pruner_max_age(content, candidate)
-        else
-          # Check for tuple form without max_age: {Oban.Plugins.Pruner}
-          if Regex.match?(~r/\{Oban\.Plugins\.Pruner\}/, content) do
-            Mix.shell().info("  ➕ Adding max_age to {Oban.Plugins.Pruner}...")
-
-            candidate =
-              String.replace(
-                content,
-                "{Oban.Plugins.Pruner}",
-                "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}  # Keep jobs for 30 days"
-              )
-
-            apply_pruner_max_age(content, candidate)
-          else
-            Mix.shell().info("  ℹ️  Pruner configuration not found or already has options")
-            content
-          end
-        end
+        {:error, _reason} ->
+          Mix.shell().info("  ℹ️  Pruner configuration not found or already has options")
+          content
       end
+    end
+
+    @pruner_entry "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}"
+
+    defp ensure_pruner_in(content, inner, offset) do
+      cond do
+        Regex.match?(~r/Oban\.Plugins\.Pruner[^{}]*max_age:/, inner) ->
+          Mix.shell().info("  ℹ️  Pruner max_age already configured")
+          content
+
+        # A bare module — `Oban.Plugins.Pruner,` or one that ends the list,
+        # on its own line or inside a one-line list. The rewrite never adds a
+        # trailing comment: on a one-line list it would swallow the rest of
+        # the line, and after a tuple it would swallow the comma.
+        match =
+            Regex.run(~r/(?<![{\w.])Oban\.Plugins\.Pruner(?=\s*(?:,|\z))/, inner, return: :index) ->
+          Mix.shell().info("  ➕ Adding max_age to Oban.Plugins.Pruner...")
+          apply_pruner_edit(content, offset, match)
+
+        match = Regex.run(~r/\{Oban\.Plugins\.Pruner\}/, inner, return: :index) ->
+          Mix.shell().info("  ➕ Adding max_age to {Oban.Plugins.Pruner}...")
+          apply_pruner_edit(content, offset, match)
+
+        true ->
+          Mix.shell().info("  ℹ️  Pruner configuration not found or already has options")
+          content
+      end
+    end
+
+    defp apply_pruner_edit(content, offset, [{at, len}]) do
+      start = offset + at
+
+      candidate =
+        binary_part(content, 0, start) <>
+          @pruner_entry <> binary_part(content, start + len, byte_size(content) - start - len)
+
+      apply_pruner_max_age(content, candidate)
     end
 
     defp apply_pruner_max_age(content, candidate) do
@@ -675,12 +905,11 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp pruner_manual_notice do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add max_age to Oban.Plugins.Pruner " <>
-          "(the insertion would have produced invalid or misplaced config) - please add it manually:"
+      manual_notice(
+        "Could not safely add max_age to Oban.Plugins.Pruner " <>
+          "(the insertion would have produced invalid or misplaced config).",
+        ["Please set it manually: {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}"]
       )
-
-      Mix.shell().error("     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}")
     end
 
     defp pruner_has_max_age?(ast) do
@@ -730,79 +959,71 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_lifeline_plugin(String.t(), atom() | String.t()) :: String.t()
     def ensure_lifeline_plugin(content, app_name) do
-      if Regex.match?(~r/Oban\.Plugins\.Lifeline/, content) do
-        maybe_raise_lifeline_rescue_after(content)
-      else
-        Mix.shell().info("  ➕ Adding Oban.Plugins.Lifeline to Oban configuration...")
+      cond do
+        lifeline_present?(content, app_name) ->
+          maybe_raise_lifeline_rescue_after(content)
 
-        # The closing `]` is matched at the SAME indentation as the
-        # `plugins:` keyword itself (backreference `\\2`). A lazy `.*?` up
-        # to the first `]` would instead stop inside a nested list — the
-        # generated config's own Cron plugin carries `crontab: [...]`, and
-        # inserting there corrupts the file (review finding on this very
-        # function). Nested lists are always indented deeper, so anchoring
-        # the close to the keyword's indentation skips them.
-        #
-        # I103: the whole pattern is anchored to THIS app's own
-        # `config :app_name, Oban` block first (same prefix `insert_queue/4`
-        # already uses for `queues:`), bounded at the next top-level
-        # `config`/`import_config`. Without it, a host with any OTHER
-        # `plugins: [...]` list earlier in config.exs — a completely
-        # unrelated `config :some_lib, plugins: [...]` — matched first: this
-        # inserted Lifeline into the WRONG application's list and reported
-        # success, while `:app_name`'s own Oban config stayed untouched.
-        case Regex.run(
-               ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?\n([ \t]+)plugins:\s*\[\n)(.*?)(\n\2\])/ms,
-               content,
-               capture: :all
-             ) do
-          [full_match, plugins_open, indent, plugins_content, plugins_close] ->
-            Mix.shell().info("  ✓ Found plugins block, adding Lifeline plugin")
+        # `lifeline: false` is the host's own refusal, like `plugins: false`.
+        ConfigSplice.option_off?(content, app_name, :lifeline) ->
+          Mix.shell().info(
+            "  ℹ️  Oban lifeline is switched off in config (`lifeline: false`) — not added"
+          )
 
-            trimmed_content = String.trim(plugins_content)
-            has_trailing_comma = String.ends_with?(trimmed_content, ",")
+          content
 
-            # Entry indentation inferred from the block's own: keyword
-            # indent + 2, matching how the generated template nests entries.
-            entry_indent = indent <> "  "
-
-            lifeline_plugin =
-              if has_trailing_comma do
-                "\n" <> entry_indent <> lifeline_entry()
-              else
-                ",\n" <> entry_indent <> lifeline_entry()
-              end
-
-            updated_plugins = plugins_open <> plugins_content <> lifeline_plugin <> plugins_close
-            candidate = String.replace(content, full_match, updated_plugins, global: false)
-
-            case ConfigVerify.verify_or_rollback(
-                   content,
-                   candidate,
-                   &plugins_contains_module?(&1, app_name, Oban.Plugins.Lifeline)
-                 ) do
-              {:ok, result} ->
-                result
-
-              {:rolled_back, original, _reason} ->
-                lifeline_manual_notice(app_name)
-                original
-            end
-
-          nil ->
-            lifeline_manual_notice(app_name)
-            content
-        end
+        true ->
+          add_lifeline_plugin(content, app_name)
       end
     end
 
-    defp lifeline_manual_notice(app_name) do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add Lifeline to the plugins block for :#{app_name} " <>
-          "(not found, or the insertion would have produced invalid or misplaced config)"
-      )
+    defp add_lifeline_plugin(content, app_name) do
+      Mix.shell().info("  ➕ Adding Oban.Plugins.Lifeline to Oban configuration...")
 
-      Mix.shell().error("     Please manually add: #{lifeline_entry()}")
+      # The list is spliced by `ConfigSplice.append_to_list/5` (nested lists
+      # such as the Cron plugin's own `crontab: [...]` are skipped by bracket
+      # depth, not by a lazy match to the first `]`), and bounded to THIS
+      # app's own `config :app_name, Oban` block: a host with any OTHER
+      # `plugins: [...]` list earlier in config.exs once got Lifeline put in
+      # the wrong application's list, with a reported success.
+      case append_entries(
+             content,
+             app_name,
+             :plugins,
+             [lifeline_entry()],
+             &plugins_contains_module?(&1, app_name, Oban.Plugins.Lifeline)
+           ) do
+        {:ok, result} ->
+          if result != content,
+            do: Mix.shell().info("  ✓ Found plugins block, adding Lifeline plugin")
+
+          result
+
+        {:error, why} ->
+          lifeline_manual_notice(app_name, why)
+          content
+      end
+    end
+
+    # By the tree and Oban's own naming — `{Oban.Lifeline, …}`, a top-level
+    # `lifeline:`, an aliased `{Lifeline, …}` all count; adding another makes Oban
+    # refuse to start ("found duplicate plugins"). A config the tree cannot read
+    # falls back to the text.
+    defp lifeline_present?(content, app_name) do
+      case ConfigSplice.known_services(content, app_name) do
+        {services, unknown?} ->
+          Oban.Lifeline in services or
+            (unknown? and Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content))
+
+        :error ->
+          Regex.match?(~r/Oban\.(?:Plugins\.)?Lifeline/, content)
+      end
+    end
+
+    defp lifeline_manual_notice(app_name, why) do
+      manual_notice(
+        "Could not add Lifeline to the plugins block for :#{app_name}: #{why}.",
+        [add_line(why, lifeline_entry())]
+      )
     end
 
     # True if `ast` has a `plugins: [...]` list containing a tuple naming
@@ -859,12 +1080,12 @@ if Code.ensure_loaded?(Igniter) do
                 result
 
               {:rolled_back, original, _reason} ->
-                Mix.shell().error(
-                  "  ⚠️  Could not safely raise Lifeline rescue_after " <>
-                    "(the replacement would have produced invalid or misplaced config) - please set it manually:"
+                manual_notice(
+                  "Could not safely raise Lifeline rescue_after " <>
+                    "(the replacement would have produced invalid or misplaced config).",
+                  ["Please set it manually: #{lifeline_entry()}"]
                 )
 
-                Mix.shell().error("     #{lifeline_entry()}")
                 original
             end
           else
@@ -929,6 +1150,19 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_cron_plugin(String.t(), atom() | String.t()) :: String.t()
     def ensure_cron_plugin(content, app_name) do
+      # Every check is scoped to `app_name`'s own Oban block (and the worker
+      # check to its `crontab:` list): a mention in another app's block, or in
+      # a comment elsewhere in the file, says nothing about this crontab. A
+      # worker that appears only in a comment inside the list is a declined
+      # entry — see `ensure_worker_cron_entries/2`.
+      worker = crontab_state(content, app_name, {:module, @new_worker})
+      block = ConfigSplice.block_code(content, app_name, strings: true) || ""
+      old_worker? = Regex.match?(@old_posts_worker, block)
+
+      cron_plugin? = cron_plugin?(content, app_name, block)
+
+      if worker == :declined, do: note_declined([@new_worker])
+
       cond do
         # Case 1: the old worker is scheduled and the core worker is not.
         # Rename it in place — the core worker's catch-up already calls
@@ -942,43 +1176,43 @@ if Code.ensure_loaded?(Igniter) do
         # default, global replace) on purpose too: if the old module path
         # somehow appears more than once, renaming every occurrence
         # consistently is correct, not a hazard to guard against.
-        Regex.match?(@old_posts_worker, content) and
-            not String.contains?(content, "ProcessScheduledJobsWorker") ->
+        old_worker? and worker == :missing ->
           Mix.shell().info(
             "  🔄 Replacing PublishScheduledPostsJob with ProcessScheduledJobsWorker..."
           )
 
-          Regex.replace(@old_posts_worker, content, @new_worker)
+          ConfigSplice.update_block(content, app_name, &rename_old_worker/1)
 
         # Case 1b: both are scheduled. Rewriting the old entry would leave two
         # identical crontab lines, so say what is there and change nothing —
         # the two are independently cronned callers of the same sweep, and
         # which one to drop is the host's decision, not ours.
-        Regex.match?(@old_posts_worker, content) ->
-          Mix.shell().error(
-            "  ⚠️  Both PublishScheduledPostsJob and ProcessScheduledJobsWorker are in the crontab"
+        old_worker? and worker in [:active, :unverified] ->
+          manual_notice(
+            "Both PublishScheduledPostsJob and ProcessScheduledJobsWorker are in the crontab.",
+            [
+              "They run the same posts sweep from different queues, so scheduled posts can be",
+              "published twice. Remove the PublishScheduledPostsJob entry — the core worker",
+              "already covers it via catchup_scheduled_posts/0."
+            ]
           )
-
-          Mix.shell().error(
-            "     They run the same posts sweep from different queues, so scheduled posts can be"
-          )
-
-          Mix.shell().error(
-            "     published twice. Remove the PublishScheduledPostsJob entry — the core worker"
-          )
-
-          Mix.shell().error("     already covers it via catchup_scheduled_posts/0.")
 
           content
 
-        # Case 2: Cron plugin exists with new worker - already configured
-        String.contains?(content, "Oban.Plugins.Cron") and
-            String.contains?(content, "ProcessScheduledJobsWorker") ->
-          Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
+        # `cron: false` and no Cron anywhere else: the host switched cron off.
+        # Like `plugins: false`, that is a choice, not a gap.
+        cron_switched_off?(content, app_name, cron_plugin?, worker) ->
+          Mix.shell().info("  ℹ️  Oban cron is switched off in config (`cron: false`) — not added")
           content
+
+        # Case 2: the core worker is already scheduled — by the Cron plugin, or
+        # (a host on Oban Pro) by another plugin's crontab; adding it to the
+        # Cron plugin as well would run it twice.
+        worker != :missing ->
+          report_scheduled(worker, content)
 
         # Case 3: Cron plugin exists but no scheduled jobs worker - add new worker
-        String.contains?(content, "Oban.Plugins.Cron") ->
+        cron_plugin? ->
           Mix.shell().info(
             "  ➕ Adding ProcessScheduledJobsWorker to existing cron configuration..."
           )
@@ -992,87 +1226,87 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    # Add ProcessScheduledJobsWorker to existing crontab
+    # By the tree, so `alias Oban.Plugins.Cron` + `{Cron, …}` is a Cron plugin
+    # too — adding a second one makes Oban refuse to start. A `plugins:` the tree
+    # cannot read (a variable, a file that does not parse) falls back to the text.
+    defp cron_plugin?(content, app_name, block) do
+      # A crontab to write into exists — an empty legacy `crontab: []` too:
+      # filling it makes it the Cron plugin, adding a plugin as well would list
+      # Cron twice.
+      if match?({:ok, _}, ConfigSplice.locate_list(content, app_name, :crontab)),
+        do: true,
+        else: cron_in_services?(content, app_name, block)
+    end
+
+    defp cron_in_services?(content, app_name, block) do
+      case ConfigSplice.known_services(content, app_name) do
+        {services, unknown?} -> Oban.Cron in services or (unknown? and cron_in_text?(block))
+        :error -> cron_in_text?(block)
+      end
+    end
+
+    # A commented-out worker was announced above ("left out"): no second line.
+    defp report_scheduled(:declined, content), do: content
+
+    defp report_scheduled(:unverified, content) do
+      note_unverified([@new_worker])
+      content
+    end
+
+    defp report_scheduled(_active, content) do
+      Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
+      content
+    end
+
+    defp cron_switched_off?(content, app_name, cron_plugin?, worker),
+      do:
+        not cron_plugin? and worker == :missing and
+          ConfigSplice.option_off?(content, app_name, :cron)
+
+    defp cron_in_text?(block),
+      do: String.contains?(block, "Oban.Plugins.Cron") or String.contains?(block, "Oban.Cron")
+
+    # The rename touches code only: the same words in a comment stay as written.
+    defp rename_old_worker(block) do
+      code = ConfigSplice.mask(block, strings: true)
+
+      @old_posts_worker
+      |> Regex.scan(code, return: :index)
+      |> Enum.reverse()
+      |> Enum.reduce(block, fn [{at, len} | _], acc ->
+        binary_part(acc, 0, at) <>
+          @new_worker <> binary_part(acc, at + len, byte_size(acc) - at - len)
+      end)
+    end
+
+    # Add ProcessScheduledJobsWorker to existing crontab.
     #
-    # I103: this is the one crontab-splice function that used a lazy `.*?`
-    # instead of the anchored, same-indentation-close pattern the sibling
-    # functions below use (`add_worker_entries_to_crontab/3`,
-    # `add_digest_entries_to_crontab/3`) — the only one of the six
-    # block-splice helpers in this file with no anchor at all. Reproduced
-    # live: an entirely ordinary comment inside the crontab block containing
-    # a `]` (e.g. "# historically took a priority list, e.g. [1, 2] - removed")
-    # makes the lazy match stop at the comment's own bracket and corrupts the
-    # file into invalid Elixir. A DIFFERENT shape — an existing entry whose
-    # own `args:` value is itself a list (`args: %{tags: ["a", "b"]}`) —
-    # corrupts just as badly but produces something that still PARSES: the
-    # new entry lands nested inside that list instead of as a crontab
-    # sibling. `ConfigVerify.verify_or_rollback/3` catches both: the first
-    # via `Code.string_to_quoted/1` failing outright, the second because the
-    # semantic check below only accepts a result where the new tuple shows
-    # up as a direct member of the `crontab:` list itself, not buried deeper
-    # in some other value that also happened to close with a `]`.
-    #
-    # I103: the pattern is additionally anchored to THIS app's own
-    # `config :app_name, Oban` block, bounded at the next top-level
-    # `config`/`import_config` — same prefix `insert_queue/4` uses for
-    # `queues:`. Without it, the (still lazy) `crontab:` search could match a
-    # different application's `crontab:` list first if one appeared earlier
-    # in config.exs.
+    # The splice is `ConfigSplice.append_to_list/5`, which appends after the
+    # last real element of THIS app's `crontab:` list. Earlier versions of the
+    # crontab splices (lazy `.*?`, then trim-and-look-for-a-comma) each failed on
+    # a different ordinary shape: a `]` inside a comment, an element whose
+    # `args:` is itself a list, a comment after the last tuple. The verify step
+    # below stays as the net — it only accepts a result where the new tuple is a
+    # direct member of the `crontab:` list itself.
     defp add_scheduled_posts_job_to_crontab(content, app_name) do
-      # Pattern: crontab: [...] within Cron plugin, inside app_name's own block
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?crontab:\s*\[)(.*?)(\])/ms,
+      entry = ~s({"* * * * *", #{@new_worker}})
+
+      case append_entries(
              content,
-             capture: :all
+             app_name,
+             :crontab,
+             [entry],
+             &crontab_contains_module?(
+               &1,
+               app_name,
+               PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker
+             )
            ) do
-        [full_match, before_crontab, crontab_content, after_crontab] ->
-          # `crontab_content` keeps its OWN trailing whitespace/newline up to
-          # (not including) the closing `]` — appending straight onto that
-          # puts a bare `,` alone on its own line, detached by a newline from
-          # the element before it, which Elixir's parser rejects outright
-          # ("syntax error before: ','"). `String.trim_trailing/1` here
-          # matches what the anchored sibling splices below already do
-          # correctly (`add_worker_entries_to_crontab/3`,
-          # `add_digest_entries_to_crontab/3`): drop the trailing whitespace
-          # first, so the new comma lands directly after the last real token.
-          trimmed_entries = String.trim_trailing(crontab_content)
-          has_entries = String.trim(crontab_content) != ""
-          has_trailing_comma = String.ends_with?(trimmed_entries, ",")
+        {:ok, result} ->
+          result
 
-          new_job_entry =
-            cond do
-              not has_entries ->
-                "\n           {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n         "
-
-              has_trailing_comma ->
-                "\n           {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n"
-
-              true ->
-                ",\n           {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n"
-            end
-
-          updated_crontab = before_crontab <> trimmed_entries <> new_job_entry <> after_crontab
-          candidate = String.replace(content, full_match, updated_crontab, global: false)
-
-          case ConfigVerify.verify_or_rollback(
-                 content,
-                 candidate,
-                 &crontab_contains_module?(
-                   &1,
-                   app_name,
-                   PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker
-                 )
-               ) do
-            {:ok, result} ->
-              result
-
-            {:rolled_back, original, _reason} ->
-              scheduled_posts_job_manual_notice()
-              original
-          end
-
-        _ ->
-          scheduled_posts_job_manual_notice()
+        {:error, why} ->
+          scheduled_posts_job_manual_notice(app_name, entry, why)
           content
       end
     end
@@ -1090,14 +1324,10 @@ if Code.ensure_loaded?(Igniter) do
       end)
     end
 
-    defp scheduled_posts_job_manual_notice do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add ProcessScheduledJobsWorker to the existing crontab " <>
-          "(the insertion would have produced invalid or misplaced config) - please add it manually:"
-      )
-
-      Mix.shell().error(
-        "     {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}"
+    defp scheduled_posts_job_manual_notice(app_name, entry, why) do
+      manual_notice(
+        "Could not add ProcessScheduledJobsWorker to the crontab for :#{app_name}: #{why}.",
+        [add_line(why, entry)]
       )
     end
 
@@ -1130,11 +1360,14 @@ if Code.ensure_loaded?(Igniter) do
     """
     @spec ensure_digest_cron_entries(String.t(), atom() | String.t()) :: String.t()
     def ensure_digest_cron_entries(content, app_name) do
-      missing =
-        Enum.reject(@digest_cron_entries, fn {_cron, cadence} -> digest?(content, cadence) end)
+      {missing, declined, unverified} = split_digest_entries(content, app_name)
+      note_declined(Enum.map(declined, &digest_name/1))
+      note_unverified(Enum.map(unverified, &digest_name/1))
 
       if missing == [] do
-        Mix.shell().info("  ℹ️  notification digest cron entries already configured")
+        if declined == [] and unverified == [],
+          do: Mix.shell().info("  ℹ️  notification digest cron entries already configured")
+
         content
       else
         Mix.shell().info("  ➕ Adding notification digest cron entries...")
@@ -1142,8 +1375,111 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    defp digest?(content, cadence) do
-      Regex.match?(~r/DigestWorker[^\n]*cadence:\s*"#{Regex.escape(cadence)}"/, content)
+    # A cadence is "missing" only when this app's crontab neither schedules it
+    # nor mentions it in a comment. One that is mentioned only in a comment
+    # inside the list is DECLINED — the host commented the entry out on
+    # purpose, and the updater does not put it back (see
+    # `ensure_worker_cron_entries/2`).
+    defp split_digest_entries(content, app_name) do
+      Enum.reduce(@digest_cron_entries, {[], [], []}, fn {_cron, cadence} = entry,
+                                                         {missing, declined, unverified} ->
+        case crontab_state(content, app_name, {:digest, cadence}) do
+          :active -> {missing, declined, unverified}
+          :declined -> {missing, declined ++ [entry], unverified}
+          :unverified -> {missing, declined, unverified ++ [entry]}
+          :missing -> {missing ++ [entry], declined, unverified}
+        end
+      end)
+    end
+
+    # What this app's config says about a crontab entry:
+    #
+    #   * `:active` — its code mentions it anywhere in the app's own Oban block
+    #     (any `crontab:`: a `DynamicCron` list counts as scheduling it too, and
+    #     adding it to the Cron plugin as well would run it twice);
+    #   * `:declined` — it appears only in a comment inside the Cron plugin's list;
+    #   * `:unverified` — the Cron plugin's list is not a literal one
+    #     (`crontab: some_var`, `++`, `plugins: some_var`), nothing can be read
+    #     inside it, but the entry is in the file's code (not a comment, a string
+    #     or another app's block) — the variable is usually defined above the
+    #     block;
+    #   * `:missing` — none of those. Only this one earns a manual step: calling
+    #     an unreadable list "missing" sent a host one step per entry, and
+    #     following them would have scheduled everything twice.
+    defp crontab_state(content, app_name, probe) do
+      if probe_in_block?(probe, content, app_name) do
+        :active
+      else
+        case ConfigSplice.list_text(content, app_name, :crontab) do
+          {:ok, %{original: original}} ->
+            if probe_in_comment?(probe, original), do: :declined, else: :missing
+
+          {:error, reason} ->
+            if ConfigSplice.not_literal?(reason) and probe_in_file?(probe, content),
+              do: :unverified,
+              else: :missing
+        end
+      end
+    end
+
+    defp probe_in_block?(probe, content, app_name) do
+      case ConfigSplice.block_code(content, app_name, probe_mask(probe)) do
+        nil -> false
+        code -> probe_matches?(probe, code) or probe_by_alias?(probe, content, app_name)
+      end
+    end
+
+    # `alias PhoenixKit.Jobs.SweepWorker` + `{"*/5 * * * *", SweepWorker}` uses
+    # the worker without ever spelling its full name.
+    defp probe_by_alias?({:module, mod}, content, app_name),
+      do: ConfigSplice.module_used?(content, app_name, mod)
+
+    defp probe_by_alias?(_probe, _content, _app_name), do: false
+
+    defp probe_in_file?(probe, content),
+      do: probe_matches?(probe, ConfigSplice.file_code(content, probe_mask(probe)))
+
+    # A module name is looked for with string bodies blanked (a name inside a
+    # string is not an entry); the digest probe needs `cadence: "daily"`, which
+    # is a string.
+    defp probe_mask({:module, _}), do: [strings: true]
+    defp probe_mask({:digest, _}), do: []
+
+    # One tuple at a time: `[^{}]*` cannot cross a tuple's own braces, so
+    # `cadence: "daily"` of one entry is never credited to another's
+    # DigestWorker — and a worker reformatted over several lines still counts.
+    defp probe_matches?({:module, mod}, code), do: String.contains?(code, mod)
+
+    defp probe_matches?({:digest, cadence}, code) do
+      Regex.match?(~r/DigestWorker[^{}]*%\{[^{}]*cadence:\s*"#{Regex.escape(cadence)}"/, code)
+    end
+
+    # The same test on the list's comments alone (`#` markers kept, code blanked),
+    # so an entry commented out over several lines reads the way it was written.
+    defp probe_in_comment?(probe, original),
+      do: probe_matches?(probe, ConfigSplice.comments_only(original))
+
+    defp digest_name({_cron, cadence}),
+      do: "PhoenixKit.Notifications.DigestWorker (#{cadence})"
+
+    defp note_unverified([]), do: :ok
+
+    defp note_unverified(names) do
+      Mix.shell().info(
+        "  ℹ️  Already configured (crontab is not a literal list; not verified): " <>
+          Enum.join(names, ", ")
+      )
+    end
+
+    defp note_declined([]), do: :ok
+
+    defp note_declined(names) do
+      Mix.shell().info(
+        "  ℹ️  Left out because the crontab has them commented out (a declined entry): " <>
+          Enum.join(names, ", ")
+      )
+
+      record_declined(names)
     end
 
     # Plain `{cron, Worker}` crontab entries that shipped after the first
@@ -1171,11 +1507,30 @@ if Code.ensure_loaded?(Igniter) do
 
     Public for the same reason as `ensure_digest_cron_entries/2`: so it can be
     unit-tested directly against content strings.
+
+    ## Declining an entry
+
+    An entry that shows up in the crontab only inside a comment —
+    `# {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}` — is **declined**:
+    the updater leaves it out, says so, and never offers it again. Commenting
+    the line out is what a host does anyway to switch an entry off while
+    keeping a record of it, so the opt-out needs no new setting to learn; and a
+    config key would have to be read from the very file being edited. The same
+    applies to the digest entries. (A plain `contains?` has always behaved this
+    way; it is now deliberate, announced, and written into the manual-step
+    text.) Deleting the line is not a refusal — the updater cannot tell it
+    from a crontab that predates the entry.
     """
     @spec ensure_worker_cron_entries(String.t(), atom() | String.t()) :: String.t()
     def ensure_worker_cron_entries(content, app_name) do
-      missing =
-        Enum.reject(@worker_cron_entries, fn {_cron, mod} -> String.contains?(content, mod) end)
+      states =
+        Enum.map(@worker_cron_entries, fn {_cron, mod} = entry ->
+          {entry, crontab_state(content, app_name, {:module, mod})}
+        end)
+
+      missing = for {entry, :missing} <- states, do: entry
+      note_declined(for {{_cron, mod}, :declined} <- states, do: mod)
+      note_unverified(for {{_cron, mod}, :unverified} <- states, do: mod)
 
       if missing == [] do
         content
@@ -1185,65 +1540,61 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
-    # I103: anchored to THIS app's own `config :app_name, Oban` block (same
-    # prefix `insert_queue/4` uses for `queues:`), and the leading separator
-    # before the new entries now checks `has_trailing_comma` instead of
-    # always prepending `,\n` — the same hardening `add_scheduled_posts_job_to_crontab/2`
-    # already has. A crontab whose last entry legitimately already ends in a
-    # comma (a perfectly ordinary shape, e.g. `mix format`'s own output for a
-    # multi-entry list) got a DOUBLE comma before this fix: `Code.string_to_quoted/1`
-    # then fails, `verify_or_rollback/3` rolls back, and the operator is told
-    # their own config is the problem when the insertion logic was.
+    # Appended by `ConfigSplice.append_to_list/5` after the last real element of
+    # THIS app's own `crontab:` — whatever follows it in the source (an
+    # end-of-line comment, a block of comment lines, a missing or a trailing
+    # comma) stays where it is. The earlier version trimmed the list body and
+    # appended `",\n" <> entries`, which put the comma inside a trailing comment.
     defp add_worker_entries_to_crontab(content, missing, app_name) do
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?\n([ \t]+)crontab:\s*\[\n)(.*?)(\n\2\])/ms,
+      entries = Enum.map(missing, fn {cron, mod} -> ~s({"#{cron}", #{mod}}) end)
+
+      case append_entries(
              content,
-             capture: :all
+             app_name,
+             :crontab,
+             entries,
+             &crontab_has_all_modules?(&1, app_name, missing)
            ) do
-        [full_match, crontab_open, indent, crontab_content, crontab_close] ->
-          entry_indent = indent <> "  "
-          trimmed_content = String.trim_trailing(crontab_content)
-          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+        {:ok, result} ->
+          result
 
-          entries =
-            Enum.map_join(missing, ",\n", fn {cron, mod} ->
-              "#{entry_indent}{\"#{cron}\", #{mod}}"
-            end)
-
-          new_entries = if has_trailing_comma, do: "\n" <> entries, else: ",\n" <> entries
-
-          updated = crontab_open <> trimmed_content <> new_entries <> crontab_close
-
-          candidate = String.replace(content, full_match, updated, global: false)
-
-          case ConfigVerify.verify_or_rollback(
-                 content,
-                 candidate,
-                 &crontab_has_all_modules?(&1, app_name, missing)
-               ) do
-            {:ok, result} ->
-              result
-
-            {:rolled_back, original, _reason} ->
-              worker_entries_manual_notice(app_name, missing)
-              original
-          end
-
-        nil ->
-          worker_entries_manual_notice(app_name, missing)
+        {:error, why} ->
+          worker_entries_manual_notice(app_name, missing, why)
           content
       end
     end
 
-    defp worker_entries_manual_notice(app_name, missing) do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add worker cron entries for :#{app_name} " <>
-          "(crontab block not found, or the insertion would have produced invalid or misplaced config)"
+    defp worker_entries_manual_notice(app_name, missing, why) do
+      manual_notice(
+        "Could not add worker cron entries for :#{app_name}: #{why}.",
+        Enum.map(missing, fn {cron, mod} -> add_line(why, "{\"#{cron}\", #{mod}}") end) ++
+          declining_hint(why)
       )
+    end
 
-      Enum.each(missing, fn {cron, mod} ->
-        Mix.shell().error("     Please manually add: {\"#{cron}\", #{mod}}")
-      end)
+    defp declining_hint(why) do
+      if nested?(why) or duplicate?(why) or cron_nested?(why),
+        do: [],
+        else: [
+          "To decline one instead, leave it in the crontab as a comment " <>
+            "(# {\"…\", Module}) — a commented-out entry is not offered again."
+        ]
+    end
+
+    # A block nested in an expression is not edited and not searched, so what
+    # the host has there is unknown: the entries are listed as what to look for,
+    # not as something to add.
+    defp nested?(why), do: why == ConfigSplice.reason_text(:nested_block, :crontab)
+    defp cron_nested?(why), do: why == ConfigSplice.reason_text(:cron_only_nested, :crontab)
+    defp duplicate?(why), do: why == @duplicate_text
+
+    defp add_line(why, text) do
+      cond do
+        nested?(why) -> "Expected there (check by hand): " <> text
+        cron_nested?(why) -> "Entries for the nested block (check by hand): " <> text
+        duplicate?(why) -> "Check whether it is already there (not added): " <> text
+        true -> "Please manually add: " <> text
+      end
     end
 
     # True if `ast` has a `crontab: [...]` list containing, for EVERY
@@ -1259,71 +1610,36 @@ if Code.ensure_loaded?(Igniter) do
       end)
     end
 
-    # Append the missing entries to the existing crontab list. The closing `]` is
-    # anchored to the `crontab:` keyword's own indentation (backreference `\\2`)
-    # for the same reason as `add_cron_plugin_to_plugins/2`: a lazy `.*?` to the
-    # first `]` can stop inside an entry's own nested list.
-    #
-    # I103: anchored to THIS app's own `config :app_name, Oban` block (same
-    # prefix as `add_worker_entries_to_crontab/3`), and the leading separator
-    # before the new entries checks `has_trailing_comma` instead of always
-    # prepending `,\n` — see `add_worker_entries_to_crontab/3` for why an
-    # unconditional leading comma corrupts a crontab that legitimately
-    # already ends in one.
+    # Append the missing digest entries to this app's crontab list — the same
+    # splice, and the same reasons, as `add_worker_entries_to_crontab/3`.
     defp add_digest_entries_to_crontab(content, missing, app_name) do
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?\n([ \t]+)crontab:\s*\[\n)(.*?)(\n\2\])/ms,
+      entries = Enum.map(missing, &digest_entry/1)
+
+      case append_entries(
              content,
-             capture: :all
+             app_name,
+             :crontab,
+             entries,
+             &crontab_has_all_digest_cadences?(&1, app_name, missing)
            ) do
-        [full_match, crontab_open, indent, crontab_content, crontab_close] ->
-          entry_indent = indent <> "  "
-          trimmed_content = String.trim_trailing(crontab_content)
-          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+        {:ok, result} ->
+          result
 
-          entries =
-            Enum.map_join(missing, ",\n", fn {cron, cadence} ->
-              "#{entry_indent}{\"#{cron}\", PhoenixKit.Notifications.DigestWorker, " <>
-                "args: %{cadence: \"#{cadence}\"}}"
-            end)
-
-          new_entries = if has_trailing_comma, do: "\n" <> entries, else: ",\n" <> entries
-
-          updated = crontab_open <> trimmed_content <> new_entries <> crontab_close
-
-          candidate = String.replace(content, full_match, updated, global: false)
-
-          case ConfigVerify.verify_or_rollback(
-                 content,
-                 candidate,
-                 &crontab_has_all_digest_cadences?(&1, app_name, missing)
-               ) do
-            {:ok, result} ->
-              result
-
-            {:rolled_back, original, _reason} ->
-              digest_entries_manual_notice(app_name, missing)
-              original
-          end
-
-        nil ->
-          digest_entries_manual_notice(app_name, missing)
+        {:error, why} ->
+          digest_entries_manual_notice(app_name, entries, why)
           content
       end
     end
 
-    defp digest_entries_manual_notice(app_name, missing) do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add digest cron entries for :#{app_name} " <>
-          "(crontab block not found, or the insertion would have produced invalid or misplaced config)"
-      )
+    defp digest_entry({cron, cadence}) do
+      "{\"#{cron}\", PhoenixKit.Notifications.DigestWorker, args: %{cadence: \"#{cadence}\"}}"
+    end
 
-      Enum.each(missing, fn {cron, cadence} ->
-        Mix.shell().error(
-          "     Please manually add: {\"#{cron}\", PhoenixKit.Notifications.DigestWorker, " <>
-            "args: %{cadence: \"#{cadence}\"}}"
-        )
-      end)
+    defp digest_entries_manual_notice(app_name, entries, why) do
+      manual_notice(
+        "Could not add digest cron entries for :#{app_name}: #{why}.",
+        Enum.map(entries, &add_line(why, &1)) ++ declining_hint(why)
+      )
     end
 
     # True if `ast` has a `crontab: [...]` list containing, for EVERY
@@ -1366,87 +1682,43 @@ if Code.ensure_loaded?(Igniter) do
 
     # Add Cron plugin to plugins list
     defp add_cron_plugin_to_plugins(content, app_name) do
-      # Find the ACTIVE plugins block - must not be commented out
-      # Pattern: line starts with spaces (not #), then plugins: [
-      #
-      # The closing `]` is anchored to the `plugins:` keyword's own
-      # indentation (backreference `\\2`), for the same reason as
-      # `ensure_lifeline_plugin/2`: a lazy `.*?` to the first indented `]`
-      # stops inside a nested list instead (a host plugin carrying its own
-      # list — `{Oban.Plugins.Reindexer, indexes: [...]}`, Oban Web's
-      # stats plugin — puts one right there), and inserting there corrupts
-      # the file. Nested lists are always indented deeper, so anchoring to
-      # the keyword's indentation skips them.
-      #
-      # I103: also anchored to THIS app's own `config :app_name, Oban` block
-      # — see `ensure_lifeline_plugin/2` for why an unanchored `plugins:`
-      # search can match a different application's list first.
-      case Regex.run(
-             ~r/(^config\s+:#{app_name},\s+Oban\b(?:(?!\n(?:config\s|import_config\s)).)*?\n([ \t]+)plugins:\s*\[\n)(.*?)(\n\2\])/ms,
+      # Appended by `ConfigSplice.append_to_list/5` to THIS app's own `plugins:`
+      # list — see `ensure_lifeline_plugin/2`. The entry's continuation lines
+      # are indented relative to its first.
+      entry =
+        "{Oban.Plugins.Cron,\n" <>
+          " crontab: [\n" <>
+          "   {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n" <>
+          " ]}"
+
+      case append_entries(
              content,
-             capture: :all
+             app_name,
+             :plugins,
+             [entry],
+             &crontab_contains_module?(
+               &1,
+               app_name,
+               PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker
+             )
            ) do
-        [full_match, plugins_open, indent, plugins_content, plugins_close] ->
-          Mix.shell().info("  ✓ Found plugins block, adding Cron plugin")
+        {:ok, result} ->
+          if result != content,
+            do: Mix.shell().info("  ✓ Found plugins block, adding Cron plugin")
 
-          # Check if content ends with comma
-          trimmed_content = String.trim(plugins_content)
-          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+          result
 
-          # Entry indentation inferred from the block's own: keyword indent
-          # + 2, matching how the generated template nests entries.
-          entry_indent = indent <> "  "
-
-          cron_entry =
-            entry_indent <>
-              "{Oban.Plugins.Cron,\n" <>
-              entry_indent <>
-              " crontab: [\n" <>
-              entry_indent <>
-              "   {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n" <>
-              entry_indent <> " ]}"
-
-          # Add cron plugin with proper formatting (matching existing indentation)
-          cron_plugin =
-            if has_trailing_comma do
-              "\n" <> cron_entry
-            else
-              ",\n" <> cron_entry
-            end
-
-          updated_plugins = plugins_open <> plugins_content <> cron_plugin <> plugins_close
-          candidate = String.replace(content, full_match, updated_plugins, global: false)
-
-          case ConfigVerify.verify_or_rollback(
-                 content,
-                 candidate,
-                 &crontab_contains_module?(
-                   &1,
-                   app_name,
-                   PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker
-                 )
-               ) do
-            {:ok, result} ->
-              result
-
-            {:rolled_back, original, _reason} ->
-              cron_plugin_manual_notice(app_name)
-              original
-          end
-
-        nil ->
-          cron_plugin_manual_notice(app_name)
+        {:error, why} ->
+          cron_plugin_manual_notice(app_name, why)
           content
       end
     end
 
-    defp cron_plugin_manual_notice(app_name) do
-      Mix.shell().error(
-        "  ⚠️  Could not safely add Oban.Plugins.Cron to the plugins block for :#{app_name} " <>
-          "(not found, or the insertion would have produced invalid or misplaced config)"
+    defp cron_plugin_manual_notice(app_name, why) do
+      manual_notice(
+        "Could not add Oban.Plugins.Cron to the plugins block for :#{app_name}: #{why}.",
+        [add_line(why, "Oban.Plugins.Cron configuration")]
       )
-
-      Mix.shell().error("     Please manually add Oban.Plugins.Cron configuration")
     end
 
     # Get repo module from PhoenixKit config or detect from app
