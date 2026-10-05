@@ -1,4 +1,4 @@
-## Unreleased
+## 2.54.0 - 2026-10-05
 
 ### Upgrading
 
@@ -6,6 +6,22 @@
   `Activity.PruneWorker` deletes activity entries older than `activity_retention_days` (default 90)** from
   every host that had never pruned. Raise the setting before updating to keep more history, or comment the
   entry out of the crontab to decline it (the updater leaves a commented-out entry alone).
+
+### Added
+
+- **`<.table_default fit>` drops the least important columns instead of scrolling sideways.** Header cells
+  declare `priority` (the highest number goes first, equal priorities from the right; none never goes), `lead`
+  (the one column that stays left and takes the slack) and `width`; the new `TableFit` hook measures the real
+  table against its wrapper on mount, on resize and after every patch, and hides whole columns through one
+  stylesheet, so stream inserts need nothing. The last header cell shows `+N` while columns are dropped, the
+  remembered result is put back before first paint on a hard load, and printing shows every column. `fit_pack={false}`
+  keeps the dropping and leaves the sizing to a table that sets its own column widths. The Integrations table
+  uses it (Account goes first, then Name, then Status). Guide: `dev_docs/guides/2026-09-11-core-components.md`.
+- **Every email handed to an adapter leaves a log line**: the subject, the adapter (or the integration) and
+  the recipient with the local part masked (`m***@don.ee`), at info when it was sent and at error, with the
+  reason, when it was not. Never the body, which carries single-use tokens. Without the optional emails
+  package a send used to leave no trace at all, and a failed one returned an error to callers that show the
+  same page either way.
 
 ### Fixed
 
@@ -31,12 +47,26 @@
 - **The update ends with one "Manual steps needed" block** listing every config edit it could not make (also
   when the run ends in a failed migration), and the success line says `N manual step(s) below` instead of
   claiming a clean update.
+- **A second log-out no longer answers 403.** The log-out button submits the CSRF token of the session it was
+  rendered in; once that session is gone (a double click, a second tab) the host's `protect_from_forgery`
+  refused an action that had in fact succeeded. `PhoenixKitWeb.Plugs.AlreadyLoggedOut`, ahead of `:browser` on
+  the log-out scopes, exempts such a request from the CSRF check only when there is no session token, no
+  account stack and no remember-me cookie, so it takes the ordinary path: the same flash and the same
+  locale-aware redirect as a first log-out. Wired by `PhoenixKitWeb.Integration`; a host adds nothing.
+- **The redirect from a disabled module's page lands on the Disabled tab** (`/admin/modules?tab=disabled`),
+  where the module's card and its switch are. It went to the Active tab, which does not list the module at
+  all, so the page read like a missing route. The Modules page honours `?tab=active|disabled|not_installed`.
+- **Setting labels on the Settings tabs no longer overlap.** A long (translated) description widened the first
+  column over the second; labels now wrap and every fieldset track is `minmax(0, 1fr)`. The mention checkboxes
+  use the checkbox's own description slot.
 
 ### Changed
 
 - **Declining a cron entry means commenting it out inside the Cron plugin's `crontab:`.** The updater skips it,
   says so, and lists it in the closing summary. Before, a comment naming the worker anywhere in the file also
   suppressed the entry; a host that declined an entry that way must move the comment into its crontab list.
+- **Provider icons sit in a tile of fixed size** on the Integrations page, so glyphs that fill their box
+  differently (an envelope against a sparkle) line up.
 
 ## 2.53.0 - 2026-10-04
 

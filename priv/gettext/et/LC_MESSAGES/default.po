@@ -507,9 +507,9 @@ msgstr "Konto teave"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:303
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:335
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:74
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:130
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:190
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:233
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:141
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:201
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:244
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:52
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:95
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:127
@@ -757,8 +757,8 @@ msgstr "Ettevõtte nimi on kohustuslik"
 #: lib/phoenix_kit_web/live/modules.html.heex:167
 #: lib/phoenix_kit_web/live/modules.html.heex:254
 #: lib/phoenix_kit_web/live/modules.html.heex:278
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:197
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:240
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:208
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:251
 #, elixir-autogen, elixir-format
 msgid "Configure"
 msgstr "Seadista"
@@ -1063,7 +1063,7 @@ msgstr "Sisesta rolli nimi (nt Manager, Editor)"
 #: lib/phoenix_kit_web/components/core/modal.ex:552
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:470
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:99
-#: lib/phoenix_kit_web/live/settings/integrations.ex:279
+#: lib/phoenix_kit_web/live/settings/integrations.ex:293
 #, elixir-autogen, elixir-format
 msgid "Error"
 msgstr "Viga"
@@ -1295,12 +1295,12 @@ msgstr "Viimati uuendatud"
 msgid "Legal Settings"
 msgstr "Juriidilised seaded"
 
-#: lib/phoenix_kit_web/live/modules.ex:389
+#: lib/phoenix_kit_web/live/modules.ex:395
 #, elixir-autogen, elixir-format
 msgid "Legal module disabled"
 msgstr "Juriidiline moodul keelatud"
 
-#: lib/phoenix_kit_web/live/modules.ex:390
+#: lib/phoenix_kit_web/live/modules.ex:396
 #, elixir-autogen, elixir-format
 msgid "Legal module enabled"
 msgstr "Juriidiline moodul lubatud"
@@ -1397,12 +1397,12 @@ msgstr "Rolli pole valitud"
 msgid "No roles found"
 msgstr "Rolle ei leitud"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:106
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:109
 #, elixir-autogen, elixir-format
 msgid "Noindex/nofollow disabled. Site can be indexed again."
 msgstr "Noindex/nofollow keelatud. Saiti saab uuesti indekseerida."
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:104
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:107
 #, elixir-autogen, elixir-format
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow lubatud. Otsingumootorid ei indekseeri seda saiti."
@@ -1419,7 +1419,7 @@ msgstr "Autentimata"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:29
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:471
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
-#: lib/phoenix_kit_web/live/settings/integrations.ex:280
+#: lib/phoenix_kit_web/live/settings/integrations.ex:294
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:600
 #, elixir-autogen, elixir-format
 msgid "Not configured"
@@ -1576,7 +1576,7 @@ msgstr "Õigused uuendatud rollile %{role_name}"
 msgid "PhoenixKit Version"
 msgstr "PhoenixKit versioon"
 
-#: lib/phoenix_kit_web/live/modules.ex:376
+#: lib/phoenix_kit_web/live/modules.ex:382
 #, elixir-autogen, elixir-format
 msgid "Please enable Publishing module first"
 msgstr "Palun luba kõigepealt Avaldamise moodul"
@@ -1692,8 +1692,8 @@ msgstr "Keeldu kõigest"
 #: lib/phoenix_kit_web/live/settings.html.heex:254
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:123
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:189
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:220
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:263
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:231
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:274
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:262
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:384
 #, elixir-autogen, elixir-format
@@ -1805,7 +1805,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/notifications/settings.ex:436
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:335
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:346
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:146
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:319
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:378
@@ -1849,7 +1849,7 @@ msgstr "Salvestatud"
 
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:333
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
-#: lib/phoenix_kit_web/live/settings.html.heex:632
+#: lib/phoenix_kit_web/live/settings.html.heex:628
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:765
 #: lib/phoenix_kit_web/live/settings/users.html.heex:730
 #, elixir-autogen, elixir-format
@@ -1943,8 +1943,8 @@ msgstr "Maakond/provints"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:189
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:244
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:276
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:63
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:129
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:64
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:139
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:98
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:51
 #: lib/phoenix_kit_web/live/settings/users.html.heex:544
@@ -2312,7 +2312,7 @@ msgstr "Luba"
 msgid "Expires"
 msgstr "Aegub"
 
-#: lib/phoenix_kit_web/live/modules.ex:408
+#: lib/phoenix_kit_web/live/modules.ex:414
 #, elixir-autogen, elixir-format
 msgid "Failed to %{action} Legal module"
 msgstr "Juriidilise mooduli %{action} ebaõnnestus"
@@ -2784,7 +2784,7 @@ msgstr "Praegu kasutusel"
 msgid "Custom User Fields"
 msgstr "Kohandatud kasutajaväljad"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:562
+#: lib/phoenix_kit_web/live/settings.html.heex:558
 #, elixir-autogen, elixir-format
 msgid "Date Format"
 msgstr "Kuupäeva vorming"
@@ -2878,7 +2878,7 @@ msgstr "Väli"
 msgid "Field Key"
 msgstr "Välja võti"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:519
+#: lib/phoenix_kit_web/live/settings.html.heex:515
 #, elixir-autogen, elixir-format
 msgid "First day of the week"
 msgstr "Nädala esimene päev"
@@ -2934,12 +2934,12 @@ msgstr "Google sisselogimine"
 msgid "Height (px)"
 msgstr "Kõrgus (px)"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:564
+#: lib/phoenix_kit_web/live/settings.html.heex:560
 #, elixir-autogen, elixir-format
 msgid "How dates are displayed"
 msgstr "Kuidas kuupäevi kuvatakse"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:594
+#: lib/phoenix_kit_web/live/settings.html.heex:590
 #, elixir-autogen, elixir-format
 msgid "How times are displayed"
 msgstr "Kuidas kellaaegu kuvatakse"
@@ -2977,7 +2977,7 @@ msgid "Leave empty to preserve original format, or specify jpg/png/webp/mp4"
 msgstr "Jäta tühjaks algse vormingu säilitamiseks või täpsusta jpg/png/webp/mp4"
 
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:73
-#: lib/phoenix_kit_web/live/modules.ex:136
+#: lib/phoenix_kit_web/live/modules.ex:142
 #, elixir-autogen, elixir-format
 msgid "Legal"
 msgstr "Juriidiline"
@@ -3034,8 +3034,8 @@ msgstr "Halda kasutajate registreerimist, vaikimisi seadeid ja kohandatud välju
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:204
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:242
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:275
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:80
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:127
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:81
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:133
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:19
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:47
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:102
@@ -3183,7 +3183,7 @@ msgstr "Kohustuslik väli"
 
 #: lib/phoenix_kit_web/components/core/column_settings.ex:173
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1257
-#: lib/phoenix_kit_web/live/settings.html.heex:648
+#: lib/phoenix_kit_web/live/settings.html.heex:644
 #, elixir-autogen, elixir-format
 msgid "Reset"
 msgstr "Lähtesta"
@@ -3204,7 +3204,7 @@ msgstr "Resolutsioon"
 msgid "Reverse Proxy Users:"
 msgstr "Pöördproxy kasutajad:"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:81
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:84
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:26
 #, elixir-autogen, elixir-format
 msgid "Robots Directive"
@@ -3221,7 +3221,7 @@ msgstr "Rolli tegevused"
 msgid "Role assigned to new user registrations"
 msgstr "Roll määratud uutele kasutajate registreerimistele"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:634
+#: lib/phoenix_kit_web/live/settings.html.heex:630
 #, elixir-autogen, elixir-format
 msgid "Save All Settings"
 msgstr "Salvesta kõik seaded"
@@ -3319,7 +3319,7 @@ msgstr "Õnnestus!"
 msgid "Switch app from"
 msgstr "Vaheta rakendus"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:544
+#: lib/phoenix_kit_web/live/settings.html.heex:540
 #, elixir-autogen, elixir-format
 msgid "System default timezone"
 msgstr "Süsteemi vaikimisi ajavöönd"
@@ -3354,12 +3354,12 @@ msgstr "Migratsioon loob 8 vaikimisi dimensiooni: 4 pildi suurust (pisipilt, vä
 msgid "The storage path"
 msgstr "Salvestustee"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:592
+#: lib/phoenix_kit_web/live/settings.html.heex:588
 #, elixir-autogen, elixir-format
 msgid "Time Format"
 msgstr "Kellaaja vorming"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:542
+#: lib/phoenix_kit_web/live/settings.html.heex:538
 #, elixir-autogen, elixir-format
 msgid "Time Zone"
 msgstr "Ajavöönd"
@@ -3448,7 +3448,7 @@ msgstr "Videod kasutavad CRF 0-51 skaalat (madalam = parem kvaliteet)"
 msgid "Visit"
 msgstr "Külasta"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:517
+#: lib/phoenix_kit_web/live/settings.html.heex:513
 #, elixir-autogen, elixir-format
 msgid "Week Start On"
 msgstr "Nädal algab"
@@ -3714,8 +3714,8 @@ msgstr "Nõustu"
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:223
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:209
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:243
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:87
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:128
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:88
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:136
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:96
 #, elixir-autogen, elixir-format
 msgid "Account"
@@ -3738,8 +3738,8 @@ msgstr "Konto lahti ühendatud"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:372
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:32
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:77
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:105
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:283
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:106
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:294
 #, elixir-autogen, elixir-format
 msgid "Add Integration"
 msgstr "Lisa integratsioon"
@@ -3784,7 +3784,7 @@ msgstr "Rakenduse tüüp: **Veebirakendus** (ärge valige \"Töölauarakendus\" 
 msgid "Are you sure you want to disconnect this account?"
 msgstr "Kas oled kindel, et soovid selle konto lahti ühendada?"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:214
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:225
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to disconnect?"
 msgstr "Kas oled kindel, et soovid lahti ühendada?"
@@ -3921,7 +3921,7 @@ msgstr "Ühenda välised teenused kasutamiseks kõigis moodulites"
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:148
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:343
-#: lib/phoenix_kit_web/live/settings/integrations.ex:276
+#: lib/phoenix_kit_web/live/settings/integrations.ex:290
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:111
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:191
 #, elixir-autogen, elixir-format
@@ -3956,8 +3956,8 @@ msgstr "Ühendus eemaldatud"
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:432
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:541
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:550
-#: lib/phoenix_kit_web/live/settings/integrations.ex:560
-#: lib/phoenix_kit_web/live/settings/integrations.ex:561
+#: lib/phoenix_kit_web/live/settings/integrations.ex:574
+#: lib/phoenix_kit_web/live/settings/integrations.ex:575
 #, elixir-autogen, elixir-format
 msgid "Connection verified"
 msgstr "Ühendus kontrollitud"
@@ -4040,13 +4040,13 @@ msgid "Dimension actions"
 msgstr "Dimensiooni tegevused"
 
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:470
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:212
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:255
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:223
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:266
 #, elixir-autogen, elixir-format
 msgid "Disconnect"
 msgstr "Ühenda lahti"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:257
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:268
 #, elixir-autogen, elixir-format
 msgid "Disconnect?"
 msgstr "Ühenda lahti?"
@@ -4340,7 +4340,7 @@ msgstr "Jäta tühjaks algse failivormingu säilitamiseks"
 msgid "Local Storage"
 msgstr "Kohalik salvestus"
 
-#: lib/phoenix_kit_web/live/modules.ex:137
+#: lib/phoenix_kit_web/live/modules.ex:143
 #, elixir-autogen, elixir-format
 msgid "Locations"
 msgstr "Asukohad"
@@ -4440,7 +4440,7 @@ msgstr "Juurdepääsutokenit pole"
 msgid "No credentials configured"
 msgstr "Mandaadid pole konfigureeritud"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:276
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:287
 #, elixir-autogen, elixir-format
 msgid "No integrations configured"
 msgstr "Integratsioonid pole konfigureeritud"
@@ -4472,7 +4472,7 @@ msgstr "Ootel kutseid pole"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:180
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:469
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:101
-#: lib/phoenix_kit_web/live/settings/integrations.ex:278
+#: lib/phoenix_kit_web/live/settings/integrations.ex:292
 #, elixir-autogen, elixir-format
 msgid "Not connected"
 msgstr "Ühendamata"
@@ -4482,7 +4482,7 @@ msgstr "Ühendamata"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:176
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:468
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:97
-#: lib/phoenix_kit_web/live/settings/integrations.ex:277
+#: lib/phoenix_kit_web/live/settings/integrations.ex:291
 #, elixir-autogen, elixir-format
 msgid "Not tested"
 msgstr "Testimata"
@@ -4663,8 +4663,8 @@ msgstr "Vali lisatav kasutaja..."
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:201
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:241
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:274
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:75
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:126
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:76
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:131
 #, elixir-autogen, elixir-format
 msgid "Service"
 msgstr "Teenus"
@@ -4726,15 +4726,15 @@ msgstr "Maksuseaded salvestatud"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:315
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:347
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:306
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:204
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:247
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:215
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:258
 #, elixir-autogen, elixir-format
 msgid "Test Connection"
 msgstr "Testi ühendust"
 
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:451
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:567
-#: lib/phoenix_kit_web/live/settings/integrations.ex:556
+#: lib/phoenix_kit_web/live/settings/integrations.ex:570
 #, elixir-autogen, elixir-format
 msgid "Test failed"
 msgstr "Test ebaõnnestus"
@@ -4745,8 +4745,8 @@ msgstr "Test ebaõnnestus"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:192
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:283
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:306
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:66
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:170
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:67
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:181
 #, elixir-autogen, elixir-format
 msgid "Testing..."
 msgstr "Testimine..."
@@ -4826,7 +4826,7 @@ msgid "You'll be redirected back here once connected"
 msgstr "Teid suunatakse tagasi siia pärast ühendamist"
 
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:216
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:96
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:97
 #, elixir-autogen, elixir-format
 msgid "connections"
 msgstr "ühendust"
@@ -4955,7 +4955,7 @@ msgstr "Klõpsa **Registreeri**"
 msgid "Configure API permissions"
 msgstr "Seadista API õigused"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:278
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:289
 #, elixir-autogen, elixir-format
 msgid "Connect external services like %{providers}."
 msgstr "Ühenda välised teenused nagu %{providers}."
@@ -5028,9 +5028,9 @@ msgstr "Kustuta see ühendus"
 msgid "Disconnect account"
 msgstr "Ühenda konto lahti"
 
-#: lib/phoenix_kit_web/components/core/table_default.ex:476
-#: lib/phoenix_kit_web/components/core/table_default.ex:513
-#: lib/phoenix_kit_web/components/core/table_default.ex:726
+#: lib/phoenix_kit_web/components/core/table_default.ex:541
+#: lib/phoenix_kit_web/components/core/table_default.ex:578
+#: lib/phoenix_kit_web/components/core/table_default.ex:878
 #, elixir-autogen, elixir-format
 msgid "Drag to reorder"
 msgstr "Lohistage järjestuse muutmiseks"
@@ -5186,7 +5186,7 @@ msgid "Removes the integration permanently. Any module pinned to this connection
 msgstr "Eemaldab integratsiooni jäädavalt. Ükski moodul, mis on selle ühendusega seotud, ei tööta, kuni see on ümber suunatud."
 
 #: lib/phoenix_kit_web/components/core/crumb_switcher.ex:48
-#: lib/phoenix_kit_web/components/core/table_default.ex:922
+#: lib/phoenix_kit_web/components/core/table_default.ex:1087
 #: lib/phoenix_kit_web/components/tree_picker.ex:79
 #, elixir-autogen, elixir-format
 msgid "Search..."
@@ -5251,7 +5251,7 @@ msgstr "Sisu salvestatud"
 
 #: lib/phoenix_kit/users/auth.ex:3255
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:721
-#: lib/phoenix_kit_web/live/modules.ex:128
+#: lib/phoenix_kit_web/live/modules.ex:134
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:378
 #, elixir-autogen, elixir-format
 msgid "Comments"
@@ -5263,7 +5263,7 @@ msgstr "Kommentaarid"
 msgid "Completed"
 msgstr "Lõpetatud"
 
-#: lib/phoenix_kit_web/live/modules.ex:129
+#: lib/phoenix_kit_web/live/modules.ex:135
 #, elixir-autogen, elixir-format
 msgid "Customer Support"
 msgstr "Klienditugi"
@@ -5344,14 +5344,14 @@ msgid "Not installed"
 msgstr "Pole paigaldatud"
 
 #: lib/phoenix_kit_web/live/modules.html.heex:116
-#: lib/phoenix_kit_web/live/settings.html.heex:504
+#: lib/phoenix_kit_web/live/settings.html.heex:500
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:330
 #, elixir-autogen, elixir-format
 msgid "Off"
 msgstr "Väljas"
 
 #: lib/phoenix_kit_web/live/modules.html.heex:116
-#: lib/phoenix_kit_web/live/settings.html.heex:503
+#: lib/phoenix_kit_web/live/settings.html.heex:499
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:330
 #, elixir-autogen, elixir-format
 msgid "On"
@@ -5618,14 +5618,14 @@ msgstr "Staatilised"
 
 #: lib/modules/sitemap/web/settings.html.heex:123
 #: lib/modules/sitemap/web/settings.html.heex:209
-#: lib/phoenix_kit_web/live/modules.ex:142
+#: lib/phoenix_kit_web/live/modules.ex:148
 #, elixir-autogen
 msgid "Publishing"
 msgstr "Avaldamine"
 
 #: lib/modules/sitemap/web/settings.html.heex:130
 #: lib/modules/sitemap/web/settings.html.heex:267
-#: lib/phoenix_kit_web/live/modules.ex:134
+#: lib/phoenix_kit_web/live/modules.ex:140
 #, elixir-autogen
 msgid "Entities"
 msgstr "Üksused"
@@ -5633,7 +5633,7 @@ msgstr "Üksused"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/users/auth.ex:3253
-#: lib/phoenix_kit_web/live/modules.ex:140
+#: lib/phoenix_kit_web/live/modules.ex:146
 #, elixir-autogen
 msgid "Posts"
 msgstr "Postitused"
@@ -7426,78 +7426,78 @@ msgstr "Vaata üksikasju"
 msgid "Authorization"
 msgstr "Volitamine"
 
-#: lib/phoenix_kit_web/live/modules.ex:121
+#: lib/phoenix_kit_web/live/modules.ex:127
 #, elixir-autogen, elixir-format
 msgid "AI"
 msgstr "AI"
 
-#: lib/phoenix_kit_web/live/modules.ex:151
+#: lib/phoenix_kit_web/live/modules.ex:157
 #, elixir-autogen, elixir-format
 msgid "AI endpoints, prompts, and usage tracking"
 msgstr "AI-otspunktid, juhised ja kasutusarvestus"
 
-#: lib/phoenix_kit_web/live/modules.ex:152
+#: lib/phoenix_kit_web/live/modules.ex:158
 #, elixir-autogen, elixir-format
 msgid "AI module for PhoenixKit — endpoints, prompts, completions, and usage tracking"
 msgstr "AI moodul PhoenixKitile — otspunktid, juhised, lõpetused ja kasutusarvestus"
 
-#: lib/phoenix_kit_web/live/modules.ex:147
+#: lib/phoenix_kit_web/live/modules.ex:153
 #, elixir-autogen, elixir-format
 msgid "Ai"
 msgstr "AI"
 
-#: lib/phoenix_kit_web/live/modules.ex:122
+#: lib/phoenix_kit_web/live/modules.ex:128
 #, elixir-autogen, elixir-format
 msgid "Billing"
 msgstr "Arveldamine"
 
-#: lib/phoenix_kit_web/live/modules.ex:155
+#: lib/phoenix_kit_web/live/modules.ex:161
 #, elixir-autogen, elixir-format
 msgid "Billing module for PhoenixKit — payments, subscriptions, invoices"
 msgstr "Arveldusmoodul PhoenixKitile — maksed, tellimused, arved"
 
-#: lib/phoenix_kit_web/live/modules.ex:156
+#: lib/phoenix_kit_web/live/modules.ex:162
 #, elixir-autogen, elixir-format
 msgid "Blog posts, categories, and content publishing"
 msgstr "Blogipostitused, kategooriad ja sisu avaldamine"
 
-#: lib/phoenix_kit_web/live/modules.ex:123
+#: lib/phoenix_kit_web/live/modules.ex:129
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:432
 #, elixir-autogen, elixir-format
 msgid "CRM"
 msgstr "CRM"
 
-#: lib/phoenix_kit_web/live/modules.ex:164
+#: lib/phoenix_kit_web/live/modules.ex:170
 #, elixir-autogen, elixir-format
 msgid "CRM module for PhoenixKit — organization accounts, role-scoped user views, and per-user column configuration."
 msgstr "CRM-moodul PhoenixKitile — organisatsioonide kontod, rollipõhised kasutajavaated ja kasutajakohane veerguseadistus."
 
-#: lib/phoenix_kit_web/live/modules.ex:126
+#: lib/phoenix_kit_web/live/modules.ex:132
 #, elixir-autogen, elixir-format
 msgid "Catalogue"
 msgstr "Kataloog"
 
-#: lib/phoenix_kit_web/live/modules.ex:127
+#: lib/phoenix_kit_web/live/modules.ex:133
 #, elixir-autogen, elixir-format
 msgid "Catalogues"
 msgstr "Kataloogid"
 
-#: lib/phoenix_kit_web/live/modules.ex:157
+#: lib/phoenix_kit_web/live/modules.ex:163
 #, elixir-autogen, elixir-format
 msgid "Catalogue module for PhoenixKit — manufacturers, suppliers, and product catalogues."
 msgstr "Kataloogimoodul PhoenixKitile — tootjad, tarnijad ja tootekataloogid."
 
-#: lib/phoenix_kit_web/live/modules.ex:160
+#: lib/phoenix_kit_web/live/modules.ex:166
 #, elixir-autogen, elixir-format
 msgid "Comment moderation, threading, and reactions across all content types"
 msgstr "Kommentaaride moderatsioon, lõimed ja reaktsioonid kõigi sisutüüpide jaoks"
 
-#: lib/phoenix_kit_web/live/modules.ex:161
+#: lib/phoenix_kit_web/live/modules.ex:167
 #, elixir-autogen, elixir-format
 msgid "Comments module for PhoenixKit — polymorphic threading, likes/dislikes, and moderation"
 msgstr "Kommentaaride moodul PhoenixKitile — polümorfsed lõimed, meeldib/ei meeldi ja moderatsioon"
 
-#: lib/phoenix_kit_web/live/modules.ex:148
+#: lib/phoenix_kit_web/live/modules.ex:154
 #, elixir-autogen, elixir-format
 msgid "Crm"
 msgstr "CRM"
@@ -7507,144 +7507,144 @@ msgstr "CRM"
 msgid "Current Configuration"
 msgstr "Praegune konfiguratsioon"
 
-#: lib/phoenix_kit_web/live/modules.ex:167
+#: lib/phoenix_kit_web/live/modules.ex:173
 #, elixir-autogen, elixir-format
 msgid "Customer support ticketing module for PhoenixKit"
 msgstr "Klienditoe piletisüsteemi moodul PhoenixKitile"
 
-#: lib/phoenix_kit_web/live/modules.ex:168
+#: lib/phoenix_kit_web/live/modules.ex:174
 #, elixir-autogen, elixir-format
 msgid "Database-backed CMS pages and multi-language content"
 msgstr "Andmebaasipõhised CMS-lehed ja mitmekeelne sisu"
 
-#: lib/phoenix_kit_web/live/modules.ex:130
+#: lib/phoenix_kit_web/live/modules.ex:136
 #, elixir-autogen, elixir-format
 msgid "Document Creator"
 msgstr "Dokumendi looja"
 
-#: lib/phoenix_kit_web/live/modules.ex:169
+#: lib/phoenix_kit_web/live/modules.ex:175
 #, elixir-autogen, elixir-format
 msgid "Document Creator module for PhoenixKit — document templates and PDF generation via Google Docs"
 msgstr "Dokumendi looja moodul PhoenixKitile — dokumendimallid ja PDF-i genereerimine Google Docsi kaudu"
 
-#: lib/phoenix_kit_web/live/modules.ex:131
+#: lib/phoenix_kit_web/live/modules.ex:137
 #, elixir-autogen, elixir-format
 msgid "E-Commerce"
 msgstr "E-kaubandus"
 
-#: lib/phoenix_kit_web/live/modules.ex:172
+#: lib/phoenix_kit_web/live/modules.ex:178
 #, elixir-autogen, elixir-format
 msgid "E-commerce module for PhoenixKit — products, categories, cart, checkout"
 msgstr "E-kaubanduse moodul PhoenixKitile — tooted, kategooriad, ostukorv, kassa"
 
-#: lib/phoenix_kit_web/live/modules.ex:132
+#: lib/phoenix_kit_web/live/modules.ex:138
 #, elixir-autogen, elixir-format
 msgid "Ecommerce"
 msgstr "E-kaubandus"
 
-#: lib/phoenix_kit_web/live/modules.ex:173
+#: lib/phoenix_kit_web/live/modules.ex:179
 #, elixir-autogen, elixir-format
 msgid "Email tracking, analytics, and AWS SES integration for PhoenixKit"
 msgstr "E-kirjade jälgimine, analüütika ja AWS SES integratsioon PhoenixKitile"
 
-#: lib/phoenix_kit_web/live/modules.ex:133
+#: lib/phoenix_kit_web/live/modules.ex:139
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:15
 #, elixir-autogen, elixir-format
 msgid "Emails"
 msgstr "E-kirjad"
 
-#: lib/phoenix_kit_web/live/modules.ex:174
+#: lib/phoenix_kit_web/live/modules.ex:180
 #, elixir-autogen, elixir-format
 msgid "Entities module for PhoenixKit — dynamic content types with flexible field schemas"
 msgstr "Üksuste moodul PhoenixKitile — dünaamilised sisutüübid paindlike välja-skeemidega"
 
-#: lib/phoenix_kit_web/live/modules.ex:205
+#: lib/phoenix_kit_web/live/modules.ex:211
 #, elixir-autogen, elixir-format
 msgid "External module"
 msgstr "Väline moodul"
 
-#: lib/phoenix_kit_web/live/modules.ex:135
+#: lib/phoenix_kit_web/live/modules.ex:141
 #, elixir-autogen, elixir-format
 msgid "Hello World"
 msgstr "Hello World"
 
-#: lib/phoenix_kit_web/live/modules.ex:177
+#: lib/phoenix_kit_web/live/modules.ex:183
 #, elixir-autogen, elixir-format
 msgid "Hello World demo module for PhoenixKit — use as a template for your own plugins"
 msgstr "Hello World demomoodul PhoenixKitile — kasuta mallina oma pluginate jaoks"
 
-#: lib/phoenix_kit_web/live/modules.ex:180
+#: lib/phoenix_kit_web/live/modules.ex:186
 #, elixir-autogen, elixir-format
 msgid "Legal compliance module for PhoenixKit — GDPR/CCPA legal pages, cookie consent, consent logging"
 msgstr "Juriidilise vastavuse moodul PhoenixKitile — GDPR/CCPA juriidilised lehed, küpsiste nõusolek, nõusolekute logimine"
 
-#: lib/phoenix_kit_web/live/modules.ex:183
+#: lib/phoenix_kit_web/live/modules.ex:189
 #, elixir-autogen, elixir-format
 msgid "Locations module for PhoenixKit — manage physical locations with custom types."
 msgstr "Asukohtade moodul PhoenixKitile — füüsiliste asukohtade haldamine kohandatud tüüpidega."
 
-#: lib/phoenix_kit_web/live/modules.ex:138
+#: lib/phoenix_kit_web/live/modules.ex:144
 #, elixir-autogen, elixir-format
 msgid "Newsletters"
 msgstr "Uudiskirjad"
 
-#: lib/phoenix_kit_web/live/modules.ex:186
+#: lib/phoenix_kit_web/live/modules.ex:192
 #, elixir-autogen, elixir-format
 msgid "Newsletters module for PhoenixKit — email broadcasts and subscription management"
 msgstr "Uudiskirjade moodul PhoenixKitile — e-kirjasaatmised ja tellimuste haldamine"
 
-#: lib/phoenix_kit_web/live/modules.ex:189
+#: lib/phoenix_kit_web/live/modules.ex:195
 #, elixir-autogen, elixir-format
 msgid "Peer-to-peer data sync module for PhoenixKit"
 msgstr "Võrdõigusliku andmete sünkroonimise moodul PhoenixKitile"
 
-#: lib/phoenix_kit_web/live/modules.ex:190
+#: lib/phoenix_kit_web/live/modules.ex:196
 #, elixir-autogen, elixir-format
 msgid "Peer-to-peer data synchronization and replication"
 msgstr "Võrdõiguslik andmete sünkroonimine ja replikatsioon"
 
-#: lib/phoenix_kit_web/live/modules.ex:191
+#: lib/phoenix_kit_web/live/modules.ex:197
 #, elixir-autogen, elixir-format
 msgid "Posts module for PhoenixKit — blog posts, tags, groups, likes, media, and scheduling"
 msgstr "Postituste moodul PhoenixKitile — blogipostitused, sildid, rühmad, meeldimised, meedia ja ajastamine"
 
-#: lib/phoenix_kit_web/live/modules.ex:141
+#: lib/phoenix_kit_web/live/modules.ex:147
 #, elixir-autogen, elixir-format
 msgid "Projects"
 msgstr "Projektid"
 
-#: lib/phoenix_kit_web/live/modules.ex:194
+#: lib/phoenix_kit_web/live/modules.ex:200
 #, elixir-autogen, elixir-format
 msgid "Projects module for PhoenixKit — projects, reusable tasks, assignments, and dependencies."
 msgstr "Projektide moodul PhoenixKitile — projektid, korduvkasutatavad ülesanded, määramised ja sõltuvused."
 
-#: lib/phoenix_kit_web/live/modules.ex:197
+#: lib/phoenix_kit_web/live/modules.ex:203
 #, elixir-autogen, elixir-format
 msgid "Publishing module for PhoenixKit — database-backed CMS with multi-language support"
 msgstr "Avaldamise moodul PhoenixKitile — andmebaasipõhine CMS mitmekeelse toega"
 
-#: lib/phoenix_kit_web/live/modules.ex:143
+#: lib/phoenix_kit_web/live/modules.ex:149
 #, elixir-autogen, elixir-format
 msgid "Staff"
 msgstr "Töötajad"
 
-#: lib/phoenix_kit_web/live/modules.ex:200
+#: lib/phoenix_kit_web/live/modules.ex:206
 #, elixir-autogen, elixir-format
 msgid "Staff module for PhoenixKit — departments, teams, and people."
 msgstr "Töötajate moodul PhoenixKitile — osakonnad, meeskonnad ja inimesed."
 
 #: lib/modules/storage/web/libraries_component.ex:433
-#: lib/phoenix_kit_web/live/modules.ex:144
+#: lib/phoenix_kit_web/live/modules.ex:150
 #, elixir-autogen, elixir-format
 msgid "Sync"
 msgstr "Sünkroonimine"
 
-#: lib/phoenix_kit_web/live/modules.ex:145
+#: lib/phoenix_kit_web/live/modules.ex:151
 #, elixir-autogen, elixir-format
 msgid "User Connections"
 msgstr "Kasutaja seosed"
 
-#: lib/phoenix_kit_web/live/modules.ex:201
+#: lib/phoenix_kit_web/live/modules.ex:207
 #, elixir-autogen, elixir-format
 msgid "User connections module for PhoenixKit — follows, mutual connections, and blocking"
 msgstr "Kasutaja seoste moodul PhoenixKitile — jälgimised, vastastikused seosed ja blokeerimised"
@@ -9051,7 +9051,7 @@ msgstr "Muuda ikooni"
 msgid "Change image"
 msgstr "Muuda pilti"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:659
+#: lib/phoenix_kit_web/live/settings.html.heex:655
 #, elixir-autogen, elixir-format
 msgid "Changes apply system-wide after \"Save All Settings\". Registration and user defaults are managed on the Users page."
 msgstr "Muudatused rakenduvad kogu süsteemis pärast nuppu \"Salvesta kõik seaded\". Registreerimist ja kasutajate vaikeseadeid hallatakse kasutajate lehel."
@@ -9071,8 +9071,8 @@ msgstr "Praegu kasutatakse saidi ikooni."
 msgid "Custom URLs"
 msgstr "Kohandatud URL-id"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:575
-#: lib/phoenix_kit_web/live/settings.html.heex:605
+#: lib/phoenix_kit_web/live/settings.html.heex:571
+#: lib/phoenix_kit_web/live/settings.html.heex:601
 #, elixir-autogen, elixir-format
 msgid "Example:"
 msgstr "Näide:"
@@ -9127,7 +9127,7 @@ msgstr "Selle rakenduse avalik baas-URL"
 msgid "Recipient"
 msgstr "Saaja"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:643
+#: lib/phoenix_kit_web/live/settings.html.heex:639
 #, elixir-autogen, elixir-format
 msgid "Reset ALL settings to their defaults? Your title, logo, formats and feature toggles will be replaced. This cannot be undone."
 msgstr "Kas lähtestada KÕIK seaded vaikeväärtustele? Sinu pealkiri, logo, vormingud ja funktsioonide lülitid asendatakse. Seda ei saa tagasi võtta."
@@ -11383,13 +11383,13 @@ msgstr "Blokeeri rakenduse tasemel"
 msgid "Blocked groups"
 msgstr "Blokeeritud rühmad"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:82
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:85
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:110
 #, elixir-autogen, elixir-format
 msgid "Bot Access"
 msgstr "Botide ligipääs"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:490
+#: lib/phoenix_kit_web/live/settings.html.heex:486
 #, elixir-autogen, elixir-format
 msgid "By default a mention shows what it names even to someone without access, with a lock icon and no link. Turn this on where the name itself is sensitive; they then see the name as it was when it was written, not its current one."
 msgstr "Vaikimisi näitab mainimine seda, mida ta nimetab, ka ligipääsuta kasutajale — luku ikooniga ja lingita. Lülita see sisse, kui nimi ise on tundlik; siis nähakse nime sellisena, nagu see kirjutamise hetkel oli, mitte praegusena."
@@ -11475,18 +11475,18 @@ msgstr "Toimeta arenduskirjad kausta /dev/mailbox"
 msgid "Enable model access"
 msgstr "Luba juurdepääs mudelitele"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:86
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:89
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:319
 #, elixir-autogen, elixir-format
 msgid "Enforcement"
 msgstr "Jõustamine"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:115
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:127
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:146
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:157
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:173
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:186
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:118
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:130
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:149
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:160
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:176
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:189
 #, elixir-autogen, elixir-format
 msgid "Failed to update crawler settings"
 msgstr "Roomajate seadete uuendamine ebaõnnestus"
@@ -11511,7 +11511,7 @@ msgstr "Mine lehele [Fine-grained tokens](https://github.com/settings/personal-a
 msgid "Grouped by why they visit. Blocking a group writes it into the generated robots.txt below; everything defaults to allowed."
 msgstr "Rühmitatud külastuse põhjuse järgi. Rühma blokeerimine kirjutab selle allolevasse genereeritud robots.txt-i; vaikimisi on kõik lubatud."
 
-#: lib/phoenix_kit_web/live/settings.html.heex:485
+#: lib/phoenix_kit_web/live/settings.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "Hide titles of records the reader can't open"
 msgstr "Peida kirjete pealkirjad, mida lugeja ei saa avada"
@@ -11546,7 +11546,7 @@ msgstr "Vigane regiooni vorming (oodatud nt eu-central-1)"
 msgid "Key authenticated but not authorised in %{region} — allow bedrock:CallWithBearerToken (and ListFoundationModels) on its IAM identity, or check the key was issued for this region"
 msgstr "Võti autenditi, kuid sellel puuduvad õigused regioonis %{region} — luba selle IAM identiteedil bedrock:CallWithBearerToken (ja ListFoundationModels) või kontrolli, kas võti väljastati selle regiooni jaoks"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:477
+#: lib/phoenix_kit_web/live/settings.html.heex:475
 #, elixir-autogen, elixir-format
 msgid "Lets people type @ to mention someone and # to link a record, anywhere they can write free text. Turning it off stops the suggestions; mentions already written stay readable as plain text."
 msgstr "Lubab inimestel kirjutada @, et kedagi mainida, ja #, et kirjele viidata — kõikjal, kus saab vaba teksti kirjutada. Väljalülitamine peatab soovitused; juba kirjutatud mainimised jäävad tavatekstina loetavaks."
@@ -11723,13 +11723,13 @@ msgstr "Lugemata · %{day}"
 msgid "Use it from the AI module"
 msgstr "Kasuta seda AI moodulist"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:85
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:88
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:270
 #, elixir-autogen, elixir-format
 msgid "Verification"
 msgstr "Kinnitamine"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:170
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:173
 #, elixir-autogen, elixir-format
 msgid "Verification tags saved."
 msgstr "Kinnitussildid salvestatud."
@@ -11774,7 +11774,7 @@ msgstr "Sul puudub ligipääs — klõpsa, et seda taotleda"
 msgid "github.com/settings/personal-access-tokens — fine-grained, read-only"
 msgstr "github.com/settings/personal-access-tokens — peeneteraline, kirjutuskaitstud"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:183
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:186
 #, elixir-autogen, elixir-format
 msgid "llms.txt content saved."
 msgstr "llms.txt sisu salvestatud."
@@ -11864,13 +11864,13 @@ msgid "Select Images"
 msgstr "Vali pildid"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2635
-#: lib/phoenix_kit_web/live/settings.html.heex:676
+#: lib/phoenix_kit_web/live/settings.html.heex:672
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:784
 #, elixir-autogen, elixir-format
 msgid "Select Logo"
 msgstr "Vali logo"
 
-#: lib/phoenix_kit_web/live/settings.html.heex:675
+#: lib/phoenix_kit_web/live/settings.html.heex:671
 #, elixir-autogen, elixir-format
 msgid "Select Site Icon"
 msgstr "Vali saidi ikoon"
@@ -11927,42 +11927,42 @@ msgstr "Kuvatud"
 msgid "Reply to this annotation"
 msgstr "Vasta sellele märkusele"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:328
+#: lib/phoenix_kit_web/live/settings/integrations.ex:342
 #, elixir-autogen, elixir-format
 msgid "Credentials are protected only by a shared application secret"
 msgstr "Mandaadid on kaitstud ainult rakenduse jagatud saladusega"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:331
+#: lib/phoenix_kit_web/live/settings/integrations.ex:345
 #, elixir-autogen, elixir-format
 msgid "Credentials are stored in plain text"
 msgstr "Mandaadid salvestatakse selgel kujul"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:334
+#: lib/phoenix_kit_web/live/settings/integrations.ex:348
 #, elixir-autogen, elixir-format
 msgid "Encryption is turned off for integration credentials"
 msgstr "Krüpteerimine on integratsioonide mandaatide jaoks välja lülitatud"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:462
+#: lib/phoenix_kit_web/live/settings/integrations.ex:476
 #, elixir-autogen, elixir-format
 msgid "No dedicated encryption key is configured, so credentials below fall back to a key derived from secret_key_base — a secret shared with session signing and CSRF tokens. Anyone who can read secret_key_base can decrypt every credential here. Run mix phoenix_kit.integrations.rotate_key to fix this."
 msgstr "Eraldi krüpteerimisvõtit pole seadistatud, seega kasutavad allolevad mandaadid secret_key_base'ist tuletatud võtit — saladust, mida jagatakse seansi allkirjastamise ja CSRF-lubadega. Igaüks, kes saab lugeda secret_key_base'i, saab siin dešifreerida iga mandaadi. Selle parandamiseks käivitage mix phoenix_kit.integrations.rotate_key."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:471
+#: lib/phoenix_kit_web/live/settings/integrations.ex:485
 #, elixir-autogen, elixir-format
 msgid "No encryption key could be resolved. New and existing credentials below are stored as plain text in the database."
 msgstr "Krüpteerimisvõtit ei õnnestunud tuvastada. Allolevad uued ja olemasolevad mandaadid salvestatakse andmebaasi selgel kujul."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:478
+#: lib/phoenix_kit_web/live/settings/integrations.ex:492
 #, elixir-autogen, elixir-format
 msgid "integration_encryption_enabled is set to false. Credentials below are stored as plain text in the database."
 msgstr "integration_encryption_enabled on seatud väärtusele false. Allolevad mandaadid salvestatakse andmebaasi selgel kujul."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:341
+#: lib/phoenix_kit_web/live/settings/integrations.ex:355
 #, elixir-autogen, elixir-format
 msgid "Integration credential encryption needs attention"
 msgstr "Integratsiooni mandaatide krüpteerimine vajab tähelepanu"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:486
+#: lib/phoenix_kit_web/live/settings/integrations.ex:500
 #, elixir-autogen, elixir-format
 msgid "The current encryption status could not be described by this admin page — it may be newer than what this page recognizes. Check PhoenixKit.Integrations.Encryption.status/0 directly."
 msgstr "Praegust krüpteerimise olekut ei õnnestunud sellel haldusleheküljel kirjeldada — see võib olla uuem kui see lehekülg ära tunneb. Kontrollige otse PhoenixKit.Integrations.Encryption.status/0."
@@ -12319,67 +12319,67 @@ msgstr "Tere tulemast tagasi!"
 msgid "Your account is currently inactive. Please contact the team if you believe this is an error."
 msgstr "Teie konto on hetkel mitteaktiivne. Kui arvate, et tegemist on veaga, võtke ühendust meeskonnaga."
 
-#: lib/phoenix_kit_web/users/auth.ex:2287
+#: lib/phoenix_kit_web/users/auth.ex:2293
 #, elixir-autogen, elixir-format
 msgid "%{label} module is not enabled"
 msgstr "%{label} moodul ei ole lubatud"
 
-#: lib/phoenix_kit_web/users/auth.ex:3003
+#: lib/phoenix_kit_web/users/auth.ex:3011
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "Jätkamiseks sisestage oma soovituskood."
 
-#: lib/phoenix_kit_web/users/auth.ex:2999
+#: lib/phoenix_kit_web/users/auth.ex:3007
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "Palun kinnitage oma e-post enne rakenduse kasutamist."
 
-#: lib/phoenix_kit_web/users/auth.ex:133
+#: lib/phoenix_kit_web/users/auth.ex:139
 #, elixir-autogen, elixir-format
 msgid "This account is not active. Contact an administrator."
 msgstr "See konto ei ole aktiivne. Võtke ühendust administraatoriga."
 
-#: lib/phoenix_kit_web/users/auth.ex:915
-#: lib/phoenix_kit_web/users/auth.ex:2306
-#: lib/phoenix_kit_web/users/auth.ex:3148
+#: lib/phoenix_kit_web/users/auth.ex:921
+#: lib/phoenix_kit_web/users/auth.ex:2314
+#: lib/phoenix_kit_web/users/auth.ex:3156
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "Teil ei ole õigust seda jaotist vaadata."
 
-#: lib/phoenix_kit_web/users/auth.ex:890
-#: lib/phoenix_kit_web/users/auth.ex:1050
-#: lib/phoenix_kit_web/users/auth.ex:3097
-#: lib/phoenix_kit_web/users/auth.ex:3133
+#: lib/phoenix_kit_web/users/auth.ex:896
+#: lib/phoenix_kit_web/users/auth.ex:1056
+#: lib/phoenix_kit_web/users/auth.ex:3105
+#: lib/phoenix_kit_web/users/auth.ex:3141
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "Teil ei ole selle lehe vaatamiseks vajalikku õigust."
 
-#: lib/phoenix_kit_web/users/auth.ex:1785
+#: lib/phoenix_kit_web/users/auth.ex:1791
 #, elixir-autogen, elixir-format
 msgid "You must be an admin to access this page."
 msgstr "Selle lehe vaatamiseks peate olema administraator."
 
-#: lib/phoenix_kit_web/users/auth.ex:851
-#: lib/phoenix_kit_web/users/auth.ex:3060
+#: lib/phoenix_kit_web/users/auth.ex:857
+#: lib/phoenix_kit_web/users/auth.ex:3068
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "Selle lehe vaatamiseks peate olema omanik."
 
-#: lib/phoenix_kit_web/users/auth.ex:3176
+#: lib/phoenix_kit_web/users/auth.ex:3184
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "Selle lehe vaatamiseks on vajalik %{role_name} roll."
 
-#: lib/phoenix_kit_web/users/auth.ex:1075
-#: lib/phoenix_kit_web/users/auth.ex:2924
-#: lib/phoenix_kit_web/users/auth.ex:2961
-#: lib/phoenix_kit_web/users/auth.ex:3104
+#: lib/phoenix_kit_web/users/auth.ex:1081
+#: lib/phoenix_kit_web/users/auth.ex:2932
+#: lib/phoenix_kit_web/users/auth.ex:2969
+#: lib/phoenix_kit_web/users/auth.ex:3112
 #: lib/phoenix_kit_web/users/session.ex:221
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
 msgstr "Selle lehe vaatamiseks peate sisse logima."
 
-#: lib/phoenix_kit_web/users/auth.ex:1788
+#: lib/phoenix_kit_web/users/auth.ex:1794
 #, elixir-autogen, elixir-format
 msgid "You no longer have permission to access this section."
 msgstr "Teil ei ole enam õigust seda jaotist vaadata."
@@ -12414,32 +12414,32 @@ msgstr "Liiga palju registreerimiskatseid. Palun proovige hiljem uuesti."
 msgid "%{enabled} of %{total} notification types enabled"
 msgstr "%{enabled} teavitustüüpi %{total}-st lubatud"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:445
+#: lib/phoenix_kit_web/live/settings/integrations.ex:459
 #, elixir-autogen, elixir-format
 msgid "A dedicated encryption key is configured but was rejected as too short, and no other key resolves — credentials below are being written in plain text. Replace it with a longer secret and restart; rotation cannot help while no key is active."
 msgstr "Eraldi krüptovõti on seadistatud, kuid lükati liiga lühikesena tagasi, ja ühtegi teist võtit ei leidu — allolevad mandaadid salvestatakse avatekstina. Asenda see pikema saladusega ja taaskäivita; rotatsioon ei aita, kuni ükski võti pole aktiivne."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:453
+#: lib/phoenix_kit_web/live/settings/integrations.ex:467
 #, elixir-autogen, elixir-format
 msgid "A dedicated encryption key is configured but was rejected as too short, so a weaker key is in use. This is not the same as having none configured. Replace it with a longer secret — while a rejected key is set, the key store is not consulted at all, so repairing or filling the store changes nothing."
 msgstr "Eraldi krüptovõti on seadistatud, kuid lükati liiga lühikesena tagasi, mistõttu kasutusel on nõrgem võti. See ei ole sama, mis võtme puudumine. Asenda see pikema saladusega — kuni tagasilükatud võti on seadistatud, võtmehoidlat ei vaadata üldse, seega hoidla parandamine või täitmine ei muuda midagi."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:390
+#: lib/phoenix_kit_web/live/settings/integrations.ex:404
 #, elixir-autogen, elixir-format
 msgid "A key store is configured and holds a secret at %{location}, but no encryption key resolves at all — credentials below are being written in plain text. Do NOT run mix phoenix_kit.integrations.rotate_key: it refuses while no key is active. Check what the store holds — if it is a real key from an earlier rotation, wire it in as integrations_encryption_key and restart."
 msgstr "Võtmehoidla on seadistatud ja hoiab saladust asukohas %{location}, kuid ühtegi krüptovõtit ei leidu — allolevad mandaadid salvestatakse avatekstina. ÄRA käivita mix phoenix_kit.integrations.rotate_key: see keeldub, kuni ükski võti pole aktiivne. Kontrolli, mida hoidla sisaldab — kui see on varasema rotatsiooni päris võti, seadista see integrations_encryption_key väärtuseks ja taaskäivita."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:405
+#: lib/phoenix_kit_web/live/settings/integrations.ex:419
 #, elixir-autogen, elixir-format
 msgid "A key store is configured but holds a secret that is not the key in use, so encryption fell back to a weaker key. %{location} is most plausibly already holding a dedicated secret from a rotation this app has not restarted to pick up yet. Do NOT run mix phoenix_kit.integrations.rotate_key before checking: if that is the case, restart instead of rotating again, since rotating replaces it with no copy kept."
 msgstr "Võtmehoidla on seadistatud, kuid hoiab saladust, mis pole kasutusel olev võti, mistõttu krüpteerimine langes nõrgemale võtmele. Tõenäoliselt hoiab %{location} juba eraldi saladust rotatsioonist, mille jaoks rakendus pole veel taaskäivitunud. ÄRA käivita mix phoenix_kit.integrations.rotate_key enne kontrollimist: sel juhul taaskäivita, mitte ära roteeri uuesti — rotatsioon asendab selle koopiat säilitamata."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:370
+#: lib/phoenix_kit_web/live/settings/integrations.ex:384
 #, elixir-autogen, elixir-format
 msgid "A key store is configured but its secret could not be read, and no other key resolves either — credentials below are being written in plain text. Do NOT run mix phoenix_kit.integrations.rotate_key: the stored key may be the one existing credentials are encrypted under. Repair the store first; repairing it later will not make anything written in the meantime readable."
 msgstr "Võtmehoidla on seadistatud, kuid selle saladust ei õnnestunud lugeda, ja ühtegi teist võtit ei leidu — allolevad mandaadid salvestatakse avatekstina. ÄRA käivita mix phoenix_kit.integrations.rotate_key: hoitav võti võib olla see, millega olemasolevad mandaadid on krüpteeritud. Paranda kõigepealt hoidla; hilisem parandamine ei tee vahepeal kirjutatut loetavaks."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:380
+#: lib/phoenix_kit_web/live/settings/integrations.ex:394
 #, elixir-autogen, elixir-format
 msgid "A key store is configured but its secret could not be read, so encryption fell back to a weaker key. Values written under the stored key will not decrypt. Do NOT run mix phoenix_kit.integrations.rotate_key: the stored key may be the one they are encrypted under. Repair the store first; repairing it later will not make anything written in the meantime readable."
 msgstr "Võtmehoidla on seadistatud, kuid selle saladust ei õnnestunud lugeda, mistõttu krüpteerimine langes nõrgemale võtmele. Hoitava võtme all kirjutatud väärtused ei dekrüpteeru. ÄRA käivita mix phoenix_kit.integrations.rotate_key: hoitav võti võib olla see, millega need on krüpteeritud. Paranda kõigepealt hoidla; hilisem parandamine ei tee vahepeal kirjutatut loetavaks."
@@ -12459,12 +12459,12 @@ msgstr "Brauser tuvastas: %{zone}"
 msgid "Check your timezone"
 msgstr "Kontrolli oma ajavööndit"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:360
+#: lib/phoenix_kit_web/live/settings/integrations.ex:374
 #, elixir-autogen, elixir-format
 msgid "Encryption is working — the key in use comes from configuration. The configured key store holds a different secret, so it is not a copy of that key: restoring from it would produce a key that decrypts nothing stored here. Do not rotate before you know what the stored secret is for — a rotation replaces it in every configured store and keeps no copy."
 msgstr "Krüpteerimine töötab — kasutusel olev võti tuleb seadistusest. Seadistatud võtmehoidla hoiab teistsugust saladust, seega see pole selle võtme koopia: sellest taastamine annaks võtme, mis ei dekrüpteeri siin midagi. Ära roteeri enne, kui tead, milleks hoitav saladus on — rotatsioon asendab selle igas seadistatud hoidlas ega säilita koopiat."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:351
+#: lib/phoenix_kit_web/live/settings/integrations.ex:365
 #, elixir-autogen, elixir-format
 msgid "Encryption itself is working — the key in use comes from configuration. The configured key store cannot be read, so nothing confirms that key is saved anywhere. Do not rotate until the store reads back: the rotation pre-flight only checks that the store can be written, so it will not stop for this."
 msgstr "Krüpteerimine ise töötab — kasutusel olev võti tuleb seadistusest. Seadistatud võtmehoidlat ei saa lugeda, seega miski ei kinnita, et see võti on kuhugi salvestatud. Ära roteeri enne, kui hoidla on loetav: rotatsiooni eelkontroll kontrollib vaid, et hoidlasse saab kirjutada, seega see siin ei peata."
@@ -12474,22 +12474,22 @@ msgstr "Krüpteerimine ise töötab — kasutusel olev võti tuleb seadistusest.
 msgid "Encryption key fingerprint:"
 msgstr "Krüptovõtme sõrmejälg:"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:527
+#: lib/phoenix_kit_web/live/settings/integrations.ex:541
 #, elixir-autogen, elixir-format
 msgid "FALLBACK key — the configured key store could not be read"
 msgstr "VARUVÕTI — seadistatud võtmehoidlat ei õnnestunud lugeda"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:530
+#: lib/phoenix_kit_web/live/settings/integrations.ex:544
 #, elixir-autogen, elixir-format
 msgid "FALLBACK key — the configured key store holds a different secret"
 msgstr "VARUVÕTI — seadistatud võtmehoidla hoiab teistsugust saladust"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:536
+#: lib/phoenix_kit_web/live/settings/integrations.ex:550
 #, elixir-autogen, elixir-format
 msgid "FALLBACK key — the configured key was rejected as too short"
 msgstr "VARUVÕTI — seadistatud võti lükati liiga lühikesena tagasi"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:533
+#: lib/phoenix_kit_web/live/settings/integrations.ex:547
 #, elixir-autogen, elixir-format
 msgid "FALLBACK key — the secret in the key store was rejected as too short"
 msgstr "VARUVÕTI — võtmehoidla saladus lükati liiga lühikesena tagasi"
@@ -12549,7 +12549,7 @@ msgstr "Öökull"
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:388
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:444
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:560
-#: lib/phoenix_kit_web/live/settings/integrations.ex:552
+#: lib/phoenix_kit_web/live/settings/integrations.ex:566
 #, elixir-autogen, elixir-format
 msgid "Not tested — this provider has no connection check"
 msgstr "Testimata — sellel teenusepakkujal pole ühenduse kontrolli"
@@ -12571,42 +12571,42 @@ msgstr "Profiili seaded"
 msgid "Rise and shine"
 msgstr "Ärka ja sära"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:307
+#: lib/phoenix_kit_web/live/settings/integrations.ex:321
 #, elixir-autogen, elixir-format
 msgid "The configured encryption key store cannot be read"
 msgstr "Seadistatud krüptovõtmehoidlat ei saa lugeda"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:325
+#: lib/phoenix_kit_web/live/settings/integrations.ex:339
 #, elixir-autogen, elixir-format
 msgid "The configured encryption key was rejected as too short"
 msgstr "Seadistatud krüptovõti lükati liiga lühikesena tagasi"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:315
+#: lib/phoenix_kit_web/live/settings/integrations.ex:329
 #, elixir-autogen, elixir-format
 msgid "The configured key store holds a different secret"
 msgstr "Seadistatud võtmehoidla hoiab teistsugust saladust"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:301
+#: lib/phoenix_kit_web/live/settings/integrations.ex:315
 #, elixir-autogen, elixir-format
 msgid "The encryption key is fine, but its key store cannot be read"
 msgstr "Krüptovõti on korras, kuid selle hoidlat ei saa lugeda"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:304
+#: lib/phoenix_kit_web/live/settings/integrations.ex:318
 #, elixir-autogen, elixir-format
 msgid "The key store holds a different secret from the key in use"
 msgstr "Võtmehoidla hoiab kasutusel olevast võtmest erinevat saladust"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:424
+#: lib/phoenix_kit_web/live/settings/integrations.ex:438
 #, elixir-autogen, elixir-format
 msgid "The secret in the key store (%{location}) was rejected as shorter than the minimum, and no other key resolves — credentials below are being written in plain text. No integrations_encryption_key is set, so the store is where the key is read from: put a longer secret there and restart."
 msgstr "Võtmehoidla (%{location}) saladus lükati miinimumist lühemana tagasi ja ühtegi teist võtit ei leidu — allolevad mandaadid salvestatakse avatekstina. integrations_encryption_key pole seadistatud, seega võti loetakse hoidlast: pane sinna pikem saladus ja taaskäivita."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:436
+#: lib/phoenix_kit_web/live/settings/integrations.ex:450
 #, elixir-autogen, elixir-format
 msgid "The secret in the key store (%{location}) was rejected as shorter than the minimum, so a weaker key is in use. No integrations_encryption_key is set, so the store is where the key is read from: put a longer secret there and restart."
 msgstr "Võtmehoidla (%{location}) saladus lükati miinimumist lühemana tagasi, mistõttu kasutusel on nõrgem võti. integrations_encryption_key pole seadistatud, seega võti loetakse hoidlast: pane sinna pikem saladus ja taaskäivita."
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:322
+#: lib/phoenix_kit_web/live/settings/integrations.ex:336
 #, elixir-autogen, elixir-format
 msgid "The secret in the key store was rejected as too short"
 msgstr "Võtmehoidla saladus lükati liiga lühikesena tagasi"
@@ -12656,27 +12656,27 @@ msgstr "Sinu brauser teatab %{zone}. Sa pole ajavööndit seadnud, seega ajad ku
 msgid "another site showing this same fingerprint and the same key state is using the same key"
 msgstr "teine sait, mis näitab sama sõrmejälge ja sama võtmeseisu, kasutab sama võtit"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:516
+#: lib/phoenix_kit_web/live/settings/integrations.ex:530
 #, elixir-autogen, elixir-format
 msgid "dedicated key"
 msgstr "eraldi võti"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:521
+#: lib/phoenix_kit_web/live/settings/integrations.ex:535
 #, elixir-autogen, elixir-format
 msgid "dedicated key — its key store could not be read"
 msgstr "eraldi võti — selle hoidlat ei õnnestunud lugeda"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:524
+#: lib/phoenix_kit_web/live/settings/integrations.ex:538
 #, elixir-autogen, elixir-format
 msgid "dedicated key — the key store holds a different secret"
 msgstr "eraldi võti — hoidla hoiab teistsugust saladust"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:539
+#: lib/phoenix_kit_web/live/settings/integrations.ex:553
 #, elixir-autogen, elixir-format
 msgid "derived from secret_key_base"
 msgstr "tuletatud secret_key_base'ist"
 
-#: lib/phoenix_kit_web/live/settings/integrations.ex:541
+#: lib/phoenix_kit_web/live/settings/integrations.ex:555
 #, elixir-autogen, elixir-format
 msgid "unrecognised key state"
 msgstr "tundmatu võtmeseis"
@@ -13649,12 +13649,12 @@ msgstr "Kuvatakse esimesena arvetel ja dokumentidel. Selle konto määramine pea
 msgid "e.g. EUR operations, USD reserve"
 msgstr "nt EUR-i põhikonto, USD reservkonto"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:84
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:87
 #, elixir-autogen, elixir-format
 msgid "llms.txt"
 msgstr "llms.txt"
 
-#: lib/phoenix_kit_web/live/settings/crawlers.ex:83
+#: lib/phoenix_kit_web/live/settings/crawlers.ex:86
 #, elixir-autogen, elixir-format
 msgid "robots.txt"
 msgstr "robots.txt"
@@ -13846,7 +13846,7 @@ msgstr "seanssi"
 msgid "Buckets"
 msgstr "Bucketid"
 
-#: lib/phoenix_kit_web/live/modules.ex:139
+#: lib/phoenix_kit_web/live/modules.ex:145
 #, elixir-autogen, elixir-format
 msgid "OG"
 msgstr "OG"
@@ -14060,7 +14060,7 @@ msgstr "Halduse avaleht"
 msgid "There are no custom roles yet."
 msgstr "Kohandatud rolle veel pole."
 
-#: lib/phoenix_kit_web/users/auth.ex:1782
+#: lib/phoenix_kit_web/users/auth.ex:1788
 #, elixir-autogen, elixir-format
 msgid "This page is not available in the role you switched to."
 msgstr "See leht pole rollis, millele vahetasite, saadaval."
@@ -16072,17 +16072,17 @@ msgstr "Fail taastatud"
 msgid "Folder restored"
 msgstr "Kaust taastatud"
 
-#: lib/phoenix_kit_web/components/core/table_default.ex:333
+#: lib/phoenix_kit_web/components/core/table_default.ex:395
 #, elixir-autogen, elixir-format
 msgid "Card view"
 msgstr "Kaardivaade"
 
-#: lib/phoenix_kit_web/components/core/table_default.ex:346
+#: lib/phoenix_kit_web/components/core/table_default.ex:408
 #, elixir-autogen, elixir-format
 msgid "Comfortable view"
 msgstr "Avar vaade"
 
-#: lib/phoenix_kit_web/components/core/table_default.ex:359
+#: lib/phoenix_kit_web/components/core/table_default.ex:421
 #, elixir-autogen, elixir-format
 msgid "Compact view"
 msgstr "Kompaktne vaade"
@@ -16575,13 +16575,13 @@ msgstr "See pole teie oma"
 msgid "Enable multiple sessions"
 msgstr "Luba mitu sessiooni"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:327
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:338
 #, elixir-autogen, elixir-format
 msgid "Offered anyway while users may keep a library on their own bucket (Settings → Media → Libraries)."
 msgstr "Pakutakse igal juhul, kuni kasutajad tohivad hoida teeki oma bucketis (Seaded → Meedia → Teegid)."
 
 #: lib/phoenix_kit_web/live/settings/integrations.ex:66
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:295
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:306
 #, elixir-autogen, elixir-format
 msgid "Personal integrations"
 msgstr "Isiklikud integratsioonid"
@@ -16596,7 +16596,7 @@ msgstr "Isiklikke integratsioone ei õnnestunud salvestada"
 msgid "Personal integrations saved"
 msgstr "Isiklikud integratsioonid salvestatud"
 
-#: lib/phoenix_kit_web/live/settings/integrations.html.heex:298
+#: lib/phoenix_kit_web/live/settings/integrations.html.heex:309
 #, elixir-autogen, elixir-format
 msgid "Users who hold the Integrations permission can connect these services with their own accounts, under My Integrations in their profile. Only services that support personal use are listed."
 msgstr "Kasutajad, kellel on õigus „Integratsioonid“, saavad need teenused oma kontodega ühendada oma profiilis jaotises „Minu integratsioonid“. Loetletud on ainult isiklikku kasutust toetavad teenused."
