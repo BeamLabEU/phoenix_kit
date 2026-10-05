@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
   require Logger
 
-  import Ecto.Query
+  import PhoenixKitWeb.Live.Modules, only: [format_bytes: 1]
 
   alias PhoenixKit.Activity
   alias PhoenixKit.Jobs.Events
@@ -39,8 +39,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Load buckets
     buckets = Storage.list_buckets()
 
-    # Load file counts per bucket (unique files, not instances)
-    bucket_file_counts = get_bucket_file_counts(buckets)
+    # Load what each bucket holds (files, objects, size)
+    bucket_totals = get_bucket_totals(buckets)
 
     # Load storage settings from database (using basic function to avoid cache issues)
     max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
@@ -66,7 +66,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:project_title, project_title)
       |> assign(:buckets, buckets)
       |> assign(:bucket_connections, bucket_connections())
-      |> assign(:bucket_file_counts, bucket_file_counts)
+      |> assign(:bucket_totals, bucket_totals)
       |> assign(:bucket_usage, %{})
       |> assign(:tile_generation_enabled, tile_generation_enabled)
       |> assign(:annotated_thumbnails_enabled, annotated_thumbnails_enabled == "true")
@@ -417,26 +417,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   defp bucket_service(bucket, connections), do: BucketInfo.service(bucket, connections)
   defp bucket_location(bucket), do: BucketInfo.location(bucket)
 
-  # Get count of unique files stored on each bucket
-  defp get_bucket_file_counts(buckets) do
-    repo = PhoenixKit.Config.get_repo()
+  defp totals_for(totals, bucket),
+    do: Map.get(totals, to_string(bucket.uuid), %{files: 0, objects: 0, bytes: 0})
 
-    Enum.reduce(buckets, %{}, fn bucket, acc ->
-      # Count distinct files that have at least one instance located on this bucket
-      # We count files, not instances or locations
-      count =
-        repo.one(
-          from f in Storage.File,
-            join: fi in Storage.FileInstance,
-            on: fi.file_uuid == f.uuid,
-            join: fl in Storage.FileLocation,
-            on: fl.file_instance_uuid == fi.uuid,
-            where: fl.bucket_uuid == ^bucket.uuid and fl.status == "active",
-            select: count(f.uuid, :distinct)
-        )
-
-      Map.put(acc, bucket.uuid, count || 0)
-    end)
+  # Files, objects and bytes held by each bucket, for the Buckets list.
+  defp get_bucket_totals(buckets) do
+    Storage.bucket_totals(Enum.map(buckets, & &1.uuid))
   rescue
     _ -> %{}
   end
@@ -505,12 +491,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   defp reload_settings_data(socket) do
     # Reload buckets
     buckets = Storage.list_buckets()
-    bucket_file_counts = get_bucket_file_counts(buckets)
+    bucket_totals = get_bucket_totals(buckets)
 
     socket
     |> assign(:buckets, buckets)
     |> assign(:bucket_connections, bucket_connections())
-    |> assign(:bucket_file_counts, bucket_file_counts)
+    |> assign(:bucket_totals, bucket_totals)
     |> load_bucket_usage()
   end
 

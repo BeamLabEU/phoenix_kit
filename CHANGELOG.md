@@ -8,6 +8,10 @@
   it is now "Enabled" (with how many are disabled) and "In a storage profile" (with how many are in none and so
   store and serve nothing).
 
+- **The Buckets list shows what each bucket holds.** The Files column no longer repeats the word "files" in every
+  row, and Objects and Size columns sit beside it, with the same numbers as the bucket page. They come from one
+  batched query (`Storage.bucket_totals/1`) instead of one per bucket.
+
 ### i18n
 
 - Translations for the new bucket delete confirmation and stats captions, in all shipped locales.

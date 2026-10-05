@@ -1023,6 +1023,55 @@ defmodule PhoenixKit.Modules.Storage do
     }
   end
 
+  @doc """
+  The headline numbers of several buckets at once, for a list: `%{bucket_uuid
+  => %{files, objects, bytes}}`, from active location rows, counted like
+  `bucket_contents/1` (a file once however many of its variants are here, an
+  object once however many rows name its key). A bucket holding nothing is
+  absent from the map. Two queries however many buckets there are.
+  """
+  @spec bucket_totals([term()]) :: %{optional(String.t()) => map()}
+  def bucket_totals([]), do: %{}
+
+  def bucket_totals(bucket_uuids) when is_list(bucket_uuids) do
+    locations =
+      from(fl in FileLocation,
+        join: fi in FileInstance,
+        on: fl.file_instance_uuid == fi.uuid,
+        where: fl.bucket_uuid in ^bucket_uuids and fl.status == "active",
+        select: %{
+          bucket_uuid: fl.bucket_uuid,
+          path: fl.path,
+          size: fi.size,
+          file_uuid: fi.file_uuid
+        }
+      )
+
+    files =
+      from(l in subquery(locations),
+        group_by: l.bucket_uuid,
+        select: {l.bucket_uuid, count(l.file_uuid, :distinct)}
+      )
+      |> repo().all()
+      |> Map.new(fn {uuid, count} -> {to_string(uuid), count} end)
+
+    objects =
+      from(l in subquery(locations),
+        group_by: [l.bucket_uuid, l.path],
+        select: %{bucket_uuid: l.bucket_uuid, size: max(l.size)}
+      )
+
+    from(o in subquery(objects),
+      group_by: o.bucket_uuid,
+      select: {o.bucket_uuid, count(), coalesce(sum(o.size), 0)}
+    )
+    |> repo().all()
+    |> Map.new(fn {uuid, objects, bytes} ->
+      key = to_string(uuid)
+      {key, %{files: Map.get(files, key, 0), objects: objects, bytes: to_int(bytes)}}
+    end)
+  end
+
   defp bucket_object_totals(objects, by_library?) do
     query =
       from(o in subquery(objects),

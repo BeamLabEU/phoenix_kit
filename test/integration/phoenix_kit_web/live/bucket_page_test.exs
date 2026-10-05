@@ -289,6 +289,37 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
       assert %{libraries: 1, files: 1, objects: 1, bytes: 300} = contents.personal
     end
 
+    test "bucket_totals agrees with bucket_contents for a list of buckets", ctx do
+      first = location!(ctx.bucket, "original", 300)
+      second = location!(ctx.bucket, "original", 300)
+      location!(ctx.bucket, "thumbnail", 50)
+
+      Repo.update_all(from(l in FileLocation, where: l.uuid == ^second.uuid),
+        set: [path: first.path]
+      )
+
+      {:ok, empty} =
+        Storage.create_bucket(
+          %{
+            name: "Empty #{System.unique_integer([:positive])}",
+            provider: "local",
+            endpoint: Path.join(ctx.root, "empty"),
+            enabled: true
+          },
+          profile: nil
+        )
+
+      totals = Storage.bucket_totals([ctx.bucket.uuid, empty.uuid])
+      contents = Storage.bucket_contents(ctx.bucket.uuid)
+
+      assert totals[to_string(ctx.bucket.uuid)] ==
+               Map.take(contents, [:files, :objects, :bytes])
+
+      assert %{files: 3, objects: 2, bytes: 350} = totals[to_string(ctx.bucket.uuid)]
+      refute Map.has_key?(totals, to_string(empty.uuid))
+      assert Storage.bucket_totals([]) == %{}
+    end
+
     test "a draining bucket says how many files are still on it", ctx do
       {:ok, profile} =
         Profiles.create_profile(%{name: "Drain #{System.unique_integer([:positive])}"})

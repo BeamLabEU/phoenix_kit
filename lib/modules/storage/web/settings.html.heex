@@ -127,7 +127,15 @@
                     },
                     %{
                       label: gettext("Files"),
-                      value: "#{Map.get(@bucket_file_counts, bucket.uuid, 0)}"
+                      value: "#{totals_for(@bucket_totals, bucket).files}"
+                    },
+                    %{
+                      label: gettext("Objects"),
+                      value: "#{totals_for(@bucket_totals, bucket).objects}"
+                    },
+                    %{
+                      label: gettext("Size"),
+                      value: format_bytes(totals_for(@bucket_totals, bucket).bytes)
                     },
                     %{
                       label: gettext("Status"),
@@ -143,7 +151,15 @@
                   <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Priority")}</.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Used by")}</.table_default_header_cell>
-                  <.table_default_header_cell>{gettext("Files")}</.table_default_header_cell>
+                  <.table_default_header_cell class="text-right">
+                    {gettext("Files")}
+                  </.table_default_header_cell>
+                  <.table_default_header_cell class="text-right">
+                    {gettext("Objects")}
+                  </.table_default_header_cell>
+                  <.table_default_header_cell class="text-right">
+                    {gettext("Size")}
+                  </.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Actions")}</.table_default_header_cell>
                 </.table_default_row>
@@ -208,10 +224,15 @@
                         Map.get(@bucket_usage, to_string(bucket.uuid), [])
                       } />
                     </.table_default_cell>
-                    <.table_default_cell>
-                      <span class="text-sm font-semibold">
-                        {Map.get(@bucket_file_counts, bucket.uuid, 0)} {gettext("files")}
-                      </span>
+                    <% totals = totals_for(@bucket_totals, bucket) %>
+                    <.table_default_cell class="text-right tabular-nums">
+                      {totals.files}
+                    </.table_default_cell>
+                    <.table_default_cell class="text-right tabular-nums">
+                      {totals.objects}
+                    </.table_default_cell>
+                    <.table_default_cell class="text-right tabular-nums">
+                      {format_bytes(totals.bytes)}
                     </.table_default_cell>
                     <.table_default_cell>
                       <%= if bucket.enabled do %>
