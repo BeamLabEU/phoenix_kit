@@ -197,6 +197,32 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute render(view) =~ "The cloud buckets hold nothing"
     end
 
+    test "cloud copies can be cleared after the last cloud bucket is removed", ctx do
+      {:ok, profile} = Profiles.create_profile(%{name: "Removed cloud", copies_cloud: 1})
+      {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{})
+      view = settings(ctx.conn)
+      selector = "#media-profiles-form-#{profile.uuid}"
+      refute has_element?(view, selector <> " input[name='profile[copies_cloud]'][disabled]")
+      view |> form(selector, %{"profile" => %{"copies_cloud" => "0"}}) |> render_submit()
+      assert Profiles.get_profile(profile.uuid).copies_cloud == 0
+    end
+
+    test "the upload minimum can increase together with the copy counts", ctx do
+      view = settings(ctx.conn)
+      selector = "#media-profiles-form-#{Profiles.default_uuid()}"
+
+      assert has_element?(
+               view,
+               selector <> " input[name='profile[min_copies_on_write]'][max='5']"
+             )
+
+      view
+      |> form(selector, %{"profile" => %{"copies_local" => "2", "min_copies_on_write" => "2"}})
+      |> render_submit()
+
+      assert Profiles.default_profile().min_copies_on_write == 2
+    end
+
     test "the profile's own form saves on its Save button, with a sign of it", ctx do
       view = settings(ctx.conn)
       default = Profiles.default_uuid()

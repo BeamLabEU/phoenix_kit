@@ -780,20 +780,16 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
     * `:only` — the user's bucket is the profile's one `primary`: everything
       the library stores lives there.
-    * `:backup` — the site's buckets stay the primaries and the user's bucket
-      is a `backup` of the originals. The site buckets are a **snapshot of the
-      Default profile taken now**: a site bucket added later is not used by
-      this library (removing or disabling one already reaches every profile).
-      An original is kept on every one of those site buckets that is writable
-      and stores originals (not only as many as the Default's copy count:
-      placement writes all primaries before any backup, so the backup would
-      otherwise never get one) and on the backup, at most 5 copies in all (the
-      original-capable site rows are limited to four). An upload still succeeds
-      on the Default's terms, counting the site's copies only; the backup copy is
-      made by the reconciler if the write missed it. Sizes and tiles are not
-      backed up (they can be regenerated), and the site's derived-only buckets
-      are kept. A site with no writable bucket for originals has nothing to
-      back up: `{:error, :no_site_storage}`.
+    * `:backup` — the site's buckets stay and the user's bucket is a `backup`
+      of every file, including sizes and tiles. The site buckets are a
+      **snapshot of the Default profile taken now**: a site bucket added later
+      is not used by this library (removing or disabling one already reaches
+      every profile). Every file gets a copy on each writable site bucket,
+      counted per kind, plus one cloud copy for the user's backup. There are at
+      most 5 copies in all, so the site rows are limited to four, active first.
+      An upload succeeds on the Default's terms, counting the site's copies
+      only; the reconciler makes a backup copy the write missed. A site with
+      no writable bucket has nothing to back up: `{:error, :no_site_storage}`.
 
   The profile is the user's (`owner_uuid`), named by its own uuid (the name is
   never shown), and `bucket` must be theirs. Returns `{:error, :no_site_storage}`

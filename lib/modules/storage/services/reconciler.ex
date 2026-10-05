@@ -13,17 +13,15 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
   For a stale file, `reconcile_file/1`:
 
-    * **locations** (G4, G5, G6) — for each completed instance: an original
-      upload is an `:original`, everything else (sizes, tiles, renders) is
-      `:derived` (G13; an edit's hidden backup of the unedited original is
-      an original). Its good copies are on the profile's buckets that store
-      that kind and are `active` or `read_only`. While there are fewer than
-      the profile wants (capped at the buckets it can use), the object is
-      copied to more of its writable buckets and each copy is checked
-      before it counts. Once enough are good, copies on buckets the profile
-      no longer uses for it (not listed, `draining`, storing the other
-      kind) are unlinked: the location row goes, and the object on that
-      bucket only when nothing else there names the key (G11,
+    * **locations** (G4, G5, G6) — for each completed instance, local and
+      cloud copies are counted separately. Its good copies are on enabled
+      `active` or `read_only` buckets of a kind the profile wants. While either
+      kind has fewer than the profile wants (capped at the buckets it can use),
+      the object is copied to more of that kind's writable buckets and each
+      copy is checked before it counts. Once both kinds have enough, copies on
+      buckets the profile no longer uses (not listed, `draining`, or a kind
+      with zero copies wanted) are unlinked: the location row goes, and the
+      object on that bucket only when nothing else there names the key (G11,
       `Storage.unlink_location/2`).
     * **variants** (G15, G16) — sizes of the set the file lacks are made,
       those whose `spec_hash` differs from the size's spec now are made
@@ -379,37 +377,39 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
       for row <- profile.buckets,
           row.status in ["active", "read_only"],
           match?(%{enabled: true}, row.bucket),
+          Profiles.copies(profile, Bucket.group(row.bucket)) > 0,
           into: %{},
           do: {to_string(row.bucket_uuid), row.bucket}
 
     plan = Manager.placement_plan(profile)
-    writable = Enum.flat_map(plan, &elem(&1, 1))
+    writable = plan |> Enum.filter(&(elem(&1, 2) > 0)) |> Enum.flat_map(&elem(&1, 1))
     located = located_buckets(instance)
     good = located |> Map.keys() |> Enum.filter(&Map.has_key?(keep, &1))
 
     # As many copies of each kind as the profile wants, capped at the buckets of
     # that kind that hold one or can take one: a read-only or full bucket without
     # a copy cannot get one, and must not keep the file stale for ever.
-    {good, target} =
-      Enum.reduce(plan, {good, 0}, fn {kind, candidates, copies}, {good, target} ->
+    {good, targets} =
+      Enum.reduce(plan, {good, %{}}, fn {kind, candidates, copies}, {good, targets} ->
         held = Enum.filter(good, &(Bucket.group(Map.fetch!(keep, &1)) == kind))
 
         wanted =
           min(copies, length(Enum.uniq(held ++ Map.keys(by_uuid(candidates)))))
 
         added = copy_to_more(instance, candidates, held, wanted - length(held))
-        {good ++ added, target + wanted}
+        {good ++ added, Map.put(targets, kind, wanted)}
       end)
 
     good = good ++ servable_copy(instance, profile, writable, good)
     leftovers = Enum.reject(located, fn {uuid, _bucket} -> Map.has_key?(keep, uuid) end)
 
     cond do
-      length(good) < target ->
+      not enough_copies?(good, keep, targets) ->
         false
 
-      # No copy it may serve, while it has somewhere to make one.
-      servable_missing?(profile, writable, good) ->
+      # No copy it may serve. A zero-count kind cannot supply the fallback,
+      # so the profile must change before this file can be fully placed.
+      servable_missing?(profile, good) ->
         false
 
       leftovers == [] ->
@@ -418,7 +418,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
       # Before a copy goes, the ones that stay are checked to really be
       # there: a location row can outlive its object, and "enough copies"
       # must never mean unlinking the last real one. Never with none.
-      verified_copies(instance, good, keep, located) < max(target, 1) ->
+      not verified_placement?(instance, profile, good, keep, targets) ->
         false
 
       true ->
@@ -444,19 +444,30 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     end
   end
 
-  defp servable_missing?(profile, writable, good) do
-    roles = Map.new(profile.buckets, &{to_string(&1.bucket_uuid), &1.role})
-    servable? = fn uuid -> Map.get(roles, uuid) in ["primary", "replica"] end
+  defp servable_missing?(profile, good) do
+    serving_rows =
+      Enum.filter(profile.buckets, fn row ->
+        row.role in ["primary", "replica"] and row.status in ["active", "read_only"] and
+          match?(%{enabled: true}, row.bucket)
+      end)
 
-    not Enum.any?(good, servable?) and Enum.any?(writable, &servable?.(to_string(&1.uuid)))
+    serving_rows != [] and not Enum.any?(serving_rows, &(to_string(&1.bucket_uuid) in good))
   end
 
-  # How many of the `good` copies are really in their bucket.
-  defp verified_copies(instance, good, keep, located) do
-    Enum.count(good, fn uuid ->
-      bucket = Map.get(keep, uuid) || Map.get(located, uuid)
-      bucket != nil and Manager.holds?(bucket, instance.file_name)
-    end)
+  # A surplus of one kind cannot stand in for a missing copy of the other.
+  defp enough_copies?(good, keep, targets) do
+    counts = Enum.frequencies_by(good, &Bucket.group(Map.fetch!(keep, &1)))
+    Enum.all?(targets, fn {kind, wanted} -> Map.get(counts, kind, 0) >= wanted end)
+  end
+
+  # Before unlinking, both kinds must have enough real objects, including a
+  # serving copy where the profile has serving buckets. At least one object
+  # must remain even when every target is capped to zero.
+  defp verified_placement?(instance, profile, good, keep, targets) do
+    verified = Enum.filter(good, &Manager.holds?(Map.fetch!(keep, &1), instance.file_name))
+
+    verified != [] and enough_copies?(verified, keep, targets) and
+      not servable_missing?(profile, verified)
   end
 
   defp by_uuid(buckets), do: Map.new(buckets, &{to_string(&1.uuid), &1})

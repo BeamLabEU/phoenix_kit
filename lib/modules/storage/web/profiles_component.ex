@@ -532,7 +532,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 min="0"
                 max="5"
                 value={profile.copies_cloud}
-                disabled={not cloud_available?(profile)}
+                disabled={profile.copies_cloud == 0 and not cloud_available?(profile)}
                 title={
                   if cloud_available?(profile),
                     do:
@@ -550,7 +550,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 type="number"
                 name="profile[min_copies_on_write]"
                 min="1"
-                max={Profiles.copies_total(profile)}
+                max="5"
                 value={profile.min_copies_on_write}
                 class="input input-sm input-bordered w-24"
               />

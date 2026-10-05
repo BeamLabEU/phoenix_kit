@@ -3,7 +3,9 @@ defmodule PhoenixKit.Integration.Users.RoleOrderTest do
   Role order (`phoenix_kit_user_roles.position`, V190), the sessions that
   carry an active role, and what removing a role does to them.
   """
-  use PhoenixKit.DataCase, async: true
+  # Reordering updates the committed system roles as well as this test's roles.
+  # Run after async cases so two sandbox transactions cannot lock them in opposite orders.
+  use PhoenixKit.DataCase, async: false
 
   import Ecto.Query, only: [from: 2]
 

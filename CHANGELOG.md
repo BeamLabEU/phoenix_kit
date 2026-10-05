@@ -4,8 +4,10 @@
 
 - **Run `mix phoenix_kit.update`: it applies V209** (`copies_local` / `copies_cloud` on
   `phoenix_kit_storage_profiles`). Existing profiles keep their total and are split by the buckets they
-  have, local first, so no file is placed again. A profile that listed a cloud bucket next to local ones
-  now needs **Cloud copies** set before anything is written to the cloud bucket.
+  have, local first, so no file is placed again. If the local buckets cover the old total, the backfill
+  sets **Cloud copies** to zero, even when a cloud bucket is listed. Set it above zero to write to the
+  cloud; otherwise the backfill assigns the copies the local buckets cannot take to available cloud
+  buckets.
 
 ### Added
 
@@ -20,7 +22,7 @@
   the total (a CHECK keeps it equal to `copies_local + copies_cloud`) and `copies_variants` is no longer used
   (both follow the counts). A personal backup library's profile gets one cloud copy for the backup and one
   copy on each site bucket, so its thumbnails and tiles now follow the originals onto every site bucket
-  instead of one.
+  and the user's backup instead of one site bucket.
 
 ### Changed
 
@@ -34,6 +36,15 @@
 - **The storage profiles bucket table's headings are in sentence case**, like the Libraries and Buckets
   tables (Bucket, Role, Upload order, Serve order, Status). 2.52.2 had made them capitals; the rest of
   Storage settings does not use them.
+
+### Fixed
+
+- **The reconciler checks local and cloud counts separately** and verifies the copies it keeps before
+  deleting another copy, including a real serving copy. Extra local copies can no longer hide a failed
+  or missing cloud copy and mark a file as fully placed. A kind set to zero is no longer written for a
+  serving fallback; its old copies are removed only after the wanted kinds have enough copies.
+- **Cloud copies can be lowered after the last writable cloud bucket is removed**, and the upload
+  minimum can be increased in the same save as the copy counts. The form no longer blocks these edits.
 
 ## 2.52.2 - 2026-10-04
 

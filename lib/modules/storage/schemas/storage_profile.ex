@@ -4,8 +4,8 @@ defmodule PhoenixKit.Modules.Storage.StorageProfile do
 
   A library points at a profile (`storage_profile_uuid`; NULL means the
   Default, `PhoenixKit.Modules.Storage.Profiles.default_uuid/0`). The profile
-  lists its buckets (`PhoenixKit.Modules.Storage.ProfileBucket`: role, what
-  each stores, write priority, serve order, status) and says how many copies
+  lists its buckets (`PhoenixKit.Modules.Storage.ProfileBucket`: role,
+  write priority, serve order, status) and says how many copies
   an object gets, counted per kind of bucket:
 
     * `copies_local` — copies on `local` buckets (0..5);
