@@ -1,3 +1,26 @@
+## Unreleased
+
+### Fixed
+
+- **`mix phoenix_kit.update` no longer skips cron entries when the host's crontab ends in a comment.** The
+  Oban config backfill glued `,` onto the tail of the source text, so a comment after the last tuple took the
+  comma, the edit stopped parsing and was rolled back, and the host was left without
+  `Jobs.SweepWorker` (stuck job runs never recovered), `Jobs.PruneWorker`, `BucketLogPruneWorker` and
+  `LoginAttemptsPruneWorker`. Every list splice (worker, digest and scheduled-job entries, the Cron plugin,
+  Lifeline, queues) now goes through the new `PhoenixKit.Install.ConfigSplice`, which finds the end of the list
+  with comments and string bodies masked and appends after the last real element. A splice that would change
+  anything else the host wrote, or add a duplicate plugin, crontab entry or queue (Oban 2.24 names and `alias`
+  resolved), is refused and leaves the file untouched.
+- **The update ends with one "Manual steps needed" block** listing every config edit it could not make (also
+  when the run ends in a failed migration), and the success line says `N manual step(s) below` instead of
+  claiming a clean update.
+
+### Changed
+
+- **Declining a cron entry means commenting it out inside the Cron plugin's `crontab:`.** The updater skips it,
+  says so, and lists it in the closing summary. Before, a comment naming the worker anywhere in the file also
+  suppressed the entry; a host that declined an entry that way must move the comment into its crontab list.
+
 ## 2.53.0 - 2026-10-04
 
 ### Upgrading
