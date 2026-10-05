@@ -1,4 +1,6 @@
 defmodule PhoenixKit.Install.ConfigSplice do
+  alias PhoenixKit.Install.ConfigVerify
+
   @moduledoc """
   Reads and appends to the literal lists (`crontab: [...]`, `plugins: [...]`,
   `queues: [...]`) inside a host's own `config :app, Oban` block, by text.
@@ -715,6 +717,71 @@ defmodule PhoenixKit.Install.ConfigSplice do
       _ -> false
     end
   end
+
+  @doc """
+  Whether a top-level Oban config schedules `module`, optionally with a digest
+  `cadence`. Reads only worker positions in direct crontab entries, resolving
+  aliases; a module named in a job's arguments does not schedule that worker.
+  Other cron plugins' literal crontabs count too, to avoid scheduling twice.
+  """
+  @spec crontab_entry_used?(String.t(), atom() | String.t(), String.t(), String.t() | nil) ::
+          boolean()
+  def crontab_entry_used?(content, app_name, module, cadence \\ nil) do
+    target = Module.concat([module])
+
+    case parse(content) do
+      {:ok, ast} ->
+        aliases = alias_map(ast)
+
+        ast
+        |> oban_calls(app_name)
+        |> Enum.reject(& &1.nested?)
+        |> Enum.flat_map(fn %{opts: opts} ->
+          {pairs, _unknown?} = call_pairs(opts, aliases)
+          Enum.flat_map(pairs, fn {_mod, options} -> literal_crontab(options) end)
+        end)
+        |> Enum.any?(&scheduled_entry?(&1, target, cadence))
+
+      _ ->
+        false
+    end
+  end
+
+  defp literal_crontab(options) when is_list(options) do
+    case List.keyfind(options, :crontab, 0) do
+      {:crontab, list} when is_list(list) -> list
+      _ -> []
+    end
+  end
+
+  defp literal_crontab(_options), do: []
+
+  defp scheduled_entry?(entry, target, cadence) do
+    case ConfigVerify.tuple_elements(entry) do
+      [_cron, worker | options] ->
+        plugin_module(worker, %{}) == target and entry_cadence?(options, cadence)
+
+      _ ->
+        false
+    end
+  end
+
+  defp entry_cadence?(_options, nil), do: true
+
+  defp entry_cadence?([options], cadence) when is_list(options) do
+    case List.keyfind(options, :args, 0) do
+      {:args, {:%{}, _, pairs}} ->
+        Enum.any?(pairs, fn
+          {key, value} when key in [:cadence, "cadence"] -> value == cadence
+          _ -> false
+        end)
+
+      _ ->
+        false
+    end
+  end
+
+  defp entry_cadence?(_options, _cadence), do: false
 
   @doc """
   True when `candidate` has a duplicate that `original` did not: the same service

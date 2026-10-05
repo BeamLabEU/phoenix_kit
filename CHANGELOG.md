@@ -13,18 +13,25 @@
   declare `priority` (the highest number goes first, equal priorities from the right; none never goes), `lead`
   (the one column that stays left and takes the slack) and `width`; the new `TableFit` hook measures the real
   table against its wrapper on mount, on resize and after every patch, and hides whole columns through one
-  stylesheet, so stream inserts need nothing. The last header cell shows `+N` while columns are dropped, the
+  stylesheet, so stream inserts need nothing. The last visible header cell shows `+N` while columns are dropped, the
   remembered result is put back before first paint on a hard load, and printing shows every column. `fit_pack={false}`
   keeps the dropping and leaves the sizing to a table that sets its own column widths. The Integrations table
   uses it (Account goes first, then Name, then Status). Guide: `dev_docs/guides/2026-09-11-core-components.md`.
 - **Every email handed to an adapter leaves a log line**: the subject, the adapter (or the integration) and
   the recipient with the local part masked (`m***@don.ee`), at info when it was sent and at error, with the
-  reason, when it was not. Never the body, which carries single-use tokens. Without the optional emails
+  reason, when it was not. Addresses echoed in adapter errors are masked before truncation, including nested
+  responses and SMTP charlists. Never the body, which carries single-use tokens. Without the optional emails
   package a send used to leave no trace at all, and a failed one returned an error to callers that show the
   same page either way.
 
 ### Fixed
 
+- **Cron backfills resolve worker aliases and inspect actual scheduled entries.** An aliased digest worker
+  (for example `alias PhoenixKit.Notifications.DigestWorker, as: D`) no longer makes the duplicate guard
+  refuse every missing cadence. A worker mentioned in another job's arguments, or a longer module name that
+  begins with the worker's name, no longer suppresses its own cron entry.
+- **The table-fit `+N` indicator remains visible when the final columns are dropped.** It is attached to the
+  last surviving header instead of a hidden one.
 - **Two crontab entries were never backfilled to existing hosts, and a third was in no crontab at all.**
   `Modules.Storage.Workers.PruneTrashJob` and `Notifications.PruneWorker` were in the generated crontab but
   not in the update's backfill list, so a host that installed before them never ran them. `PruneTrashJob` is

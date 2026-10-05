@@ -92,11 +92,11 @@ test("the order does not mutate its input", () => {
 });
 
 test("nothing hidden is an empty stylesheet", () => {
-  assert.equal(fitHideCss("t-fit", []), "");
+  assert.equal(fitHideCss("t-fit", [], 5), "");
 });
 
 test("hides whole columns by position, on screen only, sparing colspan cells", () => {
-  const css = fitHideCss("t-fit", [col(4, 2), col(2, 3)]);
+  const css = fitHideCss("t-fit", [col(4, 2), col(2, 3)], 5);
   assert.match(css, /^@media screen \{/);
   assert.ok(css.includes("#t-fit > table > :not(thead) > tr > :nth-child(4):not([colspan])"));
   assert.ok(css.includes("#t-fit > table > :not(thead) > tr > :nth-child(2):not([colspan])"));
@@ -104,8 +104,8 @@ test("hides whole columns by position, on screen only, sparing colspan cells", (
 });
 
 test("says how many columns are dropped, on the last header cell", () => {
-  const css = fitHideCss("t-fit", [col(4, 2), col(2, 3)]);
-  assert.ok(css.includes('#t-fit > table > thead > tr > :last-child::before { content: "+2"'));
+  const css = fitHideCss("t-fit", [col(4, 2), col(2, 3)], 5);
+  assert.ok(css.includes('#t-fit > table > thead > tr > :nth-child(5)::before { content: "+2"'));
 });
 
 test("after a spanning header, the header cell and its body cells sit at different positions", () => {
@@ -123,17 +123,17 @@ test("after a spanning header, the header cell and its body cells sit at differe
   const dropped = fitEvictionOrder(cols);
   assert.deepEqual(dropped.map((c) => c.index), [4]);
 
-  const css = fitHideCss("t-fit", dropped);
+  const css = fitHideCss("t-fit", dropped, 4);
   assert.ok(css.includes("> thead > tr > :nth-child(3)"));
-  assert.ok(!css.includes("> thead > tr > :nth-child(4)"));
+  assert.ok(!css.includes("> thead > tr > :nth-child(4),"));
   assert.ok(css.includes("> :not(thead) > tr > :nth-child(4):not([colspan])"));
 });
 
 test("an id that is not a CSS identifier is escaped in the selector", () => {
   assert.equal(fitEscapeId("users-table-fit"), "users-table-fit");
   assert.notEqual(fitEscapeId("01a0-fit"), "01a0-fit");
-  assert.ok(!fitHideCss("a.b:c-fit", [col(2, 1)]).includes("#a.b:c-fit"));
-  assert.ok(fitHideCss("a.b:c-fit", [col(2, 1)]).includes("#a\\.b\\:c-fit"));
+  assert.ok(!fitHideCss("a.b:c-fit", [col(2, 1)], 3).includes("#a.b:c-fit"));
+  assert.ok(fitHideCss("a.b:c-fit", [col(2, 1)], 3).includes("#a\\.b\\:c-fit"));
 });
 
 test("the signature changes when a column is added, removed or re-prioritised", () => {
@@ -143,4 +143,15 @@ test("the signature changes when a column is added, removed or re-prioritised", 
   assert.notEqual(sig, fitSignature(base.slice(0, 2)));
   assert.notEqual(sig, fitSignature([{ colSpan: 1 }, ...base]));
   assert.notEqual(sig, fitSignature([base[0], base[2], base[1]]));
+});
+
+test("the dropped-column count stays visible when the last headers are dropped", () => {
+  const css = fitHideCss("t-fit", [col(4, 2), col(3, 1)], 4);
+  assert.ok(css.includes('> thead > tr > :nth-child(2)::before { content: "+2"'));
+  assert.ok(!css.includes(':last-child::before'));
+});
+
+test("there is no badge target if every header is dropped", () => {
+  const css = fitHideCss("t-fit", [col(1, 1)], 1);
+  assert.ok(!css.includes("::before"));
 });

@@ -5572,10 +5572,10 @@ if (typeof window.Chart === "undefined") {
   }
 
   // Pure: the stylesheet hiding the given columns ({index, head}), plus a
-  // "+N" on the last header cell so dropped columns do not read as missing
+  // "+N" on the last visible header cell so dropped columns do not read as missing
   // data. Header and body are addressed apart because their positions can
   // differ; a cell with a colspan (an empty-state row) is left alone.
-  function fitHideCss(wrapperId, cols) {
+  function fitHideCss(wrapperId, cols, headerCount) {
     if (cols.length === 0) return "";
     const id = fitEscapeId(wrapperId);
     const table = `#${id} > table`;
@@ -5585,9 +5585,11 @@ if (typeof window.Chart === "undefined") {
         `${table} > :not(thead) > tr > :nth-child(${c.index}):not([colspan])`
       ])
       .join(",\n");
-    const more =
-      `${table} > thead > tr > :last-child::before { content: "+${cols.length}"; ` +
-      "margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }";
+    let badgeHead = headerCount;
+    while (badgeHead > 0 && cols.some((c) => c.head === badgeHead)) badgeHead--;
+    const more = badgeHead > 0 ?
+      `${table} > thead > tr > :nth-child(${badgeHead})::before { content: "+${cols.length}"; ` +
+      "margin-inline-end: 0.25rem; font-size: 0.6875rem; font-weight: 600; opacity: 0.6; white-space: nowrap; }" : "";
     return `@media screen {\n${sel} { display: none; }\n${more}\n}`;
   }
 
@@ -5647,7 +5649,7 @@ if (typeof window.Chart === "undefined") {
       this.styleEl.textContent = "";
       while (table.scrollWidth > this.el.clientWidth && hidden.length < order.length) {
         hidden.push(order[hidden.length]);
-        this.styleEl.textContent = fitHideCss(this.el.id, hidden);
+        this.styleEl.textContent = fitHideCss(this.el.id, hidden, headers.length);
       }
       // For the next hard load: the component's inline script puts this back
       // before first paint, so the table does not flash its full width. Kept

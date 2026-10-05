@@ -379,7 +379,7 @@ defmodule PhoenixKit.Mailer do
 
       # Handle post-send tracking updates
       Provider.current().handle_after_send(tracked_email, result)
-      log_delivery(tracked_email, result, mailer)
+      log_delivery(tracked_email, result, configured_adapter(mailer) || mailer)
 
       result
     end
@@ -405,11 +405,37 @@ defmodule PhoenixKit.Mailer do
   defp log_delivery(email, {:error, reason}, via) do
     Logger.error(
       "[PhoenixKit.Mailer] FAILED #{inspect(email.subject)} to #{masked_recipients(email)} via #{delivery_label(via)}: " <>
-        inspect(reason, limit: 20, printable_limit: 500)
+        inspect(redact_delivery_error(reason), limit: 20, printable_limit: 500)
     )
   end
 
   defp log_delivery(_email, _other, _via), do: :ok
+
+  # Adapters can echo addresses inside nested error bodies. Redact before
+  # inspection truncates a string, or a long local part can survive unmasked.
+  defp redact_delivery_error(text) when is_binary(text) do
+    Regex.replace(~r/[\w.!\#$%&'*+\/=?^`{|}~-]+@[^\s<>"(),;:\[\]\\]+/, text, fn address ->
+      mask_address(address)
+    end)
+  end
+
+  defp redact_delivery_error(list) when is_list(list),
+    do:
+      if(list != [] and List.ascii_printable?(list),
+        do: list |> List.to_string() |> redact_delivery_error(),
+        else: Enum.map(list, &redact_delivery_error/1)
+      )
+
+  defp redact_delivery_error(tuple) when is_tuple(tuple),
+    do: tuple |> Tuple.to_list() |> redact_delivery_error() |> List.to_tuple()
+
+  defp redact_delivery_error(map) when is_map(map),
+    do:
+      Map.new(map, fn {key, value} ->
+        {redact_delivery_error(key), redact_delivery_error(value)}
+      end)
+
+  defp redact_delivery_error(other), do: other
 
   defp delivery_label(via) when is_atom(via), do: inspect(via)
   defp delivery_label(via) when is_binary(via), do: via

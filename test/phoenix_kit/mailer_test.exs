@@ -9,7 +9,11 @@ defmodule PhoenixKit.MailerTest.FakeBrevoApiClient do
   @impl true
   def post(url, headers, body, _email) do
     send(self(), {:fake_brevo_post, url, headers, body})
-    {:ok, 201, [], Jason.encode!(%{"messageId" => "test-message-id"})}
+
+    Process.get(
+      :fake_brevo_response,
+      {:ok, 201, [], Jason.encode!(%{"messageId" => "test-message-id"})}
+    )
   end
 end
 
@@ -354,6 +358,7 @@ defmodule PhoenixKit.MailerTest do
 
       assert log =~ "[PhoenixKit.Mailer] sent"
       assert log =~ "Reset your password"
+      assert log =~ "Swoosh.Adapters.Test"
       assert log =~ "m***@example.com"
       # never the address itself, the name, or the body with its token
       refute log =~ "max.example@example.com"
@@ -381,6 +386,59 @@ defmodule PhoenixKit.MailerTest do
       assert Mailer.mask_address("not an address") == "(unparseable address)"
       assert Mailer.mask_address("@nolocal.example") == "(unparseable address)"
       assert Mailer.mask_address(nil) == "(unparseable address)"
+    end
+
+    test "failed adapter responses mask nested addresses before the log is truncated" do
+      original_api_client = Application.get_env(:swoosh, :api_client)
+      Application.put_env(:swoosh, :api_client, FakeBrevoApiClient)
+      on_exit(fn -> Application.put_env(:swoosh, :api_client, original_api_client) end)
+
+      {:ok, %{uuid: uuid}} = Integrations.add_connection("brevo_api", "failure-log")
+      {:ok, _} = Integrations.save_setup(uuid, %{"api_key" => "xkeysib-test"})
+
+      long_local = String.duplicate("private-recipient", 40)
+      address = long_local <> "@example.com"
+      error = %{"message" => "invalid recipient #{address}", "cc" => ["other.person@example.org"]}
+      Process.put(:fake_brevo_response, {:ok, 400, [], Jason.encode!(error)})
+
+      email =
+        new()
+        |> to(address)
+        |> Swoosh.Email.from("from@example.com")
+        |> subject("Delivery failure")
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, {400, ^error}} = Mailer.deliver_via_integration(email, uuid)
+        end)
+
+      assert log =~ "[PhoenixKit.Mailer] FAILED"
+      assert log =~ "invalid recipient p***@example.com"
+      assert log =~ "o***@example.org"
+      refute log =~ "private-recipient"
+      refute log =~ "other.person"
+
+      # SMTP errors commonly carry an Erlang charlist instead of a binary.
+      Process.put(
+        :fake_brevo_response,
+        {:error, {:permanent_failure, ~c"550 other.person@example.org rejected"}}
+      )
+
+      smtp_log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, {:permanent_failure, _}} = Mailer.deliver_via_integration(email, uuid)
+        end)
+
+      assert smtp_log =~ "550 o***@example.org rejected"
+      refute smtp_log =~ "other.person"
+
+      # An adapter may return bytes which are not UTF-8; logging must not
+      # replace the delivery error with a regex exception.
+      Process.put(:fake_brevo_response, {:error, {502, <<255>>}})
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        assert {:error, {502, <<255>>}} = Mailer.deliver_via_integration(email, uuid)
+      end)
     end
   end
 

@@ -143,7 +143,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
   sidebar makes the viewport width useless here) on mount, on resize and
   after every patch, so a table with three columns keeps all of them where
   one with nine sheds four. While columns are dropped the last header cell
-  shows "+N", so a missing column does not read as missing data. Printing
+  still visible shows "+N", so a missing column does not read as missing data. Printing
   shows every column. A cell with a
   `colspan` is left alone (an empty-state row), and a header cell that
   spans columns is counted as that many. Columns are hidden by position,

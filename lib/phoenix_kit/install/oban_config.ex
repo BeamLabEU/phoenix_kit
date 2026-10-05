@@ -1395,7 +1395,7 @@ if Code.ensure_loaded?(Igniter) do
 
     # What this app's config says about a crontab entry:
     #
-    #   * `:active` — its code mentions it anywhere in the app's own Oban block
+    #   * `:active` — a direct crontab entry schedules it in the app's Oban block
     #     (any `crontab:`: a `DynamicCron` list counts as scheduling it too, and
     #     adding it to the Cron plugin as well would run it twice);
     #   * `:declined` — it appears only in a comment inside the Cron plugin's list;
@@ -1408,7 +1408,7 @@ if Code.ensure_loaded?(Igniter) do
     #     an unreadable list "missing" sent a host one step per entry, and
     #     following them would have scheduled everything twice.
     defp crontab_state(content, app_name, probe) do
-      if probe_in_block?(probe, content, app_name) do
+      if scheduled_probe?(probe, content, app_name) do
         :active
       else
         case ConfigSplice.list_text(content, app_name, :crontab) do
@@ -1416,9 +1416,10 @@ if Code.ensure_loaded?(Igniter) do
             if probe_in_comment?(probe, original), do: :declined, else: :missing
 
           {:error, reason} ->
-            if ConfigSplice.not_literal?(reason) and probe_in_file?(probe, content),
-              do: :unverified,
-              else: :missing
+            if ConfigSplice.not_literal?(reason) and
+                 (probe_in_block?(probe, content, app_name) or probe_in_file?(probe, content)),
+               do: :unverified,
+               else: :missing
         end
       end
     end
@@ -1426,16 +1427,23 @@ if Code.ensure_loaded?(Igniter) do
     defp probe_in_block?(probe, content, app_name) do
       case ConfigSplice.block_code(content, app_name, probe_mask(probe)) do
         nil -> false
-        code -> probe_matches?(probe, code) or probe_by_alias?(probe, content, app_name)
+        code -> probe_matches?(probe, code)
       end
     end
 
     # `alias PhoenixKit.Jobs.SweepWorker` + `{"*/5 * * * *", SweepWorker}` uses
     # the worker without ever spelling its full name.
-    defp probe_by_alias?({:module, mod}, content, app_name),
-      do: ConfigSplice.module_used?(content, app_name, mod)
+    defp scheduled_probe?({:module, mod}, content, app_name),
+      do: ConfigSplice.crontab_entry_used?(content, app_name, mod)
 
-    defp probe_by_alias?(_probe, _content, _app_name), do: false
+    defp scheduled_probe?({:digest, cadence}, content, app_name),
+      do:
+        ConfigSplice.crontab_entry_used?(
+          content,
+          app_name,
+          "PhoenixKit.Notifications.DigestWorker",
+          cadence
+        )
 
     defp probe_in_file?(probe, content),
       do: probe_matches?(probe, ConfigSplice.file_code(content, probe_mask(probe)))

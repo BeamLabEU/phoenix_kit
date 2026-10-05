@@ -16,8 +16,11 @@ defmodule PhoenixKitWeb.Plugs.AlreadyLoggedOut do
   It acts only when there is nothing to log out: no session token, no
   account stack, and no remember-me cookie that could still sign the
   visitor back in. Anything else is left untouched and meets the CSRF check
-  as before. Nothing is skipped that mattered — the request changes no
-  state, and `GET /users/log-out` already logs out without a token.
+  as before. The ordinary log-out still clears anonymous session data and
+  persisted account cookies. Hosts allowing cross-site session cookies
+  (`SameSite=None`) should account for that when exposing this exemption;
+  the default Lax cookies are not sent on a cross-site POST. The existing
+  `GET /users/log-out` route also logs out without a token.
 
   Wired by `PhoenixKitWeb.Integration`; a host has nothing to add.
   """
