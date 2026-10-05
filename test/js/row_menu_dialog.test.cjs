@@ -175,3 +175,50 @@ test("a patch that strips the popover attribute while closed does not break the 
   assert.equal(menu.popoverOpen, true);
   assert.equal(hook.isOpen, true);
 });
+
+test("a patch that moves the open menu back into its row puts it back in the dialog", () => {
+  const dialog = Object.assign(stubElement(), { open: true });
+  const { hook, menu, home } = mountMenu({ dialog });
+  hook._open();
+  assert.equal(menu.parentNode, dialog);
+
+  // The patcher finds the keyed <ul> and moves it home: hidden again, popover
+  // closed, attribute and placement gone. `updated()` is handed the SAME node.
+  home.appendChild(menu);
+  delete menu.attrs.popover;
+  menu.style = {};
+  menu.popoverOpen = false;
+  menu.classList.contains = (c) => c === "hidden";
+  let hidden = true;
+  menu.classList.remove = (c) => { if (c === "hidden") { hidden = false; menu.classList.contains = () => false; } };
+  const show = menu.showPopover;
+  menu.showPopover = () => {
+    if (menu.attrs.popover !== "manual") throw new Error("NotSupportedError");
+    show();
+  };
+  hook.el.querySelector = ((orig) => (sel) => (sel === "[data-row-menu-content]" ? menu : orig(sel)))(hook.el.querySelector);
+
+  hook.updated();
+
+  assert.equal(hidden, false);
+  assert.equal(menu.parentNode, dialog);
+  assert.equal(menu.attrs.popover, "manual");
+  assert.equal(menu.popoverOpen, true);
+  assert.equal(menu.style.top, 34 + 4 + "px");
+  assert.equal(hook.isOpen, true);
+});
+
+test("an open menu a patch left alone is not presented again", () => {
+  const dialog = Object.assign(stubElement(), { open: true });
+  const { hook, menu } = mountMenu({ dialog });
+  hook._open();
+  hook.updated();
+  assert.deepEqual(menu.calls, ["show"]);
+});
+
+test("a modal dialog whose `open` attribute a patch stripped is still the portal", () => {
+  const dialog = Object.assign(stubElement(), { open: false, matches: (s) => s === ":modal" });
+  const { hook, menu } = mountMenu({ dialog });
+  hook._open();
+  assert.equal(menu.parentNode, dialog);
+});

@@ -18,13 +18,21 @@ Fix: `_armPopover()` re-applies the attribute and resets on every `_open()`. `ro
 gained a test that strips the attribute and makes `showPopover()` throw like the browser; it fails
 without the fix. (`MentionInput` is unaffected — its menu is built in JS, outside the server's markup.)
 
-## IMPROVEMENT - MEDIUM — open row menu inside a patched dialog (unverified)
+## BUG - MEDIUM — open row menu inside a patched dialog — FIXED in 2.54.2 (was "unverified")
 
 While open, the menu is now a direct child of the `<dialog>`, which sits inside the LiveView container
 (the old `<body>` portal did not). A patch of that dialog may morph the keyed `-content` `<ul>` back into
 its wrapper, closing the popover; `updated()` only handles the duplicate case. Needs a real browser to
 confirm, which this sandbox does not have — not changed on speculation. Worth a check in the projects
 popup: open a row menu while another client edits the dialog's list.
+
+**Update:** confirmed in Chromium by the independent review (`GPT_REVIEW.md`): the patch moves the same
+`<ul>` back into its row, hidden and without the popover attribute, while `isOpen` stays true — the next
+trigger click closes what is not showing. Fixed: `updated()` now detects a reclaimed open menu
+(`_reclaimed()`) and re-runs the portal/arm/show/place step (`_present(this._at)`, split out of `_open`);
+`_portal()` also treats a `:modal` dialog as open, since a patch strips `open` until `PkDialog` restores
+it. Three tests in `row_menu_dialog.test.cjs`. The unit tests model the reclaim over stubs; the browser
+re-check of this fix is still owed (the reviewer's Chromium harness is the way).
 
 ## NITPICK — `charBox` mirror ignores the textarea's scrollbar
 

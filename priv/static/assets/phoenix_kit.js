@@ -5979,9 +5979,12 @@ if (typeof window.Chart === "undefined") {
       };
       this._armPopover();
 
+      // A patch strips the dialog's `open` attribute until PkDialog puts it
+      // back, while the dialog is still modal — `:modal` is the truer test.
       this._portal = () => {
         var dialog = this.el.closest ? this.el.closest("dialog") : null;
-        return dialog && dialog.open ? dialog : document.body;
+        var shown = dialog && (dialog.open || (dialog.matches && dialog.matches(":modal")));
+        return shown ? dialog : document.body;
       };
 
       this._onTriggerClick = (e) => {
@@ -6065,12 +6068,27 @@ if (typeof window.Chart === "undefined") {
           }
         }
       }
+      // A patch that covers the dialog the menu was portaled into finds its
+      // keyed <ul> and moves it back into the row — hidden again, without the
+      // popover attribute and positioning. It is the same node (`dup` above is
+      // not), so nothing was swapped; but the menu the user opened is gone
+      // while `isOpen` still says it is there, and the next trigger click
+      // would close what is not showing. Put it back where it was.
+      if (this.isOpen && this._reclaimed()) this._present(this._at);
       // morphdom can hand the wrapper back as a fresh node; re-publish.
       this.el._pkRowMenu = this;
     },
 
-    // `at` is `{x, y}` for a right-click, absent for the ⋮ trigger.
-    _open(at) {
+    // True when an open menu is no longer showing: put back under the server's
+    // `hidden` class, or (with the Popover API) no longer in the top layer.
+    _reclaimed() {
+      if (this.menu.classList.contains("hidden")) return true;
+      return !!(this.popover && !this.menu.matches(":popover-open"));
+    },
+
+    // Portal, show and place the menu — the part of opening that a patch can
+    // undo. `at` is `{x, y}` for a right-click, absent for the ⋮ trigger.
+    _present(at) {
       // Portal to <body> before measuring. If the menu sits inside a
       // <dialog> or any ancestor that establishes a fixed-positioning
       // containing block, `position: fixed` coords would be interpreted
@@ -6119,6 +6137,12 @@ if (typeof window.Chart === "undefined") {
 
       this.menu.style.top = top + "px";
       this.menu.style.left = left + "px";
+    },
+
+    // `at` is `{x, y}` for a right-click, absent for the ⋮ trigger.
+    _open(at) {
+      this._at = at;
+      this._present(at);
 
       this.isOpen = true;
       openRowMenu = this;

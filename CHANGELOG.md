@@ -1,3 +1,12 @@
+## 2.54.2 - 2026-10-05
+
+### Fixed
+
+- **An open row menu in a popup no longer goes dark when the popup is patched.** A LiveView patch covering the
+  dialog moved the open menu back into its row, hidden, while the hook still counted it open, so the next click
+  on the ⋮ did nothing. The hook now notices and puts the menu back in the dialog, and a modal dialog whose
+  `open` attribute a patch has momentarily stripped still counts as the portal.
+
 ## 2.54.1 - 2026-10-05
 
 ### Fixed
