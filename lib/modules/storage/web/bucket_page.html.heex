@@ -39,11 +39,7 @@
           id="bucket-delete"
           type="button"
           phx-click="delete"
-          data-confirm={
-            gettext(
-              "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
-            )
-          }
+          data-confirm={gettext("Delete bucket \"%{name}\"?", name: @bucket.name)}
           class="btn btn-outline btn-error btn-sm"
         >
           <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete bucket")}

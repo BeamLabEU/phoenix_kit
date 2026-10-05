@@ -1,3 +1,17 @@
+## Unreleased
+
+### Changed
+
+- **Deleting a bucket asks `Delete bucket "<name>"?`** instead of a long warning about when the delete would be
+  refused; the refusal itself (in a storage profile, still holds files) is still explained after confirming.
+- **The Buckets tab's stats count what they say.** "Active Buckets / Currently in use" counted enabled buckets;
+  it is now "Enabled" (with how many are disabled) and "In a storage profile" (with how many are in none and so
+  store and serve nothing).
+
+### i18n
+
+- Translations for the new bucket delete confirmation and stats captions, in all shipped locales.
+
 ## 2.54.2 - 2026-10-05
 
 ### Fixed

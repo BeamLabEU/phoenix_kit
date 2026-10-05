@@ -258,11 +258,7 @@
                         <.table_row_menu_button
                           phx-click="delete_bucket"
                           phx-value-id={bucket.uuid}
-                          data-confirm={
-                            gettext(
-                              "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
-                            )
-                          }
+                          data-confirm={gettext("Delete bucket \"%{name}\"?", name: bucket.name)}
                           icon="hero-trash"
                           label={gettext("Delete bucket")}
                           class="text-error"
@@ -302,11 +298,7 @@
                 <button
                   phx-click="delete_bucket"
                   phx-value-id={bucket.uuid}
-                  data-confirm={
-                    gettext(
-                      "Delete this bucket? A bucket that a storage profile uses, or that still holds files, is not deleted."
-                    )
-                  }
+                  data-confirm={gettext("Delete bucket \"%{name}\"?", name: bucket.name)}
                   class="btn btn-xs btn-outline btn-error"
                 >
                   <.icon name="hero-trash" class="w-3 h-3" /> {gettext("Delete")}
@@ -321,12 +313,25 @@
                 <div class="stat-desc">{gettext("Configured media locations")}</div>
               </div>
 
+              <% enabled_count = Enum.count(@buckets, & &1.enabled) %>
+              <% in_profile_count =
+                Enum.count(@buckets, &Map.has_key?(@bucket_usage, to_string(&1.uuid))) %>
               <div class="stat">
-                <div class="stat-title">{gettext("Active Buckets")}</div>
-                <div class="stat-value text-2xl text-success">
-                  {Enum.count(@buckets, & &1.enabled)}
+                <div class="stat-title">{gettext("Enabled")}</div>
+                <div class="stat-value text-2xl">{enabled_count}</div>
+                <div class="stat-desc">
+                  {gettext("%{count} disabled", count: length(@buckets) - enabled_count)}
                 </div>
-                <div class="stat-desc">{gettext("Currently in use")}</div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-title">{gettext("In a storage profile")}</div>
+                <div class="stat-value text-2xl text-success">{in_profile_count}</div>
+                <div class="stat-desc">
+                  {gettext("%{count} in none, so they store and serve nothing",
+                    count: length(@buckets) - in_profile_count
+                  )}
+                </div>
               </div>
             </div>
           <% end %>
