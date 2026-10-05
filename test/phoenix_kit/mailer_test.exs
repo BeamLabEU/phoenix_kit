@@ -432,6 +432,37 @@ defmodule PhoenixKit.MailerTest do
       assert smtp_log =~ "550 o***@example.org rejected"
       refute smtp_log =~ "other.person"
 
+      # Finch, Mint and Req adapters return an exception struct, which is not
+      # enumerable; redacting it must neither crash nor lose its name.
+      Process.put(
+        :fake_brevo_response,
+        {:error, %ArgumentError{message: "refused other.person@example.org"}}
+      )
+
+      struct_log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, %ArgumentError{message: "refused other.person@example.org"}} =
+                   Mailer.deliver_via_integration(email, uuid)
+        end)
+
+      assert struct_log =~ "ArgumentError"
+      assert struct_log =~ "refused o***@example.org"
+      refute struct_log =~ "other.person"
+
+      # A tuple of small integers is not a charlist, and an improper list is
+      # valid iodata; neither may replace the delivery error with an exception.
+      Process.put(:fake_brevo_response, {:error, {80, 70, ["550 " | "other.person@example.org"]}})
+
+      odd_log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:error, {80, 70, ["550 " | "other.person@example.org"]}} =
+                   Mailer.deliver_via_integration(email, uuid)
+        end)
+
+      assert odd_log =~ "FAILED"
+      assert odd_log =~ "o***@example.org"
+      refute odd_log =~ "other.person"
+
       # An adapter may return bytes which are not UTF-8; logging must not
       # replace the delivery error with a regex exception.
       Process.put(:fake_brevo_response, {:error, {502, <<255>>}})

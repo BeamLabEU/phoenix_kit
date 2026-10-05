@@ -396,38 +396,56 @@ defmodule PhoenixKit.Mailer do
   # The recipient's local part is masked: the log says which mailbox provider
   # and enough of the address to recognise it, not the address itself. Never
   # the body — it carries single-use tokens.
-  defp log_delivery(email, {:ok, _} = _result, via) do
+  # The line is a courtesy to the operator: whatever goes wrong while building it
+  # (an error term nobody planned for) must never change what the caller of
+  # `deliver` gets back, so a failure here is swallowed.
+  defp log_delivery(email, result, via) do
+    do_log_delivery(email, result, via)
+  rescue
+    _ -> :ok
+  catch
+    _kind, _reason -> :ok
+  end
+
+  defp do_log_delivery(email, {:ok, _} = _result, via) do
     Logger.info(
       "[PhoenixKit.Mailer] sent #{inspect(email.subject)} to #{masked_recipients(email)} via #{delivery_label(via)}"
     )
   end
 
-  defp log_delivery(email, {:error, reason}, via) do
+  defp do_log_delivery(email, {:error, reason}, via) do
     Logger.error(
       "[PhoenixKit.Mailer] FAILED #{inspect(email.subject)} to #{masked_recipients(email)} via #{delivery_label(via)}: " <>
         inspect(redact_delivery_error(reason), limit: 20, printable_limit: 500)
     )
   end
 
-  defp log_delivery(_email, _other, _via), do: :ok
+  defp do_log_delivery(_email, _other, _via), do: :ok
 
   # Adapters can echo addresses inside nested error bodies. Redact before
   # inspection truncates a string, or a long local part can survive unmasked.
+  # The term is walked by shape: an exception struct (what Finch, Mint and Req
+  # adapters return), a tuple of small integers, an improper list (valid
+  # iodata) and a binary that is not UTF-8 are all ordinary error reasons.
   defp redact_delivery_error(text) when is_binary(text) do
     Regex.replace(~r/[\w.!\#$%&'*+\/=?^`{|}~-]+@[^\s<>"(),;:\[\]\\]+/, text, fn address ->
       mask_address(address)
     end)
   end
 
-  defp redact_delivery_error(list) when is_list(list),
-    do:
-      if(list != [] and List.ascii_printable?(list),
-        do: list |> List.to_string() |> redact_delivery_error(),
-        else: Enum.map(list, &redact_delivery_error/1)
-      )
+  defp redact_delivery_error([_ | _] = list) do
+    if printable_charlist?(list),
+      do: list |> List.to_string() |> redact_delivery_error(),
+      else: redact_cons(list)
+  end
 
   defp redact_delivery_error(tuple) when is_tuple(tuple),
-    do: tuple |> Tuple.to_list() |> redact_delivery_error() |> List.to_tuple()
+    do: tuple |> Tuple.to_list() |> Enum.map(&redact_delivery_error/1) |> List.to_tuple()
+
+  # A struct is not enumerable: its fields are redacted and put back, so the
+  # log still names the exception.
+  defp redact_delivery_error(%_{} = struct),
+    do: Map.merge(struct, struct |> Map.from_struct() |> redact_delivery_error())
 
   defp redact_delivery_error(map) when is_map(map),
     do:
@@ -436,6 +454,18 @@ defmodule PhoenixKit.Mailer do
       end)
 
   defp redact_delivery_error(other), do: other
+
+  defp printable_charlist?([char | rest]) when char in 32..126 or char in [9, 10, 13],
+    do: printable_charlist?(rest)
+
+  defp printable_charlist?([]), do: true
+  defp printable_charlist?(_not_a_charlist), do: false
+
+  # Walks a list cell by cell, so an improper tail (`["550 " | "x@y.z"]`) is
+  # redacted instead of crashing `Enum.map/2`.
+  defp redact_cons([head | tail]), do: [redact_delivery_error(head) | redact_cons(tail)]
+  defp redact_cons([]), do: []
+  defp redact_cons(improper_tail), do: redact_delivery_error(improper_tail)
 
   defp delivery_label(via) when is_atom(via), do: inspect(via)
   defp delivery_label(via) when is_binary(via), do: via

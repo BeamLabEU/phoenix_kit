@@ -20,7 +20,8 @@
 - **Every email handed to an adapter leaves a log line**: the subject, the adapter (or the integration) and
   the recipient with the local part masked (`m***@don.ee`), at info when it was sent and at error, with the
   reason, when it was not. Addresses echoed in adapter errors are masked before truncation, including nested
-  responses and SMTP charlists. Never the body, which carries single-use tokens. Without the optional emails
+  responses, SMTP charlists, exception structs and improper lists, and building the line can never change what
+  `deliver` returns. Never the body, which carries single-use tokens. Without the optional emails
   package a send used to leave no trace at all, and a failed one returned an error to callers that show the
   same page either way.
 

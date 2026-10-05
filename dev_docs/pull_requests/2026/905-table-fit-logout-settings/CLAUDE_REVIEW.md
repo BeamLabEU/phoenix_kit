@@ -74,3 +74,40 @@ times a second would notice.
 
 Nothing to fix in the code. The two LOW findings are on record; both are properties of the design rather than
 defects to patch before the release.
+
+## Follow-up: review of Codex's release fixes (`52bd83354`)
+
+Codex reviewed the prepared 2.54.0 and fixed five things (`GPT_REVIEW.md` here and in `903-oban-cron-insertion`).
+Each claim was re-checked independently before releasing.
+
+**Confirmed real, fix is right**
+
+- **Aliased digest refused the whole digest backfill** (`alias …DigestWorker, as: D` + an existing hourly entry
+  → the three missing cadences were rolled back). Reproduced on `eddf7214d`, fixed on `52bd83354`.
+- **A mention is not a schedule**: the real sweeper was never added when `SweepWorker` appeared only in another
+  job's `args`, or when a `SweepWorker…`-prefixed module was in the crontab. Reproduced and fixed; a real
+  `alias …SweepWorker` entry is still not duplicated, and a commented-out digest cadence is still declined.
+- **The installer rewrite changes nothing on real hosts**: the backfill output on all 16 workspace host configs
+  is byte-identical before and after Codex's change.
+- **`+N` indicator** attached to a dropped last column: fixed by walking back to the last surviving header; the
+  one-column and all-dropped edges are tested.
+- **Plug moduledoc** now states that the ordinary log-out clears anonymous session data (closes my LOW finding).
+
+**Regression found in Codex's fix, fixed here**
+
+- **BUG - HIGH — the new error redaction crashed a failed send.** `redact_delivery_error/1` called `Map.new/2` on
+  every map, and an exception struct (`%Mint.TransportError{}`, `%Finch.Error{}`, what Finch and Req adapters
+  return) is not enumerable, so a failed delivery raised `Protocol.UndefinedError` out of `deliver` instead of
+  returning `{:error, reason}`; auth mail, which shows the same page either way, would have turned that into a
+  500. Reproduced with an `ArgumentError` reason. The same function turned a tuple of small integers into a
+  string and then raised in `List.to_tuple/1`, and `Enum.map/2` raised on an improper list (valid iodata).
+  Fixed: structs are redacted field by field and keep their name, tuples are mapped element by element, lists
+  are walked cell by cell, and `log_delivery/3` now swallows any failure in building the line, so a log line can
+  never change what the caller of `deliver` gets back. Regression tests added for the struct, the integer
+  tuple and the improper list.
+
+**Validation of the combined tree**: `mix precommit` exit 0 (credo no issues, dialyzer passed, JS tests pass);
+full suite with `--max-cases 8`: 87 doctests, 8552 tests, 0 failures, 6 skipped, 1 excluded. A first run at
+the default concurrency showed 6 failures in unrelated DB-backed files (one a Postgres `query_canceled`
+inside a test's own setup); all six files pass alone (106 tests) and the bounded run is clean, so they are the
+known contention flakes.
