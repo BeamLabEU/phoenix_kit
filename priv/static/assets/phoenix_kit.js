@@ -9199,6 +9199,19 @@ if (typeof window.Chart === "undefined") {
         self.el.focus();
       };
 
+      // The page's context for the search, from `data-mention-context`;
+      // null when the field carries none or the JSON is broken.
+      this.context = function() {
+        var raw = self.el.dataset ? self.el.dataset.mentionContext : null;
+        if (!raw) return null;
+        try {
+          var parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_e) {
+          return null;
+        }
+      };
+
       this.search = function() {
         var caret = self.el.selectionStart;
         var found = triggerAt(self.el.value, caret);
@@ -9211,7 +9224,15 @@ if (typeof window.Chart === "undefined") {
         var seq = self.seq;
         self.pushEvent(
           "pk_mention_search",
-          { kind: found.char === "@" ? "user" : "resource", query: found.query, seq: seq },
+          {
+            kind: found.char === "@" ? "user" : "resource",
+            query: found.query,
+            seq: seq,
+            // Where the field is: `data-mention-context` (JSON) names the
+            // record the page is about, so a `#` offers what belongs with
+            // it rather than everything the viewer may see.
+            context: self.context()
+          },
           function(reply) {
             // Out-of-order replies: the user kept typing while this one was
             // in flight, so its results describe a query that no longer

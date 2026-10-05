@@ -145,6 +145,12 @@ defmodule PhoenixKit.Mentions do
       typeahead that offers records the searcher cannot open is itself the
       leak.
     * `:limit` — max results overall (default #{@default_limit}).
+    * `:context` — where the search is typed: the field's
+      `data-mention-context` (JSON) as a map, e.g. `%{"project" => uuid}`.
+      Handlers MAY narrow by it — a `#` typed inside a project offers that
+      project's own records rather than everything — and MUST still scope
+      to the searcher: the context says what is relevant, never what is
+      allowed.
 
   Never raises: a handler that blows up contributes nothing and is logged.
   """
