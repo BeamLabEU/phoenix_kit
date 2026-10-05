@@ -1,7 +1,24 @@
 ## Unreleased
 
+### Upgrading
+
+- **`mix phoenix_kit.update` now schedules three workers that older hosts never ran, and the first run of
+  `Activity.PruneWorker` deletes activity entries older than `activity_retention_days` (default 90)** from
+  every host that had never pruned. Raise the setting before updating to keep more history, or comment the
+  entry out of the crontab to decline it (the updater leaves a commented-out entry alone).
+
 ### Fixed
 
+- **Two crontab entries were never backfilled to existing hosts, and a third was in no crontab at all.**
+  `Modules.Storage.Workers.PruneTrashJob` and `Notifications.PruneWorker` were in the generated crontab but
+  not in the update's backfill list, so a host that installed before them never ran them. `PruneTrashJob` is
+  more than the trash purge: it is what queues the storage backfills and the reconciler, so such a host never
+  reconciled its storage profiles. `Activity.PruneWorker` was documented as running daily but was in no
+  crontab (not the generated one, not the backfill), so no host ever pruned its activity feed. All three are
+  now in the generated crontab, the manual-instructions text (which also lacked the job-run sweeper and prune
+  and the bucket-log prune) and the backfill. A test now fails when a worker is in the generated crontab but
+  not in the backfill, when the two crontab texts disagree, or when a worker's docs say it runs on a schedule
+  and no crontab has it.
 - **`mix phoenix_kit.update` no longer skips cron entries when the host's crontab ends in a comment.** The
   Oban config backfill glued `,` onto the tail of the source text, so a comment after the last tuple took the
   comma, the edit stopped parsing and was rolled back, and the host was left without

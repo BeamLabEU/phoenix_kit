@@ -267,6 +267,7 @@ if Code.ensure_loaded?(Igniter) do
              {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
              {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob},
              {"0 4 * * *", PhoenixKit.Notifications.PruneWorker},
+             {"10 4 * * *", PhoenixKit.Activity.PruneWorker},
              {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
              {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
              {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
@@ -1487,6 +1488,18 @@ if Code.ensure_loaded?(Igniter) do
     # short-circuits once `ProcessScheduledJobsWorker` is present, so without an
     # explicit backfill a host that installed earlier never gains them.
     @worker_cron_entries [
+      # In the generated crontab since April 2026 but never backfilled, so a host
+      # that installed earlier never ran them. PruneTrashJob is more than the trash
+      # purge: it is also what queues the storage backfills and the reconciler
+      # (`ReconcileJob`) while they have work left, so without it a host's storage
+      # profiles are never reconciled.
+      {"0 3 * * *", "PhoenixKit.Modules.Storage.Workers.PruneTrashJob"},
+      {"0 4 * * *", "PhoenixKit.Notifications.PruneWorker"},
+      # Documented as running daily since the activity log shipped, yet it was in
+      # no crontab at all — not the generated one, not this list — so no host ever
+      # pruned its activity feed. The first run deletes entries older than
+      # `activity_retention_days` (default 90).
+      {"10 4 * * *", "PhoenixKit.Activity.PruneWorker"},
       {"30 4 * * *", "PhoenixKit.Users.Referrals.PruneWorker"},
       # Shipped in 2.31.0. Without the backfill an existing host never
       # prunes failed sign-in buckets and the table grows for the life
@@ -1955,8 +1968,12 @@ if Code.ensure_loaded?(Igniter) do
                {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker},
                {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob},
                {"0 4 * * *", PhoenixKit.Notifications.PruneWorker},
+               {"10 4 * * *", PhoenixKit.Activity.PruneWorker},
                {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
                {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
+               {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},
+               {"15 4 * * *", PhoenixKit.Jobs.PruneWorker},
+               {"20 4 * * *", PhoenixKit.Modules.Storage.Workers.BucketLogPruneWorker},
                {"0 * * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "hourly"}},
                {"0 */12 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "12h"}},
                {"0 6 * * *", PhoenixKit.Notifications.DigestWorker, args: %{cadence: "daily"}},

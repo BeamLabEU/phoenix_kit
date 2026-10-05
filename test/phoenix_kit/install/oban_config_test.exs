@@ -620,6 +620,9 @@ defmodule PhoenixKit.Install.ObanConfigTest do
         plugins: [
           {Oban.Plugins.Cron,
            crontab: [
+             {"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob},
+             {"0 4 * * *", PhoenixKit.Notifications.PruneWorker},
+             {"10 4 * * *", PhoenixKit.Activity.PruneWorker},
              {"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker},
              {"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker},
              {"*/5 * * * *", PhoenixKit.Jobs.SweepWorker},

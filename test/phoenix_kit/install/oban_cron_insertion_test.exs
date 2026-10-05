@@ -1077,6 +1077,9 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
   describe "a crontab held in a variable" do
     @worker_lines [
       ~S|{"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|,
+      ~S|{"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}|,
+      ~S|{"0 4 * * *", PhoenixKit.Notifications.PruneWorker}|,
+      ~S|{"10 4 * * *", PhoenixKit.Activity.PruneWorker}|,
       ~S|{"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}|,
       ~S|{"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}|,
       ~S|{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}|,
@@ -1164,7 +1167,7 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
     test "with some of them: only the absent ones are listed" do
       content =
-        var_config(Enum.take(@worker_lines, 3) ++ Enum.take(@digest_lines, 2))
+        var_config(Enum.take(@worker_lines, 6) ++ Enum.take(@digest_lines, 2))
 
       {result, _out, steps} = run_all(content)
 
@@ -1261,6 +1264,9 @@ defmodule PhoenixKit.Install.ObanCronInsertionTest do
 
   @all_pk_worker_lines [
     ~S|{"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}|,
+    ~S|{"0 3 * * *", PhoenixKit.Modules.Storage.Workers.PruneTrashJob}|,
+    ~S|{"0 4 * * *", PhoenixKit.Notifications.PruneWorker}|,
+    ~S|{"10 4 * * *", PhoenixKit.Activity.PruneWorker}|,
     ~S|{"30 4 * * *", PhoenixKit.Users.Referrals.PruneWorker}|,
     ~S|{"45 4 * * *", PhoenixKit.Users.LoginAttemptsPruneWorker}|,
     ~S|{"*/5 * * * *", PhoenixKit.Jobs.SweepWorker}|,
