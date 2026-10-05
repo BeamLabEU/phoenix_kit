@@ -28,7 +28,13 @@ defmodule PhoenixKitWeb.Live.Modules do
   # Settings → Languages), so they're deliberately excluded from this list.
   @internal_module_keys ["crawlers", "sitemap"]
 
-  def mount(_params, _session, socket) do
+  # `?tab=disabled` opens that tab. The redirect from a disabled module's page
+  # lands here asking for it: on the default Active tab the module it is about
+  # is not listed at all, and the page read like the wrong page — a missing
+  # route — with a short flash as the only clue.
+  @tabs ~w(active disabled not_installed)
+
+  def mount(params, _session, socket) do
     if connected?(socket), do: Events.subscribe_to_modules()
 
     project_title = Settings.get_project_title()
@@ -54,7 +60,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:not_installed_packages, not_installed)
       |> assign(:catalog_status, catalog_status)
       |> assign(:hex_browse_url, PhoenixKit.KnownPackages.browse_url())
-      |> assign(:modules_tab, "active")
+      |> assign(:modules_tab, if(params["tab"] in @tabs, do: params["tab"], else: "active"))
       |> refresh_tab_counts()
 
     {:ok, socket}

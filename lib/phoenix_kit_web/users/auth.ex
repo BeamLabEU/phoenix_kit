@@ -2297,7 +2297,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket =
       socket
       |> Phoenix.LiveView.put_flash(:error, message)
-      |> Phoenix.LiveView.redirect(to: Routes.path("/admin/modules"))
+      # The Disabled tab, where the module's card and its switch are. The
+      # default Active tab does not list it at all.
+      |> Phoenix.LiveView.redirect(to: Routes.path("/admin/modules?tab=disabled"))
 
     {:halt, socket}
   end

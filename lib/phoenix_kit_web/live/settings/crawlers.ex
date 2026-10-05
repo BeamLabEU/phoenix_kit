@@ -65,7 +65,10 @@ defmodule PhoenixKitWeb.Live.Settings.Crawlers do
             "Crawlers module is disabled. Enable it from the Modules page to configure settings."
           )
         )
-        |> redirect(to: Routes.path("/admin/modules", locale: socket.assigns.current_locale_base))
+        |> redirect(
+          to:
+            Routes.path("/admin/modules?tab=disabled", locale: socket.assigns.current_locale_base)
+        )
 
       {:ok, socket}
     end
