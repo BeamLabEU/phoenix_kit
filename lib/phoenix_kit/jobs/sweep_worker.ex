@@ -45,7 +45,9 @@ defmodule PhoenixKit.Jobs.SweepWorker do
   left alone: its dispatch may be in flight.
 
   Each pass stamps `job_runs_last_sweep_at`, which the Jobs page reads to warn when
-  no sweeper has been seen.
+  no sweeper has been seen. The stamp is written without the settings history
+  (`history: false`): it moves on every pass, and a permanent entry per pass
+  would bury the Activity feed.
   """
 
   use Oban.Worker, queue: :default, max_attempts: 1, unique: [period: 60]
@@ -108,7 +110,7 @@ defmodule PhoenixKit.Jobs.SweepWorker do
         merge(acc, recover(uuid, now, cutoff))
       end)
 
-    Settings.update_setting(@setting, DateTime.to_iso8601(now))
+    Settings.update_setting(@setting, DateTime.to_iso8601(now), history: false)
     result
   end
 

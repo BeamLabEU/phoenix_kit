@@ -14,6 +14,30 @@
 
 - Translations for the rendition profile wording, in all shipped locales.
 
+## 2.55.1 - 2026-10-06
+
+### Fixed
+
+- **Machine stamps no longer write permanent settings history** (PR #908). A value a machine rewrites on a
+  schedule — the jobs sweeper's `job_runs_last_sweep_at` (every five minutes), the sitemap's generation stats,
+  its cached XML/HTML documents and its per-module stats — recorded a permanent `setting.changed` entry on every
+  write, burying the Activity feed under rows the pruner never takes. These writers now pass `history: false`
+  (cache invalidation and the settings change broadcast are unchanged). The option is refused with
+  `ArgumentError`, before the write's transaction, together with `actor_uuid:` or `source: "settings"`: what a
+  person changes is always recorded. Entries written by earlier versions stay until removed.
+- **Boot no longer re-runs one-shot steps under `update_mode`** (PR #909). `mix phoenix_kit.update` and
+  `mix phoenix_kit.doctor` start the host with `update_mode` on, where `Settings.get_setting/1` answers nil, so
+  "already done" flags read through it were ignored: the Admin auto-grant handed a custom permission key back
+  after an Owner had revoked it, and the media sub-permission backfill re-ran. Both flags are now read from
+  their row, and a flag that cannot be read grants nothing (fails closed, including a dead pool). Module
+  `migrate_legacy/0` callbacks no longer run in `update_mode`; the host's next ordinary start runs them.
+
+### Changed
+
+- **Test:** the sweep-stamp history test compares entry counts instead of asserting an empty history, so it
+  passes on a database that already holds entries from before the fix.
+>>>>>>> ee42d43a233fb7192f23a48138260d83bc533d61
+
 ## 2.55.0 - 2026-10-06
 
 ### Added

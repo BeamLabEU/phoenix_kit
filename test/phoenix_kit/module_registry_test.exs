@@ -481,7 +481,29 @@ defmodule PhoenixKit.ModuleRegistryTest do
     end
   end
 
+  describe "run_all_legacy_migrations/0 with update_mode on" do
+    # `mix phoenix_kit.update` / `doctor` start the host in `update_mode`,
+    # where settings reads answer nil; one-shot callbacks guarded by such a
+    # read would redo their work, so the orchestrator runs none of them.
+    test "runs nothing and returns an empty map" do
+      previous = Application.get_env(:phoenix_kit, :update_mode)
+      Application.put_env(:phoenix_kit, :update_mode, true)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:phoenix_kit, :update_mode),
+          else: Application.put_env(:phoenix_kit, :update_mode, previous)
+      end)
+
+      assert ModuleRegistry.run_all_legacy_migrations() == %{}
+    end
+  end
+
   describe "run_all_legacy_migrations/0" do
+    # Walking the modules needs a reachable database: without one,
+    # test_helper turns `update_mode` on and the orchestrator runs nothing.
+    @describetag :integration
+
     # The orchestrator iterates registered modules and calls each one's
     # `migrate_legacy/0` callback. The default implementation (provided
     # by `use PhoenixKit.Module`) returns `:ok`, so most modules in the
