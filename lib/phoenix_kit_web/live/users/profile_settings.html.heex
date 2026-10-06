@@ -13,15 +13,22 @@
       active={@tab}
       scope={assigns[:phoenix_kit_current_scope]}
     />
-    <.live_component
-      :if={@tab == "media"}
-      module={PhoenixKitWeb.Live.Components.LibrarySettings}
-      id="profile-library-settings"
-      scope={@phoenix_kit_current_scope}
-    />
+    <%!-- The media tab is offered to everyone (its annotation section     --%>
+    <%!-- applies to anyone who can open the viewer); the libraries card   --%>
+    <%!-- keeps the storage/user-libraries gate the tab itself used to     --%>
+    <%!-- carry.                                                           --%>
+    <div
+      :if={@tab == "media" and Libraries.may_use_libraries?(@phoenix_kit_current_scope)}
+      class="mb-8"
+    >
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.LibrarySettings}
+        id="profile-library-settings"
+        scope={@phoenix_kit_current_scope}
+      />
+    </div>
     <%!-- One component per tab: its sections load their data once, on mount. --%>
     <.live_component
-      :if={@tab != "media"}
       module={PhoenixKitWeb.Live.Components.UserSettings}
       id={"profile-user-settings-#{@tab}"}
       user={@phoenix_kit_current_user}

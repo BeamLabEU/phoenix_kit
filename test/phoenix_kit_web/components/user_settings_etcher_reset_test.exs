@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettingsEtcherResetTest do
   use PhoenixKit.DataCase, async: true
 
   alias PhoenixKit.Users.Auth
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
   alias PhoenixKitWeb.Live.Components.UserSettings
 
   describe "resetting" do
@@ -81,6 +82,64 @@ defmodule PhoenixKitWeb.Live.Components.UserSettingsEtcherResetTest do
       # write. A second reset must still read as done rather than erroring.
       {:noreply, socket} = reset(fresh)
       assert socket.assigns.etcher_reset_message =~ "reset"
+    end
+  end
+
+  describe "the open-annotating switch" do
+    setup do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "open-annotating-#{System.unique_integer([:positive])}@example.com",
+          password: "hello world!"
+        })
+
+      %{user: user}
+    end
+
+    defp toggle(user, current) do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{__changed__: %{}, user: user, myself: nil, viewer_open_annotating: current},
+        private: %{live_temp: %{}}
+      }
+
+      UserSettings.handle_event("toggle_viewer_open_annotating", %{}, socket)
+    end
+
+    test "flips the per-user flag the viewer reads, and back", %{user: user} do
+      refute MediaCanvasViewer.open_annotating?(user), "the shipped default is off"
+
+      {:noreply, socket} = toggle(user, false)
+      assert socket.assigns.viewer_open_annotating
+      assert MediaCanvasViewer.open_annotating?(Auth.get_user_by_email(user.email))
+
+      {:noreply, socket} = toggle(socket.assigns.user, true)
+      refute socket.assigns.viewer_open_annotating
+      refute MediaCanvasViewer.open_annotating?(Auth.get_user_by_email(user.email))
+    end
+
+    test "touches only its own key", %{user: user} do
+      {:ok, user} = Auth.merge_user_custom_fields(user, %{"phone" => "555-0100"})
+
+      {:noreply, _} = toggle(user, false)
+
+      fresh = Auth.get_user_by_email(user.email)
+      assert fresh.custom_fields["phone"] == "555-0100"
+    end
+
+    test "an annotation-tools reset leaves the switch alone", %{user: user} do
+      # The switch is a viewing preference — how the viewer greets you —
+      # not part of how the drawing tools are set up, so "reset annotation
+      # settings" must not quietly flip someone back to the default open.
+      {:noreply, _} = toggle(user, false)
+
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{__changed__: %{}, user: Auth.get_user_by_email(user.email), myself: nil},
+        private: %{live_temp: %{}}
+      }
+
+      {:noreply, _} = UserSettings.handle_event("reset_etcher_settings", %{}, socket)
+
+      assert MediaCanvasViewer.open_annotating?(Auth.get_user_by_email(user.email))
     end
   end
 end

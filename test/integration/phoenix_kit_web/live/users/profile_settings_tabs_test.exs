@@ -27,8 +27,9 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettingsTabsTest do
   test "the bare path opens the account tab", %{conn: conn} do
     {:ok, _view, html} = live(conn, Routes.path("/profile/settings"))
 
-    assert html =~ "Annotation tools"
+    assert html =~ "Email Address"
     refute html =~ "Active Sessions"
+    refute html =~ "Annotation tools"
   end
 
   test "each tab shows only its own sections", %{conn: conn} do
@@ -39,6 +40,20 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettingsTabsTest do
     {:ok, _view, html} = live(conn, Routes.path("/profile/settings/security"))
     refute html =~ "Active Sessions"
     refute html =~ "Annotation tools"
+  end
+
+  test "the media tab holds the annotation tools, for a user with no storage access", %{
+    conn: conn
+  } do
+    # The tab is offered to everyone because this section is on it; the
+    # libraries card inside keeps its own storage gate, so a plain user
+    # sees the annotation tools and nothing about libraries.
+    {:ok, _view, html} = live(conn, Routes.path("/profile/settings/media"))
+
+    assert html =~ "Annotation tools"
+    assert html =~ "Open media ready to annotate"
+    refute html =~ "My libraries"
+    refute html =~ "Active Sessions"
   end
 
   test "switching tabs patches and swaps the sections", %{conn: conn} do

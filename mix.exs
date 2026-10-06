@@ -281,6 +281,14 @@ defmodule PhoenixKit.MixProject do
       # counts a claimed finger so the second one has something to pinch
       # against; older fresco simply keeps the old single-pointer reading.
       #
+      # 0.19 is a floor because the media viewer's toolbar now lists the
+      # `:textbox` tool (a fixed box the text wraps and sizes inside). An
+      # older Etcher has no TOOL_DEFS entry for the key, filters it out of
+      # the toolbar without a warning, and the tool the host offered is
+      # simply not there. It also brings same-tool editing — the shapes a
+      # tool draws stay grabbable while it is armed — which the viewer's
+      # eye/pencil flows assume.
+      #
       # Etcher 0.14's out-of-bounds pan/zoom features engage on fresco
       # ≥ 0.12 (isInfiniteCanvas / getZoomFloor on the outer handles) and
       # quietly stand down on older — hence the new fresco alternative.
@@ -296,7 +304,7 @@ defmodule PhoenixKit.MixProject do
       # one; they keep the old reading.
       {:fresco, "~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
       {:tessera, "~> 0.3.0"},
-      {:etcher, "~> 0.18.0"},
+      {:etcher, "~> 0.19.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #
