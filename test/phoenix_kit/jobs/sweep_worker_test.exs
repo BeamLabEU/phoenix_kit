@@ -208,6 +208,21 @@ defmodule PhoenixKit.Jobs.SweepWorkerTest do
              )
   end
 
+  # The stamp moves on every pass (every five minutes from cron); a permanent
+  # settings-history entry per pass buried the Activity feed and never pruned.
+  test "stamps every pass without writing the settings history" do
+    t0 = ~U[2026-10-06 10:00:00Z]
+
+    for minutes <- [0, 5, 10] do
+      SweepWorker.sweep(DateTime.add(t0, minutes * 60, :second))
+    end
+
+    assert PhoenixKit.Settings.get_setting(SweepWorker.last_sweep_setting()) ==
+             "2026-10-06T10:10:00Z"
+
+    assert PhoenixKit.Settings.History.list(SweepWorker.last_sweep_setting()) == []
+  end
+
   describe "pruning" do
     test "deletes finished runs older than the retention, and nothing else" do
       old = start!(%{steps: 1}) |> finish()

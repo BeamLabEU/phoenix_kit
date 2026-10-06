@@ -26,6 +26,15 @@ defmodule PhoenixKit.Settings.HistoryTest do
       |> Enum.reverse()
       |> Enum.map(&{&1.metadata["from"], &1.metadata["to"]})
 
+  # every `setting.changed` row for the key, read straight from the table
+  defp entries_for(key) do
+    Repo.all(
+      from(e in Entry,
+        where: e.action == "setting.changed" and fragment("? ->> 'key' = ?", e.metadata, ^key)
+      )
+    )
+  end
+
   defp set_time(%Entry{uuid: uuid}, %DateTime{} = at) do
     Repo.update_all(from(e in Entry, where: e.uuid == ^uuid), set: [inserted_at: at])
   end
@@ -241,6 +250,66 @@ defmodule PhoenixKit.Settings.HistoryTest do
 
       {:ok, kept} = Activity.log(%{action: "test.kept", permanent: true})
       assert Repo.get!(Entry, kept.uuid).permanent
+    end
+  end
+
+  # A machine stamp (a sweeper's "last pass at") changes on every pass; a
+  # permanent entry per pass would bury the feed and say nothing.
+  describe "a write without history" do
+    test "stores the value and records nothing, through every writer" do
+      plain = key()
+      json = key()
+      batch = key()
+      moduled = key()
+
+      for value <- ["1", "2", "3"] do
+        {:ok, _} = Settings.update_setting(plain, value, history: false)
+        {:ok, _} = Settings.update_json_setting(json, %{"v" => value}, history: false)
+        {:ok, _} = Settings.update_settings_batch(%{batch => value}, history: false)
+        {:ok, _} = Settings.update_setting_with_module(moduled, value, "mod", history: false)
+      end
+
+      assert Settings.get_setting(plain) == "3"
+      assert Settings.get_json_setting(json) == %{"v" => "3"}
+      assert Settings.get_setting(batch) == "3"
+      assert Settings.get_setting(moduled) == "3"
+
+      for k <- [plain, json, batch, moduled], do: assert(entries_for(k) == [])
+    end
+
+    test "publishes nothing to the feed" do
+      key = key()
+      PubSubManager.subscribe(Activity.pubsub_topic())
+      {:ok, _} = Settings.update_setting(key, "v", history: false)
+
+      refute_receive {:activity_logged, %Entry{metadata: %{"key" => ^key}}}, 100
+    end
+
+    test "leaves an ordinary write to the same key recorded" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "stamp", history: false)
+      {:ok, _} = Settings.update_setting(key, "chosen")
+      {:ok, _} = Settings.update_setting(key, "chosen again", history: true)
+
+      assert changes(key) == [{"stamp", "chosen"}, {"chosen", "chosen again"}]
+    end
+
+    # The option is for a machine's own stamp. A write a person made — one
+    # carrying an actor, or coming from the admin settings pages — is always
+    # recorded, so passing both is a mistake that must not pass silently.
+    test "refuses a write that names a person or the admin pages" do
+      key = key()
+
+      assert_raise ArgumentError, ~r/history: false/, fn ->
+        Settings.update_setting(key, "v", history: false, actor_uuid: Ecto.UUID.generate())
+      end
+
+      assert_raise ArgumentError, ~r/history: false/, fn ->
+        Settings.update_settings_batch(%{key => "v"}, history: false, source: "settings")
+      end
+
+      assert Settings.get_setting(key) == nil
+      assert entries_for(key) == []
     end
   end
 
