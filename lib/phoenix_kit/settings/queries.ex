@@ -216,11 +216,12 @@ defmodule PhoenixKit.Settings.Queries do
   # (`PhoenixKit.Settings.History.record/3`); a write that changes no
   # value, or a machine stamp written with `history: false`, records
   # nothing. Options that may not skip the history are refused before the
-  # transaction, so such a call takes no lock and writes nothing. The row
-  # as it was is read under a lock INSIDE the transaction, so two concurrent writers cannot both record the same old
-  # value. Nested inside a caller's transaction (the batch path) this joins
-  # it. A history row that cannot be written rolls the setting back and
-  # surfaces on the SETTING's changeset — callers hold that shape.
+  # transaction, so such a call takes no lock and writes nothing. The row as
+  # it was is read under a lock INSIDE the transaction, so two concurrent
+  # writers cannot both record the same old value. Nested inside a caller's
+  # transaction (the batch path) this joins it. A history row that cannot be
+  # written rolls the setting back and surfaces on the SETTING's changeset —
+  # callers hold that shape.
   defp with_history(changeset, opts, write) do
     :ok = History.check_options!(opts)
 

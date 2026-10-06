@@ -212,6 +212,9 @@ defmodule PhoenixKit.Jobs.SweepWorkerTest do
   # settings-history entry per pass buried the Activity feed and never pruned.
   test "stamps every pass without writing the settings history" do
     t0 = ~U[2026-10-06 10:00:00Z]
+    # Entries a database already holds (written before the stamp skipped the
+    # history, committed outside any sandbox) are not this test's to count.
+    entries_before = length(PhoenixKit.Settings.History.list(SweepWorker.last_sweep_setting()))
 
     for minutes <- [0, 5, 10] do
       SweepWorker.sweep(DateTime.add(t0, minutes * 60, :second))
@@ -220,7 +223,8 @@ defmodule PhoenixKit.Jobs.SweepWorkerTest do
     assert PhoenixKit.Settings.get_setting(SweepWorker.last_sweep_setting()) ==
              "2026-10-06T10:10:00Z"
 
-    assert PhoenixKit.Settings.History.list(SweepWorker.last_sweep_setting()) == []
+    assert length(PhoenixKit.Settings.History.list(SweepWorker.last_sweep_setting())) ==
+             entries_before
   end
 
   describe "pruning" do
