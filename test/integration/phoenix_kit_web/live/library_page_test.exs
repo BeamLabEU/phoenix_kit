@@ -216,7 +216,7 @@ defmodule PhoenixKitWeb.Live.LibraryPageTest do
       assert Libraries.setting(ctx.library.uuid, :deep_zoom) == false
     end
 
-    test "the rendition set links to its tab", ctx do
+    test "the rendition profile links to its tab", ctx do
       view = open(ctx.conn, ctx.library)
 
       assert view |> element("#library-variant-set a") |> render() =~

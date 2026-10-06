@@ -421,9 +421,15 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     test "creates a set, saves its flags, and a new rendition lands in it", %{conn: conn} do
       {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
 
+      # The name form is not on the page until the button asks for it.
+      refute has_element?(view, "#media-renditions-new")
+      view |> element("#media-renditions button", "New rendition profile") |> render_click()
+
       view
-      |> form("#media-renditions-new-set", %{"new_set" => %{"name" => "Photography"}})
+      |> form("#media-renditions-new", %{"name" => "Photography"})
       |> render_submit()
+
+      refute has_element?(view, "#media-renditions-new")
 
       set = Enum.find(VariantSets.list_variant_sets(), &(&1.name == "Photography"))
       assert set
@@ -456,6 +462,20 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       assert Storage.get_dimension_by_name("grid_2x", set.uuid)
       refute Storage.get_dimension_by_name("grid_2x")
+    end
+
+    test "the name form for a new set opens on request and can be cancelled", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      refute has_element?(view, "#media-renditions-new")
+
+      view |> element("#media-renditions button", "New rendition profile") |> render_click()
+      assert has_element?(view, "#media-renditions-new input[name=name]")
+      # While it is open the button is not offered again.
+      refute has_element?(view, "#media-renditions button", "New rendition profile")
+
+      view |> element("#media-renditions-new button", "Cancel") |> render_click()
+      refute has_element?(view, "#media-renditions-new")
+      assert has_element?(view, "#media-renditions button", "New rendition profile")
     end
 
     test "explains what a rendition is", %{conn: conn} do

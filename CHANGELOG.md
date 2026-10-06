@@ -1,3 +1,19 @@
+## Unreleased
+
+### Changed
+
+- **A rendition set is now a "rendition profile", like a storage profile.** Both are a named bundle a library
+  picks once, when it is created, so both now say "profile": the tab is **Rendition profiles** (beside Storage
+  profiles), the button is "New rendition profile", and the library form and page say "Rendition profile".
+  Where a sentence said just "the profile", it now says "storage profile" or "rendition profile". The Renditions
+  tab also opens its name form only after "New rendition profile" is pressed, like the Libraries and Storage
+  profiles tabs, instead of showing it all the time. Code names (`VariantSet`, `variant_set_uuid`), URLs and
+  stored data are unchanged; history entries written before this say "rendition set" for deep zoom's default.
+
+### i18n
+
+- Translations for the rendition profile wording, in all shipped locales.
+
 ## 2.55.0 - 2026-10-06
 
 ### Added

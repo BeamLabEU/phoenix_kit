@@ -338,7 +338,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
   defp libraries_path, do: Routes.path("/admin/settings/media?tab=libraries")
   defp profiles_path, do: Routes.path("/admin/settings/media?tab=profiles")
 
-  # The tab of the library's rendition set.
+  # The tab of the library's rendition profile.
   defp rendition_set_path(library) do
     uuid = VariantSets.set_uuid_for(library)
 

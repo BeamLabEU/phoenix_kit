@@ -457,7 +457,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   # ---------------------------------------------------------------------------
 
   # `deep_zoom`: whether the library's images may be viewed as zoomable tiles.
-  # A library that has not chosen follows its rendition set's old
+  # A library that has not chosen follows its rendition profile's old
   # `generate_tiles` flag (`VariantSets.deep_zoom_for_library?/1`), so nothing
   # turned off or on by a set stops or starts when this setting appeared.
   @settings %{
@@ -578,7 +578,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   end
 
   defp setting_label(:annotated_thumbnails, nil), do: "site default"
-  defp setting_label(:deep_zoom, nil), do: "rendition set"
+  defp setting_label(:deep_zoom, nil), do: "rendition profile"
   defp setting_label(_key, value), do: value
 
   defp check_type(_type, nil), do: :ok

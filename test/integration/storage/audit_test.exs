@@ -350,7 +350,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
                newest("storage.library.deleted")
     end
 
-    test "deep zoom history names the rendition set as its inherited default", ctx do
+    test "deep zoom history names the rendition profile as its inherited default", ctx do
       {:ok, library} =
         Libraries.create_system_library(%{name: "Zoom history #{ctx.n}"}, ctx.actor)
 
@@ -358,7 +358,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
 
       assert %Entry{
                metadata: %{
-                 "changes" => %{"deep_zoom" => %{"from" => "rendition set", "to" => true}}
+                 "changes" => %{"deep_zoom" => %{"from" => "rendition profile", "to" => true}}
                }
              } = newest("storage.library.setting_changed")
 
@@ -366,7 +366,7 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
 
       assert %Entry{
                metadata: %{
-                 "changes" => %{"deep_zoom" => %{"from" => true, "to" => "rendition set"}}
+                 "changes" => %{"deep_zoom" => %{"from" => true, "to" => "rendition profile"}}
                }
              } = newest("storage.library.setting_changed")
     end

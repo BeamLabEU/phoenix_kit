@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     mode = if dimension_uuid, do: :edit, else: :new
     dimension = load_dimension_data(mode, dimension_uuid)
 
-    # The rendition set it is in: the edited rendition's own, or the one the
+    # The rendition profile it is in: the edited rendition's own, or the one the
     # new-rendition link named (V205); the Default when none is named.
     set =
       case dimension do

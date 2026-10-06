@@ -93,7 +93,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   def handle_params(params, _url, socket) do
     active_tab = UrlTabs.active(params, tabs())
 
-    # The Renditions tab names its rendition set in the URL (`&set=<uuid>`).
+    # The Renditions tab names its rendition profile in the URL (`&set=<uuid>`).
     socket = assign(socket, active_tab: active_tab, rendition_set: params["set"])
 
     {:noreply, if(active_tab == "buckets", do: load_bucket_usage(socket), else: socket)}
@@ -111,7 +111,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     [
       %{id: "buckets", label: gettext("Buckets"), icon: "hero-inbox-stack"},
       %{id: "profiles", label: gettext("Storage profiles"), icon: "hero-server-stack"},
-      %{id: "renditions", label: gettext("Renditions"), icon: "hero-arrows-pointing-out"},
+      %{id: "renditions", label: gettext("Rendition profiles"), icon: "hero-arrows-pointing-out"},
       %{id: "libraries", label: gettext("Libraries"), icon: "hero-rectangle-stack"},
       %{id: "health", label: gettext("Health"), icon: "hero-heart"},
       %{id: "configuration", label: gettext("Configuration"), icon: "hero-cog-6-tooth"},

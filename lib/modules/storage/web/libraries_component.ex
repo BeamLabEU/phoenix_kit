@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   their files are stored in.
 
   Where a library keeps its files (its **storage profile**) and which
-  renditions its uploads get (its **rendition set**, `VariantSet`), V205, are
+  renditions its uploads get (its **rendition profile**, `VariantSet`), V205, are
   chosen **once, when it is created**, and shown read-only afterwards: moving a library to another
   profile is a bulk move of its files, so it is not a dropdown. To move where
   the files of every library on a profile live, change the profile's buckets
@@ -207,7 +207,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   defp field_label(:storage_profile_uuid), do: gettext("Storage profile")
-  defp field_label(:variant_set_uuid), do: gettext("Rendition set")
+  defp field_label(:variant_set_uuid), do: gettext("Rendition profile")
   defp field_label(_field), do: gettext("Library name")
 
   # Where a library keeps its files and which sizes it gets: names only, and
@@ -297,7 +297,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
               :if={choice?(@profiles, @variant_sets)}
               name="set"
               id={"#{@id}-new-set"}
-              label={gettext("Rendition set")}
+              label={gettext("Rendition profile")}
               options={Enum.map(@variant_sets, &{&1.name, &1.uuid})}
               value={VariantSets.default_uuid()}
               class="select-sm"

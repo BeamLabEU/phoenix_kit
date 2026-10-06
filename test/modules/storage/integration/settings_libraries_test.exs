@@ -100,7 +100,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsLibrariesTest do
 
       render_patch(view, @path <> "?tab=renditions")
       set_name = "Fresh set #{System.unique_integer([:positive])}"
-      view |> form("#media-renditions-new-set", %{new_set: %{name: set_name}}) |> render_submit()
+      view |> element("#media-renditions button", "New rendition profile") |> render_click()
+      view |> form("#media-renditions-new", %{name: set_name}) |> render_submit()
       set = Enum.find(Storage.VariantSets.list_variant_sets(), &(&1.name == set_name))
 
       render_patch(view, @path <> "?tab=libraries")

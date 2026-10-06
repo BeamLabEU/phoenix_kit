@@ -1,11 +1,11 @@
 defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   @moduledoc """
-  The Renditions tab of Settings → Media (V205): rendition sets and the
+  The Renditions tab of Settings → Media (V205): rendition profiles and the
   renditions in them.
 
   A **rendition** is a smaller or re-encoded copy of an upload (a thumbnail, a
   720p video) made for faster loading; the code calls them variants, and the
-  rows are `Storage.Dimension`s. A **rendition set** (`Storage.VariantSet`) says
+  rows are `Storage.Dimension`s. A **rendition profile** (`Storage.VariantSet`) says
   which ones a library's uploads get, and whether they are made automatically
   after an upload. A library names its set when it is created and keeps it
   (Libraries tab → New library).
@@ -36,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
        active: false,
        set_uuid: nil,
        set: nil,
-       new_set_form: to_form(%{"name" => ""}, as: :new_set)
+       creating: false
      )}
   end
 
@@ -114,7 +114,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
            socket,
            :error,
            gettext(
-             "%{name} is a standard rendition every rendition set has; it cannot be deleted",
+             "%{name} is a standard rendition every rendition profile has; it cannot be deleted",
              name: dimension.name
            )
          )}
@@ -154,12 +154,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
     end
   end
 
-  def handle_event("create_set", %{"new_set" => %{"name" => name}}, socket) do
+  def handle_event("new", _params, socket), do: {:noreply, assign(socket, :creating, true)}
+  def handle_event("cancel", _params, socket), do: {:noreply, assign(socket, :creating, false)}
+
+  def handle_event("create_set", %{"name" => name}, socket) do
     case VariantSets.create_variant_set(%{name: name}, actor(socket)) do
       {:ok, set} ->
         {:noreply,
          socket
-         |> flash(:info, gettext("Rendition set created"))
+         |> assign(:creating, false)
+         |> flash(:info, gettext("Rendition profile created"))
          |> push_patch(to: set_path(set))}
 
       {:error, changeset} ->
@@ -170,7 +174,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   def handle_event("save_set", %{"variant_set" => params}, socket) do
     case VariantSets.update_variant_set(socket.assigns.set, params, actor(socket)) do
       {:ok, _set} ->
-        {:noreply, socket |> reload() |> flash(:info, gettext("Rendition set saved"))}
+        {:noreply, socket |> reload() |> flash(:info, gettext("Rendition profile saved"))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :set_form, to_form(changeset))}
@@ -185,15 +189,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
       {:ok, _} ->
         {:noreply,
          socket
-         |> flash(:info, gettext("Rendition set deleted"))
+         |> flash(:info, gettext("Rendition profile deleted"))
          |> push_patch(to: set_path(default_set()))}
 
       {:error, :in_use} ->
         {:noreply,
-         flash(socket, :error, gettext("A library uses this rendition set; it cannot be deleted"))}
+         flash(
+           socket,
+           :error,
+           gettext("A library uses this rendition profile; it cannot be deleted")
+         )}
 
       {:error, _} ->
-        {:noreply, flash(socket, :error, gettext("This rendition set cannot be deleted"))}
+        {:noreply, flash(socket, :error, gettext("This rendition profile cannot be deleted"))}
     end
   end
 
@@ -206,7 +214,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
          |> flash(
            :info,
            gettext(
-             "Every file of this rendition set will be checked, and missing renditions made."
+             "Every file of this rendition profile will be checked, and missing renditions made."
            )
          )}
 
@@ -254,25 +262,62 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   def render(assigns) do
     ~H"""
     <div id={@id} class="px-1 py-4">
-      <%!-- What a rendition is --%>
-      <div class="alert alert-info mb-6" id={"#{@id}-about"}>
-        <.icon name="hero-information-circle" class="w-5 h-5" />
-        <div>
-          <h3 class="font-bold">{gettext("Renditions")}</h3>
-          <p class="text-sm">
+      <%!-- What a rendition is, and the way to a new set --%>
+      <div id={"#{@id}-about"} class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <h2 class="card-title text-lg">
+              <.icon name="hero-arrows-pointing-out" class="w-6 h-6 mr-2" /> {gettext(
+                "Rendition profiles"
+              )}
+            </h2>
+            <button
+              :if={not @creating}
+              type="button"
+              class="btn btn-primary"
+              phx-click="new"
+              phx-target={@myself}
+            >
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("New rendition profile")}
+            </button>
+          </div>
+          <p class="text-sm text-base-content/70">
             {gettext(
-              "A rendition is a smaller or re-encoded copy of an upload, such as a thumbnail or a 720p video, made for faster loading. A rendition set lists the renditions a library's uploads get; a library picks its set when it is created."
+              "A rendition is a smaller or re-encoded copy of an upload, such as a thumbnail or a 720p video, made for faster loading. A rendition profile lists the renditions a library's uploads get; a library picks its profile when it is created."
             )}
             {gettext(
               "A new install starts with 8 standard renditions: 4 image sizes (thumbnail, small, medium, large) and 4 video ones (360p, 720p, 1080p, video thumbnail)."
             )}
           </p>
+
+          <form
+            :if={@creating}
+            id={"#{@id}-new"}
+            phx-submit="create_set"
+            phx-target={@myself}
+            class="flex flex-wrap items-center gap-2 mt-4"
+          >
+            <input
+              type="text"
+              name="name"
+              id={"#{@id}-new-name"}
+              class="input input-sm w-64"
+              placeholder={gettext("Rendition profile name")}
+              maxlength="255"
+              required
+              autofocus
+            />
+            <button type="submit" class="btn btn-sm btn-primary">{gettext("Create")}</button>
+            <button type="button" class="btn btn-sm btn-ghost" phx-click="cancel" phx-target={@myself}>
+              {gettext("Cancel")}
+            </button>
+          </form>
         </div>
       </div>
 
-      <%!-- Rendition sets: one tab each, and a new one --%>
-      <div class="flex flex-wrap items-end gap-4 mb-6">
-        <div role="tablist" class="tabs tabs-box">
+      <%!-- Rendition profiles: one tab each --%>
+      <div class="mb-6">
+        <div role="tablist" class="tabs tabs-box inline-flex flex-wrap">
           <.link
             :for={set <- @sets}
             patch={set_path(set)}
@@ -282,23 +327,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
             {set.name}
           </.link>
         </div>
-        <.form
-          for={@new_set_form}
-          id={"#{@id}-new-set"}
-          phx-submit="create_set"
-          phx-target={@myself}
-          class="flex items-end gap-2 ml-auto"
-        >
-          <.input
-            field={@new_set_form[:name]}
-            label={gettext("New rendition set")}
-            placeholder={gettext("Name")}
-            required
-          />
-          <button type="submit" class="btn btn-primary btn-sm mb-2">
-            <.icon name="hero-plus" class="w-4 h-4" /> {gettext("Create")}
-          </button>
-        </.form>
       </div>
 
       <%!-- The set itself --%>
@@ -308,7 +336,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
             <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
             <span>
               {gettext(
-                "This set is missing standard renditions: %{names}. Until they are added, those are served as the nearest smaller rendition or a placeholder.",
+                "This profile is missing standard renditions: %{names}. Until they are added, those are served as the nearest smaller rendition or a placeholder.",
                 names: Enum.join(@missing_slots, ", ")
               )}
             </span>
@@ -340,7 +368,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                 phx-target={@myself}
                 data-confirm={
                   gettext(
-                    "Check every file of this rendition set now? Renditions a file is missing are made in the background."
+                    "Check every file of this rendition profile now? Renditions a file is missing are made in the background."
                   )
                 }
                 class="btn btn-outline btn-sm"
@@ -354,7 +382,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                   @set_libraries
                 )}
                 <%= if @set.is_default do %>
-                  {gettext("Every library without its own set uses this one.")}
+                  {gettext("Every library without its own profile uses this one.")}
                 <% end %>
               </span>
               <button
@@ -363,10 +391,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                 phx-click="delete_set"
                 phx-target={@myself}
                 disabled={@set_libraries > 0}
-                data-confirm={gettext("Delete this rendition set and its renditions?")}
+                data-confirm={gettext("Delete this rendition profile and its renditions?")}
                 class="btn btn-outline btn-error btn-sm ml-auto"
               >
-                <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete set")}
+                <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete profile")}
               </button>
             </div>
           </.form>

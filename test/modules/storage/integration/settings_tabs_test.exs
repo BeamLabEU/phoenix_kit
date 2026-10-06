@@ -69,7 +69,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert html =~ "Annotated Thumbnails"
     assert html =~ "Image Editing"
 
-    # Copies, renditions and deep zoom are set on the profile, the rendition set
+    # Copies, renditions and deep zoom are set on the profile, the rendition profile
     # and the library, not here: this tab has no second editor for them.
     refute html =~ "Redundancy Copies"
     refute html =~ ~s(name="form_redundancy")

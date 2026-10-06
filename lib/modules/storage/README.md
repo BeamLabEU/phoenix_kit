@@ -432,8 +432,10 @@ thumbnails.
 
 **In the admin these are "renditions"** (a rendition is a smaller or
 re-encoded copy of an upload, such as a thumbnail or a 720p video) and
-"rendition sets"; the code keeps `variant` and `dimension`. They are the
-**Renditions tab** of Settings → Media (`RenditionsComponent`, one tab per set,
+"rendition profiles" (the same word as a storage profile: each is a named
+bundle a library picks once, when it is created); the code keeps `variant`,
+`set` and `dimension`. They are the **Rendition profiles tab** of Settings →
+Media (`RenditionsComponent`, one tab per profile,
 `?tab=renditions&set=<uuid>`); adding or editing one is its own page
 (`/admin/settings/media/renditions/new/image|video`, `/:id/edit`,
 `DimensionForm`). Health is a tab too (`HealthComponent`, read when the tab

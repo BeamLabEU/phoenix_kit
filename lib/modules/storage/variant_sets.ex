@@ -1,8 +1,8 @@
 defmodule PhoenixKit.Modules.Storage.VariantSets do
   @moduledoc """
   Variant sets: which derived files a library's uploads get (V205). The admin
-  calls a derived file a *rendition* and a set a *rendition set* (Settings →
-  Media → Renditions).
+  calls a derived file a *rendition* and a set a *rendition profile*, like a
+  storage profile (Settings → Media → Rendition profiles).
 
   A library points at a set (`PhoenixKit.Modules.Storage.VariantSet`), and
   the set's sizes are its `PhoenixKit.Modules.Storage.Dimension` rows. A
@@ -455,7 +455,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   @doc """
   Whether a library (nil is Media) has deep zoom on: its own choice
   (`Libraries.setting(library, :deep_zoom)`), and when it has made none, its
-  rendition set's `generate_tiles` flag, which is what the choice was before it
+  rendition profile's `generate_tiles` flag, which is what the choice was before it
   moved to the library.
   """
   @spec deep_zoom_for_library?(term()) :: boolean()

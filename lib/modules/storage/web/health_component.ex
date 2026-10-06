@@ -3,7 +3,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
   The Health tab of Settings → Media.
 
   Shows how many files are where, and what, their library's storage
-  profile and rendition set want (V205), and lists the ones the reconciler
+  profile and rendition profile want (V205), and lists the ones the reconciler
   (`Storage.Workers.ReconcileJob`) has not brought up to date yet: copies
   missing or on buckets the profile no longer uses, renditions missing or made
   from an older spec. The reconciler runs by itself, a run per library
@@ -178,7 +178,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
             <h3 class="text-xl font-bold text-success">{gettext("All Healthy")}</h3>
             <p class="text-base-content/60">
               {gettext(
-                "Every file is stored where its library's storage profile wants it, with the renditions of its rendition set."
+                "Every file is stored where its library's storage profile wants it, with the renditions of its rendition profile."
               )}
             </p>
           </div>
@@ -186,7 +186,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
       <% else %>
         <p class="text-sm text-base-content/60 mb-2">
           {gettext(
-            "The reconciler copies files to the buckets their library's storage profile uses, removes copies it no longer uses, and makes the renditions its rendition set lists. It runs by itself; a file stays here while something could not be done yet, and is tried again."
+            "The reconciler copies files to the buckets their library's storage profile uses, removes copies it no longer uses, and makes the renditions its rendition profile lists. It runs by itself; a file stays here while something could not be done yet, and is tried again."
           )}
         </p>
         <p :if={@report.stale > @listed} class="text-sm text-base-content/60 mb-2">

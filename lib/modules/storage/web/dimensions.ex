@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   @moduledoc """
-  The old address of the rendition sets (`/admin/settings/media/dimensions`,
+  The old address of the rendition profiles (`/admin/settings/media/dimensions`,
   `?set=<uuid>`), which is now the Renditions tab of Settings → Media
   (`RenditionsComponent`). It only sends a saved link there.
   """

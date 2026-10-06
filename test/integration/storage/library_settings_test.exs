@@ -153,7 +153,7 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
   describe "deep zoom for a library" do
     alias PhoenixKit.Modules.Storage.VariantSets
 
-    test "follows its rendition set's old flag until the library chooses" do
+    test "follows its rendition profile's old flag until the library chooses" do
       {:ok, set} =
         VariantSets.create_variant_set(%{name: "Zoom #{System.unique_integer([:positive])}"})
 

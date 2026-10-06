@@ -188,7 +188,7 @@
         </h2>
         <p class="text-sm text-base-content/70">
           {gettext(
-            "Chosen when the library was created and not changed afterwards: moving a library's files is a bulk job. To move where files live, change the profile's buckets."
+            "Chosen when the library was created and not changed afterwards: moving a library's files is a bulk job. To move where files live, change the storage profile's buckets."
           )}
         </p>
 
@@ -234,7 +234,7 @@
             </ul>
           </dd>
 
-          <dt class="text-base-content/60">{gettext("Rendition set")}</dt>
+          <dt class="text-base-content/60">{gettext("Rendition profile")}</dt>
           <dd id="library-variant-set">
             <.link
               navigate={rendition_set_path(@library)}
@@ -255,7 +255,7 @@
         </h2>
         <p class="text-sm text-base-content/70">
           {gettext(
-            "Whether every file is stored the way the profile and the rendition set say. Changing the profile's buckets or the set's renditions brings the files up to date in the background."
+            "Whether every file is stored the way its storage profile and rendition profile say. Changing the storage profile's buckets or the rendition profile's renditions brings the files up to date in the background."
           )}
         </p>
         <LibrarySync.sync_cell
