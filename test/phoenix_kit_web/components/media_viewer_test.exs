@@ -49,6 +49,8 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
   defp fresh_socket, do: %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}}}
 
   describe "update/2" do
+    # Needs the repo process, which only runs when the test database is reachable.
+    @tag :integration
     test "maps :current attr to :current_uuid assign" do
       {:ok, socket} =
         MediaViewer.update(
@@ -59,6 +61,7 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
       assert socket.assigns.current_uuid == @u2
     end
 
+    @tag :integration
     test "stores :notify tuple in assigns" do
       notify = {__MODULE__, "my-id"}
 
@@ -71,6 +74,7 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
       assert socket.assigns.notify == notify
     end
 
+    @tag :integration
     test "assign_new(:current_uuid) preserves navigated state on re-render" do
       # First update seeds current_uuid from :current
       {:ok, s1} =
@@ -94,6 +98,7 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
       assert s2.assigns.current_uuid == @u2
     end
 
+    @tag :integration
     test "current_file is nil when curate_file can't resolve (no DB / unknown uuid)" do
       {:ok, socket} =
         MediaViewer.update(
@@ -160,11 +165,13 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
   end
 
   describe "stepping" do
+    @tag :integration
     test "step_viewer next advances current_uuid" do
       {:noreply, socket} = call("step_viewer", %{"dir" => "next"}, viewer_assigns(current: @u1))
       assert socket.assigns.current_uuid == @u2
     end
 
+    @tag :integration
     test "step_viewer prev goes back" do
       {:noreply, socket} = call("step_viewer", %{"dir" => "prev"}, viewer_assigns(current: @u2))
       assert socket.assigns.current_uuid == @u1
@@ -175,6 +182,7 @@ defmodule PhoenixKitWeb.Components.MediaViewerTest do
       assert socket.assigns.current_uuid == @u3
     end
 
+    @tag :integration
     test "ArrowRight steps forward, ArrowLeft steps back" do
       {:noreply, s1} =
         call("viewer_keydown", %{"key" => "ArrowRight"}, viewer_assigns(current: @u1))

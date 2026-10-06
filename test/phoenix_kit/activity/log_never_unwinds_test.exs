@@ -21,7 +21,9 @@ defmodule PhoenixKit.Activity.LogNeverUnwindsTest do
 
     def insert(%Ecto.Changeset{changes: %{metadata: %{"fail" => kind}}}), do: fail(kind)
 
-    def get_by(_queryable, _clauses), do: throw(:fan_out_thrown)
+    # Whichever read the fan-out makes (a setting by key, by id) throws.
+    def get_by(_queryable, _clauses, _opts \\ []), do: throw(:fan_out_thrown)
+    def get(_queryable, _id, _opts \\ []), do: throw(:fan_out_thrown)
 
     defp fail("raise"), do: raise("boom")
     defp fail("exit"), do: exit(:pool_down)

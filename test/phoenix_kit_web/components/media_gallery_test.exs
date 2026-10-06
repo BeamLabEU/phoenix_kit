@@ -420,6 +420,8 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       MediaGallery.handle_event(event, params, socket)
     end
 
+    # Needs the repo process, which only runs when the test database is reachable.
+    @tag :integration
     test "remove_image drops the UUID and the rest are preserved" do
       uuid1 = "01900000-0000-7000-8000-000000000001"
       uuid2 = "01900000-0000-7000-8000-000000000002"
@@ -480,6 +482,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert socket.assigns.preview_uuid == uuid
     end
 
+    @tag :integration
     test "reorder_images appends items not in ids list as leftovers" do
       uuid1 = "01900000-0000-7000-8000-000000000001"
       uuid2 = "01900000-0000-7000-8000-000000000002"
@@ -516,6 +519,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert socket.assigns.preview_uuid == uuid3
     end
 
+    @tag :integration
     test "reorder_images reorders the selection list" do
       uuid1 = "01900000-0000-7000-8000-000000000001"
       uuid2 = "01900000-0000-7000-8000-000000000002"
@@ -631,6 +635,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       refute html =~ "cursor-not-allowed"
     end
 
+    @tag :integration
     test "apply_selection clamps to max_count in :multiple mode" do
       uuid1 = "01900000-0000-7000-8000-000000000001"
       uuid2 = "01900000-0000-7000-8000-000000000002"
@@ -670,6 +675,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       assert html =~ ~s(data-id="#{uuid}")
     end
 
+    @tag :integration
     test "apply_selection with :single mode keeps only the first UUID" do
       uuid1 = "01900000-0000-7000-8000-000000000001"
       uuid2 = "01900000-0000-7000-8000-000000000002"

@@ -64,6 +64,8 @@ defmodule PhoenixKit.Activity.OrderSqlProofTest do
   # would pass a key-presence check while actually breaking the feed.
   @order_by_pattern ~r/inserted_at"\s*DESC,\s*\S*"uuid"\s*DESC/i
 
+  # Needs the repo process, which only runs when the test database is reachable.
+  @tag :integration
   test "recent/1 breaks inserted_at ties on the unique uuid primary key" do
     Activity.recent(5)
     order_by = captured_order_by!()
@@ -71,6 +73,7 @@ defmodule PhoenixKit.Activity.OrderSqlProofTest do
     assert order_by =~ @order_by_pattern
   end
 
+  @tag :integration
   test "list/1 breaks inserted_at ties on the unique uuid primary key" do
     Activity.list()
     order_by = captured_order_by!()
