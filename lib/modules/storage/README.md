@@ -398,7 +398,35 @@ copied into a profile. Nothing picks "the emptiest bucket": placement does not
 know free space yet, so an empty upload order means a random turn. `Storage.redundancy_copies/0` and
 `set_redundancy_copies/1` are the old setting, now the Default's copy count
 (the setting row is kept in step). Profiles are edited on Settings → Media →
-Storage profiles; a system library picks its profile on the Libraries tab.
+Storage profiles; a system library names its profile (and variant set) when it is
+created (Libraries tab → New library) and keeps them: the admin shows them
+read-only on the library's page, and moving where its files live is done by
+changing the profile's buckets, which moves every library on it. The context
+functions (`Profiles.set_library_profile/3`, `VariantSets.set_library_variant_set/3`)
+still exist for code and for user libraries' own size choice.
+
+### The library page
+
+Settings → Media → Libraries lists the site's libraries in short rows (name,
+files, size, storage as text, sync) and creates them; a library's name opens
+`/admin/settings/media/libraries/:id` (`Live.Modules.Storage.LibraryPage`), the
+way a bucket's name opens its page. The page shows the overview and address,
+what it holds (files, folders, size, and `Storage.library_bucket_totals/1`:
+where its objects are, per bucket), its storage profile and variant set
+**read-only**, the sync state with Check now / Pause / Resume
+(`LibrarySync`), the annotated-thumbnail choice, its history, and renames or
+deletes it (an empty, non-default library only). Only a live **system** library
+opens there; a user's library does not.
+
+The **profile and variant set are chosen once**, in the New library form
+(`Libraries.create_system_library/2` takes `storage_profile_uuid` and
+`variant_set_uuid`; blank or the Default's uuid is stored as nil, and a user's
+profile or an unknown one is refused), and the form offers them only when there
+is more than the Default of each. The admin has no control to change them
+afterwards: re-pointing a library at another profile is a bulk move of its
+files. Change a profile's buckets instead (they move every library on it).
+Switching a library's annotated-thumbnail choice does not regenerate existing
+thumbnails.
 
 ### Variant sets: which sizes a library gets (V205)
 

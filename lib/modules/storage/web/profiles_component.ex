@@ -18,7 +18,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   Every library without its own profile uses the Default, which every
   bucket joins when it is created. Any change bumps the profile's revision,
   and the reconciler moves its files by itself (the Health page shows what
-  is left). A library picks its profile on the Libraries tab.
+  is left). A library names its profile when it is created (Libraries tab → New
+  library) and keeps it; to move where its files live, change the profile's
+  buckets here.
   """
   use PhoenixKitWeb, :live_component
 
@@ -212,7 +214,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
           else: []
 
     gettext(
-      "\"%{profile}\" cannot be deleted: it is used by %{libraries}. Move them to another storage profile first (Libraries tab).",
+      "\"%{profile}\" cannot be deleted: it is used by %{libraries}. A library keeps the profile it was created on, so the profile stays while any library is on it.",
       profile: profile.name,
       libraries: Enum.join(libraries, ", ")
     )

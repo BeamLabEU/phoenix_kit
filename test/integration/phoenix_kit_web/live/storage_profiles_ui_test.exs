@@ -339,7 +339,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       html = view_html(ctx.conn)
 
       assert html =~ "Upload order"
-      assert html =~ ~s(placeholder="Any")
+      assert html =~ ~s(placeholder="Random")
       refute html =~ ~s(placeholder="Pool")
       assert html =~ "Draining (moving files out)"
       assert html =~ "Read-only (no new files)"
@@ -348,26 +348,6 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute html =~ "Copies of each size and tile"
       refute html =~ ~s(name="row[stores]")
       refute html =~ "Stores"
-    end
-
-    test "a library chooses annotated thumbnails on the Libraries tab", ctx do
-      {:ok, library} =
-        Libraries.create_system_library(%{
-          name: "Annotated #{System.unique_integer([:positive])}"
-        })
-
-      {:ok, view, _html} = live(ctx.conn, Routes.path("/admin/settings/media?tab=libraries"))
-      assert render(view) =~ "Annotated thumbnails: site setting"
-
-      form = "#media-libraries-storage-#{library.uuid}"
-
-      for {choice, expected} <- [{"on", true}, {"off", false}, {"default", nil}] do
-        view |> form(form, %{"annotated" => choice}) |> render_submit()
-        assert Libraries.setting(library.uuid, :annotated_thumbnails) == expected
-      end
-
-      # A setting alone is not a storage change: no files are moved for it.
-      assert render(view) =~ "Library setting saved"
     end
 
     test "the Default profile lists the buckets and cannot be deleted", ctx do
@@ -415,43 +395,6 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       assert Storage.get_dimension_by_name("grid_2x", set.uuid)
       refute Storage.get_dimension_by_name("grid_2x")
-    end
-  end
-
-  describe "the Libraries tab" do
-    test "picks a library's profile and variant set", %{conn: conn} do
-      {:ok, library} =
-        Libraries.create_system_library(%{name: "Picked #{System.unique_integer([:positive])}"})
-
-      {:ok, profile} = Profiles.create_profile(%{name: "Picked profile"})
-      {:ok, set} = VariantSets.create_variant_set(%{name: "Picked set"})
-
-      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media"))
-      render_patch(view, Routes.path("/admin/settings/media?tab=libraries"))
-
-      view
-      |> form("#media-libraries-storage-#{library.uuid}", %{
-        "storage" => %{"profile" => profile.uuid, "set" => set.uuid}
-      })
-      |> render_change()
-
-      # A dropdown moves nothing by itself: the files of a library are moved and
-      # resized when Save is pressed.
-      assert render(view) =~ "Unsaved changes"
-      assert Libraries.get_library(library.uuid).storage_profile_uuid == nil
-
-      view
-      |> form("#media-libraries-storage-#{library.uuid}", %{
-        "storage" => %{"profile" => profile.uuid, "set" => set.uuid}
-      })
-      |> render_submit()
-
-      html = render(view)
-      library = Libraries.get_library(library.uuid)
-      assert library.storage_profile_uuid == profile.uuid
-      assert library.variant_set_uuid == set.uuid
-      assert html =~ "Library storage saved"
-      refute html =~ "Unsaved changes"
     end
   end
 end

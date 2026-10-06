@@ -21,6 +21,88 @@ defmodule PhoenixKit.Modules.Storage.LibrariesTest do
     library
   end
 
+  describe "choosing storage when a system library is created" do
+    alias PhoenixKit.Modules.Storage.{Profiles, VariantSets}
+
+    test "a library names its profile and variant set once, at creation" do
+      {:ok, profile} =
+        Profiles.create_profile(%{name: "Chosen #{System.unique_integer([:positive])}"})
+
+      {:ok, set} =
+        VariantSets.create_variant_set(%{name: "Set #{System.unique_integer([:positive])}"})
+
+      {:ok, library} =
+        Libraries.create_system_library(%{
+          name: "Chosen #{System.unique_integer([:positive])}",
+          storage_profile_uuid: profile.uuid,
+          variant_set_uuid: set.uuid
+        })
+
+      assert library.storage_profile_uuid == profile.uuid
+      assert library.variant_set_uuid == set.uuid
+    end
+
+    test "blank, or the Default's own uuid, is stored as the Default (nil)" do
+      {:ok, blank} =
+        Libraries.create_system_library(%{
+          name: "Blank #{System.unique_integer([:positive])}",
+          storage_profile_uuid: "",
+          variant_set_uuid: ""
+        })
+
+      {:ok, default} =
+        Libraries.create_system_library(%{
+          name: "Default #{System.unique_integer([:positive])}",
+          storage_profile_uuid: Profiles.default_uuid(),
+          variant_set_uuid: VariantSets.default_uuid()
+        })
+
+      for library <- [blank, default] do
+        assert library.storage_profile_uuid == nil
+        assert library.variant_set_uuid == nil
+      end
+    end
+
+    test "a profile or set that does not exist refuses the library, and creates nothing" do
+      name = "Refused #{System.unique_integer([:positive])}"
+
+      assert {:error, changeset} =
+               Libraries.create_system_library(%{
+                 name: name,
+                 storage_profile_uuid: Ecto.UUID.generate()
+               })
+
+      assert %{storage_profile_uuid: ["is not a storage profile"]} = errors_on(changeset)
+
+      assert {:error, changeset} =
+               Libraries.create_system_library(%{
+                 name: name,
+                 variant_set_uuid: Ecto.UUID.generate()
+               })
+
+      assert %{variant_set_uuid: ["is not a variant set"]} = errors_on(changeset)
+      refute Enum.any?(Libraries.list_system_libraries(), &(&1.name == name))
+    end
+
+    test "a user's own profile is not one a site library can be created on" do
+      user = user!()
+
+      mine =
+        PhoenixKit.Test.Repo.insert!(%PhoenixKit.Modules.Storage.StorageProfile{
+          name: "Mine #{System.unique_integer([:positive])}",
+          owner_uuid: user.uuid
+        })
+
+      assert {:error, changeset} =
+               Libraries.create_system_library(%{
+                 name: "Theirs #{System.unique_integer([:positive])}",
+                 storage_profile_uuid: mine.uuid
+               })
+
+      assert %{storage_profile_uuid: ["is not a storage profile"]} = errors_on(changeset)
+    end
+  end
+
   defp folder!(attrs) do
     {:ok, folder} =
       Storage.create_folder(Map.put_new(attrs, :name, "f-#{System.unique_integer([:positive])}"))

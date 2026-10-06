@@ -49,8 +49,8 @@ defmodule PhoenixKit.Modules.Storage.AnnotationThumbnail do
   The site-wide default for annotated thumbnails (media setting; default
   `false`). A library may choose otherwise (`enabled_for?/1`, which is what
   generation and display ask) — see the media settings page, "Media
-  Configuration" section for this default and the Libraries tab for the
-  per-library choice.
+  Configuration" section for this default and the library's own page
+  (Libraries tab → its name) for the per-library choice.
   """
   def enabled?, do: Settings.get_boolean_setting(@setting_key, false)
 

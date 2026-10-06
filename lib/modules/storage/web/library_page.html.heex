@@ -1,0 +1,338 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  page_section={gettext("Settings")}
+  page_section_path={PhoenixKit.Utils.Routes.path("/admin/settings")}
+  page_crumbs={[
+    %{label: gettext("Media"), path: PhoenixKit.Utils.Routes.path("/admin/settings/media")},
+    %{label: gettext("Libraries"), path: libraries_path()}
+  ]}
+  page_subtitle={gettext("Everything about this library")}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div :if={@library} class="mx-auto px-4 py-8 max-w-4xl space-y-6" id="library-page">
+    <%!-- Actions --%>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span :if={@library.is_default} class="badge badge-ghost">{gettext("Default")}</span>
+        <span :if={@sync} class={["badge", sync_badge_class(@sync.state)]}>
+          {sync_state_label(@sync.state)}
+        </span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <.pk_link_button navigate={media_path(@library)} variant="outline" class="btn-sm">
+          <.icon name="hero-photo" class="w-4 h-4" /> {gettext("Open in Media")}
+        </.pk_link_button>
+        <button
+          :if={not @renaming?}
+          id="library-rename-button"
+          type="button"
+          phx-click="start_rename"
+          class="btn btn-outline btn-sm"
+        >
+          <.icon name="hero-pencil" class="w-4 h-4" /> {gettext("Rename")}
+        </button>
+        <button
+          :if={not @library.is_default}
+          id="library-delete"
+          type="button"
+          phx-click="delete"
+          disabled={@stats.holds}
+          title={if @stats.holds, do: gettext("Only an empty library can be deleted.")}
+          data-confirm={gettext("Delete library \"%{name}\"?", name: @library.name)}
+          class="btn btn-outline btn-error btn-sm"
+        >
+          <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete library")}
+        </button>
+      </div>
+    </div>
+
+    <%!-- 1. Overview --%>
+    <div class="card bg-base-100 shadow-sm" id="library-overview">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-rectangle-stack" class="w-5 h-5" /> {gettext("Overview")}
+        </h2>
+
+        <form
+          :if={@renaming?}
+          id="library-rename-form"
+          phx-submit="rename"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <input
+            type="text"
+            name="name"
+            id="library-rename-name"
+            value={@library.name}
+            class="input input-sm input-bordered w-72"
+            maxlength="255"
+            required
+            autofocus
+          />
+          <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
+          <button type="button" class="btn btn-sm btn-ghost" phx-click="cancel_rename">
+            {gettext("Cancel")}
+          </button>
+        </form>
+
+        <dl class="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="text-base-content/60">{gettext("Name")}</dt>
+          <dd class="font-medium">{@library.name}</dd>
+
+          <dt class="text-base-content/60">{gettext("Address")}</dt>
+          <dd>
+            <.link navigate={media_path(@library)} class="link link-hover font-mono text-xs">
+              {media_path(@library)}
+            </.link>
+          </dd>
+
+          <dt class="text-base-content/60">{gettext("Object key prefix")}</dt>
+          <dd class="font-mono text-xs">{@library.key_prefix || "—"}</dd>
+
+          <dt class="text-base-content/60">{gettext("Created")}</dt>
+          <dd>{format_time(@library.inserted_at)}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <%!-- 2. Contents --%>
+    <div class="card bg-base-100 shadow-sm" id="library-contents">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-archive-box" class="w-5 h-5" /> {gettext("Contents")}
+        </h2>
+
+        <div class="stats stats-vertical sm:stats-horizontal shadow-sm border border-base-200">
+          <div class="stat">
+            <div class="stat-title">{gettext("Files")}</div>
+            <div class="stat-value text-2xl" id="library-files-count">{@stats.files}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">{gettext("Folders")}</div>
+            <div class="stat-value text-2xl" id="library-folders-count">{@stats.folders}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">{gettext("Size")}</div>
+            <div class="stat-value text-2xl" id="library-size">{format_bytes(@stats.bytes)}</div>
+            <div class="stat-desc">{gettext("Without trash")}</div>
+          </div>
+        </div>
+
+        <h3 class="font-semibold mt-2">{gettext("Where its files are")}</h3>
+        <p :if={@buckets_failed?} class="text-sm text-error" id="library-buckets-failed">
+          {gettext("Could not read where the files are. Reload to try again.")}
+        </p>
+        <p
+          :if={is_nil(@bucket_totals) and not @buckets_failed?}
+          class="text-sm text-base-content/60"
+        >
+          {gettext("Counting…")}
+        </p>
+        <p
+          :if={@bucket_totals == %{}}
+          class="text-sm text-base-content/60"
+          id="library-buckets-empty"
+        >
+          {gettext("No file of this library is stored in a bucket yet.")}
+        </p>
+        <div :if={@bucket_totals && @bucket_totals != %{}} class="overflow-x-auto">
+          <table class="table table-sm" id="library-buckets">
+            <thead>
+              <tr>
+                <th>{gettext("Bucket")}</th>
+                <th class="text-right">{gettext("Files")}</th>
+                <th class="text-right">{gettext("Objects")}</th>
+                <th class="text-right">{gettext("Size")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={{uuid, totals} <- Enum.sort_by(@bucket_totals, fn {_, t} -> -t.bytes end)}>
+                <td>
+                  <% info = Map.get(@bucket_infos, uuid) %>
+                  <.pk_link
+                    navigate={"/admin/settings/media/buckets/#{uuid}"}
+                    class="link link-hover"
+                  >
+                    {(info && info.name) || uuid}
+                  </.pk_link>
+                  <div :if={info} class="text-xs text-base-content/60">
+                    {[info.type, info.service] |> Enum.reject(&is_nil/1) |> Enum.join(" · ")}
+                  </div>
+                  <div :if={info} class="font-mono text-xs text-base-content/50 break-all">
+                    {info.location}
+                  </div>
+                </td>
+                <td class="text-right tabular-nums">{totals.files}</td>
+                <td class="text-right tabular-nums">{totals.objects}</td>
+                <td class="text-right tabular-nums">{format_bytes(totals.bytes)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-base-content/60">
+          {gettext(
+            "Objects are what is stored: an original and each size made from it, counted once per bucket."
+          )}
+        </p>
+      </div>
+    </div>
+
+    <%!-- 3. Storage --%>
+    <div class="card bg-base-100 shadow-sm" id="library-storage">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-server-stack" class="w-5 h-5" /> {gettext("Storage")}
+        </h2>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Chosen when the library was created and not changed afterwards: moving a library's files is a bulk job. To move where files live, change the profile's buckets."
+          )}
+        </p>
+
+        <dl class="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="text-base-content/60">{gettext("Storage profile")}</dt>
+          <dd id="library-profile">
+            <.link :if={@profile} navigate={profiles_path()} class="link link-hover font-medium">
+              {@profile.name}
+            </.link>
+            <span :if={@profile} class="text-base-content/60">
+              · {gettext("%{local} local, %{cloud} cloud copies",
+                local: Profiles.copies(@profile, :local),
+                cloud: Profiles.copies(@profile, :cloud)
+              )}
+            </span>
+          </dd>
+
+          <dt class="text-base-content/60">{gettext("Buckets")}</dt>
+          <dd>
+            <ul :if={@profile} class="space-y-1" id="library-profile-buckets">
+              <li :for={row <- @profile.buckets}>
+                <.pk_link
+                  navigate={"/admin/settings/media/buckets/#{row.bucket_uuid}"}
+                  class="link link-hover"
+                >
+                  {row.bucket.name}
+                </.pk_link>
+                <span class="text-base-content/60">
+                  ({role_label(row.role)}, {status_label(row.status)})
+                </span>
+                <div class="text-xs text-base-content/60">
+                  {[BucketInfo.type(row.bucket), BucketInfo.service(row.bucket, @connections)]
+                  |> Enum.reject(&is_nil/1)
+                  |> Enum.join(" · ")}
+                </div>
+                <div class="font-mono text-xs text-base-content/50 break-all">
+                  {BucketInfo.location(row.bucket)}
+                </div>
+              </li>
+              <li :if={@profile.buckets == []} class="text-base-content/60">
+                {gettext("No buckets yet: uploads to this library fail.")}
+              </li>
+            </ul>
+          </dd>
+
+          <dt class="text-base-content/60">{gettext("Variant set")}</dt>
+          <dd id="library-variant-set">{@variant_set_name}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <%!-- 4. Sync --%>
+    <div class="card bg-base-100 shadow-sm" id="library-sync">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-arrow-path" class="w-5 h-5" /> {gettext("Sync")}
+        </h2>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Whether every file is stored the way the profile and the variant set say. Changing the profile's buckets or the set's sizes brings the files up to date in the background."
+          )}
+        </p>
+        <LibrarySync.sync_cell
+          state={@sync}
+          uuid={@library.uuid}
+          scope={assigns[:phoenix_kit_current_scope]}
+          target={nil}
+        />
+      </div>
+    </div>
+
+    <%!-- 5. Annotated thumbnails --%>
+    <div class="card bg-base-100 shadow-sm" id="library-thumbnails">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-pencil-square" class="w-5 h-5" /> {gettext("Annotated thumbnails")}
+        </h2>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Bake annotation shapes into a file's grid thumbnail. This follows the site setting (Settings → Media → Configuration) unless the library chooses otherwise. A change applies to a file the next time its annotations change; existing thumbnails are not regenerated, so a library can hold both kinds."
+          )}
+        </p>
+        <form
+          id="library-annotated"
+          phx-submit="annotated"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <select name="annotated" class="select select-sm select-bordered">
+            <option value="default" selected={@annotated_choice == "default"}>
+              {if @annotated_default,
+                do: gettext("Site setting (on)"),
+                else: gettext("Site setting (off)")}
+            </option>
+            <option value="on" selected={@annotated_choice == "on"}>{gettext("On")}</option>
+            <option value="off" selected={@annotated_choice == "off"}>{gettext("Off")}</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
+        </form>
+      </div>
+    </div>
+
+    <%!-- 6. History --%>
+    <div class="card bg-base-100 shadow-sm" id="library-history">
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">
+          <.icon name="hero-clock" class="w-5 h-5" /> {gettext("History")}
+        </h2>
+        <p class="text-sm text-base-content/70">
+          {gettext(
+            "Who created, renamed or changed this library. These entries are kept permanently."
+          )}
+        </p>
+        <.activity_list
+          :if={@history}
+          id="library-history-list"
+          entries={@history.entries}
+          detail_links={can_view_activity?(assigns)}
+          empty={gettext("Nothing recorded yet.")}
+        />
+        <div :if={@history && @history.total_pages > 1} class="flex justify-center gap-2">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline"
+            phx-click="history_page"
+            phx-value-page={max(1, @history_page - 1)}
+            disabled={@history_page <= 1}
+          >
+            {gettext("Previous")}
+          </button>
+          <span class="btn btn-sm btn-ghost no-animation">
+            {gettext("Page %{page} of %{pages}", page: @history_page, pages: @history.total_pages)}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline"
+            phx-click="history_page"
+            phx-value-page={min(@history.total_pages, @history_page + 1)}
+            disabled={@history_page >= @history.total_pages}
+          >
+            {gettext("Next")}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

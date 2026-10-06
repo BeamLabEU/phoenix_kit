@@ -361,7 +361,8 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   defp audit_library_set(_before, _updated, _opts), do: :ok
 
-  defp set_name(uuid) do
+  @doc false
+  def set_name(uuid) do
     case get_variant_set(uuid) do
       %VariantSet{name: name} -> name
       nil -> to_string(uuid)

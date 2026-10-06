@@ -21,9 +21,26 @@
   Buckets list is sorted by name. Docs no longer claim a bucket's priority prefers "the emptiest drive": the
   pool is shuffled, free space is not considered.
 
+- **Each library has a page, and the Libraries list fits.** A library's name opens
+  `/admin/settings/media/libraries/:id`: overview and address, what it holds (files, folders, size, and per
+  bucket where its objects are, with each bucket's type, service and location), its storage profile and
+  variant set, the sync state with Check now / Pause / Resume, its annotated-thumbnail choice, its history, and
+  Rename and Delete. The list is down to name, files, size, storage (as text) and sync; the three dropdowns,
+  Address, Folders, Rename and Delete are gone from it.
+- **A library's storage profile and variant set are chosen when it is created and no longer changed from the
+  admin.** The New library form offers them when there is more than the Default of each; the library page shows
+  them read-only. Re-pointing a library was a bulk move of its files behind a dropdown. To move where files
+  live, change the profile's buckets (Storage profiles tab), which moves every library on it. The context
+  functions `Profiles.set_library_profile/3` and `VariantSets.set_library_variant_set/3` still work from code.
+  `Libraries.create_system_library/2` takes `storage_profile_uuid` and `variant_set_uuid`; an unknown profile
+  or a user's own is refused. Deleting a profile a library is on now says the library keeps its profile.
+- **A library's annotated-thumbnail choice moved to its page**, with a note that existing thumbnails are not
+  regenerated when it changes.
+
 ### i18n
 
 - Translations for the new bucket delete confirmation and stats captions, in all shipped locales.
+- Translations for the library page, the creation-time storage choice and the reworded profile refusal.
 
 ## 2.54.2 - 2026-10-05
 

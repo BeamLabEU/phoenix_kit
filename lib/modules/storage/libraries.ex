@@ -43,7 +43,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
-  alias PhoenixKit.Modules.Storage.{Folder, Library, LibraryMember, Profiles}
+  alias PhoenixKit.Modules.Storage.{Folder, Library, LibraryMember, Profiles, VariantSets}
   alias PhoenixKit.Modules.Storage.Providers.S3
   alias PhoenixKit.Modules.Storage.Workers.PurgeLibraryJob
   alias PhoenixKit.Settings
@@ -173,6 +173,18 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   defp to_integer(_), do: 0
 
   @doc """
+  `list_system_libraries_with_stats/0` for the one live system library with this
+  uuid (what a URL-supplied id is checked against), or nil.
+  """
+  @spec get_system_library_with_stats(term()) :: stats() | nil
+  def get_system_library_with_stats(uuid) do
+    case get_system_library(uuid) do
+      nil -> nil
+      library -> library |> List.wrap() |> with_stats() |> hd()
+    end
+  end
+
+  @doc """
   The live system library with this uuid, or nil — what a URL-supplied
   library id is checked against before anything is listed or stored in it.
   """
@@ -215,17 +227,69 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
     attrs = Map.put_new_lazy(attrs, "key_prefix", &generate_key_prefix/0)
 
-    case attrs do
-      %{"slug" => _} -> insert_system_library(attrs)
-      _ -> insert_with_free_slug(attrs, Library.slugify(to_string(attrs["name"] || "")), 1)
-    end
-    |> tap(fn
-      {:ok, library} ->
-        audit_library("storage.library.created", library, opts, %{"name" => library.name})
+    with {:ok, storage} <- creation_storage(attrs) do
+      case attrs do
+        %{"slug" => _} ->
+          insert_system_library(attrs, storage)
 
-      _error ->
-        :ok
-    end)
+        _ ->
+          insert_with_free_slug(
+            attrs,
+            Library.slugify(to_string(attrs["name"] || "")),
+            1,
+            &insert_system_library(&1, storage)
+          )
+      end
+      |> tap(fn
+        {:ok, library} ->
+          audit_library("storage.library.created", library, opts, %{
+            "name" => library.name,
+            "profile" => Profiles.profile_name(Profiles.profile_uuid_for(library)),
+            "variant_set" => VariantSets.set_name(VariantSets.set_uuid_for(library))
+          })
+
+        _error ->
+          :ok
+      end)
+    end
+  end
+
+  # Where a new library keeps its bytes and which sizes it gets, chosen once
+  # here and not changed from the admin afterwards. Blank or the Default's uuid
+  # is the Default (stored as nil); anything else must be a site profile and an
+  # existing set, or the create is refused like any bad field.
+  defp creation_storage(attrs) do
+    profile = blank_to_nil(attrs["storage_profile_uuid"])
+    set = blank_to_nil(attrs["variant_set_uuid"])
+
+    cond do
+      profile && not site_profile?(profile) ->
+        {:error, storage_error(attrs, :storage_profile_uuid, "is not a storage profile")}
+
+      set && is_nil(VariantSets.get_variant_set(set)) ->
+        {:error, storage_error(attrs, :variant_set_uuid, "is not a variant set")}
+
+      true ->
+        {:ok,
+         [
+           storage_profile_uuid: profile && not Profiles.default?(profile) && profile,
+           variant_set_uuid: set && not VariantSets.default?(set) && set
+         ]
+         |> Enum.map(fn {key, value} -> {key, value || nil} end)}
+    end
+  end
+
+  defp blank_to_nil(value) when value in [nil, ""], do: nil
+  defp blank_to_nil(value), do: value
+
+  defp site_profile?(uuid) do
+    match?(%{owner_uuid: nil}, Profiles.get_profile(uuid))
+  end
+
+  defp storage_error(attrs, field, message) do
+    %Library{}
+    |> Library.create_system_changeset(attrs)
+    |> Ecto.Changeset.add_error(field, message)
   end
 
   # The site's libraries are in the history; a user's library is theirs and private.
@@ -238,7 +302,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   # Tries `base`, `base-2`, `base-3` … until the slug is free. Any other
   # error (a taken name, a blank one) is returned as it is.
-  defp insert_with_free_slug(attrs, base, n, insert \\ &insert_system_library/1) do
+  defp insert_with_free_slug(attrs, base, n, insert) do
     slug = if n == 1, do: base, else: "#{base}-#{n}"
 
     case insert.(Map.put(attrs, "slug", slug)) do
@@ -254,9 +318,10 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   defp name_error?(%Ecto.Changeset{errors: errors}), do: Keyword.has_key?(errors, :name)
 
-  defp insert_system_library(attrs) do
+  defp insert_system_library(attrs, storage) do
     %Library{}
     |> Library.create_system_changeset(attrs)
+    |> Ecto.Changeset.change(storage)
     |> repo().insert(mode: :savepoint)
   end
 

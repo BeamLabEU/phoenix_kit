@@ -707,7 +707,8 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   defp audit_library_profile(_library, _before, _opts), do: :ok
 
-  defp profile_name(uuid) do
+  @doc false
+  def profile_name(uuid) do
     case get_profile(uuid) do
       %StorageProfile{name: name} -> name
       nil -> to_string(uuid)

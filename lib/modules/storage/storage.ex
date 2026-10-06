@@ -1011,19 +1011,46 @@ defmodule PhoenixKit.Modules.Storage do
   def bucket_totals([]), do: %{}
 
   def bucket_totals(bucket_uuids) when is_list(bucket_uuids) do
-    locations =
-      from(fl in FileLocation,
-        join: fi in FileInstance,
-        on: fl.file_instance_uuid == fi.uuid,
-        where: fl.bucket_uuid in ^bucket_uuids and fl.status == "active",
-        select: %{
-          bucket_uuid: fl.bucket_uuid,
-          path: fl.path,
-          size: fi.size,
-          file_uuid: fi.file_uuid
-        }
-      )
+    from(fl in FileLocation,
+      join: fi in FileInstance,
+      on: fl.file_instance_uuid == fi.uuid,
+      where: fl.bucket_uuid in ^bucket_uuids and fl.status == "active",
+      select: %{
+        bucket_uuid: fl.bucket_uuid,
+        path: fl.path,
+        size: fi.size,
+        file_uuid: fi.file_uuid
+      }
+    )
+    |> totals_by_bucket()
+  end
 
+  @doc """
+  What one library holds in each bucket: `%{bucket_uuid => %{files, objects,
+  bytes}}`, counted like `bucket_totals/1` over the library's files only. A
+  bucket that holds nothing of it is absent. Two queries; call it off the
+  render path.
+  """
+  @spec library_bucket_totals(term()) :: %{optional(String.t()) => map()}
+  def library_bucket_totals(library_uuid) do
+    from(fl in FileLocation,
+      join: fi in FileInstance,
+      on: fl.file_instance_uuid == fi.uuid,
+      join: f in PhoenixKit.Modules.Storage.File,
+      on: f.uuid == fi.file_uuid,
+      where: f.library_uuid == ^library_uuid and fl.status == "active",
+      select: %{
+        bucket_uuid: fl.bucket_uuid,
+        path: fl.path,
+        size: fi.size,
+        file_uuid: fi.file_uuid
+      }
+    )
+    |> totals_by_bucket()
+  end
+
+  # `locations`: rows of `%{bucket_uuid, path, size, file_uuid}`.
+  defp totals_by_bucket(locations) do
     files =
       from(l in subquery(locations),
         group_by: l.bucket_uuid,
