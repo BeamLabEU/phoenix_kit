@@ -244,19 +244,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   def new_dimension_path(%VariantSet{uuid: uuid}, kind),
     do: Routes.path("/admin/settings/media/renditions/new/#{kind}?set=#{uuid}")
 
-  # What a rendition's size means, in words: `{size, note}`. An image rendition
-  # that keeps proportions sets the width and lets the height follow each image;
-  # a fixed one is a box the image is scaled to fill and cropped to. Neither
-  # enlarges an image. A video rendition shows its configured numbers only.
+  # What a rendition's size means, in words: `{size, note}`. One that keeps
+  # proportions sets the width and lets the height follow each image or video;
+  # a fixed image rendition is a box the image is scaled to fill and cropped to,
+  # a fixed video one a box the video is scaled to fit inside. Neither enlarges.
   defp size_text(%{maintain_aspect_ratio: true, width: width}, kind) when is_integer(width) do
     {gettext("%{width} px wide", width: width),
-     if(kind == :image, do: gettext("height follows the image"))}
+     if(kind == :image,
+       do: gettext("height follows the image"),
+       else: gettext("height follows the video")
+     )}
   end
 
   defp size_text(%{width: width, height: height}, kind)
        when is_integer(width) and is_integer(height) do
     {gettext("%{width} × %{height} px", width: width, height: height),
-     if(kind == :image, do: gettext("cropped to fit"))}
+     if(kind == :image, do: gettext("cropped to fit"), else: gettext("fits inside, shape kept"))}
   end
 
   defp size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
@@ -702,8 +705,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                         label: gettext("Mode"),
                         value:
                           if(d.maintain_aspect_ratio,
-                            do: gettext("Aspect Ratio"),
-                            else: gettext("Fixed")
+                            do: gettext("Keeps proportions"),
+                            else: gettext("Fixed size")
                           )
                       },
                       %{label: gettext("Quality (CRF)"), value: "#{d.quality}"},
@@ -747,17 +750,18 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                         </span>
                       </.table_default_cell>
                       <.table_default_cell>
-                        <% {size, _note} = size_text(dimension, :video) %>
-                        <span class="font-mono text-sm">{size}</span>
+                        <% {size, note} = size_text(dimension, :video) %>
+                        <div class="font-mono text-sm">{size}</div>
+                        <div :if={note} class="text-xs text-base-content/60">{note}</div>
                       </.table_default_cell>
                       <.table_default_cell>
                         <%= if dimension.maintain_aspect_ratio do %>
                           <span class="badge badge-info badge-sm h-auto">
-                            {gettext("Aspect Ratio")}
+                            {gettext("Keeps proportions")}
                           </span>
                         <% else %>
                           <span class="badge badge-secondary badge-sm h-auto">
-                            {gettext("Fixed")}
+                            {gettext("Fixed size")}
                           </span>
                         <% end %>
                       </.table_default_cell>
@@ -863,6 +867,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                   </button>
                 </:card_actions>
               </.table_default>
+
+              <p id={"#{@id}-video-legend"} class="mt-3 text-xs text-base-content/60">
+                <strong>{gettext("Keeps proportions")}:</strong>
+                {gettext("the width is set and the height follows each video.")}
+                <strong>{gettext("Fixed size")}:</strong>
+                {gettext(
+                  "the video is scaled to fit inside the box, keeping its shape: nothing is cropped or stretched."
+                )}
+                {gettext(
+                  "A rendition never enlarges a video: one smaller than the size stays as it is."
+                )}
+                {gettext("Quality is the CRF number: lower means better quality and a bigger file.")}
+              </p>
             </div>
           <% end %>
         </div>

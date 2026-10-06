@@ -491,6 +491,17 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert html =~ "cropped to fit"
 
       assert has_element?(view, "#media-renditions-image-legend", "never enlarges")
+
+      # A video rendition is a box the video fits inside, never cropped or stretched.
+      assert html =~ "fits inside, shape kept"
+
+      assert has_element?(
+               view,
+               "#media-renditions-video-legend",
+               "nothing is cropped or stretched"
+             )
+
+      assert has_element?(view, "#media-renditions-video-legend", "CRF")
     end
 
     test "explains what a rendition is", %{conn: conn} do

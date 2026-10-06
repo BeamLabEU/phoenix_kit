@@ -613,7 +613,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   defp process_video_variant(input_path, output_path, _mime_type, dimension) do
     # Build FFmpeg command
-    args = build_ffmpeg_args(input_path, output_path, dimension)
+    args = ffmpeg_args(input_path, output_path, dimension)
 
     case System.cmd("ffmpeg", args, stderr_to_stdout: true) do
       {_output, 0} ->
@@ -625,51 +625,89 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
-  defp build_ffmpeg_args(input_path, output_path, dimension) do
+  @still_formats ~w(jpg jpeg png webp)
+
+  @doc false
+  # The FFmpeg arguments for one video rendition, from what the rendition is
+  # configured to be (its name decides nothing).
+  #
+  # **Size.** A rendition that keeps proportions sets the width and lets the
+  # height follow the video; a fixed one is a box the video is scaled to fit
+  # inside, keeping its shape (nothing is cropped or stretched). Neither
+  # enlarges a video, and both end on even dimensions, which H.264 needs. No
+  # size leaves the video as it is.
+  #
+  # **Quality** is the CRF for a video format (0-51, lower is better) and the
+  # 1-100 image scale for a rendition that is a still frame (`jpg`, `png`,
+  # `webp`: the video thumbnail).
+  @spec ffmpeg_args(String.t(), String.t(), struct()) :: [String.t()]
+  def ffmpeg_args(input_path, output_path, dimension) do
     # -y to overwrite output file
-    args = ["-i", input_path, "-y"]
+    base = ["-i", input_path, "-y"]
+    filter = video_filter_args(dimension)
 
-    # Handle video quality variants
-    args =
-      case dimension.name do
-        "360p" ->
-          args ++ ["-vf", "scale=640:360", "-crf", "28"]
-
-        "720p" ->
-          args ++ ["-vf", "scale=1280:720", "-crf", "25"]
-
-        "1080p" ->
-          args ++ ["-vf", "scale=1920:1080", "-crf", "23"]
-
-        "video_thumbnail" ->
-          args ++ ["-ss", "00:00:01.000", "-vframes", "1", "-vf", "scale=640:360"]
-
-        _ ->
-          if dimension.width and dimension.height do
-            args ++ ["-vf", "scale=#{dimension.width}:#{dimension.height}"]
-          else
-            args
-          end
-      end
-
-    # Handle quality (override for specific variants)
-    args =
-      if dimension.quality && dimension.name not in ["360p", "720p", "1080p"] do
-        quality = convert_video_quality(dimension.quality)
-        args ++ ["-crf", quality]
-      else
-        args
-      end
-
-    args ++ [output_path]
+    if still_frame?(dimension) do
+      base ++
+        ["-ss", "00:00:01.000", "-vframes", "1"] ++
+        filter ++ still_quality_args(dimension) ++ [output_path]
+    else
+      base ++ filter ++ video_quality_args(dimension) ++ [output_path]
+    end
   end
 
-  defp convert_video_quality(quality) when is_integer(quality) do
-    # FFmpeg CRF uses 0-51 (lower = higher quality)
-    # Map image quality (1-100) to CRF (51-0)
-    crf = 51 - trunc(quality / 100 * 51)
-    Integer.to_string(crf)
+  defp still_frame?(%{format: format}) when is_binary(format),
+    do: String.downcase(format) in @still_formats
+
+  defp still_frame?(_dimension), do: false
+
+  # The scale filter, then a pass that rounds both sides down to even numbers.
+  defp video_filter_args(%{maintain_aspect_ratio: true, width: width})
+       when is_integer(width) and width > 0 do
+    even_filter("scale=w='min(#{width},iw)':h=-2")
   end
+
+  defp video_filter_args(%{width: width, height: height})
+       when is_integer(width) and width > 0 and is_integer(height) and height > 0 do
+    even_filter(
+      "scale=w='min(#{width},iw)':h='min(#{height},ih)':force_original_aspect_ratio=decrease"
+    )
+  end
+
+  defp video_filter_args(_dimension), do: []
+
+  defp even_filter(scale), do: ["-vf", scale <> ",scale=trunc(iw/2)*2:trunc(ih/2)*2"]
+
+  # CRF for the encoders that have one. H.264 (mp4, mov) takes `-crf`; VP9
+  # (webm) needs `-b:v 0` beside it or `-crf` is only a ceiling on a small
+  # bitrate; other containers have no CRF and are left to FFmpeg's defaults.
+  defp video_quality_args(%{quality: quality, format: format}) when is_integer(quality) do
+    crf = Integer.to_string(quality)
+
+    case format && String.downcase(format) do
+      "webm" -> ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", crf]
+      container when container in ["mp4", "mov"] -> ["-crf", crf]
+      _other -> []
+    end
+  end
+
+  defp video_quality_args(_dimension), do: []
+
+  # A still frame's quality is the 1-100 image scale: JPEG's `-q:v` runs from 2
+  # (best) to 31 (worst).
+  defp still_quality_args(%{quality: quality, format: format}) when is_integer(quality) do
+    case String.downcase(format) do
+      jpeg when jpeg in ["jpg", "jpeg"] ->
+        ["-q:v", Integer.to_string(min(31, max(2, round(31 - quality * 0.29))))]
+
+      "webp" ->
+        ["-quality", Integer.to_string(quality)]
+
+      _png ->
+        []
+    end
+  end
+
+  defp still_quality_args(_dimension), do: []
 
   defp calculate_file_checksum(file_path) do
     file_path

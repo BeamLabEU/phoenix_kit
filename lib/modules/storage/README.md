@@ -465,6 +465,19 @@ stops serving them, and the ones made stay stored.
   the size (G17). Neither is cached, a private file's either. A size that
   will not be made (the set makes none, the size is disabled or for the
   other kind of file) serves the original, as before.
+- **A video rendition is what its row says** (`VariantGenerator.ffmpeg_args/3`),
+  whatever its name: a width that keeps proportions (`scale=w='min(W,iw)':h=-2`),
+  or a fixed box the video is scaled to *fit inside* (never cropped or
+  stretched), never enlarged and on even sides; the quality is the CRF (0-51,
+  lower is better) for `mp4`/`mov`, with `-b:v 0` beside it for `webm` (VP9). A
+  rendition whose format is an image (`jpg`, `png`, `webp`: the video thumbnail)
+  is one frame a second in, with a 1-100 quality. Before this, `360p`, `720p`,
+  `1080p` and `video_thumbnail` were hard-coded to 640x360, 1280x720, 1920x1080
+  and 640x360 at CRF 28, 25 and 23 (every other name was scaled to exactly its
+  width and height, at a CRF mapped wrongly from the image scale); the seeds
+  now say 28, 25 and 23 so that new installs and "Reset to Defaults" keep that
+  quality. Videos already made are not remade by this: a rendition is remade
+  when its spec changes.
 - A thumbnail with an annotation burned into it has no `spec_hash` (V205
   did not stamp one), so nothing ever makes over it.
 - `Storage.variant_for(file, min_width: 300, aspect: :preserve)` picks a

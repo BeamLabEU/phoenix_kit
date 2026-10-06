@@ -16,8 +16,27 @@
   rendition never enlarges an image. A video rendition shows its configured numbers without a claim about how
   they are applied.
 
+### Fixed
+
+- **A video rendition now follows its own row.** The generator ignored the configured size and quality of
+  `360p`, `720p`, `1080p` and `video_thumbnail` (they were fixed at 640x360, 1280x720, 1920x1080 and 640x360,
+  at CRF 28, 25 and 23), and scaled any other video rendition to exactly its width and height, stretching a
+  video of another shape, at a CRF wrongly mapped from the 1-100 image scale. Now a rendition that keeps
+  proportions sets the width and the height follows the video, a fixed one is a box the video is scaled to fit
+  inside (never cropped or stretched), neither enlarges a video, and the quality is the CRF you set (VP9 `webm`
+  gets `-b:v 0` beside it). A still-frame rendition (the video thumbnail) uses the 1-100 scale whatever it is
+  called. The Renditions tab says what each mode does for video, with a legend.
+
+### Upgrading
+
+- **The standard video renditions' quality now applies.** The seeded rows all say CRF 28, so on an existing
+  install `720p` and `1080p` will be encoded at 28 from now on, where they had been at 25 and 23. To keep
+  that quality, set them to 25 and 23 on the Renditions tab (new installs and "Reset to Defaults" are seeded
+  that way). Videos already made are not remade by this change.
+
 ### i18n
 
+- Translations for the video rendition wording, in all shipped locales.
 - Translations for the rendition profile wording, in all shipped locales.
 
 ## 2.55.1 - 2026-10-06
