@@ -412,21 +412,6 @@
             <% end %>
 
             <fieldset class="fieldset">
-              <legend class="fieldset-legend font-semibold">{gettext("Priority")}</legend>
-              <.input
-                type="number"
-                name="bucket[priority]"
-                value={Ecto.Changeset.get_field(@changeset, :priority)}
-                class={input_class(@changeset, :priority)}
-                placeholder="0"
-                min="0"
-              />
-              <p class="text-xs text-base-content/50 mt-1">
-                {gettext("0 = auto, 1+ = higher priority")}
-              </p>
-            </fieldset>
-
-            <fieldset class="fieldset">
               <legend class="fieldset-legend font-semibold">{gettext("Size limit (MB)")}</legend>
               <.input
                 type="number"

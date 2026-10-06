@@ -484,9 +484,9 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
 
       refute html =~ ~r/<button[^>]*type="submit"[^>]*disabled/
 
-      view |> form("#bucket-form", %{"bucket" => %{"priority" => "3"}}) |> render_submit()
+      view |> form("#bucket-form", %{"bucket" => %{"max_size_mb" => "300"}}) |> render_submit()
 
-      assert %{priority: 3, access_key_id: "AKIALEGACY", integration_uuid: nil} =
+      assert %{max_size_mb: 300, access_key_id: "AKIALEGACY", integration_uuid: nil} =
                Storage.get_bucket(bucket.uuid)
     end
 

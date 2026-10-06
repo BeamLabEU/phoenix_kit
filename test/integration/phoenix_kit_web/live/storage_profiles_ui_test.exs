@@ -144,6 +144,31 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert html =~ "5 local copies are wanted, but only #{count} local buckets take new files"
     end
 
+    test "the upload order is offered only where there are more buckets than copies", ctx do
+      default = Profiles.default_uuid()
+      count = length(Profiles.default_profile().buckets)
+      assert count >= 2
+
+      order = fn bucket ->
+        "#media-profiles-row-#{default}-#{bucket} input[name='row[write_priority]']"
+      end
+
+      na = fn bucket -> "#media-profiles-order-na-#{default}-#{bucket}" end
+
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "1"})
+      view = settings(ctx.conn)
+      assert has_element?(view, order.(ctx.bucket.uuid))
+      refute has_element?(view, na.(ctx.bucket.uuid))
+
+      # Every local bucket gets a copy: there is nothing to order.
+      {:ok, _} =
+        Profiles.update_profile(Profiles.default_profile(), %{"copies_local" => "#{count}"})
+
+      view = settings(ctx.conn)
+      refute has_element?(view, order.(ctx.bucket.uuid))
+      assert has_element?(view, na.(ctx.bucket.uuid))
+    end
+
     test "a replica holds nothing while the count stays within the primaries", ctx do
       # The test database's Default already has its own primary ("Local
       # Storage"); the bucket this test made becomes the replica.

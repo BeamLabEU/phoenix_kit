@@ -67,6 +67,46 @@ defmodule PhoenixKit.Modules.Storage.ProfilesAdviceTest do
              )
   end
 
+  test "the upload order matters only where a kind has more writable buckets than copies" do
+    # Two buckets, two copies: both are written, whatever the order.
+    assert %{local: %{order_matters: false}} =
+             Profiles.copies_advice(profile([row("A", "primary"), row("B", "primary")], 2))
+
+    # Three buckets, two copies: the order picks which two.
+    assert %{local: %{order_matters: true}} =
+             Profiles.copies_advice(
+               profile([row("A", "primary"), row("B", "primary"), row("C", "primary")], 2)
+             )
+  end
+
+  test "the upload order is judged per kind, and never where no copy is wanted" do
+    advice =
+      Profiles.copies_advice(
+        profile(
+          [
+            row("A", "primary"),
+            row("B", "primary"),
+            cloud("C", "primary"),
+            cloud("D", "primary")
+          ],
+          1,
+          2
+        )
+      )
+
+    assert %{local: %{order_matters: true}, cloud: %{order_matters: false}} = advice
+
+    assert %{cloud: %{order_matters: false}} =
+             Profiles.copies_advice(profile([cloud("C", "primary"), cloud("D", "primary")], 1))
+  end
+
+  test "a bucket that cannot take new files does not make the order matter" do
+    assert %{local: %{order_matters: false}} =
+             Profiles.copies_advice(
+               profile([row("A", "primary"), row("B", "primary", status: "draining")], 1)
+             )
+  end
+
   test "a bucket that cannot take new files does not count" do
     advice =
       Profiles.copies_advice(

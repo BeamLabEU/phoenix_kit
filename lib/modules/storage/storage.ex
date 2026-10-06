@@ -316,7 +316,7 @@ defmodule PhoenixKit.Modules.Storage do
   # ===== BUCKETS =====
 
   @doc """
-  Returns the site's storage buckets, ordered by priority.
+  Returns the site's storage buckets, ordered by name.
 
   A user's own bucket (V206, `owner_uuid` set) is **not** here: everything
   that enumerates the site's storage (placement, the read fallback, the
@@ -327,7 +327,7 @@ defmodule PhoenixKit.Modules.Storage do
   def list_buckets do
     Bucket
     |> where([b], is_nil(b.owner_uuid))
-    |> order_by(asc: :priority)
+    |> order_by([b], asc: fragment("lower(?)", b.name), asc: b.inserted_at)
     |> repo().all()
   end
 
@@ -598,9 +598,6 @@ defmodule PhoenixKit.Modules.Storage do
     repo().transaction(fn ->
       case repo().update(changeset) do
         {:ok, updated} ->
-          # Until profiles have their own editor, a bucket's priority is its
-          # write priority in the Default profile.
-          if Map.has_key?(changeset.changes, :priority), do: sync_default_priority(updated)
           updated
 
         {:error, changeset} ->
@@ -633,26 +630,6 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp bucket_update_changeset(%Bucket{} = bucket, attrs), do: Bucket.changeset(bucket, attrs)
-
-  defp sync_default_priority(%Bucket{} = bucket) do
-    case Profiles.default_profile() do
-      %{buckets: rows} = profile ->
-        if Enum.any?(rows, &(&1.bucket_uuid == bucket.uuid)) do
-          {:ok, _} =
-            Profiles.put_bucket(
-              profile,
-              bucket.uuid,
-              %{
-                write_priority: Profiles.write_priority(bucket.priority)
-              },
-              audit: false
-            )
-        end
-
-      nil ->
-        :ok
-    end
-  end
 
   @doc """
   Deletes a bucket.

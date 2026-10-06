@@ -212,6 +212,9 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
       buckets: length(rows),
       primaries: length(primaries),
       copies: copies,
+      # The upload order only decides anything when there are more writable
+      # buckets than copies to make: otherwise every one of them is written.
+      order_matters: copies > 0 and length(rows) > copies,
       idle:
         if(copies > 0 and copies <= length(primaries),
           do: Enum.map(others, & &1.bucket.name),
@@ -494,7 +497,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   @doc """
   Puts a newly created bucket into the Default profile, the way every new
-  bucket joined the pool before profiles: primary, active, its `priority` as the write priority (0 is the shuffled pool),
+  bucket joined the pool before profiles: primary, active, no fixed write priority (it is in the shuffled pool),
   served after the Default's other buckets (a local one before the remote
   ones). The default of `Storage.create_bucket/2`; a caller that wants none or
   another profile says so there (`:profile`).
@@ -512,7 +515,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   @doc """
   Puts `bucket` into one of the site's profiles as a primary that stores
-  everything, active, its `priority` as the write priority, served after the
+  everything, active, with no fixed write priority (the shuffled pool), served after the
   profile's other buckets, and bumps the profile's revision (its files are
   placed again). Change the role, order or status afterwards with
   `put_bucket/4`.
@@ -536,7 +539,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         attrs = %{
           role: "primary",
           status: "active",
-          write_priority: write_priority(bucket.priority),
+          write_priority: nil,
           serve_order: serve_order + 1
         }
 
@@ -546,12 +549,6 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
         {:error, :not_found}
     end
   end
-
-  @doc false
-  # A bucket's `priority` as a profile's write priority: 0 was "the
-  # shuffled pool", which is `nil` here.
-  def write_priority(priority) when is_integer(priority) and priority > 0, do: priority
-  def write_priority(_priority), do: nil
 
   @doc """
   Which profiles use each of `bucket_uuids`, and how many libraries stand

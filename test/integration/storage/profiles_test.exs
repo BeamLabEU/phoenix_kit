@@ -174,25 +174,24 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
   end
 
   describe "buckets" do
-    test "a new bucket joins the Default, served after the others, its priority kept" do
+    test "a new bucket joins the Default, served after the others, with no fixed write priority" do
       first = bucket!()
       second = bucket!(%{priority: 3})
 
       rows = Map.new(Profiles.default_profile().buckets, &{&1.bucket_uuid, &1})
 
-      assert %{role: "primary", status: "active", write_priority: nil} =
-               rows[first.uuid]
-
-      assert rows[second.uuid].write_priority == 3
+      assert %{role: "primary", status: "active", write_priority: nil} = rows[first.uuid]
+      assert %{write_priority: nil} = rows[second.uuid]
       assert rows[second.uuid].serve_order > rows[first.uuid].serve_order
     end
 
-    test "changing a bucket's priority changes its write priority in the Default" do
+    test "a bucket's own priority is not copied into the Default, then or later" do
       bucket = bucket!()
       {:ok, _} = Storage.update_bucket(bucket, %{priority: 2})
 
       row = Enum.find(Profiles.default_profile().buckets, &(&1.bucket_uuid == bucket.uuid))
-      assert row.write_priority == 2
+      assert row.write_priority == nil
+      assert Storage.get_bucket(bucket.uuid).priority == 2
     end
   end
 
@@ -242,7 +241,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
 
       assert profile_uuids_of(bucket) == [to_string(profile.uuid)]
 
-      assert [%{role: "primary", status: "active", write_priority: 3}] =
+      assert [%{role: "primary", status: "active", write_priority: nil}] =
                Profiles.get_profile(profile.uuid).buckets
 
       assert revision(profile.uuid) == before + 1

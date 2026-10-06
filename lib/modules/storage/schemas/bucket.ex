@@ -9,10 +9,18 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   - **Cloudflare R2** buckets
   - **Tigris** buckets
 
-  ## Priority System
+  ## Priority (legacy)
 
-  - `priority = 0` (default): Random selection, prefer most empty drive
-  - `priority > 0`: Specific priority (1 = highest, 2 = second, etc.)
+  Where new files go is decided by the **storage profile**, which has an upload
+  order (`write_priority`) per bucket. A bucket's own `priority` is no longer
+  shown or edited in the admin and is not copied into any profile. It is read
+  only by the pre-profile selection (`Manager.store_file/2` with
+  `:redundancy_copies` / `:priority_buckets`, or a database with no profiles)
+  and to order the buckets a read falls back to when a file has no recorded
+  location:
+
+  - `priority = 0` (default): the pool, in random order when writing
+  - `priority > 0`: a fixed position (1 = first, 2 = second, etc.)
 
   ## Fields
 
@@ -36,7 +44,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   - `cdn_url` - CDN endpoint for file serving (nullable)
   - `access_type` - How files are served: "public", "private", "signed" (default: "public")
   - `enabled` - Whether bucket is active
-  - `priority` - Selection priority (0 = random/emptiest)
+  - `priority` - Legacy selection priority (0 = random); see above
   - `max_size_mb` - Maximum storage capacity in MB (nullable = unlimited)
   - `owner_uuid` - Whose bucket it is (V206). NULL is the site's, which is every
     bucket an admin creates. A user's own bucket carries its owner, never

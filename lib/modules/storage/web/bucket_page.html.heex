@@ -90,15 +90,6 @@
           <dt class="text-base-content/60">{gettext("Access")}</dt>
           <dd>{access_label(@bucket.access_type)}</dd>
 
-          <dt class="text-base-content/60">{gettext("Priority")}</dt>
-          <dd>
-            <%= if @bucket.priority == 0 do %>
-              {gettext("Random")} (0)
-            <% else %>
-              {@bucket.priority}
-            <% end %>
-          </dd>
-
           <dt class="text-base-content/60">{gettext("Maximum size")}</dt>
           <dd>
             <%= if @bucket.max_size_mb do %>

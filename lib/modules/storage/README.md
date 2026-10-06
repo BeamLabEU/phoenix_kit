@@ -31,7 +31,7 @@ Storage provider configurations (local disk, AWS S3, Backblaze B2, Cloudflare R2
 - cdn_url (string, nullable) - CDN endpoint for file serving
 - path_prefix (string, nullable) - Base path for files
 - enabled (boolean, default: true)
-- priority (integer, default: 0) - 0 = random/emptiest, >0 = specific priority
+- priority (integer, default: 0) - legacy: only the pre-profile selection and the read fallback order use it; a storage profile's per-bucket `write_priority` decides uploads (0 = random, >0 = specific priority)
 - max_size_mb (integer, nullable) - Maximum storage capacity
 - inserted_at (timestamp)
 - updated_at (timestamp)
@@ -278,7 +278,7 @@ The V18 migration will seed one default local storage bucket:
   cdn_url: nil,
   path_prefix: nil,  # Uses storage_default_path setting from existing system
   enabled: true,
-  priority: 0,       # Random selection, prefer emptiest drive
+  priority: 0,       # Legacy; uploads follow the storage profile's upload order
   max_size_mb: nil   # Unlimited (will use all available disk space)
 }
 ```
@@ -388,8 +388,14 @@ never served, and never probed as a fallback for that file either;
 processing may read it last. A bucket's `enabled` flag stays the emergency stop:
 a disabled bucket is neither written nor read, whatever its profile says.
 
-Every bucket joins the Default when it is created; a bucket's `priority` is
-its write priority there. `Storage.redundancy_copies/0` and
+Every bucket joins the Default when it is created, with no fixed write
+priority (the shuffled pool). The **upload order** (`write_priority`) is set per
+bucket in each profile, on Settings → Media → Storage profiles, and only
+matters where a kind of bucket has more writable buckets than copies to make
+(`Profiles.copies_advice/1`'s `order_matters`); the admin hides it elsewhere. A
+bucket's own `priority` column is legacy: it is neither shown in the admin nor
+copied into a profile. Nothing picks "the emptiest bucket": placement does not
+know free space yet, so an empty upload order means a random turn. `Storage.redundancy_copies/0` and
 `set_redundancy_copies/1` are the old setting, now the Default's copy count
 (the setting row is kept in step). Profiles are edited on Settings → Media →
 Storage profiles; a system library picks its profile on the Libraries tab.

@@ -110,14 +110,6 @@
                         |> Enum.join(" · ")
                     },
                     %{
-                      label: gettext("Priority"),
-                      value:
-                        if(bucket.priority == 0,
-                          do: gettext("Random"),
-                          else: to_string(bucket.priority)
-                        )
-                    },
-                    %{
                       label: gettext("Used by"),
                       value:
                         case Map.get(@bucket_usage, to_string(bucket.uuid), []) do
@@ -149,7 +141,6 @@
                 <.table_default_row>
                   <.table_default_header_cell>{gettext("Name")}</.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
-                  <.table_default_header_cell>{gettext("Priority")}</.table_default_header_cell>
                   <.table_default_header_cell>{gettext("Used by")}</.table_default_header_cell>
                   <.table_default_header_cell class="text-right">
                     {gettext("Files")}
@@ -210,13 +201,6 @@
                         <span class="badge badge-warning badge-soft badge-sm h-auto">
                           {gettext("Keys on bucket")}
                         </span>
-                      <% end %>
-                    </.table_default_cell>
-                    <.table_default_cell>
-                      <%= if bucket.priority == 0 do %>
-                        <span class="text-xs text-base-content/60">{gettext("Random")} (0)</span>
-                      <% else %>
-                        <span class="font-semibold">{bucket.priority}</span>
                       <% end %>
                     </.table_default_cell>
                     <.table_default_cell>

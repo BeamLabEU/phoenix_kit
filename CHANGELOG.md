@@ -12,6 +12,15 @@
   row, and Objects and Size columns sit beside it, with the same numbers as the bucket page. They come from one
   batched query (`Storage.bucket_totals/1`) instead of one per bucket.
 
+- **Priority is a storage-profile setting, not a bucket one.** The Priority column is gone from the Buckets
+  list, the bucket page and the bucket form. Where new files go is the profile's per-bucket **upload order**
+  (Settings → Media → Storage profiles), which is now shown only for a kind of bucket with more writable buckets
+  than copies to make; elsewhere the row says the order does not matter. A bucket no longer copies its `priority`
+  into the Default profile when it is created or edited, so a new bucket joins with no fixed upload order (the
+  shuffled pool). The `priority` column stays for the pre-profile selection and the read fallback order. The
+  Buckets list is sorted by name. Docs no longer claim a bucket's priority prefers "the emptiest drive": the
+  pool is shuffled, free space is not considered.
+
 ### i18n
 
 - Translations for the new bucket delete confirmation and stats captions, in all shipped locales.

@@ -5,8 +5,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   A profile lists buckets and says, for each, its role (`primary` is
   written and served, `replica` is served when no primary has the copy,
-  `backup` is written but never served), a fixed write priority (empty is
-  the shuffled pool), a serve order and a status (`read_only` keeps
+  `backup` is written but never served), an upload order (a fixed write
+  priority, shown only where the profile has more buckets than copies; empty
+  is the shuffled pool), a serve order and a status (`read_only` keeps
   serving and gets no new files, `draining` has its files moved to the
   profile's other buckets). The profile also says how many copies every
   file gets on local buckets and on cloud ones (the cloud count can be set only
@@ -336,6 +337,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
 
   defp spread(_kind, _advice), do: nil
 
+  # Whether the upload order can change anything for `row`: only a bucket that
+  # is written at all, of a kind with more writable buckets than copies.
+  defp upload_order_matters?(advice, row) do
+    row.status == "active" and row.bucket.enabled and
+      Map.fetch!(advice, Bucket.group(row.bucket)).order_matters
+  end
+
   # The replicas and backups no count reaches, of either kind.
   defp idle_buckets(profile) do
     %{local: local, cloud: cloud} = Profiles.copies_advice(profile)
@@ -589,6 +597,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
             {text}
           </p>
 
+          <% advice = Profiles.copies_advice(profile) %>
           <% idle = idle_buckets(profile) %>
           <div
             :if={idle != []}
@@ -619,7 +628,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   class="tooltip tooltip-bottom text-left"
                   data-tip={
                     gettext(
-                      "Lower numbers get new files first. Leave it empty to share them: buckets with no number take turns at random."
+                      "Used when the profile has more buckets than copies: lower numbers get new files first, and buckets with no number take turns at random. Shown only where it can matter."
                     )
                   }
                 >
@@ -688,13 +697,24 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   </option>
                 </select>
                 <input
+                  :if={upload_order_matters?(advice, row)}
                   type="number"
                   name="row[write_priority]"
                   min="1"
                   value={row.write_priority}
-                  placeholder={gettext("Any")}
+                  placeholder={gettext("Random")}
                   class="input input-sm input-bordered w-full"
                 />
+                <span
+                  :if={not upload_order_matters?(advice, row)}
+                  id={"#{@id}-order-na-#{profile.uuid}-#{row.bucket_uuid}"}
+                  class="tooltip tooltip-bottom text-center text-base-content/40"
+                  data-tip={
+                    gettext("Every writable bucket gets a copy, so the order does not matter.")
+                  }
+                >
+                  —
+                </span>
                 <input
                   type="number"
                   name="row[serve_order]"
