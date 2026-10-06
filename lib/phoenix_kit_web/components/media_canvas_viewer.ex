@@ -101,10 +101,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   # Etcher's toolbar color slots are a single palette shared across every
   # Fresco viewer this user opens — stored in their `custom_fields`
-  # ("user meta") under this key, not per-file like annotations. The
-  # default is used until the user saves a palette of their own.
+  # ("user meta") under this key, not per-file like annotations.
+  #
+  # There is deliberately NO default palette here. A user with nothing
+  # saved gets `nil`, and `<Etcher.layer colors={nil}>` omits the attr,
+  # so Etcher seeds its slots from its own current presets. We used to
+  # keep a copy of those presets as a constant, and it went stale the
+  # way copies do: Etcher moved from pastels to full-strength hues
+  # (0.16, 2026-09-20 — the pastels read as washed out over a
+  # photograph) and this list kept seeding the old pastels, so anyone
+  # who reset their annotation settings — or had never saved a palette —
+  # drew in colors the rest of the product had moved off of.
   @etcher_colors_key "etcher_colors"
-  @default_etcher_colors ["#fca5a5", "#fdba74", "#fde68a", "#86efac", "#93c5fd"]
 
   # The palette arrives from a client JS hook, so it's untrusted: keep only
   # short color-shaped strings and cap the count before persisting into the
@@ -135,6 +143,15 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Etcher palette, so it survives prev/next remounts, reopen, and reload.
   @viewer_info_collapsed_key "media_viewer_info_collapsed"
 
+  # Whether the viewer opens straight into the annotation editor (Etcher
+  # armed, toolbar up) instead of on the burned copy. Per-user opt-in,
+  # stored in `custom_fields` like the sidebar flag above and toggled on
+  # the profile settings page's "Annotation tools" section — the shipped
+  # default stays the burned picture, because most people open a file to
+  # look at it, not to work on it. Honored only where it means something:
+  # an image, with annotation rights.
+  @viewer_open_annotating_key "media_viewer_open_annotating"
+
   # Canvas extent used when the file row recorded no dimensions. Sets only
   # the coordinate space — the image itself keeps its true ratio, see
   # put_natural_size/2.
@@ -155,12 +172,17 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      # layer, which is the one you can edit.
      |> assign(:burn_mode, true)
      |> assign(:burn_canvas, nil)
+     # The eye, while the burned copy is up: true means the markup is
+     # hidden and the clean original is on screen instead. Deliberately
+     # session state and nothing more — every open starts with the
+     # markup showing, and the choice is never persisted.
+     |> assign(:etchings_hidden, false)
      |> assign(:auto_annotate, false)
      |> assign(:burn_version, nil)
      |> assign(:viewer_annotations, [])
      |> assign(:replying_annotation_uuid, nil)
      |> assign(:reply_parent_uuid, nil)
-     |> assign(:etcher_colors, @default_etcher_colors)
+     |> assign(:etcher_colors, nil)
      |> assign(:etcher_line_params, @default_etcher_line_params)
      |> assign(:viewer_only, false)
      |> assign(:can_annotate, true)
@@ -318,6 +340,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
             |> assign(:sidebar_collapsed, load_sidebar_collapsed(prefs))
+            |> maybe_open_annotating(prefs, file)
           end)
 
         socket.assigns[:viewer_canvas] == nil and is_map(board) ->
@@ -604,9 +627,36 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     {:noreply,
      socket
      |> assign(:burn_mode, not to_live?)
+     # A mode switch always lands with the markup showing: the editor
+     # edits shapes it can see, and coming back lands on the burned copy.
+     |> assign(:etchings_hidden, false)
      # Pressed the pencil rather than the eye: the live layer is what it
      # needs, but what was asked for was to draw.
      |> assign(:auto_annotate, to_live? and params["annotate"] == true)}
+  end
+
+  # The eye: markup shown ⇄ the clean original. The burned picture IS the
+  # markup — baked into the bitmap — so hiding the etchings cannot be a
+  # client-side visibility flip; this swaps the canvas for the original
+  # with nothing over it (see the heex), which is also what makes
+  # right-click → Copy image copy a clean picture.
+  #
+  # Pressed in the editor (live mode), the eye ends the session too:
+  # whatever was drawn is already captured for the burn by the hook
+  # (which composes BEFORE pushing this, while the overlay still
+  # exists), and the viewer lands on the clean picture. Un-hiding from
+  # there goes to the burned copy, not back into the editor — "show me
+  # the markup" is a look, and the pencil is how you ask to work.
+  def handle_event("toggle_etchings", _params, socket) do
+    if socket.assigns[:burn_mode] do
+      {:noreply, assign(socket, :etchings_hidden, not socket.assigns[:etchings_hidden])}
+    else
+      {:noreply,
+       socket
+       |> assign(:burn_mode, true)
+       |> assign(:etchings_hidden, true)
+       |> assign(:auto_annotate, false)}
+    end
   end
 
   def handle_event("toggle_viewer_sidebar", _params, socket) do
@@ -828,6 +878,47 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   end
 
   defp load_sidebar_collapsed(_), do: false
+
+  # ──────────────────────────────────────────────────────────────
+  # Open-in-editor preference (see @viewer_open_annotating_key)
+  # ──────────────────────────────────────────────────────────────
+
+  @doc """
+  Whether this user has chosen to open the media viewer straight into
+  the annotation editor (Etcher armed, toolbar up) instead of on the
+  burned picture.
+
+  The shipped default is `false` — the viewer opens on the picture with
+  its markup already in it, which is what most people came to look at.
+  This per-user flag is for the people who open files to work on them:
+  with it on, the editor is live the moment the popup is, no pencil
+  press first. Toggled on the profile settings page ("Annotation
+  tools"); anything but a stored `true` means the default.
+  """
+  def open_annotating?(user) when is_map(user) do
+    Auth.get_user_field(user, @viewer_open_annotating_key) == true
+  end
+
+  def open_annotating?(_), do: false
+
+  @doc false
+  # The custom_fields key the settings page writes. One name, owned here.
+  def open_annotating_key, do: @viewer_open_annotating_key
+
+  # Apply the preference at viewer-open. Only where it means something:
+  # an image (nothing else has an editor), with annotation rights — a
+  # read-only viewer keeps the burned picture whatever the flag says.
+  # `auto_annotate` is what makes the hook arm Etcher once the live
+  # canvas is up, exactly as if the pencil had been pressed.
+  defp maybe_open_annotating(socket, prefs, file) do
+    if socket.assigns.can_annotate and image_file?(file) and open_annotating?(prefs) do
+      socket
+      |> assign(:burn_mode, false)
+      |> assign(:auto_annotate, true)
+    else
+      socket
+    end
+  end
 
   @doc """
   Whether the viewer's info sidebar will be open for this user.
@@ -1352,6 +1443,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
                 :marker,
                 :callout,
                 :text,
+                :textbox,
                 :dimension,
                 :arrow,
                 :line,
@@ -1434,6 +1526,57 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       natural_height: h
     })
   end
+
+  # Zoom ladder for the picture canvases (the live layer and the eye's
+  # plain view): medium → large, then for images over 4K we stream DZI
+  # tiles of the original (only the visible area) instead of ever
+  # loading the whole multi-MB original; for ≤4K images the full
+  # original raster is the top of the ladder (no tiles). DZI tiles also
+  # require the storage tile-generation setting (which is what
+  # populates urls["dzi"]).
+  #
+  # The ladder tops out at `large`, not at the original. Looking at (or
+  # drawing on) a picture needs a picture you can SEE, not every pixel
+  # that was uploaded: a 5000px original is several MB to fetch and
+  # decode before anything happens, and on a slow line that is the
+  # whole experience of opening the viewer. Annotations are stored in
+  # image coordinates and the canvas keeps the original's extent either
+  # way, so which raster is showing changes nothing about where a shape
+  # lands. Deep zoom past `large` still streams tiles where tile
+  # generation is on; the full original stays a download.
+  #
+  # `small` is the FIRST rung, not an outsider. The canvas opens on it
+  # (the bitmap the grid already painted), and Tessera assumes it is
+  # showing sources[0] — so leaving it out meant Tessera believed a
+  # 300px picture was the 800px one, and only swapped when the display
+  # demanded more than 880: straight from `small` to `large`, with
+  # `medium` never chosen on the way up. Listing it makes the ladder
+  # true, so the climb is small → medium → large and each step is the
+  # smallest file that covers the screen.
+  #
+  # Returns `{sources, dzi_url}` for `<Tessera.layer>`; render it only
+  # when sources is non-empty.
+  defp tessera_ladder(f) do
+    over_4k = max(Map.get(f, :width) || 0, Map.get(f, :height) || 0) > 4096
+    has_dzi = is_binary(f.urls["dzi"]) and f.urls["dzi"] != ""
+
+    sources =
+      [{f.urls["small"], 300}, {f.urls["medium"], 800}, {f.urls["large"], 1920}]
+      |> Enum.filter(fn {url, _w} -> is_binary(url) and url != "" end)
+      |> Enum.map(fn {url, width} -> %{url: url, width: width} end)
+
+    {sources, if(over_4k and has_dzi, do: f.urls["dzi"], else: nil)}
+  end
+
+  # The eye's hidden state: the picture with nothing over it. The same
+  # canvas the live layer uses, minus the "etcher" extension — no layer
+  # mounts over this one, so the annotation payload would have no reader;
+  # dropping it keeps every shape out of the DOM rather than merely
+  # unrendered.
+  defp plain_canvas(%Fresco.Canvas{} = canvas),
+    do: %{canvas | extensions: Map.delete(canvas.extensions, "etcher")}
+
+  defp plain_canvas(_), do: nil
 
   defp apply_burn_refresh(socket, file) do
     current = socket.assigns[:burn_version]
@@ -1650,11 +1793,14 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp load_user_colors(user) when is_map(user) do
     case sanitize_colors(Auth.get_user_field(user, @etcher_colors_key)) do
       [_ | _] = colors -> colors
-      [] -> @default_etcher_colors
+      # Nothing saved (or a reset): nil, so Etcher seeds from its own
+      # current presets — see the @etcher_colors_key comment for why no
+      # copy of them lives here.
+      [] -> nil
     end
   end
 
-  defp load_user_colors(_), do: @default_etcher_colors
+  defp load_user_colors(_), do: nil
 
   # Keep only color-shaped strings, trimmed, deduped, and capped — the input
   # is client-supplied. Returns `[]` when nothing valid remains so the caller

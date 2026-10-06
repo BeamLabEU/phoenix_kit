@@ -208,17 +208,25 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
   end
 
   describe "the profile's Media tab" do
-    test "is offered with storage and user libraries on", %{conn: conn, role: role} do
+    test "the libraries card needs storage and user libraries; the tab is for everyone", %{
+      conn: conn,
+      role: role
+    } do
       user = user!(role)
-      {:ok, _view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings"))
-      assert html =~ ~s(href="#{Routes.path("/profile/settings/media")}")
+      {:ok, _view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
+      assert html =~ "My libraries"
 
+      # The tab itself stopped being the gate when the annotation-tools
+      # section moved onto it (that section applies to anyone who can open
+      # the media viewer) — the card inside carries the gate now.
       plain = user!()
 
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), plain), Routes.path("/profile/settings"))
+        live(log_in_user(build_conn(), plain), Routes.path("/profile/settings/media"))
 
-      refute html =~ ~s(href="#{Routes.path("/profile/settings/media")}")
+      assert html =~ "Annotation tools"
+      refute html =~ "My libraries"
+      refute html =~ "profile-library-settings-create"
     end
 
     test "creates a library and adds a member", %{conn: conn, role: role} do

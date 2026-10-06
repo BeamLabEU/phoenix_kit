@@ -96,11 +96,12 @@ defmodule PhoenixKit.Annotations.AnnotationKindTest do
       [tools_block] = Regex.run(~r/tools=\{.*?\]/s, heex)
 
       # A tool is not always a kind of its own: the highlighter draws
-      # MARKER shapes at a fixed opacity — a deliberate reuse, so its
-      # persistence never needed widening. A new alias belongs here with
-      # the kind it commits as; a new KIND must not appear here, or this
-      # test would wave it through unpersisted.
-      tool_kinds = %{"highlighter" => "marker"}
+      # MARKER shapes at a fixed opacity, and the textbox draws TEXT
+      # shapes carrying `style.box: "fixed"` — deliberate reuses, so
+      # their persistence never needed widening. A new alias belongs
+      # here with the kind it commits as; a new KIND must not appear
+      # here, or this test would wave it through unpersisted.
+      tool_kinds = %{"highlighter" => "marker", "textbox" => "text"}
 
       offered =
         Regex.scan(~r/:(\w+)/, tools_block)

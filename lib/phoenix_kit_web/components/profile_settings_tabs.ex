@@ -5,19 +5,22 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   One URL per tab, and a tab is offered only when it has something to show
   for this user:
 
-    * `account` — who you are: avatar and name, custom fields, email, the
-      start page, and the annotation-tools reset
+    * `account` — who you are: avatar and name, custom fields, email, and
+      the start page
     * `security` — password and connected sign-in accounts
     * `sessions` — signed-in devices and recent sign-in attempts
     * `notifications` — which notifications you get (when any types exist)
     * `integrations` — your own service connections, for holders of the
       opt-in `integrations` permission. Its own LiveView at
       `/profile/settings/integrations`.
-    * `media` — your storage libraries and their members
-      (`PhoenixKitWeb.Live.Components.LibrarySettings`), while user
-      libraries are on and you hold the `"storage"` permission. The
-      end-user surface for them is `phoenix_kit_photos`; this tab is where
-      they are set up.
+    * `media` — how media behaves for you: the annotation-tools section
+      (open-in-editor switch, tool reset), and — while user libraries are
+      on and you hold the `"storage"` permission — your storage libraries
+      and their members (`PhoenixKitWeb.Live.Components.LibrarySettings`;
+      the end-user surface for those is `phoenix_kit_photos`). The tab is
+      offered to everyone, because the annotation section applies to
+      anyone who can open the media viewer; the library card inside keeps
+      its own gate.
 
   `/profile/settings` opens the first tab. Every section of
   `PhoenixKitWeb.Live.Components.UserSettings.default_sections/0` is on
@@ -44,10 +47,11 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
 
   # The `UserSettings` sections each tab renders, in page order.
   @sections %{
-    "account" => [:identity, :custom_fields, :email, :start_page, :etcher],
+    "account" => [:identity, :custom_fields, :email, :start_page],
     "security" => [:password, :oauth],
     "sessions" => [:sessions],
-    "notifications" => [:notifications]
+    "notifications" => [:notifications],
+    "media" => [:etcher]
   }
 
   @order ~w(account security sessions notifications integrations media)
@@ -165,7 +169,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
 
   @doc "Whether `ProfileSettings` renders the tab itself (every tab but integrations)."
   @spec rendered_here?(String.t()) :: boolean()
-  def rendered_here?(tab), do: Map.has_key?(@sections, tab) or tab == "media"
+  def rendered_here?(tab), do: Map.has_key?(@sections, tab)
 
   @doc "Every section some tab shows."
   @spec all_sections() :: [atom()]
@@ -181,7 +185,14 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   defp visible?("integrations", scope),
     do: not is_nil(scope) and Scope.has_module_access?(scope, "integrations")
 
-  defp visible?("media", scope), do: Libraries.may_use_libraries?(scope)
+  # "media" has no permission gate of its own: the annotation-tools
+  # section on it applies to anyone who can open the media viewer, so the
+  # tab shows for everyone while that section does — the libraries card
+  # inside keeps its own `Libraries.may_use_libraries?/1` check. With the
+  # annotation section hidden by an admin, the tab is only worth offering
+  # to someone the libraries card will render for.
+  defp visible?("media", scope),
+    do: sections("media") != [] or Libraries.may_use_libraries?(scope)
 
   # A tab of hidden sections only has nothing to show.
   defp visible?(tab, _scope) when is_map_key(@sections, tab), do: sections(tab) != []

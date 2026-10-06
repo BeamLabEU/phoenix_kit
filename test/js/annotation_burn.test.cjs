@@ -200,6 +200,35 @@ test("a straight line — one side 0, the other not — is ink and widens the ca
   );
 });
 
+// Reported from the field: open a label, type nothing, close the popup —
+// and the burned copy showed the input box (placeholder, borders and all)
+// where the label would have gone. The editor is a <foreignObject> with a
+// live <textarea>, and closing/stepping burns in capture phase, before
+// Etcher's own click-outside commit can take it down — so the burn must
+// treat it as chrome.
+test("the inline label editor is chrome: stripped from the copy, never measured", () => {
+  const m = src.match(/var BURN_CHROME = \[([^\]]*)\]/);
+  assert.ok(m, "could not find BURN_CHROME");
+  const chrome = m[1].match(/"[^"]+"/g).map((s) => s.slice(1, -1));
+
+  assert.ok(chrome.includes(".etcher-text-editor"),
+    "a burn taken mid-edit must not render the label editor's input box into the copy");
+
+  // Through burnInkBounds with the REAL chrome list: an editor hanging
+  // past the picture's edge must not stretch the canvas either.
+  const realBounds = new Function(
+    "BURN_CHROME",
+    sliceFn("burnIsChrome") + "\n" + sliceFn("burnInkBounds") + "\n" +
+    "return { burnInkBounds };"
+  )(chrome);
+
+  const editorPastTheEdge = fakeEl([900, 500, 1900, 560], ["etcher-shape", "etcher-text-editor"]);
+  assert.deepStrictEqual(
+    realBounds.burnInkBounds([editorPastTheEdge], same, 1408, 768),
+    { minX: 0, minY: 0, maxX: 1408, maxY: 768 }
+  );
+});
+
 test("burnCapturePlan sizes the canvas with burnInkBounds over shapes and their descendants", () => {
   const plan = sliceFn("burnCapturePlan");
   assert.match(plan, /burnInkBounds\(\s*svg\.querySelectorAll\("\.etcher-shape, \.etcher-shape \*"\)/);
@@ -293,6 +322,48 @@ test("a drawing that matches the copy on file is left alone", () => {
   assert.strictEqual(
     burnHook({ signature: sig + "more", hook: { _burned: fingerprint } }).started.length, 1,
     "…and a drawing that differs by anything at all is burned");
+});
+
+// ── the eye ───────────────────────────────────────────────────────────────
+//
+// Hide the etchings and see the clean original. The burned picture IS the
+// markup — baked into the bitmap — so the eye cannot be a client-side
+// visibility flip there: it asks the server to swap the canvas instead.
+// From the editor the same press also ends the session.
+
+test("the eye is on every surface of ours; only a read-only live layer is left to Etcher", () => {
+  // The hook bows out exactly once: a read-only live layer (no burn to
+  // show, nothing to edit), where Etcher's own :visibility eye does the
+  // job. Everywhere else the eye appends unconditionally — no canAnnotate
+  // gate on the button itself, because seeing the picture under the
+  // markup is a viewing affordance, not an editing one.
+  assert.match(section, /if \(!burned && !hidden && !canAnnotate\) return;/);
+  assert.match(section, /this\._eyeButton = handle\.appendNavButton\(\s*hidden \? eyeSlash : eye,\s*hidden \? "Show annotations" : "Hide annotations"/);
+});
+
+test("the eye pressed in the editor composes the burn before the canvas is replaced", () => {
+  // Same capture discipline as _onMode and _onClosing: the overlay being
+  // composed from is destroyed by the swap the push triggers, so the
+  // composition must come first, and only the editor needs it.
+  assert.match(section,
+    /if \(!burned && !hidden\) self\.burnIfChanged\(\);\s*self\.pushEventTo\(self\.el, "toggle_etchings", \{\}\);/);
+});
+
+test("the eye reads its state from the assigns, and nothing of it is persisted", () => {
+  // `hidden` comes from the server's assign, pushed back down — the state
+  // lives in the LiveComponent for the length of the open and nowhere else.
+  assert.match(section, /var hidden = this\.el\.dataset\.etchingsHidden === "true";/);
+  assert.doesNotMatch(section, /localStorage|sessionStorage/,
+    "the eye must never be persisted — every open starts with the markup showing");
+});
+
+test("the pencil is offered from both finished pictures, to annotators only", () => {
+  assert.match(section, /if \(\(burned \|\| hidden\) && canAnnotate\) \{/);
+});
+
+test("the eye is cleaned up with the pencil when the rail is replaced, and on teardown", () => {
+  assert.match(section, /if \(this\._eyeButton\) \{\s*try \{ this\._eyeButton\(\); \} catch \(_\) \{\}\s*this\._eyeButton = null;/);
+  assert.match(section, /\[this\._modeButton, this\._pencilButton, this\._eyeButton\]\.forEach/);
 });
 
 test("the same drawing is not burned twice over one session end", () => {
