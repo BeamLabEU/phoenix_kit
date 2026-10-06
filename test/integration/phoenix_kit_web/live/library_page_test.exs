@@ -205,12 +205,12 @@ defmodule PhoenixKitWeb.Live.LibraryPageTest do
 
     test "deep zoom is the library's own switch, off until it is turned on", ctx do
       view = open(ctx.conn, ctx.library)
-      refute PhoenixKit.Modules.Storage.VariantSets.deep_zoom_for_library?(ctx.library.uuid)
+      refute VariantSets.deep_zoom_for_library?(ctx.library.uuid)
 
       view |> form("#library-deep-zoom", %{"deep_zoom" => "on"}) |> render_submit()
 
       assert Libraries.setting(ctx.library.uuid, :deep_zoom) == true
-      assert PhoenixKit.Modules.Storage.VariantSets.deep_zoom_for_library?(ctx.library.uuid)
+      assert VariantSets.deep_zoom_for_library?(ctx.library.uuid)
 
       view |> form("#library-deep-zoom", %{"deep_zoom" => "off"}) |> render_submit()
       assert Libraries.setting(ctx.library.uuid, :deep_zoom) == false

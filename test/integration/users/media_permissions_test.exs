@@ -8,6 +8,7 @@ defmodule PhoenixKit.Integration.Users.MediaPermissionsTest do
   """
   use PhoenixKitWeb.ConnCase, async: false
 
+  alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Settings
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.{Auth, Permissions, Roles}
@@ -109,7 +110,7 @@ defmodule PhoenixKit.Integration.Users.MediaPermissionsTest do
       for path <- [
             "/admin/settings/media",
             "/admin/settings/media/renditions/new/image",
-            "/admin/settings/media/libraries/#{PhoenixKit.Modules.Storage.Libraries.media_uuid()}",
+            "/admin/settings/media/libraries/#{Libraries.media_uuid()}",
             "/admin/settings/media/buckets/new"
           ] do
         conn_plain = log_in_user(conn, user_with(plain))

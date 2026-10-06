@@ -1399,7 +1399,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # needs a file — no rotation, no zoom ladder, no sidebar, no composer.
   attr :board, :map, required: true
   attr :viewer_canvas, :any, required: true
-  attr :etcher_colors, :list, required: true
+  attr :etcher_colors, :list, default: nil
   attr :etcher_line_params, :map, required: true
   attr :can_annotate, :boolean, required: true
 

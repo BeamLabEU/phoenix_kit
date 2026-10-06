@@ -1,6 +1,24 @@
-## Unreleased
+## 2.55.0 - 2026-10-06
+
+### Added
+
+- **The media viewer's eye is back, as a visibility toggle** (PR #907). It only chooses which picture is on
+  screen: from the burned view it swaps to the clean original, from the editor it ends the session onto the
+  clean original (the burn is composed first), and un-hiding lands on the burned copy. Right-click → Copy image
+  works on both finished pictures. Session-only: every open starts with the markup showing. Read-only live
+  layers keep Etcher's own `:visibility` eye.
+- **Open media ready to annotate** — a per-user switch (profile settings → Media → Annotation tools) that opens
+  the viewer with Etcher armed and the toolbar up, for images with annotation rights. Stored in the user's
+  `custom_fields` (`media_viewer_open_annotating`), not cleared by "Reset annotation settings".
+- **The text box tool** in the viewer's toolbars (Etcher 0.19): a fixed box the text wraps and sizes inside,
+  stored as a plain `text` shape with `style.box: "fixed"`.
 
 ### Changed
+
+- **Etcher 0.19.0** (`mix.exs` pin and the CDN bundle). Same-tool editing: the shapes a tool draws stay
+  grabbable while it is armed. The pin is a floor for the `:textbox` key.
+- **Annotation tools moved from the profile's Account tab to its Media tab.** The tab is offered to everyone;
+  the libraries card inside keeps its storage gate.
 
 - **Deleting a bucket asks `Delete bucket "<name>"?`** instead of a long warning about when the delete would be
   refused; the refusal itself (in a storage profile, still holds files) is still explained after confirming.
@@ -51,8 +69,16 @@
 - **The library page links its rendition set to its tab**, and `PhoenixKitWeb.Live.Modules.Storage.LibraryPage`
   is now in the permission map (`media.manage`) with the other storage pages.
 
+### Fixed
+
+- **Reset annotation settings drew retired pastels.** The viewer's copy of Etcher's old palette is gone; with
+  nothing saved the viewer hands Etcher no colours and Etcher seeds its own current presets.
+- **A burn taken mid-edit rendered the label editor's input box into the stored copy** (`.etcher-text-editor`
+  is now burn chrome).
+
 ### i18n
 
+- Translations for the open-annotating switch, in all seven non-English catalogs.
 - Translations for the renditions wording, the Viewing card and the two tabs.
 - Translations for the new bucket delete confirmation and stats captions, in all shipped locales.
 - Translations for the library page, the creation-time storage choice and the reworded profile refusal.

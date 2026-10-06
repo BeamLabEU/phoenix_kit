@@ -9,7 +9,8 @@ defmodule PhoenixKit.Modules.Storage.LibrariesTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Library}
+  alias PhoenixKit.Modules.Storage.{Libraries, Library, StorageProfile}
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
 
@@ -88,7 +89,7 @@ defmodule PhoenixKit.Modules.Storage.LibrariesTest do
       user = user!()
 
       mine =
-        PhoenixKit.Test.Repo.insert!(%PhoenixKit.Modules.Storage.StorageProfile{
+        Repo.insert!(%StorageProfile{
           name: "Mine #{System.unique_integer([:positive])}",
           owner_uuid: user.uuid
         })
