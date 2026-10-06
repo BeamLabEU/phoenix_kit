@@ -361,6 +361,23 @@
       />
     </div>
 
+    <div id="media-tab-renditions" class={@active_tab != "renditions" && "hidden"}>
+      <.live_component
+        module={PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent}
+        id="media-renditions"
+        scope={assigns[:phoenix_kit_current_scope]}
+        set_uuid={@rendition_set}
+      />
+    </div>
+
+    <div id="media-tab-health" class={@active_tab != "health" && "hidden"}>
+      <.live_component
+        module={PhoenixKitWeb.Live.Modules.Storage.HealthComponent}
+        id="media-health"
+        active={@active_tab == "health"}
+      />
+    </div>
+
     <div id="media-tab-libraries" class={@active_tab != "libraries" && "hidden"}>
       <.live_component
         module={PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent}
@@ -386,7 +403,7 @@
             <%!-- Copies, sizes and tiles are set where they apply, not here. --%>
             <div class="md:col-span-2 rounded-box bg-base-200 p-4 text-sm">
               <p class="font-semibold">
-                {gettext("Copies, sizes and tiles are set per library")}
+                {gettext("Copies, renditions and deep zoom are set per library")}
               </p>
               <ul class="mt-1 list-disc pl-5 text-base-content/70">
                 <li>
@@ -399,16 +416,18 @@
                   </.link>
                 </li>
                 <li>
-                  {gettext("Which sizes are made automatically, and whether deep-zoom tiles are:")}
+                  {gettext("Which renditions are made automatically:")}
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}
+                    patch={PhoenixKit.Utils.Routes.path("/admin/settings/media?tab=renditions")}
                     class="link link-primary"
                   >
-                    {gettext("Variant sets")}
+                    {gettext("Renditions")}
                   </.link>
                 </li>
                 <li>
-                  {gettext("Which profile and variant set a library uses:")}
+                  {gettext(
+                    "Which storage profile and rendition set a library uses, and its deep zoom:"
+                  )}
                   <.link
                     patch={PhoenixKit.Utils.Routes.path("/admin/settings/media?tab=libraries")}
                     class="link link-primary"
@@ -543,24 +562,6 @@
           affordance.
         --%>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <%!-- Variant sets --%>
-            <div
-              class="tooltip tooltip-bottom"
-              data-tip={
-                gettext(
-                  "Create and edit variant sets: the image and video sizes each library's uploads get."
-                )
-              }
-            >
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}
-                class="btn btn-outline w-full"
-              >
-                <.icon name="hero-photo" class="w-4 h-4 mr-2" /> {gettext("Variant sets")}
-                <.icon name="hero-information-circle" class="w-4 h-4 ml-1 opacity-50" />
-              </.link>
-            </div>
-
             <%!-- Media Stats (coming soon) --%>
             <div
               class="tooltip tooltip-bottom"
@@ -571,24 +572,6 @@
                 <span class="badge badge-xs ml-1">{gettext("Soon")}</span>
                 <.icon name="hero-information-circle" class="w-4 h-4 ml-1 opacity-50" />
               </button>
-            </div>
-
-            <%!-- Sync Files / Health dashboard --%>
-            <div
-              class="tooltip tooltip-bottom"
-              data-tip={
-                gettext(
-                  "Open the media health dashboard: the files not yet stored or sized as their library wants."
-                )
-              }
-            >
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/health")}
-                class="btn btn-outline w-full"
-              >
-                <.icon name="hero-arrow-path" class="w-4 h-4 mr-2" /> {gettext("Health")}
-                <.icon name="hero-information-circle" class="w-4 h-4 ml-1 opacity-50" />
-              </.link>
             </div>
 
             <%!-- Find Orphaned Files --%>

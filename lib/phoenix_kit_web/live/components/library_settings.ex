@@ -147,7 +147,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       reply(
         socket,
         :success,
-        gettext("Sizes changed. Existing files are resized in the background.")
+        gettext("Renditions changed. Existing files are updated in the background.")
       )
     else
       _ -> reply(socket, :error, gettext("You may not change this library"))
@@ -811,8 +811,8 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
             <select
               name="set"
               class="select select-sm select-bordered"
-              aria-label={gettext("Sizes")}
-              title={gettext("Which sizes this library's uploads get")}
+              aria-label={gettext("Renditions")}
+              title={gettext("Which renditions this library's uploads get")}
             >
               <option
                 :for={set <- set_options(library, @variant_sets)}

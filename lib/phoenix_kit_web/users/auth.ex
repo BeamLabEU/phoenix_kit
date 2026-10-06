@@ -2378,6 +2378,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Modules.Storage.Settings => "media.manage",
     PhoenixKitWeb.Live.Modules.Storage.BucketForm => "media.manage",
     PhoenixKitWeb.Live.Modules.Storage.BucketPage => "media.manage",
+    PhoenixKitWeb.Live.Modules.Storage.LibraryPage => "media.manage",
     PhoenixKitWeb.Live.Modules.Storage.Dimensions => "media.manage",
     PhoenixKitWeb.Live.Modules.Storage.DimensionForm => "media.manage",
     # Media health dashboard — same `media.manage` key as the other Storage admin LVs.

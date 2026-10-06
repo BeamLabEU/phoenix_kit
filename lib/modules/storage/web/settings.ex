@@ -45,9 +45,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # Load storage settings from database (using basic function to avoid cache issues)
     max_upload_size_mb = Settings.get_setting("storage_max_upload_size_mb", "500")
 
-    # What the missing-tools notice needs: whether the Default variant set makes
-    # tiles. Redundancy, sizes and tiles are edited on the Storage profiles tab
-    # and the variant sets page, not here.
+    # What the missing-tools notice needs: whether any library has deep zoom on.
+    # Copies are edited on the Storage profiles tab, renditions on the Renditions
+    # tab and deep zoom on a library's page, not here.
     tile_generation_enabled = Storage.tile_generation_enabled?()
 
     annotated_thumbnails_enabled =
@@ -92,7 +92,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   # profiles tab (or another admin) changes: it is read whenever the tab opens.
   def handle_params(params, _url, socket) do
     active_tab = UrlTabs.active(params, tabs())
-    socket = assign(socket, :active_tab, active_tab)
+
+    # The Renditions tab names its rendition set in the URL (`&set=<uuid>`).
+    socket = assign(socket, active_tab: active_tab, rendition_set: params["set"])
 
     {:noreply, if(active_tab == "buckets", do: load_bucket_usage(socket), else: socket)}
   end
@@ -109,7 +111,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     [
       %{id: "buckets", label: gettext("Buckets"), icon: "hero-inbox-stack"},
       %{id: "profiles", label: gettext("Storage profiles"), icon: "hero-server-stack"},
+      %{id: "renditions", label: gettext("Renditions"), icon: "hero-arrows-pointing-out"},
       %{id: "libraries", label: gettext("Libraries"), icon: "hero-rectangle-stack"},
+      %{id: "health", label: gettext("Health"), icon: "hero-heart"},
       %{id: "configuration", label: gettext("Configuration"), icon: "hero-cog-6-tooth"},
       %{id: "tools", label: gettext("Tools"), icon: "hero-wrench-screwdriver"},
       %{id: "history", label: gettext("History"), icon: "hero-clock"},
@@ -339,11 +343,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
-  # The Libraries and Storage profiles tabs' messages.
+  # The messages of the tabs that are components (Libraries, Storage profiles,
+  # Renditions, Health).
   def handle_info({component, {:flash, kind, message}}, socket)
       when component in [
              PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent,
-             PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent
+             PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent,
+             PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent,
+             PhoenixKitWeb.Live.Modules.Storage.HealthComponent
            ] do
     {:noreply, put_flash(socket, kind, message)}
   end
@@ -450,7 +457,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
         gettext("cleared the missing default bucket")
 
       {:dimensions_reset, count} ->
-        gettext("reset %{count} dimensions", count: count)
+        gettext("reset %{count} renditions", count: count)
     end)
   end
 

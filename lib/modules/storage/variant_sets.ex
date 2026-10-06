@@ -1,6 +1,8 @@
 defmodule PhoenixKit.Modules.Storage.VariantSets do
   @moduledoc """
-  Variant sets: which derived files a library's uploads get (V205).
+  Variant sets: which derived files a library's uploads get (V205). The admin
+  calls a derived file a *rendition* and a set a *rendition set* (Settings →
+  Media → Renditions).
 
   A library points at a set (`PhoenixKit.Modules.Storage.VariantSet`), and
   the set's sizes are its `PhoenixKit.Modules.Storage.Dimension` rows. A
@@ -424,12 +426,12 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   @doc """
-  Whether the set of `file`'s library makes zoomable tiles. Takes a file
-  or a file uuid; false for an unknown file.
+  Whether `file`'s library has deep zoom (zoomable tiles) on. Takes a file or a
+  file uuid; false for an unknown file. See `deep_zoom_for_library?/1`.
   """
   @spec tiles_for?(StorageFile.t() | term()) :: boolean()
   def tiles_for?(%StorageFile{library_uuid: library_uuid}),
-    do: library_flag(library_uuid, :generate_tiles)
+    do: deep_zoom_for_library?(library_uuid)
 
   def tiles_for?(file_uuid) do
     case Ecto.UUID.cast(file_uuid) do
@@ -440,7 +442,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           join: s in VariantSet,
           on: s.uuid == coalesce(l.variant_set_uuid, type(^@default_uuid, UUIDv7)),
           where: f.uuid == ^uuid,
-          select: s.generate_tiles
+          select: coalesce(fragment("(?->>'deep_zoom')::boolean", l.settings), s.generate_tiles)
         )
         |> repo().one() == true
 
@@ -450,8 +452,19 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   @doc """
-  Of `library_uuids` (nil is Media), the ones whose set makes tiles, as a
-  set of strings: one query for a page of files.
+  Whether a library (nil is Media) has deep zoom on: its own choice
+  (`Libraries.setting(library, :deep_zoom)`), and when it has made none, its
+  rendition set's `generate_tiles` flag, which is what the choice was before it
+  moved to the library.
+  """
+  @spec deep_zoom_for_library?(term()) :: boolean()
+  def deep_zoom_for_library?(library_uuid),
+    do: MapSet.size(tiles_among([library_uuid])) > 0
+
+  @doc """
+  Of `library_uuids` (nil is Media), the ones with deep zoom on (see
+  `deep_zoom_for_library?/1`), as a set of strings: one query for a page of
+  files.
   """
   @spec tiles_among([term()]) :: MapSet.t(String.t())
   def tiles_among(library_uuids) do
@@ -464,11 +477,24 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     from(l in Library,
       join: s in VariantSet,
       on: s.uuid == coalesce(l.variant_set_uuid, type(^@default_uuid, UUIDv7)),
-      where: l.uuid in ^uuids and s.generate_tiles,
+      where:
+        l.uuid in ^uuids and
+          coalesce(fragment("(?->>'deep_zoom')::boolean", l.settings), s.generate_tiles),
       select: l.uuid
     )
     |> repo().all()
     |> MapSet.new(&to_string/1)
+  end
+
+  @doc "Whether any library has deep zoom on (what the ImageMagick notice needs)."
+  @spec tiles_anywhere?() :: boolean()
+  def tiles_anywhere? do
+    from(l in Library,
+      join: s in VariantSet,
+      on: s.uuid == coalesce(l.variant_set_uuid, type(^@default_uuid, UUIDv7)),
+      where: coalesce(fragment("(?->>'deep_zoom')::boolean", l.settings), s.generate_tiles)
+    )
+    |> repo().exists?()
   end
 
   @doc "Whether the set of `file`'s library makes sizes automatically."

@@ -456,10 +456,17 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   # setting: it is not listed, so `put_setting/3` refuses it.
   # ---------------------------------------------------------------------------
 
-  @settings %{annotated_thumbnails: {"annotated_thumbnails", :boolean}}
+  # `deep_zoom`: whether the library's images may be viewed as zoomable tiles.
+  # A library that has not chosen follows its rendition set's old
+  # `generate_tiles` flag (`VariantSets.deep_zoom_for_library?/1`), so nothing
+  # turned off or on by a set stops or starts when this setting appeared.
+  @settings %{
+    annotated_thumbnails: {"annotated_thumbnails", :boolean},
+    deep_zoom: {"deep_zoom", :boolean}
+  }
 
   @typedoc "A per-library setting."
-  @type setting :: :annotated_thumbnails
+  @type setting :: :annotated_thumbnails | :deep_zoom
 
   @doc """
   A library's own value of `key`, or nil when it has none and follows the
@@ -570,7 +577,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     :ok
   end
 
-  defp setting_label(nil), do: "site default"
+  defp setting_label(nil), do: "default"
   defp setting_label(value), do: value
 
   defp check_type(_type, nil), do: :ok

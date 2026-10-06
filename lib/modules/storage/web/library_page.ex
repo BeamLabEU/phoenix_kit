@@ -60,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
      |> assign(:variant_set_name, nil)
      |> assign(:annotated_choice, "default")
      |> assign(:annotated_default, false)
+     |> assign(:deep_zoom?, false)
      |> assign(:bucket_totals, nil)
      |> assign(:buckets_failed?, false)
      |> assign(:bucket_infos, %{})
@@ -99,7 +100,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
   def handle_event("cancel_rename", _params, socket),
     do: {:noreply, assign(socket, :renaming?, false)}
 
-  def handle_event(event, params, socket) when event in ~w(rename delete annotated) do
+  def handle_event(event, params, socket) when event in ~w(rename delete annotated deep_zoom) do
     case Libraries.get_system_library_with_stats(socket.assigns.library.uuid) do
       nil ->
         {:noreply,
@@ -172,7 +173,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
     end
   end
 
-  defp handle_library_event("annotated", %{"annotated" => choice}, socket, library, stats) do
+  defp handle_library_event("annotated", %{"annotated" => choice}, socket, library, stats),
+    do: put_viewing(:annotated_thumbnails, choice, socket, library, stats)
+
+  defp handle_library_event("deep_zoom", %{"deep_zoom" => choice}, socket, library, stats),
+    do: put_viewing(:deep_zoom, choice, socket, library, stats)
+
+  defp put_viewing(key, choice, socket, library, stats) do
     value =
       case choice do
         "on" -> true
@@ -180,7 +187,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
         _ -> nil
       end
 
-    case Libraries.put_setting(library, :annotated_thumbnails, value, Actor.opts(socket)) do
+    case Libraries.put_setting(library, key, value, Actor.opts(socket)) do
       {:ok, library} ->
         {:noreply,
          socket
@@ -229,6 +236,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
     |> assign(:stats, Map.delete(stats, :library))
     |> assign(:annotated_choice, annotated_choice(library))
     |> assign(:annotated_default, AnnotationThumbnail.enabled?())
+    |> assign(:deep_zoom?, VariantSets.deep_zoom_for_library?(library.uuid))
   end
 
   # Another admin may have changed or removed the library since the page opened.
@@ -329,6 +337,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
 
   defp libraries_path, do: Routes.path("/admin/settings/media?tab=libraries")
   defp profiles_path, do: Routes.path("/admin/settings/media?tab=profiles")
+
+  # The tab of the library's rendition set.
+  defp rendition_set_path(library) do
+    uuid = VariantSets.set_uuid_for(library)
+
+    if VariantSets.default?(uuid),
+      do: Routes.path("/admin/settings/media?tab=renditions"),
+      else: Routes.path("/admin/settings/media?tab=renditions&set=#{uuid}")
+  end
 
   defp media_path(%{is_default: true}), do: Routes.path("/admin/media")
   defp media_path(%{slug: slug}), do: Routes.path("/admin/media/library/#{slug}")

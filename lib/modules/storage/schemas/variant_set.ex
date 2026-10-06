@@ -10,7 +10,9 @@ defmodule PhoenixKit.Modules.Storage.VariantSet do
     * `generate_variants` — sizes are made automatically after an upload
       (what the `storage_auto_generate_variants` setting was);
     * `generate_tiles` — zoomable tiles are made on request (what
-      `storage_tile_generation_enabled` was).
+      `storage_tile_generation_enabled` was). Legacy: deep zoom is a library
+      setting now (`Libraries.setting(library, :deep_zoom)`), and this flag is
+      only what a library that has not chosen follows.
 
   `revision` goes up on every change to the set or its sizes. A file
   records the set and revision its variants were made by, and is stale,

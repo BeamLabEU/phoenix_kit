@@ -6430,10 +6430,11 @@ defmodule PhoenixKit.Modules.Storage do
   def get_auto_generate_variants, do: VariantSets.default_flag(:generate_variants, true)
 
   @doc """
-  Whether the Default variant set makes zoomable tiles: what the
-  `storage_tile_generation_enabled` setting was before variant sets.
+  Whether any library has deep zoom (zoomable tiles) on. It was the Default
+  variant set's flag (`storage_tile_generation_enabled`) before the choice moved
+  to each library; what needs it (the ImageMagick notice) asks whether any does.
   """
-  def tile_generation_enabled?, do: VariantSets.default_flag(:generate_tiles, false)
+  def tile_generation_enabled?, do: VariantSets.tiles_anywhere?()
 
   @doc """
   Turns the Default variant set's automatic sizes on or off, and keeps the

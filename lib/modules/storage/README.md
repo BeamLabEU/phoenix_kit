@@ -430,14 +430,31 @@ thumbnails.
 
 ### Variant sets: which sizes a library gets (V205)
 
+**In the admin these are "renditions"** (a rendition is a smaller or
+re-encoded copy of an upload, such as a thumbnail or a 720p video) and
+"rendition sets"; the code keeps `variant` and `dimension`. They are the
+**Renditions tab** of Settings → Media (`RenditionsComponent`, one tab per set,
+`?tab=renditions&set=<uuid>`); adding or editing one is its own page
+(`/admin/settings/media/renditions/new/image|video`, `/:id/edit`,
+`DimensionForm`). Health is a tab too (`HealthComponent`, read when the tab
+opens). `/admin/settings/media/dimensions` and `/health` only redirect to their
+tabs.
+
 A library points at a **variant set** (`Storage.VariantSets`; none is the
 Default, seeded with every size the install had). A set's sizes are its
 `phoenix_kit_storage_dimensions` rows, and size names are unique per set.
 Every set has the **standard sizes** `thumbnail`, `small`, `medium`,
 `large` and `video_thumbnail`: they cannot be deleted or renamed, and
-`small`/`medium`/`large` keep the aspect ratio. `generate_variants` and
-`generate_tiles` are the set's (the Default's are what
-`storage_auto_generate_variants` and `storage_tile_generation_enabled` were).
+`small`/`medium`/`large` keep the aspect ratio. `generate_variants` is the
+set's (the Default's is what `storage_auto_generate_variants` was).
+
+**Deep zoom (zoomable tiles) belongs to the library**, not the set: the
+`deep_zoom` library setting (`Libraries.setting(library, :deep_zoom)`, a switch
+on the library page). A library that has not chosen follows its set's old
+`generate_tiles` flag (`VariantSets.deep_zoom_for_library?/1`,
+`tiles_among/1`), which the admin no longer shows, so nothing changed when the
+switch moved. Tiles are cut on the first request; turning deep zoom off only
+stops serving them, and the ones made stay stored.
 
 - A generated variant records the `spec_hash` of the size that made it; a
   file records the set and revision its variants were made by.
@@ -450,7 +467,7 @@ Every set has the **standard sizes** `thumbnail`, `small`, `medium`,
   did not stamp one), so nothing ever makes over it.
 - `Storage.variant_for(file, min_width: 300, aspect: :preserve)` picks a
   size by purpose, against the file's set.
-- Sets are edited on Settings → Media → Variant sets; a user library may
+- Sets are edited on Settings → Media → Renditions; a user library may
   pick a set an admin marked `selectable`.
 
 - **A see-through image keeps its transparency.** A size configured as
@@ -537,7 +554,7 @@ their size stamp until they are active again.
   status or role — not serve order, write priority or storage
   class; a set's flags or sizes), a library moving, an incomplete upload, a
   restore, the daily prune and boot; a queued pass restarts from the
-  beginning. The Health page lists what is waiting and can queue a pass.
+  beginning. The Health tab lists what is waiting and can queue a pass.
 
 ---
 
@@ -959,7 +976,7 @@ New settings added in V18 migration:
 ```elixir
 storage_redundancy_copies: "1"           # The Default storage profile's copy count (V205 alias)
 storage_auto_generate_variants: "true"   # The Default variant set's generate_variants (V205 alias)
-storage_tile_generation_enabled: "false" # The Default variant set's generate_tiles (V205 alias)
+storage_tile_generation_enabled: "false" # The Default variant set's old generate_tiles flag (V205 alias); deep zoom is now per library
 storage_max_upload_size_mb: "500"        # Per-file upload cap
 storage_user_libraries_enabled: "false"  # User libraries on/off (V203)
 storage_user_library_limit: "10"         # Libraries one user may own (V203)

@@ -611,18 +611,20 @@ defmodule PhoenixKitWeb.Integration do
       live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
       live "/admin/settings/media/buckets/:id", Live.Modules.Storage.BucketPage, :show
       live "/admin/settings/media/libraries/:id", Live.Modules.Storage.LibraryPage, :show
+      # Renditions and Health are tabs of the Media settings page now; these two
+      # only carry an old link to the tab.
       live "/admin/settings/media/dimensions", Live.Modules.Storage.Dimensions, :index
       live "/admin/settings/media/health", Live.Modules.Storage.Health, :index
 
-      live "/admin/settings/media/dimensions/new/image",
+      live "/admin/settings/media/renditions/new/image",
            Live.Modules.Storage.DimensionForm,
            :new_image
 
-      live "/admin/settings/media/dimensions/new/video",
+      live "/admin/settings/media/renditions/new/video",
            Live.Modules.Storage.DimensionForm,
            :new_video
 
-      live "/admin/settings/media/dimensions/:id/edit",
+      live "/admin/settings/media/renditions/:id/edit",
            Live.Modules.Storage.DimensionForm,
            :edit
 

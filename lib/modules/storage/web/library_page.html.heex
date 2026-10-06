@@ -235,8 +235,15 @@
             </ul>
           </dd>
 
-          <dt class="text-base-content/60">{gettext("Variant set")}</dt>
-          <dd id="library-variant-set">{@variant_set_name}</dd>
+          <dt class="text-base-content/60">{gettext("Rendition set")}</dt>
+          <dd id="library-variant-set">
+            <.link
+              navigate={rendition_set_path(@library)}
+              class="link link-hover font-medium"
+            >
+              {@variant_set_name}
+            </.link>
+          </dd>
         </dl>
       </div>
     </div>
@@ -249,7 +256,7 @@
         </h2>
         <p class="text-sm text-base-content/70">
           {gettext(
-            "Whether every file is stored the way the profile and the variant set say. Changing the profile's buckets or the set's sizes brings the files up to date in the background."
+            "Whether every file is stored the way the profile and the rendition set say. Changing the profile's buckets or the set's renditions brings the files up to date in the background."
           )}
         </p>
         <LibrarySync.sync_cell
@@ -261,33 +268,57 @@
       </div>
     </div>
 
-    <%!-- 5. Annotated thumbnails --%>
-    <div class="card bg-base-100 shadow-sm" id="library-thumbnails">
-      <div class="card-body gap-3">
+    <%!-- 5. Viewing: how the library's images are shown --%>
+    <div class="card bg-base-100 shadow-sm" id="library-viewing">
+      <div class="card-body gap-4">
         <h2 class="card-title text-lg">
-          <.icon name="hero-pencil-square" class="w-5 h-5" /> {gettext("Annotated thumbnails")}
+          <.icon name="hero-magnifying-glass-plus" class="w-5 h-5" /> {gettext("Viewing")}
         </h2>
-        <p class="text-sm text-base-content/70">
-          {gettext(
-            "Bake annotation shapes into a file's grid thumbnail. This follows the site setting (Settings → Media → Configuration) unless the library chooses otherwise. A change applies to a file the next time its annotations change; existing thumbnails are not regenerated, so a library can hold both kinds."
-          )}
-        </p>
-        <form
-          id="library-annotated"
-          phx-submit="annotated"
-          class="flex flex-wrap items-center gap-2"
-        >
-          <select name="annotated" class="select select-sm select-bordered">
-            <option value="default" selected={@annotated_choice == "default"}>
-              {if @annotated_default,
-                do: gettext("Site setting (on)"),
-                else: gettext("Site setting (off)")}
-            </option>
-            <option value="on" selected={@annotated_choice == "on"}>{gettext("On")}</option>
-            <option value="off" selected={@annotated_choice == "off"}>{gettext("Off")}</option>
-          </select>
-          <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
-        </form>
+
+        <div id="library-deep-zoom-card" class="space-y-2">
+          <h3 class="font-semibold">{gettext("Deep zoom")}</h3>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "Lets large images be zoomed in to full detail in the viewer, from tiles cut the first time someone zooms. Turning it off stops serving tiles; the ones already made stay stored and are used again if you turn it on. Needs ImageMagick."
+            )}
+          </p>
+          <form
+            id="library-deep-zoom"
+            phx-submit="deep_zoom"
+            class="flex flex-wrap items-center gap-2"
+          >
+            <select name="deep_zoom" class="select select-sm select-bordered">
+              <option value="on" selected={@deep_zoom?}>{gettext("On")}</option>
+              <option value="off" selected={not @deep_zoom?}>{gettext("Off")}</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
+          </form>
+        </div>
+
+        <div id="library-thumbnails" class="space-y-2">
+          <h3 class="font-semibold">{gettext("Annotated thumbnails")}</h3>
+          <p class="text-sm text-base-content/70">
+            {gettext(
+              "Bake annotation shapes into a file's grid thumbnail. This follows the site setting (Settings → Media → Configuration) unless the library chooses otherwise. A change applies to a file the next time its annotations change; existing thumbnails are not regenerated, so a library can hold both kinds."
+            )}
+          </p>
+          <form
+            id="library-annotated"
+            phx-submit="annotated"
+            class="flex flex-wrap items-center gap-2"
+          >
+            <select name="annotated" class="select select-sm select-bordered">
+              <option value="default" selected={@annotated_choice == "default"}>
+                {if @annotated_default,
+                  do: gettext("Site setting (on)"),
+                  else: gettext("Site setting (off)")}
+              </option>
+              <option value="on" selected={@annotated_choice == "on"}>{gettext("On")}</option>
+              <option value="off" selected={@annotated_choice == "off"}>{gettext("Off")}</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
+          </form>
+        </div>
       </div>
     </div>
 

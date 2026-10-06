@@ -69,13 +69,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert html =~ "Annotated Thumbnails"
     assert html =~ "Image Editing"
 
-    # Copies, sizes and tiles are set on the profile and the variant set, not
-    # here: this tab has no second editor for them.
+    # Copies, renditions and deep zoom are set on the profile, the rendition set
+    # and the library, not here: this tab has no second editor for them.
     refute html =~ "Redundancy Copies"
     refute html =~ ~s(name="form_redundancy")
     refute html =~ "Auto-Generate Variants"
     refute html =~ "Deep Zoom Tile Generation"
-    assert html =~ "Copies, sizes and tiles are set per library"
+    assert html =~ "Copies, renditions and deep zoom are set per library"
   end
 
   test "switching to Tools reveals its action buttons", %{conn: conn} do
@@ -89,8 +89,37 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     refute tab_visible?(html, "media-tab-buckets")
     refute tab_visible?(html, "media-tab-configuration")
     assert tab_visible?(html, "media-tab-tools")
-    assert html =~ "Variant sets"
     assert html =~ "Repair Media Module"
+    # Renditions and Health are tabs now, not buttons here.
+    refute html =~ "Variant sets"
+  end
+
+  test "Renditions and Health are tabs of this page", %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)
+
+    for tab <- ~w(renditions health) do
+      html = view |> element("a[role=tab][href$=\"tab=#{tab}\"]") |> render_click()
+      assert tab_visible?(html, "media-tab-#{tab}")
+    end
+  end
+
+  test "the old Renditions and Health addresses lead to their tabs", %{conn: conn} do
+    conn = admin_conn(conn)
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             live(conn, Routes.path("/admin/settings/media/dimensions"))
+
+    assert to == Routes.path("/admin/settings/media?tab=renditions")
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             live(conn, Routes.path("/admin/settings/media/dimensions?set=abc"))
+
+    assert to == Routes.path("/admin/settings/media?tab=renditions&set=abc")
+
+    assert {:error, {:live_redirect, %{to: to}}} =
+             live(conn, Routes.path("/admin/settings/media/health"))
+
+    assert to == Routes.path("/admin/settings/media?tab=health")
   end
 
   test "External libraries lists every tool with its status", %{conn: conn} do

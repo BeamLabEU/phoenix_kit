@@ -1,8 +1,8 @@
 defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   @moduledoc """
-  Dimension form LiveView for storage dimension management.
-
-  Provides form interface for creating and editing dimension presets.
+  One rendition on its own page: creating or editing it (its dimensions, quality
+  and format). The list of renditions, and their sets, is the Renditions tab of
+  Settings → Media (`RenditionsComponent`), which this page returns to.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
-  alias PhoenixKitWeb.Live.Modules.Storage.Dimensions
+  alias PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent
 
   def mount(params, _session, socket) do
     dimension_uuid = params["id"]
@@ -27,8 +27,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     mode = if dimension_uuid, do: :edit, else: :new
     dimension = load_dimension_data(mode, dimension_uuid)
 
-    # The variant set the size is in: the edited size's own, or the one the
-    # new-size link named (V205); the Default when none is named.
+    # The rendition set it is in: the edited rendition's own, or the one the
+    # new-rendition link named (V205); the Default when none is named.
     set =
       case dimension do
         %Storage.Dimension{variant_set_uuid: uuid} -> VariantSets.get_variant_set(uuid)
@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
       |> assign(:mode, mode)
       |> assign(:dimension_uuid, dimension_uuid)
       |> assign(:current_locale, "en")
-      |> assign(:current_path, Routes.path("/admin/settings/media/dimensions"))
+      |> assign(:current_path, Routes.path("/admin/settings/media"))
       |> assign(:project_title, project_title)
       |> assign(:dimension, dimension)
       |> assign(:dimension_type, dimension_type)
@@ -88,8 +88,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
       {:ok, _dimension} ->
         socket =
           socket
-          |> put_flash(:info, "Dimension created successfully")
-          |> push_navigate(to: Dimensions.set_path(socket.assigns.set))
+          |> put_flash(:info, gettext("Rendition created"))
+          |> push_navigate(to: RenditionsComponent.set_path(socket.assigns.set))
 
         {:noreply, socket}
 
@@ -110,8 +110,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
       {:ok, _dimension} ->
         socket =
           socket
-          |> put_flash(:info, "Dimension updated successfully")
-          |> push_navigate(to: Dimensions.set_path(socket.assigns.set))
+          |> put_flash(:info, gettext("Rendition updated"))
+          |> push_navigate(to: RenditionsComponent.set_path(socket.assigns.set))
 
         {:noreply, socket}
 
@@ -156,8 +156,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     socket
     |> assign(:changeset, changeset)
     |> assign(:dimension_type, dimension_type)
-    |> assign(:page_title, gettext("Edit Storage Dimension"))
-    |> assign(:form_action, gettext("Update Dimension"))
+    |> assign(:page_title, gettext("Edit rendition"))
+    |> assign(:form_action, gettext("Update rendition"))
     |> assign_format_fields(changeset)
   end
 
@@ -185,9 +185,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     end)
   end
 
-  defp page_title_with_type(:new, "image"), do: gettext("Add Image Dimension")
-  defp page_title_with_type(:new, "video"), do: gettext("Add Video Dimension")
-  defp page_title_with_type(:new, _), do: gettext("Add Storage Dimension")
+  defp page_title_with_type(:new, "image"), do: gettext("Add image rendition")
+  defp page_title_with_type(:new, "video"), do: gettext("Add video rendition")
+  defp page_title_with_type(:new, _), do: gettext("Add rendition")
 
   # Helper function for input validation styling
   defp input_class(changeset, field) do

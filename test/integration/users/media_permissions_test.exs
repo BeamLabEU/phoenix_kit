@@ -108,7 +108,8 @@ defmodule PhoenixKit.Integration.Users.MediaPermissionsTest do
 
       for path <- [
             "/admin/settings/media",
-            "/admin/settings/media/health",
+            "/admin/settings/media/renditions/new/image",
+            "/admin/settings/media/libraries/#{PhoenixKit.Modules.Storage.Libraries.media_uuid()}",
             "/admin/settings/media/buckets/new"
           ] do
         conn_plain = log_in_user(conn, user_with(plain))

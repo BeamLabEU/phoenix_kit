@@ -448,25 +448,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         subtab_display: :when_active,
         highlight_with_subtabs: false,
         gettext_backend: PhoenixKitWeb.Gettext
-      },
-      admin_subtab(
-        :admin_settings_media_dimensions,
-        gettext_noop("Dimensions"),
-        "hero-arrows-pointing-out",
-        "media/dimensions",
-        934,
-        :admin_settings_media,
-        "media.manage"
-      ),
-      admin_subtab(
-        :admin_settings_media_health,
-        gettext_noop("Health"),
-        "hero-heart",
-        "media/health",
-        935,
-        :admin_settings_media,
-        "media.manage"
-      )
+      }
     ]
 
     [settings_parent | Enum.map(subtabs, &Tab.resolve_path(&1, :settings))]

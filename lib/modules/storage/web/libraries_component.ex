@@ -10,9 +10,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   (and only once there are two); managing them lives here, next to the buckets
   their files are stored in.
 
-  Where a library keeps its files (its **storage profile**) and which sizes
-  its uploads get (its **variant set**), V205, are chosen **once, when it is
-  created**, and shown read-only afterwards: moving a library to another
+  Where a library keeps its files (its **storage profile**) and which
+  renditions its uploads get (its **rendition set**, `VariantSet`), V205, are
+  chosen **once, when it is created**, and shown read-only afterwards: moving a library to another
   profile is a bulk move of its files, so it is not a dropdown. To move where
   the files of every library on a profile live, change the profile's buckets
   (Storage profiles tab). The choice is offered only when there is something to
@@ -192,7 +192,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   defp field_label(:storage_profile_uuid), do: gettext("Storage profile")
-  defp field_label(:variant_set_uuid), do: gettext("Variant set")
+  defp field_label(:variant_set_uuid), do: gettext("Rendition set")
   defp field_label(_field), do: gettext("Library name")
 
   # Where a library keeps its files and which sizes it gets: names only, and
@@ -283,11 +283,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                 class="label-text text-sm tooltip tooltip-bottom text-left"
                 data-tip={
                   gettext(
-                    "Which image and video sizes its uploads get. Chosen now; it does not change afterwards."
+                    "Which renditions its uploads get: smaller copies such as thumbnails and video resolutions. Chosen now; it does not change afterwards."
                   )
                 }
               >
-                {gettext("Variant set")}
+                {gettext("Rendition set")}
               </span>
               <select name="set" class="select select-sm select-bordered">
                 <option :for={set <- @variant_sets} value={set.uuid}>{set.name}</option>

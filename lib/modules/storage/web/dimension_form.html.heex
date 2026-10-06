@@ -7,15 +7,15 @@
   page_crumbs={[
     %{label: gettext("Media"), path: PhoenixKit.Utils.Routes.path("/admin/settings/media")},
     %{
-      label: gettext("Variant sets"),
-      path: PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")
+      label: gettext("Renditions"),
+      path: PhoenixKit.Utils.Routes.path("/admin/settings/media?tab=renditions")
     },
     %{
       label: @set.name,
-      path: PhoenixKitWeb.Live.Modules.Storage.Dimensions.set_path(@set)
+      path: PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent.set_path(@set)
     }
   ]}
-  page_subtitle={gettext("Configure dimension presets for automatic file variant generation")}
+  page_subtitle={gettext("Set up one rendition: its dimensions, quality and format")}
   current_path={@current_path}
   current_locale={@current_locale}
   project_title={@project_title}
@@ -37,7 +37,7 @@
 
           <fieldset class="fieldset">
             <legend class="fieldset-legend font-semibold">
-              {gettext("Dimension Name")} *
+              {gettext("Rendition name")} *
             </legend>
             <.input
               type="text"
@@ -50,7 +50,7 @@
             />
             {render_error(@changeset, :name)}
             <p class="text-xs text-base-content/50 mt-1">
-              {gettext("A unique name to identify this dimension preset")}
+              {gettext("A unique name for this rendition")}
             </p>
           </fieldset>
 
@@ -234,7 +234,7 @@
       <%!-- Actions --%>
       <div class="flex justify-end gap-3">
         <.link
-          navigate={PhoenixKitWeb.Live.Modules.Storage.Dimensions.set_path(@set)}
+          navigate={PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent.set_path(@set)}
           class="btn btn-ghost"
         >
           {gettext("Cancel")}

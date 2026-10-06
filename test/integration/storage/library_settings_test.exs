@@ -149,4 +149,78 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
       refute AnnotationThumbnail.enabled_for_file_uuid?("not a uuid")
     end
   end
+
+  describe "deep zoom for a library" do
+    alias PhoenixKit.Modules.Storage.VariantSets
+
+    test "follows its rendition set's old flag until the library chooses" do
+      {:ok, set} =
+        VariantSets.create_variant_set(%{name: "Zoom #{System.unique_integer([:positive])}"})
+
+      {:ok, library} =
+        Libraries.create_system_library(%{
+          name: "Zoomy #{System.unique_integer([:positive])}",
+          variant_set_uuid: set.uuid
+        })
+
+      refute VariantSets.deep_zoom_for_library?(library.uuid)
+
+      {:ok, _} = VariantSets.update_variant_set(set, %{generate_tiles: true})
+      assert VariantSets.deep_zoom_for_library?(library.uuid)
+    end
+
+    test "a library's own choice wins over the set, either way" do
+      {:ok, set} =
+        VariantSets.create_variant_set(%{
+          name: "Zoom #{System.unique_integer([:positive])}",
+          generate_tiles: true
+        })
+
+      {:ok, library} =
+        Libraries.create_system_library(%{
+          name: "Zoomy #{System.unique_integer([:positive])}",
+          variant_set_uuid: set.uuid
+        })
+
+      assert VariantSets.deep_zoom_for_library?(library.uuid)
+
+      {:ok, _} = Libraries.put_setting(library, :deep_zoom, false)
+      refute VariantSets.deep_zoom_for_library?(library.uuid)
+
+      {:ok, _} = Libraries.put_setting(library, :deep_zoom, true)
+      assert VariantSets.deep_zoom_for_library?(library.uuid)
+
+      {:ok, _} = Libraries.put_setting(library, :deep_zoom, nil)
+      assert VariantSets.deep_zoom_for_library?(library.uuid)
+    end
+
+    test "on for one library leaves another library on the same set alone" do
+      {:ok, set} =
+        VariantSets.create_variant_set(%{name: "Shared #{System.unique_integer([:positive])}"})
+
+      {:ok, one} =
+        Libraries.create_system_library(%{
+          name: "One #{System.unique_integer([:positive])}",
+          variant_set_uuid: set.uuid
+        })
+
+      {:ok, two} =
+        Libraries.create_system_library(%{
+          name: "Two #{System.unique_integer([:positive])}",
+          variant_set_uuid: set.uuid
+        })
+
+      {:ok, _} = Libraries.put_setting(one, :deep_zoom, true)
+
+      assert VariantSets.deep_zoom_for_library?(one.uuid)
+      refute VariantSets.deep_zoom_for_library?(two.uuid)
+
+      assert MapSet.equal?(
+               VariantSets.tiles_among([one.uuid, two.uuid]),
+               MapSet.new([to_string(one.uuid)])
+             )
+
+      assert VariantSets.tiles_anywhere?()
+    end
+  end
 end

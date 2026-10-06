@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Live.StorageHealthTest do
   @moduledoc """
-  The media Health page (V205): it counts the files that are where, and
+  The Health tab of Settings → Media (V205): it counts the files that are where, and
   what, their library's storage wants, lists the ones waiting for the
   reconciler with what they wait for, and offers to queue a pass.
   """
@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Live.StorageHealthTest do
   alias PhoenixKit.Modules.Storage.{Libraries, Profiles}
   alias PhoenixKit.Utils.Routes
 
-  @path Routes.path("/admin/settings/media/health")
+  @path Routes.path("/admin/settings/media?tab=health")
 
   setup %{conn: conn} do
     {user, _token} = create_admin_user()
@@ -51,9 +51,9 @@ defmodule PhoenixKitWeb.Live.StorageHealthTest do
 
     assert html =~ file.original_file_name
     assert html =~ library.name
-    assert has_element?(view, "#health-reconcile")
+    assert has_element?(view, "#media-health-reconcile")
 
-    html = render_click(view, "reconcile")
-    assert html =~ "reconciler"
+    view |> element("#media-health-reconcile") |> render_click()
+    assert render(view) =~ "reconciler"
   end
 end

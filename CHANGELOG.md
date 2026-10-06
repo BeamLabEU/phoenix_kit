@@ -37,8 +37,23 @@
 - **A library's annotated-thumbnail choice moved to its page**, with a note that existing thumbnails are not
   regenerated when it changes.
 
+- **Dimensions are now "Renditions", a tab of Settings → Media.** The sidebar's Media › Dimensions and
+  Media › Health items are gone: Renditions (after Storage profiles) and Health (after Libraries) are tabs,
+  like Buckets and Libraries. A rendition is a smaller or re-encoded copy of an upload (a thumbnail, a 720p
+  video); the old words "variant set", "dimension", "size" and "preset" in the admin are now "rendition set"
+  and "rendition", and the add and edit pages for one are `/admin/settings/media/renditions/…`. The old
+  `/admin/settings/media/dimensions` and `/health` addresses redirect to their tabs. The Health report is
+  read when its tab opens, not when the page loads.
+- **Deep zoom (zoomable tiles) moved from the rendition set to the library.** A library's page has a Viewing
+  card with a Deep zoom switch beside Annotated thumbnails. A library that has not chosen keeps following its
+  set's old flag, so nothing turns on or off; the checkbox is gone from the set. Turning it off only stops
+  serving tiles, the ones made stay stored. The ImageMagick notice now asks whether any library has it on.
+- **The library page links its rendition set to its tab**, and `PhoenixKitWeb.Live.Modules.Storage.LibraryPage`
+  is now in the permission map (`media.manage`) with the other storage pages.
+
 ### i18n
 
+- Translations for the renditions wording, the Viewing card and the two tabs.
 - Translations for the new bucket delete confirmation and stats captions, in all shipped locales.
 - Translations for the library page, the creation-time storage choice and the reworded profile refusal.
 

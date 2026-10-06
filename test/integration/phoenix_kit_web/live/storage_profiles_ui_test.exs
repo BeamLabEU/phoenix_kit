@@ -359,33 +359,36 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
   end
 
-  describe "the variant sets page" do
-    test "creates a set, saves its flags, and a new size lands in it", %{conn: conn} do
-      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media/dimensions"))
+  describe "the Renditions tab" do
+    test "creates a set, saves its flags, and a new rendition lands in it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
 
       view
-      |> form("#variant-set-new-form", %{"new_set" => %{"name" => "Photography"}})
+      |> form("#media-renditions-new-set", %{"new_set" => %{"name" => "Photography"}})
       |> render_submit()
 
       set = Enum.find(VariantSets.list_variant_sets(), &(&1.name == "Photography"))
       assert set
-      assert_patch(view, Routes.path("/admin/settings/media/dimensions?set=#{set.uuid}"))
+      assert_patch(view, Routes.path("/admin/settings/media?tab=renditions&set=#{set.uuid}"))
+
+      # Deep zoom is the library's, not the set's: no tiles checkbox here.
+      refute has_element?(view, "input[name='variant_set[generate_tiles]']")
 
       view
-      |> form("#variant-set-form-#{set.uuid}", %{
-        "variant_set" => %{"generate_tiles" => "true", "selectable" => "true"}
+      |> form("#media-renditions-set-form-#{set.uuid}", %{
+        "variant_set" => %{"selectable" => "true"}
       })
       |> render_submit()
 
-      assert %{generate_tiles: true, selectable: true} = VariantSets.get_variant_set(set.uuid)
+      assert %{selectable: true} = VariantSets.get_variant_set(set.uuid)
 
-      # The standard sizes it started with cannot be deleted from the page.
+      # The standard renditions it started with cannot be deleted from the page.
       html = render(view)
       assert html =~ "standard"
       refute html =~ ~s(phx-click="delete_dimension")
 
       {:ok, form_view, _html} =
-        live(conn, Routes.path("/admin/settings/media/dimensions/new/image?set=#{set.uuid}"))
+        live(conn, Routes.path("/admin/settings/media/renditions/new/image?set=#{set.uuid}"))
 
       form_view
       |> form("#dimension-form", %{
@@ -395,6 +398,11 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       assert Storage.get_dimension_by_name("grid_2x", set.uuid)
       refute Storage.get_dimension_by_name("grid_2x")
+    end
+
+    test "explains what a rendition is", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      assert has_element?(view, "#media-renditions-about", "A rendition is a smaller")
     end
   end
 end
