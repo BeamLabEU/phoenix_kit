@@ -201,6 +201,36 @@ defmodule PhoenixKit.SettingsSubscribeTest do
       refute_receive {:setting_changed, ^key, _}, 100
     end
 
+    # The writer's own `Cache.invalidate/2` cast lands later; what a
+    # subscriber relies on is the synchronous drop before the announcement.
+    test "is not announced until the cache has dropped the old value" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "before", history: false)
+      assert_receive {:setting_changed, ^key, "before"}
+
+      cache = GenServer.whereis({:via, Registry, {PhoenixKit.Cache.Registry, @cache}})
+      :ok = :sys.suspend(cache)
+
+      writer = Task.async(fn -> Settings.update_setting(key, "after", history: false) end)
+
+      refute_receive {:setting_changed, ^key, _},
+                     200,
+                     "announced while the cache still held the old value"
+
+      # ...and what the writer is waiting on is the drop of THIS key — not a
+      # call that drops nothing while the cast after it does the work
+      {:messages, pending} = Process.info(cache, :messages)
+
+      assert Enum.any?(pending, fn
+               {:"$gen_call", _from, {:invalidate_multiple, keys}} -> key in keys
+               _ -> false
+             end)
+
+      :ok = :sys.resume(cache)
+      assert {:ok, _} = Task.await(writer)
+      assert_receive {:setting_changed, ^key, "after"}
+    end
+
     test "through the batch and JSON writers is announced too" do
       a = key()
       b = key()

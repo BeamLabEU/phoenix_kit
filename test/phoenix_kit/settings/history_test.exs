@@ -257,24 +257,31 @@ defmodule PhoenixKit.Settings.HistoryTest do
   # permanent entry per pass would bury the feed and say nothing.
   describe "a write without history" do
     test "stores the value and records nothing, through every writer" do
-      plain = key()
-      json = key()
-      batch = key()
-      moduled = key()
+      # {writer, read back}; each writer is handed the option, the batch
+      # through its own map
+      writers = [
+        {&Settings.update_setting(&1, &2, history: false), &Settings.get_setting/1},
+        {&Settings.update_setting_with_module(&1, &2, "mod", history: false),
+         &Settings.get_setting/1},
+        {&Settings.update_boolean_setting(&1, &2 == "1", history: false),
+         &Settings.get_setting/1},
+        {&Settings.update_boolean_setting_with_module(&1, &2 == "1", "mod", history: false),
+         &Settings.get_setting/1},
+        {&Settings.update_json_setting(&1, %{"v" => &2}, history: false),
+         &Settings.get_json_setting/1},
+        {&Settings.update_json_setting_with_module(&1, %{"v" => &2}, "mod", history: false),
+         &Settings.get_json_setting/1},
+        {&Settings.update_settings_batch(%{&1 => &2}, history: false), &Settings.get_setting/1}
+      ]
 
-      for value <- ["1", "2", "3"] do
-        {:ok, _} = Settings.update_setting(plain, value, history: false)
-        {:ok, _} = Settings.update_json_setting(json, %{"v" => value}, history: false)
-        {:ok, _} = Settings.update_settings_batch(%{batch => value}, history: false)
-        {:ok, _} = Settings.update_setting_with_module(moduled, value, "mod", history: false)
+      for {write, read} <- writers do
+        key = key()
+
+        for value <- ["1", "0", "1"], do: {:ok, _} = write.(key, value)
+
+        assert read.(key) in ["1", "true", %{"v" => "1"}]
+        assert entries_for(key) == [], "#{inspect(write)} recorded history"
       end
-
-      assert Settings.get_setting(plain) == "3"
-      assert Settings.get_json_setting(json) == %{"v" => "3"}
-      assert Settings.get_setting(batch) == "3"
-      assert Settings.get_setting(moduled) == "3"
-
-      for k <- [plain, json, batch, moduled], do: assert(entries_for(k) == [])
     end
 
     test "publishes nothing to the feed" do
@@ -310,6 +317,60 @@ defmodule PhoenixKit.Settings.HistoryTest do
 
       assert Settings.get_setting(key) == nil
       assert entries_for(key) == []
+    end
+
+    test "refuses it whether or not the write would change the value" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "same")
+      [entry] = entries_for(key)
+      actor = [history: false, actor_uuid: Ecto.UUID.generate()]
+
+      assert_raise ArgumentError, ~r/history: false/, fn ->
+        Settings.update_setting(key, "same", actor)
+      end
+
+      assert_raise ArgumentError, ~r/history: false/, fn ->
+        Settings.update_settings_batch(%{key => "same"}, history: false, source: "settings")
+      end
+
+      # a caller handing `record/3` the row directly is held to the same rule
+      row = Repo.get_by!(Setting, key: key)
+      assert_raise ArgumentError, ~r/history: false/, fn -> History.record(row, row, actor) end
+
+      assert entries_for(key) == [entry]
+    end
+
+    test "refuses it before the transaction: no lock, no write, an empty batch too" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "before")
+      test_pid = self()
+      handler = "refused-writes-#{key}"
+
+      :telemetry.attach(
+        handler,
+        [:phoenix_kit, :test, :repo, :query],
+        fn _event, _measurements, %{query: sql}, _ ->
+          if sql =~ "phoenix_kit_settings" and sql =~ ~r/\b(INSERT|UPDATE)\b/,
+            do: send(test_pid, {:settings_write_or_lock, sql})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      assert_raise ArgumentError, fn ->
+        Settings.update_setting(key, "after", history: false, actor_uuid: Ecto.UUID.generate())
+      end
+
+      assert_raise ArgumentError, fn ->
+        Settings.update_settings_batch(%{}, history: false, source: "settings")
+      end
+
+      refute_received {:settings_write_or_lock, _}
+
+      # the probe does see a write that goes through
+      {:ok, _} = Settings.update_setting(key, "after", history: false)
+      assert_received {:settings_write_or_lock, _}
     end
   end
 

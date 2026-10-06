@@ -127,7 +127,8 @@ defmodule PhoenixKit.Modules.Sitemap do
   @last_generated_key "sitemap_last_generated"
   @url_count_key "sitemap_url_count"
 
-  # Generation stats are machine stamps: written without the settings history.
+  # Generation stats and the cached documents are machine-written: stored
+  # without the settings history.
   @no_history [history: false]
 
   # Cache keys
@@ -741,7 +742,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec cache_xml(String.t()) :: {:ok, any()} | {:error, any()}
   def cache_xml(xml_content) when is_binary(xml_content) do
-    settings_call(:update_setting, [@cache_xml_key, xml_content])
+    settings_call(:update_setting, [@cache_xml_key, xml_content, @no_history])
   end
 
   @doc """
@@ -754,7 +755,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec cache_html(String.t()) :: {:ok, any()} | {:error, any()}
   def cache_html(html_content) when is_binary(html_content) do
-    settings_call(:update_setting, [@cache_html_key, html_content])
+    settings_call(:update_setting, [@cache_html_key, html_content, @no_history])
   end
 
   @doc """

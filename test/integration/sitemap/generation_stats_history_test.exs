@@ -32,4 +32,16 @@ defmodule PhoenixKit.Integration.Sitemap.GenerationStatsHistoryTest do
 
     for key <- @keys, do: assert(History.list(key) == [], "#{key} recorded history")
   end
+
+  test "the cached documents are stored without history" do
+    {:ok, _} = Sitemap.cache_xml("<urlset>one</urlset>")
+    {:ok, _} = Sitemap.cache_xml("<urlset>two</urlset>")
+    {:ok, _} = Sitemap.cache_html("<html>one</html>")
+    {:ok, _} = Sitemap.cache_html("<html>two</html>")
+
+    assert Settings.get_setting("sitemap_xml_cache") == "<urlset>two</urlset>"
+    assert Settings.get_setting("sitemap_html_cache") == "<html>two</html>"
+    assert History.list("sitemap_xml_cache") == []
+    assert History.list("sitemap_html_cache") == []
+  end
 end

@@ -21,8 +21,8 @@ defmodule PhoenixKit.Settings.History do
   — nobody hears of a change that rolled back.
 
   Every write through `PhoenixKit.Settings` that changes a value records
-  one entry — except a write passed `history: false` (see "Machine stamps"
-  below): `metadata` carries the `key`, the value `from` and `to` (a
+  one entry, except a write passed `history: false` (see "Machine stamps"
+  below). The entry's `metadata` carries the `key`, the value `from` and `to` (a
   JSON setting as its encoded document), the `source` (`"settings"` for the
   admin pages, `"system"` otherwise); `actor_uuid` is the person when one
   made the change; `resource_uuid` is the setting row. The value before is
@@ -40,9 +40,12 @@ defmodule PhoenixKit.Settings.History do
   pruner never takes. Such a writer passes `history: false`: the write, the
   cache invalidation and the settings change broadcast happen as for any
   other write; only the entry is left out. The option is for a machine's own
-  stamp, never for something a person sets — a write that carries an
-  `actor_uuid` or comes from the admin pages (`source: "settings"`) raises
-  `ArgumentError` with it, so it cannot quietly drop a person's change.
+  stamp, never for something a person sets: together with an `actor_uuid`
+  or `source: "settings"` it raises `ArgumentError` (`check_options!/1`).
+  Every writer checks before its transaction — a refused call takes no
+  lock and writes nothing, whether or not it would have changed the value,
+  an empty batch included — and `record/3` checks again for a caller that
+  reaches it directly. No admin page passes the option.
   `list/2` and `value_at/2` know nothing about such a key's stamps.
 
   ## Reading it
@@ -96,22 +99,30 @@ defmodule PhoenixKit.Settings.History do
     end
   end
 
-  # Checked before anything else, so a refused write fails the same way
-  # whether or not it would have changed the value.
-  defp recorded?(opts) do
-    case Keyword.get(opts, :history, true) do
-      false ->
-        if Keyword.get(opts, :actor_uuid) != nil or Keyword.get(opts, :source) == "settings" do
-          raise ArgumentError,
-                "history: false is for a machine's own stamp; a write by a person " <>
-                  "(actor_uuid:) or from the admin pages (source: \"settings\") is always recorded"
-        end
-
-        false
-
-      _ ->
-        true
+  @doc """
+  Raises `ArgumentError` when a writer's options ask to skip the history
+  (`history: false`) for a write that names a person (`:actor_uuid`) or
+  comes from the admin pages (`source: "settings"`) — those are always
+  recorded. Every writer calls it before its transaction; `record/3` calls
+  it too. Returns `:ok`.
+  """
+  @spec check_options!(keyword()) :: :ok
+  def check_options!(opts) when is_list(opts) do
+    if Keyword.get(opts, :history) == false and
+         (Keyword.get(opts, :actor_uuid) != nil or Keyword.get(opts, :source) == "settings") do
+      raise ArgumentError,
+            "history: false is for a machine's own stamp; a write by a person " <>
+              "(actor_uuid:) or from the admin pages (source: \"settings\") is always recorded"
     end
+
+    :ok
+  end
+
+  # Checked first, so a refused call fails the same way whether or not it
+  # would have changed the value.
+  defp recorded?(opts) do
+    :ok = check_options!(opts)
+    Keyword.get(opts, :history, true) != false
   end
 
   defp insert(before, written, old, new, opts) do
