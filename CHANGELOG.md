@@ -10,6 +10,12 @@
   profiles tabs, instead of showing it all the time. Code names (`VariantSet`, `variant_set_uuid`), URLs and
   stored data are unchanged; history entries written before this say "rendition set" for deep zoom's default.
 
+- **The Renditions tab says what an image rendition's size means.** The Dimensions column read just "300px";
+  it now says "300 px wide" with "height follows the image" under it, or "150 × 150 px" with "cropped to fit",
+  the Mode badges read "Keeps proportions" and "Fixed size", and a legend under the image table adds that a
+  rendition never enlarges an image. A video rendition shows its configured numbers without a claim about how
+  they are applied.
+
 ### i18n
 
 - Translations for the rendition profile wording, in all shipped locales.

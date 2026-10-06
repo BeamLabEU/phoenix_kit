@@ -478,6 +478,21 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       assert has_element?(view, "#media-renditions button", "New rendition profile")
     end
 
+    test "says in words what an image rendition's size means", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      html = render(view)
+
+      # `small`, `medium` and `large` keep proportions: a width, the height follows.
+      assert html =~ "px wide"
+      assert html =~ "height follows the image"
+      assert html =~ "Keeps proportions"
+
+      # `thumbnail` is a box the image is cropped to.
+      assert html =~ "cropped to fit"
+
+      assert has_element?(view, "#media-renditions-image-legend", "never enlarges")
+    end
+
     test "explains what a rendition is", %{conn: conn} do
       {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
       assert has_element?(view, "#media-renditions-about", "A rendition is a smaller")

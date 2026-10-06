@@ -244,19 +244,30 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   def new_dimension_path(%VariantSet{uuid: uuid}, kind),
     do: Routes.path("/admin/settings/media/renditions/new/#{kind}?set=#{uuid}")
 
-  defp format_dimension_size(width, height) when is_integer(width) and is_integer(height) do
-    "#{width}×#{height}"
+  # What a rendition's size means, in words: `{size, note}`. An image rendition
+  # that keeps proportions sets the width and lets the height follow each image;
+  # a fixed one is a box the image is scaled to fill and cropped to. Neither
+  # enlarges an image. A video rendition shows its configured numbers only.
+  defp size_text(%{maintain_aspect_ratio: true, width: width}, kind) when is_integer(width) do
+    {gettext("%{width} px wide", width: width),
+     if(kind == :image, do: gettext("height follows the image"))}
   end
 
-  defp format_dimension_size(width, nil) when is_integer(width) do
-    "#{width}px wide"
+  defp size_text(%{width: width, height: height}, kind)
+       when is_integer(width) and is_integer(height) do
+    {gettext("%{width} × %{height} px", width: width, height: height),
+     if(kind == :image, do: gettext("cropped to fit"))}
   end
 
-  defp format_dimension_size(nil, height) when is_integer(height) do
-    "#{height}px tall"
-  end
+  defp size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
 
-  defp format_dimension_size(_, _), do: "Auto"
+  # The same in one line, for the card layout.
+  defp size_line(dimension, kind) do
+    case size_text(dimension, kind) do
+      {size, nil} -> size
+      {size, note} -> "#{size} · #{note}"
+    end
+  end
 
   @impl true
   def render(assigns) do
@@ -471,18 +482,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                     [
                       %{
                         label: gettext("Dimensions"),
-                        value:
-                          if(d.maintain_aspect_ratio,
-                            do: "#{d.width}px",
-                            else: format_dimension_size(d.width, d.height)
-                          )
+                        value: size_line(d, :image)
                       },
                       %{
                         label: gettext("Mode"),
                         value:
                           if(d.maintain_aspect_ratio,
-                            do: gettext("Aspect Ratio"),
-                            else: gettext("Fixed")
+                            do: gettext("Keeps proportions"),
+                            else: gettext("Fixed size")
                           )
                       },
                       %{label: gettext("Quality"), value: "#{d.quality}%"},
@@ -529,22 +536,18 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                         </span>
                       </.table_default_cell>
                       <.table_default_cell>
-                        <span class="font-mono text-sm">
-                          <%= if dimension.maintain_aspect_ratio do %>
-                            {dimension.width}px
-                          <% else %>
-                            {format_dimension_size(dimension.width, dimension.height)}
-                          <% end %>
-                        </span>
+                        <% {size, note} = size_text(dimension, :image) %>
+                        <div class="font-mono text-sm">{size}</div>
+                        <div :if={note} class="text-xs text-base-content/60">{note}</div>
                       </.table_default_cell>
                       <.table_default_cell>
                         <%= if dimension.maintain_aspect_ratio do %>
                           <span class="badge badge-info badge-sm h-auto">
-                            {gettext("Aspect Ratio")}
+                            {gettext("Keeps proportions")}
                           </span>
                         <% else %>
                           <span class="badge badge-secondary badge-sm h-auto">
-                            {gettext("Fixed")}
+                            {gettext("Fixed size")}
                           </span>
                         <% end %>
                       </.table_default_cell>
@@ -650,6 +653,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                   </button>
                 </:card_actions>
               </.table_default>
+
+              <p id={"#{@id}-image-legend"} class="mt-3 text-xs text-base-content/60">
+                <strong>{gettext("Keeps proportions")}:</strong>
+                {gettext("the width is set and the height follows each image.")}
+                <strong>{gettext("Fixed size")}:</strong>
+                {gettext("the image is scaled to fill the box and the excess is cropped.")}
+                {gettext(
+                  "A rendition never enlarges an image: one smaller than the size stays as it is."
+                )}
+              </p>
             </div>
 
             <%!-- Video Dimensions --%>
@@ -683,11 +696,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                     [
                       %{
                         label: gettext("Resolution"),
-                        value:
-                          if(d.maintain_aspect_ratio,
-                            do: "#{d.width}px",
-                            else: format_dimension_size(d.width, d.height)
-                          )
+                        value: size_line(d, :video)
                       },
                       %{
                         label: gettext("Mode"),
@@ -738,13 +747,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
                         </span>
                       </.table_default_cell>
                       <.table_default_cell>
-                        <span class="font-mono text-sm">
-                          <%= if dimension.maintain_aspect_ratio do %>
-                            {dimension.width}px
-                          <% else %>
-                            {format_dimension_size(dimension.width, dimension.height)}
-                          <% end %>
-                        </span>
+                        <% {size, _note} = size_text(dimension, :video) %>
+                        <span class="font-mono text-sm">{size}</span>
                       </.table_default_cell>
                       <.table_default_cell>
                         <%= if dimension.maintain_aspect_ratio do %>

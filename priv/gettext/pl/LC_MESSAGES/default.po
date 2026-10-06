@@ -396,10 +396,10 @@ msgstr "Aktywny"
 
 #: lib/modules/sitemap/web/settings.html.heex:16
 #: lib/modules/storage/web/bucket_page.html.heex:19
-#: lib/modules/storage/web/renditions_component.ex:502
-#: lib/modules/storage/web/renditions_component.ex:571
-#: lib/modules/storage/web/renditions_component.ex:707
-#: lib/modules/storage/web/renditions_component.ex:780
+#: lib/modules/storage/web/renditions_component.ex:509
+#: lib/modules/storage/web/renditions_component.ex:574
+#: lib/modules/storage/web/renditions_component.ex:716
+#: lib/modules/storage/web/renditions_component.ex:784
 #: lib/modules/storage/web/settings.html.heex:134
 #: lib/modules/storage/web/settings.html.heex:224
 #: lib/modules/storage/web/settings.html.heex:325
@@ -498,8 +498,8 @@ msgid "Account Information"
 msgstr "Informacje o koncie"
 
 #: lib/modules/sitemap/web/settings.html.heex:66
-#: lib/modules/storage/web/renditions_component.ex:516
-#: lib/modules/storage/web/renditions_component.ex:725
+#: lib/modules/storage/web/renditions_component.ex:523
+#: lib/modules/storage/web/renditions_component.ex:734
 #: lib/modules/storage/web/settings.html.heex:155
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:245
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:303
@@ -630,7 +630,7 @@ msgstr "Lista wypunktowana"
 #: lib/modules/storage/web/libraries_component.ex:312
 #: lib/modules/storage/web/library_page.html.heex:77
 #: lib/modules/storage/web/profiles_component.ex:492
-#: lib/modules/storage/web/renditions_component.ex:312
+#: lib/modules/storage/web/renditions_component.ex:323
 #: lib/phoenix_kit/mentions/live.ex:257
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:41
 #: lib/phoenix_kit_web/components/annotation_composer.ex:661
@@ -909,10 +909,10 @@ msgstr "Kontakt do IOD zapisany"
 
 #: lib/modules/storage/web/bucket_page.ex:450
 #: lib/modules/storage/web/profiles_component.ex:590
-#: lib/modules/storage/web/renditions_component.ex:611
-#: lib/modules/storage/web/renditions_component.ex:649
-#: lib/modules/storage/web/renditions_component.ex:820
-#: lib/modules/storage/web/renditions_component.ex:858
+#: lib/modules/storage/web/renditions_component.ex:614
+#: lib/modules/storage/web/renditions_component.ex:652
+#: lib/modules/storage/web/renditions_component.ex:824
+#: lib/modules/storage/web/renditions_component.ex:862
 #: lib/modules/storage/web/settings.html.heex:309
 #: lib/phoenix_kit_web/components/core/bulk_select.ex:228
 #: lib/phoenix_kit_web/components/image_editor.ex:1032
@@ -963,10 +963,10 @@ msgstr "Opis"
 #: lib/modules/sitemap/web/settings.html.heex:16
 #: lib/modules/storage/web/bucket_page.html.heex:20
 #: lib/modules/storage/web/profiles_component.ex:677
-#: lib/modules/storage/web/renditions_component.ex:502
-#: lib/modules/storage/web/renditions_component.ex:575
-#: lib/modules/storage/web/renditions_component.ex:707
-#: lib/modules/storage/web/renditions_component.ex:784
+#: lib/modules/storage/web/renditions_component.ex:509
+#: lib/modules/storage/web/renditions_component.ex:578
+#: lib/modules/storage/web/renditions_component.ex:716
+#: lib/modules/storage/web/renditions_component.ex:788
 #: lib/modules/storage/web/settings.html.heex:134
 #: lib/modules/storage/web/settings.html.heex:228
 #: lib/phoenix_kit_web/components/core/badge.ex:191
@@ -992,10 +992,10 @@ msgstr "Czy chcesz kontynuować?"
 msgid "Draft"
 msgstr "Szkic"
 
-#: lib/modules/storage/web/renditions_component.ex:591
-#: lib/modules/storage/web/renditions_component.ex:629
-#: lib/modules/storage/web/renditions_component.ex:800
-#: lib/modules/storage/web/renditions_component.ex:838
+#: lib/modules/storage/web/renditions_component.ex:594
+#: lib/modules/storage/web/renditions_component.ex:632
+#: lib/modules/storage/web/renditions_component.ex:804
+#: lib/modules/storage/web/renditions_component.ex:842
 #: lib/modules/storage/web/settings.html.heex:294
 #: lib/phoenix_kit_web/components/core/admin_edit_link.ex:53
 #: lib/phoenix_kit_web/components/core/admin_edit_link.ex:63
@@ -1185,8 +1185,8 @@ msgstr "Obserwowani"
 msgid "Forgot your password?"
 msgstr "Nie pamiętasz hasła?"
 
-#: lib/modules/storage/web/renditions_component.ex:490
-#: lib/modules/storage/web/renditions_component.ex:514
+#: lib/modules/storage/web/renditions_component.ex:497
+#: lib/modules/storage/web/renditions_component.ex:521
 #, elixir-autogen, elixir-format
 msgid "Format"
 msgstr "Format"
@@ -1337,10 +1337,10 @@ msgstr "Zaloguj się hasłem"
 msgid "Manage your cookie settings"
 msgstr "Zarządzaj ustawieniami plików cookie"
 
-#: lib/modules/storage/web/renditions_component.ex:481
-#: lib/modules/storage/web/renditions_component.ex:512
-#: lib/modules/storage/web/renditions_component.ex:693
-#: lib/modules/storage/web/renditions_component.ex:719
+#: lib/modules/storage/web/renditions_component.ex:488
+#: lib/modules/storage/web/renditions_component.ex:519
+#: lib/modules/storage/web/renditions_component.ex:702
+#: lib/modules/storage/web/renditions_component.ex:728
 #: lib/phoenix_kit_web/live/activity/index.html.heex:158
 #: lib/phoenix_kit_web/live/activity/index.html.heex:303
 #, elixir-autogen, elixir-format
@@ -1408,7 +1408,7 @@ msgstr "Noindex/nofollow wyłączone. Witryna może być ponownie indeksowana."
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow włączone. Wyszukiwarki nie będą indeksować tej witryny."
 
-#: lib/phoenix_kit/users/permissions.ex:1530
+#: lib/phoenix_kit/users/permissions.ex:1531
 #, elixir-autogen, elixir-format
 msgid "Not authenticated"
 msgstr "Nieuwierzytelniony"
@@ -1463,7 +1463,7 @@ msgstr "Lista numerowana"
 msgid "OK"
 msgstr "OK"
 
-#: lib/phoenix_kit/users/permissions.ex:1539
+#: lib/phoenix_kit/users/permissions.ex:1540
 #, elixir-autogen, elixir-format
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Tylko właściciel może edytować uprawnienia administratora"
@@ -1512,7 +1512,7 @@ msgstr "Informacje o organizacji zapisane"
 msgid "Overview of role permissions across all modules"
 msgstr "Przegląd uprawnień ról we wszystkich modułach"
 
-#: lib/phoenix_kit/users/permissions.ex:1533
+#: lib/phoenix_kit/users/permissions.ex:1534
 #, elixir-autogen, elixir-format
 msgid "Owner role always has full access and cannot be modified"
 msgstr "Rola Właściciel ma zawsze pełny dostęp i nie można jej zmienić"
@@ -1548,7 +1548,7 @@ msgstr "Hasło zostało zmienione."
 msgid "Pending"
 msgstr "Oczekujące"
 
-#: lib/phoenix_kit/users/permissions.ex:1542
+#: lib/phoenix_kit/users/permissions.ex:1543
 #, elixir-autogen, elixir-format
 msgid "Permission denied"
 msgstr "Brak uprawnień"
@@ -1788,7 +1788,7 @@ msgstr "SWIFT/BIC"
 #: lib/modules/storage/web/library_page.html.heex:75
 #: lib/modules/storage/web/library_page.html.heex:297
 #: lib/modules/storage/web/library_page.html.heex:328
-#: lib/modules/storage/web/renditions_component.ex:364
+#: lib/modules/storage/web/renditions_component.ex:375
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:67
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:356
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:440
@@ -1925,10 +1925,10 @@ msgid "State/Province"
 msgstr "Województwo/Region"
 
 #: lib/modules/storage/web/profiles_component.ex:649
-#: lib/modules/storage/web/renditions_component.ex:501
-#: lib/modules/storage/web/renditions_component.ex:515
-#: lib/modules/storage/web/renditions_component.ex:706
-#: lib/modules/storage/web/renditions_component.ex:724
+#: lib/modules/storage/web/renditions_component.ex:508
+#: lib/modules/storage/web/renditions_component.ex:522
+#: lib/modules/storage/web/renditions_component.ex:715
+#: lib/modules/storage/web/renditions_component.ex:733
 #: lib/modules/storage/web/settings.html.heex:133
 #: lib/modules/storage/web/settings.html.heex:154
 #: lib/modules/storage/web/settings.html.heex:647
@@ -2189,7 +2189,7 @@ msgstr "Możesz zarządzać tylko uprawnieniami, które posiadasz"
 msgid "You cannot edit permissions for this role"
 msgstr "Nie możesz edytować uprawnień tej roli"
 
-#: lib/phoenix_kit/users/permissions.ex:1536
+#: lib/phoenix_kit/users/permissions.ex:1537
 #, elixir-autogen, elixir-format
 msgid "You cannot edit permissions for your own role"
 msgstr "Nie możesz edytować uprawnień własnej roli"
@@ -2266,10 +2266,10 @@ msgid "Delete bucket"
 msgstr "Usuń zasobnik"
 
 #: lib/modules/storage/web/bucket_page.html.heex:36
-#: lib/modules/storage/web/renditions_component.ex:600
-#: lib/modules/storage/web/renditions_component.ex:638
-#: lib/modules/storage/web/renditions_component.ex:809
-#: lib/modules/storage/web/renditions_component.ex:847
+#: lib/modules/storage/web/renditions_component.ex:603
+#: lib/modules/storage/web/renditions_component.ex:641
+#: lib/modules/storage/web/renditions_component.ex:813
+#: lib/modules/storage/web/renditions_component.ex:851
 #: lib/modules/storage/web/settings.html.heex:260
 #: lib/modules/storage/web/settings.html.heex:301
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:164
@@ -2286,10 +2286,10 @@ msgid "Edit bucket"
 msgstr "Edytuj zasobnik"
 
 #: lib/modules/storage/web/bucket_page.html.heex:36
-#: lib/modules/storage/web/renditions_component.ex:600
-#: lib/modules/storage/web/renditions_component.ex:638
-#: lib/modules/storage/web/renditions_component.ex:809
-#: lib/modules/storage/web/renditions_component.ex:847
+#: lib/modules/storage/web/renditions_component.ex:603
+#: lib/modules/storage/web/renditions_component.ex:641
+#: lib/modules/storage/web/renditions_component.ex:813
+#: lib/modules/storage/web/renditions_component.ex:851
 #: lib/modules/storage/web/settings.html.heex:260
 #: lib/modules/storage/web/settings.html.heex:301
 #: lib/phoenix_kit_web/live/settings/users.html.heex:646
@@ -2548,10 +2548,8 @@ msgstr "Zastosuj zmiany"
 msgid "Applying..."
 msgstr "Stosowanie…"
 
-#: lib/modules/storage/web/renditions_component.ex:484
-#: lib/modules/storage/web/renditions_component.ex:543
-#: lib/modules/storage/web/renditions_component.ex:696
-#: lib/modules/storage/web/renditions_component.ex:752
+#: lib/modules/storage/web/renditions_component.ex:705
+#: lib/modules/storage/web/renditions_component.ex:756
 #, elixir-autogen, elixir-format
 msgid "Aspect Ratio"
 msgstr "Proporcje"
@@ -2643,8 +2641,8 @@ msgstr "Identyfikator klienta"
 msgid "Client Secret"
 msgstr "Sekret klienta"
 
-#: lib/modules/storage/web/renditions_component.ex:702
-#: lib/modules/storage/web/renditions_component.ex:723
+#: lib/modules/storage/web/renditions_component.ex:711
+#: lib/modules/storage/web/renditions_component.ex:732
 #, elixir-autogen, elixir-format
 msgid "Codec"
 msgstr "Kodek"
@@ -2816,10 +2814,8 @@ msgstr "Klucz pola"
 msgid "First day of the week"
 msgstr "Pierwszy dzień tygodnia"
 
-#: lib/modules/storage/web/renditions_component.ex:485
-#: lib/modules/storage/web/renditions_component.ex:547
-#: lib/modules/storage/web/renditions_component.ex:697
-#: lib/modules/storage/web/renditions_component.ex:756
+#: lib/modules/storage/web/renditions_component.ex:706
+#: lib/modules/storage/web/renditions_component.ex:760
 #, elixir-autogen, elixir-format
 msgid "Fixed"
 msgstr "Stały"
@@ -2829,7 +2825,7 @@ msgstr "Stały"
 msgid "Format Override"
 msgstr "Nadpisanie formatu"
 
-#: lib/modules/storage/web/renditions_component.ex:877
+#: lib/modules/storage/web/renditions_component.ex:881
 #, elixir-autogen, elixir-format
 msgid "Format Override:"
 msgstr "Nadpisanie formatu:"
@@ -2882,7 +2878,7 @@ msgstr "Sposób wyświetlania godzin"
 msgid "If behind nginx/apache, ensure"
 msgstr "Jeśli za nginx/apache, upewnij się, że"
 
-#: lib/modules/storage/web/renditions_component.ex:874
+#: lib/modules/storage/web/renditions_component.ex:878
 #, elixir-autogen, elixir-format
 msgid "Images use 1-100 scale (compression quality)"
 msgstr "Obrazy używają skali 1–100 (jakość kompresji)"
@@ -2899,7 +2895,7 @@ msgstr "Klucz:"
 msgid "Label"
 msgstr "Etykieta"
 
-#: lib/modules/storage/web/renditions_component.ex:878
+#: lib/modules/storage/web/renditions_component.ex:882
 #, elixir-autogen, elixir-format
 msgid "Leave empty to preserve original format, or specify jpg/png/webp/mp4"
 msgstr "Pozostaw puste, aby zachować oryginalny format, lub podaj jpg/png/webp/mp4"
@@ -2951,9 +2947,9 @@ msgstr "Zarządzaj rejestracją użytkowników, wartościami domyślnymi i polam
 #: lib/modules/storage/web/libraries_component.ex:437
 #: lib/modules/storage/web/library_page.html.heex:82
 #: lib/modules/storage/web/profiles_component.ex:515
-#: lib/modules/storage/web/renditions_component.ex:351
-#: lib/modules/storage/web/renditions_component.ex:510
-#: lib/modules/storage/web/renditions_component.ex:715
+#: lib/modules/storage/web/renditions_component.ex:362
+#: lib/modules/storage/web/renditions_component.ex:517
+#: lib/modules/storage/web/renditions_component.ex:724
 #: lib/modules/storage/web/settings.html.heex:142
 #: lib/phoenix_kit_web/components/media_browser.html.heex:427
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1941
@@ -3039,10 +3035,10 @@ msgstr "Dostawcy OAuth"
 msgid "OAuth Setup Instructions"
 msgstr "Instrukcje konfiguracji OAuth"
 
-#: lib/modules/storage/web/renditions_component.ex:492
-#: lib/modules/storage/web/renditions_component.ex:558
-#: lib/modules/storage/web/renditions_component.ex:703
-#: lib/modules/storage/web/renditions_component.ex:767
+#: lib/modules/storage/web/renditions_component.ex:499
+#: lib/modules/storage/web/renditions_component.ex:561
+#: lib/modules/storage/web/renditions_component.ex:712
+#: lib/modules/storage/web/renditions_component.ex:771
 #: lib/phoenix_kit_web/live/users/media_detail.ex:579
 #, elixir-autogen, elixir-format
 msgid "Original"
@@ -3069,20 +3065,20 @@ msgid "Project Title"
 msgstr "Nazwa projektu"
 
 #: lib/modules/storage/web/dimension_form.html.heex:144
-#: lib/modules/storage/web/renditions_component.ex:488
-#: lib/modules/storage/web/renditions_component.ex:513
+#: lib/modules/storage/web/renditions_component.ex:495
+#: lib/modules/storage/web/renditions_component.ex:520
 #, elixir-autogen, elixir-format
 msgid "Quality"
 msgstr "Jakość"
 
 #: lib/modules/storage/web/dimension_form.html.heex:142
-#: lib/modules/storage/web/renditions_component.ex:700
-#: lib/modules/storage/web/renditions_component.ex:721
+#: lib/modules/storage/web/renditions_component.ex:709
+#: lib/modules/storage/web/renditions_component.ex:730
 #, elixir-autogen, elixir-format
 msgid "Quality (CRF)"
 msgstr "Jakość (CRF)"
 
-#: lib/modules/storage/web/renditions_component.ex:873
+#: lib/modules/storage/web/renditions_component.ex:877
 #, elixir-autogen, elixir-format
 msgid "Quality Settings:"
 msgstr "Ustawienia jakości:"
@@ -3109,13 +3105,13 @@ msgstr "Pole wymagane"
 msgid "Reset"
 msgstr "Resetuj"
 
-#: lib/modules/storage/web/renditions_component.ex:418
+#: lib/modules/storage/web/renditions_component.ex:429
 #, elixir-autogen, elixir-format
 msgid "Reset to Defaults"
 msgstr "Przywróć wartości domyślne"
 
-#: lib/modules/storage/web/renditions_component.ex:685
-#: lib/modules/storage/web/renditions_component.ex:717
+#: lib/modules/storage/web/renditions_component.ex:698
+#: lib/modules/storage/web/renditions_component.ex:726
 #, elixir-autogen, elixir-format
 msgid "Resolution"
 msgstr "Rozdzielczość"
@@ -3336,12 +3332,12 @@ msgstr "Użytkownik może edytować to pole"
 msgid "Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy."
 msgstr "Używa darmowych API: IP-API.com (45 zapytań/minutę) z ipapi.co (1000 zapytań/dzień) jako zapasowym. Domyślnie wyłączone z uwagi na prywatność."
 
-#: lib/modules/storage/web/renditions_component.ex:875
+#: lib/modules/storage/web/renditions_component.ex:879
 #, elixir-autogen, elixir-format
 msgid "Video Settings:"
 msgstr "Ustawienia wideo:"
 
-#: lib/modules/storage/web/renditions_component.ex:876
+#: lib/modules/storage/web/renditions_component.ex:880
 #, elixir-autogen, elixir-format
 msgid "Videos use CRF 0-51 scale (lower = higher quality)"
 msgstr "Wideo używa skali CRF 0–51 (niżej = wyższa jakość)"
@@ -8029,8 +8025,8 @@ msgstr "Użytkownik/Sesja"
 msgid "you"
 msgstr "Ty"
 
-#: lib/modules/storage/web/renditions_component.ex:473
-#: lib/modules/storage/web/renditions_component.ex:511
+#: lib/modules/storage/web/renditions_component.ex:484
+#: lib/modules/storage/web/renditions_component.ex:518
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr "Wymiary"
@@ -15159,7 +15155,7 @@ msgstr "Pola standardowe"
 
 #: lib/modules/storage/web/libraries_component.ex:310
 #: lib/modules/storage/web/profiles_component.ex:490
-#: lib/modules/storage/web/renditions_component.ex:310
+#: lib/modules/storage/web/renditions_component.ex:321
 #: lib/phoenix_kit_web/live/components/library_settings.ex:564
 #, elixir-autogen, elixir-format
 msgid "Create"
@@ -15637,7 +15633,7 @@ msgstr "Zasobnik dodany do profilu"
 msgid "Bucket taken out of the profile. Its files are copied to the profile's other buckets, then removed from it."
 msgstr "Zasobnik usunięty z profilu. Jego pliki są kopiowane do pozostałych zasobników profilu, a następnie z niego usuwane."
 
-#: lib/modules/storage/web/renditions_component.ex:376
+#: lib/modules/storage/web/renditions_component.ex:387
 #, elixir-autogen, elixir-format
 msgid "Check every file"
 msgstr "Sprawdź każdy plik"
@@ -15754,7 +15750,7 @@ msgid "Up to date"
 msgstr "Aktualne"
 
 #: lib/modules/storage/web/profiles_component.ex:574
-#: lib/modules/storage/web/renditions_component.ex:379
+#: lib/modules/storage/web/renditions_component.ex:390
 #, elixir-autogen, elixir-format
 msgid "Used by %{count} library."
 msgid_plural "Used by %{count} libraries."
@@ -15762,7 +15758,7 @@ msgstr[0] "Używany przez %{count} bibliotekę."
 msgstr[1] "Używany przez %{count} biblioteki."
 msgstr[2] "Używany przez %{count} bibliotek."
 
-#: lib/modules/storage/web/renditions_component.ex:360
+#: lib/modules/storage/web/renditions_component.ex:371
 #, elixir-autogen, elixir-format
 msgid "Users may choose it for their own libraries"
 msgstr "Użytkownicy mogą wybrać go dla własnych bibliotek"
@@ -15780,8 +15776,8 @@ msgstr "Oczekujące"
 msgid "Waiting for"
 msgstr "Oczekuje na"
 
-#: lib/modules/storage/web/renditions_component.ex:528
-#: lib/modules/storage/web/renditions_component.ex:737
+#: lib/modules/storage/web/renditions_component.ex:535
+#: lib/modules/storage/web/renditions_component.ex:746
 #, elixir-autogen, elixir-format
 msgid "standard"
 msgstr "standardowy"
@@ -18257,7 +18253,7 @@ msgstr "Kto utworzył, zmienił nazwę lub zmodyfikował tę bibliotekę. Te wpi
 msgid "Without trash"
 msgstr "Bez kosza"
 
-#: lib/modules/storage/web/renditions_component.ex:288
+#: lib/modules/storage/web/renditions_component.ex:299
 #, elixir-autogen, elixir-format
 msgid "A new install starts with 8 standard renditions: 4 image sizes (thumbnail, small, medium, large) and 4 video ones (360p, 720p, 1080p, video thumbnail)."
 msgstr "Nowa instalacja zaczyna od 8 standardowych wariantów: 4 rozmiarów obrazu (thumbnail, small, medium, large) i 4 wideo (360p, 720p, 1080p, miniatura wideo)."
@@ -18267,14 +18263,14 @@ msgstr "Nowa instalacja zaczyna od 8 standardowych wariantów: 4 rozmiarów obra
 msgid "A unique name for this rendition"
 msgstr "Unikalna nazwa tego wariantu"
 
-#: lib/modules/storage/web/renditions_component.ex:429
+#: lib/modules/storage/web/renditions_component.ex:440
 #, elixir-autogen, elixir-format
 msgid "Add a rendition to start making smaller copies of uploads."
 msgstr "Dodaj wariant, aby zacząć tworzyć mniejsze kopie przesłanych plików."
 
 #: lib/modules/storage/web/dimension_form.ex:188
-#: lib/modules/storage/web/renditions_component.ex:436
-#: lib/modules/storage/web/renditions_component.ex:455
+#: lib/modules/storage/web/renditions_component.ex:447
+#: lib/modules/storage/web/renditions_component.ex:466
 #, elixir-autogen, elixir-format
 msgid "Add image rendition"
 msgstr "Dodaj wariant obrazu"
@@ -18285,21 +18281,21 @@ msgid "Add rendition"
 msgstr "Dodaj wariant"
 
 #: lib/modules/storage/web/dimension_form.ex:189
-#: lib/modules/storage/web/renditions_component.ex:442
-#: lib/modules/storage/web/renditions_component.ex:667
+#: lib/modules/storage/web/renditions_component.ex:453
+#: lib/modules/storage/web/renditions_component.ex:680
 #, elixir-autogen, elixir-format
 msgid "Add video rendition"
 msgstr "Dodaj wariant wideo"
 
-#: lib/modules/storage/web/renditions_component.ex:609
-#: lib/modules/storage/web/renditions_component.ex:646
-#: lib/modules/storage/web/renditions_component.ex:818
-#: lib/modules/storage/web/renditions_component.ex:855
+#: lib/modules/storage/web/renditions_component.ex:612
+#: lib/modules/storage/web/renditions_component.ex:649
+#: lib/modules/storage/web/renditions_component.ex:822
+#: lib/modules/storage/web/renditions_component.ex:859
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to delete this rendition?"
 msgstr "Czy na pewno usunąć ten wariant?"
 
-#: lib/modules/storage/web/renditions_component.ex:412
+#: lib/modules/storage/web/renditions_component.ex:423
 #, elixir-autogen, elixir-format
 msgid "Are you sure? This will delete all current renditions and restore the 8 standard ones. This action cannot be undone."
 msgstr "Na pewno? Spowoduje to usunięcie wszystkich obecnych wariantów i przywrócenie 8 standardowych. Tej czynności nie można cofnąć."
@@ -18329,7 +18325,7 @@ msgstr "Nie udało się zresetować wariantów: %{reason}"
 msgid "Could not update the rendition"
 msgstr "Nie udało się zaktualizować wariantu"
 
-#: lib/modules/storage/web/renditions_component.ex:355
+#: lib/modules/storage/web/renditions_component.ex:366
 #, elixir-autogen, elixir-format
 msgid "Create renditions automatically after an upload"
 msgstr "Twórz warianty automatycznie po przesłaniu"
@@ -18345,7 +18341,7 @@ msgstr "Głębokie powiększenie"
 msgid "Edit rendition"
 msgstr "Edytuj wariant"
 
-#: lib/modules/storage/web/renditions_component.ex:449
+#: lib/modules/storage/web/renditions_component.ex:460
 #, elixir-autogen, elixir-format
 msgid "Image renditions"
 msgstr "Warianty obrazu"
@@ -18355,18 +18351,18 @@ msgstr "Warianty obrazu"
 msgid "Lets large images be zoomed in to full detail in the viewer, from tiles cut the first time someone zooms. Turning it off stops serving tiles; the ones already made stay stored and are used again if you turn it on. Needs ImageMagick."
 msgstr "Pozwala powiększać duże obrazy do pełnej szczegółowości w przeglądarce, z kafelków wycinanych przy pierwszym powiększeniu. Wyłączenie przestaje serwować kafelki; już utworzone pozostają zapisane i są używane ponownie po włączeniu. Wymaga ImageMagick."
 
-#: lib/modules/storage/web/renditions_component.ex:428
+#: lib/modules/storage/web/renditions_component.ex:439
 #, elixir-autogen, elixir-format
 msgid "No renditions yet"
 msgstr "Brak wariantów"
 
-#: lib/modules/storage/web/renditions_component.ex:871
+#: lib/modules/storage/web/renditions_component.ex:875
 #, elixir-autogen, elixir-format
 msgid "Quality and format"
 msgstr "Jakość i format"
 
-#: lib/modules/storage/web/renditions_component.ex:582
-#: lib/modules/storage/web/renditions_component.ex:791
+#: lib/modules/storage/web/renditions_component.ex:585
+#: lib/modules/storage/web/renditions_component.ex:795
 #, elixir-autogen, elixir-format
 msgid "Rendition actions"
 msgstr "Akcje wariantu"
@@ -18423,7 +18419,7 @@ msgstr "Przechowywane tak, jak chce ich biblioteka, wraz z wariantami"
 msgid "Update rendition"
 msgstr "Zaktualizuj wariant"
 
-#: lib/modules/storage/web/renditions_component.ex:659
+#: lib/modules/storage/web/renditions_component.ex:672
 #, elixir-autogen, elixir-format
 msgid "Video renditions"
 msgstr "Warianty wideo"
@@ -18478,12 +18474,12 @@ msgstr "%{name} to standardowy wariant, który ma każdy profil wariantów; nie 
 msgid "A library uses this rendition profile; it cannot be deleted"
 msgstr "Biblioteka używa tego profilu wariantów; nie można go usunąć"
 
-#: lib/modules/storage/web/renditions_component.ex:285
+#: lib/modules/storage/web/renditions_component.ex:296
 #, elixir-autogen, elixir-format
 msgid "A rendition is a smaller or re-encoded copy of an upload, such as a thumbnail or a 720p video, made for faster loading. A rendition profile lists the renditions a library's uploads get; a library picks its profile when it is created."
 msgstr "Wariant to mniejsza lub ponownie zakodowana kopia przesłanego pliku, np. miniatura albo wideo 720p, tworzona dla szybszego ładowania. Profil wariantów wymienia warianty, które otrzymują pliki przesyłane do biblioteki; biblioteka wybiera swój profil podczas tworzenia."
 
-#: lib/modules/storage/web/renditions_component.ex:370
+#: lib/modules/storage/web/renditions_component.ex:381
 #, elixir-autogen, elixir-format
 msgid "Check every file of this rendition profile now? Renditions a file is missing are made in the background."
 msgstr "Sprawdzić teraz każdy plik tego profilu wariantów? Brakujące warianty pliku są tworzone w tle."
@@ -18493,12 +18489,12 @@ msgstr "Sprawdzić teraz każdy plik tego profilu wariantów? Brakujące wariant
 msgid "Chosen when the library was created and not changed afterwards: moving a library's files is a bulk job. To move where files live, change the storage profile's buckets."
 msgstr "Wybrane podczas tworzenia biblioteki i niezmieniane później: przenoszenie plików biblioteki to zadanie masowe. Aby zmienić miejsce plików, zmień zasobniki profilu magazynu."
 
-#: lib/modules/storage/web/renditions_component.ex:397
+#: lib/modules/storage/web/renditions_component.ex:408
 #, elixir-autogen, elixir-format
 msgid "Delete profile"
 msgstr "Usuń profil"
 
-#: lib/modules/storage/web/renditions_component.ex:394
+#: lib/modules/storage/web/renditions_component.ex:405
 #, elixir-autogen, elixir-format
 msgid "Delete this rendition profile and its renditions?"
 msgstr "Usunąć ten profil wariantów i jego warianty?"
@@ -18513,12 +18509,12 @@ msgstr "Każdy plik jest tam, gdzie chce profil magazynu jego biblioteki, z wari
 msgid "Every file of this rendition profile will be checked, and missing renditions made."
 msgstr "Każdy plik tego profilu wariantów zostanie sprawdzony, a brakujące warianty utworzone."
 
-#: lib/modules/storage/web/renditions_component.ex:385
+#: lib/modules/storage/web/renditions_component.ex:396
 #, elixir-autogen, elixir-format
 msgid "Every library without its own profile uses this one."
 msgstr "Każda biblioteka bez własnego profilu używa tego."
 
-#: lib/modules/storage/web/renditions_component.ex:281
+#: lib/modules/storage/web/renditions_component.ex:292
 #, elixir-autogen, elixir-format
 msgid "New rendition profile"
 msgstr "Nowy profil wariantów"
@@ -18540,7 +18536,7 @@ msgstr "Profil wariantów utworzony"
 msgid "Rendition profile deleted"
 msgstr "Profil wariantów usunięty"
 
-#: lib/modules/storage/web/renditions_component.ex:305
+#: lib/modules/storage/web/renditions_component.ex:316
 #, elixir-autogen, elixir-format
 msgid "Rendition profile name"
 msgstr "Nazwa profilu wariantów"
@@ -18551,7 +18547,7 @@ msgid "Rendition profile saved"
 msgstr "Profil wariantów zapisany"
 
 #: lib/modules/storage/web/dimension_form.html.heex:10
-#: lib/modules/storage/web/renditions_component.ex:270
+#: lib/modules/storage/web/renditions_component.ex:281
 #: lib/modules/storage/web/settings.ex:114
 #: lib/modules/storage/web/settings.html.heex:426
 #, elixir-autogen, elixir-format
@@ -18563,7 +18559,7 @@ msgstr "Profile wariantów"
 msgid "The reconciler copies files to the buckets their library's storage profile uses, removes copies it no longer uses, and makes the renditions its rendition profile lists. It runs by itself; a file stays here while something could not be done yet, and is tried again."
 msgstr "Uzgadniacz kopiuje pliki do zasobników używanych przez profil magazynu ich biblioteki, usuwa kopie, których już nie używa, i tworzy warianty wymienione w ich profilu wariantów. Działa sam; plik zostaje tu, dopóki czegoś nie dało się jeszcze wykonać, i jest ponawiany."
 
-#: lib/modules/storage/web/renditions_component.ex:338
+#: lib/modules/storage/web/renditions_component.ex:349
 #, elixir-autogen, elixir-format
 msgid "This profile is missing standard renditions: %{names}. Until they are added, those are served as the nearest smaller rendition or a placeholder."
 msgstr "W tym profilu brakuje standardowych wariantów: %{names}. Dopóki ich nie dodasz, serwowany jest najbliższy mniejszy wariant lub symbol zastępczy."
@@ -18582,3 +18578,57 @@ msgstr "Czy każdy plik jest zapisany tak, jak mówią jego profil magazynu i pr
 #, elixir-autogen, elixir-format
 msgid "Which storage profile and rendition profile a library uses, and its deep zoom:"
 msgstr "Którego profilu magazynu i profilu wariantów używa biblioteka oraz jej głębokie powiększenie:"
+
+#: lib/modules/storage/web/renditions_component.ex:252
+#, elixir-autogen, elixir-format
+msgid "%{width} px wide"
+msgstr "szerokość %{width} px"
+
+#: lib/modules/storage/web/renditions_component.ex:258
+#, elixir-autogen, elixir-format
+msgid "%{width} × %{height} px"
+msgstr "%{width} × %{height} px"
+
+#: lib/modules/storage/web/renditions_component.ex:662
+#, elixir-autogen, elixir-format
+msgid "A rendition never enlarges an image: one smaller than the size stays as it is."
+msgstr "Wariant nigdy nie powiększa obrazu: obraz mniejszy niż rozmiar pozostaje bez zmian."
+
+#: lib/modules/storage/web/renditions_component.ex:262
+#, elixir-autogen, elixir-format
+msgid "Automatic"
+msgstr "Automatycznie"
+
+#: lib/modules/storage/web/renditions_component.ex:492
+#: lib/modules/storage/web/renditions_component.ex:550
+#: lib/modules/storage/web/renditions_component.ex:660
+#, elixir-autogen, elixir-format
+msgid "Fixed size"
+msgstr "Stały rozmiar"
+
+#: lib/modules/storage/web/renditions_component.ex:491
+#: lib/modules/storage/web/renditions_component.ex:546
+#: lib/modules/storage/web/renditions_component.ex:658
+#, elixir-autogen, elixir-format
+msgid "Keeps proportions"
+msgstr "Zachowuje proporcje"
+
+#: lib/modules/storage/web/renditions_component.ex:259
+#, elixir-autogen, elixir-format
+msgid "cropped to fit"
+msgstr "przycięty do rozmiaru"
+
+#: lib/modules/storage/web/renditions_component.ex:253
+#, elixir-autogen, elixir-format
+msgid "height follows the image"
+msgstr "wysokość zależy od obrazu"
+
+#: lib/modules/storage/web/renditions_component.ex:661
+#, elixir-autogen, elixir-format
+msgid "the image is scaled to fill the box and the excess is cropped."
+msgstr "obraz jest skalowany tak, by wypełnić ramkę, a nadmiar jest przycinany."
+
+#: lib/modules/storage/web/renditions_component.ex:659
+#, elixir-autogen, elixir-format
+msgid "the width is set and the height follows each image."
+msgstr "szerokość jest ustalona, a wysokość zależy od każdego obrazu."
