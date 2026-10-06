@@ -1858,6 +1858,14 @@ defmodule PhoenixKit.Settings do
   `actor_uuid:` when a person made the change and `source:` (the admin pages
   pass `"settings"`; the default is `"system"`). Every other writer in this
   module takes the same options.
+
+  `history: false` writes a machine's own stamp — a value rewritten on a
+  schedule, such as the jobs sweeper's `job_runs_last_sweep_at` — without the
+  entry; the cache and the change broadcast are as for any write. It is
+  refused (`ArgumentError`, before the write's transaction) together with
+  `actor_uuid:` or `source: "settings"`: what a person changes is always
+  recorded. See
+  `PhoenixKit.Settings.History`, "Machine stamps".
   """
   def update_setting(key, value, opts \\ [])
 
@@ -1909,6 +1917,8 @@ defmodule PhoenixKit.Settings do
   """
   def update_settings_batch(settings_map, opts \\ [])
       when is_map(settings_map) and is_list(opts) do
+    # Before anything is read or locked — an empty batch is refused too.
+    :ok = History.check_options!(opts)
     keys = Map.keys(settings_map)
 
     # Load all existing settings in a single query

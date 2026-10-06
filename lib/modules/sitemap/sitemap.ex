@@ -127,6 +127,10 @@ defmodule PhoenixKit.Modules.Sitemap do
   @last_generated_key "sitemap_last_generated"
   @url_count_key "sitemap_url_count"
 
+  # Generation stats and the cached documents are machine-written: stored
+  # without the settings history.
+  @no_history [history: false]
+
   # Cache keys
   @cache_xml_key "sitemap_xml_cache"
   @cache_html_key "sitemap_html_cache"
@@ -628,10 +632,16 @@ defmodule PhoenixKit.Modules.Sitemap do
         _ -> DateTime.to_iso8601(UtilsDate.utc_now())
       end
 
-    # Update both settings
-    with {:ok, _} <- settings_call(:update_setting, [@last_generated_key, timestamp_str]),
+    # Update both settings. Machine stamps, rewritten on every generation:
+    # no settings history (see `PhoenixKit.Settings.History`, "Machine stamps").
+    with {:ok, _} <-
+           settings_call(:update_setting, [@last_generated_key, timestamp_str, @no_history]),
          {:ok, _} <-
-           settings_call(:update_setting, [@url_count_key, Integer.to_string(url_count)]) do
+           settings_call(:update_setting, [
+             @url_count_key,
+             Integer.to_string(url_count),
+             @no_history
+           ]) do
       {:ok, %{last_generated: timestamp_str, url_count: url_count}}
     else
       error -> error
@@ -651,8 +661,8 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec clear_generation_stats() :: :ok
   def clear_generation_stats do
-    settings_call(:update_setting, [@last_generated_key, nil])
-    settings_call(:update_setting, [@url_count_key, "0"])
+    settings_call(:update_setting, [@last_generated_key, nil, @no_history])
+    settings_call(:update_setting, [@url_count_key, "0", @no_history])
     :ok
   end
 
@@ -732,7 +742,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec cache_xml(String.t()) :: {:ok, any()} | {:error, any()}
   def cache_xml(xml_content) when is_binary(xml_content) do
-    settings_call(:update_setting, [@cache_xml_key, xml_content])
+    settings_call(:update_setting, [@cache_xml_key, xml_content, @no_history])
   end
 
   @doc """
@@ -745,7 +755,7 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec cache_html(String.t()) :: {:ok, any()} | {:error, any()}
   def cache_html(html_content) when is_binary(html_content) do
-    settings_call(:update_setting, [@cache_html_key, html_content])
+    settings_call(:update_setting, [@cache_html_key, html_content, @no_history])
   end
 
   @doc """
@@ -840,8 +850,9 @@ defmodule PhoenixKit.Modules.Sitemap do
         }
       end)
 
-    # Store as JSON map in value_json (jsonb) - wraps list in map since value_json is :map type
-    settings_call(:update_json_setting, [@module_stats_key, %{"modules" => stats}])
+    # Store as JSON map in value_json (jsonb) - wraps list in map since value_json is :map type.
+    # Carries a timestamp per module, so every generation changes it: no settings history.
+    settings_call(:update_json_setting, [@module_stats_key, %{"modules" => stats}, @no_history])
   end
 
   # ============================================================================

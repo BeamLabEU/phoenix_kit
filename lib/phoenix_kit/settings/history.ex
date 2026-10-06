@@ -21,7 +21,8 @@ defmodule PhoenixKit.Settings.History do
   — nobody hears of a change that rolled back.
 
   Every write through `PhoenixKit.Settings` that changes a value records
-  one entry: `metadata` carries the `key`, the value `from` and `to` (a
+  one entry, except a write passed `history: false` (see "Machine stamps"
+  below). The entry's `metadata` carries the `key`, the value `from` and `to` (a
   JSON setting as its encoded document), the `source` (`"settings"` for the
   admin pages, `"system"` otherwise); `actor_uuid` is the person when one
   made the change; `resource_uuid` is the setting row. The value before is
@@ -30,6 +31,22 @@ defmodule PhoenixKit.Settings.History do
   value as it was records nothing. A restricted (secret) setting records
   that a change happened — `restricted: true`, both values withheld. So does
   an integration connection row, whatever its key.
+
+  ## Machine stamps
+
+  A value a machine rewrites on a schedule — `job_runs_last_sweep_at`, which
+  the jobs sweeper stamps on every five-minute pass — is not a change anybody
+  made, and a permanent entry per pass would bury the feed under rows the
+  pruner never takes. Such a writer passes `history: false`: the write, the
+  cache invalidation and the settings change broadcast happen as for any
+  other write; only the entry is left out. The option is for a machine's own
+  stamp, never for something a person sets: together with an `actor_uuid`
+  or `source: "settings"` it raises `ArgumentError` (`check_options!/1`).
+  Every writer checks before its transaction — a refused call takes no
+  lock and writes nothing, whether or not it would have changed the value,
+  an empty batch included — and `record/3` checks again for a caller that
+  reaches it directly. No admin page passes the option.
+  `list/2` and `value_at/2` know nothing about such a key's stamps.
 
   ## Reading it
 
@@ -61,58 +78,92 @@ defmodule PhoenixKit.Settings.History do
   transaction (`lock_current/1`) — or `nil` when the key did not exist;
   `written` the row as stored. Options: `:actor_uuid` (nil for a module or
   a migration), `:source` (`"settings"` for the admin pages; default
-  `"system"`).
+  `"system"`), `history: false` for a machine stamp (see "Machine stamps"
+  in the moduledoc) — refused with `:actor_uuid` or `source: "settings"`.
 
-  Returns `{:ok, %Activity.Entry{}}`, `{:ok, :unchanged}` or
+  Returns `{:ok, %Activity.Entry{}}`, `{:ok, :unchanged}`,
+  `{:ok, :unrecorded}` (a change written with `history: false`) or
   `{:error, changeset}`.
   """
   @spec record(Setting.t() | nil, Setting.t(), keyword()) ::
-          {:ok, Entry.t() | :unchanged} | {:error, Ecto.Changeset.t()}
+          {:ok, Entry.t() | :unchanged | :unrecorded} | {:error, Ecto.Changeset.t()}
   def record(before, %Setting{} = written, opts \\ []) do
+    recorded? = recorded?(opts)
     old = if before, do: value_of(before), else: nil
     new = value_of(written)
 
-    if old == new do
-      {:ok, :unchanged}
-    else
-      # Either side restricted withholds both values — a key never changes
-      # through these writers, but the history must not depend on that.
-      restricted? =
-        secret_row?(written) or (before != nil and secret_row?(before))
-
-      actor_uuid = Keyword.get(opts, :actor_uuid)
-
-      # Inserted directly, not through `Activity.log/1`: this runs inside
-      # the settings write's transaction, and the feed's subscribers must
-      # not hear of a change that then rolls back. The writer publishes the
-      # entry (`Activity.broadcast/1`) once the transaction has committed.
-      %{
-        action: @action,
-        actor_uuid: actor_uuid,
-        mode: if(actor_uuid, do: "manual", else: "system"),
-        resource_type: @resource_type,
-        resource_uuid: written.uuid,
-        permanent: true,
-        metadata: %{
-          "key" => written.key,
-          "from" => if(restricted?, do: nil, else: old),
-          "to" => if(restricted?, do: nil, else: new),
-          "restricted" => restricted?,
-          "source" => Keyword.get(opts, :source) || "system"
-        }
-      }
-      |> Activity.entry_changeset()
-      |> RepoHelper.repo().insert()
+    cond do
+      old == new -> {:ok, :unchanged}
+      not recorded? -> {:ok, :unrecorded}
+      true -> insert(before, written, old, new, opts)
     end
   end
 
   @doc """
-  Publishes a recorded entry to the feed's subscribers — call after the
-  transaction that wrote it has committed. `:unchanged` publishes nothing.
+  Raises `ArgumentError` when a writer's options ask to skip the history
+  (`history: false`) for a write that names a person (`:actor_uuid`) or
+  comes from the admin pages (`source: "settings"`) — those are always
+  recorded. Every writer calls it before its transaction; `record/3` calls
+  it too. Returns `:ok`.
   """
-  @spec publish(Entry.t() | :unchanged) :: :ok
+  @spec check_options!(keyword()) :: :ok
+  def check_options!(opts) when is_list(opts) do
+    if Keyword.get(opts, :history) == false and
+         (Keyword.get(opts, :actor_uuid) != nil or Keyword.get(opts, :source) == "settings") do
+      raise ArgumentError,
+            "history: false is for a machine's own stamp; a write by a person " <>
+              "(actor_uuid:) or from the admin pages (source: \"settings\") is always recorded"
+    end
+
+    :ok
+  end
+
+  # Checked first, so a refused call fails the same way whether or not it
+  # would have changed the value.
+  defp recorded?(opts) do
+    :ok = check_options!(opts)
+    Keyword.get(opts, :history, true) != false
+  end
+
+  defp insert(before, written, old, new, opts) do
+    # Either side restricted withholds both values — a key never changes
+    # through these writers, but the history must not depend on that.
+    restricted? =
+      secret_row?(written) or (before != nil and secret_row?(before))
+
+    actor_uuid = Keyword.get(opts, :actor_uuid)
+
+    # Inserted directly, not through `Activity.log/1`: this runs inside
+    # the settings write's transaction, and the feed's subscribers must
+    # not hear of a change that then rolls back. The writer publishes the
+    # entry (`Activity.broadcast/1`) once the transaction has committed.
+    %{
+      action: @action,
+      actor_uuid: actor_uuid,
+      mode: if(actor_uuid, do: "manual", else: "system"),
+      resource_type: @resource_type,
+      resource_uuid: written.uuid,
+      permanent: true,
+      metadata: %{
+        "key" => written.key,
+        "from" => if(restricted?, do: nil, else: old),
+        "to" => if(restricted?, do: nil, else: new),
+        "restricted" => restricted?,
+        "source" => Keyword.get(opts, :source) || "system"
+      }
+    }
+    |> Activity.entry_changeset()
+    |> RepoHelper.repo().insert()
+  end
+
+  @doc """
+  Publishes a recorded entry to the feed's subscribers — call after the
+  transaction that wrote it has committed. `:unchanged` and `:unrecorded`
+  publish nothing.
+  """
+  @spec publish(Entry.t() | :unchanged | :unrecorded) :: :ok
   def publish(%Entry{} = entry), do: Activity.broadcast(entry)
-  def publish(:unchanged), do: :ok
+  def publish(nothing) when nothing in [:unchanged, :unrecorded], do: :ok
 
   @doc """
   The current row for `key`, locked for the rest of the transaction — the

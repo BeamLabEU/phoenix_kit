@@ -178,6 +178,71 @@ defmodule PhoenixKit.SettingsSubscribeTest do
     end
   end
 
+  # `history: false` (a machine stamp) leaves the settings history out and
+  # nothing else: the cache and the change event behave as for any write.
+  describe "a write without history" do
+    test "drops the cached value and is announced with the committed value" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "old", history: false)
+      assert_receive {:setting_changed, ^key, "old"}
+      assert Settings.get_setting_cached(key, "default") == "old"
+
+      {:ok, _} = Settings.update_setting(key, "new", history: false)
+      assert_receive {:setting_changed, ^key, "new"}
+      assert Settings.get_setting_cached(key, "default") == "new"
+    end
+
+    test "that changes nothing is announced to nobody" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "same", history: false)
+      assert_receive {:setting_changed, ^key, "same"}
+
+      {:ok, _} = Settings.update_setting(key, "same", history: false)
+      refute_receive {:setting_changed, ^key, _}, 100
+    end
+
+    # The writer's own `Cache.invalidate/2` cast lands later; what a
+    # subscriber relies on is the synchronous drop before the announcement.
+    test "is not announced until the cache has dropped the old value" do
+      key = key()
+      {:ok, _} = Settings.update_setting(key, "before", history: false)
+      assert_receive {:setting_changed, ^key, "before"}
+
+      cache = GenServer.whereis({:via, Registry, {PhoenixKit.Cache.Registry, @cache}})
+      :ok = :sys.suspend(cache)
+
+      writer = Task.async(fn -> Settings.update_setting(key, "after", history: false) end)
+
+      refute_receive {:setting_changed, ^key, _},
+                     200,
+                     "announced while the cache still held the old value"
+
+      # ...and what the writer is waiting on is the drop of THIS key — not a
+      # call that drops nothing while the cast after it does the work
+      {:messages, pending} = Process.info(cache, :messages)
+
+      assert Enum.any?(pending, fn
+               {:"$gen_call", _from, {:invalidate_multiple, keys}} -> key in keys
+               _ -> false
+             end)
+
+      :ok = :sys.resume(cache)
+      assert {:ok, _} = Task.await(writer)
+      assert_receive {:setting_changed, ^key, "after"}
+    end
+
+    test "through the batch and JSON writers is announced too" do
+      a = key()
+      b = key()
+
+      {:ok, _} = Settings.update_settings_batch(%{a => "1"}, history: false)
+      {:ok, _} = Settings.update_json_setting(b, %{"n" => 1}, history: false)
+
+      assert_receive {:setting_changed, ^a, "1"}
+      assert_receive {:setting_changed, ^b, %{"n" => 1}}
+    end
+  end
+
   describe "secrets" do
     test "a restricted key is announced without its value" do
       {:ok, _} = Settings.update_setting("oauth_google_client_secret", "s3cr3t-value")
