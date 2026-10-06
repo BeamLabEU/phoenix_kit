@@ -33,6 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
     {:ok,
      assign(socket,
        scope: nil,
+       active: false,
        set_uuid: nil,
        set: nil,
        new_set_form: to_form(%{"name" => ""}, as: :new_set)
@@ -41,11 +42,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
 
   @impl true
   def update(assigns, socket) do
+    was_active = socket.assigns.active
     socket = assign(socket, assigns)
     wanted = socket.assigns.set_uuid
 
-    # Loaded on the first render and whenever the URL names another set.
-    if is_nil(socket.assigns.set) or wanted != socket.assigns[:loaded_for] do
+    # Reopening the tab picks up edits made elsewhere while it was hidden.
+    if is_nil(socket.assigns.set) or wanted != socket.assigns[:loaded_for] or
+         (socket.assigns.active and not was_active) do
       set = (wanted && VariantSets.get_variant_set(wanted)) || default_set()
       {:ok, socket |> assign(:loaded_for, wanted) |> load_set(set)}
     else
@@ -71,7 +74,21 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
     standard ++ custom
   end
 
-  defp reload(socket), do: load_set(socket, VariantSets.get_variant_set(socket.assigns.set.uuid))
+  defp reload(socket) do
+    set = VariantSets.get_variant_set(socket.assigns.set.uuid) || default_set()
+    load_set(socket, set)
+  end
+
+  # The client names a row, but it must still exist in the set being edited.
+  defp dimension_in_set(socket, id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(id),
+         %Dimension{} = dimension <- Storage.get_dimension(uuid),
+         true <- dimension.variant_set_uuid == socket.assigns.set.uuid do
+      {:ok, dimension}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
 
   # The tab has no flash of its own: the settings page puts it.
   defp flash(socket, kind, message) do
@@ -83,13 +100,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
 
   @impl true
   def handle_event("delete_dimension", %{"id" => id}, socket) do
-    dimension = Storage.get_dimension(id)
+    result =
+      with {:ok, dimension} <- dimension_in_set(socket, id),
+           do: {Storage.delete_dimension(dimension, actor(socket)), dimension}
 
-    case Storage.delete_dimension(dimension, actor(socket)) do
-      {:ok, _} ->
+    case result do
+      {{:ok, _}, _dimension} ->
         {:noreply, socket |> reload() |> flash(:info, gettext("Rendition deleted"))}
 
-      {:error, :standard_slot} ->
+      {{:error, :standard_slot}, dimension} ->
         {:noreply,
          flash(
            socket,
@@ -100,20 +119,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
            )
          )}
 
-      {:error, _changeset} ->
-        {:noreply, flash(socket, :error, gettext("Could not delete the rendition"))}
+      _error ->
+        {:noreply, socket |> reload() |> flash(:error, gettext("Could not delete the rendition"))}
     end
   end
 
   def handle_event("toggle_dimension", %{"id" => id}, socket) do
-    dimension = Storage.get_dimension(id)
+    result =
+      with {:ok, dimension} <- dimension_in_set(socket, id),
+           do: Storage.update_dimension(dimension, %{enabled: !dimension.enabled}, actor(socket))
 
-    case Storage.update_dimension(dimension, %{enabled: !dimension.enabled}, actor(socket)) do
+    case result do
       {:ok, _dimension} ->
         {:noreply, socket |> reload() |> flash(:info, gettext("Rendition updated"))}
 
       {:error, _changeset} ->
-        {:noreply, flash(socket, :error, gettext("Could not update the rendition"))}
+        {:noreply, socket |> reload() |> flash(:error, gettext("Could not update the rendition"))}
     end
   end
 
@@ -151,8 +172,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
       {:ok, _set} ->
         {:noreply, socket |> reload() |> flash(:info, gettext("Rendition set saved"))}
 
-      {:error, changeset} ->
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :set_form, to_form(changeset))}
+
+      {:error, _reason} ->
+        {:noreply, socket |> reload() |> flash(:error, gettext("Could not save"))}
     end
   end
 

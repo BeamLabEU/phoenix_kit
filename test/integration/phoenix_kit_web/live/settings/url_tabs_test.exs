@@ -30,6 +30,8 @@ defmodule PhoenixKitWeb.Live.Settings.UrlTabsTest do
   defp active_tab_hrefs(html) do
     html
     |> Floki.parse_document!()
+    |> Floki.find(~s([role="tablist"]))
+    |> List.first()
     |> Floki.find(~s([role="tab"].tab-active))
     |> Enum.flat_map(&Floki.attribute(&1, "href"))
   end

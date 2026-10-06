@@ -98,7 +98,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)
 
     for tab <- ~w(renditions health) do
-      html = view |> element("a[role=tab][href$=\"tab=#{tab}\"]") |> render_click()
+      html =
+        view
+        |> element("a[role=tab][href$=\"tab=#{tab}\"]", String.capitalize(tab))
+        |> render_click()
+
       assert tab_visible?(html, "media-tab-#{tab}")
     end
   end

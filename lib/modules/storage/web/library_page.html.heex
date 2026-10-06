@@ -63,12 +63,11 @@
           phx-submit="rename"
           class="flex flex-wrap items-center gap-2"
         >
-          <input
-            type="text"
+          <.input
             name="name"
             id="library-rename-name"
             value={@library.name}
-            class="input input-sm input-bordered w-72"
+            class="input-sm w-72"
             maxlength="255"
             required
             autofocus
@@ -287,10 +286,14 @@
             phx-submit="deep_zoom"
             class="flex flex-wrap items-center gap-2"
           >
-            <select name="deep_zoom" class="select select-sm select-bordered">
-              <option value="on" selected={@deep_zoom?}>{gettext("On")}</option>
-              <option value="off" selected={not @deep_zoom?}>{gettext("Off")}</option>
-            </select>
+            <.select
+              id="library-deep-zoom-choice"
+              name="deep_zoom"
+              label={gettext("Deep zoom")}
+              options={[{gettext("On"), "on"}, {gettext("Off"), "off"}]}
+              value={if @deep_zoom?, do: "on", else: "off"}
+              class="select-sm"
+            />
             <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
           </form>
         </div>
@@ -307,15 +310,21 @@
             phx-submit="annotated"
             class="flex flex-wrap items-center gap-2"
           >
-            <select name="annotated" class="select select-sm select-bordered">
-              <option value="default" selected={@annotated_choice == "default"}>
-                {if @annotated_default,
-                  do: gettext("Site setting (on)"),
-                  else: gettext("Site setting (off)")}
-              </option>
-              <option value="on" selected={@annotated_choice == "on"}>{gettext("On")}</option>
-              <option value="off" selected={@annotated_choice == "off"}>{gettext("Off")}</option>
-            </select>
+            <.select
+              id="library-annotated-choice"
+              name="annotated"
+              label={gettext("Annotated thumbnails")}
+              options={[
+                {if(@annotated_default,
+                   do: gettext("Site setting (on)"),
+                   else: gettext("Site setting (off)")
+                 ), "default"},
+                {gettext("On"), "on"},
+                {gettext("Off"), "off"}
+              ]}
+              value={@annotated_choice}
+              class="select-sm"
+            />
             <button type="submit" class="btn btn-sm btn-primary">{gettext("Save")}</button>
           </form>
         </div>

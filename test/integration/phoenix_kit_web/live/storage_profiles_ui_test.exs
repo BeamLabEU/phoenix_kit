@@ -360,6 +360,64 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
   end
 
   describe "the Renditions tab" do
+    test "reopening the tab reloads a set changed elsewhere", %{conn: conn} do
+      path = Routes.path("/admin/settings/media")
+      {:ok, view, _html} = live(conn, path <> "?tab=renditions")
+      {:ok, set} = VariantSets.create_variant_set(%{name: "New while hidden"})
+
+      render_patch(view, path <> "?tab=profiles")
+      render_patch(view, path <> "?tab=renditions")
+      assert has_element?(view, "#media-renditions a[role=tab]", set.name)
+    end
+
+    test "a deleted selected set falls back to the Default when reopened", %{conn: conn} do
+      {:ok, set} = VariantSets.create_variant_set(%{name: "Deleted elsewhere"})
+      path = Routes.path("/admin/settings/media")
+      {:ok, view, _html} = live(conn, path <> "?tab=renditions&set=#{set.uuid}")
+      {:ok, _} = VariantSets.delete_variant_set(set)
+
+      render_patch(view, path <> "?tab=profiles&set=#{set.uuid}")
+      render_patch(view, path <> "?tab=renditions&set=#{set.uuid}")
+      assert has_element?(view, "#media-renditions a.tab-active", "Default")
+      assert has_element?(view, "#media-renditions-set-form-#{VariantSets.default_uuid()}")
+    end
+
+    test "saving a set deleted elsewhere keeps the page alive", %{conn: conn} do
+      {:ok, set} = VariantSets.create_variant_set(%{name: "Deleted before saving"})
+
+      {:ok, view, _html} =
+        live(conn, Routes.path("/admin/settings/media?tab=renditions&set=#{set.uuid}"))
+
+      {:ok, _} = VariantSets.delete_variant_set(set)
+
+      view
+      |> form("#media-renditions-set-form-#{set.uuid}", %{variant_set: %{name: "Changed"}})
+      |> render_submit()
+
+      assert has_element?(view, "#media-renditions-set-form-#{VariantSets.default_uuid()}")
+      assert render(view) =~ "Could not save"
+    end
+
+    test "deleted, malformed and other-set rendition actions keep the page alive", %{conn: conn} do
+      {:ok, own} = Storage.create_dimension(%{name: "gone", width: 200, applies_to: "image"})
+      {:ok, set} = VariantSets.create_variant_set(%{name: "Other set"})
+
+      {:ok, other} =
+        Storage.create_dimension(%{name: "kept", width: 200, applies_to: "image"}, set.uuid)
+
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      {:ok, _} = Storage.delete_dimension(own)
+
+      for id <- [own.uuid, "invalid", other.uuid],
+          event <- ~w(toggle_dimension delete_dimension) do
+        view |> with_target("#media-renditions") |> render_hook(event, %{id: id})
+        assert has_element?(view, "#media-renditions")
+      end
+
+      assert Storage.get_dimension(other.uuid).enabled
+      refute Storage.get_dimension(own.uuid)
+    end
+
     test "creates a set, saves its flags, and a new rendition lands in it", %{conn: conn} do
       {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
 

@@ -18520,3 +18520,7 @@ msgstr "Ava meedia annoteerimiseks valmis"
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "Vaatur avaneb juba sisselülitatud joonistustööriistadega, nii et saate kohe muuta ja liigutada — lülitage pliiats välja, et näha valmis pilti. Kui valik on väljas, avaneb vaatur valmis pildiga ja pliiats käivitab tööriistad."
+
+#, elixir-autogen, elixir-format
+msgid "Personal-library files are counted but not listed here."
+msgstr "Isiklike teekide faile arvestatakse, kuid neid siin ei loetleta."

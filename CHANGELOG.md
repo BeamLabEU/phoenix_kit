@@ -76,6 +76,18 @@
 - **A burn taken mid-edit rendered the label editor's input box into the stored copy** (`.etcher-text-editor`
   is now burn chrome).
 
+- **Library creation picks up storage profiles and rendition sets made in another tab.** Opening the Libraries
+  tab and its New library form refreshes the choices; the library list uses the loaded names instead of
+  reading each profile and set again while rendering.
+- **The Renditions tab refreshes when reopened and survives stale row actions.** Deleted or malformed rendition
+  ids, and ids from another set, are refused without crashing the page. A set deleted elsewhere falls back
+  to the Default when the tab is reopened or its old form is submitted.
+- **Library-setting history names the inherited default.** Annotated thumbnails retain "site default";
+  deep zoom says "rendition set" when the library has no override.
+- **The Health report keeps personal-library filenames private.** Their files still contribute to the totals
+  and reconciliation work, but only site-library files appear in the detailed list. A report waiting only
+  on personal files no longer says "All Healthy".
+
 ### i18n
 
 - Translations for the open-annotating switch, in all seven non-English catalogs.

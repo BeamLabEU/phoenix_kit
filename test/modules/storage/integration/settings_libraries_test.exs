@@ -89,6 +89,52 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsLibrariesTest do
       refute has_element?(view, "#media-libraries-new select")
     end
 
+    test "profiles and sets created in another tab can be chosen without reloading", %{conn: conn} do
+      {view, _html} = admin_view(conn)
+      render_patch(view, @path <> "?tab=profiles")
+      view |> element("#media-profiles button", "New profile") |> render_click()
+
+      profile_name = "Fresh profile #{System.unique_integer([:positive])}"
+      view |> form("#media-profiles-new", %{profile: %{name: profile_name}}) |> render_submit()
+      profile = Enum.find(Storage.Profiles.list_profiles(), &(&1.name == profile_name))
+
+      render_patch(view, @path <> "?tab=renditions")
+      set_name = "Fresh set #{System.unique_integer([:positive])}"
+      view |> form("#media-renditions-new-set", %{new_set: %{name: set_name}}) |> render_submit()
+      set = Enum.find(Storage.VariantSets.list_variant_sets(), &(&1.name == set_name))
+
+      render_patch(view, @path <> "?tab=libraries")
+      view |> element("#media-libraries button", "New library") |> render_click()
+      library_name = name()
+
+      view
+      |> form("#media-libraries-new", %{name: library_name, profile: profile.uuid, set: set.uuid})
+      |> render_submit()
+
+      library = Enum.find(Libraries.list_system_libraries(), &(&1.name == library_name))
+      assert library.storage_profile_uuid == profile.uuid
+      assert library.variant_set_uuid == set.uuid
+    end
+
+    test "new choices are refreshed even while the Libraries tab stays open", %{conn: conn} do
+      {view, _html} = admin_view(conn)
+      render_patch(view, @path <> "?tab=libraries")
+      {:ok, profile} = Storage.Profiles.create_profile(%{name: name()})
+      {:ok, set} = Storage.VariantSets.create_variant_set(%{name: name()})
+
+      view |> element("#media-libraries button", "New library") |> render_click()
+
+      assert has_element?(
+               view,
+               "#media-libraries-new select[name=profile] option[value='#{profile.uuid}']"
+             )
+
+      assert has_element?(
+               view,
+               "#media-libraries-new select[name=set] option[value='#{set.uuid}']"
+             )
+    end
+
     test "with more to choose from, the profile and variant set are chosen once", %{conn: conn} do
       {:ok, profile} =
         Storage.Profiles.create_profile(%{name: "Chosen #{System.unique_integer([:positive])}"})

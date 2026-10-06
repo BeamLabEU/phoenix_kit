@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibraryPage do
 
   import Ecto.Query
   import PhoenixKitWeb.Components.Core.ActivityList, only: [activity_list: 1]
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [input: 1, translate_error: 1]
   import PhoenixKitWeb.Live.Modules, only: [format_bytes: 1]
 
   alias PhoenixKit.Activity

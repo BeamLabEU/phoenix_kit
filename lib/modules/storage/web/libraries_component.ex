@@ -46,11 +46,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Storage.LibrarySync
 
-  import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
+  import PhoenixKitWeb.Components.Core.Input, only: [input: 1, translate_error: 1]
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, creating: false, rows: nil, scope: nil, sync: %{})}
+    {:ok, assign(socket, creating: false, rows: nil, scope: nil, sync: %{}, active: false)}
   end
 
   @impl true
@@ -60,13 +60,17 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   def update(assigns, socket) do
+    was_active = socket.assigns.active
     socket = assign(socket, assigns)
-    {:ok, if(socket.assigns.rows, do: socket, else: load(socket))}
+
+    if is_nil(socket.assigns.rows) or (socket.assigns.active and not was_active),
+      do: {:ok, load(socket)},
+      else: {:ok, socket}
   end
 
   @impl true
   def handle_event("new", _params, socket) do
-    {:noreply, assign(socket, :creating, true)}
+    {:noreply, socket |> load_choices() |> assign(:creating, true)}
   end
 
   def handle_event("cancel", _params, socket) do
@@ -170,8 +174,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     |> assign(:user_buckets_enabled, Libraries.user_buckets_enabled?())
     |> assign(:user_library_limit, Libraries.user_library_limit())
     |> assign(:window_hours, div(URLSigner.private_url_window_seconds(), 3600))
-    |> assign(:profiles, Profiles.list_profiles())
-    |> assign(:variant_sets, VariantSets.list_variant_sets())
+    |> load_choices()
+  end
+
+  defp load_choices(socket) do
+    profiles = Profiles.list_profiles()
+    sets = VariantSets.list_variant_sets()
+
+    assign(socket,
+      profiles: profiles,
+      variant_sets: sets,
+      profile_names: Map.new(profiles, &{&1.uuid, &1.name}),
+      variant_set_names: Map.new(sets, &{&1.uuid, &1.name})
+    )
   end
 
   # A component's own `put_flash` reaches the page only when it also
@@ -197,10 +212,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
 
   # Where a library keeps its files and which sizes it gets: names only, and
   # nothing to choose when there is only the Default of each.
-  defp storage_text(library) do
+  defp storage_text(library, profile_names, set_names) do
+    profile_uuid = Profiles.profile_uuid_for(library)
+    set_uuid = VariantSets.set_uuid_for(library)
+
     gettext("%{profile} · %{set}",
-      profile: Profiles.profile_name(Profiles.profile_uuid_for(library)),
-      set: VariantSets.set_name(VariantSets.set_uuid_for(library))
+      profile: Map.get(profile_names, profile_uuid, to_string(profile_uuid)),
+      set: Map.get(set_names, set_uuid, to_string(set_uuid))
     )
   end
 
@@ -250,49 +268,45 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
             phx-target={@myself}
             class="flex flex-wrap items-end gap-2 mb-4"
           >
-            <label class="form-control">
-              <span class="label-text text-sm">{gettext("Library name")}</span>
-              <input
-                type="text"
-                name="name"
-                id={"#{@id}-new-name"}
-                class="input input-sm input-bordered w-64"
-                placeholder={gettext("Library name")}
-                maxlength="255"
-                required
-                autofocus
-              />
-            </label>
-            <label :if={choice?(@profiles, @variant_sets)} class="form-control">
-              <span
-                class="label-text text-sm tooltip tooltip-bottom text-left"
-                data-tip={
-                  gettext(
-                    "Which buckets keep this library's files. Chosen now; it does not change afterwards."
-                  )
-                }
-              >
-                {gettext("Storage profile")}
-              </span>
-              <select name="profile" class="select select-sm select-bordered">
-                <option :for={profile <- @profiles} value={profile.uuid}>{profile.name}</option>
-              </select>
-            </label>
-            <label :if={choice?(@profiles, @variant_sets)} class="form-control">
-              <span
-                class="label-text text-sm tooltip tooltip-bottom text-left"
-                data-tip={
-                  gettext(
-                    "Which renditions its uploads get: smaller copies such as thumbnails and video resolutions. Chosen now; it does not change afterwards."
-                  )
-                }
-              >
-                {gettext("Rendition set")}
-              </span>
-              <select name="set" class="select select-sm select-bordered">
-                <option :for={set <- @variant_sets} value={set.uuid}>{set.name}</option>
-              </select>
-            </label>
+            <.input
+              name="name"
+              id={"#{@id}-new-name"}
+              label={gettext("Library name")}
+              value=""
+              class="input-sm w-64"
+              placeholder={gettext("Library name")}
+              maxlength="255"
+              required
+              autofocus
+            />
+            <.select
+              :if={choice?(@profiles, @variant_sets)}
+              name="profile"
+              id={"#{@id}-new-profile"}
+              label={gettext("Storage profile")}
+              options={Enum.map(@profiles, &{&1.name, &1.uuid})}
+              value={Profiles.default_uuid()}
+              class="select-sm"
+              title={
+                gettext(
+                  "Which buckets keep this library's files. Chosen now; it does not change afterwards."
+                )
+              }
+            />
+            <.select
+              :if={choice?(@profiles, @variant_sets)}
+              name="set"
+              id={"#{@id}-new-set"}
+              label={gettext("Rendition set")}
+              options={Enum.map(@variant_sets, &{&1.name, &1.uuid})}
+              value={VariantSets.default_uuid()}
+              class="select-sm"
+              title={
+                gettext(
+                  "Which renditions its uploads get: smaller copies such as thumbnails and video resolutions. Chosen now; it does not change afterwards."
+                )
+              }
+            />
             <button type="submit" class="btn btn-sm btn-primary">{gettext("Create")}</button>
             <button type="button" class="btn btn-sm btn-ghost" phx-click="cancel" phx-target={@myself}>
               {gettext("Cancel")}
@@ -325,7 +339,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                   </td>
                   <td class="text-right tabular-nums">{row.files}</td>
                   <td class="text-right tabular-nums whitespace-nowrap">{Format.bytes(row.bytes)}</td>
-                  <td class="text-sm">{storage_text(library)}</td>
+                  <td class="text-sm">{storage_text(library, @profile_names, @variant_set_names)}</td>
                   <td id={"#{@id}-sync-#{library.uuid}"}>
                     <LibrarySync.sync_cell
                       state={@sync[to_string(library.uuid)]}

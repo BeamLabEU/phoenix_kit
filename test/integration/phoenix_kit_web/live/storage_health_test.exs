@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.StorageHealthTest do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.{Libraries, Profiles}
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Utils.Routes
 
   @path Routes.path("/admin/settings/media?tab=health")
@@ -42,6 +43,52 @@ defmodule PhoenixKitWeb.Live.StorageHealthTest do
     # Its library moves to another profile: its copies are out of date.
     {:ok, _} = Profiles.set_library_profile(library, profile.uuid)
     {file, library}
+  end
+
+  test "personal files stay out of the report's list while still counted", %{
+    conn: conn,
+    user: user
+  } do
+    n = System.unique_integer([:positive])
+
+    library =
+      Repo.insert!(%Storage.Library{
+        name: "Secret library #{n}",
+        kind: "user",
+        owner_uuid: user.uuid,
+        visibility: "private",
+        key_prefix: "health-private-#{n}",
+        slug: "health-private-#{n}"
+      })
+
+    {:ok, file} =
+      Storage.create_file(%{
+        original_file_name: "confidential-#{n}.txt",
+        file_name: "private.txt",
+        file_path: "private",
+        mime_type: "text/plain",
+        file_type: "document",
+        ext: "txt",
+        file_checksum: Ecto.UUID.generate(),
+        user_file_checksum: Ecto.UUID.generate(),
+        size: 1,
+        status: "active",
+        user_uuid: user.uuid,
+        library_uuid: library.uuid
+      })
+
+    Repo.update!(Ecto.Changeset.change(file, placed_revision: 0))
+    assert Storage.Reconciler.stale_count() == 1
+    assert Storage.Reconciler.stale_files() == []
+
+    {:ok, view, _html} = live(conn, @path)
+    html = view |> element("#media-health") |> render()
+    refute html =~ file.uuid
+    refute html =~ file.original_file_name
+    refute html =~ library.name
+    refute html =~ "All Healthy"
+    assert has_element?(view, "#media-health-reconcile")
+    assert has_element?(view, "#media-health-privacy", "counted but not listed")
   end
 
   test "lists a file waiting for the reconciler, with its library", %{conn: conn, user: user} do

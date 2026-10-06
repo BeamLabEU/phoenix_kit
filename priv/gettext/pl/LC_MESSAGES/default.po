@@ -18565,3 +18565,7 @@ msgstr "Otwieraj multimedia gotowe do adnotacji"
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "Przeglądarka otwiera się z już włączonymi narzędziami rysowania, więc możesz od razu edytować i przesuwać elementy — wyłącz ołówek, aby zobaczyć gotowy obraz. Gdy opcja jest wyłączona, przeglądarka otwiera się na gotowym obrazie, a ołówek uruchamia narzędzia."
+
+#, elixir-autogen, elixir-format
+msgid "Personal-library files are counted but not listed here."
+msgstr "Pliki z osobistych bibliotek są liczone, ale nie są tutaj wyświetlane."

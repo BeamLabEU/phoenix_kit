@@ -206,10 +206,11 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   @doc """
   Updates a set's name or flags. Turning variant or tile generation on or
-  off bumps its revision; a rename or `selectable` does not.
+  off bumps its revision; a rename or `selectable` does not. A set removed
+  since it was loaded returns `{:error, :not_found}`.
   """
   @spec update_variant_set(VariantSet.t(), map(), keyword()) ::
-          {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t()}
+          {:ok, VariantSet.t()} | {:error, Ecto.Changeset.t() | :not_found}
   def update_variant_set(%VariantSet{} = set, attrs, opts \\ []) do
     Audit.change(set, &do_update_variant_set(&1, attrs, opts))
   end

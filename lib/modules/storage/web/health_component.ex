@@ -142,6 +142,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
         </div>
       </div>
 
+      <p id={"#{@id}-privacy"} class="text-sm text-base-content/60 mb-4">
+        {gettext("Personal-library files are counted but not listed here.")}
+      </p>
+
       <%!-- Actions --%>
       <div class="flex justify-end gap-2 mb-4">
         <.pk_link
@@ -167,7 +171,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
       </div>
 
       <%!-- Results --%>
-      <%= if @stale_files == [] do %>
+      <%= if @report.stale == 0 do %>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body items-center text-center py-12">
             <.icon name="hero-check-circle" class="w-16 h-16 text-success mb-4" />
@@ -189,6 +193,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
           {gettext("Showing the first %{count} of %{total}.", count: @listed, total: @report.stale)}
         </p>
         <.table_default
+          :if={@stale_files != []}
           id={"#{@id}-table"}
           variant="zebra"
           toggleable={true}

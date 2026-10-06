@@ -515,7 +515,8 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   @doc """
   Sets a library's own value of `key`; nil removes it, so the library follows
-  the site-wide default again. Only the key changes (a concurrent change to
+  its default again (the site setting for annotated thumbnails, the rendition
+  set for deep zoom). Only the key changes (a concurrent change to
   another one is not lost), and a value of the wrong type is refused.
   """
   @spec put_setting(Library.t(), setting(), term(), keyword()) ::
@@ -559,8 +560,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     end
   end
 
-  # A setting of a system library moving from one value to another (nil is "follow the
-  # site default").
+  # A system library's setting changing; name the default it inherits when unset.
   defp audit_setting(%Library{} = before, %Library{} = updated, key, opts) do
     old = setting(before, key)
     new = setting(updated, key)
@@ -569,7 +569,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
       audit_library("storage.library.setting_changed", updated, opts, %{
         "library" => updated.name,
         PhoenixKit.Activity.changes_key() => %{
-          to_string(key) => %{"from" => setting_label(old), "to" => setting_label(new)}
+          to_string(key) => %{"from" => setting_label(key, old), "to" => setting_label(key, new)}
         }
       })
     end
@@ -577,8 +577,9 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     :ok
   end
 
-  defp setting_label(nil), do: "default"
-  defp setting_label(value), do: value
+  defp setting_label(:annotated_thumbnails, nil), do: "site default"
+  defp setting_label(:deep_zoom, nil), do: "rendition set"
+  defp setting_label(_key, value), do: value
 
   defp check_type(_type, nil), do: :ok
   defp check_type(:boolean, value) when is_boolean(value), do: :ok

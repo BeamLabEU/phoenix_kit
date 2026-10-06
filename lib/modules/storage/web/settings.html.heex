@@ -365,6 +365,7 @@
       <.live_component
         module={PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent}
         id="media-renditions"
+        active={@active_tab == "renditions"}
         scope={assigns[:phoenix_kit_current_scope]}
         set_uuid={@rendition_set}
       />
@@ -382,6 +383,7 @@
       <.live_component
         module={PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent}
         id="media-libraries"
+        active={@active_tab == "libraries"}
         scope={assigns[:phoenix_kit_current_scope]}
       />
     </div>

@@ -18511,3 +18511,7 @@ msgstr "Medien bereit zum Anmerken öffnen"
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "Die Ansicht öffnet sich mit bereits eingeschalteten Zeichenwerkzeugen, sodass Sie sofort bearbeiten und verschieben können — schalten Sie den Stift aus, um das fertige Bild zu sehen. Ist die Option aus, öffnet sich die Ansicht mit dem fertigen Bild, und der Stift startet die Werkzeuge."
+
+#, elixir-autogen, elixir-format
+msgid "Personal-library files are counted but not listed here."
+msgstr "Dateien persönlicher Bibliotheken werden gezählt, aber hier nicht aufgelistet."
