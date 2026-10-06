@@ -468,10 +468,13 @@ defmodule PhoenixKit.Module do
 
   ## Orchestration
 
-  Host apps call `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`
-  from `Application.start/2`; that walks every registered module and
-  invokes this callback. Per-module errors are caught + logged; the
-  boot doesn't fail.
+  `PhoenixKit.boot/1` (piped from the host's `Application.start/2`) calls
+  `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`, which walks
+  every registered module and invokes this callback. Per-module errors
+  are caught + logged; the boot doesn't fail. It does not run with
+  `update_mode` on (`mix phoenix_kit.update` / `mix phoenix_kit.doctor`),
+  where `PhoenixKit.Settings` reads answer nil — so a guard read through
+  them must not be the only thing keeping a one-shot step from repeating.
   """
   @callback migrate_legacy() :: :ok | {:ok, map()} | {:error, term()}
 

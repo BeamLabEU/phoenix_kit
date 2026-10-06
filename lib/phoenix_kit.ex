@@ -68,6 +68,10 @@ defmodule PhoenixKit do
   *after* `:phoenix_kit` itself, so the registry's first scan can miss
   it), then runs every registered module's `migrate_legacy/0` callback.
 
+  With `update_mode` on (`mix phoenix_kit.update` and `mix phoenix_kit.doctor`
+  start the host that way) the `migrate_legacy/0` callbacks do not run — see
+  `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`.
+
   Returns the supervisor result unchanged so it composes:
 
       def start(_type, _args) do

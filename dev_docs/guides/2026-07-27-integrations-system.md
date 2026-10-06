@@ -41,7 +41,7 @@ A corrupted JSONB `provider`/`name` cannot leak into a new key — no public wri
 
 **Module callbacks:** `required_integrations/0` (declare needed providers), `integration_providers/0` (contribute custom providers).
 
-**Legacy migration:** modules implement optional `migrate_legacy/0` on `PhoenixKit.Module`. Host apps call `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0` from `Application.start/2`. Idempotent per module; errors are caught and logged. The pre-uuid `Integrations.run_legacy_migrations/0` is now a deprecated shim.
+**Legacy migration:** modules implement optional `migrate_legacy/0` on `PhoenixKit.Module`. `PhoenixKit.boot/1` (piped from the host's `Application.start/2`) calls `PhoenixKit.ModuleRegistry.run_all_legacy_migrations/0`; a host may also call it directly. Idempotent per module; errors are caught and logged. It does nothing with `update_mode` on (`mix phoenix_kit.update` / `doctor`), where settings reads answer nil. The pre-uuid `Integrations.run_legacy_migrations/0` is now a deprecated shim.
 
 ## Owner scopes: website-wide + personal (per-user)
 
