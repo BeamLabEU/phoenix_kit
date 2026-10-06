@@ -9,8 +9,9 @@ if Code.ensure_loaded?(Igniter) do
     Wires `PhoenixKit.boot/1` into the parent app's `Application.start/2`.
 
     `PhoenixKit.boot/1` rescans for late-loading `:phoenix_kit_<x>` deps and
-    runs registered modules' `migrate_legacy/0`. It must be called after
-    `Supervisor.start_link/2` succeeds.
+    runs registered modules' `migrate_legacy/0` (except with `update_mode`
+    on, as under `mix phoenix_kit.update` / `doctor`). It must be called
+    after `Supervisor.start_link/2` succeeds.
 
     Idempotent — if `PhoenixKit.boot` is already present in the file, this
     helper is a no-op. Called from both `mix phoenix_kit.install` and

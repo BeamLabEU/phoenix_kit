@@ -900,20 +900,36 @@ defmodule PhoenixKit.ModuleRegistry do
   this orchestrator only logs the per-module pass/fail outcome to the
   Logger, not to Activity.
 
-  Designed to be called once from a host app's `Application.start/2`
-  after the Repo and supervision tree are up:
+  `PhoenixKit.boot/1` calls it — pipe the supervisor result into that from
+  the host's `Application.start/2` (`mix phoenix_kit.install` / `update` wire
+  it in). A host that still calls this function itself after
+  `Supervisor.start_link/2` gets the same behaviour.
 
-      def start(_type, _args) do
-        children = [...]
-        result = Supervisor.start_link(children, opts)
-        PhoenixKit.ModuleRegistry.run_all_legacy_migrations()
-        result
-      end
+  **Does nothing with `update_mode` on** (`mix phoenix_kit.update` and
+  `mix phoenix_kit.doctor` start the host that way) and returns `%{}`. The
+  callbacks are one-shot data transitions whose "already done" checks
+  usually read `PhoenixKit.Settings`, which answers nil in that mode while
+  writes still go through — so they redid their work on every update or
+  doctor run (granting back a permission an Owner had revoked, re-stamping
+  markers). The update task also starts the host before it migrates, so
+  they would run against the old schema. The host's next ordinary start
+  runs them. The check is here, not at a call site, so `boot/1`, a direct
+  call and the deprecated `PhoenixKit.Integrations.run_legacy_migrations/0`
+  are all covered.
 
   Returns a summary map: `%{module_atom => :ok | {:error, term()}}`.
   """
   @spec run_all_legacy_migrations() :: %{module() => :ok | {:error, term()}}
   def run_all_legacy_migrations do
+    if Application.get_env(:phoenix_kit, :update_mode, false) do
+      Logger.debug("[ModuleRegistry] update_mode: module legacy migrations skipped")
+      %{}
+    else
+      run_each_legacy_migration()
+    end
+  end
+
+  defp run_each_legacy_migration do
     all_modules()
     |> Enum.reduce(%{}, fn mod, acc ->
       Map.put(acc, mod, run_one_legacy_migration(mod))

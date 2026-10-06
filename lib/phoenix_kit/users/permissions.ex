@@ -1684,7 +1684,9 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec backfill_media_sub_permissions() :: :ok
   def backfill_media_sub_permissions do
-    if Settings.get_setting(@media_subs_flag) == "true" do
+    # Read from the row, like `auto_grant_to_admin_roles/1`'s flag: through
+    # `Settings.get_setting/1` it reads nil with `update_mode` on.
+    if match?(%{value: "true"}, SettingsQueries.get_setting_by_key(@media_subs_flag)) do
       :ok
     else
       subs = Enum.map(@core_sub_permissions["media"], & &1.key)
@@ -1718,7 +1720,8 @@ defmodule PhoenixKit.Users.Permissions do
   the key, it won't be re-granted on next application restart — nor by
   `mix phoenix_kit.update` / `mix phoenix_kit.doctor`, which start the host
   in `update_mode` (the flag is read from its row, not the settings reader
-  that answers nil in that mode).
+  that answers nil in that mode). A flag that cannot be read grants
+  nothing: the grant fails closed and is tried again next boot.
   """
   @spec auto_grant_to_admin_roles(String.t()) :: :ok
   # Opt-in keys are never auto-granted to Admin — they surface only on an explicit
@@ -1760,6 +1763,14 @@ defmodule PhoenixKit.Users.Permissions do
           "[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{Exception.message(error)}"
         )
       end
+
+      :ok
+  catch
+    # A dead pool exits rather than raises; the grant fails closed the same way.
+    :exit, reason ->
+      Logger.warning(
+        "[Permissions] Failed to auto-grant #{inspect(key)} to Admin role: #{inspect(reason)}"
+      )
 
       :ok
   end

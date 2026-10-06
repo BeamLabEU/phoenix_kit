@@ -14,7 +14,10 @@ defmodule PhoenixKit.Integration.BootUpdateModeTest do
   # in :persistent_term and the module registry, all process-global.
   use PhoenixKit.DataCase, async: false
 
+  alias PhoenixKit.Integrations
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Settings
+  alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Roles
 
@@ -109,13 +112,65 @@ defmodule PhoenixKit.Integration.BootUpdateModeTest do
       refute Permissions.role_has_permission?(admin_uuid(), key)
     end
 
-    test "an ordinary boot still grants a new key to Admin, once" do
+    test "an ordinary boot still grants a new key to Admin, and flags it" do
       key = key()
       unregister_on_exit(key)
 
       refute Permissions.role_has_permission?(admin_uuid(), key)
       boot([key], update_mode: false)
       assert Permissions.role_has_permission?(admin_uuid(), key)
+      assert Settings.get_setting("auto_granted_perm:#{key}") == "true"
+    end
+
+    # `unregister_custom_key/1` clears the flag (to ""), so registering the
+    # key again is a fresh key: granted again. Only "true" means "done".
+    test "a key unregistered and registered again is granted again" do
+      key = key()
+      unregister_on_exit(key)
+
+      :ok = Permissions.register_custom_key(key)
+      :ok = Permissions.revoke_permission(admin_uuid(), key)
+      :ok = Permissions.unregister_custom_key(key)
+
+      :ok = Permissions.register_custom_key(key)
+      assert Permissions.role_has_permission?(admin_uuid(), key)
+    end
+
+    # The flag read used to go through `Settings.get_setting/1`, which turns a
+    # failed read into nil — and nil meant "never granted", so a revoked key
+    # came back (fail open). Read from the row, a failure grants nothing.
+    test "a flag that cannot be read grants nothing" do
+      key = key()
+      unregister_on_exit(key)
+
+      :ok = Permissions.register_custom_key(key)
+      :ok = Permissions.revoke_permission(admin_uuid(), key)
+
+      # Rolled back with the test's sandbox transaction.
+      Repo.query!("ALTER TABLE phoenix_kit_settings RENAME TO phoenix_kit_settings_hidden")
+
+      :ok = Permissions.register_custom_key(key)
+      refute Permissions.role_has_permission?(admin_uuid(), key)
+    end
+  end
+
+  describe "media sub-permission backfill" do
+    test "a backfill already done is not redone under update_mode" do
+      admin = admin_uuid()
+      {:ok, _} = Permissions.grant_permission(admin, "media")
+      {:ok, _} = Settings.update_setting("media_sub_permissions_backfilled", "true")
+      {:ok, _} = Permissions.grant_permission(admin, "media.view_all")
+      :ok = Permissions.revoke_permission(admin, "media.view_all")
+
+      Application.put_env(:phoenix_kit, :update_mode, true)
+
+      try do
+        :ok = Permissions.backfill_media_sub_permissions()
+      after
+        Application.put_env(:phoenix_kit, :update_mode, false)
+      end
+
+      refute Permissions.role_has_permission?(admin, "media.view_all")
     end
   end
 
@@ -140,6 +195,27 @@ defmodule PhoenixKit.Integration.BootUpdateModeTest do
     test "do not run on an update-mode boot" do
       boot([], update_mode: true)
       refute_received :legacy_migration_ran
+    end
+
+    # Hosts were told to call the orchestrator from `Application.start/2`
+    # before `boot/1` existed, and `BootHook` leaves such a call in place.
+    test "do not run when the host calls the orchestrator itself under update_mode" do
+      Application.put_env(:phoenix_kit, :update_mode, true)
+
+      try do
+        assert ModuleRegistry.run_all_legacy_migrations() == %{}
+        # The deprecated shim delegates to it. Called through apply/3 so the
+        # deprecation does not warn at compile time.
+        # credo:disable-for-next-line Credo.Check.Refactor.Apply
+        assert apply(Integrations, :run_legacy_migrations, []) == :ok
+      after
+        Application.put_env(:phoenix_kit, :update_mode, false)
+      end
+
+      refute_received :legacy_migration_ran
+
+      ModuleRegistry.run_all_legacy_migrations()
+      assert_received :legacy_migration_ran
     end
   end
 end

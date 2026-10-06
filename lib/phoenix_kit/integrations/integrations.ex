@@ -1843,7 +1843,8 @@ defmodule PhoenixKit.Integrations do
   module and runs them all — same single entry point as before, but
   modules own their own data shape.
 
-  Calling this delegates to the orchestrator for backwards compat.
+  Calling this delegates to the orchestrator for backwards compat (so
+  it does nothing with `update_mode` on, like the orchestrator).
   Returns `:ok` regardless of per-module outcome (matches the previous
   semantics of "best-effort, never crash boot").
   """

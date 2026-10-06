@@ -131,11 +131,13 @@ Application.put_env(:phoenix_kit, :test_repo_available, repo_available)
 # PostgreSQL" trap in AGENTS.md; it makes a DB-less `mix test` take minutes and
 # times out anything that resolves a path (`Routes.path/1` reads two settings).
 #
-# `:update_mode` is consulted ONLY by `PhoenixKit.Settings` (plus mix tasks and
-# the supervisor, neither of which runs here) and short-circuits the query to
-# `nil`, which is the same value the 4s stall eventually produces. So the
-# outcome of every read is unchanged; only its cost is. `:repo` stays
-# configured, so nothing outside Settings sees a different world.
+# `:update_mode` is consulted by `PhoenixKit.Settings`, where it short-circuits
+# the query to `nil` — the same value the 4s stall eventually produces, so the
+# outcome of every read is unchanged; only its cost is. It is also read by mix
+# tasks and the supervisor (neither runs here), `Dashboard.Registry`, and
+# `ModuleRegistry.run_all_legacy_migrations/0`, which does nothing in it —
+# a test of that function sets `update_mode: false` itself. `:repo` stays
+# configured.
 #
 # Applied only in the run where the database is already known to be unusable —
 # when it is reachable nothing here changes.
