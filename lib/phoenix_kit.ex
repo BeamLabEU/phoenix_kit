@@ -68,6 +68,15 @@ defmodule PhoenixKit do
   *after* `:phoenix_kit` itself, so the registry's first scan can miss
   it), then runs every registered module's `migrate_legacy/0` callback.
 
+  With `update_mode` on (`mix phoenix_kit.update` and `mix phoenix_kit.doctor`
+  start the host that way) the `migrate_legacy/0` callbacks are skipped. They
+  are one-shot data transitions whose "already done" checks usually read
+  `PhoenixKit.Settings`, which answers nil in that mode while writes still go
+  through — so they redid their work (re-granting permissions an Owner had
+  revoked, re-stamping markers) on every update or doctor run. The update
+  task also starts the host before it migrates, so they would run against
+  the old schema. The host's next ordinary start runs them.
+
   Returns the supervisor result unchanged so it composes:
 
       def start(_type, _args) do
@@ -86,7 +95,10 @@ defmodule PhoenixKit do
   def boot({:ok, _pid} = result) do
     harden_filter_parameters()
     PhoenixKit.ModuleRegistry.rescan()
-    PhoenixKit.ModuleRegistry.run_all_legacy_migrations()
+
+    unless Application.get_env(:phoenix_kit, :update_mode, false),
+      do: PhoenixKit.ModuleRegistry.run_all_legacy_migrations()
+
     register_custom_permission_keys()
     warn_if_integrations_encryption_insecure()
     result

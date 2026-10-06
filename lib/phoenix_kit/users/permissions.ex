@@ -95,6 +95,7 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Settings.Queries, as: SettingsQueries
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
@@ -1714,7 +1715,10 @@ defmodule PhoenixKit.Users.Permissions do
   @doc """
   Auto-grants a permission key to the Admin system role.
   Stores a flag in phoenix_kit_settings so that if Owner later revokes
-  the key, it won't be re-granted on next application restart.
+  the key, it won't be re-granted on next application restart — nor by
+  `mix phoenix_kit.update` / `mix phoenix_kit.doctor`, which start the host
+  in `update_mode` (the flag is read from its row, not the settings reader
+  that answers nil in that mode).
   """
   @spec auto_grant_to_admin_roles(String.t()) :: :ok
   # Opt-in keys are never auto-granted to Admin — they surface only on an explicit
@@ -1726,8 +1730,13 @@ defmodule PhoenixKit.Users.Permissions do
   def auto_grant_to_admin_roles(key) do
     flag_key = "auto_granted_perm:#{key}"
 
-    # If already auto-granted before, respect any manual changes
-    if Settings.get_setting(flag_key) == "true" do
+    # If already auto-granted before, respect any manual changes. The flag is
+    # read from its row, not through `Settings.get_setting/1`: with
+    # `update_mode` on (`mix phoenix_kit.update` / `mix phoenix_kit.doctor`
+    # start the host that way, and a host registers its custom keys while it
+    # starts) that answers nil without reading, and an Owner's revocation was
+    # undone by the grant on every such run.
+    if match?(%{value: "true"}, SettingsQueries.get_setting_by_key(flag_key)) do
       :ok
     else
       case Roles.get_role_by_name(Role.system_roles().admin) do
