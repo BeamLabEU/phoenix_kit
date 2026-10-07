@@ -157,12 +157,16 @@ failed *local* load trigger it. Without rewriting upstream bundle strings:
   with Etcher itself, and waits for both before calling Etcher's `mounted`.
 - If Sortable loaded, `window.Sortable` exists and Etcher uses it. If it failed, the wrapper sets
   `self._sortableFailed = true` on the hook instance before `mounted`, so Etcher takes its native
-  drag-and-drop path and **makes no CDN request**. (A host that opted in to the CDN fallback does not
-  get the flag.)
+  drag-and-drop path and **makes no CDN request**. This holds for every host, the CDN opt-in
+  included: a host that opted in gets its local-then-CDN sequence from PhoenixKit's own shared
+  loader (which supplies `window.Sortable` if either source works); Etcher's built-in CDN path is
+  never the fallback. Only when both fail does the flag go on.
 - That flag is an Etcher internal. A test greps the installed `deps/etcher` bundle for
   `_sortableFailed` / `_withSortable` and fails loudly if upstream renames them. The durable fix is an
-  upstream Etcher option (a local URL, or "never load from a CDN") for the Etcher maintainer; this is
-  the bridge until then.
+  upstream Etcher option for the Etcher maintainer; this is the bridge until then. The agreed shape is
+  in `2026-10-07-etcher-local-sortable-request.md`: `window.Etcher.sortableUrl` (authoritative, no CDN
+  after a custom URL fails) and `window.Etcher.loadSortableFromCdn = false`. PhoenixKit will set the
+  URL to its same-origin file and the flag to `false` in every mode, and the bridge is then deleted.
 
 ### Loading
 
