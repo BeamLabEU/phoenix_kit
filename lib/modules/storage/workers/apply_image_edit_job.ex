@@ -538,7 +538,9 @@ defmodule PhoenixKit.Modules.Storage.ApplyImageEditJob do
         height: rendered.height,
         # The rotation is in the pixels now; a view rotation on top of it
         # would turn the image again.
-        metadata: Map.delete(file.metadata || %{}, "rotation"),
+        # The focal point belongs to the previous pixels too: a crop or turn
+        # moves it, and a redaction can remove the subject altogether.
+        metadata: Map.drop(file.metadata || %{}, ["rotation", "focal"]),
         original_file_uuid: backup.uuid
       )
       |> repo().update()
@@ -593,6 +595,13 @@ defmodule PhoenixKit.Modules.Storage.ApplyImageEditJob do
       if rotation,
         do: Map.put(file.metadata || %{}, "rotation", rotation),
         else: Map.delete(file.metadata || %{}, "rotation")
+
+    # Restore the point of the unedited photo, not one detected on the edit.
+    metadata =
+      case get_in(backup.metadata || %{}, ["focal"]) do
+        nil -> Map.delete(metadata, "focal")
+        focal -> Map.put(metadata, "focal", focal)
+      end
 
     tile_keys = drop_tiles!(file, backup.uuid)
     {:ok, _} = repo().delete(backup)
@@ -668,7 +677,8 @@ defmodule PhoenixKit.Modules.Storage.ApplyImageEditJob do
         user_uuid: file.user_uuid,
         metadata: %{
           "file_name" => file.file_name,
-          "rotation" => get_in(file.metadata || %{}, ["rotation"])
+          "rotation" => get_in(file.metadata || %{}, ["rotation"]),
+          "focal" => get_in(file.metadata || %{}, ["focal"])
         },
         system_managed: true,
         parent_file_uuid: file.uuid,

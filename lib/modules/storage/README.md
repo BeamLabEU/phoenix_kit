@@ -496,8 +496,13 @@ stops serving them, and the ones made stay stored.
   it; the "not found" notice names it only once a rendition crops around the subject
   (`VariantSets.focus_crop_in_use?/0`). `focus` is part of the spec hash only when
   set, so no existing rendition is remade. There is no admin control for a
-  photo's point yet; a changed point is not applied to renditions already made
-  (regenerate them).
+  photo's point yet. Changing or clearing a point invalidates its generated
+  focus crops and queues reconciliation. Different points get different object
+  keys, so copies of a photo with different manual points keep their own crops.
+  Detection records a point only while the checksum and original key still
+  match (`ensure/3` and `put/5` take `source_key:`); a rendition checks the
+  point again before publishing. Editing clears the old point, and reverting
+  restores the unedited photo's point.
 - **A rendition that keeps proportions fixes one side** (V211, `fit_by`): its
   `width` (a column as tall as it needs to be: a vertical panorama) or its
   `height` (a row as long as it needs to be: a horizontal one, with the width left

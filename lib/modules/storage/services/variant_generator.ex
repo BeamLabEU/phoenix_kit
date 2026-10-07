@@ -179,12 +179,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         base_name =
           file.file_checksum || Path.basename(file.file_name, Path.extname(file.file_name))
 
-        variant_filename = "#{base_name}_#{variant_name}#{key_suffix}.#{variant_ext}"
         variant_mime_type = determine_variant_mime_type(file.mime_type, output_format)
-
-        # Build the variant storage path using file_path as base directory
-        # file_path can be any directory structure (timestamp-based or hierarchical)
-        variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
         # Generate temp path for processing
         variant_path = generate_temp_path(variant_ext)
@@ -198,7 +193,24 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         try do
           # A rendition cropped around the subject needs the photo's focal point:
           # the stored one, else a detected one, else the center.
-          focal = focal_point_for(file, effective_dimension, original_path)
+          focal = focal_point_for(file, effective_dimension, original_path, source_key)
+
+          # Two copies of the same photo can have different manual points. A
+          # focus crop's key must describe its pixels, not just the rendition.
+          focus_suffix =
+            if Dimension.focus_crop?(effective_dimension) do
+              "_" <>
+                (:crypto.hash(:md5, :erlang.term_to_binary(focal))
+                 |> Base.encode16(case: :lower)
+                 |> String.slice(0, 8))
+            else
+              ""
+            end
+
+          variant_filename =
+            "#{base_name}_#{variant_name}#{key_suffix}#{focus_suffix}.#{variant_ext}"
+
+          variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
           with {:ok, variant_path} <-
                  process_variant(
@@ -222,7 +234,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
                 VariantSets.spec_hash(dimension, format_override)
               ),
               storage_info.bucket_ids,
-              source_key
+              source_key,
+              if(Dimension.focus_crop?(effective_dimension), do: focal, else: :unchecked)
             )
           end
         after
@@ -341,7 +354,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # code added a duplicate set on every regeneration.
   #
   # `variant` is the instance's attributes (`variant_attrs/6`).
-  defp publish_variant(file, variant, bucket_uuids, source_key) do
+  defp publish_variant(file, variant, bucket_uuids, source_key, focal \\ :unchecked) do
     repo = PhoenixKit.Config.get_repo()
     %{variant_name: variant_name, file_name: storage_path} = variant
     attrs = Map.merge(variant, %{processing_status: "completed", file_uuid: file.uuid})
@@ -351,13 +364,11 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         from(f in Storage.File,
           where: f.uuid == ^file.uuid,
           lock: "FOR SHARE",
-          select: f.file_checksum
+          select: struct(f, [:uuid, :file_checksum, :metadata])
         )
         |> repo.one()
 
-      if current != file.file_checksum or
-           (source_key && not Storage.original_key?(file.uuid, source_key)),
-         do: repo.rollback(:stale_source)
+      check_variant_source!(repo, current, file, source_key, focal)
 
       # A deletion of this (content-addressed) key may have run since it was
       # stored; under the directory lock the object is either still there or
@@ -394,6 +405,20 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp check_variant_source!(repo, current, file, source_key, focal) do
+    if is_nil(current) or current.file_checksum != file.file_checksum or
+         (source_key && not Storage.original_key?(file.uuid, source_key)),
+       do: repo.rollback(:stale_source)
+
+    current_focal =
+      case FocalPoint.get(current) do
+        {point, _source} -> point
+        nil -> nil
+      end
+
+    if focal != :unchecked and focal != current_focal, do: repo.rollback(:stale_source)
   end
 
   # A variant instance's attributes. `spec_hash` is the spec of the size it
@@ -569,9 +594,9 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   end
 
   # Only a fixed image rendition whose crop mode is `focus` looks for one.
-  defp focal_point_for(file, dimension, original_path) do
+  defp focal_point_for(file, dimension, original_path, source_key) do
     if Dimension.focus_crop?(dimension) and String.starts_with?(file.mime_type || "", "image/"),
-      do: FocalPoint.ensure(file, original_path)
+      do: FocalPoint.ensure(file, original_path, source_key: source_key)
   end
 
   defp process_variant(original_path, variant_path, mime_type, dimension, focal) do
@@ -690,6 +715,13 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # `webp`: the video thumbnail).
   @spec ffmpeg_args(String.t(), String.t(), struct()) :: [String.t()]
   def ffmpeg_args(input_path, output_path, dimension) do
+    # A blank format preserves the original container. FFmpeg infers it from
+    # the output extension; use the same format to select the quality options.
+    dimension =
+      if dimension.format in [nil, ""],
+        do: %{dimension | format: output_path |> Path.extname() |> String.trim_leading(".")},
+        else: dimension
+
     # -y to overwrite output file
     base = ["-i", input_path, "-y"]
     filter = video_filter_args(dimension)
@@ -709,6 +741,11 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   defp still_frame?(_dimension), do: false
 
   # The scale filter, then a pass that rounds both sides down to even numbers.
+  defp video_filter_args(%{maintain_aspect_ratio: true, fit_by: "height", height: height})
+       when is_integer(height) and height > 0 do
+    even_filter("scale=w=-2:h='min(#{height},ih)'")
+  end
+
   defp video_filter_args(%{maintain_aspect_ratio: true, width: width})
        when is_integer(width) and width > 0 do
     even_filter("scale=w='min(#{width},iw)':h=-2")
@@ -728,12 +765,18 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # CRF for the encoders that have one. H.264 (mp4, mov) takes `-crf`; VP9
   # (webm) needs `-b:v 0` beside it or `-crf` is only a ceiling on a small
   # bitrate; other containers have no CRF and are left to FFmpeg's defaults.
-  defp video_quality_args(%{quality: quality, format: format}) when is_integer(quality) do
-    crf = Integer.to_string(quality)
+  defp video_quality_args(%{quality: quality, format: format} = dimension)
+       when is_integer(quality) do
+    # A shared image/video rendition still accepts the 1-100 image scale.
+    # Only a video-only rendition stores a CRF directly.
+    crf =
+      if dimension.applies_to == "both",
+        do: Integer.to_string(51 - trunc(quality / 100 * 51)),
+        else: Integer.to_string(quality)
 
     case format && String.downcase(format) do
       "webm" -> ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", crf]
-      container when container in ["mp4", "mov"] -> ["-crf", crf]
+      container when container in ["mp4", "mov"] -> ["-c:v", "libx264", "-crf", crf]
       _other -> []
     end
   end

@@ -122,6 +122,14 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
                VariantSets.spec_hash(dimension(crop_mode: "focus"))
     end
 
+    test "a profile check also remakes focus crops written by 2.56.0" do
+      old_hash =
+        :crypto.hash(:md5, "v1|w=400|h=400|q=85|f=jpg|a=f|p=2|c=focus")
+        |> Base.encode16(case: :lower)
+
+      refute VariantSets.spec_hash(dimension(crop_mode: "focus")) == old_hash
+    end
+
     test "center leaves the spec hash as it was, so V210 remakes nothing" do
       # The hash of an existing fixed thumbnail, as it was before crop modes.
       assert VariantSets.spec_hash(dimension(crop_mode: "center")) ==
@@ -145,7 +153,7 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
       path = Path.join(dir, "photo.png")
 
       {_, 0} =
-        System.cmd("magick", [
+        System.cmd("convert", [
           "-size",
           "1600x1000",
           "xc:gray(110)",
@@ -165,7 +173,7 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
 
     defp red_share(path) do
       {out, 0} =
-        System.cmd("magick", [
+        System.cmd("convert", [
           path,
           "-fx",
           "r>0.7&&g<0.45&&b<0.45?1:0",
@@ -202,7 +210,7 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
     test "never enlarges a photo smaller than the box", %{tmp_dir: dir} do
       if imagemagick?() do
         small = Path.join(dir, "small.png")
-        {_, 0} = System.cmd("magick", ["-size", "200x100", "xc:red", small])
+        {_, 0} = System.cmd("convert", ["-size", "200x100", "xc:red", small])
         out = Path.join(dir, "small_focus.jpg")
 
         assert {:ok, _} =

@@ -26,11 +26,20 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
 
   import Ecto.Query, only: [from: 2]
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.VariantGenerator
+  alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.RepoHelper
 
   require Logger
+
+  # Hosts without the optional dependency must compile without warnings too.
+  @compile {:no_warn_undefined, Vix.Vips.Image}
+  @compile {:no_warn_undefined, Vix.Vips.Operation}
 
   # The long side of the copy detection looks at.
   @shrink_to 512
@@ -62,11 +71,18 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
   @doc """
   Records a focal point for `file`: `x` and `y` between 0 and 1, `source` `"auto"`
   or `"manual"`. A detected point never replaces a manual one (`{:ok, :kept}`).
-  Only the `"focal"` key of the metadata changes.
+  Only the `"focal"` key of the metadata changes. A change of point also
+  invalidates generated subject crops and queues reconciliation.
+
+  Detected points are accepted only while the file's checksum is unchanged.
+  Pass `source_key:` when the bytes came from `Storage.retrieve_original/1`;
+  that original must still belong to the file when the point is recorded.
   """
-  @spec put(map(), number(), number(), String.t()) ::
-          {:ok, point()} | {:ok, :kept} | {:error, :invalid}
-  def put(%{uuid: uuid}, x, y, source)
+  @spec put(map(), number(), number(), String.t(), keyword()) ::
+          {:ok, point()} | {:ok, :kept} | {:error, :invalid | :stale_source}
+  def put(file, x, y, source, opts \\ [])
+
+  def put(%{uuid: uuid} = file, x, y, source, opts)
       when is_number(x) and is_number(y) and x >= 0 and x <= 1 and y >= 0 and y <= 1 and
              source in @sources do
     focal = %{"x" => Float.round(x / 1, 4), "y" => Float.round(y / 1, 4), "source" => source}
@@ -84,36 +100,94 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
         )
       end
 
-    {count, _} =
-      from(f in query,
-        update: [
-          set: [
-            metadata:
-              fragment(
-                "coalesce(?, '{}'::jsonb) || ?",
-                f.metadata,
-                type(^%{"focal" => focal}, :map)
-              )
+    RepoHelper.repo().transaction(fn ->
+      current =
+        RepoHelper.repo().one(from(f in StorageFile, where: f.uuid == ^uuid, lock: "FOR UPDATE"))
+
+      check_source!(file, current, source, Keyword.get(opts, :source_key))
+
+      {count, _} =
+        from(f in query,
+          update: [
+            set: [
+              metadata:
+                fragment(
+                  "coalesce(?, '{}'::jsonb) || ?",
+                  f.metadata,
+                  type(^%{"focal" => focal}, :map)
+                )
+            ]
           ]
-        ]
+        )
+        |> RepoHelper.repo().update_all([])
+
+      point = {focal["x"], focal["y"]}
+
+      if count == 1 do
+        if point_from_file(current) != point, do: invalidate_crops(current)
+        point
+      else
+        :kept
+      end
+    end)
+  end
+
+  def put(_file, _x, _y, _source, _opts), do: {:error, :invalid}
+
+  defp check_source!(file, current, "auto", source_key) when not is_nil(current) do
+    checksum_changed? =
+      Map.has_key?(file, :file_checksum) and current.file_checksum != file.file_checksum
+
+    original_changed? =
+      not is_nil(source_key) and not Storage.original_key?(file.uuid, source_key)
+
+    if checksum_changed? or original_changed?, do: RepoHelper.repo().rollback(:stale_source)
+  end
+
+  defp check_source!(_file, _current, _source, _source_key), do: :ok
+
+  @doc "Forgets the stored focal point and requests regeneration of its subject crops."
+  @spec clear(map()) :: :ok
+  def clear(%{uuid: uuid}) do
+    RepoHelper.repo().transaction(fn ->
+      current =
+        RepoHelper.repo().one(from(f in StorageFile, where: f.uuid == ^uuid, lock: "FOR UPDATE"))
+
+      from(f in StorageFile,
+        where: f.uuid == ^uuid,
+        update: [set: [metadata: fragment("coalesce(?, '{}'::jsonb) - 'focal'", f.metadata)]]
       )
       |> RepoHelper.repo().update_all([])
 
-    if count == 1, do: {:ok, {focal["x"], focal["y"]}}, else: {:ok, :kept}
-  end
-
-  def put(_file, _x, _y, _source), do: {:error, :invalid}
-
-  @doc "Forgets the focal point of `file`: renditions crop at the center again."
-  @spec clear(map()) :: :ok
-  def clear(%{uuid: uuid}) do
-    from(f in StorageFile,
-      where: f.uuid == ^uuid,
-      update: [set: [metadata: fragment("coalesce(?, '{}'::jsonb) - 'focal'", f.metadata)]]
-    )
-    |> RepoHelper.repo().update_all([])
+      if point_from_file(current), do: invalidate_crops(current)
+    end)
 
     :ok
+  end
+
+  defp point_from_file(file) do
+    case get(file) do
+      {point, _source} -> point
+      nil -> nil
+    end
+  end
+
+  # Changing the point changes the pixels without changing a rendition's spec.
+  # Invalidate only generated focus crops (never an annotation with no spec).
+  defp invalidate_crops(file) do
+    names =
+      file
+      |> VariantGenerator.expected_variants()
+      |> Enum.filter(fn {dimension, _name, _format} -> Dimension.focus_crop?(dimension) end)
+      |> Enum.map(fn {_dimension, name, _format} -> name end)
+
+    {count, _} =
+      from(i in FileInstance,
+        where: i.file_uuid == ^file.uuid and i.variant_name in ^names and not is_nil(i.spec_hash)
+      )
+      |> RepoHelper.repo().update_all(set: [spec_hash: "focal_changed"])
+
+    if count > 0, do: VariantSets.record_variants(file, false, nil)
   end
 
   @doc """
@@ -122,15 +196,26 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
   again), else `nil`. Never raises: a photo detection cannot read is cropped at
   the center.
   """
-  @spec ensure(map(), Path.t()) :: point() | nil
-  def ensure(%{uuid: uuid} = file, local_path) do
+  @spec ensure(map(), Path.t(), keyword()) :: point() | nil
+  def ensure(%{uuid: uuid} = file, local_path, opts \\ []) do
     # Read again: a person may have set one since `file` was loaded.
     stored =
       RepoHelper.repo().one(from(f in StorageFile, where: f.uuid == ^uuid, select: f.metadata))
 
     case from_metadata(stored) do
-      {point, _source} -> point
-      nil -> detect_and_store(file, local_path)
+      {point, _source} ->
+        point
+
+      nil ->
+        source_key =
+          Keyword.get_lazy(opts, :source_key, fn ->
+            case Storage.get_file_instance_by_name(uuid, "original") do
+              %{file_name: key} -> key
+              nil -> nil
+            end
+          end)
+
+        detect_and_store(file, local_path, source_key)
     end
   rescue
     error ->
@@ -142,14 +227,15 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
       nil
   end
 
-  defp detect_and_store(file, local_path) do
+  defp detect_and_store(file, local_path, source_key) do
     case detect(local_path) do
       {:ok, {x, y}} ->
-        case put(file, x, y, "auto") do
+        case put(file, x, y, "auto", source_key: source_key) do
           {:ok, {_x, _y} = point} -> point
           # A manual point appeared meanwhile.
           {:ok, :kept} -> get_stored(file)
-          _ -> {x, y}
+          {:error, :stale_source} -> nil
+          _ -> nil
         end
 
       :error ->
@@ -180,7 +266,7 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     with {:ok, {w, h}} <- ImageProcessor.extract_dimensions(path),
          true <- w * h <= @max_pixels do
       # A NIF call: bounded in time, and a failure is "no focal point".
-      task = Task.async(fn -> attention(path) end)
+      task = Task.async(fn -> safe_attention(path) end)
 
       case Task.yield(task, 10_000) || Task.shutdown(task, :brutal_kill) do
         {:ok, result} -> result
@@ -189,6 +275,16 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     else
       _ -> :error
     end
+  rescue
+    _ -> :error
+  catch
+    _, _ -> :error
+  end
+
+  # A linked task must catch decoder failures itself: rescuing in the caller
+  # does not prevent a task's exception from exiting the caller too.
+  defp safe_attention(path) do
+    attention(path)
   rescue
     _ -> :error
   catch

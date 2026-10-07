@@ -1,3 +1,27 @@
+## 2.56.1 - 2026-10-07
+
+### Fixed
+
+- **Subject crops stay tied to the photo they were made from.** Detection cannot record a point after
+  an edit replaces the original, and a rendition cannot publish after its point changes. Editing clears
+  the old point; reverting restores the unedited photo's point. Changing or clearing a point marks its
+  generated subject crops for regeneration. Different focal points use different stored object keys,
+  so copies of a photo with different manual points cannot overwrite each other's crops.
+- **A failed subject detector falls back to the middle.** Decoder exceptions are caught inside the
+  linked task, and hosts without the optional Vix dependency compile without undefined-module warnings.
+- **Video renditions preserve the supported settings.** Height-fixed renditions and posters follow
+  their height. Preserving the original container still applies quality, and a rendition shared by
+  images and videos converts its 1–100 quality to CRF instead of passing invalid values such as 85.
+  MP4 and MOV renditions explicitly select the H.264 encoder when setting CRF.
+- **The new image regression fixtures work with ImageMagick 6 and 7**, using the same `convert`
+  command as the image processor. Added real FFmpeg output checks for video sizing and quality.
+
+### Upgrading
+
+- If you used subject crops in 2.56.0, run **Check files** on their rendition profile after upgrading.
+  Their spec hash now changes, so the reconciler remakes them with separate keys for each point.
+  Center crops and renditions that keep proportions retain their hashes.
+
 ## 2.56.0 - 2026-10-07
 
 ### Added

@@ -81,6 +81,39 @@ defmodule PhoenixKit.Modules.Storage.FocalPointTest do
       assert FocalPoint.get(reload(file)) == {{0.7, 0.1}, "manual"}
     end
 
+    test "a point detected before the original changed is refused" do
+      file = file!()
+      Repo.update!(Ecto.Changeset.change(file, file_checksum: "edited-checksum"))
+
+      assert {:error, :stale_source} = FocalPoint.put(file, 0.8, 0.2, "auto")
+      assert FocalPoint.get(reload(file)) == nil
+    end
+
+    test "the original key is checked even when the checksum matches" do
+      file = file!()
+
+      attrs = %{
+        file_uuid: file.uuid,
+        variant_name: "original",
+        file_name: "focal/new.jpg",
+        checksum: file.file_checksum,
+        mime_type: "image/jpeg",
+        ext: "jpg",
+        size: 100,
+        processing_status: "completed"
+      }
+
+      {:ok, _} = Storage.create_file_instance(attrs)
+
+      assert {:error, :stale_source} =
+               FocalPoint.put(file, 0.8, 0.2, "auto", source_key: "focal/old.jpg")
+
+      assert FocalPoint.get(reload(file)) == nil
+
+      assert {:ok, {0.8, 0.2}} =
+               FocalPoint.put(file, 0.8, 0.2, "auto", source_key: "focal/new.jpg")
+    end
+
     test "refuses a point outside the photo, or a source it does not know" do
       file = file!()
       assert {:error, :invalid} = FocalPoint.put(file, 1.2, 0.5, "manual")
@@ -115,7 +148,7 @@ defmodule PhoenixKit.Modules.Storage.FocalPointTest do
       path = Path.join(dir, "subject.png")
 
       {_, 0} =
-        System.cmd("magick", [
+        System.cmd("convert", [
           "-size",
           "1600x1000",
           "xc:gray(110)",
@@ -176,7 +209,7 @@ defmodule PhoenixKit.Modules.Storage.FocalPointTest do
     test "a featureless photo has no subject to find", %{tmp_dir: dir} do
       if imagemagick?() and FocalPoint.detection_available?() do
         flat = Path.join(dir, "flat.png")
-        {_, 0} = System.cmd("magick", ["-size", "800x600", "xc:gray50", flat])
+        {_, 0} = System.cmd("convert", ["-size", "800x600", "xc:gray50", flat])
 
         assert FocalPoint.detect(flat) == :error
         assert FocalPoint.ensure(file!(), flat) == nil

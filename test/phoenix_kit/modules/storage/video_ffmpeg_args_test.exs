@@ -82,6 +82,22 @@ defmodule PhoenixKit.Modules.Storage.VideoFfmpegArgsTest do
     end
   end
 
+  test "a height-fixed video or poster follows its height, ignoring a leftover width" do
+    for format <- ["mp4", "jpg"] do
+      filter =
+        args(
+          maintain_aspect_ratio: true,
+          fit_by: "height",
+          height: 120,
+          width: 640,
+          format: format
+        )
+        |> option("-vf")
+
+      assert filter == "scale=w=-2:h='min(120,ih)',scale=trunc(iw/2)*2:trunc(ih/2)*2"
+    end
+  end
+
   test "a rendition with no size leaves the video as it is" do
     assert args(width: nil, height: nil) |> option("-vf") == nil
   end
@@ -92,11 +108,23 @@ defmodule PhoenixKit.Modules.Storage.VideoFfmpegArgsTest do
       assert args(name: "1080p", quality: 23) |> option("-crf") == "23"
       assert args(name: "360p", quality: 30) |> option("-crf") == "30"
       assert args(name: "clip", quality: 18) |> option("-crf") == "18"
+      assert args(format: "mp4") |> option("-c:v") == "libx264"
+      assert args(format: "mov") |> option("-c:v") == "libx264"
     end
 
     test "is not read as the 1-100 image scale" do
       # 28 used to come out as CRF 37 for any name that was not 360p/720p/1080p.
       assert args(name: "clip", quality: 28) |> option("-crf") == "28"
+    end
+
+    test "preserving the original container still applies its quality" do
+      assert args(format: nil, quality: 18) |> option("-crf") == "18"
+      assert args(format: "", quality: 18) |> option("-c:v") == "libx264"
+    end
+
+    test "a shared image/video rendition keeps its 1-100 scale" do
+      assert args(applies_to: "both", quality: 85) |> option("-crf") == "8"
+      assert args(applies_to: "both", quality: 1) |> option("-crf") == "51"
     end
 
     test "VP9 gets a constant-quality bitrate beside the CRF" do

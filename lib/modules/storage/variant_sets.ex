@@ -723,8 +723,9 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   # Cropping around the focal point changes the pixels of a fixed rendition, so it
   # is part of the hash; the default (the center) adds nothing, so every existing
-  # hash is unchanged and no file is remade by V210.
-  defp crop_part(d), do: if(Dimension.focus_crop?(d), do: "|c=focus", else: "")
+  # center hash is unchanged. Version 2 gives each point its own object key;
+  # a check of the profile's files also remakes focus crops made before it.
+  defp crop_part(d), do: if(Dimension.focus_crop?(d), do: "|c=focus|fp=2", else: "")
 
   # A fixed height makes a different picture from a fixed width, so it is part of
   # the hash; the default (the width) adds nothing.

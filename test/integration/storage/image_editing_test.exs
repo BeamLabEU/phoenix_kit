@@ -19,6 +19,7 @@ defmodule PhoenixKit.Modules.Storage.ImageEditingTest do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.ApplyImageEditJob
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.FocalPoint
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.ProcessFileJob
@@ -438,6 +439,34 @@ defmodule PhoenixKit.Modules.Storage.ImageEditingTest do
   end
 
   describe "overlapping runs" do
+    test "changing a manual point invalidates the crop and gives it its own object", ctx do
+      {:ok, dimension} =
+        Storage.create_dimension(%{
+          name: "focus_square",
+          applies_to: "image",
+          width: 20,
+          height: 20,
+          maintain_aspect_ratio: false,
+          crop_mode: "focus",
+          format: "png",
+          quality: 85
+        })
+
+      assert {:ok, _} = FocalPoint.put(ctx.photo, 0.0, 0.5, "manual")
+      assert {:ok, left} = VariantGenerator.generate_variant(reload(ctx.photo), dimension)
+      left_sha = object_sha256(left.file_name)
+
+      assert {:ok, _} = FocalPoint.put(ctx.photo, 1.0, 0.5, "manual")
+      assert Storage.get_file_instance(left.uuid).spec_hash == "focal_changed"
+      assert reload(ctx.photo).placed_variant_revision == 0
+      assert {:ok, right} = VariantGenerator.generate_variant(reload(ctx.photo), dimension)
+
+      refute left.file_name == right.file_name
+      refute left_sha == object_sha256(right.file_name)
+      assert :ok = FocalPoint.clear(ctx.photo)
+      assert Storage.get_file_instance(right.uuid).spec_hash == "focal_changed"
+    end
+
     test "a render for a superseded revision is thrown away", ctx do
       assert {:ok, pending} = ImageEditing.edit(ctx.photo, %{"rotate" => 90}, scope: ctx.scope)
       assert {:ok, {:render, rendered} = prepared} = ApplyImageEditJob.prepare(pending)
@@ -494,6 +523,18 @@ defmodule PhoenixKit.Modules.Storage.ImageEditingTest do
                  "image/png",
                  source_key: source
                )
+    end
+
+    test "an edit forgets the old focal point and a revert restores it", ctx do
+      assert {:ok, _} = FocalPoint.put(ctx.photo, 0.8, 0.2, "manual")
+      edited = edit!(ctx.photo, %{"rotate" => 90}, ctx)
+
+      assert FocalPoint.get(reload(edited)) == nil
+      assert {:ok, _} = FocalPoint.put(edited, 0.2, 0.8, "auto")
+      assert {:ok, _} = ImageEditing.revert(edited, scope: ctx.scope)
+      assert [:ok] = drain()
+
+      assert FocalPoint.get(reload(edited)) == {{0.8, 0.2}, "manual"}
     end
 
     test "dimensions read from a replaced original are not recorded", ctx do

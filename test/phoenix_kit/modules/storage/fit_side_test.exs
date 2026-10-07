@@ -121,7 +121,7 @@ defmodule PhoenixKit.Modules.Storage.FitSideTest do
 
     defp image!(dir, name, size) do
       path = Path.join(dir, name)
-      {_, 0} = System.cmd("magick", ["-size", size, "gradient:red-blue", path])
+      {_, 0} = System.cmd("convert", ["-size", size, "gradient:red-blue", path])
       path
     end
 
