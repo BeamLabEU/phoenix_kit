@@ -87,6 +87,11 @@ defmodule PhoenixKit.Utils.IpAddress do
   nginx appends after it), then `x-real-ip`. A public `remote_ip` is trusted
   as is. Returns nil when nothing is known.
 
+  A forwarded address may carry the port the proxy saw (Caddy's `{remote}`
+  writes `203.0.113.7:28858` and `[2001:db8::1]:28858`); the port is dropped.
+  An IPv4 visitor reaching a dual-stack listener as `::ffff:a.b.c.d` is
+  reported as `a.b.c.d`.
+
       iex> conn = %Plug.Conn{remote_ip: {127, 0, 0, 1}, req_headers: [{"x-forwarded-for", "9.9.9.9, 203.0.113.7"}]}
       iex> PhoenixKit.Utils.IpAddress.client_address(conn)
       "203.0.113.7"
@@ -94,9 +99,9 @@ defmodule PhoenixKit.Utils.IpAddress do
   @spec client_address(Plug.Conn.t()) :: String.t() | nil
   def client_address(%Plug.Conn{remote_ip: ip} = conn) do
     if local?(ip) do
-      forwarded_for(conn) || real_ip(conn) || format(ip)
+      forwarded_for(conn) || real_ip(conn) || format_client(ip)
     else
-      format(ip)
+      format_client(ip)
     end
   end
 
@@ -119,7 +124,7 @@ defmodule PhoenixKit.Utils.IpAddress do
         headers = Phoenix.LiveView.get_connect_info(socket, :x_headers) || []
         conn = %Plug.Conn{remote_ip: ip, req_headers: headers}
 
-        if local?(ip), do: forwarded_for(conn) || real_ip(conn), else: format(ip)
+        if local?(ip), do: forwarded_for(conn) || real_ip(conn), else: format_client(ip)
 
       _ ->
         nil
@@ -207,11 +212,28 @@ defmodule PhoenixKit.Utils.IpAddress do
   defp parse(""), do: nil
 
   defp parse(value) do
-    case :inet.parse_address(String.to_charlist(value)) do
-      {:ok, tuple} -> format(tuple)
+    case :inet.parse_address(String.to_charlist(strip_port(value))) do
+      {:ok, tuple} -> format_client(tuple)
       _ -> nil
     end
   end
+
+  # A proxy may write the port it saw beside the address. Only two shapes
+  # carry one: `a.b.c.d:port` and `[v6]` with or without `:port`. A bare
+  # IPv6 address is left alone — `2001:db8::1:443` is an address, not one
+  # with a port.
+  defp strip_port(value) do
+    case Regex.run(~r/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/, value, capture: :all_but_first) ||
+           Regex.run(~r/^\[(.+)\](?::\d+)?$/, value, capture: :all_but_first) do
+      [address] -> address
+      nil -> value
+    end
+  end
+
+  # The same visitor whether a dual-stack listener reports them as
+  # `::ffff:a.b.c.d` or not.
+  defp format_client({0, 0, 0, 0, 0, 65_535, _, _} = v4_mapped), do: format(unmap(v4_mapped))
+  defp format_client(ip), do: format(ip)
 
   defp format(nil), do: nil
 
@@ -230,6 +252,27 @@ defmodule PhoenixKit.Utils.IpAddress do
   defp local?({0, 0, 0, 0, 0, 65_535, _, _} = v4_mapped), do: local?(unmap(v4_mapped))
   defp local?({a, _, _, _, _, _, _, _}) when a in 0xFC00..0xFDFF, do: true
   defp local?(_), do: false
+
+  @doc """
+  Whether `address` is loopback or private — where a reverse proxy on the
+  same box or network connects from, the addresses `client_address/1` looks
+  past. Anything that does not parse is not.
+
+      iex> PhoenixKit.Utils.IpAddress.local_address?("172.18.0.8")
+      true
+
+      iex> PhoenixKit.Utils.IpAddress.local_address?("203.0.113.7")
+      false
+  """
+  @spec local_address?(String.t() | nil) :: boolean()
+  def local_address?(address) when is_binary(address) do
+    case :inet.parse_strict_address(String.to_charlist(address)) do
+      {:ok, tuple} -> local?(tuple)
+      {:error, _} -> false
+    end
+  end
+
+  def local_address?(_), do: false
 
   # Mapped, NAT64, and IPv4-compatible all stash the IPv4 in the last 32 bits.
   defp unmap({_, _, _, _, _, _, ab, cd}),

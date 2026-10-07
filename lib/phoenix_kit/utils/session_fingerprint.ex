@@ -39,6 +39,7 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
   require Logger
 
   alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.PublicAddress
 
   @hash_algorithm :sha256
 
@@ -199,6 +200,31 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
 
           {:error, :fingerprint_mismatch}
       end
+    end
+  end
+
+  @doc """
+  The visitor's address to move a session to when the one it was stored
+  with was a reverse proxy's — or nil when the stored address stands.
+
+  Before core could read the visitor's address through a proxy that writes
+  `ip:port` (Caddy's `{remote}`), a session signed in behind one stored the
+  proxy's own loopback or private address. Read correctly now, every
+  request of such a session would be a changed IP: a warning each time, a
+  sign-out under strict mode. A stored loopback/private address and a
+  public current one, from the same browser, is that session — it moves to
+  the current address once and is checked as usual from then on. A
+  different browser is not moved: whoever holds the token must not get to
+  rebind it from somewhere else.
+  """
+  @spec proxy_rebind_address(Plug.Conn.t(), String.t() | nil, String.t() | nil) ::
+          String.t() | nil
+  def proxy_rebind_address(conn, stored_ip, stored_ua_hash) do
+    current_ip = get_ip_address(conn)
+
+    if IpAddress.local_address?(stored_ip) and PublicAddress.public?(current_ip) and
+         stored_ua_hash in [nil, hash_user_agent(conn)] do
+      current_ip
     end
   end
 
