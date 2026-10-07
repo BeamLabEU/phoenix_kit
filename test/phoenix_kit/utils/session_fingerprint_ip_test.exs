@@ -67,4 +67,67 @@ defmodule PhoenixKit.Utils.SessionFingerprintIpTest do
                )
     end
   end
+
+  # Sessions signed in behind a proxy that writes `ip:port` stored the
+  # proxy's address; once the visitor's is read, they move to it — once.
+  describe "proxy_rebind_address/3" do
+    @ua "Mozilla/5.0 same browser"
+
+    defp behind_proxy(forwarded, ua \\ @ua) do
+      conn({172, 18, 0, 8}, [{"x-forwarded-for", forwarded}, {"user-agent", ua}])
+    end
+
+    defp ua_hash(ua \\ @ua), do: SessionFingerprint.hash_user_agent(behind_proxy("9.9.9.9", ua))
+
+    test "a stored proxy address moves to the public visitor, port and all" do
+      assert SessionFingerprint.proxy_rebind_address(
+               behind_proxy("9.9.9.9:28858"),
+               "172.18.0.8",
+               ua_hash()
+             ) == "9.9.9.9"
+
+      assert SessionFingerprint.proxy_rebind_address(behind_proxy("9.9.9.9"), "127.0.0.1", nil) ==
+               "9.9.9.9"
+    end
+
+    test "a stored public address stands" do
+      refute SessionFingerprint.proxy_rebind_address(
+               behind_proxy("9.9.9.9"),
+               "8.8.4.4",
+               ua_hash()
+             )
+    end
+
+    test "a current address that is still local stands" do
+      conn = conn({172, 18, 0, 8}, [{"user-agent", @ua}])
+      refute SessionFingerprint.proxy_rebind_address(conn, "172.18.0.8", ua_hash())
+      refute SessionFingerprint.proxy_rebind_address(conn, "10.0.0.9", ua_hash())
+    end
+
+    test "a request straight from a public peer is not moved — only one through the proxy" do
+      conn = conn({9, 9, 9, 9}, [{"user-agent", @ua}])
+
+      refute SessionFingerprint.proxy_rebind_address(conn, "172.18.0.8", ua_hash())
+
+      assert {:warning, :ip_mismatch} =
+               SessionFingerprint.verify_fingerprint(conn, "172.18.0.8", ua_hash())
+    end
+
+    test "another browser is not moved" do
+      refute SessionFingerprint.proxy_rebind_address(
+               behind_proxy("9.9.9.9", "Other/1.0"),
+               "172.18.0.8",
+               ua_hash()
+             )
+    end
+
+    test "a stored public address against another public one is still a changed IP" do
+      assert {:warning, :ip_mismatch} =
+               SessionFingerprint.verify_fingerprint(
+                 behind_proxy("9.9.9.9"),
+                 "8.8.4.4",
+                 ua_hash()
+               )
+    end
+  end
 end

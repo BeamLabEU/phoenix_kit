@@ -1361,13 +1361,50 @@ defmodule PhoenixKit.Users.Auth do
         token_record ->
           SessionFingerprint.verify_fingerprint(
             conn,
-            token_record.ip_address,
+            rebind_proxy_address(conn, token_record, token),
             token_record.user_agent_hash,
             session: session_label(token)
           )
       end
     else
       :ok
+    end
+  end
+
+  # A session that stored a reverse proxy's address moves to the visitor's
+  # once, without a warning — see `SessionFingerprint.proxy_rebind_address/3`.
+  # Conditional on the stored value, so of two requests racing here only one
+  # moves it; the other is checked against the address the winner wrote.
+  #
+  # Public (@doc false) so the test suite can hand it the stale record a
+  # lost race sees.
+  @doc false
+  def rebind_proxy_address(conn, %UserToken{ip_address: stored_ip} = token_record, token) do
+    case SessionFingerprint.proxy_rebind_address(conn, stored_ip, token_record.user_agent_hash) do
+      nil ->
+        stored_ip
+
+      current_ip ->
+        query =
+          from(t in UserToken, where: t.uuid == ^token_record.uuid and t.ip_address == ^stored_ip)
+
+        case Repo.update_all(query, set: [ip_address: current_ip]) do
+          {1, _} ->
+            Logger.info(
+              "PhoenixKit: session #{session_label(token)} moved from proxy address " <>
+                "#{stored_ip} to #{current_ip}"
+            )
+
+            current_ip
+
+          {0, _} ->
+            # The winner's address — or, for a row gone since (signed out),
+            # the one that was read.
+            Repo.one(
+              from(t in UserToken, where: t.uuid == ^token_record.uuid, select: t.ip_address)
+            ) ||
+              stored_ip
+        end
     end
   end
 

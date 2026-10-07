@@ -53,7 +53,37 @@
   gets `-b:v 0` beside it). A still-frame rendition (the video thumbnail) uses the 1-100 scale whatever it is
   called. The Renditions tab says what each mode does for video, with a legend.
 
+- **Behind a proxy that writes the port, the visitor's address is now read.** Caddy's `{remote}` (and any
+  proxy like it) sends `X-Forwarded-For: 203.0.113.7:28858` and `[2001:db8::7]:28858`; `IpAddress` could not
+  parse that and fell back to the proxy's own address — one address for every visitor in rate limits, login
+  attempts, the website-access lockout, sessions and the "new device" check. `client_address/1`,
+  `client_address_from_socket/1` and everything built on them now drop the port from `a.b.c.d:port` and
+  `[v6]:port` (a bare IPv6 address is never cut: `2001:db8::1:443` is an address), and they and
+  `extract_ip_address/1` report an IPv4-mapped `::ffff:a.b.c.d` as `a.b.c.d`. Which header is trusted is
+  unchanged.
+- **A session stored with the proxy's address moves to the visitor's once, quietly.** Without this, every
+  session signed in before the fix would read as "changed IP" on every request, and strict fingerprinting
+  would sign them all out. A token whose stored address is loopback/private, used by the same browser from a
+  public address through the proxy (the request's peer is loopback/private), is rebound to that address on
+  its next request — no warning, no refusal — and checked as usual from then on. A user agent is easy to
+  copy, so this is a one-off loosening of strict mode, not a check: what bounds it is that a session stored
+  with a private/loopback address, used again through a private peer (a proxy) from a public address, moves
+  once — a LAN client that signed in through the same proxy included. A request straight from a public peer,
+  or from another browser, is not rebound.
+
 ### Upgrading
+
+- ⚠️ **Behind a proxy that writes the port, addresses change from the proxy's to the visitors'.**
+  `WebsiteAccess.AllowedAddresses` compares exactly: an allowed address written as the proxy's (`172.18.0.8`)
+  stops matching — list the visitors' public addresses instead, before deploying. Existing sessions move to
+  the visitor's address by themselves (above). The first sign-in of each user after the upgrade is a known
+  browser on a new address, so it records a device and a `user.new_login_detected` activity entry, but sends
+  no "new login" email or notification (that needs a browser the account has not used before). Failed
+  website-access attempts counted against the proxy's address no longer count towards anyone's lockout.
+- ⚠️ **On a dual-stack listener, IPv4 visitors change from `::ffff:a.b.c.d` to `a.b.c.d`** — with or without
+  a proxy. An allowed address written as `::ffff:a.b.c.d` must be written as `a.b.c.d`; each user's first
+  sign-in records a new device row (no email, as above); and the website-access lockout counts exact
+  addresses, so failed attempts recorded as `::ffff:a.b.c.d` before the upgrade stop counting.
 
 - **The standard video renditions' quality now applies.** The seeded rows all say CRF 28, so on an existing
   install `720p` and `1080p` will be encoded at 28 from now on, where they had been at 25 and 23. To keep
