@@ -1,3 +1,12 @@
+## Unreleased
+
+### Added
+
+- **A module's section on the Emails Transactional page can put a button beside "Preview emails".** An entry
+  of `email_settings_sections/0` may carry `link: %{label: "..."}`, and the Branding tab then shows a button
+  that opens the section's tab (`?tab=module_<id>`); `link: %{label: "...", path: "/admin/..."}` leads to
+  that path instead. The button is shown only to users who can see the section (the same permission).
+
 ## 2.56.1 - 2026-10-07
 
 ### Fixed

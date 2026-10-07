@@ -37,7 +37,8 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
   `PhoenixKit.ModuleRegistry.all_email_settings_sections/0`. Each
   section is a module-owned `Phoenix.LiveComponent`, rendered below the
   core sections, gated by its declared permission (or shown to any admin
-  when the permission is `nil`).
+  when the permission is `nil`). A section with a `:link` also gets a button
+  beside "Preview emails" on the Branding tab, under the same permission.
   """
 
   use PhoenixKitWeb, :live_view
@@ -452,8 +453,27 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
       ModuleRegistry.all_email_settings_sections()
       |> Enum.filter(&section_visible?(&1, scope))
 
-    assign(socket, :email_settings_sections, sections)
+    socket
+    |> assign(:email_settings_sections, sections)
+    |> assign(:email_section_links, section_links(sections))
   end
+
+  # A section's optional `:link` becomes a button beside "Preview emails".
+  # Built from the already-filtered sections, so a user never gets a link to
+  # a section they may not see. A link without a path opens the section's tab.
+  defp section_links(sections) do
+    for %{id: id, link: %{label: label} = link} <- sections,
+        is_binary(label),
+        target = link_target(id, link) do
+      Map.merge(%{id: id, label: label, navigate: nil, patch: nil}, target)
+    end
+  end
+
+  defp link_target(_id, %{path: "/" <> _ = path}), do: %{navigate: path}
+  defp link_target(_id, %{path: _}), do: nil
+
+  defp link_target(id, _link),
+    do: %{patch: "/admin/settings/email-sending?tab=" <> URI.encode_www_form("module_#{id}")}
 
   defp section_visible?(%{permission: nil}, _scope), do: true
 

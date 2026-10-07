@@ -492,12 +492,22 @@ defmodule PhoenixKit.Module do
       it as `<.live_component module={component} id={id} />` — the section
       owns its own `mount/update/handle_event`, so the core page needs no
       knowledge of what's inside.
+    * `:link` (optional) — a button beside "Preview emails" on the page's
+      Branding tab, shown to whoever may see the section. `%{label: label}`
+      opens the section's own tab (`?tab=module_<id>`); `%{label: label,
+      path: path}` leads to `path`, a canonical `/admin/...`-style path that
+      the core prefixes (`PhoenixKit.Utils.Routes.path/1`). A path that does
+      not start with `/` is ignored.
   """
   @type email_settings_section :: %{
           required(:id) => atom(),
           required(:title) => String.t(),
           required(:permission) => String.t() | nil,
-          required(:component) => module()
+          required(:component) => module(),
+          optional(:link) => %{
+            required(:label) => String.t(),
+            optional(:path) => String.t()
+          }
         }
 
   @doc """
