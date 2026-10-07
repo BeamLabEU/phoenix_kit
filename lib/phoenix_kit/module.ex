@@ -497,7 +497,7 @@ defmodule PhoenixKit.Module do
       opens the section's own tab (`?tab=module_<id>`); `%{label: label,
       path: path}` leads to `path`, a canonical `/admin/...`-style path that
       the core prefixes (`PhoenixKit.Utils.Routes.path/1`). A path that does
-      not start with `/` is ignored.
+      not start with `/`, or starts with `//`, is ignored.
   """
   @type email_settings_section :: %{
           required(:id) => atom(),
