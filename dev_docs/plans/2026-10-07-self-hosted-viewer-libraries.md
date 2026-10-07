@@ -80,6 +80,10 @@ This is small, useful on its own, and still needed after Part B because a 404, a
   `"load"` (a script error does not expose the HTTP status, so 404, network and offline are
   indistinguishable); a dynamic `import()` rejection is `"load"` too, but may be a parse error. See
   "Revised decisions" for the correlation rules.
+- Retry is narrow: a failed classic script is removed and may be retried a bounded number of times.
+  A failed `import()` of the same URL is **not** assumed to re-run a module whose evaluation failed,
+  so for wavesurfer the error is terminal for the document and the notice recommends a reload once the
+  cause is repaired.
 - The `console.error` stays, but now names the likely cause and the fix.
 - Dispatches `window` event `pk:library-failed` `{ name, url, reason, directive }`.
 
@@ -94,10 +98,14 @@ This is small, useful on its own, and still needed after Part B because a 404, a
 - A hook `LibraryLoadNotice` reads `window.__pkLibFailures` on mount, listens for
   `pk:library-failed`, and fills and un-hides it. The message lists the failed libraries and says one
   of two things:
-  - **CSP:** "Your site's Content-Security-Policy blocked `<library>`. Update PhoenixKit and rebuild
-    so it is served from this site, or allow `<origin>` in `script-src`."
-  - **Load:** "`<library>` could not be loaded (`<url>`). Check the network, or that your build
-    includes the PhoenixKit JavaScript (`:phoenix_kit_js_sources` in `compilers`)."
+  - **CSP:** names the attempted URL, the blocked origin and the `effectiveDirective` (for example
+    `script-src-elem`; never a blanket "edit `script-src`"). For a local asset the advice is to check
+    the host's asset-serving configuration against its intended policy; "update and rebuild" is
+    reserved for the case where the attempted URL is a CDN one.
+  - **Load:** the library "could not be loaded or run" (with its URL), cause unknown. Check the
+    network and that the build vendors the PhoenixKit JavaScript (`:phoenix_kit_js_sources` in
+    `compilers`, or run `mix phoenix_kit.update`).
+  - The copy states its uncertainty; it does not assert CSP or a 404 without evidence.
 - Dismissal is remembered per browser session (`sessionStorage`, wrapped in try/catch like the rest
   of core's client storage; the notice works without it).
 - End users get nothing: the viewer degrades as it does today. Hosts that use the dashboard layout
@@ -116,61 +124,118 @@ before a browser does.
 - The compiler gains a second pass that copies each library into
   `priv/static/assets/vendor/lib/<name>-<version>.js` (diff-first, like the existing files):
   - Fresco, Tessera, Etcher, Leaf: from `:code.priv_dir(app)` plus a known relative path, with
-    `<version>` from `Application.spec(app, :vsn)`. The version in the file name makes each file
-    immutably cacheable and removes the hand-edited pin.
+    `<version>` from the *consumer's* `Application.spec(app, :vsn)` plus a short content hash
+    (see the facts below). Version and hash in the name make each file cacheable for good and remove the
+    hand-edited pin.
   - SortableJS, Panzoom, wavesurfer (npm-only): committed under core's own
     `priv/static/assets/vendor_libs/` with their licences (MIT, MIT, BSD-3) and a short
-    `README` naming the upstream version and how it was fetched. The compiler copies them the same
-    way. A small manifest (`name`, `version`, `path`) is the single list the compiler and tests read.
-- The compiler writes the result into the install facts:
-  `window.PHOENIX_KIT_LIBS = { fresco: "fresco-0.13.1.js", ... }` (file names only).
+    `README` naming the exact upstream version and how it was fetched. The compiler copies them the
+    same way. A small manifest (`name`, `version`, `path`, checksum) is the single list the compiler and
+    tests read. **SortableJS is part of B1**, not B2: Etcher's Customise dialog needs it (see "Etcher's
+    own SortableJS request" below), so "the four Hex-dep libraries" are not self-hosted without it.
+    B2 is Panzoom and wavesurfer.
+- The compiler writes the result into the install facts, using the **consumer's** loaded version and
+  a content hash in the name (a path dependency can change bytes without changing its version):
+  `window.PHOENIX_KIT_LIBS = { fresco: { file: "fresco-0.13.1-3f9a1c.js", cdn: null }, ... }`.
+  `cdn` is `null` unless the host has opted in to a CDN fallback
+  (`config :phoenix_kit, library_cdn_fallback: true`); when it has, the compiler writes a URL it builds
+  from that app's loaded version and the known upstream path. **There is no CDN URL, tag or version
+  hardcoded in `phoenix_kit.js` any more.**
+- `mix phoenix_kit.update` and `phoenix_kit.install` call the same vendoring function for the library
+  files and the facts, not only for `phoenix_kit.js` (today they copy just that one file, and the facts
+  file is written only by the compiler). A host without the compiler therefore gets bundle, libraries
+  and facts from a single step.
+
+### Etcher's own SortableJS request
+
+Etcher's Customise dialog calls `_withSortable`, which uses `window.Sortable` if present and otherwise
+injects its own jsDelivr script, marking `this._sortableFailed` on that hook instance if the load fails
+(then it falls back to native drag-and-drop). We must neither leave that request to the CDN nor let a
+failed *local* load trigger it. Without rewriting upstream bundle strings:
+
+- Core's `EtcherLayer` wrapper loads the local Sortable through the shared `loadLibrary`, in parallel
+  with Etcher itself, and waits for both before calling Etcher's `mounted`.
+- If Sortable loaded, `window.Sortable` exists and Etcher uses it. If it failed, the wrapper sets
+  `self._sortableFailed = true` on the hook instance before `mounted`, so Etcher takes its native
+  drag-and-drop path and **makes no CDN request**. (A host that opted in to the CDN fallback does not
+  get the flag.)
+- That flag is an Etcher internal. A test greps the installed `deps/etcher` bundle for
+  `_sortableFailed` / `_withSortable` and fails loudly if upstream renames them. The durable fix is an
+  upstream Etcher option (a local URL, or "never load from a CDN") for the Etcher maintainer; this is
+  the bridge until then.
 
 ### Loading
 
-- The bundle derives the library base URL from where it was itself loaded
-  (`document.currentScript.src`, falling back to the `<script src*="phoenix_kit">` element), so
-  `static_url`, an asset host or a path prefix all work without configuration:
-  `base = dirname(phoenix_kit.js) + "/lib/"`.
+- The bundle captures its own script URL **at evaluation time** (`document.currentScript.src`, which
+  is unavailable later and for module scripts) and derives the library base from it, so `static_url`,
+  an asset host or a path prefix work without configuration: `base = dirname(that URL) + "/lib/"`.
+  There is no broad `src*="phoenix_kit"` selector (it can match `phoenix_kit_modules.js`). A host that
+  bundles core's source into its own `app.js` (where `currentScript` names the wrong file) sets
+  `window.PHOENIX_KIT_LIB_BASE` explicitly. Library file names come from the facts, looked up at
+  **request time**, because the facts load after the core file.
 - `loadLibrary` tries the vendored URL first. Order of preference, unchanged at the top:
   1. pre-imported global (`window.FrescoHooks` etc.), as today;
   2. vendored same-origin file named by `PHOENIX_KIT_LIBS`;
-  3. **Legacy CDN path**, only when the facts are absent (an older host that has not recompiled).
-     Once the manifest is present the default is **local-only**; a CDN fallback is an explicit host
-     opt-in (see "Revised decisions"). A failure falls through to Part A's notice.
+  3. **Nothing else, by default.** There is no built-in CDN path and no version guessing. With the
+     facts present the library is local-only; if the facts name a `cdn` URL (the host opted in, URL
+     built from its own loaded version) it is tried once after a failed local load. With the facts
+     absent, the bundle does not invent a URL: it reports the failure and Part A's notice tells the
+     host to recompile or run `mix phoenix_kit.update`. See "How a host gets the bundle and the
+     facts" below.
 - Wavesurfer: `import(url)` against the vendored ESM file (same-origin, so it satisfies `'self'`).
 
 ### Tests
 
-- `vendored_cdn_pins_test.exs` is reshaped, not deleted: it now asserts that the manifest/compiler
-  output names each Hex-dep library at the version the lock resolves, and that the CDN fallback pin
-  (if kept) equals that version. The drift class it guards disappears for the default path.
-- Compiler test (temp host dir): files are created at the versioned names, an unchanged compile does
-  not touch them, a missing source is a loud compile error (like today's core file), and the facts
-  preamble lists them.
-- Node tests for `loadLibrary`: vendored URL used first, legacy CDN only when the facts are absent
-  (or on explicit opt-in), CSP classification from a synthetic `securitypolicyviolation`, pre-import
+- `vendored_cdn_pins_test.exs` is reshaped, not deleted: with no tag in the bundle, it now asserts
+  that `phoenix_kit.js` contains **no** hardcoded `cdn.jsdelivr.net/gh/` pin, and that the compiler's
+  output (file names and, when opted in, `cdn` URLs) names each Hex-dep library at the version the
+  *consumer's* project loaded. The drift class it guards cannot occur.
+- Compiler test (temp host dir): files are created at the versioned, content-hashed names, an unchanged
+  compile does not touch them, a missing source is a loud compile error (like today's core file), and
+  the facts preamble lists them. The same function run from `phoenix_kit.update` produces identical
+  output.
+- Etcher bridge: with the local Sortable failing, Etcher makes no request to any CDN and the Customise
+  list still reorders by native drag-and-drop; with it loaded, Etcher uses the local copy.
+- Node tests for `loadLibrary`: vendored URL used first, a CDN URL only when the facts name one (the
+  host opted in); with the facts absent, no request and a recorded failure, CSP classification from a synthetic `securitypolicyviolation`, pre-import
   still wins, failures recorded once per library, the expected global validated after `onload`.
-- ExUnit: the admin layout renders the hidden notice for an admin-area scope and not for an anonymous
-  or ordinary user.
+- ExUnit: the shared notice component renders for an Owner, an Admin and a superadmin of the active
+  scope, and not for an anonymous user, an ordinary user, or a restricted single-permission holder
+  (for example a media viewer). Both `LayoutWrapper` and the dashboard shell are covered.
 
 ## Phases
 
-1. **Part A** (notice + shared `loadLibrary` + doctor check). Ships alone; no behaviour change when
-   everything loads.
-2. **Part B1**: vendor the four Hex-dep libraries; loaders prefer them; CDN stays as fallback;
-   pin test reshaped.
-3. **Part B2**: add the three npm libraries to core's `priv` with licences and a manifest; switch
-   their loaders.
-4. **Decision, after a release in the field**: drop the CDN fallback entirely, or keep it for hosts
-   that have not rebuilt.
+1. **Part A**: shared `loadLibrary` (in-flight promises, global validation); Fresco-before-layers
+   ordering fix; CSP-aware failure notice for Owner/Admin/superadmin; doctor check.
+2. **Part B1** (a partial rollout until acceptance below): vendor the four Hex-dep libraries **and
+   SortableJS**, consumer-version and content-hashed names, facts in the compiler *and* in `update` /
+   `install`; the Etcher bridge; local-only by default; no hardcoded CDN tag left in the bundle.
+3. **Part B2**: Panzoom and wavesurfer, exact versions, provenance, notices.
+4. **Acceptance for "no third-party request by default"**: the production-style build
+   (`compile` → assets → `phx.digest`) and the enforced-CSP browser test over the whole graph. Only
+   then is the claim made.
 
-## Upgrading hosts
+## How a host gets the bundle and the facts
 
-Nothing to run for hosts using the compiler: the next `mix compile` vendors the files and the facts.
-A host that vendors `phoenix_kit.js` by hand, or lacks the compiler, keeps the CDN path (and now
-gets the notice if its CSP blocks it). Fotki can then drop `https://cdn.jsdelivr.net` from its
-`script-src` (keeping `blob:` for images, which Etcher needs), and its Tailwind `@source` line is
-unrelated to this.
+The bundle (`phoenix_kit.js`) and the facts (`phoenix_kit_modules.js`, with `PHOENIX_KIT_LIBS`) must
+arrive together, because the new bundle has nothing to fall back to. Today they do not always:
+`install` and `update` copy only the bundle, and only the compiler writes the facts. The plan closes
+that gap at the source instead of papering over it in the bundle:
+
+- **Normal hosts** (`:phoenix_kit_js_sources` in `compilers`): the next `mix compile` after upgrading
+  vendors bundle, libraries and facts together. A dependency upgrade always compiles, so there is no
+  window in which a new bundle runs against old facts.
+- **Hosts without the compiler** (they get a compile-time warning today): `mix phoenix_kit.update`
+  now vendors bundle, libraries and facts itself, through the shared function.
+- **Hosts that bundle core's source into their own `app.js`**: they set `window.PHOENIX_KIT_LIB_BASE`
+  and `window.PHOENIX_KIT_LIBS` explicitly (documented), because neither the script URL nor the facts
+  file is where the bundle expects.
+- **Anything else** (facts absent): no guess is made. The failure is recorded and the admin notice says
+  what to run. A wrong-version guess would be worse than a clear message, since a version-mismatched
+  library renders normally and quietly stops honouring the server's API.
+
+Fotki can then drop `https://cdn.jsdelivr.net` from its `script-src` (keeping `blob:` for images,
+which Etcher needs), and its Tailwind `@source` line is unrelated to this.
 
 ## Bundle size: `phoenix_kit.js` should stay roughly neutral
 
@@ -196,17 +261,19 @@ see "Revised decisions" for why a hard cap is the wrong tool.
   fetched lazily, so no page pays for them. `mix phx.digest` gzips them.
 - **Package size:** the npm trio adds a small amount to core's Hex package; licences must ship with
   them.
-- **Version bumps of the npm trio** become a deliberate core change (update the file, the manifest and
+- **Version bumps of the npm trio** (SortableJS, Panzoom, wavesurfer) become a deliberate core change (update the file, the manifest and
   a test), instead of a one-line CDN edit. That is the point, but it is more ceremony.
 - **Static path assumptions:** the base URL is derived from where `phoenix_kit.js` loaded, so it
   follows the host's own static setup. A host that serves `priv/static/assets/vendor` selectively
-  (not a directory) would miss `lib/`; the doctor check covers it.
+  (not as a directory) would miss `lib/`. The doctor check proves only that the files exist on disk;
+  whether Plug.Static, a proxy or an asset host actually serves them is proved by the deployed-browser
+  smoke test, not by doctor.
 - **The notice is only as good as the classification.** Browsers differ slightly in
   `securitypolicyviolation` details; the fallback is the generic "could not be loaded" text, which is
   still better than silence.
 - **A CDN choice that was deliberate.** The original authors may have wanted the CDN for bundle size
-  or update speed. This plan keeps the lazy loading and the size profile; the questions below ask
-  whether they also want the CDN kept as a fallback.
+  or update speed. This plan keeps the lazy loading and the size profile, and keeps a CDN only as an
+  explicit host opt-in.
 
 ## Alternatives considered
 
@@ -223,20 +290,19 @@ see "Revised decisions" for why a hard cap is the wrong tool.
 
 ## Open questions for reviewers
 
-1. Keep the CDN as a fallback after Part B (safer upgrade path, keeps the pin test) or remove it
-   once a release has shipped (cleaner, no third-party path at all)?
-2. Is the admin-only notice the right audience, or should a site owner (superadmin) be singled out
-   so it does not nag every admin?
-3. Should the notice also be recorded server-side (an Activity entry or a log line via a beacon) so
-   it shows up without anyone opening the admin?
-4. Do we also vendor `wavesurfer` plugins if any are added later, and who owns bumping the npm trio?
-5. Is `priv/static/assets/vendor/lib/` an acceptable name/location for every host's static setup, or
-   should the directory be configurable?
-6. Does the dashboard (non-`LayoutWrapper`) layout need its own mount point for the notice, and are
-   there other layouts hosts commonly use?
-7. Anything in the original design of the CDN loaders (the people who wrote Fresco, Tessera and
-   Etcher) that this plan breaks, in particular the load-order guarantee between Fresco and its
-   layers?
+All answered by the two reviews; kept for the record, **resolved**.
+
+1. CDN fallback after Part B? **Resolved:** local-only by default; explicit host opt-in, with URLs the
+   compiler builds from the consumer's loaded version; no built-in pin.
+2. Audience for the notice? **Resolved:** the active scope's Owner, Admin or superadmin.
+3. Server-side record of a failure? **Resolved:** no, not in v1.
+4. npm trio ownership and wavesurfer plugins? **Resolved:** normal core dependency maintenance; exact
+   versions, checksums and notices in one manifest; plugins vendored with their transitive assets when
+   introduced.
+5. `vendor/lib/` location? **Resolved:** default stays; `window.PHOENIX_KIT_LIB_BASE` overrides it.
+6. Dashboard layout? **Resolved:** it has its own shell; one shared notice component serves both.
+7. Fresco load-order guarantee? **Resolved:** it did not exist (verified); Part A chains Tessera and
+   Etcher through Fresco's successful load.
 
 ## Codex review — 2026-10-07
 
@@ -381,8 +447,8 @@ above, **this section wins** (the body's factual errors were also corrected in p
   dependency bundle (scripts, `import()`, workers, assets) and a browser test with zero third-party
   requests. Until that passes, B1/B2 are announced as a partial rollout.
 - **Required 2, fallback policy.** Local-only by default once the manifest is present; CDN fallback
-  only on an explicit host opt-in; the legacy CDN path remains solely when the facts are absent (an
-  older host), and is documented as still using the CDN. Any retained fallback URL is generated from
+  only on an explicit host opt-in. With the facts absent there is **no** fallback and no old pin (see
+  "Closing the second review"). Any retained fallback URL is generated from
   the **consumer's** loaded application version and the known upstream path, never from core's
   hardcoded tag: `mix.exs` allows older minors than core's lock (Leaf `~> 0.4.1 ... ~> 0.8.0`,
   Fresco `~> 0.10 ... ~> 0.13`), so a tag matching core's lock can mismatch a consumer's Elixir half.
@@ -457,11 +523,96 @@ above, **this section wins** (the body's factual errors were also corrected in p
 
 ### Adjusted phases
 
-1. **Part A**: shared `loadLibrary` with in-flight promises and global validation; Fresco-before-layers
-   ordering fix; CSP-aware failure notice for Owner/Admin/superadmin; doctor check.
-2. **Part B1 (partial rollout)**: vendor the four Hex-dep libraries with consumer-version, content-hashed
-   names; local-only by default; Etcher's Sortable supplied locally. Not yet declared "no third-party".
-3. **Part B2**: the three npm libraries, exact versions, provenance, notices.
-4. **Acceptance for "no third-party by default"**: the production-style build plus the enforced-CSP
-   browser test over the full graph. Only then is the claim made, and only then is the legacy CDN path
-   scheduled for removal.
+Superseded: see **Phases** in the body (updated after the second review).
+
+## Codex second review — 2026-10-07
+
+**Verdict:** the revised decisions resolve most of the first review and give a sensible implementation
+approach. Three remaining decisions need to be explicit; the first affects the privacy guarantee.
+
+1. **Etcher must stay local-only when the local Sortable preload fails, too.** Verified against
+   `deps/etcher/priv/static/etcher.js`, `_withSortable`: when `window.Sortable` is absent it creates
+   a CDN script, unless its instance has already marked Sortable as failed. Therefore preloading
+   Sortable solves the successful path, but a local 404/offline failure followed by opening Customise
+   still triggers a third-party request if Etcher is mounted normally. Specify the failure behaviour:
+   either require an upstream loader option that disables external fallback and uses native drag
+   handling, or conservatively prevent Etcher from mounting when its local Sortable prerequisite
+   fails and show the diagnostic. The upstream option is preferable because annotations should not
+   become unavailable just because an optional reorder enhancement failed. Avoid depending on
+   Etcher's private `_sortableFailed` field as a public integration API. Acceptance must include a
+   **missing/broken local Sortable file with third-party access otherwise allowed**, and assert that
+   no external request is attempted. Enforced CSP alone can conceal an attempted external load;
+   check attempted URLs as well as successful network requests.
+
+2. **Move Sortable vendoring into B1 if B1 supplies it locally to Etcher.** The adjusted phases
+   currently put local Sortable delivery in B1 but commit all three npm libraries in B2. Make B1
+   include Sortable's exact-version asset, manifest entry and notices; B2 then adds Panzoom and
+   wavesurfer. Alternatively put the Etcher/local-Sortable integration wholly in B2 and describe
+   the remaining external path in B1. Either ordering works; the current dependency is circular.
+
+3. **Define where version-correct URLs come from when install facts are absent.** The revised
+   rule says every retained fallback URL uses the consumer's loaded application version, but the
+   proposed place to emit that version is precisely the compiler-generated facts. A manually copied
+   core bundle without those facts cannot discover an Elixir application version in the browser.
+   Choose and document a concrete compatibility contract: require separately supplied version/URL
+   metadata, disable fallback when the version is unknown, or explicitly retain the old core pins
+   as a limited legacy exception with possible API mismatch. For manifest-present hosts that opt in
+   to fallback, emit version-derived fallback URLs with the facts. Do not claim the same guarantee
+   for both cases unless both have a source of consumer-version information.
+
+### Small clarifications before implementation
+
+- Consolidate the normative text once these choices are settled. The revised section wins, but the
+  body still says version-only filenames are immutable, derives the base from a broad script selector,
+  says doctor covers selective HTTP serving, uses an admin-area scope in the ExUnit test, and leaves
+  the old automatic-fallback phases in place. Replace those passages and mark answered open questions
+  as resolved so implementers do not have to reconcile three versions of the specification.
+- Make CSP notice copy depend on the attempted URL. For a current local asset, “update so it is
+  served from this site” is inaccurate; name the blocked origin/effective directive and recommend
+  checking the host's asset-serving configuration and intended CSP. Reserve the update/rebuild
+  guidance for legacy CDN delivery. Do not universally recommend editing `script-src` when an
+  explicit `script-src-elem` was the enforcing directive.
+- Define retry narrowly. Removing a failed script and retrying is workable for classic scripts;
+  do not assume repeated `import()` of the same URL reruns a module that failed evaluation. The first
+  version can keep that error terminal for the document and recommend a reload after repair.
+- Preserving assets during compile is useful, but a clean release image still drops previous files.
+  Document that rolling-deploy/open-tab retention also needs deployment/static-host retention; the
+  compiler alone cannot guarantee it.
+
+No application code changed in this second review. With the three decisions above settled, the plan
+is ready to implement; the remaining items are specification cleanup and acceptance details.
+
+## Closing the second review (author, 2026-10-07)
+
+Codex's three remaining decisions, settled; the body above was edited to match, so there is one
+specification, not three.
+
+1. **Etcher stays local-only when local Sortable fails.** The durable answer is an **upstream Etcher
+   option** that disables its external SortableJS load and uses native drag-and-drop (annotations must
+   not become unavailable because an optional reorder enhancement failed); this is a prerequisite for
+   declaring B1 accepted, and goes to Etcher's maintainer. Until it ships, the bridge in "Etcher's own
+   SortableJS request" (setting the instance's `_sortableFailed` before `mounted`) is a **temporary,
+   test-guarded workaround**, not an integration API: a test fails loudly if the installed Etcher no
+   longer has that field, and Etcher's `~> 0.19.0` range is what bounds it. Not mounting Etcher when
+   Sortable fails is rejected. Acceptance adds the case Codex names: a **missing or broken local
+   Sortable file with third-party access otherwise allowed**, asserting that **no external URL is even
+   attempted**, checked from the attempted-request log and not only from successful requests, since an
+   enforced CSP alone can hide an attempt.
+2. **Sortable moves into B1** (exact-version asset, manifest entry, notices); B2 is Panzoom and
+   wavesurfer. The circular dependency is gone.
+3. **Where version-correct URLs come from without facts: nowhere, by design.** Of Codex's options, the
+   chosen one is *disable the fallback when the version is unknown*. A browser cannot learn an Elixir
+   application's version, so the guarantee is not claimed for that case. For manifest-present hosts
+   that opt in, the compiler emits version-derived `cdn` URLs with the facts. The old core pins are
+   **not** retained as a legacy exception (their API-mismatch risk is the reason for this plan). To make
+   the no-facts case rare, `install` and `update` now vendor bundle, libraries and facts together, so
+   the bundle and the facts arrive in one step (see "How a host gets the bundle and the facts").
+
+Clarifications applied in the body: content-hashed names (not version-only); the base captured at
+evaluation time with an explicit override and no broad selector; doctor proves files on disk, not
+serving; the ExUnit audience test uses Owner/Admin/superadmin and a restricted-holder negative;
+notice copy depends on the attempted URL and the effective directive; retry is narrow and an ESM
+failure is terminal for the document; the old automatic-fallback phases are replaced; answered open
+questions are marked resolved. **Retention across deploys:** keeping previous assets for rolling
+deployments and open tabs needs deployment or static-host retention as well; a clean release image
+drops older files, and the compiler alone cannot guarantee it. This is documented, not promised.
