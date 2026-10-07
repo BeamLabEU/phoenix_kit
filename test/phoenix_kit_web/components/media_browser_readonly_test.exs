@@ -555,16 +555,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowserReadonlyTest do
         capture_log(fn ->
           {:ok, socket} = MediaBrowser.update(%{pending_upload: {path, entry}}, socket)
           {:ok, socket} = MediaBrowser.update(%{action: :drain_upload_queue}, socket)
-          {:ok, _socket} = MediaBrowser.update(%{action: :drain_upload_queue}, socket)
+          {:ok, socket} = MediaBrowser.update(%{action: :drain_upload_queue}, socket)
 
-          # buffer_pending_upload/3 removes the temp file itself, on both
-          # success and failure (no storage bucket is configured in this
-          # test), so the file's absence alone doesn't distinguish the two
-          # branches — the log line does: the readonly branch is the only
-          # one that logs "process_pending_upload ... readonly".
-          refute File.exists?(path)
+          # No storage bucket is configured in this test, so the store fails.
+          # A failed upload's bytes are KEPT now — named in the problems
+          # panel with a Retry, where they used to be deleted along with any
+          # chance of finding out which file it was — so the non-readonly
+          # branch is the one that holds the file and records the problem.
+          assert File.exists?(path)
+
+          assert [%{client_name: "ok.jpg", retry: true}] =
+                   MediaBrowser.upload_problems(socket.assigns)
+
+          File.rm(path)
         end)
 
+      # And the readonly branch is the only one that logs
+      # "process_pending_upload ... readonly".
       refute log =~ "process_pending_upload"
     end
   end
