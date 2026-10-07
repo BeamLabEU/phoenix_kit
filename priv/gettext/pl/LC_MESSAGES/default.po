@@ -948,8 +948,8 @@ msgstr "Opisz, co może ta rola (opcjonalnie)"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:542
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2039
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:657
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:661
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:679
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:683
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:226
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:262
 #: lib/phoenix_kit_web/live/users/roles.html.heex:29
@@ -1060,7 +1060,7 @@ msgstr "Wpisz nazwę roli (np. Menedżer, Redaktor)"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:28
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:178
 #: lib/phoenix_kit_web/components/core/modal.ex:552
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:470
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:497
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:99
 #: lib/phoenix_kit_web/live/settings/integrations.ex:293
 #, elixir-autogen, elixir-format
@@ -1418,8 +1418,8 @@ msgstr "Nieuwierzytelniony"
 #: lib/phoenix_kit/integrations/integrations.ex:1271
 #: lib/phoenix_kit/integrations/integrations.ex:1275
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:29
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:471
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:498
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:254
 #: lib/phoenix_kit_web/live/settings/integrations.ex:294
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:600
 #, elixir-autogen, elixir-format
@@ -1795,7 +1795,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1478
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:667
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:689
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1735
 #: lib/phoenix_kit_web/live/notifications/settings.ex:436
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
@@ -1835,7 +1835,7 @@ msgstr "Zapisz ustawienia"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:669
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:691
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:239
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:674
 #, elixir-autogen, elixir-format
@@ -1876,7 +1876,7 @@ msgstr "Wybierz, do których sekcji i modułów ta rola ma dostęp. Możesz przy
 #: lib/phoenix_kit_web/live/settings/authorization.ex:50
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:43
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:44
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:72
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:73
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:6
 #: lib/phoenix_kit_web/live/settings/integrations.ex:40
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
@@ -1935,7 +1935,7 @@ msgstr "Województwo/Region"
 #: lib/phoenix_kit/users/table_columns.ex:291
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:189
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:244
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:276
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:286
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:64
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:139
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:98
@@ -2945,7 +2945,7 @@ msgstr "Zarządzaj rejestracją użytkowników, wartościami domyślnymi i polam
 #: lib/phoenix_kit_web/live/components/library_settings.ex:791
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:204
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:242
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:275
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:285
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:81
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:133
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:19
@@ -3795,7 +3795,7 @@ msgstr "Połącz usługi zewnętrzne do użytku w modułach"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:25
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:173
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:218
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:467
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:494
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:148
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:343
@@ -4340,7 +4340,7 @@ msgstr "Brak oczekujących zaproszeń"
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:365
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:27
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:180
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:469
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:496
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:101
 #: lib/phoenix_kit_web/live/settings/integrations.ex:292
 #, elixir-autogen, elixir-format
@@ -4350,7 +4350,7 @@ msgstr "Niepołączone"
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:363
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:26
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:176
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:468
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:495
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:97
 #: lib/phoenix_kit_web/live/settings/integrations.ex:291
 #, elixir-autogen, elixir-format
@@ -4532,7 +4532,7 @@ msgstr "Wybierz użytkownika do dodania…"
 #: lib/phoenix_kit/integrations/providers.ex:989
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:201
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:241
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:274
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:284
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:76
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:131
 #, elixir-autogen, elixir-format
@@ -5120,7 +5120,7 @@ msgid "Body Saved"
 msgstr "Treść zapisana"
 
 #: lib/phoenix_kit/users/auth.ex:3292
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:735
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
 #: lib/phoenix_kit_web/live/modules.ex:134
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:378
 #, elixir-autogen, elixir-format
@@ -5881,7 +5881,7 @@ msgstr "Usunięte pliki pojawią się tutaj"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:942
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1760
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2455
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:533
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:555
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Pobierz"
@@ -5945,7 +5945,7 @@ msgstr "Foldery"
 msgid "Image Missing"
 msgstr "Brak obrazu"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:703
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:725
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr "MIME:"
@@ -5999,7 +5999,7 @@ msgstr "Nowy folder"
 msgid "Next"
 msgstr "Dalej"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:164
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:186
 #, elixir-autogen, elixir-format
 msgid "Next (→)"
 msgstr "Dalej (→)"
@@ -6051,7 +6051,7 @@ msgstr[2] "Trwale usunąć wszystkie %{count} plików z kosza?"
 msgid "Prev"
 msgstr "Wstecz"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:150
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:172
 #, elixir-autogen, elixir-format
 msgid "Previous (←)"
 msgstr "Wstecz (←)"
@@ -6093,7 +6093,7 @@ msgstr "Pokaż foldery"
 msgid "Show image %{number}"
 msgstr ""
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:707
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:729
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr "Rozmiar:"
@@ -6121,7 +6121,7 @@ msgstr "Kosz"
 msgid "Trash is empty."
 msgstr "Kosz jest pusty."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:697
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:719
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr "Typ:"
@@ -6155,12 +6155,12 @@ msgstr[0] "Przesyłanie udane! Przetworzono %{count} nowy plik"
 msgstr[1] "Przesyłanie udane! Przetworzono %{count} nowe pliki"
 msgstr[2] "Przesyłanie udane! Przetworzono %{count} nowych plików"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:711
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:733
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "Przesłano:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:336
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:358
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the video tag."
 msgstr "Twoja przeglądarka nie obsługuje elementu wideo."
@@ -6220,8 +6220,8 @@ msgstr[0] "dodano %{count} nowy plik"
 msgstr[1] "dodano %{count} nowe pliki"
 msgstr[2] "dodano %{count} nowych plików"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:392
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:699
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:414
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:721
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr "PLIK"
@@ -6323,8 +6323,8 @@ msgstr "%{day} %{month} %{year}, %{time}"
 msgid "%{month} %{day} %{time}"
 msgstr "%{day} %{month} %{time}"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:634
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:638
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:656
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:660
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:205
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:260
 #: lib/phoenix_kit_web/projects_gettext_manifest.ex:54
@@ -6754,7 +6754,7 @@ msgstr "Nie znaleziono plików multimedialnych"
 #: lib/phoenix_kit_web/components/core/preview_card.ex:105
 #: lib/phoenix_kit_web/components/core/preview_card.ex:157
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:67
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:208
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:386
 #, elixir-autogen, elixir-format
 msgid "Preview"
@@ -7244,7 +7244,7 @@ msgstr "Data i godzina"
 #: lib/modules/storage/web/settings.html.heex:246
 #: lib/modules/storage/web/settings.html.heex:286
 #: lib/phoenix_kit_web/components/core/activity_list.ex:39
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:583
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:605
 #: lib/phoenix_kit_web/live/activity/index.html.heex:310
 #, elixir-autogen, elixir-format
 msgid "Details"
@@ -8828,7 +8828,7 @@ msgstr "Phoenix ciemny"
 msgid "Phoenix Light"
 msgstr "Phoenix jasny"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:367
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:389
 #, elixir-autogen, elixir-format
 msgid "Play / Pause"
 msgstr "Odtwórz / Wstrzymaj"
@@ -8868,7 +8868,7 @@ msgstr "Zima"
 msgid "Wireframe"
 msgstr "Wireframe"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:385
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:407
 #, elixir-autogen, elixir-format
 msgid "Your browser does not support the audio tag."
 msgstr "Twoja przeglądarka nie obsługuje elementu audio."
@@ -9020,7 +9020,7 @@ msgstr "Chronione pipeline'y"
 msgid "Public base URL of this application"
 msgstr "Publiczny bazowy adres URL tej aplikacji"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:381
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:391
 #, elixir-autogen, elixir-format
 msgid "Recipient"
 msgstr "Odbiorca"
@@ -9673,26 +9673,26 @@ msgstr "Według przeglądarki"
 msgid "By operating system"
 msgstr "Według systemu operacyjnego"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:447
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:469
 #, elixir-autogen, elixir-format
 msgid "Failed to save rotation"
 msgstr "Nie udało się zapisać obrotu"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:415
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:418
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:500
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:501
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:437
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:440
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:522
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:523
 #, elixir-autogen, elixir-format
 msgid "Hide details"
 msgstr "Ukryj szczegóły"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:446
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Rotation saved"
 msgstr "Obrót zapisany"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:415
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:418
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:437
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:440
 #, elixir-autogen, elixir-format
 msgid "Show details"
 msgstr "Pokaż szczegóły"
@@ -9865,7 +9865,7 @@ msgstr "AWS SES jest zajęty — spróbuj ponownie za chwilę"
 msgid "Acme Newsletter"
 msgstr "Acme Newsletter"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:267
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:277
 #, elixir-autogen, elixir-format
 msgid "Add one"
 msgstr "Dodaj"
@@ -9891,7 +9891,7 @@ msgstr "Podsumowania"
 msgid "Aggregation updated."
 msgstr "Ustawienia podsumowań zaktualizowane."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:351
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:361
 #, elixir-autogen, elixir-format
 msgid "All outbound core mail — authentication, notifications — routes through this integration when set. Leave unset to use the static mailer above. For newsletter broadcasts, see"
 msgstr "Cała wychodząca poczta systemowa — uwierzytelnianie, powiadomienia — jest wysyłana przez tę integrację, gdy jest ustawiona. Pozostaw nieustawione, aby użyć statycznego mailera powyżej. Informacje o wysyłce newsletterów znajdziesz w"
@@ -9991,7 +9991,7 @@ msgstr "Tagi rozdzielone przecinkami dołączane do każdej wiadomości, do filt
 msgid "Configuration set"
 msgstr "Zestaw konfiguracji"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:254
 #, elixir-autogen, elixir-format
 msgid "Configured"
 msgstr "Skonfigurowane"
@@ -10062,7 +10062,7 @@ msgstr "Nie udało się obrócić obrazu."
 #: lib/modules/storage/web/renditions_component.ex:183
 #: lib/modules/storage/web/renditions_component.ex:222
 #: lib/modules/storage/web/renditions_component.ex:229
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:672
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:694
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:242
 #, elixir-autogen, elixir-format
 msgid "Could not save"
@@ -10073,17 +10073,17 @@ msgstr "Nie udało się zapisać"
 msgid "Could not save notification preferences."
 msgstr "Nie udało się zapisać preferencji powiadomień."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:146
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:147
 #, elixir-autogen, elixir-format
 msgid "Could not save sender identity"
 msgstr "Nie udało się zapisać danych nadawcy"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:308
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:309
 #, elixir-autogen, elixir-format
 msgid "Could not send test email: %{reason}"
 msgstr "Nie udało się wysłać e-maila testowego: %{reason}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:297
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:298
 #, elixir-autogen, elixir-format
 msgid "Could not send test email: the send integration is missing required field(s): %{fields}"
 msgstr "Nie udało się wysłać e-maila testowego: w integracji wysyłki brakuje wymaganych pól: %{fields}"
@@ -10098,7 +10098,7 @@ msgstr "Nie udało się ustawić domyślnego profilu wysyłki"
 msgid "Could not update aggregation."
 msgstr "Nie udało się zaktualizować ustawień podsumowań."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:160
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:161
 #, elixir-autogen, elixir-format
 msgid "Could not update default send integration"
 msgstr "Nie udało się zaktualizować domyślnej integracji wysyłki"
@@ -10154,12 +10154,12 @@ msgstr "Domyślny tryb edytora"
 msgid "Default Newsletter Profile"
 msgstr "Domyślny profil newslettera"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:347
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:357
 #, elixir-autogen, elixir-format
 msgid "Default Transactional Integration"
 msgstr "Domyślna integracja transakcyjna"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:155
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:156
 #, elixir-autogen, elixir-format
 msgid "Default send integration updated"
 msgstr "Domyślna integracja wysyłki zaktualizowana"
@@ -10210,7 +10210,7 @@ msgstr "Edycja profilu wysyłki: %{name}"
 msgid "Email confirmed. Welcome!"
 msgstr "E-mail potwierdzony. Witamy!"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:259
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:269
 #, elixir-autogen, elixir-format
 msgid "Email-capable integrations"
 msgstr "Integracje z obsługą e-maili"
@@ -10220,7 +10220,7 @@ msgstr "Integracje z obsługą e-maili"
 msgid "Encryption"
 msgstr "Szyfrowanie"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:264
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:265
 #, elixir-autogen, elixir-format
 msgid "Enter a recipient email address"
 msgstr "Podaj adres e-mail odbiorcy"
@@ -10435,7 +10435,7 @@ msgstr "Moje ustawienia"
 msgid "New send profile"
 msgstr "Nowy profil wysyłki"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:251
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:261
 #, elixir-autogen, elixir-format
 msgid "No adapter configured for the static mailer. Set one in your application config, or connect an email-capable integration below and pick it as the default transactional integration."
 msgstr "Nie skonfigurowano adaptera dla statycznego mailera. Ustaw go w konfiguracji aplikacji lub połącz poniżej integrację z obsługą e-maili i wybierz ją jako domyślną integrację transakcyjną."
@@ -10450,7 +10450,7 @@ msgstr "Nie skonfigurowano tokenu bota"
 msgid "No dismissed notifications"
 msgstr "Brak odrzuconych powiadomień"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:262
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:272
 #, elixir-autogen, elixir-format
 msgid "No email-capable integrations connected yet."
 msgstr "Nie połączono jeszcze żadnej integracji z obsługą e-maili."
@@ -10480,7 +10480,7 @@ msgstr "Brak nieprzeczytanych powiadomień"
 msgid "None — plaintext"
 msgstr "Brak — bez szyfrowania"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:362
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:372
 #, elixir-autogen, elixir-format
 msgid "None — use the static mailer"
 msgstr "Brak — użyj statycznego mailera"
@@ -10689,7 +10689,7 @@ msgstr "Nie znaleziono profilu wysyłki"
 msgid "Send profile saved successfully"
 msgstr "Profil wysyłki został zapisany"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:387
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:397
 #, elixir-autogen, elixir-format
 msgid "Send test email"
 msgstr "Wyślij e-mail testowy"
@@ -10699,23 +10699,23 @@ msgstr "Wyślij e-mail testowy"
 msgid "Sender ID"
 msgstr "Identyfikator nadawcy"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:97
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:98
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:27
 #, elixir-autogen, elixir-format
 msgid "Sender Identity"
 msgstr "Dane nadawcy"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:134
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:135
 #, elixir-autogen, elixir-format
 msgid "Sender identity updated"
 msgstr "Dane nadawcy zaktualizowane"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:137
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:138
 #, elixir-autogen, elixir-format
 msgid "Sender identity updated, but %{email} is not a full address — the email tracking module will silently skip logging messages sent from it."
 msgstr "Dane nadawcy zaktualizowane, ale %{email} nie jest pełnym adresem — moduł śledzenia e-maili nie zapisze wiadomości z niego wysłanych i nie poinformuje o tym."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:68
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:69
 #, elixir-autogen, elixir-format
 msgid "Sender identity, transport, and the default integration used to deliver outbound email"
 msgstr "Dane nadawcy, transport i domyślna integracja do dostarczania poczty wychodzącej"
@@ -10735,12 +10735,12 @@ msgstr "Podpis (HTML)"
 msgid "Signature (plain text)"
 msgstr "Podpis (tekst zwykły)"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:234
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:244
 #, elixir-autogen, elixir-format
 msgid "Static mailer: built-in PhoenixKit mailer"
 msgstr "Statyczny mailer: wbudowany mailer PhoenixKit"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:236
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:246
 #, elixir-autogen, elixir-format
 msgid "Static mailer: parent app mailer (%{module})"
 msgstr "Statyczny mailer: mailer aplikacji nadrzędnej (%{module})"
@@ -10767,18 +10767,18 @@ msgstr "Telegram"
 msgid "Telegram error %{status}"
 msgstr "Błąd Telegrama %{status}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:111
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:371
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:112
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:381
 #, elixir-autogen, elixir-format
 msgid "Test Send"
 msgstr "Wysyłka testowa"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:277
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:278
 #, elixir-autogen, elixir-format
 msgid "Test email from %{site}"
 msgstr "E-mail testowy z %{site}"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:289
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:290
 #, elixir-autogen, elixir-format
 msgid "Test email sent to %{recipient}"
 msgstr "E-mail testowy wysłany na %{recipient}"
@@ -10834,8 +10834,8 @@ msgstr "Tego adresu nadawcy nie można zapisać w dzienniku"
 msgid "Timeout (seconds)"
 msgstr "Limit czasu (sekundy)"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:99
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:224
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:100
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:234
 #, elixir-autogen, elixir-format
 msgid "Transport"
 msgstr "Transport"
@@ -10860,7 +10860,7 @@ msgstr "Odłączono. Napisz do bota i naciśnij „Testuj”, aby połączyć po
 msgid "Update send profile"
 msgstr "Zaktualizuj profil wysyłki"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:226
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:236
 #, elixir-autogen, elixir-format
 msgid "Used when no default transactional integration is selected below."
 msgstr "Używane, gdy poniżej nie wybrano domyślnej integracji transakcyjnej."
@@ -10920,7 +10920,7 @@ msgstr "Przeczytałeś tutaj wszystko."
 msgid "Your own service connections — only you can see these"
 msgstr "Twoje własne połączenia usług — widzisz je tylko Ty"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:248
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:258
 #, elixir-autogen, elixir-format
 msgid "adapter"
 msgstr "adapter"
@@ -11214,7 +11214,7 @@ msgstr "Amazon Bedrock"
 msgid "Answer 403 to requests whose User-Agent matches a blocked group, for bots that ignore robots.txt."
 msgstr "Odpowiadaj kodem 403 na żądania, których User-Agent pasuje do zablokowanej grupy — dla botów ignorujących robots.txt."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:322
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:332
 #, elixir-autogen, elixir-format
 msgid "Auth mail carries single-use tokens, and /dev/mailbox has no authentication — anyone who can reach this server can read them. Only for closed environments."
 msgstr "Wiadomości uwierzytelniające zawierają tokeny jednorazowe, a /dev/mailbox nie ma żadnego uwierzytelniania — przeczyta je każdy, kto dosięgnie tego serwera. Tylko dla zamkniętych środowisk."
@@ -11275,7 +11275,7 @@ msgstr "Nie udało się połączyć z Bedrock w regionie %{region}"
 msgid "Could not send that request."
 msgstr "Nie udało się wysłać tej prośby."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:184
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:185
 #, elixir-autogen, elixir-format
 msgid "Could not update the mailbox setting"
 msgstr "Nie udało się zaktualizować ustawienia skrzynki"
@@ -11321,7 +11321,7 @@ msgstr "Utwórz klucz dostępu dla tego użytkownika (Security credentials → C
 msgid "Decide who may read this site — indexing directives, per-bot access, and what crawlers and AI assistants are told."
 msgstr "Zdecyduj, kto może czytać tę witrynę — dyrektywy indeksowania, dostęp poszczególnych botów i to, co przekazujesz robotom oraz asystentom AI."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:339
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:349
 #, elixir-autogen, elixir-format
 msgid "Deliver development mail to /dev/mailbox"
 msgstr "Dostarczaj pocztę deweloperską do /dev/mailbox"
@@ -11407,17 +11407,17 @@ msgstr "Klucz uwierzytelniony, ale bez autoryzacji w regionie %{region} — zezw
 msgid "Lets people type @ to mention someone and # to link a record, anywhere they can write free text. Turning it off stops the suggestions; mentions already written stay readable as plain text."
 msgstr "Pozwala wpisać @, aby wspomnieć o kimś, i #, aby podlinkować rekord — wszędzie tam, gdzie można pisać dowolny tekst. Wyłączenie usuwa podpowiedzi; już napisane wzmianki pozostają czytelne jako zwykły tekst."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:309
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:319
 #, elixir-autogen, elixir-format
 msgid "Local dev mailbox"
 msgstr "Lokalna skrzynka deweloperska"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:175
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:176
 #, elixir-autogen, elixir-format
 msgid "Local mailbox disabled — outgoing dev mail goes to the server log"
 msgstr "Lokalna skrzynka wyłączona — wychodząca poczta deweloperska trafia do dziennika serwera"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:171
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:172
 #, elixir-autogen, elixir-format
 msgid "Local mailbox enabled — tokens in auth mail are now readable at /dev/mailbox"
 msgstr "Lokalna skrzynka włączona — tokeny z wiadomości uwierzytelniających są teraz czytelne pod /dev/mailbox"
@@ -11542,7 +11542,7 @@ msgstr "Punkt końcowy zgodny z OpenAI (`…/openai/v1`) obsługuje obecnie wył
 msgid "The key's IAM identity must allow the `bedrock:CallWithBearerToken` action — without it every Bearer call answers 403 even when invoke permissions are in place."
 msgstr "Tożsamość IAM klucza musi zezwalać na akcję `bedrock:CallWithBearerToken` — bez niej każde wywołanie z tokenem Bearer odpowiada kodem 403, nawet gdy uprawnienia do wywołań są nadane."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:330
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:340
 #, elixir-autogen, elixir-format
 msgid "The mailbox is off: outgoing mail is written to the server log instead."
 msgstr "Skrzynka jest wyłączona: poczta wychodząca trafia zamiast tego do dziennika serwera."
@@ -11600,7 +11600,7 @@ msgstr "Zweryfikuj nadawcę w SES"
 msgid "What do you need it for?"
 msgstr "Do czego jest Ci potrzebny?"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:314
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:324
 #, elixir-autogen, elixir-format
 msgid "Where development mail goes while the resolved transport is the local adapter."
 msgstr "Dokąd trafia poczta deweloperska, dopóki wybranym transportem jest adapter lokalny."
@@ -11778,7 +11778,7 @@ msgstr "Kolumny"
 msgid "Shown"
 msgstr "Widoczne"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:466
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:488
 #, elixir-autogen, elixir-format
 msgid "Reply to this annotation"
 msgstr "Odpowiedz na tę adnotację"
@@ -13547,12 +13547,12 @@ msgstr "Strona docelowa dla niezalogowanych"
 msgid "Where a visitor who isn't signed in lands — including right after logging out. Empty = the sign-in page."
 msgstr "Dokąd trafia niezalogowany odwiedzający — również tuż po wylogowaniu. Puste = strona logowania."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:108
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:109
 #, elixir-autogen, elixir-format
 msgid "Default Integration"
 msgstr ""
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:102
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:103
 #, elixir-autogen, elixir-format
 msgid "Local Dev Mailbox"
 msgstr "Lokalna skrzynka deweloperska"
@@ -13710,7 +13710,7 @@ msgid "OG"
 msgstr ""
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:404
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:355
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:365
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:25
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:26
 #, elixir-autogen, elixir-format
@@ -13719,7 +13719,7 @@ msgstr "E-maile masowe"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:395
 #: lib/phoenix_kit_web/live/settings/email_preview.ex:48
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:65
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:66
 #, elixir-autogen, elixir-format
 msgid "Emails Transactional"
 msgstr ""
@@ -13749,7 +13749,7 @@ msgstr "Nie zainstalowano"
 msgid "Service-wide default profile used by newsletter broadcasts. Transactional mail (auth, notifications) is routed by the Default Transactional Integration on the Emails Transactional page."
 msgstr "Domyślny profil całej usługi używany do wysyłki newsletterów. Poczta transakcyjna (uwierzytelnianie, powiadomienia) jest kierowana przez domyślną integrację transakcyjną na stronie E-maile transakcyjne."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:280
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:281
 #, elixir-autogen, elixir-format
 msgid "This is a test email sent from the Emails Transactional settings page."
 msgstr "To e-mail testowy wysłany ze strony ustawień E-maile transakcyjne."
@@ -14100,7 +14100,7 @@ msgstr "Edycja nie powiodła się"
 #: lib/phoenix_kit_web/components/media_browser.ex:4394
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1775
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2470
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:546
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:568
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:113
 #, elixir-autogen, elixir-format
 msgid "Edit image"
@@ -14747,7 +14747,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_browser.ex:4409
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1799
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2495
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:574
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:596
 #, elixir-autogen, elixir-format
 msgid "Set as featured"
 msgstr ""
@@ -14756,7 +14756,7 @@ msgstr ""
 #: lib/phoenix_kit_web/components/media_browser.ex:4408
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1798
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2494
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:573
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:595
 #, elixir-autogen, elixir-format
 msgid "Unset featured"
 msgstr ""
@@ -14799,7 +14799,7 @@ msgstr "Usuń obraz"
 msgid "The selected file is not an available image"
 msgstr "Wybrany plik nie jest dostępnym obrazem"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:609
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:631
 #, elixir-autogen, elixir-format
 msgid "Title & description"
 msgstr "Tytuł i opis"
@@ -15001,9 +15001,9 @@ msgstr "Znalezione podczas ostatniego testu. Połącz grupę tylko wtedy, gdy j�
 msgid "there, press Test Connection and confirm the group it finds. A group needs that command — bots cannot read ordinary group messages."
 msgstr "tam, naciśnij „Testuj połączenie” i potwierdź znalezioną grupę. Grupa wymaga tego polecenia — boty nie mogą czytać zwykłych wiadomości w grupie."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:647
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:651
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:682
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:669
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:673
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:704
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:214
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:261
 #, elixir-autogen, elixir-format
@@ -15035,7 +15035,7 @@ msgstr "Wpisz tytuł"
 msgid "Failed to save details"
 msgstr "Nie udało się zapisać szczegółów"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:628
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:650
 #: lib/phoenix_kit_web/live/users/media_detail.html.heex:191
 #, elixir-autogen, elixir-format
 msgid "Switch the page language to translate."
@@ -16395,7 +16395,7 @@ msgstr ""
 msgid "(no subject)"
 msgstr "(bez tematu)"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:111
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:121
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
 msgstr "Kolor akcentu"
@@ -16410,7 +16410,7 @@ msgstr "Potwierdzenie konta"
 msgid "An active database template answers this email, so files and the built-in default are not used. Deactivate it in the Emails module to send from files."
 msgstr "Ten e-mail obsługuje aktywny szablon z bazy danych, więc pliki i wbudowany szablon domyślny nie są używane. Dezaktywuj go w module E-maile, aby wysyłać na podstawie plików."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:98
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:99
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "Branding"
@@ -16431,12 +16431,12 @@ msgstr "Tworzy wersję tekstową"
 msgid "Built-in default"
 msgstr "Wbudowany domyślny"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:142
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:152
 #, elixir-autogen, elixir-format
 msgid "Button"
 msgstr "Przycisk"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:184
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:194
 #, elixir-autogen, elixir-format
 msgid "Change the logo, site name or site URL in Settings → General"
 msgstr "Zmień logo, nazwę witryny lub adres URL witryny w Ustawienia → Ogólne"
@@ -16446,7 +16446,7 @@ msgstr "Zmień logo, nazwę witryny lub adres URL witryny w Ustawienia → Ogól
 msgid "Core"
 msgstr "Rdzeń"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:250
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:251
 #, elixir-autogen, elixir-format
 msgid "Could not save the accent colour"
 msgstr "Nie udało się zapisać koloru akcentu"
@@ -16456,12 +16456,12 @@ msgstr "Nie udało się zapisać koloru akcentu"
 msgid "Database template"
 msgstr "Szablon z bazy danych"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:244
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:245
 #, elixir-autogen, elixir-format
 msgid "Email accent colour reset to the default"
 msgstr "Kolor akcentu e-maili przywrócono do domyślnego"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:245
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:246
 #, elixir-autogen, elixir-format
 msgid "Email accent colour updated"
 msgstr "Kolor akcentu e-maili został zaktualizowany"
@@ -16481,7 +16481,7 @@ msgstr "Podgląd e-maili"
 msgid "Empty file, ignored"
 msgstr "Pusty plik, zignorowano"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:435
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:436
 #, elixir-autogen, elixir-format
 msgid "Enter the colour as #RRGGBB, for example #1d4ed8"
 msgstr "Wpisz kolor w formacie #RRGGBB, na przykład #1d4ed8"
@@ -16546,7 +16546,7 @@ msgstr "Szablon układu"
 msgid "Layout group"
 msgstr "Grupa układu"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:158
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:168
 #, elixir-autogen, elixir-format
 msgid "Logo"
 msgstr "Logo"
@@ -16576,7 +16576,7 @@ msgstr "Alert o nowym logowaniu"
 msgid "No HTML version: this email is sent as plain text only."
 msgstr "Brak wersji HTML: ten e-mail jest wysyłany wyłącznie jako zwykły tekst."
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:173
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:183
 #, elixir-autogen, elixir-format
 msgid "No logo is available to emails, so the header shows the site name. A logo stored in a private library is never used: an email outlives its link."
 msgstr "E-maile nie mają dostępu do żadnego logo, więc nagłówek pokazuje nazwę witryny. Logo z biblioteki prywatnej nigdy nie jest używane: e-mail żyje dłużej niż jego link."
@@ -16619,7 +16619,7 @@ msgstr "Część"
 msgid "Password reset"
 msgstr "Resetowanie hasła"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:119
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:129
 #, elixir-autogen, elixir-format
 msgid "Pick a colour"
 msgstr "Wybierz kolor"
@@ -16634,7 +16634,7 @@ msgstr "Znaczniki bez wartości przykładowej (pokazane tak, jak zapisano): %{li
 msgid "Preview emails"
 msgstr "Podgląd e-maili"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:153
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:163
 #, elixir-autogen, elixir-format
 msgid "Save accent colour"
 msgstr "Zapisz kolor akcentu"
@@ -16685,7 +16685,7 @@ msgstr "Wysyłany, gdy ktoś rejestruje się jednorazowym linkiem."
 msgid "Set by the sending code"
 msgstr "Ustawiane przez kod wysyłający"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:168
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:178
 #, elixir-autogen, elixir-format
 msgid "Shown in the header of every email."
 msgstr "Pokazywane w nagłówku każdego e-maila."
@@ -16715,7 +16715,7 @@ msgstr "Nie udało się wyświetlić tego e-maila: %{reason}"
 msgid "To override, create"
 msgstr "Aby nadpisać, utwórz"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:476
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:503
 #, elixir-autogen, elixir-format
 msgid "Used for buttons and links in every email, and for the accent bar of the standard layout. Leave blank for neutral buttons and links (%{color}) and no accent bar. Email files read it as %{placeholder}."
 msgstr "Używany dla przycisków i linków w każdym e-mailu oraz dla paska akcentu standardowego układu. Zostaw puste, aby przyciski i linki były neutralne (%{color}) i bez paska akcentu. Pliki e-maili odczytują go jako %{placeholder}."
@@ -17857,7 +17857,7 @@ msgstr "Powiadomienie wysyłane e-mailem, pojedynczo lub w zestawieniu, gdy odbi
 msgid "Acme Ltd commented on your order"
 msgstr "Acme Ltd dodała komentarz do Twojego zamówienia"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:205
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:206
 #, elixir-autogen, elixir-format
 msgid "Could not update the welcome email setting"
 msgstr "Nie udało się zmienić ustawienia wiadomości powitalnej"
@@ -17912,12 +17912,12 @@ msgstr "Cześć {{user_email}},\n\n{{organization_name}} zaprasza Cię do swojej
 msgid "Notification"
 msgstr "Powiadomienie"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:217
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:227
 #, elixir-autogen, elixir-format
 msgid "Send a welcome email after an address is confirmed"
 msgstr "Wysyłaj wiadomość powitalną po potwierdzeniu adresu"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:197
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:207
 #, elixir-autogen, elixir-format
 msgid "Sent once to each user, after they confirm their own email address — by the confirmation link, a magic link, a sign-in with a provider that verified the address, or by correcting an address they had not confirmed yet. Not sent when an administrator confirms an account."
 msgstr "Wysyłana jednorazowo do każdego użytkownika po samodzielnym potwierdzeniu adresu e-mail — linkiem potwierdzającym, magicznym linkiem, logowaniem przez dostawcę, który zweryfikował adres, lub poprawieniem jeszcze niepotwierdzonego adresu. Nie jest wysyłana, gdy konto potwierdza administrator."
@@ -17942,17 +17942,17 @@ msgstr "Wersja tekstowa pochodzi z pierwszego dostępnego elementu: Twojego %{te
 msgid "Welcome"
 msgstr "Powitanie"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:191
+#: lib/phoenix_kit_web/live/settings/email_sending.html.heex:201
 #, elixir-autogen, elixir-format
 msgid "Welcome email"
 msgstr "Wiadomość powitalna"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:196
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:197
 #, elixir-autogen, elixir-format
 msgid "Welcome email switched off"
 msgstr "Wiadomość powitalna wyłączona"
 
-#: lib/phoenix_kit_web/live/settings/email_sending.ex:195
+#: lib/phoenix_kit_web/live/settings/email_sending.ex:196
 #, elixir-autogen, elixir-format
 msgid "Welcome email switched on"
 msgstr "Wiadomość powitalna włączona"
@@ -18845,3 +18845,8 @@ msgstr "Ten typ pliku nie jest tutaj akceptowany."
 #, elixir-autogen, elixir-format
 msgid "Up to %{count} files upload at once, so this one was not sent. Add it again."
 msgstr "Jednocześnie można przesłać do %{count} plików, więc ten nie został wysłany. Dodaj go ponownie."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:158
+#, elixir-autogen, elixir-format
+msgid "Loading full quality…"
+msgstr "Wczytywanie pełnej jakości…"

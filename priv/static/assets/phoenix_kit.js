@@ -7345,6 +7345,91 @@ if (typeof window.Chart === "undefined") {
   };
 
   // ============================================================================
+  // ViewerHiresLoading — "Loading full quality…" while a sharper picture arrives
+  // ============================================================================
+  //
+  // The media viewer opens on the small bitmap the grid already painted, and
+  // Tessera climbs to a bigger rung once the screen asks for one. On a slow
+  // line that climb can take a long time, and nothing said it was happening:
+  // people sat looking at a blurry photograph wondering whether that was all
+  // there was.
+  //
+  // Fresco swaps a rung by setting the visible <img>'s src, and the browser
+  // keeps painting the old bitmap until the new one has loaded — so "a
+  // sharper picture is on its way" is exactly "the canvas image's src is not
+  // complete yet", and its load (or error) is "done". This watches the pane's
+  // canvas image for that and shows the pill the template renders; nothing
+  // in Fresco or Tessera has to know. A canvas remount (the eye, the pencil,
+  // a new burn) brings a new <img>, which the observer picks up too.
+  //
+  // HIRES_SHOW_DELAY_MS keeps a load that finishes quickly — a cache hit, a
+  // fast line — from flashing the pill for a frame.
+  // ----------------------------------------------------------------------------
+
+  var HIRES_SHOW_DELAY_MS = 300;
+
+  window.PhoenixKitHooks.ViewerHiresLoading = {
+    mounted() {
+      var self = this;
+      this._pane = this.el.parentElement;
+      this._img = null;
+      this._timer = null;
+      this._onSettle = function() { self._track(); };
+      this._observer = new MutationObserver(function() { self._track(); });
+      if (this._pane) {
+        this._observer.observe(this._pane, {
+          subtree: true, childList: true, attributes: true, attributeFilter: ["src"]
+        });
+      }
+      this._track();
+    },
+
+    destroyed() {
+      if (this._observer) this._observer.disconnect();
+      this._watch(null);
+      clearTimeout(this._timer);
+    },
+
+    _track() {
+      var img = this._pane && this._pane.querySelector("img[data-fresco-canvas-img]");
+      if (img !== this._img) this._watch(img);
+      this._set(!!img && !!img.getAttribute("src") && !img.complete);
+    },
+
+    _watch(img) {
+      if (this._img) {
+        this._img.removeEventListener("load", this._onSettle);
+        this._img.removeEventListener("error", this._onSettle);
+      }
+      this._img = img || null;
+      if (img) {
+        img.addEventListener("load", this._onSettle);
+        img.addEventListener("error", this._onSettle);
+      }
+    },
+
+    _set(loading) {
+      var self = this;
+      if (loading) {
+        if (this.el.dataset.state === "loading" || this._timer) return;
+        this._timer = setTimeout(function() {
+          self._timer = null;
+          if (self._img && !self._img.complete) self._show(true);
+        }, HIRES_SHOW_DELAY_MS);
+      } else {
+        clearTimeout(this._timer);
+        this._timer = null;
+        this._show(false);
+      }
+    },
+
+    _show(on) {
+      this.el.dataset.state = on ? "loading" : "idle";
+      this.el.setAttribute("aria-hidden", on ? "false" : "true");
+    }
+  };
+
+  // ============================================================================
   // UploadResume — keep picked files until the server has them
   // ============================================================================
   //

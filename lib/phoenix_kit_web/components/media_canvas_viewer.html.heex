@@ -135,6 +135,28 @@
             data-burn-fingerprint={Map.get(f, :burn_fingerprint)}
             class="hidden"
           />
+          <%!-- "Loading full quality…" — shown while a sharper picture is   --%>
+          <%!-- still arriving. The viewer opens on the small bitmap the grid --%>
+          <%!-- already painted and Tessera climbs to a bigger one; on a slow --%>
+          <%!-- line that climb took long enough that people sat looking at  --%>
+          <%!-- a blurry photo with no idea anything was still coming. The   --%>
+          <%!-- ViewerHiresLoading hook watches the pane's canvas image: a   --%>
+          <%!-- new src that has not loaded yet shows this, its load (or     --%>
+          <%!-- error) hides it. Any canvas — live, burned, clean original.  --%>
+          <%!-- phx-update="ignore": the hook owns data-state.               --%>
+          <div
+            :if={image_file?(f)}
+            id={"pk-hires-loading-" <> f.file_uuid}
+            phx-hook="ViewerHiresLoading"
+            phx-update="ignore"
+            data-state="idle"
+            role="status"
+            aria-hidden="true"
+            class="pointer-events-none absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-full bg-base-100/90 px-2.5 py-1 text-xs font-medium text-base-content/80 shadow-md ring-1 ring-base-300 opacity-0 transition-opacity duration-300 data-[state=loading]:opacity-100"
+          >
+            <span class="loading loading-spinner loading-xs text-primary"></span>
+            <span>{gettext("Loading full quality…")}</span>
+          </div>
           <%!-- Chevron positioning sits on a wrapper div, not the button.       --%>
           <%!-- daisyUI's active-state CSS replaces `transform` with             --%>
           <%!-- `scale(0.97)` on click, which would clobber a -translate-y-1/2    --%>

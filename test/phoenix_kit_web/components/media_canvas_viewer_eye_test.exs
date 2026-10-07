@@ -174,6 +174,24 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
     end
   end
 
+  describe "the full-quality loading pill" do
+    test "a picture carries it, idle until the hook says a sharper one is loading" do
+      html = render_html(%{})
+
+      assert html =~ ~s(id="pk-hires-loading-#{@file_uuid}")
+      assert html =~ ~s(phx-hook="ViewerHiresLoading")
+      assert html =~ ~s(data-state="idle")
+      assert html =~ "Loading full quality"
+    end
+
+    test "something that is not a picture has no sharper version to wait for" do
+      file = %{render_assigns(%{}).file | file_type: "document", mime_type: "application/pdf"}
+      html = render_html(%{file: file, viewer_canvas: nil, burn_canvas: nil})
+
+      refute html =~ "pk-hires-loading-"
+    end
+  end
+
   describe "event flow" do
     defp socket(assigns) do
       %Phoenix.LiveView.Socket{assigns: Map.merge(%{__changed__: %{}}, assigns)}
