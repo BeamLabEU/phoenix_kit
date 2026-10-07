@@ -1,5 +1,12 @@
 ## Unreleased
 
+### Added
+
+- **A module's section on the Emails Transactional page can put a button beside "Preview emails".** An entry
+  of `email_settings_sections/0` may carry `link: %{label: "..."}`, and the Branding tab then shows a button
+  that opens the section's tab (`?tab=module_<id>`); `link: %{label: "...", path: "/admin/..."}` leads to
+  that path instead. The button is shown only to users who can see the section (the same permission).
+
 ### Fixed
 
 - **An iPhone's HEIC photo now gets its subject-aware crop and every rendition.** Two things failed on a real
@@ -160,7 +167,6 @@
 
 - **Test:** the sweep-stamp history test compares entry counts instead of asserting an empty history, so it
   passes on a database that already holds entries from before the fix.
->>>>>>> ee42d43a233fb7192f23a48138260d83bc533d61
 
 ## 2.55.0 - 2026-10-06
 

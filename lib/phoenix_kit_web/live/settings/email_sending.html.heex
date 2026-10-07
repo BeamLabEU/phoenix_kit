@@ -94,6 +94,16 @@
           >
             <.icon name="hero-eye" class="w-4 h-4" /> {gettext("Preview emails")}
           </.pk_link_button>
+          <.pk_link_button
+            :for={link <- @email_section_links}
+            id={"email-section-link-#{link.id}"}
+            navigate={link.navigate}
+            patch={link.patch}
+            variant="outline"
+            class="btn-sm"
+          >
+            <.icon name="hero-puzzle-piece" class="w-4 h-4" /> {link.label}
+          </.pk_link_button>
         </:actions>
 
         <form

@@ -10,6 +10,19 @@
   phx-key="Escape"
   class={@fill_height && "flex flex-col flex-1 min-h-0 w-full"}
 >
+  <%!-- Keeps a copy of every picked file in the browser (IndexedDB) until
+       the server says it has the bytes, so a transfer cut short by a refresh,
+       a closed tab or a dropped connection can be resumed instead of lost.
+       Reports leftovers as `upload_resume_available`. Its parent — this
+       root — is the scope whose file inputs it watches. --%>
+  <div
+    :if={not @readonly and @has_buckets}
+    id={@id <> "-upload-resume"}
+    phx-hook="UploadResume"
+    phx-target={@myself}
+    class="hidden"
+  >
+  </div>
   <style>
     @keyframes rename-pulse {
       0%, 100% { opacity: 1; }
@@ -164,6 +177,89 @@
               phx-hook={if @has_buckets and not @readonly, do: "FolderDropUpload"}
               phx-target={if @has_buckets, do: @myself}
             >
+              <%!-- Upload problems: every upload that did not land, by name   --%>
+              <%!-- and with why — refused before transfer, failed to store,  --%>
+              <%!-- interrupted by a refresh. Retry re-sends what was kept;   --%>
+              <%!-- Discard lets go. Survives a refresh for anything the      --%>
+              <%!-- server received (UploadInbox) or the browser stashed      --%>
+              <%!-- (UploadResume).                                           --%>
+              <% problems = upload_problems(assigns) %>
+              <div
+                :if={problems != []}
+                id={@id <> "-upload-problems"}
+                role="alert"
+                class="mb-4 rounded-lg border border-warning/60 bg-warning/10 p-3"
+              >
+                <div class="flex flex-wrap items-center gap-2">
+                  <.icon name="hero-exclamation-triangle" class="w-5 h-5 text-warning shrink-0" />
+                  <p class="font-semibold text-sm flex-1 min-w-0">
+                    {ngettext(
+                      "%{count} file did not upload",
+                      "%{count} files did not upload",
+                      length(problems)
+                    )}
+                  </p>
+                  <button
+                    :if={Enum.count(problems, & &1.retry) > 1}
+                    type="button"
+                    phx-click="retry_all_uploads"
+                    phx-target={@myself}
+                    class="btn btn-xs btn-primary gap-1"
+                  >
+                    <.icon name="hero-arrow-path" class="w-3.5 h-3.5" /> {gettext("Retry all")}
+                  </button>
+                  <button
+                    type="button"
+                    phx-click="discard_all_uploads"
+                    phx-target={@myself}
+                    data-confirm={
+                      gettext("Discard every file in this list? They will not be uploaded.")
+                    }
+                    class="btn btn-xs btn-ghost"
+                  >
+                    {gettext("Discard all")}
+                  </button>
+                </div>
+                <ul class="mt-2 space-y-1.5">
+                  <li
+                    :for={problem <- problems}
+                    id={@id <> "-upload-problem-" <> problem.key}
+                    class="flex flex-wrap items-center gap-2 rounded-md bg-base-100 px-3 py-2"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate">{problem.client_name}</p>
+                      <p class="text-xs text-base-content/70">
+                        <span :if={is_integer(problem[:client_size]) and problem.client_size > 0}>
+                          {Format.bytes(problem.client_size, base: 1000, decimals: 2)} ·
+                        </span>
+                        {problem.reason}
+                      </p>
+                    </div>
+                    <button
+                      :if={problem.retry}
+                      type="button"
+                      phx-click="retry_upload"
+                      phx-value-key={problem.key}
+                      phx-target={@myself}
+                      class="btn btn-xs btn-outline btn-primary gap-1"
+                    >
+                      <.icon name="hero-arrow-path" class="w-3.5 h-3.5" />
+                      {if problem.kind == :browser, do: gettext("Resume"), else: gettext("Retry")}
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="discard_upload"
+                      phx-value-key={problem.key}
+                      phx-target={@myself}
+                      class="btn btn-xs btn-ghost"
+                      aria-label={gettext("Discard %{name}", name: problem.client_name)}
+                    >
+                      {if problem.retry, do: gettext("Discard"), else: gettext("Dismiss")}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
               <%!-- Inline upload progress for drag-drop (no modal) --%>
               <%= if !@show_upload && assigns[:parent_uploads] && length(@parent_uploads.media_files.entries) > 0 do %>
                 <div class="space-y-2 mb-4">
