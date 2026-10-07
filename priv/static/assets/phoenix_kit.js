@@ -2165,6 +2165,26 @@ if (typeof window.Chart === "undefined") {
         if (pane) pane.style.visibility = "";
         if (self._timer) { clearTimeout(self._timer); self._timer = null; }
         if (self._closeGrace) { clearTimeout(self._closeGrace); self._closeGrace = null; }
+        self._loadingPill(false);
+      };
+
+      // The stand-in's "Loading full quality…" pill: up a beat after the
+      // stand-in shows (a hand-over inside that beat never flashes it), gone
+      // the instant the stand-in goes. The real viewer's pill takes over from
+      // there for any sharper rung still on its way.
+      self._loadingPill = function(on) {
+        const pill = el.querySelector("[data-standin-loading]");
+        if (self._pillTimer) { clearTimeout(self._pillTimer); self._pillTimer = null; }
+        if (!pill) return;
+        if (on) {
+          self._pillTimer = setTimeout(function() {
+            self._pillTimer = null;
+            pill.style.opacity = "1";
+          }, 300);
+        } else {
+          // No fade needed: the stand-in itself is display:none by now.
+          pill.style.opacity = "0";
+        }
       };
       self._hide();
 
@@ -2246,6 +2266,7 @@ if (typeof window.Chart === "undefined") {
         // in well under a second.
         if (self._timer) clearTimeout(self._timer);
         self._timer = setTimeout(self._hide, 8000);
+        self._loadingPill(true);
       };
 
       self._onClick = function(e) {
@@ -7426,6 +7447,7 @@ if (typeof window.Chart === "undefined") {
     _show(on) {
       this.el.dataset.state = on ? "loading" : "idle";
       this.el.setAttribute("aria-hidden", on ? "false" : "true");
+      if (this.el.style) this.el.style.opacity = on ? "1" : "0";
     }
   };
 

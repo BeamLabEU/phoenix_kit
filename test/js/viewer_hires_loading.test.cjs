@@ -47,7 +47,7 @@ function fakeImg(srcAttr, complete) {
 function mount(img) {
   const { hook, mutate } = load();
   const pane = { current: img, querySelector: () => pane.current };
-  const el = { parentElement: pane, dataset: { state: "idle" }, attrs: {},
+  const el = { parentElement: pane, dataset: { state: "idle" }, attrs: {}, style: {},
     setAttribute(k, v) { this.attrs[k] = v; } };
   const h = Object.assign(Object.create(hook), { el });
   h.mounted();
@@ -71,11 +71,15 @@ test("a sharper picture on its way shows the pill, and its load hides it", async
   await wait(400);
   assert.strictEqual(el.dataset.state, "loading");
   assert.strictEqual(el.attrs["aria-hidden"], "false", "announced while it shows");
+  assert.strictEqual(el.style.opacity, "1",
+    "shown by inline opacity — a Tailwind variant would be dropped by a host build that " +
+    "does not reach into the package, and the pill would never appear");
 
   img.complete = true;
   img.fire("load");
   assert.strictEqual(el.dataset.state, "idle", "gone the moment the sharp picture lands");
   assert.strictEqual(el.attrs["aria-hidden"], "true");
+  assert.strictEqual(el.style.opacity, "0");
   h.destroyed();
 });
 
@@ -125,4 +129,27 @@ test("a canvas remount brings a new <img>, which is watched instead of the old o
   assert.strictEqual(el.dataset.state, "idle");
   h.destroyed();
   assert.strictEqual(fresh.listenerCount("load"), 0, "and destroyed() lets go of the current one");
+});
+
+// Reported after the first cut: on a throttled line the pill never showed.
+// The media grid's instant stand-in — the blurry bitmap that makes a click
+// feel immediate — sits over the real popup (z-index 1000 against the
+// modal's 999) until the real picture has loaded, which on a slow line is
+// the whole wait; nothing inside the real viewer can draw above it. So the
+// stand-in carries its own pill, up a beat after it opens and gone with it.
+test("the instant stand-in carries its own pill, shown with it and gone with it", () => {
+  const heex = fs.readFileSync(path.join(__dirname, "..", "..", "lib", "phoenix_kit_web",
+    "components", "media_browser.html.heex"), "utf8");
+  const standin = heex.slice(heex.indexOf('phx-hook="InstantViewer"'));
+  assert.match(standin, /data-standin-loading\s+style="opacity: 0;/,
+    "the stand-in's pill exists, hidden by inline opacity");
+
+  const iv = src.slice(src.indexOf("window.PhoenixKitHooks.InstantViewer = {"),
+                       src.indexOf("window.PhoenixKitHooks.InstantViewer = {") + 20000);
+  assert.match(iv, /self\._timer = setTimeout\(self\._hide, 8000\);\s*self\._loadingPill\(true\);/,
+    "shown whenever the stand-in is (both its triggers share this path)");
+  assert.match(iv, /self\._hide = function\(\) \{[\s\S]*?self\._loadingPill\(false\);\s*\};/,
+    "and taken down by every way the stand-in goes — hand-over, close, the 8s fallback");
+  assert.match(iv, /self\._pillTimer = setTimeout\(function\(\) \{[\s\S]*?pill\.style\.opacity = "1";[\s\S]*?\}, 300\);/,
+    "a beat late, so a hand-over inside it never flashes the pill");
 });

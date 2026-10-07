@@ -292,10 +292,12 @@ test("gives up on its own if no viewer ever arrives", () => {
   hook.mounted.call({ el });
 
   listeners.document.click.fn(cardClick("/x.jpg"));
-  assert.strictEqual(timers.length, 1, "a click arms a fallback");
-  assert.ok(timers[0].ms >= 1000, "…long enough not to cut a slow open short");
+  // The click also arms the "Loading full quality…" pill's short delay;
+  // the fallback is the long one.
+  const fallback = timers.filter((t) => t.ms >= 1000);
+  assert.strictEqual(fallback.length, 1, "a click arms a fallback");
 
-  timers[0].cb();
+  fallback[0].cb();
   assert.strictEqual(el.style.display, "none",
     "a stale uuid, a server error or a dropped connection must not leave a " +
     "picture stuck over the page");

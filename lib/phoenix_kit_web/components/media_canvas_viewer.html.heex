@@ -143,7 +143,13 @@
           <%!-- ViewerHiresLoading hook watches the pane's canvas image: a   --%>
           <%!-- new src that has not loaded yet shows this, its load (or     --%>
           <%!-- error) hides it. Any canvas — live, burned, clean original.  --%>
-          <%!-- phx-update="ignore": the hook owns data-state.               --%>
+          <%!-- phx-update="ignore": the hook owns data-state and the       --%>
+          <%!-- opacity. Inline opacity, not a Tailwind variant: a host      --%>
+          <%!-- whose build does not reach into this package would drop the  --%>
+          <%!-- variant and the pill would never appear (the instant         --%>
+          <%!-- stand-in's blur is inline for the same reason). While the    --%>
+          <%!-- stand-in is up it covers this pane, so it carries its own    --%>
+          <%!-- copy of the pill (see InstantViewer).                        --%>
           <div
             :if={image_file?(f)}
             id={"pk-hires-loading-" <> f.file_uuid}
@@ -152,7 +158,8 @@
             data-state="idle"
             role="status"
             aria-hidden="true"
-            class="pointer-events-none absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-full bg-base-100/90 px-2.5 py-1 text-xs font-medium text-base-content/80 shadow-md ring-1 ring-base-300 opacity-0 transition-opacity duration-300 data-[state=loading]:opacity-100"
+            style="opacity: 0; transition: opacity 300ms ease"
+            class="pointer-events-none absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-full bg-base-100/90 px-2.5 py-1 text-xs font-medium text-base-content/80 shadow-md ring-1 ring-base-300"
           >
             <span class="loading loading-spinner loading-xs text-primary"></span>
             <span>{gettext("Loading full quality…")}</span>
