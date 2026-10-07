@@ -171,18 +171,22 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
       path
     end
 
+    # The share of pixels that are the subject's red, read from the raw pixels:
+    # ImageMagick 6 and 7 disagree on how `-format` reports a mean, but both write
+    # the same 8-bit gray bytes (255 where the pixel is red, 0 elsewhere).
     defp red_share(path) do
-      {out, 0} =
+      {bytes, 0} =
         System.cmd("convert", [
           path,
           "-fx",
           "r>0.7&&g<0.45&&b<0.45?1:0",
-          "-format",
-          "%[fx:mean]",
-          "info:"
+          "-depth",
+          "8",
+          "gray:-"
         ])
 
-      out |> String.trim() |> Float.parse() |> elem(0)
+      red = for <<byte <- bytes>>, byte > 127, reduce: 0, do: (count -> count + 1)
+      red / byte_size(bytes)
     end
 
     test "the focus crop keeps a subject the center crop cuts off", %{tmp_dir: dir} do
