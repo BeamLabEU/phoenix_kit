@@ -478,6 +478,33 @@ stops serving them, and the ones made stay stored.
   now say 28, 25 and 23 so that new installs and "Reset to Defaults" keep that
   quality. Videos already made are not remade by this: a rendition is remade
   when its spec changes.
+- **Cropping around the subject** (V210, `Storage.FocalPoint`). A fixed image
+  rendition (a box the photo is scaled to fill and cropped to) has a
+  `crop_mode`: `center` (the default: every existing rendition) or `focus`, which
+  crops a window of its shape around the photo's **focal point** instead
+  (`ImageProcessor.resize_and_crop_focus/6`, `focus_window/3`). The point is
+  `{x, y}` as fractions of the photo as displayed (after its EXIF orientation),
+  kept in the file's `metadata["focal"]` with its `source`: `manual` (set by a
+  person with `FocalPoint.put/4`, never replaced) or `auto`. `FocalPoint.ensure/2`
+  is what the generator calls the first time a photo needs one: the stored point,
+  else a detected one (stored for the next rendition), else none, and the crop is
+  at the center. Detection (`detect/1`) is libvips' `smartcrop: attention` on a
+  copy shrunk to 512 px, through the **optional** `vix` package (precompiled
+  libvips, nothing to install; a host adds `{:vix, "~> 0.42"}`); without it, or
+  for a flat photo, there is no point. Settings → Media → External libraries lists
+  libvips (found through `vix`, not the `PATH`) with what it is for and how to enable
+  it; the "not found" notice names it only once a rendition crops around the subject
+  (`VariantSets.focus_crop_in_use?/0`). `focus` is part of the spec hash only when
+  set, so no existing rendition is remade. There is no admin control for a
+  photo's point yet; a changed point is not applied to renditions already made
+  (regenerate them).
+- **A rendition that keeps proportions fixes one side** (V211, `fit_by`): its
+  `width` (a column as tall as it needs to be: a vertical panorama) or its
+  `height` (a row as long as it needs to be: a horizontal one, with the width left
+  empty). Neither enlarges a photo, and `height` is part of the spec hash only
+  when set. A standard size always fixes its width (`variant_for/2` and the
+  stand-in pick them by it). ImageMagick refuses a source wider or taller than
+  16,384 px (its limits), which a very large stitched panorama can exceed.
 - A thumbnail with an annotation burned into it has no `spec_hash` (V205
   did not stamp one), so nothing ever makes over it.
 - `Storage.variant_for(file, min_width: 300, aspect: :preserve)` picks a

@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   alias PhoenixKit.Modules.Storage.BucketCredentials
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Profiles
+  alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.System.Dependencies
@@ -50,6 +51,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # tab and deep zoom on a library's page, not here.
     tile_generation_enabled = Storage.tile_generation_enabled?()
 
+    # And whether a rendition crops around the subject, which is all libvips is for.
+    focus_crop_in_use = VariantSets.focus_crop_in_use?()
+
     annotated_thumbnails_enabled =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
@@ -69,6 +73,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:bucket_totals, bucket_totals)
       |> assign(:bucket_usage, %{})
       |> assign(:tile_generation_enabled, tile_generation_enabled)
+      |> assign(:focus_crop_in_use, focus_crop_in_use)
       |> assign(:annotated_thumbnails_enabled, annotated_thumbnails_enabled == "true")
       |> assign(:form_annotated_thumbnails_enabled, form_annotated_thumbnails_enabled)
       |> assign(:max_upload_size_mb, current_max_upload_size_mb)
@@ -482,14 +487,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
   # The missing tools worth a banner: the tile maker only matters while
   # tiles are on.
-  defp missing_tools(tools, tile_generation_enabled?) do
+  # libvips likewise: it is optional, so it only matters once a rendition crops
+  # around the subject.
+  defp missing_tools(tools, tile_generation_enabled?, focus_crop_in_use?) do
     Enum.filter(tools, fn tool ->
-      match?({:error, _}, tool.status) and (tool.id != :magick or tile_generation_enabled?)
+      match?({:error, _}, tool.status) and
+        (tool.id != :magick or tile_generation_enabled?) and
+        (tool.id != :libvips or focus_crop_in_use?)
     end)
   end
 
   defp tool_purpose(:images), do: gettext("Image variants, resizing and conversion")
   defp tool_purpose(:tiles), do: gettext("Zoomable tiles for large images")
+
+  defp tool_purpose(:focus_crop),
+    do: gettext("Finds the subject of a photo, so a rendition can crop around it")
+
   defp tool_purpose(:video), do: gettext("Video variants and thumbnails")
   defp tool_purpose(:video_metadata), do: gettext("Video dimensions, duration and capture date")
   defp tool_purpose(:pdf_previews), do: gettext("PDF preview images")

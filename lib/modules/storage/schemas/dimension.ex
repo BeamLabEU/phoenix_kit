@@ -80,6 +80,8 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   # file URL, and core and modules ask for these by name. The first three
   # of `@aspect_slots` feed grids and justified layouts, so they keep the
   # aspect ratio; only `thumbnail` may be cropped.
+  @crop_modes ~w(center focus)
+  @fit_sides ~w(width height)
   @standard_slots ~w(thumbnail small medium large video_thumbnail)
   @aspect_slots ~w(small medium large)
 
@@ -93,6 +95,8 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
           applies_to: String.t() | nil,
           enabled: boolean(),
           maintain_aspect_ratio: boolean(),
+          crop_mode: String.t(),
+          fit_by: String.t(),
           alternative_formats: [String.t()],
           order: integer(),
           variant_set_uuid: UUIDv7.t() | nil,
@@ -109,6 +113,13 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     field :applies_to, :string
     field :enabled, :boolean, default: true
     field :maintain_aspect_ratio, :boolean, default: true
+    # How a fixed rendition is cropped (V210): around the middle, or around the
+    # photo's focal point. Does nothing for a rendition that keeps proportions.
+    field :crop_mode, :string, default: "center"
+    # Which side a rendition that keeps proportions fixes (V211): its `width`, or
+    # its `height` for a horizontal panorama (the width is then left empty and
+    # follows each photo). A fixed box has both sides and ignores it.
+    field :fit_by, :string, default: "width"
     field :alternative_formats, {:array, :string}, default: []
     field :order, :integer, default: 0
 
@@ -156,6 +167,8 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       :applies_to,
       :enabled,
       :maintain_aspect_ratio,
+      :crop_mode,
+      :fit_by,
       :alternative_formats,
       :order
     ])
@@ -165,16 +178,40 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     )
     |> validate_length(:name, min: 1, max: 50)
     |> validate_inclusion(:applies_to, ["image", "video", "both"])
+    |> validate_inclusion(:crop_mode, @crop_modes)
+    |> validate_inclusion(:fit_by, @fit_sides)
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:order, greater_than_or_equal_to: 0)
     |> validate_dimension_size()
+    |> clear_width_when_height_fixed()
     |> validate_quality()
     |> validate_format()
     |> validate_alternative_formats()
     |> validate_standard_slot()
+    |> validate_standard_fit_side()
     |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
+
+  @doc "How a fixed rendition can be cropped: around the middle, or around the subject."
+  def crop_modes, do: @crop_modes
+
+  @doc """
+  Whether `dimension` is cropped around the photo's focal point: a fixed box
+  (not one that keeps proportions) whose crop mode is `focus`.
+  """
+  def focus_crop?(%__MODULE__{maintain_aspect_ratio: false, crop_mode: "focus"}), do: true
+  def focus_crop?(_dimension), do: false
+
+  @doc "The side a rendition that keeps proportions can fix: its width, or its height."
+  def fit_sides, do: @fit_sides
+
+  @doc """
+  Whether `dimension` keeps proportions and fixes its **height** (the width
+  follows each photo: a horizontal panorama's thumbnail).
+  """
+  def fixed_height?(%__MODULE__{maintain_aspect_ratio: true, fit_by: "height"}), do: true
+  def fixed_height?(_dimension), do: false
 
   @doc "The sizes every variant set has; they cannot be renamed or deleted."
   def standard_slots, do: @standard_slots
@@ -213,13 +250,52 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     end
   end
 
+  # A rendition that keeps proportions and fixes its height has no width: it follows
+  # each photo, and a width left over from before would make the rendition look
+  # like a width-picked one (`variant_for/2`).
+  defp clear_width_when_height_fixed(changeset) do
+    if get_field(changeset, :maintain_aspect_ratio) != false and
+         get_field(changeset, :fit_by) == "height",
+       do: put_change(changeset, :width, nil),
+       else: changeset
+  end
+
+  # The standard sizes are picked by width (`variant_for/2`, the stand-in of a size
+  # not made yet), so they keep fixing it. Checked when the size is made, renamed,
+  # or its fixed side is changed.
+  defp validate_standard_fit_side(changeset) do
+    name = get_field(changeset, :name)
+
+    if name in @standard_slots and get_field(changeset, :fit_by) == "height" and
+         (is_nil(changeset.data.uuid) or Map.has_key?(changeset.changes, :name) or
+            Map.has_key?(changeset.changes, :fit_by)) do
+      add_error(
+        changeset,
+        :fit_by,
+        "must stay on width for %{name}: the standard sizes are picked by width",
+        name: name
+      )
+    else
+      changeset
+    end
+  end
+
   # Validate dimensions based on maintain_aspect_ratio setting
   defp validate_dimension_size(changeset) do
     width = get_field(changeset, :width)
     height = get_field(changeset, :height)
     maintain_aspect = get_field(changeset, :maintain_aspect_ratio)
+    fit_by = get_field(changeset, :fit_by)
 
     cond do
+      # Keeping proportions with a fixed height: the height is the size, and the
+      # width is left to follow each photo.
+      maintain_aspect != false and fit_by == "height" and is_nil(height) ->
+        add_error(changeset, :height, "height is required when the height is fixed")
+
+      maintain_aspect != false and fit_by == "height" ->
+        changeset
+
       is_nil(width) ->
         add_error(changeset, :width, "width is required")
 

@@ -29,6 +29,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Dimension
+  alias PhoenixKit.Modules.Storage.FocalPoint
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
@@ -194,8 +196,18 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         # variant re-queues the job — a copy left behind per failure fills
         # the temp dir.
         try do
+          # A rendition cropped around the subject needs the photo's focal point:
+          # the stored one, else a detected one, else the center.
+          focal = focal_point_for(file, effective_dimension, original_path)
+
           with {:ok, variant_path} <-
-                 process_variant(original_path, variant_path, file.mime_type, effective_dimension),
+                 process_variant(
+                   original_path,
+                   variant_path,
+                   file.mime_type,
+                   effective_dimension,
+                   focal
+                 ),
                {:ok, file_stats} <- get_variant_file_stats(variant_path),
                {:ok, storage_info} <-
                  store_variant_file(variant_path, variant_name, variant_storage_path, file) do
@@ -556,10 +568,16 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
-  defp process_variant(original_path, variant_path, mime_type, dimension) do
+  # Only a fixed image rendition whose crop mode is `focus` looks for one.
+  defp focal_point_for(file, dimension, original_path) do
+    if Dimension.focus_crop?(dimension) and String.starts_with?(file.mime_type || "", "image/"),
+      do: FocalPoint.ensure(file, original_path)
+  end
+
+  defp process_variant(original_path, variant_path, mime_type, dimension, focal) do
     cond do
       String.starts_with?(mime_type, "image/") ->
-        process_image_variant(original_path, variant_path, mime_type, dimension)
+        process_image_variant(original_path, variant_path, mime_type, dimension, focal)
 
       String.starts_with?(mime_type, "video/") ->
         process_video_variant(original_path, variant_path, mime_type, dimension)
@@ -572,7 +590,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
-  defp process_image_variant(input_path, output_path, _mime_type, dimension) do
+  defp process_image_variant(input_path, output_path, _mime_type, dimension, focal \\ nil) do
     Logger.info(
       "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height} maintain_aspect=#{dimension.maintain_aspect_ratio}"
     )
@@ -583,31 +601,61 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     # Decision based on maintain_aspect_ratio setting
     case dimension.maintain_aspect_ratio do
       true ->
-        # Maintain aspect ratio - use only width
-        Logger.info("Using responsive resize for #{dimension.name} (width: #{dimension.width}px)")
+        # Keep proportions: fix one side and let the other follow each photo, the
+        # width (a column as tall as it needs to be) or the height (a row as long
+        # as it needs to be: a horizontal panorama).
+        {width, height} =
+          if Dimension.fixed_height?(dimension),
+            do: {nil, dimension.height},
+            else: {dimension.width, nil}
 
-        ImageProcessor.resize(input_path, output_path, dimension.width, nil,
+        Logger.info(
+          "Using responsive resize for #{dimension.name} (width: #{inspect(width)}, height: #{inspect(height)})"
+        )
+
+        ImageProcessor.resize(input_path, output_path, width, height,
           quality: quality,
           format: format
         )
 
       false ->
-        # Fixed dimensions - use center-crop with gravity
-        Logger.info(
-          "Using center-crop for #{dimension.name} (#{dimension.width}x#{dimension.height})"
-        )
-
-        ImageProcessor.resize_and_crop_center(
-          input_path,
-          output_path,
-          dimension.width,
-          dimension.height,
+        # Fixed dimensions: a box the image is cropped to, around the middle, or
+        # around the subject when the rendition asks for it and a focal point is
+        # known (it is `nil` for a photo detection could not read: then the middle).
+        crop_opts = [
           quality: quality,
           format: format,
           # Keep transparency for a format that has it; flatten on white
           # (never black) for one that does not.
           background: if(format in ["png", "webp", "gif", "avif"], do: "none", else: "white")
-        )
+        ]
+
+        if focal do
+          Logger.info(
+            "Using focus-crop for #{dimension.name} (#{dimension.width}x#{dimension.height}) around #{inspect(focal)}"
+          )
+
+          ImageProcessor.resize_and_crop_focus(
+            input_path,
+            output_path,
+            dimension.width,
+            dimension.height,
+            focal,
+            crop_opts
+          )
+        else
+          Logger.info(
+            "Using center-crop for #{dimension.name} (#{dimension.width}x#{dimension.height})"
+          )
+
+          ImageProcessor.resize_and_crop_center(
+            input_path,
+            output_path,
+            dimension.width,
+            dimension.height,
+            crop_opts
+          )
+        end
     end
   end
 

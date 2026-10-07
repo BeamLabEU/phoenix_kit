@@ -12,7 +12,9 @@
   <div class="px-4 py-8">
     <%!-- Missing external tools — one line, not tab-scoped; the details
          are on the External libraries tab. --%>
-    <.missing_tools_banner tools={missing_tools(@external_tools, @tile_generation_enabled)} />
+    <.missing_tools_banner tools={
+      missing_tools(@external_tools, @tile_generation_enabled, @focus_crop_in_use)
+    } />
 
     <.nav_tabs
       active_tab={@active_tab}
@@ -655,6 +657,36 @@
                 </.table_default_cell>
                 <.table_default_cell class="text-sm">
                   {tool_purpose(tool.used_for)}
+                  <div
+                    :if={tool.id == :libvips}
+                    id="external-libvips-details"
+                    class="mt-2 space-y-1 text-xs text-base-content/70"
+                  >
+                    <p>
+                      <strong>{gettext("Why")}:</strong>
+                      {gettext(
+                        "A square thumbnail cut from the middle can chop off what the photo is about. libvips looks at a small copy of each photo, finds where the eye goes (edges, colour, skin tone), and the crop is made around that spot."
+                      )}
+                    </p>
+                    <p>
+                      <strong>{gettext("How it is used")}:</strong>
+                      {gettext(
+                        "Only for renditions whose Crop is \"Around the subject\". It runs once per photo, takes a few milliseconds, and the result is stored with the photo."
+                      )}
+                    </p>
+                    <p>
+                      <strong>{gettext("Without it")}:</strong>
+                      {gettext(
+                        "Those renditions are cropped around the middle of the photo. Nothing else changes."
+                      )}
+                    </p>
+                    <p :if={match?({:error, _}, tool.status)}>
+                      <strong>{gettext("To enable")}:</strong>
+                      {gettext(
+                        "libvips comes with the Vix package, so nothing is installed on the server. Add {:vix, \"~> 0.42\"} to the dependencies in your app's mix.exs, then fetch dependencies and restart."
+                      )}
+                    </p>
+                  </div>
                 </.table_default_cell>
                 <.table_default_cell>
                   <%= case tool.status do %>

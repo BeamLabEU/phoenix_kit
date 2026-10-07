@@ -487,6 +487,18 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     |> MapSet.new(&to_string/1)
   end
 
+  @doc """
+  Whether any enabled rendition crops around the subject of the photo (what the
+  libvips notice needs: nothing else uses it).
+  """
+  @spec focus_crop_in_use?() :: boolean()
+  def focus_crop_in_use? do
+    from(d in Dimension,
+      where: d.enabled and d.maintain_aspect_ratio == false and d.crop_mode == "focus"
+    )
+    |> repo().exists?()
+  end
+
   @doc "Whether any library has deep zoom on (what the ImageMagick notice needs)."
   @spec tiles_anywhere?() :: boolean()
   def tiles_anywhere? do
@@ -702,10 +714,21 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
     aspect = if d.maintain_aspect_ratio, do: "t", else: "f"
 
     "v1|w=#{d.width}|h=#{d.height}|q=#{d.quality}|f=#{format}|a=#{aspect}|p=#{@pipeline}"
+    |> Kernel.<>(crop_part(d))
+    |> Kernel.<>(fit_part(d))
     |> Kernel.<>(alpha_part(format))
     |> then(&:crypto.hash(:md5, &1))
     |> Base.encode16(case: :lower)
   end
+
+  # Cropping around the focal point changes the pixels of a fixed rendition, so it
+  # is part of the hash; the default (the center) adds nothing, so every existing
+  # hash is unchanged and no file is remade by V210.
+  defp crop_part(d), do: if(Dimension.focus_crop?(d), do: "|c=focus", else: "")
+
+  # A fixed height makes a different picture from a fixed width, so it is part of
+  # the hash; the default (the width) adds nothing.
+  defp fit_part(d), do: if(Dimension.fixed_height?(d), do: "|b=height", else: "")
 
   # `variant_alpha_format` changes the pixels of a see-through image's
   # JPEG-configured sizes, so a non-default value is part of the hash. The

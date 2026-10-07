@@ -479,6 +479,13 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "says in words what an image rendition's size means", %{conn: conn} do
+      # Every seeded rendition keeps proportions; make an image one and a video
+      # one a fixed box.
+      for name <- ~w(thumbnail 720p) do
+        dimension = Storage.get_dimension_by_name(name, VariantSets.default_uuid())
+        {:ok, _} = Storage.update_dimension(dimension, %{maintain_aspect_ratio: false})
+      end
+
       {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
       html = render(view)
 
@@ -492,7 +499,9 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
 
       assert has_element?(view, "#media-renditions-image-legend", "never enlarges")
 
-      # A video rendition is a box the video fits inside, never cropped or stretched.
+      # A video rendition keeps proportions (`360p`), or is a box the video fits
+      # inside, never cropped or stretched (`720p`, made fixed above).
+      assert html =~ "height follows the video"
       assert html =~ "fits inside, shape kept"
 
       assert has_element?(
@@ -502,6 +511,105 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
              )
 
       assert has_element?(view, "#media-renditions-video-legend", "CRF")
+    end
+
+    test "a fixed image box can be cropped around the subject, the form offers it only then",
+         %{conn: conn} do
+      {:ok, view, html} =
+        live(conn, Routes.path("/admin/settings/media/renditions/new/image"))
+
+      # A rendition that keeps proportions is not cropped: nothing to choose.
+      refute html =~ ~s(id="dimension-crop-mode")
+
+      html =
+        view
+        |> form("#dimension-form", %{"dimension" => %{"maintain_aspect_ratio" => "false"}})
+        |> render_change()
+
+      assert html =~ ~s(id="dimension-crop-mode")
+      assert html =~ "Around the subject of the photo"
+
+      view
+      |> form("#dimension-form", %{
+        "dimension" => %{
+          "name" => "square_focus",
+          "width" => "400",
+          "height" => "400",
+          "quality" => "80",
+          "maintain_aspect_ratio" => "false",
+          "crop_mode" => "focus"
+        }
+      })
+      |> render_submit()
+
+      assert %{crop_mode: "focus", maintain_aspect_ratio: false} =
+               Storage.get_dimension_by_name("square_focus", VariantSets.default_uuid())
+
+      # The Renditions tab says how it is cropped.
+      {:ok, tab, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      assert render(tab) =~ "cropped around the subject"
+    end
+
+    test "a rendition that keeps proportions can fix its height, for a horizontal panorama",
+         %{conn: conn} do
+      {:ok, view, html} =
+        live(conn, Routes.path("/admin/settings/media/renditions/new/image"))
+
+      # Keeping proportions is the default: the width is the size, and the side is a choice.
+      assert html =~ ~s(id="dimension-fit-by")
+      assert has_element?(view, "input[name='dimension[width]']")
+      refute has_element?(view, "input[name='dimension[height]']")
+
+      html =
+        view
+        |> form("#dimension-form", %{"dimension" => %{"fit_by" => "height"}})
+        |> render_change()
+
+      # The height is the size now, and there is no width to fill in.
+      assert html =~ "Target Height (px)"
+      assert has_element?(view, "input[name='dimension[height]']")
+      refute has_element?(view, "input[name='dimension[width]']")
+
+      view
+      |> form("#dimension-form", %{
+        "dimension" => %{
+          "name" => "strip",
+          "fit_by" => "height",
+          "height" => "240",
+          "quality" => "80"
+        }
+      })
+      |> render_submit()
+
+      assert %{fit_by: "height", height: 240, width: nil, maintain_aspect_ratio: true} =
+               Storage.get_dimension_by_name("strip", VariantSets.default_uuid())
+
+      {:ok, tab, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      html = render(tab)
+      assert html =~ "240 px tall"
+      assert html =~ "width follows the image"
+    end
+
+    test "a fixed box has no fixed side to choose", %{conn: conn} do
+      {:ok, view, _html} =
+        live(conn, Routes.path("/admin/settings/media/renditions/new/image"))
+
+      html =
+        view
+        |> form("#dimension-form", %{"dimension" => %{"maintain_aspect_ratio" => "false"}})
+        |> render_change()
+
+      refute html =~ ~s(id="dimension-fit-by")
+      assert html =~ ~s(id="dimension-crop-mode")
+    end
+
+    test "a rendition cropped at the middle keeps saying so", %{conn: conn} do
+      thumbnail = Storage.get_dimension_by_name("thumbnail", VariantSets.default_uuid())
+      {:ok, _} = Storage.update_dimension(thumbnail, %{maintain_aspect_ratio: false})
+
+      {:ok, view, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      assert render(view) =~ "cropped to fit"
+      refute render(view) =~ "cropped around the subject"
     end
 
     test "explains what a rendition is", %{conn: conn} do

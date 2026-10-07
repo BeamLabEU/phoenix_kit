@@ -48,12 +48,18 @@ defmodule PhoenixKit.Modules.Storage.MissingBinaryTest do
     assert Dependencies.check_ffmpeg() == {:error, :not_installed}
   end
 
-  test "external_tools/0 lists every tool as not installed" do
+  test "external_tools/0 lists every program on the PATH as not installed" do
     tools = Dependencies.external_tools()
 
     assert Enum.map(tools, & &1.id) ==
-             [:imagemagick, :magick, :ffmpeg, :ffprobe, :pdftoppm, :pdfinfo]
+             [:imagemagick, :magick, :libvips, :ffmpeg, :ffprobe, :pdftoppm, :pdfinfo]
 
-    assert Enum.all?(tools, &(&1.status == {:error, :not_installed}))
+    {libvips, programs} = Enum.split_with(tools, &(&1.id == :libvips))
+    assert Enum.all?(programs, &(&1.status == {:error, :not_installed}))
+
+    # libvips is not a program: it arrives with the Vix package, so the PATH
+    # does not decide whether it is there.
+    assert [%{status: {:ok, version}}] = libvips
+    assert version =~ ~r/^\d+\.\d+\.\d+/
   end
 end

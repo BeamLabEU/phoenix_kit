@@ -248,6 +248,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   # proportions sets the width and lets the height follow each image or video;
   # a fixed image rendition is a box the image is scaled to fill and cropped to,
   # a fixed video one a box the video is scaled to fit inside. Neither enlarges.
+  defp size_text(%{maintain_aspect_ratio: true, fit_by: "height", height: height}, :image)
+       when is_integer(height) do
+    {gettext("%{height} px tall", height: height), gettext("width follows the image")}
+  end
+
   defp size_text(%{maintain_aspect_ratio: true, width: width}, kind) when is_integer(width) do
     {gettext("%{width} px wide", width: width),
      if(kind == :image,
@@ -256,10 +261,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
      )}
   end
 
-  defp size_text(%{width: width, height: height}, kind)
+  defp size_text(%{width: width, height: height} = dimension, kind)
        when is_integer(width) and is_integer(height) do
     {gettext("%{width} × %{height} px", width: width, height: height),
-     if(kind == :image, do: gettext("cropped to fit"), else: gettext("fits inside, shape kept"))}
+     cond do
+       kind != :image -> gettext("fits inside, shape kept")
+       dimension.crop_mode == "focus" -> gettext("cropped around the subject")
+       true -> gettext("cropped to fit")
+     end}
   end
 
   defp size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
@@ -659,9 +668,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
 
               <p id={"#{@id}-image-legend"} class="mt-3 text-xs text-base-content/60">
                 <strong>{gettext("Keeps proportions")}:</strong>
-                {gettext("the width is set and the height follows each image.")}
+                {gettext(
+                  "the width or the height is set, as chosen, and the other side follows each image."
+                )}
                 <strong>{gettext("Fixed size")}:</strong>
-                {gettext("the image is scaled to fill the box and the excess is cropped.")}
+                {gettext(
+                  "the image is scaled to fill the box and the excess is cropped, around the middle or, when set, around the subject."
+                )}
                 {gettext(
                   "A rendition never enlarges an image: one smaller than the size stays as it is."
                 )}

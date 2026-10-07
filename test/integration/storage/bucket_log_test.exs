@@ -185,6 +185,8 @@ defmodule PhoenixKit.Modules.Storage.BucketLogTest do
   end
 
   describe "what Manager reports" do
+    # An unwritable directory is what makes the write fail, and root writes anywhere.
+    @tag skip: if(match?({"0\n", 0}, System.cmd("id", ["-u"])), do: "running as root")
     test "a write that fails is logged against the bucket that failed", %{
       bucket: bucket,
       root: root

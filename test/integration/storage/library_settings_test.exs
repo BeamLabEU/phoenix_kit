@@ -223,4 +223,40 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
       assert VariantSets.tiles_anywhere?()
     end
   end
+
+  describe "focus_crop_in_use?/0" do
+    alias PhoenixKit.Modules.Storage
+    alias PhoenixKit.Modules.Storage.VariantSets
+
+    defp dimension!(name, attrs) do
+      {:ok, dimension} =
+        Storage.create_dimension(
+          Map.merge(
+            %{name: name, width: 200, height: 200, quality: 80, applies_to: "image"},
+            attrs
+          )
+        )
+
+      dimension
+    end
+
+    test "is false until a rendition crops around the subject" do
+      refute VariantSets.focus_crop_in_use?()
+    end
+
+    test "is true for an enabled fixed box set to focus, and only then" do
+      dimension!("box_middle", %{maintain_aspect_ratio: false, crop_mode: "center"})
+      refute VariantSets.focus_crop_in_use?()
+
+      # A rendition that keeps proportions is not cropped, whatever its mode says.
+      dimension!("kept", %{maintain_aspect_ratio: true, crop_mode: "focus"})
+      refute VariantSets.focus_crop_in_use?()
+
+      focus = dimension!("box_focus", %{maintain_aspect_ratio: false, crop_mode: "focus"})
+      assert VariantSets.focus_crop_in_use?()
+
+      {:ok, _} = Storage.update_dimension(focus, %{enabled: false})
+      refute VariantSets.focus_crop_in_use?()
+    end
+  end
 end

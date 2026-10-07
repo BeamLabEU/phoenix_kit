@@ -202,6 +202,17 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V211 (2026-10-06, rendition fit side) DECLARES one object:
+  # `column:phoenix_kit_storage_dimensions.fit_by` (character varying(255) NOT
+  # NULL DEFAULT 'width', position 16), read from a test database migrated
+  # through V211. `chain_hash` restamped over the shipped files.
+  #
+  # V210 (2026-10-06, rendition crop mode) DECLARES one object:
+  # `column:phoenix_kit_storage_dimensions.crop_mode` (character varying(255)
+  # NOT NULL DEFAULT 'center', position 15). The shape was read from a test
+  # database migrated through V210 (`information_schema` and `pg_attribute`).
+  # `chain_hash` restamped over the shipped files.
+  #
   # V209 (2026-10-04, local and cloud copies) DECLARES three objects:
   # `column:phoenix_kit_storage_profiles.copies_local` (integer NOT NULL
   # DEFAULT 1), `…copies_cloud` (integer NOT NULL DEFAULT 0) and the
@@ -538,7 +549,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "7aa29093ef3d2c277b8e40240a56d75a707516e8e86c434384f235fa4f01e032"
+  @chain_hash "df63179030a18613d0f4faead4eed78fc18a4b289ad4f74071cac35e3abdf41d"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -2381,6 +2392,27 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              default: "'sent'::character varying",
              type: "character varying(255)",
              pos: 15,
+             not_null: true
+           }}
+        ],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_storage_dimensions.fit_by",
+        owner: :core,
+        check:
+          {:catalog, %{table: "phoenix_kit_storage_dimensions", column: "fit_by", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"fit_by\" character varying(255) DEFAULT 'width' NOT NULL",
+        since: 211,
+        class: :column,
+        revisions: [
+          {211,
+           %{
+             default: "'width'::character varying",
+             type: "character varying(255)",
+             pos: 16,
              not_null: true
            }}
         ],
@@ -74752,6 +74784,28 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              default: "'00000000-0000-7000-8000-000000000003'::uuid",
              type: "uuid",
              pos: 14,
+             not_null: true
+           }}
+        ],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_storage_dimensions.crop_mode",
+        owner: :core,
+        check:
+          {:catalog,
+           %{table: "phoenix_kit_storage_dimensions", column: "crop_mode", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"crop_mode\" character varying(255) DEFAULT 'center' NOT NULL",
+        since: 210,
+        class: :column,
+        revisions: [
+          {210,
+           %{
+             default: "'center'::character varying",
+             type: "character varying(255)",
+             pos: 15,
              not_null: true
            }}
         ],

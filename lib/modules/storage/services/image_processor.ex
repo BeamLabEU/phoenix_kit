@@ -257,6 +257,124 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
       {:error, "Image center-crop failed: #{inspect(e)}"}
   end
 
+  @doc """
+  Crops an image to `width` x `height` around a focal point: the largest window
+  of that shape that fits in the photo, centered on `{x, y}` (fractions of the
+  photo as it is displayed, 0..1) as far as the edges allow, then scaled to the
+  size. A subject near an edge stays in the frame where `resize_and_crop_center/5`
+  would cut it off. Like it, never enlarges: a box bigger than the photo shrinks,
+  keeping its shape.
+
+  The photo is auto-oriented first, because the focal point is in displayed
+  coordinates. Accepts the same `:quality`, `:format` and `:background` options.
+  """
+  def resize_and_crop_focus(input_path, output_path, width, height, focal, opts \\ []) do
+    quality = Keyword.get(opts, :quality, 85)
+    format = Keyword.get(opts, :format, nil)
+    alpha? = has_alpha_channel?(input_path)
+
+    background =
+      if Keyword.has_key?(opts, :background),
+        do: Keyword.get(opts, :background, "white"),
+        else: if(alpha?, do: "none", else: "white")
+
+    with {:w, true} <- {:w, not (is_nil(width) or is_nil(height))},
+         {:ok, input} <- pinned_input(input_path, frame_for(output_path, format)),
+         {:ok, {cur_w, cur_h, _frames}} <- oriented_info(input_path),
+         :ok <- check_pixel_budget(cur_w, cur_h, @resize_max_pixels) do
+      {width, height} = cap_to_original({width, height}, {cur_w, cur_h})
+      window = focus_window(focal, {cur_w, cur_h}, {width, height})
+
+      Logger.info(
+        "Focus-cropping image: #{input_path} -> #{output_path}, target: #{width}x#{height}, window: #{inspect(window)}"
+      )
+
+      args =
+        @limit_args ++
+          build_focus_crop_args(
+            input,
+            output_path,
+            window,
+            {width, height},
+            quality,
+            format,
+            background
+          )
+
+      case System.cmd("convert", args, stderr_to_stdout: true) do
+        {_output, 0} ->
+          {:ok, output_path}
+
+        {output, exit_code} ->
+          Logger.error("convert failed with exit code #{exit_code}: #{output}")
+          {:error, "ImageMagick convert failed: #{output}"}
+      end
+    else
+      {:w, false} -> {:error, "Both width and height are required for focus-crop resizing"}
+      {:error, reason} -> {:error, "Failed to read the image: #{reason}"}
+    end
+  rescue
+    e ->
+      Logger.error("Image focus-crop failed: #{inspect(e)}")
+      {:error, "Image focus-crop failed: #{inspect(e)}"}
+  end
+
+  @doc false
+  # The crop window `{crop_width, crop_height, left, top}` of the shape
+  # `{width, height}` inside a `{cur_w, cur_h}` photo, centered on the focal point
+  # where the edges allow and kept inside the photo where they do not.
+  @spec focus_window(
+          {number(), number()},
+          {pos_integer(), pos_integer()},
+          {pos_integer(), pos_integer()}
+        ) :: {pos_integer(), pos_integer(), non_neg_integer(), non_neg_integer()}
+  def focus_window({fx, fy}, {cur_w, cur_h}, {width, height}) do
+    {crop_w, crop_h} =
+      if cur_w * height >= cur_h * width do
+        {min(max(round(cur_h * width / height), 1), cur_w), cur_h}
+      else
+        {cur_w, min(max(round(cur_w * height / width), 1), cur_h)}
+      end
+
+    left = round(fx * cur_w - crop_w / 2) |> max(0) |> min(cur_w - crop_w)
+    top = round(fy * cur_h - crop_h / 2) |> max(0) |> min(cur_h - crop_h)
+
+    {crop_w, crop_h, left, top}
+  end
+
+  defp build_focus_crop_args(
+         input_path,
+         output_path,
+         {crop_w, crop_h, left, top},
+         {width, height},
+         quality,
+         format,
+         background
+       ) do
+    # The window is cut from the oriented photo at full resolution, then scaled to
+    # the exact size: it has the target's shape, so `!` only absorbs rounding.
+    args = [input_path, "-auto-orient", "-background", background]
+
+    args =
+      if format in ["jpg", "jpeg"],
+        do: args ++ ["-alpha", "remove", "-alpha", "off"],
+        else: args
+
+    args =
+      args ++
+        [
+          "-crop",
+          "#{crop_w}x#{crop_h}+#{left}+#{top}",
+          "+repage",
+          "-resize",
+          "#{width}x#{height}!",
+          "-quality",
+          to_string(quality)
+        ]
+
+    if format, do: args ++ ["#{format}:#{output_path}"], else: args ++ [output_path]
+  end
+
   # 40 megapixels — comfortably above any real camera or screenshot, far
   # below what it takes to hurt. `-resize` bounds the OUTPUT; the decoder
   # still rasterizes the input in full first, so a 5MB PNG declaring
@@ -547,11 +665,13 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
 
       {w, nil} when w != nil ->
         # Only width specified - maintain aspect ratio; `>` never enlarges,
-        # so a 1448px original is not blown up to a 1920px "large".
+        # so a 1448px original is not blown up to a 1920px "large". The height is
+        # as tall as the photo needs (a vertical panorama).
         "#{w}x>"
 
       {nil, h} when h != nil ->
-        # Only height specified - maintain aspect ratio, never enlarge
+        # Only height specified - maintain aspect ratio, never enlarge; the width
+        # is as long as the photo needs (a horizontal panorama).
         "x#{h}>"
 
       _ ->
@@ -645,10 +765,12 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
            System.cmd("identify", @limit_args ++ ["-format", "%[channels]", input],
              stderr_to_stdout: true
            ) do
-      # `%[channels]` is a colour model with an `a` when it has transparency:
-      # srgba, graya, cmyka. `gray` — a black-and-white photo — merely
-      # contains the letter, which is why it is read from the end.
-      String.ends_with?(String.trim(output), "a")
+      # `%[channels]` starts with a colour model that ends in `a` when there is
+      # transparency: srgba, graya, cmyka. `gray` — a black-and-white photo —
+      # merely contains the letter, which is why it is read from the end. Newer
+      # ImageMagick (7.1.1) follows the model with a channel count ("graya 3.0",
+      # "srgb  4.0"), so only the first word is the model.
+      output |> String.split() |> List.first("") |> String.ends_with?("a")
     else
       _ -> false
     end

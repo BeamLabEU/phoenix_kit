@@ -19,6 +19,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSetGenerationTest do
     Libraries,
     ProcessFileJob,
     Profiles,
+    VariantGenerator,
     VariantSets
   }
 
@@ -127,6 +128,143 @@ defmodule PhoenixKit.Modules.Storage.VariantSetGenerationTest do
 
       assert {file.placed_variant_set_uuid, file.placed_variant_revision} ==
                {set.uuid, set.revision}
+    end
+  end
+
+  describe "cropping around the subject" do
+    alias PhoenixKit.Modules.Storage.{FocalPoint, Manager}
+
+    # 1600x1000 grey noise with a red 120x120 square centered at (1300, 220).
+    defp photo!(dir, name) do
+      File.mkdir_p!(dir)
+      path = Path.join(dir, name)
+
+      {_, 0} =
+        System.cmd(
+          "magick",
+          ["-size", "1600x1000", "xc:gray(110)", "-attenuate", "0.15", "+noise", "Gaussian"] ++
+            ["-fill", "rgb(255,20,20)", "-draw", "rectangle 1240,160 1360,280", path]
+        )
+
+      path
+    end
+
+    defp upload_photo!(ctx) do
+      path = photo!(Path.join(ctx.dir, "src"), "s#{System.unique_integer([:positive])}.png")
+      sha = :sha256 |> :crypto.hash(File.read!(path)) |> Base.encode16(case: :lower)
+
+      {:ok, file} =
+        Storage.store_file_in_buckets(path, "image", ctx.user.uuid, sha, "png", "s.png",
+          library_uuid: ctx.library.uuid
+        )
+
+      :ok =
+        ProcessFileJob.perform(%Oban.Job{
+          args: %{"file_uuid" => file.uuid, "filename" => "s.png"}
+        })
+
+      Storage.get_file(file.uuid)
+    end
+
+    defp red_share(file, variant) do
+      instance = Storage.get_file_instance_by_name(file.uuid, variant)
+      {:ok, path} = Manager.retrieve_file(instance.file_name)
+
+      {out, 0} =
+        System.cmd("magick", [
+          path,
+          "-fx",
+          "r>0.7&&g<0.45&&b<0.45?1:0",
+          "-format",
+          "%[fx:mean]",
+          "info:"
+        ])
+
+      out |> String.trim() |> Float.parse() |> elem(0)
+    end
+
+    defp square_dimension!(ctx, name, crop_mode) do
+      {:ok, dimension} =
+        Storage.create_dimension(
+          %{
+            name: name,
+            width: 200,
+            height: 200,
+            quality: 85,
+            applies_to: "image",
+            format: "jpg",
+            maintain_aspect_ratio: false,
+            crop_mode: crop_mode
+          },
+          ctx.set.uuid
+        )
+
+      dimension
+    end
+
+    test "a focus rendition keeps the subject the middle crop cuts off, and records the point",
+         ctx do
+      if FocalPoint.detection_available?() and System.find_executable("magick") do
+        square_dimension!(ctx, "square_middle", "center")
+        focus = square_dimension!(ctx, "square_focus", "focus")
+
+        file = upload_photo!(ctx)
+
+        # Found once, kept with the photo, and where the square is.
+        assert {{x, y}, "auto"} = FocalPoint.get(file)
+        assert_in_delta x, 0.81, 0.06
+        assert_in_delta y, 0.22, 0.06
+
+        # The same photo, two crops of the same size: the focus one has the whole square.
+        assert red_share(file, "square_focus") > red_share(file, "square_middle") * 1.8
+
+        # Its spec hash says it is a focus crop, so the reconciler tells the two apart.
+        assert Storage.get_file_instance_by_name(file.uuid, "square_focus").spec_hash ==
+                 VariantSets.spec_hash(focus)
+      end
+    end
+
+    test "a person's point is the one used, and detection leaves it alone", ctx do
+      if System.find_executable("magick") do
+        square_dimension!(ctx, "square_focus", "focus")
+
+        file = upload_photo!(ctx)
+        {:ok, _} = FocalPoint.put(file, 0.05, 0.9, "manual")
+
+        # Made again from the point a person set: the bottom-left corner, where
+        # there is no square.
+        dimension = Storage.get_dimension_by_name("square_focus", ctx.set.uuid)
+
+        assert {:ok, _} =
+                 VariantGenerator.generate_variant(Storage.get_file(file.uuid), dimension)
+
+        assert red_share(file, "square_focus") == 0.0
+        assert {{0.05, 0.9}, "manual"} = FocalPoint.get(Storage.get_file(file.uuid))
+      end
+    end
+
+    test "a photo with no point found is cropped at the middle, not refused", ctx do
+      if System.find_executable("magick") do
+        square_dimension!(ctx, "square_focus", "focus")
+
+        flat =
+          image!(Path.join(ctx.dir, "src"), "flat#{System.unique_integer([:positive])}.png", 800)
+
+        sha = :sha256 |> :crypto.hash(File.read!(flat)) |> Base.encode16(case: :lower)
+
+        {:ok, file} =
+          Storage.store_file_in_buckets(flat, "image", ctx.user.uuid, sha, "png", "flat.png",
+            library_uuid: ctx.library.uuid
+          )
+
+        :ok =
+          ProcessFileJob.perform(%Oban.Job{
+            args: %{"file_uuid" => file.uuid, "filename" => "flat.png"}
+          })
+
+        assert Storage.get_file_instance_by_name(file.uuid, "square_focus")
+        assert FocalPoint.get(Storage.get_file(file.uuid)) == nil
+      end
     end
   end
 

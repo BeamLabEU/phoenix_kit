@@ -7,7 +7,20 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V209 - Local and cloud copies ⚡ LATEST
+  ### V211 - Rendition fit side ⚡ LATEST
+
+  `phoenix_kit_storage_dimensions.fit_by` (`width` or `height`): an image
+  rendition that keeps proportions can fix its height instead of its width, for
+  horizontal panoramas (a fixed height, a width as long as needed). Every existing
+  rendition stays `width`, and none is remade.
+
+  ### V210 - Rendition crop mode
+
+  `phoenix_kit_storage_dimensions.crop_mode` (`center` or `focus`): a fixed image
+  rendition crops around the photo's focal point instead of its middle. Every
+  existing rendition stays `center`, and none is remade.
+
+  ### V209 - Local and cloud copies
 
   `phoenix_kit_storage_profiles.copies_local` / `copies_cloud`: a profile counts
   its copies per kind of bucket (two on the server's disks, one in the cloud)
@@ -927,7 +940,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 209
+  @current_version 211
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

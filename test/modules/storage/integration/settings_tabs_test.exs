@@ -97,10 +97,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
   test "Renditions and Health are tabs of this page", %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)
 
-    for tab <- ~w(renditions health) do
+    for {tab, label} <- [{"renditions", "Rendition profiles"}, {"health", "Health"}] do
       html =
         view
-        |> element("a[role=tab][href$=\"tab=#{tab}\"]", String.capitalize(tab))
+        |> element("a[role=tab][href$=\"tab=#{tab}\"]", label)
         |> render_click()
 
       assert tab_visible?(html, "media-tab-#{tab}")
@@ -142,6 +142,27 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
 
     refute html =~ "brew install"
     assert view |> element("button[phx-click=recheck_external_tools]") |> render_click()
+  end
+
+  test "External libraries says what libvips is for, how it is used and what happens without it",
+       %{conn: conn} do
+    {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)
+
+    html =
+      view
+      |> element("a[role=tab][href$=\"tab=external_libraries\"]")
+      |> render_click()
+
+    assert html =~ "libvips"
+    assert has_element?(view, "#external-libvips-details", "Why")
+    assert has_element?(view, "#external-libvips-details", "Around the subject")
+    assert has_element?(view, "#external-libvips-details", "Without it")
+
+    # The Vix package is part of this build, so libvips answers with its version
+    # and there is nothing to enable.
+    assert {:ok, version} = Enum.find(Dependencies.external_tools(), &(&1.id == :libvips)).status
+    assert html =~ version
+    refute has_element?(view, "#external-libvips-details", "To enable")
   end
 
   test "the missing-tools warning is not tab-scoped", %{conn: conn} do

@@ -83,10 +83,38 @@
             </.checkbox>
           </div>
 
+          <%!-- Which side a rendition that keeps proportions fixes --%>
+          <% keeps? = get_field_value(@changeset, :maintain_aspect_ratio) != false %>
+          <% fixed_height? =
+            keeps? and @dimension_type != "video" and
+              get_field_value(@changeset, :fit_by) == "height" %>
+          <fieldset
+            :if={keeps? and @dimension_type != "video"}
+            id="dimension-fit-by"
+            class="fieldset"
+          >
+            <legend class="fieldset-legend font-semibold">{gettext("Fixed side")}</legend>
+            <.select
+              name="dimension[fit_by]"
+              value={get_field_value(@changeset, :fit_by) || "width"}
+              class={input_class(@changeset, :fit_by)}
+              options={[
+                {gettext("Width: the height follows each photo"), "width"},
+                {gettext("Height: the width follows each photo"), "height"}
+              ]}
+            />
+            {render_error(@changeset, :fit_by)}
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext(
+                "Width suits a column of photos, and a tall panorama as long as it needs to be. Height suits a row of photos, and a wide panorama. A photo smaller than the size is not enlarged."
+              )}
+            </p>
+          </fieldset>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <fieldset class="fieldset">
+            <fieldset :if={not fixed_height?} class="fieldset">
               <legend class="fieldset-legend font-semibold">
-                <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
+                <%= if keeps? do %>
                   {gettext("Target Width (px)")} *
                 <% else %>
                   {gettext("Width (px)")} *
@@ -105,25 +133,53 @@
               {render_error(@changeset, :width)}
             </fieldset>
 
-            <%= if get_field_value(@changeset, :maintain_aspect_ratio) == false do %>
-              <fieldset class="fieldset">
-                <legend class="fieldset-legend font-semibold">
+            <fieldset :if={not keeps? or fixed_height?} class="fieldset">
+              <legend class="fieldset-legend font-semibold">
+                <%= if fixed_height? do %>
+                  {gettext("Target Height (px)")} *
+                <% else %>
                   {gettext("Height (px)")} *
-                </legend>
-                <.input
-                  type="number"
-                  name="dimension[height]"
-                  phx-debounce="blur"
-                  value={get_field_value(@changeset, :height)}
-                  class={input_class(@changeset, :height)}
-                  placeholder="600"
-                  min="1"
-                  required
-                />
-                {render_error(@changeset, :height)}
-              </fieldset>
-            <% end %>
+                <% end %>
+              </legend>
+              <.input
+                type="number"
+                name="dimension[height]"
+                phx-debounce="blur"
+                value={get_field_value(@changeset, :height)}
+                class={input_class(@changeset, :height)}
+                placeholder="600"
+                min="1"
+                required
+              />
+              {render_error(@changeset, :height)}
+            </fieldset>
           </div>
+
+          <%!-- How a fixed image box is cropped --%>
+          <fieldset
+            :if={
+              @dimension_type != "video" and
+                get_field_value(@changeset, :maintain_aspect_ratio) == false
+            }
+            id="dimension-crop-mode"
+            class="fieldset"
+          >
+            <legend class="fieldset-legend font-semibold">{gettext("Crop")}</legend>
+            <.select
+              name="dimension[crop_mode]"
+              value={get_field_value(@changeset, :crop_mode) || "center"}
+              class={input_class(@changeset, :crop_mode)}
+              options={[
+                {gettext("Around the middle of the photo"), "center"},
+                {gettext("Around the subject of the photo"), "focus"}
+              ]}
+            />
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext(
+                "The photo is scaled to fill the box and the excess is cropped. Around the subject keeps what the photo is about in the frame, where the middle can cut it off. The subject is found automatically (needs libvips) and can be set by hand per photo; without it the crop is at the middle."
+              )}
+            </p>
+          </fieldset>
         </div>
       </div>
 

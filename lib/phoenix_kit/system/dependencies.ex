@@ -1,11 +1,16 @@
 defmodule PhoenixKit.System.Dependencies do
   @moduledoc """
+
   System dependency checker for PhoenixKit.
 
   Probes for the external programs PhoenixKit shells out to (ImageMagick,
-  FFmpeg, Poppler); `external_tools/0` lists them all. Results are cached
+  FFmpeg, Poppler) and for libvips, which arrives with the optional `vix`
+  package; `external_tools/0` lists them all. Results are cached
   to avoid repeated system calls.
   """
+
+  # `vix` is optional (it bundles libvips): without it these calls are never reached.
+  @compile {:no_warn_undefined, Vix.Vips}
 
   require Logger
 
@@ -170,6 +175,17 @@ defmodule PhoenixKit.System.Dependencies do
         pattern: ~r/ImageMagick\s+(\S+)/,
         used_for: :tiles
       },
+      # Not a program on the PATH: libvips comes with the optional `vix` Elixir
+      # package, which bundles it, so "found" means that package is loaded and
+      # its library answers (`probe_libvips/0`).
+      %{
+        id: :libvips,
+        name: "libvips",
+        command: "vix",
+        args: [],
+        pattern: ~r/(\d+\.\d+\.\d+)/,
+        used_for: :focus_crop
+      },
       %{
         id: :ffmpeg,
         name: "FFmpeg",
@@ -241,8 +257,25 @@ defmodule PhoenixKit.System.Dependencies do
     end)
   end
 
+  # libvips is found by asking the `vix` package for the version of the library it
+  # carries; the package is optional, so its absence is not a compile warning. A package that is there
+  # but whose library does not load answers like one that is not.
+  defp probe_libvips do
+    if Code.ensure_loaded?(Vix.Vips) and function_exported?(Vix.Vips, :version, 0) do
+      {:ok, to_string(Vix.Vips.version())}
+    else
+      {:error, :not_installed}
+    end
+  rescue
+    _ -> {:error, :not_installed}
+  catch
+    _, _ -> {:error, :not_installed}
+  end
+
   # A tool is found by its executable; its version output is read whatever
   # the exit code (`pdftoppm -v` exits non-zero on older poppler).
+  defp probe_tool(%{id: :libvips}), do: probe_libvips()
+
   defp probe_tool(tool) do
     case System.find_executable(tool.command) do
       nil ->

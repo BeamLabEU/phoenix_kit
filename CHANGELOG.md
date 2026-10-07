@@ -1,5 +1,31 @@
 ## Unreleased
 
+### Added
+
+- **A fixed image rendition can crop around the subject of the photo, not just its middle.** The rendition
+  form has a Crop choice for a fixed box ("Around the middle" as before, or "Around the subject"). The
+  subject is found with libvips' attention model on a 512 px copy (the optional `vix` package, which bundles
+  libvips: add `{:vix, "~> 0.42"}` to the host), stored with the photo (`Storage.FocalPoint`, in
+  `metadata["focal"]`, a person's choice never replaced by detection), and every cropped rendition of the
+  photo uses the same point. Without `vix`, or for a photo with nothing that draws the eye, the crop stays at
+  the middle. Orientation is respected. New column `crop_mode` (V210); no existing rendition is remade.
+- **A rendition that keeps proportions can fix its height instead of its width**, for horizontal
+  panoramas and rows of photos: "Fixed side" in the rendition form, "240 px tall · width follows the image" in
+  the table. A vertical panorama already worked with a fixed width. New column `fit_by` (V211); no existing
+  rendition is remade, and the standard sizes keep fixing their width.
+
+- **The External libraries tab lists libvips**, with why it is there (finding the subject of a photo), how it is
+  used (only for renditions cropped around the subject, once per photo), what happens without it (the crop
+  stays at the middle) and, when it is missing, how to enable it (add `vix` to the app). It is found through
+  the `vix` package, not the `PATH`, and the page's "not found" notice mentions it only once a rendition
+  actually crops around the subject.
+
+### Fixed
+
+- **A see-through image was not recognised on ImageMagick 7.1.1.** `identify` now prints a channel count after
+  the colour model (`graya 3.0`), which the transparency check read as "no alpha", so a PNG with transparency
+  got a flat-background JPEG rendition. Only the model is read now.
+
 ### Changed
 
 - **A rendition set is now a "rendition profile", like a storage profile.** Both are a named bundle a library

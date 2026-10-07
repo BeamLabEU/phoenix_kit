@@ -213,6 +213,12 @@ defmodule PhoenixKit.MixProject do
       # requires rustler itself, not just rustler_precompiled.
       {:rustler, ">= 0.0.0", optional: true},
 
+      # libvips bindings (precompiled libvips, nothing to install). Optional: core
+      # uses it only to find where the subject of a photo is, for renditions that
+      # crop around it (`Storage.FocalPoint`); without it they crop at the center.
+      # A host that wants the detection adds `{:vix, "~> 0.42"}` itself.
+      {:vix, "~> 0.42", optional: true},
+
       # Pan-zoom image viewer + annotation overlay. Fresco 0.5 dropped
       # OpenSeadragon and replaced the wrapped-OSD viewer with a
       # hand-rolled CSS-transform engine; it also added <Fresco.canvas>
