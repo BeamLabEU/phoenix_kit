@@ -496,8 +496,10 @@ defmodule PhoenixKit.Module do
       Branding tab, shown to whoever may see the section. `%{label: label}`
       opens the section's own tab (`?tab=module_<id>`); `%{label: label,
       path: path}` leads to `path`, a canonical `/admin/...`-style path that
-      the core prefixes (`PhoenixKit.Utils.Routes.path/1`). A path that does
-      not start with `/`, or starts with `//`, is ignored.
+      the core prefixes (`PhoenixKit.Utils.Routes.path/1`). The button is
+      not rendered when the label is not a string, or the path is not a
+      string starting with a single `/` (a relative path, `//host/...` or
+      `/\\host/...`) — it does not fall back to the tab. Its icon is fixed.
   """
   @type email_settings_section :: %{
           required(:id) => atom(),

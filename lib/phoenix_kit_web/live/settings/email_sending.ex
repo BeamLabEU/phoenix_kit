@@ -112,7 +112,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
         %{id: "test_send", label: gettext("Test Send"), icon: "hero-paper-airplane"}
       ] ++
       Enum.map(email_settings_sections, fn section ->
-        %{id: "module_#{section.id}", label: section.title, icon: "hero-puzzle-piece"}
+        %{id: section_tab(section.id), label: section.title, icon: "hero-puzzle-piece"}
       end)
   end
 
@@ -465,7 +465,7 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
     for %{id: id, link: %{label: label} = link} <- sections,
         is_binary(label),
         target = link_target(id, link) do
-      Map.merge(%{id: id, label: label, navigate: nil, patch: nil}, target)
+      %{id: id, label: label, navigate: target[:navigate], patch: target[:patch]}
     end
   end
 
@@ -477,7 +477,10 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
   defp link_target(_id, %{path: _}), do: nil
 
   defp link_target(id, _link),
-    do: %{patch: "/admin/settings/email-sending?tab=" <> URI.encode_www_form("module_#{id}")}
+    do: %{patch: "/admin/settings/email-sending?tab=" <> URI.encode_www_form(section_tab(id))}
+
+  # The tab id of a module's section, shared by the tab list and its links.
+  defp section_tab(id), do: "module_#{id}"
 
   defp section_visible?(%{permission: nil}, _scope), do: true
 

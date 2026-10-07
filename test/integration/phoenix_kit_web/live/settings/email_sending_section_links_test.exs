@@ -62,6 +62,20 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
           link: %{label: "Open other host fixture", path: "//other.example/admin"}
         },
         %{
+          id: :fixture_nil_path,
+          title: "Fixture nil path",
+          permission: nil,
+          component: FixtureSection,
+          link: %{label: "Open nil path fixture", path: nil}
+        },
+        %{
+          id: :fixture_no_label,
+          title: "Fixture no label",
+          permission: nil,
+          component: FixtureSection,
+          link: %{label: nil}
+        },
+        %{
           id: :fixture_backslash_host,
           title: "Fixture backslash host",
           permission: nil,
@@ -139,6 +153,18 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
     assert has_element?(view, "#fixture-section-fixture_backslash_host")
     refute has_element?(view, "#email-section-link-fixture_backslash_host")
     refute html =~ "Open backslash host fixture"
+
+    # A path that is not a string drops the button; it does not fall back to the tab.
+    assert has_element?(view, "#fixture-section-fixture_nil_path")
+    refute has_element?(view, "#email-section-link-fixture_nil_path")
+    refute html =~ "Open nil path fixture"
+  end
+
+  test "a link whose label is not a string is left out", %{conn: conn} do
+    {:ok, view, _html} = live(conn, @path)
+
+    assert has_element?(view, "#fixture-section-fixture_no_label")
+    refute has_element?(view, "#email-section-link-fixture_no_label")
   end
 
   test "the link of a section the user may not see is not shown", %{conn: conn} do
