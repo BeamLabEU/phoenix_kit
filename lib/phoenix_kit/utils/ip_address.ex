@@ -43,14 +43,14 @@ defmodule PhoenixKit.Utils.IpAddress do
 
   ## Returns
 
-  - IPv4 as "a.b.c.d" string
+  - IPv4 as "a.b.c.d" string (an IPv4-mapped `::ffff:a.b.c.d` included)
   - IPv6 in its standard compressed hex form ("2001:db8::1")
   - "unknown" for invalid or missing data
   """
   def extract_ip_address(nil), do: "unknown"
 
   def extract_ip_address(%{address: ip}) when is_tuple(ip) and tuple_size(ip) in [4, 8],
-    do: format(ip) || "unknown"
+    do: format_client(ip) || "unknown"
 
   def extract_ip_address(_), do: "unknown"
 
@@ -254,9 +254,10 @@ defmodule PhoenixKit.Utils.IpAddress do
   defp local?(_), do: false
 
   @doc """
-  Whether `address` is loopback or private — where a reverse proxy on the
-  same box or network connects from, the addresses `client_address/1` looks
-  past. Anything that does not parse is not.
+  Whether `address` (a string or an `:inet` tuple) is loopback or private —
+  where a reverse proxy on the same box or network connects from, the
+  addresses `client_address/1` looks past. Anything that does not parse is
+  not.
 
       iex> PhoenixKit.Utils.IpAddress.local_address?("172.18.0.8")
       true
@@ -264,13 +265,15 @@ defmodule PhoenixKit.Utils.IpAddress do
       iex> PhoenixKit.Utils.IpAddress.local_address?("203.0.113.7")
       false
   """
-  @spec local_address?(String.t() | nil) :: boolean()
+  @spec local_address?(String.t() | :inet.ip_address() | nil) :: boolean()
   def local_address?(address) when is_binary(address) do
     case :inet.parse_strict_address(String.to_charlist(address)) do
       {:ok, tuple} -> local?(tuple)
       {:error, _} -> false
     end
   end
+
+  def local_address?(address) when is_tuple(address), do: local?(address)
 
   def local_address?(_), do: false
 

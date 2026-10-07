@@ -48,5 +48,10 @@ defmodule PhoenixKit.Utils.IpAddressNetworkTest do
       assert IpAddress.extract_ip_address(%{address: {:a, :b, :c, :d}}) == "unknown"
       assert IpAddress.extract_ip_address(nil) == "unknown"
     end
+
+    test "reports an IPv4-mapped peer as IPv4, like client_address/1" do
+      assert IpAddress.extract_ip_address(%{address: {0, 0, 0, 0, 0, 0xFFFF, 0xCB00, 0x7107}}) ==
+               "203.0.113.7"
+    end
   end
 end

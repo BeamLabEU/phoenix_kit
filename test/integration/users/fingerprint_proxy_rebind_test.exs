@@ -24,6 +24,11 @@ defmodule PhoenixKit.Integration.Users.FingerprintProxyRebindTest do
     Application.put_env(:phoenix_kit, :session_fingerprint_strict, true)
     on_exit(fn -> Application.put_env(:phoenix_kit, :session_fingerprint_strict, original) end)
 
+    # The suite runs at :warning; the "moved" line is :info.
+    level = Logger.level()
+    Logger.configure(level: :info)
+    on_exit(fn -> Logger.configure(level: level) end)
+
     {:ok, user} =
       Auth.register_user(%{
         email: "fp_rebind_#{System.unique_integer([:positive])}@example.com",
@@ -48,6 +53,13 @@ defmodule PhoenixKit.Integration.Users.FingerprintProxyRebindTest do
     |> Map.put(:remote_ip, {172, 18, 0, 8})
     |> Plug.Conn.put_req_header("x-forwarded-for", forwarded)
     |> Plug.Conn.put_req_header("user-agent", ua)
+  end
+
+  defp direct_request(peer) do
+    :get
+    |> Plug.Test.conn("/")
+    |> Map.put(:remote_ip, peer)
+    |> Plug.Conn.put_req_header("user-agent", @ua)
   end
 
   defp stored_ip(token), do: Auth.get_session_token_record(token).ip_address
@@ -91,6 +103,38 @@ defmodule PhoenixKit.Integration.Users.FingerprintProxyRebindTest do
     assert {{:warning, :ip_mismatch}, log} = verify(request("9.9.9.9"), token)
     assert log =~ "changed IP"
     assert stored_ip(token) == "8.8.4.4"
+  end
+
+  test "a request straight from a public peer does not move the session", %{user: user} do
+    token = token_stored_at(user, "172.18.0.8")
+
+    assert {{:warning, :ip_mismatch}, _} = verify(direct_request({9, 9, 9, 9}), token)
+    assert stored_ip(token) == "172.18.0.8"
+
+    conn =
+      direct_request({9, 9, 9, 9})
+      |> Plug.Test.init_test_session(%{"user_token" => token})
+      |> AuthPlugs.fetch_phoenix_kit_current_user([])
+
+    assert conn.assigns.phoenix_kit_current_user == nil
+  end
+
+  test "a request that lost the race is checked against the winner's address", %{user: user} do
+    token = token_stored_at(user, "172.18.0.8")
+    stale = Auth.get_session_token_record(token)
+
+    # Another request moved it first, from another address.
+    assert {:ok, log} = verify(request("8.8.4.4"), token)
+    assert log =~ "to 8.8.4.4"
+
+    {address, log} =
+      with_log([level: :info], fn ->
+        Auth.rebind_proxy_address(request("9.9.9.9"), stale, token)
+      end)
+
+    assert address == "8.8.4.4"
+    assert stored_ip(token) == "8.8.4.4"
+    refute log =~ "to 9.9.9.9"
   end
 
   test "another browser does not move the session", %{user: user} do

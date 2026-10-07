@@ -104,6 +104,15 @@ defmodule PhoenixKit.Utils.SessionFingerprintIpTest do
       refute SessionFingerprint.proxy_rebind_address(conn, "10.0.0.9", ua_hash())
     end
 
+    test "a request straight from a public peer is not moved — only one through the proxy" do
+      conn = conn({9, 9, 9, 9}, [{"user-agent", @ua}])
+
+      refute SessionFingerprint.proxy_rebind_address(conn, "172.18.0.8", ua_hash())
+
+      assert {:warning, :ip_mismatch} =
+               SessionFingerprint.verify_fingerprint(conn, "172.18.0.8", ua_hash())
+    end
+
     test "another browser is not moved" do
       refute SessionFingerprint.proxy_rebind_address(
                behind_proxy("9.9.9.9", "Other/1.0"),
