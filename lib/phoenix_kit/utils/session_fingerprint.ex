@@ -219,11 +219,12 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
 
   This is a deliberate, one-off loosening, not a defence: a user agent is
   easy to copy, so a stolen token with the browser's user agent, sent
-  through the proxy, is moved too. What bounds it is that only a session
-  still on a proxy's address can move, only through the proxy, and only
-  once — after it, the stored address is public and never moves again. A
-  request straight from a public peer (a LAN session used from outside,
-  say) and a different browser are not moved.
+  through the proxy, is moved too. What bounds it: a session stored with a
+  private/loopback address, used again through a private peer (a proxy)
+  from a public address, moves once — after it, the stored address is
+  public and never moves again. That includes a LAN client that signed in
+  through the same proxy (its forwarded address private too). A request
+  straight from a public peer and a different browser are not moved.
   """
   @spec proxy_rebind_address(Plug.Conn.t(), String.t() | nil, String.t() | nil) ::
           String.t() | nil

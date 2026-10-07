@@ -66,9 +66,10 @@
   would sign them all out. A token whose stored address is loopback/private, used by the same browser from a
   public address through the proxy (the request's peer is loopback/private), is rebound to that address on
   its next request — no warning, no refusal — and checked as usual from then on. A user agent is easy to
-  copy, so this is a one-off loosening of strict mode, not a check: what bounds it is that only a session
-  still on a proxy's address moves, only through the proxy, and only once. A request straight from a public
-  peer, or from another browser, is not rebound.
+  copy, so this is a one-off loosening of strict mode, not a check: what bounds it is that a session stored
+  with a private/loopback address, used again through a private peer (a proxy) from a public address, moves
+  once — a LAN client that signed in through the same proxy included. A request straight from a public peer,
+  or from another browser, is not rebound.
 
 ### Upgrading
 

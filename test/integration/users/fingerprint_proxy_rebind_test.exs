@@ -24,10 +24,11 @@ defmodule PhoenixKit.Integration.Users.FingerprintProxyRebindTest do
     Application.put_env(:phoenix_kit, :session_fingerprint_strict, true)
     on_exit(fn -> Application.put_env(:phoenix_kit, :session_fingerprint_strict, original) end)
 
-    # The suite runs at :warning; the "moved" line is :info.
-    level = Logger.level()
-    Logger.configure(level: :info)
-    on_exit(fn -> Logger.configure(level: level) end)
+    # The suite runs at :warning; the "moved" line is :info. A process
+    # level cannot go below the global one, a module level can — and only
+    # for this module's lines.
+    Logger.put_module_level(PhoenixKit.Users.Auth, :info)
+    on_exit(fn -> Logger.delete_module_level(PhoenixKit.Users.Auth) end)
 
     {:ok, user} =
       Auth.register_user(%{
