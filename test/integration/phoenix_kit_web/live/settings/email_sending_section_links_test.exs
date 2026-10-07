@@ -62,6 +62,13 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
           link: %{label: "Open other host fixture", path: "//other.example/admin"}
         },
         %{
+          id: :fixture_backslash_host,
+          title: "Fixture backslash host",
+          permission: nil,
+          component: FixtureSection,
+          link: %{label: "Open backslash host fixture", path: "/\\other.example/admin"}
+        },
+        %{
           id: :fixture_gated,
           title: "Fixture gated",
           permission: "fixture_permission_nobody_holds",
@@ -127,6 +134,11 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
     assert has_element?(view, "#fixture-section-fixture_other_host")
     refute has_element?(view, "#email-section-link-fixture_other_host")
     refute html =~ "Open other host fixture"
+
+    # A browser reads "/\\host" as "//host" too.
+    assert has_element?(view, "#fixture-section-fixture_backslash_host")
+    refute has_element?(view, "#email-section-link-fixture_backslash_host")
+    refute html =~ "Open backslash host fixture"
   end
 
   test "the link of a section the user may not see is not shown", %{conn: conn} do

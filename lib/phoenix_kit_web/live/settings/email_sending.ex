@@ -469,8 +469,10 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
     end
   end
 
-  # Only a path of this app: "//host/..." is another host, not a path.
+  # Only a path of this app: "//host/..." is another host, not a path, and so
+  # is "/\\host/...", which browsers read as "//host/...".
   defp link_target(_id, %{path: "//" <> _}), do: nil
+  defp link_target(_id, %{path: "/\\" <> _}), do: nil
   defp link_target(_id, %{path: "/" <> _ = path}), do: %{navigate: path}
   defp link_target(_id, %{path: _}), do: nil
 
