@@ -491,7 +491,11 @@ stops serving them, and the ones made stay stored.
   at the center. Detection (`detect/1`) is libvips' `smartcrop: attention` on a
   copy shrunk to 512 px, through the **optional** `vix` package (precompiled
   libvips, nothing to install; a host adds `{:vix, "~> 0.42"}`); without it, or
-  for a flat photo, there is no point. Settings → Media → External libraries lists
+  for a flat photo, there is no point. libvips as bundled has no HEVC decoder, so a
+  HEIC photo it cannot decode is looked at through a 512 px JPEG preview that
+  ImageMagick makes (`ImageProcessor.preview_jpeg/3`); and a rendition that keeps the
+  original format becomes a JPEG for a HEIC, HEIF or AVIF original, which ImageMagick
+  reads but cannot write. Settings → Media → External libraries lists
   libvips (found through `vix`, not the `PATH`) with what it is for and how to enable
   it; the "not found" notice names it only once a rendition crops around the subject
   (`VariantSets.focus_crop_in_use?/0`). `focus` is part of the spec hash only when

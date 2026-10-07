@@ -54,6 +54,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # And whether a rendition crops around the subject, which is all libvips is for.
     focus_crop_in_use = VariantSets.focus_crop_in_use?()
 
+    # And whether a HEIC photo is here, which is when ImageMagick not reading HEIC matters.
+    heic_files = Storage.heic_files_exist?()
+
     annotated_thumbnails_enabled =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
@@ -74,6 +77,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:bucket_usage, %{})
       |> assign(:tile_generation_enabled, tile_generation_enabled)
       |> assign(:focus_crop_in_use, focus_crop_in_use)
+      |> assign(:heic_files, heic_files)
       |> assign(:annotated_thumbnails_enabled, annotated_thumbnails_enabled == "true")
       |> assign(:form_annotated_thumbnails_enabled, form_annotated_thumbnails_enabled)
       |> assign(:max_upload_size_mb, current_max_upload_size_mb)
@@ -489,16 +493,21 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   # tiles are on.
   # libvips likewise: it is optional, so it only matters once a rendition crops
   # around the subject.
-  defp missing_tools(tools, tile_generation_enabled?, focus_crop_in_use?) do
+  # HEIC support likewise: it only matters once a HEIC photo has been uploaded.
+  defp missing_tools(tools, tile_generation_enabled?, focus_crop_in_use?, heic_files?) do
     Enum.filter(tools, fn tool ->
       match?({:error, _}, tool.status) and
         (tool.id != :magick or tile_generation_enabled?) and
-        (tool.id != :libvips or focus_crop_in_use?)
+        (tool.id != :libvips or focus_crop_in_use?) and
+        (tool.id != :heic or heic_files?)
     end)
   end
 
   defp tool_purpose(:images), do: gettext("Image variants, resizing and conversion")
   defp tool_purpose(:tiles), do: gettext("Zoomable tiles for large images")
+
+  defp tool_purpose(:heic),
+    do: gettext("Reads HEIC photos (iPhone and many Android phones) to make renditions of them")
 
   defp tool_purpose(:focus_crop),
     do: gettext("Finds the subject of a photo, so a rendition can crop around it")

@@ -258,6 +258,52 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   end
 
   @doc """
+  A small, upright JPEG of the first frame of `input_path`: at most `max_edge`
+  pixels on its longest side, never enlarged, with the EXIF orientation applied
+  and any transparency flattened onto white.
+
+  For a tool that cannot decode the original itself. libvips as shipped with the
+  `vix` package has no HEVC decoder, so it cannot read an iPhone's HEIC photo,
+  which ImageMagick can; the subject finder asks for this preview then. The
+  decoder is pinned and the pixel and resource limits are those of every other
+  call here. Returns `{:ok, output_path}` or `{:error, reason}`.
+  """
+  @spec preview_jpeg(String.t(), String.t(), pos_integer()) ::
+          {:ok, String.t()} | {:error, String.t()}
+  def preview_jpeg(input_path, output_path, max_edge \\ 512) do
+    with {:ok, input} <- pinned_input(input_path, "[0]"),
+         {:ok, {width, height}} <- extract_dimensions(input_path),
+         :ok <- check_pixel_budget(width, height, @resize_max_pixels) do
+      args =
+        @limit_args ++
+          [
+            input,
+            "-auto-orient",
+            "-background",
+            "white",
+            "-alpha",
+            "remove",
+            "-alpha",
+            "off",
+            "-resize",
+            "#{max_edge}x#{max_edge}>",
+            "-quality",
+            "80",
+            "jpeg:#{output_path}"
+          ]
+
+      case System.cmd("convert", args, stderr_to_stdout: true) do
+        {_output, 0} -> {:ok, output_path}
+        {output, _status} -> {:error, "ImageMagick convert failed: #{String.trim(output)}"}
+      end
+    else
+      {:error, reason} -> {:error, "Failed to read the image: #{reason}"}
+    end
+  rescue
+    e -> {:error, "Image preview failed: #{inspect(e)}"}
+  end
+
+  @doc """
   Crops an image to `width` x `height` around a focal point: the largest window
   of that shape that fits in the photo, centered on `{x, y}` (fractions of the
   photo as it is displayed, 0..1) as far as the edges allow, then scaled to the

@@ -526,6 +526,9 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
   @alpha_capable ~w(png webp gif avif)
 
+  # Image formats ImageMagick can read here but has no encoder for.
+  @unwritable_formats ~w(heic heif avif)
+
   @doc false
   # The format a size is actually written in. A size configured as JPEG (or
   # one that keeps a JPEG original's format) of an image with an alpha
@@ -537,11 +540,20 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   def output_format(format, file, original_path) do
     target = String.downcase(format || String.trim_leading(to_string(file.ext), "."))
 
-    if file.file_type == "image" and target in ["jpg", "jpeg"] and
-         ImageProcessor.has_alpha_channel?(original_path) do
-      alpha_format()
-    else
-      format
+    cond do
+      # A rendition that keeps the original format cannot keep HEIC, HEIF or AVIF:
+      # ImageMagick reads them but has no encoder, and a browser other than Safari
+      # cannot show them. It becomes a JPEG, or the see-through format for a photo
+      # with transparency.
+      file.file_type == "image" and is_nil(format) and target in @unwritable_formats ->
+        if ImageProcessor.has_alpha_channel?(original_path), do: alpha_format(), else: "jpg"
+
+      file.file_type == "image" and target in ["jpg", "jpeg"] and
+          ImageProcessor.has_alpha_channel?(original_path) ->
+        alpha_format()
+
+      true ->
+        format
     end
   end
 

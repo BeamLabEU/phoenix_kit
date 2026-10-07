@@ -283,12 +283,43 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
 
   # A linked task must catch decoder failures itself: rescuing in the caller
   # does not prevent a task's exception from exiting the caller too.
+  #
+  # A photo libvips cannot decode (an iPhone's HEIC: the precompiled library has
+  # no HEVC decoder, which ImageMagick has) is not "no subject": it is looked at
+  # again through a small JPEG preview ImageMagick makes of it.
   defp safe_attention(path) do
+    case try_attention(path) do
+      :unreadable -> from_preview(path)
+      found -> found
+    end
+  end
+
+  defp try_attention(path) do
     attention(path)
   rescue
-    _ -> :error
+    _ -> :unreadable
   catch
-    _, _ -> :error
+    _, _ -> :unreadable
+  end
+
+  defp from_preview(path) do
+    preview =
+      Path.join(
+        System.tmp_dir!(),
+        "phoenix_kit_focal_#{Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)}.jpg"
+      )
+
+    try do
+      with {:ok, _} <- ImageProcessor.preview_jpeg(path, preview, @shrink_to),
+           found when found != :unreadable <- try_attention(preview) do
+        Logger.info("FocalPoint: libvips could not decode a photo; used an ImageMagick preview")
+        found
+      else
+        _ -> :error
+      end
+    after
+      File.rm(preview)
+    end
   end
 
   # Shrink on load (which also applies the EXIF orientation), then ask where the
@@ -317,7 +348,10 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
         true -> {:ok, {clamp(x / width), clamp(y / height)}}
       end
     else
-      _ -> :error
+      # Too small to look at: nothing to find, and nothing a preview would change.
+      false -> :error
+      # libvips could not open or decode it.
+      _ -> :unreadable
     end
   end
 

@@ -1,3 +1,22 @@
+## Unreleased
+
+### Fixed
+
+- **An iPhone's HEIC photo now gets its subject-aware crop and every rendition.** Two things failed on a real
+  `.HEIC`: a rendition with no format set ("Preserve original") tried to write HEIC, which ImageMagick can read
+  but not encode, so it failed (`no encode delegate for HEIC`); and libvips as bundled by `vix` has no HEVC
+  decoder, so the subject finder found nothing. A rendition that keeps the original format is now a JPEG (or
+  the see-through format for a photo with transparency) when the original is HEIC, HEIF or AVIF. When libvips
+  cannot decode a photo, the subject finder looks at a 512 px JPEG preview ImageMagick makes of it
+  (`ImageProcessor.preview_jpeg/3`; it applies the EXIF orientation and keeps the usual limits). On a HEIC and
+  its JPEG export of the same photo the stored point is the same. Photos already uploaded are fixed by
+  **Check every file** on their rendition profile.
+- **The External libraries tab checks that ImageMagick can read HEIC**, with why it matters (iPhone and many
+  Android photos), what happens without it (the photo is stored but no rendition can be made, every attempt
+  fails) and how to enable it. It reads ImageMagick's format list, so it works on ImageMagick 6 and 7; only
+  *reading* is needed, since a rendition of a HEIC photo is a JPEG. The "not found" notice names it only
+  once a HEIC or HEIF photo has been uploaded.
+
 ## 2.56.1 - 2026-10-07
 
 ### Fixed

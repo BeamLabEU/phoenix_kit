@@ -144,6 +144,26 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert view |> element("button[phx-click=recheck_external_tools]") |> render_click()
   end
 
+  test "External libraries says why HEIC support matters and what happens without it", %{
+    conn: conn
+  } do
+    {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)
+
+    html =
+      view
+      |> element("a[role=tab][href$=\"tab=external_libraries\"]")
+      |> render_click()
+
+    assert html =~ "HEIC support (libheif)"
+    assert has_element?(view, "#external-heic-details", "iPhones")
+    assert has_element?(view, "#external-heic-details", "Without it")
+
+    # This server's ImageMagick reads HEIC, so there is nothing to enable.
+    assert {:ok, version} = Enum.find(Dependencies.external_tools(), &(&1.id == :heic)).status
+    assert html =~ version
+    refute has_element?(view, "#external-heic-details", "To enable")
+  end
+
   test "External libraries says what libvips is for, how it is used and what happens without it",
        %{conn: conn} do
     {:ok, view, _html} = live(admin_conn(conn), @media_settings_path)

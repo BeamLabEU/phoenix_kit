@@ -13,7 +13,7 @@
     <%!-- Missing external tools — one line, not tab-scoped; the details
          are on the External libraries tab. --%>
     <.missing_tools_banner tools={
-      missing_tools(@external_tools, @tile_generation_enabled, @focus_crop_in_use)
+      missing_tools(@external_tools, @tile_generation_enabled, @focus_crop_in_use, @heic_files)
     } />
 
     <.nav_tabs
@@ -657,6 +657,30 @@
                 </.table_default_cell>
                 <.table_default_cell class="text-sm">
                   {tool_purpose(tool.used_for)}
+                  <div
+                    :if={tool.id == :heic}
+                    id="external-heic-details"
+                    class="mt-2 space-y-1 text-xs text-base-content/70"
+                  >
+                    <p>
+                      <strong>{gettext("Why")}:</strong>
+                      {gettext(
+                        "iPhones and many Android phones save photos as HEIC. ImageMagick reads them through libheif and an HEVC decoder, and some builds of it have neither."
+                      )}
+                    </p>
+                    <p>
+                      <strong>{gettext("Without it")}:</strong>
+                      {gettext(
+                        "A HEIC photo is stored, but no rendition (thumbnail, square, large) can be made of it, and every attempt fails."
+                      )}
+                    </p>
+                    <p :if={match?({:error, _}, tool.status)}>
+                      <strong>{gettext("To enable")}:</strong>
+                      {gettext(
+                        "Install ImageMagick with HEIC support for this server's operating system (libheif with an HEVC decoder such as libde265), then check again."
+                      )}
+                    </p>
+                  </div>
                   <div
                     :if={tool.id == :libvips}
                     id="external-libvips-details"

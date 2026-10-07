@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Storage.MissingBinaryTest do
     tools = Dependencies.external_tools()
 
     assert Enum.map(tools, & &1.id) ==
-             [:imagemagick, :magick, :libvips, :ffmpeg, :ffprobe, :pdftoppm, :pdfinfo]
+             [:imagemagick, :magick, :heic, :libvips, :ffmpeg, :ffprobe, :pdftoppm, :pdfinfo]
 
     {libvips, programs} = Enum.split_with(tools, &(&1.id == :libvips))
     assert Enum.all?(programs, &(&1.status == {:error, :not_installed}))

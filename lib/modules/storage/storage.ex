@@ -6430,6 +6430,19 @@ defmodule PhoenixKit.Modules.Storage do
   def get_auto_generate_variants, do: VariantSets.default_flag(:generate_variants, true)
 
   @doc """
+  Whether any HEIC or HEIF photo (an iPhone's format) has been uploaded: what the
+  notice about ImageMagick being unable to read HEIC needs, so a host that never
+  sees one is not told about it.
+  """
+  @spec heic_files_exist?() :: boolean()
+  def heic_files_exist? do
+    from(f in PhoenixKit.Modules.Storage.File,
+      where: f.mime_type in ["image/heic", "image/heif"] or f.ext in ["heic", "heif"]
+    )
+    |> repo().exists?()
+  end
+
+  @doc """
   Whether any library has deep zoom (zoomable tiles) on. It was the Default
   variant set's flag (`storage_tile_generation_enabled`) before the choice moved
   to each library; what needs it (the ImageMagick notice) asks whether any does.

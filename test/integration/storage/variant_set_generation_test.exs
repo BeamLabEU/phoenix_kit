@@ -143,7 +143,15 @@ defmodule PhoenixKit.Modules.Storage.VariantSetGenerationTest do
         System.cmd(
           "magick",
           ["-size", "1600x1000", "xc:gray(110)", "-attenuate", "0.15", "+noise", "Gaussian"] ++
-            ["-fill", "rgb(255,20,20)", "-draw", "rectangle 1240,160 1360,280", path]
+            [
+              "-fill",
+              "rgb(255,20,20)",
+              "-draw",
+              "rectangle 1240,160 1360,280",
+              "-alpha",
+              "off",
+              path
+            ]
         )
 
       path

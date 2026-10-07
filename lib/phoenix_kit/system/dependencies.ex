@@ -175,6 +175,18 @@ defmodule PhoenixKit.System.Dependencies do
         pattern: ~r/ImageMagick\s+(\S+)/,
         used_for: :tiles
       },
+      # Not a program either: whether ImageMagick can READ HEIC (the iPhone's photo
+      # format), which it does through libheif and an HEVC decoder it may not have
+      # been built with. Found in the list of formats ImageMagick prints
+      # (`probe_heic/0`).
+      %{
+        id: :heic,
+        name: "HEIC support (libheif)",
+        command: "convert",
+        args: ["-list", "format"],
+        pattern: ~r/(\d+\.\d+\.\d+)/,
+        used_for: :heic
+      },
       # Not a program on the PATH: libvips comes with the optional `vix` Elixir
       # package, which bundles it, so "found" means that package is loaded and
       # its library answers (`probe_libvips/0`).
@@ -257,6 +269,40 @@ defmodule PhoenixKit.System.Dependencies do
     end)
   end
 
+  # HEIC is readable when ImageMagick lists a HEIC format whose mode starts with
+  # `r`. `convert` first (ImageMagick 6 and the 7 compatibility command), then
+  # `magick`; the output is the same shape on both.
+  defp probe_heic do
+    case Enum.find_value(["convert", "magick"], &System.find_executable/1) do
+      nil ->
+        {:error, :not_installed}
+
+      path ->
+        {output, _code} = System.cmd(path, ["-list", "format"], stderr_to_stdout: true)
+        parse_heic(output)
+    end
+  rescue
+    _ -> {:error, :not_installed}
+  end
+
+  @doc false
+  # `{:ok, version}` (libheif's, when the description names it, else "libheif") for
+  # a list of formats with a readable HEIC, else `{:error, :not_installed}`. Lines
+  # look like `    HEIC* HEIC      r--   High Efficiency Image Format (1.19.8)`.
+  @spec parse_heic(String.t()) :: {:ok, String.t()} | {:error, :not_installed}
+  def parse_heic(output) do
+    case Regex.run(~r/^\s*HEIC\*?\s+\S+\s+(r\S\S)(.*)$/m, output) do
+      [_, _mode, description] ->
+        case Regex.run(~r/\((\d+\.\d+(?:\.\d+)?)\)/, description) do
+          [_, version] -> {:ok, version}
+          _ -> {:ok, "libheif"}
+        end
+
+      _ ->
+        {:error, :not_installed}
+    end
+  end
+
   # libvips is found by asking the `vix` package for the version of the library it
   # carries; the package is optional, so its absence is not a compile warning. A package that is there
   # but whose library does not load answers like one that is not.
@@ -275,6 +321,7 @@ defmodule PhoenixKit.System.Dependencies do
   # A tool is found by its executable; its version output is read whatever
   # the exit code (`pdftoppm -v` exits non-zero on older poppler).
   defp probe_tool(%{id: :libvips}), do: probe_libvips()
+  defp probe_tool(%{id: :heic}), do: probe_heic()
 
   defp probe_tool(tool) do
     case System.find_executable(tool.command) do

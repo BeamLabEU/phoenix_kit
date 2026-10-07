@@ -259,4 +259,59 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
       refute VariantSets.focus_crop_in_use?()
     end
   end
+
+  describe "heic_files_exist?/0" do
+    alias PhoenixKit.Modules.Storage
+    alias PhoenixKit.Users.Auth
+
+    defp upload!(name, mime, ext) do
+      n = System.unique_integer([:positive])
+
+      {:ok, user} =
+        Auth.register_user(%{
+          "email" => "heic-#{n}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      {:ok, file} =
+        Storage.create_file(%{
+          original_file_name: name,
+          file_name: name,
+          file_path: "heic/#{n}",
+          mime_type: mime,
+          file_type: "image",
+          ext: ext,
+          file_checksum: Ecto.UUID.generate(),
+          user_file_checksum: Ecto.UUID.generate(),
+          size: 10,
+          status: "active",
+          user_uuid: user.uuid
+        })
+
+      file
+    end
+
+    test "is false until a HEIC or HEIF photo is here" do
+      refute Storage.heic_files_exist?()
+
+      upload!("a.jpg", "image/jpeg", "jpg")
+      upload!("b.png", "image/png", "png")
+      refute Storage.heic_files_exist?()
+    end
+
+    test "is true for either, by type or by extension" do
+      upload!("c.heic", "image/heic", "heic")
+      assert Storage.heic_files_exist?()
+    end
+
+    test "a HEIF photo counts too" do
+      upload!("d.heif", "image/heif", "heif")
+      assert Storage.heic_files_exist?()
+    end
+
+    test "a file whose browser type is vague still counts by its extension" do
+      upload!("e.HEIC", "application/octet-stream", "heic")
+      assert Storage.heic_files_exist?()
+    end
+  end
 end
