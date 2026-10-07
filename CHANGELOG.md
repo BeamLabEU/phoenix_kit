@@ -7,6 +7,21 @@
   that opens the section's tab (`?tab=module_<id>`); `link: %{label: "...", path: "/admin/..."}` leads to
   that path instead. The button is shown only to users who can see the section (the same permission).
 
+### Changed
+
+- **The media viewer's neighbour warming is gentler, and no longer fetches originals.** It used to download the
+  small and large variants of both the previous and the next photo the moment the viewer opened, and, on a wide
+  screen, both neighbours' multi-MB originals too, racing the sharper version of the photo being looked at. Now it
+  waits until the current picture has settled, runs at low fetch priority, and does nothing on data-saver or a
+  2G/3G line. It warms the tiny small variant of both neighbours (so a step paints at once) but the large one
+  only of the side being stepped towards (the next photo until you step back). Originals are no longer warmed by
+  core at all: whether one is worth fetching is high-end viewing, which belongs to a module. Core announces the
+  neighbours once settled (`pk:viewer-neighbours`: `prev` / `next` as `{original, aspect}`, `direction`, and the
+  viewer `box` as `{width, height, dpr}`), and `phoenix_kit_photos` listens. The modal's `data-neighbor-prefetch`
+  and `data-neighbor-prefetch-hi` attributes are replaced by one `data-neighbors` (JSON, per side: `open`,
+  `large`, `original`, `aspect`). Without that module, stepping onto a large image on a big screen waits for its
+  original instead of finding it cached.
+
 ### Fixed
 
 - **An iPhone's HEIC photo now gets its subject-aware crop and every rendition.** Two things failed on a real

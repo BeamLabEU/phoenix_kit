@@ -191,6 +191,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
 
   # Grid/list view preference is persisted per-user in `custom_fields`
   # ("user meta") so the server renders the correct mode on first paint —
@@ -5344,16 +5345,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # What to warm for a neighbour. A burned file opens on that copy; an
   # unburned one still climbs `small` → `large`.
-  defp neighbor_warm_urls(file) when is_map(file) do
-    urls = Map.get(file, :urls) || %{}
-    open = viewer_open_url(file)
+  # The original of a neighbour, or nil where nothing would raster-load it
+  # (see the `data-neighbor-original-*` note in the template). Only images.
+  defp neighbor_original_url(%{file_type: "image"} = n) do
+    urls = n.urls || %{}
 
-    if is_binary(urls["burned_large"]) or is_binary(urls["burned"]) do
-      [open]
-    else
-      [open, urls["large"]]
+    cond do
+      is_binary(urls["burned_large"]) or is_binary(urls["burned"]) ->
+        nil
+
+      max(Map.get(n, :width) || 0, Map.get(n, :height) || 0) > 4096 and is_binary(urls["dzi"]) and
+          urls["dzi"] != "" ->
+        nil
+
+      is_binary(urls["original"]) ->
+        urls["original"]
+
+      true ->
+        nil
     end
   end
+
+  defp neighbor_original_url(_), do: nil
+
+  # What the viewer's warm may use for one neighbour (see `data-neighbors` in
+  # the template). Only images are warmable; anything else is nil.
+  defp neighbor_warm_data(%{file_type: "image"} = file) do
+    urls = Map.get(file, :urls) || %{}
+    burned? = is_binary(urls["burned_large"]) or is_binary(urls["burned"])
+
+    %{
+      "open" => viewer_open_url(file),
+      "large" => if(burned?, do: nil, else: urls["large"]),
+      "original" => neighbor_original_url(file),
+      "aspect" => MediaCanvasViewer.neighbor_pane_aspect(file)
+    }
+  end
+
+  defp neighbor_warm_data(_), do: nil
 
   # The fingerprint of the drawing the stored burn was made from — only
   # while a burn is actually stored. An image edit deletes every variant, the

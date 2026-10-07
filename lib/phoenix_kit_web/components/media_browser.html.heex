@@ -2869,48 +2869,26 @@
     <% viewer_idx = Enum.find_index(siblings, &(&1.file_uuid == f.file_uuid)) %>
     <% has_prev = is_integer(viewer_idx) and viewer_idx > 0 %>
     <% has_next = is_integer(viewer_idx) and viewer_idx < length(siblings) - 1 %>
-    <%!-- The neighbours' open variants, for ViewerKeydown to warm while   --%>
-    <%!-- the current image is being looked at: an arrow press remounts    --%>
-    <%!-- the viewer on the next file. A burned file opens on that copy;   --%>
-    <%!-- an unburned one still opens on `small` and climbs to `large`.    --%>
-    <% neighbors =
-      [
-        has_prev && Enum.at(siblings, viewer_idx - 1),
-        has_next && Enum.at(siblings, viewer_idx + 1)
-      ]
-      |> Enum.filter(&(is_map(&1) and &1.file_type == "image")) %>
-    <% neighbor_prefetch =
-      neighbors
-      |> Enum.flat_map(&neighbor_warm_urls/1)
-      |> Enum.filter(&is_binary/1)
-      |> Enum.join(" ") %>
-    <%!-- The rung above `large`. On a viewer column wider than large's    --%>
-    <%!-- 1920px (x Tessera's 1.1 headroom) — a 4K monitor at 95vw —      --%>
-    <%!-- Tessera's FIRST pick is the original, and a multi-MB original    --%>
-    <%!-- nothing warmed was exactly the "waiting and waiting" a step     --%>
-    <%!-- onto a big image showed. Advertised separately so the hook can   --%>
-    <%!-- warm it only where the viewport will actually ask for it.        --%>
-    <%!-- Mirrors tessera_sources: an over-4K file WITH tiles never        --%>
-    <%!-- raster-loads its original, so there is nothing to warm there.    --%>
-    <% neighbor_prefetch_hi =
-      neighbors
-      |> Enum.reject(fn n ->
-        urls = n.urls || %{}
-
-        is_binary(urls["burned_large"]) or is_binary(urls["burned"]) or
-          (max(Map.get(n, :width) || 0, Map.get(n, :height) || 0) > 4096 and
-             is_binary(urls["dzi"]) and urls["dzi"] != "")
-      end)
-      |> Enum.map(& &1.urls["original"])
-      |> Enum.filter(&is_binary/1)
-      |> Enum.join(" ") %>
+    <%!-- What ViewerKeydown may warm for each neighbour while this image is   --%>
+    <%!-- being looked at (an arrow press remounts the viewer on the next      --%>
+    <%!-- file). One structured attribute, per side: `open` (the variant the   --%>
+    <%!-- viewer opens on — a burned copy, or `small`), `large`, and, for a    --%>
+    <%!-- module to decide on, the `original` and the picture's `aspect`.      --%>
+    <%!-- Core warms `open` for both sides (tiny; makes a step paint at once)  --%>
+    <%!-- and `large` only for the side being stepped towards; originals are   --%>
+    <%!-- high-end viewing and belong to phoenix_kit_photos (pk:viewer-        --%>
+    <%!-- neighbours). Nil for an edge of the list, a video, a pdf.            --%>
+    <% neighbors_json =
+      Jason.encode!(%{
+        "prev" => has_prev && neighbor_warm_data(Enum.at(siblings, viewer_idx - 1)),
+        "next" => has_next && neighbor_warm_data(Enum.at(siblings, viewer_idx + 1))
+      }) %>
     <div
       id={"#{@id}-viewer-modal"}
       class="modal modal-open lg:portrait:items-start"
       phx-hook="ViewerKeydown"
       phx-target={@myself}
-      data-neighbor-prefetch={neighbor_prefetch}
-      data-neighbor-prefetch-hi={neighbor_prefetch_hi}
+      data-neighbors={neighbors_json}
       data-step-prev-src={
         with true <- has_prev,
              %{file_type: "image"} = p <- Enum.at(siblings, viewer_idx - 1) do

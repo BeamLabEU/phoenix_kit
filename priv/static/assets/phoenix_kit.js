@@ -2473,45 +2473,111 @@ if (typeof window.Chart === "undefined") {
       // find the image and wait for it to paint — mounted is not painted.
       window.dispatchEvent(new CustomEvent("pk:viewer-open", { detail: { el: self.el } }));
 
-      // Warm the NEIGHBOURS while this image is being looked at. An arrow
-      // press remounts the viewer on the next file, and its small + large
-      // variants used to start downloading only then — that download was
-      // the whole wait between pressing → and seeing the picture. The
-      // files are served immutable, so a warmed URL is a cache hit; each
-      // is fetched once per page (the map is module-level and shared
-      // across remounts), and looking without ever stepping costs only
-      // the two downloads a step would have started anyway.
+      // Warm the NEIGHBOURS' small + large while this image is being looked
+      // at. An arrow press remounts the viewer on the next file, and its
+      // small + large variants used to start downloading only then — that
+      // download was the whole wait between pressing → and seeing the
+      // picture. The files are served immutable, so a warmed URL is a cache
+      // hit; each is fetched once per page (the map is module-level and
+      // shared across remounts).
+      //
+      // Three manners, because a warm is a favour to the NEXT press and must
+      // never cost the picture on screen anything:
+      //   - it waits until the current picture has settled (its sharper
+      //     version is in and the canvas has been quiet a moment), so the
+      //     warm never races the download the person is actually waiting on;
+      //   - it runs at low fetch priority;
+      //   - it does not run at all on data-saver or a 2G/3G line.
+      //
+      // Originals are NOT warmed here: whether a multi-MB original is worth
+      // fetching depends on the screen, the line and which way the person is
+      // stepping — high-end viewing, which a module decides. Core announces
+      // the neighbours once settled (`pk:viewer-neighbours`) and
+      // phoenix_kit_photos listens.
       window.__pkWarmedUrls = window.__pkWarmedUrls || {};
-      // Factored so updated() can re-run it: a step PATCHES this modal in
-      // place (its id is stable), so mounted() fires once per open — and
-      // the warm it used to hold ran once too, leaving every neighbour
-      // after the first step cold. Each step rewrites the dataset with
-      // the new neighbours; warming again from here keeps the NEXT press
-      // as instant as the first.
-      self._warm = function() {
-        var warmList = (self.el.dataset && self.el.dataset.neighborPrefetch) || "";
-        // The rung above large, only where this viewport will actually ask
-        // for it: Tessera picks its raster by displayed width against each
-        // rung's pixels x 1.1 headroom, so a viewer column wider than
-        // 1920 x 1.1 device px opens straight on the original — and a multi-MB
-        // original nothing warmed was the "waiting and waiting" a step onto
-        // a big image showed on large monitors, invisible on small ones
-        // (where large suffices and originals would be pure waste).
-        var column = self.el.querySelector('[id^="pk-annotation-actions-"]');
-        var colW = (column && column.clientWidth) || window.innerWidth || 0;
-        // Device px, not CSS px — Tessera picks its raster against the
-        // physical pixels it lights (0.3.7), so a 4K monitor at 200% OS
-        // scaling (~1632 CSS px column, dpr 2) does open on the original.
-        // Gating the warm in CSS px left exactly those viewers stepping
-        // onto multi-MB originals nothing had warmed.
-        colW = colW * (window.devicePixelRatio || 1);
-        if (colW > 1920 * 1.1) {
-          warmList += " " + ((self.el.dataset && self.el.dataset.neighborPrefetchHi) || "");
+      var SETTLE_QUIET_MS = 600;
+      var SETTLE_MAX_MS = 4000;
+      // Calls `done` once the canvas image is loaded and nothing has loaded
+      // for SETTLE_QUIET_MS (Tessera climbs rungs, each a load), or after
+      // SETTLE_MAX_MS whatever happens. Returns a cancel function.
+      function afterSettled(root, done) {
+        var finished = false, quiet = null, cap = null;
+        function stop() {
+          finished = true;
+          clearTimeout(quiet);
+          clearTimeout(cap);
+          document.removeEventListener("load", poke, true);
+          document.removeEventListener("error", poke, true);
         }
-        warmList.split(" ").forEach(function(url) {
-          if (!url || window.__pkWarmedUrls[url]) return;
-          window.__pkWarmedUrls[url] = true;
-          new Image().src = url;
+        function finish() { if (finished) return; stop(); done(); }
+        function poke() {
+          if (finished) return;
+          clearTimeout(quiet);
+          var img = root.querySelector && root.querySelector("img[data-fresco-canvas-img]");
+          // No canvas yet, or its picture still arriving: its own load /
+          // error event pokes again.
+          if (!img || (img.getAttribute && img.getAttribute("src") && !img.complete)) return;
+          quiet = setTimeout(finish, SETTLE_QUIET_MS);
+        }
+        document.addEventListener("load", poke, true);
+        document.addEventListener("error", poke, true);
+        cap = setTimeout(finish, SETTLE_MAX_MS);
+        poke();
+        return stop;
+      }
+      function warmAllowed() {
+        var c = (typeof navigator !== "undefined" && navigator.connection) || null;
+        if (!c) return true;
+        return !(c.saveData || /(^|-)[23]g$/.test(c.effectiveType || ""));
+      }
+      function warmUrl(url) {
+        if (!url || window.__pkWarmedUrls[url]) return;
+        window.__pkWarmedUrls[url] = true;
+        var im = new Image();
+        try { im.fetchPriority = "low"; } catch (_e) { /* older browsers */ }
+        im.src = url;
+      }
+      // Factored so updated() can re-run it: a step PATCHES this modal in
+      // place (its id is stable), so mounted() fires once per open. Each
+      // step rewrites the dataset with the new neighbours; warming again
+      // from here keeps the NEXT press as instant as the first.
+      self._direction = "";
+      function neighbours(raw) {
+        try { return JSON.parse(raw || "{}") || {}; } catch (_e) { return {}; }
+      }
+      self._warm = function() {
+        if (self._cancelWarm) self._cancelWarm();
+        var n = neighbours(self.el && self.el.dataset && self.el.dataset.neighbors);
+        self._cancelWarm = afterSettled(self.el, function() {
+          self._cancelWarm = null;
+          if (!warmAllowed()) return;
+          // The way the person is heading: the next photo until they step
+          // back. Only that side's `large` is worth a speculative fetch;
+          // both sides' `open` (small — tens of KB) is, because it is what a
+          // step paints at once while the rest arrives. The side just left
+          // is already in the cache.
+          var ahead = self._direction === "prev" ? "prev" : "next";
+          var behind = ahead === "prev" ? "next" : "prev";
+          warmUrl(n[ahead] && n[ahead].open);
+          warmUrl(n[behind] && n[behind].open);
+          warmUrl(n[ahead] && n[ahead].large);
+          // For a module deciding on originals (phoenix_kit_photos): what
+          // each neighbour offers, and the viewer's box in device terms so
+          // it can work out how many pixels the picture will really light —
+          // a portrait photo in a wide column is narrow.
+          var column = self.el.querySelector('[id^="pk-annotation-actions-"]');
+          window.dispatchEvent(new CustomEvent("pk:viewer-neighbours", {
+            detail: {
+              prev: n.prev ? { original: n.prev.original || "", aspect: n.prev.aspect || "" } : null,
+              next: n.next ? { original: n.next.original || "", aspect: n.next.aspect || "" } : null,
+              direction: self._direction,
+              box: {
+                width: (column && column.clientWidth) || window.innerWidth || 0,
+                height: (column && column.clientHeight) || window.innerHeight || 0,
+                dpr: window.devicePixelRatio || 1
+              }
+            }
+          }));
         });
       };
       self._warm();
@@ -2527,6 +2593,7 @@ if (typeof window.Chart === "undefined") {
         // empty (edge of the list, a video) means no stand-in, and the
         // step behaves as before.
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          self._direction = e.key === "ArrowLeft" ? "prev" : "next";
           const d = self.el.dataset || {};
           const src = e.key === "ArrowLeft" ? d.stepPrevSrc : d.stepNextSrc;
           const rot = e.key === "ArrowLeft" ? d.stepPrevRot : d.stepNextRot;
@@ -2567,6 +2634,10 @@ if (typeof window.Chart === "undefined") {
       if (this._handler) {
         document.removeEventListener("keydown", this._handler);
         this._handler = null;
+      }
+      if (this._cancelWarm) {
+        this._cancelWarm();
+        this._cancelWarm = null;
       }
     }
   };
