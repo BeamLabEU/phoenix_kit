@@ -2165,6 +2165,26 @@ if (typeof window.Chart === "undefined") {
         if (pane) pane.style.visibility = "";
         if (self._timer) { clearTimeout(self._timer); self._timer = null; }
         if (self._closeGrace) { clearTimeout(self._closeGrace); self._closeGrace = null; }
+        self._loadingPill(false);
+      };
+
+      // The stand-in's "Loading full quality…" pill: up a beat after the
+      // stand-in shows (a hand-over inside that beat never flashes it), gone
+      // the instant the stand-in goes. The real viewer's pill takes over from
+      // there for any sharper rung still on its way.
+      self._loadingPill = function(on) {
+        const pill = el.querySelector("[data-standin-loading]");
+        if (self._pillTimer) { clearTimeout(self._pillTimer); self._pillTimer = null; }
+        if (!pill) return;
+        if (on) {
+          self._pillTimer = setTimeout(function() {
+            self._pillTimer = null;
+            pill.style.opacity = "1";
+          }, 300);
+        } else {
+          // No fade needed: the stand-in itself is display:none by now.
+          pill.style.opacity = "0";
+        }
       };
       self._hide();
 
@@ -2246,6 +2266,7 @@ if (typeof window.Chart === "undefined") {
         // in well under a second.
         if (self._timer) clearTimeout(self._timer);
         self._timer = setTimeout(self._hide, 8000);
+        self._loadingPill(true);
       };
 
       self._onClick = function(e) {
@@ -7341,6 +7362,92 @@ if (typeof window.Chart === "undefined") {
           // interrupting the page for.
         }
       });
+    }
+  };
+
+  // ============================================================================
+  // ViewerHiresLoading — "Loading full quality…" while a sharper picture arrives
+  // ============================================================================
+  //
+  // The media viewer opens on the small bitmap the grid already painted, and
+  // Tessera climbs to a bigger rung once the screen asks for one. On a slow
+  // line that climb can take a long time, and nothing said it was happening:
+  // people sat looking at a blurry photograph wondering whether that was all
+  // there was.
+  //
+  // Fresco swaps a rung by setting the visible <img>'s src, and the browser
+  // keeps painting the old bitmap until the new one has loaded — so "a
+  // sharper picture is on its way" is exactly "the canvas image's src is not
+  // complete yet", and its load (or error) is "done". This watches the pane's
+  // canvas image for that and shows the pill the template renders; nothing
+  // in Fresco or Tessera has to know. A canvas remount (the eye, the pencil,
+  // a new burn) brings a new <img>, which the observer picks up too.
+  //
+  // HIRES_SHOW_DELAY_MS keeps a load that finishes quickly — a cache hit, a
+  // fast line — from flashing the pill for a frame.
+  // ----------------------------------------------------------------------------
+
+  var HIRES_SHOW_DELAY_MS = 300;
+
+  window.PhoenixKitHooks.ViewerHiresLoading = {
+    mounted() {
+      var self = this;
+      this._pane = this.el.parentElement;
+      this._img = null;
+      this._timer = null;
+      this._onSettle = function() { self._track(); };
+      this._observer = new MutationObserver(function() { self._track(); });
+      if (this._pane) {
+        this._observer.observe(this._pane, {
+          subtree: true, childList: true, attributes: true, attributeFilter: ["src"]
+        });
+      }
+      this._track();
+    },
+
+    destroyed() {
+      if (this._observer) this._observer.disconnect();
+      this._watch(null);
+      clearTimeout(this._timer);
+    },
+
+    _track() {
+      var img = this._pane && this._pane.querySelector("img[data-fresco-canvas-img]");
+      if (img !== this._img) this._watch(img);
+      this._set(!!img && !!img.getAttribute("src") && !img.complete);
+    },
+
+    _watch(img) {
+      if (this._img) {
+        this._img.removeEventListener("load", this._onSettle);
+        this._img.removeEventListener("error", this._onSettle);
+      }
+      this._img = img || null;
+      if (img) {
+        img.addEventListener("load", this._onSettle);
+        img.addEventListener("error", this._onSettle);
+      }
+    },
+
+    _set(loading) {
+      var self = this;
+      if (loading) {
+        if (this.el.dataset.state === "loading" || this._timer) return;
+        this._timer = setTimeout(function() {
+          self._timer = null;
+          if (self._img && !self._img.complete) self._show(true);
+        }, HIRES_SHOW_DELAY_MS);
+      } else {
+        clearTimeout(this._timer);
+        this._timer = null;
+        this._show(false);
+      }
+    },
+
+    _show(on) {
+      this.el.dataset.state = on ? "loading" : "idle";
+      this.el.setAttribute("aria-hidden", on ? "false" : "true");
+      if (this.el.style) this.el.style.opacity = on ? "1" : "0";
     }
   };
 

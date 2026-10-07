@@ -2818,6 +2818,21 @@
             style="filter: blur(6px)"
             alt=""
           />
+          <%!-- The same "Loading full quality…" pill the real viewer shows  --%>
+          <%!-- (MediaCanvasViewer's ViewerHiresLoading). This stand-in sits --%>
+          <%!-- over the real popup until the real picture has loaded — on a --%>
+          <%!-- slow line, the whole wait — and covers the real pill while it --%>
+          <%!-- does, so it carries its own: shown a beat after the stand-in  --%>
+          <%!-- opens, gone with it. Inline opacity for the reason the blur  --%>
+          <%!-- above is inline.                                             --%>
+          <div
+            data-standin-loading
+            style="opacity: 0; transition: opacity 300ms ease"
+            class="pointer-events-none absolute left-3 bottom-3 z-20 flex items-center gap-2 rounded-full bg-base-100/90 px-2.5 py-1 text-xs font-medium text-base-content/80 shadow-md ring-1 ring-base-300"
+          >
+            <span class="loading loading-spinner loading-xs text-primary"></span>
+            <span>{gettext("Loading full quality…")}</span>
+          </div>
         </div>
         <%!-- Skeleton bars, not an empty block: an empty white pane reads as --%>
         <%!-- "no comments", and then the real sidebar's content arriving     --%>
