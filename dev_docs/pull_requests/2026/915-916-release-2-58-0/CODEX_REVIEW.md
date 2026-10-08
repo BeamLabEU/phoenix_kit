@@ -5,8 +5,8 @@ the cross-library donor restriction, and the first review's fixes. Version 2.58.
 is still unpublished; the fixes below belong to its existing CHANGELOG entry.
 
 **Verdict:** no CRITICAL or HIGH bug identified. Three MEDIUM bugs and one MEDIUM
-audit improvement fixed. Release validation results are recorded below once the
-final checks finish. This review does not authorize publishing or tagging.
+audit improvement fixed. The full baseline suite, post-fix affected suites and
+the prerelease gate passed. Publication and tagging remain outside this review.
 
 ## Fixed
 
@@ -99,12 +99,29 @@ final checks finish. This review does not authorize publishing or tagging.
 - `mix precommit`: passed (including warnings-as-errors compilation, test
   compilation, format check, strict Credo, Dialyzer, and 345 JavaScript tests).
 - `node --test test/js/library_loader.test.cjs`: 28 passed, zero failures.
+- Full baseline suite, started at `c1e779015` before this review's fixes:
+  `PGPOOL=12 mix test --max-cases 8` — 87 doctests, 8,905 tests, zero failures,
+  10 skipped and one excluded. PostgreSQL was reachable; integration tests ran.
 - Before the fixes, the null-shape regression raised ERROR 23502, the audit
   regression found no entry, the stack regression counted unfiltered files,
   and both relative-base assertions failed. After the fixes all four new
   Elixir/JS regressions passed. An unrelated audit setup test hit a database
-  deadlock while the full suite's schema tests ran concurrently; final tests
-  will run without overlapping suites.
-- Final full database suite and `mix prerelease`: pending.
+  deadlock while the full suite's schema tests ran concurrently. The final
+  affected suites ran alone and passed.
+- Post-fix affected suites: **6 doctests, 218 tests, zero failures**, with
+  PostgreSQL, `PGPOOL=12` and `--max-cases 8`. Included dimension shapes, audit,
+  shape/viewer filters, variant generation and reconciliation, Media filters
+  and browser behavior, site-zone/date utilities, V212/V213/V214 SQL, and the
+  full named-schema migration chain (`prefix_migration_test.exs`).
+- `mix prerelease`: exit 0. Locked dependencies, production compilation with
+  warnings as errors, `quality.ci`, dependency/Hex audits, docs, package build,
+  release consistency checks and package cleanup all passed. Audits reported
+  no vulnerabilities or retired/security-advisory packages. The release check
+  was **7/7 passed, zero warnings, zero failures**, including the built
+  package's contents and the 80-file migration-chain hash. Cleanup removed the
+  generated 4.3 MB tarball.
+
+Code and CHANGELOG fixes are committed locally as `c512cb3b9`; validation results
+are recorded in a follow-up documentation commit. Version remains **2.58.0**.
 
 Hex publication and tagging were not run.
