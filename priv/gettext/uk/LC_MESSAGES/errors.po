@@ -1,0 +1,111 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: uk\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100 != 11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10||n%100>=20) ? 1 : 2);\n"
+
+msgid "can't be blank"
+msgstr "не може бути порожнім"
+
+msgid "has already been taken"
+msgstr "вже зайнято"
+
+msgid "is invalid"
+msgstr "має недійсне значення"
+
+msgid "must be accepted"
+msgstr "потрібно прийняти"
+
+msgid "has invalid format"
+msgstr "має неправильний формат"
+
+msgid "has an invalid entry"
+msgstr "містить недопустиме значення"
+
+msgid "is reserved"
+msgstr "зарезервовано"
+
+msgid "does not match confirmation"
+msgstr "не збігається з підтвердженням"
+
+msgid "is still associated with this entry"
+msgstr "усе ще пов'язано з цим записом"
+
+msgid "are still associated with this entry"
+msgstr "усе ще пов'язані з цим записом"
+
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
+msgstr[0] "має містити %{count} елемент"
+msgstr[1] "має містити %{count} елементи"
+msgstr[2] "має містити %{count} елементів"
+
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "має містити %{count} символ"
+msgstr[1] "має містити %{count} символи"
+msgstr[2] "має містити %{count} символів"
+
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "має містити %{count} байт"
+msgstr[1] "має містити %{count} байти"
+msgstr[2] "має містити %{count} байтів"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] "має містити щонайменше %{count} елемент"
+msgstr[1] "має містити щонайменше %{count} елементи"
+msgstr[2] "має містити щонайменше %{count} елементів"
+
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
+msgstr[0] "має містити щонайменше %{count} символ"
+msgstr[1] "має містити щонайменше %{count} символи"
+msgstr[2] "має містити щонайменше %{count} символів"
+
+msgid "should be at least %{count} byte(s)"
+msgid_plural "should be at least %{count} byte(s)"
+msgstr[0] "має містити щонайменше %{count} байт"
+msgstr[1] "має містити щонайменше %{count} байти"
+msgstr[2] "має містити щонайменше %{count} байтів"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] "має містити щонайбільше %{count} елемент"
+msgstr[1] "має містити щонайбільше %{count} елементи"
+msgstr[2] "має містити щонайбільше %{count} елементів"
+
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "має містити щонайбільше %{count} символ"
+msgstr[1] "має містити щонайбільше %{count} символи"
+msgstr[2] "має містити щонайбільше %{count} символів"
+
+msgid "should be at most %{count} byte(s)"
+msgid_plural "should be at most %{count} byte(s)"
+msgstr[0] "має містити щонайбільше %{count} байт"
+msgstr[1] "має містити щонайбільше %{count} байти"
+msgstr[2] "має містити щонайбільше %{count} байтів"
+
+msgid "must be less than %{number}"
+msgstr "має бути менше за %{number}"
+
+msgid "must be greater than %{number}"
+msgstr "має бути більше за %{number}"
+
+msgid "must be less than or equal to %{number}"
+msgstr "має бути не більше ніж %{number}"
+
+msgid "must be greater than or equal to %{number}"
+msgstr "має бути не менше ніж %{number}"
+
+msgid "must be equal to %{number}"
+msgstr "має дорівнювати %{number}"
