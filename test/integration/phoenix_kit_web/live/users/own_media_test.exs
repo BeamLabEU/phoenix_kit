@@ -357,15 +357,15 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
       %{alice: alice, library: library}
     end
 
-    test "joins the switcher, grouped, and opens at /admin/media/my", %{
+    test "joins the header switcher, hinted Mine, and opens at /admin/media/my", %{
       conn: conn,
       alice: alice,
       library: library
     } do
       {:ok, _view, html} = media(conn, alice)
 
-      assert html =~ ~s(id="media-library-switcher")
-      assert html =~ ~s(label="Mine")
+      assert html =~ ~s(id="pk-title-switcher-list")
+      assert html =~ "Mine"
       assert html =~ library.name
 
       {:ok, _view, html} =

@@ -116,6 +116,32 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       assert to == Routes.path("/admin/libraries")
     end
 
+    test "an open library is named in the header, with a switcher over the viewer's libraries",
+         %{conn: conn, role: role} do
+      owner = user!(role)
+      one = library!(owner, "Holiday")
+      two = library!(owner, "Work")
+
+      {:ok, view, html} =
+        live(log_in_user(conn, owner), Routes.path("/admin/libraries/#{one.slug}"))
+
+      assert html =~ "pk-title-switcher"
+      refute html =~ "library-switcher-select"
+
+      view |> element("#pk-title-switcher-list a", "Work") |> render_click()
+      assert_patch(view, Routes.path("/admin/libraries/#{two.slug}"))
+    end
+
+    test "with a single library the header offers no switcher", %{conn: conn, role: role} do
+      owner = user!(role)
+      only = library!(owner, "Solo")
+
+      {:ok, _view, html} =
+        live(log_in_user(conn, owner), Routes.path("/admin/libraries/#{only.slug}"))
+
+      refute html =~ "pk-title-switcher"
+    end
+
     test "nothing while user libraries are off", %{conn: conn, role: role} do
       user = user!(role)
       {:ok, _} = Settings.update_boolean_setting("storage_user_libraries_enabled", false)

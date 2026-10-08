@@ -27,8 +27,9 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       are on and the viewer holds `storage`), at `/admin/media/my/<slug or uuid>`,
       with the rights their role gives them there.
 
-  They share one switcher, grouped "Site" and "Mine". While there is only one
-  library, nothing about libraries is shown. Another user's library is opened, by
+  They share one switcher in the admin header (the ▾ beside the page title, the
+  title being the library on screen), each row hinted "Site" or "Mine". While
+  there is only one library, nothing about libraries is shown. Another user's library is opened, by
   an Owner/Admin, at `/admin/libraries` (audit-logged), not here. Libraries are
   created, renamed and deleted in Settings → Media → Libraries (site) and on the
   profile's Media tab (user).
@@ -54,6 +55,9 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     socket =
       socket
       |> assign(:page_title, gettext("Media"))
+      |> assign(:header_title, gettext("Media"))
+      |> assign(:header_section, nil)
+      |> assign(:header_switcher, nil)
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/media"))
@@ -73,7 +77,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     case select_library(socket, params) do
       {:ok, socket} ->
-        {:noreply, socket}
+        {:noreply, assign_header(socket)}
 
       # A library that is not one the viewer may open is not quietly shown as
       # Media: an upload there would land somewhere the visitor did not ask for.
@@ -82,22 +86,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
          socket
          |> put_flash(:error, gettext("Library not found"))
          |> push_patch(to: library_path(nil))}
-    end
-  end
-
-  # Only a library the page listed: the value arrives from the client and ends up
-  # in a path. A user library's is `"my:<id>"`, a site library's its slug.
-  def handle_event("switch_library", %{"library" => "my:" <> id}, socket) do
-    case Enum.find(socket.assigns.my_libraries, &(url_id(&1.library, socket) == id)) do
-      nil -> {:noreply, socket}
-      %{library: library} -> {:noreply, push_patch(socket, to: my_library_path(library, socket))}
-    end
-  end
-
-  def handle_event("switch_library", %{"library" => slug}, socket) do
-    case Enum.find(socket.assigns.libraries || [], &((&1.slug || "") == slug)) do
-      nil -> {:noreply, socket}
-      library -> {:noreply, push_patch(socket, to: library_path(library.slug))}
     end
   end
 
@@ -189,8 +177,56 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   @doc false
   def role_label(role), do: LibrariesPage.role_label(role)
 
-  @doc false
-  # How many libraries the switcher would list.
-  def library_count(libraries, my_libraries),
-    do: length(libraries || []) + length(my_libraries || [])
+  # The header names the library on screen and, once there is more than one,
+  # hangs the switcher on that name. With one library the page says nothing
+  # about libraries: the plain "Media" title, no switcher. Every item is a
+  # `patch` to a path built here from the lists the page loaded, so a value from
+  # the client never reaches a path.
+  defp assign_header(socket) do
+    %{libraries: libraries, my_libraries: mine, library: library, role: role} = socket.assigns
+
+    if length(libraries || []) + length(mine) > 1 and library do
+      assign(socket,
+        header_title: library.name,
+        header_section: unless(default_library?(library, role), do: gettext("Media")),
+        header_switcher: library_switcher(socket, libraries, mine, library, role)
+      )
+    else
+      assign(socket, header_title: gettext("Media"), header_section: nil, header_switcher: nil)
+    end
+  end
+
+  # The default site library is Media itself: "Media / Media" would say it twice.
+  defp default_library?(library, role), do: is_nil(role) and library.is_default == true
+
+  defp library_switcher(socket, libraries, mine, library, role) do
+    # With none of the viewer's own, the site ones need no hint.
+    site_hint = if mine == [], do: nil, else: gettext("Site")
+
+    site =
+      for l <- libraries do
+        %{
+          label: l.name,
+          patch: library_path(l.slug),
+          hint: site_hint,
+          current: is_nil(role) and l.uuid == library.uuid
+        }
+      end
+
+    own =
+      for %{library: l} <- mine do
+        %{
+          label: l.name,
+          patch: my_library_path(l, socket),
+          hint: gettext("Mine"),
+          current: role != nil and l.uuid == library.uuid
+        }
+      end
+
+    %{
+      title: gettext("Switch library"),
+      search_placeholder: gettext("Search libraries…"),
+      items: site ++ own
+    }
+  end
 end

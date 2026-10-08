@@ -20,6 +20,10 @@ defmodule PhoenixKitWeb.Components.Core.CrumbSwitcher do
         ]
       }
 
+  An item may carry a `:hint` — a short muted word after the label ("Site",
+  "Mine") to tell apart rows that share a list. It is display only: the
+  filter matches the label.
+
   Each item is a real link — `navigate` (another LiveView) or `patch` (the
   same one) — so middle-click and copy-link keep working. `current: true`
   ticks it. The list filters as you type, on the client (case and accents
@@ -115,6 +119,9 @@ defmodule PhoenixKitWeb.Components.Core.CrumbSwitcher do
                   class={"w-4 h-4 shrink-0" <> if(item[:current], do: "", else: " invisible")}
                 />
                 <span class="truncate">{item.label}</span>
+                <span :if={item[:hint]} class="ml-auto shrink-0 text-xs text-base-content/50">
+                  {item.hint}
+                </span>
               </.link>
             </li>
             <li data-filter-empty class="hidden px-2 py-1.5 text-base-content/50">

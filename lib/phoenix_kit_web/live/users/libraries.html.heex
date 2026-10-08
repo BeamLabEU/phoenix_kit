@@ -3,6 +3,9 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
+  page_section={@header_section}
+  page_section_path={@header_section && Routes.path("/admin/libraries")}
+  page_title_switcher={@header_switcher}
   page_subtitle={
     if @library,
       do: role_label(@role),
@@ -14,28 +17,6 @@
 >
   <%= if @library do %>
     <div class="flex flex-col w-full h-[calc(100dvh-4rem)]">
-      <div class="flex flex-wrap items-center gap-2 px-4 pb-2">
-        <.pk_link navigate="/admin/libraries" class="btn btn-ghost btn-sm">
-          <.icon name="hero-arrow-left" class="w-4 h-4" /> {gettext("Libraries")}
-        </.pk_link>
-        <form
-          :if={is_list(@libraries) and length(@libraries) > 1 and @role != :admin}
-          id="library-switcher"
-          phx-change="switch_library"
-        >
-          <label for="library-switcher-select" class="sr-only">{gettext("Library")}</label>
-          <select id="library-switcher-select" name="library" class="select select-sm">
-            <option
-              :for={%{library: library} <- @libraries}
-              value={Libraries.url_id(library, @phoenix_kit_current_user.uuid)}
-              selected={library.uuid == @library.uuid}
-            >
-              {library.name}
-            </option>
-          </select>
-        </form>
-      </div>
-
       <.live_component
         module={PhoenixKitWeb.Components.MediaBrowser}
         id="library-browser"

@@ -110,4 +110,21 @@ defmodule PhoenixKitWeb.Components.Core.CrumbSwitcherTest do
     custom = render(%{title: "Switch catalogue", search_placeholder: "Find…", items: []})
     assert custom =~ ~s(placeholder="Find…")
   end
+
+  test "a hint trails its row's label, and the filter still matches the label alone" do
+    html =
+      render(%{
+        items: [
+          %{label: "Holiday", patch: "/a", hint: "Mine"},
+          %{label: "Media", patch: "/b"}
+        ]
+      })
+
+    [holiday, media] =
+      html |> doc() |> LazyHTML.query("#sw-list li[data-filter-text]") |> Enum.to_list()
+
+    assert LazyHTML.attribute(holiday, "data-filter-text") == ["Holiday"]
+    assert LazyHTML.text(holiday) =~ "Mine"
+    refute LazyHTML.text(media) =~ "Mine"
+  end
 end

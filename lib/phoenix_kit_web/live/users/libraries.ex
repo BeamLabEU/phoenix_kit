@@ -43,6 +43,8 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
      |> assign(:others, [])
      |> assign(:library, nil)
      |> assign(:role, nil)
+     |> assign(:header_section, nil)
+     |> assign(:header_switcher, nil)
      # Read here: connect info is only available while mounting.
      |> assign(:client_ip, IpAddress.extract_from_socket(socket))
      |> assign(:user_agent, user_agent(socket))}
@@ -92,13 +94,6 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
     {:noreply, open(socket, scope, params["library_id"])}
   end
 
-  def handle_event("switch_library", %{"library" => id}, socket) do
-    case Enum.find(socket.assigns.libraries || [], &(url_id(&1.library, socket) == id)) do
-      nil -> {:noreply, socket}
-      %{library: library} -> {:noreply, push_patch(socket, to: library_path(library, socket))}
-    end
-  end
-
   # The list, read afresh on every visit: a library created or shared in
   # the meantime shows up. An Owner/Admin also sees every other user's
   # libraries (metadata only; opening one is audit-logged).
@@ -110,6 +105,8 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
     |> assign(:others, others(scope, mine))
     |> assign(:library, nil)
     |> assign(:role, nil)
+    |> assign(:header_section, nil)
+    |> assign(:header_switcher, nil)
     |> assign(:page_title, gettext("Libraries"))
     |> assign(:url_path, Routes.path("/admin/libraries"))
   end
@@ -145,6 +142,26 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
     |> assign(:role, role)
     |> assign(:page_title, library.name)
     |> assign(:url_path, library_path(library, socket))
+    |> assign(:header_section, gettext("Libraries"))
+    |> assign(:header_switcher, library_switcher(socket, library, role))
+  end
+
+  # The ▾ beside the library's name lists the viewer's own and shared libraries.
+  # Every row is a `patch` to a path built here from that list. An Owner/Admin
+  # looking at someone else's library (`:admin`) has nothing to switch between.
+  defp library_switcher(socket, library, role) do
+    libraries = socket.assigns.libraries || []
+
+    if role != :admin and length(libraries) > 1 do
+      %{
+        title: gettext("Switch library"),
+        search_placeholder: gettext("Search libraries…"),
+        items:
+          for %{library: l} <- libraries do
+            %{label: l.name, patch: library_path(l, socket), current: l.uuid == library.uuid}
+          end
+      }
+    end
   end
 
   defp others(scope, mine) do

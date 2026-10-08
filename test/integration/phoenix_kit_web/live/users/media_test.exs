@@ -315,7 +315,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
 
       {:ok, _view, html} = live(conn, @media_path)
 
-      refute html =~ "media-library-switcher"
+      refute html =~ "pk-title-switcher"
       refute html =~ "New library"
     end
 
@@ -325,7 +325,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} = live(conn, @media_path)
-      assert html =~ "media-library-switcher"
+      assert html =~ "pk-title-switcher"
     end
 
     test "/library/<slug> opens that library, and folder navigation stays on it", %{conn: conn} do
@@ -335,7 +335,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
       conn = log_in_user(conn, user)
 
       {:ok, view, html} = live(conn, library_path(library))
-      assert html =~ "media-library-switcher"
+      assert html =~ "pk-title-switcher"
 
       send(
         view.pid,
@@ -353,13 +353,28 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
       {:ok, library} = Libraries.create_system_library(%{name: "S #{System.unique_integer()}"})
       conn = log_in_user(conn, user)
 
-      {:ok, view, _html} = live(conn, @media_path)
+      {:ok, view, html} = live(conn, @media_path)
+      # The title is the library on screen; the switcher hangs off it.
+      assert html =~ "pk-title-switcher"
 
-      view |> form("#media-library-switcher", %{library: library.slug}) |> render_change()
+      view |> element("#pk-title-switcher-list a", library.name) |> render_click()
       assert_patch(view, library_path(library))
+      assert render(view) =~ ~s(aria-current="page")
+      # The section crumb names Media on any library but the default one.
+      assert has_element?(
+               view,
+               ~s(a.font-semibold[data-phx-link="redirect"][href="#{@media_path}"]),
+               "Media"
+             )
 
-      view |> form("#media-library-switcher", %{library: ""}) |> render_change()
+      view |> element("#pk-title-switcher-list a", "Media") |> render_click()
       assert_patch(view, @media_path)
+      # On the default library "Media" is the title itself, not a crumb above it.
+      refute has_element?(
+               view,
+               ~s(a.font-semibold[data-phx-link="redirect"][href="#{@media_path}"]),
+               "Media"
+             )
     end
 
     test "a slug that names no library goes back to the default, it is not shown as Media", %{
