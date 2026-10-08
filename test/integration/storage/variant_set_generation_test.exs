@@ -415,6 +415,29 @@ defmodule PhoenixKit.Modules.Storage.VariantSetGenerationTest do
       assert Storage.variant_for(file, min_width: 100_000) == "large"
     end
 
+    test "a size made for a shape is offered to files of that shape only", ctx do
+      {:ok, _} =
+        Storage.create_dimension(
+          %{
+            name: "banner_1200",
+            width: 1200,
+            height: 300,
+            maintain_aspect_ratio: false,
+            quality: 80,
+            applies_to: "image",
+            shape: "wide"
+          },
+          ctx.set.uuid
+        )
+
+      base = %Storage.File{library_uuid: ctx.library.uuid, file_type: "image"}
+      wide = %{base | width: 4000, height: 1500}
+      portrait = %{base | width: 1500, height: 4000}
+
+      assert Storage.variant_for(wide, aspect: :crop, min_width: 1000) == "banner_1200"
+      assert Storage.variant_for(portrait, aspect: :crop, min_width: 1000) == "original"
+    end
+
     test "a file whose set has no fitting size gets the original", ctx do
       file = %Storage.File{library_uuid: ctx.library.uuid, file_type: "image"}
       assert Storage.variant_for(file, aspect: :crop, min_width: 100_000) == "original"

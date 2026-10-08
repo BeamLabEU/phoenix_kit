@@ -2613,6 +2613,7 @@ defmodule PhoenixKit.Modules.Storage do
         |> exclude_system_managed()
         |> maybe_filter_file_type(file_type)
         |> Shape.filter(opts[:shape])
+        |> only_images_when_shaped(opts[:shape])
         |> where_library(opts[:library_uuid])
         |> where_viewer(opts[:viewer_uuid])
 
@@ -2628,6 +2629,12 @@ defmodule PhoenixKit.Modules.Storage do
       {files, total}
     end
   end
+
+  # Wide and tall are about a picture: a 2.39:1 video or a phone screen
+  # recording is neither a panorama (the badge marks images only) nor a
+  # portrait, so a shape filter lists images whatever type the toolbar is on.
+  defp only_images_when_shaped(query, shape) when shape in [nil, "", "all"], do: query
+  defp only_images_when_shaped(query, _shape), do: where(query, [f], f.file_type == "image")
 
   # Narrows the listing to a single file_type ("image", "video", "document",
   # "audio", "archive", "other"); "all"/nil leaves it unfiltered.

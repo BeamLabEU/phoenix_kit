@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Locations, Manager, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Locations, Manager, Profiles}
   alias PhoenixKit.Settings
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth

@@ -5,16 +5,25 @@ defmodule PhoenixKit.Integration.Utils.DateSiteZoneTest do
   stored UTC clock.
   """
 
-  use PhoenixKit.DataCase, async: true
+  use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.TimeZone
 
+  # The zone is read through the settings cache, which a write only invalidates
+  # by cast and which outlives the sandbox rollback: evict it synchronously
+  # after each write and again on the way out, so no value leaks to a later test.
+  defp put_zone(zone) do
+    {:ok, _} = Settings.update_setting("time_zone", zone)
+    PhoenixKit.Cache.invalidate_now(:settings, ["time_zone"])
+  end
+
   setup do
     {:ok, _} = Settings.update_setting("date_format", "d.m.Y")
     {:ok, _} = Settings.update_setting("time_format", "H:i")
-    {:ok, _} = Settings.update_setting("time_zone", "Europe/Tallinn")
+    put_zone("Europe/Tallinn")
+    on_exit(fn -> PhoenixKit.Cache.invalidate_now(:settings, ["time_zone"]) end)
     :ok
   end
 
@@ -38,32 +47,32 @@ defmodule PhoenixKit.Integration.Utils.DateSiteZoneTest do
     end
 
     test "a site with no zone set keeps UTC" do
-      {:ok, _} = Settings.update_setting("time_zone", "0")
+      put_zone("0")
       assert UtilsDate.format_datetime_full_with_user_format(@summer) == "07.10.2026 15:31"
     end
 
     test "a blank zone keeps UTC" do
-      {:ok, _} = Settings.update_setting("time_zone", "")
+      put_zone("")
       assert UtilsDate.format_datetime_full_with_user_format(@summer) == "07.10.2026 15:31"
     end
 
     test "a legacy numeric offset still shifts by its hours, fractional too" do
-      {:ok, _} = Settings.update_setting("time_zone", "2")
+      put_zone("2")
       assert UtilsDate.format_datetime_full_with_user_format(@summer) == "07.10.2026 17:31"
 
-      {:ok, _} = Settings.update_setting("time_zone", "5.5")
+      put_zone("5.5")
       assert UtilsDate.format_datetime_full_with_user_format(@summer) == "07.10.2026 21:01"
     end
 
     test "a zone west of UTC can move the date back a day" do
-      {:ok, _} = Settings.update_setting("time_zone", "America/New_York")
+      put_zone("America/New_York")
 
       assert UtilsDate.format_datetime_full_with_user_format(~U[2026-10-08 02:00:00Z]) ==
                "07.10.2026 22:00"
     end
 
     test "an unknown zone leaves the clock as stored instead of failing" do
-      {:ok, _} = Settings.update_setting("time_zone", "Mars/Olympus")
+      put_zone("Mars/Olympus")
       assert UtilsDate.format_datetime_full_with_user_format(@summer) == "07.10.2026 15:31"
     end
 
@@ -72,11 +81,11 @@ defmodule PhoenixKit.Integration.Utils.DateSiteZoneTest do
 
       assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 18:31"
 
-      {:ok, _} = Settings.update_setting("time_zone", "2")
+      put_zone("2")
       assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 17:31"
 
       # No zone is UTC, whatever zone the value came in.
-      {:ok, _} = Settings.update_setting("time_zone", "0")
+      put_zone("0")
       assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 15:31"
     end
 

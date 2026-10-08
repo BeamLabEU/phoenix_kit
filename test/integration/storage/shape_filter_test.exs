@@ -25,15 +25,15 @@ defmodule PhoenixKit.Integration.Storage.ShapeFilterTest do
     %{user: user, library: library}
   end
 
-  defp file!(ctx, name, width, height) do
+  defp file!(ctx, name, width, height, type \\ "image") do
     n = System.unique_integer([:positive])
 
     Repo.insert!(%StorageFile{
       original_file_name: name,
       file_name: name,
-      mime_type: "image/jpeg",
-      file_type: "image",
-      ext: "jpg",
+      mime_type: if(type == "image", do: "image/jpeg", else: "video/mp4"),
+      file_type: type,
+      ext: if(type == "image", do: "jpg", else: "mp4"),
       file_checksum: "sha256:shape-#{n}",
       user_file_checksum: "user-sha256:shape-#{n}",
       size: 10,
@@ -84,6 +84,16 @@ defmodule PhoenixKit.Integration.Storage.ShapeFilterTest do
   test "a file without a size is neither wide nor tall", ctx do
     refute "nosize.jpg" in names(ctx, :wide)
     refute "nosize.jpg" in names(ctx, :tall)
+  end
+
+  test "a shape lists pictures only: a wide or tall video is neither a panorama nor a portrait",
+       ctx do
+    file!(ctx, "cinema.mp4", 2390, 1000, "video")
+    file!(ctx, "screen_recording.mp4", 1000, 2170, "video")
+
+    assert names(ctx, :wide) == ["pano.jpg", "pano_2to1.jpg"]
+    assert names(ctx, :tall) == ["pin.jpg", "strip.jpg"]
+    assert "cinema.mp4" in names(ctx, nil)
   end
 
   test "the ratio follows an edit of the size, with nothing to keep it right", ctx do

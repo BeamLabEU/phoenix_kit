@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "2.57.1"
+  @version "2.58.0"
   @description "A foundation for building Elixir Phoenix apps — SaaS, social networks, ERP systems, marketplaces, and more"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -195,12 +195,12 @@ defmodule PhoenixKit.MixProject do
       # line and makes every later `or ~> 0.6 or ~> 0.7 or ~> 0.8` inert, so
       # the enumeration reads as a curated window while admitting leaf 0.9 and
       # everything after it. That matters here more than for an ordinary dep:
-      # `priv/static/assets/phoenix_kit.js` serves the browser half from an
-      # exact jsDelivr tag, so an open ceiling lets a host float the Elixir
-      # half past a frozen bundle — the silent cross-version editor exactly
-      # that pin exists to prevent. `~> 0.8.0` is `>= 0.8.0 and < 0.9.0`, so
-      # the next leaf minor needs the same three-file PR that moved this one.
-      # `leaf_bundle_pin_test.exs` holds the ceiling to the pinned minor.
+      # `priv/static/assets/phoenix_kit.js` loads the browser half from the
+      # host's own copy of the Hex package's file, so an open ceiling lets a
+      # host float past the API phoenix_kit.js was written against.
+      # `~> 0.8.0` is `>= 0.8.0 and < 0.9.0`, so the next leaf minor needs a
+      # requirement move and a read of phoenix_kit.js's use of it. No test
+      # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       {:leaf, "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
@@ -234,22 +234,23 @@ defmodule PhoenixKit.MixProject do
       # PhoenixKit doesn't call those yet so the bump is pure
       # additive. JS hooks ship in each lib's `priv/static/`; parent
       # apps either import them directly in `app.js` or rely on the
-      # lazy-load wrappers in phoenix_kit.js (jsdelivr-pinned to the
-      # matching version).
+      # lazy-load wrappers in phoenix_kit.js (served from the host's own
+      # copy of the matching version).
       # Tessera 0.3 was rewritten for Fresco's engine — a peer layer (like
       # Etcher) that swaps raster resolutions on zoom and streams DZI tiles
       # of the original for deep zoom on >4K images (no OpenSeadragon). The
       # tile overlay rides Fresco's stage transform so it stays glued to the
-      # image. JS hooks lazy-load from jsdelivr pinned to the matching tag.
+      # image. JS hooks lazy-load from the host's copy of the matching version.
       #
       # Ceilings carry a patch segment for the same reason :leaf's do (see
-      # the comment there): each of these serves its browser half from an
-      # exact jsDelivr tag in phoenix_kit.js, and a patch-less `~> 0.N`
-      # reads as "the 0.N line" while meaning `< 1.0.0` — an open ceiling
-      # that lets a host float the Elixir half past the frozen bundle the
-      # day the next minor ships. `vendored_cdn_pins_test.exs` holds each
-      # ceiling to the pinned minor; the next minor of any of them needs
-      # the same requirement + lock + CDN-pin move :leaf gets.
+      # the comment there): the browser half of each is the file the Hex
+      # package ships, copied into the host by the compiler, and
+      # phoenix_kit.js is written against that exact API. A patch-less
+      # `~> 0.N` reads as "the 0.N line" while meaning `< 1.0.0` — an open
+      # ceiling that lets a host float past what phoenix_kit.js was written
+      # against. No test holds these ceilings any more (the CDN-tag tests went
+      # with the CDN pins): keeping them to the tested minor is a manual
+      # rule, and the next minor needs a read of phoenix_kit.js's use of it.
       #
       # :etcher's FLOOR is load-bearing too, not just its ceiling: core's own
       # markup passes `panel_offset` (0.13.2) and `connectors={:off}`

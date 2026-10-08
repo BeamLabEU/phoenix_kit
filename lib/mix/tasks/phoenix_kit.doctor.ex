@@ -2347,6 +2347,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   # modal scrollbar-gutter handling — this check is where a host finds out
   # it's behind (install/update print the same warning).
   @vendored_bundle "priv/static/assets/vendor/phoenix_kit.js"
+  @library_facts_file "priv/static/assets/vendor/phoenix_kit_modules.js"
 
   @doc false
   # Pure, so every verdict is testable without a host project: `app` is the
@@ -2382,11 +2383,44 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   defp check_viewer_libraries do
     config = Mix.Project.config()
 
-    viewer_libraries_verdict(
-      config[:app],
-      config[:compilers],
-      File.exists?(@vendored_bundle)
-    )
+    verdict =
+      viewer_libraries_verdict(
+        config[:app],
+        config[:compilers],
+        File.exists?(@vendored_bundle)
+      )
+
+    with {:pass, _} <- verdict,
+         true <- config[:app] != :phoenix_kit,
+         {:warn, _} = warning <- viewer_library_facts_verdict(@library_facts_file) do
+      warning
+    else
+      _ -> verdict
+    end
+  end
+
+  @doc false
+  # The bundle names no library file itself: the compiler writes the names into
+  # `phoenix_kit_modules.js`, which a root layout has to load after the bundle.
+  # A host that never got that script tag (a custom root layout) has a bundle
+  # that finds no library at all — every viewer fails with "facts".
+  def viewer_library_facts_verdict(path) do
+    case File.read(path) do
+      {:ok, content} ->
+        if String.contains?(content, "PHOENIX_KIT_LIBS") do
+          {:pass, "#{path} names the library files"}
+        else
+          {:warn,
+           "#{path} does not name the viewer libraries. Run `mix compile`, then make sure " <>
+             "the root layout loads it after phoenix_kit.js " <>
+             "(`<script src={~p\"/assets/vendor/phoenix_kit_modules.js\"}></script>`)."}
+        end
+
+      {:error, _} ->
+        {:warn,
+         "#{path} is missing, so the viewer libraries have no file names to load. " <>
+           "Run `mix compile` (or `mix phoenix_kit.update`)."}
+    end
   end
 
   defp check_daisyui do

@@ -281,7 +281,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
     Enum.reduce(@view_option_defaults, query, fn {key, default}, acc ->
       case p[key] do
         value when value in [nil, "", default] -> acc
-        value -> Map.put(acc, Atom.to_string(key), value)
+        # A URL can carry `?type[a]=b`; `URI.encode_query` raises on a map.
+        value when is_binary(value) -> Map.put(acc, Atom.to_string(key), value)
+        _other -> acc
       end
     end)
   end

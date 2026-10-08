@@ -164,7 +164,10 @@ if (typeof window.Chart === "undefined") {
     var entry = facts && facts[key];
     var base = pkLibBase();
     if (!entry || !entry.file || !base) return null;
-    return { local: base + entry.file, cdn: entry.cdn || null };
+    // `?vsn=` is what makes Plug.Static send the one-year immutable cache header;
+    // the file name already carries the version and content hash, so it is only
+    // the switch, never a cache key.
+    return { local: base + entry.file + "?vsn=d", cdn: entry.cdn || null };
   }
 
   var LIBRARY_MAX_ATTEMPTS = 2;
@@ -217,6 +220,10 @@ if (typeof window.Chart === "undefined") {
     document.addEventListener("securitypolicyviolation", function(e) {
       if (e.disposition === "report") return;
       var blocked = e.blockedURI || "";
+      // "inline", "eval", "data", "blob", "" and the like are keywords, not
+      // URLs: resolved against the page they would read as the page's own
+      // origin and pin a same-origin library failure on an unrelated violation.
+      if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(blocked)) return;
       var full = pkLibNormalize(blocked);
       var origin = pkLibOrigin(blocked);
       var directive = e.effectiveDirective || e.violatedDirective || null;

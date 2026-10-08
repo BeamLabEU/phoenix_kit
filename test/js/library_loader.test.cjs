@@ -153,6 +153,17 @@ test("report-only and unrelated violations are never pinned on a library", async
   assert.strictEqual(window.__pkLibFailures.Fresco.reason, "load");
 });
 
+test("CSP keywords (inline, eval, empty) never pin a same-origin library failure on a csp", async () => {
+  const { lib, scripts, window, violate } = page();
+  const p = lib.load("Fresco", "https://app.test/assets/lib/fresco.js", { check: () => false });
+  violate("inline");
+  violate("eval");
+  violate("");
+  scripts[0].onerror();
+  await assert.rejects(p);
+  assert.strictEqual(window.__pkLibFailures.Fresco.reason, "load");
+});
+
 test("a failure is announced once per library, not once per waiter", async () => {
   const { lib, scripts, events } = page();
   const ps = [1, 2, 3].map(() => lib.load("Etcher", "/etcher.js", { check: () => false }));
@@ -282,13 +293,13 @@ const FACTS = {
 test("library files resolve next to the bundle, by the names the install facts give", () => {
   const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit-1a2b3c.js?vsn=d", facts: FACTS });
   assert.deepStrictEqual(p.lib.urls("fresco"),
-    { local: "https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js", cdn: null },
+    { local: "https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js?vsn=d", cdn: null },
     "dirname of the bundle's own URL (digested name and query stripped) + lib/");
 });
 
 test("an explicit base wins, for hosts that bundle core into their own app.js", () => {
   const p = page({ scriptSrc: "https://app.test/assets/app.js", facts: FACTS, libBase: "https://cdn.app.test/pk" });
-  assert.strictEqual(p.lib.urls("fresco").local, "https://cdn.app.test/pk/fresco-0.13.1-3f9a1c00.js");
+  assert.strictEqual(p.lib.urls("fresco").local, "https://cdn.app.test/pk/fresco-0.13.1-3f9a1c00.js?vsn=d");
 });
 
 test("the facts are read when a library is needed — they load after the bundle", () => {
@@ -316,7 +327,7 @@ test("the vendored file is the only request by default — no CDN after a local 
   const pr = p.lib.loadVendored("Fresco", "fresco", { check: () => false });
   p.scripts[0].onerror();
   await assert.rejects(pr);
-  assert.deepStrictEqual(p.scripts.map((s) => s.src), ["https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js"]);
+  assert.deepStrictEqual(p.scripts.map((s) => s.src), ["https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js?vsn=d"]);
 });
 
 test("an opted-in CDN is tried once after the local copy fails, and a rescue leaves no alert", async () => {

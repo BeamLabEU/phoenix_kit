@@ -590,7 +590,9 @@ defmodule PhoenixKit.Utils.Date do
 
   defp in_site_zone(value), do: value
 
-  defp site_time_zone, do: Settings.get_setting("time_zone", "0")
+  # Cached, unlike the two format keys: a list renders one formatted instant
+  # per row, and the zone is read for each of them on top of the format.
+  defp site_time_zone, do: Settings.get_setting_cached("time_zone", "0")
 
   # A `NaiveDateTime` is UTC here, as in every other function of this module;
   # a `Date`, a `Time` or anything else has no instant to move and is returned
@@ -712,7 +714,8 @@ defmodule PhoenixKit.Utils.Date do
   This function accepts pre-loaded settings to avoid database queries,
   providing significant performance improvements when formatting many dates.
   When the settings carry `"time_zone"`, the date is the one in that zone (a
-  `NaiveDateTime` is read as UTC); without it, the date is taken as given.
+  `NaiveDateTime` is read as UTC); without it, UTC (a `DateTime` in another
+  zone is brought to UTC first).
 
   ## Examples
 

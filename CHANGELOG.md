@@ -1,3 +1,76 @@
+## 2.58.0 - 2026-10-08
+
+Migrations **V212, V213 and V214** (run `mix phoenix_kit.update`). The viewer's JavaScript libraries now come from
+the host's own origin: run `mix phoenix_kit.update` (or `mix compile` with the `:phoenix_kit_js_sources` compiler)
+so they are copied into `priv/static/assets/vendor/lib/`. Etcher's floor is now `~> 0.20.0`.
+
+### Added
+
+- **The viewer libraries are served from the host's own origin** (PR #915). Fresco, Tessera, Etcher, Leaf,
+  SortableJS, Panzoom and wavesurfer are copied into the host's `priv/static/assets/vendor/lib/` as
+  `<name>-<version>-<hash>.js` by the compiler (and by `phoenix_kit.update` / `install`), so a host with
+  `script-src 'self'` keeps zoom, the editor, annotations, sortable lists and the waveform, and no viewer open
+  makes a third-party request. `phoenix_kit.js` names no library URL: the file names come from install facts
+  (`window.PHOENIX_KIT_LIBS`, written into `phoenix_kit_modules.js`). A CDN is tried only on the host's opt-in
+  (`config :phoenix_kit, library_cdn_fallback: true`, read at compile time). Library URLs carry `?vsn=` so
+  Plug.Static caches them for good.
+- **One library loader and an admin notice when a viewer library fails to load.** Failures are classified from
+  evidence (CSP violation with its directive, or a plain load failure) and shown to Owners and Admins, with
+  the console line and a `pk:library-failed` event. `mix phoenix_kit.doctor` checks the compiler, the bundle
+  and the install facts.
+- **A file's aspect ratio and a Shape filter** (V212). `phoenix_kit_files.aspect_ratio` is a generated column
+  (`width / height`, Postgres 12+); `Storage.Shape` reads it (wide from 2:1, tall from 1:2) and
+  `list_files_in_scope/2` takes `shape: :wide | :tall` (pictures only). Media's Filter menu gets a Shape
+  section, and the grid marks a panorama with a badge. Type, sort and shape live in the URL.
+- **New sizes in the Default set** (V213, V214). `thumbnail_square` and `small_square` (cropped around the
+  subject), `mini_square` (64 px) and the panorama sizes `thumbnail_wide`, `small_wide` and `medium_wide`,
+  made only for wide pictures. A size has a `shape` (any, wide or tall; the standard sizes stay for every
+  picture) and the rendition form a "Made for" select. The migrations add them to installs with no files yet;
+  a site with files is left alone, and "Reset to defaults" brings them. Grid cards use `small_square` and
+  list rows `thumbnail_square` when a file has them.
+- **The date formatters show the site time zone** (PR #916). `format_datetime_full_with_user_format/1`,
+  `format_datetime_with_user_format/1`, `format_date_with_user_format/1`, `format_time_with_user_format/1`,
+  `format_short_datetime/1` and the `*_with_cached_settings` variants move a `DateTime` (or a `NaiveDateTime`
+  read as UTC) into the site's time zone, where they printed the stored UTC clock. A `DateTime` in another
+  zone is brought to UTC first, so no unset zone ("0", "", nil) needs a time zone database.
+
+### Fixed
+
+- **An upload into a second library no longer clones files from another library.** The duplicate lookup
+  matched any library placed alike; a donor must now be in the same library.
+- **The Media toolbar menus show the chosen row** (daisyUI 5 renamed `active` to `menu-active`; also on
+  Activity and Users), and the Filter button names the type and shape in use.
+- **A keyword CSP violation (`inline`, `eval`, empty) no longer reads as the cause of a library failure.**
+  Only a violation for an absolute URL is matched against a library.
+- **The library notice no longer logs a missing-Gettext-bindings error on every admin render.**
+- **A cut-short library write is repaired.** A vendored library is written to a temporary file and renamed,
+  and rewritten when its size is wrong.
+- **The wide/tall filter lists pictures only**, as the panorama badge does; a wide video is not a panorama.
+- **`VariantSets.variant_for/2` and `stand_in/3` skip a size made for another shape.**
+- **A URL with `?type[a]=b` no longer crashes the Media page on the next navigation.**
+- **The date formatters read the time zone through the settings cache** (one extra uncached read per formatted
+  value in a list otherwise).
+
+### Changed
+
+- **Etcher's floor is `~> 0.20.0`** (it honours `sortableUrl` / `loadSortableFromCdn = false`); the lock moves
+  to 0.20.0, `phoenix_pubsub` 2.4.1 and `swoosh` 1.29.0.
+- The CDN-pin tests (`leaf_bundle_pin_test.exs`, most of `vendored_cdn_pins_test.exs`) are gone with the CDN
+  pins; the dependency ceilings in `mix.exs` are now a manual rule, and the comments say so.
+
+### Known limits
+
+- A 90°/270° rotation made in the viewer is stored in `metadata["rotation"]` only, so such a file keeps the
+  shape of its unrotated size (EXIF orientation is handled).
+- Renditions of a size whose shape stopped fitting a file (after an edit or a shape change) are kept, not
+  removed; the reconciler does not add the new ones until the set's revision moves.
+- `phoenix_kit_sortable.js` (the host-importable legacy loader) still loads SortableJS from jsDelivr.
+
+### i18n
+
+- New strings (library notice, Shape filter, panorama badge, "Made for") in all seven locales; the `en`
+  catalog's two fuzzy flags are cleared.
+
 ## 2.57.1 - 2026-10-08
 
 ### Fixed

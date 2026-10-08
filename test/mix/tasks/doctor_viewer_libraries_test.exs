@@ -26,4 +26,26 @@ defmodule Mix.Tasks.PhoenixKit.DoctorViewerLibrariesTest do
   test "phoenix_kit's own checkout has nothing to check" do
     assert {:pass, _} = Doctor.viewer_libraries_verdict(:phoenix_kit, nil, false)
   end
+
+  describe "viewer_library_facts_verdict/1" do
+    @describetag :tmp_dir
+
+    test "a file naming the libraries passes", %{tmp_dir: dir} do
+      path = Path.join(dir, "phoenix_kit_modules.js")
+      File.write!(path, ~s(window.PHOENIX_KIT_LIBS={"fresco":{"file":"f.js","cdn":null}};))
+      assert {:pass, _} = Doctor.viewer_library_facts_verdict(path)
+    end
+
+    test "a file without the install facts warns, naming the script tag", %{tmp_dir: dir} do
+      path = Path.join(dir, "phoenix_kit_modules.js")
+      File.write!(path, "// hooks only")
+      assert {:warn, msg} = Doctor.viewer_library_facts_verdict(path)
+      assert msg =~ "phoenix_kit_modules.js"
+    end
+
+    test "a missing file warns to compile", %{tmp_dir: dir} do
+      assert {:warn, msg} = Doctor.viewer_library_facts_verdict(Path.join(dir, "nope.js"))
+      assert msg =~ "mix compile"
+    end
+  end
 end

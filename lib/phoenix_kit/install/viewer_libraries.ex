@@ -118,8 +118,13 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       file = file_name(lib.name, vsn, content)
       dest = Path.join(dir, file)
 
-      unless File.exists?(dest) do
-        File.write!(dest, content)
+      # The name carries the content hash, so a file of the wrong size is a
+      # write that was cut short: write it again rather than trust it. The
+      # rename keeps a half-written file from ever sitting under the final name.
+      unless File.exists?(dest) and File.stat!(dest).size == byte_size(content) do
+        tmp = dest <> ".tmp"
+        File.write!(tmp, content)
+        File.rename!(tmp, dest)
         Mix.shell().info("[PhoenixKit] Vendored #{@lib_dir}/#{file}")
       end
 

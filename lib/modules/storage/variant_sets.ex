@@ -36,6 +36,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   alias PhoenixKit.Modules.Storage.{Audit, Dimension, Library, VariantGenerator, VariantSet}
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.Workers.ReconcileJob
   alias PhoenixKit.Settings
 
@@ -587,6 +588,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
          %Dimension{width: width, enabled: true} = dimension when is_integer(width) <-
            size_named(set.uuid, variant),
          true <- dimension.applies_to in [file_kind(file), "both"],
+         true <- shape_fits?(dimension, file),
          true <- image_output?(file, dimension, variant) do
       smaller =
         instances
@@ -659,7 +661,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
       |> list_dimensions()
       |> Enum.filter(fn d ->
         d.enabled and d.name != "original" and is_integer(d.width) and
-          d.applies_to in [kind, "both"] and aspect_fits?(d, aspect) and
+          d.applies_to in [kind, "both"] and shape_fits?(d, file) and aspect_fits?(d, aspect) and
           output_fits?(file, d, output)
       end)
 
@@ -677,6 +679,11 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   end
 
   defp output_fits?(_file, _dimension, output), do: output == :image
+
+  # A size made for a shape is made only for files of that shape (as
+  # `VariantGenerator` decides), so it is never one to ask for another's.
+  defp shape_fits?(%{shape: shape}, _file) when shape in [nil, "any"], do: true
+  defp shape_fits?(%{shape: shape}, file), do: to_string(Shape.classify(file)) == shape
 
   defp aspect_fits?(_dimension, :any), do: true
   defp aspect_fits?(dimension, :preserve), do: dimension.maintain_aspect_ratio == true
