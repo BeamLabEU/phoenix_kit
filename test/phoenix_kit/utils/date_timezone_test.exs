@@ -184,6 +184,25 @@ defmodule PhoenixKit.Utils.Date.TimezoneTest do
     end
   end
 
+  describe "format_datetime_with_cached_settings/2" do
+    test "gives the date in the settings' time zone" do
+      settings = %{"date_format" => "d.m.Y", "time_zone" => "Europe/Tallinn"}
+
+      assert DateUtils.format_datetime_with_cached_settings(~U[2026-12-31 22:30:00Z], settings) ==
+               "01.01.2027"
+
+      assert DateUtils.format_datetime_with_cached_settings(~N[2026-12-31 22:30:00], settings) ==
+               "01.01.2027"
+    end
+
+    test "without a time zone takes the date as given" do
+      settings = %{"date_format" => "d.m.Y"}
+
+      assert DateUtils.format_datetime_with_cached_settings(~U[2026-12-31 22:30:00Z], settings) ==
+               "31.12.2026"
+    end
+  end
+
   describe "get_user_timezone/1 and get_user_timezone_cached/2" do
     test "a blank value is unset, not a zone of its own" do
       site = PhoenixKit.Settings.get_setting("time_zone", "0")

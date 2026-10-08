@@ -128,11 +128,16 @@ defmodule PhoenixKit.Utils.Date do
 
   For the places that reached for `Calendar.strftime(dt, "%b %d, %Y at %H:%M")`
   and silently got English month names on a translated page.
+
+  Shown in the site time zone (Settings → `time_zone`); a `NaiveDateTime` is
+  read as UTC.
   """
   @spec format_short_datetime(DateTime.t() | NaiveDateTime.t() | nil) :: String.t()
   def format_short_datetime(nil), do: ""
 
   def format_short_datetime(datetime) do
+    datetime = in_site_zone(datetime)
+
     "#{short_month(datetime.month)} #{pad2(datetime.day)}, #{datetime.year}" <>
       " at #{pad2(datetime.hour)}:#{pad2(datetime.minute)}"
   end
@@ -328,12 +333,16 @@ defmodule PhoenixKit.Utils.Date do
   end
 
   ## Settings-Aware Functions
-  ## These functions automatically load format preferences from Settings
+  ## These functions automatically load format preferences from Settings.
+  ## An instant (a `DateTime`, or a `NaiveDateTime`, read as UTC) is shown in
+  ## the site time zone (Settings → `time_zone`); a `Date` or a `Time` has no
+  ## instant to move and is formatted as given.
 
   @doc """
   Formats a datetime using the user's date format preference from Settings.
 
-  Automatically loads the date_format setting and applies it to the datetime.
+  Automatically loads the date_format setting and applies it to the datetime,
+  in the site time zone — 23:30 UTC on a site in UTC+3 is the next day.
   Returns "Never" for nil values.
 
   ## Examples
@@ -346,13 +355,14 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_datetime_with_user_format(datetime) do
     date_format = Settings.get_setting("date_format", "Y-m-d")
-    format_datetime(datetime, date_format)
+    format_datetime(in_site_zone(datetime), date_format)
   end
 
   @doc """
   Formats a date using the user's date format preference from Settings.
 
-  Automatically loads the date_format setting and applies it to the date.
+  Automatically loads the date_format setting and applies it to the date. A
+  `DateTime` or `NaiveDateTime` gives its date in the site time zone.
 
   ## Examples
 
@@ -361,19 +371,20 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_date_with_user_format(date) do
     date_format = Settings.get_setting("date_format", "Y-m-d")
-    format_date(date, date_format)
+    format_date(in_site_zone(date), date_format)
   end
 
   @doc """
   Formats a time using the user's time format preference from Settings.
-  Automatically loads the time_format setting and applies it to the time.
+  Automatically loads the time_format setting and applies it to the time. A
+  `DateTime` or `NaiveDateTime` gives its time in the site time zone.
   ## Examples
       iex> PhoenixKit.Utils.Date.format_time_with_user_format(~T[15:30:00])
       "3:30 PM"  # If user has "h:i A" format selected
   """
   def format_time_with_user_format(time) do
     time_format = Settings.get_setting("time_format", "H:i")
-    format_time(time, time_format)
+    format_time(in_site_zone(time), time_format)
   end
 
   @doc """
@@ -403,8 +414,8 @@ defmodule PhoenixKit.Utils.Date do
   @doc """
   Formats a datetime showing both date and time using user preferences from Settings.
 
-  Automatically loads date_format and time_format settings and applies them.
-  Returns "Never" for nil values.
+  Automatically loads date_format and time_format settings and applies them,
+  in the site time zone. Returns "Never" for nil values.
 
   ## Examples
 
@@ -417,7 +428,7 @@ defmodule PhoenixKit.Utils.Date do
   def format_datetime_full_with_user_format(datetime) do
     date_format = Settings.get_setting("date_format", "Y-m-d")
     time_format = Settings.get_setting("time_format", "H:i")
-    format_datetime_full(datetime, date_format, time_format)
+    format_datetime_full(in_site_zone(datetime), date_format, time_format)
   end
 
   @doc """
@@ -569,6 +580,23 @@ defmodule PhoenixKit.Utils.Date do
   # unshifted — every UTC+5:30 and +9:30 account was quietly reading UTC.
   defp shift_to_timezone_offset(datetime, timezone), do: TimeZone.shift(datetime, timezone)
 
+  # An instant in the site time zone, for the Settings-aware formatters that
+  # take no user. They read the date and time formats from Settings and used
+  # to print the stored UTC clock as if it were local. Read through the
+  # settings cache (a write invalidates it): these run once per row of a list.
+  defp in_site_zone(value), do: in_zone(value, Settings.get_setting_cached("time_zone", "0"))
+
+  # A `NaiveDateTime` is UTC here, as in every other function of this module;
+  # a `Date`, a `Time` or anything else has no instant to move and is returned
+  # untouched. No zone (`nil`/`""`) leaves the clock as stored.
+  defp in_zone(value, zone) when zone in [nil, ""], do: value
+  defp in_zone(%DateTime{} = datetime, zone), do: shift_to_timezone_offset(datetime, zone)
+
+  defp in_zone(%NaiveDateTime{} = naive, zone),
+    do: naive |> DateTime.from_naive!("Etc/UTC") |> shift_to_timezone_offset(zone)
+
+  defp in_zone(value, _zone), do: value
+
   # Cached variant of format_datetime_with_timezone
   defp format_datetime_with_timezone_cached(datetime, format, user, settings) do
     case datetime do
@@ -662,6 +690,8 @@ defmodule PhoenixKit.Utils.Date do
 
   This function accepts pre-loaded settings to avoid database queries,
   providing significant performance improvements when formatting many dates.
+  When the settings carry `"time_zone"`, the date is the one in that zone (a
+  `NaiveDateTime` is read as UTC); without it, the date is taken as given.
 
   ## Examples
 
@@ -676,7 +706,7 @@ defmodule PhoenixKit.Utils.Date do
 
   def format_datetime_with_cached_settings(datetime, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    date = NaiveDateTime.to_date(datetime)
+    date = datetime |> in_zone(Map.get(settings, "time_zone")) |> NaiveDateTime.to_date()
     format_date(date, date_format)
   end
 
