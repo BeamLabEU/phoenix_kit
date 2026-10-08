@@ -439,7 +439,8 @@ defmodule PhoenixKit.Modules.Storage.ImageEditingTest do
   end
 
   describe "overlapping runs" do
-    # A fresh install's Default set carries the smart squares (V213), which crop around the subject; this starts from a set with no focus crop.
+    # A fresh install's Default set carries the smart squares (V213);
+    # this starts from a set with no subject crop.
     setup do
       Repo.delete_all(
         from d in PhoenixKit.Modules.Storage.Dimension, where: d.crop_mode == "focus"

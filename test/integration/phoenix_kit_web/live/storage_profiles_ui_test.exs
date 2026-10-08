@@ -604,7 +604,8 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "a rendition cropped at the middle keeps saying so", %{conn: conn} do
-      # A fresh install's Default set carries the smart squares (V213), which crop around the subject; this starts from a set with no focus crop.
+      # A fresh install's Default set carries the smart squares (V213);
+      # this starts from a set with no subject crop.
       import Ecto.Query, only: [from: 2]
 
       Repo.delete_all(

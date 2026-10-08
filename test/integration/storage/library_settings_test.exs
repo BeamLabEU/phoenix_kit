@@ -231,7 +231,8 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
     alias PhoenixKit.Modules.Storage.Dimension
     alias PhoenixKit.Modules.Storage.VariantSets
 
-    # A fresh install's Default set carries the smart squares (V213), which crop around the subject; this starts from a set with no focus crop.
+    # A fresh install's Default set carries the smart squares (V213);
+    # this starts from a set with no subject crop.
     setup do
       Repo.delete_all(from d in Dimension, where: d.crop_mode == "focus")
       :ok
