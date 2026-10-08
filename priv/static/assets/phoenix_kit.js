@@ -5174,6 +5174,10 @@ if (typeof window.Chart === "undefined") {
   //   * closed → focus returns to the ▾ when it was inside the panel (or
   //     dropped to the page), never when the user has moved on elsewhere;
   //   * the ▾'s aria-expanded follows the panel.
+  //   * a picked row closes the panel again once the patch it triggered has
+  //     landed. The row's own hide runs through a 200ms transition and the
+  //     patch re-renders the header around it; on a page that re-renders a lot
+  //     the panel was seen left open over the new library (Media, 2026-10-08).
   // Deliberately not done in PopoverPanel's Escape handler: every panel on a
   // page listens for Escape, so a focus move there would fire for all of them.
   // ---------------------------------------------------------------------------
@@ -5181,6 +5185,19 @@ if (typeof window.Chart === "undefined") {
   window.PhoenixKitHooks.CrumbSwitcher = {
     mounted() {
       this._open = false;
+      this._picked = false;
+      // Capture-phase on the element: LiveView's own link handler stops the
+      // click at the window, after this has run.
+      this._onClick = (e) => {
+        var target = e.target;
+        if (!target || !target.closest || !target.closest("[data-filter-text] a")) return;
+        this._picked = true;
+        clearTimeout(this._pickedTimer);
+        // A pick that changes nothing never reaches updated(); do not let the
+        // flag close a panel the user opens later.
+        this._pickedTimer = setTimeout(() => { this._picked = false; }, 3000);
+      };
+      this.el.addEventListener("click", this._onClick, true);
       this._sync = () => this.sync();
       this._observer = new MutationObserver(this._sync);
       this._observer.observe(this.el, {
@@ -5191,9 +5208,17 @@ if (typeof window.Chart === "undefined") {
       this.sync();
     },
     updated() {
+      if (this._picked) {
+        this._picked = false;
+        clearTimeout(this._pickedTimer);
+        var panel = document.getElementById(this.el.dataset.panel);
+        if (panel) this.js().hide(panel);
+      }
       this.sync();
     },
     destroyed() {
+      clearTimeout(this._pickedTimer);
+      this.el.removeEventListener("click", this._onClick, true);
       if (this._observer) this._observer.disconnect();
     },
     sync() {
