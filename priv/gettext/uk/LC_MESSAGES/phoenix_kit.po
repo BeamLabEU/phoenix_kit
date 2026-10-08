@@ -12,29 +12,36 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100 != 11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10||n%100>=20) ? 1 : 2);\n"
 
 #: lib/phoenix_kit/users/invitations.ex:311
+#, elixir-autogen, elixir-format
 msgid "A pending invitation already exists for this email"
 msgstr "Для цієї адреси вже є запрошення, що очікує відповіді"
 
 #: lib/phoenix_kit/users/invitations.ex:297
+#, elixir-autogen, elixir-format
 msgid "This user already belongs to an organization"
 msgstr "Цей користувач уже входить до організації"
 
 #: lib/phoenix_kit/users/auth.ex:1259
+#, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "не можна змінити на «фізична особа», доки в організації є учасники"
 
 #: lib/phoenix_kit/users/auth.ex:1239
+#, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "не може посилатися на себе"
 
 #: lib/phoenix_kit/users/auth.ex:1247
+#, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "приєднатися до організації можуть лише облікові записи фізичних осіб"
 
 #: lib/phoenix_kit/users/auth.ex:1234
+#, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "організацію не знайдено"
 
 #: lib/phoenix_kit/users/auth.ex:1233
+#, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "указаний користувач не є організацією"
