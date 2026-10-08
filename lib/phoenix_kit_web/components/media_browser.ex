@@ -442,6 +442,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       Enum.reverse(assigns[:upload_problems_session] || [])
   end
 
+  # Who the browser-side stash belongs to: it holds file bytes on a machine
+  # the next person may sign in on, and Resume would upload them as them.
+  defp upload_stash_user(%{phoenix_kit_current_user: %{uuid: uuid}}), do: to_string(uuid)
+  defp upload_stash_user(_assigns), do: ""
+
   defp inbox_problems(socket) do
     case {socket.assigns[:readonly], socket.assigns[:phoenix_kit_current_user]} do
       {readonly, %{uuid: user_uuid}} when readonly != true ->
@@ -651,15 +656,27 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         # belongs here, where the component's own assigns are in scope.
         # A component's put_flash never reaches the page, so this refusal used
         # to be silent too; it is a named row in the problems panel now.
-        drop_upload_bytes(path, UploadInbox.locate(path))
+        reason = off_type_upload_error(socket.assigns.only_file_type)
 
-        add_upload_problem(socket, %{
-          kind: :rejected,
-          client_name: entry.client_name,
-          client_size: entry.client_size,
-          reason: off_type_upload_error(socket.assigns.only_file_type),
-          retry: false
-        })
+        case UploadInbox.locate(path) do
+          # A kept upload (a Retry clicked in a browser that only takes another
+          # kind of file) is not this browser's to destroy: it stays, marked
+          # with why, for the browser that can take it — or for Discard.
+          {user_uuid, id} ->
+            UploadInbox.fail(user_uuid, id, reason)
+            socket
+
+          nil ->
+            File.rm(path)
+
+            add_upload_problem(socket, %{
+              kind: :rejected,
+              client_name: entry.client_name,
+              client_size: entry.client_size,
+              reason: reason,
+              retry: false
+            })
+        end
 
       true ->
         buffer_pending_upload(socket, path, entry)
@@ -3587,6 +3604,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {:noreply, retry_upload_problems(socket, &(&1.key == key))}
   end
 
+  def handle_event("retry_upload", _params, socket), do: {:noreply, socket}
+
   def handle_event("retry_all_uploads", _params, socket)
       when socket.assigns.readonly == true do
     {:noreply, log_readonly_blocked(socket, "retry_all_uploads")}
@@ -3604,6 +3623,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_event("discard_upload", %{"key" => key}, socket) do
     {:noreply, discard_upload_problems(socket, &(&1.key == key))}
   end
+
+  def handle_event("discard_upload", _params, socket), do: {:noreply, socket}
 
   def handle_event("discard_all_uploads", _params, socket)
       when socket.assigns.readonly == true do
@@ -3628,7 +3649,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> Enum.reduce(socket, fn item, acc ->
         add_upload_problem(acc, %{
           kind: :browser,
-          client_name: to_string(item["name"] || "file"),
+          client_name: if(is_binary(item["name"]), do: item["name"], else: "file"),
           client_size: item["size"],
           client_key: item["key"],
           retry: item["blob"] == true,

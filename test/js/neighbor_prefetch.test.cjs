@@ -59,8 +59,12 @@ function loadKeydown(connection) {
 // A modal whose canvas picture has loaded (the common case) unless told otherwise.
 function mountEl(dataset, colW, img) {
   const canvas = img === undefined ? { complete: true, getAttribute: () => "/f/cur/large" } : img;
+  const listeners = {};
   return {
     dataset,
+    listeners,
+    addEventListener: (name, fn) => { listeners[name] = fn; },
+    removeEventListener: (name) => { delete listeners[name]; },
     querySelector: (sel) => {
       if (sel.includes("pk-annotation-actions")) return { clientWidth: colW };
       if (sel.includes("data-fresco-canvas-img")) return canvas;
@@ -93,6 +97,23 @@ test("after a step back, the previous side's large is the one warmed", async () 
   await wait(SETTLED_MS);
   assert.ok(fetched.includes("/f/p/large/ab"), "heading back: the previous large");
   assert.ok(!fetched.includes("/f/n/large/bb"), "…not the one behind");
+});
+
+test("a click on a chevron sets the stepping direction, as an arrow key does", () => {
+  const { hook } = loadKeydown();
+  const ctx = { el: mountEl({ neighbors: N() }, 1200), pushEventTo: () => {} };
+  hook.mounted.call(ctx);
+  const chevron = (dir) => ({
+    target: { closest: () => ({ getAttribute: () => dir }) },
+  });
+  ctx.el.listeners.click(chevron("prev"));
+  assert.strictEqual(ctx._direction, "prev");
+  ctx.el.listeners.click(chevron("next"));
+  assert.strictEqual(ctx._direction, "next");
+  ctx.el.listeners.click({ target: { closest: () => null } });
+  assert.strictEqual(ctx._direction, "next", "a click elsewhere leaves it alone");
+  hook.destroyed.call(ctx);
+  assert.strictEqual(ctx.el.listeners.click, undefined, "the listener goes with the modal");
 });
 
 test("the warm runs at low fetch priority", async () => {
@@ -190,7 +211,7 @@ test("each URL warms once per page, across remounts", async () => {
 test("no neighbours, no fetches, no crash", async () => {
   const { hook, fetched } = loadKeydown();
   assert.doesNotThrow(() => hook.mounted.call({
-    el: { dataset: {}, querySelector: () => null }, pushEventTo: () => {} }));
+    el: { dataset: {}, querySelector: () => null, addEventListener: () => {} }, pushEventTo: () => {} }));
   await wait(50);
   assert.deepStrictEqual(fetched, []);
 });

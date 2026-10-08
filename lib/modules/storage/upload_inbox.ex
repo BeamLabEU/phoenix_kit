@@ -236,7 +236,19 @@ defmodule PhoenixKit.Modules.Storage.UploadInbox do
   defp user_dir(_), do: {:error, :invalid_user}
 
   defp write_meta(dir, item) do
-    File.write(Path.join(dir, item.id <> ".json"), Jason.encode!(item))
+    # Written beside and renamed over: a reader (`list/1`) must never see a
+    # half-written sidecar, which it would take for a broken one and remove.
+    meta = Path.join(dir, item.id <> ".json")
+    tmp = meta <> ".tmp"
+
+    with :ok <- File.write(tmp, Jason.encode!(item)),
+         :ok <- File.rename(tmp, meta) do
+      :ok
+    else
+      error ->
+        File.rm(tmp)
+        error
+    end
   end
 
   # A rename when source and inbox share a filesystem (the usual case — both

@@ -6437,7 +6437,9 @@ defmodule PhoenixKit.Modules.Storage do
   @spec heic_files_exist?() :: boolean()
   def heic_files_exist? do
     from(f in PhoenixKit.Modules.Storage.File,
-      where: f.mime_type in ["image/heic", "image/heif"] or f.ext in ["heic", "heif"]
+      where:
+        f.mime_type in ["image/heic", "image/heif"] or
+          fragment("lower(?)", f.ext) in ["heic", "heif"]
     )
     |> repo().exists?()
   end

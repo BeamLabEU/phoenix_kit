@@ -83,6 +83,13 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
           link: %{label: "Open backslash host fixture", path: "/\\other.example/admin"}
         },
         %{
+          id: :fixture_control_char,
+          title: "Fixture control char",
+          permission: nil,
+          component: FixtureSection,
+          link: %{label: "Open control char fixture", path: "/\t/other.example/admin"}
+        },
+        %{
           id: :fixture_gated,
           title: "Fixture gated",
           permission: "fixture_permission_nobody_holds",
@@ -153,6 +160,11 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSendingSectionLinksTest do
     assert has_element?(view, "#fixture-section-fixture_backslash_host")
     refute has_element?(view, "#email-section-link-fixture_backslash_host")
     refute html =~ "Open backslash host fixture"
+
+    # Browsers strip a tab, so "/<tab>/host" is "//host" too.
+    assert has_element?(view, "#fixture-section-fixture_control_char")
+    refute has_element?(view, "#email-section-link-fixture_control_char")
+    refute html =~ "Open control char fixture"
 
     # A path that is not a string drops the button; it does not fall back to the tab.
     assert has_element?(view, "#fixture-section-fixture_nil_path")

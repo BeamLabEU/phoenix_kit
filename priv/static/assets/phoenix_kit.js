@@ -2463,6 +2463,7 @@ if (typeof window.Chart === "undefined") {
       window.removeEventListener("pk:viewer-closed", this._onClosed);
       window.removeEventListener("pk:viewer-step", this._onStep);
       if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      if (this._pillTimer) { clearTimeout(this._pillTimer); this._pillTimer = null; }
     }
   };
 
@@ -2607,6 +2608,15 @@ if (typeof window.Chart === "undefined") {
         self.pushEventTo(self.el, "viewer_keydown", { key: e.key });
       };
       document.addEventListener("keydown", self._handler);
+
+      // The on-screen chevrons step too: the side being stepped towards is the
+      // one whose large variant is warmed, whichever way the step was made.
+      self._onChevron = function(e) {
+        const btn = e.target && e.target.closest && e.target.closest('[phx-click="step_viewer"]');
+        const dir = btn && btn.getAttribute("phx-value-dir");
+        if (dir === "prev" || dir === "next") self._direction = dir;
+      };
+      self.el.addEventListener("click", self._onChevron, true);
     },
 
     // A step does NOT remount this hook — the modal's id is stable, so
@@ -2634,6 +2644,10 @@ if (typeof window.Chart === "undefined") {
       if (this._handler) {
         document.removeEventListener("keydown", this._handler);
         this._handler = null;
+      }
+      if (this._onChevron) {
+        this.el.removeEventListener("click", this._onChevron, true);
+        this._onChevron = null;
       }
       if (this._cancelWarm) {
         this._cancelWarm();
@@ -7567,7 +7581,7 @@ if (typeof window.Chart === "undefined") {
   // asking for it again — and are listed as "add it again".
   //
   // Records are scoped to the page path (a library page resumes into that
-  // library) and owned by the tab that made them: each tab keeps its live
+  // library) and the signed-in user, and owned by the tab that made them: each tab keeps its live
   // records' `touched` fresh, so a second tab never mistakes another's
   // in-flight files for leftovers.
   // ----------------------------------------------------------------------------
@@ -7634,7 +7648,10 @@ if (typeof window.Chart === "undefined") {
     mounted() {
       var self = this;
       this._tab = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      this._scope = window.location.pathname;
+      // The path (a library page resumes into that library) and the user: the
+      // stash holds file bytes, and the next person to sign in on this browser
+      // must not be offered the last one's files.
+      this._scope = window.location.pathname + "\u0000" + (this.el.dataset.user || "");
       this._live = {};
       this._root = this.el.parentElement || document.body;
 

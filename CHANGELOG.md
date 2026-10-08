@@ -1,4 +1,4 @@
-## Unreleased
+## 2.57.0 - 2026-10-08
 
 ### Added
 
@@ -6,6 +6,14 @@
   of `email_settings_sections/0` may carry `link: %{label: "..."}`, and the Branding tab then shows a button
   that opens the section's tab (`?tab=module_<id>`); `link: %{label: "...", path: "/admin/..."}` leads to
   that path instead. The button is shown only to users who can see the section (the same permission).
+- **The Media and Libraries page headers have a library switcher.** The library name in the header is a
+  breadcrumb switcher listing the viewer's own and shared libraries (and the site's), replacing the old
+  `<select>`. Every row is a plain link to the library's address, so the page's own access check decides
+  what opens. The switcher closes once the library has switched.
+- **`config :phoenix_kit, :upload_inbox_dir, "/path"` moves the upload inbox** (default: a directory under
+  the system temp dir). See Fixed.
+- **The media viewer shows a "Loading full quality…" pill** while a sharper version of the picture is still
+  on its way, including on the instant stand-in a step paints first.
 
 ### Changed
 
@@ -38,6 +46,24 @@
   fails) and how to enable it. It reads ImageMagick's format list, so it works on ImageMagick 6 and 7; only
   *reading* is needed, since a rendition of a HEIC photo is a JPEG. The "not found" notice names it only
   once a HEIC or HEIF photo has been uploaded.
+- **An upload that did not land is no longer lost without a word.** A file over the size limit sat as a
+  progress bar stuck at 0% (and held one of the ten slots, so the next drop silently lost a file too), a
+  failed store showed one anonymous count and deleted the bytes, a raise in the store took the page down with
+  every queued file, and a refresh dropped the transfer. Now each such file is a named row in a problems panel
+  with why ("Larger than the 500 MB upload limit", "Up to 10 files upload at once…") and Retry / Discard.
+  Received bytes wait in a per-user inbox until they are stored and a failure keeps them; the browser stashes
+  picked files (up to 250 MB each, per signed-in user) until the server confirms receipt, so a refresh or
+  closed tab offers Resume. A Retry clicked in a browser that takes only another kind of file keeps the bytes
+  instead of discarding them.
+- **An email section's link path now goes through the shared redirect guard** (`Routes.local_path?/1`), so a
+  path with a control character (`"/<tab>/host"`, which browsers read as `//host`) is refused too.
+- **The subject finder no longer leaves a preview file behind when it times out** on a large HEIC.
+- **A kept upload's record is written atomically**, so a list made while it is being updated can no longer
+  take it for broken and drop it.
+- **`/admin/libraries` switches to your own library when a shared one has the same slug.**
+- **HEIC detection ignores the extension's case** (`IMG_1.HEIC`).
+- **Stepping with the viewer's on-screen arrows warms the side being stepped towards**, as the arrow keys do.
+- **A malformed resume/retry/discard message from the browser no longer crashes the media browser.**
 
 ## 2.56.1 - 2026-10-07
 

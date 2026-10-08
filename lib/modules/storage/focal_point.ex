@@ -266,11 +266,20 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     with {:ok, {w, h}} <- ImageProcessor.extract_dimensions(path),
          true <- w * h <= @max_pixels do
       # A NIF call: bounded in time, and a failure is "no focal point".
-      task = Task.async(fn -> safe_attention(path) end)
+      #
+      # The preview path is made here, not in the task: a killed task skips its
+      # own cleanup, and the file must not outlive a timeout.
+      preview = preview_path()
 
-      case Task.yield(task, 10_000) || Task.shutdown(task, :brutal_kill) do
-        {:ok, result} -> result
-        _timeout_or_exit -> :error
+      try do
+        task = Task.async(fn -> safe_attention(path, preview) end)
+
+        case Task.yield(task, 10_000) || Task.shutdown(task, :brutal_kill) do
+          {:ok, result} -> result
+          _timeout_or_exit -> :error
+        end
+      after
+        File.rm(preview)
       end
     else
       _ -> :error
@@ -287,9 +296,9 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
   # A photo libvips cannot decode (an iPhone's HEIC: the precompiled library has
   # no HEVC decoder, which ImageMagick has) is not "no subject": it is looked at
   # again through a small JPEG preview ImageMagick makes of it.
-  defp safe_attention(path) do
+  defp safe_attention(path, preview) do
     case try_attention(path) do
-      :unreadable -> from_preview(path)
+      :unreadable -> from_preview(path, preview)
       found -> found
     end
   end
@@ -302,23 +311,21 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     _, _ -> :unreadable
   end
 
-  defp from_preview(path) do
-    preview =
-      Path.join(
-        System.tmp_dir!(),
-        "phoenix_kit_focal_#{Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)}.jpg"
-      )
+  defp preview_path do
+    Path.join(
+      System.tmp_dir!(),
+      "phoenix_kit_focal_#{Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)}.jpg"
+    )
+  end
 
-    try do
-      with {:ok, _} <- ImageProcessor.preview_jpeg(path, preview, @shrink_to),
-           found when found != :unreadable <- try_attention(preview) do
-        Logger.info("FocalPoint: libvips could not decode a photo; used an ImageMagick preview")
-        found
-      else
-        _ -> :error
-      end
-    after
-      File.rm(preview)
+  # The caller removes `preview` once the task is done or killed.
+  defp from_preview(path, preview) do
+    with {:ok, _} <- ImageProcessor.preview_jpeg(path, preview, @shrink_to),
+         found when found != :unreadable <- try_attention(preview) do
+      Logger.info("FocalPoint: libvips could not decode a photo; used an ImageMagick preview")
+      found
+    else
+      _ -> :error
     end
   end
 

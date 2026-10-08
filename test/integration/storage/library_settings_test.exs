@@ -313,5 +313,10 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
       upload!("e.HEIC", "application/octet-stream", "heic")
       assert Storage.heic_files_exist?()
     end
+
+    test "an extension is matched whatever its case (an iPhone names it IMG_1.HEIC)" do
+      upload!("IMG_1.HEIC", "application/octet-stream", "HEIC")
+      assert Storage.heic_files_exist?()
+    end
   end
 end

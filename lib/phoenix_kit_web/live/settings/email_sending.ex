@@ -469,12 +469,12 @@ defmodule PhoenixKitWeb.Live.Settings.EmailSending do
     end
   end
 
-  # Only a path of this app: "//host/..." is another host, not a path, and so
-  # is "/\\host/...", which browsers read as "//host/...".
-  defp link_target(_id, %{path: "//" <> _}), do: nil
-  defp link_target(_id, %{path: "/\\" <> _}), do: nil
-  defp link_target(_id, %{path: "/" <> _ = path}), do: %{navigate: path}
-  defp link_target(_id, %{path: _}), do: nil
+  # Only a path of this app: `Routes.local_path?/1` refuses "//host/...", its
+  # "/\\host/..." twin and control characters, which browsers strip before
+  # reading the address.
+  defp link_target(_id, %{path: path}) do
+    if Routes.local_path?(path), do: %{navigate: path}, else: nil
+  end
 
   defp link_target(id, _link),
     do: %{patch: "/admin/settings/email-sending?tab=" <> URI.encode_www_form(section_tab(id))}

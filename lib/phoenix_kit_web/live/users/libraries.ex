@@ -112,12 +112,19 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
   end
 
   # The same library again (a folder patch inside it): nothing to reload,
-  # nothing to log again.
-  defp open(%{assigns: %{library: %Library{} = library}} = socket, _scope, id)
-       when is_binary(id) and (id == library.slug or id == library.uuid),
-       do: socket
+  # nothing to log again. A slug names a library only among its owner's, so it
+  # counts only for the viewer's own: a shared library with the same slug is
+  # another one.
+  defp open(%{assigns: %{library: %Library{} = library}} = socket, scope, id)
+       when is_binary(id) do
+    if id == library.uuid or id == Libraries.url_id(library, Scope.user_uuid(scope)),
+      do: socket,
+      else: open_other(socket, scope, id)
+  end
 
-  defp open(socket, scope, id) do
+  defp open(socket, scope, id), do: open_other(socket, scope, id)
+
+  defp open_other(socket, scope, id) do
     case Libraries.get_user_library(scope, id) do
       %{library: library, role: role} ->
         shown(socket, library, role)
