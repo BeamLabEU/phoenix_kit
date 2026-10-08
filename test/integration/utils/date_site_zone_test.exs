@@ -75,8 +75,9 @@ defmodule PhoenixKit.Integration.Utils.DateSiteZoneTest do
       {:ok, _} = Settings.update_setting("time_zone", "2")
       assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 17:31"
 
+      # No zone is UTC, whatever zone the value came in.
       {:ok, _} = Settings.update_setting("time_zone", "0")
-      assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 18:31"
+      assert UtilsDate.format_datetime_full_with_user_format(tallinn) == "07.10.2026 15:31"
     end
 
     test "nil is still \"Never\"" do

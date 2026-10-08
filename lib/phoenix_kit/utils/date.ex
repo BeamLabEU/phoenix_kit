@@ -585,34 +585,38 @@ defmodule PhoenixKit.Utils.Date do
   # to print the stored UTC clock as if it were local. The zone is read like
   # the formats beside it (and like `get_user_timezone/1`), and only for a
   # value that is an instant.
-  defp in_site_zone(%DateTime{} = value), do: in_zone(value, site_time_zone())
-  defp in_site_zone(%NaiveDateTime{} = value), do: in_zone(value, site_time_zone())
+  defp in_site_zone(%struct{} = value) when struct in [DateTime, NaiveDateTime],
+    do: in_zone(value, site_time_zone())
+
   defp in_site_zone(value), do: value
 
   defp site_time_zone, do: Settings.get_setting("time_zone", "0")
 
   # A `NaiveDateTime` is UTC here, as in every other function of this module;
   # a `Date`, a `Time` or anything else has no instant to move and is returned
-  # untouched. No zone (`nil`, `""`, `"0"`) leaves the clock as stored.
-  defp in_zone(value, zone) when zone in [nil, "", "0"], do: value
-
+  # untouched. No zone (`nil`, `""`, `"0"`) means UTC.
+  #
   # A `DateTime` in another zone is brought to UTC first: a legacy offset is
   # added to the UTC clock, and `DateTime.add/3` on a non-UTC value needs a
   # time zone database the host may not have configured.
-  defp in_zone(%DateTime{time_zone: "Etc/UTC"} = datetime, zone),
-    do: shift_to_timezone_offset(datetime, zone)
+  defp in_zone(%DateTime{time_zone: "Etc/UTC"} = datetime, zone), do: to_zone(datetime, zone)
 
   defp in_zone(%DateTime{} = datetime, zone) do
     case DateTime.shift_zone(datetime, "Etc/UTC", TimeZone.database()) do
-      {:ok, utc} -> shift_to_timezone_offset(utc, zone)
+      {:ok, utc} -> to_zone(utc, zone)
       {:error, _reason} -> datetime
     end
   end
 
+  defp in_zone(%NaiveDateTime{} = naive, zone) when zone in [nil, "", "0"], do: naive
+
   defp in_zone(%NaiveDateTime{} = naive, zone),
-    do: naive |> DateTime.from_naive!("Etc/UTC") |> shift_to_timezone_offset(zone)
+    do: naive |> DateTime.from_naive!("Etc/UTC") |> to_zone(zone)
 
   defp in_zone(value, _zone), do: value
+
+  defp to_zone(utc, zone) when zone in [nil, "", "0"], do: utc
+  defp to_zone(utc, zone), do: shift_to_timezone_offset(utc, zone)
 
   # Cached variant of format_datetime_with_timezone
   defp format_datetime_with_timezone_cached(datetime, format, user, settings) do
