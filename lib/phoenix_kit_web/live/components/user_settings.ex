@@ -184,6 +184,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       # Plain assign, not assign_new: reads the user row handed in, so a
       # toggle elsewhere (another tab, an admin) shows after any update.
       |> assign(:viewer_open_annotating, MediaCanvasViewer.open_annotating?(user))
+      |> assign(:viewer_invert_two_finger_pan, MediaCanvasViewer.invert_two_finger_pan?(user))
       |> assign_start_page()
       |> assign_new(:trigger_submit, fn -> false end)
       |> assign_new(:oauth_providers, fn -> OAuth.get_user_oauth_providers(user.uuid) end)
@@ -660,6 +661,28 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
          socket
          |> assign(:user, updated)
          |> assign(:viewer_open_annotating, next)}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
+  end
+
+  # The "invert two-finger pan" switch — same shape as the one above: one
+  # per-user flag, owned and read by MediaCanvasViewer at viewer-open
+  # (`invert_two_finger_pan?/1`), merged rather than replaced.
+  def handle_event("toggle_viewer_invert_two_finger_pan", _params, socket) do
+    next = not socket.assigns.viewer_invert_two_finger_pan
+
+    case Auth.merge_user_custom_fields(
+           socket.assigns.user,
+           %{MediaCanvasViewer.invert_two_finger_pan_key() => next},
+           ensure_definitions: false
+         ) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(:user, updated)
+         |> assign(:viewer_invert_two_finger_pan, next)}
 
       {:error, _} ->
         {:noreply, socket}
@@ -2033,6 +2056,26 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <:description>
                   {gettext(
                     "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
+                  )}
+                </:description>
+              </.checkbox>
+            </div>
+            <%!-- Per-user because it is per-machine in truth: the browser  --%>
+            <%!-- hands over the fingers after the OS's scroll direction    --%>
+            <%!-- has been applied and does not say which, so no default    --%>
+            <%!-- suits every trackpad.                                     --%>
+            <div class="mb-4">
+              <.checkbox
+                variant="toggle"
+                name="viewer_invert_two_finger_pan"
+                checked={@viewer_invert_two_finger_pan}
+                label={gettext("Invert two-finger pan")}
+                phx-click="toggle_viewer_invert_two_finger_pan"
+                phx-target={@myself}
+              >
+                <:description>
+                  {gettext(
+                    "If moving around a picture with two fingers on your trackpad goes the opposite way to what you expect, turn this on. Zooming is not affected."
                   )}
                 </:description>
               </.checkbox>

@@ -155,6 +155,13 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # an image, with annotation rights.
   @viewer_open_annotating_key "media_viewer_open_annotating"
 
+  # Whether two fingers on a trackpad pan the other way in this user's
+  # viewer. The browser reports the fingers after the OS's own scroll
+  # direction has been applied and does not say which that was, so Fresco's
+  # default can only suit most machines; this is for the rest. Per-user,
+  # toggled on the profile settings page's "Annotation tools" section.
+  @viewer_invert_two_finger_pan_key "media_viewer_invert_two_finger_pan"
+
   # Canvas extent used when the file row recorded no dimensions. Sets only
   # the coordinate space — the image itself keeps its true ratio, see
   # put_natural_size/2.
@@ -322,6 +329,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_new(:media_meta_values, fn -> %{} end)
       |> assign_new(:media_tags, fn -> [] end)
       |> assign_new(:media_details_open, fn -> false end)
+      |> assign_new(:invert_two_finger_pan, fn -> false end)
       |> assign_new(:media_meta_status, fn -> nil end)
       |> assign_new(:media_meta_status_token, fn -> 0 end)
 
@@ -357,6 +365,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
             |> assign(:sidebar_collapsed, load_sidebar_collapsed(prefs))
+            |> assign(:invert_two_finger_pan, invert_two_finger_pan?(prefs))
             |> maybe_open_annotating(prefs, file)
           end)
 
@@ -373,6 +382,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             s
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
+            |> assign(:invert_two_finger_pan, invert_two_finger_pan?(prefs))
           end)
           |> assign(:sidebar_collapsed, true)
 
@@ -1067,6 +1077,21 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # The custom_fields key the settings page writes. One name, owned here.
   def open_annotating_key, do: @viewer_open_annotating_key
 
+  @doc """
+  Whether this user's viewer pans the other way under two fingers on a
+  trackpad (see `@viewer_invert_two_finger_pan_key`). Off unless the user
+  stored `true` on the profile settings page.
+  """
+  def invert_two_finger_pan?(user) when is_map(user) do
+    Auth.get_user_field(user, @viewer_invert_two_finger_pan_key) == true
+  end
+
+  def invert_two_finger_pan?(_), do: false
+
+  @doc false
+  # The custom_fields key the settings page writes. One name, owned here.
+  def invert_two_finger_pan_key, do: @viewer_invert_two_finger_pan_key
+
   # Apply the preference at viewer-open. Only where it means something:
   # an image (nothing else has an editor), with annotation rights — a
   # read-only viewer keeps the burned picture whatever the flag says.
@@ -1564,6 +1589,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   attr :etcher_colors, :list, default: nil
   attr :etcher_line_params, :map, required: true
   attr :can_annotate, :boolean, required: true
+  attr :invert_two_finger_pan, :boolean, default: false
 
   defp board_canvas(assigns) do
     ~H"""
@@ -1580,6 +1606,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           id={"media-zoom-" <> @board.target_uuid}
           canvas={@viewer_canvas}
           class="w-full h-full lg:rounded"
+          invert_two_finger_pan={@invert_two_finger_pan}
           theme={:light}
           infinite_canvas={true}
         />

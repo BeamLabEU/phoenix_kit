@@ -16,6 +16,7 @@
       etcher_colors={@etcher_colors}
       etcher_line_params={@etcher_line_params}
       can_annotate={@can_annotate}
+      invert_two_finger_pan={@invert_two_finger_pan}
     />
   <% else %>
     <%!--                                                                          --%>
@@ -237,6 +238,7 @@
                   id={"media-plain-" <> f.file_uuid}
                   canvas={plain_canvas(@viewer_canvas)}
                   class="w-full h-full lg:rounded"
+                  invert_two_finger_pan={@invert_two_finger_pan}
                   theme={:light}
                   initial_rotation={@viewer_rotation}
                   persist_rotation={@persist_rotation}
@@ -261,6 +263,7 @@
                     id={"media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")}
                     canvas={@burn_canvas}
                     class="w-full h-full lg:rounded"
+                    invert_two_finger_pan={@invert_two_finger_pan}
                     theme={:light}
                     initial_rotation={@viewer_rotation}
                     persist_rotation={@persist_rotation}
@@ -274,6 +277,7 @@
                       id={"media-zoom-" <> f.file_uuid}
                       canvas={@viewer_canvas}
                       class="w-full h-full lg:rounded"
+                      invert_two_finger_pan={@invert_two_finger_pan}
                       theme={:light}
                       initial_rotation={@viewer_rotation}
                       persist_rotation={@persist_rotation}

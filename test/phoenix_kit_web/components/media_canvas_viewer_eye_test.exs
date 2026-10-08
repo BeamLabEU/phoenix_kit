@@ -102,6 +102,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
         media_meta_lang_name: nil,
         media_details_open: false,
         media_meta_status: nil,
+        invert_two_finger_pan: false,
         myself: %Phoenix.LiveComponent.CID{cid: 1}
       },
       overrides
@@ -238,6 +239,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
       refute shown.assigns.etchings_hidden
     end
 
+    test "the invert-two-finger-pan preference reads a stored true and nothing else" do
+      stored = fn value ->
+        %PhoenixKit.Users.Auth.User{
+          custom_fields: %{MediaCanvasViewer.invert_two_finger_pan_key() => value}
+        }
+      end
+
+      assert MediaCanvasViewer.invert_two_finger_pan?(stored.(true))
+
+      refute MediaCanvasViewer.invert_two_finger_pan?(%PhoenixKit.Users.Auth.User{
+               custom_fields: %{}
+             })
+
+      refute MediaCanvasViewer.invert_two_finger_pan?(nil)
+      refute MediaCanvasViewer.invert_two_finger_pan?(stored.("true"))
+    end
+
     test "the open-annotating preference reads a stored true and nothing else" do
       stored = fn value ->
         %PhoenixKit.Users.Auth.User{
@@ -281,6 +299,24 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
 
       assert burned.assigns.burn_mode
       refute burned.assigns.etchings_hidden
+    end
+  end
+
+  describe "two-finger pan direction" do
+    # Every canvas the viewer can put up carries it — the burned copy, the
+    # clean original and the live layer — or the direction would change
+    # under the user's fingers as they press the eye or the pencil.
+    test "off by default: no canvas carries the flag" do
+      for overrides <- [%{}, %{etchings_hidden: true}, %{burn_mode: false}] do
+        refute render_html(overrides) =~ "data-invert-two-finger-pan"
+      end
+    end
+
+    test "on: every canvas is inverted" do
+      for overrides <- [%{}, %{etchings_hidden: true}, %{burn_mode: false}] do
+        html = render_html(Map.put(overrides, :invert_two_finger_pan, true))
+        assert html =~ ~s(data-invert-two-finger-pan="true"), inspect(overrides)
+      end
     end
   end
 end
