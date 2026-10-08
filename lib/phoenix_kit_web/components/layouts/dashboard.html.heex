@@ -351,6 +351,10 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
           <%!-- Main Content --%>
           <main class="flex-1 px-4 py-8">
             <.flash_group flash={@flash} />
+            <PhoenixKitWeb.Components.Core.LibraryLoadNotice.library_load_notice
+              id="pk-library-notice-dashboard"
+              scope={assigns[:phoenix_kit_current_scope]}
+            />
             {render_slot(@inner_block)}
           </main>
         </div>

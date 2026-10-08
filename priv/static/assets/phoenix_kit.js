@@ -120,6 +120,336 @@ if (typeof window.Chart === "undefined") {
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 
   // ============================================================================
+  // SHARED LIBRARY LOADER
+  // ============================================================================
+  //
+  // Every lazily-loaded library (Fresco, Tessera, Etcher, Leaf, SortableJS,
+  // Panzoom, wavesurfer) loads through `loadLibrary`, which replaced six
+  // copied loaders whose only failure report was a console.error (see
+  // dev_docs/plans/2026-10-07-self-hosted-viewer-libraries.md, Part A).
+  //
+  //   - A pre-imported library wins: `check()` is asked first.
+  //   - One in-flight attempt per library; every waiter settles either way.
+  //   - Success means `check()` passes after onload, not just a 200.
+  //   - A failed script may retry (LIBRARY_MAX_ATTEMPTS per page); a failed
+  //     module import() is terminal for the document.
+  //   - Final failures go to window.__pkLibFailures and a `pk:library-failed`
+  //     event, which the admin-only LibraryLoadNotice shows.
+  //
+  // A script error has no HTTP status, so failures are "load" unless a
+  // matching, enforced `securitypolicyviolation` makes them "csp" — and that
+  // event may arrive after onerror, so it can refine an earlier failure.
+  // ----------------------------------------------------------------------------
+
+  // Where the libraries live: next to this bundle, in lib/ (the compiler
+  // vendors them there — PhoenixKit.Install.ViewerLibraries). Captured NOW,
+  // while the bundle evaluates: document.currentScript is gone in every later
+  // callback. A host that bundles this file into its own app.js (where
+  // currentScript is the wrong file) sets window.PHOENIX_KIT_LIB_BASE.
+  var PK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || "";
+
+  function pkLibBase() {
+    if (window.PHOENIX_KIT_LIB_BASE) return String(window.PHOENIX_KIT_LIB_BASE).replace(/\/?$/, "/");
+    if (!PK_SCRIPT_SRC) return null;
+    return PK_SCRIPT_SRC.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
+  }
+
+  // The file names come from the install facts (window.PHOENIX_KIT_LIBS,
+  // written by the compiler into phoenix_kit_modules.js), looked up when a
+  // library is first needed — that file loads after this one. No facts, no
+  // guess: a version guessed in the browser could mismatch the server's half
+  // and quietly stop honouring its API, so the failure is reported instead.
+  function pkLibUrls(key) {
+    var facts = window.PHOENIX_KIT_LIBS;
+    var entry = facts && facts[key];
+    var base = pkLibBase();
+    if (!entry || !entry.file || !base) return null;
+    return { local: base + entry.file, cdn: entry.cdn || null };
+  }
+
+  var LIBRARY_MAX_ATTEMPTS = 2;
+  var pkLibInflight = {};
+  var pkLibAttempts = {};
+  var pkLibPending = []; // { name, url, origin } for in-flight attempts
+  var pkLibFailures = window.__pkLibFailures = window.__pkLibFailures || {};
+
+  function pkLibNormalize(url) {
+    try { return new URL(url, window.location.href).href; } catch (_) { return String(url || ""); }
+  }
+
+  function pkLibOrigin(url) {
+    try { return new URL(url, window.location.href).origin; } catch (_) { return ""; }
+  }
+
+  function pkLibAnnounce(name) {
+    var f = pkLibFailures[name];
+    if (!f) return;
+    var cause = f.reason === "csp"
+      ? "blocked by the page's Content-Security-Policy (" + (f.directive || "script-src") + ")"
+      : f.reason === "facts"
+        ? "has no file: PhoenixKit's install facts (window.PHOENIX_KIT_LIBS) are missing or do not name it"
+        : "could not be loaded or run (network, a missing file, or an error in the file)";
+    console.error("[PhoenixKit] The " + name + " library " + cause + ": " + f.url +
+      ". Features that need it are unavailable on this page. " +
+      (f.reason === "csp"
+        ? "Check that the page's policy allows " + (pkLibOrigin(f.url) || f.url) + "."
+        : "Check the network, and that the host build vendors PhoenixKit's JavaScript " +
+          "(:phoenix_kit_js_sources in compilers, or mix phoenix_kit.update)."));
+    try {
+      window.dispatchEvent(new CustomEvent("pk:library-failed", {
+        detail: { name: name, url: f.url, reason: f.reason, directive: f.directive || null }
+      }));
+    } catch (_) { /* very old browsers: the console line above still stands */ }
+  }
+
+  function pkLibFail(name, url, reason, directive) {
+    var prev = pkLibFailures[name];
+    // Already recorded with at least this much evidence: nothing new to say.
+    if (prev && prev.url === url && (prev.reason === "csp" || reason !== "csp")) return;
+    pkLibFailures[name] = { url: url, reason: reason, directive: directive || null };
+    pkLibAnnounce(name);
+  }
+
+  // Matches a violation to one of our attempts by full URL, or by origin when
+  // the browser stripped the blocked URI to one; anything else is ignored.
+  if (!window.__pkLibCspListener) {
+    window.__pkLibCspListener = true;
+    document.addEventListener("securitypolicyviolation", function(e) {
+      if (e.disposition === "report") return;
+      var blocked = e.blockedURI || "";
+      var full = pkLibNormalize(blocked);
+      var origin = pkLibOrigin(blocked);
+      var directive = e.effectiveDirective || e.violatedDirective || null;
+      var candidates = pkLibPending.concat(Object.keys(pkLibFailures).map(function(n) {
+        return { name: n, url: pkLibFailures[n].url };
+      }));
+      for (var i = 0; i < candidates.length; i++) {
+        var c = candidates[i];
+        var cFull = pkLibNormalize(c.url);
+        var match = cFull === full ||
+          (origin && blocked.indexOf("/", blocked.indexOf("//") + 2) === -1 && pkLibOrigin(c.url) === origin);
+        if (!match) continue;
+        if (pkLibFailures[c.name]) {
+          pkLibFail(c.name, c.url, "csp", directive);
+        } else {
+          c.csp = directive || "script-src";
+        }
+        return;
+      }
+    }, true);
+  }
+
+  // `opts.check()` — true once the library is usable (its global/hook).
+  // `opts.module` — load with dynamic import() and resolve with the module.
+  function loadLibrary(name, url, opts) {
+    opts = opts || {};
+    var check = opts.check || function() { return false; };
+
+    if (!opts.module && check()) return Promise.resolve();
+    if (pkLibInflight[name]) return pkLibInflight[name];
+
+    if (opts.module && pkLibFailures[name] && pkLibFailures[name].terminal) {
+      return Promise.reject(new Error(name + " failed to load earlier on this page"));
+    }
+    var attempts = pkLibAttempts[name] = (pkLibAttempts[name] || 0) + 1;
+    if (!opts.module && attempts > LIBRARY_MAX_ATTEMPTS) {
+      return Promise.reject(new Error(name + " failed to load"));
+    }
+
+    var attempt = { name: name, url: url, csp: null };
+    pkLibPending.push(attempt);
+    function settled() {
+      pkLibPending = pkLibPending.filter(function(a) { return a !== attempt; });
+      delete pkLibInflight[name];
+    }
+
+    var p;
+    var urls = [url].concat(opts.fallback && opts.fallback !== url ? [opts.fallback] : []);
+    if (opts.module) {
+      // Same order as a script: the local copy, then an opted-in CDN once.
+      var importAt = function(i) {
+        attempt.url = urls[i];
+        attempt.csp = null;
+        return import(urls[i]).then(function(mod) {
+          settled();
+          delete pkLibFailures[name];
+          return mod;
+        }, function(err) {
+          if (i + 1 < urls.length) return importAt(i + 1);
+          settled();
+          pkLibFail(name, urls[i], attempt.csp ? "csp" : "load", attempt.csp);
+          if (pkLibFailures[name]) pkLibFailures[name].terminal = true;
+          throw err;
+        });
+      };
+      p = importAt(0);
+    } else {
+      // The local file first; the CDN only when the host opted in (the facts
+      // name one). One failure report, after the last permitted attempt — a
+      // failed local load rescued by the fallback leaves no alert behind.
+      p = new Promise(function(resolve, reject) {
+        function tryUrl(i) {
+          var current = urls[i];
+          attempt.url = current;
+          attempt.csp = null;
+          var script = document.createElement("script");
+          script.src = current;
+          function failed(reason) {
+            // Removed so a later attempt (a remount, a reconnect) can try anew.
+            script.remove();
+            if (i + 1 < urls.length) { tryUrl(i + 1); return; }
+            settled();
+            pkLibFail(name, current, reason, attempt.csp);
+            reject(new Error(name + " failed to load"));
+          }
+          script.onload = function() {
+            if (check()) {
+              settled();
+              delete pkLibFailures[name];
+              resolve();
+            } else {
+              failed("load");
+            }
+          };
+          script.onerror = function() { failed(attempt.csp ? "csp" : "load"); };
+          document.head.appendChild(script);
+        }
+        tryUrl(0);
+      });
+    }
+    pkLibInflight[name] = p;
+    return p;
+  }
+
+  // A vendored library by its key in window.PHOENIX_KIT_LIBS. A pre-imported
+  // copy still wins; with no facts there is nothing to load and the failure
+  // says so (the notice tells the host to recompile or run phoenix_kit.update).
+  function loadVendored(name, key, opts) {
+    opts = opts || {};
+    if (opts.check && opts.check()) return Promise.resolve();
+    var urls = pkLibUrls(key);
+    if (!urls) {
+      pkLibFail(name, "lib/" + key, "facts");
+      return Promise.reject(new Error(name + ": no install facts name its file"));
+    }
+    return loadLibrary(name, urls.local, Object.assign({}, opts, { fallback: urls.cdn }));
+  }
+
+  // A hook that loads its library (`load()` chains any dependencies), then
+  // becomes the library's own hook. One destroyed while loading never
+  // mounts late.
+  function lazyHook(load, pick) {
+    return {
+      mounted: function() {
+        var self = this;
+        self.__pkGone = false;
+        load().then(function() {
+          if (self.__pkGone) return;
+          var real = pick();
+          if (!real) return;
+          Object.keys(real).forEach(function(key) {
+            if (key !== "mounted") self[key] = real[key];
+          });
+          if (typeof real.mounted === "function") real.mounted.call(self);
+        }, function() {
+          // Already reported by loadLibrary; the feature stays unavailable.
+        });
+      },
+      destroyed: function() {
+        this.__pkGone = true;
+      }
+    };
+  }
+
+  // Loaders other blocks depend on (Tessera and Etcher wait for Fresco).
+  var pkLoaders = {};
+
+  window.PhoenixKitLibraries = {
+    load: loadLibrary,
+    loadVendored: loadVendored,
+    urls: pkLibUrls,
+    lazyHook: lazyHook,
+    failures: pkLibFailures
+  };
+
+  // LibraryLoadNotice — fills the admin-only shell rendered beside the flash
+  // group, from failures already recorded and from `pk:library-failed`. The
+  // copy follows the evidence (CSP from another origin, CSP on this origin,
+  // or "could not load", cause unknown); text goes in as textContent only.
+  // Dismissal lasts the session, per library and URL.
+  var LIB_NOTICE_KEY = "pk:library-notice:dismissed";
+
+  function libNoticeDismissed() {
+    try { return JSON.parse(sessionStorage.getItem(LIB_NOTICE_KEY) || "[]"); } catch (_) { return []; }
+  }
+
+  window.PhoenixKitHooks.LibraryLoadNotice = {
+    mounted() {
+      var self = this;
+      this._onFailed = function() { self._render(); };
+      window.addEventListener("pk:library-failed", this._onFailed);
+      var dismiss = this.el.querySelector("[data-notice-dismiss]");
+      if (dismiss) {
+        dismiss.addEventListener("click", function() {
+          var seen = libNoticeDismissed().concat(self._shown || []);
+          try { sessionStorage.setItem(LIB_NOTICE_KEY, JSON.stringify(seen)); } catch (_) {}
+          self.el.hidden = true;
+        });
+      }
+      this._render();
+    },
+
+    destroyed() {
+      window.removeEventListener("pk:library-failed", this._onFailed);
+    },
+
+    _render() {
+      var el = this.el;
+      var failures = window.__pkLibFailures || {};
+      var dismissed = libNoticeDismissed();
+      var names = Object.keys(failures).filter(function(name) {
+        return dismissed.indexOf(name + "|" + failures[name].url) === -1;
+      });
+      this._shown = names.map(function(name) { return name + "|" + failures[name].url; });
+      if (!names.length) { el.hidden = true; return; }
+
+      var d = el.dataset;
+      el.querySelector("[data-notice-title]").textContent = d.title || "";
+      el.querySelector("[data-notice-audience]").textContent = d.audience || "";
+      var list = el.querySelector("[data-notice-list]");
+      list.textContent = "";
+      names.forEach(function(name) {
+        var f = failures[name];
+        var origin = "";
+        try { origin = new URL(f.url, window.location.href).origin; } catch (_) {}
+        var text;
+        if (f.reason === "csp") {
+          text = (origin === window.location.origin ? d.cspSelf : d.cspOther) || "";
+          text = text.replace("%{directive}", f.directive || "script-src").replace("%{origin}", origin);
+        } else if (f.reason === "facts") {
+          text = d.facts || "";
+        } else {
+          text = d.load || "";
+        }
+        var li = document.createElement("li");
+        var strong = document.createElement("strong");
+        strong.textContent = name + ": ";
+        var reason = document.createElement("span");
+        reason.textContent = text + " ";
+        var url = document.createElement("code");
+        url.style.wordBreak = "break-all";
+        url.style.fontSize = "0.75em";
+        url.textContent = f.url;
+        li.appendChild(strong);
+        li.appendChild(reason);
+        li.appendChild(url);
+        list.appendChild(li);
+      });
+      el.hidden = false;
+    }
+  };
+
+  // ============================================================================
   // FRESCO DAISYUI THEME INTEGRATION
   // ============================================================================
   //
@@ -162,7 +492,7 @@ if (typeof window.Chart === "undefined") {
   // ============================================================================
   //
   // Provides drag-and-drop reordering for grids and lists.
-  // Auto-loads SortableJS from CDN when first used.
+  // Loads SortableJS (the host's vendored copy, see ViewerLibraries) when first used.
   //
   // Usage in LiveView template:
   //   <div id="my-grid" phx-hook="SortableGrid" data-sortable-event="reorder_items">
@@ -183,9 +513,6 @@ if (typeof window.Chart === "undefined") {
     // Configuration
     // ---------------------------------------------------------------------------
 
-    var SORTABLE_CDN = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js";
-    var sortableLoading = false;
-    var sortableCallbacks = [];
     var stylesInjected = false;
 
     // ---------------------------------------------------------------------------
@@ -245,30 +572,15 @@ if (typeof window.Chart === "undefined") {
     }
 
     // ---------------------------------------------------------------------------
-    // CDN Loading
+    // Loading (the host's vendored copy)
     // ---------------------------------------------------------------------------
 
+    // Through the shared loader; the callback runs only once SortableJS is
+    // usable. A failure is reported there, and the list stays unsortable.
     function loadSortableJS(callback) {
-      if (window.Sortable) {
-        callback();
-        return;
-      }
-
-      sortableCallbacks.push(callback);
-
-      if (sortableLoading) return;
-      sortableLoading = true;
-
-      var script = document.createElement("script");
-      script.src = SORTABLE_CDN;
-      script.onload = function() {
-        sortableCallbacks.forEach(function(cb) { cb(); });
-        sortableCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:SortableGrid] Failed to load SortableJS from CDN");
-      };
-      document.head.appendChild(script);
+      loadVendored("SortableJS", "sortable", {
+        check: function() { return typeof window.Sortable === "function"; }
+      }).then(callback, function() {});
     }
 
     // ---------------------------------------------------------------------------
@@ -514,7 +826,7 @@ if (typeof window.Chart === "undefined") {
   // 1.5. MEDIA IMAGE ZOOM HOOK
   // ============================================================================
   //
-  // Lazy-loads Panzoom from jsDelivr (mirrors SortableJS pattern above) and
+  // Lazy-loads Panzoom (the host's vendored copy, like SortableJS above) and
   // attaches it to a given <img> via the MediaImageZoom hook. Used by the
   // MediaBrowser modal viewer so users can wheel/pinch/double-tap zoom and
   // drag-pan the original image. The hook is only mounted on image files
@@ -526,31 +838,11 @@ if (typeof window.Chart === "undefined") {
     if (window.PhoenixKitMediaZoom) return;
     window.PhoenixKitMediaZoom = true;
 
-    var PANZOOM_CDN = "https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.0/dist/panzoom.min.js";
-    var panzoomLoading = false;
-    var panzoomCallbacks = [];
-
+    // Through the shared loader; see loadSortableJS.
     function loadPanzoom(callback) {
-      if (window.Panzoom) {
-        callback();
-        return;
-      }
-
-      panzoomCallbacks.push(callback);
-
-      if (panzoomLoading) return;
-      panzoomLoading = true;
-
-      var script = document.createElement("script");
-      script.src = PANZOOM_CDN;
-      script.onload = function() {
-        panzoomCallbacks.forEach(function(cb) { cb(); });
-        panzoomCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:MediaImageZoom] Failed to load Panzoom from CDN");
-      };
-      document.head.appendChild(script);
+      loadVendored("Panzoom", "panzoom", {
+        check: function() { return typeof window.Panzoom === "function"; }
+      }).then(callback, function() {});
     }
 
     window.PhoenixKitHooks.MediaImageZoom = {
@@ -6683,290 +6975,155 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // LEAF EDITOR (loaded from CDN)
+  // LEAF EDITOR (vendored, loaded on demand)
   //
-  // Auto-loads Leaf editor JS from CDN when the hook mounts, so a page with
-  // no editor on it pays nothing.
-  //
-  // The Elixir LiveComponent comes from the :leaf hex dependency, and this
-  // tag has to name the same release: almost everything leaf adds is a
-  // server<->client contract, and a bundle left behind still renders an
-  // identical editor while quietly not implementing what the server now
-  // expects. test/phoenix_kit_web/leaf_bundle_pin_test.exs holds the two
-  // together, because the comment that used to ask for it did not.
+  // Loads Leaf's editor JS when the hook mounts, so a page with no editor on
+  // it pays nothing. The file is the host's own copy of the INSTALLED :leaf
+  // dependency (PhoenixKit.Install.ViewerLibraries), so the browser half can
+  // no longer drift from the server half: there is no tag to keep in step.
   // ============================================================================
 
   (function() {
-    var LEAF_CDN = "https://cdn.jsdelivr.net/gh/alexdont/leaf@v0.8.0/priv/static/assets/leaf.js";
-    var leafLoading = false;
-    var leafCallbacks = [];
 
-    function loadLeafJS(callback) {
-      if (window.LeafHooks && window.LeafHooks.Leaf) {
-        callback();
-        return;
-      }
-
-      leafCallbacks.push(callback);
-
-      if (leafLoading) return;
-      leafLoading = true;
-
-      var script = document.createElement("script");
-      script.src = LEAF_CDN;
-      script.onload = function() {
-        leafCallbacks.forEach(function(cb) { cb(); });
-        leafCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Leaf] Failed to load Leaf editor from CDN");
-      };
-      document.head.appendChild(script);
+    function loadLeaf() {
+      return loadVendored("Leaf", "leaf", {
+        check: function() { return !!(window.LeafHooks && window.LeafHooks.Leaf); }
+      });
     }
 
-    // Wrapper hook that lazy-loads Leaf JS then delegates to the real hook
-    window.PhoenixKitHooks.Leaf = {
-      mounted: function() {
-        var self = this;
-        loadLeafJS(function() {
-          var realHook = window.LeafHooks && window.LeafHooks.Leaf;
-          if (realHook) {
-            // Copy real hook methods onto this instance
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            // Call the real mounted
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    // Wrapper hook that lazy-loads Leaf JS then becomes the real hook.
+    window.PhoenixKitHooks.Leaf = lazyHook(loadLeaf, function() {
+      return window.LeafHooks && window.LeafHooks.Leaf;
+    });
   })();
 
 
   // ============================================================================
-  // FRESCO (loaded from CDN)
+  // FRESCO (vendored, loaded on demand)
   //
-  // Lazy-fetches Fresco's JS bundle from jsDelivr when one of its hooks
-  // mounts. The single fresco.js exports all three component hooks
-  // (`FrescoViewer`, `FrescoCanvas`, `FrescoScrollStrip`); we wrap the
-  // two PhoenixKit actually uses (`FrescoViewer` for plain images,
-  // `FrescoCanvas` for MediaBrowser's annotation-host). One load brings
-  // in both — the second mount short-circuits via the
-  // `window.FrescoHooks.*` cache check.
-  //
-  // The Elixir components come from the {:fresco, "~> 0.5"} hex
-  // dependency. Parent apps that pre-import fresco in their own app.js
-  // short-circuit the CDN load entirely.
-  //
-  // Keep the version constant in sync with the hex dep + the GitHub
-  // release tag (jsDelivr resolves `gh/<user>/<repo>@<tag>`).
+  // Loads Fresco when one of its hooks mounts. The single fresco.js exports
+  // all three component hooks; PhoenixKit wraps the two it uses
+  // (`FrescoViewer` for plain images, `FrescoCanvas` for the annotation
+  // host), so one load covers both. A host that pre-imports Fresco in its own
+  // app.js short-circuits the load entirely. The file is the host's copy of
+  // the installed :fresco dependency (PhoenixKit.Install.ViewerLibraries).
   // ============================================================================
 
   (function() {
-    var FRESCO_CDN = "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.13.1/priv/static/fresco.js";
-    var frescoLoading = false;
-    var frescoCallbacks = [];
 
-    function loadFrescoJS(callback) {
-      if (window.FrescoHooks && window.FrescoHooks.FrescoViewer) {
-        callback();
-        return;
-      }
-
-      frescoCallbacks.push(callback);
-
-      if (frescoLoading) return;
-      frescoLoading = true;
-
-      var script = document.createElement("script");
-      script.src = FRESCO_CDN;
-      script.onload = function() {
-        frescoCallbacks.forEach(function(cb) { cb(); });
-        frescoCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Fresco] Failed to load Fresco viewer from CDN");
-      };
-      document.head.appendChild(script);
+    // Usable means the engine (window.Fresco — what Tessera and Etcher
+    // attach through) AND the hooks are there, pre-imported or loaded.
+    function loadFresco() {
+      return loadVendored("Fresco", "fresco", {
+        check: function() {
+          return !!(window.Fresco && window.FrescoHooks && window.FrescoHooks.FrescoViewer);
+        }
+      });
     }
+    pkLoaders.fresco = loadFresco;
 
-    window.PhoenixKitHooks.FrescoViewer = {
-      mounted: function() {
-        var self = this;
-        loadFrescoJS(function() {
-          var realHook = window.FrescoHooks && window.FrescoHooks.FrescoViewer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    window.PhoenixKitHooks.FrescoViewer = lazyHook(loadFresco, function() {
+      return window.FrescoHooks && window.FrescoHooks.FrescoViewer;
+    });
 
     // FrescoCanvas — the layered scene component MediaBrowser uses to
-    // host annotations (Etcher). Same lazy-load mechanics as
-    // FrescoViewer above; both hooks come out of the same fresco.js
-    // bundle, so a single CDN fetch covers either / both.
-    window.PhoenixKitHooks.FrescoCanvas = {
-      mounted: function() {
-        var self = this;
-        loadFrescoJS(function() {
-          var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      },
-      updated: function() {
-        var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-        if (realHook && typeof realHook.updated === "function") {
-          realHook.updated.call(this);
-        }
-      },
-      destroyed: function() {
-        var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-        if (realHook && typeof realHook.destroyed === "function") {
-          realHook.destroyed.call(this);
-        }
-      }
-    };
+    // host annotations (Etcher). Both hooks come out of the same fresco.js
+    // bundle, so a single fetch covers either / both.
+    window.PhoenixKitHooks.FrescoCanvas = lazyHook(loadFresco, function() {
+      return window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
+    });
   })();
 
 
   // ============================================================================
-  // TESSERA LAYER (loaded from CDN)
+  // TESSERA LAYER (vendored, loaded on demand)
   //
-  // Lazy-fetches Tessera's progressive-resolution + DZI deep-zoom layer JS.
-  // Pairs with Fresco — the host viewer must mount first, then the Tessera
-  // layer attaches via `fresco_id`. Comes from the {:tessera, "~> 0.3"} hex
-  // dependency. Same parent-pre-import short-circuit as Fresco.
-  //
-  // Keep this version pin in sync with the hex dep + the GitHub release tag
-  // (jsDelivr resolves `gh/<user>/<repo>@<tag>`). A stale pin silently serves
-  // an old tessera.js — the OSD-era 0.2 build no longer works against Fresco's
-  // engine, so the layer would be a silent no-op.
+  // Tessera's progressive-resolution + DZI deep-zoom layer. Attaches to a
+  // Fresco viewer via `fresco_id`, so it loads only after Fresco has (below).
+  // Same pre-import short-circuit; the file is the host's copy of the
+  // installed :tessera dependency.
   // ============================================================================
 
   (function() {
-    var TESSERA_CDN = "https://cdn.jsdelivr.net/gh/alexdont/tessera@v0.3.8/priv/static/tessera.js";
-    var tesseraLoading = false;
-    var tesseraCallbacks = [];
 
-    function loadTesseraJS(callback) {
-      if (window.TesseraHooks && window.TesseraHooks.TesseraLayer) {
-        callback();
-        return;
-      }
-
-      tesseraCallbacks.push(callback);
-
-      if (tesseraLoading) return;
-      tesseraLoading = true;
-
-      var script = document.createElement("script");
-      script.src = TESSERA_CDN;
-      script.onload = function() {
-        tesseraCallbacks.forEach(function(cb) { cb(); });
-        tesseraCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Tessera] Failed to load Tessera layer from CDN");
-      };
-      document.head.appendChild(script);
+    // Chained through Fresco: Tessera's mounted gives up when window.Fresco
+    // is absent, and two async script loads finish in either order — a fast
+    // Tessera beside a slow Fresco silently lost the sharper rungs.
+    function loadTessera() {
+      return pkLoaders.fresco().then(function() {
+        return loadVendored("Tessera", "tessera", {
+          check: function() { return !!(window.TesseraHooks && window.TesseraHooks.TesseraLayer); }
+        });
+      });
     }
 
-    window.PhoenixKitHooks.TesseraLayer = {
-      mounted: function() {
-        var self = this;
-        loadTesseraJS(function() {
-          var realHook = window.TesseraHooks && window.TesseraHooks.TesseraLayer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    window.PhoenixKitHooks.TesseraLayer = lazyHook(loadTessera, function() {
+      return window.TesseraHooks && window.TesseraHooks.TesseraLayer;
+    });
   })();
 
 
   // ============================================================================
-  // ETCHER LAYER (loaded from CDN)
+  // ETCHER LAYER (vendored, loaded on demand)
   //
-  // Lazy-fetches Etcher's annotation layer JS. Pairs with Fresco — attaches
-  // to a host viewer/canvas via `fresco_id` and adds the pencil toolbar,
-  // draw tools, and shape persistence. Comes from the :etcher hex
-  // dependency. Same parent-pre-import short-circuit as Fresco.
-  //
-  // This pin must name the release hex resolved —
-  // test/phoenix_kit_web/vendored_cdn_pins_test.exs holds every gh/ pin in
-  // this file to its mix.lock entry, because the comment that used to ask
-  // for it did not: this one sat three minors behind. A stale pin silently
-  // serves an old etcher.js — toolbar hooks like
-  // `etcher:line-params-changed` then never fire even though the server
-  // side is wired for them.
+  // Etcher's annotation layer: attaches to a Fresco viewer/canvas via
+  // `fresco_id` and adds the pencil toolbar, draw tools and shape
+  // persistence. Same pre-import short-circuit; the file is the host's copy
+  // of the installed :etcher dependency, so a toolbar hook the server is
+  // wired for can no longer be missing from a stale CDN copy.
   // ============================================================================
 
   (function() {
-    var ETCHER_CDN = "https://cdn.jsdelivr.net/gh/alexdont/etcher@v0.19.0/priv/static/etcher.js";
-    var etcherLoading = false;
-    var etcherCallbacks = [];
 
-    function loadEtcherJS(callback) {
-      if (window.EtcherHooks && window.EtcherHooks.EtcherLayer) {
-        callback();
-        return;
-      }
-
-      etcherCallbacks.push(callback);
-
-      if (etcherLoading) return;
-      etcherLoading = true;
-
-      var script = document.createElement("script");
-      script.src = ETCHER_CDN;
-      script.onload = function() {
-        etcherCallbacks.forEach(function(cb) { cb(); });
-        etcherCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Etcher] Failed to load Etcher layer from CDN");
-      };
-      document.head.appendChild(script);
+    // Etcher's Customise dialog loads SortableJS itself. Point it at this
+    // host's copy and turn its built-in CDN load off — in every mode, so a
+    // failed local copy falls back to native drag-and-drop, never to
+    // jsDelivr (Etcher >= 0.20; the `sortableUrl` is authoritative). A host
+    // that opted into a CDN fallback gets it from the shared loader instead,
+    // which supplies window.Sortable (Etcher prefers it) before Etcher mounts.
+    // The settings themselves. A host that set its own wins. Also applied
+    // once the page has parsed (below): a host that pre-imports Etcher in
+    // its own app.js replaces this wrapper hook entirely, and would
+    // otherwise keep Etcher's CDN load. Etcher reads both lazily and keeps
+    // an existing window.Etcher when it loads, so either order works.
+    function applyEtcherSortableSettings() {
+      window.Etcher = window.Etcher || {};
+      var urls = pkLibUrls("sortable");
+      if (urls && window.Etcher.sortableUrl === undefined) window.Etcher.sortableUrl = urls.local;
+      if (window.Etcher.loadSortableFromCdn === undefined) window.Etcher.loadSortableFromCdn = false;
+      return urls;
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyEtcherSortableSettings);
+    } else {
+      setTimeout(applyEtcherSortableSettings, 0);
     }
 
-    window.PhoenixKitHooks.EtcherLayer = {
-      mounted: function() {
-        var self = this;
-        loadEtcherJS(function() {
-          var realHook = window.EtcherHooks && window.EtcherHooks.EtcherLayer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
+    function configureEtcherSortable() {
+      var urls = applyEtcherSortableSettings();
+      if (urls && urls.cdn) {
+        return loadVendored("SortableJS", "sortable", {
+          check: function() { return typeof window.Sortable === "function"; }
+        }).catch(function() { /* reported; the dialog reorders natively */ });
       }
-    };
+      return Promise.resolve();
+    }
+
+    // Chained through Fresco for the same reason as Tessera: Etcher attaches
+    // through window.Fresco.onReady and gives up when it is absent.
+    function loadEtcher() {
+      return pkLoaders.fresco().then(function() {
+        var sortable = configureEtcherSortable();
+        var etcher = loadVendored("Etcher", "etcher", {
+          check: function() { return !!(window.EtcherHooks && window.EtcherHooks.EtcherLayer); }
+        });
+        return Promise.all([etcher, sortable]);
+      });
+    }
+
+    window.PhoenixKitHooks.EtcherLayer = lazyHook(loadEtcher, function() {
+      return window.EtcherHooks && window.EtcherHooks.EtcherLayer;
+    });
   })();
 
 
@@ -8376,9 +8533,9 @@ if (typeof window.Chart === "undefined") {
   // a moving play cursor, a timeline, and zoom. If the library can't load, the
   // native <audio controls> still plays.
   //
-  // The CDN URLs are held in variables (not string literals at the import call)
-  // so the bundler leaves them as runtime imports instead of trying to resolve
-  // them at build time.
+  // The module is the host's vendored copy (same origin, so a strict CSP
+  // and CORS are both satisfied), its URL resolved at runtime from the
+  // install facts — never a string literal a bundler would try to resolve.
   window.PhoenixKitHooks.WaveformPlayer = {
     mounted() {
       var el = this.el;
@@ -8397,9 +8554,9 @@ if (typeof window.Chart === "undefined") {
         if (pauseIcon) pauseIcon.classList.toggle("hidden", !playing);
       };
 
-      var CORE_URL = "https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js";
-
-      import(CORE_URL)
+      // Through the shared loader (a failure is recorded and reported); the
+      // catch below keeps playback working.
+      loadVendored("wavesurfer", "wavesurfer", { module: true })
         .then(function (mod) {
           if (self._destroyed) return;
           var WaveSurfer = mod.default;
@@ -8478,8 +8635,8 @@ if (typeof window.Chart === "undefined") {
 // namespace the parent app spreads into LiveSocket.
 //
 // Default setup (zero-config): the FrescoViewer / TesseraLayer /
-// EtcherLayer wrapper hooks above lazy-load the sibling libs from
-// jsDelivr on first mount, so the parent app only needs to spread
+// EtcherLayer wrapper hooks above lazy-load the host's vendored copies of
+// the sibling libs on first mount, so the parent app only needs to spread
 // `...window.PhoenixKitHooks` into LiveSocket:
 //
 //   let liveSocket = new LiveSocket("/live", Socket, {

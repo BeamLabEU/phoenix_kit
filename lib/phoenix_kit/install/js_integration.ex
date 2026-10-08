@@ -27,6 +27,8 @@ defmodule PhoenixKit.Install.JsIntegration do
 
   require Logger
 
+  alias Mix.Tasks.Compile.PhoenixKitJsSources
+
   # Igniter is optional (see mix.exs) and this module cannot be guarded away
   # like the `PhoenixKit.Install.*` helpers — `mix phoenix_kit.assets.rebuild`
   # calls `update_js_file/0`, which needs no igniter. The shim silences the
@@ -277,7 +279,15 @@ defmodule PhoenixKit.Install.JsIntegration do
         File.mkdir_p!(Path.dirname(dest))
         File.cp!(source, dest)
         verify_vendored!(dest)
-        Logger.info("Updated #{@source_filename} in priv/static/assets/vendor/")
+        # The bundle names no library URL of its own: it needs the viewer
+        # libraries and the install facts beside it, in the same step. The
+        # compiler's function, so both paths produce identical output.
+        PhoenixKitJsSources.vendor_all(File.cwd!())
+
+        Logger.info(
+          "Updated #{@source_filename}, its libraries and install facts in priv/static/assets/vendor/"
+        )
+
         :ok
 
       {:error, :not_found} ->
@@ -317,9 +327,12 @@ defmodule PhoenixKit.Install.JsIntegration do
 
         case File.cp(source, dest) do
           :ok ->
+            # The libraries and install facts the bundle loads them by.
+            PhoenixKitJsSources.vendor_all(File.cwd!())
+
             Igniter.add_notice(
               igniter,
-              "✅ Copied #{@source_filename} to priv/static/assets/vendor/"
+              "✅ Copied #{@source_filename}, its libraries and install facts to priv/static/assets/vendor/"
             )
 
           {:error, reason} ->

@@ -16,6 +16,7 @@
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/phoenix_kit/install/missing_igniter.ex", :unknown_function},
   {"lib/phoenix_kit/install/js_integration.ex", :unknown_function},
+  {"lib/phoenix_kit/install/viewer_libraries.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
   # Dev-only warning checks Mix.env/0 at runtime, guarded by function_exported?/3
