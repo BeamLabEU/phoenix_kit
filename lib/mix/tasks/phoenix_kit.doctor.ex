@@ -93,6 +93,12 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
        inside a checkout of phoenix_kit itself (that convention is a
        phoenix_kit-repo thing, not something installed into a consuming host
        app) — silently skipped otherwise.
+   29. **Viewer Libraries** — is the `:phoenix_kit_js_sources` compiler in the
+       host's `compilers`, and is the vendored `phoenix_kit.js` on disk? It
+       is what loads (and reports failures of) the viewer and editor
+       libraries; a host without it gets no hooks and no notice at all.
+       Proves the file exists, not that Plug.Static, a proxy or an asset
+       host serves it — only a browser can prove that.
   """
 
   use Mix.Task
@@ -178,6 +184,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         run_check("Child Start Order", fn -> check_child_order() end),
         run_check("Update Mode", fn -> update_mode_verdict(host_update_mode) end),
         run_check("daisyUI Version", fn -> check_daisyui() end),
+        run_check("Viewer Libraries", fn -> check_viewer_libraries() end),
         run_check("User Dashboard (deprecated)", fn -> check_user_dashboard_deprecation() end),
         run_check("Sitemap Discoverability", fn -> check_sitemap_serving(prefix) end),
         run_check("Crawler Visibility", fn -> check_crawler_visibility(prefix) end),
@@ -2339,6 +2346,49 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   # manually). PhoenixKit's modals rely on daisyUI >= the minimum for correct
   # modal scrollbar-gutter handling — this check is where a host finds out
   # it's behind (install/update print the same warning).
+  @vendored_bundle "priv/static/assets/vendor/phoenix_kit.js"
+
+  @doc false
+  # Pure, so every verdict is testable without a host project: `app` is the
+  # running project's app, `compilers` its :compilers, `bundle?` whether the
+  # vendored bundle exists on disk.
+  def viewer_libraries_verdict(:phoenix_kit, _compilers, _bundle?),
+    do: {:pass, "phoenix_kit's own checkout — hosts vendor the bundle, nothing to check here"}
+
+  def viewer_libraries_verdict(_app, compilers, bundle?) do
+    compiler? = :phoenix_kit_js_sources in (compilers || [])
+
+    cond do
+      compiler? and bundle? ->
+        {:pass,
+         "phoenix_kit_js_sources compiler configured; #{@vendored_bundle} present " <>
+           "(on disk — whether it is actually served is only provable in a browser)"}
+
+      compiler? ->
+        {:warn,
+         "#{@vendored_bundle} is missing although the phoenix_kit_js_sources compiler is " <>
+           "configured. Run `mix compile`: without it the viewer, its libraries and their " <>
+           "failure notice do not load."}
+
+      true ->
+        {:warn,
+         "The phoenix_kit_js_sources compiler is not in this app's :compilers. Add " <>
+           "`compilers: [:phoenix_kit_js_sources] ++ Mix.compilers()` to mix.exs (or run " <>
+           "`mix phoenix_kit.update` after every upgrade): the vendored phoenix_kit.js is what " <>
+           "loads the viewer and editor libraries and reports when they fail."}
+    end
+  end
+
+  defp check_viewer_libraries do
+    config = Mix.Project.config()
+
+    viewer_libraries_verdict(
+      config[:app],
+      config[:compilers],
+      File.exists?(@vendored_bundle)
+    )
+  end
+
   defp check_daisyui do
     alias PhoenixKit.Install.DaisyUI
 

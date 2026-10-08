@@ -120,6 +120,273 @@ if (typeof window.Chart === "undefined") {
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};
 
   // ============================================================================
+  // SHARED LIBRARY LOADER
+  // ============================================================================
+  //
+  // Every lazily-loaded library (Fresco, Tessera, Etcher, Leaf, SortableJS,
+  // Panzoom, wavesurfer) loads through `loadLibrary`, which replaced six
+  // copied loaders whose only failure report was a console.error (see
+  // dev_docs/plans/2026-10-07-self-hosted-viewer-libraries.md, Part A).
+  //
+  //   - A pre-imported library wins: `check()` is asked first.
+  //   - One in-flight attempt per library; every waiter settles either way.
+  //   - Success means `check()` passes after onload, not just a 200.
+  //   - A failed script may retry (LIBRARY_MAX_ATTEMPTS per page); a failed
+  //     module import() is terminal for the document.
+  //   - Final failures go to window.__pkLibFailures and a `pk:library-failed`
+  //     event, which the admin-only LibraryLoadNotice shows.
+  //
+  // A script error has no HTTP status, so failures are "load" unless a
+  // matching, enforced `securitypolicyviolation` makes them "csp" — and that
+  // event may arrive after onerror, so it can refine an earlier failure.
+  // ----------------------------------------------------------------------------
+
+  var LIBRARY_MAX_ATTEMPTS = 2;
+  var pkLibInflight = {};
+  var pkLibAttempts = {};
+  var pkLibPending = []; // { name, url, origin } for in-flight attempts
+  var pkLibFailures = window.__pkLibFailures = window.__pkLibFailures || {};
+
+  function pkLibNormalize(url) {
+    try { return new URL(url, window.location.href).href; } catch (_) { return String(url || ""); }
+  }
+
+  function pkLibOrigin(url) {
+    try { return new URL(url, window.location.href).origin; } catch (_) { return ""; }
+  }
+
+  function pkLibAnnounce(name) {
+    var f = pkLibFailures[name];
+    if (!f) return;
+    var cause = f.reason === "csp"
+      ? "blocked by the page's Content-Security-Policy (" + (f.directive || "script-src") + ")"
+      : "could not be loaded or run (network, a missing file, or an error in the file)";
+    console.error("[PhoenixKit] The " + name + " library " + cause + ": " + f.url +
+      ". Features that need it are unavailable on this page. " +
+      (f.reason === "csp"
+        ? "Check that the page's policy allows " + (pkLibOrigin(f.url) || f.url) + "."
+        : "Check the network, and that the host build vendors PhoenixKit's JavaScript " +
+          "(:phoenix_kit_js_sources in compilers, or mix phoenix_kit.update)."));
+    try {
+      window.dispatchEvent(new CustomEvent("pk:library-failed", {
+        detail: { name: name, url: f.url, reason: f.reason, directive: f.directive || null }
+      }));
+    } catch (_) { /* very old browsers: the console line above still stands */ }
+  }
+
+  function pkLibFail(name, url, reason, directive) {
+    var prev = pkLibFailures[name];
+    // Already recorded with at least this much evidence: nothing new to say.
+    if (prev && prev.url === url && (prev.reason === "csp" || reason !== "csp")) return;
+    pkLibFailures[name] = { url: url, reason: reason, directive: directive || null };
+    pkLibAnnounce(name);
+  }
+
+  // Matches a violation to one of our attempts by full URL, or by origin when
+  // the browser stripped the blocked URI to one; anything else is ignored.
+  if (!window.__pkLibCspListener) {
+    window.__pkLibCspListener = true;
+    document.addEventListener("securitypolicyviolation", function(e) {
+      if (e.disposition === "report") return;
+      var blocked = e.blockedURI || "";
+      var full = pkLibNormalize(blocked);
+      var origin = pkLibOrigin(blocked);
+      var directive = e.effectiveDirective || e.violatedDirective || null;
+      var candidates = pkLibPending.concat(Object.keys(pkLibFailures).map(function(n) {
+        return { name: n, url: pkLibFailures[n].url };
+      }));
+      for (var i = 0; i < candidates.length; i++) {
+        var c = candidates[i];
+        var cFull = pkLibNormalize(c.url);
+        var match = cFull === full ||
+          (origin && blocked.indexOf("/", blocked.indexOf("//") + 2) === -1 && pkLibOrigin(c.url) === origin);
+        if (!match) continue;
+        if (pkLibFailures[c.name]) {
+          pkLibFail(c.name, c.url, "csp", directive);
+        } else {
+          c.csp = directive || "script-src";
+        }
+        return;
+      }
+    }, true);
+  }
+
+  // `opts.check()` — true once the library is usable (its global/hook).
+  // `opts.module` — load with dynamic import() and resolve with the module.
+  function loadLibrary(name, url, opts) {
+    opts = opts || {};
+    var check = opts.check || function() { return false; };
+
+    if (!opts.module && check()) return Promise.resolve();
+    if (pkLibInflight[name]) return pkLibInflight[name];
+
+    if (opts.module && pkLibFailures[name] && pkLibFailures[name].terminal) {
+      return Promise.reject(new Error(name + " failed to load earlier on this page"));
+    }
+    var attempts = pkLibAttempts[name] = (pkLibAttempts[name] || 0) + 1;
+    if (!opts.module && attempts > LIBRARY_MAX_ATTEMPTS) {
+      return Promise.reject(new Error(name + " failed to load"));
+    }
+
+    var attempt = { name: name, url: url, csp: null };
+    pkLibPending.push(attempt);
+    function settled() {
+      pkLibPending = pkLibPending.filter(function(a) { return a !== attempt; });
+      delete pkLibInflight[name];
+    }
+
+    var p;
+    if (opts.module) {
+      p = import(url).then(function(mod) {
+        settled();
+        delete pkLibFailures[name];
+        return mod;
+      }, function(err) {
+        settled();
+        pkLibFail(name, url, attempt.csp ? "csp" : "load", attempt.csp);
+        if (pkLibFailures[name]) pkLibFailures[name].terminal = true;
+        throw err;
+      });
+    } else {
+      p = new Promise(function(resolve, reject) {
+        var script = document.createElement("script");
+        script.src = url;
+        script.onload = function() {
+          settled();
+          if (check()) {
+            delete pkLibFailures[name];
+            resolve();
+          } else {
+            script.remove();
+            pkLibFail(name, url, "load");
+            reject(new Error(name + " loaded but did not define what it should"));
+          }
+        };
+        script.onerror = function() {
+          settled();
+          // Removed so a later attempt (a remount, a reconnect) can try anew.
+          script.remove();
+          pkLibFail(name, url, attempt.csp ? "csp" : "load", attempt.csp);
+          reject(new Error(name + " failed to load"));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    pkLibInflight[name] = p;
+    return p;
+  }
+
+  // A hook that loads its library (`load()` chains any dependencies), then
+  // becomes the library's own hook. One destroyed while loading never
+  // mounts late.
+  function lazyHook(load, pick) {
+    return {
+      mounted: function() {
+        var self = this;
+        self.__pkGone = false;
+        load().then(function() {
+          if (self.__pkGone) return;
+          var real = pick();
+          if (!real) return;
+          Object.keys(real).forEach(function(key) {
+            if (key !== "mounted") self[key] = real[key];
+          });
+          if (typeof real.mounted === "function") real.mounted.call(self);
+        }, function() {
+          // Already reported by loadLibrary; the feature stays unavailable.
+        });
+      },
+      destroyed: function() {
+        this.__pkGone = true;
+      }
+    };
+  }
+
+  // Loaders other blocks depend on (Tessera and Etcher wait for Fresco).
+  var pkLoaders = {};
+
+  window.PhoenixKitLibraries = {
+    load: loadLibrary,
+    lazyHook: lazyHook,
+    failures: pkLibFailures
+  };
+
+  // LibraryLoadNotice — fills the admin-only shell rendered beside the flash
+  // group, from failures already recorded and from `pk:library-failed`. The
+  // copy follows the evidence (CSP from another origin, CSP on this origin,
+  // or "could not load", cause unknown); text goes in as textContent only.
+  // Dismissal lasts the session, per library and URL.
+  var LIB_NOTICE_KEY = "pk:library-notice:dismissed";
+
+  function libNoticeDismissed() {
+    try { return JSON.parse(sessionStorage.getItem(LIB_NOTICE_KEY) || "[]"); } catch (_) { return []; }
+  }
+
+  window.PhoenixKitHooks.LibraryLoadNotice = {
+    mounted() {
+      var self = this;
+      this._onFailed = function() { self._render(); };
+      window.addEventListener("pk:library-failed", this._onFailed);
+      var dismiss = this.el.querySelector("[data-notice-dismiss]");
+      if (dismiss) {
+        dismiss.addEventListener("click", function() {
+          var seen = libNoticeDismissed().concat(self._shown || []);
+          try { sessionStorage.setItem(LIB_NOTICE_KEY, JSON.stringify(seen)); } catch (_) {}
+          self.el.hidden = true;
+        });
+      }
+      this._render();
+    },
+
+    destroyed() {
+      window.removeEventListener("pk:library-failed", this._onFailed);
+    },
+
+    _render() {
+      var el = this.el;
+      var failures = window.__pkLibFailures || {};
+      var dismissed = libNoticeDismissed();
+      var names = Object.keys(failures).filter(function(name) {
+        return dismissed.indexOf(name + "|" + failures[name].url) === -1;
+      });
+      this._shown = names.map(function(name) { return name + "|" + failures[name].url; });
+      if (!names.length) { el.hidden = true; return; }
+
+      var d = el.dataset;
+      el.querySelector("[data-notice-title]").textContent = d.title || "";
+      el.querySelector("[data-notice-audience]").textContent = d.audience || "";
+      var list = el.querySelector("[data-notice-list]");
+      list.textContent = "";
+      names.forEach(function(name) {
+        var f = failures[name];
+        var origin = "";
+        try { origin = new URL(f.url, window.location.href).origin; } catch (_) {}
+        var text;
+        if (f.reason === "csp") {
+          text = (origin === window.location.origin ? d.cspSelf : d.cspOther) || "";
+          text = text.replace("%{directive}", f.directive || "script-src").replace("%{origin}", origin);
+        } else {
+          text = d.load || "";
+        }
+        var li = document.createElement("li");
+        var strong = document.createElement("strong");
+        strong.textContent = name + ": ";
+        var reason = document.createElement("span");
+        reason.textContent = text + " ";
+        var url = document.createElement("code");
+        url.style.wordBreak = "break-all";
+        url.style.fontSize = "0.75em";
+        url.textContent = f.url;
+        li.appendChild(strong);
+        li.appendChild(reason);
+        li.appendChild(url);
+        list.appendChild(li);
+      });
+      el.hidden = false;
+    }
+  };
+
+  // ============================================================================
   // FRESCO DAISYUI THEME INTEGRATION
   // ============================================================================
   //
@@ -184,8 +451,6 @@ if (typeof window.Chart === "undefined") {
     // ---------------------------------------------------------------------------
 
     var SORTABLE_CDN = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js";
-    var sortableLoading = false;
-    var sortableCallbacks = [];
     var stylesInjected = false;
 
     // ---------------------------------------------------------------------------
@@ -248,27 +513,12 @@ if (typeof window.Chart === "undefined") {
     // CDN Loading
     // ---------------------------------------------------------------------------
 
+    // Through the shared loader; the callback runs only once SortableJS is
+    // usable. A failure is reported there, and the list stays unsortable.
     function loadSortableJS(callback) {
-      if (window.Sortable) {
-        callback();
-        return;
-      }
-
-      sortableCallbacks.push(callback);
-
-      if (sortableLoading) return;
-      sortableLoading = true;
-
-      var script = document.createElement("script");
-      script.src = SORTABLE_CDN;
-      script.onload = function() {
-        sortableCallbacks.forEach(function(cb) { cb(); });
-        sortableCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:SortableGrid] Failed to load SortableJS from CDN");
-      };
-      document.head.appendChild(script);
+      loadLibrary("SortableJS", SORTABLE_CDN, {
+        check: function() { return typeof window.Sortable === "function"; }
+      }).then(callback, function() {});
     }
 
     // ---------------------------------------------------------------------------
@@ -527,30 +777,11 @@ if (typeof window.Chart === "undefined") {
     window.PhoenixKitMediaZoom = true;
 
     var PANZOOM_CDN = "https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.0/dist/panzoom.min.js";
-    var panzoomLoading = false;
-    var panzoomCallbacks = [];
-
+    // Through the shared loader; see loadSortableJS.
     function loadPanzoom(callback) {
-      if (window.Panzoom) {
-        callback();
-        return;
-      }
-
-      panzoomCallbacks.push(callback);
-
-      if (panzoomLoading) return;
-      panzoomLoading = true;
-
-      var script = document.createElement("script");
-      script.src = PANZOOM_CDN;
-      script.onload = function() {
-        panzoomCallbacks.forEach(function(cb) { cb(); });
-        panzoomCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:MediaImageZoom] Failed to load Panzoom from CDN");
-      };
-      document.head.appendChild(script);
+      loadLibrary("Panzoom", PANZOOM_CDN, {
+        check: function() { return typeof window.Panzoom === "function"; }
+      }).then(callback, function() {});
     }
 
     window.PhoenixKitHooks.MediaImageZoom = {
@@ -6698,51 +6929,17 @@ if (typeof window.Chart === "undefined") {
 
   (function() {
     var LEAF_CDN = "https://cdn.jsdelivr.net/gh/alexdont/leaf@v0.8.0/priv/static/assets/leaf.js";
-    var leafLoading = false;
-    var leafCallbacks = [];
 
-    function loadLeafJS(callback) {
-      if (window.LeafHooks && window.LeafHooks.Leaf) {
-        callback();
-        return;
-      }
-
-      leafCallbacks.push(callback);
-
-      if (leafLoading) return;
-      leafLoading = true;
-
-      var script = document.createElement("script");
-      script.src = LEAF_CDN;
-      script.onload = function() {
-        leafCallbacks.forEach(function(cb) { cb(); });
-        leafCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Leaf] Failed to load Leaf editor from CDN");
-      };
-      document.head.appendChild(script);
+    function loadLeaf() {
+      return loadLibrary("Leaf", LEAF_CDN, {
+        check: function() { return !!(window.LeafHooks && window.LeafHooks.Leaf); }
+      });
     }
 
-    // Wrapper hook that lazy-loads Leaf JS then delegates to the real hook
-    window.PhoenixKitHooks.Leaf = {
-      mounted: function() {
-        var self = this;
-        loadLeafJS(function() {
-          var realHook = window.LeafHooks && window.LeafHooks.Leaf;
-          if (realHook) {
-            // Copy real hook methods onto this instance
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            // Call the real mounted
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    // Wrapper hook that lazy-loads Leaf JS then becomes the real hook.
+    window.PhoenixKitHooks.Leaf = lazyHook(loadLeaf, function() {
+      return window.LeafHooks && window.LeafHooks.Leaf;
+    });
   })();
 
 
@@ -6767,81 +6964,28 @@ if (typeof window.Chart === "undefined") {
 
   (function() {
     var FRESCO_CDN = "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.13.1/priv/static/fresco.js";
-    var frescoLoading = false;
-    var frescoCallbacks = [];
 
-    function loadFrescoJS(callback) {
-      if (window.FrescoHooks && window.FrescoHooks.FrescoViewer) {
-        callback();
-        return;
-      }
-
-      frescoCallbacks.push(callback);
-
-      if (frescoLoading) return;
-      frescoLoading = true;
-
-      var script = document.createElement("script");
-      script.src = FRESCO_CDN;
-      script.onload = function() {
-        frescoCallbacks.forEach(function(cb) { cb(); });
-        frescoCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Fresco] Failed to load Fresco viewer from CDN");
-      };
-      document.head.appendChild(script);
+    // Usable means the engine (window.Fresco — what Tessera and Etcher
+    // attach through) AND the hooks are there, pre-imported or loaded.
+    function loadFresco() {
+      return loadLibrary("Fresco", FRESCO_CDN, {
+        check: function() {
+          return !!(window.Fresco && window.FrescoHooks && window.FrescoHooks.FrescoViewer);
+        }
+      });
     }
+    pkLoaders.fresco = loadFresco;
 
-    window.PhoenixKitHooks.FrescoViewer = {
-      mounted: function() {
-        var self = this;
-        loadFrescoJS(function() {
-          var realHook = window.FrescoHooks && window.FrescoHooks.FrescoViewer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    window.PhoenixKitHooks.FrescoViewer = lazyHook(loadFresco, function() {
+      return window.FrescoHooks && window.FrescoHooks.FrescoViewer;
+    });
 
     // FrescoCanvas — the layered scene component MediaBrowser uses to
-    // host annotations (Etcher). Same lazy-load mechanics as
-    // FrescoViewer above; both hooks come out of the same fresco.js
-    // bundle, so a single CDN fetch covers either / both.
-    window.PhoenixKitHooks.FrescoCanvas = {
-      mounted: function() {
-        var self = this;
-        loadFrescoJS(function() {
-          var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      },
-      updated: function() {
-        var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-        if (realHook && typeof realHook.updated === "function") {
-          realHook.updated.call(this);
-        }
-      },
-      destroyed: function() {
-        var realHook = window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
-        if (realHook && typeof realHook.destroyed === "function") {
-          realHook.destroyed.call(this);
-        }
-      }
-    };
+    // host annotations (Etcher). Both hooks come out of the same fresco.js
+    // bundle, so a single fetch covers either / both.
+    window.PhoenixKitHooks.FrescoCanvas = lazyHook(loadFresco, function() {
+      return window.FrescoHooks && window.FrescoHooks.FrescoCanvas;
+    });
   })();
 
 
@@ -6861,48 +7005,21 @@ if (typeof window.Chart === "undefined") {
 
   (function() {
     var TESSERA_CDN = "https://cdn.jsdelivr.net/gh/alexdont/tessera@v0.3.8/priv/static/tessera.js";
-    var tesseraLoading = false;
-    var tesseraCallbacks = [];
 
-    function loadTesseraJS(callback) {
-      if (window.TesseraHooks && window.TesseraHooks.TesseraLayer) {
-        callback();
-        return;
-      }
-
-      tesseraCallbacks.push(callback);
-
-      if (tesseraLoading) return;
-      tesseraLoading = true;
-
-      var script = document.createElement("script");
-      script.src = TESSERA_CDN;
-      script.onload = function() {
-        tesseraCallbacks.forEach(function(cb) { cb(); });
-        tesseraCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Tessera] Failed to load Tessera layer from CDN");
-      };
-      document.head.appendChild(script);
+    // Chained through Fresco: Tessera's mounted gives up when window.Fresco
+    // is absent, and two async script loads finish in either order — a fast
+    // Tessera beside a slow Fresco silently lost the sharper rungs.
+    function loadTessera() {
+      return pkLoaders.fresco().then(function() {
+        return loadLibrary("Tessera", TESSERA_CDN, {
+          check: function() { return !!(window.TesseraHooks && window.TesseraHooks.TesseraLayer); }
+        });
+      });
     }
 
-    window.PhoenixKitHooks.TesseraLayer = {
-      mounted: function() {
-        var self = this;
-        loadTesseraJS(function() {
-          var realHook = window.TesseraHooks && window.TesseraHooks.TesseraLayer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    window.PhoenixKitHooks.TesseraLayer = lazyHook(loadTessera, function() {
+      return window.TesseraHooks && window.TesseraHooks.TesseraLayer;
+    });
   })();
 
 
@@ -6925,48 +7042,20 @@ if (typeof window.Chart === "undefined") {
 
   (function() {
     var ETCHER_CDN = "https://cdn.jsdelivr.net/gh/alexdont/etcher@v0.19.0/priv/static/etcher.js";
-    var etcherLoading = false;
-    var etcherCallbacks = [];
 
-    function loadEtcherJS(callback) {
-      if (window.EtcherHooks && window.EtcherHooks.EtcherLayer) {
-        callback();
-        return;
-      }
-
-      etcherCallbacks.push(callback);
-
-      if (etcherLoading) return;
-      etcherLoading = true;
-
-      var script = document.createElement("script");
-      script.src = ETCHER_CDN;
-      script.onload = function() {
-        etcherCallbacks.forEach(function(cb) { cb(); });
-        etcherCallbacks = [];
-      };
-      script.onerror = function() {
-        console.error("[PhoenixKit:Etcher] Failed to load Etcher layer from CDN");
-      };
-      document.head.appendChild(script);
+    // Chained through Fresco for the same reason as Tessera: Etcher attaches
+    // through window.Fresco.onReady and gives up when it is absent.
+    function loadEtcher() {
+      return pkLoaders.fresco().then(function() {
+        return loadLibrary("Etcher", ETCHER_CDN, {
+          check: function() { return !!(window.EtcherHooks && window.EtcherHooks.EtcherLayer); }
+        });
+      });
     }
 
-    window.PhoenixKitHooks.EtcherLayer = {
-      mounted: function() {
-        var self = this;
-        loadEtcherJS(function() {
-          var realHook = window.EtcherHooks && window.EtcherHooks.EtcherLayer;
-          if (realHook) {
-            Object.keys(realHook).forEach(function(key) {
-              if (key !== "mounted") {
-                self[key] = realHook[key];
-              }
-            });
-            realHook.mounted.call(self);
-          }
-        });
-      }
-    };
+    window.PhoenixKitHooks.EtcherLayer = lazyHook(loadEtcher, function() {
+      return window.EtcherHooks && window.EtcherHooks.EtcherLayer;
+    });
   })();
 
 
@@ -8399,7 +8488,9 @@ if (typeof window.Chart === "undefined") {
 
       var CORE_URL = "https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js";
 
-      import(CORE_URL)
+      // Through the shared loader (a failure is recorded and reported); the
+      // catch below keeps playback working.
+      loadLibrary("wavesurfer", CORE_URL, { module: true })
         .then(function (mod) {
           if (self._destroyed) return;
           var WaveSurfer = mod.default;

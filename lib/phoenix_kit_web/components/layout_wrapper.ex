@@ -36,6 +36,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   require Logger
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
+  import PhoenixKitWeb.Components.Core.LibraryLoadNotice, only: [library_load_notice: 1]
 
   import PhoenixKitWeb.Components.Core.PhoenixKitFavicon
   import PhoenixKitWeb.Components.Core.PhoenixKitGlobals
@@ -1412,6 +1413,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     ~H"""
     <main class="min-h-screen bg-base-100 transition-colors">
       <.flash_group flash={@flash} />
+      <.library_load_notice scope={assigns[:phoenix_kit_current_scope]} />
       <.timezone_detector
         scope={assigns[:phoenix_kit_current_scope]}
         handler_attached={assigns[:phoenix_kit_timezone_hook_attached?] == true}
@@ -1464,6 +1466,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <%!-- Admin pages without parent headers --%>
         <main class="min-h-screen bg-base-100 transition-colors">
           <.flash_group flash={@flash} />
+          <.library_load_notice scope={assigns[:phoenix_kit_current_scope]} />
           <.timezone_detector
             scope={assigns[:phoenix_kit_current_scope]}
             handler_attached={assigns[:phoenix_kit_timezone_hook_attached?] == true}
@@ -1559,6 +1562,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       # freezes at its dead-render value (see `render_with_phoenix_kit_layout/1`).
       ~H"""
       <.flash_group flash={@flash} />
+      <.library_load_notice scope={assigns[:phoenix_kit_current_scope]} />
       <.timezone_detector
         scope={assigns[:phoenix_kit_current_scope]}
         handler_attached={assigns[:phoenix_kit_timezone_hook_attached?] == true}
@@ -1615,6 +1619,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
     ~H"""
     <.flash_group flash={@flash} />
+    <.library_load_notice scope={assigns[:phoenix_kit_current_scope]} />
     <.timezone_detector
       scope={assigns[:phoenix_kit_current_scope]}
       handler_attached={assigns[:phoenix_kit_timezone_hook_attached?] == true}
