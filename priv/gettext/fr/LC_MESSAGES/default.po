@@ -10151,7 +10151,7 @@ msgstr "Profil d'envoi par défaut mis à jour"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Les profils désactivés ne sont jamais utilisés pour l'envoi, même comme profil par défaut."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:74
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
 #: lib/phoenix_kit_web/components/media_browser.html.heex:258
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:364
 #, elixir-autogen, elixir-format
@@ -18838,17 +18838,17 @@ msgstr "Changer de bibliothèque"
 msgid "Blocked by this site's Content-Security-Policy (%{directive}), which does not allow %{origin}."
 msgstr "Bloqué par la Content-Security-Policy de ce site (%{directive}), qui n'autorise pas %{origin}."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:51
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:52
 #, elixir-autogen, elixir-format
 msgid "Blocked by this site's Content-Security-Policy (%{directive}). Check that the site's asset serving and its policy allow this file."
 msgstr "Bloqué par la Content-Security-Policy de ce site (%{directive}). Vérifiez que la diffusion des ressources du site et sa politique autorisent ce fichier."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:56
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:58
 #, elixir-autogen, elixir-format
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "N'a pas pu être chargé ni exécuté ; la cause est inconnue. Vérifiez le réseau et que la compilation du site inclut le JavaScript de PhoenixKit (le compilateur :phoenix_kit_js_sources, ou mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:60
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Seuls les administrateurs voient ce message."
@@ -18857,3 +18857,8 @@ msgstr "Seuls les administrateurs voient ce message."
 #, elixir-autogen, elixir-format
 msgid "Some features on this page could not load"
 msgstr "Certaines fonctionnalités de cette page n'ont pas pu se charger"
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:63
+#, elixir-autogen, elixir-format
+msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
+msgstr "Son fichier est inconnu : les informations d'installation de PhoenixKit sont manquantes. Recompilez l'application (le compilateur :phoenix_kit_js_sources) ou exécutez mix phoenix_kit.update."

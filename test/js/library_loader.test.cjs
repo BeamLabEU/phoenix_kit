@@ -15,14 +15,15 @@ const { test } = require("node:test");
 
 const src = fs.readFileSync(
   path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js"), "utf8");
-const start = src.indexOf("  var LIBRARY_MAX_ATTEMPTS = 2;");
+const start = src.indexOf("  var PK_SCRIPT_SRC = ");
 const end = src.indexOf("  // ============================================================================\n  // FRESCO DAISYUI THEME INTEGRATION");
 assert.ok(start !== -1 && end > start, "could not find the loader section");
 const section = src.slice(start, end);
 
 // A fresh fake page per test: scripts appended to <head> are recorded and
 // can be made to load or fail; window events and CSP listeners are captured.
-function page() {
+function page(opts) {
+  opts = opts || {};
   const scripts = [];
   const docListeners = {};
   const winListeners = {};
@@ -41,6 +42,7 @@ function page() {
       style: {}, textContent: "", children: [], appendChild(c) { this.children.push(c); }
     }),
     head: { appendChild: (s) => scripts.push(s) },
+    currentScript: opts.scriptSrc ? { src: opts.scriptSrc } : null,
     addEventListener: (n, fn) => ((docListeners[n] = docListeners[n] || []).push(fn))
   };
   function CustomEvent(type, init) { this.type = type; this.detail = init && init.detail; }
@@ -50,6 +52,8 @@ function page() {
   };
   const errors = [];
   const console = { error: (m) => errors.push(m) };
+  if (opts.facts) window.PHOENIX_KIT_LIBS = opts.facts;
+  if (opts.libBase) window.PHOENIX_KIT_LIB_BASE = opts.libBase;
   new Function("window", "document", "CustomEvent", "sessionStorage", "console", "URL", section)(
     window, document, CustomEvent, sessionStorage, console, URL);
   const violate = (blockedURI, extra) =>
@@ -188,7 +192,7 @@ test("a hook destroyed while its library loads never mounts late", async () => {
 
 test("Tessera and Etcher wait for Fresco", () => {
   for (const name of ["Tessera", "Etcher"]) {
-    const re = new RegExp(`return pkLoaders\\.fresco\\(\\)\\.then\\(function\\(\\) \\{\\s*return loadLibrary\\("${name}"`);
+    const re = new RegExp(`return pkLoaders\\.fresco\\(\\)\\.then\\(function\\(\\) \\{[\\s\\S]{0,120}?loadVendored\\("${name}"`);
     assert.match(src, re, `${name} is chained through Fresco's successful load`);
   }
   assert.doesNotMatch(src, /Failed to load [A-Za-z ]+ from CDN"\);/,
@@ -266,4 +270,80 @@ test("dismissal lasts the session for what was shown — a later, different fail
     assert.deepStrictEqual(el.nodes["[data-notice-list]"].children.map((li) => li.children[0].textContent),
       ["Leaf: "]);
   });
+});
+
+// ── Part B1: the host's own copies ──────────────────────────────────────────
+
+const FACTS = {
+  fresco: { file: "fresco-0.13.1-3f9a1c00.js", cdn: null },
+  sortable: { file: "sortable-1.15.0-8a9889ae.js", cdn: null }
+};
+
+test("library files resolve next to the bundle, by the names the install facts give", () => {
+  const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit-1a2b3c.js?vsn=d", facts: FACTS });
+  assert.deepStrictEqual(p.lib.urls("fresco"),
+    { local: "https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js", cdn: null },
+    "dirname of the bundle's own URL (digested name and query stripped) + lib/");
+});
+
+test("an explicit base wins, for hosts that bundle core into their own app.js", () => {
+  const p = page({ scriptSrc: "https://app.test/assets/app.js", facts: FACTS, libBase: "https://cdn.app.test/pk" });
+  assert.strictEqual(p.lib.urls("fresco").local, "https://cdn.app.test/pk/fresco-0.13.1-3f9a1c00.js");
+});
+
+test("the facts are read when a library is needed — they load after the bundle", () => {
+  const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit.js" });
+  assert.strictEqual(p.lib.urls("fresco"), null);
+  p.window.PHOENIX_KIT_LIBS = FACTS;
+  assert.ok(p.lib.urls("fresco"));
+});
+
+test("with no facts nothing is fetched or guessed, and the failure says why", async () => {
+  const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit.js" });
+  await assert.rejects(p.lib.loadVendored("Fresco", "fresco", { check: () => false }));
+  assert.strictEqual(p.scripts.length, 0, "no request at all");
+  assert.strictEqual(p.window.__pkLibFailures.Fresco.reason, "facts");
+});
+
+test("a pre-imported library needs no facts", async () => {
+  const p = page({});
+  await p.lib.loadVendored("Fresco", "fresco", { check: () => true });
+  assert.strictEqual(p.window.__pkLibFailures.Fresco, undefined);
+});
+
+test("the vendored file is the only request by default — no CDN after a local failure", async () => {
+  const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit.js", facts: FACTS });
+  const pr = p.lib.loadVendored("Fresco", "fresco", { check: () => false });
+  p.scripts[0].onerror();
+  await assert.rejects(pr);
+  assert.deepStrictEqual(p.scripts.map((s) => s.src), ["https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js"]);
+});
+
+test("an opted-in CDN is tried once after the local copy fails, and a rescue leaves no alert", async () => {
+  const facts = { fresco: { file: "fresco-0.13.1-3f9a1c00.js",
+    cdn: "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.13.1/priv/static/fresco.js" } };
+  const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit.js", facts });
+  let ok = false;
+  const pr = p.lib.loadVendored("Fresco", "fresco", { check: () => ok });
+  p.scripts[0].onerror();
+  assert.strictEqual(p.scripts[1].src, facts.fresco.cdn);
+  ok = true;
+  p.scripts[1].onload();
+  await pr;
+  assert.strictEqual(p.window.__pkLibFailures.Fresco, undefined);
+  assert.strictEqual(p.events.length, 0, "nothing announced");
+});
+
+test("Etcher is pointed at the host's SortableJS, with its own CDN load off in every mode", () => {
+  const block = src.slice(src.indexOf("function configureEtcherSortable() {"));
+  const apply = src.slice(src.indexOf("function applyEtcherSortableSettings() {"));
+  assert.match(apply, /if \(urls && window\.Etcher\.sortableUrl === undefined\) window\.Etcher\.sortableUrl = urls\.local;/,
+    "the host's own copy, unless the host set its own");
+  assert.match(apply, /if \(window\.Etcher\.loadSortableFromCdn === undefined\) window\.Etcher\.loadSortableFromCdn = false;/);
+  assert.match(block, /var urls = applyEtcherSortableSettings\(\);/);
+  // A host that pre-imports Etcher replaces the wrapper hook: the settings
+  // are also applied once the page has parsed, so they reach that Etcher too.
+  assert.match(src, /document\.addEventListener\("DOMContentLoaded", applyEtcherSortableSettings\);/);
+  assert.match(src, /var sortable = configureEtcherSortable\(\);[\s\S]{0,200}?return Promise\.all\(\[etcher, sortable\]\);/,
+    "configured before Etcher can mount");
 });

@@ -141,6 +141,32 @@ if (typeof window.Chart === "undefined") {
   // event may arrive after onerror, so it can refine an earlier failure.
   // ----------------------------------------------------------------------------
 
+  // Where the libraries live: next to this bundle, in lib/ (the compiler
+  // vendors them there — PhoenixKit.Install.ViewerLibraries). Captured NOW,
+  // while the bundle evaluates: document.currentScript is gone in every later
+  // callback. A host that bundles this file into its own app.js (where
+  // currentScript is the wrong file) sets window.PHOENIX_KIT_LIB_BASE.
+  var PK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || "";
+
+  function pkLibBase() {
+    if (window.PHOENIX_KIT_LIB_BASE) return String(window.PHOENIX_KIT_LIB_BASE).replace(/\/?$/, "/");
+    if (!PK_SCRIPT_SRC) return null;
+    return PK_SCRIPT_SRC.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
+  }
+
+  // The file names come from the install facts (window.PHOENIX_KIT_LIBS,
+  // written by the compiler into phoenix_kit_modules.js), looked up when a
+  // library is first needed — that file loads after this one. No facts, no
+  // guess: a version guessed in the browser could mismatch the server's half
+  // and quietly stop honouring its API, so the failure is reported instead.
+  function pkLibUrls(key) {
+    var facts = window.PHOENIX_KIT_LIBS;
+    var entry = facts && facts[key];
+    var base = pkLibBase();
+    if (!entry || !entry.file || !base) return null;
+    return { local: base + entry.file, cdn: entry.cdn || null };
+  }
+
   var LIBRARY_MAX_ATTEMPTS = 2;
   var pkLibInflight = {};
   var pkLibAttempts = {};
@@ -160,7 +186,9 @@ if (typeof window.Chart === "undefined") {
     if (!f) return;
     var cause = f.reason === "csp"
       ? "blocked by the page's Content-Security-Policy (" + (f.directive || "script-src") + ")"
-      : "could not be loaded or run (network, a missing file, or an error in the file)";
+      : f.reason === "facts"
+        ? "has no file: PhoenixKit's install facts (window.PHOENIX_KIT_LIBS) are missing or do not name it"
+        : "could not be loaded or run (network, a missing file, or an error in the file)";
     console.error("[PhoenixKit] The " + name + " library " + cause + ": " + f.url +
       ". Features that need it are unavailable on this page. " +
       (f.reason === "csp"
@@ -236,6 +264,7 @@ if (typeof window.Chart === "undefined") {
     }
 
     var p;
+    var urls = [url].concat(opts.fallback && opts.fallback !== url ? [opts.fallback] : []);
     if (opts.module) {
       p = import(url).then(function(mod) {
         settled();
@@ -248,32 +277,55 @@ if (typeof window.Chart === "undefined") {
         throw err;
       });
     } else {
+      // The local file first; the CDN only when the host opted in (the facts
+      // name one). One failure report, after the last permitted attempt — a
+      // failed local load rescued by the fallback leaves no alert behind.
       p = new Promise(function(resolve, reject) {
-        var script = document.createElement("script");
-        script.src = url;
-        script.onload = function() {
-          settled();
-          if (check()) {
-            delete pkLibFailures[name];
-            resolve();
-          } else {
+        function tryUrl(i) {
+          var current = urls[i];
+          attempt.url = current;
+          attempt.csp = null;
+          var script = document.createElement("script");
+          script.src = current;
+          function failed(reason) {
+            // Removed so a later attempt (a remount, a reconnect) can try anew.
             script.remove();
-            pkLibFail(name, url, "load");
-            reject(new Error(name + " loaded but did not define what it should"));
+            if (i + 1 < urls.length) { tryUrl(i + 1); return; }
+            settled();
+            pkLibFail(name, current, reason, attempt.csp);
+            reject(new Error(name + " failed to load"));
           }
-        };
-        script.onerror = function() {
-          settled();
-          // Removed so a later attempt (a remount, a reconnect) can try anew.
-          script.remove();
-          pkLibFail(name, url, attempt.csp ? "csp" : "load", attempt.csp);
-          reject(new Error(name + " failed to load"));
-        };
-        document.head.appendChild(script);
+          script.onload = function() {
+            if (check()) {
+              settled();
+              delete pkLibFailures[name];
+              resolve();
+            } else {
+              failed("load");
+            }
+          };
+          script.onerror = function() { failed(attempt.csp ? "csp" : "load"); };
+          document.head.appendChild(script);
+        }
+        tryUrl(0);
       });
     }
     pkLibInflight[name] = p;
     return p;
+  }
+
+  // A vendored library by its key in window.PHOENIX_KIT_LIBS. A pre-imported
+  // copy still wins; with no facts there is nothing to load and the failure
+  // says so (the notice tells the host to recompile or run phoenix_kit.update).
+  function loadVendored(name, key, opts) {
+    opts = opts || {};
+    if (opts.check && opts.check()) return Promise.resolve();
+    var urls = pkLibUrls(key);
+    if (!urls) {
+      pkLibFail(name, "lib/" + key, "facts");
+      return Promise.reject(new Error(name + ": no install facts name its file"));
+    }
+    return loadLibrary(name, urls.local, Object.assign({}, opts, { fallback: urls.cdn }));
   }
 
   // A hook that loads its library (`load()` chains any dependencies), then
@@ -307,6 +359,8 @@ if (typeof window.Chart === "undefined") {
 
   window.PhoenixKitLibraries = {
     load: loadLibrary,
+    loadVendored: loadVendored,
+    urls: pkLibUrls,
     lazyHook: lazyHook,
     failures: pkLibFailures
   };
@@ -365,6 +419,8 @@ if (typeof window.Chart === "undefined") {
         if (f.reason === "csp") {
           text = (origin === window.location.origin ? d.cspSelf : d.cspOther) || "";
           text = text.replace("%{directive}", f.directive || "script-src").replace("%{origin}", origin);
+        } else if (f.reason === "facts") {
+          text = d.facts || "";
         } else {
           text = d.load || "";
         }
@@ -429,7 +485,7 @@ if (typeof window.Chart === "undefined") {
   // ============================================================================
   //
   // Provides drag-and-drop reordering for grids and lists.
-  // Auto-loads SortableJS from CDN when first used.
+  // Loads SortableJS (the host's vendored copy, see ViewerLibraries) when first used.
   //
   // Usage in LiveView template:
   //   <div id="my-grid" phx-hook="SortableGrid" data-sortable-event="reorder_items">
@@ -450,7 +506,6 @@ if (typeof window.Chart === "undefined") {
     // Configuration
     // ---------------------------------------------------------------------------
 
-    var SORTABLE_CDN = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js";
     var stylesInjected = false;
 
     // ---------------------------------------------------------------------------
@@ -516,7 +571,7 @@ if (typeof window.Chart === "undefined") {
     // Through the shared loader; the callback runs only once SortableJS is
     // usable. A failure is reported there, and the list stays unsortable.
     function loadSortableJS(callback) {
-      loadLibrary("SortableJS", SORTABLE_CDN, {
+      loadVendored("SortableJS", "sortable", {
         check: function() { return typeof window.Sortable === "function"; }
       }).then(callback, function() {});
     }
@@ -6914,24 +6969,18 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // LEAF EDITOR (loaded from CDN)
+  // LEAF EDITOR (vendored, loaded on demand)
   //
-  // Auto-loads Leaf editor JS from CDN when the hook mounts, so a page with
-  // no editor on it pays nothing.
-  //
-  // The Elixir LiveComponent comes from the :leaf hex dependency, and this
-  // tag has to name the same release: almost everything leaf adds is a
-  // server<->client contract, and a bundle left behind still renders an
-  // identical editor while quietly not implementing what the server now
-  // expects. test/phoenix_kit_web/leaf_bundle_pin_test.exs holds the two
-  // together, because the comment that used to ask for it did not.
+  // Loads Leaf's editor JS when the hook mounts, so a page with no editor on
+  // it pays nothing. The file is the host's own copy of the INSTALLED :leaf
+  // dependency (PhoenixKit.Install.ViewerLibraries), so the browser half can
+  // no longer drift from the server half: there is no tag to keep in step.
   // ============================================================================
 
   (function() {
-    var LEAF_CDN = "https://cdn.jsdelivr.net/gh/alexdont/leaf@v0.8.0/priv/static/assets/leaf.js";
 
     function loadLeaf() {
-      return loadLibrary("Leaf", LEAF_CDN, {
+      return loadVendored("Leaf", "leaf", {
         check: function() { return !!(window.LeafHooks && window.LeafHooks.Leaf); }
       });
     }
@@ -6944,31 +6993,22 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // FRESCO (loaded from CDN)
+  // FRESCO (vendored, loaded on demand)
   //
-  // Lazy-fetches Fresco's JS bundle from jsDelivr when one of its hooks
-  // mounts. The single fresco.js exports all three component hooks
-  // (`FrescoViewer`, `FrescoCanvas`, `FrescoScrollStrip`); we wrap the
-  // two PhoenixKit actually uses (`FrescoViewer` for plain images,
-  // `FrescoCanvas` for MediaBrowser's annotation-host). One load brings
-  // in both — the second mount short-circuits via the
-  // `window.FrescoHooks.*` cache check.
-  //
-  // The Elixir components come from the {:fresco, "~> 0.5"} hex
-  // dependency. Parent apps that pre-import fresco in their own app.js
-  // short-circuit the CDN load entirely.
-  //
-  // Keep the version constant in sync with the hex dep + the GitHub
-  // release tag (jsDelivr resolves `gh/<user>/<repo>@<tag>`).
+  // Loads Fresco when one of its hooks mounts. The single fresco.js exports
+  // all three component hooks; PhoenixKit wraps the two it uses
+  // (`FrescoViewer` for plain images, `FrescoCanvas` for the annotation
+  // host), so one load covers both. A host that pre-imports Fresco in its own
+  // app.js short-circuits the load entirely. The file is the host's copy of
+  // the installed :fresco dependency (PhoenixKit.Install.ViewerLibraries).
   // ============================================================================
 
   (function() {
-    var FRESCO_CDN = "https://cdn.jsdelivr.net/gh/alexdont/fresco@v0.13.1/priv/static/fresco.js";
 
     // Usable means the engine (window.Fresco — what Tessera and Etcher
     // attach through) AND the hooks are there, pre-imported or loaded.
     function loadFresco() {
-      return loadLibrary("Fresco", FRESCO_CDN, {
+      return loadVendored("Fresco", "fresco", {
         check: function() {
           return !!(window.Fresco && window.FrescoHooks && window.FrescoHooks.FrescoViewer);
         }
@@ -6990,28 +7030,22 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // TESSERA LAYER (loaded from CDN)
+  // TESSERA LAYER (vendored, loaded on demand)
   //
-  // Lazy-fetches Tessera's progressive-resolution + DZI deep-zoom layer JS.
-  // Pairs with Fresco — the host viewer must mount first, then the Tessera
-  // layer attaches via `fresco_id`. Comes from the {:tessera, "~> 0.3"} hex
-  // dependency. Same parent-pre-import short-circuit as Fresco.
-  //
-  // Keep this version pin in sync with the hex dep + the GitHub release tag
-  // (jsDelivr resolves `gh/<user>/<repo>@<tag>`). A stale pin silently serves
-  // an old tessera.js — the OSD-era 0.2 build no longer works against Fresco's
-  // engine, so the layer would be a silent no-op.
+  // Tessera's progressive-resolution + DZI deep-zoom layer. Attaches to a
+  // Fresco viewer via `fresco_id`, so it loads only after Fresco has (below).
+  // Same pre-import short-circuit; the file is the host's copy of the
+  // installed :tessera dependency.
   // ============================================================================
 
   (function() {
-    var TESSERA_CDN = "https://cdn.jsdelivr.net/gh/alexdont/tessera@v0.3.8/priv/static/tessera.js";
 
     // Chained through Fresco: Tessera's mounted gives up when window.Fresco
     // is absent, and two async script loads finish in either order — a fast
     // Tessera beside a slow Fresco silently lost the sharper rungs.
     function loadTessera() {
       return pkLoaders.fresco().then(function() {
-        return loadLibrary("Tessera", TESSERA_CDN, {
+        return loadVendored("Tessera", "tessera", {
           check: function() { return !!(window.TesseraHooks && window.TesseraHooks.TesseraLayer); }
         });
       });
@@ -7024,32 +7058,60 @@ if (typeof window.Chart === "undefined") {
 
 
   // ============================================================================
-  // ETCHER LAYER (loaded from CDN)
+  // ETCHER LAYER (vendored, loaded on demand)
   //
-  // Lazy-fetches Etcher's annotation layer JS. Pairs with Fresco — attaches
-  // to a host viewer/canvas via `fresco_id` and adds the pencil toolbar,
-  // draw tools, and shape persistence. Comes from the :etcher hex
-  // dependency. Same parent-pre-import short-circuit as Fresco.
-  //
-  // This pin must name the release hex resolved —
-  // test/phoenix_kit_web/vendored_cdn_pins_test.exs holds every gh/ pin in
-  // this file to its mix.lock entry, because the comment that used to ask
-  // for it did not: this one sat three minors behind. A stale pin silently
-  // serves an old etcher.js — toolbar hooks like
-  // `etcher:line-params-changed` then never fire even though the server
-  // side is wired for them.
+  // Etcher's annotation layer: attaches to a Fresco viewer/canvas via
+  // `fresco_id` and adds the pencil toolbar, draw tools and shape
+  // persistence. Same pre-import short-circuit; the file is the host's copy
+  // of the installed :etcher dependency, so a toolbar hook the server is
+  // wired for can no longer be missing from a stale CDN copy.
   // ============================================================================
 
   (function() {
-    var ETCHER_CDN = "https://cdn.jsdelivr.net/gh/alexdont/etcher@v0.19.0/priv/static/etcher.js";
+
+    // Etcher's Customise dialog loads SortableJS itself. Point it at this
+    // host's copy and turn its built-in CDN load off — in every mode, so a
+    // failed local copy falls back to native drag-and-drop, never to
+    // jsDelivr (Etcher >= 0.20; the `sortableUrl` is authoritative). A host
+    // that opted into a CDN fallback gets it from the shared loader instead,
+    // which supplies window.Sortable (Etcher prefers it) before Etcher mounts.
+    // The settings themselves. A host that set its own wins. Also applied
+    // once the page has parsed (below): a host that pre-imports Etcher in
+    // its own app.js replaces this wrapper hook entirely, and would
+    // otherwise keep Etcher's CDN load. Etcher reads both lazily and keeps
+    // an existing window.Etcher when it loads, so either order works.
+    function applyEtcherSortableSettings() {
+      window.Etcher = window.Etcher || {};
+      var urls = pkLibUrls("sortable");
+      if (urls && window.Etcher.sortableUrl === undefined) window.Etcher.sortableUrl = urls.local;
+      if (window.Etcher.loadSortableFromCdn === undefined) window.Etcher.loadSortableFromCdn = false;
+      return urls;
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyEtcherSortableSettings);
+    } else {
+      setTimeout(applyEtcherSortableSettings, 0);
+    }
+
+    function configureEtcherSortable() {
+      var urls = applyEtcherSortableSettings();
+      if (urls && urls.cdn) {
+        return loadVendored("SortableJS", "sortable", {
+          check: function() { return typeof window.Sortable === "function"; }
+        }).catch(function() { /* reported; the dialog reorders natively */ });
+      }
+      return Promise.resolve();
+    }
 
     // Chained through Fresco for the same reason as Tessera: Etcher attaches
     // through window.Fresco.onReady and gives up when it is absent.
     function loadEtcher() {
       return pkLoaders.fresco().then(function() {
-        return loadLibrary("Etcher", ETCHER_CDN, {
+        var sortable = configureEtcherSortable();
+        var etcher = loadVendored("Etcher", "etcher", {
           check: function() { return !!(window.EtcherHooks && window.EtcherHooks.EtcherLayer); }
         });
+        return Promise.all([etcher, sortable]);
       });
     }
 

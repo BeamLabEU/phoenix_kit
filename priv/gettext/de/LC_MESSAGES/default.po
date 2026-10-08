@@ -10151,7 +10151,7 @@ msgstr "Standard-Sendeprofil aktualisiert"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Deaktivierte Profile werden nie zum Senden verwendet, auch nicht als Standard."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:74
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
 #: lib/phoenix_kit_web/components/media_browser.html.heex:258
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:364
 #, elixir-autogen, elixir-format
@@ -18838,17 +18838,17 @@ msgstr "Bibliothek wechseln"
 msgid "Blocked by this site's Content-Security-Policy (%{directive}), which does not allow %{origin}."
 msgstr "Von der Content-Security-Policy dieser Website blockiert (%{directive}), die %{origin} nicht zulässt."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:51
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:52
 #, elixir-autogen, elixir-format
 msgid "Blocked by this site's Content-Security-Policy (%{directive}). Check that the site's asset serving and its policy allow this file."
 msgstr "Von der Content-Security-Policy dieser Website blockiert (%{directive}). Prüfen Sie, ob die Auslieferung der Website-Assets und die Richtlinie diese Datei zulassen."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:56
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:58
 #, elixir-autogen, elixir-format
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "Konnte nicht geladen oder ausgeführt werden; die Ursache ist unbekannt. Prüfen Sie das Netzwerk und ob der Build der Website das JavaScript von PhoenixKit enthält (den Compiler :phoenix_kit_js_sources oder mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:60
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Nur Administratoren sehen diese Meldung."
@@ -18857,3 +18857,8 @@ msgstr "Nur Administratoren sehen diese Meldung."
 #, elixir-autogen, elixir-format
 msgid "Some features on this page could not load"
 msgstr "Einige Funktionen dieser Seite konnten nicht geladen werden"
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:63
+#, elixir-autogen, elixir-format
+msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
+msgstr "Ihre Datei ist unbekannt: Die Installationsangaben von PhoenixKit fehlen. Kompilieren Sie die App neu (der Compiler :phoenix_kit_js_sources) oder führen Sie mix phoenix_kit.update aus."

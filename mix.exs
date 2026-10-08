@@ -287,6 +287,13 @@ defmodule PhoenixKit.MixProject do
       # counts a claimed finger so the second one has something to pinch
       # against; older fresco simply keeps the old single-pointer reading.
       #
+      # 0.20 is a floor because the self-hosted libraries (Part B1) set
+      # `window.Etcher.sortableUrl` / `loadSortableFromCdn = false` so the
+      # Customise dialog loads SortableJS from the host's own origin and never
+      # from jsDelivr — even when the local copy fails. An older Etcher ignores
+      # both and fetches the CDN anyway, which a strict-CSP host blocks and a
+      # no-third-party host forbids.
+      #
       # 0.19 is a floor because the media viewer's toolbar now lists the
       # `:textbox` tool (a fixed box the text wraps and sizes inside). An
       # older Etcher has no TOOL_DEFS entry for the key, filters it out of
@@ -310,7 +317,7 @@ defmodule PhoenixKit.MixProject do
       # one; they keep the old reading.
       {:fresco, "~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
       {:tessera, "~> 0.3.0"},
-      {:etcher, "~> 0.19.0"},
+      {:etcher, "~> 0.20.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #

@@ -10160,7 +10160,7 @@ msgstr "Vaikimisi saatmisprofiil on uuendatud"
 msgid "Disabled profiles are never used to send, not even as the default."
 msgstr "Keelatud profiile ei kasutata kunagi saatmiseks, ka mitte vaikimisi profiilina."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:74
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:81
 #: lib/phoenix_kit_web/components/media_browser.html.heex:258
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:364
 #, elixir-autogen, elixir-format
@@ -18847,17 +18847,17 @@ msgstr "Vaheta kogu"
 msgid "Blocked by this site's Content-Security-Policy (%{directive}), which does not allow %{origin}."
 msgstr "Selle saidi Content-Security-Policy blokeeris (%{directive}), mis ei luba %{origin}."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:51
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:52
 #, elixir-autogen, elixir-format
 msgid "Blocked by this site's Content-Security-Policy (%{directive}). Check that the site's asset serving and its policy allow this file."
 msgstr "Selle saidi Content-Security-Policy blokeeris (%{directive}). Kontrollige, kas saidi varade serveerimine ja selle poliitika lubavad seda faili."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:56
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:58
 #, elixir-autogen, elixir-format
 msgid "Could not be loaded or run; the cause is unknown. Check the network, and that the site's build includes PhoenixKit's JavaScript (the :phoenix_kit_js_sources compiler, or mix phoenix_kit.update)."
 msgstr "Ei õnnestunud laadida ega käivitada; põhjus pole teada. Kontrollige võrku ja seda, kas saidi build sisaldab PhoenixKiti JavaScripti (kompilaator :phoenix_kit_js_sources või mix phoenix_kit.update)."
 
-#: lib/phoenix_kit_web/components/core/library_load_notice.ex:60
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:67
 #, elixir-autogen, elixir-format
 msgid "Only administrators see this message."
 msgstr "Seda teadet näevad ainult administraatorid."
@@ -18866,3 +18866,8 @@ msgstr "Seda teadet näevad ainult administraatorid."
 #, elixir-autogen, elixir-format
 msgid "Some features on this page could not load"
 msgstr "Mõnda selle lehe funktsiooni ei õnnestunud laadida"
+
+#: lib/phoenix_kit_web/components/core/library_load_notice.ex:63
+#, elixir-autogen, elixir-format
+msgid "Its file is unknown: PhoenixKit's install facts are missing. Recompile the app (the :phoenix_kit_js_sources compiler) or run mix phoenix_kit.update."
+msgstr "Selle fail pole teada: PhoenixKiti paigaldusandmed puuduvad. Kompileerige rakendus uuesti (kompilaator :phoenix_kit_js_sources) või käivitage mix phoenix_kit.update."
