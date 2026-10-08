@@ -195,6 +195,23 @@ defmodule PhoenixKit.Utils.Date.TimezoneTest do
                "01.01.2027"
     end
 
+    test "the date-only and time-only variants use the settings' time zone too" do
+      settings = %{
+        "date_format" => "d.m.Y",
+        "time_format" => "H:i",
+        "time_zone" => "Europe/Tallinn"
+      }
+
+      assert DateUtils.format_date_with_cached_settings(~U[2026-12-31 22:30:00Z], settings) ==
+               "01.01.2027"
+
+      assert DateUtils.format_time_with_cached_settings(~U[2026-12-31 22:30:00Z], settings) ==
+               "00:30"
+
+      assert DateUtils.format_date_with_cached_settings(~D[2026-12-31], settings) == "31.12.2026"
+      assert DateUtils.format_time_with_cached_settings(~T[22:30:00], settings) == "22:30"
+    end
+
     test "without a time zone takes the date as given" do
       settings = %{"date_format" => "d.m.Y"}
 

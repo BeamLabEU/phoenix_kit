@@ -77,8 +77,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
         # Load date/time format settings once, mirroring the Users list, so
         # Registered/Last Updated/Email Confirmed can show full date+time in
-        # the admin's own timezone instead of the date-only, timezone-naive
-        # UtilsDate.format_datetime_with_user_format/1.
+        # the admin's own timezone instead of the date-only
+        # UtilsDate.format_datetime_with_user_format/1 (site timezone).
         date_time_settings =
           Settings.get_settings_cached(
             ["date_format", "time_format", "time_zone"],
@@ -677,7 +677,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   # Full date+time (in the admin's own timezone), for the Account Information
   # card where there's room — unlike the Users list's compact date-only
   # columns, and unlike UtilsDate.format_datetime_with_user_format/1 (despite
-  # the name, it silently drops the time and ignores timezone entirely).
+  # the name, it drops the time, and it shows the site's timezone rather than
+  # the admin's own).
   defp format_datetime(nil, _current_user, _date_time_settings), do: "-"
 
   defp format_datetime(dt, current_user, date_time_settings) do

@@ -582,15 +582,32 @@ defmodule PhoenixKit.Utils.Date do
 
   # An instant in the site time zone, for the Settings-aware formatters that
   # take no user. They read the date and time formats from Settings and used
-  # to print the stored UTC clock as if it were local. Read through the
-  # settings cache (a write invalidates it): these run once per row of a list.
-  defp in_site_zone(value), do: in_zone(value, Settings.get_setting_cached("time_zone", "0"))
+  # to print the stored UTC clock as if it were local. The zone is read like
+  # the formats beside it (and like `get_user_timezone/1`), and only for a
+  # value that is an instant.
+  defp in_site_zone(%DateTime{} = value), do: in_zone(value, site_time_zone())
+  defp in_site_zone(%NaiveDateTime{} = value), do: in_zone(value, site_time_zone())
+  defp in_site_zone(value), do: value
+
+  defp site_time_zone, do: Settings.get_setting("time_zone", "0")
 
   # A `NaiveDateTime` is UTC here, as in every other function of this module;
   # a `Date`, a `Time` or anything else has no instant to move and is returned
-  # untouched. No zone (`nil`/`""`) leaves the clock as stored.
-  defp in_zone(value, zone) when zone in [nil, ""], do: value
-  defp in_zone(%DateTime{} = datetime, zone), do: shift_to_timezone_offset(datetime, zone)
+  # untouched. No zone (`nil`, `""`, `"0"`) leaves the clock as stored.
+  defp in_zone(value, zone) when zone in [nil, "", "0"], do: value
+
+  # A `DateTime` in another zone is brought to UTC first: a legacy offset is
+  # added to the UTC clock, and `DateTime.add/3` on a non-UTC value needs a
+  # time zone database the host may not have configured.
+  defp in_zone(%DateTime{time_zone: "Etc/UTC"} = datetime, zone),
+    do: shift_to_timezone_offset(datetime, zone)
+
+  defp in_zone(%DateTime{} = datetime, zone) do
+    case DateTime.shift_zone(datetime, "Etc/UTC", TimeZone.database()) do
+      {:ok, utc} -> shift_to_timezone_offset(utc, zone)
+      {:error, _reason} -> datetime
+    end
+  end
 
   defp in_zone(%NaiveDateTime{} = naive, zone),
     do: naive |> DateTime.from_naive!("Etc/UTC") |> shift_to_timezone_offset(zone)
@@ -712,6 +729,8 @@ defmodule PhoenixKit.Utils.Date do
 
   @doc """
   Formats a date using pre-loaded date format settings (cache-optimized).
+  As `format_datetime_with_cached_settings/2`, an instant gives its date in
+  `settings["time_zone"]` when the settings carry it.
 
   ## Examples
 
@@ -721,11 +740,13 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_date_with_cached_settings(date, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    format_date(date, date_format)
+    format_date(in_zone(date, Map.get(settings, "time_zone")), date_format)
   end
 
   @doc """
   Formats a time using pre-loaded time format settings (cache-optimized).
+  An instant gives its time in `settings["time_zone"]` when the settings
+  carry it.
 
   ## Examples
 
@@ -735,7 +756,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_time_with_cached_settings(time, settings) do
     time_format = Map.get(settings, "time_format", "H:i")
-    format_time(time, time_format)
+    format_time(in_zone(time, Map.get(settings, "time_zone")), time_format)
   end
 
   @doc """
