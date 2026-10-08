@@ -34,7 +34,11 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
   test "every library lands at a versioned, content-hashed name", %{root: root} do
     facts = ViewerLibraries.vendor!(root)
 
-    assert Enum.sort(Map.keys(facts)) == ~w(etcher fresco leaf sortable tessera)
+    assert Enum.sort(Map.keys(facts)) ==
+             ~w(etcher fresco leaf panzoom sortable tessera wavesurfer)
+
+    assert facts["panzoom"].file =~ ~r/\Apanzoom-4\.6\.0-[0-9a-f]{8}\.js\z/
+    assert facts["wavesurfer"].file =~ ~r/\Awavesurfer-7\.12\.12-[0-9a-f]{8}\.js\z/
     assert facts["sortable"].file =~ ~r/\Asortable-1\.15\.0-[0-9a-f]{8}\.js\z/
 
     for {_name, %{file: file, cdn: cdn}} <- facts do
@@ -73,17 +77,37 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
              "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"
   end
 
-  test "the committed SortableJS is the exact upstream file its manifest names" do
-    %{sha256: expected, source: {:phoenix_kit, path}} =
-      Enum.find(ViewerLibraries.libraries(), &(&1.name == "sortable"))
+  test "every library committed in core is the exact upstream file its manifest names, with its licence" do
+    committed = for %{sha256: _} = lib <- ViewerLibraries.libraries(), do: lib
+    assert committed |> Enum.map(& &1.name) |> Enum.sort() == ~w(panzoom sortable wavesurfer)
 
-    content = File.read!(Path.join(to_string(:code.priv_dir(:phoenix_kit)), path))
-    assert :crypto.hash(:sha256, content) |> Base.encode16(case: :lower) == expected
-    assert content =~ "Sortable 1.15.0 - MIT"
+    for %{name: name, sha256: expected, source: {:phoenix_kit, path}} <- committed do
+      full = Path.join(to_string(:code.priv_dir(:phoenix_kit)), path)
+      content = File.read!(full)
 
-    assert File.exists?(
-             Path.join([File.cwd!(), "priv/static/assets/vendor_libs/sortablejs/LICENSE"])
-           )
+      assert :crypto.hash(:sha256, content) |> Base.encode16(case: :lower) == expected,
+             "#{name} differs from its recorded upstream file"
+
+      dir = Path.dirname(full)
+
+      assert Enum.any?(~w(LICENSE MIT-License.txt), &File.exists?(Path.join(dir, &1))),
+             "#{name} ships without its licence"
+
+      assert File.read!(Path.join(dir, "README.md")) =~ expected,
+             "#{name}'s README names its checksum"
+    end
+  end
+
+  test "wavesurfer is one self-contained module: nothing it imports would be missing" do
+    %{source: {:phoenix_kit, path}} =
+      Enum.find(ViewerLibraries.libraries(), &(&1.name == "wavesurfer"))
+
+    js = File.read!(Path.join(to_string(:code.priv_dir(:phoenix_kit)), path))
+
+    refute js =~ ~r/(from|import)\s*\(?\s*['"]\.{1,2}\//,
+           "a relative import would 404 beside the copied file"
+
+    refute js =~ "new Worker("
   end
 
   test "the facts are one JS statement naming every file", %{root: root} do

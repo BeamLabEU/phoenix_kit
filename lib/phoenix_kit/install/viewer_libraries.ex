@@ -2,14 +2,14 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   @moduledoc """
   Serves the viewer/editor libraries from the host's own origin.
 
-  `phoenix_kit.js` used to lazy-load Fresco, Tessera, Etcher, Leaf and
-  SortableJS from `cdn.jsdelivr.net` at runtime. A host whose
+  `phoenix_kit.js` used to lazy-load Fresco, Tessera, Etcher, Leaf,
+  SortableJS, Panzoom and wavesurfer from `cdn.jsdelivr.net` at runtime. A host whose
   Content-Security-Policy is `script-src 'self'` silently lost the photo
   viewer's zoom, its sharper-version swap, annotations, the editor and the
   sortable lists; every viewer open made third-party requests; and the CDN
   tags had to be kept in step with the Hex versions by hand (they drifted
   twice). See `dev_docs/plans/2026-10-07-self-hosted-viewer-libraries.md`,
-  Part B1.
+  Parts B1 and B2.
 
   `vendor!/1` copies each library into the host's
   `priv/static/assets/vendor/lib/` as `<name>-<version>-<hash>.js`:
@@ -18,8 +18,9 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       (`:code.priv_dir/1`), versioned by the consumer's loaded application
       version — not core's lockfile, which can resolve a different minor
       than the host does.
-    * SortableJS (npm-only) ships inside core, at an exact version with its
-      checksum and licence (`priv/static/assets/vendor_libs/sortablejs/`).
+    * SortableJS, Panzoom and wavesurfer (npm-only) ship inside core, each
+      at an exact version with its checksum, licence and provenance README
+      (`priv/static/assets/vendor_libs/`).
     * The content hash is in the name because a path dependency can change
       its bytes without changing its version; with it, each name is
       cacheable for good.
@@ -75,6 +76,21 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       version: "1.15.0",
       sha256: "8a9889aecc2f011e15031fed87eeb35ac75e62655a7b4889ba247ee8ea872474",
       cdn: "https://cdn.jsdelivr.net/npm/sortablejs@{vsn}/Sortable.min.js"
+    },
+    %{
+      name: "panzoom",
+      source: {:phoenix_kit, "static/assets/vendor_libs/panzoom/panzoom.min.js"},
+      version: "4.6.0",
+      sha256: "7bc8e4ee6bb95a76330b35b392922436cda207acf345e18b4491f62eb0599410",
+      cdn: "https://cdn.jsdelivr.net/npm/@panzoom/panzoom@{vsn}/dist/panzoom.min.js"
+    },
+    # An ES module (loaded with import()); self-contained — no imports, no workers.
+    %{
+      name: "wavesurfer",
+      source: {:phoenix_kit, "static/assets/vendor_libs/wavesurfer/wavesurfer.esm.js"},
+      version: "7.12.12",
+      sha256: "1bca765cc75bc4af079ecd1b2edd659b155e5d1715e75a29d68272d9f141f951",
+      cdn: "https://cdn.jsdelivr.net/npm/wavesurfer.js@{vsn}/dist/wavesurfer.esm.js"
     }
   ]
 

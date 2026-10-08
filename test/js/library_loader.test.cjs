@@ -347,3 +347,17 @@ test("Etcher is pointed at the host's SortableJS, with its own CDN load off in e
   assert.match(src, /var sortable = configureEtcherSortable\(\);[\s\S]{0,200}?return Promise\.all\(\[etcher, sortable\]\);/,
     "configured before Etcher can mount");
 });
+
+test("a module (wavesurfer) tries an opted-in CDN once after the host's copy fails, and a rescue leaves no alert", async () => {
+  const p = page({});
+  const mod = await p.lib.load("wavesurfer", "data:text/javascript,throw new Error('local broken')",
+    { module: true, fallback: "data:text/javascript,export default 7" });
+  assert.strictEqual(mod.default, 7);
+  assert.strictEqual(p.window.__pkLibFailures.wavesurfer, undefined);
+});
+
+test("a module with no fallback fails once, and stays failed for the page", async () => {
+  const p = page({});
+  await assert.rejects(p.lib.load("wavesurfer", "data:text/javascript,throw new Error('x')", { module: true }));
+  assert.strictEqual(p.window.__pkLibFailures.wavesurfer.reason, "load");
+});

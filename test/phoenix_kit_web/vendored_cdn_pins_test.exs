@@ -22,15 +22,12 @@ defmodule PhoenixKitWeb.VendoredCdnPinsTest do
 
   @bundle Path.join(__DIR__, "../../priv/static/assets/phoenix_kit.js")
 
-  test "phoenix_kit.js names no CDN copy of a library it vendors" do
+  test "phoenix_kit.js names no CDN at all — every library it loads is vendored" do
     js = File.read!(@bundle)
 
-    refute js =~ ~r|cdn\.jsdelivr\.net/gh/|,
-           "a gh/ tag in phoenix_kit.js is a hand-kept pin again — the vendored, " <>
-             "consumer-versioned file (ViewerLibraries) is the only source"
-
-    refute js =~ ~r|cdn\.jsdelivr\.net/npm/sortablejs|,
-           "SortableJS is vendored in core (priv/static/assets/vendor_libs/sortablejs)"
+    refute js =~ ~r|cdn\.jsdelivr\.net|,
+           "a CDN URL in phoenix_kit.js is a hand-kept pin again (or a library that " <>
+             "escaped the manifest) — PhoenixKit.Install.ViewerLibraries is the only source"
   end
 
   test "each Hex library's vendored name carries the version this project loaded" do

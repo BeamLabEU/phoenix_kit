@@ -266,16 +266,23 @@ if (typeof window.Chart === "undefined") {
     var p;
     var urls = [url].concat(opts.fallback && opts.fallback !== url ? [opts.fallback] : []);
     if (opts.module) {
-      p = import(url).then(function(mod) {
-        settled();
-        delete pkLibFailures[name];
-        return mod;
-      }, function(err) {
-        settled();
-        pkLibFail(name, url, attempt.csp ? "csp" : "load", attempt.csp);
-        if (pkLibFailures[name]) pkLibFailures[name].terminal = true;
-        throw err;
-      });
+      // Same order as a script: the local copy, then an opted-in CDN once.
+      var importAt = function(i) {
+        attempt.url = urls[i];
+        attempt.csp = null;
+        return import(urls[i]).then(function(mod) {
+          settled();
+          delete pkLibFailures[name];
+          return mod;
+        }, function(err) {
+          if (i + 1 < urls.length) return importAt(i + 1);
+          settled();
+          pkLibFail(name, urls[i], attempt.csp ? "csp" : "load", attempt.csp);
+          if (pkLibFailures[name]) pkLibFailures[name].terminal = true;
+          throw err;
+        });
+      };
+      p = importAt(0);
     } else {
       // The local file first; the CDN only when the host opted in (the facts
       // name one). One failure report, after the last permitted attempt — a
@@ -565,7 +572,7 @@ if (typeof window.Chart === "undefined") {
     }
 
     // ---------------------------------------------------------------------------
-    // CDN Loading
+    // Loading (the host's vendored copy)
     // ---------------------------------------------------------------------------
 
     // Through the shared loader; the callback runs only once SortableJS is
@@ -819,7 +826,7 @@ if (typeof window.Chart === "undefined") {
   // 1.5. MEDIA IMAGE ZOOM HOOK
   // ============================================================================
   //
-  // Lazy-loads Panzoom from jsDelivr (mirrors SortableJS pattern above) and
+  // Lazy-loads Panzoom (the host's vendored copy, like SortableJS above) and
   // attaches it to a given <img> via the MediaImageZoom hook. Used by the
   // MediaBrowser modal viewer so users can wheel/pinch/double-tap zoom and
   // drag-pan the original image. The hook is only mounted on image files
@@ -831,10 +838,9 @@ if (typeof window.Chart === "undefined") {
     if (window.PhoenixKitMediaZoom) return;
     window.PhoenixKitMediaZoom = true;
 
-    var PANZOOM_CDN = "https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.0/dist/panzoom.min.js";
     // Through the shared loader; see loadSortableJS.
     function loadPanzoom(callback) {
-      loadLibrary("Panzoom", PANZOOM_CDN, {
+      loadVendored("Panzoom", "panzoom", {
         check: function() { return typeof window.Panzoom === "function"; }
       }).then(callback, function() {});
     }
@@ -8527,9 +8533,9 @@ if (typeof window.Chart === "undefined") {
   // a moving play cursor, a timeline, and zoom. If the library can't load, the
   // native <audio controls> still plays.
   //
-  // The CDN URLs are held in variables (not string literals at the import call)
-  // so the bundler leaves them as runtime imports instead of trying to resolve
-  // them at build time.
+  // The module is the host's vendored copy (same origin, so a strict CSP
+  // and CORS are both satisfied), its URL resolved at runtime from the
+  // install facts — never a string literal a bundler would try to resolve.
   window.PhoenixKitHooks.WaveformPlayer = {
     mounted() {
       var el = this.el;
@@ -8548,11 +8554,9 @@ if (typeof window.Chart === "undefined") {
         if (pauseIcon) pauseIcon.classList.toggle("hidden", !playing);
       };
 
-      var CORE_URL = "https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/wavesurfer.esm.js";
-
       // Through the shared loader (a failure is recorded and reported); the
       // catch below keeps playback working.
-      loadLibrary("wavesurfer", CORE_URL, { module: true })
+      loadVendored("wavesurfer", "wavesurfer", { module: true })
         .then(function (mod) {
           if (self._destroyed) return;
           var WaveSurfer = mod.default;
@@ -8631,8 +8635,8 @@ if (typeof window.Chart === "undefined") {
 // namespace the parent app spreads into LiveSocket.
 //
 // Default setup (zero-config): the FrescoViewer / TesseraLayer /
-// EtcherLayer wrapper hooks above lazy-load the sibling libs from
-// jsDelivr on first mount, so the parent app only needs to spread
+// EtcherLayer wrapper hooks above lazy-load the host's vendored copies of
+// the sibling libs on first mount, so the parent app only needs to spread
 // `...window.PhoenixKitHooks` into LiveSocket:
 //
 //   let liveSocket = new LiveSocket("/live", Socket, {
