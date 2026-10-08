@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V212 - File shape ⚡ LATEST
+  ### V213 - Smart-square sizes ⚡ LATEST
+
+  Data only. The Default variant set gains `thumbnail_square` (150) and
+  `small_square` (300), fixed boxes cropped around the subject, **on installs with
+  no files yet**; a site with files gets them from "Reset to defaults". No file is
+  remade by this migration.
+
+  ### V212 - File shape
 
   `phoenix_kit_files.aspect_ratio`: width ÷ height, a generated (`STORED`) column
   Postgres keeps from `width` and `height`, with a partial index on
@@ -948,7 +955,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 212
+  @current_version 213
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

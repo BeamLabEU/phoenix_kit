@@ -427,6 +427,21 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
       assert VariantSets.missing_standard_slots(set.uuid) == []
     end
 
+    test "resetting the Default's sizes brings back the smart squares" do
+      Storage.reset_dimensions_to_defaults()
+
+      for {name, side} <- [{"thumbnail_square", 150}, {"small_square", 300}] do
+        dimension = Storage.get_dimension_by_name(name)
+        assert {dimension.width, dimension.height} == {side, side}
+        assert dimension.maintain_aspect_ratio == false
+        assert dimension.crop_mode == "focus"
+        assert dimension.applies_to == "image"
+      end
+
+      # They are not standard slots: a new set does not need them.
+      refute "thumbnail_square" in VariantSets.standard_slots()
+    end
+
     test "resetting the Default's sizes leaves other sets alone" do
       Storage.reset_dimensions_to_defaults()
       {:ok, set} = VariantSets.create_variant_set(%{name: "Kept"})

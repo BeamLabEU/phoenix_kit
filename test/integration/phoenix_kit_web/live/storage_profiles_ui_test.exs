@@ -604,6 +604,13 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
     end
 
     test "a rendition cropped at the middle keeps saying so", %{conn: conn} do
+      # A fresh install's Default set carries the smart squares (V213), which crop around the subject; this starts from a set with no focus crop.
+      import Ecto.Query, only: [from: 2]
+
+      Repo.delete_all(
+        from d in PhoenixKit.Modules.Storage.Dimension, where: d.crop_mode == "focus"
+      )
+
       thumbnail = Storage.get_dimension_by_name("thumbnail", VariantSets.default_uuid())
       {:ok, _} = Storage.update_dimension(thumbnail, %{maintain_aspect_ratio: false})
 

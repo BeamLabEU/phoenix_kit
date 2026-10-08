@@ -1184,7 +1184,8 @@ defmodule PhoenixKit.Modules.Storage do
 
   @doc """
   Resets the Default variant set's dimensions to the seeded values.
-  Deletes its current dimensions and recreates the 8 default ones. Other
+  Deletes its current dimensions and recreates the 10 default ones (4 image
+  sizes that keep proportions, 2 smart-square image sizes, 4 video sizes). Other
   variant sets are left alone.
   """
   def reset_dimensions_to_defaults(opts \\ []) do
@@ -1311,6 +1312,42 @@ defmodule PhoenixKit.Modules.Storage do
           order: 8,
           inserted_at: now,
           updated_at: now
+        },
+        # Smart squares: the proportion-keeping sizes above are for grids that
+        # justify rows or stack columns; these are for the cells that must be
+        # square (a list row, a picker, an avatar, a tile grid). A photo is
+        # cropped around its subject, not its middle (`Storage.FocalPoint`); a
+        # host without libvips crops at the middle. Not standard slots: a set
+        # may drop them.
+        %{
+          name: "thumbnail_square",
+          width: 150,
+          height: 150,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          maintain_aspect_ratio: false,
+          crop_mode: "focus",
+          enabled: true,
+          alternative_formats: [],
+          order: 9,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "small_square",
+          width: 300,
+          height: 300,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          maintain_aspect_ratio: false,
+          crop_mode: "focus",
+          enabled: true,
+          alternative_formats: [],
+          order: 10,
+          inserted_at: now,
+          updated_at: now
         }
       ]
 
@@ -1352,8 +1389,8 @@ defmodule PhoenixKit.Modules.Storage do
      redundancy.
   4. Clears the default bucket setting when it points at a bucket that is
      gone or disabled.
-  5. Resets the Default variant set's dimensions to the 8 defaults
-     (4 image + 4 video) and turns automatic variants back on.
+  5. Resets the Default variant set's dimensions to the 10 defaults
+     (6 image + 4 video) and turns automatic variants back on.
 
   All existing files are preserved.
 
@@ -1365,7 +1402,7 @@ defmodule PhoenixKit.Modules.Storage do
   ## Examples
 
       iex> repair_storage_module()
-      {:ok, [{:bucket_created, "Local Storage"}, {:dimensions_reset, 8}]}
+      {:ok, [{:bucket_created, "Local Storage"}, {:dimensions_reset, 10}]}
 
   """
   def repair_storage_module do
@@ -1388,7 +1425,8 @@ defmodule PhoenixKit.Modules.Storage do
 
       set_auto_generate_variants(true)
 
-      repairs ++ [{:dimensions_reset, 8}]
+      repairs ++
+        [{:dimensions_reset, length(VariantSets.list_dimensions(VariantSets.default_uuid()))}]
     end)
   end
 
