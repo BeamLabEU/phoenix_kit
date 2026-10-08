@@ -7651,7 +7651,8 @@ if (typeof window.Chart === "undefined") {
       // The path (a library page resumes into that library) and the user: the
       // stash holds file bytes, and the next person to sign in on this browser
       // must not be offered the last one's files.
-      this._scope = window.location.pathname + "\u0000" + (this.el.dataset.user || "");
+      this._user = this.el.dataset.user || "";
+      this._scopes = {};
       this._live = {};
       this._root = this.el.parentElement || document.body;
 
@@ -7668,6 +7669,7 @@ if (typeof window.Chart === "undefined") {
       this._root.addEventListener("change", this._onPick, true);
 
       this._beat = setInterval(function() { self._heartbeat(); }, UPLOAD_STASH_HEARTBEAT_MS);
+      this._rescan = null;
 
       this.handleEvent("phoenix_kit:upload-received", function(p) { self._forget(p.keys); });
       this.handleEvent("phoenix_kit:upload-discard", function(p) { self._forget(p.keys); });
@@ -7687,10 +7689,28 @@ if (typeof window.Chart === "undefined") {
     destroyed() {
       clearInterval(this._beat);
       clearTimeout(this._scan);
+      clearTimeout(this._rescan);
       if (this._root) {
         this._root.removeEventListener("input", this._onPick, true);
         this._root.removeEventListener("change", this._onPick, true);
       }
+    },
+
+    // Where a file picked now belongs: the page's path (a library switch
+    // patches the same LiveView, so it is read each time, not once), the folder
+    // open in it, and the signed-in user. The stash holds file bytes, and the
+    // next person to sign in on this browser must not be offered the last
+    // one's files.
+    _scopeNow() {
+      var folder = "";
+      try { folder = new URLSearchParams(window.location.search).get("folder") || ""; } catch (_) {}
+      return window.location.pathname + "\u0000" + folder + "\u0000" + this._user;
+    },
+
+    // The scope a file was picked under — what the server's acknowledgement of
+    // it names, even if the page has moved on to another library since.
+    _scopeOf(key) {
+      return this._scopes[key] || this._scopeNow();
     },
 
     _stash(files) {
@@ -7698,13 +7718,15 @@ if (typeof window.Chart === "undefined") {
       var now = Date.now();
       files.forEach(function(file) {
         var key = uploadStashKey(file);
+        var scope = self._scopeNow();
         self._live[key] = true;
+        self._scopes[key] = scope;
         var keep = file.size <= UPLOAD_STASH_MAX_BYTES;
         uploadStashRun("readwrite", function(store) {
           store.put({
-            id: uploadStashId(self._scope, key),
+            id: uploadStashId(scope, key),
             key: key,
-            scope: self._scope,
+            scope: scope,
             name: file.name,
             type: file.type,
             size: file.size,
@@ -7724,7 +7746,7 @@ if (typeof window.Chart === "undefined") {
       var now = Date.now();
       uploadStashRun("readwrite", function(store) {
         keys.forEach(function(key) {
-          var req = store.get(uploadStashId(self._scope, key));
+          var req = store.get(uploadStashId(self._scopeOf(key), key));
           req.onsuccess = function() {
             var row = req.result;
             if (row && row.tab === self._tab) { row.touched = now; store.put(row); }
@@ -7735,9 +7757,10 @@ if (typeof window.Chart === "undefined") {
 
     _forget(keys) {
       var self = this;
-      (keys || []).forEach(function(key) { delete self._live[key]; });
+      var ids = (keys || []).map(function(key) { return uploadStashId(self._scopeOf(key), key); });
+      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; });
       uploadStashRun("readwrite", function(store) {
-        (keys || []).forEach(function(key) { store.delete(uploadStashId(self._scope, key)); });
+        ids.forEach(function(id) { store.delete(id); });
       });
     },
 
@@ -7748,12 +7771,26 @@ if (typeof window.Chart === "undefined") {
       var now = Date.now();
       uploadStashAll().then(function(rows) {
         var expired = [];
+        var scope = self._scopeNow();
+        var nextLook = null;
         var items = rows.filter(function(row) {
           if (now - row.touched > UPLOAD_STASH_KEEP_MS) { expired.push(row.id); return false; }
-          if (row.scope !== self._scope) return false;
+          if (row.scope !== scope) return false;
           if (mine) return row.tab === self._tab && self._live[row.key];
-          return row.tab !== self._tab && now - row.touched > UPLOAD_STASH_STALE_MS;
+          if (row.tab === self._tab) return false;
+          if (now - row.touched > UPLOAD_STASH_STALE_MS) return true;
+          // Another page load's record that is still fresh: a refresh leaves
+          // its records for the heartbeat to age out, so look again when this
+          // one would be stale — it is either gone by then (its page finished)
+          // or a leftover to offer.
+          var wait = UPLOAD_STASH_STALE_MS - (now - row.touched) + 500;
+          nextLook = nextLook === null ? wait : Math.min(nextLook, wait);
+          return false;
         });
+        if (nextLook !== null && !mine) {
+          clearTimeout(self._rescan);
+          self._rescan = setTimeout(function() { self._reportLeftovers(false); }, nextLook);
+        }
         if (expired.length) {
           uploadStashRun("readwrite", function(store) { expired.forEach(function(id) { store.delete(id); }); });
         }
@@ -7776,7 +7813,7 @@ if (typeof window.Chart === "undefined") {
       (keys || []).forEach(function(key) { want[key] = true; });
       uploadStashAll().then(function(rows) {
         var files = rows
-          .filter(function(row) { return row.scope === self._scope && want[row.key] && row.blob; })
+          .filter(function(row) { return row.scope === self._scopeNow() && want[row.key] && row.blob; })
           .map(function(row) {
             return new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified });
           });

@@ -1,3 +1,33 @@
+## 2.57.1 - 2026-10-08
+
+### Fixed
+
+- **Retrying a kept upload puts it where it was dropped.** A failed upload from a private library could be
+  retried from Media and landed there, losing the library's privacy (its files need a time-window URL). A
+  kept upload now remembers its library and folder; the problems panel of a library lists only that
+  library's uploads, and Retry stores at the recorded folder.
+- **A failure to record a received upload no longer loses it.** The bytes are put back where they came from
+  before the inbox's copy is dropped, so the browser is only told to let go of its own copy once a server
+  copy survives.
+- **A refresh now brings the leftovers back.** A record of the previous page load is looked at again once
+  it has gone stale (before, the one scan 1.5 s after load saw it as fresh and nothing looked again), and
+  the problems panel re-reads the inbox while an upload is in somebody's hands. An upload whose page has
+  gone reads as interrupted at once instead of after two minutes.
+- **Retry and Discard no longer touch an upload another tab is storing.** Items are claimed by the page
+  working on them; a stale panel's Retry or Discard is refused for an item a live page holds, whatever its age.
+- **The browser's saved copies follow the library you picked them in**, including after switching libraries
+  or folders without a reload (the acknowledgement names the scope the file was picked under).
+- **A refusal of a kept upload (another file type only) shows up in the panel at once.**
+- **Each browser on a page has an inbox item of its own** for a received upload, so a failure in the second
+  one stays findable after a refresh; a readonly browser lets go of its own item. Bytes with no record are
+  swept after a week.
+- **The HEIC subject finder's preview is removed even when the converter outlives the timeout.**
+
+### Changed
+
+- **The upload inbox directories are private (`0700`)** and every user's inbox is swept at most once an hour
+  when an upload arrives, not only when its owner opens the panel.
+
 ## 2.57.0 - 2026-10-08
 
 ### Added

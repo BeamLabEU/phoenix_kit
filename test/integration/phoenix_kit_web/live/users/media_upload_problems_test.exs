@@ -180,6 +180,93 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
     end
   end
 
+  describe "an upload belongs to the library it was dropped on" do
+    alias PhoenixKit.Modules.Storage.Libraries
+    alias PhoenixKit.Users.{Auth, Permissions, Roles}
+    alias PhoenixKit.Users.Auth.Scope
+
+    defp librarian! do
+      {:ok, _} = Settings.update_boolean_setting("storage_user_libraries_enabled", true)
+      n = System.unique_integer([:positive])
+      {:ok, role} = Roles.create_role(%{name: "Librarians #{n}"})
+
+      for key <- ~w(media storage storage.create_library),
+          do: {:ok, _} = Permissions.grant_permission(role.uuid, key)
+
+      {:ok, user} =
+        Auth.register_user(%{
+          "email" => "librarian-#{n}@example.com",
+          "password" => "ValidPassword123!"
+        })
+
+      {:ok, user} = Auth.admin_confirm_user(user)
+      {:ok, _} = Roles.assign_role(user, role.name)
+      Repo.get!(Auth.User, user.uuid)
+    end
+
+    test "a kept upload from a private library is not offered in Media, and Retry stores it in its library",
+         %{conn: conn} do
+      user = librarian!()
+
+      {:ok, library} =
+        Libraries.create_user_library(Scope.for_user(user), %{
+          "name" => "Private #{System.unique_integer([:positive])}"
+        })
+
+      {:ok, view, _html} =
+        live(log_in_user(conn, user), Routes.path("/admin/media/my/#{library.slug}"))
+
+      storage_off()
+      render_upload(drop(view, files(["secret.png"])), "secret.png")
+      html = settle(view)
+
+      assert html =~ "secret.png"
+      assert [%{dest: %{library_uuid: dest}}] = UploadInbox.list(user.uuid)
+      assert dest == to_string(library.uuid)
+
+      # Media is another library: the panel there does not carry it.
+      media = open(build_conn(), user)
+      refute render(media) =~ "secret.png"
+
+      # The library's own page lists it, and Retry keeps it there.
+      {:ok, again, _} =
+        live(log_in_user(build_conn(), user), Routes.path("/admin/media/my/#{library.slug}"))
+
+      assert render(again) =~ "secret.png"
+      storage_on()
+      again |> element("button[phx-click=retry_upload]") |> render_click()
+      settle(again)
+
+      assert [stored] = Repo.all(from(f in Storage.File, where: f.user_uuid == ^user.uuid))
+      assert to_string(stored.library_uuid) == to_string(library.uuid)
+      assert UploadInbox.list(user.uuid) == []
+    end
+
+    test "Retry from a stale panel leaves an upload another tab has taken alone", %{
+      conn: conn,
+      user: user
+    } do
+      view = open(conn, user)
+      storage_off()
+      render_upload(drop(view, files(["busy.png"])), "busy.png")
+      settle(view)
+      assert [%{id: id}] = UploadInbox.list(user.uuid)
+
+      # Another tab takes it; this panel is now stale.
+      other = spawn(fn -> Process.sleep(:infinity) end)
+      on_exit(fn -> Process.exit(other, :kill) end)
+      {:ok, _} = UploadInbox.claim(user.uuid, id, nil, other)
+
+      storage_on()
+      view |> element("button[phx-click=retry_upload]") |> render_click()
+      settle(view)
+
+      assert stored_count(user) == 0, "not stored twice, not taken from its holder"
+      assert {:ok, _} = UploadInbox.path(user.uuid, id)
+      assert {:error, :busy} = UploadInbox.discard(user.uuid, id)
+    end
+  end
+
   describe "received, but never finished" do
     test "an inbox item nobody finished reads as interrupted and Retry stores it", %{
       conn: conn,

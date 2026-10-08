@@ -75,7 +75,7 @@ test("a reconnect turns this tab's in-flight files into leftovers", () => {
   const report = hook.slice(hook.indexOf("_reportLeftovers(mine) {"));
   assert.match(report, /if \(mine\) return row\.tab === self\._tab && self\._live\[row\.key\];/,
     "after a reconnect: this tab's own live records");
-  assert.match(report, /return row\.tab !== self\._tab && now - row\.touched > UPLOAD_STASH_STALE_MS;/,
+  assert.match(report, /if \(now - row\.touched > UPLOAD_STASH_STALE_MS\) return true;/,
     "otherwise: only other page loads' records nobody has touched lately");
 });
 
@@ -90,4 +90,100 @@ test("resume feeds files back through the input the way a drop does", () => {
   assert.match(resume, /new File\(\[row\.blob\], row\.name, \{ type: row\.type, lastModified: row\.lastModified \}\)/,
     "same name and lastModified, so the re-sent file has the same key");
   assert.match(resume, /input\.files = dt\.files;\s*input\.dispatchEvent\(new Event\("input", \{ bubbles: true \}\)\);/);
+});
+
+// ---------------------------------------------------------------------------
+// The hook run for real, against a fake store and a fake clock.
+// ---------------------------------------------------------------------------
+
+function runHook({ rows, pathname = "/admin/media", search = "", user = "u1" }) {
+  let clock = 1_000_000;
+  const timers = [];
+  const store = { rows: rows || [], deleted: [], put: [] };
+  const win = {
+    PhoenixKitHooks: {},
+    location: { pathname, search },
+    addEventListener() {},
+  };
+  const code = hook
+    .replace("function uploadStashAll()", "function uploadStashAllOrig()")
+    .replace("function uploadStashRun(", "function uploadStashRunOrig(") +
+    `
+    function uploadStashAll() { return Promise.resolve(store.rows.slice()); }
+    function uploadStashRun(mode, fn) {
+      return Promise.resolve(fn({
+        put: (r) => { store.put.push(r); store.rows.push(r); },
+        delete: (id) => { store.deleted.push(id); },
+        get: () => ({}),
+      }));
+    }
+    return window.PhoenixKitHooks.UploadResume;`;
+  const Hook = new Function("window", "store", "Date", "setTimeout", "clearTimeout",
+    "setInterval", "clearInterval", "document", code)(
+    win, store, { now: () => clock },
+    (fn, ms) => { const t = { fn, ms, at: clock + ms }; timers.push(t); return t; },
+    (t) => { if (t) t.cleared = true; },
+    () => ({}), () => {}, {});
+  const pushed = [];
+  const ctx = Object.assign(Object.create(Hook), {
+    el: { dataset: { user }, parentElement: { addEventListener() {}, removeEventListener() {} } },
+    handleEvent() {},
+    pushEventTo: (_el, name, payload) => pushed.push({ name, payload }),
+  });
+  ctx._tab = "this-tab";
+  ctx._user = user;
+  ctx._scopes = {};
+  ctx._live = {};
+  return { ctx, win, store, timers, pushed, tick: (ms) => { clock += ms; }, now: () => clock };
+}
+
+const settle = () => new Promise((r) => setImmediate(r));
+
+test("a quick refresh: a fresh record of the last page load is looked for again once it has gone stale", async () => {
+  const h = runHook({});
+  const scope = h.ctx._scopeNow();
+  h.store.rows.push({ id: scope + "\0k", key: "k", scope, name: "a.jpg", size: 1,
+                      blob: {}, tab: "old-tab", touched: h.now() - 1000 });
+
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.deepStrictEqual(h.pushed, [], "still fresh: the old page may be uploading it");
+  const timer = h.timers.find((t) => !t.cleared && t.ms > 10000 && t.ms < 20000);
+  assert.ok(timer, "…but a second look is scheduled for when it would be stale");
+
+  h.tick(timer.ms);
+  timer.fn();
+  await settle();
+  assert.strictEqual(h.pushed.length, 1, "nobody touched it since: it is a leftover");
+  assert.strictEqual(h.pushed[0].name, "upload_resume_available");
+  assert.strictEqual(h.pushed[0].payload.items[0].key, "k");
+});
+
+test("a library switch moves where new picks are stashed, not where old ones are acknowledged", async () => {
+  const h = runHook({ pathname: "/admin/media/my/private" });
+  const file = (name) => ({ name, size: 5, lastModified: 7, type: "image/png" });
+
+  h.ctx._stash([file("one.png")]);
+  const first = h.store.put[0].scope;
+  assert.match(first, /^\/admin\/media\/my\/private\0/);
+
+  // The same LiveView is patched to another library.
+  h.win.location.pathname = "/admin/media";
+  h.ctx._stash([file("two.png")]);
+  const second = h.store.put[1].scope;
+  assert.match(second, /^\/admin\/media\0/);
+  assert.notStrictEqual(first, second, "picks after the switch belong to the new library");
+
+  h.ctx._forget(["one.png|5|7"]);
+  await settle();
+  assert.deepStrictEqual(h.store.deleted, [first + "\0one.png|5|7"],
+    "the acknowledgement names the record under the scope it was picked in");
+});
+
+test("a folder is part of the scope, and so is the user", () => {
+  const a = runHook({ search: "?folder=f1", user: "u1" }).ctx._scopeNow();
+  const b = runHook({ search: "?folder=f2", user: "u1" }).ctx._scopeNow();
+  const c = runHook({ search: "?folder=f1", user: "u2" }).ctx._scopeNow();
+  assert.notStrictEqual(a, b);
+  assert.notStrictEqual(a, c);
 });

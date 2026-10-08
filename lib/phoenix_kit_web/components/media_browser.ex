@@ -277,6 +277,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {:ok, remove_files_from_lists(socket, [file_uuid])}
   end
 
+  # The inbox poll (see `schedule_inbox_poll/1`).
+  def update(%{action: :refresh_inbox_problems}, socket) do
+    {:ok, socket |> assign(:inbox_poll_scheduled, false) |> refresh_inbox_problems()}
+  end
+
   def update(assigns, socket) do
     shown_library = socket.assigns[:library_uuid]
 
@@ -352,7 +357,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         {:ok, apply_nav_params(socket, socket.assigns.nav_params)}
 
       Map.has_key?(assigns, :pending_upload) ->
-        {:ok, enqueue_pending_upload(socket, assigns.pending_upload)}
+        {:ok, receive_pending_upload(socket, assigns.pending_upload)}
 
       Map.get(assigns, :action) == :drain_upload_queue ->
         {:ok, drain_upload_queue(socket)}
@@ -452,6 +457,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {readonly, %{uuid: user_uuid}} when readonly != true ->
         user_uuid
         |> UploadInbox.list()
+        |> Enum.filter(&item_for_this_library?(&1, socket))
         |> Enum.map(fn item ->
           interrupted? = item.status == "interrupted"
 
@@ -479,6 +485,96 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     end
   end
 
+  # An upload belongs to the library it was dropped on: a panel lists only
+  # those (and the ones not yet claimed), so a Retry cannot carry a private
+  # library's file into another.
+  defp item_for_this_library?(%{dest: nil}, _socket), do: true
+
+  defp item_for_this_library?(%{dest: %{library_uuid: library}}, socket),
+    do: library == library_key(socket)
+
+  defp library_key(socket) do
+    case socket.assigns[:library_uuid] do
+      nil -> nil
+      uuid -> to_string(uuid)
+    end
+  end
+
+  # Where an upload dropped here belongs: this library, and the folder that is
+  # open (or the browser's scope).
+  defp upload_destination(socket) do
+    folder = current_folder_uuid(socket) || scope_folder_id(socket)
+
+    %{
+      library_uuid: library_key(socket),
+      folder_uuid: folder && to_string(folder)
+    }
+  end
+
+  # The browser that takes an inbox upload writes down where it belongs and that
+  # it is working on it (see `UploadInbox.claim/4`). A readonly browser takes
+  # nothing.
+  defp claim_inbox_item(socket, path) do
+    with false <- socket.assigns.readonly == true,
+         {user_uuid, id} <- UploadInbox.locate(path) do
+      UploadInbox.claim(user_uuid, id, upload_destination(socket))
+    end
+
+    socket
+  end
+
+  # The folder a stored upload goes into: the one recorded when it was dropped,
+  # or the open folder for an upload with no record (no user, no inbox).
+  defp placement_folder(socket, path) do
+    with {user_uuid, id} <- UploadInbox.locate(path),
+         %{dest: %{folder_uuid: folder}} <- UploadInbox.get(user_uuid, id) do
+      existing_folder_uuid(folder)
+    else
+      _ -> current_folder_uuid(socket)
+    end
+  end
+
+  defp existing_folder_uuid(nil), do: nil
+
+  defp existing_folder_uuid(uuid) do
+    case Storage.get_folder(uuid) do
+      %{uuid: found} -> found
+      _ -> nil
+    end
+  end
+
+  defp receive_pending_upload(socket, {path, _entry} = pending) do
+    socket
+    |> claim_inbox_item(path)
+    |> enqueue_pending_upload(pending)
+  end
+
+  defp refresh_inbox_problems(socket) do
+    socket = assign(socket, :upload_inbox_problems, inbox_problems(socket))
+    schedule_inbox_poll(socket)
+  end
+
+  # While an upload is in somebody's hands — another page, a tab that has not
+  # finished — look again, so what a refresh or a crash left behind shows up
+  # without the page being reloaded.
+  @inbox_poll_ms 10_000
+  defp schedule_inbox_poll(socket) do
+    with %{uuid: user_uuid} <- socket.assigns[:phoenix_kit_current_user],
+         false <- socket.assigns[:inbox_poll_scheduled] == true,
+         false <- socket.assigns[:readonly] == true,
+         true <- UploadInbox.waiting?(user_uuid) do
+      Phoenix.LiveView.send_update_after(
+        __MODULE__,
+        [id: socket.assigns.id, action: :refresh_inbox_problems],
+        @inbox_poll_ms
+      )
+
+      assign(socket, :inbox_poll_scheduled, true)
+    else
+      _ -> socket
+    end
+  end
+
   defp add_upload_problem(socket, attrs) do
     problem =
       %{retry: Map.has_key?(attrs, :path)}
@@ -494,7 +590,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     socket =
       Enum.reduce(kept, socket, fn problem, acc ->
-        case retry_bytes(problem) do
+        case retry_bytes(acc, problem) do
           {:ok, path} -> enqueue_pending_upload(acc, {path, retry_entry(problem)})
           :error -> acc
         end
@@ -514,16 +610,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # Kept bytes for a retry: the inbox item (refreshed so it no longer reads
   # as interrupted while it is back in the queue), or the held temp file.
-  defp retry_bytes(%{inbox: {user_uuid, id}}) do
-    UploadInbox.touch(user_uuid, id)
-    UploadInbox.path(user_uuid, id)
+  # Taking an inbox item is `claim/4`: it keeps the destination the upload was
+  # dropped on, and refuses one another tab has taken since this panel was drawn.
+  defp retry_bytes(socket, %{inbox: {user_uuid, id}}) do
+    case UploadInbox.claim(user_uuid, id, upload_destination(socket)) do
+      {:ok, _item} -> UploadInbox.path(user_uuid, id)
+      _ -> :error
+    end
   end
 
-  defp retry_bytes(%{path: path}) do
+  defp retry_bytes(_socket, %{path: path}) do
     if File.exists?(path), do: {:ok, path}, else: :error
   end
 
-  defp retry_bytes(_problem), do: :error
+  defp retry_bytes(_socket, _problem), do: :error
 
   # The drain and the store read an upload entry's client fields; a retry
   # has those from the problem it came from.
@@ -541,7 +641,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {gone, keep} = Enum.split_with(upload_problems(socket.assigns), pick)
 
     Enum.each(gone, fn
-      %{inbox: {user_uuid, id}} -> UploadInbox.delete(user_uuid, id)
+      %{inbox: {user_uuid, id}} -> UploadInbox.discard(user_uuid, id)
       %{path: path} -> File.rm(path)
       _ -> :ok
     end)
@@ -643,9 +743,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # would otherwise get files written into its scope regardless of
       # `readonly`. The refusal belongs here, same as off_type_upload? below.
       socket.assigns.readonly ->
-        # Not this browser's upload to store — but possibly another
-        # browser's on the page, so an inbox item is left alone.
-        if is_nil(UploadInbox.locate(path)), do: File.rm(path)
+        # Every browser on the page has its own copy (own inbox item), so
+        # this one's is this browser's to let go of.
+        drop_upload_bytes(path, UploadInbox.locate(path))
         log_readonly_blocked(socket, "process_pending_upload")
 
       off_type_upload?(socket, entry) ->
@@ -664,7 +764,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           # with why, for the browser that can take it — or for Discard.
           {user_uuid, id} ->
             UploadInbox.fail(user_uuid, id, reason)
-            socket
+            assign(socket, :upload_inbox_problems, inbox_problems(socket))
 
           nil ->
             File.rm(path)
@@ -1306,6 +1406,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     # transfers the browser reported); the inbox's are read from disk.
     |> assign_new(:upload_problems_session, fn -> [] end)
     |> assign(:upload_inbox_problems, inbox_problems(socket))
+    |> assign(:inbox_poll_scheduled, false)
+    |> schedule_inbox_poll()
     |> assign(:upload_drain_scheduled, false)
     |> assign(:filter_orphaned, false)
     |> assign(:filter_trash, false)
@@ -1661,6 +1763,38 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def client_key(entry),
     do: "#{entry.client_name}|#{entry.client_size}|#{entry.client_last_modified}"
 
+  # A browser's own copy is an inbox item of its own — with a record, so a
+  # failure keeps it findable and a refresh cannot orphan it. No user or an
+  # inbox that refuses: a plain temp copy, as before.
+  defp copy_for_recipient(socket, path, entry, component_id) do
+    inboxed =
+      with %{uuid: user_uuid} <- socket.assigns[:phoenix_kit_current_user],
+           {:ok, _item, copy} <-
+             UploadInbox.put(
+               user_uuid,
+               path,
+               %{
+                 client_name: entry.client_name,
+                 client_type: entry.client_type,
+                 client_size: entry.client_size
+               },
+               copy: true
+             ) do
+        {:ok, copy}
+      else
+        _ -> :error
+      end
+
+    case inboxed do
+      {:ok, _} = ok ->
+        ok
+
+      :error ->
+        copy = "#{path}-#{component_id}"
+        if File.cp(path, copy) == :ok, do: {:ok, copy}, else: :error
+    end
+  end
+
   @doc "Catch-all handler for parent LiveViews to delegate MediaBrowser messages."
   def handle_parent_info({__MODULE__, :register_component, id}, socket) do
     ids = MapSet.put(socket.assigns[:media_browser_ids] || MapSet.new(), id)
@@ -1684,7 +1818,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     case component_ids do
       [] ->
-        File.rm(path)
+        drop_upload_bytes(path, UploadInbox.locate(path))
 
       [single] ->
         send_update(__MODULE__, id: single, pending_upload: {path, entry})
@@ -1693,11 +1827,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         send_update(__MODULE__, id: first, pending_upload: {path, entry})
 
         Enum.each(rest, fn id ->
-          copy = "#{path}-#{id}"
-
-          case File.cp(path, copy) do
-            :ok -> send_update(__MODULE__, id: id, pending_upload: {copy, entry})
-            _ -> :ok
+          case copy_for_recipient(socket, path, entry, id) do
+            {:ok, copy} -> send_update(__MODULE__, id: id, pending_upload: {copy, entry})
+            :error -> :ok
           end
         end)
     end
@@ -5108,14 +5240,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # file, which this library cannot show or hold.
       {:ok, file, :duplicate} ->
         if in_shown_library?(file, lib_opts(socket)) do
-          maybe_set_folder(file, socket)
+          maybe_set_folder(file, socket, placement_folder(socket, path))
           build_upload_result(file, entry, file_type, mime_type, file_size, true)
         else
           {:postpone, :in_other_library}
         end
 
       {:ok, file} ->
-        maybe_set_folder(file, socket)
+        maybe_set_folder(file, socket, placement_folder(socket, path))
         build_upload_result(file, entry, file_type, mime_type, file_size, false)
 
       {:error, reason} ->
@@ -5268,9 +5400,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      )}
   end
 
-  defp maybe_set_folder(file, socket) do
+  defp maybe_set_folder(file, socket, target) do
     scope = scope_folder_id(socket)
-    folder_uuid = current_folder_uuid(socket) || scope
+    folder_uuid = target || scope
 
     cond do
       is_nil(folder_uuid) ->

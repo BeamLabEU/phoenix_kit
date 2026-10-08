@@ -275,8 +275,16 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
         task = Task.async(fn -> safe_attention(path, preview) end)
 
         case Task.yield(task, 10_000) || Task.shutdown(task, :brutal_kill) do
-          {:ok, result} -> result
-          _timeout_or_exit -> :error
+          {:ok, result} ->
+            result
+
+          _timeout_or_exit ->
+            # Killing the task does not stop the converter it was waiting for:
+            # that process runs on and may write the preview after the `after`
+            # below has run. It is bounded by ImageMagick's own time limit
+            # (`ImageProcessor.limit_args/0`), so look once more after that.
+            remove_preview_later(preview)
+            :error
         end
       after
         File.rm(preview)
@@ -309,6 +317,16 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     _ -> :unreadable
   catch
     _, _ -> :unreadable
+  end
+
+  # ImageMagick's `-limit time` (60 s) plus a margin.
+  @converter_limit_ms 70_000
+
+  defp remove_preview_later(preview) do
+    Task.start(fn ->
+      Process.sleep(@converter_limit_ms)
+      File.rm(preview)
+    end)
   end
 
   defp preview_path do

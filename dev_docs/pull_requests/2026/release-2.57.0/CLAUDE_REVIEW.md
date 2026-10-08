@@ -73,3 +73,25 @@ HEEx-escaped; `navigator.connection` / `fetchPriority` feature detection; listen
 across `live_redirect`; command-injection surface of `preview_jpeg/3` (argv list, pinned coder, limits);
 spec-hash stability for non-HEIC renditions (no mass regeneration); no `phx-change` form without an id
 was added.
+
+## Follow-up after the Codex review (2.57.1)
+
+Codex's review of the published 2.57.0 (`CODEX_REVIEW.md`) was right on every point I re-checked, and it
+corrects a claim of mine: "none of these loses data" was too strong. Each finding was reproduced or traced
+in the code before being fixed:
+
+| # | Finding | Resolution in 2.57.1 |
+|---|---|---|
+| 1 HIGH | Retry stores a private-library upload in Media | The sidecar records the destination (`library_uuid`, `folder_uuid`) when the first browser claims the item; a panel lists only its own library's items; a retry stores at the recorded folder. Regression test through the real page (private library → Media does not list it → Retry lands in the library). |
+| 2 HIGH | A sidecar-write error deletes both copies | `put/4` puts the bytes back where they came from before forgetting its copy; receipt is only acknowledged with a surviving path. (No injection point for a sidecar-only failure, so it is covered by reading + the unwritable-inbox test.) |
+| 3 MEDIUM | Quick refresh never finds the stash; panel never re-reads | The hook schedules a second look for when a fresh record of another page load would be stale. Server side, a claimed item whose owner process is gone reads as interrupted at once, and a browser polls (10 s) while an upload is in somebody's hands. JS tests run the real hook with a fake store and clock. |
+| 4 MEDIUM | Library patches keep the old stash scope | The scope (path + `folder` + user) is read at each pick; each key remembers the scope it was picked under, so acknowledgements address the right record. |
+| 5 MEDIUM | Off-type refusal of a kept item is invisible | The inbox assign is refreshed when the item is marked failed. (No component-level test: `only_file_type` cannot be set through the Media page.) |
+| 6 MEDIUM | The converter writes the preview after cleanup | The caller still removes the preview, and on a timeout a delayed second removal runs after ImageMagick's own 60 s time limit. The converter is still not killed; reaping the OS process is left open. |
+| 7 MEDIUM | Discard deletes a live queued upload | Items are claimed by their LiveView's pid; `claim/4` and `discard/2` run under a lock and refuse an item another live process holds; an owner alive keeps an item live whatever its age. |
+| 8 MEDIUM | Later browsers' copies are unrecoverable | Each recipient's copy is a real inbox item (`put(..., copy: true)`), a readonly or orphaned recipient deletes its own item, and unclaimed sidecar-less bytes are swept after a week. |
+| – | Retention | Directories `0700`; every inbox is swept at most hourly on arrival. Documented node-local persistence. **No per-user quota yet.** |
+
+Still open: a per-user quota, killing the HEIC converter process on timeout, a shared-lock for
+claim across nodes beyond `:global.trans`, an explicit "move to another library" action for a kept upload,
+and HEIC probe fidelity (HEVC decode, `magick` vs `convert`).
