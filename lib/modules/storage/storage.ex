@@ -119,6 +119,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.ProviderRegistry
   alias PhoenixKit.Modules.Storage.Providers.Local
   alias PhoenixKit.Modules.Storage.RemoteFetch
+  alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.Sniff
   alias PhoenixKit.Modules.Storage.StorageProfile
   # NOTE: Temporary helper for Publishing component system.
@@ -2481,6 +2482,8 @@ defmodule PhoenixKit.Modules.Storage do
     - `:per_page` — page size (default 20).
     - `:library_uuid` — only files in this storage library. Omitted means
       every library that is not private (`Libraries.exclude_private/1`).
+    - `:shape` — `:wide` or `:tall` (or `"wide"` / `"tall"`): only pictures of that
+      shape (`PhoenixKit.Modules.Storage.Shape`). Omitted, nil or `"all"` is every shape.
 
   ## Returns
     `{files, total_count}` or `{:error, :out_of_scope}`.
@@ -2509,6 +2512,7 @@ defmodule PhoenixKit.Modules.Storage do
         |> where([f], f.status != "trashed")
         |> exclude_system_managed()
         |> maybe_filter_file_type(file_type)
+        |> Shape.filter(opts[:shape])
         |> where_library(opts[:library_uuid])
         |> where_viewer(opts[:viewer_uuid])
 

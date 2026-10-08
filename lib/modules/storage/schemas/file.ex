@@ -31,6 +31,9 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `size` - File size in bytes
   - `width` - Image/video width in pixels (nullable)
   - `height` - Image/video height in pixels (nullable)
+  - `aspect_ratio` - `width / height`, kept by Postgres (V212; read-only, nil
+    without a usable size). The wide/tall filters read it:
+    `PhoenixKit.Modules.Storage.Shape`
   - `duration` - Video duration in seconds (nullable)
   - `status` - Processing status
   - `metadata` - JSONB with EXIF, codec info, etc.
@@ -112,6 +115,7 @@ defmodule PhoenixKit.Modules.Storage.File do
           size: integer(),
           width: integer() | nil,
           height: integer() | nil,
+          aspect_ratio: float() | nil,
           duration: integer() | nil,
           status: String.t(),
           trashed_at: DateTime.t() | nil,
@@ -151,6 +155,9 @@ defmodule PhoenixKit.Modules.Storage.File do
     field :size, :integer
     field :width, :integer
     field :height, :integer
+    # width / height, computed by Postgres (V212): never written, so it is not in
+    # any changeset; read back after an insert or update.
+    field :aspect_ratio, :float, read_after_writes: true
     field :duration, :integer
     field :status, :string, default: "processing"
     field :trashed_at, :utc_datetime

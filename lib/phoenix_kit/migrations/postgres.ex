@@ -7,7 +7,15 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V211 - Rendition fit side ⚡ LATEST
+  ### V212 - File shape ⚡ LATEST
+
+  `phoenix_kit_files.aspect_ratio`: width ÷ height, a generated (`STORED`) column
+  Postgres keeps from `width` and `height`, with a partial index on
+  `(library_uuid, aspect_ratio)`. It is what the wide/tall filters read
+  (`Storage.Shape`), so a panorama needs no flag and the thresholds stay a choice.
+  Adding it rewrites `phoenix_kit_files` once; no file is touched.
+
+  ### V211 - Rendition fit side
 
   `phoenix_kit_storage_dimensions.fit_by` (`width` or `height`): an image
   rendition that keeps proportions can fix its height instead of its width, for
@@ -940,7 +948,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 211
+  @current_version 212
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

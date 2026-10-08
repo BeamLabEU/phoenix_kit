@@ -202,6 +202,15 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V212 (2026-10-08, file shape) DECLARES two objects:
+  # `column:phoenix_kit_files.aspect_ratio` (double precision, a `STORED`
+  # generated column — `default` below is its generation expression as
+  # `pg_get_expr` renders it, position 39) and
+  # `index:phoenix_kit_files_library_aspect_ratio_index` (btree on
+  # `library_uuid, aspect_ratio`, partial `aspect_ratio IS NOT NULL`). Both were
+  # read from a test database migrated through V212. `chain_hash` restamped over
+  # the shipped files.
+  #
   # V211 (2026-10-06, rendition fit side) DECLARES one object:
   # `column:phoenix_kit_storage_dimensions.fit_by` (character varying(255) NOT
   # NULL DEFAULT 'width', position 16), read from a test database migrated
@@ -549,7 +558,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "df63179030a18613d0f4faead4eed78fc18a4b289ad4f74071cac35e3abdf41d"
+  @chain_hash "3b921632c3cb8d96ba6ae920cf4a7e4f0763093bca55a0bc2160f773a9722bd3"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -2418,6 +2427,58 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         ],
         presence: :required,
         backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_files.aspect_ratio",
+        owner: :core,
+        check: {:catalog, %{table: "phoenix_kit_files", column: "aspect_ratio", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_files ADD COLUMN IF NOT EXISTS \"aspect_ratio\" double precision GENERATED ALWAYS AS (CASE WHEN width > 0 AND height > 0 THEN width::double precision / height::double precision END) STORED",
+        since: 212,
+        class: :column,
+        revisions: [
+          {212,
+           %{
+             default:
+               "\nCASE\n    WHEN ((width > 0) AND (height > 0)) THEN ((width)::double precision / (height)::double precision)\n    ELSE NULL::double precision\nEND",
+             type: "double precision",
+             pos: 39,
+             not_null: false
+           }}
+        ],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_files_library_aspect_ratio_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{
+             name: "phoenix_kit_files_library_aspect_ratio_index",
+             table: "phoenix_kit_files",
+             kind: :index
+           }},
+        create:
+          "CREATE INDEX IF NOT EXISTS phoenix_kit_files_library_aspect_ratio_index ON __SCHEMA__.phoenix_kit_files USING btree (library_uuid, aspect_ratio) WHERE (aspect_ratio IS NOT NULL)",
+        since: 212,
+        class: :index,
+        revisions: [
+          {212,
+           %{
+             table: "phoenix_kit_files",
+             keys: ["library_uuid", "aspect_ratio"],
+             unique: false,
+             method: "btree",
+             definition:
+               "CREATE INDEX phoenix_kit_files_library_aspect_ratio_index ON __SCHEMA__.phoenix_kit_files USING btree (library_uuid, aspect_ratio) WHERE (aspect_ratio IS NOT NULL)",
+             predicate: "(aspect_ratio IS NOT NULL)",
+             opclasses: ["uuid_ops", "float8_ops"],
+             name_template: nil
+           }}
+        ],
+        presence: :required,
+        backfill: nil
       },
       %{
         id: "column:phoenix_kit_email_logs.subject",
