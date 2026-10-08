@@ -5683,26 +5683,19 @@ defmodule PhoenixKit.Modules.Storage do
   # cross-user dedup. Never a system-managed file (an edited image's hidden
   # backup, a tile chunk) and never a file whose edit is still rendering.
   #
-  # Only a file whose library resolves to the same storage profile and
-  # variant set as `library_uuid`'s (V205, plan §6.4): a clone shares the
-  # donor's objects and variants, and must never make one library depend on
-  # another library's buckets or sizes.
+  # Only a file of the SAME library (nil is Media): a library is a library, and
+  # shares no stored objects, variants or placement with another one, however
+  # alike their profile and variant set are. A clone across libraries used to be
+  # made when the two were placed alike; it tied the second library's files to
+  # the first one's objects, and reported a file that was added as a duplicate.
   defp get_active_file_by_checksum(file_checksum, library_uuid) do
-    profile_uuid = Profiles.profile_uuid_for(library_uuid)
-    set_uuid = VariantSets.set_uuid_for(library_uuid)
+    library_uuid = library_uuid || Libraries.media_uuid()
 
     from(f in PhoenixKit.Modules.Storage.File,
-      join: l in Library,
-      on: l.uuid == f.library_uuid,
       where:
         f.file_checksum == ^file_checksum and f.status == "active" and
-          f.system_managed == false and is_nil(f.edit_state),
-      where:
-        coalesce(l.storage_profile_uuid, type(^Profiles.default_uuid(), UUIDv7)) ==
-          type(^profile_uuid, UUIDv7),
-      where:
-        coalesce(l.variant_set_uuid, type(^VariantSets.default_uuid(), UUIDv7)) ==
-          type(^set_uuid, UUIDv7),
+          f.system_managed == false and is_nil(f.edit_state) and
+          f.library_uuid == ^library_uuid,
       limit: 1
     )
     |> repo().one()

@@ -372,27 +372,19 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       refute fresh.file_path == donor.file_path
     end
 
-    test "never reuse a donor whose library uses another variant set", ctx do
+    test "never reuse a donor in another library, however alike they are placed", ctx do
       _profile = put!(ctx.profile, ctx.a)
-      {:ok, donor} = upload(ctx.user, ctx.library, "other set")
+      {:ok, donor} = upload(ctx.user, ctx.library, "other library")
       activate!(donor)
 
       n = System.unique_integer([:positive])
       {:ok, other} = Libraries.create_system_library(%{name: "Same profile #{n}"})
       {:ok, other} = Profiles.set_library_profile(other, ctx.profile.uuid)
 
-      # Same profile and set, another library: shared.
-      assert {:ok, clone, :duplicate} = upload(user!(), other, "other set")
-      assert clone.file_path == donor.file_path
-
-      # Same profile, another set: stored fresh.
-      {:ok, third} = Libraries.create_system_library(%{name: "Other set #{n}"})
-      {:ok, third} = Profiles.set_library_profile(third, ctx.profile.uuid)
-      {:ok, set} = VariantSets.create_variant_set(%{name: "Other #{n}"})
-      {:ok, third} = VariantSets.set_library_variant_set(third, set.uuid)
-
-      assert {:ok, fresh} = upload(user!(), third, "other set")
+      # Same profile and variant set, another library: stored fresh, not shared.
+      assert {:ok, fresh} = upload(user!(), other, "other library")
       refute fresh.file_path == donor.file_path
+      assert fresh.library_uuid == other.uuid
     end
   end
 
