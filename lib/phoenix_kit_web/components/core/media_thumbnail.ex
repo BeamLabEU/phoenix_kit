@@ -15,10 +15,12 @@ defmodule PhoenixKitWeb.Components.Core.MediaThumbnail do
 
   Size modes:
   - `:small` (default) — tiny cells (list rows, selectors): prefers the baked
-    Etcher thumbnail, then the 150px thumbnail
+    Etcher thumbnail, then the 150px square (`thumbnail_square`), then the 150px
+    thumbnail
   - `:card` — large grid/stack cards: prefers the client `burned` rendering
     (markup composed in the browser, fit inside 800px), then the baked Etcher
-    thumbnail (400px), then the 300px `small`, then `medium`; only after those
+    thumbnail (400px), then the 300px square (`small_square`), then `small`, then
+    `medium`; only after those
     falls back to the light 150px thumbnail, keeping the full-res original
     (which would force a live vector overlay) as the last resort
   - `:medium` — for gallery/preview: prefers medium/thumbnail variants
@@ -70,7 +72,11 @@ defmodule PhoenixKitWeb.Components.Core.MediaThumbnail do
   def resolve_url(%{file_type: "image", urls: urls}, :small) do
     # `thumbnail_annotated` (baked Etcher shapes) wins when present, so list rows
     # show the markup; falls back to the plain 150px thumbnail otherwise.
-    urls["thumbnail_annotated"] || urls["thumbnail"] || urls["small"] || urls["original"]
+    # The square one (cropped around the subject) comes before the plain 150px
+    # thumbnail: these cells are square, and the plain one would be cropped at
+    # the middle by the browser.
+    urls["thumbnail_annotated"] || urls["thumbnail_square"] || urls["thumbnail"] ||
+      urls["small"] || urls["original"]
   end
 
   def resolve_url(%{file_type: "image", urls: urls}, :card) do
@@ -82,8 +88,11 @@ defmodule PhoenixKitWeb.Components.Core.MediaThumbnail do
     # admin-disabled dimensions) we still prefer the light 150px `thumbnail`
     # over the full-res `original` — loading the original forces a live vector
     # overlay and a heavy payload, so it stays the true last resort.
-    urls["burned"] || urls["thumbnail_annotated"] || urls["small"] || urls["medium"] ||
-      urls["thumbnail"] || urls["original"]
+    #
+    # `small_square` (cropped around the subject) comes before `small`: these
+    # cards are square, and `small` would be cropped at the middle by the browser.
+    urls["burned"] || urls["thumbnail_annotated"] || urls["small_square"] || urls["small"] ||
+      urls["medium"] || urls["thumbnail"] || urls["original"]
   end
 
   def resolve_url(%{file_type: "image", urls: urls}, :medium) do

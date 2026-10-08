@@ -103,6 +103,43 @@ defmodule PhoenixKitWeb.Components.Core.MediaThumbnailTest do
     end
   end
 
+  describe "resolve_url/2 — the smart squares" do
+    test ":small takes the 150px square before the plain thumbnail" do
+      urls = %{"thumbnail_square" => "/ts.jpg", "thumbnail" => "/t.jpg", "small" => "/s.jpg"}
+      assert MediaThumbnail.resolve_url(image(urls), :small) == "/ts.jpg"
+    end
+
+    test ":small still lets the baked annotated thumbnail win" do
+      urls = %{"thumbnail_annotated" => "/a.png", "thumbnail_square" => "/ts.jpg"}
+      assert MediaThumbnail.resolve_url(image(urls), :small) == "/a.png"
+    end
+
+    test ":card takes the 300px square before small" do
+      urls = %{"small_square" => "/ss.jpg", "small" => "/s.jpg", "medium" => "/m.jpg"}
+      assert MediaThumbnail.resolve_url(image(urls), :card) == "/ss.jpg"
+    end
+
+    test ":card still lets the burn and the baked annotated thumbnail win" do
+      assert MediaThumbnail.resolve_url(
+               image(%{"burned" => "/b", "small_square" => "/ss"}),
+               :card
+             ) ==
+               "/b"
+
+      assert MediaThumbnail.resolve_url(
+               image(%{"thumbnail_annotated" => "/a", "small_square" => "/ss"}),
+               :card
+             ) == "/a"
+    end
+
+    test "a file made before the squares existed falls back as it did" do
+      assert MediaThumbnail.resolve_url(image(%{"small" => "/s.jpg", "thumbnail" => "/t"}), :card) ==
+               "/s.jpg"
+
+      assert MediaThumbnail.resolve_url(image(%{"thumbnail" => "/t.jpg"}), :small) == "/t.jpg"
+    end
+  end
+
   describe "resolve_url/2 — image :medium (gallery/preview)" do
     test "prefers medium, then thumbnail, then original" do
       assert MediaThumbnail.resolve_url(

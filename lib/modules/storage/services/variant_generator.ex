@@ -34,6 +34,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
+  alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.VariantSets
 
   require Logger
@@ -477,8 +478,33 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       end
 
     # Filter out the "original" dimension as that's handled separately
-    Enum.filter(dimensions, &(&1.name != "original"))
+    Enum.filter(dimensions, &(&1.name != "original" and shape_fits?(&1, file)))
   end
+
+  # A size limited to wide (or tall) pictures is made only for those. The shape
+  # is read from the file's row when the struct in hand predates its size (a
+  # job that loaded the file before its metadata was read): a wide size must
+  # not be skipped, and recorded as complete, because of that.
+  defp shape_fits?(%{shape: shape}, _file) when shape in [nil, "any"], do: true
+
+  defp shape_fits?(%{shape: shape}, file) do
+    case Shape.classify(current_shape_source(file)) do
+      :wide -> shape == "wide"
+      :tall -> shape == "tall"
+      _ -> false
+    end
+  end
+
+  defp current_shape_source(%{aspect_ratio: ratio} = file) when is_number(ratio), do: file
+
+  defp current_shape_source(%{uuid: uuid} = file) when is_binary(uuid) do
+    case Storage.get_file(uuid) do
+      nil -> file
+      fresh -> fresh
+    end
+  end
+
+  defp current_shape_source(file), do: file
 
   # Expands each dimension into {dimension, variant_name, format_override} tuples,
   # including one tuple per alternative format configured on the dimension.

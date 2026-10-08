@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Storage.RepairStorageModuleTest do
 
     assert Storage.redundancy_copies() == 2
     refute Enum.any?(repairs, &match?({:copies_lowered, _}, &1))
-    assert {:dimensions_reset, 10} in repairs
+    assert {:dimensions_reset, 14} in repairs
   end
 
   test "lowers a redundancy past the Default profile's writable buckets" do

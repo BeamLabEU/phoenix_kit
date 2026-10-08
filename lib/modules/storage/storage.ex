@@ -1184,9 +1184,9 @@ defmodule PhoenixKit.Modules.Storage do
 
   @doc """
   Resets the Default variant set's dimensions to the seeded values.
-  Deletes its current dimensions and recreates the 10 default ones (4 image
-  sizes that keep proportions, 2 smart-square image sizes, 4 video sizes). Other
-  variant sets are left alone.
+  Deletes its current dimensions and recreates the 14 default ones (4 image
+  sizes that keep proportions, 3 smart-square image sizes, 3 panorama sizes made
+  only for wide pictures, 4 video sizes). Other variant sets are left alone.
   """
   def reset_dimensions_to_defaults(opts \\ []) do
     Audit.transaction(fn -> do_reset_dimensions_to_defaults(opts) end)
@@ -1348,6 +1348,68 @@ defmodule PhoenixKit.Modules.Storage do
           order: 10,
           inserted_at: now,
           updated_at: now
+        },
+        # For the zoomed-out views (a month, a year), where a cell is a few dozen
+        # pixels: small and light, cropped around the subject like the others.
+        %{
+          name: "mini_square",
+          width: 64,
+          height: 64,
+          quality: 70,
+          format: "jpg",
+          applies_to: "image",
+          maintain_aspect_ratio: false,
+          crop_mode: "focus",
+          enabled: true,
+          alternative_formats: [],
+          order: 11,
+          inserted_at: now,
+          updated_at: now
+        },
+        # Panoramas: a fixed height and the width the picture needs (`fit_by`
+        # height), made only for wide pictures (`shape`), so an ordinary photo is
+        # not given a second near-copy of `thumbnail`, `small` and `medium`.
+        %{
+          name: "thumbnail_wide",
+          height: 150,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          fit_by: "height",
+          shape: "wide",
+          enabled: true,
+          alternative_formats: [],
+          order: 12,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "small_wide",
+          height: 300,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          fit_by: "height",
+          shape: "wide",
+          enabled: true,
+          alternative_formats: [],
+          order: 13,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "medium_wide",
+          height: 800,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          fit_by: "height",
+          shape: "wide",
+          enabled: true,
+          alternative_formats: [],
+          order: 14,
+          inserted_at: now,
+          updated_at: now
         }
       ]
 
@@ -1389,8 +1451,8 @@ defmodule PhoenixKit.Modules.Storage do
      redundancy.
   4. Clears the default bucket setting when it points at a bucket that is
      gone or disabled.
-  5. Resets the Default variant set's dimensions to the 10 defaults
-     (6 image + 4 video) and turns automatic variants back on.
+  5. Resets the Default variant set's dimensions to the 14 defaults
+     (10 image + 4 video) and turns automatic variants back on.
 
   All existing files are preserved.
 
@@ -1402,7 +1464,7 @@ defmodule PhoenixKit.Modules.Storage do
   ## Examples
 
       iex> repair_storage_module()
-      {:ok, [{:bucket_created, "Local Storage"}, {:dimensions_reset, 10}]}
+      {:ok, [{:bucket_created, "Local Storage"}, {:dimensions_reset, 14}]}
 
   """
   def repair_storage_module do

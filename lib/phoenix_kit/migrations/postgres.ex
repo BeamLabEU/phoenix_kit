@@ -7,7 +7,15 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V213 - Smart-square sizes ⚡ LATEST
+  ### V214 - Rendition shape ⚡ LATEST
+
+  `phoenix_kit_storage_dimensions.shape` (`any`, `wide` or `tall`): a rendition can
+  be made only for panoramas or only for tall pictures. Every existing rendition
+  stays `any`, and none is remade. Installs with no files yet also get `mini_square`
+  (64) and the panorama sizes `thumbnail_wide`, `small_wide` and `medium_wide` in the
+  Default set; a site with files gets them from "Reset to defaults".
+
+  ### V213 - Smart-square sizes
 
   Data only. The Default variant set gains `thumbnail_square` (150) and
   `small_square` (300), fixed boxes cropped around the subject, **on installs with
@@ -955,7 +963,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 213
+  @current_version 214
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

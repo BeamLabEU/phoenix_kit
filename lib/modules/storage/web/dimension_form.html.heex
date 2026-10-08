@@ -180,6 +180,27 @@
               )}
             </p>
           </fieldset>
+
+          <%!-- Which pictures the rendition is made for --%>
+          <fieldset :if={@dimension_type != "video"} id="dimension-shape" class="fieldset">
+            <legend class="fieldset-legend font-semibold">{gettext("Made for")}</legend>
+            <.select
+              name="dimension[shape]"
+              value={get_field_value(@changeset, :shape) || "any"}
+              class={input_class(@changeset, :shape)}
+              options={[
+                {gettext("Every picture"), "any"},
+                {gettext("Wide pictures only (panoramas, 2:1 or wider)"), "wide"},
+                {gettext("Tall pictures only (1:2 or taller)"), "tall"}
+              ]}
+            />
+            {render_error(@changeset, :shape)}
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext(
+                "A size made only for wide or tall pictures is not made for the others, so an ordinary photo is not given a second near-copy of a size it already has. The standard sizes are always made for every picture."
+              )}
+            </p>
+          </fieldset>
         </div>
       </div>
 

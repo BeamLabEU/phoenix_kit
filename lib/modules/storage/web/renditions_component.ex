@@ -248,12 +248,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   # proportions sets the width and lets the height follow each image or video;
   # a fixed image rendition is a box the image is scaled to fill and cropped to,
   # a fixed video one a box the video is scaled to fit inside. Neither enlarges.
-  defp size_text(%{maintain_aspect_ratio: true, fit_by: "height", height: height}, :image)
+  defp base_size_text(%{maintain_aspect_ratio: true, fit_by: "height", height: height}, :image)
        when is_integer(height) do
     {gettext("%{height} px tall", height: height), gettext("width follows the image")}
   end
 
-  defp size_text(%{maintain_aspect_ratio: true, width: width}, kind) when is_integer(width) do
+  defp base_size_text(%{maintain_aspect_ratio: true, width: width}, kind)
+       when is_integer(width) do
     {gettext("%{width} px wide", width: width),
      if(kind == :image,
        do: gettext("height follows the image"),
@@ -261,7 +262,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
      )}
   end
 
-  defp size_text(%{width: width, height: height} = dimension, kind)
+  defp base_size_text(%{width: width, height: height} = dimension, kind)
        when is_integer(width) and is_integer(height) do
     {gettext("%{width} × %{height} px", width: width, height: height),
      cond do
@@ -271,7 +272,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
      end}
   end
 
-  defp size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
+  defp base_size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
+
+  # The size in words, and who it is made for when not every picture.
+  defp size_text(dimension, kind) do
+    {size, note} = base_size_text(dimension, kind)
+    {size, shape_note(note, Map.get(dimension, :shape))}
+  end
+
+  defp shape_note(note, "wide"), do: join_notes(note, gettext("wide pictures only"))
+  defp shape_note(note, "tall"), do: join_notes(note, gettext("tall pictures only"))
+  defp shape_note(note, _any), do: note
+
+  defp join_notes(nil, extra), do: extra
+  defp join_notes(note, extra), do: note <> " · " <> extra
 
   # The same in one line, for the card layout.
   defp size_line(dimension, kind) do

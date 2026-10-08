@@ -202,6 +202,12 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V214 (2026-10-08, rendition shape) DECLARES one object:
+  # `column:phoenix_kit_storage_dimensions.shape` (character varying(255) NOT
+  # NULL DEFAULT 'any', position 17), read from a test database migrated through
+  # V214. V213 declares none (data only). `chain_hash` restamped over the shipped
+  # files.
+  #
   # V212 (2026-10-08, file shape) DECLARES two objects:
   # `column:phoenix_kit_files.aspect_ratio` (double precision, a `STORED`
   # generated column — `default` below is its generation expression as
@@ -558,7 +564,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "a946092201becb7f4443b31c741bb240d9e5d08c6dc23a8e3f2c80fd424cecf9"
+  @chain_hash "9123e9953475bee64410535cbd824f0400bbdb7f5d10ac2b2b42917e190ff55d"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -2422,6 +2428,27 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              default: "'width'::character varying",
              type: "character varying(255)",
              pos: 16,
+             not_null: true
+           }}
+        ],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_storage_dimensions.shape",
+        owner: :core,
+        check:
+          {:catalog, %{table: "phoenix_kit_storage_dimensions", column: "shape", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"shape\" character varying(255) DEFAULT 'any' NOT NULL",
+        since: 214,
+        class: :column,
+        revisions: [
+          {214,
+           %{
+             default: "'any'::character varying",
+             type: "character varying(255)",
+             pos: 17,
              not_null: true
            }}
         ],

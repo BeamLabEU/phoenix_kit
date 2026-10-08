@@ -81,6 +81,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   # of `@aspect_slots` feed grids and justified layouts, so they keep the
   # aspect ratio; only `thumbnail` may be cropped.
   @crop_modes ~w(center focus)
+  @shapes ~w(any wide tall)
   @fit_sides ~w(width height)
   @standard_slots ~w(thumbnail small medium large video_thumbnail)
   @aspect_slots ~w(small medium large)
@@ -97,6 +98,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
           maintain_aspect_ratio: boolean(),
           crop_mode: String.t(),
           fit_by: String.t(),
+          shape: String.t(),
           alternative_formats: [String.t()],
           order: integer(),
           variant_set_uuid: UUIDv7.t() | nil,
@@ -120,6 +122,10 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     # its `height` for a horizontal panorama (the width is then left empty and
     # follows each photo). A fixed box has both sides and ignores it.
     field :fit_by, :string, default: "width"
+    # Which pictures the rendition is made for (V214): every one, only the wide
+    # ones (panoramas), or only the tall ones. Not part of the spec hash: it
+    # decides whether a file gets the size, not what the size looks like.
+    field :shape, :string, default: "any"
     field :alternative_formats, {:array, :string}, default: []
     field :order, :integer, default: 0
 
@@ -169,6 +175,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       :maintain_aspect_ratio,
       :crop_mode,
       :fit_by,
+      :shape,
       :alternative_formats,
       :order
     ])
@@ -180,6 +187,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     |> validate_inclusion(:applies_to, ["image", "video", "both"])
     |> validate_inclusion(:crop_mode, @crop_modes)
     |> validate_inclusion(:fit_by, @fit_sides)
+    |> validate_inclusion(:shape, @shapes)
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:order, greater_than_or_equal_to: 0)
@@ -190,6 +198,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     |> validate_alternative_formats()
     |> validate_standard_slot()
     |> validate_standard_fit_side()
+    |> validate_standard_shape()
     |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
 
@@ -202,6 +211,9 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   """
   def focus_crop?(%__MODULE__{maintain_aspect_ratio: false, crop_mode: "focus"}), do: true
   def focus_crop?(_dimension), do: false
+
+  @doc "Which pictures a rendition can be made for: every one, the wide ones, the tall ones."
+  def shapes, do: @shapes
 
   @doc "The side a rendition that keeps proportions can fix: its width, or its height."
   def fit_sides, do: @fit_sides
@@ -273,6 +285,25 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
         changeset,
         :fit_by,
         "must stay on width for %{name}: the standard sizes are picked by width",
+        name: name
+      )
+    else
+      changeset
+    end
+  end
+
+  # The standard sizes are asked for by name for every picture, so none of them
+  # may be limited to wide or tall ones.
+  defp validate_standard_shape(changeset) do
+    name = get_field(changeset, :name)
+
+    if name in @standard_slots and get_field(changeset, :shape) != "any" and
+         (is_nil(changeset.data.uuid) or Map.has_key?(changeset.changes, :name) or
+            Map.has_key?(changeset.changes, :shape)) do
+      add_error(
+        changeset,
+        :shape,
+        "must stay on any picture for %{name}: the standard sizes are made for every one",
         name: name
       )
     else
