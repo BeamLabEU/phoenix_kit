@@ -119,6 +119,27 @@ defmodule PhoenixKit.Integration.Storage.DimensionShapeTest do
     assert %{shape: ["is invalid"]} = errors_on(changeset)
   end
 
+  test "clearing a shape returns a validation error instead of reaching the NOT NULL constraint",
+       ctx do
+    size = Storage.get_dimension_by_name(ctx.strip)
+
+    assert {:error, changeset} = Storage.update_dimension(size, %{shape: nil})
+    assert %{shape: ["can't be blank"]} = errors_on(changeset)
+
+    assert {:error, changeset} =
+             Storage.create_dimension(%{
+               name: "blank_shape_#{System.unique_integer([:positive])}",
+               width: 100,
+               applies_to: "image",
+               shape: nil
+             })
+
+    assert %{shape: ["can't be blank"]} = errors_on(changeset)
+
+    # Ecto treats a form's empty string as the schema default, "any".
+    assert {:ok, %{shape: "any"}} = Storage.update_dimension(size, %{shape: ""})
+  end
+
   test "the standard sizes cannot be limited to wide or tall pictures" do
     large = Storage.get_dimension_by_name("large")
     assert {:error, changeset} = Storage.update_dimension(large, %{shape: "wide"})

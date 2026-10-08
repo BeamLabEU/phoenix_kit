@@ -218,6 +218,22 @@ defmodule PhoenixKit.Utils.Date.TimezoneTest do
       assert DateUtils.format_datetime_with_cached_settings(~U[2026-12-31 22:30:00Z], settings) ==
                "31.12.2026"
     end
+
+    test "the site clock skips the spring gap and repeats the autumn hour without raising" do
+      settings = %{"time_zone" => "Europe/Tallinn", "time_format" => "H:i"}
+
+      assert DateUtils.format_time_with_cached_settings(~U[2026-03-29 00:59:00Z], settings) ==
+               "02:59"
+
+      assert DateUtils.format_time_with_cached_settings(~U[2026-03-29 01:00:00Z], settings) ==
+               "04:00"
+
+      assert DateUtils.format_time_with_cached_settings(~U[2026-10-25 00:30:00Z], settings) ==
+               "03:30"
+
+      assert DateUtils.format_time_with_cached_settings(~U[2026-10-25 01:30:00Z], settings) ==
+               "03:30"
+    end
   end
 
   describe "get_user_timezone/1 and get_user_timezone_cached/2" do

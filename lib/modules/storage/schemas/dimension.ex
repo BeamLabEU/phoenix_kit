@@ -179,7 +179,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       :alternative_formats,
       :order
     ])
-    |> validate_required([:name, :applies_to])
+    |> validate_required([:name, :applies_to, :shape])
     |> validate_format(:name, ~r/^[a-z0-9_]+$/,
       message: "must contain only lowercase letters, numbers, and underscores"
     )

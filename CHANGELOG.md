@@ -50,6 +50,12 @@ so they are copied into `priv/static/assets/vendor/lib/`. Etcher's floor is now 
 - **A URL with `?type[a]=b` no longer crashes the Media page on the next navigation.**
 - **The date formatters read the time zone through the settings cache** (one extra uncached read per formatted
   value in a list otherwise).
+- **Stacks follow the Media toolbar's type, shape and sort.** Folder preview counts, expanded stacks and
+  their additional pages use the same options as the main listing.
+- **An explicit null rendition shape returns a validation error**, instead of raising on the database's
+  NOT NULL constraint. A shape-only change is recorded in the storage history with its actor.
+- **Relative `PHOENIX_KIT_LIB_BASE` values resolve against the page for every library**, including
+  wavesurfer's ES module, whose `import()` otherwise resolves against the bundle or rejects a bare path.
 
 ### Changed
 

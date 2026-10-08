@@ -1658,6 +1658,7 @@ defmodule PhoenixKit.Modules.Storage do
     :applies_to,
     :enabled,
     :maintain_aspect_ratio,
+    :shape,
     :alternative_formats
   ]
 

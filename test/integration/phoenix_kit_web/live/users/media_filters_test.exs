@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaFiltersTest do
 
   use PhoenixKitWeb.ConnCase, async: true
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.MediaBrowser.Embed
@@ -116,6 +117,58 @@ defmodule PhoenixKitWeb.Live.Users.MediaFiltersTest do
     send(view.pid, {@browser, "media-browser", {:navigate, %{folder: nil, q: "x", page: 1}}})
 
     assert_patch(view, @media_path <> "?q=x&shape=wide")
+  end
+
+  test "stack counts and expanded files follow type, shape and sort, including after a filter change",
+       %{conn: conn} do
+    {:ok, parent} = Storage.create_folder(%{name: "Filter parent"})
+    {:ok, folder} = Storage.create_folder(%{name: "Filter stack", parent_uuid: parent.uuid})
+    first = file!("a-wide.jpg", 6000, 2000)
+    last = file!("z-wide.jpg", 6000, 2000)
+    plain = file!("plain.jpg", 3000, 2000)
+    video = file!("wide-video.mp4", 6000, 2000)
+
+    video
+    |> Ecto.Changeset.change(file_type: "video", mime_type: "video/mp4", ext: "mp4")
+    |> Repo.update!()
+
+    for file <- [first, last, plain, video] do
+      {:ok, _} = Storage.move_file_to_folder(file.uuid, folder.uuid)
+    end
+
+    {:ok, view, _} =
+      admin_view(
+        conn,
+        @media_path <> "?folder=#{parent.uuid}&type=image&shape=wide&sort=name_asc"
+      )
+
+    view |> element(~s([phx-click="set_view_mode"][phx-value-mode="stacks"])) |> render_click()
+    tile = ~s([data-stack-tile="#{folder.uuid}"])
+    assert has_element?(view, tile <> " .badge", "2")
+    view |> element(tile) |> render_click()
+
+    cards = ~s(#pk-stack-#{folder.uuid} [phx-click="click_file"])
+    assert has_element?(view, cards <> ~s([phx-value-file-uuid="#{first.uuid}"]))
+    assert has_element?(view, cards <> ~s([phx-value-file-uuid="#{last.uuid}"]))
+    refute has_element?(view, cards <> ~s([phx-value-file-uuid="#{plain.uuid}"]))
+    refute has_element?(view, cards <> ~s([phx-value-file-uuid="#{video.uuid}"]))
+
+    ids =
+      view
+      |> render()
+      |> Floki.parse_document!()
+      |> Floki.find(cards)
+      |> Enum.map(&Floki.attribute(&1, "phx-value-file-uuid"))
+      |> List.flatten()
+
+    assert ids == [first.uuid, last.uuid]
+
+    menu_button(view, "set_shape_filter", "All shapes") |> render_click()
+    assert has_element?(view, tile <> " .badge", "3")
+    # URL navigation closes the stacks; reopening uses the new filter.
+    view |> element(tile) |> render_click()
+    assert has_element?(view, cards <> ~s([phx-value-file-uuid="#{plain.uuid}"]))
+    refute has_element?(view, cards <> ~s([phx-value-file-uuid="#{video.uuid}"]))
   end
 
   test "the listing follows the shape", %{conn: conn} do

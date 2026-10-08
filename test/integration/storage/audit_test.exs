@@ -165,6 +165,25 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
              %{"from" => [], "to" => ["webp"]}
   end
 
+  test "a shape-only size change records the actor and the preceding value", ctx do
+    {:ok, set} = VariantSets.create_variant_set(%{name: "Shapes #{ctx.n}"}, ctx.actor)
+
+    {:ok, size} =
+      Storage.create_dimension(%{name: "banner", width: 100, applies_to: "image"}, set.uuid)
+
+    {:ok, _} = Storage.update_dimension(size, %{shape: "wide"}, ctx.actor)
+
+    entry = newest("storage.variant_set.size_updated")
+    assert entry.actor_uuid == ctx.user.uuid
+    assert entry.metadata["changes"]["shape"] == %{"from" => "any", "to" => "wide"}
+
+    # The context re-reads a stale struct under its lock before auditing it.
+    {:ok, _} = Storage.update_dimension(size, %{shape: "tall"}, ctx.actor)
+
+    assert newest("storage.variant_set.size_updated").metadata["changes"]["shape"] ==
+             %{"from" => "wide", "to" => "tall"}
+  end
+
   test "URL redaction covers query and fragment secrets while preserving local paths" do
     assert Endpoint.audit_value("https://user:pass@cdn.example.com/files?token=secret#private") ==
              "https://cdn.example.com/files"

@@ -96,6 +96,32 @@ defmodule PhoenixKit.Integration.Storage.ShapeFilterTest do
     assert "cinema.mp4" in names(ctx, nil)
   end
 
+  test "shape filters keep both the library boundary and the restricted viewer", ctx do
+    {:ok, other} =
+      Auth.register_user(%{
+        email: "shape-other-#{System.unique_integer([:positive])}@example.com",
+        password: "ValidPassword123!"
+      })
+
+    file!(%{ctx | user: other}, "others-pano.jpg", 6000, 2000)
+    file!(%{ctx | user: other}, "others-pin.jpg", 1000, 3000)
+
+    {:ok, another_library} = Libraries.create_system_library(%{name: "Other shapes"})
+    file!(%{ctx | library: another_library}, "other-library-pano.jpg", 6000, 2000)
+
+    for {shape, expected} <- [wide: ["pano.jpg", "pano_2to1.jpg"], tall: ["pin.jpg", "strip.jpg"]] do
+      {files, total} =
+        Storage.list_files_in_scope(nil,
+          library_uuid: ctx.library.uuid,
+          viewer_uuid: ctx.user.uuid,
+          shape: shape
+        )
+
+      assert total == length(expected)
+      assert files |> Enum.map(& &1.original_file_name) |> Enum.sort() == expected
+    end
+  end
+
   test "the ratio follows an edit of the size, with nothing to keep it right", ctx do
     file = file!(ctx, "crop_me.jpg", 3000, 2000)
     assert_in_delta Repo.reload!(file).aspect_ratio, 1.5, 1.0e-9

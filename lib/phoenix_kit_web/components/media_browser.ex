@@ -4225,7 +4225,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         {files, count} =
           case Storage.list_files_in_scope(
                  scope,
-                 [folder_uuid: folder.uuid, page: 1, per_page: 4] ++ lib_opts(socket)
+                 [folder_uuid: folder.uuid, page: 1, per_page: 4] ++ list_extra(socket)
                ) do
             {:error, _} -> {[], 0}
             {fs, total} -> {fs, total}
@@ -4311,7 +4311,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp stack_folder_files(socket, folder_uuid, limit) do
     case Storage.list_files_in_scope(
            scope_folder_id(socket),
-           [folder_uuid: folder_uuid, page: 1, per_page: limit] ++ lib_opts(socket)
+           [folder_uuid: folder_uuid, page: 1, per_page: limit] ++ list_extra(socket)
          ) do
       {:error, _} -> []
       {fs, _total} -> enrich_files(fs)

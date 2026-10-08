@@ -302,6 +302,18 @@ test("an explicit base wins, for hosts that bundle core into their own app.js", 
   assert.strictEqual(p.lib.urls("fresco").local, "https://cdn.app.test/pk/fresco-0.13.1-3f9a1c00.js?vsn=d");
 });
 
+test("a root-relative library base resolves to an absolute URL for scripts and import()", () => {
+  const p = page({ facts: FACTS, libBase: "/assets/vendor/lib" });
+  assert.strictEqual(p.lib.urls("fresco").local,
+    "https://app.test/assets/vendor/lib/fresco-0.13.1-3f9a1c00.js?vsn=d");
+});
+
+test("a page-relative library base resolves against the page, including for import()", () => {
+  const p = page({ facts: FACTS, libBase: "../libraries/" });
+  assert.strictEqual(p.lib.urls("fresco").local,
+    "https://app.test/libraries/fresco-0.13.1-3f9a1c00.js?vsn=d");
+});
+
 test("the facts are read when a library is needed — they load after the bundle", () => {
   const p = page({ scriptSrc: "https://app.test/assets/vendor/phoenix_kit.js" });
   assert.strictEqual(p.lib.urls("fresco"), null);

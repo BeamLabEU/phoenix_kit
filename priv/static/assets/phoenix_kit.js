@@ -167,7 +167,10 @@ if (typeof window.Chart === "undefined") {
     // `?vsn=` is what makes Plug.Static send the one-year immutable cache header;
     // the file name already carries the version and content hash, so it is only
     // the switch, never a cache key.
-    return { local: base + entry.file + "?vsn=d", cdn: entry.cdn || null };
+    // A script's src resolves against the document, but import() resolves
+    // against this bundle. Normalize a host's relative base once so both
+    // loaders fetch the same file (especially wavesurfer's ES module).
+    return { local: pkLibNormalize(base + entry.file + "?vsn=d"), cdn: entry.cdn || null };
   }
 
   var LIBRARY_MAX_ATTEMPTS = 2;
