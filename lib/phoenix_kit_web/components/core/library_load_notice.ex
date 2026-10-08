@@ -44,12 +44,14 @@ defmodule PhoenixKitWeb.Components.Core.LibraryLoadNotice do
       data-title={gettext("Some features on this page could not load")}
       data-csp-other={
         gettext(
-          "Blocked by this site's Content-Security-Policy (%{directive}), which does not allow %{origin}."
+          "Blocked by this site's Content-Security-Policy (%{directive}), which does not allow %{origin}.",
+          placeholders()
         )
       }
       data-csp-self={
         gettext(
-          "Blocked by this site's Content-Security-Policy (%{directive}). Check that the site's asset serving and its policy allow this file."
+          "Blocked by this site's Content-Security-Policy (%{directive}). Check that the site's asset serving and its policy allow this file.",
+          placeholders()
         )
       }
       data-load={
@@ -79,6 +81,13 @@ defmodule PhoenixKitWeb.Components.Core.LibraryLoadNotice do
     </div>
     """
   end
+
+  # The CSP lines are filled in by the hook, in the browser, from what the
+  # browser reported — so the translation has to keep its %{directive} and
+  # %{origin} tokens. Passing each as its own value does exactly that; leaving
+  # the bindings out made Gettext log a "missing bindings" error on every
+  # render for every administrator.
+  defp placeholders, do: [directive: "%{directive}", origin: "%{origin}"]
 
   @doc false
   # Owner or Admin of the ACTIVE scope (an active-role session narrows

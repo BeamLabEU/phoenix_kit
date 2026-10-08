@@ -34,6 +34,16 @@ defmodule PhoenixKitWeb.Components.Core.LibraryLoadNoticeTest do
     end
   end
 
+  test "the CSP copy keeps the tokens the hook fills, without a missing-bindings error" do
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        html = render(scope(["Owner"]))
+        assert html =~ "(%{directive}), which does not allow %{origin}."
+      end)
+
+    refute log =~ "missing Gettext bindings"
+  end
+
   test "renders nothing for an anonymous visitor, a user, or a single-permission holder" do
     for s <- [nil, scope(["User"]), scope(["Editor"], ["media"])] do
       assert render(s) == ""
