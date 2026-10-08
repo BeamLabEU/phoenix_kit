@@ -141,7 +141,7 @@
                     <button
                       phx-click="set_view_mode"
                       phx-value-mode={val}
-                      class={@view_mode == val && "active"}
+                      class={@view_mode == val && "menu-active"}
                     >
                       <.icon name={icon} class="w-4 h-4" /> {label}
                     </button>
@@ -187,7 +187,7 @@
                     <button
                       phx-click="filter_by_role"
                       phx-value-role={val}
-                      class={@filter_role == val && "active"}
+                      class={@filter_role == val && "menu-active"}
                     >
                       {label}
                     </button>
@@ -231,7 +231,7 @@
                       <button
                         phx-click="filter_by_account_type"
                         phx-value-account_type={val}
-                        class={@filter_account_type == val && "active"}
+                        class={@filter_account_type == val && "menu-active"}
                       >
                         {label}
                       </button>
@@ -277,7 +277,7 @@
                     <button
                       phx-click="filter_by_status"
                       phx-value-status={val}
-                      class={@filter_status == val && "active"}
+                      class={@filter_status == val && "menu-active"}
                     >
                       {label}
                     </button>
@@ -322,7 +322,7 @@
                     <button
                       phx-click="filter_by_confirmation"
                       phx-value-confirmation={val}
-                      class={@filter_confirmation == val && "active"}
+                      class={@filter_confirmation == val && "menu-active"}
                     >
                       {label}
                     </button>

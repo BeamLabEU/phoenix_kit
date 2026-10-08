@@ -1,6 +1,12 @@
 defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Utils.Pagination
 
+  # What the toolbar's sort, type and shape accept: the events and the URL both
+  # check against these.
+  @valid_sorts ~w(newest oldest name_asc name_desc largest smallest)
+  @valid_file_types ~w(all image video document audio archive other)
+  @valid_shapes ~w(all wide tall)
+
   @moduledoc """
   MediaBrowser LiveComponent — embeddable media management UI.
 
@@ -180,6 +186,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.UploadInbox
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Modules.Storage.VariantSets
@@ -1069,16 +1076,46 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp header_option_field(_), do: nil
 
   defp apply_nav_params(socket, params) do
+    {socket, changed?} = apply_view_options(socket, params)
+
     # Opening / stepping / closing the modal viewer patches only `file` into
     # the URL; the listing the params describe is the one already on screen.
     # Skip the folder/search/count queries in that case — the full reload
     # below is for landing on a URL whose listing this socket has not
     # loaded (first mount, refresh, back/forward across folders).
-    if nav_matches_current?(socket, params) do
+    if not changed? and nav_matches_current?(socket, params) do
       sync_viewer_from_params(socket, params)
     else
       apply_nav_listing(socket, params) |> sync_viewer_from_params(params)
     end
+  end
+
+  # The toolbar's type, sort and shape as the URL names them. Authoritative only
+  # when the host SENDS them (the `file` rule below): a hand-wired host that
+  # predates them keeps the browser's own. A value not on the whitelist is the
+  # default, and a browser locked to one type ignores `type`.
+  defp apply_view_options(socket, params) do
+    [
+      {:file_type_filter, :type, @valid_file_types, "all"},
+      {:sort_by, :sort, @valid_sorts, "newest"},
+      {:shape_filter, :shape, @valid_shapes, "all"}
+    ]
+    |> Enum.reduce({socket, false}, fn {assign_key, nav_key, valid, default}, {sock, changed?} ->
+      cond do
+        not Map.has_key?(params, nav_key) ->
+          {sock, changed?}
+
+        assign_key == :file_type_filter and sock.assigns[:only_file_type] ->
+          {sock, changed?}
+
+        true ->
+          value = if params[nav_key] in valid, do: params[nav_key], else: default
+
+          if sock.assigns[assign_key] == value,
+            do: {sock, changed?},
+            else: {assign(sock, assign_key, value), true}
+      end
+    end)
   end
 
   defp nav_matches_current?(socket, params) do
@@ -1345,7 +1382,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp list_extra(socket) do
     [
       sort: socket.assigns[:sort_by] || "newest",
-      file_type: socket.assigns[:file_type_filter] || "all"
+      file_type: socket.assigns[:file_type_filter] || "all",
+      shape: socket.assigns[:shape_filter] || "all"
     ] ++ lib_opts(socket)
   end
 
@@ -1460,6 +1498,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     # `only_file_type` locks this to one kind for the whole session — see the
     # attr docs on update/2. Absent, the toolbar owns it and starts at "all".
     |> assign(:file_type_filter, socket.assigns[:only_file_type] || "all")
+    # Picture shape (`Storage.Shape`): "all", "wide" (a panorama) or "tall".
+    |> assign(:shape_filter, "all")
     |> assign(:search_query, "")
     |> assign(:select_mode, false)
     |> assign(:selected_files, MapSet.new())
@@ -2525,15 +2565,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     end
   end
 
-  @valid_sorts ~w(newest oldest name_asc name_desc largest smallest)
-  @valid_file_types ~w(all image video document audio archive other)
-
+  # The toolbar's sort, type and shape live in the URL when the browser is
+  # synced to it (a refresh, or a tab the browser discarded and reloaded, comes
+  # back to the same view), and in the socket when it is not. Either way the
+  # listing restarts at its first page.
   def handle_event("set_sort", %{"sort" => sort}, socket) when sort in @valid_sorts do
-    {:noreply,
-     socket
-     |> assign(:sort_by, sort)
-     |> assign(:current_page, 1)
-     |> reload_current_page()}
+    {:noreply, set_view_option(socket, :sort_by, :sort, sort)}
   end
 
   # Ignore an out-of-whitelist sort instead of crashing the component.
@@ -2548,16 +2585,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if socket.assigns[:only_file_type] do
       {:noreply, socket}
     else
-      {:noreply,
-       socket
-       |> assign(:file_type_filter, type)
-       |> assign(:current_page, 1)
-       |> reload_current_page()}
+      {:noreply, set_view_option(socket, :file_type_filter, :type, type)}
     end
   end
 
   # Ignore an out-of-whitelist file-type filter instead of crashing.
   def handle_event("set_file_filter", _params, socket), do: {:noreply, socket}
+
+  def handle_event("set_shape_filter", %{"shape" => shape}, socket)
+      when shape in @valid_shapes do
+    {:noreply, set_view_option(socket, :shape_filter, :shape, shape)}
+  end
+
+  def handle_event("set_shape_filter", _params, socket), do: {:noreply, socket}
 
   def handle_event("toggle_sidebar", _params, socket) do
     socket = assign(socket, :sidebar_collapsed, !socket.assigns.sidebar_collapsed)
@@ -4092,6 +4132,42 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     Storage.count_trashed_files(scope, lib) + Storage.count_trashed_folders(scope, lib)
   end
 
+  # Sets one of the toolbar's view options. Controlled (URL-synced) browsers
+  # hand the change to the host as a navigation and apply it when it comes back
+  # in the nav params; the others apply it here.
+  defp set_view_option(socket, assign_key, nav_key, value) do
+    if controlled_mode?(socket) do
+      send(
+        self(),
+        {__MODULE__, socket.assigns.id, {:navigate, Map.put(current_nav(socket), nav_key, value)}}
+      )
+
+      socket
+    else
+      socket
+      |> assign(assign_key, value)
+      |> assign(:current_page, 1)
+      |> reload_current_page()
+    end
+  end
+
+  # Where the browser is, as a navigation payload, at its first page: the same
+  # folder, search, flat view and orphan filter, and every view option as it is.
+  defp current_nav(socket) do
+    a = socket.assigns
+
+    %{
+      folder: current_folder_uuid(socket),
+      q: a.search_query,
+      page: 1,
+      filter_orphaned: a.filter_orphaned,
+      view: a.file_view,
+      type: a.file_type_filter,
+      sort: a.sort_by,
+      shape: a.shape_filter
+    }
+  end
+
   defp reload_current_page(socket) do
     folder_uuid = current_folder_uuid(socket)
     page = socket.assigns.current_page
@@ -5032,6 +5108,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   # Enriches raw Storage.File structs with URLs, folder paths, and display fields.
+  # A picture 2:1 or wider (`Storage.Shape`), read from the sizes the enriched
+  # file carries: the grid marks it with a panorama badge.
+  @doc false
+  def panorama?(%{file_type: "image"} = file), do: Shape.classify(file) == :wide
+  def panorama?(_file), do: false
+
   defp enrich_files([]), do: []
 
   defp enrich_files(files) do

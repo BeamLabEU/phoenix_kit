@@ -190,6 +190,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
     end)
     |> Phoenix.LiveView.attach_hook(:phoenix_kit_mb_url_sync_info, :handle_info, fn
       {MediaBrowser, ^component_id, {:navigate, nav}}, socket ->
+        # Most navigations (a folder, a page, the viewer) say nothing about the
+        # toolbar: those keep what the URL has, so opening a folder does not
+        # drop the filter. The toolbar's own changes name their key.
+        nav = keep_view_options(nav, socket.assigns[:__phoenix_kit_mb_nav__])
+
         # The host's own query params (the admin media page's `library`)
         # ride along; the browser owns only its nav keys.
         qs =
@@ -204,7 +209,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
     end)
   end
 
-  @nav_keys ~w(folder q page orphaned view file)
+  defp keep_view_options(nav, current) when is_map(current) do
+    Enum.reduce([:type, :sort, :shape], nav, fn key, acc ->
+      if Map.has_key?(acc, key), do: acc, else: Map.put(acc, key, current[key])
+    end)
+  end
+
+  defp keep_view_options(nav, _current), do: nav
+
+  @nav_keys ~w(folder q page orphaned view file type sort shape)
 
   # The query params in the URL that are not the browser's own, kept across
   # its navigation so a host's params (a page-level filter, a tab) survive a
@@ -230,7 +243,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
       # The file open in the modal viewer. In the URL so a refresh lands
       # back in the viewer on that file — not at root with the modal gone
       # and the user hunting for the folder and file again.
-      file: params["file"]
+      file: params["file"],
+      # The toolbar's view options. `nil` is the default of each.
+      type: params["type"],
+      sort: params["sort"],
+      shape: params["shape"]
     }
   end
 
@@ -254,6 +271,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Embed do
     |> then(&if(filter_orphaned, do: Map.put(&1, "orphaned", "1"), else: &1))
     |> then(&if(view == "all", do: Map.put(&1, "view", "all"), else: &1))
     |> then(&if(file, do: Map.put(&1, "file", file), else: &1))
+    |> put_view_options(p)
+  end
+
+  # The toolbar's type, sort and shape, each only when it is not its default.
+  @view_option_defaults [type: "all", sort: "newest", shape: "all"]
+
+  defp put_view_options(query, p) do
+    Enum.reduce(@view_option_defaults, query, fn {key, default}, acc ->
+      case p[key] do
+        value when value in [nil, "", default] -> acc
+        value -> Map.put(acc, Atom.to_string(key), value)
+      end
+    end)
   end
 
   defmacro __using__(opts) do

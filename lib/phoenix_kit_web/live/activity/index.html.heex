@@ -100,7 +100,7 @@
                 <button
                   phx-click="set_view_mode"
                   phx-value-mode={val}
-                  class={@view_mode == val && "active"}
+                  class={@view_mode == val && "menu-active"}
                 >
                   <.icon name={icon} class="w-4 h-4" /> {label}
                 </button>
@@ -131,7 +131,7 @@
               <li>
                 <.link
                   patch={filter_path(assigns, module: "")}
-                  class={is_nil(@filter_module) && "active"}
+                  class={is_nil(@filter_module) && "menu-active"}
                 >
                   {gettext("All Modules")}
                 </.link>
@@ -139,7 +139,7 @@
               <li :for={mod <- @modules}>
                 <.link
                   patch={filter_path(assigns, module: mod)}
-                  class={@filter_module == mod && "active"}
+                  class={@filter_module == mod && "menu-active"}
                 >
                   {String.capitalize(mod)}
                 </.link>
@@ -170,7 +170,7 @@
               <li>
                 <.link
                   patch={filter_path(assigns, mode: "")}
-                  class={is_nil(@filter_mode) && "active"}
+                  class={is_nil(@filter_mode) && "menu-active"}
                 >
                   {gettext("All Modes")}
                 </.link>
@@ -178,7 +178,7 @@
               <li :for={mode <- @modes}>
                 <.link
                   patch={filter_path(assigns, mode: mode)}
-                  class={@filter_mode == mode && "active"}
+                  class={@filter_mode == mode && "menu-active"}
                 >
                   {String.capitalize(mode)}
                 </.link>
@@ -212,7 +212,7 @@
               <li>
                 <.link
                   patch={filter_path(assigns, action: "")}
-                  class={is_nil(@filter_action) && "active"}
+                  class={is_nil(@filter_action) && "menu-active"}
                 >
                   {gettext("All Actions")}
                 </.link>
@@ -220,7 +220,7 @@
               <li :for={action <- @action_types}>
                 <.link
                   patch={filter_path(assigns, action: action)}
-                  class={@filter_action == action && "active"}
+                  class={@filter_action == action && "menu-active"}
                 >
                   {action}
                 </.link>
@@ -252,7 +252,7 @@
               <li>
                 <.link
                   patch={filter_path(assigns, resource_type: "")}
-                  class={is_nil(@filter_resource_type) && "active"}
+                  class={is_nil(@filter_resource_type) && "menu-active"}
                 >
                   {gettext("All Types")}
                 </.link>
@@ -260,7 +260,7 @@
               <li :for={rt <- @resource_types}>
                 <.link
                   patch={filter_path(assigns, resource_type: rt)}
-                  class={@filter_resource_type == rt && "active"}
+                  class={@filter_resource_type == rt && "menu-active"}
                 >
                   {String.capitalize(rt)}
                 </.link>

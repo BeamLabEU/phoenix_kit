@@ -1012,10 +1012,27 @@
                       sort_options
                       |> Enum.find(fn {v, _} -> v == @sort_by end)
                       |> then(&(&1 && elem(&1, 1))) %>
-                    <% filter_label =
+                    <% shape_options = [
+                      {"all", gettext("All shapes")},
+                      {"wide", gettext("Panoramas")},
+                      {"tall", gettext("Tall")}
+                    ] %>
+                    <% type_label =
                       filter_options
                       |> Enum.find(fn {v, _} -> v == @file_type_filter end)
                       |> then(&(&1 && elem(&1, 1))) %>
+                    <% shape_label =
+                      shape_options
+                      |> Enum.find(fn {v, _} -> v == @shape_filter end)
+                      |> then(&(&1 && elem(&1, 1))) %>
+                    <%!-- The button names what is on: "All types" when nothing is
+                         chosen, the type, the shape, or both. --%>
+                    <% filter_label =
+                      cond do
+                        @shape_filter == "all" -> type_label
+                        @file_type_filter == "all" -> shape_label
+                        true -> type_label <> " · " <> shape_label
+                      end %>
                     <div class="flex flex-wrap items-center gap-2 mt-1">
                       <%= if not @filter_trash and not @filter_orphaned do %>
                         <%!-- Display / Sort / Filter group. On mobile this hides
@@ -1048,7 +1065,7 @@
                                     phx-click="set_view_mode"
                                     phx-value-mode={val}
                                     phx-target={@myself}
-                                    class={@view_mode == val && "active"}
+                                    class={@view_mode == val && "menu-active"}
                                   >
                                     <.icon name={icon} class="w-4 h-4" /> {label}
                                   </button>
@@ -1078,7 +1095,7 @@
                                     phx-click="set_sort"
                                     phx-value-sort={val}
                                     phx-target={@myself}
-                                    class={@sort_by == val && "active"}
+                                    class={@sort_by == val && "menu-active"}
                                   >
                                     {label}
                                   </button>
@@ -1096,11 +1113,10 @@
                               <.icon name="hero-funnel" class="w-4 h-4" />
                               <span class={[
                                 "sm:inline",
-                                @file_type_filter == "all" && "hidden"
+                                (@file_type_filter == "all" and @shape_filter == "all") &&
+                                  "hidden"
                               ]}>
-                                {if @file_type_filter == "all",
-                                  do: gettext("Filter"),
-                                  else: filter_label}
+                                {filter_label}
                               </span>
                               <.icon
                                 name="hero-chevron-down"
@@ -1118,7 +1134,20 @@
                                     phx-click="set_file_filter"
                                     phx-value-type={val}
                                     phx-target={@myself}
-                                    class={@file_type_filter == val && "active"}
+                                    class={@file_type_filter == val && "menu-active"}
+                                  >
+                                    {label}
+                                  </button>
+                                </li>
+                              <% end %>
+                              <li class="menu-title mt-1">{gettext("Shape")}</li>
+                              <%= for {val, label} <- shape_options do %>
+                                <li>
+                                  <button
+                                    phx-click="set_shape_filter"
+                                    phx-value-shape={val}
+                                    phx-target={@myself}
+                                    class={@shape_filter == val && "menu-active"}
                                   >
                                     {label}
                                   </button>
@@ -1724,7 +1753,15 @@
                               </div>
                             <% end %>
 
-                            <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
+                            <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none flex items-center gap-1">
+                              <%!-- A panorama (2:1 or wider), as Apple Photos marks one. --%>
+                              <span
+                                :if={panorama?(file)}
+                                title={gettext("Panorama")}
+                                aria-label={gettext("Panorama")}
+                              >
+                                <.icon name="hero-arrows-right-left" class="w-3.5 h-3.5" />
+                              </span>
                               {format_file_size(file.size)}
                             </div>
                           </div>
