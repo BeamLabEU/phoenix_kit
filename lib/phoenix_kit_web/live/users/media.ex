@@ -66,6 +66,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:library, nil)
       |> assign(:role, nil)
       |> assign(:viewer_uuid, nil)
+      |> assign(:can_manage_storage, Scope.can?(scope(socket), "media.manage"))
       |> assign(:selected_annotation, nil)
 
     {:ok, socket}

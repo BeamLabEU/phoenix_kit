@@ -3012,7 +3012,8 @@
           can_annotate={not @readonly}
           persist_rotation={not @readonly}
           details_path={
-            if @admin and not @readonly, do: Routes.path("/admin/media/#{f.file_uuid}/storage")
+            if @admin and @can_manage_storage and not @readonly,
+              do: Routes.path("/admin/media/#{f.file_uuid}/storage")
           }
           edit_target={if @readonly or @select_mode, do: nil, else: {__MODULE__, @id}}
           write_scope={@scope_folder_id}

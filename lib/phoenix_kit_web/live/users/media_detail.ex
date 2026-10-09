@@ -52,8 +52,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   @spec browse_path(StorageFile.t(), term()) :: String.t()
   def browse_path(%StorageFile{} = file, scope) do
     case Libraries.get_library(file.library_uuid) do
+      # Not a library the viewer may read: the way there would name it (its uuid)
       %{kind: "user"} = library ->
-        Libraries.browse_path(scope, library)
+        if Libraries.can?(scope, file, :read),
+          do: Libraries.browse_path(scope, library),
+          else: "/admin/media"
 
       %{kind: "system", is_default: false, slug: slug} when is_binary(slug) ->
         "/admin/media/library/#{slug}"

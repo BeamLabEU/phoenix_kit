@@ -41,6 +41,7 @@ defmodule PhoenixKit.Modules.Storage.Audit do
 
   alias PhoenixKit.Activity
   alias PhoenixKit.Modules.Storage.Endpoint
+  alias PhoenixKit.Modules.Storage.Libraries
 
   @module_key "storage"
 
@@ -63,6 +64,8 @@ defmodule PhoenixKit.Modules.Storage.Audit do
   """
   @spec log_damage(PhoenixKit.Modules.Storage.File.t(), [map()], keyword()) :: :ok
   def log_damage(file, results, opts) do
+    results = if site_file?(file), do: results, else: []
+
     for %{bucket: %{owner_uuid: nil} = bucket, result: result} = row <- results,
         problem = damage(result) do
       log("storage.copy.damaged", "bucket", bucket.uuid, opts, %{
@@ -81,6 +84,17 @@ defmodule PhoenixKit.Modules.Storage.Audit do
     :ok
   end
 
+  # A file in a user's private library is theirs: its name, library and buckets are
+  # not written into the site's permanent log. A lookup that fails counts as private
+  # (the entry is skipped, never leaked).
+  defp site_file?(file) do
+    not Libraries.private_file?(file)
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
   defp damage(:not_found), do: "missing"
   defp damage({:mismatch, _recorded, _actual}), do: "checksum_mismatch"
   defp damage(_result), do: nil
@@ -95,7 +109,7 @@ defmodule PhoenixKit.Modules.Storage.Audit do
   def log_repair(file, actions, problems_left, opts) do
     done = Enum.reject(actions, &(&1.kind == :reconciled))
 
-    if done != [] do
+    if done != [] and site_file?(file) do
       log("storage.file.repaired", "file", file.uuid, opts, %{
         "file_name" => file.original_file_name || file.file_name,
         "library_uuid" => file.library_uuid && to_string(file.library_uuid),
@@ -125,7 +139,8 @@ defmodule PhoenixKit.Modules.Storage.Audit do
 
   @doc """
   How many damaged copies were found in the bucket in the last `days` days
-  (`storage.copy.damaged` entries), and when the last was: `%{count:, last_at:}`.
+  (distinct object keys among the `storage.copy.damaged` entries, so verifying the
+  same copy twice counts it once), and when the last was: `%{count:, last_at:}`.
   """
   @spec damaged_copies(term(), pos_integer()) :: %{count: non_neg_integer(), last_at: term()}
   def damaged_copies(bucket_uuid, days \\ 30) do
@@ -136,7 +151,9 @@ defmodule PhoenixKit.Modules.Storage.Audit do
         where:
           e.action == "storage.copy.damaged" and e.resource_uuid == ^to_string(bucket_uuid) and
             e.inserted_at >= ^since,
-        select: {count(e.uuid), max(e.inserted_at)}
+        select:
+          {fragment("count(DISTINCT coalesce(? ->> 'key', ?::text))", e.metadata, e.uuid),
+           max(e.inserted_at)}
       )
       |> repo().one()
 

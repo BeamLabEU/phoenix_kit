@@ -198,6 +198,29 @@ defmodule PhoenixKit.Modules.Storage.FileRepairTest do
     end
   end
 
+  test "a copy that cannot be put right is reported, and the reconciler is not run after it",
+       ctx do
+    a = bucket!(ctx.tmp, "a")
+    b = bucket!(ctx.tmp, "b")
+
+    {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_local: 2})
+    file = upload!(ctx.tmp, ctx.user)
+
+    target = object(a, file, "medium")
+    File.write!(target, "tampered")
+    # Nothing can be written back into the bucket: the restore fails.
+    File.chmod!(target, 0o444)
+    File.chmod!(Path.dirname(target), 0o555)
+    on_exit(fn -> File.chmod(Path.dirname(target), 0o755) end)
+
+    assert File.exists?(object(b, file, "medium"))
+    assert {:ok, %{actions: actions, verification: verification}} = FileRepair.repair(file)
+
+    assert {"medium", :failed} in kinds(actions)
+    refute Enum.any?(actions, &(&1.kind == :reconciled))
+    refute FileReport.all_ok?(verification)
+  end
+
   test "two buckets: a good copy is copied over a bad one, original included", ctx do
     a = bucket!(ctx.tmp, "a")
     b = bucket!(ctx.tmp, "b")

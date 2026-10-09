@@ -1,7 +1,52 @@
-## Unreleased
+## 2.60.0 - 2026-10-09
+
+Migration **V216** (run `mix phoenix_kit.update`). It adds one column, `key_levels smallint NOT NULL DEFAULT 1`,
+to `phoenix_kit_storage_profiles`; no existing file or key changes.
+
+### Added
+
+- **A file has a storage page** at `/admin/media/:uuid/storage` (`media.manage`): the checksum of the original,
+  a table of renditions (wanted against stored, state, checksum, buckets, when each was made), **Verify
+  renditions** (grouped by bucket), **Make what is missing**, **Regenerate all**, and the unedited original
+  (download, restore, delete). A "Library and profiles" card names the file's library, storage profile and
+  rendition profile, and whether the file was last placed by the profile's current version.
+- **Fix all issues** on that page (`Storage.FileRepair`): every copy is read back, a missing or damaged copy is
+  replaced from another bucket's good one (the original too), buckets that hold an object no row names are
+  recorded, a size is made again from the original when no good copy is left, and an original with none is
+  reported as unrecoverable. It does not reconcile after a copy it could not put right.
+- **A repair trail.** Each damaged copy found by Verify or the fixer is a permanent `storage.copy.damaged`
+  Activity entry against its bucket, each repair a `storage.file.repaired` one. Settings → Media → History has a
+  "Damage and repairs" view (filter by kind, library, bucket), a file's storage page a Storage log, and a
+  bucket's page warns about the damaged copies of the last 30 days. Files in a user's private library are not
+  written to the site's log.
+- **A folder layout choice for storage profiles** (V216, `Storage.KeyLayout`): 0 to 3 two-character hash folders
+  between a library's prefix and the file's MD5. New uploads follow their library's profile; a file keeps the
+  folder stored on its row. The profiles tab shows how many file folders the busiest folder holds from 10
+  thousand to 100 million files.
+- **Ukrainian (uk) translations** (#919).
+
+### Changed
+
+- **A file's page is the media view.** `/admin/media/:uuid` redirects to `/admin/media?file=<uuid>` (or the page
+  of the library the file is in), keeping `?annotation=`. The viewer sidebar is "Media details": status,
+  uploader, update time, file uuid, PDF pages, tags (saved with the title), and Move to trash / Restore / Delete
+  forever. The "Storage" link, the uploader and the file uuid are shown to holders of `media.manage` only.
+- The header over a file's page names its library: `Media / [library] / <file>`.
 
 ### Fixed
 
+- **Sitemap: Publishing posts are listed under each language's own `url_slug`** (#920, #921), the address the page
+  itself canonicalises to, instead of the primary language's slug; a post with neither slug nor path is skipped.
+- **"Delete forever" in the viewer deleted nothing** when the file was opened from outside the trash view (a
+  link, the storage page); it only said "File moved to trash". A trashed file in scope is now deleted.
+- **A repair could leave the only good copy to a reconciler's mercy.** When a copy could not be put right it was
+  still counted healthy, so the reconciler ran and could unlink a good copy in a bucket the profile no longer
+  names. It now reports the failure and does not reconcile.
+- **A duplicate upload that heals a file's missing instance row crashed** (`MatchError`) under a profile with 0
+  hash folders, and wrote the original under a wrong key with 2 or 3. The MD5 is the last segment of the folder,
+  whatever the layout.
+- **The old address of a file no longer names a private library** (its uuid) to someone who cannot read it.
+- The bucket page's "damaged copies" counts copies, not log entries: verifying the same copy twice counts it once.
 - **The EXIF panel no longer shows two buttons and nothing else.** A photo whose EXIF holds tags the panel does
   not print (an orientation, a lens maker) showed "All EXIF" and "Read again" under an empty heading. It now
   says "Nothing here about the camera, exposure, dates or location" and offers the whole dump.

@@ -795,7 +795,8 @@ when it is renamed (`Libraries.get_system_library_by_slug/1`).
 
 - **Store into a library:** `Storage.store_file_in_buckets(..., library_uuid: uuid)`.
   A library with a `key_prefix` keys new objects under it
-  (`{key_prefix}/{hash[0..1]}/{hash}/…`); Media has none and keeps the
+  (`{key_prefix}/<hash folders>/{hash}/…`, 0 to 3 hash folders per the
+  profile's `key_levels`, `Storage.KeyLayout`); Media has none and keeps the
   per-uploader layout (`{user_uuid[0..1]}/{hash[0..1]}/{hash}/…`).
 - **Folders:** a root folder takes the library its attrs name (default Media),
   and a subfolder always takes its parent's. Folder names are unique per library

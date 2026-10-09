@@ -72,9 +72,11 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
     current = reload(file)
 
     # Sizes and placements are the reconciler's. Not while the original is
-    # damaged beyond repair: it would make sizes from bad bytes.
+    # damaged beyond repair (it would make sizes from bad bytes), and not after a
+    # copy could not be put right: the reconciler trusts a bucket that holds the
+    # object, and could drop the only good copy elsewhere in favour of a bad one.
     reconcile =
-      if original_ok?,
+      if original_ok? and not Enum.any?(actions, &(&1.kind == :failed)),
         do: [action("original", :reconciled, outcome: Reconciler.reconcile_file(current))],
         else: []
 
@@ -123,7 +125,9 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
         {left, good != []}
 
       good != [] ->
-        {Enum.map(bad, &restore(instance, &1, hd(good))) ++ left, true}
+        restores = Enum.map(bad, &restore(instance, &1, hd(good)))
+        # A copy that could not be put right is still bad: not "healthy".
+        {restores ++ left, Enum.all?(restores, &(&1.kind == :restored))}
 
       true ->
         remake(file, instance, expected, original_ok?, left)

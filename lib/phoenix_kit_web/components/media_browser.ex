@@ -300,6 +300,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # library that is not private.
       |> assign_new(:library_uuid, fn -> nil end)
       |> assign_new(:admin, fn -> false end)
+      |> assign_new(:can_manage_storage, fn -> false end)
       # When true, every write path is hidden AND refused server-side —
       # upload, rename, move, trash, new folder, bulk-select, rotate,
       # featured toggle, image editor. Navigation, the viewer and downloads
@@ -3426,14 +3427,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     if file && removable_here?(file, viewed, scope) do
       # Same guards as delete_selected: permanent deletion only for files
-      # actually in the trash (the row could have been restored from another
-      # session since this view rendered) AND whose home is in scope —
+      # actually in the trash — by the row's status, not by the view, since the
+      # viewer can open a trashed file from a link outside the trash view (the
+      # row could have been restored from another session since this view
+      # rendered) AND whose home is in scope —
       # destroying the record and its bytes reaches every folder holding
       # the file, so appearing here (a link from outside) is not enough. A
       # linked file in this folder's trash is unlinked instead.
       flash =
-        if socket.assigns.filter_trash and file.status == "trashed" and
-             Storage.within_scope?(file.folder_uuid, scope) do
+        if file.status == "trashed" and Storage.within_scope?(file.folder_uuid, scope) do
           Storage.delete_file_completely(file)
           gettext("File permanently deleted")
         else

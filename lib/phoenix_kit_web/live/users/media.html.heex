@@ -21,6 +21,7 @@
       own_files_only={@viewer_uuid || own_files_only(@role, @phoenix_kit_current_user)}
       phoenix_kit_current_user={assigns[:phoenix_kit_current_user]}
       admin={true}
+      can_manage_storage={@can_manage_storage}
       fill_height={true}
       on_navigate={:navigate}
       initial_params={@initial_params}

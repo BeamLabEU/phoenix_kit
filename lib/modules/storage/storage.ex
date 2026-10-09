@@ -5695,7 +5695,7 @@ defmodule PhoenixKit.Modules.Storage do
     * `:library_uuid` — the storage library the new file goes into
       (`PhoenixKit.Modules.Storage.Libraries`); omitted means Media. A
       library with a `key_prefix` keys the file's objects under it
-      (`{key_prefix}/{hash[0..1]}/{full_hash}/…`) instead of the uploader's
+      (`{key_prefix}/<hash folders>/{full_hash}/…`, see `Storage.KeyLayout`) instead of the uploader's
       prefix. A duplicate the same uploader already has is returned as it
       is, in whatever library it is in — compare `library_uuid` if that
       matters to you.
@@ -6298,9 +6298,9 @@ defmodule PhoenixKit.Modules.Storage do
     file_size = stat.size
 
     # Reconstruct the full storage path for the original instance
-    # file.file_path is "user_prefix/hash_prefix/md5_hash"
-    # We need to extract md5_hash and build the original path
-    [_user_prefix, _hash_prefix, md5_hash | _rest] = String.split(file.file_path, "/")
+    # file.file_path is "prefix/<hash folders>/md5_hash" (KeyLayout: 0 to 3 hash
+    # folders), so the md5 is its last segment whatever the layout was
+    md5_hash = Path.basename(file.file_path)
     original_path = "#{file.file_path}/#{md5_hash}_original.#{file.ext}"
 
     Logger.info("Reconstructed original path for instance: #{original_path}")

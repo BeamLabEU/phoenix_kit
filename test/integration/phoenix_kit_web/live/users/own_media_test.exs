@@ -108,6 +108,30 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
 
   defp browser(view), do: with_target(view, "#media-browser")
 
+  # ── the storage link ──────────────────────────────────────────────────────
+
+  describe "the viewer's link to the storage page" do
+    test "is offered to a holder of media.manage, not to one of media alone", %{
+      conn: conn,
+      alice: alice,
+      n: n
+    } do
+      {:ok, plain} = Roles.create_role(%{name: "Plain media #{n}"})
+      {:ok, _} = Permissions.grant_permission(plain.uuid, "media")
+      carol = user!(plain, "carol")
+      mine = file!("CAROL-#{n}", carol, nil)
+      path = "/admin/media/#{mine.uuid}/storage"
+
+      {:ok, _view, html} = media(conn, carol, "?file=#{mine.uuid}")
+      assert html =~ "CAROL-#{n}"
+      refute html =~ path
+
+      own = file!("ALICE-OWN-#{n}", alice, nil)
+      {:ok, _view, html} = media(conn, alice, "?file=#{own.uuid}")
+      assert html =~ "/admin/media/#{own.uuid}/storage"
+    end
+  end
+
   # ── the page ──────────────────────────────────────────────────────────────
 
   describe "the root" do
