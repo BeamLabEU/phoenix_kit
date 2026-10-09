@@ -140,7 +140,10 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     |> assign(:backup, backup_report(file))
     |> assign(:preview_url, preview_url(file))
     |> assign(:view_path, MediaDetail.view_path(file, scope))
-    |> assign(:can_manage, Scope.can?(scope, "media.manage"))
+    |> assign(
+      :can_manage,
+      Scope.can?(scope, "media.manage") and Libraries.can?(scope, file, :edit)
+    )
     |> assign(:header_title, gettext("Storage"))
     |> assign(:header_section, section)
     |> assign(:header_section_path, Routes.path(section_path))
@@ -312,7 +315,18 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
       when not is_nil(working),
       do: {:noreply, put_flash(socket, :info, gettext("Something is already running."))}
 
-  def handle_event("verify", _params, socket) do
+  def handle_event(event, params, socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    file = Storage.get_file(socket.assigns.file.uuid)
+
+    if file && visible?(scope, file) && Libraries.can?(scope, file, :edit) do
+      handle_storage_event(event, params, assign(socket, :file, file))
+    else
+      {:noreply, put_flash(socket, :error, gettext("You may not change storage."))}
+    end
+  end
+
+  defp handle_storage_event("verify", _params, socket) do
     file = socket.assigns.file
     audit = Keyword.put(Actor.opts(socket), :found_by, "verify")
 
@@ -326,7 +340,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   # Everything that can be wrong with this file's objects, put right
   # (`FileRepair`): copies read back, bad ones replaced from good ones or made
   # again, what the profile wants made, then read back once more.
-  def handle_event("fix", _params, socket) do
+  defp handle_storage_event("fix", _params, socket) do
     file = socket.assigns.file
     actor = Actor.opts(socket)
 
@@ -335,10 +349,16 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
      |> assign(:working, :fix)
      |> assign(:verification, nil)
      |> assign(:repair, nil)
-     |> start_async(:fix, fn -> FileRepair.repair(file, actor) end)}
+     |> start_async(:fix, fn ->
+       # Only the waiter belongs to the page. A supervised repair keeps running
+       # if navigation closes the LiveView after it has changed some objects.
+       PhoenixKit.TaskSupervisor
+       |> Task.Supervisor.async_nolink(fn -> FileRepair.repair(file, actor) end)
+       |> Task.await(:infinity)
+     end)}
   end
 
-  def handle_event("make", %{"name" => name}, socket) do
+  defp handle_storage_event("make", %{"name" => name}, socket) do
     file = socket.assigns.file
 
     case Enum.find(VariantGenerator.expected_variants(file), fn {_d, n, _f} -> n == name end) do
@@ -346,6 +366,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
         {:noreply,
          socket
          |> assign(:working, {:make, name})
+         |> assign(:verification, nil)
          |> start_async(:make, fn ->
            VariantGenerator.generate_variant(file, dimension, name, format)
          end)}
@@ -355,24 +376,25 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     end
   end
 
-  def handle_event("regenerate_all", _params, socket) do
+  defp handle_storage_event("regenerate_all", _params, socket) do
     file = socket.assigns.file
 
     {:noreply,
      socket
      |> assign(:working, :regenerate)
+     |> assign(:verification, nil)
      |> start_async(:regenerate, fn -> VariantGenerator.generate_variants(file) end)}
   end
 
-  def handle_event("revert", _params, socket) do
+  defp handle_storage_event("revert", _params, socket) do
     {:noreply, after_edit_action(socket, ImageEditing.revert(socket.assigns.file, auth(socket)))}
   end
 
-  def handle_event("retry_edit", _params, socket) do
+  defp handle_storage_event("retry_edit", _params, socket) do
     {:noreply, after_edit_action(socket, ImageEditing.retry(socket.assigns.file, auth(socket)))}
   end
 
-  def handle_event("delete_unedited", _params, socket) do
+  defp handle_storage_event("delete_unedited", _params, socket) do
     result = ImageEditing.delete_unedited_original(socket.assigns.file, auth(socket))
     {:noreply, after_edit_action(socket, result)}
   end
@@ -387,6 +409,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   defp edit_error(:forbidden), do: gettext("You may not change this image.")
   defp edit_error(:not_edited), do: gettext("This image has not been edited.")
   defp edit_error(:edit_in_progress), do: gettext("An edit is being applied. Try again shortly.")
+  defp edit_error(:busy), do: gettext("Something is already running.")
 
   defp edit_error({:annotated, _count}),
     do: gettext("This image has annotations; restoring would move them.")
@@ -422,11 +445,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
      |> finish(flash)}
   end
 
-  def handle_async(:fix, {:ok, {:error, :edit_in_progress}}, socket) do
+  def handle_async(:fix, {:ok, {:error, reason}}, socket) do
     {:noreply,
      socket
      |> assign(:working, nil)
-     |> put_flash(:error, gettext("An edit is being applied. Try again shortly."))}
+     |> put_flash(:error, edit_error(reason))}
   end
 
   def handle_async(:make, {:ok, result}, socket) do

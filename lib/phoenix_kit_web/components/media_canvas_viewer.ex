@@ -74,6 +74,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       (`Storage.within_scope?/2`); the editor is not offered otherwise and
       a rotation stays view-only. `nil` means unscoped. `MediaBrowser`
       passes its own scope, the rule its grid rotation already follows.
+    * `:own_files_only`, `:write_library_uuid`, `:viewer_uuid` (default `nil`) —
+      the browser's uploader, library and visibility restrictions. Every file
+      metadata or rotation write checks them against the current database row.
     * `:details_path` (default `nil`) — when set, the sidebar shows an
       "Open details page" button navigating to this path. Admin-context
       hosts (`MediaBrowser` with `admin={true}`) pass the file's
@@ -194,6 +197,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:details_path, nil)
      |> assign(:edit_target, nil)
      |> assign(:write_scope, nil)
+     |> assign(:own_files_only, nil)
+     |> assign(:write_library_uuid, nil)
+     |> assign(:viewer_uuid, nil)
      |> assign(:file_writable, true)
      |> assign(:featured, nil)
      |> assign(:media_meta_status_token, 0)}
@@ -298,6 +304,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:details_path, assigns[:details_path])
       |> assign(:edit_target, assigns[:edit_target])
       |> assign(:write_scope, assigns[:write_scope])
+      |> assign(:own_files_only, assigns[:own_files_only])
+      |> assign(:write_library_uuid, assigns[:write_library_uuid])
+      |> assign(:viewer_uuid, assigns[:viewer_uuid])
       |> assign(:featured, assigns[:featured])
       |> assign_new(:media_meta, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_own, fn -> %{title: "", alt: "", description: ""} end)
@@ -545,7 +554,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   def handle_event("read_exif", _params, socket) do
     with %{file_uuid: uuid} <- socket.assigns.file,
          %Storage.File{} = row <- Storage.get_file(uuid),
-         true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
+         true <- file_writable?(row, socket.assigns),
          {:ok, row} <- Storage.read_exif(row) do
       {:noreply, assign_exif(socket, row)}
     else
@@ -605,7 +614,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
          %Storage.File{} = row <- Storage.get_file(uuid),
          # The boundary, on the row as it is NOW: the form is only offered
          # for a writable file, but a hidden form is not a boundary.
-         true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
+         true <- file_writable?(row, socket.assigns),
          {:ok, row} <-
            Storage.update_file_details_languages(
              row,
@@ -753,7 +762,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
     socket =
       socket
-      |> assign(:file_writable, file_writable?(row, socket.assigns[:write_scope]))
+      |> assign(:file_writable, file_writable?(row, socket.assigns))
       |> assign(:file_row, file_row_info(row, socket.assigns[:details_path]))
       |> assign(:viewer_rotation, normalize_rotation(Map.get(meta, "rotation")))
       |> assign_exif(row)
@@ -905,17 +914,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp can_edit_media_meta?(details_path, edit_target),
     do: details_path != nil or edit_target != nil
 
-  # See `:write_scope`. Unscoped hosts pay no query.
-  defp file_writable?(_row, nil), do: true
+  # Carry the browser's boundaries into every write in its child viewer.
+  defp file_writable?(%Storage.File{} = row, assigns) do
+    Storage.within_scope?(row.folder_uuid, assigns[:write_scope]) and
+      (is_nil(assigns[:own_files_only]) or row.user_uuid == assigns[:own_files_only]) and
+      (is_nil(assigns[:write_library_uuid]) or
+         row.library_uuid == assigns[:write_library_uuid]) and
+      Storage.viewer_can_see_file?(assigns[:viewer_uuid], row)
+  end
 
-  defp file_writable?(%Storage.File{folder_uuid: home}, scope),
-    do: Storage.within_scope?(home, scope)
-
-  defp file_writable?(_row, _scope), do: false
+  defp file_writable?(_row, _assigns), do: false
 
   # A form field, or whatever a forged event put in its place.
   defp text_param(value) when is_binary(value), do: String.trim(value)
   defp text_param(_value), do: ""
+
+  defp download_url(url) do
+    uri = URI.parse(url)
+    query = URI.decode_query(uri.query || "") |> Map.put("dl", "1") |> URI.encode_query()
+    URI.to_string(%{uri | query: query})
+  end
+
+  defp download_variants(urls) do
+    urls
+    |> Enum.filter(fn {name, url} -> name not in ["original", "dzi"] and is_binary(url) end)
+    |> Enum.sort()
+  end
 
   # Write `rotation` into the file's metadata JSONB, skipping the DB round-trip
   # when it hasn't changed (Fresco fires `rotate` on every change, including the
@@ -933,7 +957,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
         # A file only LINKED into the host's scope is someone else's to
         # rotate (see `:write_scope`): it turns on screen and nothing is saved.
-        if current == rotation or not file_writable?(file, socket.assigns[:write_scope]) do
+        if current == rotation or not file_writable?(file, socket.assigns) do
           assign(socket, :viewer_rotation, rotation)
         else
           # On the row as it is NOW: a title or tags saved since `file` was

@@ -45,6 +45,14 @@ to `phoenix_kit_storage_profiles`; no existing file or key changes.
 - **A duplicate upload that heals a file's missing instance row crashed** (`MatchError`) under a profile with 0
   hash folders, and wrote the original under a wrong key with 2 or 3. The MD5 is the last segment of the folder,
   whatever the layout.
+- **Repair and regeneration preserve keys shared with another file.** A rebuilt rendition gets its own key
+  when another file still references the usual one. Repairs share the reconciler's per-file lock, reload the
+  edit state, survive leaving the page, verify unrecorded objects before adopting them, and skip writes to
+  disabled buckets. Unresolved copies prevent reconciliation; an unsuccessful attempt creates no repair entry.
+- **The viewer honours shared-library contributor restrictions** when saving title, tags, EXIF or rotation,
+  and refuses writes after a file moves to another library. Storage-page writes also require library edit access.
+- **Per-size downloads remain available in the media viewer**, including custom and annotated renditions,
+  without requiring `media.manage`.
 - **The old address of a file no longer names a private library** (its uuid) to someone who cannot read it.
 - The bucket page's "damaged copies" counts copies, not log entries: verifying the same copy twice counts it once.
 - **The EXIF panel no longer shows two buttons and nothing else.** A photo whose EXIF holds tags the panel does

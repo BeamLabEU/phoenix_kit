@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
        another bucket that holds a good one (`Manager.copy_object/3`).
     3. **Makes again what no good copy is left of**, when it is a size made
        from the original (`VariantGenerator.generate_variant/5`, which also
-       replaces a damaged object under the same key). An original with no good
+       uses a fresh key when another file shares the damaged key). An original with no good
        copy anywhere cannot be made again: that is reported, not hidden — and
        because every size is made from the original, nothing is made from an
        original that is damaged.
@@ -29,7 +29,9 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
   is `%{name:, kind:, bucket:, from:}` and `kind` is one of `:restored`,
   `:regenerated`, `:recorded`, `:unrecoverable`, `:unreadable`, `:skipped`,
   `:failed` or `:reconciled`. `{:error, :edit_in_progress}` while an image edit
-  is rendering: the bytes are about to change.
+  is rendering: the bytes are about to change. `{:error, :busy}` while another
+  repair or reconciliation holds the file lock, or `{:error, :not_found}` if
+  the file was deleted.
   """
 
   alias PhoenixKit.Modules.Storage
@@ -51,11 +53,24 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
         }
 
   @spec repair(StorageFile.t(), keyword()) ::
-          {:ok, %{actions: [action()], verification: [map()]}} | {:error, :edit_in_progress}
+          {:ok, %{actions: [action()], verification: [map()]}}
+          | {:error, :edit_in_progress | :busy | :not_found}
   def repair(file, opts \\ [])
-  def repair(%StorageFile{edit_state: "pending"}, _opts), do: {:error, :edit_in_progress}
 
   def repair(%StorageFile{} = file, opts) do
+    case Reconciler.with_file_lock(file.uuid, fn ->
+           case Storage.get_file(file.uuid) do
+             nil -> {:error, :not_found}
+             %StorageFile{edit_state: "pending"} -> {:error, :edit_in_progress}
+             current -> do_repair(current, opts)
+           end
+         end) do
+      :skipped -> {:error, :busy}
+      result -> result
+    end
+  end
+
+  defp do_repair(file, opts) do
     {actions, original_ok?} =
       Enum.reduce_while(1..@passes, {[], true}, fn pass, {done, _ok?} ->
         current = reload(file)
@@ -76,9 +91,10 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
     # copy could not be put right: the reconciler trusts a bucket that holds the
     # object, and could drop the only good copy elsewhere in favour of a bad one.
     reconcile =
-      if original_ok? and not Enum.any?(actions, &(&1.kind == :failed)),
-        do: [action("original", :reconciled, outcome: Reconciler.reconcile_file(current))],
-        else: []
+      if original_ok? and
+           not Enum.any?(actions, &(&1.kind in [:failed, :unreadable, :unrecoverable, :skipped])),
+         do: [action("original", :reconciled, outcome: Reconciler.reconcile_file(current))],
+         else: []
 
     actions = Enum.uniq_by(actions, &{&1.name, &1.kind, &1.bucket}) ++ reconcile
     verification = FileReport.verify(reload(file))
@@ -129,6 +145,11 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
         # A copy that could not be put right is still bad: not "healthy".
         {restores ++ left, Enum.all?(restores, &(&1.kind == :restored))}
 
+      unreadable != [] ->
+        # A temporarily unavailable bucket may still hold a good copy. Leave
+        # it for a later attempt rather than declaring the original lost.
+        {left, false}
+
       true ->
         remake(file, instance, expected, original_ok?, left)
     end
@@ -146,7 +167,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
   end
 
   defp found_or_remake(file, instance, expected, original_ok?) do
-    case find_unrecorded(instance) do
+    case good_elsewhere(file, instance, []) do
       [] ->
         remake(file, instance, expected, original_ok?, [])
 
@@ -177,6 +198,9 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
   defp damaged?(:not_found), do: true
   defp damaged?({:mismatch, _recorded, _actual}), do: true
   defp damaged?(_), do: false
+
+  defp restore(instance, %{enabled: false} = bad, _good),
+    do: action(instance.variant_name, :skipped, bucket: bad.name, bucket_uuid: bad.uuid)
 
   defp restore(instance, bad, good) do
     case Manager.copy_object(good, bad, instance.file_name) do
@@ -219,16 +243,6 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
           _ -> {[action(name, :failed) | extra], false}
         end
     end
-  end
-
-  # Enabled buckets that hold the object although no location row says so; the
-  # row is recorded for each.
-  defp find_unrecorded(instance) do
-    found =
-      Enum.filter(Storage.list_enabled_buckets(), &Manager.holds?(&1, instance.file_name))
-
-    Enum.each(found, &Locations.record(instance.file_name, &1.uuid))
-    found
   end
 
   defp action(name, kind, opts \\ []) do

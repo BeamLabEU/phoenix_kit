@@ -3017,6 +3017,9 @@
           }
           edit_target={if @readonly or @select_mode, do: nil, else: {__MODULE__, @id}}
           write_scope={@scope_folder_id}
+          own_files_only={@own_files_only}
+          write_library_uuid={@library_uuid}
+          viewer_uuid={@viewer_uuid}
           featured={if @readonly, do: nil, else: @featured}
         />
       </div>

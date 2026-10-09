@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepairTest do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.FileLocation
   alias PhoenixKit.Modules.Storage.FileRepair
   alias PhoenixKit.Modules.Storage.FileReport
   alias PhoenixKit.Modules.Storage.ProcessFileJob
@@ -239,5 +240,135 @@ defmodule PhoenixKit.Modules.Storage.FileRepairTest do
     assert {"medium", :restored} in kinds(actions)
     refute Enum.any?(actions, &(&1.kind in [:regenerated, :unrecoverable]))
     assert FileReport.all_ok?(verification)
+  end
+
+  test "an unrecorded original is checked before it is adopted or used", ctx do
+    bucket = bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+    original = Storage.get_file_instance_by_name(file.uuid, "original")
+    File.write!(object(bucket, file, "original"), "tampered")
+    Repo.delete_all(from(l in FileLocation, where: l.file_instance_uuid == ^original.uuid))
+
+    assert {:ok, %{actions: actions}} = FileRepair.repair(file)
+    assert {"original", :unrecoverable} in kinds(actions)
+    refute Enum.any?(actions, &(&1.kind in [:recorded, :reconciled]))
+  end
+
+  test "a disabled bucket's damaged object is left untouched", ctx do
+    a = bucket!(ctx.tmp, "a")
+    bucket!(ctx.tmp, "b")
+    {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_local: 2})
+    file = upload!(ctx.tmp, ctx.user)
+    target = object(a, file, "medium")
+    File.write!(target, "tampered")
+    # The UI blocks disabling a referenced bucket. A disabled legacy/configured
+    # bucket can still have location rows and must stay a read-only source.
+    Repo.update_all(from(b in Bucket, where: b.uuid == ^a.uuid), set: [enabled: false])
+    :persistent_term.erase(@buckets_cache)
+
+    assert {:ok, %{actions: actions}} = FileRepair.repair(file)
+    assert File.read!(target) == "tampered"
+    refute Enum.any?(actions, &(&1.kind == :reconciled))
+  end
+
+  test "repair reloads the edit state before changing anything", ctx do
+    bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+
+    Repo.update_all(from(f in Storage.File, where: f.uuid == ^file.uuid),
+      set: [edit_state: "pending"]
+    )
+
+    assert FileRepair.repair(file) == {:error, :edit_in_progress}
+  end
+
+  test "a repair does not change another file's shared rendition key", ctx do
+    bucket = bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+
+    {:ok, other} =
+      Auth.register_user(%{
+        "email" => "repair-copy-#{ctx.n}@example.com",
+        "password" => "ValidPassword123!"
+      })
+
+    assert {:ok, clone, :duplicate} =
+             Storage.store_file_in_buckets(
+               object(bucket, file, "original"),
+               "image",
+               other.uuid,
+               file.file_checksum,
+               "jpg",
+               "copy.jpg"
+             )
+
+    shared = Storage.get_file_instance_by_name(clone.uuid, "medium")
+    assert shared.file_name == Storage.get_file_instance_by_name(file.uuid, "medium").file_name
+    File.write!(object(bucket, file, "medium"), "tampered")
+
+    assert {:ok, %{verification: verification}} = FileRepair.repair(file)
+    assert FileReport.all_ok?(verification)
+    refute Storage.get_file_instance_by_name(file.uuid, "medium").file_name == shared.file_name
+    assert File.read!(Path.join(Local.root(bucket), shared.file_name)) == "tampered"
+    assert Storage.get_file_instance_by_name(clone.uuid, "medium").file_name == shared.file_name
+  end
+
+  test "a repair cannot run while the reconciler holds the file lock", ctx do
+    bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+    opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
+    {:ok, holder} = Postgrex.start_link(opts)
+
+    Postgrex.query!(
+      holder,
+      "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
+      [file.uuid]
+    )
+
+    assert FileRepair.repair(file) == {:error, :busy}
+
+    Postgrex.query!(
+      holder,
+      "SELECT pg_advisory_unlock(hashtext('phoenix_kit_reconcile:' || $1))",
+      [file.uuid]
+    )
+
+    assert {:ok, _} = FileRepair.repair(file)
+  end
+
+  test "repeated unsuccessful repairs do not claim permanent repair entries", ctx do
+    bucket = bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+    File.write!(object(bucket, file, "original"), "tampered")
+
+    for _ <- 1..2 do
+      assert {:ok, %{actions: actions}} = FileRepair.repair(file, actor_uuid: ctx.user.uuid)
+      assert {"original", :unrecoverable} in kinds(actions)
+    end
+
+    refute Repo.exists?(
+             from(e in PhoenixKit.Activity.Entry,
+               where: e.action == "storage.file.repaired" and e.resource_uuid == ^file.uuid
+             )
+           )
+  end
+
+  test "an unreadable copy prevents an original from being declared unrecoverable", ctx do
+    a = bucket!(ctx.tmp, "a")
+    b = bucket!(ctx.tmp, "b")
+    {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_local: 2})
+    file = upload!(ctx.tmp, ctx.user)
+    File.write!(object(a, file, "original"), "tampered")
+    unreadable = object(b, file, "original")
+    File.chmod!(unreadable, 0o000)
+
+    try do
+      assert {:ok, %{actions: actions}} = FileRepair.repair(file)
+      assert {"original", :unreadable} in kinds(actions)
+      refute {"original", :unrecoverable} in kinds(actions)
+      refute Enum.any?(actions, &(&1.kind == :reconciled))
+    after
+      File.chmod!(unreadable, 0o644)
+    end
   end
 end

@@ -86,6 +86,54 @@ defmodule PhoenixKit.Modules.Storage.FileReportTest do
     assert [%{status: "active"}] = first.copies
   end
 
+  test "uploads and duplicate healing keep their stored key under every layout", ctx do
+    alias PhoenixKit.Modules.Storage.Profiles
+
+    for levels <- 0..3 do
+      {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{key_levels: levels})
+      path = Path.join(ctx.tmp_dir, "layout-#{levels}.txt")
+      bytes = "layout #{levels}: #{System.unique_integer([:positive])}"
+      File.write!(path, bytes)
+      sha = :sha256 |> :crypto.hash(bytes) |> Base.encode16(case: :lower)
+      md5 = :md5 |> :crypto.hash(bytes) |> Base.encode16(case: :lower)
+
+      assert {:ok, file} =
+               Storage.store_file_in_buckets(
+                 path,
+                 "document",
+                 ctx.photo.user_uuid,
+                 sha,
+                 "txt",
+                 "layout.txt"
+               )
+
+      assert length(String.split(file.file_path, "/")) == levels + 2
+      key = "#{file.file_path}/#{md5}_original.txt"
+      assert original(file).file_name == key
+      assert File.read!(Path.join(Local.root(ctx.bucket), key)) == bytes
+
+      Repo.delete!(original(file))
+
+      {:ok, _} =
+        Profiles.update_profile(Profiles.default_profile(), %{key_levels: rem(levels + 1, 4)})
+
+      assert {:ok, healed, :duplicate} =
+               Storage.store_file_in_buckets(
+                 path,
+                 "document",
+                 ctx.photo.user_uuid,
+                 sha,
+                 "txt",
+                 "layout.txt"
+               )
+
+      assert healed.uuid == file.uuid
+      assert healed.file_path == file.file_path
+      assert original(healed).file_name == key
+      assert File.read!(Path.join(Local.root(ctx.bucket), key)) == bytes
+    end
+  end
+
   test "an expected size the file lacks is missing, and is a problem", %{photo: file} do
     rows = FileReport.renditions(file)
     missing = Enum.filter(rows, &(&1.state == :missing))

@@ -562,9 +562,19 @@
                 <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> {gettext("Download")}
               </a>
             <% end %>
+            <details :if={download_variants(f.urls) != []} class="dropdown">
+              <summary class="btn btn-ghost btn-sm">{gettext("Download")}</summary>
+              <ul class="dropdown-content menu bg-base-100 rounded-box shadow-lg z-10 w-60">
+                <li :for={{name, url} <- download_variants(f.urls)}>
+                  <a href={download_url(url)} download={f.filename} target="_blank" rel="noopener">
+                    {name}
+                  </a>
+                </li>
+              </ul>
+            </details>
             <button
               :if={
-                @edit_target && f.file_type == "image" &&
+                @file_writable && @edit_target && f.file_type == "image" &&
                   PhoenixKit.Modules.Storage.ImageEditing.editable_mime?(f.mime_type)
               }
               type="button"

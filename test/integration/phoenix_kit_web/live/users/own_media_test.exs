@@ -122,9 +122,25 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
       mine = file!("CAROL-#{n}", carol, nil)
       path = "/admin/media/#{mine.uuid}/storage"
 
+      for name <- ["original", "custom_size", "original_annotated"] do
+        Repo.insert!(%Storage.FileInstance{
+          file_uuid: mine.uuid,
+          variant_name: name,
+          file_name: "#{mine.file_path}/#{name}.png",
+          mime_type: "image/png",
+          ext: "png",
+          checksum: "download-#{name}-#{n}",
+          size: 1,
+          processing_status: "completed"
+        })
+      end
+
       {:ok, _view, html} = media(conn, carol, "?file=#{mine.uuid}")
       assert html =~ "CAROL-#{n}"
       refute html =~ path
+      assert html =~ "custom_size"
+      assert html =~ "original_annotated"
+      assert html =~ "dl=1"
 
       own = file!("ALICE-OWN-#{n}", alice, nil)
       {:ok, _view, html} = media(conn, alice, "?file=#{own.uuid}")
@@ -383,6 +399,47 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
         Libraries.create_user_library(Scope.for_user(alice), %{"name" => "Holiday #{n}"})
 
       %{alice: alice, library: library}
+    end
+
+    test "a contributor's viewer and storage page cannot change another uploader's file", %{
+      conn: conn,
+      alice: alice,
+      bob: bob,
+      library: library,
+      n: n
+    } do
+      {:ok, _} = Libraries.add_member(Scope.for_user(alice), library, bob.email, "contributor")
+      {:ok, role} = Roles.create_role(%{name: "Shared storage #{n}"})
+      {:ok, _} = Permissions.grant_permission(role.uuid, "storage")
+      {:ok, _} = Roles.assign_role(bob, role.name)
+      bob = Repo.get!(Auth.User, bob.uuid)
+      file = file!("SHARED-#{n}", alice, nil)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^file.uuid),
+        set: [library_uuid: library.uuid]
+      )
+
+      {:ok, view, _html} =
+        live(
+          log_in_user(conn, bob),
+          Routes.path("/admin/media/my/#{library.uuid}?file=#{file.uuid}")
+        )
+
+      viewer = with_target(view, "[id^=media-canvas-viewer-]")
+      render_submit(viewer, "save_media_details", %{"title" => "Forged", "tags" => "Forged"})
+      render_click(viewer, "fresco:rotate", %{"rotation" => 90})
+      render_click(viewer, "read_exif", %{})
+      assert Repo.reload!(file).metadata["title"] == nil
+      assert Repo.reload!(file).metadata["tags"] == nil
+      assert Repo.reload!(file).metadata["rotation"] == nil
+      assert Repo.reload!(file).metadata["exif"] == nil
+
+      {:ok, storage, _html} =
+        live(log_in_user(build_conn(), bob), Routes.path("/admin/media/#{file.uuid}/storage"))
+
+      refute has_element?(storage, "button[phx-click=fix]")
+      assert render_click(storage, "fix", %{}) =~ "You may not change storage."
+      refute has_element?(storage, "#repair-report")
     end
 
     test "joins the header switcher, hinted Mine, and opens at /admin/media/my", %{

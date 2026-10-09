@@ -4,7 +4,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
   that now sends people to the media view: the header trail, the report, and the
   actions that need `media.manage`.
   """
-  use PhoenixKitWeb.ConnCase, async: true
+  use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
@@ -139,6 +139,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
   end
 
   describe "Fix all issues" do
+    setup do
+      start_supervised!({Task.Supervisor, name: PhoenixKit.TaskSupervisor})
+      :ok
+    end
+
     test "reports what it could not fix: an original no bucket holds", %{conn: conn, user: user} do
       file = image!(user)
       {:ok, view, html} = live(conn, storage_path(file))
@@ -152,6 +157,23 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
       assert has_element?(view, "#repair-report")
       assert html =~ "No good copy exists anywhere"
       assert html =~ "Verification"
+    end
+
+    test "a busy file reports a retryable error and leaves the page usable", ctx do
+      file = image!(ctx.user)
+      opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
+      {:ok, holder} = Postgrex.start_link(opts)
+
+      Postgrex.query!(
+        holder,
+        "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
+        [file.uuid]
+      )
+
+      {:ok, view, _html} = live(ctx.conn, storage_path(file))
+      view |> element("button[phx-click=fix]") |> render_click()
+      assert render_async(view, 5_000) =~ "Something is already running."
+      refute has_element?(view, "button[phx-click=fix][disabled]")
     end
   end
 

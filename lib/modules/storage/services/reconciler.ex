@@ -267,12 +267,17 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   """
   @spec reconcile_file(StorageFile.t()) :: :reconciled | :stale | :skipped
   def reconcile_file(%StorageFile{} = file) do
+    with_file_lock(file.uuid, fn -> do_reconcile(file) end)
+  end
+
+  @doc false
+  def with_file_lock(file_uuid, fun) do
     repo().checkout(fn ->
-      if try_lock(file.uuid) do
+      if try_lock(file_uuid) do
         try do
-          do_reconcile(file)
+          fun.()
         after
-          unlock(file.uuid)
+          unlock(file_uuid)
         end
       else
         :skipped

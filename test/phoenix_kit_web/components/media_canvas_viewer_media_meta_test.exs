@@ -144,6 +144,46 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerMediaMetaTest do
       assert socket.assigns.media_meta_status == :error
     end
 
+    test "the viewer honours the contributor's uploader restriction", %{row: file} do
+      socket =
+        socket_with(%{
+          id: "mcv-contributor",
+          file: %{file_uuid: file.uuid},
+          own_files_only: Ecto.UUID.generate(),
+          media_meta_status: nil
+        })
+
+      {:noreply, updated} =
+        MediaCanvasViewer.handle_event(
+          "save_media_details",
+          %{"title" => "Not mine", "tags" => "changed"},
+          socket
+        )
+
+      assert updated.assigns.media_meta_status == :error
+      assert Storage.get_file(file.uuid).metadata == file.metadata
+    end
+
+    test "a viewer cannot write a file moved to another library", %{row: file} do
+      socket =
+        socket_with(%{
+          id: "mcv-library",
+          file: %{file_uuid: file.uuid},
+          write_library_uuid: Ecto.UUID.generate(),
+          media_meta_status: nil
+        })
+
+      {:noreply, updated} =
+        MediaCanvasViewer.handle_event(
+          "save_media_details",
+          %{"title" => "Other library"},
+          socket
+        )
+
+      assert updated.assigns.media_meta_status == :error
+      assert Storage.get_file(file.uuid).metadata == file.metadata
+    end
+
     # The section renders read-only for hosts that offer no road to the
     # metadata editor — a readonly MediaGallery lightbox, which may be
     # showing an anonymous visitor. The form is absent there, so the only

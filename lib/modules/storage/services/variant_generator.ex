@@ -213,6 +213,20 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
           variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
+          # Another upload can share this key. Regeneration must leave its bytes
+          # alone, including when a repair is replacing a damaged rendition.
+          variant_storage_path =
+            if PhoenixKit.RepoHelper.repo().exists?(
+                 from(i in Storage.FileInstance,
+                   where: i.file_name == ^variant_storage_path and i.file_uuid != ^file.uuid
+                 )
+               ) do
+              Path.rootname(variant_storage_path) <>
+                "_" <> UUIDv7.generate() <> "." <> variant_ext
+            else
+              variant_storage_path
+            end
+
           with {:ok, variant_path} <-
                  process_variant(
                    original_path,
