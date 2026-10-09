@@ -102,6 +102,117 @@
         </div>
       </div>
 
+      <%!-- Where the file belongs: its library and the two profiles that decide  --%>
+      <%!-- where its bytes live and which sizes it gets.                         --%>
+      <div class="card bg-base-100 shadow-xl" id="placement">
+        <div class="card-body p-4 sm:p-6">
+          <h3 class="font-semibold">{gettext("Library and profiles")}</h3>
+          <dl class="grid grid-cols-1 sm:grid-cols-[11rem_1fr] gap-x-4 gap-y-3 text-sm">
+            <dt class="text-base-content/60">{gettext("Library")}</dt>
+            <dd id="placement-library">
+              <%= if @placement.library do %>
+                <.link
+                  :if={@placement.library_path}
+                  navigate={@placement.library_path}
+                  class="link link-hover font-medium"
+                >
+                  {@placement.library.name}
+                </.link>
+                <span :if={!@placement.library_path} class="font-medium">
+                  {@placement.library.name}
+                </span>
+                <span class="text-base-content/60">
+                  · {if @placement.library.kind == "user",
+                    do: gettext("User library"),
+                    else: gettext("Site library")}
+                </span>
+              <% else %>
+                –
+              <% end %>
+            </dd>
+
+            <dt class="text-base-content/60">{gettext("Storage profile")}</dt>
+            <dd id="placement-profile" class="space-y-1">
+              <%= if @placement.profile do %>
+                <div>
+                  <.link navigate={@placement.profile_path} class="link link-hover font-medium">
+                    {@placement.profile.name}
+                  </.link>
+                  <span class="text-base-content/60">
+                    · {gettext("%{local} local, %{cloud} cloud copies",
+                      local: @placement.profile.local,
+                      cloud: @placement.profile.cloud
+                    )}
+                  </span>
+                  <span
+                    class={[
+                      "badge badge-sm ml-1",
+                      (@placement.profile_current? && "badge-success") || "badge-warning"
+                    ]}
+                    title={
+                      if !@placement.profile_current?,
+                        do: gettext("The file was placed by an older version of this profile.")
+                    }
+                  >
+                    {if @placement.profile_current?,
+                      do: gettext("Up to date"),
+                      else: gettext("Not up to date")}
+                  </span>
+                </div>
+                <ul class="space-y-0.5">
+                  <li :for={bucket <- @placement.profile.buckets}>
+                    <.link
+                      navigate={Routes.path("/admin/settings/media/buckets/#{bucket.uuid}")}
+                      class="link link-hover"
+                    >
+                      {bucket.name}
+                    </.link>
+                    <span class="text-base-content/60">({bucket.role}, {bucket.status})</span>
+                  </li>
+                  <li :if={@placement.profile.buckets == []} class="text-base-content/60">
+                    {gettext("No buckets yet: uploads to this library fail.")}
+                  </li>
+                </ul>
+              <% else %>
+                –
+              <% end %>
+            </dd>
+
+            <dt class="text-base-content/60">{gettext("Rendition profile")}</dt>
+            <dd id="placement-set">
+              <%= if @placement.set do %>
+                <.link navigate={@placement.set_path} class="link link-hover font-medium">
+                  {@placement.set.name}
+                </.link>
+                <span class="text-base-content/60">
+                  · {ngettext(
+                    "%{count} size for this file",
+                    "%{count} sizes for this file",
+                    @placement.sizes
+                  )}
+                </span>
+                <span
+                  class={[
+                    "badge badge-sm ml-1",
+                    (@placement.set_current? && "badge-success") || "badge-warning"
+                  ]}
+                  title={
+                    if !@placement.set_current?,
+                      do: gettext("The file was made by an older version of this profile.")
+                  }
+                >
+                  {if @placement.set_current?,
+                    do: gettext("Up to date"),
+                    else: gettext("Not up to date")}
+                </span>
+              <% else %>
+                –
+              <% end %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+
       <%!-- Renditions: what the file's variant set wants, and what is there. --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-4 sm:p-6">
@@ -132,7 +243,7 @@
                   <span class="loading loading-spinner loading-xs"></span>
                   {gettext("Verifying…")}
                 <% else %>
-                  <.icon name="hero-shield-check" class="w-4 h-4" /> {gettext("Verify copies")}
+                  <.icon name="hero-shield-check" class="w-4 h-4" /> {gettext("Verify renditions")}
                 <% end %>
               </button>
               <button
@@ -175,6 +286,7 @@
                   <th>{gettext("Rendition")}</th>
                   <th>{gettext("Asked for")}</th>
                   <th>{gettext("Stored")}</th>
+                  <th>{gettext("Made")}</th>
                   <th>{gettext("Checksum")}</th>
                   <th>{gettext("Kept in")}</th>
                   <th>{gettext("State")}</th>
@@ -205,6 +317,17 @@
                     <% else %>
                       –
                     <% end %>
+                  </td>
+                  <td class="text-xs whitespace-nowrap">
+                    <span
+                      :if={row.instance}
+                      title={
+                        gettext("First stored: %{first}", first: date(row.instance.inserted_at))
+                      }
+                    >
+                      {date(row.instance.updated_at)}
+                    </span>
+                    <span :if={!row.instance} class="text-base-content/50">–</span>
                   </td>
                   <td>
                     <span
@@ -285,54 +408,87 @@
             <% end %>
           </div>
 
-          <div :if={@verification != []} class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>{gettext("Rendition")}</th>
-                  <th>{gettext("Bucket")}</th>
-                  <th>{gettext("Object")}</th>
-                  <th>{gettext("Result")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr :for={result <- @verification}>
-                  <td class="font-medium">{result.name}</td>
-                  <td class="text-xs">
-                    <%= if result.bucket do %>
-                      {result.bucket.name}
-                      <span class="text-base-content/50">· {result.bucket.provider}</span>
-                    <% else %>
-                      –
-                    <% end %>
-                  </td>
-                  <td class="font-mono text-[10px] break-all">{result.path}</td>
-                  <td>
-                    <% {tone, label} = result_badge(result.result) %>
-                    <span
-                      class={["badge badge-sm", tone]}
-                      title={
-                        case result.result do
-                          {:mismatch, recorded, actual} ->
-                            "#{gettext("Recorded")}: #{recorded} / #{gettext("Read")}: #{actual}"
+          <div
+            :for={
+              group <-
+                verification_groups(
+                  @verification,
+                  (@placement.profile && @placement.profile.buckets) || []
+                )
+            }
+            class="rounded-lg border border-base-300 p-3 space-y-2"
+            id={"verification-#{(group.bucket && group.bucket.name) || "nowhere"}"}
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold">
+                {(group.bucket && group.bucket.name) || gettext("Not stored anywhere")}
+              </span>
+              <span
+                :if={group.bucket && group.bucket.provider}
+                class="text-xs text-base-content/50"
+              >
+                {group.bucket.provider}
+              </span>
+              <span class={[
+                "badge badge-sm",
+                group.state == :ok && "badge-success",
+                group.state == :problem && "badge-error",
+                group.state == :empty && "badge-ghost"
+              ]}>
+                <%= case group.state do %>
+                  <% :ok -> %>
+                    {gettext("All intact")}
+                  <% :problem -> %>
+                    {gettext("Needs attention")}
+                  <% :empty -> %>
+                    {gettext("Nothing of this file is stored here")}
+                <% end %>
+              </span>
+              <span :if={group.total > 0 and group.bucket} class="text-xs text-base-content/60">
+                {gettext("Intact: %{ok} of %{total}", ok: group.ok, total: group.total)}
+              </span>
+            </div>
 
-                          {:unrecorded, actual} ->
-                            "#{gettext("Read")}: #{actual}"
+            <div :if={group.rows != []} class="overflow-x-auto">
+              <table class="table table-xs">
+                <thead>
+                  <tr>
+                    <th>{gettext("Rendition")}</th>
+                    <th>{gettext("Object")}</th>
+                    <th>{gettext("Result")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={result <- group.rows}>
+                    <td class="font-medium">{result.name}</td>
+                    <td class="font-mono text-[10px] break-all">{result.path}</td>
+                    <td>
+                      <% {tone, label} = result_badge(result.result) %>
+                      <span
+                        class={["badge badge-sm", tone]}
+                        title={
+                          case result.result do
+                            {:mismatch, recorded, actual} ->
+                              "#{gettext("Recorded")}: #{recorded} / #{gettext("Read")}: #{actual}"
 
-                          {:error, reason} ->
-                            inspect(reason)
+                            {:unrecorded, actual} ->
+                              "#{gettext("Read")}: #{actual}"
 
-                          _ ->
-                            nil
-                        end
-                      }
-                    >
-                      {label}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                            {:error, reason} ->
+                              inspect(reason)
+
+                            _ ->
+                              nil
+                          end
+                        }
+                      >
+                        {label}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

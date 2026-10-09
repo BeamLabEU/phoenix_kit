@@ -28,9 +28,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   alias PhoenixKit.Modules.Storage.FileReport
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.Reconciler
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Modules.Storage.VariantGenerator
+  alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -127,6 +129,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     |> assign(:rows, rows)
     |> assign(:problems, FileReport.problems(rows))
     |> assign(:uploader, uploader_name(file.user_uuid))
+    |> assign(:placement, placement(file, rows))
     |> assign(:backup, backup_report(file))
     |> assign(:preview_url, preview_url(file))
     |> assign(:view_path, MediaDetail.view_path(file, scope))
@@ -151,6 +154,66 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
       user -> user.email
     end
   end
+
+  # Where the file belongs: its library, the storage profile that says where its
+  # bytes live and the rendition profile that says which sizes it gets, and
+  # whether the file was last placed by the versions those are at now (the
+  # reconciler brings a file that was not up to date).
+  defp placement(file, rows) do
+    library = Libraries.get_library(file.library_uuid)
+    profile = Profiles.for_library(library || file.library_uuid)
+    set = VariantSets.for_library(library || file.library_uuid)
+
+    %{
+      library: library,
+      profile: profile && profile_summary(profile),
+      profile_current?: profile != nil and placed_by?(file, profile),
+      set: set,
+      set_current?: set != nil and set_placed_by?(file, set),
+      sizes: Enum.count(rows, &(&1.kind == :size)),
+      profile_path: Routes.path("/admin/settings/media?tab=profiles"),
+      set_path: set_path(set),
+      library_path: library_path(library)
+    }
+  end
+
+  # Names and roles only: nothing of a bucket's connection leaves this function.
+  defp profile_summary(profile) do
+    %{
+      name: profile.name,
+      local: Profiles.copies(profile, :local),
+      cloud: Profiles.copies(profile, :cloud),
+      buckets:
+        for row <- profile.buckets do
+          %{uuid: row.bucket_uuid, name: row.bucket.name, role: row.role, status: row.status}
+        end
+    }
+  end
+
+  # `nil` stamps mean the Default at revision 1 (see `Reconciler`).
+  defp placed_by?(file, profile) do
+    to_string(file.placed_profile_uuid || Profiles.default_uuid()) == to_string(profile.uuid) and
+      (file.placed_revision || 1) == profile.revision
+  end
+
+  defp set_placed_by?(file, set) do
+    to_string(file.placed_variant_set_uuid || VariantSets.default_uuid()) == to_string(set.uuid) and
+      (file.placed_variant_revision || 1) == set.revision
+  end
+
+  defp set_path(nil), do: nil
+
+  defp set_path(set) do
+    if VariantSets.default?(set.uuid),
+      do: Routes.path("/admin/settings/media?tab=renditions"),
+      else: Routes.path("/admin/settings/media?tab=renditions&set=#{set.uuid}")
+  end
+
+  # A site library has a settings page; a user's own library does not.
+  defp library_path(%{kind: "system", uuid: uuid}),
+    do: Routes.path("/admin/settings/media/libraries/#{uuid}")
+
+  defp library_path(_library), do: nil
 
   # An edited image keeps its unedited original as a hidden child file; what is
   # known of it is shown here, and whether the edit is still rendering.
@@ -478,6 +541,52 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   @doc false
   def date(nil), do: "–"
   def date(value), do: UtilsDate.format_datetime_with_user_format(value)
+
+  @doc false
+  # The results of a verification by place: one group per bucket that held
+  # anything of the file, a problems-first order, and a group for each bucket
+  # of the file's storage profile that held nothing of it (not an error: a
+  # profile wants a number of copies, not every bucket). Renditions with no
+  # copy anywhere are their own group.
+  def verification_groups(results, profile_buckets) do
+    by_bucket = Enum.group_by(results, &(&1.bucket && &1.bucket.uuid))
+    {nowhere, held} = Map.pop(by_bucket, nil, [])
+
+    groups =
+      for {_uuid, [%{bucket: bucket} | _] = rows} <- held do
+        %{bucket: %{name: bucket.name, provider: bucket.provider}, rows: sort_rows(rows)}
+        |> put_counts()
+      end
+
+    empty =
+      for %{uuid: uuid} = bucket <- profile_buckets, not Map.has_key?(held, to_string(uuid)) do
+        %{bucket: %{name: bucket.name, provider: nil}, rows: []} |> put_counts()
+      end
+
+    lost =
+      if nowhere == [],
+        do: [],
+        else: [put_counts(%{bucket: nil, rows: sort_rows(nowhere)})]
+
+    Enum.sort_by(groups, &{&1.state == :ok, &1.bucket.name}) ++ empty ++ lost
+  end
+
+  defp sort_rows(rows), do: Enum.sort_by(rows, &{&1.result == :ok, &1.name})
+
+  defp put_counts(%{rows: rows} = group) do
+    ok = Enum.count(rows, &(&1.result == :ok))
+    total = length(rows)
+
+    state =
+      cond do
+        group.bucket == nil -> :problem
+        total == 0 -> :empty
+        ok == total -> :ok
+        true -> :problem
+      end
+
+    Map.merge(group, %{ok: ok, total: total, state: state})
+  end
 
   @doc false
   def verified_summary(results) do

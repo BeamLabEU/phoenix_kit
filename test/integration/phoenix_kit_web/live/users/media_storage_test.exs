@@ -75,6 +75,28 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
       assert html =~ "Open in media view"
     end
 
+    test "names the library and both profiles, and whether the file is up to date", %{
+      conn: conn,
+      user: user
+    } do
+      file = image!(user)
+      {:ok, view, _html} = live(conn, storage_path(file))
+
+      assert has_element?(view, "#placement-library", "Media")
+      assert has_element?(view, "#placement-profile", "Default")
+      assert has_element?(view, "#placement-set", "Default")
+      # Never placed (no stamps) is the Default at revision 1.
+      assert has_element?(view, "#placement-profile .badge-success", "Up to date")
+
+      Repo.update_all(
+        from(f in StorageFile, where: f.uuid == ^file.uuid),
+        set: [placed_revision: 0]
+      )
+
+      {:ok, view, _html} = live(conn, storage_path(file))
+      assert has_element?(view, "#placement-profile .badge-warning", "Not up to date")
+    end
+
     test "the header: Media, the file in the media view, Storage", %{conn: conn, user: user} do
       file = image!(user)
       {:ok, _view, html} = live(conn, storage_path(file))
@@ -110,7 +132,43 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
       html = render_async(view)
 
       assert html =~ "Verification"
+      assert html =~ "Not stored anywhere"
       assert html =~ "No copy"
+      assert html =~ "Verify renditions"
+    end
+  end
+
+  describe "verification_groups/2" do
+    alias PhoenixKitWeb.Live.Users.MediaStorage
+
+    defp result(name, bucket, result),
+      do: %{name: name, bucket: bucket, path: "k/#{name}", result: result}
+
+    test "groups by bucket, problems first, and names a profile bucket that holds nothing" do
+      good = %{uuid: "b-good", name: "Local", provider: "local"}
+      bad = %{uuid: "b-bad", name: "Cloud", provider: "s3"}
+
+      groups =
+        MediaStorage.verification_groups(
+          [
+            result("original", good, :ok),
+            result("thumbnail", good, :ok),
+            result("original", bad, :ok),
+            result("thumbnail", bad, {:mismatch, "a", "b"}),
+            result("medium", nil, :no_copy)
+          ],
+          [%{uuid: "b-good", name: "Local"}, %{uuid: "b-idle", name: "Spare"}]
+        )
+
+      assert [
+               %{bucket: %{name: "Cloud"}, state: :problem, ok: 1, total: 2},
+               %{bucket: %{name: "Local"}, state: :ok, ok: 2, total: 2},
+               %{bucket: %{name: "Spare"}, state: :empty, total: 0},
+               %{bucket: nil, state: :problem, total: 1}
+             ] = groups
+
+      # Within a group the problem comes before what is fine.
+      assert [%{result: {:mismatch, _, _}}, %{result: :ok}] = hd(groups).rows
     end
   end
 
