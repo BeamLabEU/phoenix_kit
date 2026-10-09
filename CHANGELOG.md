@@ -1,3 +1,18 @@
+## 2.60.1 - 2026-10-09
+
+No migration. Follow-up to 2.60.0's "Fix all issues" (a change that was not in the release).
+
+### Fixed
+
+- **"Fix all issues" no longer reports a file as intact when it is not.** "Problems left" counted only copies that
+  failed verification, so a file with no original record at all, or one that lacked a size, read as fine. It now
+  counts failing renditions together with those the file lacks or has made from another spec (`FileReport.problem_count/3`),
+  and a reconciliation that could not finish. An original with no record is reported as unrecoverable and nothing is
+  made from it.
+- **What the reconciler alone did is in the trail.** A size it made, a copy it placed or took away was dropped from the
+  report and from the `storage.file.repaired` entry; each is now an action of its own (`made`, `copied`, `removed`).
+  A run that changes nothing still writes no entry.
+
 ## 2.60.0 - 2026-10-09
 
 Migration **V216** (run `mix phoenix_kit.update`). It adds one column, `key_levels smallint NOT NULL DEFAULT 1`,
