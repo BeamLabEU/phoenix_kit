@@ -92,6 +92,21 @@ defmodule PhoenixKitWeb.Components.Core.FileExifPanelTest do
     refute html =~ "All EXIF"
   end
 
+  test "read and empty: can be read again, and a host that cannot write does not offer it" do
+    assert render(%{exif: %{}, can_read: true}) =~ "Read again"
+    refute render(%{exif: %{}, can_read: false}) =~ "Read again"
+  end
+
+  test "tags but nothing about the camera or the place: says so, and offers the whole dump" do
+    for exif <- [%{"tags" => 3}, %{"orientation" => 1}, %{"camera" => %{"lens_make" => "Zeiss"}}] do
+      html = render(%{exif: exif, can_read: true})
+
+      assert html =~ "Nothing here about the camera, exposure, dates or location."
+      refute html =~ "This photo carries no EXIF."
+      assert html =~ "All EXIF"
+    end
+  end
+
   test "a host that does not let the reader write gets no button that records" do
     html = render(%{exif: nil, can_read: false})
     refute html =~ ~s(phx-click="read_exif")

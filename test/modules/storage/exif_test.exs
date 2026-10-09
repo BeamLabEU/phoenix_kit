@@ -182,6 +182,22 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
     end
   end
 
+  describe "a photo whose tags the summary keeps nothing of" do
+    test "is told from one with no EXIF at all, by the number of tags it carries" do
+      assert Exif.summary(%{}) == %{}
+      assert Exif.summary(%{"ColorSpace" => "1", "ExifVersion" => "0231"}) == %{"tags" => 2}
+    end
+
+    test "an offset to other data is no tag worth counting" do
+      assert Exif.summary(%{"ExifOffset" => "26", "GPSInfo" => "300"}) == %{}
+      assert Exif.groups(%{"ExifOffset" => "26"}) == []
+    end
+
+    test "has no such count once the summary holds something" do
+      refute Map.has_key?(Exif.summary(%{"Make" => "Apple", "ColorSpace" => "1"}), "tags")
+    end
+  end
+
   describe "tags a file cannot be trusted to keep tidy" do
     @huge String.duplicate("9", 400)
 
@@ -193,7 +209,7 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
         "GPSLongitude" => "10/1"
       }
 
-      assert Exif.summary(tags) == %{}
+      assert Map.keys(Exif.summary(tags)) == ["tags"]
       assert Exif.coordinates(tags) == nil
       assert is_list(Exif.groups(tags))
     end
@@ -206,7 +222,7 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
 
     test "exposure fractions with oversized parts are dropped without raising" do
       for value <- [@huge <> "/2", "2/" <> @huge] do
-        assert Exif.summary(%{"ExposureTime" => value}) == %{}
+        refute Map.has_key?(Exif.summary(%{"ExposureTime" => value}), "exposure")
         assert is_list(Exif.groups(%{"ExposureTime" => value}))
       end
     end

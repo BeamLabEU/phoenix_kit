@@ -27,6 +27,9 @@ defmodule PhoenixKit.Modules.Storage.Exif do
         "orientation" => 1
       }
 
+  A photo whose tags fall in none of these groups has only `%{"tags" => count}`,
+  so it can be told from one with no EXIF at all (`%{}`).
+
   The camera's serial number and the maker note are not kept. The position is
   also written to the file's `latitude` / `longitude` columns (`coordinates/1`),
   the copy a map searches.
@@ -41,6 +44,11 @@ defmodule PhoenixKit.Modules.Storage.Exif do
   alias PhoenixKit.Modules.Storage.CaptureDate
 
   @type tags :: %{String.t() => String.t()}
+
+  # Offsets that say where other data is in the file, not what the photo is: a
+  # photo whose only tags are these (an empty Exif IFD) has no EXIF to show.
+  @pointers ~w(GPSInfo ExifOffset InteroperabilityOffset JPEGInterchangeFormat
+               JPEGInterchangeFormatLength)
 
   @doc "The EXIF tags of the image at `path` (`CaptureDate.read_exif/1`): `%{}` when it has none."
   @spec read(Path.t()) :: tags()
@@ -69,7 +77,20 @@ defmodule PhoenixKit.Modules.Storage.Exif do
     |> put_group("dates", dates(tags))
     |> put_group("gps", gps(tags))
     |> put_present("orientation", int(tags["Orientation"]))
+    |> only_tags(tags)
   end
+
+  # A photo with tags that none of the groups above keep (a screenshot with only
+  # `ColorSpace` and `ExifVersion`) is not a photo with no EXIF: the count says so,
+  # and the viewer can offer the whole dump.
+  defp only_tags(summary, tags) when summary == %{} do
+    case tags |> Map.drop(@pointers) |> map_size() do
+      0 -> summary
+      count -> %{"tags" => count}
+    end
+  end
+
+  defp only_tags(summary, _tags), do: summary
 
   defp put_group(map, _key, group) when group == %{}, do: map
   defp put_group(map, key, group), do: Map.put(map, key, group)
@@ -367,7 +388,7 @@ defmodule PhoenixKit.Modules.Storage.Exif do
   def groups(tags) when is_map(tags) do
     grouped =
       tags
-      |> Enum.reject(fn {name, _} -> name == "GPSInfo" end)
+      |> Enum.reject(fn {name, _} -> name in @pointers end)
       |> Enum.group_by(fn {name, _} -> group_of(name) end, fn {name, value} ->
         {label(name), display(name, value, tags)}
       end)

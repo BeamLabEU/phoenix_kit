@@ -859,7 +859,7 @@ msgstr "Crea e gestisci i ruoli utente"
 
 #: lib/modules/storage/web/bucket_page.html.heex:105
 #: lib/modules/storage/web/library_page.html.heex:95
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:174
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:190
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:305
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:217
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:238
@@ -1213,7 +1213,7 @@ msgid "IBAN"
 msgstr "IBAN"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:49
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:237
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:253
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:388
 #, elixir-autogen, elixir-format
 msgid "Image"
@@ -3029,7 +3029,7 @@ msgstr "Istruzioni per la configurazione di OAuth"
 #: lib/modules/storage/web/renditions_component.ex:587
 #: lib/modules/storage/web/renditions_component.ex:742
 #: lib/modules/storage/web/renditions_component.ex:802
-#: lib/phoenix_kit_web/live/users/media_detail.ex:665
+#: lib/phoenix_kit_web/live/users/media_detail.ex:667
 #, elixir-autogen, elixir-format
 msgid "Original"
 msgstr "Originale"
@@ -6442,8 +6442,8 @@ msgstr "Rispondi"
 msgid "Are you sure you want to delete this comment?"
 msgstr "Vuoi davvero eliminare questo commento?"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2209
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2210
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2212
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2213
 #, elixir-autogen, elixir-format
 msgid "%b %d, %Y"
 msgstr "%d %b %Y"
@@ -8462,8 +8462,8 @@ msgid "Language"
 msgstr "Lingua"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:668
-#: lib/phoenix_kit_web/live/users/media_detail.ex:666
-#: lib/phoenix_kit_web/live/users/media_detail.ex:670
+#: lib/phoenix_kit_web/live/users/media_detail.ex:668
+#: lib/phoenix_kit_web/live/users/media_detail.ex:672
 #, elixir-autogen, elixir-format
 msgid "Large"
 msgstr "Grande"
@@ -8488,8 +8488,8 @@ msgid "Magic link"
 msgstr "Magic Link"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:667
-#: lib/phoenix_kit_web/live/users/media_detail.ex:667
-#: lib/phoenix_kit_web/live/users/media_detail.ex:671
+#: lib/phoenix_kit_web/live/users/media_detail.ex:669
+#: lib/phoenix_kit_web/live/users/media_detail.ex:673
 #, elixir-autogen, elixir-format
 msgid "Medium"
 msgstr "Medio"
@@ -8556,7 +8556,7 @@ msgstr "OpenAI"
 msgid "OpenAI requires a positive balance before the API will return completions, even on cheaper models"
 msgstr "OpenAI richiede un saldo positivo prima che l'API restituisca completion, anche con modelli più economici"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:238
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:254
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1009
 #, elixir-autogen, elixir-format
 msgid "Other"
@@ -8613,7 +8613,7 @@ msgid "Sign up"
 msgstr "Registrati"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:666
-#: lib/phoenix_kit_web/live/users/media_detail.ex:668
+#: lib/phoenix_kit_web/live/users/media_detail.ex:670
 #, elixir-autogen, elixir-format
 msgid "Small"
 msgstr "Piccolo"
@@ -9258,8 +9258,8 @@ msgstr "Indirizzo IP"
 
 #: lib/modules/storage/web/bucket_page.html.heex:57
 #: lib/phoenix_kit/users/table_columns.ex:303
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:138
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:236
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:154
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:252
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:198
 #, elixir-autogen, elixir-format
 msgid "Location"
@@ -14985,13 +14985,13 @@ msgstr "lì, premi «Verifica la connessione» e conferma il gruppo trovato. Un 
 msgid "Alt text"
 msgstr "Testo alternativo"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:195
+#: lib/phoenix_kit_web/live/users/media_detail.ex:196
 #, elixir-autogen, elixir-format
 msgid "Details saved"
 msgstr "Dettagli salvati"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:205
-#: lib/phoenix_kit_web/live/users/media_detail.ex:517
+#: lib/phoenix_kit_web/live/users/media_detail.ex:206
+#: lib/phoenix_kit_web/live/users/media_detail.ex:519
 #, elixir-autogen, elixir-format
 msgid "Failed to save details"
 msgstr "Impossibile salvare i dettagli"
@@ -15206,7 +15206,7 @@ msgstr "%{count} di %{limit} librerie"
 msgid "Allow user libraries"
 msgstr "Consenti le librerie utente"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:637
+#: lib/phoenix_kit_web/live/users/media_detail.ex:639
 #, elixir-autogen, elixir-format
 msgid "Annotated"
 msgstr "Con annotazioni"
@@ -15381,12 +15381,12 @@ msgstr "Impossibile salvare la libreria"
 msgid "The owner is always in the library"
 msgstr "Il proprietario fa sempre parte della libreria"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:636
+#: lib/phoenix_kit_web/live/users/media_detail.ex:638
 #, elixir-autogen, elixir-format
 msgid "The picture"
 msgstr "L’immagine"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:669
+#: lib/phoenix_kit_web/live/users/media_detail.ex:671
 #, elixir-autogen, elixir-format
 msgid "Thumbnail"
 msgstr "Miniatura"
@@ -18914,24 +18914,24 @@ msgstr "Panorama"
 msgid "No translation yet"
 msgstr "Nessuna traduzione ancora"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:92
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:100
 #, elixir-autogen, elixir-format
 msgid "All EXIF"
 msgstr "Tutto l'EXIF"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:185
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:201
 #, elixir-autogen, elixir-format
 msgid "Altitude"
 msgstr "Altitudine"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:160
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:176
 #, elixir-autogen, elixir-format
 msgid "Aperture"
 msgstr "Apertura"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:135
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:149
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:233
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:151
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:165
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:249
 #, elixir-autogen, elixir-format
 msgid "Camera"
 msgstr "Fotocamera"
@@ -18941,18 +18941,18 @@ msgstr "Fotocamera"
 msgid "Camera & location"
 msgstr "Fotocamera e posizione"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:107
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:106
 #, elixir-autogen, elixir-format
 msgid "Could not read the EXIF of this photo."
 msgstr "Impossibile leggere l'EXIF di questa foto."
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:137
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:235
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:153
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:251
 #, elixir-autogen, elixir-format
 msgid "Dates"
 msgstr "Date"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:203
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:219
 #, elixir-autogen, elixir-format
 msgid "Did not fire"
 msgstr "Non scattato"
@@ -18962,7 +18962,7 @@ msgstr "Non scattato"
 msgid "Dimensions:"
 msgstr "Dimensioni:"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:186
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:202
 #, elixir-autogen, elixir-format
 msgid "Direction"
 msgstr "Direzione"
@@ -18972,58 +18972,58 @@ msgstr "Direzione"
 msgid "EXIF has not been read yet."
 msgstr "L'EXIF non è ancora stato letto."
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:136
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:234
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:152
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:250
 #, elixir-autogen, elixir-format
 msgid "Exposure"
 msgstr "Esposizione"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:202
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:218
 #, elixir-autogen, elixir-format
 msgid "Fired"
 msgstr "Scattato"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:163
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:179
 #, elixir-autogen, elixir-format
 msgid "Flash"
 msgstr "Flash"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:159
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:175
 #, elixir-autogen, elixir-format
 msgid "Focal length"
 msgstr "Lunghezza focale"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:188
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:204
 #, elixir-autogen, elixir-format
 msgid "GPS time"
 msgstr "Ora GPS"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:92
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:100
 #, elixir-autogen, elixir-format
 msgid "Hide all EXIF"
 msgstr "Nascondi tutto l'EXIF"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:162
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:178
 #, elixir-autogen, elixir-format
 msgid "ISO"
 msgstr "ISO"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:183
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:199
 #, elixir-autogen, elixir-format
 msgid "Latitude"
 msgstr "Latitudine"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:150
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:166
 #, elixir-autogen, elixir-format
 msgid "Lens"
 msgstr "Obiettivo"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:184
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:200
 #, elixir-autogen, elixir-format
 msgid "Longitude"
 msgstr "Longitudine"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:175
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:191
 #, elixir-autogen, elixir-format
 msgid "Modified"
 msgstr "Modificata"
@@ -19033,53 +19033,58 @@ msgstr "Modificata"
 msgid "Read EXIF"
 msgstr "Leggi EXIF"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:102
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:142
 #, elixir-autogen, elixir-format
 msgid "Read again"
 msgstr "Leggi di nuovo"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:80
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:88
 #, elixir-autogen, elixir-format
 msgid "Show on a map"
 msgstr "Mostra su una mappa"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:161
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:177
 #, elixir-autogen, elixir-format
 msgid "Shutter"
 msgstr "Otturatore"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:151
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:167
 #, elixir-autogen, elixir-format
 msgid "Software"
 msgstr "Software"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:187
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:203
 #, elixir-autogen, elixir-format
 msgid "Speed"
 msgstr "Velocità"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:173
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:189
 #, elixir-autogen, elixir-format
 msgid "Taken"
 msgstr "Scattata"
 
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:60
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:113
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:112
 #, elixir-autogen, elixir-format
 msgid "This photo carries no EXIF."
 msgstr "Questa foto non contiene EXIF."
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:199
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:215
 #, elixir-autogen, elixir-format
 msgid "equivalent"
 msgstr "equivalente"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:207
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:223
 #, elixir-autogen, elixir-format
 msgid "magnetic"
 msgstr "magnetico"
 
-#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:206
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:222
 #, elixir-autogen, elixir-format
 msgid "true north"
 msgstr "nord vero"
+
+#: lib/phoenix_kit_web/components/core/file_exif_panel.ex:66
+#, elixir-autogen, elixir-format
+msgid "Nothing here about the camera, exposure, dates or location. All EXIF lists what the file carries."
+msgstr "Qui non c’è nulla su fotocamera, esposizione, date o posizione. «Tutto l'EXIF» mostra ciò che contiene il file."

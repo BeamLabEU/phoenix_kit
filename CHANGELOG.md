@@ -1,3 +1,15 @@
+## Unreleased
+
+### Fixed
+
+- **The EXIF panel no longer shows two buttons and nothing else.** A photo whose EXIF holds tags the panel does
+  not print (an orientation, a lens maker) showed "All EXIF" and "Read again" under an empty heading. It now
+  says "Nothing here about the camera, exposure, dates or location" and offers the whole dump.
+- **A photo with tags but nothing the summary keeps** (a screenshot with only `ColorSpace` and `ExifVersion`) is
+  recorded as `{"tags": N}` rather than as having no EXIF, so "All EXIF" is offered; offsets to other data
+  (`ExifOffset`, `GPSInfo`) are not counted and are left out of the dump. A photo with no EXIF at all stays `{}`.
+- **"This photo carries no EXIF" has a "Read again" button** where the host lets the reader write.
+
 ## 2.59.0 - 2026-10-09
 
 Migration **V215** (run `mix phoenix_kit.update`). It adds two nullable columns and a partial GiST index on

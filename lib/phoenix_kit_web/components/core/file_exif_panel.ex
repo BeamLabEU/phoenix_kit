@@ -56,8 +56,16 @@ defmodule PhoenixKitWeb.Components.Core.FileExifPanel do
       </div>
 
       <%!-- Read, and there was nothing. --%>
-      <p :if={@exif == %{}} class="text-base-content/60">
-        {gettext("This photo carries no EXIF.")}
+      <div :if={@exif == %{}} class="flex flex-wrap items-center gap-2">
+        <span class="text-base-content/60">{gettext("This photo carries no EXIF.")}</span>
+        <.read_again :if={@can_read} status={@status} target={@target} />
+      </div>
+
+      <%!-- Read, and the tags are not about the camera, the exposure, the dates or the place. --%>
+      <p :if={is_map(@exif) and @exif != %{} and @groups == []} class="text-base-content/60">
+        {gettext(
+          "Nothing here about the camera, exposure, dates or location. All EXIF lists what the file carries."
+        )}
       </p>
 
       <div :for={{title, rows} <- @groups} class="space-y-1">
@@ -91,16 +99,7 @@ defmodule PhoenixKitWeb.Components.Core.FileExifPanel do
           <.icon name="hero-list-bullet" class="w-3.5 h-3.5" />
           {if @tags, do: gettext("Hide all EXIF"), else: gettext("All EXIF")}
         </button>
-        <button
-          :if={@can_read}
-          type="button"
-          phx-click="read_exif"
-          phx-target={@target}
-          disabled={@status == :reading}
-          class="btn btn-ghost btn-xs"
-        >
-          <.icon name="hero-arrow-path" class="w-3.5 h-3.5" /> {gettext("Read again")}
-        </button>
+        <.read_again :if={@can_read} status={@status} target={@target} />
       </div>
 
       <p :if={@status == :error} class="text-xs text-error">
@@ -125,6 +124,23 @@ defmodule PhoenixKitWeb.Components.Core.FileExifPanel do
         </div>
       </div>
     </div>
+    """
+  end
+
+  attr :status, :atom, default: nil
+  attr :target, :any, default: nil
+
+  defp read_again(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click="read_exif"
+      phx-target={@target}
+      disabled={@status == :reading}
+      class="btn btn-ghost btn-xs"
+    >
+      <.icon name="hero-arrow-path" class="w-3.5 h-3.5" /> {gettext("Read again")}
+    </button>
     """
   end
 
