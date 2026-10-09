@@ -42,7 +42,7 @@ defmodule PhoenixKitWeb.GettextTest do
     test "known_locales includes every shipped catalogue" do
       locales = Gettext.known_locales(@backend)
 
-      assert Enum.sort(locales) == ~w(de en es et fr it pl ru)
+      assert Enum.sort(locales) == ~w(de en es et fr it pl ru uk)
     end
 
     test "extract-surface callbacks stay populated" do
