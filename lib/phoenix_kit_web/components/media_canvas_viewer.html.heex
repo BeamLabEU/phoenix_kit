@@ -615,9 +615,8 @@
 
           <%!-- Title & description — the file's own words about itself,      --%>
           <%!-- collapsible behind a chevron. The same text the admin detail   --%>
-          <%!-- page's editor writes (Storage.FileDetails), in the language    --%>
-          <%!-- the page is shown in: the page's language switcher is the      --%>
-          <%!-- content switcher.                                              --%>
+          <%!-- page's editor writes (Storage.FileDetails): a tab per language --%>
+          <%!-- of the site, one Save.                                         --%>
           <%!-- Opens itself when there is something to see; editable in the   --%>
           <%!-- contexts that can already reach the metadata editor            --%>
           <%!-- (details_path / edit_target hosts), read-only elsewhere —      --%>
@@ -650,48 +649,15 @@
                   phx-target={@myself}
                   class="mt-2 space-y-2"
                 >
-                  <p :if={@media_meta_lang_name} class="text-xs text-base-content/60">
-                    <span class="badge badge-sm badge-ghost h-auto">
-                      <.icon name="hero-language" class="w-3 h-3" /> {@media_meta_lang_name}
-                    </span>
-                    {gettext("Switch the page language to translate.")}
-                  </p>
-                  <input
-                    type="text"
-                    name="title"
-                    value={@media_meta_own.title}
-                    aria-label={gettext("Title")}
-                    placeholder={
-                      if @media_meta_placeholders.title != "",
-                        do: @media_meta_placeholders.title,
-                        else: gettext("Title")
-                    }
-                    class="input input-bordered input-sm w-full"
+                  <PhoenixKitWeb.Components.Core.FileDetailsFields.file_details_fields
+                    id={"media-meta-fields-" <> f.file_uuid}
+                    languages={@media_meta_langs}
+                    lang={@media_meta_lang || ""}
+                    values={@media_meta_values}
+                    placeholders={@media_meta_placeholders}
+                    show_alt={f.file_type == "image"}
+                    labels={false}
                   />
-                  <input
-                    :if={f.file_type == "image"}
-                    type="text"
-                    name="alt"
-                    value={@media_meta_own.alt}
-                    aria-label={gettext("Alt text")}
-                    placeholder={
-                      if @media_meta_placeholders.alt != "",
-                        do: @media_meta_placeholders.alt,
-                        else: gettext("Alt text")
-                    }
-                    class="input input-bordered input-sm w-full"
-                  />
-                  <textarea
-                    name="description"
-                    aria-label={gettext("Description")}
-                    placeholder={
-                      if @media_meta_placeholders.description != "",
-                        do: @media_meta_placeholders.description,
-                        else: gettext("Description")
-                    }
-                    rows="3"
-                    class="textarea textarea-bordered textarea-sm w-full"
-                  >{@media_meta_own.description}</textarea>
                   <div class="flex items-center gap-2">
                     <button type="submit" class="btn btn-primary btn-xs">{gettext("Save")}</button>
                     <span :if={@media_meta_status == :saved} class="text-xs text-success">

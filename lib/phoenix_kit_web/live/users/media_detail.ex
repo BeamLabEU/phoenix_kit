@@ -160,10 +160,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     {:noreply, assign(socket, :edit_mode, !socket.assigns.edit_mode)}
   end
 
-  # The title, alt text and description are saved in the language the page
-  # is shown in (`@details_lang`) — the admin's language switcher is the
-  # content switcher too. Tags are not text to translate; they stay in
-  # `metadata`, set in the same held write as the text.
+  # The title, alt text and description are saved for every language the form
+  # has a block for (`details[<language>][title]`): one tab per language, one
+  # Save. A flat `details[title]` (the form from before the tabs) is the page's
+  # language. Tags are not text to translate; they stay in `metadata`, set in
+  # the same held write as the text.
   def handle_event("save_metadata", params, socket) do
     tags =
       params
@@ -172,10 +173,14 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       |> Enum.map(&String.trim/1)
       |> Enum.filter(&(String.length(&1) > 0))
 
-    lang = socket.assigns.details_lang
+    by_lang =
+      FileDetails.by_language(
+        params["details"],
+        socket.assigns.details_lang,
+        Enum.map(socket.assigns.details_langs, & &1.code)
+      )
 
-    case Storage.update_file_details(socket.assigns.file, params["details"] || %{},
-           lang: lang,
+    case Storage.update_file_details_languages(socket.assigns.file, by_lang,
            metadata: %{"tags" => tags}
          ) do
       {:ok, file} ->
@@ -187,8 +192,12 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
          |> assign(:edit_mode, false)
          |> put_flash(:info, gettext("Details saved"))}
 
-      {:error, %Ecto.Changeset{data: %FileDetails{}} = changeset} ->
-        {:noreply, assign(socket, :details_form, to_form(changeset, as: :details))}
+      # What was typed stays in the form, in the language that failed.
+      {:error, {lang, %Ecto.Changeset{data: %FileDetails{}} = changeset}} ->
+        {:noreply,
+         socket
+         |> assign(:details_values, typed_values(socket.assigns.details_values, by_lang))
+         |> put_flash(:error, invalid_details_message(lang, changeset, socket))}
 
       _ ->
         {:noreply, put_flash(socket, :error, gettext("Failed to save details"))}
@@ -423,20 +432,66 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   end
 
   # `@details` is what the page shows (the current language, falling back
-  # like any reader); the form holds that language's OWN text, and the
+  # like any reader); the form holds each language's OWN text, and the
   # primary language's goes in as placeholders — never as values, or an
   # untouched save would store it as the translation.
   defp assign_details(socket, file) do
     opts = [primary: Multilang.primary_language()]
     lang = FileDetails.content_language(socket.assigns[:current_locale], opts)
-    own = FileDetails.from_file(file, lang, opts)
+    tabs = Multilang.build_language_tabs()
+    codes = if tabs == [], do: [lang], else: Enum.map(tabs, & &1.code)
+
+    values =
+      Map.new(codes, fn code ->
+        {code, file |> FileDetails.from_file(code, opts) |> Map.from_struct() |> blank_values()}
+      end)
 
     socket
     |> assign(:details_lang, lang)
     |> assign(:details_lang_name, FileDetails.language_name(lang))
+    |> assign(:details_langs, tabs)
+    |> assign(:details_values, values)
     |> assign(:details, FileDetails.for_locale(file, lang, opts))
-    |> assign(:details_placeholders, FileDetails.for_locale(file, nil, opts))
-    |> assign(:details_form, to_form(FileDetails.changeset(own, %{}), as: :details))
+    |> assign(
+      :details_placeholders,
+      file |> FileDetails.for_locale(nil, opts) |> blank_values()
+    )
+  end
+
+  defp blank_values(details),
+    do: Map.new(details, fn {key, value} -> {key, value || ""} end)
+
+  # The values the form was submitted with, over the ones it showed.
+  defp typed_values(values, by_lang) do
+    Enum.reduce(by_lang, values, fn {lang, attrs}, acc ->
+      typed =
+        Map.new(attrs, fn {field, value} -> {String.to_existing_atom(field), value || ""} end)
+
+      Map.update(acc, lang, typed, &Map.merge(&1, typed))
+    end)
+  end
+
+  defp invalid_details_message(lang, changeset, socket) do
+    reason =
+      case Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+             Enum.reduce(opts, msg, fn {key, value}, acc ->
+               String.replace(acc, "%{#{key}}", to_string(value))
+             end)
+           end) do
+        errors when map_size(errors) > 0 ->
+          {field, [message | _]} = Enum.at(errors, 0)
+          "#{Phoenix.Naming.humanize(field)} #{message}"
+
+        _ ->
+          gettext("Failed to save details")
+      end
+
+    name =
+      Enum.find_value(socket.assigns.details_langs, lang, fn tab ->
+        if tab.code == lang, do: tab.name
+      end)
+
+    "#{name}: #{reason}"
   end
 
   defp get_user_name(nil, _repo), do: "Unknown"

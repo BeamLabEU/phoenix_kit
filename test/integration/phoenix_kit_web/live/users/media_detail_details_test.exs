@@ -1,9 +1,8 @@
 defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
   @moduledoc """
-  The media detail page's title / alt text / description: they are edited
-  in the language the page is shown in — the admin language switcher is the
-  content switcher — and saving one language leaves the rest of the row
-  alone.
+  The media detail page's title / alt text / description: a tab per language
+  of the site, all in one form with one Save, and saving leaves the rest of the
+  row alone.
 
   Sync: the enabled languages are a cached, unsandboxed setting.
   """
@@ -71,7 +70,13 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
     assert html =~ "Old title"
     assert html =~ "English"
 
-    html = save(view, %{"title" => "Harbour", "alt" => "Boats in a harbour"}, "sea, boats")
+    html =
+      save(
+        view,
+        %{"en" => %{"title" => "Harbour", "alt" => "Boats in a harbour"}},
+        "sea, boats"
+      )
+
     assert html =~ "Boats in a harbour"
 
     row = Repo.reload!(file)
@@ -94,10 +99,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
 
     html = view |> element("button[phx-click=toggle_edit]") |> render_click()
     assert html =~ ~s(placeholder="Harbour")
-    refute html =~ ~s(value="Harbour")
+    # The Estonian input is empty: English is only its placeholder.
+    assert html =~ ~r/name="details\[et\]\[title\]" value=""/
 
     view
-    |> form("form[phx-submit=save_metadata]", %{"details" => %{"title" => "Sadam"}})
+    |> form("form[phx-submit=save_metadata]", %{"details" => %{"et" => %{"title" => "Sadam"}}})
     |> render_submit()
 
     assert Repo.reload!(file).data == %{
@@ -125,10 +131,60 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
     file = image!(user, [])
     {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
 
-    html = save(view, %{"title" => String.duplicate("a", 256)})
+    html = save(view, %{"en" => %{"title" => String.duplicate("a", 256)}})
 
     assert html =~ "should be at most 255"
     assert Repo.reload!(file).data == %{}
+  end
+
+  test "every language is a tab in the one form, and the page language is not what picks them", %{
+    conn: conn,
+    user: user
+  } do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    html = view |> element("button[phx-click=toggle_edit]") |> render_click()
+
+    # Both languages are in the page, whichever the page is shown in, each with
+    # its own text; the second is hidden until its tab is picked.
+    assert html =~ ~r/name="details\[en\]\[title\]" value="Harbour"/
+    assert html =~ ~r/name="details\[et\]\[title\]" value="Sadam"/
+    assert html =~ "role=\"tablist\""
+    refute html =~ "Switch the page language"
+  end
+
+  test "two languages are saved by one Save, and only the one that changed is written", %{
+    conn: conn,
+    user: user
+  } do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    save(view, %{
+      "en" => %{"description" => "Boats."},
+      "et" => %{"title" => "Sadam", "description" => "Paadid."}
+    })
+
+    assert Repo.reload!(file).data == %{
+             "en" => %{"title" => "Harbour", "description" => "Boats."},
+             "et" => %{"title" => "Sadam", "description" => "Paadid."}
+           }
+  end
+
+  test "a language that is invalid saves none of them", %{conn: conn, user: user} do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    html =
+      save(view, %{
+        "en" => %{"title" => "Changed"},
+        "et" => %{"title" => String.duplicate("a", 256)}
+      })
+
+    assert html =~ "Estonian"
+    assert html =~ "should be at most 255"
+    assert Repo.reload!(file).data == %{"en" => %{"title" => "Harbour"}}
   end
 
   # The viewer sidebar is a LiveComponent nested in other LiveComponents: it

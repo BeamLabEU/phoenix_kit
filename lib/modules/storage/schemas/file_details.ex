@@ -129,6 +129,32 @@ defmodule PhoenixKit.Modules.Storage.FileDetails do
   end
 
   @doc """
+  What a form posted, as `%{language => attrs}`.
+
+  The editors send one block per language (`details[et][title]`); a flat map
+  with the three keys at its top (`title`, `alt`, `description`: the shape from
+  before the editors had language tabs) is the text of `default`. Only a block
+  for a language in `allowed` (and `default`) is kept, and only its three
+  keys, so a posted code cannot invent a language.
+  """
+  @spec by_language(map() | nil, String.t(), [String.t()]) :: %{String.t() => map()}
+  def by_language(params, default, allowed \\ [])
+
+  def by_language(%{} = params, default, allowed) do
+    if Enum.any?(@fields, &Map.has_key?(params, &1)) do
+      %{default => Map.take(params, @fields)}
+    else
+      permitted = [default | allowed]
+
+      for {lang, %{} = attrs} <- params, lang in permitted, into: %{} do
+        {lang, Map.take(attrs, @fields)}
+      end
+    end
+  end
+
+  def by_language(_params, _default, _allowed), do: %{}
+
+  @doc """
   Changeset for one language's text. `attrs` holds `"title"`, `"alt"` and
   `"description"`; a key that is absent keeps its current value.
   """

@@ -192,6 +192,48 @@ defmodule PhoenixKitWeb.Components.MediaBrowserReadonlyViewerTest do
       refute details.description == "h"
     end
 
+    test "submitting the rendered form itself saves, and the form is not inside another form" do
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      view = open_host(folder, false, true)
+
+      view
+      |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+      |> render_click()
+
+      cid = viewer_cid(view, file)
+
+      html = render(view)
+      form_id = "media-meta-form-#{file.uuid}"
+
+      # An HTML form inside a form is flattened by the browser's parser: the
+      # inner one's submit would then be the outer one's.
+      nested =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("form form")
+        |> Enum.to_list()
+
+      assert nested == [], "a form is nested inside another form"
+
+      [input] =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("##{form_id} input[name$='[title]']")
+        |> Enum.take(1)
+
+      [name] = LazyHTML.attribute(input, "name")
+
+      lang =
+        name |> String.replace_prefix("details[", "") |> String.replace_suffix("][title]", "")
+
+      view
+      |> form("##{form_id}", %{"details" => %{lang => %{"title" => "from the form"}}})
+      |> render_submit()
+
+      assert FileDetails.from_file(Storage.get_file(file.uuid), lang).title == "from the form"
+    end
+
     test "normal mode with admin: true still offers the toggle, the form, and a working save" do
       folder = create_folder!()
       file = create_file!(folder.uuid)
@@ -204,8 +246,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowserReadonlyViewerTest do
       assert has_element?(view, "[phx-click='toggle_media_details']")
 
       cid = viewer_cid(view, file)
-      view |> with_target("##{cid}") |> render_click("toggle_media_details", %{})
 
+      # Open from the start: a section nobody knows to open is one nobody fills in.
+      assert has_element?(view, "#media-meta-form-#{file.uuid}")
+
+      # The chevron still folds it.
+      view |> with_target("##{cid}") |> render_click("toggle_media_details", %{})
+      refute has_element?(view, "#media-meta-form-#{file.uuid}")
+      view |> with_target("##{cid}") |> render_click("toggle_media_details", %{})
       assert has_element?(view, "#media-meta-form-#{file.uuid}")
 
       view |> with_target("##{cid}") |> render_submit("save_media_details", %{"title" => "legit"})

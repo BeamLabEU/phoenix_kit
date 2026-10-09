@@ -3777,30 +3777,106 @@ defmodule PhoenixKit.Modules.Storage do
     opts = Keyword.put_new_lazy(opts, :primary, &PhoenixKit.Utils.Multilang.primary_language/0)
 
     repo().transaction(fn ->
-      row =
-        from(f in PhoenixKit.Modules.Storage.File, where: f.uuid == ^uuid, lock: "FOR UPDATE")
-        |> repo().one()
-
-      with %PhoenixKit.Modules.Storage.File{} <- row,
-           {:ok, details} <-
-             row
-             |> FileDetails.from_file(opts[:lang], opts)
-             |> FileDetails.changeset(attrs)
-             |> Ecto.Changeset.apply_action(:update),
-           {:ok, updated} <-
-             row
-             |> PhoenixKit.Modules.Storage.File.details_changeset(
-               row
-               |> FileDetails.file_attrs(details, opts[:lang], opts)
-               |> Map.update!(:metadata, &Map.merge(&1, extra_metadata(opts)))
-             )
-             |> repo().update() do
+      with %PhoenixKit.Modules.Storage.File{} = row <- lock_file_row(uuid),
+           {:ok, updated} <- put_file_details(row, attrs, opts[:lang], opts) do
         updated
       else
         nil -> repo().rollback(:not_found)
         {:error, changeset} -> repo().rollback(changeset)
       end
     end)
+  end
+
+  @doc """
+  Saves a file's title, alt text and description in several languages at once:
+  `by_lang` is `%{language => attrs}`, as `FileDetails.by_language/3` builds it
+  from a form with a block per language.
+
+  One held write: the row is re-read and locked, each language's text is
+  replaced (and only those languages: one whose posted text is what it already
+  holds is left as it is, so another editor's later save of it survives), and
+  the `:metadata` option's keys are set in the same write. All of it or none.
+
+  Returns `{:ok, file}`, `{:error, {language, changeset}}` for the first
+  language whose text is invalid, or `{:error, :not_found}`.
+  """
+  def update_file_details_languages(
+        %PhoenixKit.Modules.Storage.File{uuid: uuid},
+        by_lang,
+        opts \\ []
+      )
+      when is_map(by_lang) do
+    opts = Keyword.put_new_lazy(opts, :primary, &PhoenixKit.Utils.Multilang.primary_language/0)
+
+    repo().transaction(fn ->
+      with %PhoenixKit.Modules.Storage.File{} = row <- lock_file_row(uuid),
+           {:ok, row} <- put_languages(row, by_lang, opts),
+           {:ok, row} <- put_extra_metadata(row, opts) do
+        row
+      else
+        nil -> repo().rollback(:not_found)
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  defp lock_file_row(uuid) do
+    from(f in PhoenixKit.Modules.Storage.File, where: f.uuid == ^uuid, lock: "FOR UPDATE")
+    |> repo().one()
+  end
+
+  # One language's text into `row`, with the `:metadata` keys of `opts`.
+  defp put_file_details(row, attrs, lang, opts) do
+    with {:ok, details} <-
+           row
+           |> FileDetails.from_file(lang, opts)
+           |> FileDetails.changeset(attrs)
+           |> Ecto.Changeset.apply_action(:update) do
+      row
+      |> PhoenixKit.Modules.Storage.File.details_changeset(
+        row
+        |> FileDetails.file_attrs(details, lang, opts)
+        |> Map.update!(:metadata, &Map.merge(&1, extra_metadata(opts)))
+      )
+      |> repo().update()
+    end
+  end
+
+  # Every language that has something new, in order, each on the row the one
+  # before left; the languages are written in the sorted order of their codes.
+  defp put_languages(row, by_lang, opts) do
+    by_lang
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.reduce_while({:ok, row}, fn {lang, attrs}, {:ok, current} ->
+      changeset = current |> FileDetails.from_file(lang, opts) |> FileDetails.changeset(attrs)
+
+      cond do
+        not changeset.valid? ->
+          {:halt, {:error, {lang, changeset}}}
+
+        changeset.changes == %{} ->
+          {:cont, {:ok, current}}
+
+        true ->
+          case put_file_details(current, attrs, lang, Keyword.delete(opts, :metadata)) do
+            {:ok, updated} -> {:cont, {:ok, updated}}
+            {:error, changeset} -> {:halt, {:error, {lang, changeset}}}
+          end
+      end
+    end)
+  end
+
+  defp put_extra_metadata(row, opts) do
+    extra = extra_metadata(opts)
+    merged = Map.merge(row.metadata || %{}, extra)
+
+    if extra == %{} or merged == row.metadata do
+      {:ok, row}
+    else
+      row
+      |> PhoenixKit.Modules.Storage.File.details_changeset(%{metadata: merged, data: row.data})
+      |> repo().update()
+    end
   end
 
   defp extra_metadata(opts) do

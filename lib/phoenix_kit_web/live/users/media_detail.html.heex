@@ -181,54 +181,26 @@
                 </button>
               </div>
 
-              <%!-- The text is per language, and the language is the page's own:
-                   the admin language switcher is the content switcher. --%>
-              <%= if @details_lang_name do %>
-                <p class="text-xs text-base-content/60 mb-2">
-                  <span class="badge badge-sm badge-ghost h-auto">
-                    <.icon name="hero-language" class="w-3 h-3" /> {@details_lang_name}
-                  </span>
-                  {gettext("Switch the page language to translate.")}
-                </p>
-              <% end %>
+              <%!-- Reading shows the page's language; editing has a tab per language. --%>
+              <p :if={@details_lang_name && !@edit_mode} class="text-xs text-base-content/60 mb-2">
+                <span class="badge badge-sm badge-ghost h-auto">
+                  <.icon name="hero-language" class="w-3 h-3" /> {@details_lang_name}
+                </span>
+              </p>
 
               <%= if @edit_mode do %>
-                <.form
-                  for={@details_form}
+                <form
                   id={"media-details-form-#{@file_data.file_uuid}"}
                   phx-submit="save_metadata"
                   class="space-y-3"
                 >
-                  <.input
-                    field={@details_form[:title]}
-                    type="text"
-                    label={gettext("Title")}
-                    placeholder={@details_placeholders.title || gettext("Enter title")}
-                    class="input-sm"
-                  />
-
-                  <div :if={@file_data.file_type == "image"}>
-                    <.input
-                      field={@details_form[:alt]}
-                      type="text"
-                      label={gettext("Alt text")}
-                      placeholder={
-                        if @details_placeholders.alt != "",
-                          do: @details_placeholders.alt,
-                          else: gettext("Describe the image for someone who cannot see it")
-                      }
-                      class="input-sm"
-                    />
-                  </div>
-
-                  <.textarea
-                    field={@details_form[:description]}
-                    label={gettext("Description")}
-                    placeholder={
-                      @details_placeholders.description || gettext("Enter description")
-                    }
-                    rows="3"
-                    class="textarea-sm"
+                  <PhoenixKitWeb.Components.Core.FileDetailsFields.file_details_fields
+                    id={"media-details-fields-#{@file_data.file_uuid}"}
+                    languages={@details_langs}
+                    lang={@details_lang}
+                    values={@details_values}
+                    placeholders={@details_placeholders}
+                    show_alt={@file_data.file_type == "image"}
                   />
 
                   <div>
@@ -251,7 +223,7 @@
                       {gettext("Cancel")}
                     </button>
                   </div>
-                </.form>
+                </form>
               <% else %>
                 <div class="space-y-2 text-xs">
                   <div :for={

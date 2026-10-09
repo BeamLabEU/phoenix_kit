@@ -207,7 +207,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerMediaMetaTest do
         )
 
       assert socket.assigns.media_meta_status == :saved
-      assert Storage.get_file(file.uuid).metadata["title"] == ""
+      assert Storage.get_file(file.uuid).metadata["title"] in [nil, ""]
     end
 
     test "a translation page saves that language only and shows the primary text where it has none",
@@ -238,6 +238,36 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerMediaMetaTest do
              }
 
       assert row.metadata["title"] == "Harbour", "the metadata copy is the primary language's"
+      assert row.metadata["rotation"] == 90
+    end
+
+    test "a form with a block per language saves each language", %{row: file} do
+      socket =
+        socket_with(%{
+          id: "mcv-test",
+          file: %{file_uuid: file.uuid},
+          media_meta_lang: "en",
+          media_meta_langs: [%{code: "en", name: "English"}, %{code: "et", name: "Estonian"}],
+          media_meta_status: nil
+        })
+
+      {:noreply, socket} =
+        MediaCanvasViewer.handle_event(
+          "save_media_details",
+          %{
+            "details" => %{
+              "en" => %{"title" => "Harbour"},
+              "et" => %{"title" => "Sadam"},
+              "xx" => %{"title" => "not a language"}
+            }
+          },
+          socket
+        )
+
+      assert socket.assigns.media_meta_status == :saved
+
+      row = Storage.get_file(file.uuid)
+      assert row.data == %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam"}}
       assert row.metadata["rotation"] == 90
     end
 

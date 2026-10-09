@@ -304,6 +304,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_new(:media_meta_placeholders, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_lang, fn -> nil end)
       |> assign_new(:media_meta_lang_name, fn -> nil end)
+      |> assign_new(:media_meta_langs, fn -> [] end)
+      |> assign_new(:media_meta_values, fn -> %{} end)
       |> assign_new(:media_details_open, fn -> false end)
       |> assign_new(:media_meta_status, fn -> nil end)
       |> assign_new(:media_meta_status_token, fn -> 0 end)
@@ -541,26 +543,32 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       ),
       do: {:noreply, socket}
 
-  # Saves the sidebar's title / alt text / description in the language the
-  # page is shown in — the same text, through the same
-  # `Storage.update_file_details/3`, as the admin detail page's editor, so
-  # the two surfaces read each other's writes. That write re-reads the row
-  # and replaces this language's text only: rotation, tags and the other
-  # languages survive. A key the form did not send keeps its value.
+  # Saves the sidebar's title / alt text / description for every language the
+  # form has a block for (`details[<language>][title]`: a tab per language, one
+  # Save) — the same text, through the same `Storage` write, as the admin detail
+  # page's editor, so the two surfaces read each other's writes. A flat
+  # `title` / `alt` / `description` (the form from before the tabs) is the
+  # page's language. That write re-reads the row and replaces only the languages
+  # whose text changed: rotation, tags and the other languages survive. A key
+  # the form did not send keeps its value.
   def handle_event("save_media_details", params, socket) do
-    attrs =
-      for field <- FileDetails.fields(), Map.has_key?(params, field), into: %{} do
-        {field, text_param(params[field])}
-      end
-
     lang = socket.assigns[:media_meta_lang] || content_language()
+    allowed = Enum.map(socket.assigns[:media_meta_langs] || [], & &1.code)
+
+    by_lang =
+      params
+      |> Map.get("details", params)
+      |> FileDetails.by_language(lang, allowed)
+      |> Map.new(fn {code, attrs} ->
+        {code, Map.new(attrs, fn {field, value} -> {field, text_param(value)} end)}
+      end)
 
     with %{file_uuid: uuid} <- socket.assigns.file,
          %Storage.File{} = row <- Storage.get_file(uuid),
          # The boundary, on the row as it is NOW: the form is only offered
          # for a writable file, but a hidden form is not a boundary.
          true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
-         {:ok, row} <- Storage.update_file_details(row, attrs, lang: lang) do
+         {:ok, row} <- Storage.update_file_details_languages(row, by_lang) do
       token = (socket.assigns[:media_meta_status_token] || 0) + 1
 
       Phoenix.LiveView.send_update_after(
@@ -707,13 +715,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_media_meta(row, content_language())
       |> assign(:media_meta_status, nil)
 
-    # Open where there is something to see; an empty section stays folded
-    # until someone reaches for the chevron.
-    assign(
-      socket,
-      :media_details_open,
-      Enum.any?(Map.values(socket.assigns.media_meta), &(&1 != ""))
-    )
+    # Open from the start: a section nobody knows to open is a section nobody
+    # fills in. (It is not rendered at all when it is empty and uneditable.)
+    assign(socket, :media_details_open, true)
   rescue
     _ ->
       socket
@@ -737,15 +741,19 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     opts = [primary: PhoenixKit.Utils.Multilang.primary_language()]
     blank = fn details -> Map.new(details, fn {key, value} -> {key, value || ""} end) end
 
+    tabs = PhoenixKit.Utils.Multilang.build_language_tabs()
+    codes = if tabs == [], do: [lang], else: Enum.map(tabs, & &1.code)
+
+    own = fn code -> row |> FileDetails.from_file(code, opts) |> Map.from_struct() |> blank.() end
+
     socket
     |> assign(:media_meta, blank.(FileDetails.for_locale(row, lang, opts)))
-    |> assign(
-      :media_meta_own,
-      row |> FileDetails.from_file(lang, opts) |> Map.from_struct() |> blank.()
-    )
+    |> assign(:media_meta_own, own.(lang))
     |> assign(:media_meta_placeholders, blank.(FileDetails.for_locale(row, nil, opts)))
     |> assign(:media_meta_lang, lang)
     |> assign(:media_meta_lang_name, FileDetails.language_name(lang))
+    |> assign(:media_meta_langs, tabs)
+    |> assign(:media_meta_values, Map.new(codes, &{&1, own.(&1)}))
   end
 
   defp assign_media_meta(socket, _row, _lang) do
@@ -757,6 +765,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     |> assign(:media_meta_placeholders, empty)
     |> assign(:media_meta_lang, nil)
     |> assign(:media_meta_lang_name, nil)
+    |> assign(:media_meta_langs, [])
+    |> assign(:media_meta_values, %{})
   end
 
   # Whether THIS host offers the title/description editor. One rule, read
