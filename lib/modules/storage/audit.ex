@@ -109,7 +109,10 @@ defmodule PhoenixKit.Modules.Storage.Audit do
   def log_repair(file, actions, problems_left, opts) do
     done = Enum.reject(actions, &(&1.kind == :reconciled))
 
-    if Enum.any?(done, &(&1.kind in [:restored, :regenerated, :recorded])) and site_file?(file) do
+    if Enum.any?(
+         done,
+         &(&1.kind in [:restored, :regenerated, :recorded, :made, :copied, :removed])
+       ) and site_file?(file) do
       log("storage.file.repaired", "file", file.uuid, opts, %{
         "file_name" => file.original_file_name || file.file_name,
         "library_uuid" => file.library_uuid && to_string(file.library_uuid),

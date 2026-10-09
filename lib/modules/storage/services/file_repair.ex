@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
         }
 
   @spec repair(StorageFile.t(), keyword()) ::
-          {:ok, %{actions: [action()], verification: [map()]}}
+          {:ok, %{actions: [action()], verification: [map()], problems_left: non_neg_integer()}}
           | {:error, :edit_in_progress | :busy | :not_found}
   def repair(file, opts \\ [])
 
@@ -93,17 +93,79 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
     reconcile =
       if original_ok? and
            not Enum.any?(actions, &(&1.kind in [:failed, :unreadable, :unrecoverable, :skipped])),
-         do: [action("original", :reconciled, outcome: Reconciler.reconcile_file(current))],
+         do: reconcile(current),
          else: []
 
     actions = Enum.uniq_by(actions, &{&1.name, &1.kind, &1.bucket}) ++ reconcile
-    verification = FileReport.verify(reload(file))
+    final = reload(file)
+    verification = FileReport.verify(final)
+
+    # What is still wrong counts what verification found and what the file lacks
+    # (a size, the original), and a reconciliation that could not finish.
+    problems_left =
+      FileReport.problem_count(final, verification, reconciled?: reconciled?(reconcile))
 
     # The trail: what was done to this file, and how much was still wrong.
-    Audit.log_repair(current, actions, Enum.count(verification, &(&1.result != :ok)), opts)
+    Audit.log_repair(current, actions, problems_left, opts)
 
-    {:ok, %{actions: actions, verification: verification}}
+    {:ok, %{actions: actions, verification: verification, problems_left: problems_left}}
   end
+
+  # False only when the reconciler said it could not finish.
+  defp reconciled?(actions),
+    do: not Enum.any?(actions, &(&1.kind == :reconciled and &1.outcome == :stale))
+
+  # The reconciler's pass, and what it changed: a size it made, a copy it placed or
+  # took away. The pass itself is one `:reconciled` line (the report's summary; it
+  # is not written to the trail); the changes are actions of their own.
+  defp reconcile(file) do
+    before = FileReport.renditions(file)
+    outcome = Reconciler.reconcile_file(file)
+    changes = reconcile_changes(before, FileReport.renditions(reload(file)))
+
+    changes ++ [action("original", :reconciled, outcome: outcome)]
+  end
+
+  defp reconcile_changes(before, later) do
+    old = Map.new(before, &{&1.name, &1})
+
+    Enum.flat_map(later, fn row ->
+      prior = Map.get(old, row.name)
+
+      # A size that was made is stored where it was made: not a placement of its own.
+      case made(row, prior) do
+        [] -> placed(row, prior)
+        made -> made
+      end
+    end)
+  end
+
+  defp made(%{state: :ok, name: name}, %{state: state}) when state in [:missing, :failed, :stale],
+    do: [action(name, if(state == :missing, do: :made, else: :regenerated))]
+
+  defp made(_row, _prior), do: []
+
+  # Copies on buckets the file was not on, and no longer on buckets it was.
+  defp placed(row, prior) do
+    now = bucket_map(row)
+    was = if prior, do: bucket_map(prior), else: %{}
+
+    for(
+      {uuid, name} <- now,
+      not Map.has_key?(was, uuid),
+      do: placement(row.name, :copied, uuid, name)
+    ) ++
+      for(
+        {uuid, name} <- was,
+        not Map.has_key?(now, uuid),
+        do: placement(row.name, :removed, uuid, name)
+      )
+  end
+
+  defp bucket_map(row), do: Map.new(row.copies, &{to_string(&1.bucket.uuid), &1.bucket.name})
+
+  defp placement(rendition, kind, uuid, name),
+    do: action(rendition, kind, bucket: name, bucket_uuid: uuid)
 
   # ── objects ───────────────────────────────────────────────────
 
@@ -115,7 +177,13 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
 
     {ordered_originals, others} = Enum.split_with(instances, &(&1.variant_name == "original"))
 
-    Enum.reduce(ordered_originals ++ others, {[], true}, fn instance, {done, original_ok?} ->
+    # No original at all (its record is gone): nothing to make a size from.
+    start =
+      if ordered_originals == [],
+        do: {[action("original", :unrecoverable)], false},
+        else: {[], true}
+
+    Enum.reduce(ordered_originals ++ others, start, fn instance, {done, original_ok?} ->
       rows = Map.get(by_name, instance.variant_name, [])
       {taken, healthy?} = repair_instance(file, instance, rows, expected, original_ok?)
       {done ++ taken, if(instance.variant_name == "original", do: healthy?, else: original_ok?)}

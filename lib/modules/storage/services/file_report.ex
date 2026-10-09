@@ -159,6 +159,21 @@ defmodule PhoenixKit.Modules.Storage.FileReport do
     end)
   end
 
+  @doc """
+  How many renditions are still wrong after a repair: those a verification found
+  failing, and those the file lacks or has made from another spec (the original
+  among them), counted once each. `reconciled?: false` (the reconciler could not
+  finish) counts as one when nothing else shows.
+  """
+  @spec problem_count(StorageFile.t(), [map()], keyword()) :: non_neg_integer()
+  def problem_count(%StorageFile{} = file, verification, opts \\ []) do
+    failing = for %{result: r, name: name} <- verification, r != :ok, do: name
+    lacking = for %{name: name} <- problems(renditions(file)), do: name
+    count = (failing ++ lacking) |> Enum.uniq() |> length()
+
+    if count == 0 and Keyword.get(opts, :reconciled?, true) == false, do: 1, else: count
+  end
+
   @doc "Whether every result of `verify/1` is `:ok`."
   @spec all_ok?([map()]) :: boolean()
   def all_ok?(results), do: results != [] and Enum.all?(results, &(&1.result == :ok))

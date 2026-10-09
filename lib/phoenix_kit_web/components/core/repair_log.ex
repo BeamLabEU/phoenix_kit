@@ -194,6 +194,13 @@ defmodule PhoenixKitWeb.Components.Core.RepairLog do
     do: gettext("Copied back into %{bucket} from %{from}.", bucket: bucket, from: from)
 
   defp action_text(%{kind: "regenerated"}), do: gettext("Made again from the original.")
+  defp action_text(%{kind: "made"}), do: gettext("Made from the original.")
+
+  defp action_text(%{kind: "copied", bucket: bucket}),
+    do: gettext("Copied into %{bucket}.", bucket: bucket)
+
+  defp action_text(%{kind: "removed", bucket: bucket}),
+    do: gettext("Removed from %{bucket}, which the profile no longer uses.", bucket: bucket)
 
   defp action_text(%{kind: "recorded", bucket: bucket}),
     do: gettext("Found in %{bucket} and recorded.", bucket: bucket)

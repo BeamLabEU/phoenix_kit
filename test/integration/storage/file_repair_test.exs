@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepairTest do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Bucket
+  alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.FileLocation
   alias PhoenixKit.Modules.Storage.FileRepair
   alias PhoenixKit.Modules.Storage.FileReport
@@ -351,6 +352,46 @@ defmodule PhoenixKit.Modules.Storage.FileRepairTest do
                where: e.action == "storage.file.repaired" and e.resource_uuid == ^file.uuid
              )
            )
+  end
+
+  test "a file whose original is gone is not reported as intact", ctx do
+    bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+
+    Repo.delete_all(
+      from(i in FileInstance, where: i.file_uuid == ^file.uuid and i.variant_name == "original")
+    )
+
+    assert {:ok, %{actions: actions, verification: verification, problems_left: left}} =
+             FileRepair.repair(file)
+
+    assert FileReport.all_ok?(verification), "the sizes that are there are fine"
+    assert {"original", :unrecoverable} in kinds(actions)
+    assert left >= 1
+  end
+
+  test "what the reconciler alone made is in the trail", ctx do
+    bucket!(ctx.tmp, "solo")
+    file = upload!(ctx.tmp, ctx.user)
+
+    # A size whose record is gone: nothing to verify, only to make.
+    Repo.delete_all(
+      from(i in FileInstance, where: i.file_uuid == ^file.uuid and i.variant_name == "small")
+    )
+
+    assert {:ok, %{actions: actions, problems_left: 0}} =
+             FileRepair.repair(file, actor_uuid: ctx.user.uuid)
+
+    assert {"small", :made} in kinds(actions)
+
+    entry =
+      Repo.one!(
+        from(e in PhoenixKit.Activity.Entry,
+          where: e.action == "storage.file.repaired" and e.resource_uuid == ^file.uuid
+        )
+      )
+
+    assert [%{"rendition" => "small", "kind" => "made"}] = entry.metadata["actions"]
   end
 
   test "an unreadable copy prevents an original from being declared unrecoverable", ctx do

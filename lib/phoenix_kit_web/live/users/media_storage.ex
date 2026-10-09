@@ -424,8 +424,12 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     {:noreply, socket |> assign(:working, nil) |> assign(:verification, results)}
   end
 
-  def handle_async(:fix, {:ok, {:ok, %{actions: actions, verification: verification}}}, socket) do
-    problems = Enum.count(verification, &(&1.result != :ok))
+  def handle_async(
+        :fix,
+        {:ok, {:ok, %{actions: actions, verification: verification} = done}},
+        socket
+      ) do
+    problems = done.problems_left
 
     flash =
       if problems == 0,
@@ -648,6 +652,13 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     do: gettext("Copied back into %{bucket} from %{from}.", bucket: bucket, from: from)
 
   def action_text(%{kind: :regenerated}), do: gettext("Made again from the original.")
+  def action_text(%{kind: :made}), do: gettext("Made from the original.")
+
+  def action_text(%{kind: :copied, bucket: bucket}),
+    do: gettext("Copied into %{bucket}.", bucket: bucket)
+
+  def action_text(%{kind: :removed, bucket: bucket}),
+    do: gettext("Removed from %{bucket}, which the profile no longer uses.", bucket: bucket)
 
   def action_text(%{kind: :recorded, bucket: bucket}),
     do: gettext("Found in %{bucket} and recorded.", bucket: bucket)
@@ -676,8 +687,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     do: gettext("Not everything the profiles ask for could be made.")
 
   @doc false
-  def action_tone(%{kind: kind}) when kind in [:restored, :regenerated, :recorded],
-    do: "badge-success"
+  def action_tone(%{kind: kind})
+      when kind in [:restored, :regenerated, :recorded, :made, :copied, :removed],
+      do: "badge-success"
 
   def action_tone(%{kind: :reconciled, outcome: :reconciled}), do: "badge-success"
   def action_tone(%{kind: kind}) when kind in [:skipped, :reconciled], do: "badge-warning"
