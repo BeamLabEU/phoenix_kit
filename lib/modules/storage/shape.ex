@@ -57,6 +57,13 @@ defmodule PhoenixKit.Modules.Storage.Shape do
   def classify(%{width: width, height: height}), do: classify({width, height})
   def classify(_), do: nil
 
+  @doc "A size in megapixels to one decimal: 4032 × 3024 is `12.2`. `0.0` without a usable size."
+  @spec megapixels(integer() | nil, integer() | nil) :: float()
+  def megapixels(width, height) when is_integer(width) and is_integer(height),
+    do: Float.round(width * height / 1_000_000, 1)
+
+  def megapixels(_width, _height), do: 0.0
+
   @doc """
   Narrows a query over files (or anything with an `aspect_ratio`) to a shape.
   `nil`, `"all"` and `""` leave it unfiltered; `:wide`/`"wide"` and

@@ -238,4 +238,52 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
              "en-GB" => %{"title" => "Harbour"}
            }
   end
+
+  describe "dimensions and EXIF" do
+    @exif %{
+      "camera" => %{"make" => "Apple", "model" => "iPhone 17 Pro"},
+      "gps" => %{"latitude" => 45.5, "longitude" => 10.7}
+    }
+
+    test "the file's size in pixels is shown, and a panorama says so", %{conn: conn, user: user} do
+      file = image!(user, width: 8947, height: 3317)
+      {:ok, _view, html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+      assert html =~ "8947 × 3317 px"
+      assert html =~ "29.7 MP"
+      assert html =~ "Panorama"
+
+      plain = image!(user, width: 4032, height: 3024)
+      {:ok, _view, html} = live(conn, Routes.path("/admin/media/#{plain.uuid}"))
+      assert html =~ "4032 × 3024 px"
+      refute html =~ "Panorama"
+    end
+
+    test "a photo whose EXIF was never read offers to read it", %{conn: conn, user: user} do
+      file = image!(user, [])
+      {:ok, view, html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+      assert html =~ "EXIF has not been read yet."
+      assert has_element?(view, ~s(button[phx-click="read_exif"]))
+    end
+
+    test "a photo with EXIF shows its camera and where it was taken", %{conn: conn, user: user} do
+      file = image!(user, metadata: %{"exif" => @exif}, latitude: 45.5, longitude: 10.7)
+      {:ok, view, html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+      assert html =~ "Apple iPhone 17 Pro"
+      assert html =~ "https://www.openstreetmap.org/?mlat=45.5&amp;mlon=10.7"
+      assert has_element?(view, ~s(button[phx-click="show_exif"]))
+    end
+
+    test "reading an original that cannot be read says so", %{conn: conn, user: user} do
+      file = image!(user, [])
+      {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+      html = view |> element(~s(button[phx-click="read_exif"])) |> render_click()
+
+      assert html =~ "Could not read the EXIF"
+      assert Repo.reload!(file).metadata["exif"] == nil
+    end
+  end
 end

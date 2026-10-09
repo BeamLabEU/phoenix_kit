@@ -37,6 +37,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.CaptureDate
+  alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.VariantGenerator
@@ -110,6 +111,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
       with_temp_file(temp_path, fn ->
         with {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
              metadata = with_capture_date(metadata, temp_path, file),
+             metadata = with_exif(metadata, temp_path, file),
              :ok <- update_and_log_metadata(file, source, metadata),
              :ok <- log_dimensions_info() do
           generate_and_log_variants(file)
@@ -243,6 +245,16 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # EXIF, and reading them would find the file name or the upload time at
   # best. It keeps the date it was given before the edit, or is dated from its
   # unedited backup by `Storage.Workers.CaptureDateBackfillJob`.
+  # The camera, exposure, dates and GPS position the photo's EXIF carries
+  # (`Storage.Exif`), read from the same bytes and recorded in the same guarded
+  # transaction. An edited image is skipped for the reason above: it carries no
+  # EXIF, and `Storage.read_exif/1` reads its unedited backup's.
+  defp with_exif(metadata, _path, %{original_file_uuid: backup}) when is_binary(backup),
+    do: metadata
+
+  defp with_exif(metadata, path, _file),
+    do: Map.merge(metadata, path |> Exif.read() |> Exif.file_attrs())
+
   defp with_capture_date(metadata, _path, %{original_file_uuid: backup}) when is_binary(backup),
     do: metadata
 
@@ -349,6 +361,18 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # dropped from the update when it would replace a stronger one
   # (`CaptureDate.admit/2`) — a re-run must never downgrade an EXIF date to a
   # file name, nor touch a manual one.
+  # The EXIF summary joins the row's `metadata` rather than replacing it: the
+  # rotation and tags in there are not this run's to touch.
+  defp merge_exif(attrs, current) do
+    case Map.pop(attrs, :exif) do
+      {nil, attrs} ->
+        attrs
+
+      {exif, attrs} ->
+        Map.put(attrs, :metadata, Map.put(current.metadata || %{}, "exif", exif))
+    end
+  end
+
   @doc false
   def update_file_with_metadata(file, source, metadata) do
     attrs = Map.merge(%{status: "active"}, metadata)
@@ -364,9 +388,14 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
         )
 
       cond do
-        is_nil(current) -> :gone
-        not Storage.original_key?(file.uuid, source) -> :changed
-        true -> Storage.update_file(current, CaptureDate.admit(attrs, current))
+        is_nil(current) ->
+          :gone
+
+        not Storage.original_key?(file.uuid, source) ->
+          :changed
+
+        true ->
+          Storage.update_file(current, merge_exif(CaptureDate.admit(attrs, current), current))
       end
     end)
     |> case do

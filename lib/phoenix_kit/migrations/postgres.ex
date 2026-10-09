@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V214 - Rendition shape ⚡ LATEST
+  ### V215 - Where a photo was taken ⚡ LATEST
+
+  `phoenix_kit_files.latitude` / `longitude` (decimal degrees, `NULL` without a
+  GPS position) and a partial GiST index on `point(longitude, latitude)`, so a
+  box on a map is one indexed lookup (`Storage.Geo`). Built-in Postgres, no
+  PostGIS. No existing file changes: a photo's position is read from its EXIF.
+
+  ### V214 - Rendition shape
 
   `phoenix_kit_storage_dimensions.shape` (`any`, `wide` or `tall`): a rendition can
   be made only for panoramas or only for tall pictures. Every existing rendition
@@ -963,7 +970,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 214
+  @current_version 215
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

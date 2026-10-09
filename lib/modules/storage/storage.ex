@@ -104,11 +104,13 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.Endpoint
+  alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.FileDetails
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.FileLocation
   alias PhoenixKit.Modules.Storage.Folder
   alias PhoenixKit.Modules.Storage.FolderLink
+  alias PhoenixKit.Modules.Storage.Geo
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.Library
@@ -2583,6 +2585,9 @@ defmodule PhoenixKit.Modules.Storage do
     - `:per_page` — page size (default 20).
     - `:library_uuid` — only files in this storage library. Omitted means
       every library that is not private (`Libraries.exclude_private/1`).
+    - `:bounds` — only pictures with a GPS position inside this box on the map:
+      `{south, west, north, east}` in degrees (`PhoenixKit.Modules.Storage.Geo`; a box that
+      crosses the antimeridian has `west > east`).
     - `:shape` — `:wide` or `:tall` (or `"wide"` / `"tall"`): only pictures of that
       shape (`PhoenixKit.Modules.Storage.Shape`). Omitted, nil or `"all"` is every shape.
 
@@ -2614,6 +2619,7 @@ defmodule PhoenixKit.Modules.Storage do
         |> exclude_system_managed()
         |> maybe_filter_file_type(file_type)
         |> Shape.filter(opts[:shape])
+        |> Geo.within(opts[:bounds])
         |> only_images_when_shaped(opts[:shape])
         |> where_library(opts[:library_uuid])
         |> where_viewer(opts[:viewer_uuid])
@@ -3815,6 +3821,90 @@ defmodule PhoenixKit.Modules.Storage do
         row
       else
         nil -> repo().rollback(:not_found)
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+  end
+
+  @doc """
+  Reads a photo's EXIF from its original and records what is worth keeping: the
+  camera, exposure, dates and GPS in `metadata["exif"]` (`Storage.Exif.summary/1`)
+  and the position in the `latitude` / `longitude` columns a map searches.
+  Other `metadata` keys (rotation, tags) are left as they are.
+
+  What a photo uploaded before this existed needs, and what re-reads a photo
+  after its original was replaced. An edited image carries no EXIF of its own,
+  so the unedited backup's is read.
+
+  The result is recorded only while the bytes read are still the file's
+  original: an image edit can swap it at any moment (`original_key?/2`).
+
+  Returns `{:ok, file}`, `{:error, :not_found}`, `{:error, :not_an_image}`,
+  `{:error, :changed}` (the original was replaced meanwhile) or the storage
+  error that kept the original from being read.
+  """
+  def read_exif(%PhoenixKit.Modules.Storage.File{uuid: uuid}), do: read_exif(uuid)
+
+  def read_exif(uuid) when is_binary(uuid) do
+    with_original_exif(uuid, fn file, source_uuid, key, tags ->
+      record_exif(file, source_uuid, key, Exif.file_attrs(tags))
+    end)
+  end
+
+  @doc """
+  Every EXIF tag of a photo, read from its original: `{:ok, %{"Make" => "Apple", …}}`.
+  For a viewer that shows the whole dump (`Storage.Exif.groups/1`); nothing is
+  stored.
+  """
+  def exif_tags(%PhoenixKit.Modules.Storage.File{uuid: uuid}), do: exif_tags(uuid)
+
+  def exif_tags(uuid) when is_binary(uuid) do
+    with_original_exif(uuid, fn _file, _source_uuid, _key, tags -> {:ok, tags} end)
+  end
+
+  # Downloads the original the EXIF is in (an edited image's unedited backup),
+  # reads it, and hands the tags on; the temporary copy is always removed.
+  defp with_original_exif(uuid, fun) do
+    case get_file(uuid) do
+      nil ->
+        {:error, :not_found}
+
+      %PhoenixKit.Modules.Storage.File{file_type: type} when type != "image" ->
+        {:error, :not_an_image}
+
+      %PhoenixKit.Modules.Storage.File{} = file ->
+        source_uuid = file.original_file_uuid || file.uuid
+
+        case retrieve_original(source_uuid) do
+          {:ok, path, _row, instance} ->
+            try do
+              fun.(file, source_uuid, instance.file_name, Exif.read(path))
+            after
+              File.rm(path)
+            end
+
+          {:error, _} = error ->
+            error
+        end
+    end
+  end
+
+  defp record_exif(file, source_uuid, key, attrs) do
+    {exif, columns} = Map.pop(attrs, :exif)
+
+    repo().transaction(fn ->
+      with %PhoenixKit.Modules.Storage.File{} = row <- lock_file_row(file.uuid),
+           true <- original_key?(source_uuid, key),
+           {:ok, updated} <-
+             row
+             |> PhoenixKit.Modules.Storage.File.changeset(
+               Map.put(columns, :metadata, Map.put(row.metadata || %{}, "exif", exif))
+             )
+             |> repo().update() do
+        updated
+      else
+        nil -> repo().rollback(:not_found)
+        false -> repo().rollback(:changed)
         {:error, reason} -> repo().rollback(reason)
       end
     end)

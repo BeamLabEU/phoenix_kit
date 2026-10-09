@@ -261,6 +261,37 @@ defmodule PhoenixKitWeb.Components.MediaBrowserReadonlyViewerTest do
       assert FileDetails.from_file(Storage.get_file(file.uuid)).title == "legit"
     end
 
+    test "the EXIF panel is offered where the title editor is, and nowhere else" do
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+
+      # Where the host gave the viewer a road to the metadata editor: offered.
+      view = open_host(folder, false, true)
+
+      view
+      |> element("[phx-click='click_file'][phx-value-file-uuid='#{file.uuid}']")
+      |> render_click()
+
+      assert has_element?(view, "#media-exif-#{file.uuid}")
+
+      # Where it did not (a public lightbox): the panel is not drawn, and the
+      # events that would read or show a photo's EXIF do nothing.
+      socket =
+        viewer_socket(%{file_uuid: file.uuid, folder_uuid: folder.uuid}, %{
+          details_path: nil,
+          edit_target: nil,
+          exif_tags: nil,
+          exif_status: nil,
+          file_exif: nil
+        })
+
+      for event <- ["read_exif", "show_exif"] do
+        assert {:noreply, ^socket} = MediaCanvasViewer.handle_event(event, %{}, socket)
+      end
+
+      assert Storage.get_file(file.uuid).metadata["exif"] == nil
+    end
+
     test "belt-and-braces: save_media_details no-ops once both details_path and edit_target are nil" do
       folder = create_folder!()
       file = create_file!(folder.uuid)

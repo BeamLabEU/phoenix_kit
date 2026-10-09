@@ -70,6 +70,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       |> assign(:file_uuid, file_uuid)
       |> assign(:show_delete_modal, false)
       |> assign(:image_editor_open, params["edit"] == "image")
+      |> assign(:exif_tags, nil)
+      |> assign(:exif_status, nil)
       |> load_file_data(file_uuid)
       |> assign(
         :viewer_annotations,
@@ -202,6 +204,35 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       _ ->
         {:noreply, put_flash(socket, :error, gettext("Failed to save details"))}
     end
+  end
+
+  # A photo's EXIF: read it into the row (what a photo uploaded before it was
+  # kept needs), look at every tag of the original, or put that away. Nothing
+  # but the first writes, and it only fills `metadata["exif"]` and the position.
+  def handle_event("read_exif", _params, %{assigns: %{file: %{} = file}} = socket) do
+    case Storage.read_exif(file) do
+      {:ok, row} ->
+        {:noreply,
+         socket
+         |> assign(:file, row)
+         |> assign(:file_data, %{socket.assigns.file_data | metadata: row.metadata || %{}})
+         |> assign(:exif_tags, nil)
+         |> assign(:exif_status, nil)}
+
+      {:error, _reason} ->
+        {:noreply, assign(socket, :exif_status, :error)}
+    end
+  end
+
+  def handle_event("show_exif", _params, %{assigns: %{file: %{} = file}} = socket) do
+    case Storage.exif_tags(file) do
+      {:ok, tags} -> {:noreply, socket |> assign(:exif_tags, tags) |> assign(:exif_status, nil)}
+      {:error, _reason} -> {:noreply, assign(socket, :exif_status, :error)}
+    end
+  end
+
+  def handle_event("hide_exif", _params, socket) do
+    {:noreply, assign(socket, :exif_tags, nil)}
   end
 
   def handle_event("cancel_edit", _params, socket) do

@@ -262,6 +262,22 @@
             </div>
           </div>
 
+          <%!-- The photo's EXIF: camera, exposure, dates and where it was taken. --%>
+          <div :if={@file_data.file_type == "image"} class="card bg-base-100 shadow-xl">
+            <div class="card-body p-4">
+              <h3 class="font-semibold text-sm mb-3">{gettext("Camera & location")}</h3>
+              <PhoenixKitWeb.Components.Core.FileExifPanel.file_exif_panel
+                id="media-detail-exif"
+                exif={((@file && @file.metadata) || %{})["exif"]}
+                latitude={@file && @file.latitude}
+                longitude={@file && @file.longitude}
+                tags={@exif_tags}
+                status={@exif_status}
+                can_read={true}
+              />
+            </div>
+          </div>
+
           <%!-- File Details Card --%>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body p-4">
@@ -270,6 +286,19 @@
                 <div>
                   <span class="font-semibold text-base-content/70">Size:</span>
                   <p class="text-base-content mt-1">{format_file_size(@file_data.size)}</p>
+                </div>
+
+                <div :if={@file_data.width && @file_data.height}>
+                  <span class="font-semibold text-base-content/70">{gettext("Dimensions")}:</span>
+                  <p class="text-base-content mt-1">
+                    {@file_data.width} × {@file_data.height} px · {PhoenixKit.Modules.Storage.Shape.megapixels(
+                      @file_data.width,
+                      @file_data.height
+                    )} MP
+                    <span :if={PhoenixKit.Modules.Storage.Shape.classify(@file_data) == :wide}>
+                      · {gettext("Panorama")}
+                    </span>
+                  </p>
                 </div>
 
                 <div>

@@ -702,12 +702,43 @@
               <span class="text-base-content/60">{gettext("Size:")}</span>
               <span class="ml-1">{format_file_size(f.size)}</span>
             </div>
+            <div :if={f[:width] && f[:height]}>
+              <span class="text-base-content/60">{gettext("Dimensions:")}</span>
+              <span class="ml-1">
+                {f.width} × {f.height} px · {PhoenixKit.Modules.Storage.Shape.megapixels(
+                  f.width,
+                  f.height
+                )} MP
+                <span :if={PhoenixKit.Modules.Storage.Shape.classify(f) == :wide}>
+                  · {gettext("Panorama")}
+                </span>
+              </span>
+            </div>
             <div>
               <span class="text-base-content/60">{gettext("Uploaded:")}</span>
               <span class="ml-1">
                 {PhoenixKit.Utils.Date.format_short_datetime(f.inserted_at)}
               </span>
             </div>
+          </div>
+
+          <%!-- The photo's EXIF: camera, exposure, dates and where it was      --%>
+          <%!-- taken. Only where the title editor is offered — it tells where  --%>
+          <%!-- a photo was taken, which a public lightbox must not.            --%>
+          <div
+            :if={f.file_type == "image" and can_edit_media_meta?(@details_path, @edit_target)}
+            class="border-t border-base-300 pt-2"
+          >
+            <PhoenixKitWeb.Components.Core.FileExifPanel.file_exif_panel
+              id={"media-exif-" <> f.file_uuid}
+              exif={@file_exif}
+              latitude={elem(@file_geo, 0)}
+              longitude={elem(@file_geo, 1)}
+              tags={@exif_tags}
+              status={@exif_status}
+              can_read={@file_writable}
+              target={@myself}
+            />
           </div>
 
           <%!-- Comments section — gated on the Comments module being     --%>

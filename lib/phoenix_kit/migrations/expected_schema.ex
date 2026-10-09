@@ -202,6 +202,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V215 (2026-10-09, where a photo was taken) DECLARES three objects:
+  # `column:phoenix_kit_files.latitude` and `…longitude` (double precision, NULL,
+  # positions 40 and 41) and `index:phoenix_kit_files_geo_index` (GiST on
+  # `point(longitude, latitude)`, partial on both being NOT NULL, opclass
+  # `point_ops`), read from a test database migrated through V215. `chain_hash`
+  # restamped over the shipped files.
+  #
   # V214 (2026-10-08, rendition shape) DECLARES one object:
   # `column:phoenix_kit_storage_dimensions.shape` (character varying(255) NOT
   # NULL DEFAULT 'any', position 17), read from a test database migrated through
@@ -564,7 +571,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "9123e9953475bee64410535cbd824f0400bbdb7f5d10ac2b2b42917e190ff55d"
+  @chain_hash "8b01a082f9e3bc9500088a3723fbdb85eb693197cc757cc76b563cc70a7ee5eb"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -2433,6 +2440,57 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         ],
         presence: :required,
         backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_files.latitude",
+        owner: :core,
+        check: {:catalog, %{table: "phoenix_kit_files", column: "latitude", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_files ADD COLUMN IF NOT EXISTS \"latitude\" double precision",
+        since: 215,
+        class: :column,
+        revisions: [{215, %{default: nil, type: "double precision", pos: 40, not_null: false}}],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_files.longitude",
+        owner: :core,
+        check: {:catalog, %{table: "phoenix_kit_files", column: "longitude", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_files ADD COLUMN IF NOT EXISTS \"longitude\" double precision",
+        since: 215,
+        class: :column,
+        revisions: [{215, %{default: nil, type: "double precision", pos: 41, not_null: false}}],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "index:phoenix_kit_files_geo_index",
+        owner: :core,
+        check:
+          {:catalog,
+           %{name: "phoenix_kit_files_geo_index", table: "phoenix_kit_files", kind: :index}},
+        create:
+          "CREATE INDEX IF NOT EXISTS phoenix_kit_files_geo_index ON __SCHEMA__.phoenix_kit_files USING gist (point(longitude, latitude)) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL))",
+        since: 215,
+        class: :index,
+        revisions: [
+          {215,
+           %{
+             table: "phoenix_kit_files",
+             keys: ["point(longitude, latitude)"],
+             unique: false,
+             method: "gist",
+             definition:
+               "CREATE INDEX phoenix_kit_files_geo_index ON __SCHEMA__.phoenix_kit_files USING gist (point(longitude, latitude)) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL))",
+             predicate: "((latitude IS NOT NULL) AND (longitude IS NOT NULL))",
+             opclasses: ["point_ops"],
+             name_template: nil
+           }}
+        ],
+        presence: :required,
+        backfill: nil
       },
       %{
         id: "column:phoenix_kit_storage_dimensions.shape",

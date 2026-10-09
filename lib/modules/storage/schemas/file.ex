@@ -31,6 +31,8 @@ defmodule PhoenixKit.Modules.Storage.File do
   - `size` - File size in bytes
   - `width` - Image/video width in pixels (nullable)
   - `height` - Image/video height in pixels (nullable)
+  - `latitude`, `longitude` - the GPS position from the EXIF, in decimal degrees
+    (nil without one); indexed for map queries by `PhoenixKit.Modules.Storage.Geo`
   - `aspect_ratio` - `width / height`, kept by Postgres (V212; read-only, nil
     without a usable size). The wide/tall filters read it:
     `PhoenixKit.Modules.Storage.Shape`
@@ -116,6 +118,8 @@ defmodule PhoenixKit.Modules.Storage.File do
           width: integer() | nil,
           height: integer() | nil,
           aspect_ratio: float() | nil,
+          latitude: float() | nil,
+          longitude: float() | nil,
           duration: integer() | nil,
           status: String.t(),
           trashed_at: DateTime.t() | nil,
@@ -159,6 +163,11 @@ defmodule PhoenixKit.Modules.Storage.File do
     # any changeset; read back after an insert or update.
     field :aspect_ratio, :float, read_after_writes: true
     field :duration, :integer
+    # Where the photo was taken (V215), from its EXIF GPS: decimal degrees, nil
+    # for a file with none. Columns because a map asks about an area
+    # (`Storage.Geo`); the rest of the EXIF is in `metadata["exif"]`.
+    field :latitude, :float
+    field :longitude, :float
     field :status, :string, default: "processing"
     field :trashed_at, :utc_datetime
     field :metadata, :map
@@ -290,6 +299,8 @@ defmodule PhoenixKit.Modules.Storage.File do
       :width,
       :height,
       :duration,
+      :latitude,
+      :longitude,
       :status,
       :trashed_at,
       :metadata,
@@ -327,6 +338,8 @@ defmodule PhoenixKit.Modules.Storage.File do
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:duration, greater_than: 0)
+    |> validate_number(:latitude, greater_than_or_equal_to: -90, less_than_or_equal_to: 90)
+    |> validate_number(:longitude, greater_than_or_equal_to: -180, less_than_or_equal_to: 180)
     |> validate_inclusion(:taken_at_source, CaptureDate.sources())
     |> validate_system_managed_invariants()
     |> foreign_key_constraint(:user_uuid, name: :fk_files_user_uuid)

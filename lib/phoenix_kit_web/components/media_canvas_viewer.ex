@@ -304,6 +304,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_new(:media_meta_placeholders, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_lang, fn -> nil end)
       |> assign_new(:media_meta_lang_name, fn -> nil end)
+      |> assign_new(:file_exif, fn -> nil end)
+      |> assign_new(:file_geo, fn -> {nil, nil} end)
+      |> assign_new(:exif_tags, fn -> nil end)
+      |> assign_new(:exif_status, fn -> nil end)
       |> assign_new(:media_meta_langs, fn -> [] end)
       |> assign_new(:media_meta_values, fn -> %{} end)
       |> assign_new(:media_details_open, fn -> false end)
@@ -528,6 +532,38 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     {:noreply, assign(socket, :media_details_open, !socket.assigns.media_details_open)}
   end
 
+  # The photo's EXIF. It tells where a photo was taken, so it is offered only
+  # where the title editor is (a host that gave the viewer a road to the metadata
+  # editor); the clauses refuse everyone else, as `save_media_details` does. Reading
+  # records the summary and the position, so it also needs a file the host may write.
+  def handle_event(event, _params, %{assigns: %{details_path: nil, edit_target: nil}} = socket)
+      when event in ["read_exif", "show_exif", "hide_exif"],
+      do: {:noreply, socket}
+
+  def handle_event("read_exif", _params, socket) do
+    with %{file_uuid: uuid} <- socket.assigns.file,
+         %Storage.File{} = row <- Storage.get_file(uuid),
+         true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
+         {:ok, row} <- Storage.read_exif(row) do
+      {:noreply, assign_exif(socket, row)}
+    else
+      _ -> {:noreply, assign(socket, :exif_status, :error)}
+    end
+  end
+
+  def handle_event("show_exif", _params, socket) do
+    with %{file_uuid: uuid} <- socket.assigns.file,
+         {:ok, tags} <- Storage.exif_tags(uuid) do
+      {:noreply, socket |> assign(:exif_tags, tags) |> assign(:exif_status, nil)}
+    else
+      _ -> {:noreply, assign(socket, :exif_status, :error)}
+    end
+  end
+
+  def handle_event("hide_exif", _params, socket) do
+    {:noreply, assign(socket, :exif_tags, nil)}
+  end
+
   # Hosts that never offered the editor: refuse the write outright. The
   # form is only rendered where `can_edit_media_meta?/2` holds, but the
   # sidebar itself renders for anyone who can open the viewer — including
@@ -712,6 +748,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       socket
       |> assign(:file_writable, file_writable?(row, socket.assigns[:write_scope]))
       |> assign(:viewer_rotation, normalize_rotation(Map.get(meta, "rotation")))
+      |> assign_exif(row)
       |> assign_media_meta(row, content_language())
       |> assign(:media_meta_status, nil)
 
@@ -725,6 +762,24 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_media_meta(nil, nil)
       |> assign(:media_details_open, false)
       |> assign(:media_meta_status, nil)
+  end
+
+  # The photo's recorded EXIF and position (`nil` EXIF: never read), and the
+  # whole-dump view closed.
+  defp assign_exif(socket, %Storage.File{} = row) do
+    socket
+    |> assign(:file_exif, (row.metadata || %{})["exif"])
+    |> assign(:file_geo, {row.latitude, row.longitude})
+    |> assign(:exif_tags, nil)
+    |> assign(:exif_status, nil)
+  end
+
+  defp assign_exif(socket, _row) do
+    socket
+    |> assign(:file_exif, nil)
+    |> assign(:file_geo, {nil, nil})
+    |> assign(:exif_tags, nil)
+    |> assign(:exif_status, nil)
   end
 
   # The language the text is read and saved in: the page's own. A
