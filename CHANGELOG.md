@@ -29,10 +29,14 @@ Migration **V215** (run `mix phoenix_kit.update`). It adds two nullable columns 
 
 - **A tag a camera writes badly can no longer stop an upload or break the viewer.** A number of hundreds of
   digits, a GPS date or time that is not a date or a time, and text in a legacy encoding (not UTF-8, which
-  JSON cannot store) were read as-is; the first two raised in the upload job and in "All EXIF", the last
-  made the summary unwritable. Numbers are bounded, a GPS timestamp must be a real date and time, and bytes
+  JSON cannot store) were read as-is; oversized numbers raised in the upload job and in "All EXIF", invalid
+  timestamps were stored, and invalid text made the summary unwritable. Numbers, including exposure-time
+  fractions, are bounded, a GPS timestamp must be a real calendar date and time, and bytes
   that are not valid UTF-8 are dropped where the tags are read (`CaptureDate.parse_exif_properties/1`).
 - **`Geo.parse_bounds/1` no longer raises on a coordinate of hundreds of digits** (it reaches a URL).
+- **Map bounds wrap correctly after panning several worlds west**, including boxes crossing the antimeridian.
+- **Saving a language form preserves newer edits to untouched fields.** Both editors compare with the text
+  the form initially showed; correcting a validation error also keeps the other changes awaiting save.
 - **`FileDetails.by_language/3` drops a value that is not text** (a client can post a nested map), instead of
   putting it in the form to render.
 

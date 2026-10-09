@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
   """
   use PhoenixKitWeb.ConnCase, async: false
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -185,6 +186,98 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetailDetailsTest do
     assert html =~ "Estonian"
     assert html =~ "should be at most 255"
     assert Repo.reload!(file).data == %{"en" => %{"title" => "Harbour"}}
+  end
+
+  test "an untouched language in the form keeps another editor's newer text", %{
+    conn: conn,
+    user: user
+  } do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    {:ok, _} =
+      Storage.update_file_details(file, %{"title" => "Sadam 2"}, lang: "et", primary: "en")
+
+    save(view, %{"en" => %{"title" => "Changed"}})
+
+    assert Repo.reload!(file).data == %{
+             "en" => %{"title" => "Changed"},
+             "et" => %{"title" => "Sadam 2"}
+           }
+  end
+
+  test "correcting an invalid language also saves changes kept from the first attempt", %{
+    conn: conn,
+    user: user
+  } do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    save(view, %{
+      "en" => %{"title" => "Changed"},
+      "et" => %{"title" => String.duplicate("a", 256)}
+    })
+
+    view
+    |> form("form[phx-submit=save_metadata]", %{"details" => %{"et" => %{"title" => "Sadam"}}})
+    |> render_submit()
+
+    assert Repo.reload!(file).data == %{
+             "en" => %{"title" => "Changed"},
+             "et" => %{"title" => "Sadam"}
+           }
+  end
+
+  test "an untouched empty translation preserves text added after the form loaded", %{
+    conn: conn,
+    user: user
+  } do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}})
+    {:ok, view, _html} = live(conn, Routes.path("/admin/media/#{file.uuid}"))
+
+    {:ok, _} = Storage.update_file_details(file, %{"title" => "Sadam"}, lang: "et", primary: "en")
+    save(view, %{"en" => %{"title" => "Changed"}})
+
+    assert Repo.reload!(file).data == %{
+             "en" => %{"title" => "Changed"},
+             "et" => %{"title" => "Sadam"}
+           }
+  end
+
+  test "the viewer compares posted text with its initial form values", %{user: user} do
+    file = image!(user, data: %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam"}})
+
+    socket = %Phoenix.LiveView.Socket{
+      assigns: %{
+        __changed__: %{},
+        id: "mcv-stale",
+        file: %{file_uuid: file.uuid},
+        details_path: "/admin/media/x",
+        edit_target: nil,
+        write_scope: nil,
+        media_meta_lang: "en",
+        media_meta_langs: [%{code: "en"}, %{code: "et"}],
+        media_meta_values: %{"en" => %{title: "Harbour"}, "et" => %{title: "Sadam"}},
+        media_meta_status_token: 0
+      }
+    }
+
+    {:ok, _} =
+      Storage.update_file_details(file, %{"title" => "Sadam 2"}, lang: "et", primary: "en")
+
+    {:noreply, socket} =
+      MediaCanvasViewer.handle_event(
+        "save_media_details",
+        %{"details" => %{"en" => %{"title" => "Changed"}, "et" => %{"title" => "Sadam"}}},
+        socket
+      )
+
+    assert socket.assigns.media_meta_status == :saved
+
+    assert Repo.reload!(file).data == %{
+             "en" => %{"title" => "Changed"},
+             "et" => %{"title" => "Sadam 2"}
+           }
   end
 
   # The viewer sidebar is a LiveComponent nested in other LiveComponents: it

@@ -100,7 +100,7 @@ defmodule PhoenixKitWeb.Components.Core.FileDetailsFields do
             value={own.title}
             aria-label={gettext("Title")}
             placeholder={placeholder(@placeholders.title, gettext("Title"))}
-            class="input input-bordered input-sm w-full"
+            class="input input-sm w-full"
           />
         </label>
         <label :if={@show_alt} class="block">
@@ -114,7 +114,7 @@ defmodule PhoenixKitWeb.Components.Core.FileDetailsFields do
             value={own.alt}
             aria-label={gettext("Alt text")}
             placeholder={placeholder(@placeholders.alt, gettext("Alt text"))}
-            class="input input-bordered input-sm w-full"
+            class="input input-sm w-full"
           />
         </label>
         <label class="block">
@@ -127,7 +127,7 @@ defmodule PhoenixKitWeb.Components.Core.FileDetailsFields do
             aria-label={gettext("Description")}
             placeholder={placeholder(@placeholders.description, gettext("Description"))}
             rows="3"
-            class="textarea textarea-bordered textarea-sm w-full"
+            class="textarea textarea-sm w-full"
           >{own.description}</textarea>
         </label>
       </div>

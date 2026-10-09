@@ -72,11 +72,25 @@ defmodule PhoenixKit.Integration.Storage.FileDetailsLanguagesTest do
     assert {:ok, row} =
              Storage.update_file_details_languages(
                file,
-               %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam 2"}},
+               %{"en" => %{"title" => "Harbour"}, "et" => %{"title" => "Sadam"}},
                @opts
              )
 
     assert row.data["et"] == %{"title" => "Sadam 2"}
+  end
+
+  test "editing one field preserves another field saved after the form loaded" do
+    file = file!(data: %{"en" => %{"title" => "Harbour", "description" => "Old"}})
+    {:ok, _} = Storage.update_file_details(file, %{"description" => "New"}, @opts)
+
+    assert {:ok, row} =
+             Storage.update_file_details_languages(
+               file,
+               %{"en" => %{"title" => "Changed", "description" => "Old"}},
+               @opts
+             )
+
+    assert row.data["en"] == %{"title" => "Changed", "description" => "New"}
   end
 
   test "an invalid language saves none, and names the language" do

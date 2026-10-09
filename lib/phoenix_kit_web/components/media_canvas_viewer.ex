@@ -604,7 +604,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
          # The boundary, on the row as it is NOW: the form is only offered
          # for a writable file, but a hidden form is not a boundary.
          true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
-         {:ok, row} <- Storage.update_file_details_languages(row, by_lang) do
+         {:ok, row} <-
+           Storage.update_file_details_languages(row, by_lang,
+             original_values: socket.assigns[:media_meta_values]
+           ) do
       token = (socket.assigns[:media_meta_status_token] || 0) + 1
 
       Phoenix.LiveView.send_update_after(

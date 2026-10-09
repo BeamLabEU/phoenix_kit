@@ -223,6 +223,11 @@ defmodule PhoenixKit.Integration.Storage.ExifGeoTest do
     test "no bounds lists everything, a file with no position included" do
       assert "nowhere" in names([])
     end
+
+    test "a box panned several worlds west finds the same photos" do
+      assert names(bounds: {-20.0, -550.0, -10.0, -530.0}) == ["fiji_east", "fiji_west"]
+      assert names(bounds: {46.0, -706.0, 48.0, -704.0}) == ["graz"]
+    end
   end
 
   describe "Geo.parse_bounds/1" do

@@ -183,6 +183,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
       )
 
     case Storage.update_file_details_languages(socket.assigns.file, by_lang,
+           original_values: socket.assigns.details_original_values,
            metadata: %{"tags" => tags}
          ) do
       {:ok, file} ->
@@ -482,6 +483,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     |> assign(:details_lang_name, FileDetails.language_name(lang))
     |> assign(:details_langs, tabs)
     |> assign(:details_values, values)
+    |> assign(:details_original_values, values)
     |> assign(:details, FileDetails.for_locale(file, lang, opts))
     |> assign(
       :details_placeholders,

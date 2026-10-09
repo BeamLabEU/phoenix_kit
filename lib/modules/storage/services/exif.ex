@@ -207,7 +207,8 @@ defmodule PhoenixKit.Modules.Storage.Exif do
     with [_, y, m, d] <- Regex.run(~r/^(\d{4}):(\d{2}):(\d{2})$/, date || ""),
          [h, mi, s] <- String.split(time || "", ",") |> Enum.map(&number/1),
          true <- Enum.all?([h, mi, s], &is_number/1),
-         true <- h >= 0 and h < 24 and mi >= 0 and mi < 60 and s >= 0 and s < 61 do
+         true <- h >= 0 and h < 24 and mi >= 0 and mi < 60 and s >= 0 and s < 60,
+         {:ok, _date} <- Date.from_iso8601("#{y}-#{m}-#{d}") do
       "#{y}-#{m}-#{d}T#{pad(trunc(h))}:#{pad(trunc(mi))}:#{pad(trunc(s))}Z"
     else
       _ -> nil
@@ -240,7 +241,7 @@ defmodule PhoenixKit.Modules.Storage.Exif do
 
   defp exposure_time(value) do
     case Regex.run(~r/^(\d+)\/(\d+)$/, value) do
-      [_, n, d] ->
+      [_, n, d] when byte_size(n) <= 15 and byte_size(d) <= 15 ->
         {n, d} = {String.to_integer(n), String.to_integer(d)}
 
         cond do
@@ -248,6 +249,9 @@ defmodule PhoenixKit.Modules.Storage.Exif do
           rem(n, d) == 0 -> Integer.to_string(div(n, d))
           true -> reduced(n, d)
         end
+
+      [_, _n, _d] ->
+        nil
 
       _ ->
         text(value)

@@ -204,6 +204,13 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
       assert value =~ "999999999999999"
     end
 
+    test "exposure fractions with oversized parts are dropped without raising" do
+      for value <- [@huge <> "/2", "2/" <> @huge] do
+        assert Exif.summary(%{"ExposureTime" => value}) == %{}
+        assert is_list(Exif.groups(%{"ExposureTime" => value}))
+      end
+    end
+
     test "text that is not UTF-8 is cleaned and the summary encodes as JSON" do
       summary = Exif.summary(%{"Make" => "Ca" <> <<0xE9>> <> "non", "Model" => <<0xC4, 0xE0>>})
 
@@ -223,6 +230,10 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
       refute Map.has_key?(gps.("ab:cd:ef", "1/1,2/1,3/1"), "timestamp")
       refute Map.has_key?(gps.("2026:10:05", "25/1,0/1,0/1"), "timestamp")
       refute Map.has_key?(gps.("2026:10:05", "1/1,2/1," <> @huge <> "/1"), "timestamp")
+      refute Map.has_key?(gps.("2026:02:30", "1/1,2/1,3/1"), "timestamp")
+      refute Map.has_key?(gps.("2026:13:05", "1/1,2/1,3/1"), "timestamp")
+      refute Map.has_key?(gps.("2026:10:05", "1/1,2/1,60/1"), "timestamp")
+      assert gps.("2024:02:29", "1/1,2/1,3/1")["timestamp"] == "2024-02-29T01:02:03Z"
     end
   end
 end

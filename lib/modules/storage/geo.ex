@@ -78,8 +78,10 @@ defmodule PhoenixKit.Modules.Storage.Geo do
   defp clamp(value, low, high), do: value |> max(low) |> min(high) |> Kernel.*(1.0)
 
   # A longitude past ±180 (a map panned around the world) is the same place.
-  defp wrap(lon) when lon > 180 or lon < -180,
-    do: Float.round(:math.fmod(lon + 540.0, 360.0) - 180.0, 9)
+  defp wrap(lon) when lon > 180 or lon < -180 do
+    remainder = :math.fmod(lon + 180.0, 360.0)
+    Float.round(if(remainder < 0, do: remainder + 360.0, else: remainder) - 180.0, 9)
+  end
 
   defp wrap(lon), do: lon * 1.0
 

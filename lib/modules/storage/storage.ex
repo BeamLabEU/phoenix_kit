@@ -3799,15 +3799,18 @@ defmodule PhoenixKit.Modules.Storage do
   from a form with a block per language.
 
   One held write: the row is re-read and locked, each language's text is
-  replaced (and only those languages: one whose posted text is what it already
-  holds is left as it is, so another editor's later save of it survives), and
+  replaced (only fields changed from the supplied file's snapshot, so another
+  editor's later save of an untouched field survives), and
   the `:metadata` option's keys are set in the same write. All of it or none.
 
   Returns `{:ok, file}`, `{:error, {language, changeset}}` for the first
   language whose text is invalid, or `{:error, :not_found}`.
+
+  `:original_values` may supply the form's initial `%{language => %{title:, alt:,
+  description:}}` values when the supplied file was reloaded after rendering.
   """
   def update_file_details_languages(
-        %PhoenixKit.Modules.Storage.File{uuid: uuid},
+        %PhoenixKit.Modules.Storage.File{uuid: uuid} = file,
         by_lang,
         opts \\ []
       )
@@ -3816,7 +3819,7 @@ defmodule PhoenixKit.Modules.Storage do
 
     repo().transaction(fn ->
       with %PhoenixKit.Modules.Storage.File{} = row <- lock_file_row(uuid),
-           {:ok, row} <- put_languages(row, by_lang, opts),
+           {:ok, row} <- put_languages(row, file, by_lang, opts),
            {:ok, row} <- put_extra_metadata(row, opts) do
         row
       else
@@ -3934,11 +3937,22 @@ defmodule PhoenixKit.Modules.Storage do
 
   # Every language that has something new, in order, each on the row the one
   # before left; the languages are written in the sorted order of their codes.
-  defp put_languages(row, by_lang, opts) do
+  defp put_languages(row, original, by_lang, opts) do
     by_lang
     |> Enum.sort_by(&elem(&1, 0))
     |> Enum.reduce_while({:ok, row}, fn {lang, attrs}, {:ok, current} ->
-      changeset = current |> FileDetails.from_file(lang, opts) |> FileDetails.changeset(attrs)
+      initial =
+        case get_in(opts, [:original_values, lang]) do
+          %{} = values ->
+            %FileDetails{}
+            |> FileDetails.changeset(Map.take(values, [:title, :alt, :description]))
+            |> Ecto.Changeset.apply_changes()
+
+          _ ->
+            FileDetails.from_file(original, lang, opts)
+        end
+
+      changeset = FileDetails.changeset(initial, attrs)
 
       cond do
         not changeset.valid? ->
@@ -3948,7 +3962,10 @@ defmodule PhoenixKit.Modules.Storage do
           {:cont, {:ok, current}}
 
         true ->
-          case put_file_details(current, attrs, lang, Keyword.delete(opts, :metadata)) do
+          changed =
+            Map.new(changeset.changes, fn {key, value} -> {Atom.to_string(key), value} end)
+
+          case put_file_details(current, changed, lang, Keyword.delete(opts, :metadata)) do
             {:ok, updated} -> {:cont, {:ok, updated}}
             {:error, changeset} -> {:halt, {:error, {lang, changeset}}}
           end
