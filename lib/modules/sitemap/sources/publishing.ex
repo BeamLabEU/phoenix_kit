@@ -12,8 +12,11 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   - Group listing: `/{prefix}/{lang}/{group_slug}` (non-default language)
 
   For slug mode posts:
-  - `/{prefix}/{group_slug}/{post_slug}` (default language)
-  - `/{prefix}/{lang}/{group_slug}/{post_slug}` (non-default language)
+  - `/{prefix}/{group_slug}/{url_slug}` (default language)
+  - `/{prefix}/{lang}/{group_slug}/{url_slug}` (non-default language)
+
+  `url_slug` is the slug of that language's translation (`language_slugs`),
+  the post slug when the translation has none of its own.
 
   For timestamp mode posts:
   - Single post on date: `/{prefix}/{group_slug}/{date}` (e.g., /blog/2025-12-09)
@@ -43,7 +46,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
             [
               {PhoenixKit.Modules.Publishing, :enabled?, 0},
               {PhoenixKit.Modules.Publishing, :list_groups, 0},
-              {PhoenixKit.Modules.Publishing, :list_posts, 2}
+              {PhoenixKit.Modules.Publishing, :list_posts, 2},
+              {PhoenixKit.Modules.Publishing.LanguageHelpers, :resolve_language_key, 2}
             ]}
 
   require Logger
@@ -54,6 +58,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
   alias PhoenixKit.Modules.Sitemap.UrlEntry
 
   @publishing_mod PhoenixKit.Modules.Publishing
+  @language_helpers PhoenixKit.Modules.Publishing.LanguageHelpers
 
   # Future: Hook into Publishing post creation/update to invalidate sitemap-publishing
 
@@ -263,9 +268,22 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     end)
   end
 
-  defp build_post_entry(post, group_slug, group_name, language, is_default, base_url, date_counts) do
-    # Canonical path without language prefix (for hreflang grouping)
-    canonical_path = build_post_path(post, group_slug, nil, true, date_counts)
+  @doc false
+  @spec build_post_entry(
+          map(),
+          String.t(),
+          String.t(),
+          String.t() | nil,
+          boolean(),
+          String.t() | nil,
+          map()
+        ) ::
+          UrlEntry.t()
+  def build_post_entry(post, group_slug, group_name, language, is_default, base_url, date_counts) do
+    # Canonical path without language prefix (for hreflang grouping). It is
+    # only a grouping key, so it keeps the post's own slug: every language's
+    # entry of one post must land in the same group.
+    canonical_path = build_post_path(post, group_slug, :canonical, true, date_counts)
     path = build_post_path(post, group_slug, language, is_default, date_counts)
     url = build_url(path, base_url)
 
@@ -296,21 +314,67 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
         if post_count > 1 do
           # Multiple posts on this date - include time
           time = extract_time_for_url(post)
-          build_group_path([group_slug, date, time], language, is_default)
+          build_group_path([group_slug, date, time], path_language(language), is_default)
         else
           # Single post on this date - date only
-          build_group_path([group_slug, date], language, is_default)
+          build_group_path([group_slug, date], path_language(language), is_default)
         end
 
-      :slug ->
-        # For slug mode, use the post slug
-        post_slug = post.slug || extract_slug_from_path(post.path)
-        build_group_path([group_slug, post_slug], language, is_default)
-
       _ ->
-        # Fallback to slug mode behavior
-        post_slug = post.slug || extract_slug_from_path(post.path)
-        build_group_path([group_slug, post_slug], language, is_default)
+        # Slug mode (and the fallback for any other mode): the language's own
+        # url_slug, the address the post page itself canonicalises to.
+        post_slug = post_slug_for_language(post, language)
+        build_group_path([group_slug, post_slug], path_language(language), is_default)
+    end
+  end
+
+  defp path_language(:canonical), do: nil
+  defp path_language(language), do: language
+
+  @doc false
+  # The URL slug of `post` in `language`, resolved the way Publishing resolves
+  # it for the page's own canonical and hreflang links: `language_slugs`
+  # (one entry per translation, already falling back to the post slug when a
+  # translation has no url_slug of its own) keyed by full dialect code, with a
+  # base code ("en") matched to its dialect ("en-GB"). `nil` is the default
+  # language; `:canonical` is the language-independent grouping key.
+  @spec post_slug_for_language(map(), String.t() | nil | :canonical) :: String.t() | nil
+  def post_slug_for_language(post, :canonical), do: base_post_slug(post)
+
+  def post_slug_for_language(post, language) do
+    language_slugs = Map.get(post, :language_slugs)
+    language = language || get_default_language()
+
+    with true <- is_map(language_slugs) and map_size(language_slugs) > 0,
+         key when is_binary(key) <- resolve_language_key(language, Map.keys(language_slugs)),
+         slug when slug not in [nil, ""] <- Map.get(language_slugs, key) do
+      slug
+    else
+      _ -> base_post_slug(post)
+    end
+  end
+
+  defp base_post_slug(post) do
+    Map.get(post, :slug) || extract_slug_from_path(Map.get(post, :path))
+  end
+
+  # Publishing's own resolver (same tie-break as the page: primary language,
+  # then enabled dialects). It is always loaded when this source collects —
+  # `enabled?/0` requires Publishing — so the exact-or-base-code match below
+  # only serves calls without Publishing, such as core's own tests.
+  defp resolve_language_key(language, keys) do
+    if Code.ensure_loaded?(@language_helpers) and
+         function_exported?(@language_helpers, :resolve_language_key, 2) do
+      @language_helpers.resolve_language_key(language, keys)
+    else
+      down = String.downcase(language)
+      base = Languages.DialectMapper.extract_base(language)
+
+      Enum.find(keys, &(String.downcase(&1) == down)) ||
+        keys
+        |> Enum.filter(&(Languages.DialectMapper.extract_base(&1) == base))
+        |> Enum.sort()
+        |> List.first()
     end
   end
 
@@ -377,6 +441,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
         "00:00"
     end
   end
+
+  defp extract_slug_from_path(nil), do: nil
 
   defp extract_slug_from_path(path) do
     path
