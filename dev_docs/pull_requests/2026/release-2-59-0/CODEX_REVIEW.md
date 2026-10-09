@@ -53,7 +53,15 @@ not exist in daisyUI 5, as required by the workspace conventions.
   all seven release checks, and package cleanup.
 - Final `mix precommit`: passed, including compilation of the test tree, format, Credo, Dialyzer,
   and all 345 JavaScript tests.
-- Final full database suite and prerelease gate: pending completion.
+- Final `PGPOOL=20 mix test --max-cases 8`: passed with 87 doctests, 8997 tests, zero failures,
+  and 10 skipped tests (including one excluded because the test account lacks `CREATEROLE`).
+  Integration tests were enabled, including V215 and the full migration chain into a named schema.
+- Final `mix prerelease`: passed against the clean code commit `6b1011339`, including the production
+  compile, quality checks, dependency audits, documentation, package build, and all seven release checks.
+  No vulnerabilities or retired/security-advisory packages; the generated tarball was cleaned.
+  ExDoc emitted existing documentation-reference warnings, which do not fail the gate.
+
+The subsequent validation-record commit changes only this review document; release code is unchanged.
 
 ## Remaining limitations
 
