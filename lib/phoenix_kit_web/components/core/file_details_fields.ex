@@ -17,8 +17,7 @@ defmodule PhoenixKitWeb.Components.Core.FileDetailsFields do
   only a placeholder, so an untouched language is not saved as a copy of it.
   A tab whose language has no text yet carries a dot.
 
-  Used by the viewer's sidebar and the admin detail page, which is why it is
-  one component: the two editors write the same text.
+  Used by the viewer's sidebar, the one place a file's text is edited.
   """
 
   use Phoenix.Component

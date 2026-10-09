@@ -22,10 +22,12 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
 
     {:ok, own} = Roles.create_role(%{name: "Own media #{n}"})
     {:ok, _} = Permissions.grant_permission(own.uuid, "media")
+    {:ok, _} = Permissions.grant_permission(own.uuid, "media.manage")
 
     {:ok, editor_role} = Roles.create_role(%{name: "Editors #{n}"})
     {:ok, _} = Permissions.grant_permission(editor_role.uuid, "media")
     {:ok, _} = Permissions.grant_permission(editor_role.uuid, "media.view_all")
+    {:ok, _} = Permissions.grant_permission(editor_role.uuid, "media.manage")
 
     alice = user!(own, "alice")
     bob = user!(own, "bob")
@@ -282,7 +284,7 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
     end
   end
 
-  describe "the file's own page" do
+  describe "the file's storage page" do
     test "is not found for someone else's file; found for her own and for an editor", %{
       conn: conn,
       alice: alice,
@@ -291,17 +293,19 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
       a1: a1,
       b1: b1
     } do
-      {:ok, _view, html} = live(log_in_user(conn, alice), Routes.path("/admin/media/#{b1.uuid}"))
-      assert html =~ "File Not Found"
+      {:ok, _view, html} =
+        live(log_in_user(conn, alice), Routes.path("/admin/media/#{b1.uuid}/storage"))
+
+      assert html =~ "File not found"
       refute html =~ "BOB-EVENTS-#{n}"
 
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), alice), Routes.path("/admin/media/#{a1.uuid}"))
+        live(log_in_user(build_conn(), alice), Routes.path("/admin/media/#{a1.uuid}/storage"))
 
       assert html =~ "ALICE-EVENTS-#{n}"
 
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), editor), Routes.path("/admin/media/#{b1.uuid}"))
+        live(log_in_user(build_conn(), editor), Routes.path("/admin/media/#{b1.uuid}/storage"))
 
       assert html =~ "BOB-EVENTS-#{n}"
     end

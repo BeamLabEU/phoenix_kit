@@ -2345,6 +2345,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Users.Sessions => "users",
     PhoenixKitWeb.Live.Users.Media => "media",
     PhoenixKitWeb.Live.Users.MediaDetail => "media",
+    PhoenixKitWeb.Live.Users.MediaStorage => "media.manage",
     PhoenixKitWeb.Live.Users.MediaSelector => "media",
     PhoenixKitWeb.Live.Users.Libraries => "storage",
     PhoenixKitWeb.Live.Settings => "settings",

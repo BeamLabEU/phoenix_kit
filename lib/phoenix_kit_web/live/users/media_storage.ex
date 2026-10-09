@@ -1,0 +1,492 @@
+defmodule PhoenixKitWeb.Live.Users.MediaStorage do
+  @moduledoc """
+  How one media file is stored: `/admin/media/:file_uuid/storage`.
+
+  The picture, its title and its comments live in the media view
+  (`/admin/media?file=<uuid>`); this page is for the backend of the same file:
+  the checksum of its original, every rendition the file's variant set wants
+  and which of them are there, the buckets holding each object, and the actions
+  that put it right (verify the copies against their checksums, make the
+  missing renditions again, restore or drop the unedited original).
+
+  The report is `PhoenixKit.Modules.Storage.FileReport`. Reading and checking
+  copies can take a while (a cloud bucket, a video), so verifying and repairing
+  run as async tasks and the page shows their progress.
+
+  Gated by `media.manage`, like the other storage administration screens. A
+  holder who is not allowed to see the file (someone else's file in a library
+  they are not in, or without `media.view_all`) gets "not found".
+  """
+  use PhoenixKitWeb, :live_view
+
+  require Logger
+
+  alias PhoenixKit.AuditLog
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.FileReport
+  alias PhoenixKit.Modules.Storage.ImageEditing
+  alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.Reconciler
+  alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Modules.Storage.VariantGenerator
+  alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Format
+  alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.FileController
+  alias PhoenixKitWeb.Live.Users.Media
+  alias PhoenixKitWeb.Live.Users.MediaDetail
+
+  def mount(params, _session, socket) do
+    file_uuid =
+      case Ecto.UUID.cast(params["file_uuid"] || "") do
+        {:ok, uuid} -> uuid
+        :error -> nil
+      end
+
+    # An edit or a repair renders in the background; the result arrives as a
+    # storage file event.
+    if connected?(socket) and file_uuid, do: Storage.subscribe_to_file_events()
+
+    socket =
+      socket
+      |> assign(:client_ip, IpAddress.extract_from_socket(socket))
+      |> assign(:user_agent, connected_user_agent(socket))
+      |> assign(:page_title, gettext("Storage"))
+      |> assign(
+        :project_title,
+        Settings.get_settings_cached(["project_title"], %{
+          "project_title" => PhoenixKit.Config.get(:project_title, "PhoenixKit")
+        })["project_title"]
+      )
+      |> assign(:current_locale, params["locale"] || socket.assigns[:current_locale])
+      |> assign(:file_uuid, file_uuid)
+      |> assign(:working, nil)
+      |> assign(:verification, nil)
+      |> load(file_uuid)
+
+    {:ok, socket}
+  end
+
+  # ──────────────────────────────────────────────────────────────
+  # Loading
+  # ──────────────────────────────────────────────────────────────
+
+  defp load(socket, nil), do: not_found(socket)
+
+  defp load(socket, file_uuid) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    case PhoenixKit.Config.get_repo().get(StorageFile, file_uuid) do
+      %StorageFile{} = file ->
+        if visible?(scope, file) do
+          socket |> audit_admin_opening(file) |> assign_report(file)
+        else
+          not_found(socket)
+        end
+
+      nil ->
+        not_found(socket)
+    end
+  end
+
+  # The page is gated by a permission, which must not open a user library
+  # (the same read check as the file info API), nor a site library's file a
+  # restricted viewer did not upload.
+  defp visible?(scope, file) do
+    if Libraries.private_file?(file),
+      do: Libraries.can?(scope, file, :read),
+      else: Storage.viewer_can_see_file?(Media.restricted_viewer(scope), file)
+  end
+
+  defp not_found(socket) do
+    assign(socket,
+      file: nil,
+      rows: [],
+      problems: [],
+      backup: nil,
+      can_manage: false,
+      header_title: gettext("Storage"),
+      header_section: gettext("Media"),
+      header_section_path: Routes.path("/admin/media"),
+      header_crumbs: []
+    )
+  end
+
+  defp assign_report(socket, file) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    rows = FileReport.renditions(file)
+    {section, section_path, crumbs} = MediaDetail.trail(file, scope)
+
+    socket
+    |> assign(:file, file)
+    |> assign(:rows, rows)
+    |> assign(:problems, FileReport.problems(rows))
+    |> assign(:uploader, uploader_name(file.user_uuid))
+    |> assign(:backup, backup_report(file))
+    |> assign(:preview_url, preview_url(file))
+    |> assign(:view_path, MediaDetail.view_path(file, scope))
+    |> assign(:can_manage, Scope.can?(scope, "media.manage"))
+    |> assign(:header_title, gettext("Storage"))
+    |> assign(:header_section, section)
+    |> assign(:header_section_path, Routes.path(section_path))
+    |> assign(
+      :header_crumbs,
+      crumbs ++ [%{label: filename(file), path: MediaDetail.view_path(file, scope)}]
+    )
+  end
+
+  @doc false
+  def filename(file), do: file.original_file_name || file.file_name || gettext("Unnamed file")
+
+  defp uploader_name(nil), do: nil
+
+  defp uploader_name(user_uuid) do
+    case PhoenixKit.Config.get_repo().get(PhoenixKit.Config.get_users_module(), user_uuid) do
+      nil -> nil
+      user -> user.email
+    end
+  end
+
+  # An edited image keeps its unedited original as a hidden child file; what is
+  # known of it is shown here, and whether the edit is still rendering.
+  defp backup_report(file) do
+    with true <- ImageEditing.edited?(file),
+         %StorageFile{} = backup <- ImageEditing.backup(file) do
+      instance = Storage.get_file_instance_by_name(backup.uuid, "original")
+      rows = FileReport.renditions(backup)
+
+      %{file: backup, instance: instance, copies: rows |> List.first() |> Map.get(:copies, [])}
+    else
+      _ -> nil
+    end
+  end
+
+  defp preview_url(file) do
+    instance =
+      Storage.get_file_instance_by_name(file.uuid, "thumbnail") ||
+        Storage.get_file_instance_by_name(file.uuid, "original")
+
+    instance &&
+      file.file_type == "image" &&
+      URLSigner.signed_url(file.uuid, instance.variant_name,
+        version: instance,
+        private: Libraries.private_file?(file)
+      )
+  end
+
+  defp connected_user_agent(socket) do
+    if connected?(socket), do: get_connect_info(socket, :user_agent)
+  rescue
+    _ -> nil
+  end
+
+  # An Owner/Admin opening a file of someone's user library, as neither its
+  # uploader nor one of the library's people: written to the audit log once per
+  # page, the same as opening the library at `/admin/libraries/<uuid>`.
+  defp audit_admin_opening(%{assigns: %{audited_opening: true}} = socket, _file), do: socket
+
+  defp audit_admin_opening(socket, file) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    user_uuid = Scope.user_uuid(scope)
+
+    with true <- connected?(socket) and Libraries.private_file?(file),
+         true <- to_string(file.user_uuid) != user_uuid,
+         %{} = library <- Libraries.get_library(file.library_uuid),
+         nil <- Libraries.role(library, user_uuid) do
+      AuditLog.create_log_entry(%{
+        admin_user_uuid: user_uuid,
+        target_user_uuid: library.owner_uuid,
+        action: "storage.library_opened",
+        ip_address: socket.assigns[:client_ip] || IpAddress.extract_from_socket(socket),
+        user_agent: socket.assigns[:user_agent],
+        metadata: %{
+          "library_uuid" => library.uuid,
+          "library_name" => library.name,
+          "file_uuid" => file.uuid
+        }
+      })
+
+      assign(socket, :audited_opening, true)
+    else
+      _ -> socket
+    end
+  rescue
+    error ->
+      Logger.error("MediaStorage: audit entry failed: #{Exception.message(error)}")
+      socket
+  catch
+    # A dead pool exits rather than raises; the page must still show.
+    :exit, reason ->
+      Logger.error("MediaStorage: audit entry failed: #{inspect(reason)}")
+      socket
+  end
+
+  # ──────────────────────────────────────────────────────────────
+  # Events
+  # ──────────────────────────────────────────────────────────────
+
+  # Every event below changes storage or reads every copy back: refused
+  # unless the viewer may manage media storage (the buttons are not drawn for
+  # anyone else, but a hidden button is not a boundary).
+  def handle_event(_event, _params, %{assigns: %{file: nil}} = socket), do: {:noreply, socket}
+
+  def handle_event(_event, _params, %{assigns: %{can_manage: false}} = socket),
+    do: {:noreply, put_flash(socket, :error, gettext("You may not change storage."))}
+
+  def handle_event(_event, _params, %{assigns: %{working: working}} = socket)
+      when not is_nil(working),
+      do: {:noreply, put_flash(socket, :info, gettext("Something is already running."))}
+
+  def handle_event("verify", _params, socket) do
+    file = socket.assigns.file
+
+    {:noreply,
+     socket
+     |> assign(:working, :verify)
+     |> assign(:verification, nil)
+     |> start_async(:verify, fn -> FileReport.verify(file) end)}
+  end
+
+  # The reconciler's own pass for this file: makes the sizes it lacks (or has
+  # made from another spec), puts copies where its storage profile wants them.
+  def handle_event("repair", _params, socket) do
+    file = socket.assigns.file
+
+    {:noreply,
+     socket
+     |> assign(:working, :repair)
+     |> start_async(:repair, fn -> Reconciler.reconcile_file(file) end)}
+  end
+
+  def handle_event("make", %{"name" => name}, socket) do
+    file = socket.assigns.file
+
+    case Enum.find(VariantGenerator.expected_variants(file), fn {_d, n, _f} -> n == name end) do
+      {dimension, name, format} ->
+        {:noreply,
+         socket
+         |> assign(:working, {:make, name})
+         |> start_async(:make, fn ->
+           VariantGenerator.generate_variant(file, dimension, name, format)
+         end)}
+
+      nil ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("regenerate_all", _params, socket) do
+    file = socket.assigns.file
+
+    {:noreply,
+     socket
+     |> assign(:working, :regenerate)
+     |> start_async(:regenerate, fn -> VariantGenerator.generate_variants(file) end)}
+  end
+
+  def handle_event("revert", _params, socket) do
+    {:noreply, after_edit_action(socket, ImageEditing.revert(socket.assigns.file, auth(socket)))}
+  end
+
+  def handle_event("retry_edit", _params, socket) do
+    {:noreply, after_edit_action(socket, ImageEditing.retry(socket.assigns.file, auth(socket)))}
+  end
+
+  def handle_event("delete_unedited", _params, socket) do
+    result = ImageEditing.delete_unedited_original(socket.assigns.file, auth(socket))
+    {:noreply, after_edit_action(socket, result)}
+  end
+
+  defp auth(socket), do: [scope: socket.assigns[:phoenix_kit_current_scope]]
+
+  defp after_edit_action(socket, {:ok, _file}), do: reload(socket)
+
+  defp after_edit_action(socket, {:error, reason}),
+    do: put_flash(socket, :error, edit_error(reason))
+
+  defp edit_error(:forbidden), do: gettext("You may not change this image.")
+  defp edit_error(:not_edited), do: gettext("This image has not been edited.")
+  defp edit_error(:edit_in_progress), do: gettext("An edit is being applied. Try again shortly.")
+
+  defp edit_error({:annotated, _count}),
+    do: gettext("This image has annotations; restoring would move them.")
+
+  defp edit_error(_reason), do: gettext("The change could not be made.")
+
+  # ──────────────────────────────────────────────────────────────
+  # Async results and storage events
+  # ──────────────────────────────────────────────────────────────
+
+  def handle_async(:verify, {:ok, results}, socket) do
+    {:noreply, socket |> assign(:working, nil) |> assign(:verification, results)}
+  end
+
+  def handle_async(:repair, {:ok, outcome}, socket) do
+    flash =
+      case outcome do
+        :reconciled ->
+          {:info, gettext("Everything this file should have is there.")}
+
+        :stale ->
+          {:error, gettext("Not everything could be made. See the table, then try again.")}
+
+        :skipped ->
+          {:info, gettext("Another pass is working on this file.")}
+      end
+
+    {:noreply, finish(socket, flash)}
+  end
+
+  def handle_async(:make, {:ok, result}, socket) do
+    flash =
+      case result do
+        {:ok, _} -> {:info, gettext("Rendition made.")}
+        _ -> {:error, gettext("The rendition could not be made.")}
+      end
+
+    {:noreply, finish(socket, flash)}
+  end
+
+  def handle_async(:regenerate, {:ok, result}, socket) do
+    flash =
+      case result do
+        {:ok, instances} ->
+          {:info,
+           ngettext(
+             "Regenerated %{count} rendition.",
+             "Regenerated %{count} renditions.",
+             length(instances)
+           )}
+
+        _ ->
+          {:error, gettext("The renditions could not be regenerated.")}
+      end
+
+    {:noreply, finish(socket, flash)}
+  end
+
+  def handle_async(_task, {:exit, reason}, socket) do
+    Logger.warning("MediaStorage: task failed: #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(:working, nil)
+     |> put_flash(:error, gettext("That did not finish. Try again."))}
+  end
+
+  defp finish(socket, {kind, message}) do
+    socket |> assign(:working, nil) |> reload() |> put_flash(kind, message)
+  end
+
+  def handle_info({:phoenix_kit_file_processed, uuid}, %{assigns: %{file_uuid: uuid}} = socket),
+    do: {:noreply, reload(socket)}
+
+  def handle_info(_message, socket), do: {:noreply, socket}
+
+  # The file as it is now. A verification belongs to the bytes it read, so an
+  # edit that replaced them drops it.
+  defp reload(socket) do
+    before = socket.assigns[:file] && socket.assigns.file.file_checksum
+    socket = load(socket, socket.assigns.file_uuid)
+
+    if socket.assigns.file && socket.assigns.file.file_checksum != before,
+      do: assign(socket, :verification, nil),
+      else: socket
+  end
+
+  # ──────────────────────────────────────────────────────────────
+  # Template helpers
+  # ──────────────────────────────────────────────────────────────
+
+  @doc false
+  def size_label(nil), do: "–"
+  def size_label(bytes), do: Format.bytes(bytes, base: 1000, decimals: 2)
+
+  @doc false
+  def dimensions_label(%{width: w, height: h}) when is_integer(w) and is_integer(h),
+    do: "#{w} × #{h}"
+
+  def dimensions_label(_), do: "–"
+
+  @doc false
+  # What a size asks for, as its set states it: the edge it fits and its pixels.
+  def spec_label(nil), do: "–"
+
+  def spec_label(%{fit_by: "height", height: h}) when is_integer(h),
+    do: gettext("%{px} px tall", px: h)
+
+  def spec_label(%{maintain_aspect_ratio: false, width: w, height: h})
+      when is_integer(w) and is_integer(h),
+      do: "#{w} × #{h}"
+
+  def spec_label(%{width: w}) when is_integer(w), do: gettext("%{px} px wide", px: w)
+  def spec_label(_), do: "–"
+
+  @doc false
+  def short(nil), do: "–"
+  def short(checksum), do: String.slice(checksum, 0, 12) <> "…"
+
+  @doc false
+  def state_badge(:ok), do: {"badge-success", gettext("Stored")}
+  def state_badge(:missing), do: {"badge-error", gettext("Missing")}
+  def state_badge(:stale), do: {"badge-warning", gettext("Out of date")}
+  def state_badge(:processing), do: {"badge-info", gettext("Processing")}
+  def state_badge(:failed), do: {"badge-error", gettext("Failed")}
+  def state_badge(:no_copy), do: {"badge-error", gettext("No copy")}
+
+  @doc false
+  def kind_label(:original), do: gettext("Original")
+  def kind_label(:size), do: gettext("Size")
+  def kind_label(:alternative), do: gettext("Other format")
+  def kind_label(:annotated), do: gettext("With annotations")
+  def kind_label(:other), do: gettext("Other")
+
+  @doc false
+  def result_badge(:ok), do: {"badge-success", gettext("Matches")}
+  def result_badge({:mismatch, _recorded, _actual}), do: {"badge-error", gettext("Differs")}
+  def result_badge(:not_found), do: {"badge-error", gettext("Not in bucket")}
+  def result_badge(:no_copy), do: {"badge-error", gettext("No copy")}
+  def result_badge({:unrecorded, _actual}), do: {"badge-warning", gettext("No checksum recorded")}
+  def result_badge({:error, _reason}), do: {"badge-error", gettext("Could not read")}
+
+  @doc false
+  def download_url(%FileInstance{} = instance, file) do
+    url =
+      URLSigner.signed_url(file.uuid, instance.variant_name,
+        version: instance,
+        private: Libraries.private_file?(file)
+      )
+
+    url <> if(String.contains?(url, "?"), do: "&", else: "?") <> "dl=1"
+  end
+
+  @doc false
+  def download_name(file, instance),
+    do: Storage.download_name(filename(file), instance.variant_name, instance.ext)
+
+  @doc false
+  def unedited_url(socket, file) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+    FileController.unedited_url(socket, file.uuid, scope && Scope.user_uuid(scope))
+  end
+
+  @doc false
+  def date(nil), do: "–"
+  def date(value), do: UtilsDate.format_datetime_with_user_format(value)
+
+  @doc false
+  def verified_summary(results) do
+    total = length(results)
+    ok = Enum.count(results, &(&1.result == :ok))
+    {ok, total}
+  end
+
+  @doc false
+  def checksum_of(%{instance: %{checksum: sum}}) when is_binary(sum) and sum != "", do: sum
+  def checksum_of(_), do: nil
+end

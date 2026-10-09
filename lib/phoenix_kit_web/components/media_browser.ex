@@ -2305,6 +2305,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         {:noreply,
          socket
          |> put_flash(:info, removal_flash(Storage.remove_file_from_folder(file, viewed)))
+         |> close_viewer_on(file_uuid)
          |> reload_current_page()}
     end
   end
@@ -3442,6 +3443,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {:noreply,
        socket
        |> put_flash(:info, flash)
+       |> close_viewer_on(file_uuid)
        |> reload_current_page()}
     else
       # Nothing in this browser shows that file: a stale row, a uuid from
@@ -3568,6 +3570,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
           {:noreply,
            socket
            |> put_flash(:info, gettext("File restored"))
+           |> close_viewer_on(file_uuid)
            |> reload_folder_lists()
            |> reload_current_page()}
 
@@ -3971,6 +3974,16 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # folder AND file. The rest of the nav rides along unchanged; the hook's
   # feed-back lands in apply_nav_params' fast path, so no reload happens.
   # Uncontrolled hosts get the local state only, as before.
+  # The viewer's own Move to trash / Restore / Delete forever: the file leaves
+  # this view, so the viewer on it closes (a file viewed from another tile
+  # stays open).
+  defp close_viewer_on(socket, file_uuid) do
+    case socket.assigns[:viewer_file] do
+      %{file_uuid: ^file_uuid} -> socket |> open_viewer(nil) |> notify_viewer_nav()
+      _ -> socket
+    end
+  end
+
   defp notify_viewer_nav(socket) do
     if controlled_mode?(socket) do
       viewer = socket.assigns[:viewer_file]

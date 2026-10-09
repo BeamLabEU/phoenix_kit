@@ -403,7 +403,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
       refute html =~ media_folder.name
     end
 
-    test "a library path and a file's detail page route to different views" do
+    test "a library path, a file's address and its storage page route to different views" do
       view_for = fn path ->
         %{phoenix_live_view: {view, _action, _opts, _meta}} =
           Phoenix.Router.route_info(PhoenixKitWeb.Router, "GET", path, "localhost")
@@ -416,6 +416,12 @@ defmodule PhoenixKitWeb.Live.Users.MediaTest do
 
       assert view_for.(Routes.path("/admin/media/#{Ecto.UUID.generate()}")) ==
                PhoenixKitWeb.Live.Users.MediaDetail
+
+      assert view_for.(Routes.path("/admin/media/#{Ecto.UUID.generate()}/storage")) ==
+               PhoenixKitWeb.Live.Users.MediaStorage
+
+      assert view_for.(Routes.path("/admin/media/library/storage")) ==
+               PhoenixKitWeb.Live.Users.Media
 
       assert view_for.(Routes.path("/admin/media/selector")) ==
                PhoenixKitWeb.Live.Users.MediaSelector

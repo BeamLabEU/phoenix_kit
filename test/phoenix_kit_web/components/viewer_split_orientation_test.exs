@@ -37,14 +37,6 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
                   __DIR__,
                   "../../../lib/phoenix_kit_web/components/media_viewer.html.heex"
                 )
-  @detail_page Path.join(
-                 __DIR__,
-                 "../../../lib/phoenix_kit_web/live/users/media_detail.html.heex"
-               )
-  @detail_live Path.join(
-                 __DIR__,
-                 "../../../lib/phoenix_kit_web/live/users/media_detail.ex"
-               )
 
   defp viewer_source, do: File.read!(@viewer)
 
@@ -275,50 +267,7 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
     end
   end
 
-  describe "the details page runs the same rules" do
-    # Same complaint, same shape of answer: a 3/4 column beside the info
-    # panel is a narrow slot for a landscape picture on a portrait screen,
-    # and the viewport-derived height then leaves the bottom of the page
-    # empty under it. The page embeds the very same MediaCanvasViewer, so
-    # its pane already sizes itself to the picture — the columns only have
-    # to stop imposing a height of their own.
-    test "side by side only when landscape, and no fixed height in portrait" do
-      src = File.read!(@detail_page)
-
-      assert src =~ "flex flex-col lg:landscape:flex-row"
-      refute src =~ ~r/\blg:flex-row\b/
-
-      assert src =~ "h-[calc(100vh-12rem)] lg:portrait:h-auto",
-             "a page as tall as the picture plus the panel, rather than a " <>
-               "screenful with the bottom half empty"
-    end
-
-    test "both columns stop taking a flex share when stacked" do
-      src = File.read!(@detail_page)
-
-      assert src =~ "flex-[3] lg:portrait:flex-none",
-             "the picture column wraps the pane the viewer has already sized"
-
-      assert src =~ "flex-1 lg:portrait:flex-none",
-             "and the info panel is as tall as its own cards, with the PAGE " <>
-               "scrolling rather than a nested scroll region hiding the end " <>
-               "of the metadata"
-    end
-
-    test "the embedded viewer is told about the burned copy" do
-      # Without these two the page showed the live layer with Etcher drawing
-      # over the top while the popup showed the burn, for the same file:
-      # `burned?/1` keys on burn_size, and nothing else supplies it.
-      src = File.read!(@detail_live)
-
-      assert src =~ "burn_size: MediaBrowser.burn_size(instances)"
-      assert src =~ "burn_fingerprint: MediaBrowser.burn_fingerprint(file, instances)"
-
-      assert src =~ "burn_version(file, instances)",
-             "and the canvas remounts on a newer burn — same file, same " <>
-               "original, different picture in front of you"
-    end
-
+  describe "the burned copy" do
     test "which is what the viewer keys the burned copy on" do
       urls = %{"burned_large" => "/f/1/burned_large", "large" => "/f/1/large"}
 
@@ -328,8 +277,8 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
              })
 
       refute MediaCanvasViewer.burned?(%{urls: urls}),
-             "no burn_size, no burned copy — this is the bit the details page " <>
-               "was missing"
+             "no burn_size, no burned copy — this is the bit a host that does not " <>
+               "supply it was missing"
 
       refute MediaCanvasViewer.burned?(%{
                urls: %{"large" => "/f/1/large"},

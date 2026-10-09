@@ -222,7 +222,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HealthComponent do
               <.table_default_row>
                 <.table_default_cell>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{item.file_uuid}")}
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{item.file_uuid}/storage")}
                     class="font-bold link link-hover link-primary"
                   >
                     {item.original_file_name}

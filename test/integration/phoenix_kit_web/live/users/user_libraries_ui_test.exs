@@ -55,6 +55,7 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
     # Seeing the site's files is `media.view_all`; a holder of `media` alone sees
     # only their own (`own_media_test.exs`). This role is the site editor.
     {:ok, _} = Permissions.grant_permission(role.uuid, "media.view_all")
+    {:ok, _} = Permissions.grant_permission(role.uuid, "media.manage")
     role
   end
 
@@ -346,28 +347,34 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       refute html =~ private.uuid
 
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), holder), Routes.path("/admin/media/#{private.uuid}"))
+        live(
+          log_in_user(build_conn(), holder),
+          Routes.path("/admin/media/#{private.uuid}/storage")
+        )
 
-      assert html =~ "File Not Found"
+      assert html =~ "File not found"
       refute html =~ "PRIVATE-LIBRARY-FILE"
 
       {admin, _token} = create_admin_user()
 
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), admin), Routes.path("/admin/media/#{private.uuid}"))
+        live(
+          log_in_user(build_conn(), admin),
+          Routes.path("/admin/media/#{private.uuid}/storage")
+        )
 
       assert html =~ "PRIVATE-LIBRARY-FILE"
-      refute html =~ "File Not Found"
+      refute html =~ "File not found"
 
-      # The site file is still a normal media detail page.
+      # The site file is still a normal storage page.
       {:ok, _view, html} =
-        live(log_in_user(build_conn(), holder), Routes.path("/admin/media/#{site.uuid}"))
+        live(log_in_user(build_conn(), holder), Routes.path("/admin/media/#{site.uuid}/storage"))
 
       assert html =~ "SITE-MEDIA-FILE"
     end
   end
 
-  describe "an Admin opening a user-library file's detail page" do
+  describe "an Admin opening a user-library file's storage page" do
     test "is written to the audit log, once", %{conn: conn, role: role} do
       owner = user!(role)
       library = library!(owner, "Detail Audited")
@@ -375,7 +382,7 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       {admin, _token} = create_admin_user()
 
       {:ok, view, _html} =
-        live(log_in_user(conn, admin), Routes.path("/admin/media/#{private.uuid}"))
+        live(log_in_user(conn, admin), Routes.path("/admin/media/#{private.uuid}/storage"))
 
       _ = render(view)
 

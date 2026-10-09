@@ -570,6 +570,9 @@ defmodule PhoenixKitWeb.Integration do
       live "/admin/media/my/:library_id", Live.Users.Media, :my_library
       live "/admin/media/selector", Live.Users.MediaSelector, :index
       live "/admin/media/:file_uuid", Live.Users.MediaDetail, :show
+      # How the file is stored: renditions, copies, checksums. After the library
+      # routes above, so a library slug "storage" is still a library.
+      live "/admin/media/:file_uuid/storage", Live.Users.MediaStorage, :show
       # The user's own storage libraries (V203), for holders of "storage".
       live "/admin/libraries", Live.Users.Libraries, :index
       live "/admin/libraries/:library_id", Live.Users.Libraries, :show

@@ -533,7 +533,7 @@
           </button>
         </div>
 
-        <%!-- Sidebar: filename + download + metadata + comments. Suppressed --%>
+        <%!-- Sidebar: download + title + filename + file facts + comments. Suppressed --%>
         <%!-- in viewer_only mode — standalone-page hosts render their own  --%>
         <%!-- sidebar with admin actions / metadata editor / file details —  --%>
         <%!-- and while collapsed via the viewer-corner toggle above.        --%>
@@ -546,9 +546,9 @@
           data-viewer-sidebar
           class="flex-[3] flex flex-col gap-3 p-4 overflow-y-auto lg:landscape:min-w-[280px] lg:landscape:max-w-[26rem] lg:portrait:flex-initial lg:portrait:max-h-[32vh] bg-base-100"
         >
-          <h2 class="text-base font-bold break-all leading-tight pr-10">
-            {f.filename}
-          </h2>
+          <div class="text-xs font-semibold uppercase tracking-wide text-base-content/50 pr-10">
+            {gettext("Media details")}
+          </div>
 
           <div class="flex flex-wrap items-center gap-2">
             <%= if f.urls["original"] do %>
@@ -602,14 +602,14 @@
                 do: gettext("Unset featured"),
                 else: gettext("Set as featured")}
             </button>
-            <%!-- Admin-context hosts pass details_path — full-page detail view --%>
-            <%!-- with the metadata editor, variants, and storage locations.    --%>
+            <%!-- Admin-context hosts pass details_path — the file's storage page --%>
+            <%!-- (renditions, checksums, the buckets holding each copy).         --%>
             <.link
               :if={@details_path}
               navigate={@details_path}
               class="btn btn-ghost btn-sm gap-2"
             >
-              <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" /> {gettext("Details")}
+              <.icon name="hero-circle-stack" class="w-4 h-4" /> {gettext("Storage")}
             </.link>
           </div>
 
@@ -624,7 +624,10 @@
           <%!-- because an empty section nobody can fill is furniture.         --%>
           <% can_edit_meta = @file_writable and can_edit_media_meta?(@details_path, @edit_target) %>
           <div
-            :if={Enum.any?(Map.values(@media_meta), &(&1 != "")) or can_edit_meta}
+            :if={
+              Enum.any?(Map.values(@media_meta), &(&1 != "")) or @media_tags != [] or
+                can_edit_meta
+            }
             class="border-t border-base-300 pt-2"
           >
             <button
@@ -658,6 +661,15 @@
                     show_alt={f.file_type == "image"}
                     labels={false}
                   />
+                  <input
+                    type="text"
+                    id={"media-meta-tags-" <> f.file_uuid}
+                    name="tags"
+                    value={Enum.join(@media_tags, ", ")}
+                    aria-label={gettext("Tags (comma-separated)")}
+                    placeholder={gettext("Tags (comma-separated)")}
+                    class="input input-sm w-full"
+                  />
                   <div class="flex items-center gap-2">
                     <button type="submit" class="btn btn-primary btn-xs">{gettext("Save")}</button>
                     <span :if={@media_meta_status == :saved} class="text-xs text-success">
@@ -682,12 +694,19 @@
                   >
                     {@media_meta.description}
                   </p>
+                  <div :if={@media_tags != []} class="flex flex-wrap gap-1">
+                    <span :for={tag <- @media_tags} class="badge badge-sm h-auto">{tag}</span>
+                  </div>
                 </div>
               <% end %>
             <% end %>
           </div>
 
-          <div class="text-sm space-y-2 mt-1">
+          <h2 class="text-base font-bold break-all leading-tight">
+            {f.filename}
+          </h2>
+
+          <div class="text-sm space-y-2 -mt-1">
             <div>
               <span class="text-base-content/60">{gettext("Type:")}</span>
               <span class="ml-1 badge badge-ghost">
@@ -714,12 +733,87 @@
                 </span>
               </span>
             </div>
+            <div :if={@file_row && @file_row.pages}>
+              <span class="text-base-content/60">{gettext("Pages:")}</span>
+              <span class="ml-1">{@file_row.pages}</span>
+            </div>
             <div>
               <span class="text-base-content/60">{gettext("Uploaded:")}</span>
               <span class="ml-1">
                 {PhoenixKit.Utils.Date.format_short_datetime(f.inserted_at)}
               </span>
             </div>
+            <div :if={@file_row && @file_row.uploader} class="break-all">
+              <span class="text-base-content/60">{gettext("Uploaded by:")}</span>
+              <span class="ml-1">{@file_row.uploader}</span>
+            </div>
+            <div :if={changed_since_upload?(@file_row)}>
+              <span class="text-base-content/60">{gettext("Updated:")}</span>
+              <span class="ml-1">
+                {PhoenixKit.Utils.Date.format_short_datetime(@file_row.updated_at)}
+              </span>
+            </div>
+            <div :if={@file_row && (@file_row.status != "active" or @file_row.edited?)}>
+              <span class="text-base-content/60">{gettext("Status:")}</span>
+              <span
+                :if={@file_row.status != "active"}
+                class={[
+                  "ml-1 badge badge-sm",
+                  @file_row.status == "processing" && "badge-info",
+                  @file_row.status == "failed" && "badge-error",
+                  @file_row.status == "trashed" && "badge-warning"
+                ]}
+              >
+                {status_label(@file_row.status)}
+              </span>
+              <span :if={@file_row.edited?} class="ml-1 badge badge-ghost badge-sm">
+                {gettext("Edited")}
+              </span>
+            </div>
+            <div :if={@file_row && @file_row.uuid} class="break-all">
+              <span class="text-base-content/60">{gettext("File UUID:")}</span>
+              <span class="ml-1 font-mono text-[10px] select-all">{@file_row.uuid}</span>
+            </div>
+          </div>
+
+          <%!-- Removing a file: the browser that opened the viewer owns the --%>
+          <%!-- scope and the trash, so these go to it (as "Set as featured") --%>
+          <%!-- and it closes the viewer once the file is gone from the view. --%>
+          <div
+            :if={@edit_target && @file_writable && @parent_id}
+            class="flex flex-wrap items-center gap-2 border-t border-base-300 pt-2"
+          >
+            <%= if @file_row && @file_row.status == "trashed" do %>
+              <button
+                type="button"
+                phx-click="restore_file"
+                phx-value-file-uuid={f.file_uuid}
+                phx-target={"##{@parent_id}"}
+                class="btn btn-success btn-outline btn-sm gap-2"
+              >
+                <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> {gettext("Restore")}
+              </button>
+              <button
+                type="button"
+                phx-click="delete_file"
+                phx-value-file-uuid={f.file_uuid}
+                phx-target={"##{@parent_id}"}
+                data-confirm={gettext("Permanently delete this file? This cannot be undone.")}
+                class="btn btn-error btn-outline btn-sm gap-2"
+              >
+                <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete forever")}
+              </button>
+            <% else %>
+              <button
+                type="button"
+                phx-click="trash_file"
+                phx-value-file_uuid={f.file_uuid}
+                phx-target={"##{@parent_id}"}
+                class="btn btn-error btn-outline btn-sm gap-2"
+              >
+                <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Move to trash")}
+              </button>
+            <% end %>
           </div>
 
           <%!-- The photo's EXIF: camera, exposure, dates and where it was      --%>

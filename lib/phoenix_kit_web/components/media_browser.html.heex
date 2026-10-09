@@ -2990,9 +2990,9 @@
         <%!-- persist_rotation is unconditional in normal mode: rotation is --%>
         <%!-- the file's shared orientation, so anyone who can open the    --%>
         <%!-- viewer and rotate saves it for everyone (not admin-only).    --%>
-        <%!-- The Details link is admin-only and also hidden under        --%>
+        <%!-- The Storage link is admin-only and also hidden under        --%>
         <%!-- readonly (it doubles as the meta-edit boundary below) — it  --%>
-        <%!-- targets the admin detail page. readonly forces every write  --%>
+        <%!-- targets the file's storage page. readonly forces every write --%>
         <%!-- path off:                                                   --%>
         <%!-- can_annotate (Etcher shapes), edit_target AND details_path  --%>
         <%!-- (title/alt/desc save — MediaCanvasViewer's                  --%>
@@ -3012,7 +3012,7 @@
           can_annotate={not @readonly}
           persist_rotation={not @readonly}
           details_path={
-            if @admin and not @readonly, do: Routes.path("/admin/media/#{f.file_uuid}")
+            if @admin and not @readonly, do: Routes.path("/admin/media/#{f.file_uuid}/storage")
           }
           edit_target={if @readonly or @select_mode, do: nil, else: {__MODULE__, @id}}
           write_scope={@scope_folder_id}

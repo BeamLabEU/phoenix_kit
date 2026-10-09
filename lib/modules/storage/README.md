@@ -759,10 +759,18 @@ language asked for (or a dialect of it) → the site's current primary language
 → any other language. Resolving many files? Pass `primary:` once instead of
 letting every call read the setting.
 
-The editors (the media detail page, the viewer sidebar) have no language
-tabs: they edit the language the page is shown in
-(`FileDetails.content_language(locale)`), so the admin language switcher is
-the content switcher.
+The editor (the viewer sidebar's "Title & description") has a tab per language
+of the site and one Save (`Core.FileDetailsFields`); a site with one language
+has no tabs. Tags are not translated and are saved in the same write.
+
+A file's page is the media view (`/admin/media?file=<uuid>`). How it is stored
+is `/admin/media/:file_uuid/storage` (`Live.Users.MediaStorage`, `media.manage`):
+the renditions its variant set wants and which are there, the checksum of each,
+the buckets holding each copy, and the actions that put it right — "Verify
+copies" (`FileReport.verify/1` reads every copy back from its own bucket and
+compares its SHA-256), "Make what is missing" (`Reconciler.reconcile_file/1`),
+and restoring or dropping the unedited original. `/admin/media/:file_uuid`
+redirects to the media view, keeping `?annotation=`.
 
 This is deliberately not the `PhoenixKit.Utils.Multilang` structure (diffs
 against an embedded primary): for three fields it buys nothing and ties the

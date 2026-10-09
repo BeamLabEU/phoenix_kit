@@ -24,8 +24,7 @@ end
 
 **Click behavior** (in order):
 1. `select_mode` on → toggle file in/out of selection (toolbar Select button enters this mode).
-2. `admin={true}` → `push_navigate` to `/admin/media/:uuid`.
-3. Default → in-place modal (image/video/PDF/icon + metadata + Download). Closes via X/Esc/backdrop. Prev/Next chevrons + ←/→ keys step through current page's `uploaded_files`. If `PhoenixKitComments` is installed AND admin-enabled, a comment thread for `resource_type="file"` renders under metadata, keyed by `file_uuid`.
+2. Otherwise → in-place modal (image/video/PDF/icon + metadata + Download). With `admin={true}` its sidebar also links to the file's storage page (`/admin/media/:uuid/storage`). Closes via X/Esc/backdrop. Prev/Next chevrons + ←/→ keys step through current page's `uploaded_files`. If `PhoenixKitComments` is installed AND admin-enabled, a comment thread for `resource_type="file"` renders under metadata, keyed by `file_uuid`.
 
 **Other attrs:**
 - `scope_folder_id` — constrain to a virtual root (trash/tree/uploads/move all honor it)

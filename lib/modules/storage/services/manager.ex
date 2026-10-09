@@ -394,6 +394,49 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   def holds?(bucket, key), do: bucket_holds?(bucket, key)
 
   @doc """
+  The SHA-256 (lower-case hex) and size of the object at `key` in `bucket`
+  alone, read from that bucket and from no other: what "verify this copy"
+  needs, since `retrieve_file/2` would fail over to a bucket that has it.
+
+  `{:error, :not_found}` when the bucket does not hold it, `{:error, reason}`
+  when it could not be read. The object is streamed through the hash and the
+  temporary copy is removed.
+  """
+  @spec checksum_in(Bucket.t(), String.t()) ::
+          {:ok, %{checksum: String.t(), size: non_neg_integer()}} | {:error, term()}
+  def checksum_in(%Bucket{} = bucket, key) when is_binary(key) do
+    provider = get_provider_for_bucket(bucket)
+
+    if bucket_holds?(bucket, key) do
+      destination = generate_temp_path() <> temp_extension(key)
+
+      try do
+        case safe_retrieve(provider, bucket, key, destination) do
+          :ok -> {:ok, hash_file(destination)}
+          {:error, reason} -> {:error, reason}
+        end
+      after
+        File.rm(destination)
+      end
+    else
+      {:error, :not_found}
+    end
+  rescue
+    error -> {:error, Exception.message(error)}
+  end
+
+  defp hash_file(path) do
+    {hash, size} =
+      path
+      |> File.stream!(65_536)
+      |> Enum.reduce({:crypto.hash_init(:sha256), 0}, fn chunk, {state, size} ->
+        {:crypto.hash_update(state, chunk), size + byte_size(chunk)}
+      end)
+
+    %{checksum: hash |> :crypto.hash_final() |> Base.encode16(case: :lower), size: size}
+  end
+
+  @doc """
   Deletes the object at `key` from `bucket` only, never from any other
   bucket. `Storage.unlink_location/2` is what decides that nothing else on
   that bucket needs it (G11).

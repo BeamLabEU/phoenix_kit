@@ -13,10 +13,9 @@ defmodule PhoenixKitWeb.CommentsForwarding do
   compile-time-bound `mod.fun(...)` call) and degrades to a no-op when the
   package is absent.
 
-  Used by `PhoenixKitWeb.Components.MediaBrowser.Embed` (macro-injected handler)
-  and `PhoenixKitWeb.Live.Users.MediaDetail` (inline handler) — both delegate
-  their `{:leaf_changed, _}` `handle_info` clause here so the optional-dep
-  contract lives in one place.
+  Used by `PhoenixKitWeb.Components.MediaBrowser.Embed` (macro-injected handler),
+  which delegates its `{:leaf_changed, _}` `handle_info` clause here so the
+  optional-dep contract lives in one place.
   """
 
   require Logger

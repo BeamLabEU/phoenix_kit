@@ -99,6 +99,34 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerMediaMetaTest do
       assert row.metadata["tags"] == ["a", "b"], "…or the tags"
     end
 
+    test "tags typed in the form replace the row's, and the rotation survives", %{row: file} do
+      socket =
+        socket_with(%{
+          id: "mcv-test",
+          file: %{file_uuid: file.uuid},
+          media_meta: %{title: "", alt: "", description: ""},
+          media_meta_status: nil
+        })
+
+      {:noreply, socket} =
+        MediaCanvasViewer.handle_event(
+          "save_media_details",
+          %{"title" => "T", "tags" => " sea, , boats ,sky "},
+          socket
+        )
+
+      assert socket.assigns.media_tags == ["sea", "boats", "sky"]
+      row = Storage.get_file(file.uuid)
+      assert row.metadata["tags"] == ["sea", "boats", "sky"]
+      assert row.metadata["rotation"] == 90
+
+      # A form without a tags field (the title-only callers) leaves them be.
+      {:noreply, _socket} =
+        MediaCanvasViewer.handle_event("save_media_details", %{"title" => "U"}, socket)
+
+      assert Storage.get_file(file.uuid).metadata["tags"] == ["sea", "boats", "sky"]
+    end
+
     test "a vanished row reports an error instead of raising", %{row: file} do
       Repo.delete!(file)
 

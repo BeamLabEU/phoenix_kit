@@ -66,6 +66,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:library, nil)
       |> assign(:role, nil)
       |> assign(:viewer_uuid, nil)
+      |> assign(:selected_annotation, nil)
 
     {:ok, socket}
   end
@@ -77,7 +78,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     case select_library(socket, params) do
       {:ok, socket} ->
-        {:noreply, assign_header(socket)}
+        {:noreply, socket |> assign_header() |> select_annotation(params)}
 
       # A library that is not one the viewer may open is not quietly shown as
       # Media: an upload there would land somewhere the visitor did not ask for.
@@ -88,6 +89,25 @@ defmodule PhoenixKitWeb.Live.Users.Media do
          |> push_patch(to: library_path(nil))}
     end
   end
+
+  # A link to a comment's shape (`?file=<uuid>&annotation=<uuid>`, the old
+  # address of a file keeps it) selects that shape once the viewer has the
+  # canvas up; the JS bridge retries until it is ready. Once per link, not on
+  # every patch that follows.
+  defp select_annotation(socket, %{"file" => file, "annotation" => annotation}) do
+    with true <- connected?(socket),
+         {:ok, file} <- Ecto.UUID.cast(file),
+         {:ok, annotation} <- Ecto.UUID.cast(annotation),
+         true <- socket.assigns[:selected_annotation] != annotation do
+      socket
+      |> assign(:selected_annotation, annotation)
+      |> push_event("etcher:select-shape", %{fresco_id: "media-zoom-" <> file, uuid: annotation})
+    else
+      _ -> socket
+    end
+  end
+
+  defp select_annotation(socket, _params), do: socket
 
   defp scope(socket), do: socket.assigns[:phoenix_kit_current_scope]
 

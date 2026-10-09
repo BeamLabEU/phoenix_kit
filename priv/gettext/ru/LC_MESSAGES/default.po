@@ -659,7 +659,6 @@ msgstr "Маркированный список"
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:486
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:152
 #: lib/phoenix_kit_web/live/settings/users.html.heex:927
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:223
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:18
 #: lib/phoenix_kit_web/live/users/roles.html.heex:38
 #: lib/phoenix_kit_web/live/users/roles.html.heex:72
@@ -950,12 +949,11 @@ msgstr "Удалить роль"
 msgid "Describe what this role can do (optional)"
 msgstr "Опишите, что может делать эта роль (необязательно)"
 
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:122
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:121
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:126
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:127
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:128
 #: lib/phoenix_kit_web/components/media_browser.html.heex:543
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2077
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:234
 #: lib/phoenix_kit_web/live/users/roles.html.heex:29
 #: lib/phoenix_kit_web/live/users/roles.html.heex:63
 #: lib/phoenix_kit_web/live/users/roles.html.heex:96
@@ -1800,7 +1798,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/core/save_button.ex:58
 #: lib/phoenix_kit_web/components/image_editor.ex:974
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1508
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:662
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:674
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1735
 #: lib/phoenix_kit_web/live/notifications/settings.ex:436
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
@@ -1810,7 +1808,6 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:319
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:378
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:431
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:220
 #, elixir-autogen, elixir-format
 msgid "Save"
 msgstr "Сохранить"
@@ -1840,7 +1837,7 @@ msgstr "Сохранить настройки"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:340
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:424
 #: lib/phoenix_kit_web/components/core/save_button.ex:64
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:664
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:676
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:239
 #: lib/phoenix_kit_web/live/settings/integration_form.ex:674
 #, elixir-autogen, elixir-format
@@ -2056,6 +2053,7 @@ msgstr "Всего ролей"
 #: lib/phoenix_kit_web/live/settings/users.html.heex:583
 #: lib/phoenix_kit_web/live/settings/users.html.heex:809
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:186
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:64
 #: lib/phoenix_kit_web/live/users/roles.html.heex:92
 #: lib/phoenix_kit_web/live/users/roles.html.heex:161
 #, elixir-autogen, elixir-format
@@ -2383,6 +2381,9 @@ msgstr "Установить по умолчанию"
 #: lib/modules/storage/web/settings.html.heex:154
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2079
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:87
+#: lib/phoenix_kit_web/live/users/media_storage.ex:444
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:68
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:353
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Размер"
@@ -3006,8 +3007,6 @@ msgid "Noindex · Nofollow"
 msgstr "Noindex · Nofollow"
 
 #: lib/modules/storage/web/bucket_page.html.heex:86
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:241
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:252
 #, elixir-autogen, elixir-format
 msgid "None"
 msgstr "Нет"
@@ -3036,7 +3035,7 @@ msgstr "Инструкции по настройке OAuth"
 #: lib/modules/storage/web/renditions_component.ex:587
 #: lib/modules/storage/web/renditions_component.ex:742
 #: lib/modules/storage/web/renditions_component.ex:802
-#: lib/phoenix_kit_web/live/users/media_detail.ex:667
+#: lib/phoenix_kit_web/live/users/media_storage.ex:443
 #, elixir-autogen, elixir-format
 msgid "Original"
 msgstr "Оригинал"
@@ -4287,6 +4286,7 @@ msgstr "Участники"
 
 #: lib/modules/storage/web/settings.html.heex:723
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:186
+#: lib/phoenix_kit_web/live/users/media_storage.ex:436
 #, elixir-autogen, elixir-format
 msgid "Missing"
 msgstr "Отсутствует"
@@ -5130,9 +5130,8 @@ msgid "Body Saved"
 msgstr "Тело сохранено"
 
 #: lib/phoenix_kit/users/auth.ex:3292
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:761
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:855
 #: lib/phoenix_kit_web/live/modules.ex:134
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:379
 #, elixir-autogen, elixir-format
 msgid "Comments"
 msgstr "Комментарии"
@@ -5280,8 +5279,13 @@ msgstr "требует, чтобы модуль"
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:239
 #: lib/phoenix_kit_web/live/users/media.ex:57
 #: lib/phoenix_kit_web/live/users/media.ex:58
-#: lib/phoenix_kit_web/live/users/media.ex:191
-#: lib/phoenix_kit_web/live/users/media.ex:195
+#: lib/phoenix_kit_web/live/users/media.ex:211
+#: lib/phoenix_kit_web/live/users/media.ex:215
+#: lib/phoenix_kit_web/live/users/media_detail.ex:82
+#: lib/phoenix_kit_web/live/users/media_detail.ex:86
+#: lib/phoenix_kit_web/live/users/media_detail.ex:89
+#: lib/phoenix_kit_web/live/users/media_storage.ex:114
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:434
 #, elixir-autogen, elixir-format
 msgid "Media"
 msgstr "Медиа"
@@ -5751,7 +5755,7 @@ msgstr "Исходный код карты сайта"
 msgid "Open in Browser"
 msgstr "Открыть в браузере"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3666
+#: lib/phoenix_kit_web/components/media_browser.ex:3669
 #, elixir-autogen, elixir-format
 msgid "%{count} file permanently deleted"
 msgid_plural "%{count} files permanently deleted"
@@ -5759,7 +5763,7 @@ msgstr[0] "%{count} файл удалён навсегда"
 msgstr[1] "%{count} файла удалено навсегда"
 msgstr[2] "%{count} файлов удалено навсегда"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3275
+#: lib/phoenix_kit_web/components/media_browser.ex:3276
 #, elixir-autogen, elixir-format
 msgid "%{count} item moved"
 msgid_plural "%{count} items moved"
@@ -5809,7 +5813,7 @@ msgstr "Все медиа"
 msgid "All file types supported"
 msgstr "Поддерживаются все типы файлов"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5452
+#: lib/phoenix_kit_web/components/media_browser.ex:5465
 #, elixir-autogen, elixir-format
 msgid "Already have %{count} duplicate file. No new files were added."
 msgid_plural "Already have %{count} duplicate files. No new files were added."
@@ -5817,7 +5821,7 @@ msgstr[0] "Уже есть %{count} дубликат файла. Новые фа
 msgstr[1] "Уже есть %{count} дубликата файлов. Новые файлы не добавлены."
 msgstr[2] "Уже есть %{count} дубликатов файлов. Новые файлы не добавлены."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2949
+#: lib/phoenix_kit_web/components/media_browser.ex:2950
 #, elixir-autogen, elixir-format
 msgid "Cannot change folder outside the allowed scope"
 msgstr "Нельзя изменить папку вне разрешённой области"
@@ -5838,7 +5842,7 @@ msgstr "Нельзя удалить папку вне разрешённой о�
 msgid "Cannot move file outside the allowed scope"
 msgstr "Нельзя переместить файл вне разрешённой области"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2666
+#: lib/phoenix_kit_web/components/media_browser.ex:2667
 #, elixir-autogen, elixir-format
 msgid "Cannot rename folder outside the allowed scope"
 msgstr "Нельзя переименовать папку вне разрешённой области"
@@ -5888,12 +5892,14 @@ msgid "Deleted files will appear here"
 msgstr "Удалённые файлы появятся здесь"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1009
-#: lib/phoenix_kit_web/components/media_browser.ex:4611
+#: lib/phoenix_kit_web/components/media_browser.ex:4624
 #: lib/phoenix_kit_web/components/media_browser.html.heex:940
 #: lib/phoenix_kit_web/components/media_browser.html.heex:943
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1798
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2493
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:562
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:242
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:243
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Скачать"
@@ -5908,7 +5914,7 @@ msgstr "Перетащите файлы сюда или нажмите «Доб�
 msgid "Empty Trash"
 msgstr "Очистить корзину"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2952
+#: lib/phoenix_kit_web/components/media_browser.ex:2953
 #, elixir-autogen, elixir-format
 msgid "Failed to change color"
 msgstr "Не удалось изменить цвет"
@@ -5919,12 +5925,12 @@ msgid "Failed to create folder"
 msgstr "Не удалось создать папку"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2231
-#: lib/phoenix_kit_web/components/media_browser.ex:4304
+#: lib/phoenix_kit_web/components/media_browser.ex:4317
 #, elixir-autogen, elixir-format
 msgid "Failed to move file"
 msgstr "Не удалось переместить файл"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2669
+#: lib/phoenix_kit_web/components/media_browser.ex:2670
 #, elixir-autogen, elixir-format
 msgid "Failed to rename folder"
 msgstr "Не удалось переименовать папку"
@@ -5941,7 +5947,7 @@ msgstr "Папка недоступна — показан корень"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2200
 #: lib/phoenix_kit_web/components/media_browser.ex:2255
-#: lib/phoenix_kit_web/components/media_browser.ex:2328
+#: lib/phoenix_kit_web/components/media_browser.ex:2329
 #, elixir-autogen, elixir-format
 msgid "Folder not found"
 msgstr "Папка не найдена"
@@ -5957,7 +5963,7 @@ msgstr "Папки"
 msgid "Image Missing"
 msgstr "Изображение отсутствует"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:698
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:717
 #, elixir-autogen, elixir-format
 msgid "MIME:"
 msgstr "MIME:"
@@ -5973,7 +5979,7 @@ msgstr "Управление медиа и загрузками пользова
 msgid "More actions"
 msgstr "Ещё действия"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4666
+#: lib/phoenix_kit_web/components/media_browser.ex:4679
 #: lib/phoenix_kit_web/components/media_browser.html.heex:930
 #: lib/phoenix_kit_web/components/media_browser.html.heex:933
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1644
@@ -5984,7 +5990,7 @@ msgstr "Ещё действия"
 msgid "Move"
 msgstr "Переместить"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5919
+#: lib/phoenix_kit_web/components/media_browser.ex:5932
 #, elixir-autogen, elixir-format
 msgid "Move %{count} file to trash?"
 msgid_plural "Move %{count} files to trash?"
@@ -6042,7 +6048,7 @@ msgstr "Несвязанные файлы"
 msgid "Path"
 msgstr "Путь"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5895
+#: lib/phoenix_kit_web/components/media_browser.ex:5908
 #, elixir-autogen, elixir-format
 msgid "Permanently delete %{count} file? This cannot be undone."
 msgid_plural "Permanently delete %{count} files? This cannot be undone."
@@ -6105,7 +6111,7 @@ msgstr "Показать папки"
 msgid "Show image %{number}"
 msgstr "Показать изображение %{number}"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:702
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:721
 #, elixir-autogen, elixir-format
 msgid "Size:"
 msgstr "Размер:"
@@ -6133,7 +6139,7 @@ msgstr "Корзина"
 msgid "Trash is empty."
 msgstr "Корзина пуста."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:692
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:711
 #, elixir-autogen, elixir-format
 msgid "Type:"
 msgstr "Тип:"
@@ -6148,18 +6154,18 @@ msgstr "Загрузить медиа"
 msgid "Upload Media Files"
 msgstr "Загрузить медиафайлы"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5433
+#: lib/phoenix_kit_web/components/media_browser.ex:5446
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:646
 #, elixir-autogen, elixir-format
 msgid "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
 msgstr "Загрузка не удалась: хранилища не настроены. Настройте хотя бы одно хранилище перед загрузкой файлов."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5419
+#: lib/phoenix_kit_web/components/media_browser.ex:5432
 #, elixir-autogen, elixir-format
 msgid "Upload processed"
 msgstr "Загрузка обработана"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5461
+#: lib/phoenix_kit_web/components/media_browser.ex:5474
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{count} new file processed"
 msgid_plural "Upload successful! %{count} new files processed"
@@ -6167,7 +6173,7 @@ msgstr[0] "Загрузка успешна! Обработан %{count} новы
 msgstr[1] "Загрузка успешна! Обработано %{count} новых файла"
 msgstr[2] "Загрузка успешна! Обработано %{count} новых файлов"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:718
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:741
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "Загружено:"
@@ -6177,7 +6183,7 @@ msgstr "Загружено:"
 msgid "Your browser does not support the video tag."
 msgstr "Ваш браузер не поддерживает тег video."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5440
+#: lib/phoenix_kit_web/components/media_browser.ex:5453
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:325
 #, elixir-autogen, elixir-format
 msgid "%{count} failed"
@@ -6188,8 +6194,8 @@ msgstr[2] "%{count} не загружено"
 
 #: lib/modules/storage/web/bucket_page.html.heex:281
 #: lib/modules/storage/web/bucket_page.html.heex:294
-#: lib/phoenix_kit_web/components/media_browser.ex:5878
-#: lib/phoenix_kit_web/components/media_browser.ex:5902
+#: lib/phoenix_kit_web/components/media_browser.ex:5891
+#: lib/phoenix_kit_web/components/media_browser.ex:5915
 #: lib/phoenix_kit_web/components/media_browser.html.heex:864
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:319
 #, elixir-autogen, elixir-format
@@ -6199,7 +6205,7 @@ msgstr[0] "%{count} файл"
 msgstr[1] "%{count} файла"
 msgstr[2] "%{count} файлов"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5439
+#: lib/phoenix_kit_web/components/media_browser.ex:5452
 #, elixir-autogen, elixir-format
 msgid "%{count} file uploaded"
 msgid_plural "%{count} files uploaded"
@@ -6207,7 +6213,7 @@ msgstr[0] "загружен %{count} файл"
 msgstr[1] "загружено %{count} файла"
 msgstr[2] "загружено %{count} файлов"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5472
+#: lib/phoenix_kit_web/components/media_browser.ex:5485
 #, elixir-autogen, elixir-format
 msgid "%{count} file was already uploaded"
 msgid_plural "%{count} files were already uploaded"
@@ -6215,8 +6221,8 @@ msgstr[0] "%{count} файл уже был загружен"
 msgstr[1] "%{count} файла уже были загружены"
 msgstr[2] "%{count} файлов уже были загружены"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5879
-#: lib/phoenix_kit_web/components/media_browser.ex:5903
+#: lib/phoenix_kit_web/components/media_browser.ex:5892
+#: lib/phoenix_kit_web/components/media_browser.ex:5916
 #, elixir-autogen, elixir-format
 msgid "%{count} folder"
 msgid_plural "%{count} folders"
@@ -6224,7 +6230,7 @@ msgstr[0] "%{count} папка"
 msgstr[1] "%{count} папки"
 msgstr[2] "%{count} папок"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5469
+#: lib/phoenix_kit_web/components/media_browser.ex:5482
 #, elixir-autogen, elixir-format
 msgid "%{count} new file added"
 msgid_plural "%{count} new files added"
@@ -6233,17 +6239,17 @@ msgstr[1] "добавлено %{count} новых файла"
 msgstr[2] "добавлено %{count} новых файлов"
 
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:421
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:694
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:713
 #, elixir-autogen, elixir-format
 msgid "FILE"
 msgstr "ФАЙЛ"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5443
+#: lib/phoenix_kit_web/components/media_browser.ex:5456
 #, elixir-autogen, elixir-format
 msgid "Partially successful: %{uploaded}, %{failed} due to missing storage buckets."
 msgstr "Частично успешно: %{uploaded}, %{failed} из-за отсутствия хранилищ."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5479
+#: lib/phoenix_kit_web/components/media_browser.ex:5492
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{added}. %{duplicates}."
 msgstr "Загрузка успешна! %{added}. %{duplicates}."
@@ -6335,10 +6341,9 @@ msgstr "%{day} %{month} %{year} в %{time}"
 msgid "%{month} %{day} %{time}"
 msgstr "%{day} %{month} %{time}"
 
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:94
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:93
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:100
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:101
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:102
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:232
 #: lib/phoenix_kit_web/projects_gettext_manifest.ex:54
 #, elixir-autogen, elixir-format
 msgid "Title"
@@ -6467,13 +6472,13 @@ msgstr "Ответить"
 msgid "Are you sure you want to delete this comment?"
 msgstr "Точно удалить этот комментарий?"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2212
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2213
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2280
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2281
 #, elixir-autogen, elixir-format
 msgid "%b %d, %Y"
 msgstr "%d %b %Y"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3646
+#: lib/phoenix_kit_web/components/media_browser.ex:3649
 #, elixir-autogen, elixir-format
 msgid "%{count} item restored"
 msgid_plural "%{count} items restored"
@@ -6501,12 +6506,12 @@ msgstr "Вложения отключены"
 msgid "Auth failed"
 msgstr "Ошибка авторизации"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5840
+#: lib/phoenix_kit_web/components/media_browser.ex:5853
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in the all-files view"
 msgstr "Нельзя создать папку в режиме просмотра всех файлов"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5837
+#: lib/phoenix_kit_web/components/media_browser.ex:5850
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in trash"
 msgstr "Нельзя создавать папки в корзине"
@@ -6517,8 +6522,8 @@ msgid "Cannot move a folder into its own descendant"
 msgstr "Нельзя переместить папку в её собственный подкаталог"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2268
-#: lib/phoenix_kit_web/components/media_browser.ex:2332
-#: lib/phoenix_kit_web/components/media_browser.ex:2345
+#: lib/phoenix_kit_web/components/media_browser.ex:2333
+#: lib/phoenix_kit_web/components/media_browser.ex:2346
 #, elixir-autogen, elixir-format
 msgid "Cannot move folder outside the allowed scope"
 msgstr "Нельзя переместить папку за пределы разрешённой области"
@@ -6529,7 +6534,7 @@ msgstr "Нельзя переместить папку за пределы ра�
 msgid "Could not post comment"
 msgstr "Не удалось опубликовать комментарий"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4694
+#: lib/phoenix_kit_web/components/media_browser.ex:4707
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1894
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2578
 #, elixir-autogen, elixir-format
@@ -6552,7 +6557,7 @@ msgstr "Отключение…"
 msgid "Failed to move folder"
 msgstr "Не удалось переместить папку"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2348
+#: lib/phoenix_kit_web/components/media_browser.ex:2349
 #, elixir-autogen, elixir-format
 msgid "Failed to move folder to trash"
 msgstr "Не удалось переместить папку в корзину"
@@ -6562,23 +6567,24 @@ msgstr "Не удалось переместить папку в корзину"
 msgid "File / Image"
 msgstr "Файл / Изображение"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4302
+#: lib/phoenix_kit_web/components/media_browser.ex:4315
 #, elixir-autogen, elixir-format
 msgid "File moved to trash"
 msgstr "Файл перемещён в корзину"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4303
+#: lib/phoenix_kit_web/components/media_browser.ex:4316
 #, elixir-autogen, elixir-format
 msgid "File removed from this folder"
 msgstr "Файл удалён из этой папки"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2298
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:429
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "Файл не найден"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3437
+#: lib/phoenix_kit_web/components/media_browser.ex:3438
 #, elixir-autogen, elixir-format
 msgid "File permanently deleted"
 msgstr "Файл удалён навсегда"
@@ -6610,7 +6616,7 @@ msgid "Folder moved"
 msgstr "Папка перемещена"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2185
-#: lib/phoenix_kit_web/components/media_browser.ex:2339
+#: lib/phoenix_kit_web/components/media_browser.ex:2340
 #, elixir-autogen, elixir-format
 msgid "Folder moved to trash"
 msgstr "Папка перемещена в корзину"
@@ -6633,14 +6639,14 @@ msgstr[0] "Переместить %{count} элемент в папку"
 msgstr[1] "Переместить %{count} элемента в папку"
 msgstr[2] "Переместить %{count} элементов в папку"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4695
+#: lib/phoenix_kit_web/components/media_browser.ex:4708
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1895
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2579
 #, elixir-autogen, elixir-format
 msgid "Move to Trash"
 msgstr "Переместить в корзину"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4687
+#: lib/phoenix_kit_web/components/media_browser.ex:4700
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1886
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2570
 #, elixir-autogen, elixir-format
@@ -6716,7 +6722,7 @@ msgstr "Напишите заметку об этой аннотации..."
 msgid "e.g. Main, Personal, My Company Drive"
 msgstr "напр., Основной, Личный, Мой Google Диск"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5848
+#: lib/phoenix_kit_web/components/media_browser.ex:5861
 #, elixir-autogen, elixir-format
 msgid "untitled"
 msgstr "без названия"
@@ -6855,6 +6861,7 @@ msgstr "Избранное"
 msgid "Sort by"
 msgstr "Сортировать по"
 
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:280
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -7256,7 +7263,6 @@ msgstr "Дата и время"
 #: lib/modules/storage/web/settings.html.heex:246
 #: lib/modules/storage/web/settings.html.heex:286
 #: lib/phoenix_kit_web/components/core/activity_list.ex:39
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:612
 #: lib/phoenix_kit_web/live/activity/index.html.heex:310
 #, elixir-autogen, elixir-format
 msgid "Details"
@@ -8028,7 +8034,8 @@ msgstr "вы"
 
 #: lib/modules/storage/web/renditions_component.ex:510
 #: lib/modules/storage/web/renditions_component.ex:544
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:292
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:72
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:357
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr "Размеры"
@@ -8244,8 +8251,6 @@ msgstr "Аудио"
 
 #: lib/phoenix_kit_web/components/core/admin_page_header.ex:141
 #: lib/phoenix_kit_web/components/core/admin_page_header.ex:142
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:26
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:27
 #, elixir-autogen, elixir-format
 msgid "Back"
 msgstr "Назад"
@@ -8265,8 +8270,8 @@ msgstr "Запекать фигуры аннотаций Etcher (прямоуг�
 msgid "Browse files no longer attached to any record (orphaned media) so you can review or delete them."
 msgstr "Просматривайте файлы, больше не привязанные ни к одной записи (потерянные медиа), чтобы просмотреть или удалить их."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2757
-#: lib/phoenix_kit_web/components/media_browser.ex:4897
+#: lib/phoenix_kit_web/components/media_browser.ex:2758
+#: lib/phoenix_kit_web/components/media_browser.ex:4910
 #, elixir-autogen, elixir-format
 msgid "Cannot edit a folder outside the allowed scope"
 msgstr "Нельзя изменить папку вне разрешённой области"
@@ -8381,12 +8386,12 @@ msgstr "Всё остальное"
 msgid "Exit selection"
 msgstr "Выйти из выбора"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2761
+#: lib/phoenix_kit_web/components/media_browser.ex:2762
 #, elixir-autogen, elixir-format
 msgid "Failed to save folder description"
 msgstr "Не удалось сохранить описание папки"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4900
+#: lib/phoenix_kit_web/components/media_browser.ex:4913
 #, elixir-autogen, elixir-format
 msgid "Failed to save folder header"
 msgstr "Не удалось сохранить заголовок папки"
@@ -8411,7 +8416,7 @@ msgstr "Найти несвязанные файлы"
 msgid "Folder name"
 msgstr "Название папки"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:2916
+#: lib/phoenix_kit_web/components/media_browser.ex:2917
 #, elixir-autogen, elixir-format
 msgid "Folder name can't be blank"
 msgstr "Имя папки не может быть пустым"
@@ -8485,7 +8490,7 @@ msgstr "Значок"
 msgid "If your account belongs to multiple organizations, keys are scoped to the org selected when the key was created."
 msgstr "Если ваш аккаунт принадлежит нескольким организациям, ключи привязаны к организации, выбранной при создании ключа."
 
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:62
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:540
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
 #, elixir-autogen, elixir-format
@@ -8493,8 +8498,6 @@ msgid "Language"
 msgstr "Язык"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:668
-#: lib/phoenix_kit_web/live/users/media_detail.ex:668
-#: lib/phoenix_kit_web/live/users/media_detail.ex:672
 #, elixir-autogen, elixir-format
 msgid "Large"
 msgstr "Большой"
@@ -8519,8 +8522,6 @@ msgid "Magic link"
 msgstr "Magic Link"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:667
-#: lib/phoenix_kit_web/live/users/media_detail.ex:669
-#: lib/phoenix_kit_web/live/users/media_detail.ex:673
 #, elixir-autogen, elixir-format
 msgid "Medium"
 msgstr "Средний"
@@ -8556,7 +8557,7 @@ msgid "No description — add one"
 msgstr "Нет описания — добавьте"
 
 #: lib/phoenix_kit_web/components/core/preview_card.ex:227
-#: lib/phoenix_kit_web/components/media_browser.ex:4371
+#: lib/phoenix_kit_web/components/media_browser.ex:4384
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1971
 #, elixir-autogen, elixir-format
 msgid "No images"
@@ -8589,6 +8590,7 @@ msgstr "OpenAI требует положительного баланса, пр�
 
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:254
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1009
+#: lib/phoenix_kit_web/live/users/media_storage.ex:447
 #, elixir-autogen, elixir-format
 msgid "Other"
 msgstr "Другое"
@@ -8645,7 +8647,6 @@ msgid "Sign up"
 msgstr "Зарегистрироваться"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:666
-#: lib/phoenix_kit_web/live/users/media_detail.ex:670
 #, elixir-autogen, elixir-format
 msgid "Small"
 msgstr "Маленький"
@@ -9713,7 +9714,7 @@ msgstr "Поворот сохранён"
 msgid "Show details"
 msgstr "Показать детали"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5912
+#: lib/phoenix_kit_web/components/media_browser.ex:5925
 #, elixir-autogen, elixir-format
 msgid "Move %{count} folder and all its contents to trash?"
 msgid_plural "Move %{count} folders and all their contents to trash?"
@@ -9721,7 +9722,7 @@ msgstr[0] "Переместить %{count} папку со всем содерж
 msgstr[1] "Переместить %{count} папки со всем их содержимым в корзину?"
 msgstr[2] "Переместить %{count} папок со всем их содержимым в корзину?"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5905
+#: lib/phoenix_kit_web/components/media_browser.ex:5918
 #, elixir-autogen, elixir-format
 msgid "Move %{files} and %{folders} (including all folder contents) to trash?"
 msgstr "Переместить %{files} и %{folders} (со всем содержимым папок) в корзину?"
@@ -9732,7 +9733,7 @@ msgstr "Переместить %{files} и %{folders} (со всем содер�
 msgid "Move '%{name}' and all its contents to trash?"
 msgstr "Переместить '%{name}' со всем содержимым в корзину?"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5888
+#: lib/phoenix_kit_web/components/media_browser.ex:5901
 #, elixir-autogen, elixir-format
 msgid "Permanently delete %{count} folder and all its contents? This cannot be undone."
 msgid_plural "Permanently delete %{count} folders and all their contents? This cannot be undone."
@@ -9740,7 +9741,7 @@ msgstr[0] "Удалить навсегда %{count} папку со всем с�
 msgstr[1] "Удалить навсегда %{count} папки со всем их содержимым? Это действие нельзя отменить."
 msgstr[2] "Удалить навсегда %{count} папок со всем их содержимым? Это действие нельзя отменить."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5881
+#: lib/phoenix_kit_web/components/media_browser.ex:5894
 #, elixir-autogen, elixir-format
 msgid "Permanently delete %{files} and %{folders} (including all folder contents)? This cannot be undone."
 msgstr "Удалить навсегда %{files} и %{folders} (со всем содержимым папок)? Это действие нельзя отменить."
@@ -9806,11 +9807,6 @@ msgstr "Создание новой учётной записи пользова
 #, elixir-autogen, elixir-format
 msgid "Edit user information"
 msgstr "Изменение информации о пользователе"
-
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:5
-#, elixir-autogen, elixir-format
-msgid "Media Detail"
-msgstr "Сведения о медиафайле"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:434
 #, elixir-autogen, elixir-format
@@ -10069,7 +10065,7 @@ msgstr "Не удалось связаться с Telegram"
 msgid "Could not reach the SMTP server"
 msgstr "Не удалось связаться с SMTP-сервером"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3407
+#: lib/phoenix_kit_web/components/media_browser.ex:3408
 #, elixir-autogen, elixir-format
 msgid "Could not rotate the image."
 msgstr "Не удалось повернуть изображение."
@@ -10078,7 +10074,7 @@ msgstr "Не удалось повернуть изображение."
 #: lib/modules/storage/web/renditions_component.ex:183
 #: lib/modules/storage/web/renditions_component.ex:222
 #: lib/modules/storage/web/renditions_component.ex:229
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:667
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:679
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:242
 #, elixir-autogen, elixir-format
 msgid "Could not save"
@@ -10615,25 +10611,26 @@ msgid "Require email confirmation before using the app"
 msgstr "Требовать подтверждение почты перед использованием приложения"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1022
-#: lib/phoenix_kit_web/components/media_browser.ex:4677
+#: lib/phoenix_kit_web/components/media_browser.ex:4690
 #: lib/phoenix_kit_web/components/media_browser.html.heex:918
 #: lib/phoenix_kit_web/components/media_browser.html.heex:921
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1636
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1876
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:794
 #: lib/phoenix_kit_web/live/components/library_settings.ex:935
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:343
 #, elixir-autogen, elixir-format
 msgid "Restore"
 msgstr "Восстановить"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4649
+#: lib/phoenix_kit_web/components/media_browser.ex:4662
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1847
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2543
 #, elixir-autogen, elixir-format
 msgid "Rotate left"
 msgstr "Повернуть влево"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4658
+#: lib/phoenix_kit_web/components/media_browser.ex:4671
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1856
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2552
 #, elixir-autogen, elixir-format
@@ -10768,7 +10765,6 @@ msgid "TLS handshake failed"
 msgstr "Не удалось установить TLS-соединение"
 
 #: lib/phoenix_kit/email/provider_options.ex:98
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:249
 #, elixir-autogen, elixir-format
 msgid "Tags"
 msgstr "Теги"
@@ -11598,6 +11594,7 @@ msgstr "Используйте его из модуля AI"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:88
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:270
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:273
 #, elixir-autogen, elixir-format
 msgid "Verification"
 msgstr "Подтверждение"
@@ -12197,12 +12194,12 @@ msgstr "Ваш аккаунт сейчас неактивен. Свяжитес�
 msgid "%{label} module is not enabled"
 msgstr "Модуль %{label} не включён"
 
-#: lib/phoenix_kit_web/users/auth.ex:3012
+#: lib/phoenix_kit_web/users/auth.ex:3013
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "Введите реферальный код, чтобы продолжить."
 
-#: lib/phoenix_kit_web/users/auth.ex:3008
+#: lib/phoenix_kit_web/users/auth.ex:3009
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "Подтвердите эл. почту, прежде чем пользоваться приложением."
@@ -12214,15 +12211,15 @@ msgstr "Этот аккаунт неактивен. Обратитесь к ад
 
 #: lib/phoenix_kit_web/users/auth.ex:921
 #: lib/phoenix_kit_web/users/auth.ex:2314
-#: lib/phoenix_kit_web/users/auth.ex:3157
+#: lib/phoenix_kit_web/users/auth.ex:3158
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "У вас нет разрешения на доступ к этому разделу."
 
 #: lib/phoenix_kit_web/users/auth.ex:896
 #: lib/phoenix_kit_web/users/auth.ex:1056
-#: lib/phoenix_kit_web/users/auth.ex:3106
-#: lib/phoenix_kit_web/users/auth.ex:3142
+#: lib/phoenix_kit_web/users/auth.ex:3107
+#: lib/phoenix_kit_web/users/auth.ex:3143
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "У вас нет необходимого разрешения для доступа к этой странице."
@@ -12233,20 +12230,20 @@ msgid "You must be an admin to access this page."
 msgstr "Для доступа к этой странице нужно быть администратором."
 
 #: lib/phoenix_kit_web/users/auth.ex:857
-#: lib/phoenix_kit_web/users/auth.ex:3069
+#: lib/phoenix_kit_web/users/auth.ex:3070
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "Для доступа к этой странице нужно быть владельцем."
 
-#: lib/phoenix_kit_web/users/auth.ex:3185
+#: lib/phoenix_kit_web/users/auth.ex:3186
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "Для доступа к этой странице нужна роль %{role_name}."
 
 #: lib/phoenix_kit_web/users/auth.ex:1081
-#: lib/phoenix_kit_web/users/auth.ex:2933
-#: lib/phoenix_kit_web/users/auth.ex:2970
-#: lib/phoenix_kit_web/users/auth.ex:3113
+#: lib/phoenix_kit_web/users/auth.ex:2934
+#: lib/phoenix_kit_web/users/auth.ex:2971
+#: lib/phoenix_kit_web/users/auth.ex:3114
 #: lib/phoenix_kit_web/users/session.ex:221
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
@@ -12862,6 +12859,7 @@ msgstr "Посетители переадресуются на рабочий с
 #: lib/modules/storage/web/bucket_page.html.heex:474
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:236
 #: lib/phoenix_kit_web/live/settings/website_access.ex:404
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:295
 #, elixir-autogen, elixir-format
 msgid "Result"
 msgstr "Результат"
@@ -14056,7 +14054,7 @@ msgstr "Создаётся копия. Она появится рядом с о�
 msgid "Add area"
 msgstr "Добавить область"
 
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:121
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:50
 #, elixir-autogen, elixir-format
 msgid "Applying edit"
 msgstr "Применение правки"
@@ -14108,22 +14106,21 @@ msgstr "Удалить неизменённый оригинал навсегд�
 msgid "Drag on the image to cover an area, or add one and set it below. Covered areas are permanently removed from the saved image."
 msgstr "Проведите по изображению, чтобы закрыть область, или добавьте область и задайте её ниже. Закрытые области навсегда удаляются из сохранённого изображения."
 
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:129
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:53
 #, elixir-autogen, elixir-format
 msgid "Edit failed"
 msgstr "Правка не удалась"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:676
-#: lib/phoenix_kit_web/components/media_browser.ex:4624
+#: lib/phoenix_kit_web/components/media_browser.ex:4637
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1813
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2508
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:575
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:113
 #, elixir-autogen, elixir-format
 msgid "Edit image"
 msgstr "Редактировать изображение"
 
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:135
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:770
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr "Изменено"
@@ -14334,6 +14331,7 @@ msgid "Top %"
 msgstr "Сверху %"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:642
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:420
 #, elixir-autogen, elixir-format
 msgid "Try again"
 msgstr "Повторить"
@@ -14361,6 +14359,7 @@ msgid "Undo the edit and show the unedited original again everywhere this image 
 msgstr "Отменить правку и снова показывать неизменённый оригинал везде, где используется это изображение?"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1001
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:343
 #, elixir-autogen, elixir-format
 msgid "Unedited original"
 msgstr "Неизменённый оригинал"
@@ -14753,15 +14752,15 @@ msgid "the bot in Telegram, then press Test Connection above."
 msgstr "боту в Telegram, затем нажмите «Проверить соединение» выше."
 
 #: lib/phoenix_kit_web/components/featured_image.ex:579
-#: lib/phoenix_kit_web/components/media_browser.ex:4476
-#: lib/phoenix_kit_web/components/media_browser.ex:4493
+#: lib/phoenix_kit_web/components/media_browser.ex:4489
+#: lib/phoenix_kit_web/components/media_browser.ex:4506
 #, elixir-autogen, elixir-format
 msgid "Featured image"
 msgstr "Главное изображение"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4473
-#: lib/phoenix_kit_web/components/media_browser.ex:4477
-#: lib/phoenix_kit_web/components/media_browser.ex:4639
+#: lib/phoenix_kit_web/components/media_browser.ex:4486
+#: lib/phoenix_kit_web/components/media_browser.ex:4490
+#: lib/phoenix_kit_web/components/media_browser.ex:4652
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1837
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2533
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:603
@@ -14769,8 +14768,8 @@ msgstr "Главное изображение"
 msgid "Set as featured"
 msgstr "Сделать главным"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:4473
-#: lib/phoenix_kit_web/components/media_browser.ex:4638
+#: lib/phoenix_kit_web/components/media_browser.ex:4486
+#: lib/phoenix_kit_web/components/media_browser.ex:4651
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1836
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2532
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:602
@@ -14816,7 +14815,7 @@ msgstr "Удалить изображение"
 msgid "The selected file is not an available image"
 msgstr "Выбранный файл не является доступным изображением"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:637
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:640
 #, elixir-autogen, elixir-format
 msgid "Title & description"
 msgstr "Название и описание"
@@ -15018,27 +15017,16 @@ msgstr "Найдено при последней проверке. Привяз�
 msgid "there, press Test Connection and confirm the group it finds. A group needs that command — bots cannot read ordinary group messages."
 msgstr "там, нажмите «Проверить соединение» и подтвердите найденную группу. Группе нужна эта команда — боты не могут читать обычные сообщения в группе."
 
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:108
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:107
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:114
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:115
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:116
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:677
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:233
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:689
 #, elixir-autogen, elixir-format
 msgid "Alt text"
 msgstr "Альтернативный текст"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:196
-#, elixir-autogen, elixir-format
-msgid "Details saved"
-msgstr "Сведения сохранены"
-
-#: lib/phoenix_kit_web/live/users/media_detail.ex:206
-#: lib/phoenix_kit_web/live/users/media_detail.ex:519
-#, elixir-autogen, elixir-format
-msgid "Failed to save details"
-msgstr "Не удалось сохранить сведения"
-
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:212
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:669
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:670
 #, elixir-autogen, elixir-format
 msgid "Tags (comma-separated)"
 msgstr "Теги (через запятую)"
@@ -15188,7 +15176,7 @@ msgstr "Удалить можно только пустую библиотеку
 #: lib/modules/storage/web/library_page.ex:108
 #: lib/modules/storage/web/library_page.ex:247
 #: lib/phoenix_kit_web/live/users/libraries.ex:140
-#: lib/phoenix_kit_web/live/users/media.ex:87
+#: lib/phoenix_kit_web/live/users/media.ex:88
 #, elixir-autogen, elixir-format
 msgid "Library not found"
 msgstr "Библиотека не найдена"
@@ -15202,6 +15190,7 @@ msgstr "Библиотека не найдена"
 #: lib/phoenix_kit_web/live/users/libraries.ex:38
 #: lib/phoenix_kit_web/live/users/libraries.ex:110
 #: lib/phoenix_kit_web/live/users/libraries.ex:152
+#: lib/phoenix_kit_web/live/users/media_detail.ex:82
 #, elixir-autogen, elixir-format
 msgid "Libraries"
 msgstr "Библиотеки"
@@ -15216,7 +15205,7 @@ msgstr "Библиотека переименована в «%{name}»"
 msgid "Only an empty library can be deleted."
 msgstr "Удалить можно только пустую библиотеку."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5380
+#: lib/phoenix_kit_web/components/media_browser.ex:5393
 #, elixir-autogen, elixir-format
 msgid "%{count} file is already in another library, so it was not added here."
 msgid_plural "%{count} files are already in another library, so they were not added here."
@@ -15248,11 +15237,6 @@ msgstr "%{count} из %{limit} библиотек"
 #, elixir-autogen, elixir-format
 msgid "Allow user libraries"
 msgstr "Разрешить пользовательские библиотеки"
-
-#: lib/phoenix_kit_web/live/users/media_detail.ex:639
-#, elixir-autogen, elixir-format
-msgid "Annotated"
-msgstr "С пометками"
 
 #: lib/phoenix_kit_web/live/components/library_settings.ex:496
 #: lib/phoenix_kit_web/live/users/libraries.ex:233
@@ -15424,16 +15408,6 @@ msgstr "Не удалось сохранить библиотеку"
 msgid "The owner is always in the library"
 msgstr "Владелец всегда состоит в библиотеке"
 
-#: lib/phoenix_kit_web/live/users/media_detail.ex:638
-#, elixir-autogen, elixir-format
-msgid "The picture"
-msgstr "Изображение"
-
-#: lib/phoenix_kit_web/live/users/media_detail.ex:671
-#, elixir-autogen, elixir-format
-msgid "Thumbnail"
-msgstr "Миниатюра"
-
 #: lib/modules/storage/web/libraries_component.ex:451
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:96
 #, elixir-autogen, elixir-format
@@ -15516,7 +15490,7 @@ msgstr "Вы не можете переместить эту библиотек�
 msgid "Other users' libraries"
 msgstr "Библиотеки других пользователей"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3728
+#: lib/phoenix_kit_web/components/media_browser.ex:3731
 #, elixir-autogen, elixir-format
 msgid "%{count} orphaned file will be moved to the trash"
 msgid_plural "%{count} orphaned files will be moved to the trash"
@@ -15604,6 +15578,7 @@ msgstr "Резервная копия"
 #: lib/modules/storage/web/bucket_page.ex:50
 #: lib/modules/storage/web/library_page.html.heex:145
 #: lib/modules/storage/web/profiles_component.ex:618
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:293
 #, elixir-autogen, elixir-format
 msgid "Bucket"
 msgstr "Бакет"
@@ -15682,6 +15657,10 @@ msgstr "Показаны первые %{count} из %{total}."
 #: lib/modules/storage/web/libraries_component.ex:323
 #: lib/modules/storage/web/libraries_component.ex:439
 #: lib/modules/storage/web/library_page.html.heex:187
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:612
+#: lib/phoenix_kit_web/live/users/media_storage.ex:59
+#: lib/phoenix_kit_web/live/users/media_storage.ex:113
+#: lib/phoenix_kit_web/live/users/media_storage.ex:134
 #, elixir-autogen, elixir-format
 msgid "Storage"
 msgstr "Хранилище"
@@ -15767,23 +15746,23 @@ msgstr "Ожидает"
 msgid "standard"
 msgstr "стандартный"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3575
 #: lib/phoenix_kit_web/components/media_browser.ex:3578
+#: lib/phoenix_kit_web/components/media_browser.ex:3581
 #, elixir-autogen, elixir-format
 msgid "Failed to restore file"
 msgstr "Не удалось восстановить файл"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3598
+#: lib/phoenix_kit_web/components/media_browser.ex:3601
 #, elixir-autogen, elixir-format
 msgid "Failed to restore folder"
 msgstr "Не удалось восстановить папку"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3570
+#: lib/phoenix_kit_web/components/media_browser.ex:3572
 #, elixir-autogen, elixir-format
 msgid "File restored"
 msgstr "Файл восстановлен"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3594
+#: lib/phoenix_kit_web/components/media_browser.ex:3597
 #, elixir-autogen, elixir-format
 msgid "Folder restored"
 msgstr "Папка восстановлена"
@@ -15909,7 +15888,7 @@ msgstr[2] "профиль «По умолчанию» снижен до %{count}
 msgid "continued"
 msgstr "продолжение"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3451
+#: lib/phoenix_kit_web/components/media_browser.ex:3453
 #, elixir-autogen, elixir-format
 msgid "Failed to remove file"
 msgstr "Не удалось удалить файл"
@@ -16274,13 +16253,13 @@ msgstr "Не удалось использовать ваше хранилище
 msgid "You may not use your own storage"
 msgstr "Вам нельзя использовать собственное хранилище"
 
-#: lib/phoenix_kit_web/live/users/media.ex:221
+#: lib/phoenix_kit_web/live/users/media.ex:241
 #, elixir-autogen, elixir-format
 msgid "Mine"
 msgstr "Мои"
 
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:328
-#: lib/phoenix_kit_web/live/users/media.ex:204
+#: lib/phoenix_kit_web/live/users/media.ex:224
 #, elixir-autogen, elixir-format
 msgid "Site"
 msgstr "Сайт"
@@ -17074,8 +17053,10 @@ msgid "Duration"
 msgstr "Длительность"
 
 #: lib/modules/storage/web/bucket_page.html.heex:491
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:816
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:355
+#: lib/phoenix_kit_web/live/users/media_storage.ex:439
 #, elixir-autogen, elixir-format
 msgid "Failed"
 msgstr "Не удалось"
@@ -17247,6 +17228,7 @@ msgstr "Запустил"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:99
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:71
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:180
 #, elixir-autogen, elixir-format
 msgid "State"
 msgstr "Состояние"
@@ -17762,6 +17744,7 @@ msgid "Unlimited"
 msgstr "Без ограничений"
 
 #: lib/modules/storage/web/bucket_page.html.heex:108
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:84
 #, elixir-autogen, elixir-format
 msgid "Updated"
 msgstr "Обновлено"
@@ -17823,6 +17806,8 @@ msgid "Probe"
 msgstr "Проверка соединения"
 
 #: lib/modules/storage/web/bucket_page.ex:449
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:317
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:320
 #, elixir-autogen, elixir-format
 msgid "Read"
 msgstr "Чтение"
@@ -18379,6 +18364,7 @@ msgstr "Вариант обновлён"
 
 #: lib/modules/storage/web/health_component.ex:83
 #: lib/phoenix_kit_web/live/components/library_settings.ex:814
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:110
 #, elixir-autogen, elixir-format
 msgid "Renditions"
 msgstr "Варианты"
@@ -18809,7 +18795,7 @@ msgstr "Отбросить все файлы из этого списка? Он�
 msgid "Larger than the %{mb} MB upload limit."
 msgstr "Превышает лимит загрузки в %{mb} МБ."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5277
+#: lib/phoenix_kit_web/components/media_browser.ex:5290
 #, elixir-autogen, elixir-format
 msgid "No storage is set up to receive files."
 msgstr "Не настроено хранилище для приёма файлов."
@@ -18825,12 +18811,12 @@ msgid "Saving was interrupted before it finished — the page was closed or refr
 msgstr "Сохранение прервалось до завершения — страница была закрыта или обновлена."
 
 #: lib/phoenix_kit_web/components/media_browser.ex:483
-#: lib/phoenix_kit_web/components/media_browser.ex:5286
+#: lib/phoenix_kit_web/components/media_browser.ex:5299
 #, elixir-autogen, elixir-format
 msgid "The server could not save it."
 msgstr "Серверу не удалось его сохранить."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5280
+#: lib/phoenix_kit_web/components/media_browser.ex:5293
 #, elixir-autogen, elixir-format
 msgid "The server ran into an error while saving it."
 msgstr "При сохранении на сервере произошла ошибка."
@@ -18840,17 +18826,17 @@ msgstr "При сохранении на сервере произошла ош�
 msgid "The upload could not start."
 msgstr "Не удалось начать загрузку."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3830
+#: lib/phoenix_kit_web/components/media_browser.ex:3833
 #, elixir-autogen, elixir-format
 msgid "The upload was cut short — the page was closed or refreshed."
 msgstr "Загрузка прервалась — страница была закрыта или обновлена."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3832
+#: lib/phoenix_kit_web/components/media_browser.ex:3835
 #, elixir-autogen, elixir-format
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "Загрузка прервалась, а файл слишком велик, чтобы сохранить его копию. Добавьте его снова."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5283
+#: lib/phoenix_kit_web/components/media_browser.ex:5296
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."
 msgstr "Загруженный файл пропал с сервера до того, как его удалось сохранить."
@@ -18872,13 +18858,13 @@ msgid "Loading full quality…"
 msgstr "Загрузка в полном качестве…"
 
 #: lib/phoenix_kit_web/live/users/libraries.ex:165
-#: lib/phoenix_kit_web/live/users/media.ex:228
+#: lib/phoenix_kit_web/live/users/media.ex:248
 #, elixir-autogen, elixir-format
 msgid "Search libraries…"
 msgstr "Искать библиотеки…"
 
 #: lib/phoenix_kit_web/live/users/libraries.ex:164
-#: lib/phoenix_kit_web/live/users/media.ex:227
+#: lib/phoenix_kit_web/live/users/media.ex:247
 #, elixir-autogen, elixir-format
 msgid "Switch library"
 msgstr "Переключить библиотеку"
@@ -18970,14 +18956,13 @@ msgstr "только широкие изображения"
 
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1760
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1761
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:713
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:299
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:732
 #, elixir-autogen, elixir-format
 msgid "Panorama"
 msgstr "Панорама"
 
+#: lib/phoenix_kit_web/components/core/file_details_fields.ex:78
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:79
-#: lib/phoenix_kit_web/components/core/file_details_fields.ex:80
 #, elixir-autogen, elixir-format
 msgid "No translation yet"
 msgstr "Перевода пока нет"
@@ -19004,11 +18989,6 @@ msgstr "Диафрагма"
 msgid "Camera"
 msgstr "Камера"
 
-#: lib/phoenix_kit_web/live/users/media_detail.html.heex:268
-#, elixir-autogen, elixir-format
-msgid "Camera & location"
-msgstr "Камера и местоположение"
-
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:106
 #, elixir-autogen, elixir-format
 msgid "Could not read the EXIF of this photo."
@@ -19025,7 +19005,7 @@ msgstr "Даты"
 msgid "Did not fire"
 msgstr "Не сработала"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:706
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:725
 #, elixir-autogen, elixir-format
 msgid "Dimensions:"
 msgstr "Размеры:"
@@ -19156,3 +19136,364 @@ msgstr "истинный север"
 #, elixir-autogen, elixir-format
 msgid "Nothing here about the camera, exposure, dates or location. All EXIF lists what the file carries."
 msgstr "Здесь нет данных о камере, экспозиции, датах или месте. «Весь EXIF» показывает всё, что есть в файле."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
+#, elixir-autogen, elixir-format
+msgid "Delete forever"
+msgstr "Удалить навсегда"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:774
+#, elixir-autogen, elixir-format
+msgid "File UUID:"
+msgstr "UUID файла:"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:814
+#, elixir-autogen, elixir-format
+msgid "In the trash"
+msgstr "В корзине"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:550
+#, elixir-autogen, elixir-format
+msgid "Media details"
+msgstr "Сведения о медиафайле"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:814
+#, elixir-autogen, elixir-format
+msgid "Move to trash"
+msgstr "Переместить в корзину"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:737
+#, elixir-autogen, elixir-format
+msgid "Pages:"
+msgstr "Страниц:"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:801
+#, elixir-autogen, elixir-format
+msgid "Permanently delete this file? This cannot be undone."
+msgstr "Удалить этот файл навсегда? Это действие нельзя отменить."
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:815
+#: lib/phoenix_kit_web/live/users/media_storage.ex:438
+#, elixir-autogen, elixir-format
+msgid "Processing"
+msgstr "Обрабатывается"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:751
+#, elixir-autogen, elixir-format
+msgid "Updated:"
+msgstr "Обновлено:"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:747
+#, elixir-autogen, elixir-format
+msgid "Uploaded by:"
+msgstr "Загрузил(а):"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:115
+#, elixir-autogen, elixir-format
+msgid "%{count} rendition is missing, out of date or not stored anywhere."
+msgid_plural "%{count} renditions are missing, out of date or not stored anywhere."
+msgstr[0] "%{count} вариант отсутствует, устарел или нигде не сохранён."
+msgstr[1] "%{count} варианта отсутствуют, устарели или нигде не сохранены."
+msgstr[2] "%{count} вариантов отсутствуют, устарели или нигде не сохранены."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:281
+#, elixir-autogen, elixir-format
+msgid "%{ok} of %{total} copies match the checksum they were stored with."
+msgstr "%{ok} из %{total} копий совпадают с контрольной суммой, с которой они были сохранены."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:421
+#, elixir-autogen, elixir-format
+msgid "%{px} px tall"
+msgstr "высота %{px} px"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:427
+#, elixir-autogen, elixir-format
+msgid "%{px} px wide"
+msgstr "ширина %{px} px"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:314
+#, elixir-autogen, elixir-format
+msgid "An edit is being applied. Try again shortly."
+msgstr "Правка применяется. Повторите попытку чуть позже."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:339
+#, elixir-autogen, elixir-format
+msgid "Another pass is working on this file."
+msgstr "Этим файлом уже занимается другой проход."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:176
+#, elixir-autogen, elixir-format
+msgid "Asked for"
+msgstr "Запрошено"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:178
+#, elixir-autogen, elixir-format
+msgid "Checksum"
+msgstr "Контрольная сумма"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:364
+#, elixir-autogen, elixir-format
+msgid "Checksum (SHA-256)"
+msgstr "Контрольная сумма (SHA-256)"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:93
+#, elixir-autogen, elixir-format
+msgid "Checksum of the original (SHA-256)"
+msgstr "Контрольная сумма оригинала (SHA-256)"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:455
+#, elixir-autogen, elixir-format
+msgid "Could not read"
+msgstr "Не удалось прочитать"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:412
+#, elixir-autogen, elixir-format
+msgid "Delete the unedited original"
+msgstr "Удалить неизменённый оригинал"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:405
+#, elixir-autogen, elixir-format
+msgid "Delete the unedited original? The edit becomes permanent and this cannot be undone."
+msgstr "Удалить неизменённый оригинал? Правка станет постоянной, это нельзя отменить."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:451
+#, elixir-autogen, elixir-format
+msgid "Differs"
+msgstr "Отличается"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:388
+#, elixir-autogen, elixir-format
+msgid "Download the unedited original"
+msgstr "Скачать неизменённый оригинал"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:113
+#, elixir-autogen, elixir-format
+msgid "Everything this file should have is stored."
+msgstr "Всё, что должно быть у этого файла, сохранено."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:333
+#, elixir-autogen, elixir-format
+msgid "Everything this file should have is there."
+msgstr "Всё, что должно быть у этого файла, на месте."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:88
+#, elixir-autogen, elixir-format
+msgid "File UUID"
+msgstr "UUID файла"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:179
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:371
+#, elixir-autogen, elixir-format
+msgid "Kept in"
+msgstr "Хранится в"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:258
+#, elixir-autogen, elixir-format
+msgid "Make"
+msgstr "Создать"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:157
+#, elixir-autogen, elixir-format
+msgid "Make every rendition again from the original? This can take a while."
+msgstr "Создать все варианты заново из оригинала? Это может занять некоторое время."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:149
+#, elixir-autogen, elixir-format
+msgid "Make what is missing"
+msgstr "Создать недостающее"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:450
+#, elixir-autogen, elixir-format
+msgid "Matches"
+msgstr "Совпадает"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:454
+#, elixir-autogen, elixir-format
+msgid "No checksum recorded"
+msgstr "Контрольная сумма не записана"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:440
+#: lib/phoenix_kit_web/live/users/media_storage.ex:453
+#, elixir-autogen, elixir-format
+msgid "No copy"
+msgstr "Нет копии"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:336
+#, elixir-autogen, elixir-format
+msgid "Not everything could be made. See the table, then try again."
+msgstr "Создать удалось не всё. Посмотрите таблицу и повторите попытку."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:452
+#, elixir-autogen, elixir-format
+msgid "Not in bucket"
+msgstr "Нет в бакете"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:294
+#, elixir-autogen, elixir-format
+msgid "Object"
+msgstr "Объект"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:58
+#, elixir-autogen, elixir-format
+msgid "Open in media view"
+msgstr "Открыть в просмотре медиа"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:445
+#, elixir-autogen, elixir-format
+msgid "Other format"
+msgstr "Другой формат"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:437
+#, elixir-autogen, elixir-format
+msgid "Out of date"
+msgstr "Устарела"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:317
+#, elixir-autogen, elixir-format
+msgid "Recorded"
+msgstr "Записано"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:165
+#, elixir-autogen, elixir-format
+msgid "Regenerate all"
+msgstr "Создать всё заново"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:360
+#, elixir-autogen, elixir-format
+msgid "Regenerated %{count} rendition."
+msgid_plural "Regenerated %{count} renditions."
+msgstr[0] "Создан заново %{count} вариант."
+msgstr[1] "Создано заново %{count} варианта."
+msgstr[2] "Создано заново %{count} вариантов."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:163
+#, elixir-autogen, elixir-format
+msgid "Regenerating…"
+msgstr "Создаётся заново…"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:175
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:292
+#, elixir-autogen, elixir-format
+msgid "Rendition"
+msgstr "Вариант"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:348
+#, elixir-autogen, elixir-format
+msgid "Rendition made."
+msgstr "Вариант создан."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:146
+#, elixir-autogen, elixir-format
+msgid "Repairing…"
+msgstr "Исправляется…"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
+#, elixir-autogen, elixir-format
+msgid "Restore the original"
+msgstr "Восстановить оригинал"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:394
+#, elixir-autogen, elixir-format
+msgid "Restore the unedited original? The edit is removed."
+msgstr "Восстановить неизменённый оригинал? Правка будет удалена."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:243
+#, elixir-autogen, elixir-format
+msgid "Something is already running."
+msgstr "Что-то уже выполняется."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:435
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:177
+#, elixir-autogen, elixir-format
+msgid "Stored"
+msgstr "Сохранено"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:379
+#, elixir-autogen, elixir-format
+msgid "That did not finish. Try again."
+msgstr "Не завершилось. Повторите попытку."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:319
+#, elixir-autogen, elixir-format
+msgid "The change could not be made."
+msgstr "Не удалось внести изменение."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:431
+#, elixir-autogen, elixir-format
+msgid "The file you're looking for doesn't exist or has been deleted."
+msgstr "Файл, который вы ищете, не существует или был удалён."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:418
+#, elixir-autogen, elixir-format
+msgid "The last edit could not be applied."
+msgstr "Не удалось применить последнюю правку."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:349
+#, elixir-autogen, elixir-format
+msgid "The rendition could not be made."
+msgstr "Не удалось создать вариант."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:367
+#, elixir-autogen, elixir-format
+msgid "The renditions could not be regenerated."
+msgstr "Не удалось создать варианты заново."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:279
+#, elixir-autogen, elixir-format
+msgid "There was nothing to check: no copy is recorded for this file."
+msgstr "Проверять было нечего: для этого файла не записано ни одной копии."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:317
+#, elixir-autogen, elixir-format
+msgid "This image has annotations; restoring would move them."
+msgstr "У этого изображения есть аннотации; восстановление сдвинуло бы их."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:313
+#, elixir-autogen, elixir-format
+msgid "This image has not been edited."
+msgstr "Это изображение не редактировалось."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:347
+#, elixir-autogen, elixir-format
+msgid "This image was edited. Its unedited original is kept, and can be downloaded or restored."
+msgstr "Это изображение редактировалось. Неизменённый оригинал сохранён, его можно скачать или восстановить."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:144
+#, elixir-autogen, elixir-format
+msgid "Unnamed file"
+msgstr "Файл без имени"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:80
+#, elixir-autogen, elixir-format
+msgid "Uploaded"
+msgstr "Загружено"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:76
+#, elixir-autogen, elixir-format
+msgid "Uploaded by"
+msgstr "Загрузил(а)"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:135
+#, elixir-autogen, elixir-format
+msgid "Verify copies"
+msgstr "Проверить копии"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:133
+#, elixir-autogen, elixir-format
+msgid "Verifying…"
+msgstr "Проверка…"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:446
+#, elixir-autogen, elixir-format
+msgid "With annotations"
+msgstr "С аннотациями"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:239
+#, elixir-autogen, elixir-format
+msgid "You may not change storage."
+msgstr "У вас нет прав менять хранилище."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:312
+#, elixir-autogen, elixir-format
+msgid "You may not change this image."
+msgstr "У вас нет прав изменять это изображение."

@@ -411,6 +411,114 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
     end
   end
 
+  describe "the viewer's media details" do
+    setup %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      file = create_file!(folder.uuid)
+      create_instance!(file.uuid)
+      %{conn: log_in_user(conn, user), user: user, folder: folder, photo: file}
+    end
+
+    defp set_columns(file, set) do
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^file.uuid), set: set)
+    end
+
+    defp open_in_viewer(ctx) do
+      {:ok, view, _html} = live(ctx.conn, @media_path <> "?folder=#{ctx.folder.uuid}")
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{ctx.photo.uuid}']")
+        |> render_click()
+
+      {view, html}
+    end
+
+    test "lists who uploaded the file and its uuid, for the admin context", ctx do
+      {_view, html} = open_in_viewer(ctx)
+
+      assert html =~ "Media details"
+      assert html =~ "Uploaded by:"
+      assert html =~ ctx.photo.uuid
+    end
+
+    test "shows the size in pixels, and a panorama says so", ctx do
+      set_columns(ctx.photo, width: 8947, height: 3317)
+      {_view, html} = open_in_viewer(ctx)
+
+      assert html =~ "8947 × 3317 px"
+      assert html =~ "29.7 MP"
+      assert html =~ "Panorama"
+    end
+
+    test "a photo whose EXIF was never read offers to read it", ctx do
+      {view, html} = open_in_viewer(ctx)
+
+      assert html =~ "EXIF has not been read yet."
+      assert has_element?(view, ~s(#media-browser-viewer-modal button[phx-click="read_exif"]))
+    end
+
+    test "a photo with EXIF shows its camera and where it was taken", ctx do
+      set_columns(ctx.photo,
+        metadata: %{"exif" => %{"camera" => %{"make" => "Apple", "model" => "iPhone 17 Pro"}}},
+        latitude: 45.5,
+        longitude: 10.7
+      )
+
+      {view, html} = open_in_viewer(ctx)
+
+      assert html =~ "Apple iPhone 17 Pro"
+      assert html =~ "https://www.openstreetmap.org/?mlat=45.5&amp;mlon=10.7"
+      assert has_element?(view, ~s(#media-browser-viewer-modal button[phx-click="show_exif"]))
+    end
+
+    test "tags are edited beside the title and saved with it", ctx do
+      {view, _html} = open_in_viewer(ctx)
+
+      view
+      |> form("#media-meta-form-#{ctx.photo.uuid}", %{"tags" => "sea, boats"})
+      |> render_submit()
+
+      assert Storage.get_file(ctx.photo.uuid).metadata["tags"] == ["sea", "boats"]
+      assert render(view) =~ "sea, boats"
+    end
+
+    test "offers Move to trash, and the viewer closes once the file is trashed", ctx do
+      {view, html} = open_in_viewer(ctx)
+      assert html =~ "Move to trash"
+
+      view
+      |> element("#media-browser-viewer-modal button[phx-click='trash_file']")
+      |> render_click()
+
+      assert Storage.get_file(ctx.photo.uuid).status == "trashed"
+      refute render(view) =~ "media-browser-viewer-modal"
+    end
+
+    test "a trashed file offers Restore and Delete forever instead", ctx do
+      {:ok, _} = Storage.trash_file(ctx.photo)
+      {:ok, view, _html} = live(ctx.conn, @media_path <> "?folder=#{ctx.folder.uuid}")
+      view |> element("[phx-click='toggle_trash_filter']") |> render_click()
+
+      html =
+        view
+        |> element("[phx-click='click_file'][phx-value-file-uuid='#{ctx.photo.uuid}']")
+        |> render_click()
+
+      assert html =~ "In the trash"
+      assert html =~ "Delete forever"
+      refute html =~ "Move to trash"
+
+      view
+      |> element("#media-browser-viewer-modal button[phx-click='restore_file']")
+      |> render_click()
+
+      assert Storage.get_file(ctx.photo.uuid).status == "active"
+      refute render(view) =~ "media-browser-viewer-modal"
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Rotation persistence — the popup opts in unconditionally (any user who can
   # open and rotate a file saves its shared orientation). Exercised via the

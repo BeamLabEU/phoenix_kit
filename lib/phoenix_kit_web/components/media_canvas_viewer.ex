@@ -304,12 +304,14 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_new(:media_meta_placeholders, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_lang, fn -> nil end)
       |> assign_new(:media_meta_lang_name, fn -> nil end)
+      |> assign_new(:file_row, fn -> nil end)
       |> assign_new(:file_exif, fn -> nil end)
       |> assign_new(:file_geo, fn -> {nil, nil} end)
       |> assign_new(:exif_tags, fn -> nil end)
       |> assign_new(:exif_status, fn -> nil end)
       |> assign_new(:media_meta_langs, fn -> [] end)
       |> assign_new(:media_meta_values, fn -> %{} end)
+      |> assign_new(:media_tags, fn -> [] end)
       |> assign_new(:media_details_open, fn -> false end)
       |> assign_new(:media_meta_status, fn -> nil end)
       |> assign_new(:media_meta_status_token, fn -> 0 end)
@@ -605,8 +607,10 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
          # for a writable file, but a hidden form is not a boundary.
          true <- Storage.within_scope?(row.folder_uuid, socket.assigns.write_scope),
          {:ok, row} <-
-           Storage.update_file_details_languages(row, by_lang,
-             original_values: socket.assigns[:media_meta_values]
+           Storage.update_file_details_languages(
+             row,
+             by_lang,
+             [original_values: socket.assigns[:media_meta_values]] ++ tags_metadata(params)
            ) do
       token = (socket.assigns[:media_meta_status_token] || 0) + 1
 
@@ -750,6 +754,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     socket =
       socket
       |> assign(:file_writable, file_writable?(row, socket.assigns[:write_scope]))
+      |> assign(:file_row, file_row_info(row, socket.assigns[:details_path]))
       |> assign(:viewer_rotation, normalize_rotation(Map.get(meta, "rotation")))
       |> assign_exif(row)
       |> assign_media_meta(row, content_language())
@@ -762,10 +767,54 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     _ ->
       socket
       |> assign(:viewer_rotation, 0)
+      |> assign(:file_row, nil)
       |> assign_media_meta(nil, nil)
       |> assign(:media_details_open, false)
       |> assign(:media_meta_status, nil)
   end
+
+  # What the sidebar lists besides the file map: the row's state and last
+  # change. Who uploaded it and its uuid are for the admin context only (the
+  # `details_path` hosts) — a public lightbox shows a photo, not its owner.
+  defp file_row_info(%Storage.File{} = row, details_path) do
+    admin? = not is_nil(details_path)
+
+    %{
+      status: row.status,
+      edited?: not is_nil(row.original_file_uuid),
+      updated_at: row.updated_at,
+      inserted_at: row.inserted_at,
+      pages: if(row.mime_type == "application/pdf", do: (row.metadata || %{})["page_count"]),
+      uploader: if(admin?, do: uploader_name(row.user_uuid)),
+      uuid: if(admin?, do: row.uuid)
+    }
+  end
+
+  defp file_row_info(_row, _details_path), do: nil
+
+  defp uploader_name(nil), do: nil
+
+  defp uploader_name(user_uuid) do
+    case PhoenixKit.Config.get_repo().get(PhoenixKit.Config.get_users_module(), user_uuid) do
+      nil -> nil
+      user -> user.email
+    end
+  end
+
+  # The row was changed after it was uploaded (a minute allows for the upload's
+  # own processing writing to it).
+  defp changed_since_upload?(%{
+         updated_at: %DateTime{} = updated,
+         inserted_at: %DateTime{} = ins
+       }),
+       do: DateTime.diff(updated, ins) > 60
+
+  defp changed_since_upload?(_row), do: false
+
+  defp status_label("trashed"), do: gettext("In the trash")
+  defp status_label("processing"), do: gettext("Processing")
+  defp status_label("failed"), do: gettext("Failed")
+  defp status_label(other), do: other
 
   # The photo's recorded EXIF and position (`nil` EXIF: never read), and the
   # whole-dump view closed.
@@ -812,6 +861,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     |> assign(:media_meta_lang_name, FileDetails.language_name(lang))
     |> assign(:media_meta_langs, tabs)
     |> assign(:media_meta_values, Map.new(codes, &{&1, own.(&1)}))
+    |> assign(:media_tags, file_tags(row))
   end
 
   defp assign_media_meta(socket, _row, _lang) do
@@ -825,7 +875,25 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     |> assign(:media_meta_lang_name, nil)
     |> assign(:media_meta_langs, [])
     |> assign(:media_meta_values, %{})
+    |> assign(:media_tags, [])
   end
+
+  # The tags kept in the row's metadata; anything else there is not a tag.
+  defp file_tags(%Storage.File{metadata: %{"tags" => tags}}) when is_list(tags),
+    do: Enum.filter(tags, &is_binary/1)
+
+  defp file_tags(_row), do: []
+
+  # More tags than this on one file is a mistake, not a taxonomy.
+  @max_tags 50
+
+  # `tags` arrives as one comma-separated field; a form without it leaves them be.
+  defp tags_metadata(%{"tags" => tags}) when is_binary(tags) do
+    list = tags |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+    [metadata: %{"tags" => Enum.take(list, @max_tags)}]
+  end
+
+  defp tags_metadata(_params), do: []
 
   # Whether THIS host offers the title/description editor. One rule, read
   # by both the template (which form to render) and the save handler

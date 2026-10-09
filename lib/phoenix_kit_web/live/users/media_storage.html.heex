@@ -1,0 +1,440 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  socket={@socket}
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@header_title}
+  page_section={@header_section}
+  page_section_path={@header_section_path}
+  page_crumbs={@header_crumbs}
+  current_path={Routes.path("/admin/media/#{@file_uuid}/storage")}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="p-6 max-w-6xl mx-auto space-y-6">
+    <%= if @file do %>
+      <%!-- The file: who and what it is, in a line each. The picture, its --%>
+      <%!-- title and its comments are in the media view.                  --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4 sm:p-6">
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div :if={@preview_url} class="shrink-0">
+              <img
+                src={@preview_url}
+                alt=""
+                class="w-32 h-32 object-contain rounded-lg bg-base-200"
+              />
+            </div>
+
+            <div class="flex-1 min-w-0 space-y-3">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <h2 class="text-lg font-bold break-all">{filename(@file)}</h2>
+                  <div class="flex flex-wrap gap-2 mt-1">
+                    <span class={[
+                      "badge badge-sm",
+                      @file.status == "active" && "badge-success",
+                      @file.status == "processing" && "badge-info",
+                      @file.status == "failed" && "badge-error",
+                      @file.status == "trashed" && "badge-warning"
+                    ]}>
+                      {String.capitalize(@file.status)}
+                    </span>
+                    <span class="badge badge-sm badge-primary">
+                      {String.upcase(@file.file_type || "file")}
+                    </span>
+                    <span
+                      :if={@file.edit_state == "pending"}
+                      class="badge badge-sm badge-info gap-1"
+                    >
+                      <span class="loading loading-spinner loading-xs"></span>
+                      {gettext("Applying edit")}
+                    </span>
+                    <span :if={@file.edit_state == "failed"} class="badge badge-sm badge-error">
+                      {gettext("Edit failed")}
+                    </span>
+                  </div>
+                </div>
+                <.link navigate={@view_path} class="btn btn-primary btn-sm gap-2">
+                  <.icon name="hero-photo" class="w-4 h-4" /> {gettext("Open in media view")}
+                </.link>
+              </div>
+
+              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div>
+                  <dt class="text-base-content/60">{gettext("Type")}</dt>
+                  <dd class="font-mono text-xs break-all">{@file.mime_type}</dd>
+                </div>
+                <div>
+                  <dt class="text-base-content/60">{gettext("Size")}</dt>
+                  <dd>{size_label(@file.size)}</dd>
+                </div>
+                <div :if={@file.width && @file.height}>
+                  <dt class="text-base-content/60">{gettext("Dimensions")}</dt>
+                  <dd>{dimensions_label(@file)} px</dd>
+                </div>
+                <div :if={@uploader}>
+                  <dt class="text-base-content/60">{gettext("Uploaded by")}</dt>
+                  <dd class="break-all">{@uploader}</dd>
+                </div>
+                <div>
+                  <dt class="text-base-content/60">{gettext("Uploaded")}</dt>
+                  <dd>{date(@file.inserted_at)}</dd>
+                </div>
+                <div>
+                  <dt class="text-base-content/60">{gettext("Updated")}</dt>
+                  <dd>{date(@file.updated_at)}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="text-base-content/60">{gettext("File UUID")}</dt>
+                  <dd class="font-mono text-xs break-all select-all">{@file.uuid}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="text-base-content/60">
+                    {gettext("Checksum of the original (SHA-256)")}
+                  </dt>
+                  <dd class="font-mono text-xs break-all select-all">
+                    {@file.file_checksum || "–"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Renditions: what the file's variant set wants, and what is there. --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div>
+              <h3 class="font-semibold">{gettext("Renditions")}</h3>
+              <p class="text-xs text-base-content/60">
+                <%= if @problems == [] do %>
+                  {gettext("Everything this file should have is stored.")}
+                <% else %>
+                  {ngettext(
+                    "%{count} rendition is missing, out of date or not stored anywhere.",
+                    "%{count} renditions are missing, out of date or not stored anywhere.",
+                    length(@problems)
+                  )}
+                <% end %>
+              </p>
+            </div>
+
+            <div :if={@can_manage} class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                phx-click="verify"
+                disabled={@working != nil}
+                class="btn btn-ghost btn-sm gap-2"
+              >
+                <%= if @working == :verify do %>
+                  <span class="loading loading-spinner loading-xs"></span>
+                  {gettext("Verifying…")}
+                <% else %>
+                  <.icon name="hero-shield-check" class="w-4 h-4" /> {gettext("Verify copies")}
+                <% end %>
+              </button>
+              <button
+                type="button"
+                phx-click="repair"
+                disabled={@working != nil}
+                class={["btn btn-sm gap-2", (@problems == [] && "btn-ghost") || "btn-primary"]}
+              >
+                <%= if @working == :repair do %>
+                  <span class="loading loading-spinner loading-xs"></span>
+                  {gettext("Repairing…")}
+                <% else %>
+                  <.icon name="hero-wrench-screwdriver" class="w-4 h-4" />
+                  {gettext("Make what is missing")}
+                <% end %>
+              </button>
+              <button
+                type="button"
+                phx-click="regenerate_all"
+                disabled={@working != nil}
+                data-confirm={
+                  gettext("Make every rendition again from the original? This can take a while.")
+                }
+                class="btn btn-ghost btn-sm gap-2"
+              >
+                <%= if @working == :regenerate do %>
+                  <span class="loading loading-spinner loading-xs"></span>
+                  {gettext("Regenerating…")}
+                <% else %>
+                  <.icon name="hero-arrow-path" class="w-4 h-4" /> {gettext("Regenerate all")}
+                <% end %>
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>{gettext("Rendition")}</th>
+                  <th>{gettext("Asked for")}</th>
+                  <th>{gettext("Stored")}</th>
+                  <th>{gettext("Checksum")}</th>
+                  <th>{gettext("Kept in")}</th>
+                  <th>{gettext("State")}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={row <- @rows} id={"rendition-#{row.name}"}>
+                  <td>
+                    <div class="font-medium">{row.name}</div>
+                    <div class="text-xs text-base-content/50">{kind_label(row.kind)}</div>
+                  </td>
+                  <td class="text-xs">
+                    <%= if row.dimension do %>
+                      {spec_label(row.dimension)}
+                      <span class="text-base-content/50">· {row.format}</span>
+                    <% else %>
+                      –
+                    <% end %>
+                  </td>
+                  <td class="text-xs whitespace-nowrap">
+                    <%= if row.instance do %>
+                      <div>{dimensions_label(row.instance)}</div>
+                      <div class="text-base-content/60">
+                        {size_label(row.instance.size)}
+                        <span :if={row.instance.mime_type}>· {row.instance.mime_type}</span>
+                      </div>
+                    <% else %>
+                      –
+                    <% end %>
+                  </td>
+                  <td>
+                    <span
+                      class="font-mono text-xs"
+                      title={checksum_of(row)}
+                    >
+                      {short(checksum_of(row))}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="flex flex-wrap gap-1">
+                      <span
+                        :for={copy <- row.copies}
+                        class={[
+                          "badge badge-sm h-auto",
+                          (copy.status == "active" && "badge-ghost") || "badge-warning"
+                        ]}
+                        title={copy.path}
+                      >
+                        {copy.bucket.name}
+                      </span>
+                      <span :if={row.copies == []} class="text-xs text-base-content/50">–</span>
+                    </div>
+                  </td>
+                  <td>
+                    <% {tone, label} = state_badge(row.state) %>
+                    <span class={["badge badge-sm", tone]}>{label}</span>
+                  </td>
+                  <td class="text-right whitespace-nowrap">
+                    <a
+                      :if={row.instance && row.state in [:ok, :stale, :no_copy]}
+                      href={download_url(row.instance, @file)}
+                      download={download_name(@file, row.instance)}
+                      class="btn btn-ghost btn-xs btn-square"
+                      title={gettext("Download")}
+                      aria-label={gettext("Download")}
+                    >
+                      <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                    </a>
+                    <button
+                      :if={@can_manage and row.state in [:missing, :failed] and row.dimension}
+                      type="button"
+                      phx-click="make"
+                      phx-value-name={row.name}
+                      disabled={@working != nil}
+                      class="btn btn-ghost btn-xs"
+                    >
+                      <%= if @working == {:make, row.name} do %>
+                        <span class="loading loading-spinner loading-xs"></span>
+                      <% else %>
+                        {gettext("Make")}
+                      <% end %>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Verification: every copy read back from its own bucket. --%>
+      <div :if={@verification} class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4 sm:p-6">
+          <% {ok, total} = verified_summary(@verification) %>
+          <h3 class="font-semibold">{gettext("Verification")}</h3>
+          <div class={[
+            "alert text-sm",
+            (ok == total && total > 0 && "alert-success") || "alert-warning"
+          ]}>
+            <%= if total == 0 do %>
+              {gettext("There was nothing to check: no copy is recorded for this file.")}
+            <% else %>
+              {gettext("%{ok} of %{total} copies match the checksum they were stored with.",
+                ok: ok,
+                total: total
+              )}
+            <% end %>
+          </div>
+
+          <div :if={@verification != []} class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>{gettext("Rendition")}</th>
+                  <th>{gettext("Bucket")}</th>
+                  <th>{gettext("Object")}</th>
+                  <th>{gettext("Result")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={result <- @verification}>
+                  <td class="font-medium">{result.name}</td>
+                  <td class="text-xs">
+                    <%= if result.bucket do %>
+                      {result.bucket.name}
+                      <span class="text-base-content/50">· {result.bucket.provider}</span>
+                    <% else %>
+                      –
+                    <% end %>
+                  </td>
+                  <td class="font-mono text-[10px] break-all">{result.path}</td>
+                  <td>
+                    <% {tone, label} = result_badge(result.result) %>
+                    <span
+                      class={["badge badge-sm", tone]}
+                      title={
+                        case result.result do
+                          {:mismatch, recorded, actual} ->
+                            "#{gettext("Recorded")}: #{recorded} / #{gettext("Read")}: #{actual}"
+
+                          {:unrecorded, actual} ->
+                            "#{gettext("Read")}: #{actual}"
+
+                          {:error, reason} ->
+                            inspect(reason)
+
+                          _ ->
+                            nil
+                        end
+                      }
+                    >
+                      {label}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <%!-- The unedited original an image edit keeps. --%>
+      <div :if={@backup || @file.edit_state} class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4 sm:p-6">
+          <h3 class="font-semibold">{gettext("Unedited original")}</h3>
+
+          <%= if @backup do %>
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "This image was edited. Its unedited original is kept, and can be downloaded or restored."
+              )}
+            </p>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div>
+                <dt class="text-base-content/60">{gettext("Size")}</dt>
+                <dd>{size_label(@backup.instance && @backup.instance.size)}</dd>
+              </div>
+              <div>
+                <dt class="text-base-content/60">{gettext("Dimensions")}</dt>
+                <dd>
+                  {(@backup.instance && dimensions_label(@backup.instance)) ||
+                    dimensions_label(@backup.file)} px
+                </dd>
+              </div>
+              <div class="sm:col-span-2">
+                <dt class="text-base-content/60">{gettext("Checksum (SHA-256)")}</dt>
+                <dd class="font-mono text-xs break-all select-all">
+                  {(@backup.instance && @backup.instance.checksum) || @backup.file.file_checksum ||
+                    "–"}
+                </dd>
+              </div>
+              <div class="sm:col-span-2">
+                <dt class="text-base-content/60">{gettext("Kept in")}</dt>
+                <dd class="flex flex-wrap gap-1">
+                  <span :for={copy <- @backup.copies} class="badge badge-sm badge-ghost h-auto">
+                    {copy.bucket.name}
+                  </span>
+                  <span :if={@backup.copies == []} class="text-xs text-base-content/50">–</span>
+                </dd>
+              </div>
+            </dl>
+
+            <div class="flex flex-wrap gap-2">
+              <a
+                :if={unedited_url(@socket, @file)}
+                href={unedited_url(@socket, @file)}
+                class="btn btn-ghost btn-sm gap-2"
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                {gettext("Download the unedited original")}
+              </a>
+              <button
+                :if={@can_manage}
+                type="button"
+                phx-click="revert"
+                data-confirm={gettext("Restore the unedited original? The edit is removed.")}
+                class="btn btn-ghost btn-sm gap-2"
+              >
+                <.icon name="hero-arrow-uturn-left" class="w-4 h-4" />
+                {gettext("Restore the original")}
+              </button>
+              <button
+                :if={@can_manage}
+                type="button"
+                phx-click="delete_unedited"
+                data-confirm={
+                  gettext(
+                    "Delete the unedited original? The edit becomes permanent and this cannot be undone."
+                  )
+                }
+                class="btn btn-error btn-outline btn-sm gap-2"
+              >
+                <.icon name="hero-trash" class="w-4 h-4" />
+                {gettext("Delete the unedited original")}
+              </button>
+            </div>
+          <% end %>
+
+          <div :if={@file.edit_state == "failed"} class="alert alert-error text-sm">
+            <span>{gettext("The last edit could not be applied.")}</span>
+            <button :if={@can_manage} type="button" phx-click="retry_edit" class="btn btn-sm">
+              {gettext("Try again")}
+            </button>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body text-center">
+          <.icon name="hero-photo" class="w-16 h-16 mx-auto mb-4 text-base-content/50" />
+          <h2 class="text-2xl font-bold text-error">{gettext("File not found")}</h2>
+          <p class="text-base-content/70 mt-2">
+            {gettext("The file you're looking for doesn't exist or has been deleted.")}
+          </p>
+          <.link navigate={Routes.path("/admin/media")} class="btn btn-primary btn-sm mt-4">
+            <.icon name="hero-arrow-left" class="w-4 h-4" /> {gettext("Media")}
+          </.link>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

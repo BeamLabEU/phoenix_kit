@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Components.Core.FileExifPanel do
   @moduledoc """
-  A photo's EXIF, for the viewer's sidebar and the admin detail page: the camera,
+  A photo's EXIF, for the viewer's sidebar: the camera,
   exposure, dates and GPS position worth keeping (`Storage.Exif.summary/1`, in the
   file's `metadata["exif"]`), and a way to look at the whole dump.
 

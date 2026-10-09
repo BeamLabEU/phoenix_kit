@@ -162,8 +162,8 @@ Reference: the lanes demos in `phoenix_kit_parent`'s core components showcase.
 ```
 
 - **Who may edit:** `ImageEditing` decides from `scope` (owner, Owner/Admin, `"media"` permission). A host that has already authorized the user for the file (MediaBrowser, by folder scope) passes `authorized={true}`.
-- **Keep it current:** forward `{:phoenix_kit_file_processed, uuid}` (`Storage.subscribe_to_file_events/0`) as `send_update(ImageEditor, id: id, file_processed: uuid)`. MediaBrowser and MediaDetail already do.
-- MediaBrowser opens it from a file's menu ("Edit image"); MediaDetail from its "Edit image" button.
+- **Keep it current:** forward `{:phoenix_kit_file_processed, uuid}` (`Storage.subscribe_to_file_events/0`) as `send_update(ImageEditor, id: id, file_processed: uuid)`. MediaBrowser already does.
+- MediaBrowser opens it from a file's menu ("Edit image"); the viewer sidebar has the "Edit image" button (it asks MediaBrowser to open it).
 
 How editing works underneath (the hidden unedited original, versioned URLs, the placeholder while rendering): `lib/modules/storage/README.md` → "Editing images".
 
