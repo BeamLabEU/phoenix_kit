@@ -937,7 +937,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   defp download_variants(urls) do
     urls
-    |> Enum.filter(fn {name, url} -> name not in ["original", "dzi"] and is_binary(url) end)
+    |> Enum.filter(fn {name, url} ->
+      name not in ["original", "dzi", "thumbnail_annotated", "annotated"] and is_binary(url)
+    end)
     |> Enum.sort()
   end
 

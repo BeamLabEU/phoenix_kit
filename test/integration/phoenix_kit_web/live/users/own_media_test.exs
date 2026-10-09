@@ -122,7 +122,7 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
       mine = file!("CAROL-#{n}", carol, nil)
       path = "/admin/media/#{mine.uuid}/storage"
 
-      for name <- ["original", "custom_size", "original_annotated"] do
+      for name <- ["original", "custom_size", "burned", "annotated", "thumbnail_annotated"] do
         Repo.insert!(%Storage.FileInstance{
           file_uuid: mine.uuid,
           variant_name: name,
@@ -139,8 +139,13 @@ defmodule PhoenixKitWeb.Live.Users.OwnMediaTest do
       assert html =~ "CAROL-#{n}"
       refute html =~ path
       assert html =~ "custom_size"
-      assert html =~ "original_annotated"
+      assert html =~ "burned"
       assert html =~ "dl=1"
+
+      downloads =
+        html |> Floki.parse_document!() |> Floki.find("[id^=media-canvas-viewer-] details ul a")
+
+      assert length(downloads) == 2
 
       own = file!("ALICE-OWN-#{n}", alice, nil)
       {:ok, _view, html} = media(conn, alice, "?file=#{own.uuid}")

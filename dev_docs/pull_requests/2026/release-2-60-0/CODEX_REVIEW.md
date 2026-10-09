@@ -17,8 +17,11 @@ V216 key layouts, Ukrainian catalogue and Publishing sitemap slugs (#919, #921).
   event. The contributor regression also checks the storage page and a forged Fix event.
 - **BUG - HIGH — regeneration overwrote shared rendition keys.** Repair, Make and Regenerate all used the
   ordinary rendition key even when another file referenced it, changing that file's served bytes without
-  updating its checksum or metadata. The common generation path now uses a fresh key when the target key is
-  shared. A real cross-user duplicate-upload regression checks both instance keys and the untouched old object.
+  updating its checksum or metadata. Repair now uses a fresh key for rebuilt sizes. The common generation
+  path compares the rendered checksum with every instance referencing the target key: changed bytes get a
+  fresh key; identical bytes retain duplicate-upload sharing. Including this file's own reference protects
+  an upload that clones it during generation. A real cross-user duplicate-upload regression checks both
+  instance keys and the untouched old object; the earlier V205 sharing/reconciliation regression also passes.
 - **BUG - HIGH — an unrecorded original was adopted without a checksum check.** Existence alone made it
   healthy on the first repair pass, so corrupted bytes could be used for regeneration. Unrecorded copies now
   go through the same checksum check as recovery from other buckets. A tampered original with its location
@@ -28,7 +31,8 @@ V216 key layouts, Ukrainian catalogue and Publishing sitemap slugs (#919, #921).
   Tests hold the lock from an independent PostgreSQL connection and use a stale pre-edit struct. Busy errors
   leave the storage page usable. A supervised, unlinked repair task survives the LiveView waiter exiting on
   navigation (Elixir Task.Supervised demonitoring after startup was checked); the existing page test exercises
-  successful task delivery. This is not a durable queue: application/node shutdown still ends the task.
+  successful task delivery. A runtime check killed the waiter, then allowed the supervised task to finish,
+  confirming its independent lifetime. This is not a durable queue: application/node shutdown still ends it.
 - **BUG - MEDIUM — unsafe reconciliation and disabled targets.** Repair refuses writes to a disabled bucket
   but still permits reading an existing copy there. Failed, skipped, unreadable or unrecoverable actions prevent
   reconciliation, extending Claude's failed-restore fix. If a bucket could not be read, an original is not
@@ -38,7 +42,8 @@ V216 key layouts, Ukrainian catalogue and Publishing sitemap slugs (#919, #921).
   unfixable original create no repair entries. Damage discovery remains auditable on each explicit verification.
 - **BUG - MEDIUM — per-size downloads disappeared for ordinary Media users.** The viewer again offers the
   custom/annotated rendition URLs already authorized by the browser, retaining signatures/version query
-  parameters and adding `dl=1`. It excludes the DZI manifest. With no answer to the optional product question,
+  parameters and adding `dl=1`. It excludes the DZI manifest, cropped annotated thumbnail and retired stale
+  annotation slot, as the old download list did. With no answer to the optional product question,
   existing Media capabilities were preserved. A real ordinary-user page test covers this.
 - **BUG - MEDIUM — stale verification after generation.** Make and Regenerate all now discard verification
   results from the old rendition bytes when work starts.

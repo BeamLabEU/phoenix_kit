@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
        another bucket that holds a good one (`Manager.copy_object/3`).
     3. **Makes again what no good copy is left of**, when it is a size made
        from the original (`VariantGenerator.generate_variant/5`, which also
-       uses a fresh key when another file shares the damaged key). An original with no good
+       uses a fresh key for a repaired size). An original with no good
        copy anywhere cannot be made again: that is reported, not hidden — and
        because every size is made from the original, nothing is made from an
        original that is damaged.
@@ -238,7 +238,7 @@ defmodule PhoenixKit.Modules.Storage.FileRepair do
         {[action(name, :skipped) | extra], false}
 
       {_, {dimension, name, format}} ->
-        case VariantGenerator.generate_variant(file, dimension, name, format) do
+        case VariantGenerator.generate_variant(file, dimension, name, format, fresh_key: true) do
           {:ok, _} -> {[action(name, :regenerated) | extra], true}
           _ -> {[action(name, :failed) | extra], false}
         end

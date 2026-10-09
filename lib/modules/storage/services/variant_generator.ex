@@ -132,7 +132,10 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     else
       suffix =
         if Keyword.get(opts, :fresh_key),
-          do: "_" <> String.slice(VariantSets.spec_hash(dimension, format), 0, 8),
+          do:
+            "_" <>
+              String.slice(VariantSets.spec_hash(dimension, format), 0, 8) <>
+              "_" <> UUIDv7.generate(),
           else: ""
 
       do_generate_variant(file, dimension, variant_name, format, suffix)
@@ -213,20 +216,6 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
           variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
-          # Another upload can share this key. Regeneration must leave its bytes
-          # alone, including when a repair is replacing a damaged rendition.
-          variant_storage_path =
-            if PhoenixKit.RepoHelper.repo().exists?(
-                 from(i in Storage.FileInstance,
-                   where: i.file_name == ^variant_storage_path and i.file_uuid != ^file.uuid
-                 )
-               ) do
-              Path.rootname(variant_storage_path) <>
-                "_" <> UUIDv7.generate() <> "." <> variant_ext
-            else
-              variant_storage_path
-            end
-
           with {:ok, variant_path} <-
                  process_variant(
                    original_path,
@@ -236,6 +225,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
                    focal
                  ),
                {:ok, file_stats} <- get_variant_file_stats(variant_path),
+               variant_storage_path <- safe_variant_key(variant_storage_path, file_stats.checksum),
                {:ok, storage_info} <-
                  store_variant_file(variant_path, variant_name, variant_storage_path, file) do
             publish_variant(
@@ -270,6 +260,21 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       {:error, reason} = error ->
         Logger.error("Variant #{variant_name} failed: #{inspect(reason)}")
         error
+    end
+  end
+
+  # Identical bytes can retain a shared key. Changed bytes need a fresh key
+  # whenever ANY instance expects the old checksum, including this file's:
+  # another upload can clone that instance while generation is in progress.
+  defp safe_variant_key(key, checksum) do
+    if PhoenixKit.RepoHelper.repo().exists?(
+         from(i in Storage.FileInstance,
+           where: i.file_name == ^key and (is_nil(i.checksum) or i.checksum != ^checksum)
+         )
+       ) do
+      Path.rootname(key) <> "_" <> UUIDv7.generate() <> Path.extname(key)
+    else
+      key
     end
   end
 
