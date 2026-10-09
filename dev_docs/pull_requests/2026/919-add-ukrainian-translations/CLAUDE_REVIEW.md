@@ -174,3 +174,95 @@ The email templates (`:14644-14676`) read naturally, keep every `{{…}}`, butto
 and use «Вітаємо, {{user_email}}!» consistently. The Ecto errors (`errors.po`) are idiomatic, and so are the
 three plural families (files, folders, sessions, libraries, buckets, attempts). Form 0 also correctly carries
 `%{count}` where the English singular has none (`:6287`, `:11737`, `:11744`).
+
+---
+
+## Round 2 (2026-10-09): head `384be7a4b`, rebased onto `e73b3efe4`
+
+**Verdict:** **REQUEST CHANGES.** Every round-1 finding is closed and nothing regressed. One mechanical item
+remains, and it comes from `main` itself: three upstream commits that landed after the rebase base add 34
+msgids (the new EXIF panel and the file-details form). They are missing from `uk`. Re-sync and translate them
+(suggested translations below). After that, a targeted check of those 34 entries is all that is left; no
+full re-review is needed.
+
+### Verified
+
+- **The rebase is clean.** `git diff e73b3efe4...HEAD` touches exactly the declared files plus
+  `dev_docs/pull_requests/2026/919-add-ukrainian-translations/CLAUDE_REVIEW.md` (the round-1 review,
+  byte-identical to it). `git merge-tree` against current `main` (`4a206a15`) reports no conflict.
+- **Version and CHANGELOG.** `@version "2.58.1"`; `## 2.58.1 - 2026-10-08` / `### i18n` sits above
+  `## 2.58.0`, per AGENTS.md.
+- **The catalogues are now literally `mix gettext.merge` output.** Re-running the merge on a copy reports
+  "0 new, 0 removed, 3426 unchanged" (24 and 7 for the other domains), and the result is byte-identical to
+  the committed files. All `#,` flags are back.
+- **Full checker re-run (all entries):** 3,426/3,426, 24/24 and 7/7 against the base `.pot`, with zero
+  errors: no missing, extra, empty or fuzzy entries and no placeholder, tag or plural mismatch. The
+  language heuristics (Russian letters, homoglyphs, russisms, quotes, apostrophes, «ви») show no new hits.
+- **Tests:** `MIX_ENV=test PGDATABASE=pkcore_test_domovych_uk PGPOOL=10 mix test
+  test/phoenix_kit_web/gettext_test.exs test/phoenix_kit/email/catalog_test.exs` → 48 tests, 0 failures.
+- **Runtime under `uk`:** "Try again…" gives «через 1 хвилину», «через 3 хвилини», «через 21 хвилину»,
+  «через 31 хвилину». `Utils.Date.short/1` and `short_with_year/1` give «8 жовт.», «21 лист. 2026», «2 трав.».
+
+### Round-1 findings
+
+| finding | status |
+|---|---|
+| BUG: conflict with `main` / version downgrade / `Panorama` | **closed.** Rebased, 2.58.1, «Панорама» (`default.po:18968`) |
+| BUG: "Try again in a minute." form 0 / «за» | **closed.** All three forms carry `%{count}` with «через» |
+| IMPROVEMENT: `#,` flags stripped | **closed.** Byte-identical to merge output |
+| IMPROVEMENT: month abbreviations | **closed.** CLDR `січ.`…`груд.` |
+| IMPROVEMENT: Trash vs glossary | **closed by decision.** «Кошик» stays (the UA standard in Windows, Gmail and Drive); `GLOSSARY-uk.md:85` now records it, and «Trash is empty.» → «У кошику немає файлів.» no longer duplicates the cart's «Кошик порожній.» |
+| NITPICK tables (auth, time, admin, consistency) | **applied in full**, apart from the four alternatives below. «від'єднати» is now used throughout; Client ID, Client Secret, Callback URL and Secret Access Key consistently stay in English (as the module PRs now do) |
+
+**The executor's alternatives, assessed:**
+- «Сеанси в реальному часі» (Live Sessions): good. It matches «Відвідувачі в реальному часі» and no longer
+  collides with «Активні сеанси».
+- «Властивості сайту» (Site Identity): acceptable and neutral. The calque is gone.
+- «%{count} з помилкою» (`%{count} failed`): good both standalone and inside «Частково успішно: 3 файли
+  завантажено, 2 з помилкою через …».
+- Digest «Нові сповіщення (%{label}) %{period}: %{count}.»: better than my proposal. `%{label}` is a
+  down-cased notification type label (`digest_worker.ex:249`) of unknown gender and number, and the brackets
+  keep the sentence grammatical whatever it is.
+
+### IMPROVEMENT - MEDIUM: `main` moved after the rebase, and 34 new msgids are not in `uk`
+
+`main` now has `191480d0`, `99a68696` (V215, EXIF) and `4a206a15` ("Translate the language tabs, EXIF and
+dimensions strings"). There is no release or version bump yet, so nothing conflicts. Checked against
+`main`'s `default.pot`, however, `uk` lacks 34 msgids and still carries 4 that `main` removed («Describe
+the image for someone who cannot see it», «Enter description», «Enter title», «Switch the page language to
+translate.»). Merged as is, the new EXIF panel and file-details form would be English for `uk`, and the
+CHANGELOG's "cover every msgid" would be untrue on the day it ships.
+
+**Fix:** rebase on `main`, run `mix gettext.merge priv/gettext --locale uk --no-fuzzy` and translate.
+Suggested translations (context: `file_exif_panel.ex`, `file_details_fields.ex:79`,
+`media_canvas_viewer.html.heex:706`):
+
+| msgid | proposed |
+|---|---|
+| No translation yet | Перекладу ще немає |
+| All EXIF / Hide all EXIF | Усі дані EXIF / Приховати всі дані EXIF |
+| Read EXIF / Read again | Прочитати EXIF / Прочитати ще раз |
+| EXIF has not been read yet. | EXIF ще не прочитано. |
+| Could not read the EXIF of this photo. | Не вдалося прочитати EXIF цього фото. |
+| This photo carries no EXIF. | У цьому фото немає EXIF. |
+| Camera / Lens / Software | Камера / Об'єктив / Програма |
+| Camera & location | Камера й місцезнаходження |
+| Exposure / Focal length / Aperture / Shutter / ISO | Експозиція / Фокусна відстань / Діафрагма / Витримка / ISO |
+| equivalent (in «26 mm (35 mm equivalent)») | в еквіваленті |
+| Flash / Fired / Did not fire | Спалах / Спрацював / Не спрацював (agrees with «спалах») |
+| Dates / Taken / Modified | Дати / Знято / Змінено |
+| Latitude / Longitude / Altitude | Широта / Довгота / Висота |
+| Direction / Speed / GPS time | Напрямок / Швидкість / Час GPS |
+| true north / magnetic (after «123°») | істинний азимут / магнітний азимут |
+| Show on a map | Показати на карті |
+| Dimensions: | Розміри: |
+
+Do the sync immediately before taking the PR out of draft; `main` is moving daily.
+
+### NITPICK: `Utils.Date.format_short_datetime/1` now starts with a lower-case month (pre-existing code, not this PR)
+
+`lib/phoenix_kit/utils/date.ex:141` builds `"#{short_month} DD, YYYY at HH:MM"` by hand: month first, with
+an English "at". It is used at `media_canvas_viewer.html.heex:742`. With the CLDR abbreviations the `uk`
+output is «жовт. 08, 2026 at 14:30» (round 1: «Жов 08, 2026 at 14:30»). The catalogue is right; the
+formatter should go through the existing `"%{month} %{day}, %{year} at %{time}"` template, which `uk`
+already renders as «%{day} %{month} %{year} о %{time}». That is an upstream follow-up, not a blocker here.
