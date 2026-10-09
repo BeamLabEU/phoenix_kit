@@ -4699,9 +4699,11 @@ if (typeof window.Chart === "undefined") {
 
       this._modeButtonFor = frescoId;
 
-      // The eye sits above the pencil, so the rail reads "look (eye) →
-      // edit (pencil)" top to bottom — the order Etcher's own pair uses.
-      // Everyone gets it, drawer or not: seeing the picture under the
+      // The nav leads with the pencil, then the eye — by Fresco slot, the
+      // same numbers Etcher's own pair uses (pencil 0, its chevron 1, eye 2),
+      // so the row reads the same on the finished picture and in the editor,
+      // and the pencil is at the end of the row the "more" button is not.
+      // Everyone gets the eye, drawer or not: seeing the picture under the
       // markup is a viewing affordance, not an editing one.
       //
       // Pressed in the editor (!burned && !hidden), the session ends —
@@ -4714,7 +4716,8 @@ if (typeof window.Chart === "undefined") {
         function() {
           if (!burned && !hidden) self.burnIfChanged();
           self.pushEventTo(self.el, "toggle_etchings", {});
-        }
+        },
+        { slot: 2 }
       );
 
       // The pencil IS the mode. On, you are in the editor — the picture
@@ -4728,7 +4731,7 @@ if (typeof window.Chart === "undefined") {
       if ((burned || hidden) && canAnnotate) {
         this._pencilButton = handle.appendNavButton(pencil, "Annotate", function() {
           self.pushEventTo(self.el, "toggle_burn_mode", { annotate: true });
-        });
+        }, { slot: 0 });
       }
     },
 
@@ -7639,6 +7642,40 @@ if (typeof window.Chart === "undefined") {
           // interrupting the page for.
         }
       });
+    }
+  };
+
+  // ============================================================================
+  // ViewerSwipe — swipe left/right on a fully zoomed-out picture to step
+  // ============================================================================
+  //
+  // Fresco announces a one-finger swipe across a picture at its fitted view as
+  // a bubbling `fresco:swipe` event (zoomed in, the same drag is a pan and is
+  // never announced). This sits in the viewer pane and turns it into the same
+  // step the side tabs send: swipe left for the next file, right for the
+  // previous one. Listening on the pane rather than a Fresco handle means a
+  // canvas remount (the eye, the pencil, a new burn) needs nothing re-wired.
+  //
+  // Not while annotating: with the drawing tools up, a sideways drag is a
+  // stroke or a grab, and losing the picture to it would be worse than the
+  // swipe not working there.
+  // ----------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.ViewerSwipe = {
+    mounted() {
+      var self = this;
+      this._pane = this.el.parentElement;
+      this._onSwipe = function(e) {
+        var dir = e.detail && e.detail.direction === "left" ? "next" : "prev";
+        if (self.el.dataset[dir === "next" ? "hasNext" : "hasPrev"] !== "true") return;
+        if (self._pane.querySelector(".etcher-pencil-active")) return;
+        self.pushEventTo(self.el.dataset.target, "step_viewer", { dir: dir });
+      };
+      if (this._pane) this._pane.addEventListener("fresco:swipe", this._onSwipe);
+    },
+
+    destroyed() {
+      if (this._pane) this._pane.removeEventListener("fresco:swipe", this._onSwipe);
     }
   };
 
