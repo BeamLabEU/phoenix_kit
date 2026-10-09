@@ -209,7 +209,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
     posts =
       @publishing_mod.list_posts(slug, post_language)
       |> Enum.filter(&published?/1)
-      |> Enum.reject(&excluded?/1)
+      |> Enum.reject(&(excluded?(&1) or slugless?(&1)))
       |> Enum.filter(fn post -> has_translation?(post, language) end)
 
     # Optimization: Pre-compute date counts for timestamp mode posts
@@ -353,6 +353,13 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
       _ -> base_post_slug(post)
     end
   end
+
+  @doc false
+  # A non-timestamp post with neither a slug nor a path has no address of its
+  # own; listing it would put the group listing's URL in the sitemap twice.
+  @spec slugless?(map()) :: boolean()
+  def slugless?(%{mode: :timestamp}), do: false
+  def slugless?(post), do: base_post_slug(post) in [nil, ""]
 
   defp base_post_slug(post) do
     Map.get(post, :slug) || extract_slug_from_path(Map.get(post, :path))

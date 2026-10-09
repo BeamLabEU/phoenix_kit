@@ -5,6 +5,12 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.PublishingTest do
   A translation can carry its own url_slug, and the post page canonicalises
   to it; the sitemap must list the same address, not the post slug, or every
   non-primary language points crawlers at a duplicate.
+
+  Publishing is not a dependency of core, so these tests run the source's
+  stand-in resolver (exact, then base-code match). In an app the source
+  uses Publishing's own `LanguageHelpers.resolve_language_key/2`, whose
+  tie-break between sibling dialects (primary, then enabled order) is
+  covered by Publishing's suite, not here.
   """
   use ExUnit.Case, async: true
 
@@ -51,33 +57,27 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.PublishingTest do
              "my-post"
   end
 
-  test "an entry's loc carries its language's slug, its grouping key the post slug" do
-    en =
-      Publishing.build_post_entry(
-        @post,
-        "articles",
-        "Articles",
-        "en-GB",
-        false,
-        "https://x.test",
-        %{}
-      )
+  test "each language's entry has its own loc and all share one grouping key" do
+    entries =
+      for {lang, default?} <- [{"ru", true}, {"en-GB", false}, {"fr-FR", false}, {"it", false}] do
+        {lang,
+         Publishing.build_post_entry(
+           @post,
+           "articles",
+           "Articles",
+           lang,
+           default?,
+           "https://x.test",
+           %{}
+         )}
+      end
 
-    ru =
-      Publishing.build_post_entry(
-        @post,
-        "articles",
-        "Articles",
-        "ru",
-        true,
-        "https://x.test",
-        %{}
-      )
+    for {lang, entry} <- entries do
+      assert String.ends_with?(entry.loc, "/articles/" <> @post.language_slugs[lang])
+    end
 
-    assert en.loc =~ ~r{/articles/antiques-nice-millon-riviera$}
-    assert ru.loc =~ ~r{/articles/antikvariat-nitstsa-millon-riviera$}
-    assert en.canonical_path == ru.canonical_path
-    assert en.canonical_path =~ ~r{/articles/antikvariat-nitstsa-millon-riviera$}
+    assert entries |> Enum.map(fn {_, e} -> e.canonical_path end) |> Enum.uniq() ==
+             ["/phoenix_kit/articles/antikvariat-nitstsa-millon-riviera"]
   end
 
   test "no language means the default language" do
@@ -87,12 +87,19 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.PublishingTest do
 
   test "timestamp-mode posts keep their date path in every language" do
     post = Map.merge(@post, %{mode: :timestamp, date: ~D[2025-12-09]})
-    en = Publishing.build_post_entry(post, "blog", "Blog", "en-GB", false, "https://x.test", %{})
 
-    assert en.loc =~ ~r{/blog/2025-12-09$}
+    for lang <- ["ru", "en-GB", "it"] do
+      entry =
+        Publishing.build_post_entry(post, "blog", "Blog", lang, false, "https://x.test", %{})
+
+      assert String.ends_with?(entry.loc, "/blog/2025-12-09")
+    end
   end
 
-  test "the hreflang grouping key is the post slug in every language" do
-    assert Publishing.post_slug_for_language(@post, :canonical) == @post.slug
+  test "a post with neither slug nor path is not listed" do
+    refute Publishing.slugless?(@post)
+    refute Publishing.slugless?(%{@post | slug: nil} |> Map.put(:path, "a/b/my-post.md"))
+    assert Publishing.slugless?(%{@post | slug: nil})
+    refute Publishing.slugless?(%{mode: :timestamp, slug: nil})
   end
 end
