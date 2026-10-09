@@ -292,3 +292,22 @@ already renders as «%{day} %{month} %{year} о %{time}». That is an upstream f
 **Merge-time note (not a finding):** if `main` gains msgids before this merges, re-run
 `mix gettext.merge priv/gettext --locale uk --no-fuzzy` and translate the new entries. The round-2 NITPICK
 about `Utils.Date.format_short_datetime/1` stays an upstream follow-up.
+
+---
+
+## Rebase onto 2.59.0 (2026-10-09): `main` at `3ea40f527`
+
+The branch went CONFLICTING when 2.58.0 and 2.59.0 were released, on `CHANGELOG.md` and `@version` only.
+The PR no longer touches either: both are the maintainer's, written at release time. That supersedes the
+rounds above that bumped `@version` to 2.58.1 and added a `## 2.58.1` CHANGELOG section. For the release
+notes: new `priv/gettext/uk` catalogues (`default`, `errors`, `phoenix_kit`), so a host whose language is
+`uk` or `uk-UA` gets the admin, auth and account pages in Ukrainian; `uk` is added to the gettext locale
+tests.
+
+- `git diff upstream/main -- CHANGELOG.md mix.exs` is empty. The PR touches the three `uk` catalogues, the
+  two locale-list tests and this file.
+- **Coverage against `main` 2.59.0.** 3,456/3,456 (`default`), 24/24 and 7/7. No missing, extra or empty
+  entries, and every plural entry has 3 forms. `mix gettext.merge priv/gettext --locale uk --no-fuzzy` →
+  "0 new messages, 0 removed, 3456 unchanged", files unchanged.
+- **Tests:** `test/phoenix_kit_web/gettext_test.exs` and `test/phoenix_kit/email/catalog_test.exs` → 48 tests,
+  0 failures. `mix compile --warnings-as-errors` is clean.
