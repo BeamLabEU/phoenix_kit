@@ -288,6 +288,13 @@ defmodule PhoenixKit.MixProject do
       # counts a claimed finger so the second one has something to pinch
       # against; older fresco simply keeps the old single-pointer reading.
       #
+      # 0.21 is a floor because the media viewer passes `panel_toggle: :nav`
+      # (the style panel's switch in Fresco's nav row, beside the pencil) and
+      # a `left`/`right` `panel_offset`; it also relies on 0.21's upright
+      # callout labels on a rotated picture and on a click away from a
+      # selected shape only deselecting it. An older Etcher compiles with an
+      # undeclared-attr warning and keeps its corner chevron.
+      #
       # 0.20 is a floor because the self-hosted libraries (Part B1) set
       # `window.Etcher.sortableUrl` / `loadSortableFromCdn = false` so the
       # Customise dialog loads SortableJS from the host's own origin and never
@@ -314,11 +321,17 @@ defmodule PhoenixKit.MixProject do
       # into the pixels every rate is priced in. On 0.12 that hardware
       # bought 0.9% of zoom a notch instead of 20%, and moved the picture
       # six pixels when it panned — a viewer that reads as broken rather
-      # than as slow. Older fresco is still admitted for hosts that pin
-      # one; they keep the old reading.
-      {:fresco, "~> 0.10.0 or ~> 0.11.0 or ~> 0.12.0 or ~> 0.13.0"},
+      # than as slow.
+      #
+      # 0.13.3 is a floor because the media viewer passes `nav_layout`,
+      # `nav_reverse` and `nav_overflow` (the short top row that fits a phone)
+      # and listens for its `fresco:swipe`; 0.13.2 added
+      # `invert_two_finger_pan`, the per-user "Invert two-finger pan" switch.
+      # Older fresco does not declare the attributes, so the host's compile
+      # warns and the viewer keeps the old column.
+      {:fresco, "~> 0.13.3"},
       {:tessera, "~> 0.3.0"},
-      {:etcher, "~> 0.20.0"},
+      {:etcher, "~> 0.21.0"},
 
       # QR device-handoff login ("scan to sign in" on the login page).
       #

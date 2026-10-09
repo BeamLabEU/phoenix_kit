@@ -144,9 +144,16 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
       assert src =~ "lg:portrait:aspect-[var(--pk-pane-aspect,1.5)]",
              "the stacked pane's height comes from the picture's own ratio"
 
-      assert src =~ "--pk-pane-aspect: ",
+      assert src =~ "style={pane_style(aspect, @viewer_only)}" and
+               File.read!(
+                 Path.expand(
+                   "../../../lib/phoenix_kit_web/components/media_canvas_viewer.ex",
+                   __DIR__
+                 )
+               ) =~ "--pk-pane-aspect: ",
              "…which the server hands down to the stylesheet as a custom " <>
-               "property, so the rule is shared and only the number is per-file"
+               "property (via `pane_style/2`), so the rule is shared and only " <>
+               "the number is per-file"
 
       assert src =~ "lg:portrait:min-h-[18rem]",
              "a panorama still gets a usable pane rather than a letterbox slot"

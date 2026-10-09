@@ -103,6 +103,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerEyeTest do
         media_details_open: false,
         media_meta_status: nil,
         invert_two_finger_pan: false,
+        nav_overflow: MediaCanvasViewer.nav_overflow(),
         myself: %Phoenix.LiveComponent.CID{cid: 1}
       },
       overrides
