@@ -65,6 +65,12 @@ V216 key layouts, Ukrainian catalogue and Publishing sitemap slugs (#919, #921).
 
 ## Remaining limitations
 
+- **BUG - MEDIUM:** recovery of an object with no location row searches enabled site buckets only
+  (`FileRepair.good_elsewhere/3` → `Storage.list_enabled_buckets/0`). An intact object in a user's own
+  bucket can therefore be missed and reported unrecoverable after its location rows are lost. This fails
+  safely: the object is neither changed nor deleted and reconciliation is skipped. Left for a follow-up
+  extending recovery through the library's own profile, with tests that forbid probing another user's
+  bucket; global bucket enumeration must continue to exclude user buckets.
 - **IMPROVEMENT - MEDIUM:** repair still reads copies on up to two passes and again for final verification.
   This is additional cloud egress; changing the pass model needs a separate performance change.
 - **IMPROVEMENT - MEDIUM:** storage/detail mounts still query the database. This existed before the split;
@@ -76,5 +82,23 @@ V216 key layouts, Ukrainian catalogue and Publishing sitemap slugs (#919, #921).
 
 ## Validation
 
-Final full-suite and release-gate results will be recorded here after completion. PostgreSQL is reachable;
-integration tests are enabled. The suite's privileged `requires_createrole` exclusion remains in effect.
+- `mix precommit`: exit 0; format, warnings-as-errors compile, test compilation, Credo and Dialyzer pass;
+  345 JavaScript tests pass. Existing Dialyzer ignore entries/unnecessary-skip notices remain unchanged.
+- Full final PostgreSQL suite at `6f67a50b5`: `PGPOOL=20 mix test --max-cases 8`, exit 0;
+  **89 doctests, 9052 tests, 0 failures, 10 skipped (1 excluded)**, 606.6 seconds. Integration tests ran;
+  the privileged `requires_createrole` test is excluded because the database role lacks CREATEROLE.
+- Focused repair/reconciler/V205 compatibility coverage passes. The ordinary-user download regression
+  also checks that the two supported choices are present while retired/cropped annotation slots are absent.
+  The first broad run exposed the duplicate-sharing assumption; it was corrected in the implementation
+  and the full suite above rerun successfully. No test was relaxed to hide the sharing regression.
+- Final `mix prerelease` at `6f67a50b5`: exit 0, including prod compilation, quality, dependency audits,
+  documentation and package build; release check **7/7, 0 warnings, 0 failures**. `package.clean` removed
+  the generated 4.6 MB tarball.
+- Ukrainian `default.po` against `default.pot`: 0 missing/stale/empty/fuzzy entries and 0 placeholder
+  mismatches when singular and plural sources are considered together. This is structural verification,
+  not linguistic sign-off.
+- Final review-only commit records these results; implementation and version are unchanged by that commit.
+
+**Verdict:** no known CRITICAL/HIGH release blocker remains after the fixes. V216 and #921 are approved.
+The medium recovery/performance limitations above remain explicit. Prepared and committed locally;
+not pushed, published or tagged.
