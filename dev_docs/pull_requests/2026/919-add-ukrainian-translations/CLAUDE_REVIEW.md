@@ -266,3 +266,29 @@ an English "at". It is used at `media_canvas_viewer.html.heex:742`. With the CLD
 output is «жовт. 08, 2026 at 14:30» (round 1: «Жов 08, 2026 at 14:30»). The catalogue is right; the
 formatter should go through the existing `"%{month} %{day}, %{year} at %{time}"` template, which `uk`
 already renders as «%{day} %{month} %{year} о %{time}». That is an upstream follow-up, not a blocker here.
+
+---
+
+## Round 3 (2026-10-09): head `75476269d`, rebased onto `4a206a150`
+
+**Verdict: APPROVE.** The one item left from round 2 is done, the rebase is clean, and nothing regressed.
+
+- **Rebase.** `4a206a150` (current `main`, checked through the GitHub API at review time) is an ancestor of
+  the branch. `git diff 4a206a150...HEAD` touches only `CHANGELOG.md`, `mix.exs`, the three `uk` catalogues,
+  the two locale-list tests, and the review file (byte-identical to rounds 1–2). The `.pot` files are
+  untouched by the PR and identical to `main`'s. GitHub reports `MERGEABLE`. 2.58.1 still sits on top of
+  2.58.0.
+- **Coverage against `main`.** 3,456/3,456 (`default`), 24/24 and 7/7. All 34 new msgids are present, and
+  the 4 that `main` removed are gone. Checker: 0 errors (no missing, extra, empty or fuzzy entries; no
+  placeholder, tag or plural mismatch).
+- **Literal `mix gettext.merge` output.** "0 new, 0 removed, 3456 unchanged", byte-identical.
+- **The 34 translations** (`default.po:18963-19133`) match the round-2 suggestions, apart from one
+  improvement: «Камера й розташування» for "Camera & location", consistent with "Location" → «Розташування»
+  (`:9281`). «Спрацював / Не спрацював» agree with «Спалах». «в еквіваленті», «істинний / магнітний азимут»
+  and «Знято / Змінено» fit their call sites in `file_exif_panel.ex`.
+- **Tests:** `MIX_ENV=test PGDATABASE=pkcore_test_domovych_uk PGPOOL=10 mix test
+  test/phoenix_kit_web/gettext_test.exs test/phoenix_kit/email/catalog_test.exs` → 48 tests, 0 failures.
+
+**Merge-time note (not a finding):** if `main` gains msgids before this merges, re-run
+`mix gettext.merge priv/gettext --locale uk --no-fuzzy` and translate the new entries. The round-2 NITPICK
+about `Utils.Date.format_short_datetime/1` stays an upstream follow-up.
