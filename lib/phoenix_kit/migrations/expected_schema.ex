@@ -202,6 +202,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V216 (2026-10-09, key layout of a storage profile) DECLARES one object:
+  # `column:phoenix_kit_storage_profiles.key_levels` (smallint NOT NULL DEFAULT 1,
+  # position 13), read from a test database migrated through V216. `chain_hash`
+  # restamped over the shipped files.
+  #
   # V215 (2026-10-09, where a photo was taken) DECLARES three objects:
   # `column:phoenix_kit_files.latitude` and `…longitude` (double precision, NULL,
   # positions 40 and 41) and `index:phoenix_kit_files_geo_index` (GiST on
@@ -571,7 +576,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "8b01a082f9e3bc9500088a3723fbdb85eb693197cc757cc76b563cc70a7ee5eb"
+  @chain_hash "501264509bd0fb7363c733a88c0f2abcf3ce93c55a7d2055d08b26564a106fa9"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -75121,6 +75126,20 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         since: 209,
         class: :column,
         revisions: [{209, %{default: "0", type: "integer", pos: 12, not_null: true}}],
+        presence: :required,
+        backfill: :default
+      },
+      %{
+        id: "column:phoenix_kit_storage_profiles.key_levels",
+        owner: :core,
+        check:
+          {:catalog,
+           %{table: "phoenix_kit_storage_profiles", column: "key_levels", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_profiles ADD COLUMN IF NOT EXISTS \"key_levels\" smallint DEFAULT 1 NOT NULL",
+        since: 216,
+        class: :column,
+        revisions: [{216, %{default: "1", type: "smallint", pos: 13, not_null: true}}],
         presence: :required,
         backfill: :default
       },

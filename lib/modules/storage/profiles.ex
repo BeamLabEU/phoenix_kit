@@ -25,6 +25,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.KeyLayout
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.{Library, ProfileBucket, StorageProfile}
   alias PhoenixKit.Modules.Storage.Workers.ReconcileJob
@@ -104,6 +105,25 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   @spec for_library(Library.t() | term()) :: StorageProfile.t() | nil
   def for_library(library) do
     library |> profile_uuid_for() |> get_profile() || default_profile()
+  end
+
+  @doc """
+  The key layout (`Storage.KeyLayout`) uploads into `library` get: its profile's
+  `key_levels`. The default layout when the profile cannot be read; an upload
+  must never fail for want of one.
+  """
+  @spec key_levels_for(Library.t() | term()) :: 0..3
+  def key_levels_for(library) do
+    uuid = profile_uuid_for(library)
+
+    case repo().one(from(p in StorageProfile, where: p.uuid == ^uuid, select: p.key_levels)) do
+      levels when levels in [0, 1, 2, 3] -> levels
+      _ -> KeyLayout.default()
+    end
+  rescue
+    _ -> KeyLayout.default()
+  catch
+    :exit, _ -> KeyLayout.default()
   end
 
   @doc "The profile a file's library uses."
@@ -279,7 +299,8 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
             :name,
             :copies_local,
             :copies_cloud,
-            :min_copies_on_write
+            :min_copies_on_write,
+            :key_levels
           ])
 
         unless changes == %{},
@@ -295,9 +316,10 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
   end
 
   # A rename moves no bytes, and neither does how many copies an upload
-  # needs (it applies to the next upload): neither makes every file stale.
+  # needs, nor the key layout (both apply to the next upload): none makes every
+  # file stale.
   defp placement_changed?(changeset),
-    do: Map.drop(changeset.changes, [:name, :min_copies_on_write]) != %{}
+    do: Map.drop(changeset.changes, [:name, :min_copies_on_write, :key_levels]) != %{}
 
   @doc """
   Deletes a profile. The Default cannot be deleted

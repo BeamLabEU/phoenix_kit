@@ -54,6 +54,28 @@ defmodule PhoenixKit.Modules.Storage.FileReportTest do
 
   defp original(file), do: Storage.get_file_instance_by_name(file.uuid, "original")
 
+  test "a profile's layout decides how many hash folders the file's folder has", ctx do
+    %{tmp_dir: tmp, sha: _} = ctx
+    alias PhoenixKit.Modules.Storage.Profiles
+    {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{key_levels: 2})
+
+    path = Path.join(tmp, "deeper.jpg")
+    File.write!(path, "other bytes #{System.unique_integer([:positive])}")
+    sha = :sha256 |> :crypto.hash(File.read!(path)) |> Base.encode16(case: :lower)
+    user_uuid = ctx.photo.user_uuid
+
+    file =
+      case Storage.store_file_in_buckets(path, "image", user_uuid, sha, "jpg", "deeper.jpg") do
+        {:ok, file} -> file
+        {:ok, file, _} -> file
+      end
+
+    # <prefix>/<2>/<2>/<md5>
+    assert [_prefix, a, b, md5] = String.split(file.file_path, "/")
+    assert String.slice(md5, 0, 2) == a
+    assert String.slice(md5, 2, 2) == b
+  end
+
   test "the original is listed first, with its copy and its checksum", %{photo: file, sha: sha} do
     [first | _] = FileReport.renditions(file)
 

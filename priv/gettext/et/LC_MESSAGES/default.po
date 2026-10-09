@@ -376,7 +376,7 @@ msgstr "Rollisüsteem"
 msgid "Authentication"
 msgstr "Autentimine"
 
-#: lib/modules/storage/web/profiles_component.ex:245
+#: lib/modules/storage/web/profiles_component.ex:280
 #: lib/phoenix_kit_web/components/core/badge.ex:105
 #: lib/phoenix_kit_web/components/core/badge.ex:131
 #: lib/phoenix_kit_web/components/core/badge.ex:191
@@ -632,7 +632,7 @@ msgstr "Punktloend"
 #: lib/modules/storage/web/dimension_form.html.heex:317
 #: lib/modules/storage/web/libraries_component.ex:312
 #: lib/modules/storage/web/library_page.html.heex:77
-#: lib/modules/storage/web/profiles_component.ex:492
+#: lib/modules/storage/web/profiles_component.ex:527
 #: lib/modules/storage/web/renditions_component.ex:349
 #: lib/phoenix_kit/mentions/live.ex:257
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:41
@@ -911,7 +911,7 @@ msgid "DPO contact saved"
 msgstr "Andmekaitsejärelevaataja kontakt salvestatud"
 
 #: lib/modules/storage/web/bucket_page.ex:450
-#: lib/modules/storage/web/profiles_component.ex:590
+#: lib/modules/storage/web/profiles_component.ex:641
 #: lib/modules/storage/web/renditions_component.ex:640
 #: lib/modules/storage/web/renditions_component.ex:678
 #: lib/modules/storage/web/renditions_component.ex:855
@@ -964,7 +964,7 @@ msgstr "Kirjeldus"
 
 #: lib/modules/sitemap/web/settings.html.heex:16
 #: lib/modules/storage/web/bucket_page.html.heex:20
-#: lib/modules/storage/web/profiles_component.ex:677
+#: lib/modules/storage/web/profiles_component.ex:768
 #: lib/modules/storage/web/renditions_component.ex:535
 #: lib/modules/storage/web/renditions_component.ex:604
 #: lib/modules/storage/web/renditions_component.ex:746
@@ -1591,7 +1591,7 @@ msgstr "Palun luba kõigepealt Avaldamise moodul"
 msgid "Postal Code"
 msgstr "Sihtnumber"
 
-#: lib/modules/storage/web/profiles_component.ex:241
+#: lib/modules/storage/web/profiles_component.ex:276
 #: lib/phoenix_kit_web/components/language_switcher.ex:432
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:359
 #, elixir-autogen, elixir-format
@@ -1714,7 +1714,7 @@ msgid "Revoked %{label} from %{role_name}"
 msgstr "Tühistatud %{label} rollilt %{role_name}"
 
 #: lib/modules/storage/web/bucket_page.html.heex:133
-#: lib/modules/storage/web/profiles_component.ex:627
+#: lib/modules/storage/web/profiles_component.ex:718
 #: lib/phoenix_kit/users/table_columns.ex:285
 #: lib/phoenix_kit_web/components/core/role_switcher.ex:127
 #: lib/phoenix_kit_web/live/activity/index.html.heex:49
@@ -1927,7 +1927,7 @@ msgstr "Alusta oma esimese kohandatud rolli loomisega."
 msgid "State/Province"
 msgstr "Maakond/provints"
 
-#: lib/modules/storage/web/profiles_component.ex:649
+#: lib/modules/storage/web/profiles_component.ex:740
 #: lib/modules/storage/web/renditions_component.ex:534
 #: lib/modules/storage/web/renditions_component.ex:548
 #: lib/modules/storage/web/renditions_component.ex:745
@@ -2941,7 +2941,7 @@ msgstr "Halda kasutajate registreerimist, vaikimisi seadeid ja kohandatud välju
 #: lib/modules/storage/web/libraries_component.ex:320
 #: lib/modules/storage/web/libraries_component.ex:437
 #: lib/modules/storage/web/library_page.html.heex:82
-#: lib/modules/storage/web/profiles_component.ex:515
+#: lib/modules/storage/web/profiles_component.ex:550
 #: lib/modules/storage/web/renditions_component.ex:388
 #: lib/modules/storage/web/renditions_component.ex:543
 #: lib/modules/storage/web/renditions_component.ex:754
@@ -3076,7 +3076,7 @@ msgstr "Kvaliteet (CRF)"
 msgid "Quality Settings:"
 msgstr "Kvaliteedi seaded:"
 
-#: lib/modules/storage/web/profiles_component.ex:707
+#: lib/modules/storage/web/profiles_component.ex:798
 #, elixir-autogen, elixir-format
 msgid "Random"
 msgstr "Juhuslik"
@@ -5439,7 +5439,7 @@ msgstr "Muuda järjekorda"
 #: lib/modules/storage/web/bucket_page.html.heex:147
 #: lib/modules/storage/web/libraries_component.ex:337
 #: lib/modules/storage/web/library_page.html.heex:20
-#: lib/modules/storage/web/profiles_component.ex:572
+#: lib/modules/storage/web/profiles_component.ex:623
 #: lib/phoenix_kit_web/live/components/library_settings.ex:796
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:92
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:257
@@ -15096,7 +15096,7 @@ msgid "Standard fields"
 msgstr "Standardväljad"
 
 #: lib/modules/storage/web/libraries_component.ex:310
-#: lib/modules/storage/web/profiles_component.ex:490
+#: lib/modules/storage/web/profiles_component.ex:525
 #: lib/modules/storage/web/renditions_component.ex:347
 #: lib/phoenix_kit_web/live/components/library_settings.ex:564
 #, elixir-autogen, elixir-format
@@ -15529,29 +15529,29 @@ msgstr "Allkirjastatud (lühiajaline link)"
 msgid "Active and in the trash"
 msgstr "Aktiivsed ja prügikastis"
 
-#: lib/modules/storage/web/profiles_component.ex:780
+#: lib/modules/storage/web/profiles_component.ex:871
 #, elixir-autogen, elixir-format
 msgid "Add bucket"
 msgstr "Lisa bucket"
 
-#: lib/modules/storage/web/profiles_component.ex:243
+#: lib/modules/storage/web/profiles_component.ex:278
 #, elixir-autogen, elixir-format
 msgid "Backup"
 msgstr "Varukoopia"
 
 #: lib/modules/storage/web/bucket_page.ex:50
 #: lib/modules/storage/web/library_page.html.heex:145
-#: lib/modules/storage/web/profiles_component.ex:618
+#: lib/modules/storage/web/profiles_component.ex:709
 #, elixir-autogen, elixir-format
 msgid "Bucket"
 msgstr "Bucket"
 
-#: lib/modules/storage/web/profiles_component.ex:408
+#: lib/modules/storage/web/profiles_component.ex:443
 #, elixir-autogen, elixir-format
 msgid "Bucket added to the profile"
 msgstr "Bucket lisati profiili"
 
-#: lib/modules/storage/web/profiles_component.ex:177
+#: lib/modules/storage/web/profiles_component.ex:181
 #, elixir-autogen, elixir-format
 msgid "Bucket taken out of the profile. Its files are copied to the profile's other buckets, then removed from it."
 msgstr "Bucket eemaldati profiilist. Selle failid kopeeritakse profiili teistesse bucketitesse ja seejärel eemaldatakse sellest."
@@ -15566,7 +15566,7 @@ msgstr "Kontrolli kõiki faile"
 msgid "Copies"
 msgstr "Koopiad"
 
-#: lib/modules/storage/web/profiles_component.ex:588
+#: lib/modules/storage/web/profiles_component.ex:639
 #, elixir-autogen, elixir-format
 msgid "Delete this storage profile?"
 msgstr "Kas kustutada see salvestusprofiil?"
@@ -15582,17 +15582,17 @@ msgstr "Kõik"
 msgid "For the reconciler"
 msgstr "Ühtlustaja jaoks"
 
-#: lib/modules/storage/web/profiles_component.ex:464
+#: lib/modules/storage/web/profiles_component.ex:499
 #, elixir-autogen, elixir-format
 msgid "New profile"
 msgstr "Uus profiil"
 
-#: lib/modules/storage/web/profiles_component.ex:657
+#: lib/modules/storage/web/profiles_component.ex:748
 #, elixir-autogen, elixir-format
 msgid "No buckets yet: uploads to a library on this profile fail."
 msgstr "Buckete pole veel: üleslaadimised selle profiiliga kogusse ebaõnnestuvad."
 
-#: lib/modules/storage/web/profiles_component.ex:485
+#: lib/modules/storage/web/profiles_component.ex:520
 #, elixir-autogen, elixir-format
 msgid "Profile name"
 msgstr "Profiili nimi"
@@ -15602,12 +15602,12 @@ msgstr "Profiili nimi"
 msgid "Reconcile now"
 msgstr "Ühtlusta kohe"
 
-#: lib/modules/storage/web/profiles_component.ex:242
+#: lib/modules/storage/web/profiles_component.ex:277
 #, elixir-autogen, elixir-format
 msgid "Replica"
 msgstr "Replika"
 
-#: lib/modules/storage/web/profiles_component.ex:647
+#: lib/modules/storage/web/profiles_component.ex:738
 #, elixir-autogen, elixir-format
 msgid "Serve order"
 msgstr "Serveerimise järjekord"
@@ -15638,22 +15638,22 @@ msgstr "Salvestus"
 msgid "Storage profile"
 msgstr "Salvestusprofiil"
 
-#: lib/modules/storage/web/profiles_component.ex:90
+#: lib/modules/storage/web/profiles_component.ex:93
 #, elixir-autogen, elixir-format
 msgid "Storage profile \"%{name}\" created"
 msgstr "Salvestusprofiil „%{name}“ loodud"
 
-#: lib/modules/storage/web/profiles_component.ex:114
+#: lib/modules/storage/web/profiles_component.ex:118
 #, elixir-autogen, elixir-format
 msgid "Storage profile deleted"
 msgstr "Salvestusprofiil kustutatud"
 
-#: lib/modules/storage/web/profiles_component.ex:104
+#: lib/modules/storage/web/profiles_component.ex:108
 #, elixir-autogen, elixir-format
 msgid "Storage profile saved"
 msgstr "Salvestusprofiil salvestatud"
 
-#: lib/modules/storage/web/profiles_component.ex:455
+#: lib/modules/storage/web/profiles_component.ex:490
 #: lib/modules/storage/web/settings.ex:122
 #: lib/modules/storage/web/settings.html.heex:419
 #, elixir-autogen, elixir-format
@@ -15679,7 +15679,7 @@ msgstr "Ühtlustaja on järjekorras. Edenemise nägemiseks värskendage lehte."
 msgid "Up to date"
 msgstr "Ajakohane"
 
-#: lib/modules/storage/web/profiles_component.ex:574
+#: lib/modules/storage/web/profiles_component.ex:625
 #: lib/modules/storage/web/renditions_component.ex:416
 #, elixir-autogen, elixir-format
 msgid "Used by %{count} library."
@@ -16878,42 +16878,42 @@ msgstr "Bucketi nimi puudub"
 msgid "No path configured"
 msgstr "Teed pole seadistatud"
 
-#: lib/modules/storage/web/profiles_component.ex:468
+#: lib/modules/storage/web/profiles_component.ex:503
 #, elixir-autogen, elixir-format
 msgid "A storage profile says where a library's files are kept: which buckets, how many copies of each file, and which copy is served. A library without a profile of its own uses the Default. When the buckets, their roles or the copy counts change, files are copied or moved in the background; the Health page shows what is left."
 msgstr "Salvestusprofiil määrab, kus raamatukogu failid asuvad: millistes bucketites, mitu koopiat igast failist ja millist koopiat serveeritakse. Raamatukogu, millel pole oma profiili, kasutab vaikeprofiili. Kui bucketid, nende rollid või koopiate arvud muutuvad, kopeeritakse või liigutatakse faile taustal; leht Tervis näitab, mis veel puudu on."
 
-#: lib/modules/storage/web/profiles_component.ex:558
+#: lib/modules/storage/web/profiles_component.ex:593
 #, elixir-autogen, elixir-format
 msgid "Copies needed to accept an upload"
 msgstr "Üleslaadimise vastuvõtmiseks vajalikud koopiad"
 
-#: lib/modules/storage/web/profiles_component.ex:247
+#: lib/modules/storage/web/profiles_component.ex:282
 #, elixir-autogen, elixir-format
 msgid "Draining (moving files out)"
 msgstr "Tühjendatakse (failid liigutatakse välja)"
 
-#: lib/modules/storage/web/profiles_component.ex:269
+#: lib/modules/storage/web/profiles_component.ex:304
 #, elixir-autogen, elixir-format
 msgid "No bucket can take new files now, so uploads fail."
 msgstr "Praegu ei saa ükski bucket uusi faile vastu võtta, seega üleslaadimised ebaõnnestuvad."
 
-#: lib/modules/storage/web/profiles_component.ex:622
+#: lib/modules/storage/web/profiles_component.ex:713
 #, elixir-autogen, elixir-format
 msgid "Primary: written and served. Replica: written when more copies are wanted than there are primaries; served only if no primary has the file. Backup: written, never served."
 msgstr "Peamine: kirjutatakse ja serveeritakse. Replika: kirjutatakse, kui koopiaid on vaja rohkem kui peamisi; serveeritakse ainult siis, kui ühelgi peamisel faili pole. Varukoopia: kirjutatakse, ei serveerita kunagi."
 
-#: lib/modules/storage/web/profiles_component.ex:246
+#: lib/modules/storage/web/profiles_component.ex:281
 #, elixir-autogen, elixir-format
 msgid "Read-only (no new files)"
 msgstr "Kirjutuskaitstud (uusi faile ei tule)"
 
-#: lib/modules/storage/web/profiles_component.ex:637
+#: lib/modules/storage/web/profiles_component.ex:728
 #, elixir-autogen, elixir-format
 msgid "Upload order"
 msgstr "Üleslaadimise järjekord"
 
-#: lib/modules/storage/web/profiles_component.ex:642
+#: lib/modules/storage/web/profiles_component.ex:733
 #, elixir-autogen, elixir-format
 msgid "When a file is on several buckets, the one with the lowest number serves it."
 msgstr "Kui fail on mitmes bucketis, serveerib seda väikseima numbriga bucket."
@@ -16934,23 +16934,23 @@ msgstr "Raamatukogu seadistus salvestatud"
 msgid "Bucket created successfully"
 msgstr "Bucket on loodud"
 
-#: lib/modules/storage/web/profiles_component.ex:609
+#: lib/modules/storage/web/profiles_component.ex:700
 #, elixir-autogen, elixir-format
 msgid "Not used at this copy count: %{names}."
 msgstr "Selle koopiate arvu juures kasutamata: %{names}."
 
-#: lib/modules/storage/web/profiles_component.ex:157
+#: lib/modules/storage/web/profiles_component.ex:161
 #, elixir-autogen, elixir-format
 msgid "Bucket settings saved"
 msgstr "Bucketi seaded salvestatud"
 
-#: lib/modules/storage/web/profiles_component.ex:744
-#: lib/modules/storage/web/profiles_component.ex:745
+#: lib/modules/storage/web/profiles_component.ex:835
+#: lib/modules/storage/web/profiles_component.ex:836
 #, elixir-autogen, elixir-format
 msgid "Remove from profile"
 msgstr "Eemalda profiilist"
 
-#: lib/modules/storage/web/profiles_component.ex:751
+#: lib/modules/storage/web/profiles_component.ex:842
 #, elixir-autogen, elixir-format
 msgid "Take this bucket out of the profile? Its files are copied to the profile's other buckets first, then deleted from this bucket. The bucket itself stays, and this profile no longer sends it files."
 msgstr "Kas eemaldada see bucket profiilist? Selle failid kopeeritakse esmalt profiili teistesse bucketitesse ja seejärel kustutatakse sellest bucketist. Bucket ise jääb alles ning see profiil ei saada sellesse enam faile."
@@ -17371,7 +17371,7 @@ msgstr[1] "%{count} kogu"
 
 #: lib/modules/storage/web/bucket_page.html.heex:165
 #: lib/modules/storage/web/bucket_page.html.heex:287
-#: lib/modules/storage/web/profiles_component.ex:213
+#: lib/modules/storage/web/profiles_component.ex:248
 #, elixir-autogen, elixir-format
 msgid "%{count} personal library"
 msgid_plural "%{count} personal libraries"
@@ -17386,7 +17386,7 @@ msgstr[0] "%{count} isiklik profiil"
 msgstr[1] "%{count} isiklikku profiili"
 
 #: lib/modules/storage/web/bucket_usage.ex:58
-#: lib/modules/storage/web/profiles_component.ex:387
+#: lib/modules/storage/web/profiles_component.ex:422
 #, elixir-autogen, elixir-format
 msgid "%{count} personal storage profile"
 msgid_plural "%{count} personal storage profiles"
@@ -17410,12 +17410,12 @@ msgstr "Seda kasutatakse: %{used_by}. Seda ei saa keelata ega kustutada, kuni se
 msgid "Open the storage profiles"
 msgstr "Ava salvestusprofiilid"
 
-#: lib/modules/storage/web/profiles_component.ex:120
+#: lib/modules/storage/web/profiles_component.ex:124
 #, elixir-autogen, elixir-format
 msgid "The Default profile cannot be deleted."
 msgstr "Vaikeprofiili ei saa kustutada."
 
-#: lib/modules/storage/web/profiles_component.ex:126
+#: lib/modules/storage/web/profiles_component.ex:130
 #, elixir-autogen, elixir-format
 msgid "The storage profile could not be deleted."
 msgstr "Salvestusprofiili ei õnnestunud kustutada."
@@ -17931,61 +17931,61 @@ msgstr "pole veel olemas. Salvestamisel küsitakse, kas see luua."
 msgid "is a file, not a folder."
 msgstr "on fail, mitte kaust."
 
-#: lib/modules/storage/web/profiles_component.ex:430
+#: lib/modules/storage/web/profiles_component.ex:465
 #, elixir-autogen, elixir-format
 msgid "%{bucket} (also in %{profiles})"
 msgstr "%{bucket} (ka profiilis %{profiles})"
 
-#: lib/modules/storage/web/profiles_component.ex:791
+#: lib/modules/storage/web/profiles_component.ex:882
 #, elixir-autogen, elixir-format
 msgid "A bucket marked \"also in\" is already used by another profile. Adding it shares it: its on/off switch, size limit and keys apply to every profile that lists it."
 msgstr "„Ka profiilis“ märgiga bucket on juba teise profiili kasutuses. Selle lisamine muudab selle jagatuks: bucketi sisse-/väljalüliti, mahupiir ja võtmed kehtivad igas profiilis, mis selle loetleb."
 
-#: lib/modules/storage/web/profiles_component.ex:687
+#: lib/modules/storage/web/profiles_component.ex:778
 #, elixir-autogen, elixir-format
 msgid "Also in %{profiles}"
 msgstr "Ka profiilis %{profiles}"
 
-#: lib/modules/storage/web/profiles_component.ex:399
+#: lib/modules/storage/web/profiles_component.ex:434
 #, elixir-autogen, elixir-format
 msgid "Also used by %{used_by}. A bucket's on/off switch, size limit and keys belong to the bucket, so they apply to every profile that lists it."
 msgstr "Kasutab ka %{used_by}. Sisse-/väljalüliti, mahupiir ja võtmed kuuluvad bucketile, seega kehtivad need igas profiilis, mis selle loetleb."
 
-#: lib/modules/storage/web/profiles_component.ex:411
+#: lib/modules/storage/web/profiles_component.ex:446
 #, elixir-autogen, elixir-format
 msgid "Bucket added to the profile. It is shared with %{profiles}: its on/off switch, size limit and keys apply to all of them."
 msgstr "Bucket lisati profiili. See on jagatud profiiliga %{profiles}: selle sisse-/väljalüliti, mahupiir ja võtmed kehtivad kõigis."
 
-#: lib/modules/storage/web/profiles_component.ex:297
+#: lib/modules/storage/web/profiles_component.ex:332
 #, elixir-autogen, elixir-format
 msgid "%{copies} cloud copies are wanted, but only %{count} cloud bucket takes new files, so each file gets %{count}."
 msgid_plural "%{copies} cloud copies are wanted, but only %{count} cloud buckets take new files, so each file gets %{count}."
 msgstr[0] "Soovitakse %{copies} pilvekoopiat, aga uusi faile võtab vastu ainult %{count} pilve-bucket, seega igal failil on neid %{count}."
 msgstr[1] "Soovitakse %{copies} pilvekoopiat, aga uusi faile võtavad vastu ainult %{count} pilve-bucketit, seega igal failil on neid %{count}."
 
-#: lib/modules/storage/web/profiles_component.ex:287
+#: lib/modules/storage/web/profiles_component.ex:322
 #, elixir-autogen, elixir-format
 msgid "%{copies} local copies are wanted, but only %{count} local bucket takes new files, so each file gets %{count}."
 msgid_plural "%{copies} local copies are wanted, but only %{count} local buckets take new files, so each file gets %{count}."
 msgstr[0] "Soovitakse %{copies} kohalikku koopiat, aga uusi faile võtab vastu ainult %{count} kohalik bucket, seega igal failil on neid %{count}."
 msgstr[1] "Soovitakse %{copies} kohalikku koopiat, aga uusi faile võtavad vastu ainult %{count} kohalikku bucketit, seega igal failil on neid %{count}."
 
-#: lib/modules/storage/web/profiles_component.ex:333
+#: lib/modules/storage/web/profiles_component.ex:368
 #, elixir-autogen, elixir-format
 msgid "%{count} cloud buckets take new files and each file is stored on %{copies} of them, picked by upload order, otherwise at random: files are spread across them, not mirrored."
 msgstr "Uusi faile võtab vastu %{count} pilve-bucketit ja iga fail salvestatakse %{copies} neist, valituna üleslaadimise järjekorra järgi, muidu juhuslikult: failid jaotatakse nende vahel, mitte ei peegeldata."
 
-#: lib/modules/storage/web/profiles_component.ex:323
+#: lib/modules/storage/web/profiles_component.ex:358
 #, elixir-autogen, elixir-format
 msgid "%{count} local buckets take new files and each file is stored on %{copies} of them, picked by upload order, otherwise at random: files are spread across them, not mirrored."
 msgstr "Uusi faile võtab vastu %{count} kohalikku bucketit ja iga fail salvestatakse %{copies} neist, valituna üleslaadimise järjekorra järgi, muidu juhuslikult: failid jaotatakse nende vahel, mitte ei peegeldata."
 
-#: lib/modules/storage/web/profiles_component.ex:552
+#: lib/modules/storage/web/profiles_component.ex:587
 #, elixir-autogen, elixir-format
 msgid "Add a cloud bucket to this profile to keep copies in the cloud."
 msgstr "Lisa sellele profiilile pilve-bucket, et hoida koopiaid pilves."
 
-#: lib/modules/storage/web/profiles_component.ex:538
+#: lib/modules/storage/web/profiles_component.ex:573
 #, elixir-autogen, elixir-format
 msgid "Cloud copies"
 msgstr "Pilvekoopiad"
@@ -17995,22 +17995,22 @@ msgstr "Pilvekoopiad"
 msgid "Each file is stored on %{copies} of the %{count} primary buckets of its kind, so files are spread across them, not mirrored. Change the copies on the Storage profiles tab."
 msgstr "Iga fail salvestatakse %{copies} oma liigi %{count} põhibucketist, seega failid jaotatakse nende vahel, mitte ei peegeldata. Muuda koopiaid vahekaardil „Salvestusprofiilid“."
 
-#: lib/modules/storage/web/profiles_component.ex:549
+#: lib/modules/storage/web/profiles_component.ex:584
 #, elixir-autogen, elixir-format
 msgid "How many copies of each file are kept in the cloud, so a file survives the server."
 msgstr "Mitu koopiat igast failist hoitakse pilves, et fail serveri üle elaks."
 
-#: lib/modules/storage/web/profiles_component.ex:533
+#: lib/modules/storage/web/profiles_component.ex:568
 #, elixir-autogen, elixir-format
 msgid "How many copies of each file are kept on this server's own disks."
 msgstr "Mitu koopiat igast failist hoitakse selle serveri enda ketastel."
 
-#: lib/modules/storage/web/profiles_component.ex:526
+#: lib/modules/storage/web/profiles_component.ex:561
 #, elixir-autogen, elixir-format
 msgid "Local copies"
 msgstr "Kohalikud koopiad"
 
-#: lib/modules/storage/web/profiles_component.ex:310
+#: lib/modules/storage/web/profiles_component.ex:345
 #, elixir-autogen, elixir-format
 msgid "The cloud buckets hold nothing at 0 cloud copies. Set Cloud copies to keep a copy off this server."
 msgstr "Pilve-bucketid ei hoia midagi 0 pilvekoopia korral. Määra pilvekoopiad, et hoida koopia sellest serverist väljaspool."
@@ -18047,17 +18047,17 @@ msgstr "%{count} mitte üheski, seega ei salvesta ega serveeri midagi"
 msgid "In a storage profile"
 msgstr "Salvestusprofiilis"
 
-#: lib/modules/storage/web/profiles_component.ex:715
+#: lib/modules/storage/web/profiles_component.ex:806
 #, elixir-autogen, elixir-format
 msgid "Every writable bucket gets a copy, so the order does not matter."
 msgstr "Iga kirjutatav bucket saab koopia, seega järjekorral pole tähtsust."
 
-#: lib/modules/storage/web/profiles_component.ex:632
+#: lib/modules/storage/web/profiles_component.ex:723
 #, elixir-autogen, elixir-format
 msgid "Used when the profile has more buckets than copies: lower numbers get new files first, and buckets with no number take turns at random. Shown only where it can matter."
 msgstr "Kasutatakse, kui profiilil on rohkem bucketeid kui koopiaid: väiksemad numbrid saavad uued failid esimesena ja numbrita bucketid on juhuslikus järjekorras. Kuvatakse ainult seal, kus sellel on tähtsust."
 
-#: lib/modules/storage/web/profiles_component.ex:216
+#: lib/modules/storage/web/profiles_component.ex:251
 #, elixir-autogen, elixir-format
 msgid "\"%{profile}\" cannot be deleted: it is used by %{libraries}. A library keeps the profile it was created on, so the profile stays while any library is on it."
 msgstr "„%{profile}“ ei saa kustutada: seda kasutab %{libraries}. Kogu säilitab profiili, millega ta loodi, seega profiil jääb alles seni, kuni mõni kogu on selle peal."
@@ -19511,3 +19511,65 @@ msgstr "Siin pole sellest failist midagi salvestatud"
 #, elixir-autogen, elixir-format
 msgid "Verify renditions"
 msgstr "Kontrolli variante"
+
+#: lib/modules/storage/web/profiles_component.ex:217
+#, elixir-autogen, elixir-format
+msgid "%{count} level"
+msgid_plural "%{count} levels"
+msgstr[0] "%{count} tase"
+msgstr[1] "%{count} taset"
+
+#: lib/modules/storage/web/profiles_component.ex:224
+#, elixir-autogen, elixir-format
+msgid "Comfortable"
+msgstr "Mugav"
+
+#: lib/modules/storage/web/profiles_component.ex:679
+#, elixir-autogen, elixir-format
+msgid "Comfortable up to about %{files} files in a library."
+msgstr "Mugav kuni umbes %{files} failini ühes kogus."
+
+#: lib/modules/storage/web/profiles_component.ex:662
+#, elixir-autogen, elixir-format
+msgid "Files in a library"
+msgstr "Faile kogus"
+
+#: lib/modules/storage/web/profiles_component.ex:216
+#, elixir-autogen, elixir-format
+msgid "Flat"
+msgstr "Lame"
+
+#: lib/modules/storage/web/profiles_component.ex:650
+#, elixir-autogen, elixir-format
+msgid "Folder layout for new files"
+msgstr "Kaustade paigutus uutele failidele"
+
+#: lib/modules/storage/web/profiles_component.ex:604
+#, elixir-autogen, elixir-format
+msgid "Folder levels"
+msgstr "Kaustatasemed"
+
+#: lib/modules/storage/web/profiles_component.ex:663
+#, elixir-autogen, elixir-format
+msgid "Folders in the busiest folder"
+msgstr "Kaustu kõige täidetumas kaustas"
+
+#: lib/modules/storage/web/profiles_component.ex:608
+#, elixir-autogen, elixir-format
+msgid "How many hash folders new files are spread over on a local disk."
+msgstr "Mitme räsikausta vahel jaotatakse uued failid kohalikul kettal."
+
+#: lib/modules/storage/web/profiles_component.ex:652
+#, elixir-autogen, elixir-format
+msgid "On a local disk a file lives in a folder named after its content, inside hash folders. Spread over more levels, no folder gets crowded in a large library. Files already stored stay where they are; a cloud bucket has no folders and does not care."
+msgstr "Kohalikul kettal asub fail oma sisu järgi nimetatud kaustas, räsikaustade sees. Mitme tasemega ei lähe ükski kaust suures kogus liiga rahvarohkeks. Juba salvestatud failid jäävad kuhu nad on; pilvekopal pole kaustu ja see teda ei puuduta."
+
+#: lib/modules/storage/web/profiles_component.ex:225
+#, elixir-autogen, elixir-format
+msgid "Slow to list and back up"
+msgstr "Aeglane loetleda ja varundada"
+
+#: lib/modules/storage/web/profiles_component.ex:226
+#, elixir-autogen, elixir-format
+msgid "Too many"
+msgstr "Liiga palju"

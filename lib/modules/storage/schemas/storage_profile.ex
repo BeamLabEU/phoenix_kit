@@ -30,6 +30,8 @@ defmodule PhoenixKit.Modules.Storage.StorageProfile do
   use PhoenixKit.SchemaPrefix
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Storage.KeyLayout
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -43,6 +45,7 @@ defmodule PhoenixKit.Modules.Storage.StorageProfile do
           copies_variants: pos_integer(),
           min_copies_on_write: pos_integer(),
           revision: pos_integer(),
+          key_levels: 0..3,
           owner_uuid: UUIDv7.t() | nil,
           buckets:
             [PhoenixKit.Modules.Storage.ProfileBucket.t()] | Ecto.Association.NotLoaded.t(),
@@ -59,6 +62,9 @@ defmodule PhoenixKit.Modules.Storage.StorageProfile do
     field :copies_variants, :integer, default: 1
     field :min_copies_on_write, :integer, default: 1
     field :revision, :integer, default: 1
+    # How many two-character hash folders a file's key has (V216,
+    # `Storage.KeyLayout`). Applies to new uploads only.
+    field :key_levels, :integer, default: 1
     # Whose profile it is (V206). NULL is the site's; a user's is left out of
     # `Profiles.list_profiles/0`. Set only by `Profiles.create_user_profile/3`,
     # never cast from params.
@@ -72,16 +78,17 @@ defmodule PhoenixKit.Modules.Storage.StorageProfile do
   end
 
   @doc """
-  Name and the copy counts. `is_default` and `revision` are never cast.
+  Name, the copy counts and the key layout. `is_default` and `revision` are never cast.
 
   `copies_originals` (the total) and `copies_variants` are not cast either: they
   follow `copies_local + copies_cloud` whenever that changes.
   """
   def changeset(profile, attrs) do
     profile
-    |> cast(attrs, [:name, :copies_local, :copies_cloud, :min_copies_on_write])
+    |> cast(attrs, [:name, :copies_local, :copies_cloud, :min_copies_on_write, :key_levels])
     |> update_change(:name, &String.trim/1)
-    |> validate_required([:name, :copies_local, :copies_cloud, :min_copies_on_write])
+    |> validate_required([:name, :copies_local, :copies_cloud, :min_copies_on_write, :key_levels])
+    |> validate_inclusion(:key_levels, KeyLayout.levels())
     |> validate_length(:name, max: 255)
     |> validate_number(:copies_local, greater_than_or_equal_to: 0, less_than_or_equal_to: 5)
     |> validate_number(:copies_cloud, greater_than_or_equal_to: 0, less_than_or_equal_to: 5)

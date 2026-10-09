@@ -112,6 +112,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.FolderLink
   alias PhoenixKit.Modules.Storage.Geo
   alias PhoenixKit.Modules.Storage.ImageEditing
+  alias PhoenixKit.Modules.Storage.KeyLayout
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.Library
   alias PhoenixKit.Modules.Storage.Locations
@@ -5877,13 +5878,13 @@ defmodule PhoenixKit.Modules.Storage do
     # Generate UUIDv7 for file UUID
     file_uuid = UUIDv7.generate()
 
-    # Build hierarchical path - organized by key_prefix/hash_prefix/md5_hash,
+    # Build hierarchical path - organized by key_prefix/<hash folders>/md5_hash,
     # where the key prefix is the library's own when it has one and the
-    # uploader's first two characters otherwise (the historical layout).
+    # uploader's first two characters otherwise (the historical layout), and the
+    # number of hash folders is the library's storage profile's (`KeyLayout`).
     library_uuid = opts[:library_uuid]
     key_prefix = library_key_prefix(library_uuid) || String.slice(to_string(user_uuid), 0, 2)
-    hash_prefix = String.slice(md5_hash, 0, 2)
-    file_path = "#{key_prefix}/#{hash_prefix}/#{md5_hash}"
+    file_path = KeyLayout.path(key_prefix, md5_hash, Profiles.key_levels_for(library_uuid))
 
     # Use provided original filename or fall back to source basename
     orig_filename = original_filename || Path.basename(source_path)

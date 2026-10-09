@@ -86,6 +86,36 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
     end
   end
 
+  describe "key layout" do
+    test "defaults to the layout in use, is chosen from 0 to 3, and bumps no revision" do
+      {:ok, profile} = Profiles.create_profile(%{name: "Layout"})
+      assert profile.key_levels == 1
+
+      {:ok, profile} = Profiles.update_profile(profile, %{key_levels: 2})
+      assert profile.key_levels == 2
+      assert profile.revision == 1, "a layout applies to new uploads: no file becomes stale"
+
+      assert {:error, changeset} = Profiles.update_profile(profile, %{key_levels: 4})
+
+      assert %{key_levels: [_ | _]} =
+               Ecto.Changeset.traverse_errors(changeset, fn {m, _} -> m end)
+    end
+
+    test "a library's uploads get its profile's layout; no library is Media's" do
+      {:ok, profile} = Profiles.create_profile(%{name: "Deep", key_levels: 3})
+
+      {:ok, library} =
+        Libraries.create_system_library(%{name: "Deep #{System.unique_integer([:positive])}"})
+
+      {:ok, _} = Profiles.set_library_profile(library, profile.uuid)
+
+      assert Profiles.key_levels_for(Libraries.get_library(library.uuid)) == 3
+      assert Profiles.key_levels_for(library.uuid) == 3
+      assert Profiles.key_levels_for(nil) == 1
+      assert Profiles.key_levels_for("not a uuid") == 1
+    end
+  end
+
   describe "revisions" do
     test "copy counts and bucket rows bump the revision; a rename does not" do
       {:ok, profile} = Profiles.create_profile(%{name: "Revisions"})

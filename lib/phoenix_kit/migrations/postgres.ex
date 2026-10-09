@@ -7,7 +7,13 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V215 - Where a photo was taken ⚡ LATEST
+  ### V216 - Key layout of a storage profile ⚡ LATEST
+
+  `phoenix_kit_storage_profiles.key_levels` (0..3, default 1): how many
+  two-character hash folders sit between a library's key prefix and a file's own
+  folder. New uploads follow it; every file already stored keeps its folder.
+
+  ### V215 - Where a photo was taken
 
   `phoenix_kit_files.latitude` / `longitude` (decimal degrees, `NULL` without a
   GPS position) and a partial GiST index on `point(longitude, latitude)`, so a
@@ -970,7 +976,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 215
+  @current_version 216
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

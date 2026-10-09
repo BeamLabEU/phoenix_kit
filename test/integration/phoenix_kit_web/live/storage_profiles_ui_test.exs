@@ -94,6 +94,33 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute Profiles.get_profile(profile.uuid)
     end
 
+    test "the folder layout: the table follows the select, and saving stores it", ctx do
+      {:ok, profile} =
+        Profiles.create_profile(%{name: "Layouts #{System.unique_integer([:positive])}"})
+
+      view = settings(ctx.conn)
+
+      # Stored layout 1: ten million files leave 39,063 folders in the busiest one.
+      html = render(view)
+      assert html =~ "39,063"
+      assert html =~ "Comfortable up to about 1,280,000 files"
+
+      html =
+        view
+        |> form("#media-profiles-form-#{profile.uuid}", %{"profile" => %{"key_levels" => "2"}})
+        |> render_change()
+
+      # Only the table moved: nothing is saved by looking.
+      assert html =~ "Comfortable up to about 327,680,000 files"
+      assert Profiles.get_profile(profile.uuid).key_levels == 1
+
+      view
+      |> form("#media-profiles-form-#{profile.uuid}", %{"profile" => %{"key_levels" => "2"}})
+      |> render_submit()
+
+      assert Profiles.get_profile(profile.uuid).key_levels == 2
+    end
+
     test "the Default counts the libraries that name no profile, which use it", ctx do
       default = Profiles.default_uuid()
       before = Profiles.libraries_using(default)

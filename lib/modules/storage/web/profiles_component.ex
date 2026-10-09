@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   use PhoenixKitWeb, :live_component
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Bucket, ProfileBucket, Profiles, StorageProfile}
+  alias PhoenixKit.Modules.Storage.{Bucket, KeyLayout, ProfileBucket, Profiles, StorageProfile}
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
   import PhoenixKitWeb.Components.Core.Input, only: [translate_error: 1]
@@ -39,7 +39,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
        scope: nil,
        creating: false,
        dirty: MapSet.new(),
-       saved: MapSet.new()
+       saved: MapSet.new(),
+       layout: %{}
      )}
   end
 
@@ -64,9 +65,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   # key names the form — `profile_key/1`, `row_key/2` — and arrives from the
   # client, so it is only ever a member of a set.
   @impl true
-  def handle_event("dirty", %{"key" => key}, socket) when is_binary(key) do
+  def handle_event("dirty", %{"key" => key} = params, socket) when is_binary(key) do
     {:noreply,
-     assign(socket,
+     socket
+     |> remember_layout(params)
+     |> assign(
        dirty: MapSet.put(socket.assigns.dirty, key),
        saved: MapSet.delete(socket.assigns.saved, key)
      )}
@@ -99,6 +102,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
          {:ok, _} <- Profiles.update_profile(profile, params, actor(socket)) do
       {:noreply,
        socket
+       |> assign(:layout, Map.delete(socket.assigns.layout, uuid))
        |> load()
        |> mark_saved(profile_key(uuid))
        |> flash(:info, gettext("Storage profile saved"))}
@@ -189,6 +193,37 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   end
 
   defp profile_key(profile_uuid), do: "profile:#{profile_uuid}"
+
+  # The layout being chosen in a profile's form, before it is saved: the table
+  # beside the select follows the select, not the stored value. The form says
+  # which profile it is (`uuid`) and the value arrives from the client, so it is
+  # only ever one of the layouts.
+  defp remember_layout(socket, %{"uuid" => uuid, "profile" => %{"key_levels" => levels}})
+       when is_binary(uuid) and is_binary(levels) do
+    case Integer.parse(levels) do
+      {n, ""} -> if KeyLayout.valid?(n), do: put_layout(socket, uuid, n), else: socket
+      _ -> socket
+    end
+  end
+
+  defp remember_layout(socket, _params), do: socket
+
+  defp put_layout(socket, uuid, n),
+    do: assign(socket, :layout, Map.put(socket.assigns.layout, uuid, n))
+
+  defp shown_levels(layout, profile), do: Map.get(layout, profile.uuid, profile.key_levels)
+
+  defp levels_label(0), do: gettext("Flat")
+  defp levels_label(n), do: ngettext("%{count} level", "%{count} levels", n)
+
+  # 1000000 -> "1,000,000"
+  defp count_label(n) do
+    n |> Integer.to_string() |> String.replace(~r/(\d)(?=(\d{3})+$)/, "\\1,")
+  end
+
+  defp rating_badge(:comfortable), do: {"badge-success", gettext("Comfortable")}
+  defp rating_badge(:slow), do: {"badge-warning", gettext("Slow to list and back up")}
+  defp rating_badge(:too_many), do: {"badge-error", gettext("Too many")}
   defp row_key(profile_uuid, bucket_uuid), do: "row:#{profile_uuid}:#{bucket_uuid}"
 
   defp mark_saved(socket, key) do
@@ -565,6 +600,22 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                 class="input input-sm input-bordered w-24"
               />
             </label>
+            <label class="form-control">
+              <span class="label-text text-sm">{gettext("Folder levels")}</span>
+              <select
+                name="profile[key_levels]"
+                class="select select-sm select-bordered w-36"
+                title={gettext("How many hash folders new files are spread over on a local disk.")}
+              >
+                <option
+                  :for={n <- KeyLayout.levels()}
+                  value={n}
+                  selected={n == shown_levels(@layout, profile)}
+                >
+                  {levels_label(n)}
+                </option>
+              </select>
+            </label>
             <.save_button
               dirty={MapSet.member?(@dirty, profile_key(profile.uuid))}
               saved={MapSet.member?(@saved, profile_key(profile.uuid))}
@@ -590,6 +641,46 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
               <.icon name="hero-trash" class="w-4 h-4" /> {gettext("Delete")}
             </button>
           </form>
+
+          <% levels = shown_levels(@layout, profile) %>
+          <div
+            id={"#{@id}-layout-#{profile.uuid}"}
+            class="mt-3 rounded-box bg-base-200 px-3 py-3 text-sm space-y-2"
+          >
+            <div class="font-medium">{gettext("Folder layout for new files")}</div>
+            <p class="text-xs text-base-content/70">
+              {gettext(
+                "On a local disk a file lives in a folder named after its content, inside hash folders. Spread over more levels, no folder gets crowded in a large library. Files already stored stay where they are; a cloud bucket has no folders and does not care."
+              )}
+            </p>
+            <code class="text-xs break-all">
+              {KeyLayout.path("lib-1a2b3c", "22e8b907…", levels)}/…
+            </code>
+            <table class="table table-xs w-auto">
+              <thead>
+                <tr>
+                  <th>{gettext("Files in a library")}</th>
+                  <th>{gettext("Folders in the busiest folder")}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={{files, per, rating} <- KeyLayout.table(levels)}>
+                  <td>{count_label(files)}</td>
+                  <td>{count_label(per)}</td>
+                  <td>
+                    <% {tone, label} = rating_badge(rating) %>
+                    <span class={["badge badge-sm", tone]}>{label}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="text-xs text-base-content/60">
+              {gettext("Comfortable up to about %{files} files in a library.",
+                files: count_label(KeyLayout.comfortable_up_to(levels))
+              )}
+            </p>
+          </div>
 
           <p
             :for={{severity, text} <- copies_hints(profile)}
