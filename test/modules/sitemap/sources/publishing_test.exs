@@ -96,7 +96,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.PublishingTest do
     end
   end
 
-  test "a post with neither slug nor path is not listed" do
+  # collect/1 needs Publishing, so this checks the predicate collect_group_posts
+  # filters on, not the filter itself.
+  test "slugless?/1 marks a post with neither slug nor path" do
     refute Publishing.slugless?(@post)
     refute Publishing.slugless?(%{@post | slug: nil} |> Map.put(:path, "a/b/my-post.md"))
     assert Publishing.slugless?(%{@post | slug: nil})
