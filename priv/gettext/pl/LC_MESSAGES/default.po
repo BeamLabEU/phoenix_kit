@@ -907,7 +907,7 @@ msgstr "BD / najnowsza migracja"
 msgid "DPO contact saved"
 msgstr "Kontakt do IOD zapisany"
 
-#: lib/modules/storage/web/bucket_page.ex:450
+#: lib/modules/storage/web/bucket_page.ex:456
 #: lib/modules/storage/web/profiles_component.ex:641
 #: lib/modules/storage/web/renditions_component.ex:640
 #: lib/modules/storage/web/renditions_component.ex:678
@@ -1457,7 +1457,7 @@ msgstr "Notatki"
 msgid "Numbered List"
 msgstr "Lista numerowana"
 
-#: lib/modules/storage/web/bucket_page.html.heex:489
+#: lib/modules/storage/web/bucket_page.html.heex:524
 #: lib/phoenix_kit_web/components/core/modal.ex:488
 #, elixir-autogen, elixir-format
 msgid "OK"
@@ -2375,9 +2375,9 @@ msgstr "Ustaw jako domyślne"
 #: lib/modules/storage/web/settings.html.heex:154
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2079
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:87
-#: lib/phoenix_kit_web/live/users/media_storage.ex:507
+#: lib/phoenix_kit_web/live/users/media_storage.ex:531
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:68
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:509
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:564
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Rozmiar"
@@ -3028,7 +3028,7 @@ msgstr "Instrukcje konfiguracji OAuth"
 #: lib/modules/storage/web/renditions_component.ex:587
 #: lib/modules/storage/web/renditions_component.ex:742
 #: lib/modules/storage/web/renditions_component.ex:802
-#: lib/phoenix_kit_web/live/users/media_storage.ex:506
+#: lib/phoenix_kit_web/live/users/media_storage.ex:530
 #, elixir-autogen, elixir-format
 msgid "Original"
 msgstr "Oryginał"
@@ -4045,6 +4045,7 @@ msgid "Failed to update avatar"
 msgstr "Nie udało się zaktualizować awatara"
 
 #: lib/modules/storage/web/health_component.ex:214
+#: lib/phoenix_kit_web/components/core/repair_log.ex:34
 #, elixir-autogen, elixir-format
 msgid "File"
 msgstr "Plik"
@@ -4278,7 +4279,7 @@ msgstr "Członkowie"
 
 #: lib/modules/storage/web/settings.html.heex:723
 #: lib/phoenix_kit_web/components/core/integration_picker.ex:186
-#: lib/phoenix_kit_web/live/users/media_storage.ex:499
+#: lib/phoenix_kit_web/live/users/media_storage.ex:523
 #, elixir-autogen, elixir-format
 msgid "Missing"
 msgstr "Brakuje"
@@ -4457,7 +4458,7 @@ msgid "Please save your Client ID first"
 msgstr "Najpierw zapisz identyfikator klienta"
 
 #: lib/modules/storage/web/bucket_form.html.heex:408
-#: lib/modules/storage/web/bucket_page.ex:425
+#: lib/modules/storage/web/bucket_page.ex:431
 #, elixir-autogen, elixir-format
 msgid "Private (proxied)"
 msgstr "Prywatne (przez proxy)"
@@ -5187,7 +5188,7 @@ msgstr "Ostatnie generowanie"
 msgid "Manage modules"
 msgstr "Zarządzaj modułami"
 
-#: lib/modules/storage/web/bucket_page.html.heex:476
+#: lib/modules/storage/web/bucket_page.html.heex:511
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:344
 #, elixir-autogen, elixir-format
 msgid "Message"
@@ -5276,8 +5277,8 @@ msgstr "wymaga"
 #: lib/phoenix_kit_web/live/users/media_detail.ex:82
 #: lib/phoenix_kit_web/live/users/media_detail.ex:86
 #: lib/phoenix_kit_web/live/users/media_detail.ex:89
-#: lib/phoenix_kit_web/live/users/media_storage.ex:116
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:590
+#: lib/phoenix_kit_web/live/users/media_storage.ex:122
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:645
 #, elixir-autogen, elixir-format
 msgid "Media"
 msgstr "Media"
@@ -5890,8 +5891,8 @@ msgstr "Usunięte pliki pojawią się tutaj"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1798
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2493
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:562
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:365
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:366
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:373
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:374
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Pobierz"
@@ -5998,9 +5999,9 @@ msgstr[2] "Przenieść %{count} plików do kosza?"
 msgid "New folder"
 msgstr "Nowy folder"
 
-#: lib/modules/storage/web/bucket_page.html.heex:528
-#: lib/modules/storage/web/bucket_page.html.heex:573
-#: lib/modules/storage/web/history_component.ex:186
+#: lib/modules/storage/web/bucket_page.html.heex:563
+#: lib/modules/storage/web/bucket_page.html.heex:608
+#: lib/modules/storage/web/history_component.ex:288
 #: lib/modules/storage/web/library_page.html.heex:372
 #: lib/phoenix_kit_web/components/core/preview_card.ex:210
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2618
@@ -6571,7 +6572,7 @@ msgstr "Plik usunięto z tego folderu"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2298
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:585
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:640
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "Nie znaleziono pliku"
@@ -6770,9 +6771,9 @@ msgstr "Nie znaleziono plików multimedialnych"
 msgid "Preview"
 msgstr "Podgląd"
 
-#: lib/modules/storage/web/bucket_page.html.heex:516
-#: lib/modules/storage/web/bucket_page.html.heex:561
-#: lib/modules/storage/web/history_component.ex:173
+#: lib/modules/storage/web/bucket_page.html.heex:551
+#: lib/modules/storage/web/bucket_page.html.heex:596
+#: lib/modules/storage/web/history_component.ex:275
 #: lib/modules/storage/web/library_page.html.heex:360
 #: lib/phoenix_kit_web/components/core/preview_card.ex:201
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:137
@@ -7255,6 +7256,7 @@ msgstr "Data i godzina"
 #: lib/modules/storage/web/settings.html.heex:246
 #: lib/modules/storage/web/settings.html.heex:286
 #: lib/phoenix_kit_web/components/core/activity_list.ex:39
+#: lib/phoenix_kit_web/components/core/repair_log.ex:37
 #: lib/phoenix_kit_web/live/activity/index.html.heex:310
 #, elixir-autogen, elixir-format
 msgid "Details"
@@ -8026,7 +8028,7 @@ msgstr "Ty"
 #: lib/modules/storage/web/renditions_component.ex:510
 #: lib/modules/storage/web/renditions_component.ex:544
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:72
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:513
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:568
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr "Wymiary"
@@ -8581,7 +8583,7 @@ msgstr "OpenAI wymaga dodatniego salda, aby API zwracało uzupełnienia, nawet d
 
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:254
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1009
-#: lib/phoenix_kit_web/live/users/media_storage.ex:510
+#: lib/phoenix_kit_web/live/users/media_storage.ex:534
 #, elixir-autogen, elixir-format
 msgid "Other"
 msgstr "Inne"
@@ -9119,36 +9121,36 @@ msgstr "zapisano:"
 msgid "New User Defaults"
 msgstr "Wartości domyślne nowych użytkowników"
 
-#: lib/modules/storage/web/bucket_page.ex:238
+#: lib/modules/storage/web/bucket_page.ex:242
 #: lib/modules/storage/web/settings.ex:304
 #, elixir-autogen, elixir-format
 msgid "Bucket deleted successfully"
 msgstr "Zasobnik został usunięty"
 
-#: lib/modules/storage/web/bucket_page.ex:220
+#: lib/modules/storage/web/bucket_page.ex:224
 #: lib/modules/storage/web/settings.ex:227
 #, elixir-autogen, elixir-format
 msgid "Bucket disabled successfully"
 msgstr "Zasobnik został wyłączony"
 
-#: lib/modules/storage/web/bucket_page.ex:219
+#: lib/modules/storage/web/bucket_page.ex:223
 #: lib/modules/storage/web/settings.ex:226
 #, elixir-autogen, elixir-format
 msgid "Bucket enabled successfully"
 msgstr "Zasobnik został włączony"
 
 #: lib/modules/storage/web/bucket_form.ex:61
-#: lib/modules/storage/web/bucket_page.ex:78
-#: lib/modules/storage/web/bucket_page.ex:138
-#: lib/modules/storage/web/bucket_page.ex:281
+#: lib/modules/storage/web/bucket_page.ex:82
+#: lib/modules/storage/web/bucket_page.ex:142
+#: lib/modules/storage/web/bucket_page.ex:285
 #: lib/modules/storage/web/settings.ex:217
 #: lib/modules/storage/web/settings.ex:309
 #, elixir-autogen, elixir-format
 msgid "Bucket not found"
 msgstr "Nie znaleziono zasobnika"
 
-#: lib/modules/storage/web/bucket_page.ex:251
-#: lib/modules/storage/web/bucket_page.ex:256
+#: lib/modules/storage/web/bucket_page.ex:255
+#: lib/modules/storage/web/bucket_page.ex:260
 #: lib/modules/storage/web/settings.ex:321
 #, elixir-autogen, elixir-format
 msgid "Failed to delete bucket"
@@ -9159,7 +9161,7 @@ msgstr "Nie udało się usunąć zasobnika"
 msgid "Failed to repair: %{reason}"
 msgstr "Nie udało się naprawić: %{reason}"
 
-#: lib/modules/storage/web/bucket_page.ex:229
+#: lib/modules/storage/web/bucket_page.ex:233
 #: lib/modules/storage/web/settings.ex:237
 #, elixir-autogen, elixir-format
 msgid "Failed to update bucket"
@@ -11582,7 +11584,7 @@ msgstr "Użyj go z modułu AI"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:88
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:270
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:396
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:422
 #, elixir-autogen, elixir-format
 msgid "Verification"
 msgstr "Weryfikacja"
@@ -12844,10 +12846,10 @@ msgstr "Przekieruj na produkcję"
 msgid "Redirecting visitors to production"
 msgstr "Odwiedzający są przekierowywani na produkcję"
 
-#: lib/modules/storage/web/bucket_page.html.heex:474
+#: lib/modules/storage/web/bucket_page.html.heex:509
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:236
 #: lib/phoenix_kit_web/live/settings/website_access.ex:404
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:458
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:484
 #, elixir-autogen, elixir-format
 msgid "Result"
 msgstr "Wynik"
@@ -12941,8 +12943,9 @@ msgstr "Odwiedzający proszący o publiczny adres są kierowani na tę samą śc
 msgid "Website access"
 msgstr "Dostęp do strony"
 
-#: lib/modules/storage/web/bucket_page.html.heex:472
+#: lib/modules/storage/web/bucket_page.html.heex:507
 #: lib/phoenix_kit_web/components/core/activity_list.ex:35
+#: lib/phoenix_kit_web/components/core/repair_log.ex:32
 #: lib/phoenix_kit_web/live/settings/website_access.ex:403
 #, elixir-autogen, elixir-format
 msgid "When"
@@ -14285,6 +14288,7 @@ msgstr "Nie ma czego ponawiać."
 msgid "This file can't be edited."
 msgstr "Tego pliku nie można edytować."
 
+#: lib/phoenix_kit_web/components/core/repair_log.ex:73
 #: lib/phoenix_kit_web/components/image_editor.ex:493
 #: lib/phoenix_kit_web/components/image_editor.ex:533
 #, elixir-autogen, elixir-format
@@ -14319,7 +14323,7 @@ msgid "Top %"
 msgstr "Od góry %"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:642
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:576
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:631
 #, elixir-autogen, elixir-format
 msgid "Try again"
 msgstr "Spróbuj ponownie"
@@ -14347,7 +14351,7 @@ msgid "Undo the edit and show the unedited original again everywhere this image 
 msgstr "Cofnąć edycję i znów pokazywać nieedytowany oryginał wszędzie tam, gdzie używany jest ten obraz?"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1001
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:499
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:554
 #, elixir-autogen, elixir-format
 msgid "Unedited original"
 msgstr "Nieedytowany oryginał"
@@ -15127,6 +15131,7 @@ msgstr "Utwórz"
 #: lib/modules/storage/web/health_component.ex:205
 #: lib/modules/storage/web/health_component.ex:215
 #: lib/modules/storage/web/library_page.ex:55
+#: lib/phoenix_kit_web/components/core/repair_log.ex:35
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:111
 #, elixir-autogen, elixir-format
 msgid "Library"
@@ -15508,7 +15513,7 @@ msgstr[0] "%{count} zapisany obiekt nie ma jeszcze zapisanej lokalizacji. Jest w
 msgstr[1] "%{count} zapisane obiekty nie mają jeszcze zapisanej lokalizacji. Są wyszukiwane w tle i do tego czasu nadal udostępniane."
 msgstr[2] "%{count} zapisanych obiektów nie ma jeszcze zapisanej lokalizacji. Są wyszukiwane w tle i do tego czasu nadal udostępniane."
 
-#: lib/modules/storage/web/bucket_page.ex:248
+#: lib/modules/storage/web/bucket_page.ex:252
 #: lib/modules/storage/web/settings.ex:318
 #, elixir-autogen, elixir-format
 msgid "This bucket still holds files, so it cannot be deleted. Disable it to stop storing new files there."
@@ -15564,9 +15569,10 @@ msgstr "Dodaj zasobnik"
 msgid "Backup"
 msgstr "Kopia zapasowa"
 
-#: lib/modules/storage/web/bucket_page.ex:50
+#: lib/modules/storage/web/bucket_page.ex:52
 #: lib/modules/storage/web/library_page.html.heex:145
 #: lib/modules/storage/web/profiles_component.ex:709
+#: lib/phoenix_kit_web/components/core/repair_log.ex:36
 #, elixir-autogen, elixir-format
 msgid "Bucket"
 msgstr "Zasobnik"
@@ -15597,7 +15603,7 @@ msgid "Delete this storage profile?"
 msgstr "Usunąć ten profil magazynu?"
 
 #: lib/modules/storage/web/bucket_page.html.heex:413
-#: lib/modules/storage/web/history_component.ex:142
+#: lib/modules/storage/web/history_component.ex:237
 #, elixir-autogen, elixir-format
 msgid "Everything"
 msgstr "Wszystko"
@@ -15646,9 +15652,9 @@ msgstr "Pokazano pierwsze %{count} z %{total}."
 #: lib/modules/storage/web/libraries_component.ex:439
 #: lib/modules/storage/web/library_page.html.heex:187
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:612
-#: lib/phoenix_kit_web/live/users/media_storage.ex:61
-#: lib/phoenix_kit_web/live/users/media_storage.ex:115
-#: lib/phoenix_kit_web/live/users/media_storage.ex:137
+#: lib/phoenix_kit_web/live/users/media_storage.ex:65
+#: lib/phoenix_kit_web/live/users/media_storage.ex:121
+#: lib/phoenix_kit_web/live/users/media_storage.ex:144
 #, elixir-autogen, elixir-format
 msgid "Storage"
 msgstr "Magazyn"
@@ -17043,11 +17049,11 @@ msgstr "Anulowanie…"
 msgid "Duration"
 msgstr "Czas trwania"
 
-#: lib/modules/storage/web/bucket_page.html.heex:491
+#: lib/modules/storage/web/bucket_page.html.heex:526
 #: lib/phoenix_kit_web/components/media_canvas_viewer.ex:816
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:355
-#: lib/phoenix_kit_web/live/users/media_storage.ex:502
+#: lib/phoenix_kit_web/live/users/media_storage.ex:526
 #, elixir-autogen, elixir-format
 msgid "Failed"
 msgstr "Nie powiodło się"
@@ -17057,8 +17063,8 @@ msgstr "Nie powiodło się"
 msgid "Finished"
 msgstr "Zakończono"
 
-#: lib/modules/storage/web/bucket_page.html.heex:539
-#: lib/modules/storage/web/history_component.ex:133
+#: lib/modules/storage/web/bucket_page.html.heex:574
+#: lib/modules/storage/web/history_component.ex:195
 #: lib/modules/storage/web/library_page.html.heex:338
 #: lib/modules/storage/web/settings.ex:128
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:250
@@ -17086,8 +17092,8 @@ msgstr "Brak pasujących uruchomień."
 msgid "No sweeper pass in the last 15 minutes"
 msgstr "Brak przebiegu sweepera w ciągu ostatnich 15 minut"
 
-#: lib/modules/storage/web/bucket_page.html.heex:551
-#: lib/modules/storage/web/history_component.ex:161
+#: lib/modules/storage/web/bucket_page.html.heex:586
+#: lib/modules/storage/web/history_component.ex:263
 #: lib/modules/storage/web/library_page.html.heex:350
 #: lib/phoenix_kit_web/components/core/activity_list.ex:46
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:253
@@ -17095,9 +17101,9 @@ msgstr "Brak przebiegu sweepera w ciągu ostatnich 15 minut"
 msgid "Nothing recorded yet."
 msgstr "Nic jeszcze nie zapisano."
 
-#: lib/modules/storage/web/bucket_page.html.heex:519
-#: lib/modules/storage/web/bucket_page.html.heex:564
-#: lib/modules/storage/web/history_component.ex:176
+#: lib/modules/storage/web/bucket_page.html.heex:554
+#: lib/modules/storage/web/bucket_page.html.heex:599
+#: lib/modules/storage/web/history_component.ex:278
 #: lib/modules/storage/web/library_page.html.heex:363
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:140
 #, elixir-autogen, elixir-format
@@ -17219,7 +17225,7 @@ msgstr "Uruchomił(a)"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:99
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:71
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:292
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:300
 #, elixir-autogen, elixir-format
 msgid "State"
 msgstr "Stan"
@@ -17336,7 +17342,7 @@ msgstr "Sprawdź teraz"
 
 #: lib/modules/storage/web/library_page.ex:370
 #: lib/modules/storage/web/library_sync.ex:114
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:442
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Needs attention"
 msgstr "Wymaga uwagi"
@@ -17357,18 +17363,19 @@ msgstr "Uruchomienia magazynu"
 msgid "Syncing"
 msgstr "Synchronizacja"
 
-#: lib/modules/storage/web/history_component.ex:144
+#: lib/modules/storage/web/history_component.ex:239
 #, elixir-autogen, elixir-format
 msgid "Job runs"
 msgstr "Uruchomienia zadań"
 
-#: lib/modules/storage/web/history_component.ex:143
+#: lib/modules/storage/web/history_component.ex:238
 #, elixir-autogen, elixir-format
 msgid "Settings changes"
 msgstr "Zmiany ustawień"
 
-#: lib/modules/storage/web/bucket_page.html.heex:473
+#: lib/modules/storage/web/bucket_page.html.heex:508
 #: lib/phoenix_kit_web/components/core/activity_list.ex:37
+#: lib/phoenix_kit_web/components/core/repair_log.ex:33
 #, elixir-autogen, elixir-format
 msgid "What"
 msgstr "Co"
@@ -17378,7 +17385,7 @@ msgstr "Co"
 msgid "Who"
 msgstr "Kto"
 
-#: lib/modules/storage/web/history_component.ex:151
+#: lib/modules/storage/web/history_component.ex:247
 #, elixir-autogen, elixir-format
 msgid "Who changed the storage settings, and what the background jobs did. Changes to buckets, profiles, libraries and sizes are kept permanently; job entries follow the activity retention."
 msgstr "Kto zmienił ustawienia magazynu i co zrobiły zadania w tle. Zmiany bucketów, profili, bibliotek i rozmiarów są przechowywane na stałe; wpisy zadań podlegają okresowi przechowywania aktywności."
@@ -17474,35 +17481,35 @@ msgstr "Ten zasobnik jest używany"
 msgid "Used by"
 msgstr "Używany przez"
 
-#: lib/modules/storage/web/bucket_page.ex:431
+#: lib/modules/storage/web/bucket_page.ex:437
 #: lib/modules/storage/web/bucket_usage.ex:89
 #: lib/modules/storage/web/library_page.ex:386
 #, elixir-autogen, elixir-format
 msgid "backup"
 msgstr "kopia zapasowa"
 
-#: lib/modules/storage/web/bucket_page.ex:436
+#: lib/modules/storage/web/bucket_page.ex:442
 #: lib/modules/storage/web/bucket_usage.ex:93
 #: lib/modules/storage/web/library_page.ex:391
 #, elixir-autogen, elixir-format
 msgid "draining"
 msgstr "opróżniany"
 
-#: lib/modules/storage/web/bucket_page.ex:429
+#: lib/modules/storage/web/bucket_page.ex:435
 #: lib/modules/storage/web/bucket_usage.ex:87
 #: lib/modules/storage/web/library_page.ex:384
 #, elixir-autogen, elixir-format
 msgid "primary"
 msgstr "główny"
 
-#: lib/modules/storage/web/bucket_page.ex:435
+#: lib/modules/storage/web/bucket_page.ex:441
 #: lib/modules/storage/web/bucket_usage.ex:92
 #: lib/modules/storage/web/library_page.ex:390
 #, elixir-autogen, elixir-format
 msgid "read only"
 msgstr "tylko do odczytu"
 
-#: lib/modules/storage/web/bucket_page.ex:430
+#: lib/modules/storage/web/bucket_page.ex:436
 #: lib/modules/storage/web/bucket_usage.ex:88
 #: lib/modules/storage/web/library_page.ex:385
 #, elixir-autogen, elixir-format
@@ -17601,7 +17608,7 @@ msgstr "Dostęp"
 msgid "Add to profile"
 msgstr "Dodaj do profilu"
 
-#: lib/modules/storage/web/bucket_page.ex:267
+#: lib/modules/storage/web/bucket_page.ex:271
 #, elixir-autogen, elixir-format
 msgid "Bucket added to the storage profile"
 msgstr "Zasobnik dodano do profilu magazynu"
@@ -17647,7 +17654,7 @@ msgstr "Nieudane kopie"
 msgid "Everything about this storage bucket"
 msgstr "Wszystko o tym zasobniku"
 
-#: lib/modules/storage/web/bucket_page.ex:270
+#: lib/modules/storage/web/bucket_page.ex:274
 #, elixir-autogen, elixir-format
 msgid "Failed to add the bucket to the profile"
 msgstr "Nie udało się dodać zasobnika do profilu"
@@ -17686,12 +17693,12 @@ msgstr "Obiekty"
 msgid "Overview"
 msgstr "Przegląd"
 
-#: lib/modules/storage/web/bucket_page.ex:424
+#: lib/modules/storage/web/bucket_page.ex:430
 #, elixir-autogen, elixir-format
 msgid "Public"
 msgstr "Publiczny"
 
-#: lib/modules/storage/web/bucket_page.ex:426
+#: lib/modules/storage/web/bucket_page.ex:432
 #, elixir-autogen, elixir-format
 msgid "Signed URLs"
 msgstr "Podpisane adresy URL"
@@ -17706,7 +17713,7 @@ msgstr "Testuj połączenie"
 msgid "Tested %{time}"
 msgstr "Przetestowano: %{time}"
 
-#: lib/modules/storage/web/bucket_page.ex:193
+#: lib/modules/storage/web/bucket_page.ex:197
 #, elixir-autogen, elixir-format
 msgid "The connection test crashed unexpectedly"
 msgstr "Test połączenia nieoczekiwanie się zawiesił"
@@ -17724,7 +17731,7 @@ msgstr[0] "Ten zasobnik jest opróżniany: %{count} plik nadal tu leży i zostan
 msgstr[1] "Ten zasobnik jest opróżniany: %{count} pliki nadal tu leżą i zostaną przeniesione przez mechanizm uzgadniania."
 msgstr[2] "Ten zasobnik jest opróżniany: %{count} plików nadal tu leży i zostanie przeniesionych przez mechanizm uzgadniania."
 
-#: lib/modules/storage/web/bucket_page.ex:399
+#: lib/modules/storage/web/bucket_page.ex:405
 #, elixir-autogen, elixir-format
 msgid "Unknown result"
 msgstr "Nieznany wynik"
@@ -17740,7 +17747,7 @@ msgstr "Bez limitu"
 msgid "Updated"
 msgstr "Zaktualizowano"
 
-#: lib/modules/storage/web/bucket_page.html.heex:542
+#: lib/modules/storage/web/bucket_page.html.heex:577
 #, elixir-autogen, elixir-format
 msgid "Who changed this bucket and its place in the storage profiles. These entries are kept permanently."
 msgstr "Kto zmienił ten zasobnik i jego miejsce w profilach magazynu. Te wpisy są przechowywane bezterminowo."
@@ -17750,23 +17757,23 @@ msgstr "Kto zmienił ten zasobnik i jego miejsce w profilach magazynu. Te wpisy 
 msgid "Writes, reads and deletes a small test object. Not run when the page opens."
 msgstr "Zapisuje, odczytuje i usuwa niewielki obiekt testowy. Nie jest uruchamiany po otwarciu strony."
 
-#: lib/modules/storage/web/bucket_page.ex:434
+#: lib/modules/storage/web/bucket_page.ex:440
 #: lib/modules/storage/web/library_page.ex:389
 #, elixir-autogen, elixir-format
 msgid "active"
 msgstr "aktywny"
 
-#: lib/modules/storage/web/bucket_page.html.heex:452
+#: lib/modules/storage/web/bucket_page.html.heex:487
 #, elixir-autogen, elixir-format
 msgid "Connection test time, latest %{count}"
 msgstr "Czas testów połączenia, ostatnie %{count}"
 
-#: lib/modules/storage/web/bucket_page.html.heex:424
+#: lib/modules/storage/web/bucket_page.html.heex:459
 #, elixir-autogen, elixir-format
 msgid "Failed writes, reads and deletes on this bucket, and every connection test, with how long the test took. Kept for %{days} days."
 msgstr "Nieudane zapisy, odczyty i usunięcia w tym zasobniku oraz każdy test połączenia wraz z czasem jego trwania. Przechowywane przez %{days} dni."
 
-#: lib/modules/storage/web/bucket_page.html.heex:433
+#: lib/modules/storage/web/bucket_page.html.heex:468
 #, elixir-autogen, elixir-format
 msgid "Failures in the last 24 hours"
 msgstr "Błędy w ostatnich 24 godzinach"
@@ -17776,7 +17783,7 @@ msgstr "Błędy w ostatnich 24 godzinach"
 msgid "Failures only"
 msgstr "Tylko błędy"
 
-#: lib/modules/storage/web/bucket_page.html.heex:443
+#: lib/modules/storage/web/bucket_page.html.heex:478
 #, elixir-autogen, elixir-format
 msgid "Last failure"
 msgstr "Ostatni błąd"
@@ -17786,34 +17793,34 @@ msgstr "Ostatni błąd"
 msgid "Log"
 msgstr "Dziennik"
 
-#: lib/modules/storage/web/bucket_page.html.heex:482
+#: lib/modules/storage/web/bucket_page.html.heex:517
 #, elixir-autogen, elixir-format
 msgid "Nothing logged yet."
 msgstr "Nic jeszcze nie zapisano."
 
-#: lib/modules/storage/web/bucket_page.ex:447
+#: lib/modules/storage/web/bucket_page.ex:453
 #, elixir-autogen, elixir-format
 msgid "Probe"
 msgstr "Test połączenia"
 
-#: lib/modules/storage/web/bucket_page.ex:449
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:472
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:475
+#: lib/modules/storage/web/bucket_page.ex:455
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:501
 #, elixir-autogen, elixir-format
 msgid "Read"
 msgstr "Odczyt"
 
-#: lib/modules/storage/web/bucket_page.html.heex:420
+#: lib/modules/storage/web/bucket_page.html.heex:455
 #, elixir-autogen, elixir-format
 msgid "The log is not available. Run the database update to create it."
 msgstr "Dziennik jest niedostępny. Uruchom aktualizację bazy danych, aby go utworzyć."
 
-#: lib/modules/storage/web/bucket_page.html.heex:475
+#: lib/modules/storage/web/bucket_page.html.heex:510
 #, elixir-autogen, elixir-format
 msgid "Time"
 msgstr "Czas"
 
-#: lib/modules/storage/web/bucket_page.ex:448
+#: lib/modules/storage/web/bucket_page.ex:454
 #, elixir-autogen, elixir-format
 msgid "Write"
 msgstr "Zapis"
@@ -19167,7 +19174,7 @@ msgid "Permanently delete this file? This cannot be undone."
 msgstr "Trwale usunąć ten plik? Tej operacji nie można cofnąć."
 
 #: lib/phoenix_kit_web/components/media_canvas_viewer.ex:815
-#: lib/phoenix_kit_web/live/users/media_storage.ex:501
+#: lib/phoenix_kit_web/live/users/media_storage.ex:525
 #, elixir-autogen, elixir-format
 msgid "Processing"
 msgstr "Przetwarzanie"
@@ -19190,42 +19197,43 @@ msgstr[0] "%{count} wariant jest brakujący, nieaktualny lub bez kopii."
 msgstr[1] "%{count} warianty są brakujące, nieaktualne lub bez kopii."
 msgstr[2] "%{count} wariantów jest brakujących, nieaktualnych lub bez kopii."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:404
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:430
 #, elixir-autogen, elixir-format
 msgid "%{ok} of %{total} copies match the checksum they were stored with."
 msgstr "%{ok} z %{total} kopii zgadza się z zapisaną sumą kontrolną."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:484
+#: lib/phoenix_kit_web/live/users/media_storage.ex:508
 #, elixir-autogen, elixir-format
 msgid "%{px} px tall"
 msgstr "%{px} px wysokości"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:490
+#: lib/phoenix_kit_web/live/users/media_storage.ex:514
 #, elixir-autogen, elixir-format
 msgid "%{px} px wide"
 msgstr "%{px} px szerokości"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:377
+#: lib/phoenix_kit_web/live/users/media_storage.ex:389
+#: lib/phoenix_kit_web/live/users/media_storage.ex:429
 #, elixir-autogen, elixir-format
 msgid "An edit is being applied. Try again shortly."
 msgstr "Trwa stosowanie edycji. Spróbuj ponownie za chwilę."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:402
+#: lib/phoenix_kit_web/live/users/media_storage.ex:650
 #, elixir-autogen, elixir-format
 msgid "Another pass is working on this file."
 msgstr "Inny przebieg pracuje nad tym plikiem."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:287
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:295
 #, elixir-autogen, elixir-format
 msgid "Asked for"
 msgstr "Zamówiono"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:290
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:298
 #, elixir-autogen, elixir-format
 msgid "Checksum"
 msgstr "Suma kontrolna"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:520
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:575
 #, elixir-autogen, elixir-format
 msgid "Checksum (SHA-256)"
 msgstr "Suma kontrolna (SHA-256)"
@@ -19235,27 +19243,27 @@ msgstr "Suma kontrolna (SHA-256)"
 msgid "Checksum of the original (SHA-256)"
 msgstr "Suma kontrolna oryginału (SHA-256)"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:518
+#: lib/phoenix_kit_web/live/users/media_storage.ex:542
 #, elixir-autogen, elixir-format
 msgid "Could not read"
 msgstr "Nie udało się odczytać"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:568
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:623
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original"
 msgstr "Usuń niezmieniony oryginał"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:561
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:616
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original? The edit becomes permanent and this cannot be undone."
 msgstr "Usunąć niezmieniony oryginał? Edycja stanie się trwała i nie będzie można jej cofnąć."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:514
+#: lib/phoenix_kit_web/live/users/media_storage.ex:538
 #, elixir-autogen, elixir-format
 msgid "Differs"
 msgstr "Różni się"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:544
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:599
 #, elixir-autogen, elixir-format
 msgid "Download the unedited original"
 msgstr "Pobierz niezmieniony oryginał"
@@ -19265,64 +19273,49 @@ msgstr "Pobierz niezmieniony oryginał"
 msgid "Everything this file should have is stored."
 msgstr "Wszystko, co ten plik powinien mieć, jest zapisane."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:396
-#, elixir-autogen, elixir-format
-msgid "Everything this file should have is there."
-msgstr "Wszystko, co ten plik powinien mieć, jest na miejscu."
-
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:88
 #, elixir-autogen, elixir-format
 msgid "File UUID"
 msgstr "UUID pliku"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:291
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:527
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:299
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:582
 #, elixir-autogen, elixir-format
 msgid "Kept in"
 msgstr "Przechowywany w"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:381
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:389
 #, elixir-autogen, elixir-format
 msgid "Make"
 msgstr "Utwórz"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:268
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:276
 #, elixir-autogen, elixir-format
 msgid "Make every rendition again from the original? This can take a while."
 msgstr "Utworzyć wszystkie warianty ponownie z oryginału? To może chwilę potrwać."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:260
-#, elixir-autogen, elixir-format
-msgid "Make what is missing"
-msgstr "Utwórz brakujące"
-
-#: lib/phoenix_kit_web/live/users/media_storage.ex:513
+#: lib/phoenix_kit_web/live/users/media_storage.ex:537
 #, elixir-autogen, elixir-format
 msgid "Matches"
 msgstr "Zgadza się"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:517
+#: lib/phoenix_kit_web/live/users/media_storage.ex:541
 #, elixir-autogen, elixir-format
 msgid "No checksum recorded"
 msgstr "Brak zapisanej sumy kontrolnej"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:503
-#: lib/phoenix_kit_web/live/users/media_storage.ex:516
+#: lib/phoenix_kit_web/live/users/media_storage.ex:527
+#: lib/phoenix_kit_web/live/users/media_storage.ex:540
 #, elixir-autogen, elixir-format
 msgid "No copy"
 msgstr "Brak kopii"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:399
-#, elixir-autogen, elixir-format
-msgid "Not everything could be made. See the table, then try again."
-msgstr "Nie wszystko udało się utworzyć. Sprawdź tabelę i spróbuj ponownie."
-
-#: lib/phoenix_kit_web/live/users/media_storage.ex:515
+#: lib/phoenix_kit_web/live/users/media_storage.ex:539
 #, elixir-autogen, elixir-format
 msgid "Not in bucket"
 msgstr "Brak w zasobniku"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:457
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "Object"
 msgstr "Obiekt"
@@ -19332,27 +19325,27 @@ msgstr "Obiekt"
 msgid "Open in media view"
 msgstr "Otwórz w widoku multimediów"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:508
+#: lib/phoenix_kit_web/live/users/media_storage.ex:532
 #, elixir-autogen, elixir-format
 msgid "Other format"
 msgstr "Inny format"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:500
+#: lib/phoenix_kit_web/live/users/media_storage.ex:524
 #, elixir-autogen, elixir-format
 msgid "Out of date"
 msgstr "Nieaktualna"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:472
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
 #, elixir-autogen, elixir-format
 msgid "Recorded"
 msgstr "Zapisano"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:276
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:284
 #, elixir-autogen, elixir-format
 msgid "Regenerate all"
 msgstr "Odtwórz wszystko"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:423
+#: lib/phoenix_kit_web/live/users/media_storage.ex:447
 #, elixir-autogen, elixir-format
 msgid "Regenerated %{count} rendition."
 msgid_plural "Regenerated %{count} renditions."
@@ -19360,99 +19353,94 @@ msgstr[0] "Odtworzono %{count} wariant."
 msgstr[1] "Odtworzono %{count} warianty."
 msgstr[2] "Odtworzono %{count} wariantów."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:274
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:282
 #, elixir-autogen, elixir-format
 msgid "Regenerating…"
 msgstr "Odtwarzanie…"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:286
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:456
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:294
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:482
 #, elixir-autogen, elixir-format
 msgid "Rendition"
 msgstr "Wariant"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:411
+#: lib/phoenix_kit_web/live/users/media_storage.ex:435
 #, elixir-autogen, elixir-format
 msgid "Rendition made."
 msgstr "Wariant utworzony."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:257
-#, elixir-autogen, elixir-format
-msgid "Repairing…"
-msgstr "Naprawianie…"
-
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:554
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:609
 #, elixir-autogen, elixir-format
 msgid "Restore the original"
 msgstr "Przywróć oryginał"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:550
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:605
 #, elixir-autogen, elixir-format
 msgid "Restore the unedited original? The edit is removed."
 msgstr "Przywrócić niezmieniony oryginał? Edycja zostanie usunięta."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:306
+#: lib/phoenix_kit_web/live/users/media_storage.ex:313
 #, elixir-autogen, elixir-format
 msgid "Something is already running."
 msgstr "Coś już trwa."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:498
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:288
+#: lib/phoenix_kit_web/live/users/media_storage.ex:522
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:296
 #, elixir-autogen, elixir-format
 msgid "Stored"
 msgstr "Zapisano"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:442
+#: lib/phoenix_kit_web/live/users/media_storage.ex:466
 #, elixir-autogen, elixir-format
 msgid "That did not finish. Try again."
 msgstr "To się nie zakończyło. Spróbuj ponownie."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:382
+#: lib/phoenix_kit_web/live/users/media_storage.ex:394
 #, elixir-autogen, elixir-format
 msgid "The change could not be made."
 msgstr "Nie udało się wprowadzić zmiany."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:587
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:642
 #, elixir-autogen, elixir-format
 msgid "The file you're looking for doesn't exist or has been deleted."
 msgstr "Szukany plik nie istnieje lub został usunięty."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:574
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:629
 #, elixir-autogen, elixir-format
 msgid "The last edit could not be applied."
 msgstr "Nie udało się zastosować ostatniej edycji."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:412
+#: lib/phoenix_kit_web/live/users/media_storage.ex:436
 #, elixir-autogen, elixir-format
 msgid "The rendition could not be made."
 msgstr "Nie udało się utworzyć wariantu."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:430
+#: lib/phoenix_kit_web/live/users/media_storage.ex:454
 #, elixir-autogen, elixir-format
 msgid "The renditions could not be regenerated."
 msgstr "Nie udało się odtworzyć wariantów."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:402
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:428
 #, elixir-autogen, elixir-format
 msgid "There was nothing to check: no copy is recorded for this file."
 msgstr "Nie było czego sprawdzać: dla tego pliku nie zapisano żadnej kopii."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:380
+#: lib/phoenix_kit_web/live/users/media_storage.ex:392
 #, elixir-autogen, elixir-format
 msgid "This image has annotations; restoring would move them."
 msgstr "Ten obraz ma adnotacje; przywrócenie przesunęłoby je."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:376
+#: lib/phoenix_kit_web/live/users/media_storage.ex:388
 #, elixir-autogen, elixir-format
 msgid "This image has not been edited."
 msgstr "Ten obraz nie był edytowany."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:503
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:558
 #, elixir-autogen, elixir-format
 msgid "This image was edited. Its unedited original is kept, and can be downloaded or restored."
 msgstr "Ten obraz został edytowany. Niezmieniony oryginał jest zachowany i można go pobrać lub przywrócić."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:147
+#: lib/phoenix_kit_web/live/users/media_storage.ex:154
 #, elixir-autogen, elixir-format
 msgid "Unnamed file"
 msgstr "Plik bez nazwy"
@@ -19472,27 +19460,27 @@ msgstr "Przesłał(a)"
 msgid "Verifying…"
 msgstr "Sprawdzanie…"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:509
+#: lib/phoenix_kit_web/live/users/media_storage.ex:533
 #, elixir-autogen, elixir-format
 msgid "With annotations"
 msgstr "Z adnotacjami"
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:302
+#: lib/phoenix_kit_web/live/users/media_storage.ex:309
 #, elixir-autogen, elixir-format
 msgid "You may not change storage."
 msgstr "Nie możesz zmieniać magazynu."
 
-#: lib/phoenix_kit_web/live/users/media_storage.ex:375
+#: lib/phoenix_kit_web/live/users/media_storage.ex:387
 #, elixir-autogen, elixir-format
 msgid "You may not change this image."
 msgstr "Nie możesz zmieniać tego obrazu."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:325
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:333
 #, elixir-autogen, elixir-format
 msgid "First stored: %{first}"
 msgstr "Pierwszy zapis: %{first}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:289
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:297
 #, elixir-autogen, elixir-format
 msgid "Made"
 msgstr "Utworzono"
@@ -19536,22 +19524,22 @@ msgstr "Plik został umieszczony według starszej wersji tego profilu."
 msgid "User library"
 msgstr "Biblioteka użytkownika"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:440
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:466
 #, elixir-autogen, elixir-format
 msgid "All intact"
 msgstr "Wszystko w porządku"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:448
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:474
 #, elixir-autogen, elixir-format
 msgid "Intact: %{ok} of %{total}"
 msgstr "W porządku: %{ok} z %{total}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:424
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:450
 #, elixir-autogen, elixir-format
 msgid "Not stored anywhere"
 msgstr "Nigdzie nie zapisano"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:444
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:470
 #, elixir-autogen, elixir-format
 msgid "Nothing of this file is stored here"
 msgstr "Nic z tego pliku nie jest tu zapisane"
@@ -19623,3 +19611,217 @@ msgstr "Wolno się listuje i archiwizuje"
 #, elixir-autogen, elixir-format
 msgid "Too many"
 msgstr "Za dużo"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:412
+#, elixir-autogen, elixir-format
+msgid "%{count} problem is left. See the report."
+msgid_plural "%{count} problems are left. See the report."
+msgstr[0] "Pozostał %{count} problem. Zobacz raport."
+msgstr[1] "Pozostały %{count} problemy. Zobacz raport."
+msgstr[2] "Pozostało %{count} problemów. Zobacz raport."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:194
+#: lib/phoenix_kit_web/live/users/media_storage.ex:625
+#, elixir-autogen, elixir-format
+msgid "Copied back into %{bucket} from %{from}."
+msgstr "Skopiowano z powrotem do %{bucket} z %{from}."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:210
+#: lib/phoenix_kit_web/live/users/media_storage.ex:642
+#, elixir-autogen, elixir-format
+msgid "Could not be fixed in %{bucket}."
+msgstr "Nie udało się naprawić w %{bucket}."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:212
+#: lib/phoenix_kit_web/live/users/media_storage.ex:644
+#, elixir-autogen, elixir-format
+msgid "Could not be made again."
+msgstr "Nie udało się utworzyć ponownie."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:205
+#: lib/phoenix_kit_web/live/users/media_storage.ex:636
+#, elixir-autogen, elixir-format
+msgid "Could not be read from %{bucket}; left as it is."
+msgstr "Nie udało się odczytać z %{bucket}; pozostawiono bez zmian."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:409
+#, elixir-autogen, elixir-format
+msgid "Everything is intact now."
+msgstr "Teraz wszystko jest w porządku."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:268
+#, elixir-autogen, elixir-format
+msgid "Fix all issues"
+msgstr "Napraw wszystkie problemy"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:265
+#, elixir-autogen, elixir-format
+msgid "Fixing…"
+msgstr "Naprawianie…"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:199
+#: lib/phoenix_kit_web/live/users/media_storage.ex:630
+#, elixir-autogen, elixir-format
+msgid "Found in %{bucket} and recorded."
+msgstr "Znaleziono w %{bucket} i zapisano."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:196
+#: lib/phoenix_kit_web/live/users/media_storage.ex:627
+#, elixir-autogen, elixir-format
+msgid "Made again from the original."
+msgstr "Utworzono ponownie z oryginału."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:202
+#: lib/phoenix_kit_web/live/users/media_storage.ex:633
+#, elixir-autogen, elixir-format
+msgid "No good copy exists anywhere, and it cannot be made again."
+msgstr "Nigdzie nie ma dobrej kopii i nie można go utworzyć ponownie."
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:653
+#, elixir-autogen, elixir-format
+msgid "Not everything the profiles ask for could be made."
+msgstr "Nie wszystko, czego wymagają profile, udało się utworzyć."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:207
+#: lib/phoenix_kit_web/live/users/media_storage.ex:639
+#, elixir-autogen, elixir-format
+msgid "Not made again: the original is damaged."
+msgstr "Nie utworzono ponownie: oryginał jest uszkodzony."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:258
+#, elixir-autogen, elixir-format
+msgid "Reads every copy back, replaces what is missing or damaged from a good copy or by making it again, and makes what the profiles ask for."
+msgstr "Odczytuje każdą kopię, zastępuje brakujące lub uszkodzone dobrą kopią albo tworząc ponownie i tworzy to, czego wymagają profile."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:403
+#, elixir-autogen, elixir-format
+msgid "Repair report"
+msgstr "Raport naprawy"
+
+#: lib/phoenix_kit_web/live/users/media_storage.ex:647
+#, elixir-autogen, elixir-format
+msgid "Sizes and copies match the library's profiles."
+msgstr "Rozmiary i kopie zgadzają się z profilami biblioteki."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:405
+#, elixir-autogen, elixir-format
+msgid "There was nothing to fix."
+msgstr "Nie było nic do naprawienia."
+
+#: lib/modules/storage/web/bucket_page.html.heex:422
+#, elixir-autogen, elixir-format
+msgid "%{count} damaged or missing copy was found on this bucket in the last 30 days."
+msgid_plural "%{count} damaged or missing copies were found on this bucket in the last 30 days."
+msgstr[0] "W ciągu ostatnich 30 dni znaleziono %{count} uszkodzoną lub brakującą kopię w tym zasobniku."
+msgstr[1] "W ciągu ostatnich 30 dni znaleziono %{count} uszkodzone lub brakujące kopie w tym zasobniku."
+msgstr[2] "W ciągu ostatnich 30 dni znaleziono %{count} uszkodzonych lub brakujących kopii w tym zasobniku."
+
+#: lib/modules/storage/web/bucket_page.html.heex:429
+#, elixir-autogen, elixir-format
+msgid "Objects that disappear or change on their own can mean a failing disk or a faulty storage service. Settings → Media → History lists each one."
+msgstr "Obiekty, które znikają lub zmieniają się same, mogą oznaczać uszkodzony dysk lub wadliwą usługę przechowywania. Ustawienia → Media → Historia wymienia każdy przypadek."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:166
+#, elixir-autogen, elixir-format
+msgid "%{count} problem was left."
+msgid_plural "%{count} problems were left."
+msgstr[0] "Pozostał %{count} problem."
+msgstr[1] "Pozostały %{count} problemy."
+msgstr[2] "Pozostało %{count} problemów."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:107
+#, elixir-autogen, elixir-format
+msgid "A user library"
+msgstr "Biblioteka użytkownika"
+
+#: lib/modules/storage/web/history_component.ex:156
+#, elixir-autogen, elixir-format
+msgid "All buckets"
+msgstr "Wszystkie zasobniki"
+
+#: lib/modules/storage/web/history_component.ex:151
+#, elixir-autogen, elixir-format
+msgid "All libraries"
+msgstr "Wszystkie biblioteki"
+
+#: lib/modules/storage/web/bucket_page.html.heex:448
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:531
+#, elixir-autogen, elixir-format
+msgid "All storage history"
+msgstr "Cała historia magazynu"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:186
+#, elixir-autogen, elixir-format
+msgid "Bytes differ from the checksum"
+msgstr "Bajty różnią się od sumy kontrolnej"
+
+#: lib/modules/storage/web/history_component.ex:240
+#, elixir-autogen, elixir-format
+msgid "Damage and repairs"
+msgstr "Uszkodzenia i naprawy"
+
+#: lib/modules/storage/web/history_component.ex:210
+#, elixir-autogen, elixir-format
+msgid "Damaged and repaired"
+msgstr "Uszkodzone i naprawione"
+
+#: lib/modules/storage/web/history_component.ex:211
+#, elixir-autogen, elixir-format
+msgid "Damaged copies"
+msgstr "Uszkodzone kopie"
+
+#: lib/modules/storage/web/bucket_page.html.heex:437
+#, elixir-autogen, elixir-format
+msgid "Damaged copies and repairs"
+msgstr "Uszkodzone kopie i naprawy"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:175
+#, elixir-autogen, elixir-format
+msgid "Damaged copy"
+msgstr "Uszkodzona kopia"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:190
+#, elixir-autogen, elixir-format
+msgid "Found by verification"
+msgstr "Znaleziono podczas sprawdzania"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:189
+#, elixir-autogen, elixir-format
+msgid "Found while fixing"
+msgstr "Znaleziono podczas naprawy"
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:185
+#, elixir-autogen, elixir-format
+msgid "Missing from the bucket"
+msgstr "Brak w zasobniku"
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:539
+#, elixir-autogen, elixir-format
+msgid "Nothing has gone wrong with this file, and nothing has been repaired."
+msgstr "Z tym plikiem nic się nie stało i nic nie naprawiano."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:26
+#, elixir-autogen, elixir-format
+msgid "Nothing has gone wrong, and nothing has been repaired."
+msgstr "Nic się nie stało i nic nie naprawiano."
+
+#: lib/phoenix_kit_web/components/core/repair_log.ex:176
+#, elixir-autogen, elixir-format
+msgid "Repaired"
+msgstr "Naprawiono"
+
+#: lib/modules/storage/web/history_component.ex:212
+#, elixir-autogen, elixir-format
+msgid "Repairs"
+msgstr "Naprawy"
+
+#: lib/modules/storage/web/bucket_page.html.heex:443
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:546
+#, elixir-autogen, elixir-format
+msgid "Showing the latest %{count}."
+msgstr "Pokazano najnowsze %{count}."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:526
+#, elixir-autogen, elixir-format
+msgid "Storage log"
+msgstr "Dziennik magazynu"

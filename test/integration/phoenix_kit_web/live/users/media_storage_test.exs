@@ -129,12 +129,29 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
       {:ok, view, _html} = live(conn, storage_path(file))
 
       view |> element("button[phx-click=verify]") |> render_click()
-      html = render_async(view)
+      html = render_async(view, 5_000)
 
       assert html =~ "Verification"
       assert html =~ "Not stored anywhere"
       assert html =~ "No copy"
       assert html =~ "Verify renditions"
+    end
+  end
+
+  describe "Fix all issues" do
+    test "reports what it could not fix: an original no bucket holds", %{conn: conn, user: user} do
+      file = image!(user)
+      {:ok, view, html} = live(conn, storage_path(file))
+
+      assert html =~ "Fix all issues"
+      refute html =~ "Make what is missing"
+
+      view |> element("button[phx-click=fix]") |> render_click()
+      html = render_async(view, 5_000)
+
+      assert has_element?(view, "#repair-report")
+      assert html =~ "No good copy exists anywhere"
+      assert html =~ "Verification"
     end
   end
 

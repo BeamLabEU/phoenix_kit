@@ -15,14 +15,19 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
 
   import Ecto.Query
   import PhoenixKitWeb.Components.Core.ActivityList, only: [activity_list: 1]
+  import PhoenixKitWeb.Components.Core.RepairLog, only: [repair_log: 1]
 
   alias PhoenixKit.Activity
   alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
+  alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.RepairLog
   alias PhoenixKit.Users.Auth.Scope
 
   @per_page 25
-  @filters ~w(all changes runs)
+  @filters ~w(all changes runs repairs)
+  @repair_kinds ~w(damaged repaired)
 
   @impl true
   def mount(socket) do
@@ -33,6 +38,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
        filter: "all",
        page: 1,
        result: nil,
+       repairs: nil,
+       repair_filter: %{library: "", bucket: "", kind: ""},
+       library_options: [],
+       bucket_options: [],
        scope: nil
      )}
   end
@@ -52,8 +61,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
   end
 
   @impl true
-  def handle_event("filter", %{"filter" => filter}, socket) when filter in @filters do
-    {:noreply, socket |> assign(filter: filter, page: 1) |> load()}
+  def handle_event("filter", %{"filter" => filter} = params, socket) when filter in @filters do
+    {:noreply,
+     socket
+     |> assign(filter: filter, page: 1, repair_filter: repair_filter(params))
+     |> load()}
   end
 
   def handle_event("page", %{"page" => page}, socket) do
@@ -78,6 +90,47 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
 
   defp parse_page(_value), do: nil
 
+  # The library, bucket and kind selects of the damage-and-repairs view. They arrive
+  # from the client: a uuid is cast, a kind is one of two.
+  defp repair_filter(params) do
+    %{
+      library: cast_uuid(params["library"]),
+      bucket: cast_uuid(params["bucket"]),
+      kind: if(params["kind"] in @repair_kinds, do: params["kind"], else: "")
+    }
+  end
+
+  defp cast_uuid(value) do
+    case Ecto.UUID.cast(value || "") do
+      {:ok, uuid} -> uuid
+      :error -> ""
+    end
+  end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
+
+  defp load(%{assigns: %{filter: "repairs"}} = socket) do
+    f = socket.assigns.repair_filter
+
+    repairs =
+      RepairLog.list(
+        page: socket.assigns.page,
+        per_page: @per_page,
+        library_uuid: blank_to_nil(f.library),
+        bucket_uuid: blank_to_nil(f.bucket),
+        kind: if(f.kind == "", do: nil, else: String.to_existing_atom(f.kind))
+      )
+
+    socket
+    |> assign(:loaded?, true)
+    |> assign(:repairs, repairs)
+    |> assign(:result, %{entries: [], total_pages: repairs.total_pages})
+    |> assign(:library_options, library_options())
+    |> assign(:bucket_options, bucket_options())
+    |> clamp_page()
+  end
+
   defp load(socket) do
     result =
       Activity.list(
@@ -92,6 +145,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
     |> assign(:result, result)
     |> clamp_page()
   end
+
+  defp library_options,
+    do: [
+      {gettext("All libraries"), ""}
+      | Enum.map(Libraries.list_system_libraries(), &{&1.name, &1.uuid})
+    ]
+
+  defp bucket_options,
+    do: [{gettext("All buckets"), ""} | Enum.map(Storage.list_buckets(), &{&1.name, &1.uuid})]
 
   # Pruning can remove the last page while it is open.
   defp clamp_page(socket) do
@@ -132,7 +194,40 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
             <h2 class="card-title text-lg">
               <.icon name="hero-clock" class="w-6 h-6 mr-2" /> {gettext("History")}
             </h2>
-            <form id={"#{@id}-filter"} phx-change="filter" phx-target={@myself}>
+            <form
+              id={"#{@id}-filter"}
+              phx-change="filter"
+              phx-target={@myself}
+              class="flex flex-wrap items-center gap-2"
+            >
+              <.select
+                :if={@filter == "repairs"}
+                id={"#{@id}-filter-kind"}
+                name="kind"
+                value={@repair_filter.kind}
+                class="select-sm"
+                options={[
+                  {gettext("Damaged and repaired"), ""},
+                  {gettext("Damaged copies"), "damaged"},
+                  {gettext("Repairs"), "repaired"}
+                ]}
+              />
+              <.select
+                :if={@filter == "repairs"}
+                id={"#{@id}-filter-library"}
+                name="library"
+                value={@repair_filter.library}
+                class="select-sm"
+                options={@library_options}
+              />
+              <.select
+                :if={@filter == "repairs"}
+                id={"#{@id}-filter-bucket"}
+                name="bucket"
+                value={@repair_filter.bucket}
+                class="select-sm"
+                options={@bucket_options}
+              />
               <.select
                 id={"#{@id}-filter-select"}
                 name="filter"
@@ -141,7 +236,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
                 options={[
                   {gettext("Everything"), "all"},
                   {gettext("Settings changes"), "changes"},
-                  {gettext("Job runs"), "runs"}
+                  {gettext("Job runs"), "runs"},
+                  {gettext("Damage and repairs"), "repairs"}
                 ]}
               />
             </form>
@@ -153,8 +249,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
             )}
           </p>
 
+          <.repair_log
+            :if={@filter == "repairs" and @repairs}
+            id={"#{@id}-repairs"}
+            rows={@repairs.rows}
+          />
+
           <.activity_list
-            :if={@result}
+            :if={@result && @filter != "repairs"}
             id={"#{@id}-list"}
             entries={@result.entries}
             detail_links={not is_nil(@scope) and Scope.has_module_access?(@scope, "dashboard")}

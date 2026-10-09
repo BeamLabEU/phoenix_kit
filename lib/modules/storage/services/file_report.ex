@@ -23,6 +23,7 @@ defmodule PhoenixKit.Modules.Storage.FileReport do
   import Ecto.Query
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.FileLocation
@@ -103,14 +104,31 @@ defmodule PhoenixKit.Modules.Storage.FileReport do
   Reads every copy of every instance back from its own bucket and compares it
   with the checksum recorded for it.
 
+  Pass `audit:` (the audit options, `:actor_uuid` and `:found_by`) to record each
+  damaged copy in the Activity log (`Audit.log_damage/3`).
+
   One result per copy: `%{name, bucket, path, result}` where `result` is
   `:ok`, `{:mismatch, recorded, actual}`, `:not_found`, `{:unrecorded, actual}`
   (no checksum was recorded to compare with) or `{:error, reason}`. An
   instance with no copy at all gives one result with `bucket: nil` and
   `:no_copy`.
   """
-  @spec verify(StorageFile.t()) :: [map()]
-  def verify(%StorageFile{} = file) do
+  @spec verify(StorageFile.t(), keyword()) :: [map()]
+  def verify(%StorageFile{} = file, opts \\ []) do
+    results = do_verify(file)
+
+    # A copy found damaged is written to the Activity log against its bucket
+    # when the caller says who is asking (`:audit`): the trail that shows a disk
+    # losing objects.
+    case opts[:audit] do
+      nil -> :ok
+      audit -> Audit.log_damage(file, results, audit)
+    end
+
+    results
+  end
+
+  defp do_verify(file) do
     instances = Storage.list_file_instances(file.uuid)
     copies = copies_by_instance(instances)
 
@@ -145,13 +163,14 @@ defmodule PhoenixKit.Modules.Storage.FileReport do
   @spec all_ok?([map()]) :: boolean()
   def all_ok?(results), do: results != [] and Enum.all?(results, &(&1.result == :ok))
 
+  @doc false
   # The checksum an instance was stored with. The original's falls back to the
   # file's own, for rows written before instances carried one.
-  defp recorded_checksum(file, %{variant_name: "original", checksum: sum}) when sum in [nil, ""],
+  def recorded_checksum(file, %{variant_name: "original", checksum: sum}) when sum in [nil, ""],
     do: file.file_checksum
 
-  defp recorded_checksum(_file, %{checksum: sum}) when sum in [nil, ""], do: nil
-  defp recorded_checksum(_file, %{checksum: sum}), do: sum
+  def recorded_checksum(_file, %{checksum: sum}) when sum in [nil, ""], do: nil
+  def recorded_checksum(_file, %{checksum: sum}), do: sum
 
   defp check(copy, recorded) do
     case Manager.checksum_in(copy.bucket, copy.path) do

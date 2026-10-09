@@ -19,17 +19,20 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   """
   use PhoenixKitWeb, :live_view
 
+  import PhoenixKitWeb.Components.Core.RepairLog, only: [repair_log: 1]
+
   require Logger
 
   alias PhoenixKit.AuditLog
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.FileRepair
   alias PhoenixKit.Modules.Storage.FileReport
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.Profiles
-  alias PhoenixKit.Modules.Storage.Reconciler
+  alias PhoenixKit.Modules.Storage.RepairLog
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Modules.Storage.VariantGenerator
   alias PhoenixKit.Modules.Storage.VariantSets
@@ -39,6 +42,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.FileController
   alias PhoenixKitWeb.Live.Users.Media
   alias PhoenixKitWeb.Live.Users.MediaDetail
@@ -69,6 +73,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
       |> assign(:file_uuid, file_uuid)
       |> assign(:working, nil)
       |> assign(:verification, nil)
+      |> assign(:repair, nil)
       |> load(file_uuid)
 
     {:ok, socket}
@@ -109,6 +114,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     assign(socket,
       file: nil,
       rows: [],
+      repair_log: nil,
       problems: [],
       backup: nil,
       can_manage: false,
@@ -129,6 +135,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     |> assign(:rows, rows)
     |> assign(:problems, FileReport.problems(rows))
     |> assign(:uploader, uploader_name(file.user_uuid))
+    |> assign(:repair_log, RepairLog.list(file_uuid: file.uuid, per_page: 10))
     |> assign(:placement, placement(file, rows))
     |> assign(:backup, backup_report(file))
     |> assign(:preview_url, preview_url(file))
@@ -307,23 +314,28 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
 
   def handle_event("verify", _params, socket) do
     file = socket.assigns.file
+    audit = Keyword.put(Actor.opts(socket), :found_by, "verify")
 
     {:noreply,
      socket
      |> assign(:working, :verify)
      |> assign(:verification, nil)
-     |> start_async(:verify, fn -> FileReport.verify(file) end)}
+     |> start_async(:verify, fn -> FileReport.verify(file, audit: audit) end)}
   end
 
-  # The reconciler's own pass for this file: makes the sizes it lacks (or has
-  # made from another spec), puts copies where its storage profile wants them.
-  def handle_event("repair", _params, socket) do
+  # Everything that can be wrong with this file's objects, put right
+  # (`FileRepair`): copies read back, bad ones replaced from good ones or made
+  # again, what the profile wants made, then read back once more.
+  def handle_event("fix", _params, socket) do
     file = socket.assigns.file
+    actor = Actor.opts(socket)
 
     {:noreply,
      socket
-     |> assign(:working, :repair)
-     |> start_async(:repair, fn -> Reconciler.reconcile_file(file) end)}
+     |> assign(:working, :fix)
+     |> assign(:verification, nil)
+     |> assign(:repair, nil)
+     |> start_async(:fix, fn -> FileRepair.repair(file, actor) end)}
   end
 
   def handle_event("make", %{"name" => name}, socket) do
@@ -389,20 +401,32 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
     {:noreply, socket |> assign(:working, nil) |> assign(:verification, results)}
   end
 
-  def handle_async(:repair, {:ok, outcome}, socket) do
+  def handle_async(:fix, {:ok, {:ok, %{actions: actions, verification: verification}}}, socket) do
+    problems = Enum.count(verification, &(&1.result != :ok))
+
     flash =
-      case outcome do
-        :reconciled ->
-          {:info, gettext("Everything this file should have is there.")}
+      if problems == 0,
+        do: {:info, gettext("Everything is intact now.")},
+        else:
+          {:error,
+           ngettext(
+             "%{count} problem is left. See the report.",
+             "%{count} problems are left. See the report.",
+             problems
+           )}
 
-        :stale ->
-          {:error, gettext("Not everything could be made. See the table, then try again.")}
+    {:noreply,
+     socket
+     |> assign(:repair, actions)
+     |> assign(:verification, verification)
+     |> finish(flash)}
+  end
 
-        :skipped ->
-          {:info, gettext("Another pass is working on this file.")}
-      end
-
-    {:noreply, finish(socket, flash)}
+  def handle_async(:fix, {:ok, {:error, :edit_in_progress}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:working, nil)
+     |> put_flash(:error, gettext("An edit is being applied. Try again shortly."))}
   end
 
   def handle_async(:make, {:ok, result}, socket) do
@@ -587,6 +611,54 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
 
     Map.merge(group, %{ok: ok, total: total, state: state})
   end
+
+  @doc false
+  # The fix button is the main action when something is known to be wrong: a
+  # rendition missing, out of date or without a copy, or a verification that
+  # found a bad copy.
+  def needs_fixing?(problems, verification),
+    do: problems != [] or (is_list(verification) and not FileReport.all_ok?(verification))
+
+  @doc false
+  # One line for each thing the fixer did.
+  def action_text(%{kind: :restored, bucket: bucket, from: from}),
+    do: gettext("Copied back into %{bucket} from %{from}.", bucket: bucket, from: from)
+
+  def action_text(%{kind: :regenerated}), do: gettext("Made again from the original.")
+
+  def action_text(%{kind: :recorded, bucket: bucket}),
+    do: gettext("Found in %{bucket} and recorded.", bucket: bucket)
+
+  def action_text(%{kind: :unrecoverable}),
+    do: gettext("No good copy exists anywhere, and it cannot be made again.")
+
+  def action_text(%{kind: :unreadable, bucket: bucket}),
+    do: gettext("Could not be read from %{bucket}; left as it is.", bucket: bucket)
+
+  def action_text(%{kind: :skipped}),
+    do: gettext("Not made again: the original is damaged.")
+
+  def action_text(%{kind: :failed, bucket: bucket}) when is_binary(bucket),
+    do: gettext("Could not be fixed in %{bucket}.", bucket: bucket)
+
+  def action_text(%{kind: :failed}), do: gettext("Could not be made again.")
+
+  def action_text(%{kind: :reconciled, outcome: :reconciled}),
+    do: gettext("Sizes and copies match the library's profiles.")
+
+  def action_text(%{kind: :reconciled, outcome: :skipped}),
+    do: gettext("Another pass is working on this file.")
+
+  def action_text(%{kind: :reconciled}),
+    do: gettext("Not everything the profiles ask for could be made.")
+
+  @doc false
+  def action_tone(%{kind: kind}) when kind in [:restored, :regenerated, :recorded],
+    do: "badge-success"
+
+  def action_tone(%{kind: :reconciled, outcome: :reconciled}), do: "badge-success"
+  def action_tone(%{kind: kind}) when kind in [:skipped, :reconciled], do: "badge-warning"
+  def action_tone(_action), do: "badge-error"
 
   @doc false
   def verified_summary(results) do

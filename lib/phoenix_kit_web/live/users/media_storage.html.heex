@@ -146,7 +146,7 @@
                   </span>
                   <span
                     class={[
-                      "badge badge-sm ml-1",
+                      "badge badge-sm whitespace-nowrap ml-1",
                       (@placement.profile_current? && "badge-success") || "badge-warning"
                     ]}
                     title={
@@ -193,7 +193,7 @@
                 </span>
                 <span
                   class={[
-                    "badge badge-sm ml-1",
+                    "badge badge-sm whitespace-nowrap ml-1",
                     (@placement.set_current? && "badge-success") || "badge-warning"
                   ]}
                   title={
@@ -248,16 +248,24 @@
               </button>
               <button
                 type="button"
-                phx-click="repair"
+                phx-click="fix"
                 disabled={@working != nil}
-                class={["btn btn-sm gap-2", (@problems == [] && "btn-ghost") || "btn-primary"]}
+                class={[
+                  "btn btn-sm gap-2",
+                  (needs_fixing?(@problems, @verification) && "btn-primary") || "btn-ghost"
+                ]}
+                title={
+                  gettext(
+                    "Reads every copy back, replaces what is missing or damaged from a good copy or by making it again, and makes what the profiles ask for."
+                  )
+                }
               >
-                <%= if @working == :repair do %>
+                <%= if @working == :fix do %>
                   <span class="loading loading-spinner loading-xs"></span>
-                  {gettext("Repairing…")}
+                  {gettext("Fixing…")}
                 <% else %>
                   <.icon name="hero-wrench-screwdriver" class="w-4 h-4" />
-                  {gettext("Make what is missing")}
+                  {gettext("Fix all issues")}
                 <% end %>
               </button>
               <button
@@ -354,7 +362,7 @@
                   </td>
                   <td>
                     <% {tone, label} = state_badge(row.state) %>
-                    <span class={["badge badge-sm", tone]}>{label}</span>
+                    <span class={["badge badge-sm whitespace-nowrap", tone]}>{label}</span>
                   </td>
                   <td class="text-right whitespace-nowrap">
                     <a
@@ -386,6 +394,24 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <%!-- What "Fix all issues" did. --%>
+      <div :if={@repair} id="repair-report" class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4 sm:p-6">
+          <h3 class="font-semibold">{gettext("Repair report")}</h3>
+          <p :if={@repair == []} class="text-sm text-base-content/70">
+            {gettext("There was nothing to fix.")}
+          </p>
+          <ul :if={@repair != []} class="space-y-1 text-sm">
+            <li :for={action <- @repair} class="flex flex-wrap items-center gap-2">
+              <span class={["badge badge-sm whitespace-nowrap", action_tone(action)]}>
+                {action.name}
+              </span>
+              <span>{action_text(action)}</span>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -430,7 +456,7 @@
                 {group.bucket.provider}
               </span>
               <span class={[
-                "badge badge-sm",
+                "badge badge-sm whitespace-nowrap",
                 group.state == :ok && "badge-success",
                 group.state == :problem && "badge-error",
                 group.state == :empty && "badge-ghost"
@@ -465,7 +491,7 @@
                     <td>
                       <% {tone, label} = result_badge(result.result) %>
                       <span
-                        class={["badge badge-sm", tone]}
+                        class={["badge badge-sm whitespace-nowrap", tone]}
                         title={
                           case result.result do
                             {:mismatch, recorded, actual} ->
@@ -490,6 +516,35 @@
               </table>
             </div>
           </div>
+        </div>
+      </div>
+
+      <%!-- Every time a copy of this file was found damaged, and every repair. --%>
+      <div class="card bg-base-100 shadow-xl" id="storage-log">
+        <div class="card-body p-4 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-semibold">{gettext("Storage log")}</h3>
+            <.link
+              navigate={Routes.path("/admin/settings/media?tab=history")}
+              class="link link-hover text-xs"
+            >
+              {gettext("All storage history")}
+            </.link>
+          </div>
+          <.repair_log
+            id="storage-log-rows"
+            rows={@repair_log.rows}
+            hide={[:file, :library]}
+            empty={
+              gettext("Nothing has gone wrong with this file, and nothing has been repaired.")
+            }
+          />
+          <p
+            :if={@repair_log.total > length(@repair_log.rows)}
+            class="text-xs text-base-content/60"
+          >
+            {gettext("Showing the latest %{count}.", count: length(@repair_log.rows))}
+          </p>
         </div>
       </div>
 

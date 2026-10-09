@@ -425,6 +425,35 @@ defmodule PhoenixKit.Modules.Storage.Manager do
     error -> {:error, Exception.message(error)}
   end
 
+  @doc """
+  Copies the object at `key` from bucket `from` to bucket `to`, reading from
+  `from` alone (`retrieve_file/2` would fail over to whichever bucket answers
+  first, perhaps the damaged one) and replacing what `to` holds under that key.
+  What repairs a copy that is missing or does not match its checksum from a
+  good one.
+  """
+  @spec copy_object(Bucket.t(), Bucket.t(), String.t()) :: :ok | {:error, term()}
+  def copy_object(%Bucket{} = from, %Bucket{} = to, key) when is_binary(key) do
+    source = get_provider_for_bucket(from)
+    target = get_provider_for_bucket(to)
+    temporary = generate_temp_path() <> temp_extension(key)
+
+    try do
+      with :ok <- safe_retrieve(source, from, key, temporary),
+           stored when stored == :ok or (is_tuple(stored) and elem(stored, 0) == :ok) <-
+             target.store_file(to, temporary, key, []) do
+        :ok
+      else
+        {:error, reason} -> {:error, reason}
+        other -> {:error, other}
+      end
+    after
+      File.rm(temporary)
+    end
+  rescue
+    error -> {:error, Exception.message(error)}
+  end
+
   defp hash_file(path) do
     {hash, size} =
       path

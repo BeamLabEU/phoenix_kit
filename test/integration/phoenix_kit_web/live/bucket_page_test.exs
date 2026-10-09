@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
 
   alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.{FileLocation, ProfileBucket, Profiles, StorageProfile}
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
@@ -337,6 +338,26 @@ defmodule PhoenixKitWeb.Live.BucketPageTest do
       render_async(view)
 
       assert has_element?(view, "#bucket-draining", "still stored here")
+    end
+  end
+
+  describe "damaged copies" do
+    test "says nothing while none was found, and warns once one was", ctx do
+      refute ctx.conn |> open(ctx.bucket) |> render() =~ "damaged or missing"
+
+      Audit.log(
+        "storage.copy.damaged",
+        "bucket",
+        ctx.bucket.uuid,
+        [],
+        %{
+          "rendition" => "medium",
+          "problem" => "missing"
+        }
+      )
+
+      view = open(ctx.conn, ctx.bucket)
+      assert has_element?(view, "#bucket-damaged", "1 damaged or missing copy")
     end
   end
 

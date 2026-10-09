@@ -15,6 +15,12 @@ defmodule PhoenixKit.Modules.Storage.Audit do
   | `storage.variant_set.created` / `updated` / `deleted` / `remade` | `storage_variant_set` |
   | `storage.variant_set.size_created` / `size_updated` / `size_deleted` / `sizes_reset` | `storage_variant_set` |
   | `storage.bucket.created` / `updated` / `deleted` | `storage_bucket` |
+  | `storage.copy.damaged` | `bucket` — a copy found missing or not matching its checksum |
+  | `storage.file.repaired` | `file` — what a repair of one file did |
+
+  The last two are the trail of storage that went wrong: a bucket that keeps
+  losing or changing objects is a disk to look at, and `damaged_copies/2` is how a
+  bucket's page says so.
 
   An entry carries the acting user (`actor_uuid:` in the context's options; the
   LiveViews pass `PhoenixKitWeb.Actor.opts(socket)`), a mode (`manual` when a person
@@ -46,6 +52,100 @@ defmodule PhoenixKit.Modules.Storage.Audit do
   @doc "The Activity module key every storage entry (configuration and runs) is filed under."
   @spec module_key() :: String.t()
   def module_key, do: @module_key
+
+  @doc """
+  Writes one `storage.copy.damaged` entry for each result of a verification
+  (`FileReport.verify/1`) that is a copy missing from its bucket or differing from
+  its checksum, against that bucket. A copy that could not be read is not damage
+  (the bucket may only be unreachable), and a user's own bucket is private.
+  `opts` are the audit options (`:actor_uuid`) and `:found_by` (`"verify"` or
+  `"repair"`). Never raises.
+  """
+  @spec log_damage(PhoenixKit.Modules.Storage.File.t(), [map()], keyword()) :: :ok
+  def log_damage(file, results, opts) do
+    for %{bucket: %{owner_uuid: nil} = bucket, result: result} = row <- results,
+        problem = damage(result) do
+      log("storage.copy.damaged", "bucket", bucket.uuid, opts, %{
+        "bucket" => bucket.name,
+        "bucket_uuid" => bucket.uuid,
+        "file_uuid" => file.uuid,
+        "file_name" => file.original_file_name || file.file_name,
+        "library_uuid" => file.library_uuid && to_string(file.library_uuid),
+        "rendition" => row.name,
+        "key" => row.path,
+        "problem" => problem,
+        "found_by" => opts[:found_by] || "verify"
+      })
+    end
+
+    :ok
+  end
+
+  defp damage(:not_found), do: "missing"
+  defp damage({:mismatch, _recorded, _actual}), do: "checksum_mismatch"
+  defp damage(_result), do: nil
+
+  @doc """
+  Writes the `storage.file.repaired` entry of a repair of `file`: the actions it
+  took (rendition, what, which bucket) and how many problems were left. Nothing
+  is written when nothing was done. Never raises.
+  """
+  @spec log_repair(PhoenixKit.Modules.Storage.File.t(), [map()], non_neg_integer(), keyword()) ::
+          :ok
+  def log_repair(file, actions, problems_left, opts) do
+    done = Enum.reject(actions, &(&1.kind == :reconciled))
+
+    if done != [] do
+      log("storage.file.repaired", "file", file.uuid, opts, %{
+        "file_name" => file.original_file_name || file.file_name,
+        "library_uuid" => file.library_uuid && to_string(file.library_uuid),
+        "bucket_uuids" =>
+          done
+          |> Enum.flat_map(&[&1[:bucket_uuid], &1[:from_uuid]])
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(&to_string/1)
+          |> Enum.uniq(),
+        "problems_left" => problems_left,
+        "actions" =>
+          Enum.map(done, fn a ->
+            %{
+              "rendition" => a.name,
+              "kind" => Atom.to_string(a.kind),
+              "bucket" => a.bucket,
+              "bucket_uuid" => a[:bucket_uuid] && to_string(a[:bucket_uuid]),
+              "from" => a.from,
+              "from_uuid" => a[:from_uuid] && to_string(a[:from_uuid])
+            }
+          end)
+      })
+    end
+
+    :ok
+  end
+
+  @doc """
+  How many damaged copies were found in the bucket in the last `days` days
+  (`storage.copy.damaged` entries), and when the last was: `%{count:, last_at:}`.
+  """
+  @spec damaged_copies(term(), pos_integer()) :: %{count: non_neg_integer(), last_at: term()}
+  def damaged_copies(bucket_uuid, days \\ 30) do
+    since = DateTime.add(DateTime.utc_now(), -days * 86_400, :second)
+
+    {count, last_at} =
+      from(e in PhoenixKit.Activity.Entry,
+        where:
+          e.action == "storage.copy.damaged" and e.resource_uuid == ^to_string(bucket_uuid) and
+            e.inserted_at >= ^since,
+        select: {count(e.uuid), max(e.inserted_at)}
+      )
+      |> repo().one()
+
+    %{count: count, last_at: last_at}
+  rescue
+    _ -> %{count: 0, last_at: nil}
+  catch
+    :exit, _ -> %{count: 0, last_at: nil}
+  end
 
   @doc "The bucket fields whose changes are recorded: never a key or a secret."
   @spec bucket_fields() :: [atom()]

@@ -415,6 +415,41 @@
           </form>
         </div>
 
+        <div :if={@damaged.count > 0} id="bucket-damaged" class="alert alert-warning text-sm">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <div>
+            <div class="font-semibold">
+              {ngettext(
+                "%{count} damaged or missing copy was found on this bucket in the last 30 days.",
+                "%{count} damaged or missing copies were found on this bucket in the last 30 days.",
+                @damaged.count
+              )}
+            </div>
+            <div>
+              {gettext(
+                "Objects that disappear or change on their own can mean a failing disk or a faulty storage service. Settings → Media → History lists each one."
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div :if={@damaged.count > 0 or @repair_log.rows != []} id="bucket-repairs">
+          <h3 class="font-semibold text-sm mb-2">{gettext("Damaged copies and repairs")}</h3>
+          <.repair_log id="bucket-repairs-rows" rows={@repair_log.rows} hide={[:bucket]} />
+          <p
+            :if={@repair_log.total > length(@repair_log.rows)}
+            class="text-xs text-base-content/60"
+          >
+            {gettext("Showing the latest %{count}.", count: length(@repair_log.rows))}
+            <.link
+              navigate={Routes.path("/admin/settings/media?tab=history")}
+              class="link link-hover"
+            >
+              {gettext("All storage history")}
+            </.link>
+          </p>
+        </div>
+
         <%= if @log == :unavailable do %>
           <p class="text-sm text-base-content/70" id="bucket-log-unavailable">
             {gettext("The log is not available. Run the database update to create it.")}

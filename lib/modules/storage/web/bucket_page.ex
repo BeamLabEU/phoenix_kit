@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
 
   import Ecto.Query
   import PhoenixKitWeb.Components.Core.ActivityList, only: [activity_list: 1]
+  import PhoenixKitWeb.Components.Core.RepairLog, only: [repair_log: 1]
   import PhoenixKitWeb.Live.Modules, only: [format_bytes: 1]
 
   alias PhoenixKit.Activity
@@ -30,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
   alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.Locations
   alias PhoenixKit.Modules.Storage.Profiles
+  alias PhoenixKit.Modules.Storage.RepairLog
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -65,6 +67,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
      |> assign(:history_page, 1)
      |> assign(:log, nil)
      |> assign(:log_summary, nil)
+     |> assign(:damaged, %{count: 0, last_at: nil})
+     |> assign(:repair_log, %{rows: [], total: 0})
      |> assign(:log_filter, "all")
      |> assign(:log_page, 1)
      |> assign(:log_retention_days, nil)}
@@ -324,6 +328,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketPage do
         end
 
     assign(socket,
+      damaged: Audit.damaged_copies(uuid, 30),
+      repair_log: RepairLog.list(bucket_uuid: uuid, per_page: 10),
       log: log,
       log_page: log.page,
       log_summary: summary,
