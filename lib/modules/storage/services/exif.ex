@@ -204,9 +204,10 @@ defmodule PhoenixKit.Modules.Storage.Exif do
 
   # "2026:10:05" + "16/1,42/1,46/1" → "2026-10-05T16:42:46Z" (GPS time is UTC).
   defp gps_timestamp(date, time) do
-    with [y, m, d] <- String.split(date || "", ":"),
+    with [_, y, m, d] <- Regex.run(~r/^(\d{4}):(\d{2}):(\d{2})$/, date || ""),
          [h, mi, s] <- String.split(time || "", ",") |> Enum.map(&number/1),
-         true <- Enum.all?([h, mi, s], &is_number/1) do
+         true <- Enum.all?([h, mi, s], &is_number/1),
+         true <- h >= 0 and h < 24 and mi >= 0 and mi < 60 and s >= 0 and s < 61 do
       "#{y}-#{m}-#{d}T#{pad(trunc(h))}:#{pad(trunc(mi))}:#{pad(trunc(s))}Z"
     else
       _ -> nil
@@ -271,11 +272,15 @@ defmodule PhoenixKit.Modules.Storage.Exif do
     end
   end
 
-  # A fraction ("1433/512"), a plain number, or nil.
+  # A fraction ("1433/512"), a plain number, or nil. The digits are bounded: a
+  # tag is the file's own text, and a few hundred digits are no `Float`.
   defp number(nil), do: nil
 
   defp number(value) when is_binary(value) do
-    case Regex.run(~r/^\s*(-?\d+(?:\.\d+)?)\s*(?:\/\s*(-?\d+(?:\.\d+)?))?\s*$/, value) do
+    case Regex.run(
+           ~r/^\s*(-?\d{1,15}(?:\.\d{1,15})?)\s*(?:\/\s*(-?\d{1,15}(?:\.\d{1,15})?))?\s*$/,
+           value
+         ) do
       [_, n] -> parse_float(n)
       [_, n, d] -> divide(parse_float(n), parse_float(d))
       _ -> nil
@@ -309,10 +314,16 @@ defmodule PhoenixKit.Modules.Storage.Exif do
   defp text(nil), do: nil
 
   defp text(value) do
-    case value |> String.replace(~r/[\x00-\x1f]/, "") |> String.trim() do
+    case value |> printable() |> String.replace(~r/[\x00-\x1f]/, "") |> String.trim() do
       "" -> nil
       cleaned -> String.slice(cleaned, 0, 255)
     end
+  end
+
+  # Text in a legacy encoding (a Latin-1 or Windows-1251 `Make`) is not UTF-8,
+  # and a map holding it cannot be written as JSON: keep the valid characters.
+  defp printable(value) do
+    if String.valid?(value), do: value, else: String.replace_invalid(value, "")
   end
 
   defp pad(n), do: n |> Integer.to_string() |> String.pad_leading(2, "0")

@@ -186,7 +186,9 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
 
   @doc false
   def parse_exif_properties(output) do
-    for line <- String.split(output, ["\r\n", "\n"], trim: true),
+    # A tag in a legacy encoding is not UTF-8; it would not survive being
+    # stored as JSON or rendered, so what is not valid is dropped here.
+    for line <- output |> String.replace_invalid("") |> String.split(["\r\n", "\n"], trim: true),
         [_, key, value] <- [Regex.run(~r/^exif:([^=]+)=(.*)$/, line)],
         into: %{},
         do: {key, String.trim(value)}

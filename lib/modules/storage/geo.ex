@@ -115,6 +115,9 @@ defmodule PhoenixKit.Modules.Storage.Geo do
       {number, ""} -> number
       _ -> nil
     end
+  rescue
+    # Float.parse/1 raises on a few hundred digits; a URL can carry them.
+    ArgumentError -> nil
   end
 
   defp to_number(_), do: nil

@@ -36,6 +36,12 @@ defmodule PhoenixKit.Modules.Storage.FileDetailsByLanguageTest do
     assert FileDetails.by_language(params, "en", ["en"]) == %{"en" => %{"title" => "A"}}
   end
 
+  test "a value that is not text is dropped like a key that was not sent" do
+    params = %{"en" => %{"title" => %{"x" => "1"}, "alt" => "Boats"}}
+    assert FileDetails.by_language(params, "en", ["en"]) == %{"en" => %{"alt" => "Boats"}}
+    assert FileDetails.by_language(%{"title" => ["a"]}, "en", []) == %{"en" => %{}}
+  end
+
   test "anything but a map is no text" do
     assert FileDetails.by_language(nil, "en", ["en"]) == %{}
     assert FileDetails.by_language("title", "en", ["en"]) == %{}

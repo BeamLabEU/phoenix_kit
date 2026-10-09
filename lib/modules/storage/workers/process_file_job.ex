@@ -245,6 +245,12 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # EXIF, and reading them would find the file name or the upload time at
   # best. It keeps the date it was given before the edit, or is dated from its
   # unedited backup by `Storage.Workers.CaptureDateBackfillJob`.
+  defp with_capture_date(metadata, _path, %{original_file_uuid: backup}) when is_binary(backup),
+    do: metadata
+
+  defp with_capture_date(metadata, path, file),
+    do: Map.merge(metadata, CaptureDate.resolve(path, file))
+
   # The camera, exposure, dates and GPS position the photo's EXIF carries
   # (`Storage.Exif`), read from the same bytes and recorded in the same guarded
   # transaction. An edited image is skipped for the reason above: it carries no
@@ -254,12 +260,6 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
 
   defp with_exif(metadata, path, _file),
     do: Map.merge(metadata, path |> Exif.read() |> Exif.file_attrs())
-
-  defp with_capture_date(metadata, _path, %{original_file_uuid: backup}) when is_binary(backup),
-    do: metadata
-
-  defp with_capture_date(metadata, path, file),
-    do: Map.merge(metadata, CaptureDate.resolve(path, file))
 
   defp extract_pdf_metadata(temp_path) do
     {:ok, metadata} = PdfProcessor.extract_metadata(temp_path)
@@ -353,14 +353,6 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     {:ok, %{}}
   end
 
-  # The metadata describes the original this run downloaded (`source`, its
-  # key). An image edit can swap that original meanwhile; writing the old
-  # dimensions over the edited file's would be wrong, so the update only
-  # happens while `source` is still the file's original (keys are
-  # content-addressed: the same key is the same bytes). A capture date is
-  # dropped from the update when it would replace a stronger one
-  # (`CaptureDate.admit/2`) — a re-run must never downgrade an EXIF date to a
-  # file name, nor touch a manual one.
   # The EXIF summary joins the row's `metadata` rather than replacing it: the
   # rotation and tags in there are not this run's to touch.
   defp merge_exif(attrs, current) do
@@ -373,6 +365,14 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
+  # The metadata describes the original this run downloaded (`source`, its
+  # key). An image edit can swap that original meanwhile; writing the old
+  # dimensions over the edited file's would be wrong, so the update only
+  # happens while `source` is still the file's original (keys are
+  # content-addressed: the same key is the same bytes). A capture date is
+  # dropped from the update when it would replace a stronger one
+  # (`CaptureDate.admit/2`) — a re-run must never downgrade an EXIF date to a
+  # file name, nor touch a manual one.
   @doc false
   def update_file_with_metadata(file, source, metadata) do
     attrs = Map.merge(%{status: "active"}, metadata)

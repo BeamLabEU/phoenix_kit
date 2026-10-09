@@ -181,4 +181,48 @@ defmodule PhoenixKit.Modules.Storage.ExifTest do
       assert Exif.groups(%{}) == []
     end
   end
+
+  describe "tags a file cannot be trusted to keep tidy" do
+    @huge String.duplicate("9", 400)
+
+    test "a number of hundreds of digits is no number, and nothing raises" do
+      tags = %{
+        "FNumber" => @huge <> "/1",
+        "FocalLength" => "1/" <> @huge,
+        "GPSLatitude" => @huge,
+        "GPSLongitude" => "10/1"
+      }
+
+      assert Exif.summary(tags) == %{}
+      assert Exif.coordinates(tags) == nil
+      assert is_list(Exif.groups(tags))
+    end
+
+    test "the whole dump shows a large value without raising" do
+      tags = %{"FocalLength" => "999999999999999/1, 1/1"}
+      assert [{:exposure, [{"Focal Length", value}]}] = Exif.groups(tags)
+      assert value =~ "999999999999999"
+    end
+
+    test "text that is not UTF-8 is cleaned and the summary encodes as JSON" do
+      summary = Exif.summary(%{"Make" => "Ca" <> <<0xE9>> <> "non", "Model" => <<0xC4, 0xE0>>})
+
+      assert summary["camera"]["make"] == "Canon"
+      refute Map.has_key?(summary["camera"], "model")
+      assert {:ok, _} = Jason.encode(summary)
+    end
+
+    test "a GPS timestamp that is not a date and a time is dropped" do
+      base = %{"GPSLatitude" => "45/1", "GPSLongitude" => "10/1"}
+
+      gps = fn date, time ->
+        Exif.summary(Map.merge(base, %{"GPSDateStamp" => date, "GPSTimeStamp" => time}))["gps"]
+      end
+
+      assert gps.("2026:10:05", "16/1,42/1,46/1")["timestamp"] == "2026-10-05T16:42:46Z"
+      refute Map.has_key?(gps.("ab:cd:ef", "1/1,2/1,3/1"), "timestamp")
+      refute Map.has_key?(gps.("2026:10:05", "25/1,0/1,0/1"), "timestamp")
+      refute Map.has_key?(gps.("2026:10:05", "1/1,2/1," <> @huge <> "/1"), "timestamp")
+    end
+  end
 end

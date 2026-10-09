@@ -157,7 +157,8 @@ defmodule PhoenixKit.Integration.Storage.ExifGeoTest do
 
       assert {:ok, tags} = Storage.exif_tags(file)
       assert tags["Make"] == "Apple"
-      assert tags["GPSLatitude"] == "45/1,28/1,1199/100"
+      # ImageMagick 6 prints the list with a space after each comma, 7 without.
+      assert String.replace(tags["GPSLatitude"], " ", "") == "45/1,28/1,1199/100"
       assert reload(file).metadata == file.metadata
     end
   end
@@ -225,6 +226,10 @@ defmodule PhoenixKit.Integration.Storage.ExifGeoTest do
   end
 
   describe "Geo.parse_bounds/1" do
+    test "a coordinate of hundreds of digits is not a bounds, and does not raise" do
+      assert Geo.parse_bounds("1,0,1," <> String.duplicate("9", 400)) == nil
+    end
+
     test "from a string, a list and a map" do
       assert Geo.parse_bounds("46,14,48,16") == {46.0, 14.0, 48.0, 16.0}
       assert Geo.parse_bounds(["46", "14", "48", "16"]) == {46.0, 14.0, 48.0, 16.0}

@@ -1,3 +1,45 @@
+## 2.59.0 - 2026-10-09
+
+Migration **V215** (run `mix phoenix_kit.update`). It adds two nullable columns and a partial GiST index on
+`phoenix_kit_files`; no existing file changes, and no extension is needed.
+
+### Added
+
+- **A photo's EXIF is kept, and its GPS position is searchable on a map** (V215). The upload job records the
+  camera, exposure, dates and GPS position in `metadata["exif"]` (`Storage.Exif.summary/1`; the camera's
+  serial number and the maker note are not kept) and the position in `phoenix_kit_files.latitude` /
+  `longitude`, indexed by a partial GiST index on `point(longitude, latitude)` (built-in Postgres, no
+  PostGIS). `Storage.list_files_in_scope/2` takes `bounds: {south, west, north, east}`, a box that crosses
+  the antimeridian is searched as two (`Storage.Geo`), and `Geo.parse_bounds/1` reads one from a URL or form.
+  A photo uploaded before this is read on request: `Storage.read_exif/1` (recorded only while the bytes read
+  are still the file's original) and `Storage.exif_tags/1` (the whole dump, read from the original, never
+  stored). An edited image is read from its unedited backup.
+- **A "Camera & location" panel** on the admin media detail page and in the viewer's sidebar
+  (`Core.FileExifPanel`): camera, exposure, dates and position, a "Show on a map" link, **All EXIF** and
+  **Read EXIF / Read again**. The viewer offers it only where it offers the title editor, and the buttons that
+  record also need a file the host may write.
+- **Title, alt text and description in every language from one form** (`Core.FileDetailsFields`): a tab per
+  language, one Save, in the viewer's sidebar and on the detail page. The tabs switch in the browser, so what
+  was typed in another language is kept; a tab with no text yet carries a dot. `Storage.update_file_details_languages/3`
+  writes all languages and the tags in one held write and leaves a language that did not change as it is, so
+  another editor's later save of it survives. `FileDetails.by_language/3` reads what a form posted.
+- **A file's size in megapixels** (`Shape.megapixels/2`) on the detail page.
+
+### Fixed
+
+- **A tag a camera writes badly can no longer stop an upload or break the viewer.** A number of hundreds of
+  digits, a GPS date or time that is not a date or a time, and text in a legacy encoding (not UTF-8, which
+  JSON cannot store) were read as-is; the first two raised in the upload job and in "All EXIF", the last
+  made the summary unwritable. Numbers are bounded, a GPS timestamp must be a real date and time, and bytes
+  that are not valid UTF-8 are dropped where the tags are read (`CaptureDate.parse_exif_properties/1`).
+- **`Geo.parse_bounds/1` no longer raises on a coordinate of hundreds of digits** (it reaches a URL).
+- **`FileDetails.by_language/3` drops a value that is not text** (a client can post a nested map), instead of
+  putting it in the form to render.
+
+### i18n
+
+- New strings (language tabs, EXIF panel, dimensions) in all seven locales.
+
 ## 2.58.0 - 2026-10-08
 
 Migrations **V212, V213 and V214** (run `mix phoenix_kit.update`). The viewer's JavaScript libraries now come from
