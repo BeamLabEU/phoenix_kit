@@ -3327,6 +3327,22 @@ defmodule PhoenixKitWeb.Users.Auth do
       # Invalid locale in URL
       conn = validate_and_set_locale(%{path_params: %{"locale" => "xx"}}, [])
       # Redirects to default locale URL
+
+  ## Default-locale redirect
+
+  With `default_language_no_prefix` on, `/<default>/...` redirects to the
+  prefixless URL with a 302. A host that wants search engines to see a
+  permanent redirect opts in:
+
+      config :phoenix_kit, :default_locale_redirect, status: 301, max_age: 86_400
+
+  GET and HEAD then get that status (`301`/`308`, or `:moved_permanently`/
+  `:permanent_redirect`) with `cache-control: private, max-age=<max_age>`
+  (one day when missing or invalid). `private` keeps the response out of
+  shared caches — it carries the session cookie — and `max_age` caps how
+  long a browser keeps it, since which language is the default is a runtime
+  setting. Other methods and hosts without the option (or with `false`)
+  keep the 302; so does a misconfigured option, logged once per node.
   """
   def validate_and_set_locale(conn, _opts) do
     # Direct locale processing - dialect preferences are handled via LiveView events
@@ -3715,11 +3731,12 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   # Reads the site-wide `default_language_no_prefix` setting. When ON,
   # primary-language URLs are emitted prefixless and this plug
-  # 301-redirects `/<default>/...` to the prefixless shape to keep one
-  # canonical URL. When OFF (the default), the `/<default>/...` shape
-  # IS the canonical URL and must NOT be redirected — a 301 would
-  # discard any POST body. Defers to the canonical boot-safe wrapper
-  # on `Languages` so this plug + `Routes` share one rescue policy.
+  # redirects `/<default>/...` to the prefixless shape to keep one
+  # canonical URL (302, or the host's `:default_locale_redirect`). When
+  # OFF (the default), the `/<default>/...` shape IS the canonical URL and
+  # must NOT be redirected — a redirect would discard any POST body.
+  # Defers to the canonical boot-safe wrapper on `Languages` so this
+  # plug + `Routes` share one rescue policy.
   defp prefixless_primary?, do: PhoenixKit.Modules.Languages.prefixless_primary_safe?()
 
   # Check if the request path is an admin path. Used by
@@ -3751,8 +3768,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Redirects default language URLs to clean URLs (no locale prefix)
   # Example: /phoenix_kit/en/dashboard → /phoenix_kit/dashboard
   #
-  # This sends a 302, NOT the 301 the code used to ask for. Two reasons,
-  # and they point the same way:
+  # By default this sends a 302, NOT the 301 the code used to ask for.
+  # Two reasons, and they point the same way:
   #
   #   1. It never was a 301. `Phoenix.Controller.redirect/2` sends
   #      `conn.status || 302` and ignores an `:status` option entirely,
@@ -3765,11 +3782,19 @@ defmodule PhoenixKitWeb.Users.Auth do
   #      behaviour all along.
   #
   # If canonicalisation for SEO is wanted, express it with a
-  # `<link rel="canonical">` — not with a cached permanent redirect.
+  # `<link rel="canonical">` — not with an uncapped permanent redirect.
+  #
+  # A host that wants search engines to see a permanent redirect opts in
+  # (`:default_locale_redirect`, see `validate_and_set_locale/2`): GET and
+  # HEAD then get 301/308 with `cache-control: private, max-age=<max_age>`,
+  # so only the browser stores it (the response carries the session
+  # cookie) and forgets it after that long — the risk point 2 above
+  # describes stays bounded. Other methods keep the 302.
   defp redirect_default_locale_to_clean_url(conn, locale) do
     case locale_segment_path(conn, locale, []) do
       {:ok, clean_path} when clean_path != conn.request_path ->
         conn
+        |> maybe_permanent_redirect()
         |> Phoenix.Controller.redirect(to: with_query_string(clean_path, conn))
         |> halt()
 
@@ -3779,6 +3804,61 @@ defmodule PhoenixKitWeb.Users.Auth do
         # of stale percent-encoding). Never redirect to an unchanged path —
         # see `assign_default_locale/1`.
         assign_default_locale(conn)
+    end
+  end
+
+  @permanent_redirect_statuses %{
+    301 => 301,
+    308 => 308,
+    moved_permanently: 301,
+    permanent_redirect: 308
+  }
+  @default_redirect_max_age 86_400
+
+  # The host's opt-in `:default_locale_redirect` status and cache lifetime,
+  # for GET and HEAD only. Other methods and hosts without the option leave
+  # the conn alone, i.e. the 302 `Phoenix.Controller.redirect/2` sends by
+  # default; so does a misconfigured option, logged once.
+  defp maybe_permanent_redirect(%Plug.Conn{method: method} = conn)
+       when method in ["GET", "HEAD"] do
+    case Application.get_env(:phoenix_kit, :default_locale_redirect) do
+      off when off in [nil, false] ->
+        conn
+
+      opts ->
+        with true <- Keyword.keyword?(opts),
+             {:ok, status} <- Map.fetch(@permanent_redirect_statuses, Keyword.get(opts, :status)) do
+          conn
+          |> put_status(status)
+          |> put_resp_header("cache-control", "private, max-age=#{redirect_max_age(opts)}")
+        else
+          _ ->
+            warn_unsupported_redirect_config(opts)
+            conn
+        end
+    end
+  end
+
+  defp maybe_permanent_redirect(conn), do: conn
+
+  defp warn_unsupported_redirect_config(opts) do
+    key = {__MODULE__, :default_locale_redirect_warned}
+
+    unless :persistent_term.get(key, false) do
+      :persistent_term.put(key, true)
+
+      Logger.warning(
+        "config :phoenix_kit, :default_locale_redirect must be a keyword list with " <>
+          "status: 301 | 308 | :moved_permanently | :permanent_redirect; got " <>
+          "#{inspect(opts)} — default-locale redirects stay 302"
+      )
+    end
+  end
+
+  defp redirect_max_age(opts) do
+    case Keyword.get(opts, :max_age) do
+      seconds when is_integer(seconds) and seconds >= 0 -> seconds
+      _ -> @default_redirect_max_age
     end
   end
 
