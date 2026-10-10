@@ -2382,7 +2382,7 @@ msgstr "Establecer como predeterminado"
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:87
 #: lib/phoenix_kit_web/live/users/media_storage.ex:558
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:68
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:564
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:573
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Tamaño"
@@ -5130,7 +5130,7 @@ msgid "Body Saved"
 msgstr "Contenido guardado"
 
 #: lib/phoenix_kit/users/auth.ex:3292
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:865
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:871
 #: lib/phoenix_kit_web/live/modules.ex:134
 #, elixir-autogen, elixir-format
 msgid "Comments"
@@ -5285,7 +5285,7 @@ msgstr "requiere el"
 #: lib/phoenix_kit_web/live/users/media_detail.ex:89
 #: lib/phoenix_kit_web/live/users/media_detail.ex:92
 #: lib/phoenix_kit_web/live/users/media_storage.ex:122
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:645
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:654
 #, elixir-autogen, elixir-format
 msgid "Media"
 msgstr "Medios"
@@ -5892,8 +5892,8 @@ msgstr "Los archivos eliminados aparecerán aquí"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2493
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:562
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:566
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:373
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:374
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:382
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Descargar"
@@ -6163,7 +6163,7 @@ msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] "¡Subida correcta! %{count} archivo nuevo procesado"
 msgstr[1] "¡Subida correcta! %{count} archivos nuevos procesados"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:751
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "Subido:"
@@ -6456,8 +6456,8 @@ msgstr "Responder"
 msgid "Are you sure you want to delete this comment?"
 msgstr "¿Seguro que quiere eliminar este comentario?"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2306
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2307
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2308
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2309
 #, elixir-autogen, elixir-format
 msgid "%b %d, %Y"
 msgstr "%d %b %Y"
@@ -6562,7 +6562,7 @@ msgstr "Archivo quitado de esta carpeta"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2299
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:640
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:649
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "Archivo no encontrado"
@@ -6843,7 +6843,7 @@ msgstr "Destacado"
 msgid "Sort by"
 msgstr "Ordenar por"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:767
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:773
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:280
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -8016,7 +8016,7 @@ msgstr "usted"
 #: lib/modules/storage/web/renditions_component.ex:510
 #: lib/modules/storage/web/renditions_component.ex:544
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:72
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:568
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:577
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr "Dimensiones"
@@ -10590,7 +10590,7 @@ msgstr "Exigir la confirmación del correo antes de usar la aplicación"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:921
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1636
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1876
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:810
 #: lib/phoenix_kit_web/live/components/library_settings.ex:935
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:343
 #, elixir-autogen, elixir-format
@@ -11568,7 +11568,7 @@ msgstr "Úselo desde el módulo de IA"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:88
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:270
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:422
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:431
 #, elixir-autogen, elixir-format
 msgid "Verification"
 msgstr "Verificación"
@@ -12833,7 +12833,7 @@ msgstr "Redirigiendo visitantes a producción"
 #: lib/modules/storage/web/bucket_page.html.heex:509
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:236
 #: lib/phoenix_kit_web/live/settings/website_access.ex:404
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:484
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:493
 #, elixir-autogen, elixir-format
 msgid "Result"
 msgstr "Resultado"
@@ -14094,7 +14094,7 @@ msgstr "La edición falló"
 msgid "Edit image"
 msgstr "Editar imagen"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:780
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:786
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr "Editada"
@@ -14304,7 +14304,7 @@ msgid "Top %"
 msgstr "Arriba %"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:642
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:631
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:640
 #, elixir-autogen, elixir-format
 msgid "Try again"
 msgstr "Reintentar"
@@ -14332,7 +14332,7 @@ msgid "Undo the edit and show the unedited original again everywhere this image 
 msgstr "¿Deshacer la edición y volver a mostrar el original sin editar en todos los lugares donde se usa esta imagen?"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1001
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:554
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:563
 #, elixir-autogen, elixir-format
 msgid "Unedited original"
 msgstr "Original sin editar"
@@ -15111,7 +15111,7 @@ msgstr "Crear"
 #: lib/modules/storage/web/health_component.ex:215
 #: lib/modules/storage/web/library_page.ex:55
 #: lib/phoenix_kit_web/components/core/repair_log.ex:35
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:111
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:120
 #, elixir-autogen, elixir-format
 msgid "Library"
 msgstr "Biblioteca"
@@ -15639,7 +15639,7 @@ msgstr "Almacenamiento"
 #: lib/modules/storage/web/libraries_component.ex:209
 #: lib/modules/storage/web/libraries_component.ex:286
 #: lib/modules/storage/web/library_page.html.heex:196
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:134
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:143
 #, elixir-autogen, elixir-format
 msgid "Storage profile"
 msgstr "Perfil de almacenamiento"
@@ -15679,8 +15679,8 @@ msgstr "El reconciliador está en cola. Actualice la página para ver su progres
 #: lib/modules/storage/web/health_component.ex:120
 #: lib/modules/storage/web/library_page.ex:366
 #: lib/modules/storage/web/library_sync.ex:110
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:158
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:205
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:167
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:214
 #, elixir-autogen, elixir-format
 msgid "Up to date"
 msgstr "Al día"
@@ -17015,7 +17015,7 @@ msgid "Duration"
 msgstr "Duración"
 
 #: lib/modules/storage/web/bucket_page.html.heex:526
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:825
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:827
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:355
 #: lib/phoenix_kit_web/live/users/media_storage.ex:553
@@ -17190,7 +17190,7 @@ msgstr "Iniciada por"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:99
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:71
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:300
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:309
 #, elixir-autogen, elixir-format
 msgid "State"
 msgstr "Estado"
@@ -17306,7 +17306,7 @@ msgstr "Comprobar ahora"
 
 #: lib/modules/storage/web/library_page.ex:370
 #: lib/modules/storage/web/library_sync.ex:114
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:468
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:477
 #, elixir-autogen, elixir-format
 msgid "Needs attention"
 msgstr "Requiere atención"
@@ -17700,7 +17700,7 @@ msgid "Unlimited"
 msgstr "Sin límite"
 
 #: lib/modules/storage/web/bucket_page.html.heex:108
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:84
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Updated"
 msgstr "Actualizado"
@@ -17762,8 +17762,8 @@ msgid "Probe"
 msgstr "Prueba de conexión"
 
 #: lib/modules/storage/web/bucket_page.ex:455
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:501
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:507
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:510
 #, elixir-autogen, elixir-format
 msgid "Read"
 msgstr "Lectura"
@@ -18071,7 +18071,7 @@ msgid "\"%{profile}\" cannot be deleted: it is used by %{libraries}. A library k
 msgstr "«%{profile}» no se puede eliminar: lo usa %{libraries}. Una biblioteca conserva el perfil con el que se creó, así que el perfil permanece mientras haya alguna biblioteca en él."
 
 #: lib/modules/storage/web/library_page.html.heex:202
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:142
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:151
 #, elixir-autogen, elixir-format
 msgid "%{local} local, %{cloud} cloud copies"
 msgstr "%{local} copias locales, %{cloud} en la nube"
@@ -18123,7 +18123,7 @@ msgid "Everything about this library"
 msgstr "Todo sobre esta biblioteca"
 
 #: lib/modules/storage/web/library_page.html.heex:232
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:173
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:182
 #, elixir-autogen, elixir-format
 msgid "No buckets yet: uploads to this library fail."
 msgstr "Aún no hay buckets: las subidas a esta biblioteca fallan."
@@ -18320,7 +18320,7 @@ msgstr "Variante actualizada"
 
 #: lib/modules/storage/web/health_component.ex:83
 #: lib/phoenix_kit_web/live/components/library_settings.ex:814
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:221
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:230
 #, elixir-autogen, elixir-format
 msgid "Renditions"
 msgstr "Variantes"
@@ -18453,7 +18453,7 @@ msgstr "Nuevo perfil de variantes"
 #: lib/modules/storage/web/libraries_component.ex:210
 #: lib/modules/storage/web/libraries_component.ex:300
 #: lib/modules/storage/web/library_page.html.heex:237
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:181
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:190
 #, elixir-autogen, elixir-format
 msgid "Rendition profile"
 msgstr "Perfil de variantes"
@@ -19093,17 +19093,17 @@ msgstr "norte verdadero"
 msgid "Nothing here about the camera, exposure, dates or location. All EXIF lists what the file carries."
 msgstr "No hay nada sobre la cámara, la exposición, las fechas o la ubicación. «Todo el EXIF» muestra lo que contiene el archivo."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:814
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:820
 #, elixir-autogen, elixir-format
 msgid "Delete forever"
 msgstr "Eliminar para siempre"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:784
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:790
 #, elixir-autogen, elixir-format
 msgid "File UUID:"
 msgstr "UUID del archivo:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:823
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:825
 #, elixir-autogen, elixir-format
 msgid "In the trash"
 msgstr "En la papelera"
@@ -19113,45 +19113,45 @@ msgstr "En la papelera"
 msgid "Media details"
 msgstr "Detalles del medio"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:824
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:830
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "Mover a la papelera"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:747
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:753
 #, elixir-autogen, elixir-format
 msgid "Pages:"
 msgstr "Páginas:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:811
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:817
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this file? This cannot be undone."
 msgstr "¿Eliminar este archivo para siempre? No se puede deshacer."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:824
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:826
 #: lib/phoenix_kit_web/live/users/media_storage.ex:552
 #, elixir-autogen, elixir-format
 msgid "Processing"
 msgstr "Procesando"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:761
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:767
 #, elixir-autogen, elixir-format
 msgid "Updated:"
 msgstr "Actualizado:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:763
 #, elixir-autogen, elixir-format
 msgid "Uploaded by:"
 msgstr "Subido por:"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:226
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:235
 #, elixir-autogen, elixir-format
 msgid "%{count} rendition is missing, out of date or not stored anywhere."
 msgid_plural "%{count} renditions are missing, out of date or not stored anywhere."
 msgstr[0] "%{count} variante falta, está desactualizada o no se guarda en ningún sitio."
 msgstr[1] "%{count} variantes faltan, están desactualizadas o no se guardan en ningún sitio."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:430
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:439
 #, elixir-autogen, elixir-format
 msgid "%{ok} of %{total} copies match the checksum they were stored with."
 msgstr "%{ok} de %{total} copias coinciden con la suma de verificación con la que se guardaron."
@@ -19176,22 +19176,22 @@ msgstr "Se está aplicando una edición. Inténtelo de nuevo en un momento."
 msgid "Another pass is working on this file."
 msgstr "Un autre passage travaille sur ce fichier."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:295
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:304
 #, elixir-autogen, elixir-format
 msgid "Asked for"
 msgstr "Solicitado"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:298
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:307
 #, elixir-autogen, elixir-format
 msgid "Checksum"
 msgstr "Suma de verificación"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:575
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:584
 #, elixir-autogen, elixir-format
 msgid "Checksum (SHA-256)"
 msgstr "Suma de verificación (SHA-256)"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:93
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:102
 #, elixir-autogen, elixir-format
 msgid "Checksum of the original (SHA-256)"
 msgstr "Suma de verificación del original (SHA-256)"
@@ -19201,12 +19201,12 @@ msgstr "Suma de verificación del original (SHA-256)"
 msgid "Could not read"
 msgstr "No se pudo leer"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:623
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:632
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original"
 msgstr "Eliminar el original sin editar"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:616
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:625
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original? The edit becomes permanent and this cannot be undone."
 msgstr "¿Eliminar el original sin editar? La edición pasará a ser permanente y no se puede deshacer."
@@ -19216,33 +19216,33 @@ msgstr "¿Eliminar el original sin editar? La edición pasará a ser permanente 
 msgid "Differs"
 msgstr "Difiere"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:599
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:608
 #, elixir-autogen, elixir-format
 msgid "Download the unedited original"
 msgstr "Descargar el original sin editar"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:224
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:233
 #, elixir-autogen, elixir-format
 msgid "Everything this file should have is stored."
 msgstr "Todo lo que este archivo debería tener está almacenado."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:88
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:97
 #, elixir-autogen, elixir-format
 msgid "File UUID"
 msgstr "UUID del archivo"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:299
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:582
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:308
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:591
 #, elixir-autogen, elixir-format
 msgid "Kept in"
 msgstr "Guardado en"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:389
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
 #, elixir-autogen, elixir-format
 msgid "Make"
 msgstr "Crear"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:276
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:285
 #, elixir-autogen, elixir-format
 msgid "Make every rendition again from the original? This can take a while."
 msgstr "¿Crear de nuevo todas las variantes a partir del original? Puede tardar un rato."
@@ -19268,7 +19268,7 @@ msgstr "Sin copia"
 msgid "Not in bucket"
 msgstr "No está en el bucket"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:483
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:492
 #, elixir-autogen, elixir-format
 msgid "Object"
 msgstr "Objeto"
@@ -19288,12 +19288,12 @@ msgstr "Otro formato"
 msgid "Out of date"
 msgstr "Desactualizada"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:507
 #, elixir-autogen, elixir-format
 msgid "Recorded"
 msgstr "Registrado"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:284
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:293
 #, elixir-autogen, elixir-format
 msgid "Regenerate all"
 msgstr "Regenerar todo"
@@ -19305,13 +19305,13 @@ msgid_plural "Regenerated %{count} renditions."
 msgstr[0] "%{count} variante regenerada."
 msgstr[1] "%{count} variantes regeneradas."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:282
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:291
 #, elixir-autogen, elixir-format
 msgid "Regenerating…"
 msgstr "Regenerando…"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:294
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:482
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:303
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Rendition"
 msgstr "Variante"
@@ -19321,12 +19321,12 @@ msgstr "Variante"
 msgid "Rendition made."
 msgstr "Variante creada."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:609
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:618
 #, elixir-autogen, elixir-format
 msgid "Restore the original"
 msgstr "Restaurar el original"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:605
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:614
 #, elixir-autogen, elixir-format
 msgid "Restore the unedited original? The edit is removed."
 msgstr "¿Restaurar el original sin editar? Se elimina la edición."
@@ -19338,7 +19338,7 @@ msgid "Something is already running."
 msgstr "Ya hay algo en curso."
 
 #: lib/phoenix_kit_web/live/users/media_storage.ex:549
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:296
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:305
 #, elixir-autogen, elixir-format
 msgid "Stored"
 msgstr "Almacenada"
@@ -19353,12 +19353,12 @@ msgstr "No terminó. Inténtelo de nuevo."
 msgid "The change could not be made."
 msgstr "No se pudo hacer el cambio."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:642
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:651
 #, elixir-autogen, elixir-format
 msgid "The file you're looking for doesn't exist or has been deleted."
 msgstr "El archivo que busca no existe o fue eliminado."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:629
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:638
 #, elixir-autogen, elixir-format
 msgid "The last edit could not be applied."
 msgstr "No se pudo aplicar la última edición."
@@ -19373,7 +19373,7 @@ msgstr "No se pudo crear la variante."
 msgid "The renditions could not be regenerated."
 msgstr "No se pudieron regenerar las variantes."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:428
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:437
 #, elixir-autogen, elixir-format
 msgid "There was nothing to check: no copy is recorded for this file."
 msgstr "No había nada que comprobar: no hay ninguna copia registrada para este archivo."
@@ -19388,7 +19388,7 @@ msgstr "Esta imagen tiene anotaciones; restaurarla las movería."
 msgid "This image has not been edited."
 msgstr "Esta imagen no se ha editado."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:558
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:567
 #, elixir-autogen, elixir-format
 msgid "This image was edited. Its unedited original is kept, and can be downloaded or restored."
 msgstr "Esta imagen se editó. Se conserva el original sin editar, que puede descargarse o restaurarse."
@@ -19398,17 +19398,17 @@ msgstr "Esta imagen se editó. Se conserva el original sin editar, que puede des
 msgid "Unnamed file"
 msgstr "Archivo sin nombre"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:80
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:89
 #, elixir-autogen, elixir-format
 msgid "Uploaded"
 msgstr "Subido"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:76
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Uploaded by"
 msgstr "Subido por"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:244
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:253
 #, elixir-autogen, elixir-format
 msgid "Verifying…"
 msgstr "Verificando…"
@@ -19429,75 +19429,75 @@ msgstr "No puede modificar el almacenamiento."
 msgid "You may not change this image."
 msgstr "No puede modificar esta imagen."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:333
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:342
 #, elixir-autogen, elixir-format
 msgid "First stored: %{first}"
 msgstr "Guardada por primera vez: %{first}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:297
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:306
 #, elixir-autogen, elixir-format
 msgid "Made"
 msgstr "Creada"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:188
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:197
 #, elixir-autogen, elixir-format
 msgid "%{count} size for this file"
 msgid_plural "%{count} sizes for this file"
 msgstr[0] "%{count} tamaño para este archivo"
 msgstr[1] "%{count} tamaños para este archivo"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:109
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:118
 #, elixir-autogen, elixir-format
 msgid "Library and profiles"
 msgstr "Biblioteca y perfiles"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:159
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:206
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:168
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:215
 #, elixir-autogen, elixir-format
 msgid "Not up to date"
 msgstr "Desactualizado"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:127
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:136
 #, elixir-autogen, elixir-format
 msgid "Site library"
 msgstr "Biblioteca del sitio"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:201
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:210
 #, elixir-autogen, elixir-format
 msgid "The file was made by an older version of this profile."
 msgstr "El archivo se creó con una versión anterior de este perfil."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:154
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:163
 #, elixir-autogen, elixir-format
 msgid "The file was placed by an older version of this profile."
 msgstr "El archivo se colocó con una versión anterior de este perfil."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:126
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:135
 #, elixir-autogen, elixir-format
 msgid "User library"
 msgstr "Biblioteca de usuario"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:466
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:475
 #, elixir-autogen, elixir-format
 msgid "All intact"
 msgstr "Todo intacto"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:474
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "Intact: %{ok} of %{total}"
 msgstr "Intactas: %{ok} de %{total}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:450
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:459
 #, elixir-autogen, elixir-format
 msgid "Not stored anywhere"
 msgstr "No se guarda en ningún sitio"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:470
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:479
 #, elixir-autogen, elixir-format
 msgid "Nothing of this file is stored here"
 msgstr "Aquí no se guarda nada de este archivo"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:246
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Verify renditions"
 msgstr "Verificar variantes"
@@ -19600,12 +19600,12 @@ msgstr "No se pudo leer de %{bucket}; se deja como está."
 msgid "Everything is intact now."
 msgstr "Ahora todo está intacto."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:268
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:277
 #, elixir-autogen, elixir-format
 msgid "Fix all issues"
 msgstr "Arreglar todos los problemas"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:265
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:274
 #, elixir-autogen, elixir-format
 msgid "Fixing…"
 msgstr "Arreglando…"
@@ -19639,12 +19639,12 @@ msgstr "No se pudo crear todo lo que piden los perfiles."
 msgid "Not made again: the original is damaged."
 msgstr "No se creó de nuevo: el original está dañado."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:258
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:267
 #, elixir-autogen, elixir-format
 msgid "Reads every copy back, replaces what is missing or damaged from a good copy or by making it again, and makes what the profiles ask for."
 msgstr "Lee de nuevo cada copia, reemplaza lo que falta o está dañado con una copia buena o creándolo de nuevo, y crea lo que piden los perfiles."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:403
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:412
 #, elixir-autogen, elixir-format
 msgid "Repair report"
 msgstr "Informe de reparación"
@@ -19654,7 +19654,7 @@ msgstr "Informe de reparación"
 msgid "Sizes and copies match the library's profiles."
 msgstr "Los tamaños y las copias coinciden con los perfiles de la biblioteca."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:405
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:414
 #, elixir-autogen, elixir-format
 msgid "There was nothing to fix."
 msgstr "No había nada que arreglar."
@@ -19694,7 +19694,7 @@ msgid "All libraries"
 msgstr "Todas las bibliotecas"
 
 #: lib/modules/storage/web/bucket_page.html.heex:448
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:531
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:540
 #, elixir-autogen, elixir-format
 msgid "All storage history"
 msgstr "Todo el historial de almacenamiento"
@@ -19744,7 +19744,7 @@ msgstr "Encontrado al arreglar"
 msgid "Missing from the bucket"
 msgstr "Falta en el bucket"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:539
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:548
 #, elixir-autogen, elixir-format
 msgid "Nothing has gone wrong with this file, and nothing has been repaired."
 msgstr "Nada ha fallado con este archivo y no se ha reparado nada."
@@ -19765,12 +19765,12 @@ msgid "Repairs"
 msgstr "Reparaciones"
 
 #: lib/modules/storage/web/bucket_page.html.heex:443
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:546
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:555
 #, elixir-autogen, elixir-format
 msgid "Showing the latest %{count}."
 msgstr "Se muestran los últimos %{count}."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:526
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:535
 #, elixir-autogen, elixir-format
 msgid "Storage log"
 msgstr "Registro de almacenamiento"
@@ -19792,3 +19792,23 @@ msgstr "Creado a partir del original."
 #, elixir-autogen, elixir-format
 msgid "Removed from %{bucket}, which the profile no longer uses."
 msgstr "Eliminado de %{bucket}, que el perfil ya no usa."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:79
+#, elixir-autogen, elixir-format
+msgid "Dynamic range"
+msgstr "Rango dinámico"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:747
+#, elixir-autogen, elixir-format
+msgid "Dynamic range:"
+msgstr "Rango dinámico:"
+
+#: lib/phoenix_kit_web/components/core/hdr_badge.ex:25
+#, elixir-autogen, elixir-format
+msgid "gain map"
+msgstr "mapa de ganancia"
+
+#: lib/phoenix_kit_web/components/core/hdr_badge.ex:44
+#, elixir-autogen, elixir-format
+msgid "headroom %{value}"
+msgstr "margen %{value}"

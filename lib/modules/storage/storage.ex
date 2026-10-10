@@ -111,6 +111,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.Folder
   alias PhoenixKit.Modules.Storage.FolderLink
   alias PhoenixKit.Modules.Storage.Geo
+  alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.KeyLayout
   alias PhoenixKit.Modules.Storage.Libraries
@@ -3850,8 +3851,8 @@ defmodule PhoenixKit.Modules.Storage do
   def read_exif(%PhoenixKit.Modules.Storage.File{uuid: uuid}), do: read_exif(uuid)
 
   def read_exif(uuid) when is_binary(uuid) do
-    with_original_exif(uuid, fn file, source_uuid, key, tags ->
-      record_exif(file, source_uuid, key, Exif.file_attrs(tags))
+    with_original_exif(uuid, fn file, source_uuid, key, tags, path ->
+      record_exif(file, source_uuid, key, Exif.file_attrs(tags), hdr_of(file, path))
     end)
   end
 
@@ -3863,7 +3864,7 @@ defmodule PhoenixKit.Modules.Storage do
   def exif_tags(%PhoenixKit.Modules.Storage.File{uuid: uuid}), do: exif_tags(uuid)
 
   def exif_tags(uuid) when is_binary(uuid) do
-    with_original_exif(uuid, fn _file, _source_uuid, _key, tags -> {:ok, tags} end)
+    with_original_exif(uuid, fn _file, _source_uuid, _key, tags, _path -> {:ok, tags} end)
   end
 
   # Downloads the original the EXIF is in (an edited image's unedited backup),
@@ -3882,7 +3883,7 @@ defmodule PhoenixKit.Modules.Storage do
         case retrieve_original(source_uuid) do
           {:ok, path, _row, instance} ->
             try do
-              fun.(file, source_uuid, instance.file_name, Exif.read(path))
+              fun.(file, source_uuid, instance.file_name, Exif.read(path), path)
             after
               File.rm(path)
             end
@@ -3893,7 +3894,15 @@ defmodule PhoenixKit.Modules.Storage do
     end
   end
 
-  defp record_exif(file, source_uuid, key, attrs) do
+  # The gain map of the file as it is served. An edited image was rewritten without
+  # one, whatever its unedited original (the bytes read here) has.
+  defp hdr_of(%PhoenixKit.Modules.Storage.File{original_file_uuid: backup}, _path)
+       when is_binary(backup),
+       do: %{}
+
+  defp hdr_of(_file, path), do: Hdr.read(path)
+
+  defp record_exif(file, source_uuid, key, attrs, hdr) do
     {exif, columns} = Map.pop(attrs, :exif)
 
     repo().transaction(fn ->
@@ -3902,7 +3911,11 @@ defmodule PhoenixKit.Modules.Storage do
            {:ok, updated} <-
              row
              |> PhoenixKit.Modules.Storage.File.changeset(
-               Map.put(columns, :metadata, Map.put(row.metadata || %{}, "exif", exif))
+               Map.put(
+                 columns,
+                 :metadata,
+                 Map.merge(row.metadata || %{}, %{"exif" => exif, "hdr" => hdr})
+               )
              )
              |> repo().update() do
         updated

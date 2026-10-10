@@ -743,6 +743,12 @@
                 </span>
               </span>
             </div>
+            <div :if={@file_row && PhoenixKit.Modules.Storage.Hdr.gain_map?(@file_row.hdr)}>
+              <span class="text-base-content/60">{gettext("Dynamic range:")}</span>
+              <span class="ml-1">
+                <PhoenixKitWeb.Components.Core.HdrBadge.hdr_badge hdr={@file_row.hdr} />
+              </span>
+            </div>
             <div :if={@file_row && @file_row.pages}>
               <span class="text-base-content/60">{gettext("Pages:")}</span>
               <span class="ml-1">{@file_row.pages}</span>

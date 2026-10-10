@@ -452,6 +452,29 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
       assert html =~ "Panorama"
     end
 
+    test "marks a photo that carries an HDR gain map", ctx do
+      set_columns(ctx.photo,
+        metadata: %{
+          "hdr" => %{
+            "gain_map" => true,
+            "kinds" => ["apple", "iso21496"],
+            "headroom" => 4.974161,
+            "gain_map_bytes" => 205_482
+          }
+        }
+      )
+
+      {_view, html} = open_in_viewer(ctx)
+
+      assert html =~ "Dynamic range:"
+      assert html =~ "gain map · Apple, ISO 21496-1 · headroom 4.97"
+    end
+
+    test "says nothing of HDR for an ordinary photo", ctx do
+      {_view, html} = open_in_viewer(ctx)
+      refute html =~ "Dynamic range:"
+    end
+
     test "a photo whose EXIF was never read offers to read it", ctx do
       {view, html} = open_in_viewer(ctx)
 

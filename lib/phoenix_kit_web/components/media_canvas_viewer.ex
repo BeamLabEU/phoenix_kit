@@ -794,6 +794,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       updated_at: row.updated_at,
       inserted_at: row.inserted_at,
       pages: if(row.mime_type == "application/pdf", do: (row.metadata || %{})["page_count"]),
+      # An edited image was rewritten without the map its unedited original had.
+      hdr: if(is_nil(row.original_file_uuid), do: (row.metadata || %{})["hdr"]),
       uploader: if(admin?, do: uploader_name(row.user_uuid)),
       uuid: if(admin?, do: row.uuid)
     }

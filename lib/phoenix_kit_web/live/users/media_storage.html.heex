@@ -72,6 +72,15 @@
                   <dt class="text-base-content/60">{gettext("Dimensions")}</dt>
                   <dd>{dimensions_label(@file)} px</dd>
                 </div>
+                <div :if={
+                  is_nil(@file.original_file_uuid) and
+                    PhoenixKit.Modules.Storage.Hdr.gain_map?((@file.metadata || %{})["hdr"])
+                }>
+                  <dt class="text-base-content/60">{gettext("Dynamic range")}</dt>
+                  <dd>
+                    <PhoenixKitWeb.Components.Core.HdrBadge.hdr_badge hdr={@file.metadata["hdr"]} />
+                  </dd>
+                </div>
                 <div :if={@uploader}>
                   <dt class="text-base-content/60">{gettext("Uploaded by")}</dt>
                   <dd class="break-all">{@uploader}</dd>

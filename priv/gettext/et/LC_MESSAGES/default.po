@@ -2381,7 +2381,7 @@ msgstr "Määra vaikimisi"
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:87
 #: lib/phoenix_kit_web/live/users/media_storage.ex:558
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:68
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:564
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:573
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Suurus"
@@ -5128,7 +5128,7 @@ msgid "Body Saved"
 msgstr "Sisu salvestatud"
 
 #: lib/phoenix_kit/users/auth.ex:3292
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:865
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:871
 #: lib/phoenix_kit_web/live/modules.ex:134
 #, elixir-autogen, elixir-format
 msgid "Comments"
@@ -5283,7 +5283,7 @@ msgstr "nõuab, et"
 #: lib/phoenix_kit_web/live/users/media_detail.ex:89
 #: lib/phoenix_kit_web/live/users/media_detail.ex:92
 #: lib/phoenix_kit_web/live/users/media_storage.ex:122
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:645
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:654
 #, elixir-autogen, elixir-format
 msgid "Media"
 msgstr "Meedia"
@@ -5890,8 +5890,8 @@ msgstr "Kustutatud failid ilmuvad siia"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2493
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:562
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:566
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:373
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:374
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:382
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Lae alla"
@@ -6161,7 +6161,7 @@ msgid_plural "Upload successful! %{count} new files processed"
 msgstr[0] "Üleslaadimine edukas! Töödeldud %{count} uus fail"
 msgstr[1] "Üleslaadimine edukas! Töödeldud %{count} uut faili"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:751
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
 #, elixir-autogen, elixir-format
 msgid "Uploaded:"
 msgstr "Üles laaditud:"
@@ -6454,8 +6454,8 @@ msgstr "Vasta"
 msgid "Are you sure you want to delete this comment?"
 msgstr "Kas oled kindel, et soovid selle kommentaari kustutada?"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2306
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2307
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2308
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:2309
 #, elixir-autogen, elixir-format
 msgid "%b %d, %Y"
 msgstr "%d %b %Y"
@@ -6560,7 +6560,7 @@ msgstr "Fail eemaldati sellest kaustast"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:2299
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:640
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:649
 #, elixir-autogen, elixir-format
 msgid "File not found"
 msgstr "Faili ei leitud"
@@ -6841,7 +6841,7 @@ msgstr "Esiletõstetud"
 msgid "Sort by"
 msgstr "Sorteeri"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:767
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:773
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:280
 #, elixir-autogen, elixir-format
 msgid "Status:"
@@ -8014,7 +8014,7 @@ msgstr "sina"
 #: lib/modules/storage/web/renditions_component.ex:510
 #: lib/modules/storage/web/renditions_component.ex:544
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:72
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:568
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:577
 #, elixir-autogen, elixir-format
 msgid "Dimensions"
 msgstr "Dimensioonid"
@@ -10591,7 +10591,7 @@ msgstr "Nõua e-posti kinnitamist enne rakenduse kasutamist"
 #: lib/phoenix_kit_web/components/media_browser.html.heex:921
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1636
 #: lib/phoenix_kit_web/components/media_browser.html.heex:1876
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:804
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:810
 #: lib/phoenix_kit_web/live/components/library_settings.ex:935
 #: lib/phoenix_kit_web/live/notifications/inbox.ex:343
 #, elixir-autogen, elixir-format
@@ -11569,7 +11569,7 @@ msgstr "Kasuta seda AI moodulist"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.ex:88
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:270
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:422
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:431
 #, elixir-autogen, elixir-format
 msgid "Verification"
 msgstr "Kinnitamine"
@@ -12834,7 +12834,7 @@ msgstr "Külastajad suunatakse tootmiskeskkonda"
 #: lib/modules/storage/web/bucket_page.html.heex:509
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:236
 #: lib/phoenix_kit_web/live/settings/website_access.ex:404
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:484
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:493
 #, elixir-autogen, elixir-format
 msgid "Result"
 msgstr "Tulemus"
@@ -14095,7 +14095,7 @@ msgstr "Muutmine ebaõnnestus"
 msgid "Edit image"
 msgstr "Muuda pilti"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:780
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:786
 #, elixir-autogen, elixir-format
 msgid "Edited"
 msgstr "Muudetud"
@@ -14305,7 +14305,7 @@ msgid "Top %"
 msgstr "Ülevalt %"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:642
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:631
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:640
 #, elixir-autogen, elixir-format
 msgid "Try again"
 msgstr "Proovi uuesti"
@@ -14333,7 +14333,7 @@ msgid "Undo the edit and show the unedited original again everywhere this image 
 msgstr "Kas võtta muudatus tagasi ja näidata kõikjal, kus seda pilti kasutatakse, jälle muutmata originaali?"
 
 #: lib/phoenix_kit_web/components/image_editor.ex:1001
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:554
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:563
 #, elixir-autogen, elixir-format
 msgid "Unedited original"
 msgstr "Muutmata originaal"
@@ -15112,7 +15112,7 @@ msgstr "Loo"
 #: lib/modules/storage/web/health_component.ex:215
 #: lib/modules/storage/web/library_page.ex:55
 #: lib/phoenix_kit_web/components/core/repair_log.ex:35
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:111
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:120
 #, elixir-autogen, elixir-format
 msgid "Library"
 msgstr "Kogu"
@@ -15640,7 +15640,7 @@ msgstr "Salvestus"
 #: lib/modules/storage/web/libraries_component.ex:209
 #: lib/modules/storage/web/libraries_component.ex:286
 #: lib/modules/storage/web/library_page.html.heex:196
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:134
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:143
 #, elixir-autogen, elixir-format
 msgid "Storage profile"
 msgstr "Salvestusprofiil"
@@ -15680,8 +15680,8 @@ msgstr "Ühtlustaja on järjekorras. Edenemise nägemiseks värskendage lehte."
 #: lib/modules/storage/web/health_component.ex:120
 #: lib/modules/storage/web/library_page.ex:366
 #: lib/modules/storage/web/library_sync.ex:110
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:158
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:205
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:167
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:214
 #, elixir-autogen, elixir-format
 msgid "Up to date"
 msgstr "Ajakohane"
@@ -17016,7 +17016,7 @@ msgid "Duration"
 msgstr "Kestus"
 
 #: lib/modules/storage/web/bucket_page.html.heex:526
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:825
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:827
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:299
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:355
 #: lib/phoenix_kit_web/live/users/media_storage.ex:553
@@ -17191,7 +17191,7 @@ msgstr "Alustaja"
 
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:99
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:71
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:300
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:309
 #, elixir-autogen, elixir-format
 msgid "State"
 msgstr "Olek"
@@ -17306,7 +17306,7 @@ msgstr "Kontrolli kohe"
 
 #: lib/modules/storage/web/library_page.ex:370
 #: lib/modules/storage/web/library_sync.ex:114
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:468
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:477
 #, elixir-autogen, elixir-format
 msgid "Needs attention"
 msgstr "Vajab tähelepanu"
@@ -17700,7 +17700,7 @@ msgid "Unlimited"
 msgstr "Piiramatu"
 
 #: lib/modules/storage/web/bucket_page.html.heex:108
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:84
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Updated"
 msgstr "Uuendatud"
@@ -17762,8 +17762,8 @@ msgid "Probe"
 msgstr "Ühenduse test"
 
 #: lib/modules/storage/web/bucket_page.ex:455
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:501
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:507
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:510
 #, elixir-autogen, elixir-format
 msgid "Read"
 msgstr "Lugemine"
@@ -18071,7 +18071,7 @@ msgid "\"%{profile}\" cannot be deleted: it is used by %{libraries}. A library k
 msgstr "„%{profile}“ ei saa kustutada: seda kasutab %{libraries}. Kogu säilitab profiili, millega ta loodi, seega profiil jääb alles seni, kuni mõni kogu on selle peal."
 
 #: lib/modules/storage/web/library_page.html.heex:202
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:142
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:151
 #, elixir-autogen, elixir-format
 msgid "%{local} local, %{cloud} cloud copies"
 msgstr "%{local} kohalikku, %{cloud} pilvekoopiat"
@@ -18123,7 +18123,7 @@ msgid "Everything about this library"
 msgstr "Kõik selle kogu kohta"
 
 #: lib/modules/storage/web/library_page.html.heex:232
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:173
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:182
 #, elixir-autogen, elixir-format
 msgid "No buckets yet: uploads to this library fail."
 msgstr "Bucketeid pole veel: üleslaadimised sellesse kogusse ebaõnnestuvad."
@@ -18320,7 +18320,7 @@ msgstr "Variant uuendatud"
 
 #: lib/modules/storage/web/health_component.ex:83
 #: lib/phoenix_kit_web/live/components/library_settings.ex:814
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:221
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:230
 #, elixir-autogen, elixir-format
 msgid "Renditions"
 msgstr "Variandid"
@@ -18453,7 +18453,7 @@ msgstr "Uus variandiprofiil"
 #: lib/modules/storage/web/libraries_component.ex:210
 #: lib/modules/storage/web/libraries_component.ex:300
 #: lib/modules/storage/web/library_page.html.heex:237
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:181
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:190
 #, elixir-autogen, elixir-format
 msgid "Rendition profile"
 msgstr "Variandiprofiil"
@@ -19093,17 +19093,17 @@ msgstr "tõeline põhi"
 msgid "Nothing here about the camera, exposure, dates or location. All EXIF lists what the file carries."
 msgstr "Siin pole midagi kaamera, säriaja, kuupäevade ega asukoha kohta. „Kogu EXIF“ näitab, mida fail sisaldab."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:814
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:820
 #, elixir-autogen, elixir-format
 msgid "Delete forever"
 msgstr "Kustuta jäädavalt"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:784
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:790
 #, elixir-autogen, elixir-format
 msgid "File UUID:"
 msgstr "Faili UUID:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:823
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:825
 #, elixir-autogen, elixir-format
 msgid "In the trash"
 msgstr "Prügikastis"
@@ -19113,45 +19113,45 @@ msgstr "Prügikastis"
 msgid "Media details"
 msgstr "Meedia üksikasjad"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:824
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:830
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "Teisalda prügikasti"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:747
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:753
 #, elixir-autogen, elixir-format
 msgid "Pages:"
 msgstr "Lehekülgi:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:811
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:817
 #, elixir-autogen, elixir-format
 msgid "Permanently delete this file? This cannot be undone."
 msgstr "Kas kustutada see fail jäädavalt? Seda ei saa tagasi võtta."
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:824
+#: lib/phoenix_kit_web/components/media_canvas_viewer.ex:826
 #: lib/phoenix_kit_web/live/users/media_storage.ex:552
 #, elixir-autogen, elixir-format
 msgid "Processing"
 msgstr "Töötlemisel"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:761
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:767
 #, elixir-autogen, elixir-format
 msgid "Updated:"
 msgstr "Uuendatud:"
 
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:757
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:763
 #, elixir-autogen, elixir-format
 msgid "Uploaded by:"
 msgstr "Üles laadis:"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:226
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:235
 #, elixir-autogen, elixir-format
 msgid "%{count} rendition is missing, out of date or not stored anywhere."
 msgid_plural "%{count} renditions are missing, out of date or not stored anywhere."
 msgstr[0] "%{count} variant puudub, on aegunud või pole kuhugi salvestatud."
 msgstr[1] "%{count} varianti puuduvad, on aegunud või pole kuhugi salvestatud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:430
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:439
 #, elixir-autogen, elixir-format
 msgid "%{ok} of %{total} copies match the checksum they were stored with."
 msgstr "%{ok} koopiat %{total}-st vastab salvestatud kontrollsummale."
@@ -19176,22 +19176,22 @@ msgstr "Muudatust rakendatakse. Proovi varsti uuesti."
 msgid "Another pass is working on this file."
 msgstr "Selle failiga tegeleb juba teine läbimine."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:295
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:304
 #, elixir-autogen, elixir-format
 msgid "Asked for"
 msgstr "Nõutud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:298
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:307
 #, elixir-autogen, elixir-format
 msgid "Checksum"
 msgstr "Kontrollsumma"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:575
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:584
 #, elixir-autogen, elixir-format
 msgid "Checksum (SHA-256)"
 msgstr "Kontrollsumma (SHA-256)"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:93
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:102
 #, elixir-autogen, elixir-format
 msgid "Checksum of the original (SHA-256)"
 msgstr "Originaali kontrollsumma (SHA-256)"
@@ -19201,12 +19201,12 @@ msgstr "Originaali kontrollsumma (SHA-256)"
 msgid "Could not read"
 msgstr "Lugemine ebaõnnestus"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:623
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:632
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original"
 msgstr "Kustuta muutmata originaal"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:616
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:625
 #, elixir-autogen, elixir-format
 msgid "Delete the unedited original? The edit becomes permanent and this cannot be undone."
 msgstr "Kas kustutada muutmata originaal? Muudatus muutub jäädavaks ja seda ei saa tagasi võtta."
@@ -19216,33 +19216,33 @@ msgstr "Kas kustutada muutmata originaal? Muudatus muutub jäädavaks ja seda ei
 msgid "Differs"
 msgstr "Erineb"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:599
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:608
 #, elixir-autogen, elixir-format
 msgid "Download the unedited original"
 msgstr "Lae alla muutmata originaal"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:224
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:233
 #, elixir-autogen, elixir-format
 msgid "Everything this file should have is stored."
 msgstr "Kõik, mis sellel failil peaks olema, on salvestatud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:88
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:97
 #, elixir-autogen, elixir-format
 msgid "File UUID"
 msgstr "Faili UUID"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:299
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:582
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:308
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:591
 #, elixir-autogen, elixir-format
 msgid "Kept in"
 msgstr "Hoiustatud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:389
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:398
 #, elixir-autogen, elixir-format
 msgid "Make"
 msgstr "Loo"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:276
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:285
 #, elixir-autogen, elixir-format
 msgid "Make every rendition again from the original? This can take a while."
 msgstr "Kas luua kõik variandid originaalist uuesti? See võib võtta aega."
@@ -19268,7 +19268,7 @@ msgstr "Koopia puudub"
 msgid "Not in bucket"
 msgstr "Pole bucketis"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:483
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:492
 #, elixir-autogen, elixir-format
 msgid "Object"
 msgstr "Objekt"
@@ -19288,12 +19288,12 @@ msgstr "Muu vorming"
 msgid "Out of date"
 msgstr "Aegunud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:498
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:507
 #, elixir-autogen, elixir-format
 msgid "Recorded"
 msgstr "Salvestatud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:284
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:293
 #, elixir-autogen, elixir-format
 msgid "Regenerate all"
 msgstr "Loo kõik uuesti"
@@ -19305,13 +19305,13 @@ msgid_plural "Regenerated %{count} renditions."
 msgstr[0] "Loodi uuesti %{count} variant."
 msgstr[1] "Loodi uuesti %{count} varianti."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:282
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:291
 #, elixir-autogen, elixir-format
 msgid "Regenerating…"
 msgstr "Loon uuesti…"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:294
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:482
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:303
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:491
 #, elixir-autogen, elixir-format
 msgid "Rendition"
 msgstr "Variant"
@@ -19321,12 +19321,12 @@ msgstr "Variant"
 msgid "Rendition made."
 msgstr "Variant loodud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:609
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:618
 #, elixir-autogen, elixir-format
 msgid "Restore the original"
 msgstr "Taasta originaal"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:605
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:614
 #, elixir-autogen, elixir-format
 msgid "Restore the unedited original? The edit is removed."
 msgstr "Kas taastada muutmata originaal? Muudatus eemaldatakse."
@@ -19338,7 +19338,7 @@ msgid "Something is already running."
 msgstr "Midagi juba töötab."
 
 #: lib/phoenix_kit_web/live/users/media_storage.ex:549
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:296
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:305
 #, elixir-autogen, elixir-format
 msgid "Stored"
 msgstr "Salvestatud"
@@ -19353,12 +19353,12 @@ msgstr "See ei lõppenud. Proovi uuesti."
 msgid "The change could not be made."
 msgstr "Muudatust ei õnnestunud teha."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:642
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:651
 #, elixir-autogen, elixir-format
 msgid "The file you're looking for doesn't exist or has been deleted."
 msgstr "Otsitavat faili pole olemas või see on kustutatud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:629
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:638
 #, elixir-autogen, elixir-format
 msgid "The last edit could not be applied."
 msgstr "Viimast muudatust ei õnnestunud rakendada."
@@ -19373,7 +19373,7 @@ msgstr "Varianti ei õnnestunud luua."
 msgid "The renditions could not be regenerated."
 msgstr "Variante ei õnnestunud uuesti luua."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:428
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:437
 #, elixir-autogen, elixir-format
 msgid "There was nothing to check: no copy is recorded for this file."
 msgstr "Kontrollida polnud midagi: sellele failile pole koopiat salvestatud."
@@ -19388,7 +19388,7 @@ msgstr "Sellel pildil on märkused; taastamine liigutaks neid."
 msgid "This image has not been edited."
 msgstr "Seda pilti pole muudetud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:558
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:567
 #, elixir-autogen, elixir-format
 msgid "This image was edited. Its unedited original is kept, and can be downloaded or restored."
 msgstr "Seda pilti on muudetud. Muutmata originaal on alles ning selle saab alla laadida või taastada."
@@ -19398,17 +19398,17 @@ msgstr "Seda pilti on muudetud. Muutmata originaal on alles ning selle saab alla
 msgid "Unnamed file"
 msgstr "Nimetu fail"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:80
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:89
 #, elixir-autogen, elixir-format
 msgid "Uploaded"
 msgstr "Üles laaditud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:76
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Uploaded by"
 msgstr "Üles laadis"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:244
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:253
 #, elixir-autogen, elixir-format
 msgid "Verifying…"
 msgstr "Kontrollin…"
@@ -19429,75 +19429,75 @@ msgstr "Sul pole õigust salvestust muuta."
 msgid "You may not change this image."
 msgstr "Sul pole õigust seda pilti muuta."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:333
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:342
 #, elixir-autogen, elixir-format
 msgid "First stored: %{first}"
 msgstr "Esmakordselt salvestatud: %{first}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:297
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:306
 #, elixir-autogen, elixir-format
 msgid "Made"
 msgstr "Loodud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:188
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:197
 #, elixir-autogen, elixir-format
 msgid "%{count} size for this file"
 msgid_plural "%{count} sizes for this file"
 msgstr[0] "%{count} suurus selle faili jaoks"
 msgstr[1] "%{count} suurust selle faili jaoks"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:109
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:118
 #, elixir-autogen, elixir-format
 msgid "Library and profiles"
 msgstr "Kogu ja profiilid"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:159
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:206
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:168
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:215
 #, elixir-autogen, elixir-format
 msgid "Not up to date"
 msgstr "Pole ajakohane"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:127
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:136
 #, elixir-autogen, elixir-format
 msgid "Site library"
 msgstr "Saidi kogu"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:201
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:210
 #, elixir-autogen, elixir-format
 msgid "The file was made by an older version of this profile."
 msgstr "Fail tehti selle profiili vanema versiooniga."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:154
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:163
 #, elixir-autogen, elixir-format
 msgid "The file was placed by an older version of this profile."
 msgstr "Fail paigutati selle profiili vanema versiooniga."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:126
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:135
 #, elixir-autogen, elixir-format
 msgid "User library"
 msgstr "Kasutaja kogu"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:466
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:475
 #, elixir-autogen, elixir-format
 msgid "All intact"
 msgstr "Kõik terve"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:474
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "Intact: %{ok} of %{total}"
 msgstr "Terved: %{ok} / %{total}"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:450
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:459
 #, elixir-autogen, elixir-format
 msgid "Not stored anywhere"
 msgstr "Pole kuhugi salvestatud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:470
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:479
 #, elixir-autogen, elixir-format
 msgid "Nothing of this file is stored here"
 msgstr "Siin pole sellest failist midagi salvestatud"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:246
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:255
 #, elixir-autogen, elixir-format
 msgid "Verify renditions"
 msgstr "Kontrolli variante"
@@ -19600,12 +19600,12 @@ msgstr "Kaustast %{bucket} ei õnnestunud lugeda; jäetud nii nagu on."
 msgid "Everything is intact now."
 msgstr "Nüüd on kõik terve."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:268
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:277
 #, elixir-autogen, elixir-format
 msgid "Fix all issues"
 msgstr "Paranda kõik probleemid"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:265
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:274
 #, elixir-autogen, elixir-format
 msgid "Fixing…"
 msgstr "Parandan…"
@@ -19639,12 +19639,12 @@ msgstr "Kõike, mida profiilid nõuavad, ei õnnestunud luua."
 msgid "Not made again: the original is damaged."
 msgstr "Uuesti loomata: originaal on kahjustatud."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:258
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:267
 #, elixir-autogen, elixir-format
 msgid "Reads every copy back, replaces what is missing or damaged from a good copy or by making it again, and makes what the profiles ask for."
 msgstr "Loeb iga koopia tagasi, asendab puuduva või kahjustatud hea koopiaga või loob uuesti ning loob selle, mida profiilid nõuavad."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:403
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:412
 #, elixir-autogen, elixir-format
 msgid "Repair report"
 msgstr "Paranduse aruanne"
@@ -19654,7 +19654,7 @@ msgstr "Paranduse aruanne"
 msgid "Sizes and copies match the library's profiles."
 msgstr "Suurused ja koopiad vastavad kogu profiilidele."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:405
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:414
 #, elixir-autogen, elixir-format
 msgid "There was nothing to fix."
 msgstr "Parandada polnud midagi."
@@ -19694,7 +19694,7 @@ msgid "All libraries"
 msgstr "Kõik kogud"
 
 #: lib/modules/storage/web/bucket_page.html.heex:448
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:531
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:540
 #, elixir-autogen, elixir-format
 msgid "All storage history"
 msgstr "Kogu salvestuse ajalugu"
@@ -19744,7 +19744,7 @@ msgstr "Leitud parandamisel"
 msgid "Missing from the bucket"
 msgstr "Puudub bucketist"
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:539
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:548
 #, elixir-autogen, elixir-format
 msgid "Nothing has gone wrong with this file, and nothing has been repaired."
 msgstr "Selle failiga pole midagi valesti läinud ja midagi pole parandatud."
@@ -19765,12 +19765,12 @@ msgid "Repairs"
 msgstr "Parandused"
 
 #: lib/modules/storage/web/bucket_page.html.heex:443
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:546
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:555
 #, elixir-autogen, elixir-format
 msgid "Showing the latest %{count}."
 msgstr "Näidatud on viimased %{count}."
 
-#: lib/phoenix_kit_web/live/users/media_storage.html.heex:526
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:535
 #, elixir-autogen, elixir-format
 msgid "Storage log"
 msgstr "Salvestuse logi"
@@ -19792,3 +19792,23 @@ msgstr "Loodud originaalist."
 #, elixir-autogen, elixir-format
 msgid "Removed from %{bucket}, which the profile no longer uses."
 msgstr "Eemaldatud kaustast %{bucket}, mida profiil enam ei kasuta."
+
+#: lib/phoenix_kit_web/live/users/media_storage.html.heex:79
+#, elixir-autogen, elixir-format
+msgid "Dynamic range"
+msgstr "Dünaamiline ulatus"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:747
+#, elixir-autogen, elixir-format
+msgid "Dynamic range:"
+msgstr "Dünaamiline ulatus:"
+
+#: lib/phoenix_kit_web/components/core/hdr_badge.ex:25
+#, elixir-autogen, elixir-format
+msgid "gain map"
+msgstr "gain map"
+
+#: lib/phoenix_kit_web/components/core/hdr_badge.ex:44
+#, elixir-autogen, elixir-format
+msgid "headroom %{value}"
+msgstr "varu %{value}"

@@ -38,6 +38,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Exif
+  alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.VariantGenerator
@@ -258,8 +259,11 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   defp with_exif(metadata, _path, %{original_file_uuid: backup}) when is_binary(backup),
     do: metadata
 
-  defp with_exif(metadata, path, _file),
-    do: Map.merge(metadata, path |> Exif.read() |> Exif.file_attrs())
+  defp with_exif(metadata, path, _file) do
+    metadata
+    |> Map.merge(path |> Exif.read() |> Exif.file_attrs())
+    |> Map.put(:hdr, Hdr.read(path))
+  end
 
   defp extract_pdf_metadata(temp_path) do
     {:ok, metadata} = PdfProcessor.extract_metadata(temp_path)
@@ -356,12 +360,15 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # The EXIF summary joins the row's `metadata` rather than replacing it: the
   # rotation and tags in there are not this run's to touch.
   defp merge_exif(attrs, current) do
+    {hdr, attrs} = Map.pop(attrs, :hdr)
+
     case Map.pop(attrs, :exif) do
       {nil, attrs} ->
         attrs
 
       {exif, attrs} ->
-        Map.put(attrs, :metadata, Map.put(current.metadata || %{}, "exif", exif))
+        meta = Map.merge(current.metadata || %{}, %{"exif" => exif, "hdr" => hdr || %{}})
+        Map.put(attrs, :metadata, meta)
     end
   end
 
