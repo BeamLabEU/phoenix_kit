@@ -155,6 +155,13 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # an image, with annotation rights.
   @viewer_open_annotating_key "media_viewer_open_annotating"
 
+  # Whether two fingers on a trackpad pan the other way in this user's
+  # viewer. The browser reports the fingers after the OS's own scroll
+  # direction has been applied and does not say which that was, so Fresco's
+  # default can only suit most machines; this is for the rest. Per-user,
+  # toggled on the profile settings page's "Annotation tools" section.
+  @viewer_invert_two_finger_pan_key "media_viewer_invert_two_finger_pan"
+
   # Canvas extent used when the file row recorded no dimensions. Sets only
   # the coordinate space — the image itself keeps its true ratio, see
   # put_natural_size/2.
@@ -322,6 +329,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign_new(:media_meta_values, fn -> %{} end)
       |> assign_new(:media_tags, fn -> [] end)
       |> assign_new(:media_details_open, fn -> false end)
+      |> assign_new(:invert_two_finger_pan, fn -> false end)
+      |> assign(:nav_overflow, nav_overflow())
       |> assign_new(:media_meta_status, fn -> nil end)
       |> assign_new(:media_meta_status_token, fn -> 0 end)
 
@@ -357,6 +366,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
             |> assign(:sidebar_collapsed, load_sidebar_collapsed(prefs))
+            |> assign(:invert_two_finger_pan, invert_two_finger_pan?(prefs))
             |> maybe_open_annotating(prefs, file)
           end)
 
@@ -373,6 +383,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
             s
             |> assign(:etcher_colors, load_user_colors(prefs))
             |> assign(:etcher_line_params, load_user_line_params(prefs))
+            |> assign(:invert_two_finger_pan, invert_two_finger_pan?(prefs))
           end)
           |> assign(:sidebar_collapsed, true)
 
@@ -1067,6 +1078,21 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # The custom_fields key the settings page writes. One name, owned here.
   def open_annotating_key, do: @viewer_open_annotating_key
 
+  @doc """
+  Whether this user's viewer pans the other way under two fingers on a
+  trackpad (see `@viewer_invert_two_finger_pan_key`). Off unless the user
+  stored `true` on the profile settings page.
+  """
+  def invert_two_finger_pan?(user) when is_map(user) do
+    Auth.get_user_field(user, @viewer_invert_two_finger_pan_key) == true
+  end
+
+  def invert_two_finger_pan?(_), do: false
+
+  @doc false
+  # The custom_fields key the settings page writes. One name, owned here.
+  def invert_two_finger_pan_key, do: @viewer_invert_two_finger_pan_key
+
   # Apply the preference at viewer-open. Only where it means something:
   # an image (nothing else has an editor), with annotation rights — a
   # read-only viewer keeps the burned picture whatever the flag says.
@@ -1098,6 +1124,33 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   used, so a stale read costs one mispredicted frame at worst.
   """
   def sidebar_open?(user), do: not load_sidebar_collapsed(user)
+
+  # The viewer pane's inline custom properties. `--pk-pane-aspect` sizes a
+  # stacked pane to its picture; `--fresco-nav-reserve-end` is how much of
+  # the top edge the viewer's own buttons take at the right (close and
+  # details), so Fresco's nav row stops short of them and folds into its ⋯
+  # menu instead of running under. Generous by a few pixels: overflowing a
+  # little early costs nothing, and a row under the close button is the
+  # thing being fixed.
+  @doc false
+  def pane_style(aspect, viewer_only?) do
+    reserve = if viewer_only?, do: 12, else: 100
+
+    Enum.join(
+      [aspect && "--pk-pane-aspect: #{aspect}", "--fresco-nav-reserve-end: #{reserve}px"]
+      |> Enum.reject(&is_nil/1),
+      "; "
+    )
+  end
+
+  # Fresco's nav row keeps the basics — zoom in and out, a clockwise turn
+  # (enough to fix a sideways photo; the other way is in ⋯), plus the eye and
+  # pencil the viewer adds — and the rest waits behind its ⋯ button. Nine
+  # buttons across the top of a photograph was more chrome than picture.
+  # The row is mirrored (`nav_reverse`): the pencil sits at its inner end,
+  # nearest the middle of the viewer, and ⋯ out in the corner.
+  @doc false
+  def nav_overflow, do: [:fullscreen, :rotate_left, :home]
 
   @doc """
   The picture's shape as a CSS `aspect-ratio` value, or `nil` for a file that
@@ -1564,13 +1617,17 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   attr :etcher_colors, :list, default: nil
   attr :etcher_line_params, :map, required: true
   attr :can_annotate, :boolean, required: true
+  attr :invert_two_finger_pan, :boolean, default: false
 
   defp board_canvas(assigns) do
+    assigns = assign(assigns, :nav_overflow, nav_overflow())
+
     ~H"""
     <div class="flex h-full overflow-hidden">
       <div
         id={"pk-annotation-actions-" <> @board.target_uuid}
         phx-hook="EtcherTooltipActions"
+        style={pane_style(nil, false)}
         class="flex-1 relative flex items-center justify-center bg-base-200 overflow-hidden p-0 lg:p-2 min-h-[40vh] lg:min-h-0"
       >
         <%!-- Light, like the image viewer: a board is drawn on, and the
@@ -1580,17 +1637,22 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
           id={"media-zoom-" <> @board.target_uuid}
           canvas={@viewer_canvas}
           class="w-full h-full lg:rounded"
+          invert_two_finger_pan={@invert_two_finger_pan}
+          nav_layout={:row}
+          nav_overflow={@nav_overflow}
+          nav_reverse
           theme={:light}
           infinite_canvas={true}
         />
-        <%!-- panel_offset: same collision as the html.heex embed — the
-              viewer chrome owns the top-right corner, so Etcher's style
-              panel anchors below it (Etcher 0.13.2). --%>
+        <%!-- panel_toggle / panel_offset: as in the html.heex embed — the
+              style panel's switch joins Fresco's nav row and the panel
+              docks top-right, under the close button. --%>
         <Etcher.layer
           fresco_id={"media-zoom-" <> @board.target_uuid}
           colors={@etcher_colors}
           line_params={@etcher_line_params}
-          panel_offset={%{top: 56}}
+          panel_offset={%{top: 12}}
+          panel_toggle={:nav}
           toolbar={@can_annotate}
           nav_buttons={if @can_annotate, do: nil, else: [:visibility]}
           tools={

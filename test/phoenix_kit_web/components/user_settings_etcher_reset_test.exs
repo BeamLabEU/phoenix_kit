@@ -142,6 +142,66 @@ defmodule PhoenixKitWeb.Live.Components.UserSettingsEtcherResetTest do
       assert MediaCanvasViewer.open_annotating?(Auth.get_user_by_email(user.email))
     end
   end
+
+  describe "the invert-two-finger-pan switch" do
+    setup do
+      {:ok, user} =
+        Auth.register_user(%{
+          email: "invert-pan-#{System.unique_integer([:positive])}@example.com",
+          password: "hello world!"
+        })
+
+      %{user: user}
+    end
+
+    defp toggle_pan(user, current) do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          __changed__: %{},
+          user: user,
+          myself: nil,
+          viewer_invert_two_finger_pan: current
+        },
+        private: %{live_temp: %{}}
+      }
+
+      UserSettings.handle_event("toggle_viewer_invert_two_finger_pan", %{}, socket)
+    end
+
+    test "flips the per-user flag the viewer reads, and back", %{user: user} do
+      refute MediaCanvasViewer.invert_two_finger_pan?(user), "the shipped default is off"
+
+      {:noreply, socket} = toggle_pan(user, false)
+      assert socket.assigns.viewer_invert_two_finger_pan
+      assert MediaCanvasViewer.invert_two_finger_pan?(Auth.get_user_by_email(user.email))
+
+      {:noreply, socket} = toggle_pan(socket.assigns.user, true)
+      refute socket.assigns.viewer_invert_two_finger_pan
+      refute MediaCanvasViewer.invert_two_finger_pan?(Auth.get_user_by_email(user.email))
+    end
+
+    test "touches only its own key", %{user: user} do
+      {:ok, user} =
+        Auth.merge_user_custom_fields(user, %{MediaCanvasViewer.open_annotating_key() => true})
+
+      {:noreply, _} = toggle_pan(user, false)
+
+      assert MediaCanvasViewer.open_annotating?(Auth.get_user_by_email(user.email))
+    end
+
+    test "an annotation-tools reset leaves the switch alone", %{user: user} do
+      {:noreply, _} = toggle_pan(user, false)
+
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{__changed__: %{}, user: Auth.get_user_by_email(user.email), myself: nil},
+        private: %{live_temp: %{}}
+      }
+
+      {:noreply, _} = UserSettings.handle_event("reset_etcher_settings", %{}, socket)
+
+      assert MediaCanvasViewer.invert_two_finger_pan?(Auth.get_user_by_email(user.email))
+    end
+  end
 end
 
 defmodule PhoenixKitWeb.Live.Components.UserSettingsEtcherSectionTest do

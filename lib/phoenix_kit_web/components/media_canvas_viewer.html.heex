@@ -16,6 +16,7 @@
       etcher_colors={@etcher_colors}
       etcher_line_params={@etcher_line_params}
       can_annotate={@can_annotate}
+      invert_two_finger_pan={@invert_two_finger_pan}
     />
   <% else %>
     <%!--                                                                          --%>
@@ -89,7 +90,7 @@
           id={"pk-annotation-actions-" <> f.file_uuid}
           phx-hook="EtcherTooltipActions"
           data-viewer-pane
-          style={aspect && "--pk-pane-aspect: #{aspect}"}
+          style={pane_style(aspect, @viewer_only)}
           class={[
             "flex-[7] relative flex items-center justify-center bg-base-200 overflow-hidden p-0 lg:landscape:p-2 max-lg:min-h-[40vh]",
             "lg:portrait:flex-none lg:portrait:max-h-[60vh]",
@@ -164,38 +165,53 @@
             <span class="loading loading-spinner loading-xs text-primary"></span>
             <span>{gettext("Loading full quality…")}</span>
           </div>
-          <%!-- Chevron positioning sits on a wrapper div, not the button.       --%>
-          <%!-- daisyUI's active-state CSS replaces `transform` with             --%>
-          <%!-- `scale(0.97)` on click, which would clobber a -translate-y-1/2    --%>
-          <%!-- on the button itself and make it jump down 50% of its height.    --%>
-          <%= if @has_prev do %>
-            <div class="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-              <button
-                type="button"
-                phx-click="step_viewer"
-                phx-value-dir="prev"
-                phx-target={"##{@parent_id}"}
-                class="btn btn-circle btn-ghost bg-base-100/80 hover:bg-base-100 shadow-md"
-                title={gettext("Previous (←)")}
-              >
-                <.icon name="hero-chevron-left" class="w-5 h-5" />
-              </button>
-            </div>
-          <% end %>
-          <%= if @has_next do %>
-            <div class="absolute right-4 top-1/2 -translate-y-1/2 z-10">
-              <button
-                type="button"
-                phx-click="step_viewer"
-                phx-value-dir="next"
-                phx-target={"##{@parent_id}"}
-                class="btn btn-circle btn-ghost bg-base-100/80 hover:bg-base-100 shadow-md"
-                title={gettext("Next (→)")}
-              >
-                <.icon name="hero-chevron-right" class="w-5 h-5" />
-              </button>
-            </div>
-          <% end %>
+          <%!-- Previous / next: tabs joined to the pane's left and right     --%>
+          <%!-- edges, halfway down. They used to be circles floating a few   --%>
+          <%!-- px in from the edge, which read as loose chrome over the       --%>
+          <%!-- picture and, on a small screen, landed on Fresco's buttons.    --%>
+          <%!-- Flush with the edge and rounded only on the inside, they read --%>
+          <%!-- as part of the popup. Plain buttons rather than daisyUI .btn:  --%>
+          <%!-- its active state replaces `transform` with scale(0.97), which --%>
+          <%!-- would undo the -translate-y-1/2 on the wrapper's child.        --%>
+          <%!-- Bigger below lg, for a fingertip. See-through, so on a dark   --%>
+          <%!-- theme a solid slab does not hide the picture under it; they   --%>
+          <%!-- firm up on hover.                                             --%>
+          <%!-- Swiping a fully zoomed-out picture steps too (ViewerSwipe). --%>
+          <div
+            :if={@has_prev or @has_next}
+            id={"pk-viewer-swipe-" <> f.file_uuid}
+            phx-hook="ViewerSwipe"
+            data-target={"##{@parent_id}"}
+            data-has-prev={to_string(@has_prev)}
+            data-has-next={to_string(@has_next)}
+            class="hidden"
+          />
+          <div :if={@has_prev} class="absolute left-0 top-1/2 -translate-y-1/2 z-10">
+            <button
+              type="button"
+              phx-click="step_viewer"
+              phx-value-dir="prev"
+              phx-target={"##{@parent_id}"}
+              class="flex items-center justify-center h-16 w-9 lg:h-14 lg:w-7 rounded-r-xl bg-base-100/45 hover:bg-base-100/85 backdrop-blur-sm text-base-content shadow-sm border border-l-0 border-base-content/10 cursor-pointer transition-colors"
+              title={gettext("Previous (←)")}
+              aria-label={gettext("Previous (←)")}
+            >
+              <.icon name="hero-chevron-left" class="w-4 h-4" />
+            </button>
+          </div>
+          <div :if={@has_next} class="absolute right-0 top-1/2 -translate-y-1/2 z-10">
+            <button
+              type="button"
+              phx-click="step_viewer"
+              phx-value-dir="next"
+              phx-target={"##{@parent_id}"}
+              class="flex items-center justify-center h-16 w-9 lg:h-14 lg:w-7 rounded-l-xl bg-base-100/45 hover:bg-base-100/85 backdrop-blur-sm text-base-content shadow-sm border border-r-0 border-base-content/10 cursor-pointer transition-colors"
+              title={gettext("Next (→)")}
+              aria-label={gettext("Next (→)")}
+            >
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
+          </div>
 
           <%= cond do %>
             <% is_binary(f.mime_type) and String.starts_with?(f.mime_type, "image/") -> %>
@@ -237,6 +253,10 @@
                   id={"media-plain-" <> f.file_uuid}
                   canvas={plain_canvas(@viewer_canvas)}
                   class="w-full h-full lg:rounded"
+                  invert_two_finger_pan={@invert_two_finger_pan}
+                  nav_layout={:row}
+                  nav_overflow={@nav_overflow}
+                  nav_reverse
                   theme={:light}
                   initial_rotation={@viewer_rotation}
                   persist_rotation={@persist_rotation}
@@ -261,6 +281,10 @@
                     id={"media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")}
                     canvas={@burn_canvas}
                     class="w-full h-full lg:rounded"
+                    invert_two_finger_pan={@invert_two_finger_pan}
+                    nav_layout={:row}
+                    nav_overflow={@nav_overflow}
+                    nav_reverse
                     theme={:light}
                     initial_rotation={@viewer_rotation}
                     persist_rotation={@persist_rotation}
@@ -274,6 +298,10 @@
                       id={"media-zoom-" <> f.file_uuid}
                       canvas={@viewer_canvas}
                       class="w-full h-full lg:rounded"
+                      invert_two_finger_pan={@invert_two_finger_pan}
+                      nav_layout={:row}
+                      nav_overflow={@nav_overflow}
+                      nav_reverse
                       theme={:light}
                       initial_rotation={@viewer_rotation}
                       persist_rotation={@persist_rotation}
@@ -284,10 +312,12 @@
                     <%!-- toggle flipped on a board followed people here, where the  --%>
                     <%!-- anchors point at nothing (no arrow tool below). Hard off   --%>
                     <%!-- also hides the toggle from the toolbar.                    --%>
-                    <%!-- panel_offset: the viewer's details-minimizer button      --%>
-                    <%!-- (top-3 right-14 above) owns the top-right corner, and    --%>
-                    <%!-- Etcher's style-panel chevron landed in the same row.     --%>
-                    <%!-- Anchor the panel cluster below it (Etcher 0.13.2).         --%>
+                    <%!-- panel_toggle / panel_offset: the style panel's on/off  --%>
+                    <%!-- switch joins Fresco's nav row; the panel itself docks  --%>
+                    <%!-- top-right, just under the close and details buttons    --%>
+                    <%!-- (top 12 + Etcher's 40 = 52px), and in from the edge by  --%>
+                    <%!-- the next-file tab's width when there is one, so it     --%>
+                    <%!-- never sits on it on a short screen (Etcher 0.21).       --%>
                     <%!-- tooltip_dock={:panel} moves a shape's tooltip into the  --%>
                     <%!-- style panel, under the stroke and colour controls: click --%>
                     <%!-- a shape and its label, comment and delete actions are    --%>
@@ -309,7 +339,8 @@
                       fresco_id={"media-zoom-" <> f.file_uuid}
                       colors={@etcher_colors}
                       line_params={@etcher_line_params}
-                      panel_offset={%{top: 56}}
+                      panel_offset={%{top: 12, right: if(@has_next, do: 40, else: 12)}}
+                      panel_toggle={:nav}
                       tooltip_dock={:panel}
                       connectors={:off}
                       toolbar={@can_annotate}
