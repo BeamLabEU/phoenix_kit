@@ -151,8 +151,10 @@ defmodule PhoenixKit.Modules.Storage.Hdr do
     big? = order == "MM"
     ifd = int(tiff, 4, 4, big?)
 
-    with true <- is_integer(ifd) and ifd + 2 <= byte_size(tiff),
-         count when is_integer(count) <- int(tiff, ifd, 2, big?) do
+    # `int/4` always returns an integer (0 when out of range), so only the
+    # bound on the IFD itself can fail here.
+    if ifd + 2 <= byte_size(tiff) do
+      count = int(tiff, ifd, 2, big?)
       entries = for i <- 0..(count - 1)//1, do: binary_part_safe(tiff, ifd + 2 + i * 12, 12)
 
       case Enum.find(entries, &match_tag?(&1, 0xB002, big?)) do
@@ -165,7 +167,7 @@ defmodule PhoenixKit.Modules.Storage.Hdr do
           images(list, base, big?, [])
       end
     else
-      _ -> []
+      []
     end
   end
 

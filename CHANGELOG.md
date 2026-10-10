@@ -1,3 +1,21 @@
+## 2.60.3 - 2026-10-10
+
+No migration. Ships PR #923 (opt-in permanent default-locale redirect); the review found nothing to fix.
+
+### Added
+
+- **`config :phoenix_kit, :default_locale_redirect, status: 301, max_age: 86_400`** makes the `/<default>/...` to
+  prefixless redirect permanent for GET and HEAD (`301`/`308`, or `:moved_permanently`/`:permanent_redirect`), sent
+  with `cache-control: private, max-age=<max_age>` so only the browser stores it and forgets it after `max_age`
+  (one day when missing or invalid). Other methods, hosts without the option and a misconfigured option keep the 302;
+  a misconfiguration is logged once per node.
+
+### Fixed
+
+- **`mix precommit` was red on main:** dialyzer flagged `Storage.Hdr.mp_images/2` (from the HDR gain-map detection
+  commit) because `int/4` always returns an integer, so its `is_integer` guards could never fail. The dead checks are
+  gone; behaviour is unchanged.
+
 ## 2.60.2 - 2026-10-10
 
 No migration. Ships PR #922 (media viewer on a small screen, swipe between files, "Invert two-finger pan") and a
