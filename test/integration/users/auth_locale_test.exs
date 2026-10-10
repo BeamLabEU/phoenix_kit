@@ -267,6 +267,27 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
     end
   end
 
+  # What Plug sends on any response that sets no cache-control of its own.
+  @plug_default_cache "max-age=0, private, must-revalidate"
+
+  defp primary_locale_conn(method) do
+    build_conn(method, "/phoenix_kit/en/users/log-in")
+    |> Plug.Conn.fetch_query_params()
+    |> Map.put(:path_params, %{"locale" => "en"})
+  end
+
+  defp put_redirect_config(opts) do
+    previous = Application.fetch_env(:phoenix_kit, :default_locale_redirect)
+    Application.put_env(:phoenix_kit, :default_locale_redirect, opts)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:phoenix_kit, :default_locale_redirect, value)
+        :error -> Application.delete_env(:phoenix_kit, :default_locale_redirect)
+      end
+    end)
+  end
+
   describe "validate_and_set_locale/2 — primary-locale canonical redirect" do
     # `process_valid_locale/2` (private) decides whether to 301-redirect
     # `/<default>/<non-admin>` to `/<non-admin>` so there's one canonical
@@ -304,6 +325,54 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
       # composes the response; assert on the target path which is what
       # matters for canonical-URL behavior.
       assert redirected_to(conn) == "/phoenix_kit/users/log-in"
+    end
+
+    test "the redirect is a 302 with Plug's default cache header unless the host opts in" do
+      Languages.set_default_language_no_prefix(true)
+
+      conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+
+      assert conn.halted
+      assert conn.status == 302
+      assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
+    end
+
+    test "an opted-in host gets a permanent redirect cached for max_age on GET and HEAD" do
+      Languages.set_default_language_no_prefix(true)
+      put_redirect_config(status: 301, max_age: 3600)
+
+      for method <- [:get, :head] do
+        conn = Auth.validate_and_set_locale(primary_locale_conn(method), [])
+
+        assert conn.halted
+        assert redirected_to(conn, 301) == "/phoenix_kit/users/log-in"
+        assert Plug.Conn.get_resp_header(conn, "cache-control") == ["max-age=3600"]
+      end
+    end
+
+    test "308 is accepted, and a missing or invalid max_age falls back to one day" do
+      Languages.set_default_language_no_prefix(true)
+
+      for opts <- [[status: 308], [status: 308, max_age: -1], [status: 308, max_age: "1h"]] do
+        put_redirect_config(opts)
+        conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+
+        assert redirected_to(conn, 308) == "/phoenix_kit/users/log-in"
+        assert Plug.Conn.get_resp_header(conn, "cache-control") == ["max-age=86400"]
+      end
+    end
+
+    test "other methods and unsupported statuses keep the 302" do
+      Languages.set_default_language_no_prefix(true)
+
+      put_redirect_config(status: 301)
+      conn = Auth.validate_and_set_locale(primary_locale_conn(:post), [])
+      assert conn.status == 302
+      assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
+
+      put_redirect_config(status: 307)
+      conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+      assert conn.status == 302
     end
 
     test "primary locale on admin URL is NEVER redirected (both settings)" do

@@ -3765,11 +3765,21 @@ defmodule PhoenixKitWeb.Users.Auth do
   #      behaviour all along.
   #
   # If canonicalisation for SEO is wanted, express it with a
-  # `<link rel="canonical">` — not with a cached permanent redirect.
+  # `<link rel="canonical">` — not with an uncapped permanent redirect.
+  #
+  # A host that wants search engines to see a permanent redirect opts in:
+  #
+  #     config :phoenix_kit, :default_locale_redirect, status: 301, max_age: 86_400
+  #
+  # GET and HEAD then get that status (301 or 308) with
+  # `cache-control: max-age=<max_age>` (one day by default), so a browser
+  # forgets the redirect after that long instead of keeping it for good —
+  # the risk point 2 above describes. Other methods keep the 302.
   defp redirect_default_locale_to_clean_url(conn, locale) do
     case locale_segment_path(conn, locale, []) do
       {:ok, clean_path} when clean_path != conn.request_path ->
         conn
+        |> put_default_locale_redirect_status()
         |> Phoenix.Controller.redirect(to: with_query_string(clean_path, conn))
         |> halt()
 
@@ -3781,6 +3791,32 @@ defmodule PhoenixKitWeb.Users.Auth do
         assign_default_locale(conn)
     end
   end
+
+  @permanent_redirect_statuses [301, 308]
+  @default_redirect_max_age 86_400
+
+  defp put_default_locale_redirect_status(%Plug.Conn{method: method} = conn)
+       when method in ["GET", "HEAD"] do
+    opts = Application.get_env(:phoenix_kit, :default_locale_redirect, [])
+
+    case Keyword.get(opts, :status) do
+      status when status in @permanent_redirect_statuses ->
+        max_age =
+          case Keyword.get(opts, :max_age) do
+            seconds when is_integer(seconds) and seconds >= 0 -> seconds
+            _ -> @default_redirect_max_age
+          end
+
+        conn
+        |> Plug.Conn.put_status(status)
+        |> Plug.Conn.put_resp_header("cache-control", "max-age=#{max_age}")
+
+      _ ->
+        conn
+    end
+  end
+
+  defp put_default_locale_redirect_status(conn), do: conn
 
   # Assign the default locale onto the conn without redirecting. Used by the
   # locale redirect functions when the "corrected" path would be identical
