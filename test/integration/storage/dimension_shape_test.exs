@@ -137,7 +137,8 @@ defmodule PhoenixKit.Integration.Storage.DimensionShapeTest do
     assert %{shape: ["can't be blank"]} = errors_on(changeset)
 
     # Ecto treats a form's empty string as the schema default, "any".
-    assert {:ok, %{shape: "any"}} = Storage.update_dimension(size, %{shape: ""})
+    assert {:ok, updated} = Storage.update_dimension(size, %{shape: ""})
+    assert Dimension.shape(updated) == "any"
   end
 
   test "the standard sizes cannot be limited to wide or tall pictures" do
@@ -152,12 +153,16 @@ defmodule PhoenixKit.Integration.Storage.DimensionShapeTest do
 
     mini = Storage.get_dimension_by_name("mini_square")
     assert {mini.width, mini.height, mini.quality} == {64, 64, 70}
-    assert {mini.maintain_aspect_ratio, mini.crop_mode, mini.shape} == {false, "focus", "any"}
+
+    assert {mini.maintain_aspect_ratio, Dimension.crop_mode(mini), Dimension.shape(mini)} ==
+             {false, "focus", "any"}
 
     for {name, height} <- [{"thumbnail_wide", 150}, {"small_wide", 300}, {"medium_wide", 800}] do
       d = Storage.get_dimension_by_name(name)
       assert {d.width, d.height} == {nil, height}
-      assert {d.maintain_aspect_ratio, d.fit_by, d.shape} == {true, "height", "wide"}
+
+      assert {d.maintain_aspect_ratio, Dimension.fit_by(d), Dimension.shape(d)} ==
+               {true, "height", "wide"}
     end
   end
 end

@@ -25,21 +25,22 @@ defmodule PhoenixKit.Migrations.Postgres.V210Test do
     """)
   end
 
-  test "the chain is at 210 or later, with the column, its default and NOT NULL" do
+  # V217 moved the setting into `options` and emptied the column (nullable, no
+  # default); V210's own statements are still tested below.
+  test "the chain is at 210 or later; since V217 the column is nullable, with no default" do
     assert String.to_integer(marker()) >= 210
-    assert [["character varying", default, "NO"]] = column()
-    assert default =~ "center"
+    assert [["character varying", nil, "YES"]] = column()
   end
 
-  test "an existing rendition crops at the center" do
-    assert [["thumbnail", "center"]] =
+  test "an existing rendition still crops at the center, now recorded in options" do
+    assert [["thumbnail", "center", nil]] =
              query("""
-             SELECT name, crop_mode FROM public.phoenix_kit_storage_dimensions
+             SELECT name, options->>'crop_mode', crop_mode FROM public.phoenix_kit_storage_dimensions
              WHERE name = 'thumbnail' AND variant_set_uuid = '00000000-0000-7000-8000-000000000003'
              """)
   end
 
-  test "a rendition written without it lands on the center" do
+  test "a rendition written without it has no column value: the code defaults to the center" do
     [[mode]] =
       query(
         """
@@ -50,14 +51,14 @@ defmodule PhoenixKit.Migrations.Postgres.V210Test do
         ["v210_#{System.unique_integer([:positive])}"]
       )
 
-    assert mode == "center"
+    assert mode == nil
   end
 
   test "running it again changes nothing" do
     run(V210.up_statements("public"))
     run(V210.up_statements("public"))
 
-    assert [["character varying", _default, "NO"]] = column()
+    assert [["character varying", nil, "YES"]] = column()
     assert String.to_integer(marker()) >= 210
   end
 

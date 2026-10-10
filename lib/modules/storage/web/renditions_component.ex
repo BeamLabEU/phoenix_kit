@@ -248,12 +248,15 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
   # proportions sets the width and lets the height follow each image or video;
   # a fixed image rendition is a box the image is scaled to fill and cropped to,
   # a fixed video one a box the video is scaled to fit inside. Neither enlarges.
-  defp base_size_text(%{maintain_aspect_ratio: true, fit_by: "height", height: height}, :image)
-       when is_integer(height) do
-    {gettext("%{height} px tall", height: height), gettext("width follows the image")}
+  defp base_size_text(dimension, kind) do
+    if kind == :image and Dimension.fixed_height?(dimension) and is_integer(dimension.height) do
+      {gettext("%{height} px tall", height: dimension.height), gettext("width follows the image")}
+    else
+      base_size_by_width(dimension, kind)
+    end
   end
 
-  defp base_size_text(%{maintain_aspect_ratio: true, width: width}, kind)
+  defp base_size_by_width(%{maintain_aspect_ratio: true, width: width}, kind)
        when is_integer(width) do
     {gettext("%{width} px wide", width: width),
      if(kind == :image,
@@ -262,23 +265,29 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.RenditionsComponent do
      )}
   end
 
-  defp base_size_text(%{width: width, height: height} = dimension, kind)
+  defp base_size_by_width(%{width: width, height: height} = dimension, kind)
        when is_integer(width) and is_integer(height) do
     {gettext("%{width} × %{height} px", width: width, height: height),
      cond do
        kind != :image -> gettext("fits inside, shape kept")
-       dimension.crop_mode == "focus" -> gettext("cropped around the subject")
+       Dimension.crop_mode(dimension) == "focus" -> gettext("cropped around the subject")
        true -> gettext("cropped to fit")
      end}
   end
 
-  defp base_size_text(_dimension, _kind), do: {gettext("Automatic"), nil}
+  defp base_size_by_width(_dimension, _kind), do: {gettext("Automatic"), nil}
 
   # The size in words, and who it is made for when not every picture.
   defp size_text(dimension, kind) do
     {size, note} = base_size_text(dimension, kind)
-    {size, shape_note(note, Map.get(dimension, :shape))}
+    {size, note |> shape_note(Dimension.shape(dimension)) |> hdr_note(dimension, kind)}
   end
+
+  defp hdr_note(note, dimension, :image) do
+    if Dimension.keep_hdr?(dimension), do: join_notes(note, gettext("keeps HDR")), else: note
+  end
+
+  defp hdr_note(note, _dimension, _kind), do: note
 
   defp shape_note(note, "wide"), do: join_notes(note, gettext("wide pictures only"))
   defp shape_note(note, "tall"), do: join_notes(note, gettext("tall pictures only"))

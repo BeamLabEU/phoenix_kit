@@ -40,16 +40,18 @@ defmodule PhoenixKit.Modules.Storage.VideoOutputTest do
 
   defp render!(ctx, attrs) do
     dimension =
-      struct!(
-        %Dimension{
-          name: "clip",
-          applies_to: "video",
-          quality: 25,
-          format: "mp4",
-          width: 160,
-          maintain_aspect_ratio: true
-        },
-        attrs
+      Dimension.new(
+        Map.merge(
+          %{
+            name: "clip",
+            applies_to: "video",
+            quality: 25,
+            format: "mp4",
+            width: 160,
+            maintain_aspect_ratio: true
+          },
+          Map.new(attrs)
+        )
       )
 
     output = Path.join(ctx.tmp_dir, "output.#{dimension.format || "mp4"}")

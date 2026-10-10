@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
   alias PhoenixKit.Modules.Storage
 
   alias PhoenixKit.Modules.Storage.{
+    Dimension,
     Libraries,
     Library,
     ProfileBucket,
@@ -464,7 +465,7 @@ defmodule PhoenixKit.Modules.Storage.ProfilesTest do
         dimension = Storage.get_dimension_by_name(name)
         assert {dimension.width, dimension.height} == {side, side}
         assert dimension.maintain_aspect_ratio == false
-        assert dimension.crop_mode == "focus"
+        assert Dimension.crop_mode(dimension) == "focus"
         assert dimension.applies_to == "image"
       end
 

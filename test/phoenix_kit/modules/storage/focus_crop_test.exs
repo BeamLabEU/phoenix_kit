@@ -73,8 +73,7 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
 
   describe "a rendition's crop mode" do
     defp dimension(attrs) do
-      struct!(
-        Dimension,
+      Dimension.new(
         Map.merge(
           %{
             name: "thumbnail",
@@ -92,7 +91,7 @@ defmodule PhoenixKit.Modules.Storage.FocusCropTest do
     end
 
     test "is center unless said otherwise" do
-      assert %Dimension{}.crop_mode == "center"
+      assert Dimension.crop_mode(%Dimension{}) == "center"
       assert Dimension.crop_modes() == ~w(center focus)
     end
 

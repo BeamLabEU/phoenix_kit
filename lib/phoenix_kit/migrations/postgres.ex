@@ -7,7 +7,13 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V216 - Key layout of a storage profile ⚡ LATEST
+  ### V217 - Renditions that keep HDR ⚡ LATEST
+
+  `phoenix_kit_storage_dimensions.keep_hdr` (default false): a size with it on is
+  made from an HDR photo with its gain map kept. The standard `medium` and `large`
+  get it on, as they behaved before it was a setting. No rendition is remade.
+
+  ### V216 - Key layout of a storage profile
 
   `phoenix_kit_storage_profiles.key_levels` (0..3, default 1): how many
   two-character hash folders sit between a library's key prefix and a file's own
@@ -976,7 +982,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 216
+  @current_version 217
   @default_prefix "public"
 
   # The frozen pre-squash bridge: the last 1.7.x release, which still carries

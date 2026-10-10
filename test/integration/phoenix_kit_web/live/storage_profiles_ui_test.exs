@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Bucket, Libraries, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Bucket, Dimension, Libraries, Profiles, VariantSets}
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Utils.Routes
 
@@ -569,12 +569,41 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       })
       |> render_submit()
 
-      assert %{crop_mode: "focus", maintain_aspect_ratio: false} =
-               Storage.get_dimension_by_name("square_focus", VariantSets.default_uuid())
+      square = Storage.get_dimension_by_name("square_focus", VariantSets.default_uuid())
+      assert {Dimension.crop_mode(square), square.maintain_aspect_ratio} == {"focus", false}
 
       # The Renditions tab says how it is cropped.
       {:ok, tab, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
       assert render(tab) =~ "cropped around the subject"
+    end
+
+    test "a rendition can keep the HDR gain map, and the list says which ones do", %{conn: conn} do
+      medium =
+        Repo.one!(
+          from d in Dimension,
+            where:
+              d.name == "medium" and
+                d.variant_set_uuid == ^VariantSets.default_uuid()
+        )
+
+      assert Dimension.keep_hdr?(medium), "the standard medium keeps it, as it always did"
+
+      # The list names the sizes that keep it.
+      {:ok, tab, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
+      assert render(tab) =~ "keeps HDR"
+
+      # The editor has the option, set as the size is.
+      {:ok, view, html} =
+        live(conn, Routes.path("/admin/settings/media/renditions/#{medium.uuid}/edit"))
+
+      assert html =~ ~s(id="dimension-keep-hdr")
+      assert has_element?(view, "#dimension-keep-hdr input[type=checkbox][checked]")
+
+      view
+      |> form("#dimension-form", %{"dimension" => %{"keep_hdr" => "false"}})
+      |> render_submit()
+
+      refute Dimension.keep_hdr?(Repo.reload!(medium))
     end
 
     test "a rendition that keeps proportions can fix its height, for a horizontal panorama",
@@ -608,8 +637,9 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       })
       |> render_submit()
 
-      assert %{fit_by: "height", height: 240, width: nil, maintain_aspect_ratio: true} =
-               Storage.get_dimension_by_name("strip", VariantSets.default_uuid())
+      strip = Storage.get_dimension_by_name("strip", VariantSets.default_uuid())
+      assert %{height: 240, width: nil, maintain_aspect_ratio: true} = strip
+      assert Dimension.fit_by(strip) == "height"
 
       {:ok, tab, _html} = live(conn, Routes.path("/admin/settings/media?tab=renditions"))
       html = render(tab)
@@ -636,7 +666,7 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       import Ecto.Query, only: [from: 2]
 
       Repo.delete_all(
-        from d in PhoenixKit.Modules.Storage.Dimension, where: d.crop_mode == "focus"
+        from d in Dimension, where: fragment("?->>'crop_mode' = 'focus'", d.options)
       )
 
       thumbnail = Storage.get_dimension_by_name("thumbnail", VariantSets.default_uuid())

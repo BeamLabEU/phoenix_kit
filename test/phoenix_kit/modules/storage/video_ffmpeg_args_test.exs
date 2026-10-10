@@ -11,8 +11,7 @@ defmodule PhoenixKit.Modules.Storage.VideoFfmpegArgsTest do
   alias PhoenixKit.Modules.Storage.{Dimension, VariantGenerator}
 
   defp dimension(attrs) do
-    struct!(
-      Dimension,
+    Dimension.new(
       Map.merge(
         %{
           name: "720p",

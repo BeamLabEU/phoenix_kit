@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.DimensionOptions
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -199,15 +200,18 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   end
 
   # Helper function to get field value from changeset or data
-  defp get_field_value(changeset, field) do
-    case changeset do
-      %Ecto.Changeset{} ->
-        Ecto.Changeset.get_field(changeset, field)
-
-      _ ->
-        nil
+  # The options (crop mode, fixed side, shape, HDR) are one JSON object on the size
+  # but have their own inputs, named `dimension[crop_mode]` and so on, which the
+  # changeset folds back into it.
+  defp get_field_value(%Ecto.Changeset{} = changeset, field) do
+    if field in DimensionOptions.keys() do
+      changeset |> Ecto.Changeset.get_field(:options) |> Map.get(field)
+    else
+      Ecto.Changeset.get_field(changeset, field)
     end
   end
+
+  defp get_field_value(_changeset, _field), do: nil
 
   # Helper function to render error messages
   defp render_error(changeset, field) do

@@ -33,7 +33,15 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   import Ecto.Query
 
-  alias PhoenixKit.Modules.Storage.{Audit, Dimension, Library, VariantGenerator, VariantSet}
+  alias PhoenixKit.Modules.Storage.{
+    Audit,
+    Dimension,
+    DimensionOptions,
+    Library,
+    VariantGenerator,
+    VariantSet
+  }
+
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.Shape
@@ -192,6 +200,7 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           :order
         ])
         |> Map.merge(%{
+          options: %DimensionOptions{keep_hdr: Dimension.keep_hdr?(d)},
           uuid: UUIDv7.generate(),
           variant_set_uuid: set_uuid,
           inserted_at: now,
@@ -495,7 +504,9 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
   @spec focus_crop_in_use?() :: boolean()
   def focus_crop_in_use? do
     from(d in Dimension,
-      where: d.enabled and d.maintain_aspect_ratio == false and d.crop_mode == "focus"
+      where:
+        d.enabled and d.maintain_aspect_ratio == false and
+          fragment("?->>'crop_mode' = 'focus'", d.options)
     )
     |> repo().exists?()
   end
@@ -682,8 +693,12 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
 
   # A size made for a shape is made only for files of that shape (as
   # `VariantGenerator` decides), so it is never one to ask for another's.
-  defp shape_fits?(%{shape: shape}, _file) when shape in [nil, "any"], do: true
-  defp shape_fits?(%{shape: shape}, file), do: to_string(Shape.classify(file)) == shape
+  defp shape_fits?(dimension, file) do
+    case Dimension.shape(dimension) do
+      shape when shape in [nil, "any"] -> true
+      shape -> to_string(Shape.classify(file)) == shape
+    end
+  end
 
   defp aspect_fits?(_dimension, :any), do: true
   defp aspect_fits?(dimension, :preserve), do: dimension.maintain_aspect_ratio == true

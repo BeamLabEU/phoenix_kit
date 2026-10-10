@@ -1247,6 +1247,7 @@ defmodule PhoenixKit.Modules.Storage do
           applies_to: "image",
           enabled: true,
           alternative_formats: [],
+          keep_hdr: true,
           order: 3,
           inserted_at: now,
           updated_at: now
@@ -1260,6 +1261,7 @@ defmodule PhoenixKit.Modules.Storage do
           applies_to: "image",
           enabled: true,
           alternative_formats: [],
+          keep_hdr: true,
           order: 4,
           inserted_at: now,
           updated_at: now
@@ -1662,7 +1664,6 @@ defmodule PhoenixKit.Modules.Storage do
     :applies_to,
     :enabled,
     :maintain_aspect_ratio,
-    :shape,
     :alternative_formats
   ]
 
@@ -1696,7 +1697,7 @@ defmodule PhoenixKit.Modules.Storage do
           "storage_variant_set",
           updated.variant_set_uuid,
           opts,
-          Audit.changes(changeset, @audited_size_fields),
+          Map.merge(Audit.changes(changeset, @audited_size_fields), option_changes(changeset)),
           size_metadata(updated)
         )
 
@@ -1745,6 +1746,16 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp audit_size(_result, _action, _opts), do: :ok
+
+  # The size's options that changed, in the shape `Audit.changes/2` gives a column's
+  # change (`%{"shape" => %{"from" => "any", "to" => "wide"}}`).
+  defp option_changes(%Ecto.Changeset{changes: %{options: %Ecto.Changeset{} = options}}) do
+    for {key, value} <- options.changes, into: %{} do
+      {Atom.to_string(key), %{"from" => Map.get(options.data, key), "to" => value}}
+    end
+  end
+
+  defp option_changes(_changeset), do: %{}
 
   defp size_metadata(%Dimension{} = dimension) do
     set = dimension.variant_set_uuid && VariantSets.get_variant_set(dimension.variant_set_uuid)

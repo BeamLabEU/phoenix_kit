@@ -202,6 +202,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V217 (2026-10-10, the options of a rendition) DECLARES one object,
+  # `column:phoenix_kit_storage_dimensions.options` (jsonb NOT NULL DEFAULT '{}',
+  # position 18), and RESHAPES three: `crop_mode`, `fit_by` and `shape` (positions
+  # 15 to 17) become nullable with no default, emptied after being copied into
+  # `options`, until a later migration drops them. Read from a test database
+  # migrated through V217. `chain_hash` restamped over the shipped files.
+  #
   # V216 (2026-10-09, key layout of a storage profile) DECLARES one object:
   # `column:phoenix_kit_storage_profiles.key_levels` (smallint NOT NULL DEFAULT 1,
   # position 13), read from a test database migrated through V216. `chain_hash`
@@ -576,7 +583,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "501264509bd0fb7363c733a88c0f2abcf3ce93c55a7d2055d08b26564a106fa9"
+  @chain_hash "8567d24513c3471d83881d73d0bc1abd3995207c24b62f30b89bfc61aa1ae02d"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -2431,7 +2438,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         check:
           {:catalog, %{table: "phoenix_kit_storage_dimensions", column: "fit_by", kind: :column}},
         create:
-          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"fit_by\" character varying(255) DEFAULT 'width' NOT NULL",
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"fit_by\" character varying(255)",
         since: 211,
         class: :column,
         revisions: [
@@ -2441,10 +2448,17 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              type: "character varying(255)",
              pos: 16,
              not_null: true
+           }},
+          {217,
+           %{
+             default: nil,
+             type: "character varying(255)",
+             pos: 16,
+             not_null: false
            }}
         ],
         presence: :required,
-        backfill: :default
+        backfill: nil
       },
       %{
         id: "column:phoenix_kit_files.latitude",
@@ -2503,7 +2517,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         check:
           {:catalog, %{table: "phoenix_kit_storage_dimensions", column: "shape", kind: :column}},
         create:
-          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"shape\" character varying(255) DEFAULT 'any' NOT NULL",
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"shape\" character varying(255)",
         since: 214,
         class: :column,
         revisions: [
@@ -2513,8 +2527,28 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              type: "character varying(255)",
              pos: 17,
              not_null: true
+           }},
+          {217,
+           %{
+             default: nil,
+             type: "character varying(255)",
+             pos: 17,
+             not_null: false
            }}
         ],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "column:phoenix_kit_storage_dimensions.options",
+        owner: :core,
+        check:
+          {:catalog, %{table: "phoenix_kit_storage_dimensions", column: "options", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"options\" jsonb DEFAULT '{}'::jsonb NOT NULL",
+        since: 217,
+        class: :column,
+        revisions: [{217, %{default: "'{}'::jsonb", type: "jsonb", pos: 18, not_null: true}}],
         presence: :required,
         backfill: :default
       },
@@ -74948,7 +74982,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
           {:catalog,
            %{table: "phoenix_kit_storage_dimensions", column: "crop_mode", kind: :column}},
         create:
-          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"crop_mode\" character varying(255) DEFAULT 'center' NOT NULL",
+          "ALTER TABLE __SCHEMA__.phoenix_kit_storage_dimensions ADD COLUMN IF NOT EXISTS \"crop_mode\" character varying(255)",
         since: 210,
         class: :column,
         revisions: [
@@ -74958,10 +74992,17 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
              type: "character varying(255)",
              pos: 15,
              not_null: true
+           }},
+          {217,
+           %{
+             default: nil,
+             type: "character varying(255)",
+             pos: 15,
+             not_null: false
            }}
         ],
         presence: :required,
-        backfill: :default
+        backfill: nil
       },
       %{
         id: "constraint:phoenix_kit_storage_libraries.phoenix_kit_storage_libraries_profile_fkey",

@@ -201,6 +201,28 @@
               )}
             </p>
           </fieldset>
+
+          <%!-- HDR photos --%>
+          <fieldset :if={@dimension_type != "video"} id="dimension-keep-hdr" class="fieldset">
+            <legend class="fieldset-legend font-semibold">{gettext("HDR photos")}</legend>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input type="hidden" name="dimension[keep_hdr]" value="false" />
+              <input
+                type="checkbox"
+                name="dimension[keep_hdr]"
+                value="true"
+                checked={get_field_value(@changeset, :keep_hdr) == true}
+                class="checkbox checkbox-sm"
+              />
+              <span class="label-text">{gettext("Keep the HDR (gain map)")}</span>
+            </label>
+            {render_error(@changeset, :keep_hdr)}
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext(
+                "An iPhone or Pixel photo carries an HDR gain map, which lets bright areas glow on an HDR screen. A size with this on is made with the map kept; without it the size is an ordinary picture. It applies to JPEG sizes that keep the photo's proportions and fit its width, and only to photos that have a map. It adds a few KB per picture, and applies to sizes made from now on."
+              )}
+            </p>
+          </fieldset>
         </div>
       </div>
 

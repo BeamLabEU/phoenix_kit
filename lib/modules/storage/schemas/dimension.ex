@@ -73,6 +73,8 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   use PhoenixKit.SchemaPrefix
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Storage.DimensionOptions
+
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
@@ -96,9 +98,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
           applies_to: String.t() | nil,
           enabled: boolean(),
           maintain_aspect_ratio: boolean(),
-          crop_mode: String.t(),
-          fit_by: String.t(),
-          shape: String.t(),
+          options: PhoenixKit.Modules.Storage.DimensionOptions.t(),
           alternative_formats: [String.t()],
           order: integer(),
           variant_set_uuid: UUIDv7.t() | nil,
@@ -115,17 +115,15 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     field :applies_to, :string
     field :enabled, :boolean, default: true
     field :maintain_aspect_ratio, :boolean, default: true
-    # How a fixed rendition is cropped (V210): around the middle, or around the
-    # photo's focal point. Does nothing for a rendition that keeps proportions.
-    field :crop_mode, :string, default: "center"
-    # Which side a rendition that keeps proportions fixes (V211): its `width`, or
-    # its `height` for a horizontal panorama (the width is then left empty and
-    # follows each photo). A fixed box has both sides and ignores it.
-    field :fit_by, :string, default: "width"
-    # Which pictures the rendition is made for (V214): every one, only the wide
-    # ones (panoramas), or only the tall ones. Not part of the spec hash: it
-    # decides whether a file gets the size, not what the size looks like.
-    field :shape, :string, default: "any"
+    # The rendition's options (V217): how a fixed box is cropped, which side a
+    # proportional one fixes, who it is made for, whether it keeps an HDR gain map.
+    # One JSON object with a typed struct (`DimensionOptions`); `shape` and the
+    # others are not part of the spec hash, as they were not as columns: they decide
+    # whether a file gets the size, not what the size looks like.
+    embeds_one :options, PhoenixKit.Modules.Storage.DimensionOptions,
+      on_replace: :update,
+      defaults_to_struct: true
+
     field :alternative_formats, {:array, :string}, default: []
     field :order, :integer, default: 0
 
@@ -164,7 +162,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   """
   def changeset(dimension, attrs) do
     dimension
-    |> cast(attrs, [
+    |> cast(fold_options(attrs), [
       :name,
       :width,
       :height,
@@ -173,21 +171,17 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
       :applies_to,
       :enabled,
       :maintain_aspect_ratio,
-      :crop_mode,
-      :fit_by,
-      :shape,
       :alternative_formats,
       :order
     ])
-    |> validate_required([:name, :applies_to, :shape])
+    |> cast_embed(:options, with: &DimensionOptions.changeset/2)
+    |> validate_required([:name, :applies_to])
     |> validate_format(:name, ~r/^[a-z0-9_]+$/,
       message: "must contain only lowercase letters, numbers, and underscores"
     )
     |> validate_length(:name, min: 1, max: 50)
     |> validate_inclusion(:applies_to, ["image", "video", "both"])
-    |> validate_inclusion(:crop_mode, @crop_modes)
-    |> validate_inclusion(:fit_by, @fit_sides)
-    |> validate_inclusion(:shape, @shapes)
+    |> surface_option_errors()
     |> validate_number(:width, greater_than: 0)
     |> validate_number(:height, greater_than: 0)
     |> validate_number(:order, greater_than_or_equal_to: 0)
@@ -202,6 +196,86 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
 
+  # The options a form or a caller names at the top level (`crop_mode: "focus"`,
+  # `"keep_hdr" => "true"`) go into `options`, whichever kind of key the map uses
+  # (Ecto allows one kind per map). A map that already has `options` keeps them and
+  # the top-level names win.
+  defp fold_options(attrs) when is_map(attrs) do
+    names = DimensionOptions.keys()
+    keys = Enum.flat_map(names, &[&1, Atom.to_string(&1)])
+    {flat, rest} = Map.split(attrs, keys)
+
+    if flat == %{} do
+      attrs
+    else
+      string_keys? = Enum.any?(Map.keys(rest) ++ Map.keys(flat), &is_binary/1)
+      existing = Map.get(rest, :options) || Map.get(rest, "options") || %{}
+
+      merged =
+        Map.new(existing, fn {k, v} -> {to_string(k), v} end)
+        |> Map.merge(Map.new(flat, fn {k, v} -> {to_string(k), v} end))
+
+      rest
+      |> Map.drop([:options, "options"])
+      |> Map.put(if(string_keys?, do: "options", else: :options), merged)
+    end
+  end
+
+  defp fold_options(attrs), do: attrs
+
+  # An option's error shows under its own name in the editor (`render_error(cs, :shape)`),
+  # as it did when each was a column of its own.
+  defp surface_option_errors(%Ecto.Changeset{changes: %{options: %Ecto.Changeset{} = opts}} = cs) do
+    Enum.reduce(opts.errors, cs, fn {key, {message, meta}}, acc ->
+      add_error(acc, key, message, meta)
+    end)
+  end
+
+  defp surface_option_errors(cs), do: cs
+
+  # An option as the changeset has it: the changed value, else the stored one.
+  defp option(changeset, key) do
+    case get_field(changeset, :options) do
+      %DimensionOptions{} = options -> Map.get(options, key)
+      _ -> Map.get(%DimensionOptions{}, key)
+    end
+  end
+
+  # Whether the form changed `key` (or the size is new, so everything is set).
+  defp option_changed?(changeset, key) do
+    case changeset.changes do
+      %{options: %Ecto.Changeset{changes: changes}} -> Map.has_key?(changes, key)
+      _ -> false
+    end
+  end
+
+  @doc """
+  A `%Dimension{}` built from a keyword list or map whose keys may include the
+  options (`crop_mode`, `fit_by`, `shape`, `keep_hdr`) at the top level, as the
+  changeset takes them. For code and tests that need a size without a database.
+  """
+  @spec new(Enumerable.t()) :: t()
+  def new(attrs \\ []) do
+    {options, rest} = attrs |> Map.new() |> Map.split(DimensionOptions.keys())
+    struct!(__MODULE__, Map.put(rest, :options, struct!(DimensionOptions, options)))
+  end
+
+  @doc "How a rendition is cropped when it is a fixed box: `center` or `focus`."
+  def crop_mode(%__MODULE__{options: %DimensionOptions{crop_mode: mode}}), do: mode
+  def crop_mode(_), do: "center"
+
+  @doc "The side a rendition that keeps proportions fixes: `width` or `height`."
+  def fit_by(%__MODULE__{options: %DimensionOptions{fit_by: side}}), do: side
+  def fit_by(_), do: "width"
+
+  @doc "Which pictures the rendition is made for: `any`, `wide` or `tall`."
+  def shape(%__MODULE__{options: %DimensionOptions{shape: shape}}), do: shape
+  def shape(_), do: "any"
+
+  @doc "Whether the rendition of an HDR photo keeps the gain map (when it can)."
+  def keep_hdr?(%__MODULE__{options: %DimensionOptions{keep_hdr: keep}}), do: keep == true
+  def keep_hdr?(_), do: false
+
   @doc "How a fixed rendition can be cropped: around the middle, or around the subject."
   def crop_modes, do: @crop_modes
 
@@ -209,7 +283,9 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   Whether `dimension` is cropped around the photo's focal point: a fixed box
   (not one that keeps proportions) whose crop mode is `focus`.
   """
-  def focus_crop?(%__MODULE__{maintain_aspect_ratio: false, crop_mode: "focus"}), do: true
+  def focus_crop?(%__MODULE__{maintain_aspect_ratio: false} = dimension),
+    do: crop_mode(dimension) == "focus"
+
   def focus_crop?(_dimension), do: false
 
   @doc "Which pictures a rendition can be made for: every one, the wide ones, the tall ones."
@@ -222,7 +298,9 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   Whether `dimension` keeps proportions and fixes its **height** (the width
   follows each photo: a horizontal panorama's thumbnail).
   """
-  def fixed_height?(%__MODULE__{maintain_aspect_ratio: true, fit_by: "height"}), do: true
+  def fixed_height?(%__MODULE__{maintain_aspect_ratio: true} = dimension),
+    do: fit_by(dimension) == "height"
+
   def fixed_height?(_dimension), do: false
 
   @doc "The sizes every variant set has; they cannot be renamed or deleted."
@@ -267,7 +345,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   # like a width-picked one (`variant_for/2`).
   defp clear_width_when_height_fixed(changeset) do
     if get_field(changeset, :maintain_aspect_ratio) != false and
-         get_field(changeset, :fit_by) == "height",
+         option(changeset, :fit_by) == "height",
        do: put_change(changeset, :width, nil),
        else: changeset
   end
@@ -278,9 +356,9 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   defp validate_standard_fit_side(changeset) do
     name = get_field(changeset, :name)
 
-    if name in @standard_slots and get_field(changeset, :fit_by) == "height" and
+    if name in @standard_slots and option(changeset, :fit_by) == "height" and
          (is_nil(changeset.data.uuid) or Map.has_key?(changeset.changes, :name) or
-            Map.has_key?(changeset.changes, :fit_by)) do
+            option_changed?(changeset, :fit_by)) do
       add_error(
         changeset,
         :fit_by,
@@ -297,9 +375,9 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   defp validate_standard_shape(changeset) do
     name = get_field(changeset, :name)
 
-    if name in @standard_slots and get_field(changeset, :shape) != "any" and
+    if name in @standard_slots and option(changeset, :shape) != "any" and
          (is_nil(changeset.data.uuid) or Map.has_key?(changeset.changes, :name) or
-            Map.has_key?(changeset.changes, :shape)) do
+            option_changed?(changeset, :shape)) do
       add_error(
         changeset,
         :shape,
@@ -316,7 +394,7 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
     width = get_field(changeset, :width)
     height = get_field(changeset, :height)
     maintain_aspect = get_field(changeset, :maintain_aspect_ratio)
-    fit_by = get_field(changeset, :fit_by)
+    fit_by = option(changeset, :fit_by)
 
     cond do
       # Keeping proportions with a fixed height: the height is the size, and the

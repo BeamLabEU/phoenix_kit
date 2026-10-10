@@ -25,16 +25,16 @@ defmodule PhoenixKit.Migrations.Postgres.V211Test do
     """)
   end
 
-  test "the chain is at 211 or later, with the column, its default and NOT NULL" do
+  # V217 moved the setting into `options` and emptied the column.
+  test "the chain is at 211 or later; since V217 the column is nullable, with no default" do
     assert String.to_integer(marker()) >= 211
-    assert [["character varying", default, "NO"]] = column()
-    assert default =~ "width"
+    assert [["character varying", nil, "YES"]] = column()
   end
 
-  test "an existing rendition keeps fixing its width" do
-    assert [["medium", "width"]] =
+  test "an existing rendition keeps fixing its width, now recorded in options" do
+    assert [["medium", "width", nil]] =
              query("""
-             SELECT name, fit_by FROM public.phoenix_kit_storage_dimensions
+             SELECT name, options->>'fit_by', fit_by FROM public.phoenix_kit_storage_dimensions
              WHERE name = 'medium' AND variant_set_uuid = '00000000-0000-7000-8000-000000000003'
              """)
   end
@@ -43,7 +43,7 @@ defmodule PhoenixKit.Migrations.Postgres.V211Test do
     run(V211.up_statements("public"))
     run(V211.up_statements("public"))
 
-    assert [["character varying", _default, "NO"]] = column()
+    assert [["character varying", nil, "YES"]] = column()
   end
 
   test "rolls back and forward again" do

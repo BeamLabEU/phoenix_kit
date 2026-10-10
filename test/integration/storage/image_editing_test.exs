@@ -443,7 +443,8 @@ defmodule PhoenixKit.Modules.Storage.ImageEditingTest do
     # this starts from a set with no subject crop.
     setup do
       Repo.delete_all(
-        from d in PhoenixKit.Modules.Storage.Dimension, where: d.crop_mode == "focus"
+        from d in PhoenixKit.Modules.Storage.Dimension,
+          where: fragment("?->>'crop_mode' = 'focus'", d.options)
       )
 
       :ok

@@ -31,6 +31,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.FocalPoint
+  alias PhoenixKit.Modules.Storage.Hdr
+  alias PhoenixKit.Modules.Storage.HdrResize
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
@@ -217,13 +219,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
           variant_storage_path = "#{file.file_path}/#{variant_filename}"
 
           with {:ok, variant_path} <-
-                 process_variant(
-                   original_path,
-                   variant_path,
-                   file.mime_type,
-                   effective_dimension,
-                   focal
-                 ),
+                 make_variant(file, original_path, variant_path, effective_dimension, focal),
                {:ok, file_stats} <- get_variant_file_stats(variant_path),
                variant_storage_path <- safe_variant_key(variant_storage_path, file_stats.checksum),
                {:ok, storage_info} <-
@@ -261,6 +257,53 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         Logger.error("Variant #{variant_name} failed: #{inspect(reason)}")
         error
     end
+  end
+
+  # A rendition of a photo with an HDR gain map keeps the map (`HdrResize`) when its
+  # size says so (`Dimension.keep_hdr`, set in the rendition's editor) and it can: a
+  # JPEG that keeps the photo's proportions and fits its width. Every other size, and
+  # any photo the map cannot be carried over for, is made the ordinary way. An HDR
+  # rendition is a bonus: if it cannot be made, the size still is.
+  # `config :phoenix_kit, hdr_renditions: false` turns it off for the whole site.
+  defp make_variant(file, original_path, variant_path, dimension, focal) do
+    case hdr_variant(file, original_path, variant_path, dimension) do
+      {:ok, path} ->
+        {:ok, path}
+
+      :skip ->
+        process_variant(original_path, variant_path, file.mime_type, dimension, focal)
+    end
+  end
+
+  defp hdr_variant(file, original_path, variant_path, dimension) do
+    if hdr_rendition?(file, dimension) and Hdr.gain_map?(Hdr.read(original_path)) do
+      case HdrResize.resize(original_path, variant_path, dimension.width,
+             quality: dimension.quality || 85
+           ) do
+        {:ok, _info} ->
+          {:ok, variant_path}
+
+        {:error, reason} ->
+          Logger.warning(
+            "HDR rendition #{dimension.name} of #{file.uuid} not made (#{inspect(reason)}); making the ordinary one"
+          )
+
+          :skip
+      end
+    else
+      :skip
+    end
+  end
+
+  defp hdr_rendition?(file, dimension) do
+    Application.get_env(:phoenix_kit, :hdr_renditions, true) and
+      file.file_type == "image" and
+      Dimension.keep_hdr?(dimension) and
+      String.downcase(to_string(dimension.format)) in ["jpg", "jpeg"] and
+      dimension.maintain_aspect_ratio == true and
+      not Dimension.fixed_height?(dimension) and
+      not Dimension.focus_crop?(dimension) and
+      is_integer(dimension.width)
   end
 
   # Identical bytes can retain a shared key. Changed bytes need a fresh key
@@ -504,13 +547,17 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # is read from the file's row when the struct in hand predates its size (a
   # job that loaded the file before its metadata was read): a wide size must
   # not be skipped, and recorded as complete, because of that.
-  defp shape_fits?(%{shape: shape}, _file) when shape in [nil, "any"], do: true
+  defp shape_fits?(dimension, file) do
+    case Dimension.shape(dimension) do
+      shape when shape in [nil, "any"] ->
+        true
 
-  defp shape_fits?(%{shape: shape}, file) do
-    case Shape.classify(current_shape_source(file)) do
-      :wide -> shape == "wide"
-      :tall -> shape == "tall"
-      _ -> false
+      shape ->
+        case Shape.classify(current_shape_source(file)) do
+          :wide -> shape == "wide"
+          :tall -> shape == "tall"
+          _ -> false
+        end
     end
   end
 
@@ -798,24 +845,28 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   defp still_frame?(_dimension), do: false
 
   # The scale filter, then a pass that rounds both sides down to even numbers.
-  defp video_filter_args(%{maintain_aspect_ratio: true, fit_by: "height", height: height})
-       when is_integer(height) and height > 0 do
-    even_filter("scale=w=-2:h='min(#{height},ih)'")
+  defp video_filter_args(%{maintain_aspect_ratio: true, height: height} = dimension)
+       when is_integer(height) and height > 0 and is_struct(dimension, Dimension) do
+    if Dimension.fixed_height?(dimension),
+      do: even_filter("scale=w=-2:h='min(#{height},ih)'"),
+      else: video_filter_by_width(dimension)
   end
 
-  defp video_filter_args(%{maintain_aspect_ratio: true, width: width})
+  defp video_filter_args(dimension), do: video_filter_by_width(dimension)
+
+  defp video_filter_by_width(%{maintain_aspect_ratio: true, width: width})
        when is_integer(width) and width > 0 do
     even_filter("scale=w='min(#{width},iw)':h=-2")
   end
 
-  defp video_filter_args(%{width: width, height: height})
+  defp video_filter_by_width(%{width: width, height: height})
        when is_integer(width) and width > 0 and is_integer(height) and height > 0 do
     even_filter(
       "scale=w='min(#{width},iw)':h='min(#{height},ih)':force_original_aspect_ratio=decrease"
     )
   end
 
-  defp video_filter_args(_dimension), do: []
+  defp video_filter_by_width(_dimension), do: []
 
   defp even_filter(scale), do: ["-vf", scale <> ",scale=trunc(iw/2)*2:trunc(ih/2)*2"]
 

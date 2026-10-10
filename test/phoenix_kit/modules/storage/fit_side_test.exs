@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Storage.FitSideTest do
 
   describe "what a rendition accepts" do
     test "fixes the width unless it says the height" do
-      assert %Dimension{}.fit_by == "width"
+      assert Dimension.fit_by(%Dimension{}) == "width"
       assert Dimension.fit_sides() == ~w(width height)
     end
 
@@ -71,16 +71,18 @@ defmodule PhoenixKit.Modules.Storage.FitSideTest do
     end
 
     test "only a rendition that keeps proportions can fix its height" do
-      assert Dimension.fixed_height?(%Dimension{maintain_aspect_ratio: true, fit_by: "height"})
-      refute Dimension.fixed_height?(%Dimension{maintain_aspect_ratio: true, fit_by: "width"})
-      refute Dimension.fixed_height?(%Dimension{maintain_aspect_ratio: false, fit_by: "height"})
+      assert Dimension.fixed_height?(Dimension.new(maintain_aspect_ratio: true, fit_by: "height"))
+      refute Dimension.fixed_height?(Dimension.new(maintain_aspect_ratio: true, fit_by: "width"))
+
+      refute Dimension.fixed_height?(
+               Dimension.new(maintain_aspect_ratio: false, fit_by: "height")
+             )
     end
   end
 
   describe "the spec hash" do
     defp dimension(attrs) do
-      struct!(
-        Dimension,
+      Dimension.new(
         Map.merge(
           %{
             name: "strip",

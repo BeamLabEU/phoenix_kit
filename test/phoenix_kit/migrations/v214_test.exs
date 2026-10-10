@@ -62,21 +62,18 @@ defmodule PhoenixKit.Migrations.Postgres.V214Test do
     )
   end
 
-  test "the chain is at 214 or later, with the column, its default and NOT NULL" do
+  # V217 moved the setting into `options` and emptied the column.
+  test "the chain is at 214 or later; since V217 the column is nullable, with no default" do
     assert String.to_integer(marker()) >= 214
-    assert [["character varying", default, "NO"]] = column()
-    assert default =~ "any"
+    assert [["character varying", nil, "YES"]] = column()
   end
 
-  test "an existing rendition is made for every picture" do
-    assert [["medium", "any"]] =
-             query(
-               """
-               SELECT name, shape FROM public.phoenix_kit_storage_dimensions
-               WHERE name = 'medium' AND variant_set_uuid = $1
-               """,
-               [set_uuid()]
-             )
+  test "an existing rendition is made for every picture, now recorded in options" do
+    assert [["medium", "any", nil]] =
+             query("""
+             SELECT name, options->>'shape', shape FROM public.phoenix_kit_storage_dimensions
+             WHERE name = 'medium' AND variant_set_uuid = '#{@default_set}'
+             """)
   end
 
   test "a site with no files gets the mini square and the three panorama sizes" do
@@ -114,7 +111,8 @@ defmodule PhoenixKit.Migrations.Postgres.V214Test do
 
     run(V214.up_statements("public"))
 
-    assert [["mini_square", 48, 48, 60, false, "center", "width", "any", 0] | rest] = sizes()
+    # Written with only the columns it names; the others have no default any more.
+    assert [["mini_square", 48, 48, 60, false, "center", nil, nil, 0] | rest] = sizes()
     assert length(rest) == 3
   end
 
@@ -123,7 +121,7 @@ defmodule PhoenixKit.Migrations.Postgres.V214Test do
     run(V214.up_statements("public"))
     run(V214.up_statements("public"))
 
-    assert [["character varying", _default, "NO"]] = column()
+    assert [["character varying", nil, "YES"]] = column()
     assert length(sizes()) == 4
   end
 

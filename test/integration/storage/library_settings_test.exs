@@ -234,7 +234,10 @@ defmodule PhoenixKit.Modules.Storage.LibrarySettingsTest do
     # A fresh install's Default set carries the smart squares (V213);
     # this starts from a set with no subject crop.
     setup do
-      Repo.delete_all(from d in Dimension, where: d.crop_mode == "focus")
+      Repo.delete_all(
+        from d in Dimension, where: fragment("?->>'crop_mode' = 'focus'", d.options)
+      )
+
       :ok
     end
 

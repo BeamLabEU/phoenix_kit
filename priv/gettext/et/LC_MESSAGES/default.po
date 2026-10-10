@@ -398,10 +398,10 @@ msgstr "Aktiivne"
 
 #: lib/modules/sitemap/web/settings.html.heex:16
 #: lib/modules/storage/web/bucket_page.html.heex:19
-#: lib/modules/storage/web/renditions_component.ex:535
-#: lib/modules/storage/web/renditions_component.ex:600
-#: lib/modules/storage/web/renditions_component.ex:746
-#: lib/modules/storage/web/renditions_component.ex:815
+#: lib/modules/storage/web/renditions_component.ex:544
+#: lib/modules/storage/web/renditions_component.ex:609
+#: lib/modules/storage/web/renditions_component.ex:755
+#: lib/modules/storage/web/renditions_component.ex:824
 #: lib/modules/storage/web/settings.html.heex:136
 #: lib/modules/storage/web/settings.html.heex:226
 #: lib/modules/storage/web/settings.html.heex:327
@@ -501,8 +501,8 @@ msgid "Account Information"
 msgstr "Konto teave"
 
 #: lib/modules/sitemap/web/settings.html.heex:66
-#: lib/modules/storage/web/renditions_component.ex:549
-#: lib/modules/storage/web/renditions_component.ex:764
+#: lib/modules/storage/web/renditions_component.ex:558
+#: lib/modules/storage/web/renditions_component.ex:773
 #: lib/modules/storage/web/settings.html.heex:157
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:245
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:303
@@ -629,11 +629,11 @@ msgstr "Punktloend"
 
 #: lib/modules/storage/web/bucket_form.html.heex:489
 #: lib/modules/storage/web/bucket_form.html.heex:514
-#: lib/modules/storage/web/dimension_form.html.heex:317
+#: lib/modules/storage/web/dimension_form.html.heex:339
 #: lib/modules/storage/web/libraries_component.ex:312
 #: lib/modules/storage/web/library_page.html.heex:77
 #: lib/modules/storage/web/profiles_component.ex:527
-#: lib/modules/storage/web/renditions_component.ex:349
+#: lib/modules/storage/web/renditions_component.ex:358
 #: lib/phoenix_kit/mentions/live.ex:257
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:41
 #: lib/phoenix_kit_web/components/annotation_composer.ex:661
@@ -912,10 +912,10 @@ msgstr "Andmekaitsejärelevaataja kontakt salvestatud"
 
 #: lib/modules/storage/web/bucket_page.ex:456
 #: lib/modules/storage/web/profiles_component.ex:641
-#: lib/modules/storage/web/renditions_component.ex:640
-#: lib/modules/storage/web/renditions_component.ex:678
-#: lib/modules/storage/web/renditions_component.ex:855
-#: lib/modules/storage/web/renditions_component.ex:893
+#: lib/modules/storage/web/renditions_component.ex:649
+#: lib/modules/storage/web/renditions_component.ex:687
+#: lib/modules/storage/web/renditions_component.ex:864
+#: lib/modules/storage/web/renditions_component.ex:902
 #: lib/modules/storage/web/settings.html.heex:311
 #: lib/phoenix_kit_web/components/core/bulk_select.ex:228
 #: lib/phoenix_kit_web/components/image_editor.ex:1032
@@ -965,10 +965,10 @@ msgstr "Kirjeldus"
 #: lib/modules/sitemap/web/settings.html.heex:16
 #: lib/modules/storage/web/bucket_page.html.heex:20
 #: lib/modules/storage/web/profiles_component.ex:768
-#: lib/modules/storage/web/renditions_component.ex:535
-#: lib/modules/storage/web/renditions_component.ex:604
-#: lib/modules/storage/web/renditions_component.ex:746
-#: lib/modules/storage/web/renditions_component.ex:819
+#: lib/modules/storage/web/renditions_component.ex:544
+#: lib/modules/storage/web/renditions_component.ex:613
+#: lib/modules/storage/web/renditions_component.ex:755
+#: lib/modules/storage/web/renditions_component.ex:828
 #: lib/modules/storage/web/settings.html.heex:136
 #: lib/modules/storage/web/settings.html.heex:230
 #: lib/phoenix_kit_web/components/core/badge.ex:191
@@ -994,10 +994,10 @@ msgstr "Kas soovid jätkata?"
 msgid "Draft"
 msgstr "Mustand"
 
-#: lib/modules/storage/web/renditions_component.ex:620
-#: lib/modules/storage/web/renditions_component.ex:658
-#: lib/modules/storage/web/renditions_component.ex:835
-#: lib/modules/storage/web/renditions_component.ex:873
+#: lib/modules/storage/web/renditions_component.ex:629
+#: lib/modules/storage/web/renditions_component.ex:667
+#: lib/modules/storage/web/renditions_component.ex:844
+#: lib/modules/storage/web/renditions_component.ex:882
 #: lib/modules/storage/web/settings.html.heex:296
 #: lib/phoenix_kit_web/components/core/admin_edit_link.ex:53
 #: lib/phoenix_kit_web/components/core/admin_edit_link.ex:63
@@ -1187,8 +1187,8 @@ msgstr "Jälgitavad"
 msgid "Forgot your password?"
 msgstr "Unustasid parooli?"
 
-#: lib/modules/storage/web/renditions_component.ex:523
-#: lib/modules/storage/web/renditions_component.ex:547
+#: lib/modules/storage/web/renditions_component.ex:532
+#: lib/modules/storage/web/renditions_component.ex:556
 #, elixir-autogen, elixir-format
 msgid "Format"
 msgstr "Vorming"
@@ -1340,10 +1340,10 @@ msgstr "Logi parooliga sisse"
 msgid "Manage your cookie settings"
 msgstr "Halda oma küpsiste seadeid"
 
-#: lib/modules/storage/web/renditions_component.ex:514
-#: lib/modules/storage/web/renditions_component.ex:545
-#: lib/modules/storage/web/renditions_component.ex:732
-#: lib/modules/storage/web/renditions_component.ex:758
+#: lib/modules/storage/web/renditions_component.ex:523
+#: lib/modules/storage/web/renditions_component.ex:554
+#: lib/modules/storage/web/renditions_component.ex:741
+#: lib/modules/storage/web/renditions_component.ex:767
 #: lib/phoenix_kit_web/live/activity/index.html.heex:158
 #: lib/phoenix_kit_web/live/activity/index.html.heex:303
 #, elixir-autogen, elixir-format
@@ -1791,7 +1791,7 @@ msgstr "SWIFT/BIC"
 #: lib/modules/storage/web/library_page.html.heex:75
 #: lib/modules/storage/web/library_page.html.heex:297
 #: lib/modules/storage/web/library_page.html.heex:328
-#: lib/modules/storage/web/renditions_component.ex:401
+#: lib/modules/storage/web/renditions_component.ex:410
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:67
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:356
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:440
@@ -1928,10 +1928,10 @@ msgid "State/Province"
 msgstr "Maakond/provints"
 
 #: lib/modules/storage/web/profiles_component.ex:740
-#: lib/modules/storage/web/renditions_component.ex:534
-#: lib/modules/storage/web/renditions_component.ex:548
-#: lib/modules/storage/web/renditions_component.ex:745
-#: lib/modules/storage/web/renditions_component.ex:763
+#: lib/modules/storage/web/renditions_component.ex:543
+#: lib/modules/storage/web/renditions_component.ex:557
+#: lib/modules/storage/web/renditions_component.ex:754
+#: lib/modules/storage/web/renditions_component.ex:772
 #: lib/modules/storage/web/settings.html.heex:135
 #: lib/modules/storage/web/settings.html.heex:156
 #: lib/modules/storage/web/settings.html.heex:649
@@ -2270,10 +2270,10 @@ msgid "Delete bucket"
 msgstr "Kustuta bucket"
 
 #: lib/modules/storage/web/bucket_page.html.heex:36
-#: lib/modules/storage/web/renditions_component.ex:629
-#: lib/modules/storage/web/renditions_component.ex:667
-#: lib/modules/storage/web/renditions_component.ex:844
-#: lib/modules/storage/web/renditions_component.ex:882
+#: lib/modules/storage/web/renditions_component.ex:638
+#: lib/modules/storage/web/renditions_component.ex:676
+#: lib/modules/storage/web/renditions_component.ex:853
+#: lib/modules/storage/web/renditions_component.ex:891
 #: lib/modules/storage/web/settings.html.heex:262
 #: lib/modules/storage/web/settings.html.heex:303
 #: lib/phoenix_kit_web/live/modules/languages.html.heex:164
@@ -2290,10 +2290,10 @@ msgid "Edit bucket"
 msgstr "Muuda bucket"
 
 #: lib/modules/storage/web/bucket_page.html.heex:36
-#: lib/modules/storage/web/renditions_component.ex:629
-#: lib/modules/storage/web/renditions_component.ex:667
-#: lib/modules/storage/web/renditions_component.ex:844
-#: lib/modules/storage/web/renditions_component.ex:882
+#: lib/modules/storage/web/renditions_component.ex:638
+#: lib/modules/storage/web/renditions_component.ex:676
+#: lib/modules/storage/web/renditions_component.ex:853
+#: lib/modules/storage/web/renditions_component.ex:891
 #: lib/modules/storage/web/settings.html.heex:262
 #: lib/modules/storage/web/settings.html.heex:303
 #: lib/phoenix_kit_web/live/settings/users.html.heex:646
@@ -2642,13 +2642,13 @@ msgstr "Kliendi ID"
 msgid "Client Secret"
 msgstr "Kliendi saladus"
 
-#: lib/modules/storage/web/renditions_component.ex:741
-#: lib/modules/storage/web/renditions_component.ex:762
+#: lib/modules/storage/web/renditions_component.ex:750
+#: lib/modules/storage/web/renditions_component.ex:771
 #, elixir-autogen, elixir-format
 msgid "Codec"
 msgstr "Kodek"
 
-#: lib/modules/storage/web/dimension_form.html.heex:247
+#: lib/modules/storage/web/dimension_form.html.heex:269
 #, elixir-autogen, elixir-format
 msgid "Codec Override"
 msgstr "Kodeki alistamine"
@@ -2815,12 +2815,12 @@ msgstr "Välja võti"
 msgid "First day of the week"
 msgstr "Nädala esimene päev"
 
-#: lib/modules/storage/web/dimension_form.html.heex:249
+#: lib/modules/storage/web/dimension_form.html.heex:271
 #, elixir-autogen, elixir-format
 msgid "Format Override"
 msgstr "Vormingu alistamine"
 
-#: lib/modules/storage/web/renditions_component.ex:925
+#: lib/modules/storage/web/renditions_component.ex:934
 #, elixir-autogen, elixir-format
 msgid "Format Override:"
 msgstr "Vormingu alistamine:"
@@ -2873,7 +2873,7 @@ msgstr "Kuidas kellaaegu kuvatakse"
 msgid "If behind nginx/apache, ensure"
 msgstr "Kui kasutate nginx/apache'i, veenduge"
 
-#: lib/modules/storage/web/renditions_component.ex:922
+#: lib/modules/storage/web/renditions_component.ex:931
 #, elixir-autogen, elixir-format
 msgid "Images use 1-100 scale (compression quality)"
 msgstr "Pildid kasutavad 1-100 skaalat (tihenduse kvaliteet)"
@@ -2890,7 +2890,7 @@ msgstr "Võti:"
 msgid "Label"
 msgstr "Silt"
 
-#: lib/modules/storage/web/renditions_component.ex:926
+#: lib/modules/storage/web/renditions_component.ex:935
 #, elixir-autogen, elixir-format
 msgid "Leave empty to preserve original format, or specify jpg/png/webp/mp4"
 msgstr "Jäta tühjaks algse vormingu säilitamiseks või täpsusta jpg/png/webp/mp4"
@@ -2942,9 +2942,9 @@ msgstr "Halda kasutajate registreerimist, vaikimisi seadeid ja kohandatud välju
 #: lib/modules/storage/web/libraries_component.ex:437
 #: lib/modules/storage/web/library_page.html.heex:82
 #: lib/modules/storage/web/profiles_component.ex:550
-#: lib/modules/storage/web/renditions_component.ex:388
-#: lib/modules/storage/web/renditions_component.ex:543
-#: lib/modules/storage/web/renditions_component.ex:754
+#: lib/modules/storage/web/renditions_component.ex:397
+#: lib/modules/storage/web/renditions_component.ex:552
+#: lib/modules/storage/web/renditions_component.ex:763
 #: lib/modules/storage/web/settings.html.heex:144
 #: lib/phoenix_kit_web/components/media_browser.html.heex:524
 #: lib/phoenix_kit_web/components/media_browser.html.heex:2075
@@ -3028,10 +3028,10 @@ msgstr "OAuth teenusepakkujad"
 msgid "OAuth Setup Instructions"
 msgstr "OAuth seadistamisjuhised"
 
-#: lib/modules/storage/web/renditions_component.ex:525
-#: lib/modules/storage/web/renditions_component.ex:587
-#: lib/modules/storage/web/renditions_component.ex:742
-#: lib/modules/storage/web/renditions_component.ex:802
+#: lib/modules/storage/web/renditions_component.ex:534
+#: lib/modules/storage/web/renditions_component.ex:596
+#: lib/modules/storage/web/renditions_component.ex:751
+#: lib/modules/storage/web/renditions_component.ex:811
 #: lib/phoenix_kit_web/live/users/media_storage.ex:557
 #, elixir-autogen, elixir-format
 msgid "Original"
@@ -3042,7 +3042,7 @@ msgstr "Originaal"
 msgid "Phone Number"
 msgstr "Telefoninumber"
 
-#: lib/modules/storage/web/dimension_form.html.heex:257
+#: lib/modules/storage/web/dimension_form.html.heex:279
 #, elixir-autogen, elixir-format
 msgid "Preserve original"
 msgstr "Säilita originaal"
@@ -3057,21 +3057,21 @@ msgstr "Privaatsusteade: IP geolokatsiooniandmed"
 msgid "Project Title"
 msgstr "Projekti pealkiri"
 
-#: lib/modules/storage/web/dimension_form.html.heex:221
-#: lib/modules/storage/web/renditions_component.ex:521
-#: lib/modules/storage/web/renditions_component.ex:546
+#: lib/modules/storage/web/dimension_form.html.heex:243
+#: lib/modules/storage/web/renditions_component.ex:530
+#: lib/modules/storage/web/renditions_component.ex:555
 #, elixir-autogen, elixir-format
 msgid "Quality"
 msgstr "Kvaliteet"
 
-#: lib/modules/storage/web/dimension_form.html.heex:219
-#: lib/modules/storage/web/renditions_component.ex:739
-#: lib/modules/storage/web/renditions_component.ex:760
+#: lib/modules/storage/web/dimension_form.html.heex:241
+#: lib/modules/storage/web/renditions_component.ex:748
+#: lib/modules/storage/web/renditions_component.ex:769
 #, elixir-autogen, elixir-format
 msgid "Quality (CRF)"
 msgstr "Kvaliteet (CRF)"
 
-#: lib/modules/storage/web/renditions_component.ex:921
+#: lib/modules/storage/web/renditions_component.ex:930
 #, elixir-autogen, elixir-format
 msgid "Quality Settings:"
 msgstr "Kvaliteedi seaded:"
@@ -3098,13 +3098,13 @@ msgstr "Kohustuslik väli"
 msgid "Reset"
 msgstr "Lähtesta"
 
-#: lib/modules/storage/web/renditions_component.ex:455
+#: lib/modules/storage/web/renditions_component.ex:464
 #, elixir-autogen, elixir-format
 msgid "Reset to Defaults"
 msgstr "Lähtesta vaikimisi seadetele"
 
-#: lib/modules/storage/web/renditions_component.ex:728
-#: lib/modules/storage/web/renditions_component.ex:756
+#: lib/modules/storage/web/renditions_component.ex:737
+#: lib/modules/storage/web/renditions_component.ex:765
 #, elixir-autogen, elixir-format
 msgid "Resolution"
 msgstr "Resolutsioon"
@@ -3326,12 +3326,12 @@ msgstr "Kasutaja saab seda välja muuta"
 msgid "Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy."
 msgstr "Kasutab tasuta API-sid: IP-API.com (45 päringut/minutis) tagavaraga ipapi.co (1000 päringut/päevas). Privaatsuse tagamiseks vaikimisi VÄLJAS."
 
-#: lib/modules/storage/web/renditions_component.ex:923
+#: lib/modules/storage/web/renditions_component.ex:932
 #, elixir-autogen, elixir-format
 msgid "Video Settings:"
 msgstr "Video seaded:"
 
-#: lib/modules/storage/web/renditions_component.ex:924
+#: lib/modules/storage/web/renditions_component.ex:933
 #, elixir-autogen, elixir-format
 msgid "Videos use CRF 0-51 scale (lower = higher quality)"
 msgstr "Videod kasutavad CRF 0-51 skaalat (madalam = parem kvaliteet)"
@@ -3563,7 +3563,7 @@ msgstr "Kasutatakse personaliseeritud reklaami ja reklaamiefektiivsuse mõõtmis
 msgid "%{language} (Disabled — %{status})"
 msgstr "%{language} (Keelatud — %{status})"
 
-#: lib/modules/storage/web/dimension_form.html.heex:239
+#: lib/modules/storage/web/dimension_form.html.heex:261
 #, elixir-autogen, elixir-format
 msgid "1-100, higher = better quality. 80-90 recommended."
 msgstr "1-100, kõrgem = parem kvaliteet. 80-90 on soovituslik."
@@ -3653,7 +3653,7 @@ msgstr "Administraatori eelvaade"
 msgid "All Healthy"
 msgstr "Kõik terved"
 
-#: lib/modules/storage/web/dimension_form.html.heex:281
+#: lib/modules/storage/web/dimension_form.html.heex:303
 #, elixir-autogen, elixir-format
 msgid "Alternative Formats"
 msgstr "Alternatiivsed vormingud"
@@ -3703,7 +3703,7 @@ msgstr "Fikseeritud dimensioonide jaoks kasutatakse nii laiust kui ka kõrgust"
 msgid "Bucket actions"
 msgstr "Bucketi tegevused"
 
-#: lib/modules/storage/web/dimension_form.html.heex:237
+#: lib/modules/storage/web/dimension_form.html.heex:259
 #, elixir-autogen, elixir-format
 msgid "CRF 0-51, lower = higher quality. 18-28 recommended."
 msgstr "CRF 0-51, madalam = parem kvaliteet. 18-28 on soovituslik."
@@ -4065,7 +4065,7 @@ msgstr "Google Cloud Console → API-d ja teenused → Mandaadid alt"
 msgid "From openrouter.ai/keys"
 msgstr "openrouter.ai/keys alt"
 
-#: lib/modules/storage/web/dimension_form.html.heex:284
+#: lib/modules/storage/web/dimension_form.html.heex:306
 #, elixir-autogen, elixir-format
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "Genereeri täiendavaid vorminguvariantide kõrval peamise vorminguga. Kaasaegsed vormingud nagu WebP ja AVIF pakuvad paremat tihendust."
@@ -4207,7 +4207,7 @@ msgstr "Kutsu e-postiga..."
 msgid "Invited"
 msgstr "Kutsutud"
 
-#: lib/modules/storage/web/dimension_form.html.heex:268
+#: lib/modules/storage/web/dimension_form.html.heex:290
 #, elixir-autogen, elixir-format
 msgid "Leave empty to preserve the original file format"
 msgstr "Jäta tühjaks algse failivormingu säilitamiseks"
@@ -4478,7 +4478,7 @@ msgstr "Projekti logo"
 msgid "Public (direct URL)"
 msgstr "Avalik (otselink)"
 
-#: lib/modules/storage/web/dimension_form.html.heex:212
+#: lib/modules/storage/web/dimension_form.html.heex:234
 #, elixir-autogen, elixir-format
 msgid "Quality & Format"
 msgstr "Kvaliteet ja vorming"
@@ -8013,8 +8013,8 @@ msgstr "Kasutaja/Seanss"
 msgid "you"
 msgstr "sina"
 
-#: lib/modules/storage/web/renditions_component.ex:510
-#: lib/modules/storage/web/renditions_component.ex:544
+#: lib/modules/storage/web/renditions_component.ex:519
+#: lib/modules/storage/web/renditions_component.ex:553
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:72
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:577
 #, elixir-autogen, elixir-format
@@ -15104,7 +15104,7 @@ msgstr "Standardväljad"
 
 #: lib/modules/storage/web/libraries_component.ex:310
 #: lib/modules/storage/web/profiles_component.ex:525
-#: lib/modules/storage/web/renditions_component.ex:347
+#: lib/modules/storage/web/renditions_component.ex:356
 #: lib/phoenix_kit_web/live/components/library_settings.ex:564
 #, elixir-autogen, elixir-format
 msgid "Create"
@@ -15565,7 +15565,7 @@ msgstr "Bucket lisati profiili"
 msgid "Bucket taken out of the profile. Its files are copied to the profile's other buckets, then removed from it."
 msgstr "Bucket eemaldati profiilist. Selle failid kopeeritakse profiili teistesse bucketitesse ja seejärel eemaldatakse sellest."
 
-#: lib/modules/storage/web/renditions_component.ex:413
+#: lib/modules/storage/web/renditions_component.ex:422
 #, elixir-autogen, elixir-format
 msgid "Check every file"
 msgstr "Kontrolli kõiki faile"
@@ -15689,14 +15689,14 @@ msgid "Up to date"
 msgstr "Ajakohane"
 
 #: lib/modules/storage/web/profiles_component.ex:625
-#: lib/modules/storage/web/renditions_component.ex:416
+#: lib/modules/storage/web/renditions_component.ex:425
 #, elixir-autogen, elixir-format
 msgid "Used by %{count} library."
 msgid_plural "Used by %{count} libraries."
 msgstr[0] "Kasutab %{count} kogu."
 msgstr[1] "Kasutab %{count} kogu."
 
-#: lib/modules/storage/web/renditions_component.ex:397
+#: lib/modules/storage/web/renditions_component.ex:406
 #, elixir-autogen, elixir-format
 msgid "Users may choose it for their own libraries"
 msgstr "Kasutajad võivad seda oma kogude jaoks valida"
@@ -15714,8 +15714,8 @@ msgstr "Ootel"
 msgid "Waiting for"
 msgstr "Ootab"
 
-#: lib/modules/storage/web/renditions_component.ex:561
-#: lib/modules/storage/web/renditions_component.ex:776
+#: lib/modules/storage/web/renditions_component.ex:570
+#: lib/modules/storage/web/renditions_component.ex:785
 #, elixir-autogen, elixir-format
 msgid "standard"
 msgstr "standardne"
@@ -18185,7 +18185,7 @@ msgstr "Kes selle kogu lõi, ümber nimetas või muutis. Need kirjed säilitatak
 msgid "Without trash"
 msgstr "Ilma prügikastita"
 
-#: lib/modules/storage/web/renditions_component.ex:325
+#: lib/modules/storage/web/renditions_component.ex:334
 #, elixir-autogen, elixir-format
 msgid "A new install starts with 8 standard renditions: 4 image sizes (thumbnail, small, medium, large) and 4 video ones (360p, 720p, 1080p, video thumbnail)."
 msgstr "Uus paigaldus algab 8 standardvariandiga: 4 pildisuurust (thumbnail, small, medium, large) ja 4 videovarianti (360p, 720p, 1080p, video pisipilt)."
@@ -18195,39 +18195,39 @@ msgstr "Uus paigaldus algab 8 standardvariandiga: 4 pildisuurust (thumbnail, sma
 msgid "A unique name for this rendition"
 msgstr "Selle variandi unikaalne nimi"
 
-#: lib/modules/storage/web/renditions_component.ex:466
+#: lib/modules/storage/web/renditions_component.ex:475
 #, elixir-autogen, elixir-format
 msgid "Add a rendition to start making smaller copies of uploads."
 msgstr "Lisa variant, et hakata üleslaadimistest väiksemaid koopiaid tegema."
 
-#: lib/modules/storage/web/dimension_form.ex:188
-#: lib/modules/storage/web/renditions_component.ex:473
-#: lib/modules/storage/web/renditions_component.ex:492
+#: lib/modules/storage/web/dimension_form.ex:189
+#: lib/modules/storage/web/renditions_component.ex:482
+#: lib/modules/storage/web/renditions_component.ex:501
 #, elixir-autogen, elixir-format
 msgid "Add image rendition"
 msgstr "Lisa pildivariant"
 
-#: lib/modules/storage/web/dimension_form.ex:190
+#: lib/modules/storage/web/dimension_form.ex:191
 #, elixir-autogen, elixir-format
 msgid "Add rendition"
 msgstr "Lisa variant"
 
-#: lib/modules/storage/web/dimension_form.ex:189
-#: lib/modules/storage/web/renditions_component.ex:479
-#: lib/modules/storage/web/renditions_component.ex:710
+#: lib/modules/storage/web/dimension_form.ex:190
+#: lib/modules/storage/web/renditions_component.ex:488
+#: lib/modules/storage/web/renditions_component.ex:719
 #, elixir-autogen, elixir-format
 msgid "Add video rendition"
 msgstr "Lisa videovariant"
 
-#: lib/modules/storage/web/renditions_component.ex:638
-#: lib/modules/storage/web/renditions_component.ex:675
-#: lib/modules/storage/web/renditions_component.ex:853
-#: lib/modules/storage/web/renditions_component.ex:890
+#: lib/modules/storage/web/renditions_component.ex:647
+#: lib/modules/storage/web/renditions_component.ex:684
+#: lib/modules/storage/web/renditions_component.ex:862
+#: lib/modules/storage/web/renditions_component.ex:899
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to delete this rendition?"
 msgstr "Kas oled kindel, et soovid selle variandi kustutada?"
 
-#: lib/modules/storage/web/renditions_component.ex:449
+#: lib/modules/storage/web/renditions_component.ex:458
 #, elixir-autogen, elixir-format
 msgid "Are you sure? This will delete all current renditions and restore the 8 standard ones. This action cannot be undone."
 msgstr "Oled kindel? See kustutab kõik praegused variandid ja taastab 8 standardvarianti. Seda ei saa tagasi võtta."
@@ -18257,7 +18257,7 @@ msgstr "Variantide lähtestamine ebaõnnestus: %{reason}"
 msgid "Could not update the rendition"
 msgstr "Variandi uuendamine ebaõnnestus"
 
-#: lib/modules/storage/web/renditions_component.ex:392
+#: lib/modules/storage/web/renditions_component.ex:401
 #, elixir-autogen, elixir-format
 msgid "Create renditions automatically after an upload"
 msgstr "Loo variandid pärast üleslaadimist automaatselt"
@@ -18268,12 +18268,12 @@ msgstr "Loo variandid pärast üleslaadimist automaatselt"
 msgid "Deep zoom"
 msgstr "Sügavzuum"
 
-#: lib/modules/storage/web/dimension_form.ex:159
+#: lib/modules/storage/web/dimension_form.ex:160
 #, elixir-autogen, elixir-format
 msgid "Edit rendition"
 msgstr "Muuda varianti"
 
-#: lib/modules/storage/web/renditions_component.ex:486
+#: lib/modules/storage/web/renditions_component.ex:495
 #, elixir-autogen, elixir-format
 msgid "Image renditions"
 msgstr "Pildivariandid"
@@ -18283,23 +18283,23 @@ msgstr "Pildivariandid"
 msgid "Lets large images be zoomed in to full detail in the viewer, from tiles cut the first time someone zooms. Turning it off stops serving tiles; the ones already made stay stored and are used again if you turn it on. Needs ImageMagick."
 msgstr "Võimaldab suuri pilte vaaturis täisdetailini suumida; paanid lõigatakse esimesel suumimisel. Väljalülitamine lõpetab paanide serveerimise; juba tehtud jäävad salvestatuks ja neid kasutatakse uuesti, kui sisse lülitad. Vajab ImageMagicku."
 
-#: lib/modules/storage/web/renditions_component.ex:465
+#: lib/modules/storage/web/renditions_component.ex:474
 #, elixir-autogen, elixir-format
 msgid "No renditions yet"
 msgstr "Variante veel pole"
 
-#: lib/modules/storage/web/renditions_component.ex:919
+#: lib/modules/storage/web/renditions_component.ex:928
 #, elixir-autogen, elixir-format
 msgid "Quality and format"
 msgstr "Kvaliteet ja vorming"
 
-#: lib/modules/storage/web/renditions_component.ex:611
-#: lib/modules/storage/web/renditions_component.ex:826
+#: lib/modules/storage/web/renditions_component.ex:620
+#: lib/modules/storage/web/renditions_component.ex:835
 #, elixir-autogen, elixir-format
 msgid "Rendition actions"
 msgstr "Variandi toimingud"
 
-#: lib/modules/storage/web/dimension_form.ex:91
+#: lib/modules/storage/web/dimension_form.ex:92
 #, elixir-autogen, elixir-format
 msgid "Rendition created"
 msgstr "Variant loodud"
@@ -18314,7 +18314,7 @@ msgstr "Variant kustutatud"
 msgid "Rendition name"
 msgstr "Variandi nimi"
 
-#: lib/modules/storage/web/dimension_form.ex:113
+#: lib/modules/storage/web/dimension_form.ex:114
 #: lib/modules/storage/web/renditions_component.ex:134
 #, elixir-autogen, elixir-format
 msgid "Rendition updated"
@@ -18347,12 +18347,12 @@ msgstr "Seadista üks variant: mõõtmed, kvaliteet ja vorming"
 msgid "Stored as their library wants, with its renditions"
 msgstr "Salvestatud nii, nagu nende kogu soovib, koos variantidega"
 
-#: lib/modules/storage/web/dimension_form.ex:160
+#: lib/modules/storage/web/dimension_form.ex:161
 #, elixir-autogen, elixir-format
 msgid "Update rendition"
 msgstr "Uuenda varianti"
 
-#: lib/modules/storage/web/renditions_component.ex:702
+#: lib/modules/storage/web/renditions_component.ex:711
 #, elixir-autogen, elixir-format
 msgid "Video renditions"
 msgstr "Videovariandid"
@@ -18407,12 +18407,12 @@ msgstr "%{name} on standardvariant, mis on igas variandiprofiilis; seda ei saa k
 msgid "A library uses this rendition profile; it cannot be deleted"
 msgstr "Üks kogu kasutab seda variandiprofiili; seda ei saa kustutada"
 
-#: lib/modules/storage/web/renditions_component.ex:322
+#: lib/modules/storage/web/renditions_component.ex:331
 #, elixir-autogen, elixir-format
 msgid "A rendition is a smaller or re-encoded copy of an upload, such as a thumbnail or a 720p video, made for faster loading. A rendition profile lists the renditions a library's uploads get; a library picks its profile when it is created."
 msgstr "Variant on üleslaetud faili väiksem või ümberkodeeritud koopia, näiteks pisipilt või 720p video, mis tehakse kiiremaks laadimiseks. Variandiprofiil loetleb variandid, mida kogu üleslaadimised saavad; kogu valib oma profiili loomisel."
 
-#: lib/modules/storage/web/renditions_component.ex:407
+#: lib/modules/storage/web/renditions_component.ex:416
 #, elixir-autogen, elixir-format
 msgid "Check every file of this rendition profile now? Renditions a file is missing are made in the background."
 msgstr "Kas kontrollida nüüd selle variandiprofiili kõiki faile? Failil puuduvad variandid tehakse taustal."
@@ -18422,12 +18422,12 @@ msgstr "Kas kontrollida nüüd selle variandiprofiili kõiki faile? Failil puudu
 msgid "Chosen when the library was created and not changed afterwards: moving a library's files is a bulk job. To move where files live, change the storage profile's buckets."
 msgstr "Valitud kogu loomisel ja hiljem ei muudeta: kogu failide teisaldamine on massitöö. Failide asukoha muutmiseks muuda salvestusprofiili bucketeid."
 
-#: lib/modules/storage/web/renditions_component.ex:434
+#: lib/modules/storage/web/renditions_component.ex:443
 #, elixir-autogen, elixir-format
 msgid "Delete profile"
 msgstr "Kustuta profiil"
 
-#: lib/modules/storage/web/renditions_component.ex:431
+#: lib/modules/storage/web/renditions_component.ex:440
 #, elixir-autogen, elixir-format
 msgid "Delete this rendition profile and its renditions?"
 msgstr "Kas kustutada see variandiprofiil ja selle variandid?"
@@ -18442,12 +18442,12 @@ msgstr "Iga fail asub seal, kus selle kogu salvestusprofiil soovib, koos oma var
 msgid "Every file of this rendition profile will be checked, and missing renditions made."
 msgstr "Selle variandiprofiili kõiki faile kontrollitakse ja puuduvad variandid tehakse."
 
-#: lib/modules/storage/web/renditions_component.ex:422
+#: lib/modules/storage/web/renditions_component.ex:431
 #, elixir-autogen, elixir-format
 msgid "Every library without its own profile uses this one."
 msgstr "Iga kogu, millel pole oma profiili, kasutab seda."
 
-#: lib/modules/storage/web/renditions_component.ex:318
+#: lib/modules/storage/web/renditions_component.ex:327
 #, elixir-autogen, elixir-format
 msgid "New rendition profile"
 msgstr "Uus variandiprofiil"
@@ -18470,7 +18470,7 @@ msgstr "Variandiprofiil loodud"
 msgid "Rendition profile deleted"
 msgstr "Variandiprofiil kustutatud"
 
-#: lib/modules/storage/web/renditions_component.ex:342
+#: lib/modules/storage/web/renditions_component.ex:351
 #, elixir-autogen, elixir-format
 msgid "Rendition profile name"
 msgstr "Variandiprofiili nimi"
@@ -18481,7 +18481,7 @@ msgid "Rendition profile saved"
 msgstr "Variandiprofiil salvestatud"
 
 #: lib/modules/storage/web/dimension_form.html.heex:10
-#: lib/modules/storage/web/renditions_component.ex:307
+#: lib/modules/storage/web/renditions_component.ex:316
 #: lib/modules/storage/web/settings.ex:123
 #: lib/modules/storage/web/settings.html.heex:428
 #, elixir-autogen, elixir-format
@@ -18493,7 +18493,7 @@ msgstr "Variandiprofiilid"
 msgid "The reconciler copies files to the buckets their library's storage profile uses, removes copies it no longer uses, and makes the renditions its rendition profile lists. It runs by itself; a file stays here while something could not be done yet, and is tried again."
 msgstr "Ühtlustaja kopeerib failid kogu salvestusprofiili kasutatavatesse bucketitesse, eemaldab koopiad, mida see enam ei kasuta, ja teeb variandid, mida kogu variandiprofiil loetleb. See töötab ise; fail jääb siia, kuni midagi pole veel õnnestunud teha, ning proovitakse uuesti."
 
-#: lib/modules/storage/web/renditions_component.ex:375
+#: lib/modules/storage/web/renditions_component.ex:384
 #, elixir-autogen, elixir-format
 msgid "This profile is missing standard renditions: %{names}. Until they are added, those are served as the nearest smaller rendition or a placeholder."
 msgstr "Sellest profiilist puuduvad standardvariandid: %{names}. Kuni neid pole lisatud, serveeritakse lähimat väiksemat varianti või kohatäidet."
@@ -18513,82 +18513,82 @@ msgstr "Kas iga fail on salvestatud nii, nagu selle salvestusprofiil ja variandi
 msgid "Which storage profile and rendition profile a library uses, and its deep zoom:"
 msgstr "Millist salvestusprofiili ja variandiprofiili kogu kasutab ning selle sügavzuum:"
 
-#: lib/modules/storage/web/renditions_component.ex:258
+#: lib/modules/storage/web/renditions_component.ex:261
 #, elixir-autogen, elixir-format
 msgid "%{width} px wide"
 msgstr "%{width} px lai"
 
-#: lib/modules/storage/web/renditions_component.ex:267
+#: lib/modules/storage/web/renditions_component.ex:270
 #, elixir-autogen, elixir-format
 msgid "%{width} × %{height} px"
 msgstr "%{width} × %{height} px"
 
-#: lib/modules/storage/web/renditions_component.ex:692
+#: lib/modules/storage/web/renditions_component.ex:701
 #, elixir-autogen, elixir-format
 msgid "A rendition never enlarges an image: one smaller than the size stays as it is."
 msgstr "Variant ei suurenda pilti kunagi: väiksem pilt jääb samaks."
 
-#: lib/modules/storage/web/renditions_component.ex:275
+#: lib/modules/storage/web/renditions_component.ex:278
 #, elixir-autogen, elixir-format
 msgid "Automatic"
 msgstr "Automaatne"
 
-#: lib/modules/storage/web/renditions_component.ex:518
-#: lib/modules/storage/web/renditions_component.ex:576
-#: lib/modules/storage/web/renditions_component.ex:688
-#: lib/modules/storage/web/renditions_component.ex:736
-#: lib/modules/storage/web/renditions_component.ex:791
-#: lib/modules/storage/web/renditions_component.ex:901
+#: lib/modules/storage/web/renditions_component.ex:527
+#: lib/modules/storage/web/renditions_component.ex:585
+#: lib/modules/storage/web/renditions_component.ex:697
+#: lib/modules/storage/web/renditions_component.ex:745
+#: lib/modules/storage/web/renditions_component.ex:800
+#: lib/modules/storage/web/renditions_component.ex:910
 #, elixir-autogen, elixir-format
 msgid "Fixed size"
 msgstr "Kindel suurus"
 
-#: lib/modules/storage/web/renditions_component.ex:517
-#: lib/modules/storage/web/renditions_component.ex:572
-#: lib/modules/storage/web/renditions_component.ex:684
-#: lib/modules/storage/web/renditions_component.ex:735
-#: lib/modules/storage/web/renditions_component.ex:787
-#: lib/modules/storage/web/renditions_component.ex:899
+#: lib/modules/storage/web/renditions_component.ex:526
+#: lib/modules/storage/web/renditions_component.ex:581
+#: lib/modules/storage/web/renditions_component.ex:693
+#: lib/modules/storage/web/renditions_component.ex:744
+#: lib/modules/storage/web/renditions_component.ex:796
+#: lib/modules/storage/web/renditions_component.ex:908
 #, elixir-autogen, elixir-format
 msgid "Keeps proportions"
 msgstr "Säilitab proportsioonid"
 
-#: lib/modules/storage/web/renditions_component.ex:271
+#: lib/modules/storage/web/renditions_component.ex:274
 #, elixir-autogen, elixir-format
 msgid "cropped to fit"
 msgstr "kärbitud sobitamiseks"
 
-#: lib/modules/storage/web/renditions_component.ex:260
+#: lib/modules/storage/web/renditions_component.ex:263
 #, elixir-autogen, elixir-format
 msgid "height follows the image"
 msgstr "kõrgus järgib pilti"
 
-#: lib/modules/storage/web/renditions_component.ex:905
+#: lib/modules/storage/web/renditions_component.ex:914
 #, elixir-autogen, elixir-format
 msgid "A rendition never enlarges a video: one smaller than the size stays as it is."
 msgstr "Variant ei suurenda videot kunagi: väiksem video jääb samaks."
 
-#: lib/modules/storage/web/renditions_component.ex:908
+#: lib/modules/storage/web/renditions_component.ex:917
 #, elixir-autogen, elixir-format
 msgid "Quality is the CRF number: lower means better quality and a bigger file."
 msgstr "Kvaliteet on CRF-number: madalam tähendab paremat kvaliteeti ja suuremat faili."
 
-#: lib/modules/storage/web/renditions_component.ex:269
+#: lib/modules/storage/web/renditions_component.ex:272
 #, elixir-autogen, elixir-format
 msgid "fits inside, shape kept"
 msgstr "mahub sisse, kuju säilib"
 
-#: lib/modules/storage/web/renditions_component.ex:261
+#: lib/modules/storage/web/renditions_component.ex:264
 #, elixir-autogen, elixir-format
 msgid "height follows the video"
 msgstr "kõrgus järgib videot"
 
-#: lib/modules/storage/web/renditions_component.ex:902
+#: lib/modules/storage/web/renditions_component.ex:911
 #, elixir-autogen, elixir-format
 msgid "the video is scaled to fit inside the box, keeping its shape: nothing is cropped or stretched."
 msgstr "video skaleeritakse kasti sisse mahtuma, säilitades kuju: midagi ei kärbita ega venitata."
 
-#: lib/modules/storage/web/renditions_component.ex:900
+#: lib/modules/storage/web/renditions_component.ex:909
 #, elixir-autogen, elixir-format
 msgid "the width is set and the height follows each video."
 msgstr "laius on fikseeritud ja kõrgus järgib iga videot."
@@ -18638,17 +18638,17 @@ msgstr "Laius sobib fotode veergu ja kõrgele panoraamile, mis võib olla nii pi
 msgid "Width: the height follows each photo"
 msgstr "Laius: kõrgus järgib iga fotot"
 
-#: lib/modules/storage/web/renditions_component.ex:270
+#: lib/modules/storage/web/renditions_component.ex:273
 #, elixir-autogen, elixir-format
 msgid "cropped around the subject"
 msgstr "kärbitud peamise objekti ümber"
 
-#: lib/modules/storage/web/renditions_component.ex:689
+#: lib/modules/storage/web/renditions_component.ex:698
 #, elixir-autogen, elixir-format
 msgid "the image is scaled to fill the box and the excess is cropped, around the middle or, when set, around the subject."
 msgstr "pilt skaleeritakse kasti täitma ja üleliigne kärbitakse keskelt või, kui nii on seatud, peamise objekti ümbert."
 
-#: lib/modules/storage/web/renditions_component.ex:685
+#: lib/modules/storage/web/renditions_component.ex:694
 #, elixir-autogen, elixir-format
 msgid "the width or the height is set, as chosen, and the other side follows each image."
 msgstr "fikseeritud on laius või kõrgus, nagu valitud, ja teine külg järgib iga pilti."
@@ -18902,12 +18902,12 @@ msgstr "Ainult kõrged pildid (1:2 või kõrgemad)"
 msgid "Wide pictures only (panoramas, 2:1 or wider)"
 msgstr "Ainult laiad pildid (panoraamid, 2:1 või laiemad)"
 
-#: lib/modules/storage/web/renditions_component.ex:284
+#: lib/modules/storage/web/renditions_component.ex:293
 #, elixir-autogen, elixir-format
 msgid "tall pictures only"
 msgstr "ainult kõrged pildid"
 
-#: lib/modules/storage/web/renditions_component.ex:283
+#: lib/modules/storage/web/renditions_component.ex:292
 #, elixir-autogen, elixir-format
 msgid "wide pictures only"
 msgstr "ainult laiad pildid"
@@ -19824,3 +19824,23 @@ msgstr "gain map"
 #, elixir-autogen, elixir-format
 msgid "headroom %{value}"
 msgstr "varu %{value}"
+
+#: lib/modules/storage/web/dimension_form.html.heex:221
+#, elixir-autogen, elixir-format
+msgid "An iPhone or Pixel photo carries an HDR gain map, which lets bright areas glow on an HDR screen. A size with this on is made with the map kept; without it the size is an ordinary picture. It applies to JPEG sizes that keep the photo's proportions and fit its width, and only to photos that have a map. It adds a few KB per picture, and applies to sizes made from now on."
+msgstr "iPhone’i või Pixeli foto sisaldab HDR-i gain mapi, mis laseb eredatel aladel HDR-ekraanil hõõguda. Selle valikuga suurus tehakse kaardi säilitamisega; ilma selleta on suurus tavaline pilt. See kehtib JPEG-suurustele, mis säilitavad foto proportsioonid ja järgivad laiust, ning ainult fotodele, millel kaart on. See lisab pildi kohta paar KB ja kehtib nüüdsest tehtavatele suurustele."
+
+#: lib/modules/storage/web/dimension_form.html.heex:207
+#, elixir-autogen, elixir-format
+msgid "HDR photos"
+msgstr "HDR-fotod"
+
+#: lib/modules/storage/web/dimension_form.html.heex:217
+#, elixir-autogen, elixir-format
+msgid "Keep the HDR (gain map)"
+msgstr "Säilita HDR (gain map)"
+
+#: lib/modules/storage/web/renditions_component.ex:287
+#, elixir-autogen, elixir-format
+msgid "keeps HDR"
+msgstr "säilitab HDR"
