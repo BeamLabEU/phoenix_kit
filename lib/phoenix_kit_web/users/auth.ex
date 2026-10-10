@@ -83,7 +83,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKitWeb.Components.Dashboard.AdminSidebar
   alias PhoenixKitWeb.Plugs.WebsiteAccess, as: AccessPlug
   alias PhoenixKitWeb.Users.MultiSession
-  alias Plug.Conn.Status, as: HttpStatus
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
@@ -3734,8 +3733,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   # redirects `/<default>/...` to the prefixless shape to keep one
   # canonical URL (302, or the host's `:default_locale_redirect`). When
   # OFF (the default), the `/<default>/...` shape IS the canonical URL and
-  # must NOT be redirected — a redirect would discard any POST body. Defers to the canonical boot-safe wrapper
-  # on `Languages` so this plug + `Routes` share one rescue policy.
+  # must NOT be redirected — a redirect would discard any POST body.
+  # Defers to the canonical boot-safe wrapper on `Languages` so this
+  # plug + `Routes` share one rescue policy.
   defp prefixless_primary?, do: PhoenixKit.Modules.Languages.prefixless_primary_safe?()
 
   # Check if the request path is an admin path. Used by
@@ -3767,7 +3767,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Redirects default language URLs to clean URLs (no locale prefix)
   # Example: /phoenix_kit/en/dashboard → /phoenix_kit/dashboard
   #
-  # This sends a 302, NOT the 301 the code used to ask for. Two reasons,
+  # By default this sends a 302, NOT the 301 the code used to ask for. Two reasons,
   # and they point the same way:
   #
   #   1. It never was a 301. `Phoenix.Controller.redirect/2` sends
@@ -3806,39 +3806,53 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  @permanent_redirect_statuses [301, 308]
+  @permanent_redirect_statuses %{
+    301 => 301,
+    308 => 308,
+    moved_permanently: 301,
+    permanent_redirect: 308
+  }
   @default_redirect_max_age 86_400
 
   # The host's opt-in `:default_locale_redirect` status and cache lifetime,
-  # for GET and HEAD only. Anything else (other methods, no config, a value
-  # that isn't a keyword list, an unsupported status) leaves the conn alone,
-  # i.e. the 302 `Phoenix.Controller.redirect/2` sends by default.
+  # for GET and HEAD only. Other methods and hosts without the option leave
+  # the conn alone, i.e. the 302 `Phoenix.Controller.redirect/2` sends by
+  # default; so does a misconfigured option, logged once.
   defp maybe_permanent_redirect(%Plug.Conn{method: method} = conn)
        when method in ["GET", "HEAD"] do
-    opts = Application.get_env(:phoenix_kit, :default_locale_redirect, [])
+    case Application.get_env(:phoenix_kit, :default_locale_redirect) do
+      nil ->
+        conn
 
-    with true <- Keyword.keyword?(opts),
-         status when status in @permanent_redirect_statuses <-
-           redirect_status_code(Keyword.get(opts, :status)) do
-      conn
-      |> put_status(status)
-      |> put_resp_header("cache-control", "private, max-age=#{redirect_max_age(opts)}")
-    else
-      _ -> conn
+      opts ->
+        with true <- Keyword.keyword?(opts),
+             {:ok, status} <- Map.fetch(@permanent_redirect_statuses, Keyword.get(opts, :status)) do
+          conn
+          |> put_status(status)
+          |> put_resp_header("cache-control", "private, max-age=#{redirect_max_age(opts)}")
+        else
+          _ ->
+            warn_unsupported_redirect_config(opts)
+            conn
+        end
     end
   end
 
   defp maybe_permanent_redirect(conn), do: conn
 
-  defp redirect_status_code(status) when is_integer(status), do: status
+  defp warn_unsupported_redirect_config(opts) do
+    key = {__MODULE__, :default_locale_redirect_warned}
 
-  defp redirect_status_code(status) when is_atom(status) and not is_nil(status) do
-    HttpStatus.code(status)
-  rescue
-    _ -> nil
+    unless :persistent_term.get(key, false) do
+      :persistent_term.put(key, true)
+
+      Logger.warning(
+        "config :phoenix_kit, :default_locale_redirect must be a keyword list with " <>
+          "status: 301 | 308 | :moved_permanently | :permanent_redirect; got " <>
+          "#{inspect(opts)} — default-locale redirects stay 302"
+      )
+    end
   end
-
-  defp redirect_status_code(_status), do: nil
 
   defp redirect_max_age(opts) do
     case Keyword.get(opts, :max_age) do

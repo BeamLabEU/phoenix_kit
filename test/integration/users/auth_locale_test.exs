@@ -22,6 +22,9 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.Users.Auth
 
+  # What Plug sends on any response that sets no cache-control of its own.
+  @plug_default_cache "max-age=0, private, must-revalidate"
+
   setup do
     config = %{
       "languages" => [
@@ -267,27 +270,6 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
     end
   end
 
-  # What Plug sends on any response that sets no cache-control of its own.
-  @plug_default_cache "max-age=0, private, must-revalidate"
-
-  defp primary_locale_conn(method) do
-    build_conn(method, "/phoenix_kit/en/users/log-in")
-    |> Plug.Conn.fetch_query_params()
-    |> Map.put(:path_params, %{"locale" => "en"})
-  end
-
-  defp put_redirect_config(opts) do
-    previous = Application.fetch_env(:phoenix_kit, :default_locale_redirect)
-    Application.put_env(:phoenix_kit, :default_locale_redirect, opts)
-
-    on_exit(fn ->
-      case previous do
-        {:ok, value} -> Application.put_env(:phoenix_kit, :default_locale_redirect, value)
-        :error -> Application.delete_env(:phoenix_kit, :default_locale_redirect)
-      end
-    end)
-  end
-
   describe "validate_and_set_locale/2 — primary-locale canonical redirect" do
     # `process_valid_locale/2` (private) decides whether to redirect
     # `/<default>/<non-admin>` to `/<non-admin>` so there's one canonical
@@ -371,6 +353,19 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
         assert conn.status == 302
         assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
       end
+    end
+
+    test "a misconfigured option is logged once, not per request" do
+      Languages.set_default_language_no_prefix(true)
+      put_redirect_config(status: 307)
+      :persistent_term.erase({Auth, :default_locale_redirect_warned})
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          for _ <- 1..3, do: Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+        end)
+
+      assert length(String.split(log, ":default_locale_redirect must be")) == 2
     end
 
     test "308 is accepted, and a missing or invalid max_age falls back to one day" do
@@ -797,5 +792,23 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
     build_conn(:get, path)
     |> Plug.Conn.fetch_query_params()
     |> Map.put(:path_params, %{"locale" => locale})
+  end
+
+  defp primary_locale_conn(method) do
+    build_conn(method, "/phoenix_kit/en/users/log-in")
+    |> Plug.Conn.fetch_query_params()
+    |> Map.put(:path_params, %{"locale" => "en"})
+  end
+
+  defp put_redirect_config(opts) do
+    previous = Application.fetch_env(:phoenix_kit, :default_locale_redirect)
+    Application.put_env(:phoenix_kit, :default_locale_redirect, opts)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:phoenix_kit, :default_locale_redirect, value)
+        :error -> Application.delete_env(:phoenix_kit, :default_locale_redirect)
+      end
+    end)
   end
 end
