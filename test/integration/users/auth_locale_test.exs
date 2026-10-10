@@ -24,6 +24,7 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
 
   # What Plug sends on any response that sets no cache-control of its own.
   @plug_default_cache "max-age=0, private, must-revalidate"
+  @warned_key {PhoenixKitWeb.Users.Auth, :default_locale_redirect_warned}
 
   setup do
     config = %{
@@ -309,12 +310,22 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
 
     test "the redirect is a 302 with Plug's default cache header unless the host opts in" do
       Languages.set_default_language_no_prefix(true)
+      :persistent_term.erase(@warned_key)
 
-      conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+      for config <- [:unset, false] do
+        if config == :unset, do: put_redirect_config(nil), else: put_redirect_config(false)
 
-      assert conn.halted
-      assert conn.status == 302
-      assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
+        log =
+          ExUnit.CaptureLog.capture_log(fn ->
+            conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+
+            assert conn.halted
+            assert conn.status == 302
+            assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
+          end)
+
+        refute log =~ "default_locale_redirect"
+      end
     end
 
     test "an opted-in host gets a permanent redirect cached for max_age on GET and HEAD" do
@@ -348,7 +359,12 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
 
       for config <- [%{status: 301}, 301, true, [status: :not_a_status]] do
         put_redirect_config(config)
-        conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+
+        conn =
+          ExUnit.CaptureLog.with_log(fn ->
+            Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+          end)
+          |> elem(0)
 
         assert conn.status == 302
         assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
@@ -358,14 +374,13 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
     test "a misconfigured option is logged once, not per request" do
       Languages.set_default_language_no_prefix(true)
       put_redirect_config(status: 307)
-      :persistent_term.erase({Auth, :default_locale_redirect_warned})
 
       log =
         ExUnit.CaptureLog.capture_log(fn ->
           for _ <- 1..3, do: Auth.validate_and_set_locale(primary_locale_conn(:get), [])
         end)
 
-      assert length(String.split(log, ":default_locale_redirect must be")) == 2
+      assert length(Regex.scan(~r/:default_locale_redirect must be/, log)) == 1
     end
 
     test "308 is accepted, and a missing or invalid max_age falls back to one day" do
@@ -389,7 +404,12 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
       assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
 
       put_redirect_config(status: 307)
-      conn = Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+
+      {conn, _log} =
+        ExUnit.CaptureLog.with_log(fn ->
+          Auth.validate_and_set_locale(primary_locale_conn(:get), [])
+        end)
+
       assert conn.status == 302
       assert Plug.Conn.get_resp_header(conn, "cache-control") == [@plug_default_cache]
     end
@@ -800,11 +820,20 @@ defmodule PhoenixKit.Integration.Users.AuthLocaleTest do
     |> Map.put(:path_params, %{"locale" => "en"})
   end
 
+  # `nil` unsets the option. Each call starts with the "already warned"
+  # flag cleared and clears it again afterwards, so one test's warning never
+  # hides or leaks into another's.
   defp put_redirect_config(opts) do
     previous = Application.fetch_env(:phoenix_kit, :default_locale_redirect)
-    Application.put_env(:phoenix_kit, :default_locale_redirect, opts)
+    :persistent_term.erase(@warned_key)
+
+    if is_nil(opts),
+      do: Application.delete_env(:phoenix_kit, :default_locale_redirect),
+      else: Application.put_env(:phoenix_kit, :default_locale_redirect, opts)
 
     on_exit(fn ->
+      :persistent_term.erase(@warned_key)
+
       case previous do
         {:ok, value} -> Application.put_env(:phoenix_kit, :default_locale_redirect, value)
         :error -> Application.delete_env(:phoenix_kit, :default_locale_redirect)

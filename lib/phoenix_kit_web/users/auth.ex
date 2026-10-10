@@ -3341,7 +3341,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   (one day when missing or invalid). `private` keeps the response out of
   shared caches — it carries the session cookie — and `max_age` caps how
   long a browser keeps it, since which language is the default is a runtime
-  setting. Other methods and hosts without the option keep the 302.
+  setting. Other methods and hosts without the option (or with `false`)
+  keep the 302; so does a misconfigured option, logged once per node.
   """
   def validate_and_set_locale(conn, _opts) do
     # Direct locale processing - dialect preferences are handled via LiveView events
@@ -3767,8 +3768,8 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Redirects default language URLs to clean URLs (no locale prefix)
   # Example: /phoenix_kit/en/dashboard → /phoenix_kit/dashboard
   #
-  # By default this sends a 302, NOT the 301 the code used to ask for. Two reasons,
-  # and they point the same way:
+  # By default this sends a 302, NOT the 301 the code used to ask for.
+  # Two reasons, and they point the same way:
   #
   #   1. It never was a 301. `Phoenix.Controller.redirect/2` sends
   #      `conn.status || 302` and ignores an `:status` option entirely,
@@ -3821,7 +3822,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp maybe_permanent_redirect(%Plug.Conn{method: method} = conn)
        when method in ["GET", "HEAD"] do
     case Application.get_env(:phoenix_kit, :default_locale_redirect) do
-      nil ->
+      off when off in [nil, false] ->
         conn
 
       opts ->
