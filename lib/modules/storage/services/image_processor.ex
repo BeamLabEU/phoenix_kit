@@ -127,6 +127,9 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   - `opts` - Additional options
     - `:quality` - JPEG quality 1-100 (default: 85)
     - `:format` - Output format override (jpg, png, webp, etc)
+    - `:strip_metadata` - leave the camera's metadata (EXIF, XMP, comment) out and
+      apply the orientation to the pixels; the colour profile stays (default: false).
+      `resize_and_crop_center/5` and `resize_and_crop_focus/6` take it too.
 
   Returns:
   - `{:ok, output_path}` - Success
@@ -135,6 +138,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   def resize(input_path, output_path, width, height, opts \\ []) do
     quality = Keyword.get(opts, :quality, 85)
     format = Keyword.get(opts, :format, nil)
+    strip? = Keyword.get(opts, :strip_metadata, false)
 
     # Extract current dimensions (pinned and limited like every call here),
     # and refuse an oversized header before the decoder ever runs.
@@ -145,7 +149,9 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
       resize_spec = calculate_resize_spec(current_width, current_height, width, height)
 
       # Build ImageMagick convert command
-      args = @limit_args ++ build_convert_args(input, output_path, resize_spec, quality, format)
+      args =
+        @limit_args ++
+          build_convert_args(input, output_path, resize_spec, quality, format, strip?)
 
       Logger.info("Resizing image: #{input_path} -> #{output_path}, resize spec: #{resize_spec}")
 
@@ -200,6 +206,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   def resize_and_crop_center(input_path, output_path, width, height, opts \\ []) do
     quality = Keyword.get(opts, :quality, 85)
     format = Keyword.get(opts, :format, nil)
+    strip? = Keyword.get(opts, :strip_metadata, false)
     alpha? = has_alpha_channel?(input_path)
 
     background =
@@ -215,7 +222,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
     # caller asking for JPEG gets a white background, never black.)
     with {:w, true} <- {:w, not (is_nil(width) or is_nil(height))},
          {:ok, input} <- pinned_input(input_path, frame_for(output_path, format)),
-         {:ok, {cur_w, cur_h}} <- extract_dimensions(input_path),
+         {:ok, {cur_w, cur_h}} <- crop_source_size(input_path, strip?),
          :ok <- check_pixel_budget(cur_w, cur_h, @resize_max_pixels) do
       # Never enlarge: a crop box bigger than the original shrinks, keeping
       # its shape, until it fits inside the original.
@@ -235,7 +242,8 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
             height,
             quality,
             format,
-            background
+            background,
+            strip?
           )
 
       case System.cmd("convert", args, stderr_to_stdout: true) do
@@ -317,6 +325,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   def resize_and_crop_focus(input_path, output_path, width, height, focal, opts \\ []) do
     quality = Keyword.get(opts, :quality, 85)
     format = Keyword.get(opts, :format, nil)
+    strip? = Keyword.get(opts, :strip_metadata, false)
     alpha? = has_alpha_channel?(input_path)
 
     background =
@@ -344,7 +353,8 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
             {width, height},
             quality,
             format,
-            background
+            background,
+            strip?
           )
 
       case System.cmd("convert", args, stderr_to_stdout: true) do
@@ -395,7 +405,8 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
          {width, height},
          quality,
          format,
-         background
+         background,
+         strip?
        ) do
     # The window is cut from the oriented photo at full resolution, then scaled to
     # the exact size: it has the target's shape, so `!` only absorbs rounding.
@@ -413,10 +424,8 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
           "#{crop_w}x#{crop_h}+#{left}+#{top}",
           "+repage",
           "-resize",
-          "#{width}x#{height}!",
-          "-quality",
-          to_string(quality)
-        ]
+          "#{width}x#{height}!"
+        ] ++ if(strip?, do: strip_metadata_args(), else: []) ++ ["-quality", to_string(quality)]
 
     if format, do: args ++ ["#{format}:#{output_path}"], else: args ++ [output_path]
   end
@@ -736,7 +745,7 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
     {max(round(w * scale), 1), max(round(h * scale), 1)}
   end
 
-  defp build_convert_args(input_path, output_path, resize_spec, quality, format) do
+  defp build_convert_args(input_path, output_path, resize_spec, quality, format, strip?) do
     args = [input_path]
 
     # A format without transparency is flattened on white; left to
@@ -748,6 +757,11 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
 
     # Add resize operation
     args = args ++ ["-resize", resize_spec]
+
+    # Metadata goes after the resize, which works on the stored geometry as it
+    # always did; the orientation is then applied to the pixels, since the tag
+    # that said it is going.
+    args = if strip?, do: args ++ ["-auto-orient" | strip_metadata_args()], else: args
 
     # Add quality setting for JPEG (ImageMagick quality for lossy formats)
     args = args ++ ["-quality", to_string(quality)]
@@ -764,8 +778,30 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
     args
   end
 
-  defp build_center_crop_args(input_path, output_path, width, height, quality, format, background) do
-    args = [input_path]
+  # The size the crop box is measured against. A rendition that drops the orientation tag
+  # is cut from the photo as displayed, so the box keeps its shape.
+  defp crop_source_size(input_path, true) do
+    with {:ok, {w, h, _frames}} <- oriented_info(input_path), do: {:ok, {w, h}}
+  end
+
+  defp crop_source_size(input_path, _strip?), do: extract_dimensions(input_path)
+
+  # ImageMagick's `+profile "!icc,*"` removes every profile (EXIF, XMP, IPTC, 8BIM)
+  # but the colour profile, and `+set comment` the text comment: nothing about the
+  # camera, the time or the place stays, and the picture still has its colours.
+  defp strip_metadata_args, do: ["+profile", "!icc,*", "+set", "comment"]
+
+  defp build_center_crop_args(
+         input_path,
+         output_path,
+         width,
+         height,
+         quality,
+         format,
+         background,
+         strip?
+       ) do
+    args = if strip?, do: [input_path, "-auto-orient"], else: [input_path]
 
     # Set background color for padding/extension (rarely used with ^ resize)
     args = args ++ ["-background", background]
@@ -788,6 +824,8 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessor do
 
     # Crop to exact dimensions from the centered position
     args = args ++ ["-extent", "#{width}x#{height}"]
+
+    args = if strip?, do: args ++ strip_metadata_args(), else: args
 
     # Add quality setting for JPEG (ImageMagick quality for lossy formats)
     args = args ++ ["-quality", to_string(quality)]

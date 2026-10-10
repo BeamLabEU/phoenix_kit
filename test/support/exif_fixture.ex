@@ -12,6 +12,7 @@ defmodule PhoenixKit.Test.ExifFixture do
   # Where each tag lives, its TIFF type and its number (2 = ASCII, 5 = three RATIONALs).
   @tags %{
     make: {:ifd0, 0x010F, :ascii},
+    orientation: {:ifd0, 0x0112, :short},
     model: {:ifd0, 0x0110, :ascii},
     date_time_original: {:exif, 0x9003, :ascii},
     date_time_digitized: {:exif, 0x9004, :ascii},
@@ -51,6 +52,10 @@ defmodule PhoenixKit.Test.ExifFixture do
     File.write!(path, [<<0xFF, 0xD8>>, app1(tags), rest])
     path
   end
+
+  @doc "The APP1 (EXIF) segment alone, for a test that builds its own JPEG."
+  @spec segment(%{atom() => term()}) :: binary()
+  def segment(tags), do: app1(tags)
 
   defp app1(tags) do
     by_ifd =
@@ -115,6 +120,8 @@ defmodule PhoenixKit.Test.ExifFixture do
     raw = value <> <<0>>
     {tag, 2, byte_size(raw), raw}
   end
+
+  defp encode(tag, :short, value), do: {tag, 3, 1, <<value::little-16>>}
 
   defp encode(tag, :rationals, values) do
     raw = for {n, d} <- values, into: <<>>, do: <<n::little-32, d::little-32>>

@@ -629,7 +629,7 @@ msgstr "Маркированный список"
 
 #: lib/modules/storage/web/bucket_form.html.heex:489
 #: lib/modules/storage/web/bucket_form.html.heex:514
-#: lib/modules/storage/web/dimension_form.html.heex:339
+#: lib/modules/storage/web/dimension_form.html.heex:365
 #: lib/modules/storage/web/libraries_component.ex:312
 #: lib/modules/storage/web/library_page.html.heex:77
 #: lib/modules/storage/web/profiles_component.ex:527
@@ -2651,7 +2651,7 @@ msgstr "Секрет клиента"
 msgid "Codec"
 msgstr "Кодек"
 
-#: lib/modules/storage/web/dimension_form.html.heex:269
+#: lib/modules/storage/web/dimension_form.html.heex:295
 #, elixir-autogen, elixir-format
 msgid "Codec Override"
 msgstr "Переопределение кодека"
@@ -2818,7 +2818,7 @@ msgstr "Ключ поля"
 msgid "First day of the week"
 msgstr "Первый день недели"
 
-#: lib/modules/storage/web/dimension_form.html.heex:271
+#: lib/modules/storage/web/dimension_form.html.heex:297
 #, elixir-autogen, elixir-format
 msgid "Format Override"
 msgstr "Переопределение формата"
@@ -3045,7 +3045,7 @@ msgstr "Оригинал"
 msgid "Phone Number"
 msgstr "Номер телефона"
 
-#: lib/modules/storage/web/dimension_form.html.heex:279
+#: lib/modules/storage/web/dimension_form.html.heex:305
 #, elixir-autogen, elixir-format
 msgid "Preserve original"
 msgstr "Сохранить оригинал"
@@ -3060,14 +3060,14 @@ msgstr "Уведомление о конфиденциальности: данн
 msgid "Project Title"
 msgstr "Название проекта"
 
-#: lib/modules/storage/web/dimension_form.html.heex:243
+#: lib/modules/storage/web/dimension_form.html.heex:269
 #: lib/modules/storage/web/renditions_component.ex:530
 #: lib/modules/storage/web/renditions_component.ex:555
 #, elixir-autogen, elixir-format
 msgid "Quality"
 msgstr "Качество"
 
-#: lib/modules/storage/web/dimension_form.html.heex:241
+#: lib/modules/storage/web/dimension_form.html.heex:267
 #: lib/modules/storage/web/renditions_component.ex:748
 #: lib/modules/storage/web/renditions_component.ex:769
 #, elixir-autogen, elixir-format
@@ -3566,7 +3566,7 @@ msgstr "Используются для персонализированной �
 msgid "%{language} (Disabled — %{status})"
 msgstr "%{language} (Отключено — %{status})"
 
-#: lib/modules/storage/web/dimension_form.html.heex:261
+#: lib/modules/storage/web/dimension_form.html.heex:287
 #, elixir-autogen, elixir-format
 msgid "1-100, higher = better quality. 80-90 recommended."
 msgstr "1–100, выше = лучше качество. Рекомендуется 80–90."
@@ -3656,7 +3656,7 @@ msgstr "Предпросмотр администратора"
 msgid "All Healthy"
 msgstr "Всё в норме"
 
-#: lib/modules/storage/web/dimension_form.html.heex:303
+#: lib/modules/storage/web/dimension_form.html.heex:329
 #, elixir-autogen, elixir-format
 msgid "Alternative Formats"
 msgstr "Альтернативные форматы"
@@ -3706,7 +3706,7 @@ msgstr "Ширина и высота используются для фикси�
 msgid "Bucket actions"
 msgstr "Действия с бакетом"
 
-#: lib/modules/storage/web/dimension_form.html.heex:259
+#: lib/modules/storage/web/dimension_form.html.heex:285
 #, elixir-autogen, elixir-format
 msgid "CRF 0-51, lower = higher quality. 18-28 recommended."
 msgstr "CRF 0–51, ниже = лучше качество. Рекомендуется 18–28."
@@ -4068,7 +4068,7 @@ msgstr "Из Google Cloud Console → APIs & Services → Credentials"
 msgid "From openrouter.ai/keys"
 msgstr "С openrouter.ai/keys"
 
-#: lib/modules/storage/web/dimension_form.html.heex:306
+#: lib/modules/storage/web/dimension_form.html.heex:332
 #, elixir-autogen, elixir-format
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "Создавайте дополнительные форматные варианты вместе с основным форматом. Современные форматы, такие как WebP и AVIF, обеспечивают лучшее сжатие."
@@ -4210,7 +4210,7 @@ msgstr "Пригласить по email..."
 msgid "Invited"
 msgstr "Приглашён"
 
-#: lib/modules/storage/web/dimension_form.html.heex:290
+#: lib/modules/storage/web/dimension_form.html.heex:316
 #, elixir-autogen, elixir-format
 msgid "Leave empty to preserve the original file format"
 msgstr "Оставьте пустым для сохранения оригинального формата файла"
@@ -4481,7 +4481,7 @@ msgstr "Логотип проекта"
 msgid "Public (direct URL)"
 msgstr "Публичный (прямой URL)"
 
-#: lib/modules/storage/web/dimension_form.html.heex:234
+#: lib/modules/storage/web/dimension_form.html.heex:260
 #, elixir-autogen, elixir-format
 msgid "Quality & Format"
 msgstr "Качество и формат"
@@ -19891,17 +19891,17 @@ msgstr "карта усиления"
 msgid "headroom %{value}"
 msgstr "запас %{value}"
 
-#: lib/modules/storage/web/dimension_form.html.heex:221
+#: lib/modules/storage/web/dimension_form.html.heex:247
 #, elixir-autogen, elixir-format
 msgid "An iPhone or Pixel photo carries an HDR gain map, which lets bright areas glow on an HDR screen. A size with this on is made with the map kept; without it the size is an ordinary picture. It applies to JPEG sizes that keep the photo's proportions and fit its width, and only to photos that have a map. It adds a few KB per picture, and applies to sizes made from now on."
 msgstr "Фото с iPhone или Pixel содержит карту усиления HDR, благодаря которой яркие участки светятся на HDR-экране. Размер с этой опцией создаётся с сохранением карты; без неё размер — обычное изображение. Относится к JPEG-размерам, которые сохраняют пропорции фото и подгоняются по ширине, и только к фото с картой. Добавляет несколько КБ на изображение и действует для размеров, создаваемых с этого момента."
 
-#: lib/modules/storage/web/dimension_form.html.heex:207
+#: lib/modules/storage/web/dimension_form.html.heex:233
 #, elixir-autogen, elixir-format
 msgid "HDR photos"
 msgstr "HDR-фото"
 
-#: lib/modules/storage/web/dimension_form.html.heex:217
+#: lib/modules/storage/web/dimension_form.html.heex:243
 #, elixir-autogen, elixir-format
 msgid "Keep the HDR (gain map)"
 msgstr "Сохранять HDR (карта усиления)"
@@ -19910,3 +19910,18 @@ msgstr "Сохранять HDR (карта усиления)"
 #, elixir-autogen, elixir-format
 msgid "keeps HDR"
 msgstr "сохраняет HDR"
+
+#: lib/modules/storage/web/dimension_form.html.heex:225
+#, elixir-autogen, elixir-format
+msgid "A phone photo carries the device, the time, often the GPS position and tens of KB of maker notes. With this on, a size is made without them, which makes small sizes much lighter and keeps the place a picture was taken from the page. The colour profile stays and the picture looks the same. The original keeps its metadata. It applies to sizes made from now on."
+msgstr "Фото с телефона содержит устройство, время, часто GPS-координаты и десятки КБ данных производителя. Если включено, размер создаётся без них: маленькие размеры становятся заметно легче, а место съёмки не попадает на страницу. Цветовой профиль сохраняется, картинка выглядит так же. Оригинал сохраняет свои метаданные. Действует для размеров, создаваемых с этого момента."
+
+#: lib/modules/storage/web/dimension_form.html.heex:211
+#, elixir-autogen, elixir-format
+msgid "Camera metadata"
+msgstr "Метаданные камеры"
+
+#: lib/modules/storage/web/dimension_form.html.heex:221
+#, elixir-autogen, elixir-format
+msgid "Remove the camera's metadata"
+msgstr "Удалять метаданные камеры"

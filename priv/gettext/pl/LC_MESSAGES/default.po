@@ -626,7 +626,7 @@ msgstr "Lista wypunktowana"
 
 #: lib/modules/storage/web/bucket_form.html.heex:489
 #: lib/modules/storage/web/bucket_form.html.heex:514
-#: lib/modules/storage/web/dimension_form.html.heex:339
+#: lib/modules/storage/web/dimension_form.html.heex:365
 #: lib/modules/storage/web/libraries_component.ex:312
 #: lib/modules/storage/web/library_page.html.heex:77
 #: lib/modules/storage/web/profiles_component.ex:527
@@ -2644,7 +2644,7 @@ msgstr "Sekret klienta"
 msgid "Codec"
 msgstr "Kodek"
 
-#: lib/modules/storage/web/dimension_form.html.heex:269
+#: lib/modules/storage/web/dimension_form.html.heex:295
 #, elixir-autogen, elixir-format
 msgid "Codec Override"
 msgstr "Nadpisanie kodeka"
@@ -2811,7 +2811,7 @@ msgstr "Klucz pola"
 msgid "First day of the week"
 msgstr "Pierwszy dzień tygodnia"
 
-#: lib/modules/storage/web/dimension_form.html.heex:271
+#: lib/modules/storage/web/dimension_form.html.heex:297
 #, elixir-autogen, elixir-format
 msgid "Format Override"
 msgstr "Nadpisanie formatu"
@@ -3038,7 +3038,7 @@ msgstr "Oryginał"
 msgid "Phone Number"
 msgstr "Numer telefonu"
 
-#: lib/modules/storage/web/dimension_form.html.heex:279
+#: lib/modules/storage/web/dimension_form.html.heex:305
 #, elixir-autogen, elixir-format
 msgid "Preserve original"
 msgstr "Zachowaj oryginał"
@@ -3053,14 +3053,14 @@ msgstr "Informacja o prywatności: dane geolokalizacji IP"
 msgid "Project Title"
 msgstr "Nazwa projektu"
 
-#: lib/modules/storage/web/dimension_form.html.heex:243
+#: lib/modules/storage/web/dimension_form.html.heex:269
 #: lib/modules/storage/web/renditions_component.ex:530
 #: lib/modules/storage/web/renditions_component.ex:555
 #, elixir-autogen, elixir-format
 msgid "Quality"
 msgstr "Jakość"
 
-#: lib/modules/storage/web/dimension_form.html.heex:241
+#: lib/modules/storage/web/dimension_form.html.heex:267
 #: lib/modules/storage/web/renditions_component.ex:748
 #: lib/modules/storage/web/renditions_component.ex:769
 #, elixir-autogen, elixir-format
@@ -3558,7 +3558,7 @@ msgstr "Wykorzystywane do reklamy spersonalizowanej i mierzenia jej skutecznośc
 msgid "%{language} (Disabled — %{status})"
 msgstr "%{language} (wyłączony — %{status})"
 
-#: lib/modules/storage/web/dimension_form.html.heex:261
+#: lib/modules/storage/web/dimension_form.html.heex:287
 #, elixir-autogen, elixir-format
 msgid "1-100, higher = better quality. 80-90 recommended."
 msgstr "1–100, wyżej = lepsza jakość. Zalecane 80–90."
@@ -3648,7 +3648,7 @@ msgstr "Podgląd administratora"
 msgid "All Healthy"
 msgstr "Wszystko sprawne"
 
-#: lib/modules/storage/web/dimension_form.html.heex:303
+#: lib/modules/storage/web/dimension_form.html.heex:329
 #, elixir-autogen, elixir-format
 msgid "Alternative Formats"
 msgstr "Formaty alternatywne"
@@ -3698,7 +3698,7 @@ msgstr "Przy stałych wymiarach używane są zarówno szerokość, jak i wysoko�
 msgid "Bucket actions"
 msgstr "Akcje zasobnika"
 
-#: lib/modules/storage/web/dimension_form.html.heex:259
+#: lib/modules/storage/web/dimension_form.html.heex:285
 #, elixir-autogen, elixir-format
 msgid "CRF 0-51, lower = higher quality. 18-28 recommended."
 msgstr "CRF 0–51, niżej = wyższa jakość. Zalecane 18–28."
@@ -4060,7 +4060,7 @@ msgstr "Z Google Cloud Console → Interfejsy API i usługi → Dane logowania"
 msgid "From openrouter.ai/keys"
 msgstr "Z openrouter.ai/keys"
 
-#: lib/modules/storage/web/dimension_form.html.heex:306
+#: lib/modules/storage/web/dimension_form.html.heex:332
 #, elixir-autogen, elixir-format
 msgid "Generate additional format variants alongside the primary format. Modern formats like WebP and AVIF offer better compression."
 msgstr "Generuj dodatkowe warianty formatu obok formatu głównego. Nowoczesne formaty jak WebP i AVIF zapewniają lepszą kompresję."
@@ -4202,7 +4202,7 @@ msgstr "Zaproś przez e-mail…"
 msgid "Invited"
 msgstr "Zaproszono"
 
-#: lib/modules/storage/web/dimension_form.html.heex:290
+#: lib/modules/storage/web/dimension_form.html.heex:316
 #, elixir-autogen, elixir-format
 msgid "Leave empty to preserve the original file format"
 msgstr "Pozostaw puste, aby zachować oryginalny format pliku"
@@ -4473,7 +4473,7 @@ msgstr "Logo projektu"
 msgid "Public (direct URL)"
 msgstr "Publiczne (bezpośredni URL)"
 
-#: lib/modules/storage/web/dimension_form.html.heex:234
+#: lib/modules/storage/web/dimension_form.html.heex:260
 #, elixir-autogen, elixir-format
 msgid "Quality & Format"
 msgstr "Jakość i format"
@@ -19878,17 +19878,17 @@ msgstr "mapa wzmocnienia"
 msgid "headroom %{value}"
 msgstr "zapas %{value}"
 
-#: lib/modules/storage/web/dimension_form.html.heex:221
+#: lib/modules/storage/web/dimension_form.html.heex:247
 #, elixir-autogen, elixir-format
 msgid "An iPhone or Pixel photo carries an HDR gain map, which lets bright areas glow on an HDR screen. A size with this on is made with the map kept; without it the size is an ordinary picture. It applies to JPEG sizes that keep the photo's proportions and fit its width, and only to photos that have a map. It adds a few KB per picture, and applies to sizes made from now on."
 msgstr "Zdjęcie z iPhone’a lub Pixela zawiera mapę wzmocnienia HDR, dzięki której jasne obszary świecą na ekranie HDR. Rozmiar z tą opcją powstaje z zachowaną mapą; bez niej rozmiar jest zwykłym obrazem. Dotyczy rozmiarów JPEG, które zachowują proporcje zdjęcia i dopasowują się do szerokości, i tylko zdjęć, które mają mapę. Dodaje kilka KB na obraz i działa dla rozmiarów tworzonych od teraz."
 
-#: lib/modules/storage/web/dimension_form.html.heex:207
+#: lib/modules/storage/web/dimension_form.html.heex:233
 #, elixir-autogen, elixir-format
 msgid "HDR photos"
 msgstr "Zdjęcia HDR"
 
-#: lib/modules/storage/web/dimension_form.html.heex:217
+#: lib/modules/storage/web/dimension_form.html.heex:243
 #, elixir-autogen, elixir-format
 msgid "Keep the HDR (gain map)"
 msgstr "Zachowaj HDR (mapa wzmocnienia)"
@@ -19897,3 +19897,18 @@ msgstr "Zachowaj HDR (mapa wzmocnienia)"
 #, elixir-autogen, elixir-format
 msgid "keeps HDR"
 msgstr "zachowuje HDR"
+
+#: lib/modules/storage/web/dimension_form.html.heex:225
+#, elixir-autogen, elixir-format
+msgid "A phone photo carries the device, the time, often the GPS position and tens of KB of maker notes. With this on, a size is made without them, which makes small sizes much lighter and keeps the place a picture was taken from the page. The colour profile stays and the picture looks the same. The original keeps its metadata. It applies to sizes made from now on."
+msgstr "Zdjęcie z telefonu zawiera urządzenie, czas, często pozycję GPS i dziesiątki KB danych producenta. Gdy ta opcja jest włączona, rozmiar powstaje bez nich: małe rozmiary są znacznie lżejsze, a miejsce wykonania zdjęcia nie trafia na stronę. Profil kolorów zostaje, a obraz wygląda tak samo. Oryginał zachowuje swoje metadane. Dotyczy rozmiarów tworzonych od teraz."
+
+#: lib/modules/storage/web/dimension_form.html.heex:211
+#, elixir-autogen, elixir-format
+msgid "Camera metadata"
+msgstr "Metadane aparatu"
+
+#: lib/modules/storage/web/dimension_form.html.heex:221
+#, elixir-autogen, elixir-format
+msgid "Remove the camera's metadata"
+msgstr "Usuń metadane aparatu"

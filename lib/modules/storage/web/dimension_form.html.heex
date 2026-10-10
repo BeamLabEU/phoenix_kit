@@ -202,6 +202,32 @@
             </p>
           </fieldset>
 
+          <%!-- Camera metadata --%>
+          <fieldset
+            :if={@dimension_type != "video"}
+            id="dimension-strip-metadata"
+            class="fieldset"
+          >
+            <legend class="fieldset-legend font-semibold">{gettext("Camera metadata")}</legend>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input type="hidden" name="dimension[strip_metadata]" value="false" />
+              <input
+                type="checkbox"
+                name="dimension[strip_metadata]"
+                value="true"
+                checked={get_field_value(@changeset, :strip_metadata) != false}
+                class="checkbox checkbox-sm"
+              />
+              <span class="label-text">{gettext("Remove the camera's metadata")}</span>
+            </label>
+            {render_error(@changeset, :strip_metadata)}
+            <p class="text-xs text-base-content/50 mt-1">
+              {gettext(
+                "A phone photo carries the device, the time, often the GPS position and tens of KB of maker notes. With this on, a size is made without them, which makes small sizes much lighter and keeps the place a picture was taken from the page. The colour profile stays and the picture looks the same. The original keeps its metadata. It applies to sizes made from now on."
+              )}
+            </p>
+          </fieldset>
+
           <%!-- HDR photos --%>
           <fieldset :if={@dimension_type != "video"} id="dimension-keep-hdr" class="fieldset">
             <legend class="fieldset-legend font-semibold">{gettext("HDR photos")}</legend>

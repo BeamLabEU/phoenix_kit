@@ -276,6 +276,12 @@ defmodule PhoenixKit.Modules.Storage.Dimension do
   def keep_hdr?(%__MODULE__{options: %DimensionOptions{keep_hdr: keep}}), do: keep == true
   def keep_hdr?(_), do: false
 
+  @doc "Whether the rendition leaves the camera's metadata out (on unless a size says otherwise)."
+  def strip_metadata?(%__MODULE__{options: %DimensionOptions{strip_metadata: strip}}),
+    do: strip != false
+
+  def strip_metadata?(_), do: true
+
   @doc "How a fixed rendition can be cropped: around the middle, or around the subject."
   def crop_modes, do: @crop_modes
 

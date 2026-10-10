@@ -278,7 +278,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   defp hdr_variant(file, original_path, variant_path, dimension) do
     if hdr_rendition?(file, dimension) and Hdr.gain_map?(Hdr.read(original_path)) do
       case HdrResize.resize(original_path, variant_path, dimension.width,
-             quality: dimension.quality || 85
+             quality: dimension.quality || 85,
+             strip_metadata: Dimension.strip_metadata?(dimension)
            ) do
         {:ok, _info} ->
           {:ok, variant_path}
@@ -744,7 +745,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
         ImageProcessor.resize(input_path, output_path, width, height,
           quality: quality,
-          format: format
+          format: format,
+          strip_metadata: Dimension.strip_metadata?(dimension)
         )
 
       false ->
@@ -754,6 +756,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
         crop_opts = [
           quality: quality,
           format: format,
+          strip_metadata: Dimension.strip_metadata?(dimension),
           # Keep transparency for a format that has it; flatten on white
           # (never black) for one that does not.
           background: if(format in ["png", "webp", "gif", "avif"], do: "none", else: "white")

@@ -200,7 +200,10 @@ defmodule PhoenixKit.Modules.Storage.VariantSets do
           :order
         ])
         |> Map.merge(%{
-          options: %DimensionOptions{keep_hdr: Dimension.keep_hdr?(d)},
+          options: %DimensionOptions{
+            keep_hdr: Dimension.keep_hdr?(d),
+            strip_metadata: Dimension.strip_metadata?(d)
+          },
           uuid: UUIDv7.generate(),
           variant_set_uuid: set_uuid,
           inserted_at: now,

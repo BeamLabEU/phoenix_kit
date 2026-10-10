@@ -606,6 +606,30 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute Dimension.keep_hdr?(Repo.reload!(medium))
     end
 
+    test "a rendition leaves the camera's metadata out unless told not to", %{conn: conn} do
+      medium =
+        Repo.one!(
+          from d in Dimension,
+            where:
+              d.name == "medium" and
+                d.variant_set_uuid == ^VariantSets.default_uuid()
+        )
+
+      assert Dimension.strip_metadata?(medium)
+
+      {:ok, view, html} =
+        live(conn, Routes.path("/admin/settings/media/renditions/#{medium.uuid}/edit"))
+
+      assert html =~ ~s(id="dimension-strip-metadata")
+      assert has_element?(view, "#dimension-strip-metadata input[type=checkbox][checked]")
+
+      view
+      |> form("#dimension-form", %{"dimension" => %{"strip_metadata" => "false"}})
+      |> render_submit()
+
+      refute Dimension.strip_metadata?(Repo.reload!(medium))
+    end
+
     test "a rendition that keeps proportions can fix its height, for a horizontal panorama",
          %{conn: conn} do
       {:ok, view, html} =

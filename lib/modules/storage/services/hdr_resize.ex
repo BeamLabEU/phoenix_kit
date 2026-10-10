@@ -12,7 +12,8 @@ defmodule PhoenixKit.Modules.Storage.HdrResize do
        resource limits, a pixel budget), the map by the same ratio as the picture;
     3. the metadata that describes the pictures (colour profile, EXIF, the XMP and
        ISO 21496-1 parameters of the map) is carried over **unchanged**, because it
-       is about brightness and colour, not size;
+       is about brightness and colour, not size. With `strip_metadata: true` the EXIF
+       (device, time, position, maker notes) is dropped but for the orientation tag;
     4. what *is* about size is rewritten: the directory's sizes and offsets, and the
        map's byte length in the picture's XMP.
 
@@ -42,6 +43,7 @@ defmodule PhoenixKit.Modules.Storage.HdrResize do
   @spec resize(Path.t(), Path.t(), pos_integer(), keyword()) :: result() | {:error, term()}
   def resize(source, dest, width, opts \\ []) do
     quality = Keyword.get(opts, :quality, 85)
+    strip? = Keyword.get(opts, :strip_metadata, false)
 
     with {:ok, bin} <- File.read(source),
          {:ok, parts} <- split(bin),
@@ -53,7 +55,7 @@ defmodule PhoenixKit.Modules.Storage.HdrResize do
          gm_target = max(round(gm_w * out_w / src_w), 1),
          {:ok, gain_core} <- resized_core(parts.gain, gm_target, @gain_map_quality) do
       gain = assemble_gain(parts.gain_segments, gain_core)
-      primary = assemble_primary(parts, primary_core, byte_size(gain))
+      primary = assemble_primary(parts, primary_core, byte_size(gain), strip?)
 
       case File.write(dest, primary <> gain) do
         :ok ->
@@ -261,12 +263,12 @@ defmodule PhoenixKit.Modules.Storage.HdrResize do
 
   # The picture: what describes it (kept), the XMP's map length (rewritten), and the
   # directory (rewritten for the new sizes), then the resized image.
-  defp assemble_primary(parts, core, gain_len) do
+  defp assemble_primary(parts, core, gain_len, strip?) do
     # The directory is a fixed size, so everything before it can be laid out first,
     # then its offsets are known.
     layout =
       parts.segments
-      |> Enum.flat_map(&keep_segment(&1, gain_len))
+      |> Enum.flat_map(&keep_segment(&1, gain_len, strip?))
 
     {before_mpf, after_mpf} = Enum.split_while(layout, &(&1 != :mpf))
     [:mpf | after_mpf] = after_mpf ++ []
@@ -281,24 +283,87 @@ defmodule PhoenixKit.Modules.Storage.HdrResize do
     head <> mpf_segment(parts, total, gain_len, total - base) <> tail
   end
 
-  defp keep_segment(%{marker: 0xE0, raw: raw}, _), do: [raw]
-  defp keep_segment(%{marker: 0xE1, payload: <<"Exif\0\0", _::binary>>, raw: raw}, _), do: [raw]
-  defp keep_segment(%{marker: 0xE1, payload: <<@xmp_extension, _::binary>>}, _), do: []
+  defp keep_segment(%{marker: 0xE0, raw: raw}, _, _), do: [raw]
 
-  defp keep_segment(%{marker: 0xE1, payload: <<@xmp, xml::binary>>}, gain_len),
+  # The camera's EXIF (the device, the time, the position, maker notes) goes when the
+  # rendition drops metadata; the orientation is not the camera's secret, it is how to
+  # show the picture, so that one tag stays.
+  defp keep_segment(%{marker: 0xE1, payload: <<"Exif\0\0", tiff::binary>>}, _, true),
+    do: orientation_exif(tiff)
+
+  defp keep_segment(%{marker: 0xE1, payload: <<"Exif\0\0", _::binary>>, raw: raw}, _, _),
+    do: [raw]
+
+  defp keep_segment(%{marker: 0xE1, payload: <<@xmp_extension, _::binary>>}, _, _), do: []
+
+  defp keep_segment(%{marker: 0xE1, payload: <<@xmp, xml::binary>>}, gain_len, _),
     do: [xmp_segment(xml, gain_len)]
 
-  defp keep_segment(%{marker: 0xE2, payload: <<"ICC_PROFILE\0", _::binary>>, raw: raw}, _),
+  defp keep_segment(%{marker: 0xE2, payload: <<"ICC_PROFILE\0", _::binary>>, raw: raw}, _, _),
     do: [raw]
 
   defp keep_segment(
          %{marker: 0xE2, payload: <<"urn:iso:std:iso:ts:21496", _::binary>>, raw: raw},
+         _,
          _
        ),
        do: [raw]
 
-  defp keep_segment(%{marker: 0xE2, payload: <<"MPF\0", _::binary>>}, _), do: [:mpf]
-  defp keep_segment(_other, _), do: []
+  defp keep_segment(%{marker: 0xE2, payload: <<"MPF\0", _::binary>>}, _, _), do: [:mpf]
+  defp keep_segment(_other, _, _), do: []
+
+  # An EXIF segment holding the orientation tag and nothing else, when the photo is
+  # turned (2..8); none when it is upright or the tag cannot be read.
+  defp orientation_exif(tiff) do
+    case exif_orientation(tiff) do
+      n when n in 2..8 ->
+        body =
+          <<"Exif\0\0", "MM", 42::16, 8::32, 1::16, 0x0112::16, 3::16, 1::32, n::16, 0::16,
+            0::32>>
+
+        [<<0xFF, 0xE1, byte_size(body) + 2::16, body::binary>>]
+
+      _ ->
+        []
+    end
+  end
+
+  defp exif_orientation(<<order::binary-size(2), _::binary>> = tiff) when order in ["II", "MM"] do
+    big? = order == "MM"
+    <<_::binary-size(4), ifd_at::binary-size(4), _::binary>> = tiff
+
+    at =
+      if big?,
+        do: :binary.decode_unsigned(ifd_at, :big),
+        else: :binary.decode_unsigned(ifd_at, :little)
+
+    with true <- at + 2 <= byte_size(tiff),
+         <<_::binary-size(at), count::binary-size(2), entries::binary>> <- tiff do
+      n = :binary.decode_unsigned(count, if(big?, do: :big, else: :little))
+      find_orientation(entries, n, big?)
+    else
+      _ -> nil
+    end
+  end
+
+  defp exif_orientation(_), do: nil
+
+  defp find_orientation(_, 0, _), do: nil
+
+  defp find_orientation(
+         <<tag::binary-size(2), _type::binary-size(2), _count::binary-size(4),
+           value::binary-size(2), _::binary-size(2), rest::binary>>,
+         left,
+         big?
+       ) do
+    endian = if big?, do: :big, else: :little
+
+    if :binary.decode_unsigned(tag, endian) == 0x0112,
+      do: :binary.decode_unsigned(value, endian),
+      else: find_orientation(rest, left - 1, big?)
+  end
+
+  defp find_orientation(_, _, _), do: nil
 
   # The picture's XMP, with the gain map's length corrected, and the pointer to an
   # extended XMP (a packet of further metadata that is not carried over) removed.

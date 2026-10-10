@@ -10,11 +10,15 @@ defmodule PhoenixKit.TestSupport.GainMapJpeg do
 
   @xmp "http://ns.adobe.com/xap/1.0/\0"
 
-  @doc "Writes the file at `path`; returns `%{gain_map_bytes:, width:, height:}`."
+  @doc """
+  Writes the file at `path`; `:exif` is an APP1 segment to carry in the picture
+  (`PhoenixKit.Test.ExifFixture.segment/1`). Returns `%{gain_map_bytes:, width:, height:}`.
+  """
   def build(path, opts \\ []) do
     width = Keyword.get(opts, :width, 1600)
     height = Keyword.get(opts, :height, 1200)
     extended? = Keyword.get(opts, :extended_xmp, false)
+    exif = Keyword.get(opts, :exif, <<>>)
     dir = Path.dirname(path)
     n = System.unique_integer([:positive])
 
@@ -74,7 +78,7 @@ defmodule PhoenixKit.TestSupport.GainMapJpeg do
         do: app1("http://ns.adobe.com/xmp/extension/\0" <> :binary.copy("x", 3000)),
         else: <<>>
 
-    head = <<0xFF, 0xD8>> <> xmp_segment <> extension
+    head = <<0xFF, 0xD8>> <> exif <> xmp_segment <> extension
     mpf_len = byte_size(mpf(0, 0, 0))
     total = byte_size(head) + mpf_len + byte_size(primary_core)
     base = byte_size(head) + 8

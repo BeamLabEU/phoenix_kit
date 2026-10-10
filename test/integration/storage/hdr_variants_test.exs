@@ -109,6 +109,42 @@ defmodule PhoenixKit.Modules.Storage.HdrVariantsTest do
     assert Hdr.read(stored(ctx, file, "thumbnail")) == %{}
   end
 
+  test "renditions leave the camera's metadata out, unless a size says otherwise", ctx do
+    import Ecto.Query
+    alias PhoenixKit.Modules.Storage.Dimension
+    alias PhoenixKit.Modules.Storage.VariantSets
+    alias PhoenixKit.Test.ExifFixture
+
+    {:ok, _} =
+      Storage.update_dimension(
+        Repo.one!(
+          from d in Dimension,
+            where: d.name == "small" and d.variant_set_uuid == ^VariantSets.default_uuid()
+        ),
+        %{strip_metadata: false}
+      )
+
+    path = Path.join(ctx.tmp, "hdr.jpg")
+    GainMapJpeg.build(path, width: 2400, height: 1800, exif: ExifFixture.segment(%{make: "Cam"}))
+    file = upload!(ctx, path)
+
+    make = fn name ->
+      {out, 0} =
+        System.cmd("identify", ["-format", "%[EXIF:Make]", stored(ctx, file, name) <> "[0]"],
+          stderr_to_stdout: true
+        )
+
+      String.trim(out)
+    end
+
+    # medium is an HDR rendition, thumbnail an ordinary one: both are stripped.
+    assert %{"gain_map" => true} = Hdr.read(stored(ctx, file, "medium"))
+    refute make.("medium") == "Cam"
+    refute make.("thumbnail") == "Cam"
+    # small was told to keep it.
+    assert make.("small") == "Cam"
+  end
+
   test "a plain photo's renditions are as they always were", ctx do
     path = Path.join(ctx.tmp, "plain.jpg")
     {_, 0} = System.cmd("convert", ["-size", "2400x1800", "gradient:white-black", path])
