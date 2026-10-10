@@ -1,3 +1,26 @@
+## 2.60.2 - 2026-10-10
+
+No migration. Ships PR #922 (media viewer on a small screen, swipe between files, "Invert two-finger pan") and a
+follow-up translation fix from its review.
+
+### Added
+
+- **A per-user "Invert two-finger pan" switch** on the profile settings page (Annotation tools). The browser reports
+  trackpad fingers after the OS's scroll direction is applied, so no default suits every machine; every viewer
+  canvas (plain, burned, live layer, board) now carries the flag.
+- **Swipe between files** on a fully zoomed-out picture (`ViewerSwipe`, listening for Fresco's `fresco:swipe`); off
+  while the annotation tools are up.
+
+### Changed
+
+- **The viewer's controls fit a small screen.** Fresco's nav is a short row (zoom, clockwise turn, eye, pencil) with
+  the rest behind its ⋯ button; the style-panel switch joins that row; previous/next are edge tabs.
+- **Requires Fresco `~> 0.13.3` and Etcher `~> 0.21.0`.**
+
+### i18n
+
+- **Ukrainian:** the two "Invert two-finger pan" strings were untranslated; now filled in.
+
 ## 2.60.1 - 2026-10-09
 
 No migration. Follow-up to 2.60.0's "Fix all issues" (a change that was not in the release).

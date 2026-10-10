@@ -19843,9 +19843,9 @@ msgstr "Видалено з %{bucket}, який профіль більше не
 #: lib/phoenix_kit_web/live/components/user_settings.ex:2077
 #, elixir-autogen, elixir-format
 msgid "If moving around a picture with two fingers on your trackpad goes the opposite way to what you expect, turn this on. Zooming is not affected."
-msgstr ""
+msgstr "Якщо переміщення зображення двома пальцями на трекпаді відбувається в протилежний бік, ніж ви очікуєте, увімкніть це. Масштабування не змінюється."
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:2072
 #, elixir-autogen, elixir-format
 msgid "Invert two-finger pan"
-msgstr ""
+msgstr "Інвертувати прокрутку двома пальцями"
