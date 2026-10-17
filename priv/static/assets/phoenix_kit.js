@@ -3137,6 +3137,659 @@ if (typeof window.Chart === "undefined") {
   };
 
   // ---------------------------------------------------------------------------
+  // PkDateInput — the hook behind `<.date_input>` (core/date_input.ex): a
+  // visible text input in the site's date format plus a real
+  // `<input type="date" data-date-value>` that carries the caller's name and
+  // the ISO value. See the component's moduledoc for the contract.
+  //
+  // The pure parts (format table, parser, formatter) are exported for
+  // test/js/date_input.test.cjs.
+  // ---------------------------------------------------------------------------
+  var DATE_ORDERS = {
+    "Y-m-d": "ymd",
+    "m/d/Y": "mdy",
+    "d/m/Y": "dmy",
+    "d.m.Y": "dmy",
+    "d-m-Y": "dmy",
+    "F j, Y": "mdy"
+  };
+  var DATE_MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+    "August", "September", "October", "November", "December"];
+
+  // Same fallback as PhoenixKit.Utils.Date.format_date/2 for an unknown format.
+  function dateOrder(format) {
+    return DATE_ORDERS[format] || "ymd";
+  }
+
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function pad4(n) {
+    return ("000" + n).slice(-4);
+  }
+
+  // The real calendar date, or null (31.02, month 13, year 0).
+  function validYmd(y, m, d) {
+    if (!(y >= 1 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+    var dt = new Date(Date.UTC(2000, 0, 1));
+    dt.setUTCFullYear(y, m - 1, d);
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return pad4(y) + "-" + pad2(m) + "-" + pad2(d);
+  }
+
+  function monthFromName(token) {
+    var t = token.toLowerCase();
+    if (t.length < 3) return 0;
+    for (var i = 0; i < 12; i++) {
+      var name = DATE_MONTHS[i].toLowerCase();
+      if (name === t || (t.length === 3 && name.slice(0, 3) === t)) return i + 1;
+    }
+    return 0;
+  }
+
+  // Two digits take the century that puts the date within 50 years before
+  // to 49 after today (2026: 76 → 1976, 75 → 2075, 85 → 1985, 30 → 2030).
+  function yearFromToken(token, todayYear) {
+    if (!/^\d+$/.test(token)) return 0;
+    if (token.length === 4) return parseInt(token, 10);
+    if (token.length !== 2) return 0;
+    var yy = parseInt(token, 10);
+    var base = todayYear - 50;
+    return yy + 100 * Math.ceil((base - yy) / 100);
+  }
+
+  function todayYearOf(today) {
+    var m = /^(\d{4})-/.exec(String(today || ""));
+    return m ? parseInt(m[1], 10) : new Date().getFullYear();
+  }
+
+  function isYearPart(order, idx) {
+    return order === "ymd" ? idx === 0 : idx === 2;
+  }
+
+  function assembleDate(order, parts) {
+    if (order === "ymd") return { y: parts[0], m: parts[1], d: parts[2] };
+    if (order === "mdy") return { m: parts[0], d: parts[1], y: parts[2] };
+    return { d: parts[0], m: parts[1], y: parts[2] };
+  }
+
+  // Text → "YYYY-MM-DD", or null when it is not a date (or lies outside
+  // min/max, which are ISO strings). `today` (ISO) anchors two-digit years. Never throws; empty text is the caller's
+  // business (it clears the field).
+  function checkDateText(text, format, min, max, today) {
+    var s = String(text == null ? "" : text).trim();
+    if (s === "") return { error: "format" };
+    var order = dateOrder(format);
+    var ty = todayYearOf(today);
+    var iso = null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+
+    if (m) {
+      iso = validYmd(+m[1], +m[2], +m[3]);
+    } else if (/^\d+$/.test(s)) {
+      // Digits only: ddmmyyyy / ddmmyy in the format's order.
+      var cuts;
+      if (s.length === 8) cuts = order === "ymd" ? [4, 2, 2] : [2, 2, 4];
+      else if (s.length === 6) cuts = [2, 2, 2];
+      else return { error: "format" };
+      var nums = [];
+      var at = 0;
+      for (var i = 0; i < 3; i++) {
+        var part = s.slice(at, at + cuts[i]);
+        at += cuts[i];
+        nums.push(isYearPart(order, i) ? yearFromToken(part, ty) : parseInt(part, 10));
+      }
+      var a = assembleDate(order, nums);
+      iso = validYmd(a.y, a.m, a.d);
+    } else {
+      var tokens = s.split(/[.\/\-\s,]+/).filter(Boolean);
+      if (tokens.length !== 3) return { error: "format" };
+      var namePos = format === "F j, Y" ? 0 : -1;
+      var vals = [];
+      for (var j = 0; j < 3; j++) {
+        var tok = tokens[j];
+        if (isYearPart(order, j)) vals.push(yearFromToken(tok, ty));
+        else if (j === namePos && /^[A-Za-z]+$/.test(tok)) vals.push(monthFromName(tok));
+        else if (/^\d{1,2}$/.test(tok)) vals.push(parseInt(tok, 10));
+        else return { error: "format" };
+      }
+      var b = assembleDate(order, vals);
+      iso = validYmd(b.y, b.m, b.d);
+    }
+
+    if (iso === null) return { error: "format" };
+    if ((min && iso < min) || (max && iso > max)) return { error: "range" };
+    return { iso: iso };
+  }
+
+  // Text → "YYYY-MM-DD", or null when it is not an acceptable date.
+  function parseDateText(text, format, min, max, today) {
+    return checkDateText(text, format, min, max, today).iso || null;
+  }
+
+  // "YYYY-MM-DD" → text in the site format (`F` is the English month name,
+  // as the server renders it); "" for anything that is not an ISO date.
+  function formatDateIso(iso, format) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+    if (!m) return "";
+    var y = m[1];
+    var mo = m[2];
+    var d = m[3];
+    switch (format) {
+      case "m/d/Y": return mo + "/" + d + "/" + y;
+      case "d/m/Y": return d + "/" + mo + "/" + y;
+      case "d.m.Y": return d + "." + mo + "." + y;
+      case "d-m-Y": return d + "-" + mo + "-" + y;
+      case "F j, Y": return DATE_MONTHS[+mo - 1] + " " + (+d) + ", " + y;
+      default: return y + "-" + mo + "-" + d;
+    }
+  }
+
+  // Where the calendar popup goes: under the field, flipped above it when
+  // the room below is short and the room above is enough, kept inside the
+  // viewport sideways. `anchor` is the field's rect, `size` the popup's,
+  // `view` the viewport's; all in CSS pixels.
+  function popupPlacement(anchor, size, view) {
+    var gap = 4;
+    var top = anchor.bottom + gap;
+    if (top + size.height > view.height && anchor.top - gap - size.height >= 0) {
+      top = anchor.top - gap - size.height;
+    }
+    // No room on either side: keep as much of it as fits on screen.
+    if (top + size.height > view.height) top = Math.max(gap, Math.min(top, view.height - size.height - gap));
+    var left = Math.max(gap, Math.min(anchor.left, view.width - size.width - gap));
+    return { top: top, left: left };
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.popupPlacement = popupPlacement;
+    module.exports.dateOrder = dateOrder;
+    module.exports.parseDateText = parseDateText;
+    module.exports.checkDateText = checkDateText;
+    module.exports.formatDateIso = formatDateIso;
+  }
+
+  window.PhoenixKitHooks.PkDateInput = {
+    mounted() {
+      var self = this;
+      var t = this.textEl();
+      this.baseText = t.value;
+      this.lastIso = this.valueEl().value;
+      this.rejected = null;
+      this.pendingSync = false;
+      this.gone = false;
+
+      this.onEvent = function(e) { self.handle(e); };
+      ["input", "change", "click", "mousedown", "keydown", "focusin", "focusout"].forEach(function(type) {
+        self.el.addEventListener(type, self.onEvent);
+      });
+
+      // The owning form is the value element's (`form="…"` goes to it).
+      this.form = this.valueEl().form;
+      this.onReset = function() {
+        // The browser restored both fields' defaults; make them agree again.
+        setTimeout(function() { self.syncText(); }, 0);
+      };
+      if (this.form) this.form.addEventListener("reset", this.onReset);
+
+      // Text that differs from what the server rendered was typed before the
+      // socket connected. Still typing in it: leave it to blur/Enter (a
+      // partial `16.10.20` must not be committed under the caret).
+      if (t.value !== t.defaultValue) {
+        if (document.activeElement === t) this.baseText = t.defaultValue;
+        else this.commit();
+      }
+      this.refresh();
+    },
+
+    updated() {
+      var v = this.valueEl();
+      var t = this.textEl();
+      if (!v || !t) return;
+      var focused = document.activeElement === t;
+      var changed = v.value !== this.lastIso;
+      this.lastIso = v.value;
+
+      if (changed) {
+        // The server moved the date: it wins over rejected text.
+        this.rejected = null;
+        if (focused) this.pendingSync = true;
+        else this.syncText();
+      } else if (this.rejected && !focused) {
+        // A patch rewrote the field from the server's (unchanged) date: the
+        // rejected text is what the person should still see.
+        t.value = this.rejected.text;
+      }
+      // A patch also rewrites every attribute the server rendered.
+      this.refresh();
+    },
+
+    destroyed() {
+      this.gone = true;
+      this.closePopup(false);
+      if (this.form) this.form.removeEventListener("reset", this.onReset);
+    },
+
+    textEl() { return this.el.querySelector("[data-date-text]"); },
+    valueEl() { return this.el.querySelector("[data-date-value]"); },
+    format() { return this.el.dataset.format || "Y-m-d"; },
+
+    check(raw) {
+      var d = this.el.dataset;
+      return checkDateText(raw, this.format(), d.min, d.max, d.today);
+    },
+
+    handle(e) {
+      var text = this.textEl();
+      var value = this.valueEl();
+      var target = e.target;
+
+      // Escape with the calendar open closes only the calendar: the event
+      // must not reach a PkDialog / modal around the field.
+      if (e.type === "keydown" && e.key === "Escape" && this.popupOpen()) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closePopup(true);
+        return;
+      }
+
+      // Focus left the component (Tab past the calendar): the popup goes too.
+      if (e.type === "focusout" && this.popupOpen() &&
+          e.relatedTarget && !this.el.contains(e.relatedTarget)) {
+        this.closePopup(false);
+      }
+
+      if (target === text) {
+        if (e.type === "input" || e.type === "change") {
+          // The visible text never talks to LiveView.
+          e.stopPropagation();
+          this.toggleClear();
+        } else if (e.type === "focusin") {
+          this.baseText = text.value;
+        } else if (e.type === "focusout") {
+          this.onTextBlur();
+        } else if (e.type === "keydown") {
+          this.onTextKeydown(e);
+        }
+        return;
+      }
+
+      if (target === value) {
+        // The native picker (or our own commit) changed the value element.
+        if (e.type === "input" || e.type === "change") this.syncText();
+        return;
+      }
+
+      var clear = target.closest && target.closest("[data-clear]");
+      if (clear && this.el.contains(clear)) {
+        if (e.type === "mousedown") e.preventDefault();
+        else if (e.type === "click") this.clear();
+        return;
+      }
+
+      var open = target.closest && target.closest("[data-open]");
+      if (open && this.el.contains(open) && e.type === "click") {
+        this.open();
+        return;
+      }
+
+      if (e.type !== "click" || !target.closest) return;
+      if (target.closest("[data-popup-today]")) this.pick(this.el.dataset.today);
+      else if (target.closest("[data-popup-clear]")) {
+        this.clear();
+        this.closePopup(true);
+      }
+    },
+
+    onTextBlur() {
+      var text = this.textEl();
+      if (this.pendingSync && text.value === this.baseText) {
+        // The server changed the date while the field was focused.
+        this.pendingSync = false;
+        this.syncText();
+        return;
+      }
+      if (text.value !== this.baseText) this.commit();
+    },
+
+    onTextKeydown(e) {
+      if (e.key === "Enter" && !e.isComposing) {
+        var ok = this.commit();
+        var form = this.form;
+        // Submit stays natural for a phx-submit form; in a phx-change-only
+        // form LiveView would turn it into a native POST.
+        if (!ok || !form || !form.hasAttribute("phx-submit")) e.preventDefault();
+      } else if (e.key === "ArrowDown" && e.altKey) {
+        e.preventDefault();
+        this.open();
+      }
+    },
+
+    // Parse the text and, when it is a (different) date, hand it to the form.
+    // Returns false only for text that is not accepted.
+    commit() {
+      var text = this.textEl();
+      if (this.pendingSync && text.value === this.baseText) {
+        this.pendingSync = false;
+        this.syncText();
+        return true;
+      }
+      this.pendingSync = false;
+      var raw = text.value.trim();
+      if (raw === "") {
+        // Emptying a required field is not a value: keep the date.
+        if (text.required) {
+          this.reject("format");
+          return false;
+        }
+        this.setValue("");
+        this.accept();
+        this.baseText = text.value;
+        this.toggleClear();
+        return true;
+      }
+      var res = this.check(raw);
+      if (res.error) {
+        this.reject(res.error);
+        return false;
+      }
+      this.setValue(res.iso);
+      this.syncText();
+      return true;
+    },
+
+    setValue(iso) {
+      var v = this.valueEl();
+      if (!v || v.value === iso) return;
+      v.value = iso;
+      this.lastIso = iso;
+      v.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+
+    clear() {
+      var text = this.textEl();
+      text.value = "";
+      this.setValue("");
+      this.accept();
+      this.baseText = "";
+      this.pendingSync = false;
+      this.toggleClear();
+      text.focus();
+    },
+
+    // Visible text := the value element's date, in the site format.
+    syncText() {
+      var text = this.textEl();
+      var v = this.valueEl();
+      if (!text || !v) return;
+      text.value = formatDateIso(v.value, this.format());
+      this.baseText = text.value;
+      this.pendingSync = false;
+      this.accept();
+      this.toggleClear();
+    },
+
+    // The calendar button. Phones get the browser's own picker on the value
+    // element; so does a desktop where the calendar cannot load. With no
+    // showPicker (or one that throws) the calendar is the way, and failing
+    // that the focus stays in the text field.
+    open() {
+      var v = this.valueEl();
+      var text = this.textEl();
+      if (!v || v.disabled) return;
+      if (this.popupOpen()) {
+        this.closePopup(true);
+        return;
+      }
+      // What was typed counts before the calendar reads the date.
+      if (text && text.value !== this.baseText) this.commit();
+      var popup = this.popupEl();
+      var canNative = typeof v.showPicker === "function";
+      var canPopup = !!popup && typeof popup.showPopover === "function";
+      var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      if (coarse && canNative) this.tryNative(canPopup);
+      else if (canPopup) this.openPopup(canNative);
+      else if (canNative) this.tryNative(false);
+      else this.focusText();
+    },
+
+    focusText() {
+      var t = this.textEl();
+      if (t) t.focus();
+    },
+
+    // The browser's picker; if it throws, the calendar (when there is one).
+    tryNative(thenPopup) {
+      try {
+        this.valueEl().showPicker();
+      } catch (_e) {
+        if (thenPopup) this.openPopup(false);
+        else this.focusText();
+      }
+    },
+
+    // Load Cally and show it; on a failed load the browser's picker when
+    // `nativeOnFail`, else the text field keeps the focus.
+    openPopup(nativeOnFail) {
+      var self = this;
+      this.loadCally().then(function() {
+        if (self.gone || !self.el.isConnected) return;
+        self.showPopup();
+      }, function() {
+        if (self.gone) return;
+        if (!window.__pkDateCallyWarned) {
+          window.__pkDateCallyWarned = true;
+          console.warn("[PhoenixKit] date_input: the calendar failed to load; using the browser's date picker.");
+        }
+        if (nativeOnFail) self.tryNative(false);
+        else self.focusText();
+      });
+    },
+
+    loadCally() {
+      return loadVendored("Cally", "cally", {
+        module: true,
+        check: function() {
+          return !!(window.customElements && window.customElements.get("calendar-date"));
+        }
+      });
+    },
+
+    popupEl() { return this.el.querySelector("[data-popup]"); },
+
+    popupOpen() {
+      var popup = this.popupEl();
+      try {
+        return !!popup && popup.matches(":popover-open");
+      } catch (_e) {
+        return false;
+      }
+    },
+
+    calendarEl() {
+      var popup = this.popupEl();
+      return popup && popup.querySelector("calendar-date");
+    },
+
+    // The server rendered the calendar into a <template> (strings included);
+    // the first open clones it into the ignored popup container.
+    buildPopup(popup) {
+      var self = this;
+      var tpl = this.el.querySelector("[data-popup-template]");
+      if (!tpl) return false;
+      popup.appendChild(tpl.content.cloneNode(true));
+      var cal = popup.querySelector("calendar-date");
+      if (!cal) return false;
+      cal.setAttribute("locale", this.el.dataset.locale || "en");
+      cal.setAttribute("first-day-of-week", this.el.dataset.weekStart || "1");
+      if (this.el.dataset.today) cal.setAttribute("today", this.el.dataset.today);
+      // `change` does not bubble out of Cally: listen on the element.
+      cal.addEventListener("change", function(e) { self.pick(e.target.value); });
+      return true;
+    },
+
+    showPopup() {
+      var self = this;
+      var popup = this.popupEl();
+      if (!popup || this.popupOpen()) return;
+      if (!this.calendarEl() && !this.buildPopup(popup)) {
+        this.focusText();
+        return;
+      }
+      var cal = this.calendarEl();
+      var d = this.el.dataset;
+      var v = this.valueEl().value;
+      if (v) cal.setAttribute("value", v);
+      else cal.removeAttribute("value");
+      if (d.min) cal.setAttribute("min", d.min);
+      else cal.removeAttribute("min");
+      if (d.max) cal.setAttribute("max", d.max);
+      else cal.removeAttribute("max");
+      // Cally pins the month it was last paged to; start on the date's.
+      cal.focusedDate = v || d.today || undefined;
+
+      // Hidden until placed: the first frames would otherwise show it at the
+      // viewport's origin.
+      popup.style.visibility = "hidden";
+      popup.showPopover();
+      this.setExpanded(true);
+      this.bindClosers();
+      // Cally renders its shadow DOM asynchronously: measure after it has.
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          if (!self.popupOpen()) return;
+          self.position();
+          popup.style.visibility = "";
+          if (typeof cal.focus === "function") cal.focus();
+        });
+      });
+    },
+
+    position() {
+      var popup = this.popupEl();
+      var spot = popupPlacement(
+        this.el.getBoundingClientRect(),
+        { width: popup.offsetWidth, height: popup.offsetHeight },
+        { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight }
+      );
+      popup.style.top = spot.top + "px";
+      popup.style.left = spot.left + "px";
+    },
+
+    // A day picked in the calendar, or "Today".
+    pick(iso) {
+      var ok = parseDateText(iso, "Y-m-d", this.el.dataset.min, this.el.dataset.max);
+      if (ok === null) return;
+      this.setValue(ok);
+      this.syncText();
+      this.closePopup(true);
+    },
+
+    bindClosers() {
+      var self = this;
+      var popup = this.popupEl();
+      var close = function() { self.closePopup(false); };
+      var dialog = this.el.closest("dialog");
+      this.closers = [
+        [document, "pointerdown", function(e) {
+          if (popup.contains(e.target)) return;
+          if (e.target.closest && e.target.closest("[data-open]") && self.el.contains(e.target)) return;
+          self.closePopup(false);
+        }, true],
+        // A scroll of any ancestor moves the field away from the popup.
+        [window, "scroll", function(e) { if (!popup.contains(e.target)) close(); }, true],
+        [window, "resize", close, false],
+        [window, "pagehide", close, false]
+      ];
+      if (dialog) this.closers.push([dialog, "close", close, false]);
+      this.closers.forEach(function(c) { c[0].addEventListener(c[1], c[2], c[3]); });
+      // Cally's own height changes (a 6-week month): keep it clear of the field.
+      if (typeof ResizeObserver === "function") {
+        this.resizer = new ResizeObserver(function() {
+          if (self.popupOpen() && popup.style.visibility !== "hidden") self.position();
+        });
+        this.resizer.observe(popup);
+      }
+    },
+
+    closePopup(refocus) {
+      if (this.closers) {
+        this.closers.forEach(function(c) { c[0].removeEventListener(c[1], c[2], c[3]); });
+        this.closers = null;
+      }
+      if (this.resizer) {
+        this.resizer.disconnect();
+        this.resizer = null;
+      }
+      var popup = this.popupEl();
+      if (popup && this.popupOpen()) {
+        try { popup.hidePopover(); } catch (_e) { /* already closed */ }
+      }
+      this.setExpanded(false);
+      if (refocus) {
+        var t = this.textEl();
+        if (t) t.focus();
+      }
+    },
+
+    setExpanded(open) {
+      var btn = this.el.querySelector("[data-open]");
+      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    },
+
+    toggleClear() {
+      var btn = this.el.querySelector("[data-clear]");
+      var text = this.textEl();
+      if (btn && text) btn.classList.toggle("hidden", text.value === "");
+    },
+
+    // The text was refused: remember it (a patch may rewrite the field) and mark it.
+    reject(reason) {
+      this.rejected = { text: this.textEl().value, reason: reason };
+      this.markInvalid();
+    },
+
+    // The text is, or became, the date: forget any refusal.
+    accept() {
+      this.rejected = null;
+      this.markValid();
+    },
+
+    markInvalid() {
+      var t = this.textEl();
+      var d = this.el.dataset;
+      var expected = (this.rejected && this.rejected.reason === "range" && d.rangeMessage) || d.expected || "";
+      t.setCustomValidity(expected || "invalid");
+      t.setAttribute("aria-invalid", "true");
+      t.classList.add("input-error");
+      if (expected) t.setAttribute("title", expected);
+    },
+
+    markValid() {
+      var t = this.textEl();
+      if (!t) return;
+      t.setCustomValidity("");
+      t.removeAttribute("title");
+      // Errors the server rendered stay.
+      if (!t.hasAttribute("data-has-errors")) {
+        t.removeAttribute("aria-invalid");
+        t.classList.remove("input-error");
+      }
+    },
+
+    // After a patch: put back the marks only the hook knows about.
+    refresh() {
+      var t = this.textEl();
+      if (!t) return;
+      if (this.rejected) this.markInvalid();
+      else this.markValid();
+      this.toggleClear();
+      this.setExpanded(this.popupOpen());
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // PkCheckboxIndeterminate — applies the `indeterminate` property to a
   // checkbox based on `data-indeterminate="true"`. HTML has no attribute
   // form of `indeterminate`, so a small hook is needed to read the dataset

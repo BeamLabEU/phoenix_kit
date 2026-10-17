@@ -142,6 +142,26 @@ defmodule PhoenixKit.Utils.Date do
       " at #{pad2(datetime.hour)}:#{pad2(datetime.minute)}"
   end
 
+  @doc """
+  Today's date in the site time zone (Settings → `time_zone`).
+  """
+  @spec site_today() :: Date.t()
+  def site_today, do: DateTime.utc_now() |> to_site_date()
+
+  @doc """
+  The calendar date of a `Date`, `DateTime` or `NaiveDateTime` in the site
+  time zone. A `Date` is returned as is; a `NaiveDateTime` is read as UTC.
+  """
+  @spec to_site_date(Date.t() | DateTime.t() | NaiveDateTime.t()) :: Date.t()
+  def to_site_date(%Date{} = date), do: date
+
+  def to_site_date(value) do
+    case in_site_zone(value) do
+      %DateTime{} = dt -> DateTime.to_date(dt)
+      %NaiveDateTime{} = naive -> NaiveDateTime.to_date(naive)
+    end
+  end
+
   defp pad2(n), do: String.pad_leading(to_string(n), 2, "0")
 
   @doc """

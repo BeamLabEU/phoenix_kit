@@ -41,8 +41,19 @@ defmodule PhoenixKitWeb.Components.Core.DateNavTest do
   test "the picker is a form (a bare date input never reaches the server)" do
     html = render_nav(~D[2026-09-20])
     assert html =~ ~r/<form[^>]*phx-change="date_nav_pick"/
-    assert html =~ ~s(type="date")
-    assert html =~ ~s(value="2026-09-20")
+    # The picker is a date_input: the date as text, and the form's `date`
+    # field is the ISO value element.
+    assert html =~ ~s(phx-hook="PkDateInput")
+    assert html =~ ~r/<input[^>]*type="date"[^>]*name="date"[^>]*value="2026-09-20"/
+    assert html =~ ~r/<input[^>]*type="text"[^>]*id="date-nav-date"/
+  end
+
+  test "the picker is required (clearing it would only mean today) and bounded by min/max" do
+    html = render_nav(~D[2026-09-20], %{min: ~D[2026-09-01], max: ~D[2026-09-30]})
+    assert html =~ ~r/<input[^>]*type="text"[^>]*\brequired\b/
+    refute html =~ "data-clear"
+    assert html =~ ~s(data-min="2026-09-01")
+    assert html =~ ~s(data-max="2026-09-30")
   end
 
   test "the day picker's change event follows `target`, like the arrows" do

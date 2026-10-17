@@ -52,6 +52,12 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
+
+  attr :native, :boolean,
+    default: false,
+    doc:
+      "`type=\"date\"` only: render the browser's own date input instead of `date_input/1` (a page with no LiveView). Host-wide: `config :phoenix_kit, native_date_inputs: true`"
+
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
@@ -76,7 +82,41 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     |> input()
   end
 
-  def input(assigns) do
+  # `type="date"` is a `date_input/1` (text in the site's date format, with a
+  # clear button and a calendar) unless the call or the host opts out.
+  def input(%{type: "date"} = assigns) do
+    if assigns[:native] || Application.get_env(:phoenix_kit, :native_date_inputs, false) do
+      native_input(assigns)
+    else
+      {own, rest} = Map.split(assigns.rest, [:min, :max, :placeholder])
+
+      assigns =
+        assigns
+        |> assign(:date_rest, Map.delete(rest, :size))
+        |> assign(:date_attrs, own)
+        |> assign_new(:value, fn -> nil end)
+
+      ~H"""
+      <PhoenixKitWeb.Components.Core.DateInput.date_input
+        id={@id}
+        name={@name}
+        label={@label}
+        value={@value}
+        errors={@errors}
+        class={@class}
+        wrapper_class={@wrapper_class}
+        min={@date_attrs[:min]}
+        max={@date_attrs[:max]}
+        placeholder={@date_attrs[:placeholder]}
+        html={@date_rest}
+      />
+      """
+    end
+  end
+
+  def input(assigns), do: native_input(assigns)
+
+  defp native_input(assigns) do
     ~H"""
     <div phx-feedback-for={@name} class={@wrapper_class}>
       <label :if={@label && @label != ""} class="label mb-2" for={@id}>

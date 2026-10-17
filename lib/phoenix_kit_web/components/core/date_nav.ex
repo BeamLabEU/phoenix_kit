@@ -23,8 +23,10 @@ defmodule PhoenixKitWeb.Components.Core.DateNav do
 
   ## The date picker
 
-  With `picker` (default `true`) a native date input sits between the
-  arrows. A date input only reaches the server inside a form, so it is
+  With `picker` (default `true`) a `date_input/1` (the site's date format, a
+  calendar button) sits between the arrows. It is `required`: clearing it
+  would only make `parse_param/2` answer today. A date input only reaches the
+  server inside a form, so it is
   wrapped in one that sends `pick_event` (default `"date_nav_pick"`) with
   `%{"date" => "YYYY-MM-DD"}`; handle it with a patch:
 
@@ -57,6 +59,7 @@ defmodule PhoenixKitWeb.Components.Core.DateNav do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  import PhoenixKitWeb.Components.Core.DateInput, only: [date_input: 1]
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -120,7 +123,7 @@ defmodule PhoenixKitWeb.Components.Core.DateNav do
       |> assign(:next_label, if(step == 1, do: gettext("Next day"), else: gettext("Next")))
       |> assign(:today_word, assigns.today_label || gettext("Today"))
       # A label replaces the date between the arrows, and with it the picker:
-      # a native date input picks a day, which is not what a week is.
+      # a date input picks a day, which is not what a week is.
       |> assign(:show_picker?, assigns.picker and is_nil(assigns.label))
 
     ~H"""
@@ -143,14 +146,17 @@ defmodule PhoenixKitWeb.Components.Core.DateNav do
           class="join-item"
           onsubmit="return false"
         >
-          <input
-            type="date"
+          <.date_input
+            id={"#{@id}-date"}
             name="date"
-            value={Date.to_iso8601(@date)}
-            min={@min && Date.to_iso8601(@min)}
-            max={@max && Date.to_iso8601(@max)}
-            aria-label={gettext("Date")}
-            class="input input-sm join-item rounded-none w-38"
+            value={@date}
+            min={@min}
+            max={@max}
+            required
+            bare
+            size="sm"
+            label={gettext("Date")}
+            class="join-item rounded-none w-38"
           />
         </form>
         <span :if={!@show_picker?} class="btn btn-sm join-item pointer-events-none font-normal">

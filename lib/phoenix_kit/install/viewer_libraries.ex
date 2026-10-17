@@ -18,7 +18,7 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       (`:code.priv_dir/1`), versioned by the consumer's loaded application
       version — not core's lockfile, which can resolve a different minor
       than the host does.
-    * SortableJS, Panzoom and wavesurfer (npm-only) ship inside core, each
+    * SortableJS, Panzoom, wavesurfer and Cally (npm-only) ship inside core, each
       at an exact version with its checksum, licence and provenance README
       (`priv/static/assets/vendor_libs/`).
     * The content hash is in the name because a path dependency can change
@@ -109,6 +109,15 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       version: "7.12.12",
       sha256: "1bca765cc75bc4af079ecd1b2edd659b155e5d1715e75a29d68272d9f141f951",
       cdn: "https://cdn.jsdelivr.net/npm/wavesurfer.js@{vsn}/dist/wavesurfer.esm.js"
+    },
+    # An ES module (loaded with import()); self-contained. The calendar popup
+    # of `<.date_input>`.
+    %{
+      name: "cally",
+      source: {:phoenix_kit, "static/assets/vendor_libs/cally/cally.js"},
+      version: "0.9.2",
+      sha256: "4dcba6a3b8ec63b66ff2fbfc6cf47b7dee1eb4896eac89fe7487d82e28e15870",
+      cdn: "https://cdn.jsdelivr.net/npm/cally@{vsn}/dist/cally.js"
     }
   ]
 

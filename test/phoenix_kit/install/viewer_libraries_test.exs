@@ -35,8 +35,9 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     facts = ViewerLibraries.vendor!(root)
 
     assert Enum.sort(Map.keys(facts)) ==
-             ~w(etcher fresco leaf panzoom sortable tessera wavesurfer)
+             ~w(cally etcher fresco leaf panzoom sortable tessera wavesurfer)
 
+    assert facts["cally"].file =~ ~r/\Acally-0\.9\.2-[0-9a-f]{8}\.js\z/
     assert facts["panzoom"].file =~ ~r/\Apanzoom-4\.6\.0-[0-9a-f]{8}\.js\z/
     assert facts["wavesurfer"].file =~ ~r/\Awavesurfer-7\.12\.12-[0-9a-f]{8}\.js\z/
     assert facts["sortable"].file =~ ~r/\Asortable-1\.15\.0-[0-9a-f]{8}\.js\z/
@@ -79,7 +80,9 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
 
   test "every library committed in core is the exact upstream file its manifest names, with its licence" do
     committed = for %{sha256: _} = lib <- ViewerLibraries.libraries(), do: lib
-    assert committed |> Enum.map(& &1.name) |> Enum.sort() == ~w(panzoom sortable wavesurfer)
+
+    assert committed |> Enum.map(& &1.name) |> Enum.sort() ==
+             ~w(cally panzoom sortable wavesurfer)
 
     for %{name: name, sha256: expected, source: {:phoenix_kit, path}} <- committed do
       full = Path.join(to_string(:code.priv_dir(:phoenix_kit)), path)
@@ -98,16 +101,18 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     end
   end
 
-  test "wavesurfer is one self-contained module: nothing it imports would be missing" do
-    %{source: {:phoenix_kit, path}} =
-      Enum.find(ViewerLibraries.libraries(), &(&1.name == "wavesurfer"))
+  for name <- ~w(wavesurfer cally) do
+    test "#{name} is one self-contained module: nothing it imports would be missing" do
+      %{source: {:phoenix_kit, path}} =
+        Enum.find(ViewerLibraries.libraries(), &(&1.name == unquote(name)))
 
-    js = File.read!(Path.join(to_string(:code.priv_dir(:phoenix_kit)), path))
+      js = File.read!(Path.join(to_string(:code.priv_dir(:phoenix_kit)), path))
 
-    refute js =~ ~r/(from|import)\s*\(?\s*['"]\.{1,2}\//,
-           "a relative import would 404 beside the copied file"
+      refute js =~ ~r/(from|import)\s*\(?\s*['"]\.{1,2}\//,
+             "a relative import would 404 beside the copied file"
 
-    refute js =~ "new Worker("
+      refute js =~ "new Worker("
+    end
   end
 
   test "the facts are one JS statement naming every file", %{root: root} do

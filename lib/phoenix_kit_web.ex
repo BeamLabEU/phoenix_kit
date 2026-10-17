@@ -114,6 +114,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.FormFieldError
       import PhoenixKitWeb.Components.Core.Input
       import PhoenixKitWeb.Components.Core.DecimalInput
+      import PhoenixKitWeb.Components.Core.DateInput, only: [date_input: 1]
       import PhoenixKitWeb.Components.Core.Textarea
       import PhoenixKitWeb.Components.Core.Select
       import PhoenixKitWeb.Components.Core.Checkbox
