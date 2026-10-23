@@ -34,6 +34,17 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   that is harmless, because a `/start` whose chat is already linked to this bot
   is passed over without a word instead of answered "expired".
 
+  ## A resident reader
+
+  A bot's updates can be read by one reader only. A host that reads the site
+  bot's updates all the time (to answer inline buttons, say) declares it:
+
+      config :phoenix_kit, :telegram_updates_reader, {MyApp.BotReader, :holds?, []}
+
+  `MyApp.BotReader.holds?(connection_uuid)` answers `true` while it reads that
+  bot. `poll/1` then reads nothing, and the reader hands every batch it reads
+  to `handle_updates/3`, which links the chats as `poll/1` would.
+
   The stored link is `custom_fields["notification_channel:telegram"]`
   (`"site_chat_id"`, `"site_connection_uuid"`, `"linked_at"`), next to the
   routing the notification channel already keeps there.
@@ -149,28 +160,85 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   `/start <token>`. Returns `{:ok, %{linked: n}}`, `:busy` when another node is
   linking this bot's batch right now, or `{:error, reason}` when Telegram could
   not be read (nothing is lost: the updates stay queued).
+
+  When the host runs a resident reader of the bot's updates (see "A resident
+  reader" in the moduledoc) and it says it holds this bot, `poll/1` reads
+  nothing and answers `{:ok, %{linked: 0}}`: a second reader would take the
+  updates away from it, and the reader links the chats itself through
+  `handle_updates/3`.
   """
   @spec poll(String.t()) :: {:ok, %{linked: non_neg_integer()}} | :busy | {:error, term()}
   def poll(connection_uuid) when is_binary(connection_uuid) do
-    case Client.get_updates(connection_uuid, offset: nil, timeout: 0, limit: 100, owner: :system) do
-      {:ok, []} -> {:ok, %{linked: 0}}
-      {:ok, updates} when is_list(updates) -> handle_batch(connection_uuid, updates)
-      {:error, reason} -> {:error, reason}
+    if resident_reader?(connection_uuid) do
+      {:ok, %{linked: 0}}
+    else
+      case Client.get_updates(connection_uuid,
+             offset: nil,
+             timeout: 0,
+             limit: 100,
+             owner: :system
+           ) do
+        {:ok, []} -> {:ok, %{linked: 0}}
+        {:ok, updates} when is_list(updates) -> handle_updates(connection_uuid, updates)
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
-  defp handle_batch(connection_uuid, updates) do
-    commands = commands(connection_uuid, updates)
+  @doc """
+  Links the chats of a batch of updates already read from the bot
+  `connection_uuid`: every private `/start <token>` links its chat to the
+  token's owner, and the chat is answered. Other updates are passed over.
 
-    case link_batch(connection_uuid, commands) do
-      {:ok, outcomes} ->
-        confirmed? = confirm(connection_uuid, updates) == :ok
-        Enum.each(outcomes, &announce(connection_uuid, &1, confirmed?))
-        {:ok, %{linked: Enum.count(outcomes, &match?({_, {:linked, _}}, &1))}}
+  `opts[:confirm]` is how the batch is confirmed to Telegram once the links are
+  committed: a function of the updates answering `:ok` or `:error`. The default
+  confirms by `getUpdates` with the next offset, as `poll/1` needs; a resident
+  reader that moves the offset itself passes `fn _updates -> :ok end`. An
+  "expired" answer is held back when the confirmation failed (the batch comes
+  round again).
 
-      :busy ->
-        :busy
+  Returns `{:ok, %{linked: n}}`, or `:busy` when another node is linking this
+  bot's batch right now (nothing was done; read the batch again).
+  """
+  @spec handle_updates(String.t(), [map()], keyword()) ::
+          {:ok, %{linked: non_neg_integer()}} | :busy
+  def handle_updates(connection_uuid, updates, opts \\ [])
+      when is_binary(connection_uuid) and is_list(updates) do
+    confirm = Keyword.get(opts, :confirm, &confirm(connection_uuid, &1))
+
+    case commands(connection_uuid, updates) do
+      [] ->
+        confirm.(updates)
+        {:ok, %{linked: 0}}
+
+      commands ->
+        case link_batch(connection_uuid, commands) do
+          {:ok, outcomes} ->
+            confirmed? = confirm.(updates) == :ok
+            Enum.each(outcomes, &announce(connection_uuid, &1, confirmed?))
+            {:ok, %{linked: Enum.count(outcomes, &match?({_, {:linked, _}}, &1))}}
+
+          :busy ->
+            :busy
+        end
     end
+  end
+
+  # The host's resident reader, `config :phoenix_kit, :telegram_updates_reader,
+  # {mod, fun, args}`, asked with the connection uuid appended. A reader that
+  # cannot answer does not hold the bot.
+  defp resident_reader?(connection_uuid) do
+    case Application.get_env(:phoenix_kit, :telegram_updates_reader) do
+      {mod, fun, args} when is_atom(mod) and is_atom(fun) and is_list(args) ->
+        apply(mod, fun, args ++ [connection_uuid]) == true
+
+      _ ->
+        false
+    end
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
   end
 
   # The database half: one transaction under the lock, no Telegram in it.

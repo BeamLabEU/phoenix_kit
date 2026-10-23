@@ -667,4 +667,91 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       assert is_map(config["types"])
     end
   end
+
+  describe "handle_updates/3 (a resident reader's batch)" do
+    test "links from the given batch without reading Telegram", %{connection: connection} do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+
+      updates = [
+        %{"update_id" => 5, "callback_query" => %{"id" => "cb", "data" => "x"}},
+        start_update(6, 4242, token)
+      ]
+
+      assert {:ok, %{linked: 1}} =
+               Linking.handle_updates(connection, updates, confirm: fn _ -> :ok end)
+
+      assert linked(u.uuid)["site_chat_id"] == "4242"
+      refute_received {:telegram, "getUpdates", _}
+      assert_received {:telegram, "sendMessage", %{"chat_id" => 4242}}
+    end
+
+    test "the default confirmation moves the offset past the batch", %{connection: connection} do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+
+      assert {:ok, %{linked: 1}} =
+               Linking.handle_updates(connection, [start_update(9, 77, token)])
+
+      assert_received {:telegram, "getUpdates", %{"offset" => 10}}
+    end
+
+    test "a batch without /start links nothing and takes no lock", %{connection: connection} do
+      confirm = fn updates -> send(self(), {:confirmed, length(updates)}) && :ok end
+
+      assert {:ok, %{linked: 0}} =
+               Linking.handle_updates(
+                 connection,
+                 [%{"update_id" => 1, "callback_query" => %{"id" => "cb"}}],
+                 confirm: confirm
+               )
+
+      assert_received {:confirmed, 1}
+    end
+  end
+
+  describe "poll/1 with a resident reader" do
+    setup do
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :telegram_updates_reader) end)
+      :ok
+    end
+
+    def holds?(answer, _connection_uuid), do: answer
+
+    test "reads nothing while the reader holds the bot", %{connection: connection, updates: agent} do
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :holds?, [true]})
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+      put_updates(agent, [start_update(1, 55, token)])
+
+      assert Linking.poll(connection) == {:ok, %{linked: 0}}
+      refute_received {:telegram, "getUpdates", _}
+      assert linked(u.uuid)["site_chat_id"] == nil
+    end
+
+    test "reads as before when the reader does not hold it, or cannot answer", %{
+      connection: connection,
+      updates: agent
+    } do
+      for reader <- [{__MODULE__, :holds?, [false]}, {__MODULE__, :no_such_function, []}] do
+        Application.put_env(:phoenix_kit, :telegram_updates_reader, reader)
+        put_updates(agent, [])
+        assert Linking.poll(connection) == {:ok, %{linked: 0}}
+        assert_received {:telegram, "getUpdates", _}
+      end
+    end
+  end
+
+  describe "Telegram.answer_callback_query/3" do
+    test "answers the press with an optional notice", %{connection: connection} do
+      assert {:ok, true} =
+               PhoenixKit.Integrations.Telegram.answer_callback_query(connection, "cb-1",
+                 text: "Готовлю карточку",
+                 owner: :system
+               )
+
+      assert_received {:telegram, "answerCallbackQuery",
+                       %{"callback_query_id" => "cb-1", "text" => "Готовлю карточку"}}
+    end
+  end
 end

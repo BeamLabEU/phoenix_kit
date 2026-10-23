@@ -9,9 +9,10 @@ defmodule PhoenixKit.Integrations.Telegram do
   token via `Integrations.get_credentials/2` (owner-scoped, so a connection is
   only reachable by an owner entitled to it) and calls the Bot API directly.
 
-  Scope is deliberately narrow: **sending**, plus a **one-shot `getUpdates`**
-  used purely to discover a user's `chat_id` when they link their chat (NOT a
-  streaming receiver — long-poll loops / webhooks are out of scope).
+  Scope is deliberately narrow: **sending** (and answering a button press),
+  plus a **one-shot `getUpdates`** used to discover a user's `chat_id` when they
+  link their chat. A streaming receiver is not here: a host that runs one hands
+  its batches to `Linking.handle_updates/3` (see `Telegram.Linking`).
 
       Telegram.send_message(conn_uuid, chat_id, "Deploy finished ✅")
       Telegram.send_message(conn_uuid, chat_id, "*Alert*", parse_mode: "MarkdownV2")
@@ -53,6 +54,24 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> maybe_put(:disable_notification, opts[:silent])
     |> maybe_put(:reply_markup, opts[:reply_markup])
     |> then(&request(token, "sendMessage", &1))
+  end
+
+  @doc """
+  Answers a press on an inline button (`answerCallbackQuery`), so the client
+  stops showing it as pending. Opts: `:text` (a short notice shown to the user),
+  `:show_alert` (as an alert instead of a toast), and `:owner` for the
+  credential lookup. Returns `{:ok, true}` or `{:error, reason}`.
+  """
+  @spec answer_callback_query(String.t(), String.t(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def answer_callback_query(uuid, callback_query_id, opts \\ [])
+      when is_binary(uuid) and is_binary(callback_query_id) do
+    with_token(uuid, opts, fn token ->
+      %{callback_query_id: callback_query_id}
+      |> maybe_put(:text, opts[:text])
+      |> maybe_put(:show_alert, opts[:show_alert])
+      |> then(&request(token, "answerCallbackQuery", &1))
+    end)
   end
 
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
