@@ -74,6 +74,46 @@ defmodule PhoenixKit.Integrations.Telegram do
     end)
   end
 
+  @doc """
+  Replaces the text of a message the bot sent earlier (`editMessageText`).
+
+  Opts: `:parse_mode` (`"MarkdownV2"` / `"HTML"`), `:reply_markup` (inline
+  keyboard map; omitted, Telegram drops the old keyboard), `:disable_web_page_preview`
+  (no link preview), and `:owner` for the credential lookup. Returns
+  `{:ok, message}` (or `{:ok, true}`) or `{:error, reason}` — editing to the
+  same text is an error (`"Bad Request: message is not modified"`).
+  """
+  @spec edit_message_text(
+          String.t(),
+          integer() | String.t(),
+          integer(),
+          String.t(),
+          keyword()
+        ) :: {:ok, term()} | {:error, term()}
+  def edit_message_text(uuid, chat_id, message_id, text, opts \\ [])
+      when is_binary(uuid) and is_integer(message_id) and is_binary(text) do
+    with_token(uuid, opts, fn token ->
+      %{chat_id: chat_id, message_id: message_id, text: text}
+      |> maybe_put(:parse_mode, opts[:parse_mode])
+      |> maybe_put(:reply_markup, opts[:reply_markup])
+      |> maybe_put_preview(opts[:disable_web_page_preview])
+      |> then(&request(token, "editMessageText", &1))
+    end)
+  end
+
+  @doc """
+  Shows a chat action such as "typing…" (`sendChatAction`); Telegram clears it
+  after ~5 seconds or when the bot sends a message. `action` defaults to
+  `"typing"`. Opts: `:owner` for the credential lookup. Returns `{:ok, true}`
+  or `{:error, reason}`.
+  """
+  @spec send_chat_action(String.t(), integer() | String.t(), String.t(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def send_chat_action(uuid, chat_id, action \\ "typing", opts \\ [])
+      when is_binary(uuid) and is_binary(action) do
+    with_token(uuid, opts, &request(&1, "sendChatAction", %{chat_id: chat_id, action: action}))
+  end
+
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
 
   @doc """
@@ -159,6 +199,10 @@ defmodule PhoenixKit.Integrations.Telegram do
         {:error, :unreachable}
     end
   end
+
+  # `disable_web_page_preview` was superseded by `link_preview_options` in Bot API 7.0.
+  defp maybe_put_preview(map, true), do: Map.put(map, :link_preview_options, %{is_disabled: true})
+  defp maybe_put_preview(map, _), do: map
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

@@ -754,4 +754,84 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
                        %{"callback_query_id" => "cb-1", "text" => "Готовлю карточку"}}
     end
   end
+
+  describe "Telegram.edit_message_text/5" do
+    test "edits the message text", %{connection: connection} do
+      assert {:ok, true} =
+               PhoenixKit.Integrations.Telegram.edit_message_text(
+                 connection,
+                 55,
+                 7,
+                 "Карточка готова"
+               )
+
+      assert_received {:telegram, "editMessageText", body}
+      assert body == %{"chat_id" => 55, "message_id" => 7, "text" => "Карточка готова"}
+    end
+
+    test "passes parse_mode, reply_markup and the link-preview switch", %{connection: connection} do
+      markup = %{"inline_keyboard" => [[%{"text" => "Ещё", "callback_data" => "more"}]]}
+
+      assert {:ok, true} =
+               PhoenixKit.Integrations.Telegram.edit_message_text(connection, 55, 7, "<b>Hi</b>",
+                 parse_mode: "HTML",
+                 reply_markup: markup,
+                 disable_web_page_preview: true,
+                 owner: :system
+               )
+
+      assert_received {:telegram, "editMessageText", body}
+
+      assert body == %{
+               "chat_id" => 55,
+               "message_id" => 7,
+               "text" => "<b>Hi</b>",
+               "parse_mode" => "HTML",
+               "reply_markup" => markup,
+               "link_preview_options" => %{"is_disabled" => true}
+             }
+    end
+
+    test "surfaces the Bot API description on an error", %{connection: connection} do
+      Req.Test.stub(@stub, fn conn ->
+        conn
+        |> Plug.Conn.put_status(400)
+        |> Req.Test.json(%{
+          "ok" => false,
+          "description" => "Bad Request: message is not modified"
+        })
+      end)
+
+      assert {:error, "Bad Request: message is not modified"} =
+               PhoenixKit.Integrations.Telegram.edit_message_text(connection, 55, 7, "same")
+    end
+
+    test "is not configured without a bot token" do
+      {:ok, %{uuid: empty}} = Integrations.add_connection("telegram", "no token")
+
+      assert {:error, _} = PhoenixKit.Integrations.Telegram.edit_message_text(empty, 55, 7, "x")
+      refute_received {:telegram, "editMessageText", _}
+    end
+  end
+
+  describe "Telegram.send_chat_action/4" do
+    test "defaults to typing", %{connection: connection} do
+      assert {:ok, true} = PhoenixKit.Integrations.Telegram.send_chat_action(connection, 55)
+
+      assert_received {:telegram, "sendChatAction", body}
+      assert body == %{"chat_id" => 55, "action" => "typing"}
+    end
+
+    test "sends the given action", %{connection: connection} do
+      assert {:ok, true} =
+               PhoenixKit.Integrations.Telegram.send_chat_action(
+                 connection,
+                 55,
+                 "upload_document",
+                 owner: :system
+               )
+
+      assert_received {:telegram, "sendChatAction", %{"action" => "upload_document"}}
+    end
+  end
 end
