@@ -236,6 +236,67 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationFormChatLinkingTest do
     end
   end
 
+  describe "Test while a resident reader holds the bot" do
+    @held_stub __MODULE__.HeldTelegram
+
+    setup {Req.Test, :set_req_test_to_shared}
+
+    setup do
+      Application.put_env(:phoenix_kit, :telegram_req_options, plug: {Req.Test, @held_stub})
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :holds?, [true]})
+
+      on_exit(fn ->
+        Application.delete_env(:phoenix_kit, :telegram_req_options)
+        Application.delete_env(:phoenix_kit, :telegram_updates_reader)
+      end)
+
+      test_pid = self()
+
+      Req.Test.stub(@held_stub, fn conn ->
+        method = conn.request_path |> String.split("/") |> List.last()
+        send(test_pid, {:telegram, method})
+
+        result =
+          case method do
+            "getMe" -> %{"username" => "shop_bot"}
+            _ -> pending_updates()
+          end
+
+        Req.Test.json(conn, %{"ok" => true, "result" => result})
+      end)
+
+      :ok
+    end
+
+    def holds?(answer, _connection_uuid), do: answer
+
+    test "does not read the bot's updates, links nothing and says why", %{
+      conn: conn,
+      uuid: uuid,
+      user: user
+    } do
+      {:ok, view, _html} = live(conn, edit_path(uuid))
+
+      render_click(view, "validate_connection", %{})
+      html = render(view)
+
+      assert_received {:telegram, "getMe"}
+      refute_received {:telegram, "getUpdates"}
+      assert linked_ids(uuid, user) == []
+      assert html =~ "read by the site, so your chat can"
+    end
+
+    test "reads as before when the reader does not hold the bot", %{conn: conn, uuid: uuid} do
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :holds?, [false]})
+      {:ok, view, _html} = live(conn, edit_path(uuid))
+
+      render_click(view, "validate_connection", %{})
+      render(view)
+
+      assert_received {:telegram, "getUpdates"}
+    end
+  end
+
   describe "the group is discoverable at all" do
     test "the card tells the operator the command that links a group", %{conn: conn, uuid: uuid} do
       # Telegram privacy mode means plain chatter in a group never reaches the

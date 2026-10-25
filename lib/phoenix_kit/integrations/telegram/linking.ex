@@ -224,10 +224,16 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
     end
   end
 
-  # The host's resident reader, `config :phoenix_kit, :telegram_updates_reader,
-  # {mod, fun, args}`, asked with the connection uuid appended. A reader that
-  # cannot answer does not hold the bot.
-  defp resident_reader?(connection_uuid) do
+  @doc """
+  Whether the host's resident reader (`config :phoenix_kit,
+  :telegram_updates_reader, {mod, fun, args}`, asked with the connection uuid
+  appended) holds this bot. A reader that cannot answer does not hold it.
+
+  Anything else that would call `getUpdates` on a bot must ask first: a second
+  reader takes the updates away from the resident one.
+  """
+  @spec resident_reader?(String.t()) :: boolean()
+  def resident_reader?(connection_uuid) do
     case Application.get_env(:phoenix_kit, :telegram_updates_reader) do
       {mod, fun, args} when is_atom(mod) and is_atom(fun) and is_list(args) ->
         apply(mod, fun, args ++ [connection_uuid]) == true
