@@ -498,6 +498,38 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
     end
   end
 
+  @doc """
+  The user whose site-bot link is chat `chat_id` of the bot `connection_uuid`, read from
+  the database now, or `nil`. A chat linked by two accounts names nobody, and a service
+  user (`api_only`) is nobody's link. The user is not checked any further (active,
+  confirmed): that is the caller's account gate.
+  """
+  @spec linked_user(String.t(), integer() | String.t()) :: PhoenixKit.Users.Auth.User.t() | nil
+  def linked_user(connection_uuid, chat_id)
+      when is_binary(connection_uuid) and (is_binary(chat_id) or is_integer(chat_id)) do
+    query =
+      from u in PhoenixKit.Users.Auth.User,
+        where:
+          fragment(
+            "?->'notification_channel:telegram'->>'site_chat_id' = ?",
+            u.custom_fields,
+            ^to_string(chat_id)
+          ) and
+            fragment(
+              "?->'notification_channel:telegram'->>'site_connection_uuid' = ?",
+              u.custom_fields,
+              ^connection_uuid
+            ) and u.api_only == false,
+        limit: 2
+
+    case RepoHelper.repo().all(query) do
+      [user] -> user
+      _none_or_ambiguous -> nil
+    end
+  end
+
+  def linked_user(_connection_uuid, _chat_id), do: nil
+
   @doc "The user's site-bot link as `%{chat_id:, connection_uuid:, linked_at:}`, or `nil`."
   @spec linked(map()) ::
           %{chat_id: String.t(), connection_uuid: String.t(), linked_at: String.t() | nil} | nil

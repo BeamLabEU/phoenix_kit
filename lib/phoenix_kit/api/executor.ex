@@ -179,6 +179,31 @@ defmodule PhoenixKit.API.Executor do
   credential: whatever code passes it to `execute_as/5` or `visible_for/3` acts as that
   session. Take it only from the signed session of the LiveView that runs in that session
   (`SessionRef.from_session/1` in its connected mount), never from params or client events.
+
+  ## On behalf of a linked Telegram chat
+
+  The same two functions take a second kind of reference,
+  `{:telegram_link, user_uuid, connection_uuid, chat_id}`: a person writing from the
+  Telegram chat they linked to the site bot `connection_uuid`
+  (`PhoenixKit.Integrations.Telegram.Linking`). Everything above holds, with these
+  differences, the first being the one that matters most:
+
+    * a chat **reads only**: `allow: :all` and `redeem_as/6` raise `ArgumentError` for it,
+      so no write tool is listed to a chat, none is held for confirmation from one and
+      none is confirmed from one;
+    * instead of the session, the **link** is checked on every call: the user is the one
+      whose link is that chat of that bot now (`Linking.linked_user/2`); an unlinked or
+      relinked chat, another bot, a chat two accounts linked, a service user or a
+      malformed reference is `401 unauthorized` with `context.reason` `:unlinked`;
+    * the account gate is the session's own (`SessionRef.scope_for_user/2`), so a blocked,
+      unconfirmed or invite-parked user is refused with the same answer a session gets;
+    * the scope is the user's full one (`narrow: false`): a chat has no role switcher;
+    * the actor is `kind: :user` with `source: "telegram"`, so a handler (and whatever it
+      logs) tells the chat from a browser session.
+
+  Only the code that read the update from the bot (and checked that the message is
+  private and comes from that chat) may build this reference; never take one from a
+  message's text or a button's data.
   """
 
   import Plug.Conn
@@ -200,9 +225,11 @@ defmodule PhoenixKit.API.Executor do
   alias PhoenixKit.API.RequestContext
   alias PhoenixKit.API.Tool
   alias PhoenixKit.API.Validator
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.SessionRef
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Utils.IpAddress
 
@@ -216,6 +243,15 @@ defmodule PhoenixKit.API.Executor do
 
   # How much of a client-chosen tool name an answer repeats.
   @clip_codepoints 100
+
+  @typedoc """
+  A linked Telegram chat as an actor: the user, the site bot's connection and the chat.
+  See "On behalf of a linked Telegram chat" above.
+  """
+  @type telegram_link :: {:telegram_link, String.t(), String.t(), integer() | String.t()}
+
+  @typedoc "Who `visible_for/3` and `execute_as/5` act for."
+  @type actor_ref :: SessionRef.t() | telegram_link()
 
   @typedoc "Response headers to send with an outcome: the rate-limit headers."
   @type headers :: [{String.t(), String.t()}]
@@ -338,11 +374,14 @@ defmodule PhoenixKit.API.Executor do
   the session's rights reach, of the modules in `api_session_write_modules`); any other
   value raises `ArgumentError`.
 
+  A linked Telegram chat (`t:telegram_link/0`) is listed the read tools only; `allow: :all`
+  raises `ArgumentError` for it.
+
   Returns `{:ok, tools, headers}`, or `{:error, code, detail, context, headers}`
-  (`:unauthorized` with `context.reason` from `t:SessionRef.refusal/0` when the session
-  cannot act, `:rate_limited`).
+  (`:unauthorized` with `context.reason` from `t:SessionRef.refusal/0`, or `:unlinked`
+  for a chat, when the actor cannot act; `:rate_limited`).
   """
-  @spec visible_for(SessionRef.t(), :admin, keyword()) ::
+  @spec visible_for(actor_ref(), :admin, keyword()) ::
           {:ok, [Tool.t()], headers()} | {:error, atom(), String.t(), map(), headers()}
   def visible_for(session_ref, :admin, opts \\ []) do
     state = session_state(session_ref, nil, %{}, opts)
@@ -367,7 +406,8 @@ defmodule PhoenixKit.API.Executor do
   Runs tool `tool_name` with `input` on behalf of the live session `session_ref`
   (`{session_token_uuid, user_uuid}`), in process, and returns the outcome as
   `execute/5` does. The session's scope is rebuilt for this call; see "On behalf of a
-  live session" above for what differs from a key.
+  live session" above for what differs from a key. `session_ref` may also be a linked
+  Telegram chat (`t:telegram_link/0`, see "On behalf of a linked Telegram chat").
 
   Options:
 
@@ -376,7 +416,7 @@ defmodule PhoenixKit.API.Executor do
       held for the person's confirmation (the answer has `"status":
       "confirmation_required"` and the `"confirmation_id"` to pass to `redeem_as/6`); one
       of another module is refused with `403 module_write_disabled`. Any other value
-      raises `ArgumentError`.
+      raises `ArgumentError`, as does `:all` for a linked Telegram chat, which reads only.
     * `:request_context` - keyword list: `:language`, `:base_url`, `:hosts`, `:currency`
       (the handler context, `PhoenixKit.API.RequestContext.from_options/1`),
       `:request_id` (the context's `:request_id`) and `:ip` (the actor's `ip`).
@@ -389,7 +429,7 @@ defmodule PhoenixKit.API.Executor do
   `PhoenixKitWeb.Users.MultiSession.impersonated?/1` marks, before it calls, so an
   administrator acting as somebody else cannot propose writes in their name.
   """
-  @spec execute_as(SessionRef.t(), :admin, String.t(), term(), keyword()) :: outcome()
+  @spec execute_as(actor_ref(), :admin, String.t(), term(), keyword()) :: outcome()
   def execute_as(session_ref, :admin, tool_name, input, opts \\ []) do
     state = session_state(session_ref, tool_name, input, opts)
 
@@ -638,6 +678,16 @@ defmodule PhoenixKit.API.Executor do
     end
   end
 
+  # A linked Telegram chat reads only: no write is held for confirmation from a chat, and
+  # none is confirmed from one (`redeem_as/6` runs with `allow: :all`).
+  defp link_reads_only!({:telegram_link, _user_uuid, _connection_uuid, _chat_id}, allow)
+       when allow != :read do
+    raise ArgumentError,
+          "allow: #{inspect(allow)} is not supported for a linked Telegram chat: it reads only (allow: :read)"
+  end
+
+  defp link_reads_only!(_session_ref, _allow), do: :ok
+
   defp via!(opts) do
     case Keyword.get(opts, :via, "session") do
       via when is_binary(via) and byte_size(via) in 1..64 ->
@@ -665,10 +715,13 @@ defmodule PhoenixKit.API.Executor do
   defp session_state(session_ref, tool_name, input, opts) do
     request = request_options(Keyword.get(opts, :request_context, []))
 
+    allow = allow!(opts)
+    link_reads_only!(session_ref, allow)
+
     :admin
     |> base_state(tool_name, input, idempotency_header: false)
     |> Map.merge(%{
-      allow: allow!(opts),
+      allow: allow,
       via: via!(opts),
       session_ref: session_pair(session_ref),
       client_ip: binary_option(request, :ip),
@@ -678,6 +731,15 @@ defmodule PhoenixKit.API.Executor do
   end
 
   defp session_pair({_token_uuid, _user_uuid} = session_ref), do: session_ref
+
+  defp session_pair({:telegram_link, user_uuid, connection_uuid, chat_id} = link)
+       when is_binary(user_uuid) and is_binary(connection_uuid) and
+              (is_binary(chat_id) or is_integer(chat_id)),
+       do: link
+
+  defp session_pair({:telegram_link, _user_uuid, _connection_uuid, _chat_id}),
+    do: :malformed_link
+
   defp session_pair(_other), do: nil
 
   # The confirmation a `redeem_as/6` asks for, for its audit entry: only a uuid is written
@@ -790,23 +852,40 @@ defmodule PhoenixKit.API.Executor do
   # account gate of the web (`SessionRef.scope_for_session/2`).
   defp session_actor(%{session_ref: {token_uuid, user_uuid}} = state) do
     case SessionRef.scope_for_session(token_uuid, user_uuid) do
-      {:ok, %Scope{} = scope} ->
-        actor = %Actor{
-          kind: :user,
-          user_uuid: scope.user.uuid,
-          scopes: Keys.held_scopes_of(scope),
-          scope: scope,
-          ip: state.client_ip
-        }
-
-        {:ok, %{state | actor: actor}}
-
-      {:error, reason} ->
-        session_refused(state, reason)
+      {:ok, %Scope{} = scope} -> {:ok, %{state | actor: user_actor(state, scope, nil)}}
+      {:error, reason} -> session_refused(state, reason)
     end
   end
 
+  # A linked Telegram chat: the chat must be linked to that very user now, and the user
+  # pass the same account gate as a session, with the full scope (no role switcher).
+  defp session_actor(
+         %{session_ref: {:telegram_link, user_uuid, connection_uuid, chat_id}} = state
+       ) do
+    with %User{uuid: ^user_uuid} = user <- Linking.linked_user(connection_uuid, chat_id),
+         {:ok, %Scope{} = scope} <- SessionRef.scope_for_user(user, narrow: false) do
+      {:ok, %{state | actor: user_actor(state, scope, "telegram")}}
+    else
+      {:error, reason} -> session_refused(state, reason)
+      _not_linked -> session_refused(state, :unlinked)
+    end
+  end
+
+  defp session_actor(%{session_ref: :malformed_link} = state),
+    do: session_refused(state, :unlinked)
+
   defp session_actor(state), do: session_refused(state, :session_gone)
+
+  defp user_actor(state, %Scope{} = scope, source) do
+    %Actor{
+      kind: :user,
+      source: source,
+      user_uuid: scope.user.uuid,
+      scopes: Keys.held_scopes_of(scope),
+      scope: scope,
+      ip: state.client_ip
+    }
+  end
 
   defp session_refused(state, reason),
     do: {:error, :unauthorized, session_refusal(reason), %{reason: reason}, state}
@@ -816,6 +895,7 @@ defmodule PhoenixKit.API.Executor do
   defp session_refusal(:inactive), do: "The user is blocked."
   defp session_refusal(:unconfirmed), do: "The user's email is not confirmed."
   defp session_refusal(:referral_required), do: "The user has not entered a referral code."
+  defp session_refusal(:unlinked), do: "The chat is not linked to this user."
 
   defp find_tool(%{name: name} = state) when not is_binary(name),
     do: {:error, :not_found, "Unknown tool.", %{}, state}

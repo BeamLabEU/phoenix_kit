@@ -668,6 +668,47 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
     end
   end
 
+  describe "linked_user/2" do
+    test "the user whose link is this chat of this bot, read now", %{connection: connection} do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 4242)
+
+      assert %Auth.User{uuid: uuid} = Linking.linked_user(connection, 4242)
+      assert uuid == u.uuid
+      assert Linking.linked_user(connection, "4242").uuid == u.uuid
+
+      assert Linking.linked_user(connection, 4343) == nil
+      assert Linking.linked_user(Ecto.UUID.generate(), 4242) == nil
+
+      :ok = Linking.unlink(Auth.get_user!(u.uuid))
+      assert Linking.linked_user(connection, 4242) == nil
+    end
+
+    test "a chat two accounts linked names nobody", %{connection: connection} do
+      {:ok, _} = Linking.link_chat(user(), connection, 777)
+      {:ok, _} = Linking.link_chat(user(), connection, 777)
+
+      assert Linking.linked_user(connection, 777) == nil
+    end
+
+    test "a service user is nobody's link", %{connection: connection} do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 555)
+
+      RepoHelper.repo().update_all(from(x in Auth.User, where: x.uuid == ^u.uuid),
+        set: [api_only: true]
+      )
+
+      assert Linking.linked_user(connection, 555) == nil
+    end
+
+    test "a malformed argument is nil, never an exception" do
+      assert Linking.linked_user(nil, 1) == nil
+      assert Linking.linked_user("x", nil) == nil
+      assert Linking.linked_user("x", %{}) == nil
+    end
+  end
+
   describe "handle_updates/3 (a resident reader's batch)" do
     test "links from the given batch without reading Telegram", %{connection: connection} do
       u = user()
