@@ -1,6 +1,8 @@
 # Plan: public pages load only the public JavaScript; admin code loads on demand
 
-Status: **proposal, for review. No code written.** Branch `feature/public-admin-js-split` (from `upstream/main`, 2.65.0).
+Status: **implemented on this branch** (from `upstream/main`, 2.65.0), as approved; the sections below are the
+design, with what changed on the way marked **(as built)**. The how-to for hosts and contributors is
+`dev_docs/guides/2026-10-27-public-and-admin-javascript.md`.
 
 ## The problem
 
@@ -12,7 +14,7 @@ Measured on this tree (esbuild 0.25.4, `gzip -9`):
 
 | What | Raw | gzip | minified | minified + gzip |
 |---|---:|---:|---:|---:|
-| `phoenix_kit.js` as shipped | 764 466 | 155 968 | 412 810 | 131 911 |
+| `phoenix_kit.js` as shipped | 764 466 | 226 325 | 412 810 | 131 912 |
 | — Chart.js 4.5.1 (lines 1–20, used by one hook, `EmailCharts`) | 208 689 | 70 498 | 208 153 | 72 582 |
 | — the 72 hooks and helpers (lines 21–end, hand-written, never minified) | 555 777 | 155 968 | 203 053 | 58 723 |
 | `phoenix_kit_modules.js` built from 19 prebuilt module bundles | 476 593 | 132 699 | 266 755 | 77 275 |
@@ -133,11 +135,15 @@ admin file are hand-written. All three go through the minifier `ViewerLibraries`
 esbuild** (the binary its `mix assets.deploy` installed), run as a plain transform — no bundling — when
 `minify?()` is true (production, or `config :phoenix_kit, minify_libraries: true`). A host without `:esbuild`, an
 esbuild that is not installed yet, or a failed transform gets the readable file and a note — never a broken build,
-and the next compile minifies once the binary is there. The vendored `phoenix_kit.js` and
+and the next compile minifies once the binary is there. **(as built)** `config :phoenix_kit, js_minifier: {Mod, :fun}`
+names another minifier, and minifying an already minified file is harmless (checked: the node tests pass on
+the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 `phoenix_kit_modules.js` keep their fixed names (the layout references them); `vendor/lib/` files keep hashed names.
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
-`phoenix_kit.js` 156 KB → (public part only) a fraction of the 59 KB the hook code weighs minified.
+`phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
+220 KB raw / 62 KB gzip readable; the admin bundle is 345 KB / 98 KB readable, 125 KB / 36 KB gzip minified;
+Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.
 
@@ -167,10 +173,14 @@ for the head: this branch, or a follow-up** (it is independent of sections 1–6
 | the same, plus `import ".../phoenix_kit.js"` in `app.js` and the spread | Works: the imported file is the same lean one; the vendored tag (if both are present) wins as before. |
 | `import` only, no compiler, no `vendor/` files | The viewer libraries already need `mix phoenix_kit.update` here; so does the admin bundle. `mix phoenix_kit.update` vendors everything and inserts the facts tag. `mix phoenix_kit.doctor` gets a check that fails when the facts name no `admin` file. |
 
-The facts file also learns where it lives (`window.PHOENIX_KIT_LIB_BASE` set from its own `document.currentScript`
-when the host has not set one). Today the library base is taken from `phoenix_kit.js`' own script URL, which is
-wrong when the file is bundled into `app.js`; the facts file is always a plain script next to `vendor/lib/`, so
-this makes the `import` style find the admin bundle without a host edit.
+**(as built)** The base URL is not derived from where any script was served from. The compiler that writes the
+library files knows where it put them, so the facts carry an absolute
+`window.PHOENIX_KIT_LIB_BASE` (`/assets/vendor/lib/`, or `config :phoenix_kit, library_base_url: "…"` for a host
+that serves its assets elsewhere or from a CDN); a value the host sets on `window` itself wins, whenever it sets it;
+facts from an older version carry none and the old address-of-the-script rule still applies. A host that relocates
+the facts file, defers it ahead of an `app.js` that holds `phoenix_kit.js`, or bundles `phoenix_kit.js` into
+`app.js` therefore still finds the admin bundle. A module's admin stubs are registered whichever of
+`phoenix_kit.js` and `phoenix_kit_modules.js` runs first.
 
 ## Order of work (TDD, one logical commit each)
 

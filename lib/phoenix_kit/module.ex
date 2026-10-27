@@ -390,7 +390,9 @@ defmodule PhoenixKit.Module do
   loads the admin bundle, takes your hook's callbacks onto the LiveView's own
   hook instance, and calls `mounted`. A hook you export but do not list can
   never be mounted. The bundle must still export through its `:global`
-  (`window.<Global> = %{HookName: {...}}`), as for a public one.
+  (`window.<Global> = %{HookName: {...}}`), as for a public one, and each hook
+  is a plain object of callbacks (`mounted`, `updated`, …), as hooks given to
+  `LiveSocket` have always been: a class-based hook cannot stand behind a stub.
 
   What a stubbed hook can rely on: it mounts once the bundle has arrived, so
   `updated`/`beforeUpdate`/`disconnected`/`reconnected` calls that reach it

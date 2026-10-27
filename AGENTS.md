@@ -207,6 +207,18 @@ Writing a standalone `phoenix_kit_*` module (discovery, Tailwind/JS asset pipeli
 - ⚠️ Standalone module packages **must** include `:phoenix_kit` in `extra_applications` — without it `PhoenixKit.ModuleDiscovery` won't find the module and its routes 404.
 - ⚠️ **Never register a JS hook from an inline `<script>` in a template** — morphdom does not execute inserted script tags, so an inline hook works on a hard load and silently vanishes on `live_redirect`. Ship hooks via `js_sources/0` instead.
 
+## Public and admin JavaScript
+
+Public pages load `phoenix_kit.js` only; the code of the admin and user-dashboard hooks is in `phoenix_kit_admin.js`, fetched on the first mount of any of them. Guide: `dev_docs/guides/2026-10-27-public-and-admin-javascript.md`; design: `dev_docs/plans/2026-10-27-public-admin-js-split.md`. Landmines:
+
+- ⚠️ **A hook goes in `phoenix_kit.js` only if a page outside the admin area and the user dashboard can render it** (a generic form/UI primitive, or something every page needs). Anything else is registered as `window.PhoenixKitAdminHooks.Name` in `phoenix_kit_admin.js` **and** its name added to `ADMIN_HOOKS` in `phoenix_kit.js` — a host spreads `window.PhoenixKitHooks` into `LiveSocket` once, so a hook with no stub there is "unknown" to every host. `test/js/admin_split.test.cjs` pins the two lists.
+- ⚠️ **Never add to `window.PhoenixKitHooks` after the public bundle has run** — the host's copy is already made. Stubs, not late registration.
+- Code both files need stays in `phoenix_kit.js` and reaches the admin file through `window.PhoenixKitInternals` (private). The admin file is a plain script and cannot see the public file's closure; a TypeScript `checkJs` pass over each file lists every identifier it uses and does not define (it reports only `define` and `Chart` on the current files).
+- A callback that reaches a stubbed hook before the bundle arrives (`updated`, `beforeUpdate`, `disconnected`, `reconnected`) is dropped, and a `push_event` sent in that window is not replayed. A hook that must see the first event belongs in the public file.
+- Chart.js is a vendored library (`vendor_libs/chartjs/`, `ViewerLibraries`), not part of any bundle; `window.PhoenixKitLibraries.chartjs()` is the way to get it. A new core-committed library: replace nothing by hand — the file is the exact upstream one, its checksum enforced by `viewer_libraries_test.exs`.
+- The compiler writes the URL the vendored files are served from into the install facts (`library_base_url`, default `/assets/vendor/lib/`); do not derive it from a script's address. Production output is minified with the host's esbuild (`ViewerLibraries.maybe_minify/2`); a file written by the compiler must survive being minified again.
+- Tests that need the shipped files as a browser runs them use `test/js/support/pk_env.cjs` (one fake page, scripts recorded, `load/1` per file).
+
 ## Host hooks and small shared APIs
 
 Pointers; each module's `@doc` is the reference.
