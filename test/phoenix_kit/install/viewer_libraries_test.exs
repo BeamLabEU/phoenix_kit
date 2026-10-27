@@ -35,10 +35,11 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     facts = ViewerLibraries.vendor!(root)
 
     assert Enum.sort(Map.keys(facts)) ==
-             ~w(cally etcher fresco leaf panzoom sortable tessera wavesurfer)
+             ~w(cally chartjs etcher fresco leaf panzoom sortable tessera wavesurfer)
 
     assert facts["cally"].file =~ ~r/\Acally-0\.9\.2-[0-9a-f]{8}\.js\z/
     assert facts["panzoom"].file =~ ~r/\Apanzoom-4\.6\.0-[0-9a-f]{8}\.js\z/
+    assert facts["chartjs"].file =~ ~r/\Achartjs-4\.5\.1-[0-9a-f]{8}\.js\z/
     assert facts["wavesurfer"].file =~ ~r/\Awavesurfer-7\.12\.12-[0-9a-f]{8}\.js\z/
     assert facts["sortable"].file =~ ~r/\Asortable-1\.15\.0-[0-9a-f]{8}\.js\z/
 
@@ -82,7 +83,7 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     committed = for %{sha256: _} = lib <- ViewerLibraries.libraries(), do: lib
 
     assert committed |> Enum.map(& &1.name) |> Enum.sort() ==
-             ~w(cally panzoom sortable wavesurfer)
+             ~w(cally chartjs panzoom sortable wavesurfer)
 
     for %{name: name, sha256: expected, source: {:phoenix_kit, path}} <- committed do
       full = Path.join(to_string(:code.priv_dir(:phoenix_kit)), path)

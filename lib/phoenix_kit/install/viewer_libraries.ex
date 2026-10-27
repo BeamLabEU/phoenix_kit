@@ -18,9 +18,9 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       (`:code.priv_dir/1`), versioned by the consumer's loaded application
       version — not core's lockfile, which can resolve a different minor
       than the host does.
-    * SortableJS, Panzoom, wavesurfer and Cally (npm-only) ship inside core, each
-      at an exact version with its checksum, licence and provenance README
-      (`priv/static/assets/vendor_libs/`).
+    * SortableJS, Panzoom, wavesurfer, Cally and Chart.js (npm-only) ship inside
+      core, each at an exact version with its checksum, licence and provenance
+      README (`priv/static/assets/vendor_libs/`).
     * The content hash is in the name because a path dependency can change
       its bytes without changing its version; with it, each name is
       cacheable for good.
@@ -109,6 +109,16 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       version: "7.12.12",
       sha256: "1bca765cc75bc4af079ecd1b2edd659b155e5d1715e75a29d68272d9f141f951",
       cdn: "https://cdn.jsdelivr.net/npm/wavesurfer.js@{vsn}/dist/wavesurfer.esm.js"
+    },
+    # The UMD build, a classic script defining `window.Chart`; self-contained.
+    # Loaded by the email dashboard's `EmailCharts` hook, and by a host that
+    # wants a chart of its own through `PhoenixKitLibraries.chartjs()`.
+    %{
+      name: "chartjs",
+      source: {:phoenix_kit, "static/assets/vendor_libs/chartjs/chart.umd.js"},
+      version: "4.5.1",
+      sha256: "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a",
+      cdn: "https://cdn.jsdelivr.net/npm/chart.js@{vsn}/dist/chart.umd.js"
     },
     # An ES module (loaded with import()); self-contained. The calendar popup
     # of `<.date_input>`.
