@@ -4553,6 +4553,23 @@
     if (!window.PhoenixKitHooks[name]) window.PhoenixKitHooks[name] = adminStub(name);
   });
 
+  // Early start. The stubs load the bundle on the first mount, which for a
+  // page loaded cold is after the socket has joined. The admin and dashboard
+  // layouts carry `data-pk-admin`; finding it once the document is parsed
+  // starts the download then, in parallel with the connect, and the stubs join
+  // the same request. An optimisation only: a page without the marker (a live
+  // navigation from a public page, a host's own layout) still works, one
+  // round trip later.
+  function startAdminBundleEarly() {
+    if (!document.querySelector("[data-pk-admin]")) return;
+    loadAdminBundle().catch(function() { /* reported by the loader */ });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startAdminBundleEarly);
+  } else {
+    setTimeout(startAdminBundleEarly, 0);
+  }
+
   // What phoenix_kit_admin.js reads from this file. Not an API: it is the
   // closure this file's own helpers live in, handed to the one file that was
   // cut out of it.

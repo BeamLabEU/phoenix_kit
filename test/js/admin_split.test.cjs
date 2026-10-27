@@ -302,3 +302,52 @@ test("a module bundle that ran before this file keeps its hooks, and its facts a
   assert.equal(env.window.PhoenixKitHooks.RowMenu, overridden, "a name the module defines stays the module's");
   assert.ok(env.window.PhoenixKitHooks.SortableGrid.__pkAdminStub, "the rest are stubs as usual");
 });
+
+// ── Early start ────────────────────────────────────────────────────────────
+
+test("a page whose layout is the admin or dashboard layout starts the download before any hook mounts", async () => {
+  const env = createEnv({ facts: FACTS, readyState: "loading", adminLayout: true });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  assert.equal(env.scripts.length, 0, "not before the document is parsed");
+
+  env.fireDocument("DOMContentLoaded");
+  assert.equal(env.scripts.length, 1);
+  assert.equal(env.scripts[0].src, ADMIN_URL);
+
+  // The first stub to mount joins that same request.
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+  assert.equal(env.scripts.length, 1);
+});
+
+test("a public page fetches nothing, however its hooks mount", async () => {
+  const env = createEnv({ facts: FACTS, readyState: "loading" });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  env.fireDocument("DOMContentLoaded");
+  await tick();
+
+  assert.equal(env.scripts.length, 0);
+  for (const name of PUBLIC) {
+    if (["Leaf", "FrescoViewer", "FrescoCanvas", "TesseraLayer", "EtcherLayer"].includes(name)) continue;
+    assert.ok(!env.window.PhoenixKitHooks[name].__pkAdminStub, name);
+  }
+});
+
+test("an already parsed page is checked on the next tick", async () => {
+  const env = createEnv({ facts: FACTS, adminLayout: true });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  await new Promise((r) => setTimeout(r, 5));
+
+  assert.equal(env.scripts.length, 1);
+});
+
+test("a failed early start is reported once and leaves later mounts free to try again", async () => {
+  const env = createEnv({ facts: FACTS, adminLayout: true });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  await new Promise((r) => setTimeout(r, 5));
+  env.failed(0);
+  await tick();
+
+  assert.ok(env.errors.some((m) => m.includes("admin") && m.includes(ADMIN_URL)));
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+  assert.equal(env.scripts.length, 2, "a later mount tries again");
+});

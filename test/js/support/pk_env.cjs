@@ -56,8 +56,9 @@ function createEnv(opts) {
     return el;
   }
 
+  const marked = { admin: !!opts.adminLayout };
   const document = {
-    readyState: "complete",
+    readyState: opts.readyState || "complete",
     currentScript: null,
     documentElement: makeEl("html"),
     body: makeEl("body"),
@@ -70,7 +71,8 @@ function createEnv(opts) {
     createElementNS: makeEl,
     createTextNode: (t) => ({ nodeType: 3, textContent: t }),
     getElementById: (id) => els[id] || null,
-    querySelector: () => null,
+    // The one selector the bundle asks the document about at load.
+    querySelector: (sel) => (sel === "[data-pk-admin]" && marked.admin ? makeEl("div") : null),
     querySelectorAll: () => [],
     addEventListener: (n, fn) => ((docListeners[n] = docListeners[n] || []).push(fn)),
     removeEventListener: (n, fn) => {
@@ -157,7 +159,12 @@ function createEnv(opts) {
     if (ok) s.onload && s.onload(); else s.onerror && s.onerror();
   };
 
+  // The page finished parsing: what DOMContentLoaded listeners were waiting for.
+  const fireDocument = (name) => (docListeners[name] || []).slice().forEach((fn) => fn({ type: name }));
+
   return {
+    fireDocument,
+    markAdminLayout: () => { marked.admin = true; },
     window: sandbox,
     document,
     scripts,
