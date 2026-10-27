@@ -2390,12 +2390,48 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         File.exists?(@vendored_bundle)
       )
 
-    with {:pass, _} <- verdict,
-         true <- config[:app] != :phoenix_kit,
-         {:warn, _} = warning <- viewer_library_facts_verdict(@library_facts_file) do
-      warning
+    if match?({:pass, _}, verdict) and config[:app] != :phoenix_kit do
+      with {:pass, _} <- viewer_library_facts_verdict(@library_facts_file),
+           {:pass, _} <- admin_bundle_verdict(@library_facts_file) do
+        verdict
+      end
     else
-      _ -> verdict
+      verdict
+    end
+  end
+
+  @doc false
+  # The admin hooks are stubs in phoenix_kit.js until their first mount loads
+  # phoenix_kit_admin.js. Facts that name no such file, or name one that is not
+  # on disk, leave every admin hook without a body: the page renders and the
+  # parts that need JavaScript do nothing. Only the disk is provable here.
+  def admin_bundle_verdict(facts_path) do
+    with {:ok, content} <- File.read(facts_path),
+         [_, json] <- Regex.run(~r/window\.PHOENIX_KIT_LIBS=(\{.*?\});/, content),
+         {:ok, facts} <- Jason.decode(json) do
+      case facts do
+        %{"admin" => %{"file" => file}} ->
+          path = Path.join([Path.dirname(facts_path), "lib", file])
+
+          if File.regular?(path) do
+            {:pass, "#{path} is the admin hook bundle the facts name"}
+          else
+            {:warn,
+             "The install facts name the admin hook bundle #{file}, but #{path} is not on disk. " <>
+               "Run `mix compile` (or `mix phoenix_kit.update`): without it the admin area's " <>
+               "sortable lists, tables, editors and media browser do nothing."}
+          end
+
+        _ ->
+          {:warn,
+           "#{facts_path} names no admin hook bundle (\"admin\"), so the hooks of the admin area " <>
+             "have nothing to load. Run `mix phoenix_kit.update`, then `mix compile`."}
+      end
+    else
+      _ ->
+        {:warn,
+         "Could not read the install facts from #{facts_path} to find the admin hook bundle. " <>
+           "Run `mix phoenix_kit.update`."}
     end
   end
 

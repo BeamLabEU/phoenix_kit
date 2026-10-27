@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   @moduledoc """
   Mix compiler that vendors PhoenixKit's JS hooks into the host app.
 
-  This compiler keeps two vendored files current on **every** `mix compile`:
+  This compiler keeps the vendored files current on **every** `mix compile`:
 
   1. `priv/static/assets/vendor/phoenix_kit.js` — a straight copy of
      PhoenixKit's own core hooks file. Previously this was only copied once,
@@ -22,8 +22,35 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
      that folds each bundle's `window.<Global>` into `window.PhoenixKitHooks`
      (which the host spreads into `LiveSocket`).
 
-  Both writes are diffed against the existing file first, so a `mix compile`
-  that changes nothing doesn't touch either file (avoids live-reload thrash).
+  3. `priv/static/assets/vendor/lib/admin-<version>-<hash>.js` — the second
+     half of PhoenixKit's hook bundle. `phoenix_kit.js` holds the hooks a
+     public page can render and a stub under the name of every hook that
+     belongs to the admin area or the user dashboard; the first stub to mount
+     loads this file (as the `"admin"` library named in the install facts).
+     Public pages never download it. See
+     `dev_docs/plans/2026-10-27-public-admin-js-split.md`.
+
+  Every write is diffed against the existing file first, so a `mix compile`
+  that changes nothing doesn't touch any file (avoids live-reload thrash).
+
+  ## Minified in production
+
+  In production (or with `config :phoenix_kit, minify_libraries: true`) the
+  vendored `phoenix_kit.js`, `phoenix_kit_modules.js` and the admin bundle are
+  minified with the host's own esbuild — the binary `mix assets.deploy`
+  installs, so run `mix assets.setup` before the compile that builds a release.
+  A host without it, or a minify that fails, gets the readable files and a
+  note, never a failed build. `config :phoenix_kit, js_minifier: {Mod, :fun}`
+  names another minifier. Minifying what is already minified is harmless, so
+  a host that runs the result through its own pipeline loses nothing.
+
+  ## Where the browser finds the libraries
+
+  The facts in `phoenix_kit_modules.js` carry the URL the library files are
+  served from (`window.PHOENIX_KIT_LIB_BASE`, `/assets/vendor/lib/` unless
+  `config :phoenix_kit, library_base_url: "…"` says otherwise), so they are
+  found wherever that file itself is served from. A value the host puts on
+  `window` first wins.
 
   The two `<script>` tags are **stable**: adding or removing a JS-bearing
   module only changes `phoenix_kit_modules.js`'s content on the next compile —
@@ -74,6 +101,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   require Logger
 
   @core_js_filename "phoenix_kit.js"
+  @admin_js_filename "phoenix_kit_admin.js"
   @core_js_output "priv/static/assets/vendor/phoenix_kit.js"
 
   @output "priv/static/assets/vendor/phoenix_kit_modules.js"
@@ -100,10 +128,10 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   """
   def vendor_all(root) do
     vendor_core_js_file(root)
-    libs = ViewerLibraries.vendor!(root)
+    libs = ViewerLibraries.vendor!(root) |> Map.put("admin", vendor_admin_bundle(root))
 
     specs = collect_specs()
-    content = build_content(specs, libs)
+    content = libs |> then(&build_content(specs, &1)) |> ViewerLibraries.maybe_minify(@output)
 
     path = Path.join(root, @output)
     write_if_changed(path, content, length(specs))
@@ -117,29 +145,11 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   # `File.cp/2` in `phoenix_kit.install`/`phoenix_kit.update`, this survives a
   # `rm -rf priv/static` in a deploy pipeline that only runs `mix compile`.
   defp vendor_core_js_file(root) do
-    priv =
-      case :code.priv_dir(:phoenix_kit) do
-        {:error, :bad_name} ->
-          Mix.raise("""
-          Could not resolve the :phoenix_kit application's priv/ directory
-          while vendoring #{@core_js_filename}. Is :phoenix_kit listed as a
-          dependency of this app?
-          """)
+    content =
+      @core_js_filename
+      |> read_core_asset!()
+      |> ViewerLibraries.maybe_minify(@core_js_output)
 
-        dir ->
-          to_string(dir)
-      end
-
-    source = Path.join([priv, "static", "assets", @core_js_filename])
-
-    unless File.exists?(source) do
-      Mix.raise("""
-      Could not find #{@core_js_filename} at #{source} — the :phoenix_kit
-      dependency looks corrupted or incompletely fetched. Try `mix deps.get`.
-      """)
-    end
-
-    content = File.read!(source)
     dest = Path.join(root, @core_js_output)
 
     existing =
@@ -153,6 +163,43 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
       File.write!(dest, content)
       Mix.shell().info("[PhoenixKit] Vendored #{@core_js_output}")
     end
+  end
+
+  # The admin half of the hook bundle, as a library of its own: a versioned,
+  # content-hashed name under vendor/lib/, which the facts hand to
+  # phoenix_kit.js. Returns the fact.
+  defp vendor_admin_bundle(root) do
+    content = read_core_asset!(@admin_js_filename)
+    vsn = to_string(Application.spec(:phoenix_kit, :vsn) || "0")
+    ViewerLibraries.vendor_generated!(root, "admin", vsn, content)
+  end
+
+  # One of PhoenixKit's own bundles from its priv/, read from wherever the
+  # dependency was installed. Fails loud: a missing file is a broken fetch.
+  defp read_core_asset!(filename) do
+    priv =
+      case :code.priv_dir(:phoenix_kit) do
+        {:error, :bad_name} ->
+          Mix.raise("""
+          Could not resolve the :phoenix_kit application's priv/ directory
+          while vendoring #{filename}. Is :phoenix_kit listed as a
+          dependency of this app?
+          """)
+
+        dir ->
+          to_string(dir)
+      end
+
+    source = Path.join([priv, "static", "assets", filename])
+
+    unless File.exists?(source) do
+      Mix.raise("""
+      Could not find #{filename} at #{source} — the :phoenix_kit
+      dependency looks corrupted or incompletely fetched. Try `mix deps.get`.
+      """)
+    end
+
+    File.read!(source)
   end
 
   # ── Discovery ────────────────────────────────────────────────────
@@ -335,6 +382,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     /* Install facts for the vendored bundle. */
     window.PHOENIX_KIT_PREFIX=#{inspect(prefix)};
     window.PHOENIX_KIT_CONSENT_AVAILABLE=#{consent?};
+    #{ViewerLibraries.base_js()}
     #{ViewerLibraries.facts_js(libs)}
     """
   end

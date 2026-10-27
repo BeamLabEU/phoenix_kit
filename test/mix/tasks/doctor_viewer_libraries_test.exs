@@ -43,6 +43,47 @@ defmodule Mix.Tasks.PhoenixKit.DoctorViewerLibrariesTest do
       assert msg =~ "phoenix_kit_modules.js"
     end
 
+    test "facts that name no admin bundle warn: the admin hooks would have nothing to load", %{
+      tmp_dir: dir
+    } do
+      path = Path.join(dir, "phoenix_kit_modules.js")
+      File.write!(path, ~s(window.PHOENIX_KIT_LIBS={"fresco":{"file":"f.js","cdn":null}};))
+      File.mkdir_p!(Path.join(dir, "lib"))
+
+      assert {:pass, _} = Doctor.viewer_library_facts_verdict(path)
+      assert {:warn, msg} = Doctor.admin_bundle_verdict(path)
+      assert msg =~ "admin"
+      assert msg =~ "mix phoenix_kit.update"
+    end
+
+    test "facts naming an admin bundle that is not on disk warn with the file", %{tmp_dir: dir} do
+      path = Path.join(dir, "phoenix_kit_modules.js")
+
+      File.write!(
+        path,
+        ~s(window.PHOENIX_KIT_LIBS={"admin":{"file":"admin-9.9.9-deadbeef.js","cdn":null}};)
+      )
+
+      File.mkdir_p!(Path.join(dir, "lib"))
+
+      assert {:warn, msg} = Doctor.admin_bundle_verdict(path)
+      assert msg =~ "admin-9.9.9-deadbeef.js"
+    end
+
+    test "facts naming an admin bundle that is on disk pass", %{tmp_dir: dir} do
+      path = Path.join(dir, "phoenix_kit_modules.js")
+
+      File.write!(
+        path,
+        ~s(window.PHOENIX_KIT_LIBS={"admin":{"file":"admin-9.9.9-deadbeef.js","cdn":null}};)
+      )
+
+      File.mkdir_p!(Path.join(dir, "lib"))
+      File.write!(Path.join([dir, "lib", "admin-9.9.9-deadbeef.js"]), "// admin")
+
+      assert {:pass, _} = Doctor.admin_bundle_verdict(path)
+    end
+
     test "a missing file warns to compile", %{tmp_dir: dir} do
       assert {:warn, msg} = Doctor.viewer_library_facts_verdict(Path.join(dir, "nope.js"))
       assert msg =~ "mix compile"

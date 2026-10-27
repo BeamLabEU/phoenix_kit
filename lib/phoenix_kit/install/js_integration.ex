@@ -285,7 +285,7 @@ defmodule PhoenixKit.Install.JsIntegration do
         PhoenixKitJsSources.vendor_all(File.cwd!())
 
         Logger.info(
-          "Updated #{@source_filename}, its libraries and install facts in priv/static/assets/vendor/"
+          "Updated #{@source_filename}, the admin hook bundle, the libraries and install facts in priv/static/assets/vendor/"
         )
 
         :ok
@@ -332,7 +332,7 @@ defmodule PhoenixKit.Install.JsIntegration do
 
             Igniter.add_notice(
               igniter,
-              "✅ Copied #{@source_filename}, its libraries and install facts to priv/static/assets/vendor/"
+              "✅ Copied #{@source_filename}, the admin hook bundle, the libraries and install facts to priv/static/assets/vendor/"
             )
 
           {:error, reason} ->

@@ -126,11 +126,14 @@
   // event may arrive after onerror, so it can refine an earlier failure.
   // ----------------------------------------------------------------------------
 
-  // Where the libraries live: next to this bundle, in lib/ (the compiler
-  // vendors them there — PhoenixKit.Install.ViewerLibraries). Captured NOW,
-  // while the bundle evaluates: document.currentScript is gone in every later
-  // callback. A host that bundles this file into its own app.js (where
-  // currentScript is the wrong file) sets window.PHOENIX_KIT_LIB_BASE.
+  // Where the libraries live. The compiler that vendored them writes the URL
+  // into the install facts (window.PHOENIX_KIT_LIB_BASE, `/assets/vendor/lib/`
+  // unless the host configured `library_base_url`), so they are found wherever
+  // this file or the facts file is served from; a value the host set itself
+  // wins. Facts from an older version carry none, and the fallback is lib/
+  // next to this bundle — captured NOW, while the bundle evaluates, because
+  // document.currentScript is gone in every later callback (and is the wrong
+  // file when a host bundles this one into its own app.js).
   var PK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || "";
 
   function pkLibBase() {

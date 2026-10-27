@@ -219,10 +219,44 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   end
 
   @doc false
+  # The minified `content` when `minify?/0` says to and the minifier can; the
+  # content as it is, with a note, when it cannot — a missing esbuild costs
+  # size, never a build.
+  @spec maybe_minify(binary(), String.t()) :: binary()
+  def maybe_minify(content, label) do
+    with true <- minify?(),
+         {:ok, small} <- minify(content) do
+      small
+    else
+      false ->
+        content
+
+      {:error, reason} ->
+        Mix.shell().info(
+          "[PhoenixKit] Could not minify #{label} (#{reason}); serving it unminified."
+        )
+
+        content
+    end
+  end
+
+  @doc false
   # The host's esbuild — the binary its own asset build installs — as a plain
-  # transform: no bundling, so a script stays the script it was.
+  # transform: no bundling, so a script stays the script it was. A host that
+  # minifies some other way names `config :phoenix_kit, js_minifier: {Mod,
+  # :fun}` (a one-argument function returning `{:ok, binary}` or `{:error,
+  # reason}`). Minifying what is already minified changes nothing that runs.
   @spec minify(binary()) :: {:ok, binary()} | {:error, String.t()}
   def minify(content) do
+    case Application.get_env(:phoenix_kit, :js_minifier) do
+      {mod, fun} when is_atom(mod) and is_atom(fun) -> apply(mod, fun, [content])
+      _ -> minify_with_esbuild(content)
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
+  defp minify_with_esbuild(content) do
     with {:ok, bin} <- esbuild_bin() do
       stamp = System.unique_integer([:positive])
       input = Path.join(System.tmp_dir!(), "pk_minify_#{stamp}.js")
@@ -261,6 +295,59 @@ defmodule PhoenixKit.Install.ViewerLibraries do
     end
   rescue
     e -> {:error, Exception.message(e)}
+  end
+
+  @doc """
+  Vendors a library the host builds rather than copies — today the admin hook
+  bundle, `phoenix_kit_admin.js` — under a versioned, content-hashed name, with
+  the same rules as the others: an unchanged compile writes nothing, a previous
+  name is never deleted, production minifies it. Returns its fact.
+  """
+  @spec vendor_generated!(Path.t(), String.t(), String.t(), binary()) ::
+          %{file: String.t(), cdn: nil}
+  def vendor_generated!(root, name, vsn, content) do
+    dir = Path.join(root, @lib_dir)
+    File.mkdir_p!(dir)
+    file = vendor_file!(dir, %{name: name}, vsn, content, minify?())
+    %{file: file, cdn: nil}
+  end
+
+  @default_base_url "/assets/vendor/lib/"
+
+  @doc """
+  The URL the library files are served from, always ending in `/`.
+
+  The browser used to guess it from the address of whichever script it was
+  running in, which is wrong as soon as a host bundles `phoenix_kit.js` into
+  its own `app.js` or serves the facts file from somewhere else. The compiler
+  that wrote the files knows where it put them: under the static root, at
+  `#{@default_base_url}`. A host that serves its assets from another path or a
+  CDN says so once with `config :phoenix_kit, library_base_url: "…"`.
+  """
+  @spec base_url!() :: String.t()
+  def base_url! do
+    case Application.get_env(:phoenix_kit, :library_base_url) do
+      nil ->
+        @default_base_url
+
+      url when is_binary(url) and url != "" ->
+        String.trim_trailing(url, "/") <> "/"
+
+      other ->
+        Mix.raise("""
+        config :phoenix_kit, :library_base_url must be a non-empty string — the URL
+        the priv/static/assets/vendor/lib directory is served from — got: #{inspect(other)}
+        """)
+    end
+  end
+
+  @doc """
+  The statement that hands the browser that base. A value the host already set
+  on `window` wins, wherever and whenever it set it.
+  """
+  @spec base_js() :: String.t()
+  def base_js do
+    "window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||#{Jason.encode!(base_url!())};"
   end
 
   @doc "The JavaScript statement carrying the facts, for the install-facts preamble."
