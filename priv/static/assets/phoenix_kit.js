@@ -4549,9 +4549,18 @@
   // A module bundle that ran first (a deferred phoenix_kit_modules.js placed
   // ahead of an app.js that holds this file) has already put its hooks here; a
   // name it chose to define stays its own.
-  ADMIN_HOOKS.forEach(function(name) {
-    if (!window.PhoenixKitHooks[name]) window.PhoenixKitHooks[name] = adminStub(name);
-  });
+  function registerAdminStubs(names) {
+    names.forEach(function(name) {
+      if (!window.PhoenixKitHooks[name]) window.PhoenixKitHooks[name] = adminStub(name);
+    });
+  }
+
+  // The admin hooks of modules (js_sources/0 `scope: :admin`) are named in
+  // phoenix_kit_modules.js, which runs before or after this file depending on
+  // the host's layout: names it left on the window are stubbed now, and it calls
+  // this function itself when it runs second.
+  registerAdminStubs(ADMIN_HOOKS.concat(window.PhoenixKitModuleAdminHooks || []));
+  window.PhoenixKitRegisterAdminStubs = registerAdminStubs;
 
   // Early start. The stubs load the bundle on the first mount, which for a
   // page loaded cold is after the socket has joined. The admin and dashboard

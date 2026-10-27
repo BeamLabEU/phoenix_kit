@@ -75,6 +75,157 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSourcesTest do
     end
   end
 
+  describe "a module's admin bundle (scope: :admin)" do
+    # A bundle only admin pages use stays out of phoenix_kit_modules.js, which
+    # every page loads. It rides in the admin bundle instead, and the page gets
+    # a stub under each hook name the module declared.
+
+    test "a spec without a scope is public: bundled and folded as it always was" do
+      dir = tmp_dir!()
+      file = Path.join(dir, "a.js")
+      File.write!(file, "window.AHooks={X:1}")
+      spec = %{app: :a, file: "a.js", global: "AHooks", source: file}
+
+      js = Compiler.build_content([spec])
+
+      assert js =~ "window.AHooks={X:1}"
+      refute js =~ "PhoenixKitModuleAdminHooks"
+      assert Compiler.admin_specs([spec]) == []
+    end
+
+    test "an admin spec is not in phoenix_kit_modules.js; its declared hooks get stubs there" do
+      dir = tmp_dir!()
+      file = Path.join(dir, "g.js")
+      File.write!(file, "window.GridHooks={GridSort:{}}")
+
+      spec = %{
+        app: :grid,
+        file: "g.js",
+        global: "GridHooks",
+        source: file,
+        scope: :admin,
+        hooks: ["GridSort", "GridMenu"]
+      }
+
+      js = Compiler.build_content([spec])
+
+      refute js =~ "window.GridHooks={GridSort:{}}", "the code is not in the page-wide file"
+      refute js =~ "Object.assign(window.PhoenixKitHooks", "nothing to fold: the hooks are stubs"
+      assert js =~ ~s(["GridSort","GridMenu"])
+      assert js =~ "PhoenixKitModuleAdminHooks"
+      assert js =~ "PhoenixKitRegisterAdminStubs"
+    end
+
+    test "public and admin specs side by side: one folded, one stubbed" do
+      dir = tmp_dir!()
+      a = Path.join(dir, "a.js")
+      g = Path.join(dir, "g.js")
+      File.write!(a, "window.AHooks={}")
+      File.write!(g, "window.GridHooks={}")
+
+      js =
+        Compiler.build_content([
+          %{app: :a, file: "a.js", global: "AHooks", source: a},
+          %{
+            app: :grid,
+            file: "g.js",
+            global: "GridHooks",
+            source: g,
+            scope: :admin,
+            hooks: ["GridSort"]
+          }
+        ])
+
+      assert js =~ "Object.assign(window.PhoenixKitHooks||{},window.AHooks||{});"
+      refute js =~ "GridHooks||{}"
+      assert js =~ ~s(["GridSort"])
+    end
+
+    test "the admin bundle carries core's admin file, then each module's bundle, then the fold" do
+      dir = tmp_dir!()
+      g = Path.join(dir, "g.js")
+      File.write!(g, "window.GridHooks={GridSort:{mounted(){}}}")
+
+      spec = %{
+        app: :grid,
+        file: "g.js",
+        global: "GridHooks",
+        source: g,
+        scope: :admin,
+        hooks: ["GridSort"]
+      }
+
+      core = "/* core admin */"
+      js = Compiler.build_admin_content(core, [spec])
+
+      assert js =~ core
+      assert js =~ ";(function(){"
+      assert js =~ "window.GridHooks={GridSort:{mounted(){}}}"
+
+      assert js =~
+               "window.PhoenixKitAdminHooks=Object.assign(window.PhoenixKitAdminHooks||{},window.GridHooks||{});"
+
+      assert :binary.match(js, core) < :binary.match(js, "window.GridHooks")
+    end
+
+    test "with no admin modules the admin bundle is core's file untouched" do
+      assert Compiler.build_admin_content("/* core admin */", []) == "/* core admin */"
+    end
+
+    test "an admin spec must name its hooks, or nothing could ever mount them" do
+      assert_raise Mix.Error, ~r/hooks/, fn ->
+        Compiler.normalize_entry(%{app: :a, file: "a.js", global: "AHooks", scope: :admin})
+      end
+
+      assert_raise Mix.Error, ~r/hooks/, fn ->
+        Compiler.normalize_entry(%{
+          app: :a,
+          file: "a.js",
+          global: "AHooks",
+          scope: :admin,
+          hooks: []
+        })
+      end
+    end
+
+    test "hook names must be valid and distinct, and the scope one of the two" do
+      assert_raise Mix.Error, ~r/hook/i, fn ->
+        Compiler.normalize_entry(%{
+          app: :a,
+          file: "a.js",
+          global: "AHooks",
+          scope: :admin,
+          hooks: ["bad name"]
+        })
+      end
+
+      assert_raise Mix.Error, ~r/scope/, fn ->
+        Compiler.normalize_entry(%{app: :a, file: "a.js", global: "AHooks", scope: :private})
+      end
+    end
+
+    test "a well-formed admin entry passes through with its hooks" do
+      entry = %{app: :a, file: "a.js", global: "AHooks", scope: :admin, hooks: ["X"]}
+      assert %{scope: :admin, hooks: ["X"]} = Compiler.normalize_entry(entry)
+      public = %{app: :a, file: "a.js", global: "AHooks"}
+
+      assert Compiler.normalize_entry(public) == public,
+             "a public entry keeps the shape it always had"
+
+      assert %{scope: :admin, hooks: ["X"]} =
+               Compiler.normalize_entry(Map.merge(public, %{scope: :admin, hooks: ["X"]}))
+    end
+
+    test "two modules stubbing the same hook name would silently share one body: refused" do
+      specs = [
+        %{app: :a, file: "a.js", global: "AHooks", scope: :admin, hooks: ["Same"]},
+        %{app: :b, file: "b.js", global: "BHooks", scope: :admin, hooks: ["Same"]}
+      ]
+
+      assert_raise Mix.Error, ~r/Same/, fn -> Compiler.check_unique_hooks(specs) end
+    end
+  end
+
   describe "check_unique_globals/1" do
     test "passes when every bundle declares a distinct global" do
       specs = [

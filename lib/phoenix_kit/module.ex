@@ -374,13 +374,44 @@ defmodule PhoenixKit.Module do
   (e.g. prefix them with the module name) to keep them unique across every
   module and the core set.
 
+  ## Bundles only the admin area uses
+
+  Every public entry is part of `phoenix_kit_modules.js`, which every page
+  loads. A bundle whose hooks only admin pages mount can stay out of it:
+
+    * `:scope` — `:public` (the default) or `:admin`.
+    * `:hooks` — required with `scope: :admin`: the name of every hook the
+      bundle exports, as strings.
+
+  The bundle then rides in the admin bundle (`phoenix_kit_admin.js`), which a
+  page fetches the first time one of those hooks mounts. The compiler cannot see
+  inside a prebuilt file, and a host's `LiveSocket` needs every hook *name*
+  when it is built, so the page gets a small stub under each name you list; it
+  loads the admin bundle, takes your hook's callbacks onto the LiveView's own
+  hook instance, and calls `mounted`. A hook you export but do not list can
+  never be mounted. The bundle must still export through its `:global`
+  (`window.<Global> = %{HookName: {...}}`), as for a public one.
+
+  What a stubbed hook can rely on: it mounts once the bundle has arrived, so
+  `updated`/`beforeUpdate`/`disconnected`/`reconnected` calls that reach it
+  before that are dropped and `mounted` reads the DOM as it is then; a
+  `push_event` to its `handleEvent` that the server sends in that window is not
+  replayed. Keep hooks that must see the very first event out of `scope:
+  :admin`. An entry without `:scope` behaves exactly as before, and a core that
+  predates `:scope` ignores the extra keys and loads the bundle with the rest.
+
   ## Example
 
       @impl PhoenixKit.Module
       def js_sources do
         [%{app: :phoenix_live_gantt,
            file: "static/assets/phoenix_live_gantt.js",
-           global: "PhoenixLiveGanttHooks"}]
+           global: "PhoenixLiveGanttHooks"},
+         %{app: :my_module,
+           file: "static/assets/my_module_admin.js",
+           global: "MyModuleAdminHooks",
+           scope: :admin,
+           hooks: ["MyModuleGrid", "MyModuleEditor"]}]
       end
 
   Modules with no JS hooks skip this callback — the default is `[]`.
@@ -389,7 +420,9 @@ defmodule PhoenixKit.Module do
               %{
                 required(:app) => atom(),
                 required(:file) => String.t(),
-                required(:global) => String.t()
+                required(:global) => String.t(),
+                optional(:scope) => :public | :admin,
+                optional(:hooks) => [String.t()]
               }
             ]
 

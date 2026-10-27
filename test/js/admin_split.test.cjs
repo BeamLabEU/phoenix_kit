@@ -351,3 +351,71 @@ test("a failed early start is reported once and leaves later mounts free to try 
   makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
   assert.equal(env.scripts.length, 2, "a later mount tries again");
 });
+
+// ── Admin hooks of modules ─────────────────────────────────────────────────
+
+// What phoenix_kit_modules.js says for a module whose js_sources/0 entry is
+// `scope: :admin, hooks: ["GridSort"]` (the compiler's test pins the text).
+const MODULE_STUBS =
+  '(function(n){var w=window;w.PhoenixKitModuleAdminHooks=(w.PhoenixKitModuleAdminHooks||[]).concat(n);' +
+  'if(w.PhoenixKitRegisterAdminStubs)w.PhoenixKitRegisterAdminStubs(n)})(["GridSort"]);';
+
+// The admin bundle as the compiler builds it for that module: the module's
+// bundle, then the fold into the namespace the stubs read from.
+function moduleAdminBundle() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_mod_admin_"));
+  const file = path.join(dir, "grid_admin.js");
+  fs.writeFileSync(file,
+    "window.GridHooks = { GridSort: { mounted() { (window.__mods = window.__mods || []).push(this.el.id); } } };\n" +
+    "window.PhoenixKitAdminHooks = Object.assign(window.PhoenixKitAdminHooks || {}, window.GridHooks || {});\n" +
+    "window.PhoenixKitAdminLoaded = true;\n");
+  return { file, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+const vm = require("vm");
+const runSnippet = (env, code) => vm.runInContext(code, vm.createContext(env.window));
+
+test("a module's admin hook is stubbed when its names arrive after phoenix_kit.js", async () => {
+  const env = publicPage();
+  runSnippet(env, MODULE_STUBS);
+
+  const stub = env.window.PhoenixKitHooks.GridSort;
+  assert.ok(stub && stub.__pkAdminStub, "stubbed in the object a host spreads");
+
+  const bundle = moduleAdminBundle();
+  makeHook(stub, { id: "grid-1" }).mounted();
+  assert.equal(env.scripts.length, 1, "the same admin bundle");
+  env.load(bundle.file);
+  env.loaded(0);
+  await tick();
+
+  assert.deepEqual(Array.from(env.window.__mods), ["grid-1"]);
+  bundle.cleanup();
+});
+
+test("and when they arrive before it: a deferred modules file ahead of an app.js holding phoenix_kit.js", async () => {
+  const env = createEnv({ facts: FACTS });
+  runSnippet(env, MODULE_STUBS); // phoenix_kit.js has not run: the names wait on the window
+  assert.deepEqual(Array.from(env.window.PhoenixKitModuleAdminHooks), ["GridSort"]);
+
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/js/app.js" });
+  const stub = env.window.PhoenixKitHooks.GridSort;
+  assert.ok(stub && stub.__pkAdminStub);
+
+  const bundle = moduleAdminBundle();
+  makeHook(stub, { id: "grid-2" }).mounted();
+  env.load(bundle.file);
+  env.loaded(0);
+  await tick();
+
+  assert.deepEqual(Array.from(env.window.__mods), ["grid-2"]);
+  bundle.cleanup();
+});
+
+test("the core admin bundle does not warn about a module's hooks: they are stubbed", () => {
+  const env = publicPage();
+  runSnippet(env, MODULE_STUBS);
+  env.window.PhoenixKitAdminHooks = { GridSort: {} };
+  env.load("phoenix_kit_admin.js");
+  assert.deepEqual(plain(env.warnings), []);
+});
