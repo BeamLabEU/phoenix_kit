@@ -27,7 +27,7 @@ function mediaBrowserSource(ext) {
 }
 
 const root = path.join(__dirname, "..", "..");
-const src = fs.readFileSync(path.join(root, "priv", "static", "assets", "phoenix_kit.js"), "utf8");
+const src = fs.readFileSync(path.join(root, "priv", "static", "assets", "phoenix_kit_admin.js"), "utf8");
 const server = mediaBrowserSource(".ex");
 
 function section() {
@@ -108,7 +108,7 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1" }) 
   const timers = [];
   const store = { rows: rows || [], deleted: [], put: [] };
   const win = {
-    PhoenixKitHooks: {},
+    PhoenixKitAdminHooks: {},
     location: { pathname, search },
     addEventListener() {},
   };
@@ -124,7 +124,7 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1" }) 
         get: () => ({}),
       }));
     }
-    return window.PhoenixKitHooks.UploadResume;`;
+    return window.PhoenixKitAdminHooks.UploadResume;`;
   const Hook = new Function("window", "store", "Date", "setTimeout", "clearTimeout",
     "setInterval", "clearInterval", "document", code)(
     win, store, { now: () => clock },

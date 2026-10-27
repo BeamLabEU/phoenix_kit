@@ -302,7 +302,7 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
     # this dev library holds a 1.685 photograph whose burned_large is 1.332.
     # Left uncorrected the pane holds a shape the picture does not have and
     # bands of empty canvas appear down its sides.
-    @hook Path.join(__DIR__, "../../../priv/static/assets/phoenix_kit.js")
+    @hook Path.join(__DIR__, "../../../priv/static/assets/phoenix_kit_admin.js")
 
     test "the pane carries a handle for the hook to find" do
       assert viewer_source() =~ "data-viewer-pane"
@@ -317,9 +317,9 @@ defmodule PhoenixKitWeb.Components.ViewerSplitOrientationTest do
       hook =
         @hook
         |> File.read!()
-        |> String.split("window.PhoenixKitHooks.ViewerPaneFit")
+        |> String.split("window.PhoenixKitAdminHooks.ViewerPaneFit")
         |> Enum.at(1)
-        |> String.split("window.PhoenixKitHooks.")
+        |> String.split("window.PhoenixKitAdminHooks.")
         |> Enum.at(0)
 
       assert hook =~ "naturalWidth", "the correction is the decoded bitmap's own size"

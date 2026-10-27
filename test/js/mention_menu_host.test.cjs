@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for MentionInput's menu host and placement in
-// priv/static/assets/phoenix_kit.js. A textarea inside a <dialog> shown with
+// priv/static/assets/phoenix_kit_admin.js. A textarea inside a <dialog> shown with
 // showModal() sits in the browser's top layer, which paints over everything
 // outside it whatever its z-index — a menu left on <body> was there, open,
 // and invisible behind the popup (the projects hub's "Add task" popup,
@@ -78,7 +78,7 @@ global.document = {
 const storage = { getItem: () => null, setItem: noop, removeItem: noop, key: () => null, length: 0 };
 
 global.window = {
-  PhoenixKitHooks: {},
+  PhoenixKitAdminHooks: {},
   scrollX: 0,
   scrollY: 500,
   innerHeight: 800,
@@ -105,8 +105,8 @@ global.MutationObserver = function(callback) {
   this.disconnect = () => { const i = observers.indexOf(this); if (i >= 0) observers.splice(i, 1); };
 };
 
-require("../../priv/static/assets/phoenix_kit.js");
-const MentionInput = global.window.PhoenixKitHooks.MentionInput;
+(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const MentionInput = global.window.PhoenixKitAdminHooks.MentionInput;
 
 // A textarea stub whose `closest("dialog")` answers `dialog` (or nothing).
 function field(dialog) {

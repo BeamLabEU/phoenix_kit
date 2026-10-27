@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItemTest do
     end
 
     test "active tab carries aria-current=page; inactive does not" do
-      # The AdminSidebarScroll JS (phoenix_kit.js) locates the current
+      # The AdminSidebarScroll JS (phoenix_kit_admin.js) locates the current
       # page's link via [aria-current="page"] to center it when no saved
       # scroll position exists — and it's the accessible marker anyway.
       tab = Tab.new!(id: :home, label: "Home", path: "/home", icon: "hero-home")
