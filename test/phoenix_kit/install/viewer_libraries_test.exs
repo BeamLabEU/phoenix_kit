@@ -194,13 +194,20 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
       end)
     end
 
-    test "the facts carry an absolute base, so the library files are found wherever the facts file is served from",
-         %{root: root} do
+    test "unconfigured, the facts carry the compiler's default under a key of its own", %{
+      root: root
+    } do
       :ok = Compiler.vendor_all(root)
       modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
 
+      # Not window.PHOENIX_KIT_LIB_BASE: that one overrides the tag the bundle was
+      # loaded from, which is right for a CDN or a path prefix, so a default must
+      # not claim it.
       assert modules =~
-               ~s(window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||"/assets/vendor/lib/";)
+               ~s(window.PHOENIX_KIT_LIB_BASE_DEFAULT=window.PHOENIX_KIT_LIB_BASE_DEFAULT||"/assets/vendor/lib/";)
+
+      refute modules =~ ~r/window\.PHOENIX_KIT_LIB_BASE=/
+      assert ViewerLibraries.base_url!() == nil
     end
 
     test "a host that serves its assets elsewhere says where, and a host's own window value still wins",
@@ -216,11 +223,27 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
 
       assert modules =~
                ~s(window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||"https://cdn.example.test/app/assets/vendor/lib/";)
+
+      refute modules =~ "PHOENIX_KIT_LIB_BASE_DEFAULT"
     end
 
     test "a base that is not a string is refused loudly", %{root: root} do
       Application.put_env(:phoenix_kit, :library_base_url, :nope)
       assert_raise Mix.Error, ~r/library_base_url/, fn -> Compiler.vendor_all(root) end
+    end
+
+    test "a base that is neither an absolute path nor a URL is used but flagged at compile time" do
+      Application.put_env(:phoenix_kit, :library_base_url, "assets/vendor/lib")
+      assert ViewerLibraries.base_url!() == "assets/vendor/lib/"
+      assert_received {:mix_shell, :info, [msg]}
+      assert msg =~ "library_base_url"
+      assert msg =~ "absolute path"
+
+      for ok <- ["/assets/vendor/lib/", "https://cdn.example.test/x", "http://localhost:4000/lib"] do
+        Application.put_env(:phoenix_kit, :library_base_url, ok)
+        ViewerLibraries.base_url!()
+        refute_received {:mix_shell, :info, _}
+      end
     end
   end
 

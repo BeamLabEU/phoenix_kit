@@ -315,22 +315,35 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   @default_base_url "/assets/vendor/lib/"
 
   @doc """
-  The URL the library files are served from, always ending in `/`.
+  The URL the library files are served from, when the host says so with
+  `config :phoenix_kit, library_base_url: "…"` — always ending in `/` — and
+  `nil` when it does not.
 
-  The browser used to guess it from the address of whichever script it was
-  running in, which is wrong as soon as a host bundles `phoenix_kit.js` into
-  its own `app.js` or serves the facts file from somewhere else. The compiler
-  that wrote the files knows where it put them: under the static root, at
-  `#{@default_base_url}`. A host that serves its assets from another path or a
-  CDN says so once with `config :phoenix_kit, library_base_url: "…"`.
+  Read when the compiler runs, so it belongs in `config/config.exs` (or
+  `prod.exs`); `config/runtime.exs` is read too late to reach the file the
+  compiler writes.
+
+  Without it the browser works the URL out for itself, in this order: next to
+  the tag that loads `phoenix_kit.js` (right for a host serving its assets from
+  a CDN or under a path prefix), then `#{@default_base_url}` — the place the
+  compiler writes the files, used when no such tag exists (a host that bundles
+  `phoenix_kit.js` into its own `app.js`).
   """
-  @spec base_url!() :: String.t()
+  @spec base_url!() :: String.t() | nil
   def base_url! do
     case Application.get_env(:phoenix_kit, :library_base_url) do
       nil ->
-        @default_base_url
+        nil
 
       url when is_binary(url) and url != "" ->
+        unless String.starts_with?(url, "/") or url =~ ~r{\Ahttps?://} do
+          Mix.shell().info(
+            "[PhoenixKit] library_base_url #{inspect(url)} is neither an absolute path nor an " <>
+              "http(s) URL, so the browser will resolve it against each page. Use \"/assets/vendor/lib/\" " <>
+              "or a full URL."
+          )
+        end
+
         String.trim_trailing(url, "/") <> "/"
 
       other ->
@@ -342,12 +355,20 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   end
 
   @doc """
-  The statement that hands the browser that base. A value the host already set
-  on `window` wins, wherever and whenever it set it.
+  The statement that hands the browser the base. A host-configured URL becomes
+  `window.PHOENIX_KIT_LIB_BASE` (a value the host already put on `window` wins);
+  otherwise the compiler's default goes under a key of its own, which the
+  browser consults only after the tag its bundle was loaded from.
   """
   @spec base_js() :: String.t()
   def base_js do
-    "window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||#{Jason.encode!(base_url!())};"
+    case base_url!() do
+      nil ->
+        "window.PHOENIX_KIT_LIB_BASE_DEFAULT=window.PHOENIX_KIT_LIB_BASE_DEFAULT||#{Jason.encode!(@default_base_url)};"
+
+      url ->
+        "window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||#{Jason.encode!(url)};"
+    end
   end
 
   @doc "The JavaScript statement carrying the facts, for the install-facts preamble."

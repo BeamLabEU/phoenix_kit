@@ -126,20 +126,38 @@
   // event may arrive after onerror, so it can refine an earlier failure.
   // ----------------------------------------------------------------------------
 
-  // Where the libraries live. The compiler that vendored them writes the URL
-  // into the install facts (window.PHOENIX_KIT_LIB_BASE, `/assets/vendor/lib/`
-  // unless the host configured `library_base_url`), so they are found wherever
-  // this file or the facts file is served from; a value the host set itself
-  // wins. Facts from an older version carry none, and the fallback is lib/
-  // next to this bundle — captured NOW, while the bundle evaluates, because
-  // document.currentScript is gone in every later callback (and is the wrong
-  // file when a host bundles this one into its own app.js).
+  // Where the libraries live, in this order:
+  //   1. window.PHOENIX_KIT_LIB_BASE — the host said so (itself, or through
+  //      `config :phoenix_kit, library_base_url:`, which the install facts
+  //      turn into this variable without overriding one the host set);
+  //   2. next to the tag that loads this file, when it is the vendored bundle
+  //      itself (phoenix_kit.js, or the digested phoenix_kit-<md5>.js): a host
+  //      serving its assets from a CDN or under a path prefix is right here with
+  //      no configuration;
+  //   3. the compiler's default (window.PHOENIX_KIT_LIB_BASE_DEFAULT,
+  //      `/assets/vendor/lib/`) — what is left when no tag loads this file,
+  //      i.e. a host that bundles it into its own app.js, where the script
+  //      being evaluated is app.js and says nothing about the library files.
+  //      It does not depend on where the facts file is served from, so a host
+  //      that moves, defers or re-minifies that file is unaffected;
+  //   4. the directory of whatever script this was (facts from an older
+  //      version carry no default).
+  // The script's address is captured NOW, while the bundle evaluates:
+  // document.currentScript is gone in every later callback.
   var PK_SCRIPT_SRC = (document.currentScript && document.currentScript.src) || "";
+  var PK_SCRIPT_NONCE = (document.currentScript && document.currentScript.nonce) || "";
+  var PK_SCRIPT_IS_BUNDLE = /(^|\/)phoenix_kit(-[0-9a-f]{32})?\.js$/.test(PK_SCRIPT_SRC.split(/[?#]/)[0]);
+
+  function pkLibDir(src) {
+    return src.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
+  }
 
   function pkLibBase() {
     if (window.PHOENIX_KIT_LIB_BASE) return String(window.PHOENIX_KIT_LIB_BASE).replace(/\/?$/, "/");
+    if (PK_SCRIPT_IS_BUNDLE) return pkLibDir(PK_SCRIPT_SRC);
+    if (window.PHOENIX_KIT_LIB_BASE_DEFAULT) return String(window.PHOENIX_KIT_LIB_BASE_DEFAULT).replace(/\/?$/, "/");
     if (!PK_SCRIPT_SRC) return null;
-    return PK_SCRIPT_SRC.split(/[?#]/)[0].replace(/[^\/]*$/, "") + "lib/";
+    return pkLibDir(PK_SCRIPT_SRC);
   }
 
   // The file names come from the install facts (window.PHOENIX_KIT_LIBS,
