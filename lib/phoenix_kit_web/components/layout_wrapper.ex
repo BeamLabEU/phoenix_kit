@@ -1284,8 +1284,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   it can fetch their bundle while the socket connects. --%>
             <div
               id="admin-drawer"
-              data-pk-admin
               class={["drawer", @show_admin_nav && "lg:drawer-open"]}
+              data-pk-admin
             >
               <input id="admin-mobile-menu" type="checkbox" class="drawer-toggle" />
 

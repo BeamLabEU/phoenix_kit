@@ -17,7 +17,7 @@ defmodule PhoenixKitWeb.Components.AdminBundleMarkerTest do
     dashboard =
       File.read!(Path.join(@root, "lib/phoenix_kit_web/components/layouts/dashboard.html.heex"))
 
-    assert wrapper =~ ~r/id="admin-drawer"\s+data-pk-admin/
+    assert wrapper =~ ~r/id="admin-drawer"[^>]*data-pk-admin/
     assert dashboard =~ ~r/<div class="min-h-screen bg-base-100" data-pk-admin>/
   end
 
