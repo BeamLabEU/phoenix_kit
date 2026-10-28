@@ -15,16 +15,13 @@ const { createEnv, makeHook } = require("./support/pk_env.cjs");
 const FACTS = { chartjs: { file: "chartjs-4.5.1-deadbeef.js", cdn: null } };
 const CHART_URL = "https://app.test/assets/vendor/lib/chartjs-4.5.1-deadbeef.js?vsn=d";
 
-// The bundle(s) that carry the hook: today the whole file, after the split the
-// admin bundle. Both are loaded when they exist, so the test follows the code.
+// The hook lives in the admin bundle, which a stub loads at run time. This test
+// loads it the way the page would have, and fails if there is none: a silent
+// fall-back to a public copy would test nothing.
 function page() {
   const env = createEnv({ facts: FACTS });
   env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
-  const adminHooks = () => env.window.PhoenixKitAdminHooks || {};
-  const fs = require("fs");
-  const path = require("path");
-  const adminFile = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
-  if (fs.existsSync(adminFile)) env.load("phoenix_kit_admin.js");
+  env.load("phoenix_kit_admin.js");
 
   for (const id of ["delivery-chart-container", "engagement-chart-container"]) {
     const el = env.makeEl("div");
@@ -44,7 +41,8 @@ function page() {
   FakeChart.prototype.destroy = function () { this.destroyed = true; };
   FakeChart.prototype.update = function () {};
 
-  const def = (adminHooks().EmailCharts) || env.window.PhoenixKitHooks.EmailCharts;
+  const def = env.window.PhoenixKitAdminHooks.EmailCharts;
+  assert.ok(def, "EmailCharts is defined by the admin bundle");
   return { env, def, constructed, FakeChart };
 }
 

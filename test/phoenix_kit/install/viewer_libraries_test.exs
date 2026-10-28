@@ -309,12 +309,64 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
       refute file =~ ~r/\.min\.js\z/
     end
 
-    test "an already minified file is minified again without harm", %{root: root} do
-      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :fake_minifier})
-      once = elem(ViewerLibraries.minify("var a = 1;\nvar b = 2;"), 1)
-      twice = elem(ViewerLibraries.minify(once), 1)
-      assert twice =~ "var a = 1; var b = 2;"
-      _ = root
+    def scripted_minifier(content), do: Application.get_env(:phoenix_kit, :test_minify).(content)
+
+    for {label, answer} <- [
+          {"nothing at all", quote(do: :ok)},
+          {"an empty file", quote(do: {:ok, ""})},
+          {"something that is not a file", quote(do: {:ok, 42})},
+          {"an error that is not a string", quote(do: {:error, :boom})},
+          {"a raise", quote(do: raise("boom"))},
+          {"an exit", quote(do: exit(:boom))}
+        ] do
+      test "a minifier that answers #{label} is a failed minify: readable files, one note, no crash",
+           %{root: root} do
+        Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :scripted_minifier})
+        Application.put_env(:phoenix_kit, :test_minify, fn _ -> unquote(answer) end)
+        on_exit(fn -> Application.delete_env(:phoenix_kit, :test_minify) end)
+
+        assert :ok = Compiler.vendor_all(root)
+
+        vendor = Path.join(root, "priv/static/assets/vendor")
+        assert File.read!(Path.join(vendor, "phoenix_kit.js")) =~ "PhoenixKit JavaScript Bundle"
+        assert File.read!(Path.join(vendor, "phoenix_kit_modules.js")) =~ "PHOENIX_KIT_LIBS"
+        %{"admin" => %{"file" => file}} = facts_of(root)
+        refute file =~ ~r/\.min\.js\z/
+        assert File.stat!(lib_path(root, file)).size > 0
+
+        notes = collect_notes([])
+        assert length(notes) == 1, "one line per compile, not one per file: #{inspect(notes)}"
+        assert hd(notes) =~ "Could not minify"
+      end
+    end
+
+    defp collect_notes(acc) do
+      receive do
+        {:mix_shell, :info, [msg]} ->
+          collect_notes(if msg =~ "Could not minify", do: [msg | acc], else: acc)
+      after
+        0 -> Enum.reverse(acc)
+      end
+    end
+
+    test "with a real esbuild, minifying already minified output changes nothing that runs" do
+      # The test environment has no esbuild (core lists it for :dev only), so this
+      # runs where one is installed and passes quietly elsewhere; the JS tests were
+      # also run by hand against the output of one and of two real esbuild passes.
+      Application.delete_env(:phoenix_kit, :js_minifier)
+
+      source =
+        "var answer = 40 + 2;\nfunction greet(name) { return 'hi ' + name; }\nwindow.x = greet(answer);"
+
+      case ViewerLibraries.minify(source) do
+        {:ok, once} ->
+          assert {:ok, twice} = ViewerLibraries.minify(once)
+          assert byte_size(twice) <= byte_size(once)
+          assert twice =~ "window.x="
+
+        {:error, _no_esbuild} ->
+          :ok
+      end
     end
 
     test "development builds stay readable unless asked", %{root: root} do

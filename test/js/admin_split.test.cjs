@@ -490,3 +490,54 @@ test("and none when the loading script had none", () => {
 
   assert.ok(!env.scripts[0].nonce);
 });
+
+// ── Hooks a module lists vs hooks its bundle exports ───────────────────────
+
+// The compiler appends this check to the admin bundle for each admin module; the
+// fixture is the exact text (the compiler's test asserts it is in the output).
+const HOOKS_CHECK = fs.readFileSync(path.join(__dirname, "..", "fixtures", "admin_hooks_check.js"), "utf8");
+
+test("a module whose bundle exports what it lists says nothing", () => {
+  const env = publicPage();
+  env.window.GridHooks = { GridSort: {} };
+  runSnippet(env, HOOKS_CHECK);
+  assert.deepEqual(plain(env.warnings), []);
+});
+
+test("a listed hook the bundle does not export is reported by name, module and global", () => {
+  const env = publicPage();
+  env.window.GridHooks = {};
+  runSnippet(env, HOOKS_CHECK);
+
+  assert.equal(env.warnings.length, 1);
+  assert.match(env.warnings[0], /grid lists the admin hook GridSort/);
+  assert.match(env.warnings[0], /window\.GridHooks does not export it/);
+});
+
+test("an exported hook nobody listed is reported too: it has no stub, so no page can mount it", () => {
+  const env = publicPage();
+  env.window.GridHooks = { GridSort: {}, GridUnlisted: {} };
+  runSnippet(env, HOOKS_CHECK);
+
+  assert.equal(env.warnings.length, 1);
+  assert.match(env.warnings[0], /exports the hook GridUnlisted, which js_sources\/0 hooks: does not list/);
+});
+
+test("a stub whose hook is not in the bundle names the module's side of the mismatch", async () => {
+  const env = publicPage();
+  runSnippet(env, MODULE_STUBS);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_empty_admin_"));
+  const file = path.join(dir, "empty_admin.js");
+  // A bundle that loads but exports nothing under the listed name.
+  fs.writeFileSync(file, "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};\nwindow.PhoenixKitAdminLoaded = true;\n");
+  makeHook(env.window.PhoenixKitHooks.GridSort, { id: "g" }).mounted();
+  env.load(file);
+  env.loaded(0);
+  await tick();
+
+  const message = env.errors.join("\n");
+  assert.match(message, /defines no hook named GridSort/);
+  assert.match(message, /js_sources\/0 entry lists it in `hooks:`/);
+  assert.match(message, /different PhoenixKit versions/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

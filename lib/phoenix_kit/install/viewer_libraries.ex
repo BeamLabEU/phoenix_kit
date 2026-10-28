@@ -178,10 +178,7 @@ defmodule PhoenixKit.Install.ViewerLibraries do
           file
 
         {:error, reason} ->
-          Mix.shell().info(
-            "[PhoenixKit] Could not minify #{lib.name} (#{reason}); serving it unminified."
-          )
-
+          note_unminified("#{lib.name}: #{reason}")
           vendor_file!(dir, lib, vsn, content, false)
       end
     end
@@ -232,11 +229,25 @@ defmodule PhoenixKit.Install.ViewerLibraries do
         content
 
       {:error, reason} ->
-        Mix.shell().info(
-          "[PhoenixKit] Could not minify #{label} (#{reason}); serving it unminified."
-        )
-
+        note_unminified("#{label}: #{reason}")
         content
+    end
+  end
+
+  @doc false
+  # One line per compile, however many files could not be minified: the cause
+  # is the same for all of them (no esbuild yet), and seven lines of it on every
+  # compile is noise.
+  def reset_minify_note, do: Process.delete({__MODULE__, :minify_noted})
+
+  defp note_unminified(detail) do
+    unless Process.get({__MODULE__, :minify_noted}) do
+      Process.put({__MODULE__, :minify_noted}, true)
+
+      Mix.shell().info(
+        "[PhoenixKit] Could not minify the vendored JavaScript (#{detail}); serving the readable " <>
+          "files. Install esbuild (`mix assets.setup`) and compile again."
+      )
     end
   end
 
@@ -249,12 +260,28 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   @spec minify(binary()) :: {:ok, binary()} | {:error, String.t()}
   def minify(content) do
     case Application.get_env(:phoenix_kit, :js_minifier) do
-      {mod, fun} when is_atom(mod) and is_atom(fun) -> apply(mod, fun, [content])
-      _ -> minify_with_esbuild(content)
+      {mod, fun} when is_atom(mod) and is_atom(fun) ->
+        mod |> apply(fun, [content]) |> checked()
+
+      _ ->
+        minify_with_esbuild(content)
     end
   rescue
     e -> {:error, Exception.message(e)}
+  catch
+    kind, value -> {:error, "the minifier #{kind}: #{inspect(value)}"}
   end
+
+  # A host's own minifier is trusted to minify, not to answer in the right
+  # shape: anything but a non-empty binary is a failed minify (readable files
+  # and a note), never a crashed build or an empty file.
+  defp checked({:ok, small}) when is_binary(small) and byte_size(small) > 0, do: {:ok, small}
+  defp checked({:ok, _}), do: {:error, "the minifier returned no output"}
+  defp checked({:error, reason}) when is_binary(reason), do: {:error, reason}
+  defp checked({:error, reason}), do: {:error, inspect(reason)}
+
+  defp checked(other),
+    do: {:error, "the minifier returned #{inspect(other)}, not {:ok, binary} or {:error, reason}"}
 
   defp minify_with_esbuild(content) do
     with {:ok, bin} <- esbuild_bin() do

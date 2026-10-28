@@ -127,6 +127,7 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   the compiler.
   """
   def vendor_all(root) do
+    ViewerLibraries.reset_minify_note()
     vendor_core_js_file(root)
 
     specs = collect_specs()
@@ -323,19 +324,24 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
   end
 
   # Two admin bundles declaring one hook name would be one stub, mounting
-  # whichever body the later fold left behind.
+  # whichever body the later fold left behind; and a name core already has is a
+  # core hook the stub would shadow (or be shadowed by) depending on which
+  # script ran first. Both are refused.
   @doc false
-  def check_unique_hooks(specs) do
-    dupes =
+  def check_unique_hooks(specs, core_names \\ nil) do
+    entries =
       specs
       |> admin_specs()
-      |> Enum.flat_map(fn s -> Enum.map(s.hooks, &{&1, s}) end)
-      |> Enum.group_by(fn {name, _} -> name end, fn {_, s} -> "#{s.app}:#{s.file}" end)
-      |> Enum.filter(fn {_name, apps} -> length(apps) > 1 end)
+      |> Enum.flat_map(fn s -> Enum.map(s.hooks, &{&1, "#{s.app}:#{s.file}"}) end)
+
+    dupes =
+      entries
+      |> Enum.group_by(fn {name, _} -> name end, fn {_, from} -> from end)
+      |> Enum.filter(fn {_name, from} -> length(from) > 1 end)
 
     unless dupes == [] do
       detail =
-        Enum.map_join(dupes, "\n", fn {name, apps} -> "  #{name} <- #{Enum.join(apps, ", ")}" end)
+        Enum.map_join(dupes, "\n", fn {name, from} -> "  #{name} <- #{Enum.join(from, ", ")}" end)
 
       Mix.raise("""
       Multiple js_sources/0 admin bundles declare the same hook name, so one stub would
@@ -347,7 +353,35 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
       """)
     end
 
+    core = MapSet.new(core_names || core_hook_names())
+
+    clashes = for {name, from} <- entries, MapSet.member?(core, name), do: "  #{name} <- #{from}"
+
+    unless clashes == [] do
+      Mix.raise("""
+      A js_sources/0 admin bundle declares a hook name PhoenixKit itself defines:
+
+      #{Enum.join(clashes, "\n")}
+
+      Namespace the hook names of the module (see PhoenixKit.Module.js_sources/0).
+      """)
+    end
+
     :ok
+  end
+
+  # Every hook name core's two files register, read from the files themselves so
+  # there is no second list to keep in step.
+  @doc false
+  def core_hook_names do
+    [@core_js_filename, @admin_js_filename]
+    |> Enum.flat_map(fn filename ->
+      ~r/PhoenixKit(?:Admin)?Hooks\.([A-Za-z0-9_]+)\s*=(?!=)/
+      |> Regex.scan(read_core_asset!(filename), capture: :all_but_first)
+      |> List.flatten()
+    end)
+    |> Enum.uniq()
+    |> Enum.sort()
   end
 
   @doc false
@@ -484,8 +518,24 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSources do
     #{core}
     /* Admin hook bundles of modules (js_sources/0, scope: :admin). */
     #{wrap_bundles(specs)}
+    #{Enum.map_join(specs, "\n", &hooks_check/1)}
     window.PhoenixKitAdminHooks=Object.assign(window.PhoenixKitAdminHooks||{},#{globals});
     """
+  end
+
+  # The `hooks:` an entry lists and the hooks its bundle exports must be the
+  # same set: a listed hook the bundle lacks is a stub with nothing to mount, an
+  # exported hook nobody listed has no stub and so can never be mounted. The
+  # compiler cannot see inside the bundle, so the page says so on the console.
+  defp hooks_check(%{app: app, global: global, hooks: hooks}) do
+    check = """
+    ;(function(g,d,a){var e=Object.keys(window[g]||{}),i;\
+    for(i=0;i<d.length;i++)if(e.indexOf(d[i])<0)console.warn("[PhoenixKit] "+a+" lists the admin hook "+d[i]+" in js_sources/0 hooks:, but window."+g+" does not export it, so it will never mount.");\
+    for(i=0;i<e.length;i++)if(d.indexOf(e[i])<0)console.warn("[PhoenixKit] window."+g+" of "+a+" exports the hook "+e[i]+", which js_sources/0 hooks: does not list, so no page can mount it.")})\
+    """
+
+    check <>
+      "(#{Jason.encode!(global)},#{Jason.encode!(hooks)},#{Jason.encode!(to_string(app))});"
   end
 
   # Facts the vendored bundle cannot work out for itself, written into a file

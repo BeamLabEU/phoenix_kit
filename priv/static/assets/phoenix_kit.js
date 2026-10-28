@@ -4553,8 +4553,10 @@
           if (self.__pkGone) return;
           var real = window.PhoenixKitAdminHooks && window.PhoenixKitAdminHooks[name];
           if (!real) {
-            console.error("[PhoenixKit] The " + name + " hook is not in the admin bundle that loaded; " +
-              "the file and phoenix_kit.js are from different PhoenixKit versions.");
+            console.error("[PhoenixKit] The admin bundle loaded but defines no hook named " + name + ". " +
+              "If " + name + " belongs to a module, that module's js_sources/0 entry lists it in `hooks:` " +
+              "but its bundle does not export it under that name; otherwise phoenix_kit.js and " +
+              "phoenix_kit_admin.js are from different PhoenixKit versions.");
             return;
           }
           Object.keys(real).forEach(function(key) {
@@ -5108,6 +5110,33 @@
   });
 })();
 
+// ===========================================================================
+// PhoenixKitHooks bridge — adopts any hooks exposed by sibling libraries
+// (fresco, tessera, etcher) into the single `window.PhoenixKitHooks`
+// namespace the parent app spreads into LiveSocket.
+//
+// Default setup (zero-config): the FrescoViewer / TesseraLayer /
+// EtcherLayer wrapper hooks above lazy-load the host's vendored copies of
+// the sibling libs on first mount, so the parent app only needs to spread
+// `...window.PhoenixKitHooks` into LiveSocket:
+//
+//   let liveSocket = new LiveSocket("/live", Socket, {
+//     hooks: { ...window.PhoenixKitHooks, ...colocatedHooks }
+//   });
+//
+// Optional pre-import (for offline / CSP-strict / pre-bundled apps):
+// import the libs in your own `app.js` before phoenix_kit.js and the
+// wrappers will detect `window.{Fresco|Tessera|Etcher}Hooks` and skip
+// the CDN load:
+//
+//   import "../../deps/fresco/priv/static/fresco.js"
+//   import "../../deps/tessera/priv/static/tessera.js"
+//   import "../../deps/etcher/priv/static/etcher.js"
+//
+// The `adopt` calls below are a defensive backstop for any sibling hook
+// the wrappers above don't explicitly cover (e.g. a future hook added by
+// one of the libs). No-ops when the global is missing.
+// ===========================================================================
 (function() {
   if (typeof window === "undefined") return;
   window.PhoenixKitHooks = window.PhoenixKitHooks || {};

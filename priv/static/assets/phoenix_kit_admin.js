@@ -16,10 +16,6 @@
  * phoenix_kit.js (it uses the helpers phoenix_kit.js shares through
  * `window.PhoenixKitInternals`).
  *
- * A host that wants these hooks without the lazy request (a strict offline
- * build) may import this file in its app.js after phoenix_kit.js; the stubs
- * then find it already loaded and fetch nothing.
- *
  * @license MIT
  */
 
@@ -6004,34 +6000,6 @@
     }
   };
 
-
-// ===========================================================================
-// PhoenixKitHooks bridge — adopts any hooks exposed by sibling libraries
-// (fresco, tessera, etcher) into the single `window.PhoenixKitAdminHooks`
-// namespace the parent app spreads into LiveSocket.
-//
-// Default setup (zero-config): the FrescoViewer / TesseraLayer /
-// EtcherLayer wrapper hooks above lazy-load the host's vendored copies of
-// the sibling libs on first mount, so the parent app only needs to spread
-// `...window.PhoenixKitAdminHooks` into LiveSocket:
-//
-//   let liveSocket = new LiveSocket("/live", Socket, {
-//     hooks: { ...window.PhoenixKitAdminHooks, ...colocatedHooks }
-//   });
-//
-// Optional pre-import (for offline / CSP-strict / pre-bundled apps):
-// import the libs in your own `app.js` before phoenix_kit.js and the
-// wrappers will detect `window.{Fresco|Tessera|Etcher}Hooks` and skip
-// the CDN load:
-//
-//   import "../../deps/fresco/priv/static/fresco.js"
-//   import "../../deps/tessera/priv/static/tessera.js"
-//   import "../../deps/etcher/priv/static/etcher.js"
-//
-// The `adopt` calls below are a defensive backstop for any sibling hook
-// the wrappers above don't explicitly cover (e.g. a future hook added by
-// one of the libs). No-ops when the global is missing.
-// ===========================================================================
 
 // SearchPicker — generic instant typeahead for "search a source, pick an
 // entry" fields (extracted from phoenix_kit_crm's involved-parties picker).

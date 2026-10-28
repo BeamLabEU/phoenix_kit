@@ -172,6 +172,49 @@ defmodule Mix.Tasks.Compile.PhoenixKitJsSourcesTest do
       assert Compiler.build_admin_content("/* core admin */", []) == "/* core admin */"
     end
 
+    test "the admin bundle checks the hooks a module lists against the ones its bundle exports" do
+      # test/fixtures/admin_hooks_check.js is this exact text; the JS test
+      # (test/js/admin_split.test.cjs) runs it.
+      dir = tmp_dir!()
+      g = Path.join(dir, "g.js")
+      File.write!(g, "window.GridHooks={}")
+
+      spec = %{
+        app: :grid,
+        file: "g.js",
+        global: "GridHooks",
+        source: g,
+        scope: :admin,
+        hooks: ["GridSort"]
+      }
+
+      check = File.read!(Path.expand("../../fixtures/admin_hooks_check.js", __DIR__))
+      assert Compiler.build_admin_content("/* core */", [spec]) =~ String.trim_trailing(check)
+    end
+
+    test "core's hook names are read from its own two files, with no list to keep in step" do
+      names = Compiler.core_hook_names()
+
+      for known <-
+            ~w(RowMenu SortableGrid EmailCharts CookieConsent FlashAutoDismiss PkDialog Leaf) do
+        assert known in names, "#{known} is a core hook"
+      end
+
+      assert length(names) > 60
+      refute "Same" in names
+    end
+
+    test "a module admin hook may not take a name core already has" do
+      spec = %{app: :a, file: "a.js", global: "AHooks", scope: :admin, hooks: ["RowMenu", "Mine"]}
+
+      assert_raise Mix.Error, ~r/PhoenixKit itself defines.*RowMenu/s, fn ->
+        Compiler.check_unique_hooks([spec])
+      end
+
+      assert :ok = Compiler.check_unique_hooks([%{spec | hooks: ["Mine"]}])
+      assert :ok = Compiler.check_unique_hooks([%{spec | hooks: ["RowMenu"]}], ["Other"])
+    end
+
     test "an admin spec must name its hooks, or nothing could ever mount them" do
       assert_raise Mix.Error, ~r/hooks/, fn ->
         Compiler.normalize_entry(%{app: :a, file: "a.js", global: "AHooks", scope: :admin})
