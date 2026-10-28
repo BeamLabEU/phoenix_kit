@@ -279,7 +279,6 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
       # what follows them is what the minifier gets.
       modules = File.read!(Path.join(vendor, "phoenix_kit_modules.js"))
       assert modules =~ ~s(window.PHOENIX_KIT_LIBS={"admin":{"file":")
-      assert modules =~ "/*min*/"
 
       %{"admin" => %{"file" => file}} = facts_of(root)
       assert file =~ ~r/\.min\.js\z/
@@ -310,6 +309,39 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     end
 
     def scripted_minifier(content), do: Application.get_env(:phoenix_kit, :test_minify).(content)
+
+    test "nothing to minify is not sent to the minifier: a host without module bundles gets no false note",
+         %{root: root} do
+      test = self()
+
+      # Like esbuild, which writes nothing for an empty input and calls that an error.
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :scripted_minifier})
+
+      Application.put_env(:phoenix_kit, :test_minify, fn content ->
+        send(test, {:minified, content})
+
+        if String.trim(content) == "",
+          do: {:error, "esbuild wrote nothing"},
+          else: {:ok, "/*min*/"}
+      end)
+
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :test_minify) end)
+
+      for empty <- ["", "   ", "\n  \n"] do
+        assert ViewerLibraries.maybe_minify(empty, "x") == empty
+      end
+
+      refute_received {:minified, _}
+      assert collect_notes([]) == []
+
+      # And the compiler's own run: no module declares a bundle, so the part after
+      # the facts is empty.
+      assert :ok = Compiler.vendor_all(root)
+      assert collect_notes([]) == [], "no 'Could not minify' for a body that is empty"
+      modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+      assert modules =~ "PHOENIX_KIT_LIBS"
+      refute_received {:minified, ""}
+    end
 
     for {label, answer} <- [
           {"nothing at all", quote(do: :ok)},

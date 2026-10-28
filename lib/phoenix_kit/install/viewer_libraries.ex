@@ -221,7 +221,7 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   # size, never a build.
   @spec maybe_minify(binary(), String.t()) :: binary()
   def maybe_minify(content, label) do
-    with true <- minify?(),
+    with true <- minify?() and String.trim(content) != "",
          {:ok, small} <- minify(content) do
       small
     else
