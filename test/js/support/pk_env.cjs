@@ -123,6 +123,13 @@ function createEnv(opts) {
     fetch: () => Promise.reject(new Error("no network in tests")),
     Intl,
   };
+  // A clock the test moves: code that asks `Date.now()` sees `env.advance(ms)`,
+  // so a pause of seconds is tested without waiting for it.
+  const clock = { t: 1_700_000_000_000 };
+  const RealDate = Date;
+  sandbox.Date = class extends RealDate {
+    static now() { return clock.t; }
+  };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
   sandbox.globalThis = sandbox;
@@ -166,6 +173,7 @@ function createEnv(opts) {
   const fireDocument = (name) => (docListeners[name] || []).slice().forEach((fn) => fn({ type: name }));
 
   return {
+    advance: (ms) => { clock.t += ms; },
     fireDocument,
     markAdminLayout: () => { marked.admin = true; },
     window: sandbox,

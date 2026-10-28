@@ -312,8 +312,10 @@
           script.src = current;
           // A page whose policy needs a nonce on every script (and does not grant
           // 'strict-dynamic') would refuse this one: carry the nonce of the script
-          // that is loading it, when it had one.
-          if (PK_SCRIPT_NONCE) script.nonce = PK_SCRIPT_NONCE;
+          // that is loading it, when it had one. Only the host's own copy gets it
+          // (urls[0]): the CDN fallback, which a host opts into, must still pass the
+          // host's script-src allowlist, not skip it on a borrowed nonce.
+          if (PK_SCRIPT_NONCE && i === 0) script.nonce = PK_SCRIPT_NONCE;
           function failed(reason) {
             // Removed so a later attempt (a remount, a reconnect) can try anew.
             script.remove();
@@ -4534,12 +4536,23 @@
   // No cap on attempts, unlike the viewer libraries: the early start and the
   // first mount would otherwise use up the two a library gets, and a page whose
   // admin bundle failed once (a deploy in progress, a network blip) would stay
-  // dead until reloaded. Every mount after a failure asks again; simultaneous
-  // mounts still share one request.
+  // dead until reloaded. Simultaneous mounts share one request. After a failure
+  // there is a short pause (ADMIN_RETRY_PAUSE_MS) in which a mount is refused at
+  // once, without a request — a page with thirty admin hooks would otherwise
+  // ask thirty times, one after another — and the first mount after it asks again.
+  var ADMIN_RETRY_PAUSE_MS = 4000;
+  var adminRetryAt = 0;
+
   function loadAdminBundle() {
+    if (Date.now() < adminRetryAt) {
+      return Promise.reject(new Error("the admin bundle failed a moment ago"));
+    }
     return loadVendored("PhoenixKit admin", "admin", {
       check: function() { return !!window.PhoenixKitAdminLoaded; },
       unlimitedAttempts: true
+    }).catch(function(err) {
+      adminRetryAt = Date.now() + ADMIN_RETRY_PAUSE_MS;
+      throw err;
     });
   }
 

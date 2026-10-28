@@ -48,6 +48,10 @@ function publicPage(opts) {
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+// How long after a failed load a mount is refused without a request (the page
+// code says 4000); the tests only need "more than that".
+const RETRY_PAUSE_MS = 4000;
+
 // Values made inside the page's vm context have that realm's Array and Object
 // prototypes, which deepEqual (rightly) tells apart from ours.
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -250,6 +254,8 @@ test("a failed load is reported with the hook's name and the file, throws nothin
     "the console names the hook and the file: " + JSON.stringify(t.env.errors));
   assert.deepEqual(t.names(), []);
 
+  t.env.advance(RETRY_PAUSE_MS + 1); // the pause after a failure is over
+
   const second = makeHook(t.env.window.PhoenixKitHooks.RowMenu);
   second.mounted();
   assert.equal(t.env.scripts.length, 2, "a later mount starts a new attempt");
@@ -262,6 +268,7 @@ test("a retry after a failure works", async () => {
   t.env.failed(0);
   await tick();
 
+  t.env.advance(RETRY_PAUSE_MS + 1);
   const again = makeHook(t.env.window.PhoenixKitHooks.RowMenu);
   again.mounted();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
@@ -348,6 +355,7 @@ test("a failed early start is reported once and leaves later mounts free to try 
   await tick();
 
   assert.ok(env.errors.some((m) => m.includes("admin") && m.includes(ADMIN_URL)));
+  env.advance(RETRY_PAUSE_MS + 1);
   makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
   assert.equal(env.scripts.length, 2, "a later mount tries again");
 });
@@ -434,6 +442,7 @@ test("the admin bundle is asked for again after every failure, however many ther
   };
 
   for (let i = 0; i < 4; i++) {
+    t.env.advance(RETRY_PAUSE_MS + 1);
     mountOne();
     assert.equal(t.env.scripts.length, i + 1, "mount " + (i + 1) + " makes its own request");
     t.env.failed(i);
@@ -443,6 +452,7 @@ test("the admin bundle is asked for again after every failure, however many ther
   assert.ok(failures.every((n, i) => n > (failures[i - 1] || 0)), "each failure is reported");
 
   // And the fifth attempt can succeed: the hook mounts.
+  t.env.advance(RETRY_PAUSE_MS + 1);
   const hook = mountOne();
   assert.equal(t.env.scripts.length, 5);
   t.arrive2 = () => { t.env.load(fakeAdminFile(t)); t.env.loaded(4); };
@@ -540,4 +550,83 @@ test("a stub whose hook is not in the bundle names the module's side of the mism
   assert.match(message, /js_sources\/0 entry lists it in `hooks:`/);
   assert.match(message, /different PhoenixKit versions/);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ── The pause after a failure ──────────────────────────────────────────────
+
+test("right after a failure a mount is refused without a request, with the same console error", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  t.env.failed(0);
+  await tick();
+  const reported = t.env.errors.length;
+
+  // A page with many admin hooks: every one of them mounts in the pause.
+  for (const name of ["RowMenu", "ListFilter", "SortableGrid"]) {
+    makeHook(t.env.window.PhoenixKitHooks[name]).mounted();
+  }
+  await tick();
+
+  assert.equal(t.env.scripts.length, 1, "no new request while the pause lasts");
+  const refused = t.env.errors.slice(reported);
+  assert.equal(refused.length, 3, "each refused hook says so");
+  for (const [i, name] of ["RowMenu", "ListFilter", "SortableGrid"].entries()) {
+    assert.ok(refused[i].includes(name) && refused[i].includes(ADMIN_URL), refused[i]);
+  }
+  assert.deepEqual(t.names(), []);
+  t.cleanup();
+});
+
+test("the first mount after the pause asks again, and there is still no cap", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  t.env.failed(0);
+  await tick();
+
+  t.env.advance(RETRY_PAUSE_MS - 1);
+  makeHook(t.env.window.PhoenixKitHooks.RowMenu).mounted();
+  await tick();
+  assert.equal(t.env.scripts.length, 1, "one millisecond short of the pause: still refused");
+
+  t.env.advance(1);
+  makeHook(t.env.window.PhoenixKitHooks.RowMenu).mounted();
+  assert.equal(t.env.scripts.length, 2, "the pause is over: a request");
+  t.env.failed(1);
+  await tick();
+
+  // A second failure starts a new pause, and the next one ends it again.
+  makeHook(t.env.window.PhoenixKitHooks.ListFilter).mounted();
+  assert.equal(t.env.scripts.length, 2);
+  t.env.advance(RETRY_PAUSE_MS);
+  makeHook(t.env.window.PhoenixKitHooks.ListFilter).mounted();
+  assert.equal(t.env.scripts.length, 3);
+  t.cleanup();
+});
+
+test("a success is not followed by a pause", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  t.arrive();
+  await tick();
+
+  makeHook(t.env.window.PhoenixKitHooks.RowMenu).mounted();
+  await tick();
+  assert.deepEqual(t.names(), ["SortableGrid.mounted", "RowMenu.mounted"]);
+  t.cleanup();
+});
+
+// ── The nonce stays on the host's own copy ─────────────────────────────────
+
+test("the CDN fallback does not borrow the nonce: it has to pass the host's allowlist on its own", async () => {
+  const cdn = "https://cdn.example.test/admin-fallback.js";
+  const env = createEnv({ facts: { admin: { file: "admin-3.0.0-cafebabe.js", cdn } } });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js", nonce: "n0nce-123" });
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+
+  assert.equal(env.scripts[0].src, ADMIN_URL);
+  assert.equal(env.scripts[0].nonce, "n0nce-123", "the host's own file has it");
+
+  env.failed(0); // the local copy fails; the CDN is tried next
+  assert.equal(env.scripts[1].src, cdn);
+  assert.ok(!env.scripts[1].nonce, "the CDN copy has none");
 });
