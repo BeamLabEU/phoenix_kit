@@ -141,7 +141,10 @@ function createEnv(opts) {
     const full = path.isAbsolute(file) ? file : path.join(ASSETS, file);
     const code = fs.readFileSync(full, "utf8");
     sandbox.module = { exports: {} };
-    document.currentScript = { src: loadOpts.src || "https://app.test/assets/vendor/" + path.basename(file) };
+    document.currentScript = {
+      src: loadOpts.src || "https://app.test/assets/vendor/" + path.basename(file),
+      nonce: loadOpts.nonce || "",
+    };
     try {
       vm.runInContext(code, ctx, { filename: full });
     } finally {

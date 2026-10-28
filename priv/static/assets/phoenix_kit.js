@@ -268,7 +268,7 @@
       return Promise.reject(new Error(name + " failed to load earlier on this page"));
     }
     var attempts = pkLibAttempts[name] = (pkLibAttempts[name] || 0) + 1;
-    if (!opts.module && attempts > LIBRARY_MAX_ATTEMPTS) {
+    if (!opts.module && !opts.unlimitedAttempts && attempts > LIBRARY_MAX_ATTEMPTS) {
       return Promise.reject(new Error(name + " failed to load"));
     }
 
@@ -310,6 +310,10 @@
           attempt.csp = null;
           var script = document.createElement("script");
           script.src = current;
+          // A page whose policy needs a nonce on every script (and does not grant
+          // 'strict-dynamic') would refuse this one: carry the nonce of the script
+          // that is loading it, when it had one.
+          if (PK_SCRIPT_NONCE) script.nonce = PK_SCRIPT_NONCE;
           function failed(reason) {
             // Removed so a later attempt (a remount, a reconnect) can try anew.
             script.remove();
@@ -4527,9 +4531,15 @@
     "ImageEditor"
   ];
 
+  // No cap on attempts, unlike the viewer libraries: the early start and the
+  // first mount would otherwise use up the two a library gets, and a page whose
+  // admin bundle failed once (a deploy in progress, a network blip) would stay
+  // dead until reloaded. Every mount after a failure asks again; simultaneous
+  // mounts still share one request.
   function loadAdminBundle() {
     return loadVendored("PhoenixKit admin", "admin", {
-      check: function() { return !!window.PhoenixKitAdminLoaded; }
+      check: function() { return !!window.PhoenixKitAdminLoaded; },
+      unlimitedAttempts: true
     });
   }
 

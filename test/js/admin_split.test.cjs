@@ -419,3 +419,74 @@ test("the core admin bundle does not warn about a module's hooks: they are stubb
   env.load("phoenix_kit_admin.js");
   assert.deepEqual(plain(env.warnings), []);
 });
+
+// ── Retrying ───────────────────────────────────────────────────────────────
+
+test("the admin bundle is asked for again after every failure, however many there have been", async () => {
+  // The early start and the first mount are two failures already; a viewer
+  // library would stop here. The admin hooks must not.
+  const t = withFakeAdmin();
+  const failures = [];
+  const mountOne = () => {
+    const hook = makeHook(t.env.window.PhoenixKitHooks.SortableGrid);
+    hook.mounted();
+    return hook;
+  };
+
+  for (let i = 0; i < 4; i++) {
+    mountOne();
+    assert.equal(t.env.scripts.length, i + 1, "mount " + (i + 1) + " makes its own request");
+    t.env.failed(i);
+    await tick();
+    failures.push(t.env.errors.length);
+  }
+  assert.ok(failures.every((n, i) => n > (failures[i - 1] || 0)), "each failure is reported");
+
+  // And the fifth attempt can succeed: the hook mounts.
+  const hook = mountOne();
+  assert.equal(t.env.scripts.length, 5);
+  t.arrive2 = () => { t.env.load(fakeAdminFile(t)); t.env.loaded(4); };
+  t.arrive2();
+  await tick();
+  assert.deepEqual(t.names(), ["SortableGrid.mounted"]);
+  assert.equal(t.calls()[0][1], hook);
+  t.cleanup();
+});
+
+function fakeAdminFile(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
+  const file = path.join(dir, "fake_admin.js");
+  fs.writeFileSync(file, fakeAdmin());
+  return file;
+}
+
+test("mounts that overlap a failing request share it: one request, one failure", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  makeHook(t.env.window.PhoenixKitHooks.RowMenu).mounted();
+  makeHook(t.env.window.PhoenixKitHooks.ListFilter).mounted();
+  assert.equal(t.env.scripts.length, 1);
+  t.env.failed(0);
+  await tick();
+
+  assert.equal(t.env.errors.filter((m) => m.includes("hook did not start")).length, 3, "each hook says it went without");
+  t.cleanup();
+});
+
+// ── Content-Security-Policy nonce ──────────────────────────────────────────
+
+test("a script this bundle creates carries the nonce of the script that loaded the bundle", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js", nonce: "n0nce-123" });
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+
+  assert.equal(env.scripts[0].nonce, "n0nce-123");
+});
+
+test("and none when the loading script had none", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js", { src: "https://app.test/assets/vendor/phoenix_kit.js" });
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+
+  assert.ok(!env.scripts[0].nonce);
+});
