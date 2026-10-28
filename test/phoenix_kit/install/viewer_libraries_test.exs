@@ -274,7 +274,12 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
 
       vendor = Path.join(root, "priv/static/assets/vendor")
       assert File.read!(Path.join(vendor, "phoenix_kit.js")) =~ ~r/\A\/\*min\*\//
-      assert File.read!(Path.join(vendor, "phoenix_kit_modules.js")) =~ ~r/\A\/\*min\*\//
+
+      # The install facts keep their JSON shape (the doctor and people read them);
+      # what follows them is what the minifier gets.
+      modules = File.read!(Path.join(vendor, "phoenix_kit_modules.js"))
+      assert modules =~ ~s(window.PHOENIX_KIT_LIBS={"admin":{"file":")
+      assert modules =~ "/*min*/"
 
       %{"admin" => %{"file" => file}} = facts_of(root)
       assert file =~ ~r/\.min\.js\z/
