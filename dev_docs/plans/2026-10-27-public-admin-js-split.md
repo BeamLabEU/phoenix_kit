@@ -1,8 +1,8 @@
 # Plan: public pages load only the public JavaScript; admin code loads on demand
 
-Status: **implemented on this branch** (from `upstream/main`, 2.65.0), as approved; the sections below are the
+Status: **implemented on this branch** (from `upstream/main`, core 3.0.0), as approved; the sections below are the
 design, with what changed on the way marked **(as built)**. The how-to for hosts and contributors is
-`dev_docs/guides/2026-10-27-public-and-admin-javascript.md`.
+`guides/public-and-admin-javascript.md`.
 
 ## The problem
 
@@ -171,16 +171,17 @@ for the head: this branch, or a follow-up** (it is independent of sections 1–6
 |---|---|
 | `:phoenix_kit_js_sources` in `:compilers`, `<script src=vendor/phoenix_kit.js>` + `vendor/phoenix_kit_modules.js` (the installer's layout) | `mix compile` vendors the lean `phoenix_kit.js`, the admin file into `vendor/lib/`, and the facts. Nothing else. |
 | the same, plus `import ".../phoenix_kit.js"` in `app.js` and the spread | Works: the imported file is the same lean one; the vendored tag (if both are present) wins as before. |
-| `import` only, no compiler, no `vendor/` files | The viewer libraries already need `mix phoenix_kit.update` here; so does the admin bundle. `mix phoenix_kit.update` vendors everything and inserts the facts tag. `mix phoenix_kit.doctor` gets a check that fails when the facts name no `admin` file. |
+| `import` only, no compiler, no `vendor/` files | The viewer libraries already need `mix phoenix_kit.update` here; so does the admin bundle. `mix phoenix_kit.update` vendors everything and inserts the facts tag. `mix phoenix_kit.doctor` gets a check that warns when the facts name no `admin` file or the file is not on disk. |
 
-**(as built)** The base URL is not derived from where any script was served from. The compiler that writes the
-library files knows where it put them, so the facts carry an absolute
-`window.PHOENIX_KIT_LIB_BASE` (`/assets/vendor/lib/`, or `config :phoenix_kit, library_base_url: "…"` for a host
-that serves its assets elsewhere or from a CDN); a value the host sets on `window` itself wins, whenever it sets it;
-facts from an older version carry none and the old address-of-the-script rule still applies. A host that relocates
-the facts file, defers it ahead of an `app.js` that holds `phoenix_kit.js`, or bundles `phoenix_kit.js` into
-`app.js` therefore still finds the admin bundle. A module's admin stubs are registered whichever of
-`phoenix_kit.js` and `phoenix_kit_modules.js` runs first.
+**(as built)** Where the files are served from is resolved in the browser in this order: (1)
+`window.PHOENIX_KIT_LIB_BASE` — the host's own word, or `config :phoenix_kit, library_base_url: "…"` (read at
+compile time), which the facts turn into that variable without overriding one the host set; (2) next to the tag
+that loads `phoenix_kit.js`, when that is the vendored bundle (`phoenix_kit.js`, `phoenix_kit-<md5>.js`) — a host
+behind a CDN (`static_url`) or under a path prefix needs no configuration; (3) the compiler's default
+`/assets/vendor/lib/`, written to the facts as `PHOENIX_KIT_LIB_BASE_DEFAULT`, for when no such tag exists (the
+file bundled into `app.js`); (4) the directory of the running script, for facts from an older version. Nothing
+depends on where the facts file is served from, so a host that moves, defers or re-minifies it is unaffected. A
+module's admin stubs are registered whichever of `phoenix_kit.js` and `phoenix_kit_modules.js` runs first.
 
 ## Order of work (TDD, one logical commit each)
 

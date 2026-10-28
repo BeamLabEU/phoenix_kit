@@ -176,10 +176,10 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
       :ok = Compiler.vendor_all(root)
       assert File.stat!(path).mtime == {{2000, 1, 1}, {0, 0, 0}}
 
-      a = ViewerLibraries.file_name("admin", "2.65.0", "one")
-      b = ViewerLibraries.file_name("admin", "2.65.0", "two")
+      a = ViewerLibraries.file_name("admin", "3.0.0", "one")
+      b = ViewerLibraries.file_name("admin", "3.0.0", "two")
       assert a != b
-      assert a =~ ~r/\Aadmin-2\.65\.0-[0-9a-f]{8}\.js\z/
+      assert a =~ ~r/\Aadmin-3\.0\.0-[0-9a-f]{8}\.js\z/
     end
   end
 

@@ -18,7 +18,7 @@ const os = require("os");
 const path = require("path");
 const { createEnv, makeHook, ASSETS } = require("./support/pk_env.cjs");
 
-// Every hook `phoenix_kit.js` registered before the split (2.65.0). A hook
+// Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -37,8 +37,8 @@ const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKe
 const ADMIN_FILE = path.join(ASSETS, "phoenix_kit_admin.js");
 const PUBLIC_FILE = path.join(ASSETS, "phoenix_kit.js");
 
-const FACTS = { admin: { file: "admin-2.65.0-cafebabe.js", cdn: null } };
-const ADMIN_URL = "https://app.test/assets/vendor/lib/admin-2.65.0-cafebabe.js?vsn=d";
+const FACTS = { admin: { file: "admin-3.0.0-cafebabe.js", cdn: null } };
+const ADMIN_URL = "https://app.test/assets/vendor/lib/admin-3.0.0-cafebabe.js?vsn=d";
 
 function publicPage(opts) {
   const env = createEnv(Object.assign({ facts: FACTS }, opts));
