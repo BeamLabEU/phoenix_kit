@@ -98,6 +98,60 @@ test("the public file carries no admin implementation and no Chart.js", () => {
   }
 });
 
+test("code that listens on the document for an admin hook stays out of the public file", () => {
+  // The media browser's box select and Shift-click range listeners are installed
+  // on `document` when their script loads, not by a hook, so the hook-name check
+  // above cannot see them: pin the markers instead.
+  const pub = fs.readFileSync(PUBLIC_FILE, "utf8");
+  const adm = fs.readFileSync(ADMIN_FILE, "utf8");
+  for (const marker of ["function startBoxSelect(", "__pkPendingBox", "data-box-area", "x-pk-batch"]) {
+    assert.ok(!pub.includes(marker), marker + " is admin code: it belongs in phoenix_kit_admin.js");
+    assert.ok(adm.includes(marker), marker + " is missing from phoenix_kit_admin.js");
+  }
+});
+
+test("the media browser hook starts through its stub; its document listeners arrive with the bundle", async () => {
+  // The real admin file, not a stand-in: the hook keeps a handle to itself on its
+  // element (`__pkBoxHook`) for the listeners that are installed on `document`.
+  const env = publicPage();
+  const added = [];
+  const addListener = env.document.addEventListener;
+  env.document.addEventListener = (name, fn, capture) => { added.push(name); return addListener(name, fn, capture); };
+  const count = (name) => added.filter((n) => n === name).length;
+  const root = env.makeEl("div");
+  root.id = "media";
+  const hook = makeHook(env.window.PhoenixKitHooks.MediaDragDrop, root);
+  hook.mounted();
+  const pointerdownBefore = count("pointerdown");
+  const clickBefore = count("click");
+  assert.equal(env.scripts.length, 1);
+
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await tick();
+
+  assert.ok(count("pointerdown") > pointerdownBefore, "the box select listener came with the bundle");
+  assert.ok(count("click") > clickBefore, "so did the Shift-click range listener");
+  assert.equal(root.__pkBoxHook, hook, "the element points at the LiveView's own hook instance");
+  assert.deepEqual(plain(env.errors), []);
+  hook.destroyed();
+  assert.equal(root.__pkBoxHook, null, "the real destroyed() ran on the instance");
+});
+
+test("a media browser destroyed before the bundle arrives never mounts", async () => {
+  const env = publicPage();
+  const root = env.makeEl("div");
+  root.id = "media";
+  const hook = makeHook(env.window.PhoenixKitHooks.MediaDragDrop, root);
+  hook.mounted();
+  hook.destroyed();
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await tick();
+  assert.equal(root.__pkBoxHook, undefined);
+  assert.deepEqual(plain(env.errors), []);
+});
+
 test("the admin file registers into its own namespace only", () => {
   const src = fs.readFileSync(ADMIN_FILE, "utf8");
   // Reading the public namespace is fine (the sanity check at the end does);

@@ -6,6 +6,9 @@
   id={@id}
   phx-target={@myself}
   phx-hook="MediaDragDrop"
+  data-selection-count={
+    if @select_mode, do: MapSet.size(@selected_files) + MapSet.size(@selected_folders)
+  }
   phx-window-keydown={@select_mode && "exit_select_mode"}
   phx-key="Escape"
   class={@fill_height && "flex flex-col flex-1 min-h-0 w-full"}
@@ -172,8 +175,11 @@
                  header, toolbar, grid — jumps 15px sideways. Same narrow case
                  as `.drawer-side` in layout_wrapper: an inner scroller, not
                  the root gutter daisyUI owns. --%>
+            <%!-- data-box-area: a press on empty space here draws a box
+                 that selects the cards it touches (MediaDragDrop). --%>
             <div
               class="px-2 pb-2 min-h-0 flex-1 flex flex-col overflow-auto [scrollbar-gutter:stable]"
+              data-box-area={not @readonly}
               id={if @has_buckets, do: "folder-drop-upload"}
               phx-hook={if @has_buckets and not @readonly, do: "FolderDropUpload"}
               phx-target={if @has_buckets, do: @myself}
@@ -433,6 +439,10 @@
                 Omitted in trash / all-files views: the `if` produces
                 `nil` and `data-drop-folder={nil}` strips the attribute,
                 so the wrapper isn't a drop target there.
+
+                `data-drop-upload`: files dragged in from the computer land
+                here too — the folder being shown — and are uploaded into it
+                (MediaDragDrop paints it, FolderDropUpload takes the files).
               --%>
               <div
                 class="rounded-lg flex-1 pr-1"
@@ -442,6 +452,10 @@
                   end
                 }
                 data-drop-no-bg
+                data-drop-upload={
+                  if @has_buckets and not @readonly and not @filter_trash and @file_view != "all",
+                    do: "true"
+                }
               >
                 <%= if @uploaded_files == [] && (@folders == [] or @file_view == "all") do %>
                   <%!-- Empty state --%>

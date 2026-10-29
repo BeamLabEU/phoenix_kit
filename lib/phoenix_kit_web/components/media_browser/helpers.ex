@@ -235,6 +235,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
     ~H"""
     <div
       data-draggable-file={if not @readonly, do: @file.file_uuid}
+      data-selected={if @select_mode && MapSet.member?(@selected_files, @file.file_uuid), do: "true"}
       data-stack-card={@index}
       class={[
         "group relative aspect-square bg-base-300 rounded-lg overflow-hidden hover:shadow-lg transition-shadow",

@@ -694,6 +694,85 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Box select — a box drawn over the cards selects what it touches
+  # ---------------------------------------------------------------------------
+
+  describe "box select" do
+    test "selects what the box touched, on screen only; the modifier adds", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      [a, b, c] = for _ <- 1..3, do: create_file!(folder.uuid)
+      elsewhere = create_file!(create_folder!().uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+      browser = element(view, "#media-browser")
+
+      selected? = fn file ->
+        has_element?(view, "[data-selected='true'][data-draggable-file='#{file.uuid}']")
+      end
+
+      # A uuid that is not on screen (another folder's file) is ignored.
+      render_hook(browser, "box_select", %{
+        "files" => [a.uuid, b.uuid, elsewhere.uuid],
+        "folders" => [],
+        "additive" => false
+      })
+
+      assert selected?.(a) and selected?.(b)
+      refute selected?.(c)
+      assert has_element?(view, "[phx-click='deselect_all']"), "select mode is on"
+
+      render_hook(browser, "box_select", %{
+        "files" => [c.uuid],
+        "folders" => [],
+        "additive" => true
+      })
+
+      assert selected?.(a) and selected?.(b) and selected?.(c)
+
+      # Without the modifier the box replaces the selection — an empty box clears it.
+      render_hook(browser, "box_select", %{"files" => [], "folders" => [], "additive" => false})
+      refute selected?.(a) or selected?.(b) or selected?.(c)
+    end
+
+    test "a dragged selection dropped on a folder moves it there", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      target = create_folder!()
+      [a, b, c] = for _ <- 1..3, do: create_file!(folder.uuid)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+      browser = element(view, "#media-browser")
+
+      render_hook(browser, "box_select", %{
+        "files" => [a.uuid, b.uuid],
+        "folders" => [],
+        "additive" => false
+      })
+
+      # The key the drag hook sends now — the move dialog's.
+      render_hook(browser, "move_selected_to_folder", %{"folder-uuid" => target.uuid})
+      assert Storage.get_file(a.uuid).folder_uuid == target.uuid
+      assert Storage.get_file(b.uuid).folder_uuid == target.uuid
+      assert Storage.get_file(c.uuid).folder_uuid == folder.uuid
+
+      # The key the drag hook used to send crashed the LiveView (no clause);
+      # a page still on the old script is handled the same way.
+      render_hook(browser, "box_select", %{
+        "files" => [c.uuid],
+        "folders" => [],
+        "additive" => false
+      })
+
+      render_hook(browser, "move_selected_to_folder", %{"folder_uuid" => target.uuid})
+      assert Storage.get_file(c.uuid).folder_uuid == target.uuid
+      assert render(view) =~ "media-browser"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Image editor — opened from a file's menu or the viewer
   # ---------------------------------------------------------------------------
 

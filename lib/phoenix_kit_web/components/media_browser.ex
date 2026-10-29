@@ -1969,7 +1969,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     prepare_move_file prepare_move_folder remove_folder_cover remove_folder_logo
     rename_folder rename_folder_input restore_file restore_folder restore_selected
     retry_all_uploads retry_upload rotate_file save_folder_description
-    save_folder_header select_all set_featured set_header_size show_move_modal show_upload
+    save_folder_header box_select select_all set_featured set_header_size show_move_modal show_upload
     start_edit_folder_description start_edit_folder_header start_rename_folder
     submit_new_folder toggle_header_option toggle_move_folder toggle_select
     toggle_select_folder toggle_select_mode toggle_upload trash_file trash_folder
@@ -3153,22 +3153,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   def handle_event("select_all", _params, socket) do
-    # Files rendered on screen live in `uploaded_files` AND, in stacks view,
-    # in each expanded stack's own list — cover both so "Select all" matches
-    # what the user sees (same duality as `locate_file/2`).
-    stack_file_uuids =
-      (socket.assigns[:stack_files] || %{})
-      |> Map.values()
-      |> List.flatten()
-      |> Enum.map(& &1.file_uuid)
-
-    all_file_uuids = Enum.map(socket.assigns.uploaded_files, & &1.file_uuid) ++ stack_file_uuids
-    all_folder_uuids = Enum.map(socket.assigns.folders, & &1.uuid)
+    {files, folders} = selectable_on_screen(socket)
 
     {:noreply,
      socket
-     |> assign(:selected_files, MapSet.new(all_file_uuids))
-     |> assign(:selected_folders, MapSet.new(all_folder_uuids))}
+     |> assign(:selected_files, files)
+     |> assign(:selected_folders, folders)}
+  end
+
+  def handle_event("box_select", _params, socket)
+      when socket.assigns.readonly == true do
+    {:noreply, log_readonly_blocked(socket, "box_select")}
+  end
+
+  # A box drawn over the cards (MediaDragDrop): what it touched becomes the
+  # selection — added to it with Shift or Cmd/Ctrl held — and select mode
+  # comes on, so the bulk actions are a click away. Only what is on screen
+  # can be picked, the same set Select all covers; a box over nothing,
+  # without the modifier, clears the selection.
+  def handle_event("box_select", params, socket) do
+    {on_screen_files, on_screen_folders} = selectable_on_screen(socket)
+    files = params |> Map.get("files", []) |> box_uuids(on_screen_files) |> MapSet.new()
+    folders = params |> Map.get("folders", []) |> box_uuids(on_screen_folders) |> MapSet.new()
+
+    {files, folders} =
+      if params["additive"] == true do
+        {MapSet.union(socket.assigns.selected_files, files),
+         MapSet.union(socket.assigns.selected_folders, folders)}
+      else
+        {files, folders}
+      end
+
+    picked? = MapSet.size(files) + MapSet.size(folders) > 0
+
+    {:noreply,
+     socket
+     |> assign(:selected_files, files)
+     |> assign(:selected_folders, folders)
+     |> assign(:select_mode, socket.assigns.select_mode or picked?)}
   end
 
   def handle_event("deselect_all", _params, socket) do
@@ -3267,6 +3289,16 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_event("move_selected_to_folder", _params, socket)
       when socket.assigns.readonly == true do
     {:noreply, log_readonly_blocked(socket, "move_selected_to_folder")}
+  end
+
+  # The drag-and-drop batch drop used to send `folder_uuid` (the move
+  # dialog's `phx-value-folder-uuid` arrives as `folder-uuid`), and with no
+  # clause for it the LiveView crashed and the page reloaded with nothing
+  # moved. The hook sends `folder-uuid` now; a page still running the old
+  # script lands here instead of crashing.
+  def handle_event("move_selected_to_folder", %{"folder_uuid" => folder_uuid} = params, socket)
+      when not is_map_key(params, "folder-uuid") do
+    handle_event("move_selected_to_folder", %{"folder-uuid" => folder_uuid}, socket)
   end
 
   def handle_event("move_selected_to_folder", %{"folder-uuid" => folder_uuid}, socket) do
@@ -3925,6 +3957,29 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # Leave select mode and drop any selection — shared by the toolbar Cancel
   # button and the Esc key.
+  # Everything a selection can pick right now: the files rendered on screen
+  # (`uploaded_files` AND, in stacks view, each expanded stack's own list —
+  # the same duality as `locate_file/2`) and the folders listed.
+  defp selectable_on_screen(socket) do
+    stack_file_uuids =
+      (socket.assigns[:stack_files] || %{})
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.map(& &1.file_uuid)
+
+    files =
+      MapSet.new(Enum.map(socket.assigns.uploaded_files, & &1.file_uuid) ++ stack_file_uuids)
+
+    folders = MapSet.new(socket.assigns.folders, & &1.uuid)
+    {files, folders}
+  end
+
+  defp box_uuids(list, allowed) when is_list(list) do
+    Enum.filter(list, &(is_binary(&1) and MapSet.member?(allowed, &1)))
+  end
+
+  defp box_uuids(_other, _allowed), do: []
+
   defp exit_select_mode(socket) do
     socket
     |> assign(:select_mode, false)

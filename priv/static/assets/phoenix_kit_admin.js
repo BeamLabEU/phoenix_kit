@@ -4375,6 +4375,256 @@
   // MEDIA DRAG & DROP HOOK
   // ============================================================================
 
+  // Box select on the media browser: a press on empty space in the content
+  // column (`[data-box-area]`) and a drag draws a box; every card it touches
+  // is outlined as it goes, and on release becomes the selection
+  // (`box_select`, which turns select mode on). Shift or Cmd/Ctrl adds to the
+  // selection instead of replacing it. A press on a card is still that card's
+  // own drag; a touch screen keeps long-press. Near the column's top or
+  // bottom edge it scrolls, and the box keeps its far end where the content
+  // was. Escape lets go without selecting.
+  //
+  // Installed on the document when this script loads rather than by the
+  // MediaDragDrop hook: until LiveView connects (a second or two after a
+  // reload) there is no hook, and the first box used to become a text
+  // selection instead.
+  function startBoxSelect(e, root) {
+    var THRESHOLD = 5;
+    var EDGE = 48;
+    var NOT_EMPTY = "[data-draggable-file], [data-draggable-folder], button, a, input, textarea, " +
+      "select, label, summary, [contenteditable], [phx-click], [role='button'], dialog, .modal, .dropdown";
+
+    function selectables(area) {
+      return Array.prototype.slice.call(
+        area.querySelectorAll("[data-draggable-file], [data-draggable-folder]")
+      ).filter(function(el) { return el.offsetParent; });
+    }
+
+    if (e.button !== 0 || e.pointerType === "touch") return;
+    var area = e.target.closest && e.target.closest("[data-box-area]");
+    if (!area || !root.contains(area)) return;
+    if (e.target.closest(NOT_EMPTY)) return;
+
+    if (root.__pkCancelBox) root.__pkCancelBox();
+    var additive = e.shiftKey || e.metaKey || e.ctrlKey;
+    var previousUserSelect = document.documentElement.style.userSelect;
+    // Content coordinates: the press point travels with the content
+    // when the column scrolls.
+    var start = { x: e.clientX, y: e.clientY, scroll: area.scrollTop };
+    var last = { x: e.clientX, y: e.clientY };
+    var box = null, cards = null, hits = [], raf = 0, scrollRaf = 0;
+
+    function rectNow() {
+      var dy = area.scrollTop - start.scroll;
+      var x1 = start.x, y1 = start.y - dy;
+      return {
+        left: Math.min(x1, last.x), top: Math.min(y1, last.y),
+        right: Math.max(x1, last.x), bottom: Math.max(y1, last.y)
+      };
+    }
+
+    function mark(el, on) {
+      el.style.outline = on ? "2px solid var(--color-primary)" : "";
+      el.style.outlineOffset = on ? "2px" : "";
+    }
+
+    function paint() {
+      raf = 0;
+      if (!box) return;
+      var r = rectNow();
+      var a = area.getBoundingClientRect();
+      // The drawn box stays inside the column; the hit test uses the
+      // whole of it, scrolled-away part included.
+      var left = Math.max(r.left, a.left), top = Math.max(r.top, a.top);
+      box.style.left = left + "px";
+      box.style.top = top + "px";
+      box.style.width = Math.max(0, Math.min(r.right, a.right) - left) + "px";
+      box.style.height = Math.max(0, Math.min(r.bottom, a.bottom) - top) + "px";
+      var next = cards.filter(function(el) {
+        var c = el.getBoundingClientRect();
+        return c.right > r.left && c.left < r.right && c.bottom > r.top && c.top < r.bottom;
+      });
+      hits.forEach(function(el) { if (next.indexOf(el) === -1) mark(el, false); });
+      next.forEach(function(el) { if (hits.indexOf(el) === -1) mark(el, true); });
+      hits = next;
+    }
+
+    function autoScroll() {
+      scrollRaf = 0;
+      if (!box) return;
+      var a = area.getBoundingClientRect();
+      var v = 0;
+      if (last.y < a.top + EDGE) v = -Math.ceil((a.top + EDGE - last.y) / 4);
+      else if (last.y > a.bottom - EDGE) v = Math.ceil((last.y - (a.bottom - EDGE)) / 4);
+      if (!v) return;
+      var before = area.scrollTop;
+      area.scrollTop += v;
+      if (area.scrollTop === before) return;
+      paint();
+      scrollRaf = requestAnimationFrame(autoScroll);
+    }
+
+    function begin() {
+      cards = selectables(area);
+      box = document.createElement("div");
+      box.setAttribute("data-box-select-rect", "");
+      box.style.cssText = "position:fixed;z-index:60;pointer-events:none;border-radius:4px;" +
+        "border:1px solid var(--color-primary);" +
+        "background:color-mix(in oklab, var(--color-primary) 12%, transparent);";
+      document.body.appendChild(box);
+      document.documentElement.style.userSelect = "none";
+      try { window.getSelection().removeAllRanges(); } catch (_e) {}
+    }
+
+    function finish(commit) {
+      if (root.__pkCancelBox === cancel) root.__pkCancelBox = null;
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onCancel, true);
+      window.removeEventListener("keydown", onKey, true);
+      if (raf) cancelAnimationFrame(raf);
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      raf = scrollRaf = 0;
+      if (!box) return;
+      if (commit) paint();
+      hits.forEach(function(el) { mark(el, false); });
+      box.remove();
+      box = null;
+      document.documentElement.style.userSelect = previousUserSelect;
+      // The click this release makes belongs to the box, not the page.
+      var swallow = function(ev) { ev.stopPropagation(); ev.preventDefault(); };
+      window.addEventListener("click", swallow, true);
+      setTimeout(function() { window.removeEventListener("click", swallow, true); }, 0);
+      if (!commit) return;
+      var files = [], folders = [];
+      hits.forEach(function(el) {
+        if (el.dataset.draggableFile) files.push(el.dataset.draggableFile);
+        else if (el.dataset.draggableFolder) folders.push(el.dataset.draggableFolder);
+      });
+      var payload = { files: files, folders: folders, additive: additive };
+      var hook = root.__pkBoxHook;
+      if (hook && hook.el === root) {
+        hook.pushEventTo(root, "box_select", payload);
+      } else {
+        // Not connected yet: keep the cards outlined and hand the box to
+        // the hook when it mounts (`setupBoxSelect`).
+        var kept = hits.slice();
+        kept.forEach(function(el) { mark(el, true); });
+        window.__pkPendingBox = {
+          root: root.id,
+          payload: payload,
+          unmark: function() { kept.forEach(function(el) { mark(el, false); }); }
+        };
+      }
+    }
+
+    function onMove(ev) {
+      if (ev.pointerId !== e.pointerId) return;
+      last = { x: ev.clientX, y: ev.clientY };
+      if (!box) {
+        if (Math.abs(last.x - start.x) < THRESHOLD && Math.abs(last.y - start.y) < THRESHOLD) return;
+        begin();
+      }
+      ev.preventDefault();
+      if (!raf) raf = requestAnimationFrame(paint);
+      if (!scrollRaf) scrollRaf = requestAnimationFrame(autoScroll);
+    }
+    function onUp(ev) { if (ev.pointerId === e.pointerId) finish(true); }
+    function onCancel(ev) { if (ev.pointerId === e.pointerId) finish(false); }
+    function cancel() { finish(false); }
+    function onKey(ev) {
+      if (ev.key === "Escape" && box) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        finish(false);
+      }
+    }
+
+    root.__pkCancelBox = cancel;
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onCancel, true);
+    window.addEventListener("keydown", onKey, true);
+  }
+
+  document.addEventListener("pointerdown", function(e) {
+    var root = e.target && e.target.closest && e.target.closest('[phx-hook="MediaDragDrop"]');
+    if (root) startBoxSelect(e, root);
+  });
+
+  // Shift-click range select: Shift-clicking a card selects every card from
+  // the anchor (the last card clicked or long-pressed while selecting) to it,
+  // in the order they are on screen, added to what is selected. With nothing
+  // selected yet it selects just that card, which becomes the anchor. Sent as
+  // a `box_select`, so only what is on screen can be picked.
+  var rangeAnchor = null; // {root, key}
+  function cardKey(card) {
+    return card.dataset.draggableFile ? "f:" + card.dataset.draggableFile
+      : card.dataset.draggableFolder ? "d:" + card.dataset.draggableFolder : null;
+  }
+  function rangeCard(e) {
+    var root = e.target && e.target.closest && e.target.closest('[phx-hook="MediaDragDrop"]');
+    if (!root) return null;
+    var card = e.target.closest("[data-draggable-file], [data-draggable-folder]");
+    if (!card || !root.contains(card) || !card.closest("[data-box-area]")) return null;
+    // A card's own menu and its rename / description fields keep their
+    // clicks (a folder card's body is itself a button, which ranges).
+    var control = e.target.closest(".dropdown, [role='menu'], [aria-haspopup], form, textarea, " +
+      "input:not([type='checkbox'])");
+    if (control && card.contains(control)) return null;
+    return { root: root, card: card };
+  }
+
+  // Shift + press on a card would extend the page's text selection.
+  document.addEventListener("pointerdown", function(e) {
+    if (e.shiftKey && e.button === 0 && rangeCard(e)) e.preventDefault();
+  }, true);
+
+  document.addEventListener("click", function(e) {
+    var hit = rangeCard(e);
+    if (!hit) return;
+    var root = hit.root, card = hit.card, key = cardKey(card);
+    if (!key) return;
+    if (!e.shiftKey) {
+      // A plain click while selecting moves the anchor.
+      if (root.querySelector('[data-selected="true"]') || root.dataset.selectionCount) {
+        rangeAnchor = { root: root.id, key: key };
+      }
+      return;
+    }
+    var hook = root.__pkBoxHook;
+    if (!hook || hook.el !== root) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var area = card.closest("[data-box-area]");
+    var cards = Array.prototype.slice.call(
+      area.querySelectorAll("[data-draggable-file], [data-draggable-folder]")
+    ).filter(function(el) { return el.offsetParent; });
+    var to = cards.indexOf(card);
+    var from = -1;
+    // Escape / Clear ends the old range even when its anchor is still on
+    // screen. The next Shift-click starts a new selection at this card.
+    if (!root.querySelector('[data-selected="true"]') &&
+        !(parseInt(root.dataset.selectionCount || "0", 10) > 0)) rangeAnchor = null;
+    if (rangeAnchor && rangeAnchor.root === root.id) {
+      from = cards.findIndex(function(el) { return cardKey(el) === rangeAnchor.key; });
+    }
+    if (from === -1) {
+      // No anchor on screen: the selected card nearest before this one,
+      // else the first selected after it.
+      for (var i = to - 1; i >= 0 && from === -1; i--) if (cards[i].dataset.selected === "true") from = i;
+      for (var j = to + 1; j < cards.length && from === -1; j++) if (cards[j].dataset.selected === "true") from = j;
+    }
+    var picked = from === -1 ? [card] : cards.slice(Math.min(from, to), Math.max(from, to) + 1);
+    if (from === -1) rangeAnchor = { root: root.id, key: key };
+    var files = [], folders = [];
+    picked.forEach(function(el) {
+      if (el.dataset.draggableFile) files.push(el.dataset.draggableFile);
+      else folders.push(el.dataset.draggableFolder);
+    });
+    hook.pushEventTo(root, "box_select", { files: files, folders: folders, additive: true });
+  }, true);
+
   window.PhoenixKitAdminHooks.MediaDragDrop = {
     mounted: function() {
       // View mode (grid/list) AND the sidebar folder-tree state (expanded
@@ -4402,11 +4652,31 @@
 
       this.setupDragDrop();
       this.setupLongPress();
+      this.setupBoxSelect();
+    },
+
+    destroyed: function() {
+      if (this.el.__pkCancelBox) this.el.__pkCancelBox();
+      if (this.el.__pkBoxHook === this) this.el.__pkBoxHook = null;
     },
 
     updated: function() {
       this.setupDragDrop();
       this.setupLongPress();
+    },
+
+    // Box select (see `startBoxSelect`, outside the hook): the listener is
+    // installed when the script loads, not when the hook mounts, so a box
+    // drawn in the second or two before LiveView connects is not lost to a
+    // text selection. A box finished before the hook exists waits here.
+    setupBoxSelect: function() {
+      this.el.__pkBoxHook = this;
+      var pending = window.__pkPendingBox;
+      if (pending && pending.root === this.el.id) {
+        window.__pkPendingBox = null;
+        pending.unmark();
+        this.pushEventTo(this.el, "box_select", pending.payload);
+      }
     },
 
     // Long-press (hold ~450ms without moving) on a file/folder card enters
@@ -4446,6 +4716,8 @@
             el._lpFired = true;
             if (navigator.vibrate) { try { navigator.vibrate(30); } catch (_) {} }
             self.pushEventTo(self.el, "long_press_select", { type: type, uuid: uuid });
+            // The held card anchors a later Shift-click range.
+            rangeAnchor = { root: self.el.id, key: (type === "folder" ? "d:" : "f:") + uuid };
           }, LONG_PRESS_MS);
         };
         el._lpMove = function(e) {
@@ -4475,6 +4747,84 @@
       var self = this;
       var container = this.el;
 
+      // The folder a dragged card already sits in: the drop zone around it
+      // (the main area of the folder being shown, or a stack's section).
+      // That zone is not a destination — dropping there leaves everything
+      // where it is — so it neither lights up nor takes the drop, and the
+      // same goes for every other zone naming that folder (its sidebar
+      // node). A batch counts only when all of it shares one home.
+      function originOf(el) {
+        var zone = el.parentElement && el.parentElement.closest("[data-drop-folder]");
+        return zone ? zone.dataset.dropFolder : null;
+      }
+      function dragOrigin(el) {
+        if (el.dataset.selected !== "true") return originOf(el);
+        var origin;
+        var same = true;
+        document.querySelectorAll('[data-selected="true"]').forEach(function(s) {
+          var o = originOf(s);
+          if (origin === undefined) origin = o;
+          else if (o !== origin) same = false;
+        });
+        return same ? origin || null : null;
+      }
+
+      // A selection picked up shows as one: a small pile of its pictures
+      // (the grabbed one on top) and a badge with how many are moving, in
+      // place of the browser's snapshot of the single card under the mouse.
+      function selectionGhost(e, grabbed) {
+        var count = parseInt(self.el.dataset.selectionCount || "0", 10) ||
+          document.querySelectorAll('[data-selected="true"]').length;
+        if (count < 2 || !e.dataTransfer.setDragImage) return;
+        var others = Array.prototype.slice.call(document.querySelectorAll('[data-selected="true"]'))
+          .filter(function(el) { return el !== grabbed; });
+        // Pictures before folders: a pile reads as what is being carried.
+        var pictured = function(el) { return el.querySelector("img") ? 0 : 1; };
+        others.sort(function(a, b) { return pictured(a) - pictured(b); });
+        var pile = [grabbed].concat(others).slice(0, 3);
+        var SIZE = 84;
+        var ghost = document.createElement("div");
+        ghost.style.cssText = "position:fixed;top:-1000px;left:-1000px;width:" + (SIZE + 40) + "px;height:" +
+          (SIZE + 40) + "px;pointer-events:none;z-index:9999;";
+        var tilt = [0, -9, 8];
+        var shift = [[0, 0], [-7, 3], [8, 5]];
+        for (var i = pile.length - 1; i >= 0; i--) {
+          var card = document.createElement("div");
+          card.style.cssText = "position:absolute;left:16px;top:20px;width:" + SIZE + "px;height:" + SIZE + "px;" +
+            "border-radius:12px;overflow:hidden;background:var(--color-base-300, #ddd);" +
+            "border:2px solid var(--color-base-100, #fff);box-shadow:0 6px 16px rgba(0,0,0,0.25);" +
+            "display:flex;align-items:center;justify-content:center;" +
+            "transform:translate(" + shift[i][0] + "px," + shift[i][1] + "px) rotate(" + tilt[i] + "deg);";
+          var src = pile[i].querySelector("img");
+          if (src && (src.currentSrc || src.src)) {
+            var img = document.createElement("img");
+            img.src = src.currentSrc || src.src;
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+            card.appendChild(img);
+          } else {
+            var icon = pile[i].querySelector("svg, [class*='hero-']");
+            if (icon) {
+              var c = icon.cloneNode(true);
+              c.style.width = "48px";
+              c.style.height = "48px";
+              card.appendChild(c);
+            }
+          }
+          ghost.appendChild(card);
+        }
+        var badge = document.createElement("div");
+        badge.textContent = String(count);
+        badge.style.cssText = "position:absolute;right:6px;top:6px;min-width:28px;height:28px;padding:0 8px;" +
+          "box-sizing:border-box;border-radius:14px;background:var(--color-primary, #3b82f6);" +
+          "color:var(--color-primary-content, #fff);font:700 14px/28px system-ui,sans-serif;text-align:center;" +
+          "box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid var(--color-base-100, #fff);";
+        ghost.appendChild(badge);
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 16 + SIZE / 2, 20 + SIZE / 2);
+        // The snapshot is taken now; the element is not needed after.
+        setTimeout(function() { ghost.remove(); }, 0);
+      }
+
       // Make file items draggable
       var files = container.querySelectorAll("[data-draggable-file]");
       files.forEach(function(el) {
@@ -4484,6 +4834,8 @@
         el._dragstart = function(e) {
           e.dataTransfer.setData("text/plain", el.dataset.draggableFile);
           e.dataTransfer.effectAllowed = "move";
+          self._dragOrigin = dragOrigin(el);
+          self._internalDrag = true;
           // Batch mode: if the dragged item is part of the current
           // selection, the drag moves the WHOLE selection. Marker type
           // `application/x-pk-batch` tells the drop handler to fire the
@@ -4494,6 +4846,7 @@
           if (el.dataset.selected === "true") {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
+            selectionGhost(e, el);
             setBatchVisuals(true);
           } else {
             el.classList.add("opacity-50");
@@ -4503,6 +4856,8 @@
 
         el.removeEventListener("dragend", el._dragend);
         el._dragend = function() {
+          self._dragOrigin = null;
+          self._internalDrag = false;
           if (self._draggedBatch) {
             setBatchVisuals(false);
             self._draggedBatch = false;
@@ -4537,6 +4892,8 @@
           e.dataTransfer.setData("application/x-pk-folder", "1");
           e.dataTransfer.effectAllowed = "move";
           self._draggedFolderUuid = el.dataset.draggableFolder;
+          self._dragOrigin = dragOrigin(el);
+          self._internalDrag = true;
           // Batch mode (same logic as the file dragstart above): if
           // the folder is part of the current selection, the drag
           // represents the whole selection. The folder-marker stays
@@ -4546,6 +4903,7 @@
           if (el.dataset.selected === "true") {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
+            selectionGhost(e, el);
             setBatchVisuals(true);
           } else {
             el.classList.add("opacity-50");
@@ -4557,6 +4915,8 @@
         el.removeEventListener("dragend", el._folderDragend);
         el._folderDragend = function() {
           self._draggedFolderUuid = null;
+          self._dragOrigin = null;
+          self._internalDrag = false;
           if (self._draggedBatch) {
             setBatchVisuals(false);
             self._draggedBatch = false;
@@ -4613,10 +4973,33 @@
         });
       }
 
+      // Files dragged in from the computer, not a card of this page.
+      function fromComputer(e) {
+        return !self._internalDrag && e.dataTransfer &&
+          Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") !== -1;
+      }
+
       var dropTargets = document.querySelectorAll("[data-drop-folder]");
       dropTargets.forEach(function(target) {
         target.removeEventListener("dragover", target._dragover);
         target._dragover = function(e) {
+          // Files from the computer are an upload, not a move: only the zone
+          // of the folder being shown (`data-drop-upload`) takes them —
+          // outlined a little outside the cards, dashed — and the drop
+          // carries on up to FolderDropUpload, which uploads them. Folder
+          // cards and the sidebar stay dark so the outline is where they go.
+          if (fromComputer(e)) {
+            if (target.dataset.dropUpload !== "true") return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            if (self._activeDropTarget && self._activeDropTarget !== target) {
+              clearHighlight(self._activeDropTarget);
+            }
+            self._activeDropTarget = target;
+            target.style.outline = "2px dashed var(--color-primary)";
+            target.style.outlineOffset = "6px";
+            return;
+          }
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           if (isFolder && target.dataset.dropFolder === self._draggedFolderUuid) {
             // Drop-on-self for a folder — skip preventDefault so the
@@ -4624,6 +5007,15 @@
             // accept indicator. Drop-on-descendant still slips through
             // (we can't detect descendancy in JS without the tree); the
             // server rejects it with `{:error, :cycle}`.
+            return;
+          }
+          // The folder the dragged card is already in (see `originOf`):
+          // no accept indicator, no drop.
+          if (self._dragOrigin && target.dataset.dropFolder === self._dragOrigin) {
+            if (self._activeDropTarget === target) {
+              clearHighlight(target);
+              self._activeDropTarget = null;
+            }
             return;
           }
           e.preventDefault();
@@ -4685,6 +5077,12 @@
 
         target.removeEventListener("drop", target._drop);
         target._drop = function(e) {
+          if (fromComputer(e)) {
+            // Left for FolderDropUpload, further up, to upload.
+            clearHighlight(target);
+            if (self._activeDropTarget === target) self._activeDropTarget = null;
+            return;
+          }
           e.preventDefault();
           e.stopPropagation();
           clearHighlight(target);
@@ -4694,6 +5092,10 @@
           var draggedUuid = e.dataTransfer.getData("text/plain");
           var dropFolderUuid = target.dataset.dropFolder;
           if (!draggedUuid || !dropFolderUuid) return;
+          // Let go over the folder it came from: nothing moves, so nothing
+          // is asked of the server (LiveView's page-wide dragover lets the
+          // drop happen even though this zone declined it).
+          if (self._dragOrigin && dropFolderUuid === self._dragOrigin) return;
 
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           var isBatch = e.dataTransfer.types.indexOf("application/x-pk-batch") !== -1;
@@ -4707,8 +5109,9 @@
             // and clears them + resets select_mode after. Drag-on-self
             // for a folder in the batch is handled server-side (the
             // bulk handler skips moving a folder onto itself).
+            // The same key the move dialog sends (`phx-value-folder-uuid`).
             self.pushEventTo(self.el, "move_selected_to_folder", {
-              folder_uuid: resolvedTarget
+              "folder-uuid": resolvedTarget
             });
           } else if (isFolder) {
             if (draggedUuid === dropFolderUuid) return;
@@ -5601,12 +6004,17 @@
       var el = this.el;
       var dragCounter = 0;
 
+      // The folder being shown paints its own upload outline
+      // (`[data-drop-upload]`, MediaDragDrop); the ring here is for views
+      // without one (all files).
+      var ringed = function() { return !el.querySelector('[data-drop-upload="true"]'); };
+
       el.addEventListener("dragenter", function(e) {
         // Only respond to external file drags, not internal file-to-folder moves
         if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
         dragCounter++;
-        if (dragCounter === 1) {
+        if (dragCounter === 1 && ringed()) {
           el.classList.add("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
         }
       });
@@ -5618,8 +6026,11 @@
       });
 
       el.addEventListener("dragleave", function(e) {
+        // Counted like dragenter, Files only: a card dragged about the page
+        // drove it negative and the next upload's ring never showed.
+        if (!e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();
-        dragCounter--;
+        dragCounter = Math.max(0, dragCounter - 1);
         if (dragCounter === 0) {
           el.classList.remove("ring-2", "ring-primary", "ring-dashed", "bg-primary/5");
         }

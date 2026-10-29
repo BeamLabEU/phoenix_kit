@@ -164,6 +164,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaFiltersTest do
     assert ids == [first.uuid, last.uuid]
 
     menu_button(view, "set_shape_filter", "All shapes") |> render_click()
+    assert_patch(view, @media_path <> "?folder=#{parent.uuid}&sort=name_asc&type=image")
     assert has_element?(view, tile <> " .badge", "3")
     # URL navigation closes the stacks; reopening uses the new filter.
     view |> element(tile) |> render_click()

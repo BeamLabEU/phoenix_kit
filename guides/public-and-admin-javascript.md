@@ -98,7 +98,11 @@ render it — a generic form or UI primitive, or something every page needs. Eve
 admin file defines, and the hook lists in `test/js/admin_split.test.cjs` — and the test fails when they
 do not. Hooks must not assume the admin bundle is loaded when a page is rendered; a callback that reaches
 a stubbed hook before the bundle arrives (`updated`, `beforeUpdate`, `disconnected`, `reconnected`) is
-dropped, and `mounted` reads the DOM as it is when it finally runs.
+dropped, and `mounted` reads the DOM as it is when it finally runs. The same goes for a listener the admin
+file puts on `document` outside any hook (the media browser's box select and Shift-click range): it starts
+when the bundle runs, so a gesture made before then keeps the page's default behaviour (a drag selects text);
+the admin and dashboard layouts start the download at `DOMContentLoaded`, which shortens that window (a host
+that embeds the media browser in a layout of its own, without the `data-pk-admin` marker, has no early start).
 
 Helpers both files need stay in `phoenix_kit.js` and reach the admin file through
 `window.PhoenixKitInternals` (private; not an API).

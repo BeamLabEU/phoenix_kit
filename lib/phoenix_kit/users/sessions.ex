@@ -371,6 +371,9 @@ defmodule PhoenixKit.Users.Sessions do
   changing their status takes (`PhoenixKit.Users.Auth.can_manage_user_status?/2`):
   the actor must hold Owner or Admin, an Admin's sessions need an Owner, and
   nobody but an Owner ends an Owner's sessions.
+
+  Reuses preloaded roles for display. The revoke functions reload both role
+  sets before deciding, so a stale dialog cannot authorize a mutation.
   """
   @spec can_revoke_sessions_of?(User.t(), User.t()) :: boolean()
   def can_revoke_sessions_of?(%User{uuid: uuid}, %User{uuid: uuid}), do: true
@@ -419,7 +422,7 @@ defmodule PhoenixKit.Users.Sessions do
 
     cond do
       owner == nil -> {:error, :not_found}
-      can_revoke_sessions_of?(owner, actor) -> :ok
+      can_revoke_sessions_now?(owner, actor) -> :ok
       true -> {:error, :not_permitted}
     end
   end
@@ -494,11 +497,20 @@ defmodule PhoenixKit.Users.Sessions do
         do_revoke_user_sessions(user)
 
       actor ->
-        if can_revoke_sessions_of?(user, actor),
+        if can_revoke_sessions_now?(user, actor),
           do: do_revoke_user_sessions(user),
           else: {:error, :not_permitted}
     end
   end
+
+  # A dialog or a caller can hold preloaded roles from before a promotion or
+  # revocation. The display predicate may use them; a revoke must read again.
+  defp can_revoke_sessions_now?(%User{} = target, %User{} = actor) do
+    [target, actor] = Repo.preload([target, actor], :roles, force: true)
+    can_revoke_sessions_of?(target, actor)
+  end
+
+  defp can_revoke_sessions_now?(_target, _actor), do: false
 
   defp do_revoke_user_sessions(%User{uuid: user_uuid}) do
     {count, revoked} =

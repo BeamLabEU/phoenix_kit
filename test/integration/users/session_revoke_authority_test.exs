@@ -75,6 +75,29 @@ defmodule PhoenixKit.Integration.Users.SessionRevokeAuthorityTest do
       assert :ok = Sessions.revoke_session(token, actor: admin)
     end
 
+    test "a preloaded target promoted after the dialog opens keeps their sessions" do
+      admin = user!(["Admin"])
+      target = user!([])
+      token = token_uuid(target)
+      stale_target = Auth.get_user_with_roles(target.uuid)
+      {:ok, _} = Roles.assign_role(target, "Admin")
+
+      assert {:error, :not_permitted} = Sessions.revoke_user_sessions(stale_target, actor: admin)
+      assert Enum.any?(Sessions.list_user_sessions(target), &(&1.token_uuid == token))
+    end
+
+    test "an actor whose preloaded Admin role was revoked may end nobody else's sessions" do
+      admin = user!(["Admin"])
+      stale_admin = Auth.get_user_with_roles(admin.uuid)
+      target = user!([])
+      token = token_uuid(target)
+      {:ok, _} = Roles.remove_role(admin, "Admin")
+
+      assert {:error, :not_permitted} = Sessions.revoke_session(token, actor: stale_admin)
+      assert {:error, :not_permitted} = Sessions.revoke_user_sessions(target, actor: stale_admin)
+      assert Enum.any?(Sessions.list_user_sessions(target), &(&1.token_uuid == token))
+    end
+
     test "system callers are unchecked" do
       target = owner()
       _ = token_uuid(target)

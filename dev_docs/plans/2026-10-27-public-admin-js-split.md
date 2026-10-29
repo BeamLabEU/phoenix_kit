@@ -218,6 +218,11 @@ sortable list and the media browser with the console open.
 
 - **Merge conflicts.** The move deletes a large block from `phoenix_kit.js`; any open branch editing a moved
   hook conflicts in that block. Mitigation: verbatim move, one commit, rebase early.
+- **Document-level listeners of an admin hook** (the media browser's box select and Shift-click range, #991) are
+  installed when the admin bundle runs, no longer when `phoenix_kit.js` loads: a drag made before that selects
+  text as a browser does by default. Shortened by the early start (the media page is inside the admin layout; a
+  host layout of its own has none) and by the HTTP cache after the first visit of a version, not closed; a box
+  finished before the hook mounts is still held for it (`__pkPendingBox`).
 - **A first-mount flash** on admin pages that change layout in `mounted` (`TableFit`, `RowMenuAuto`,
   `CrumbSwitcher`, `SortableGrid`): only the first admin page of a session; reduced by the early start; later
   pages resolve the cached promise in a microtask, before paint.
