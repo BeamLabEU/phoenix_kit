@@ -102,11 +102,15 @@ dropped, and `mounted` reads the DOM as it is when it finally runs.
 
 A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
 one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,
-`phoenix_kit.js` holds a small catcher (a press on `[data-box-area]`: it refuses the text selection and keeps
-the press as `window.__pkEarlyPress`), and `phoenix_kit_admin.js` takes the press over when it runs and
-replays it through the same code. Only the catcher is public; a box released before the bundle arrived is
-applied once the hook has mounted. A new gesture of that kind does the same: a catcher of a few lines in the
-public file, the logic in the admin file.
+`phoenix_kit.js` holds a small catcher (a primary-button press on `[data-box-area]`: it refuses the text
+selection until the button is released and keeps the press as `window.__pkEarlyPress`), and
+`phoenix_kit_admin.js` takes the press over when it runs and replays it through the same code, with the page as
+it is by then: a press still held gets its box at once, one already released is applied once the hook has
+mounted, and a press older than a few seconds or on a page that has gone is dropped. Until the file arrives
+nothing is drawn (the admin and dashboard layouts start the download at `DOMContentLoaded`; a host layout of its
+own without the `data-pk-admin` marker has no early start, so its window is longer). Only the catcher is
+public. A new gesture of that kind does the same: a catcher of a few lines in the public file, the logic in the
+admin file.
 
 Helpers both files need stay in `phoenix_kit.js` and reach the admin file through
 `window.PhoenixKitInternals` (private; not an API).

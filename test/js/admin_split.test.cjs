@@ -115,7 +115,7 @@ test("the media browser's box select stays out of the public file, bar the press
   const from = pub.indexOf("// The first moments of a box select");
   const to = pub.indexOf("\n  }, true);\n", from);
   assert.ok(from !== -1 && to !== -1, "the early press listener is in the public file");
-  assert.ok(to - from < 2200, "the public side is only a catcher (" + (to - from) + " bytes): the box logic is in the admin file");
+  assert.ok(to - from < 2800, "the public side is only a catcher (" + (to - from) + " bytes): the box logic is in the admin file");
 });
 
 test("the media browser hook starts through its stub; its document listeners arrive with the bundle", async () => {

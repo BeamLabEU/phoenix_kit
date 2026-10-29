@@ -222,10 +222,14 @@ sortable list and the media browser with the console open.
   installed when the admin bundle runs, no longer when `phoenix_kit.js` loads, and #991's fix for the window before
   LiveView connects (a first drag becoming a text selection) must not come back on an uncached first visit. The
   public file therefore keeps a catcher of about 0.2 KB min+gz: a capture-phase `pointerdown` on
-  `[data-box-area]` refuses `selectstart` until the pointer is released and stores the press
-  (`window.__pkEarlyPress`); the admin file takes it over when it runs (a press still held resumes through
-  `startBoxSelect`, a released one is replayed with synthetic `pointermove`/`pointerup` through the same code and
-  waits in `__pkPendingBox` for the hook). Nothing of the box logic is duplicated in the public file.
+  `[data-box-area]` refuses `selectstart` until the pointer is released and stores the press, its last move and
+  its release (`window.__pkEarlyPress`); the admin file takes it over when it runs (`startBoxSelect`, then
+  synthetic `pointermove`/`pointerup` at the stored positions through the same code; a released box waits in
+  `__pkPendingBox` for the hook). Nothing of the box logic is duplicated in the public file. Limits: nothing is
+  drawn before the admin file arrives (the early start narrows that window; a host layout without
+  `data-pk-admin` has none), the replay uses the geometry as it is at takeover (a scroll in between moves the
+  box), a press older than 10 s or on a detached page is dropped, and a press on a card, link or button is
+  kept but starts no box (`startBoxSelect` decides).
 - **A first-mount flash** on admin pages that change layout in `mounted` (`TableFit`, `RowMenuAuto`,
   `CrumbSwitcher`, `SortableGrid`): only the first admin page of a session; reduced by the early start; later
   pages resolve the cached promise in a microtask, before paint.

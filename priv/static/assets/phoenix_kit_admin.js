@@ -5189,25 +5189,32 @@
   };
 
   // A press the public file kept while this file was on its way
-  // (`__pkEarlyPress`, phoenix_kit.js): take it over. Still held, the box carries
-  // on from the next move; already released, it is replayed through the same code
-  // and waits in `__pkPendingBox` for the hook, like a box finished before
-  // LiveView connected.
+  // (`__pkEarlyPress`, phoenix_kit.js): take it over, as the geometry is now. A
+  // box started on a press still held carries on (the last move it saw is
+  // replayed, so it is drawn at once); one already released is replayed through
+  // the same code and waits in `__pkPendingBox` for the hook, like a box
+  // finished before LiveView connected. A press older than a few seconds, or on
+  // a page that has since gone, is dropped. This is an optimisation: whatever
+  // goes wrong here must not cost the rest of this file.
   (function() {
     var early = window.__pkEarlyPress;
     window.__pkEarlyPress = null;
     if (!early) return;
-    early.done();
-    var e = early.e;
-    var root = e.target.closest && e.target.closest('[phx-hook="MediaDragDrop"]');
-    if (!root) return;
-    startBoxSelect(e, root);
-    if (!early.end) return;
-    ["pointermove", "pointerup"].forEach(function(type) {
-      window.dispatchEvent(new PointerEvent(type, {
-        pointerId: e.pointerId, clientX: early.end.x, clientY: early.end.y, bubbles: true, cancelable: true
-      }));
-    });
+    try {
+      if (typeof early.done === "function") early.done();
+      var e = early.e;
+      var root = e.target.closest && e.target.closest('[phx-hook="MediaDragDrop"]');
+      if (!root || root.isConnected === false || Date.now() - early.t > 10000) return;
+      startBoxSelect(e, root);
+      // Armed only for a press on empty space (not on a card, a link, a button).
+      var at = root.__pkCancelBox && (early.end || early.last);
+      if (!at) return;
+      ["pointermove"].concat(early.end ? ["pointerup"] : []).forEach(function(type) {
+        window.dispatchEvent(new PointerEvent(type, {
+          pointerId: e.pointerId, clientX: at.x, clientY: at.y, bubbles: true, cancelable: true
+        }));
+      });
+    } catch (_e) { /* a stale or foreign press */ }
   })();
 
   // ============================================================================

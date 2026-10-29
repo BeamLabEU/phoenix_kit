@@ -4629,15 +4629,26 @@
   // the selection refused, and the admin file takes the press over when it
   // arrives. Nothing is drawn or sent from here.
   document.addEventListener("pointerdown", function(e) {
+    if (window.PhoenixKitAdminLoaded) return;
+    // A press whose release never came (the window lost focus) ends with the
+    // next press of that pointer.
+    var old = window.__pkEarlyPress;
+    if (old && !old.end && old.e.pointerId === e.pointerId) {
+      old.done();
+      window.__pkEarlyPress = null;
+    }
     var t = e.target;
-    if (window.PhoenixKitAdminLoaded || e.button !== 0 || e.pointerType === "touch" ||
-        !t.closest || !t.closest("[data-box-area]")) return;
+    if (e.button !== 0 || e.pointerType === "touch" || !t.closest || !t.closest("[data-box-area]")) return;
     // Shift + press on a card would extend the page's text selection.
     if (e.shiftKey && t.closest("[data-draggable-file], [data-draggable-folder]")) return e.preventDefault();
-    var press = { e: e, end: null, done: done };
+    var press = { e: e, t: Date.now(), last: null, end: null, done: done };
     function refuse(ev) { ev.preventDefault(); }
+    function move(ev) {
+      if (ev.pointerId === e.pointerId) press.last = { x: ev.clientX, y: ev.clientY };
+    }
     function done() {
       document.removeEventListener("selectstart", refuse, true);
+      window.removeEventListener("pointermove", move, true);
       window.removeEventListener("pointerup", up, true);
       window.removeEventListener("pointercancel", drop, true);
     }
@@ -4654,6 +4665,7 @@
     if (window.__pkEarlyPress) window.__pkEarlyPress.done();
     window.__pkEarlyPress = press;
     document.addEventListener("selectstart", refuse, true);
+    window.addEventListener("pointermove", move, true);
     window.addEventListener("pointerup", up, true);
     window.addEventListener("pointercancel", drop, true);
   }, true);

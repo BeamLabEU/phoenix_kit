@@ -74,9 +74,10 @@ function createEnv(opts) {
     // The one selector the bundle asks the document about at load.
     querySelector: (sel) => (sel === "[data-pk-admin]" && marked.admin ? makeEl("div") : null),
     querySelectorAll: () => [],
-    addEventListener: (n, fn) => ((docListeners[n] = docListeners[n] || []).push(fn)),
-    removeEventListener: (n, fn) => {
-      docListeners[n] = (docListeners[n] || []).filter((f) => f !== fn);
+    addEventListener: (n, fn, capture) => ((docListeners[n] = docListeners[n] || []).push({ fn, capture: !!capture })),
+    removeEventListener: (n, fn, capture) => {
+      // As in a browser, a listener is removed only with the flag it was added with.
+      docListeners[n] = (docListeners[n] || []).filter((l) => !(l.fn === fn && l.capture === !!capture));
     },
   };
 
@@ -111,11 +112,11 @@ function createEnv(opts) {
     navigator: { userAgent: "node", language: "en" },
     location: { href: "https://app.test/admin", origin: "https://app.test", pathname: "/admin" },
     matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
-    addEventListener: (n, fn) => ((winListeners[n] = winListeners[n] || []).push(fn)),
-    removeEventListener: (n, fn) => {
-      winListeners[n] = (winListeners[n] || []).filter((f) => f !== fn);
+    addEventListener: (n, fn, capture) => ((winListeners[n] = winListeners[n] || []).push({ fn, capture: !!capture })),
+    removeEventListener: (n, fn, capture) => {
+      winListeners[n] = (winListeners[n] || []).filter((l) => !(l.fn === fn && l.capture === !!capture));
     },
-    dispatchEvent: (e) => { (winListeners[e.type] || []).forEach((fn) => fn(e)); return true; },
+    dispatchEvent: (e) => { (winListeners[e.type] || []).slice().forEach((l) => l.fn(e)); return true; },
     MutationObserver: function () { this.observe = () => {}; this.disconnect = () => {}; },
     ResizeObserver: function () { this.observe = () => {}; this.disconnect = () => {}; },
     IntersectionObserver: function () { this.observe = () => {}; this.disconnect = () => {}; },
@@ -170,7 +171,7 @@ function createEnv(opts) {
   };
 
   // The page finished parsing: what DOMContentLoaded listeners were waiting for.
-  const fireDocument = (name, ev) => (docListeners[name] || []).slice().forEach((fn) => fn(ev || { type: name }));
+  const fireDocument = (name, ev) => (docListeners[name] || []).slice().forEach((l) => l.fn(ev || { type: name }));
 
   return {
     advance: (ms) => { clock.t += ms; },

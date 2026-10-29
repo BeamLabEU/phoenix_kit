@@ -76,7 +76,7 @@ test("on a page without a media browser the public file does nothing", () => {
   assert.equal(p.select().defaultPrevented, undefined);
 });
 
-test("a touch press, a right button and a page that has no [data-box-area] are left alone", () => {
+test("a touch press and a right button are left alone", () => {
   const p = page();
   p.press(p.emptySpace, { pointerType: "touch" });
   p.press(p.emptySpace, { button: 2 });
@@ -180,6 +180,80 @@ test("once the admin file has run the public listener stays out of the way and n
   p.onWindow("pointerup");
   p.env.load("phoenix_kit_admin.js"); // a second execution is ignored
   assert.equal(p.env.listenerCount("document", "pointerdown"), downs);
+});
+
+test("a box held still while the bundle arrives is applied when it is released", async () => {
+  const p = page();
+  p.hook.mounted();
+  p.press(p.emptySpace);
+  p.onWindow("pointermove", { clientX: 90, clientY: 90 });
+  await p.arrive(); // the last move the catcher saw is replayed: the box is there at once
+  p.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  assert.deepEqual(p.pushed, [{ event: "box_select", payload: { files: ["a"], folders: [], additive: false } }]);
+});
+
+test("a press on a card or a button is not replayed as a box", async () => {
+  const p = page();
+  const seen = [];
+  p.env.window.addEventListener("pointermove", (ev) => seen.push(ev.type));
+  const onCard = {
+    closest: (sel) => (sel === "[data-box-area]" ? p.area : sel.includes("phx-hook") ? p.root
+      : sel.startsWith("[data-draggable-file]") ? p.cards[0] : null),
+  };
+  p.press(onCard);
+  p.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  seen.length = 0;
+  await p.arrive();
+  assert.deepEqual(seen, [], "no synthetic event reaches the host's window listeners");
+  assert.equal(p.env.window.__pkPendingBox, undefined);
+});
+
+test("a press older than a few seconds, or on a page that has gone, is dropped", async () => {
+  const stale = page();
+  stale.press(stale.emptySpace);
+  stale.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  stale.env.advance(11000);
+  await stale.arrive();
+  assert.equal(stale.env.window.__pkPendingBox, undefined);
+
+  const gone = page();
+  gone.root.isConnected = false;
+  gone.press(gone.emptySpace);
+  gone.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  await gone.arrive();
+  assert.equal(gone.env.window.__pkPendingBox, undefined);
+});
+
+test("a press the admin file cannot make sense of does not cost it its hooks", async () => {
+  const p = page();
+  p.env.window.__pkEarlyPress = { e: { target: null }, t: Date.now() };
+  await p.arrive();
+  assert.equal(p.env.window.PhoenixKitAdminLoaded, true);
+  assert.ok(p.env.window.PhoenixKitAdminHooks.RowMenu, "the hooks after the takeover are defined");
+  assert.deepEqual(plain(p.env.errors), []);
+});
+
+test("a press whose release never came ends with the next press of that pointer", () => {
+  const p = page();
+  p.press(p.emptySpace);
+  assert.equal(p.env.listenerCount("document", "selectstart"), 1);
+  p.press(p.elsewhere); // the next press, outside the media browser
+  assert.equal(p.env.window.__pkEarlyPress, null);
+  assert.equal(p.env.listenerCount("document", "selectstart"), 0);
+  assert.equal(p.env.listenerCount("window", "pointerup"), 0);
+  assert.equal(p.env.listenerCount("window", "pointermove"), 0);
+  assert.equal(p.select().defaultPrevented, undefined, "selection is the browser's again");
+});
+
+test("a finished press stays for the admin file when another press follows elsewhere", async () => {
+  const p = page();
+  p.press(p.emptySpace);
+  p.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  p.press(p.elsewhere);
+  assert.ok(p.env.window.__pkEarlyPress, "the released box is still waiting");
+  p.onWindow("pointerup");
+  await p.arrive();
+  assert.ok(p.env.window.__pkPendingBox);
 });
 
 test("a second press replaces the first one", () => {
