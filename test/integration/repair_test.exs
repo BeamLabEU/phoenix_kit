@@ -298,6 +298,161 @@ defmodule PhoenixKit.Integration.RepairTest do
     end
   end
 
+  describe "an index or key constraint under another name" do
+    @widgets "phoenix_kit_fixture_widgets"
+    @owners "phoenix_kit_fixture_owners"
+    @index "phoenix_kit_fixture_widgets_owner_uuid_index"
+    @fk "phoenix_kit_fixture_widgets_owner_uuid_fkey"
+
+    setup do
+      build_objects(142)
+      stamp(142)
+      :ok
+    end
+
+    test "an index kept under its old name is reported, not called missing" do
+      Repo.query!("ALTER INDEX #{@prefix}.#{@index} RENAME TO legacy_widgets_owner_idx")
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+      findings = Report.findings(report)
+
+      assert [twin] = Enum.filter(findings, &(&1.kind == :equivalent_under_another_name))
+      assert twin.severity == :info
+      assert twin.object_id == "index:#{@index}"
+      assert twin.message =~ "legacy_widgets_owner_idx"
+      assert twin.message =~ "Rename it to #{@index}"
+      refute Enum.any?(findings, &(&1.kind in [:missing, :comment_ahead_of_schema]))
+      assert_healthy(report)
+    end
+
+    test "a repair does not build a second index next to it" do
+      Repo.query!("ALTER INDEX #{@prefix}.#{@index} RENAME TO legacy_widgets_owner_idx")
+      before = index_names(@widgets)
+
+      {:ok, report} = Repair.repair(prefix: @prefix, repo: Repo)
+
+      assert index_names(@widgets) == before
+      refute @index in index_names(@widgets)
+      refute Enum.any?(Report.findings(report), &(&1.kind in [:missing, :repaired]))
+      assert_healthy(report)
+
+      # and it stays quiet the second time
+      {:ok, again} = Repair.repair(prefix: @prefix, repo: Repo)
+      assert Report.summary(again) == Report.summary(report)
+    end
+
+    test "an index that is really gone is still missing, and a repair creates it" do
+      Repo.query!("DROP INDEX #{@prefix}.#{@index}")
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+
+      assert Enum.any?(
+               Report.findings(report),
+               &(&1.kind == :missing and &1.severity == :repairable)
+             )
+
+      refute Enum.any?(Report.findings(report), &(&1.kind == :equivalent_under_another_name))
+
+      {:ok, _repaired} = Repair.repair(prefix: @prefix, repo: Repo)
+      assert @index in index_names(@widgets)
+    end
+
+    test "a similar index that is not the same one does not stand in for it" do
+      for {legacy_sql, label} <- [
+            {"CREATE UNIQUE INDEX legacy_widgets_owner_idx ON #{@prefix}.#{@widgets} (owner_uuid)",
+             "unique"},
+            {"CREATE INDEX legacy_widgets_owner_idx ON #{@prefix}.#{@widgets} (owner_uuid) WHERE owner_uuid IS NOT NULL",
+             "partial"},
+            {"CREATE INDEX legacy_widgets_owner_idx ON #{@prefix}.#{@widgets} (name)",
+             "other column"}
+          ] do
+        Repo.query!("DROP INDEX IF EXISTS #{@prefix}.#{@index}")
+        Repo.query!("DROP INDEX IF EXISTS #{@prefix}.legacy_widgets_owner_idx")
+        Repo.query!(legacy_sql)
+
+        {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+        findings = Report.findings(report)
+
+        assert Enum.any?(findings, &(&1.kind == :missing and &1.object_id == "index:#{@index}")),
+               "a #{label} index must not count as the declared one"
+
+        refute Enum.any?(findings, &(&1.kind == :equivalent_under_another_name))
+      end
+    end
+
+    test "a foreign key kept under its old name is not built again" do
+      Repo.query!(
+        "ALTER TABLE #{@prefix}.#{@widgets} RENAME CONSTRAINT #{@fk} TO legacy_widgets_owner_fk"
+      )
+
+      {:ok, report} = Repair.repair(prefix: @prefix, repo: Repo)
+      findings = Report.findings(report)
+
+      assert Enum.any?(
+               findings,
+               &(&1.kind == :equivalent_under_another_name and
+                   &1.object_id == "constraint:#{@widgets}.#{@fk}")
+             )
+
+      assert constraint_names(@widgets, "f") == ["legacy_widgets_owner_fk"]
+      assert_healthy(report)
+    end
+
+    test "a foreign key with another action is still missing" do
+      Repo.query!("ALTER TABLE #{@prefix}.#{@widgets} DROP CONSTRAINT #{@fk}")
+
+      Repo.query!(
+        "ALTER TABLE #{@prefix}.#{@widgets} ADD CONSTRAINT legacy_widgets_owner_fk " <>
+          "FOREIGN KEY (owner_uuid) REFERENCES #{@prefix}.#{@owners}(uuid) ON DELETE CASCADE"
+      )
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+
+      assert Enum.any?(
+               Report.findings(report),
+               &(&1.kind == :missing and &1.object_id == "constraint:#{@widgets}.#{@fk}")
+             )
+    end
+
+    test "adopt stamps the floor and creates nothing for an index kept under its old name" do
+      # a fresh describe-level `build_objects(142)` already ran; rebuild to the floor with no stamp
+      reset_schema()
+      build_objects(Postgres.initial_version())
+      Repo.query!("ALTER INDEX #{@prefix}.#{@index} RENAME TO legacy_widgets_owner_idx")
+      before = index_names(@widgets)
+
+      {:ok, report} = Repair.repair(prefix: @prefix, repo: Repo, adopt: true)
+
+      assert report.comment_action == {:adopted, Postgres.initial_version()}
+      assert index_names(@widgets) == before
+      assert Enum.any?(Report.findings(report), &(&1.kind == :equivalent_under_another_name))
+    end
+
+    test "a primary key and a unique constraint kept under their old names are reported" do
+      Repo.query!(
+        "ALTER TABLE #{@prefix}.#{@owners} RENAME CONSTRAINT phoenix_kit_fixture_owners_pkey TO legacy_owners_pkey"
+      )
+
+      Repo.query!(
+        "ALTER TABLE #{@prefix}.#{@owners} RENAME CONSTRAINT phoenix_kit_fixture_owners_slug_key TO legacy_owners_slug_key"
+      )
+
+      {:ok, report} = Repair.repair(prefix: @prefix, repo: Repo)
+
+      twins =
+        report |> Report.findings() |> Enum.filter(&(&1.kind == :equivalent_under_another_name))
+
+      assert Enum.sort(Enum.map(twins, & &1.object_id)) == [
+               "constraint:#{@owners}.phoenix_kit_fixture_owners_pkey",
+               "constraint:#{@owners}.phoenix_kit_fixture_owners_slug_key"
+             ]
+
+      assert constraint_names(@owners, "p") == ["legacy_owners_pkey"]
+      assert constraint_names(@owners, "u") == ["legacy_owners_slug_key"]
+      assert_healthy(report)
+    end
+  end
+
   # ── Setup helpers ────────────────────────────────────────────────────
 
   defp reset_schema do
@@ -331,6 +486,28 @@ defmodule PhoenixKit.Integration.RepairTest do
 
   defp stamp(version) do
     Repo.query!(~s(COMMENT ON TABLE #{@prefix}.phoenix_kit IS '#{version}'), [])
+  end
+
+  defp index_names(table) do
+    %{rows: rows} =
+      Repo.query!(
+        "SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY 1",
+        [@prefix, table]
+      )
+
+    List.flatten(rows)
+  end
+
+  defp constraint_names(table, type) do
+    %{rows: rows} =
+      Repo.query!(
+        "SELECT c.conname FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid " <>
+          "JOIN pg_namespace n ON n.oid = t.relnamespace " <>
+          "WHERE n.nspname = $1 AND t.relname = $2 AND c.contype = $3 ORDER BY 1",
+        [@prefix, table, type]
+      )
+
+    List.flatten(rows)
   end
 
   # ── Assertion helpers ───────────────────────────────────────────────

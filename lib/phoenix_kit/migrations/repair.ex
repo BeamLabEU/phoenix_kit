@@ -64,6 +64,7 @@ defmodule PhoenixKit.Migrations.Repair do
   alias PhoenixKit.Migrations.Repair.CommentPolicy
   alias PhoenixKit.Migrations.Repair.Differ
   alias PhoenixKit.Migrations.Repair.Environment
+  alias PhoenixKit.Migrations.Repair.Equivalence
   alias PhoenixKit.Migrations.Repair.Executor
   alias PhoenixKit.Migrations.Repair.ObanRunner
   alias PhoenixKit.Migrations.Repair.Probe
@@ -155,6 +156,9 @@ defmodule PhoenixKit.Migrations.Repair do
     Helpers.validate_prefix!(prefix)
     repo = Keyword.get(opts, :repo) || RepoHelper.repo()
 
+    module_manifests =
+      Keyword.get_lazy(opts, :module_manifests, &ModuleRegistry.all_expected_schemas/0)
+
     ctx = %{
       manifest: manifest,
       repo: repo,
@@ -165,8 +169,8 @@ defmodule PhoenixKit.Migrations.Repair do
       adopt?: Keyword.get(opts, :adopt, false),
       heal_comment?: Keyword.get(opts, :heal_comment, false),
       unsafe_pooled?: Keyword.get(opts, :unsafe_pooled, false),
-      module_manifests:
-        Keyword.get_lazy(opts, :module_manifests, &ModuleRegistry.all_expected_schemas/0)
+      module_manifests: module_manifests,
+      declared_names: declared_names(manifest, module_manifests, prefix)
     }
 
     if ctx.dry_run do
@@ -508,6 +512,15 @@ defmodule PhoenixKit.Migrations.Repair do
       |> Enum.reject(&is_nil/1)
       |> Scope.execution_order()
 
+    # Absent by name but present under another: assigned once, in the order the
+    # objects are applied, so one object answers for at most one declared one.
+    ctx =
+      Map.put(
+        ctx,
+        :twins,
+        Equivalence.assign(snapshot, ordered, ctx.declared_names)
+      )
+
     report =
       Enum.reduce(ordered, report, fn resolved, report ->
         apply_resolved(ctx, resolved, snapshot, skip_validate?, report)
@@ -607,9 +620,52 @@ defmodule PhoenixKit.Migrations.Repair do
     )
   end
 
-  defp presence_missing_finding(ctx, _object, resolved, skip_validate?) do
-    missing_finding(ctx, resolved, skip_validate?)
+  # An index or key constraint that exists under another name is not missing:
+  # creating the declared one would only add a second, identical object. It is
+  # reported, never created, in a dry run and in a real one alike.
+  defp presence_missing_finding(ctx, object, resolved, skip_validate?) do
+    case Map.get(Map.get(ctx, :twins, %{}), object.id) do
+      nil -> missing_finding(ctx, resolved, skip_validate?)
+      twin -> equivalent_finding(object, twin)
+    end
   end
+
+  # Every index and constraint name the core manifest and the module manifests
+  # declare. A name another manifest owns is never a twin for this one.
+  defp declared_names(manifest, module_manifests, prefix) do
+    module_objects =
+      for {_app, %{manifest: module_manifest}} <- module_manifests,
+          object <- manifest_objects(module_manifest, prefix),
+          do: object
+
+    manifest
+    |> manifest_objects(prefix)
+    |> Enum.concat(module_objects)
+    |> Equivalence.claimed_names()
+  end
+
+  defp manifest_objects(manifest, prefix) do
+    manifest.objects(prefix)
+  rescue
+    _ -> []
+  end
+
+  defp equivalent_finding(%{check: {:catalog, %{name: declared, table: table}}} = object, twin) do
+    {kind, name} = twin
+
+    finding(
+      :equivalent_under_another_name,
+      :info,
+      object.id,
+      object.since,
+      "#{object.id}: equivalent under another name: not found as #{declared}, but the " <>
+        "#{kind_label(kind)} #{name} on #{table} has the same structure; not created. " <>
+        "Rename it to #{declared} to clear this note"
+    )
+  end
+
+  defp kind_label(:index), do: "index"
+  defp kind_label(:constraint), do: "constraint"
 
   defp missing_finding(ctx, resolved, skip_validate? \\ false)
 
@@ -864,7 +920,9 @@ defmodule PhoenixKit.Migrations.Repair do
   defp add_cross_check_finding_and_action(report, ctx, objects, snapshot, comment) do
     presence =
       objects
-      |> Probe.presence_by_since(snapshot)
+      |> Probe.presence_by_since(
+        Equivalence.with_twins_as_present(snapshot, objects, ctx.declared_names, comment)
+      )
       |> pad_vacuous_versions(ctx.floor, comment)
 
     highest = CommentPolicy.highest_fully_present_version(presence)
