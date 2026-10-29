@@ -98,16 +98,24 @@ test("the public file carries no admin implementation and no Chart.js", () => {
   }
 });
 
-test("code that listens on the document for an admin hook stays out of the public file", () => {
-  // The media browser's box select and Shift-click range listeners are installed
-  // on `document` when their script loads, not by a hook, so the hook-name check
-  // above cannot see them: pin the markers instead.
+test("the media browser's box select stays out of the public file, bar the press it keeps for the admin file", () => {
+  // The box select and Shift-click range listeners are installed on `document`
+  // when their script loads, not by a hook, so the hook-name check above cannot
+  // see them: pin the markers instead. The public file holds only the first
+  // moments of a press (media_early_box.test.cjs), which the admin file replays.
   const pub = fs.readFileSync(PUBLIC_FILE, "utf8");
   const adm = fs.readFileSync(ADMIN_FILE, "utf8");
-  for (const marker of ["function startBoxSelect(", "__pkPendingBox", "data-box-area", "x-pk-batch"]) {
+  for (const marker of ["function startBoxSelect(", "__pkPendingBox", "x-pk-batch", "box_select", "move_selected_to_folder"]) {
     assert.ok(!pub.includes(marker), marker + " is admin code: it belongs in phoenix_kit_admin.js");
     assert.ok(adm.includes(marker), marker + " is missing from phoenix_kit_admin.js");
   }
+  for (const marker of ["__pkEarlyPress", "data-box-area"]) {
+    assert.ok(pub.includes(marker) && adm.includes(marker), marker + " is how the two files hand a press over");
+  }
+  const from = pub.indexOf("// The first moments of a box select");
+  const to = pub.indexOf("\n  }, true);\n", from);
+  assert.ok(from !== -1 && to !== -1, "the early press listener is in the public file");
+  assert.ok(to - from < 2200, "the public side is only a catcher (" + (to - from) + " bytes): the box logic is in the admin file");
 });
 
 test("the media browser hook starts through its stub; its document listeners arrive with the bundle", async () => {

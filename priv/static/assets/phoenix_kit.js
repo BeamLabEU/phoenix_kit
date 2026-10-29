@@ -4622,6 +4622,42 @@
     setTimeout(startAdminBundleEarly, 0);
   }
 
+  // The first moments of a box select on the media browser. The box select is
+  // admin code (phoenix_kit_admin.js); until that file has run, a press on the
+  // browser's content column (`[data-box-area]`) and a drag would select text,
+  // the very thing the box replaces. So the press is kept (`__pkEarlyPress`),
+  // the selection refused, and the admin file takes the press over when it
+  // arrives. Nothing is drawn or sent from here.
+  document.addEventListener("pointerdown", function(e) {
+    var t = e.target;
+    if (window.PhoenixKitAdminLoaded || e.button !== 0 || e.pointerType === "touch" ||
+        !t.closest || !t.closest("[data-box-area]")) return;
+    // Shift + press on a card would extend the page's text selection.
+    if (e.shiftKey && t.closest("[data-draggable-file], [data-draggable-folder]")) return e.preventDefault();
+    var press = { e: e, end: null, done: done };
+    function refuse(ev) { ev.preventDefault(); }
+    function done() {
+      document.removeEventListener("selectstart", refuse, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", drop, true);
+    }
+    function up(ev) {
+      if (ev.pointerId !== e.pointerId) return;
+      press.end = { x: ev.clientX, y: ev.clientY };
+      done();
+    }
+    function drop(ev) {
+      if (ev.pointerId !== e.pointerId) return;
+      window.__pkEarlyPress = null;
+      done();
+    }
+    if (window.__pkEarlyPress) window.__pkEarlyPress.done();
+    window.__pkEarlyPress = press;
+    document.addEventListener("selectstart", refuse, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", drop, true);
+  }, true);
+
   // What phoenix_kit_admin.js reads from this file. Not an API: it is the
   // closure this file's own helpers live in, handed to the one file that was
   // cut out of it.

@@ -170,11 +170,13 @@ function createEnv(opts) {
   };
 
   // The page finished parsing: what DOMContentLoaded listeners were waiting for.
-  const fireDocument = (name) => (docListeners[name] || []).slice().forEach((fn) => fn({ type: name }));
+  const fireDocument = (name, ev) => (docListeners[name] || []).slice().forEach((fn) => fn(ev || { type: name }));
 
   return {
     advance: (ms) => { clock.t += ms; },
     fireDocument,
+    // How many listeners the page holds for an event, on the document and on the window.
+    listenerCount: (target, name) => ((target === "window" ? winListeners : docListeners)[name] || []).length,
     markAdminLayout: () => { marked.admin = true; },
     window: sandbox,
     document,

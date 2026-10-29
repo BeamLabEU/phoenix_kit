@@ -98,11 +98,15 @@ render it — a generic form or UI primitive, or something every page needs. Eve
 admin file defines, and the hook lists in `test/js/admin_split.test.cjs` — and the test fails when they
 do not. Hooks must not assume the admin bundle is loaded when a page is rendered; a callback that reaches
 a stubbed hook before the bundle arrives (`updated`, `beforeUpdate`, `disconnected`, `reconnected`) is
-dropped, and `mounted` reads the DOM as it is when it finally runs. The same goes for a listener the admin
-file puts on `document` outside any hook (the media browser's box select and Shift-click range): it starts
-when the bundle runs, so a gesture made before then keeps the page's default behaviour (a drag selects text);
-the admin and dashboard layouts start the download at `DOMContentLoaded`, which shortens that window (a host
-that embeds the media browser in a layout of its own, without the `data-pk-admin` marker, has no early start).
+dropped, and `mounted` reads the DOM as it is when it finally runs.
+
+A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
+one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,
+`phoenix_kit.js` holds a small catcher (a press on `[data-box-area]`: it refuses the text selection and keeps
+the press as `window.__pkEarlyPress`), and `phoenix_kit_admin.js` takes the press over when it runs and
+replays it through the same code. Only the catcher is public; a box released before the bundle arrived is
+applied once the hook has mounted. A new gesture of that kind does the same: a catcher of a few lines in the
+public file, the logic in the admin file.
 
 Helpers both files need stay in `phoenix_kit.js` and reach the admin file through
 `window.PhoenixKitInternals` (private; not an API).

@@ -5188,6 +5188,28 @@
     }
   };
 
+  // A press the public file kept while this file was on its way
+  // (`__pkEarlyPress`, phoenix_kit.js): take it over. Still held, the box carries
+  // on from the next move; already released, it is replayed through the same code
+  // and waits in `__pkPendingBox` for the hook, like a box finished before
+  // LiveView connected.
+  (function() {
+    var early = window.__pkEarlyPress;
+    window.__pkEarlyPress = null;
+    if (!early) return;
+    early.done();
+    var e = early.e;
+    var root = e.target.closest && e.target.closest('[phx-hook="MediaDragDrop"]');
+    if (!root) return;
+    startBoxSelect(e, root);
+    if (!early.end) return;
+    ["pointermove", "pointerup"].forEach(function(type) {
+      window.dispatchEvent(new PointerEvent(type, {
+        pointerId: e.pointerId, clientX: early.end.x, clientY: early.end.y, bubbles: true, cancelable: true
+      }));
+    });
+  })();
+
   // ============================================================================
   // EtcherReset — the browser half of "reset annotation settings"
   // ============================================================================
