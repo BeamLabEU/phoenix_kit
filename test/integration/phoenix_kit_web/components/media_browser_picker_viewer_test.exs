@@ -40,6 +40,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
          scope: session["scope"],
          opts: session["opts"] || %{},
          in_modal?: session["in_modal"] || false,
+         both?: session["both"] || false,
          plain?: session["plain"] || false
        )}
     end
@@ -47,7 +48,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
     def render(assigns) do
       ~H"""
       <div>
-        <%= if @plain? do %>
+        <%= if @plain? or @both? do %>
           <.live_component
             module={MediaBrowser}
             id="files"
@@ -64,6 +65,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
             <.picker {assigns} />
           <% end %>
         <% end %>
+        <.picker :if={@both?} {assigns} />
       </div>
       """
     end
@@ -234,7 +236,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
   # canvas or its sidebar reaches it (the burn hook's element targets it).
   defp viewer_hook(view, file, event, params) do
     view
-    |> element("#pk-burn-#{file.uuid}")
+    |> element(~s([phx-hook="AnnotationBurn"][data-file-uuid="#{file.uuid}"]))
     |> render_hook(event, params)
   end
 
@@ -243,6 +245,60 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
   # ---------------------------------------------------------------------------
 
   describe "the eye" do
+    test "two browsers can view the same file with independent component and DOM ids",
+         %{conn: conn} = ctx do
+      file = file!(ctx.scope, %{width: 640, height: 480})
+
+      Repo.insert!(%Storage.FileInstance{
+        file_uuid: file.uuid,
+        variant_name: "original",
+        file_name: file.file_name,
+        mime_type: "image/png",
+        ext: "png",
+        checksum: file.file_checksum,
+        size: 1,
+        width: 640,
+        height: 480,
+        processing_status: "completed"
+      })
+
+      view = open(conn, ctx, %{"both" => true})
+
+      view
+      |> element(~s(#files [phx-click="click_file"][phx-value-file-uuid="#{file.uuid}"]))
+      |> render_click()
+
+      eye(view, file)
+
+      assert has_element?(view, "#files-viewer-modal")
+      assert has_element?(view, "#pick-viewer-modal")
+
+      ids =
+        render(view)
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("[id]")
+        |> LazyHTML.attribute("id")
+
+      assert ids == Enum.uniq(ids)
+      assert has_element?(view, "#files-viewer-modal #media-zoom-#{file.uuid}")
+      assert has_element?(view, "#pick-viewer-modal #media-zoom-#{file.uuid}-pick")
+
+      assert has_element?(
+               view,
+               ~s(#pick-viewer-modal [data-fresco-id="media-zoom-#{file.uuid}-pick"])
+             )
+
+      refute has_element?(view, ~s(#pick-viewer-modal [phx-click="save_media_details"]))
+
+      assert has_element?(
+               view,
+               ~s(#pick-viewer-modal [phx-click="viewer_pick"][phx-target="#pick"])
+             )
+
+      view |> element(~s(#pick-viewer-modal button[phx-click="close_viewer"])) |> render_click()
+      assert has_element?(view, "#files-viewer-modal")
+    end
+
     test "opens the viewer on the file and leaves the pick as it was", %{conn: conn} = ctx do
       [a, b] = files_in_order!(ctx.scope, 2)
       view = open(conn, ctx)

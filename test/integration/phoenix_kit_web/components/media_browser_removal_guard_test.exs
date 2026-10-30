@@ -711,6 +711,26 @@ defmodule PhoenixKitWeb.Components.MediaBrowserRemovalGuardTest do
   end
 
   describe "folders" do
+    test "a changed selection of empty folders needs a new confirmation", %{conn: conn} = ctx do
+      a = folder!("A", ctx.scope)
+      b = folder!("B", ctx.scope)
+      view = open(conn, ctx)
+      hook(view, "toggle_select_mode")
+      hook(view, "toggle_select_folder", %{"folder-uuid" => a.uuid})
+      hook(view, "delete_selected")
+      assert modal?(view)
+
+      hook(view, "toggle_select_folder", %{"folder-uuid" => a.uuid})
+      hook(view, "toggle_select_folder", %{"folder-uuid" => b.uuid})
+      press(view, "confirm")
+
+      assert is_nil(Storage.get_folder(a.uuid).trashed_at)
+      assert is_nil(Storage.get_folder(b.uuid).trashed_at)
+      assert modal?(view)
+      press(view, "confirm")
+      assert Storage.get_folder(b.uuid).trashed_at
+    end
+
     test "trash_folder asks for the files of the whole subtree, and a link inside it saves none",
          %{
            conn: conn

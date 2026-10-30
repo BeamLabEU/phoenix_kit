@@ -197,7 +197,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign(:return_to, return_to)
       |> assign(
         :api_keys_scope,
-        api_keys_scope(user, assigns[:scope] || socket.assigns[:api_keys_scope])
+        api_keys_scope(user, Map.get(assigns, :scope, socket.assigns[:api_keys_scope]))
       )
       |> assign(
         :api_keys_impersonated,

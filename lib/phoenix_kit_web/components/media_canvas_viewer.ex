@@ -100,6 +100,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       When set, the picture carries "Select" (disabled while `full?`) or
       "Deselect", posting `"viewer_pick"` with the file's uuid to
       `:parent_id`, which checks the pick.
+    * `:dom_scope` (default `nil`) — suffix for canvas and child DOM/component
+      ids when the same file can be open in another viewer on the page.
   """
 
   use PhoenixKitWeb, :live_component
@@ -308,6 +310,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     socket =
       socket
       |> assign(:id, assigns.id)
+      |> assign(:dom_scope, assigns[:dom_scope])
       |> assign(:file, file)
       |> assign(:board, board)
       |> assign(:current_user, assigns[:current_user])
@@ -1554,7 +1557,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
            Enum.find(fresh, fn a -> to_string(a.uuid) == to_string(annotation_uuid) end) do
       %{} = ann ->
         Phoenix.LiveView.push_event(socket, "etcher:patch-shape", %{
-          fresco_id: "media-zoom-" <> file_uuid,
+          fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
           uuid: ann.uuid,
           metadata: ann.metadata
         })
@@ -1585,7 +1588,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
         Enum.reduce(fresh, socket, fn ann, acc ->
           Phoenix.LiveView.push_event(acc, "etcher:patch-shape", %{
-            fresco_id: "media-zoom-" <> file_uuid,
+            fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
             uuid: ann.uuid,
             metadata: ann.metadata
           })
@@ -1635,7 +1638,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
         ann ->
           Phoenix.LiveView.push_event(acc, "etcher:patch-shape", %{
-            fresco_id: "media-zoom-" <> file_uuid,
+            fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
             uuid: ann.uuid,
             metadata: ann.metadata
           })
@@ -2332,7 +2335,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     case file_uuid && Enum.find(fresh, fn a -> a.uuid == annotation_uuid end) do
       %{} = ann ->
         Phoenix.LiveView.push_event(socket, "etcher:patch-shape", %{
-          fresco_id: "media-zoom-" <> file_uuid,
+          fresco_id: viewer_dom_id(socket.assigns, "media-zoom-" <> file_uuid),
           uuid: ann.uuid,
           metadata: ann.metadata
         })
@@ -2414,13 +2417,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
     with %{file_uuid: file_uuid} when is_binary(file_uuid) <- socket.assigns[:file],
          true <- Code.ensure_loaded?(PhoenixKitComments.Web.CommentsComponent) do
       Phoenix.LiveView.send_update(PhoenixKitComments.Web.CommentsComponent,
-        id: "media-comments-" <> file_uuid,
+        id: viewer_dom_id(socket.assigns, "media-comments-" <> file_uuid),
         loaded?: false
       )
     end
 
     :ok
   end
+
+  defp viewer_dom_id(%{dom_scope: scope}, id) when is_binary(scope) and scope != "",
+    do: id <> "-" <> scope
+
+  defp viewer_dom_id(_assigns, id), do: id
 
   # ──────────────────────────────────────────────────────────────
   # Format helpers (duplicated from MediaBrowser — small and stable;

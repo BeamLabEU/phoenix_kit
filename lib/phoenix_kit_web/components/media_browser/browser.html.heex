@@ -1039,7 +1039,8 @@
         <% writes? = not @readonly and not @picker %>
         <.live_component
           module={PhoenixKitWeb.Components.MediaCanvasViewer}
-          id={viewer_component_id(f)}
+          id={viewer_component_id(f, assigns)}
+          dom_scope={@picker && @id}
           file={f}
           current_user={assigns[:phoenix_kit_current_user]}
           parent_id={@id}

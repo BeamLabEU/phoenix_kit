@@ -122,7 +122,6 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   alias PhoenixKit.Modules.Storage.Providers.S3
   alias PhoenixKit.Modules.Storage.Workers.PurgeLibraryJob
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
 
   @media_uuid "00000000-0000-7000-8000-000000000001"
@@ -1686,22 +1685,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     end
   end
 
-  defp fresh_storage_scope(%Scope{} = scope) do
-    case Auth.get_user(Scope.user_uuid(scope)) do
-      %{is_active: true, api_only: false} = user ->
-        # `get_user/1` never fills the virtual session role. Copy it from the
-        # scope, or a switched role is checked as the default role instead.
-        Scope.for_user(%{user | active_role_uuid: session_role_uuid(scope)})
-
-      _ ->
-        nil
-    end
-  end
-
-  defp fresh_storage_scope(_scope), do: nil
-
-  defp session_role_uuid(%Scope{user: %User{active_role_uuid: uuid}}), do: uuid
-  defp session_role_uuid(_scope), do: nil
+  defp fresh_storage_scope(scope), do: __MODULE__.Preferences.fresh_scope(scope)
 
   # The cap counts the user's own buckets. The duplicate check counts every
   # bucket already on the profile, including a site primary that backup mode

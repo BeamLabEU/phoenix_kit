@@ -518,6 +518,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
   end
 
   describe "confirm and cancel" do
+    test "Confirm drops files moved outside the picker scope after selection",
+         %{conn: conn} = ctx do
+      a = file!(ctx.scope)
+      b = file!(ctx.scope)
+      outside = folder!("Elsewhere")
+      view = open(conn, ctx)
+      click_file(view, a)
+      click_file(view, b)
+
+      # No PubSub refresh: confirmation itself must validate the stored selection.
+      a |> Ecto.Changeset.change(folder_uuid: outside.uuid) |> Repo.update!()
+
+      confirm(view)
+      assert_receive {:picked, "pick", picked}
+      assert picked == [b.uuid]
+    end
+
+    test "Confirm drops a file moved into another library after selection", %{conn: conn} = ctx do
+      file = file!(ctx.scope)
+      view = open(conn, ctx)
+      click_file(view, file)
+
+      {:ok, library} =
+        Storage.Libraries.create_system_library(
+          %{
+            name: "Elsewhere",
+            slug: "elsewhere",
+            key_prefix: "elsewhere"
+          },
+          hidden: true
+        )
+
+      file |> Ecto.Changeset.change(library_uuid: library.uuid) |> Repo.update!()
+
+      confirm(view)
+      assert_receive {:picked, "pick", []}
+    end
+
     test "Cancel reports :pick_cancelled", %{conn: conn} = ctx do
       view = open(conn, ctx)
       view |> element(~s(#pick button[phx-click="pick_cancel"])) |> render_click()

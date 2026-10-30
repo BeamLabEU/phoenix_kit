@@ -52,7 +52,7 @@ The machine API also lost its deprecated shop names (see "Removed" below).
 
    ```bash
    mix deps.update phoenix_kit phoenix_kit_ai phoenix_kit_billing ...   # every phoenix_kit* you use
-   mix phoenix_kit.update   # core's migrations (none change a table), then each module's chain
+   mix phoenix_kit.update   # apply core updates, then each installed module's chain
    ```
 
    The module chains adopt the tables that already exist and add what is missing, so on an upgraded database they change

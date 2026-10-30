@@ -87,7 +87,7 @@
         <%!-- is definite and the pane fills it.                               --%>
         <% aspect = pane_aspect(f, @viewer_rotation) %>
         <div
-          id={"pk-annotation-actions-" <> f.file_uuid}
+          id={viewer_dom_id(assigns, "pk-annotation-actions-" <> f.file_uuid)}
           phx-hook="EtcherTooltipActions"
           data-viewer-pane
           style={pane_style(aspect, @viewer_only)}
@@ -110,7 +110,7 @@
           <%!-- would draw every shape a second time under the live overlay. --%>
           <div
             :if={image_file?(f)}
-            id={"pk-burn-" <> f.file_uuid}
+            id={viewer_dom_id(assigns, "pk-burn-" <> f.file_uuid)}
             phx-hook="AnnotationBurn"
             phx-target={@myself}
             data-file-uuid={f.file_uuid}
@@ -127,13 +127,16 @@
             data-fresco-id={
               cond do
                 @etchings_hidden && @viewer_canvas ->
-                  "media-plain-" <> f.file_uuid
+                  viewer_dom_id(assigns, "media-plain-" <> f.file_uuid)
 
                 @burn_mode && @burn_canvas ->
-                  "media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")
+                  viewer_dom_id(
+                    assigns,
+                    "media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")
+                  )
 
                 true ->
-                  "media-zoom-" <> f.file_uuid
+                  viewer_dom_id(assigns, "media-zoom-" <> f.file_uuid)
               end
             }
             data-burn-fingerprint={Map.get(f, :burn_fingerprint)}
@@ -156,7 +159,7 @@
           <%!-- copy of the pill (see InstantViewer).                        --%>
           <div
             :if={image_file?(f)}
-            id={"pk-hires-loading-" <> f.file_uuid}
+            id={viewer_dom_id(assigns, "pk-hires-loading-" <> f.file_uuid)}
             phx-hook="ViewerHiresLoading"
             phx-update="ignore"
             data-state="idle"
@@ -182,7 +185,7 @@
           <%!-- Swiping a fully zoomed-out picture steps too (ViewerSwipe). --%>
           <div
             :if={@has_prev or @has_next}
-            id={"pk-viewer-swipe-" <> f.file_uuid}
+            id={viewer_dom_id(assigns, "pk-viewer-swipe-" <> f.file_uuid)}
             phx-hook="ViewerSwipe"
             data-target={"##{@parent_id}"}
             data-has-prev={to_string(@has_prev)}
@@ -253,7 +256,7 @@
                 <%!-- asking for it.                                         --%>
                 <% {plain_sources, plain_dzi} = tessera_ladder(f) %>
                 <Fresco.canvas
-                  id={"media-plain-" <> f.file_uuid}
+                  id={viewer_dom_id(assigns, "media-plain-" <> f.file_uuid)}
                   canvas={plain_canvas(@viewer_canvas)}
                   class="w-full h-full lg:rounded"
                   invert_two_finger_pan={@invert_two_finger_pan}
@@ -267,7 +270,7 @@
                 />
                 <%= if plain_sources != [] do %>
                   <Tessera.layer
-                    fresco_id={"media-plain-" <> f.file_uuid}
+                    fresco_id={viewer_dom_id(assigns, "media-plain-" <> f.file_uuid)}
                     sources={plain_sources}
                     dzi_url={plain_dzi}
                   />
@@ -282,7 +285,12 @@
                   <%!-- drawing surface that changes colour under the markup    --%>
                   <%!-- changes how the markup reads.                           --%>
                   <Fresco.canvas
-                    id={"media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")}
+                    id={
+                      viewer_dom_id(
+                        assigns,
+                        "media-burn-" <> f.file_uuid <> "-" <> to_string(@burn_version || "0")
+                      )
+                    }
                     canvas={@burn_canvas}
                     class="w-full h-full lg:rounded"
                     invert_two_finger_pan={@invert_two_finger_pan}
@@ -302,7 +310,7 @@
                     <%!-- pan_centre={:bounds}: framed like the burn, picture and --%>
                     <%!-- ink as one, so the pencil does not move the picture.     --%>
                     <Fresco.canvas
-                      id={"media-zoom-" <> f.file_uuid}
+                      id={viewer_dom_id(assigns, "media-zoom-" <> f.file_uuid)}
                       canvas={@viewer_canvas}
                       class="w-full h-full lg:rounded"
                       invert_two_finger_pan={@invert_two_finger_pan}
@@ -342,7 +350,7 @@
                     <%!-- and hiding the locked overlay IS the whole job. Both are --%>
                     <%!-- session-only: the next open starts with markup showing.  --%>
                     <Etcher.layer
-                      fresco_id={"media-zoom-" <> f.file_uuid}
+                      fresco_id={viewer_dom_id(assigns, "media-zoom-" <> f.file_uuid)}
                       colors={@etcher_colors}
                       line_params={@etcher_line_params}
                       panel_offset={%{top: 12, right: if(@has_next, do: 40, else: 12)}}
@@ -377,7 +385,7 @@
                     <% {tessera_sources, tessera_dzi} = tessera_ladder(f) %>
                     <%= if tessera_sources != [] do %>
                       <Tessera.layer
-                        fresco_id={"media-zoom-" <> f.file_uuid}
+                        fresco_id={viewer_dom_id(assigns, "media-zoom-" <> f.file_uuid)}
                         sources={tessera_sources}
                         dzi_url={tessera_dzi}
                       />
@@ -416,7 +424,7 @@
                of the button/waveform stretching across the full lightbox
                width on large screens. --%>
               <div
-                id={"waveform-" <> f.file_uuid}
+                id={viewer_dom_id(assigns, "waveform-" <> f.file_uuid)}
                 phx-hook="WaveformPlayer"
                 class="flex flex-col gap-4 py-10 w-full max-w-3xl mx-auto px-8"
               >
@@ -439,7 +447,7 @@
                     </span>
                   </button>
                   <div
-                    id={"waveform-canvas-" <> f.file_uuid}
+                    id={viewer_dom_id(assigns, "waveform-canvas-" <> f.file_uuid)}
                     data-waveform
                     phx-update="ignore"
                     class="flex-1 min-h-[96px]"
@@ -557,7 +565,13 @@
           <%!-- master comment. --%>
           <%= if @replying_annotation_uuid && @current_user do %>
             <div
-              id={"annotation-composer-popover-" <> @replying_annotation_uuid}
+              id={
+                viewer_dom_id(
+                  assigns,
+                  "annotation-composer-popover-" <> @replying_annotation_uuid
+                )
+              }
+              data-annotation-uuid={@replying_annotation_uuid}
               phx-hook="AnnotationComposerPosition"
               class="absolute z-30 w-80 max-w-[calc(100%-1rem)] bg-base-100 rounded-lg shadow-xl border border-base-300 p-3"
               style="left: 0px; top: 0px;"
@@ -568,7 +582,7 @@
               </div>
               <.live_component
                 module={PhoenixKitWeb.Components.AnnotationComposer}
-                id={"annotation-composer-" <> @replying_annotation_uuid}
+                id={viewer_dom_id(assigns, "annotation-composer-" <> @replying_annotation_uuid)}
                 annotation_uuid={@replying_annotation_uuid}
                 mode={:reply}
                 parent_uuid={@reply_parent_uuid}
@@ -729,13 +743,13 @@
             <%= if @media_details_open do %>
               <%= if can_edit_meta do %>
                 <form
-                  id={"media-meta-form-" <> f.file_uuid}
+                  id={viewer_dom_id(assigns, "media-meta-form-" <> f.file_uuid)}
                   phx-submit="save_media_details"
                   phx-target={@myself}
                   class="mt-2 space-y-2"
                 >
                   <PhoenixKitWeb.Components.Core.FileDetailsFields.file_details_fields
-                    id={"media-meta-fields-" <> f.file_uuid}
+                    id={viewer_dom_id(assigns, "media-meta-fields-" <> f.file_uuid)}
                     languages={@media_meta_langs}
                     lang={@media_meta_lang || ""}
                     values={@media_meta_values}
@@ -745,7 +759,7 @@
                   />
                   <input
                     type="text"
-                    id={"media-meta-tags-" <> f.file_uuid}
+                    id={viewer_dom_id(assigns, "media-meta-tags-" <> f.file_uuid)}
                     name="tags"
                     value={Enum.join(@media_tags, ", ")}
                     aria-label={gettext("Tags (comma-separated)")}
@@ -920,7 +934,7 @@
             class="border-t border-base-300 pt-2"
           >
             <PhoenixKitWeb.Components.Core.FileExifPanel.file_exif_panel
-              id={"media-exif-" <> f.file_uuid}
+              id={viewer_dom_id(assigns, "media-exif-" <> f.file_uuid)}
               exif={@file_exif}
               latitude={elem(@file_geo, 0)}
               longitude={elem(@file_geo, 1)}
@@ -943,7 +957,7 @@
             <div class="border-t border-base-300 pt-3 mt-3 leaf-comments-compact">
               <.live_component
                 module={PhoenixKitComments.Web.CommentsComponent}
-                id={"media-comments-" <> f.file_uuid}
+                id={viewer_dom_id(assigns, "media-comments-" <> f.file_uuid)}
                 resource_type="file"
                 resource_uuid={f.file_uuid}
                 current_user={@current_user}

@@ -164,15 +164,14 @@ defmodule PhoenixKitWeb.Live.Components.LibraryPreferences do
   end
 
   def handle_event("renditions", %{"set" => uuid}, socket) do
+    scope = Preferences.fresh_scope(socket.assigns.scope)
     library = Libraries.get_library(socket.assigns.library_uuid)
     choices = VariantSets.list_selectable()
 
-    with true <- Preferences.can_manage?(socket.assigns.scope, library),
+    with true <- Preferences.can_manage?(scope, library),
          true <- Enum.any?(choices, &(&1.uuid == uuid)),
          {:ok, _} <-
-           VariantSets.set_library_variant_set(library, uuid,
-             actor_uuid: Scope.user_uuid(socket.assigns.scope)
-           ) do
+           VariantSets.set_library_variant_set(library, uuid, actor_uuid: Scope.user_uuid(scope)) do
       Manager.broadcast(
         "storage:library_settings",
         {:library_settings_changed, library.uuid}

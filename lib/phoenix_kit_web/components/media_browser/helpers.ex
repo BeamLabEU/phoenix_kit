@@ -60,6 +60,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       Integer.to_string(:erlang.phash2(f.urls["original"]))
   end
 
+  def viewer_component_id(f, %{picker: true, id: id}), do: viewer_component_id(f) <> "-" <> id
+  def viewer_component_id(f, _assigns), do: viewer_component_id(f)
+
   # The DOM id of one of the browser's own elements. A picker is usually a
   # second browser on its page, so its ids carry the component id; every
   # other browser keeps the ids it has always had (hosts, tests and scripts

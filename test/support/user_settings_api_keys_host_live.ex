@@ -37,6 +37,11 @@ defmodule PhoenixKitWeb.Test.UserSettingsApiKeysHostLive do
   defp put_unless(map, false, key, value), do: Map.put(map, key, value)
 
   @impl true
+  def handle_event("clear_scope", _params, socket) do
+    {:noreply, assign(socket, :extra, Map.put(socket.assigns.extra, :scope, nil))}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <.live_component

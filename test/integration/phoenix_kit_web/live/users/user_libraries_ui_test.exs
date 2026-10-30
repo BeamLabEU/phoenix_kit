@@ -442,17 +442,18 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       conn: conn,
       role: role
     } do
+      {:ok, _} = Settings.update_setting("project_title", "Library Host")
       user = user!(role)
       first = library!(user, "First")
       _second = library!(user, "Second")
 
-      {:ok, _view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
+      {:ok, view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
 
       assert html =~ "library-row-#{first.uuid}"
       assert html =~ "First"
       assert html =~ "Second"
       assert html =~ "Stored in"
-      assert html =~ "The site&#39;s storage"
+      assert has_element?(view, "#library-row-#{first.uuid}", "Library Host's storage")
       assert html =~ "Visibility"
       assert html =~ "Private"
       # The first library a user makes is their default.

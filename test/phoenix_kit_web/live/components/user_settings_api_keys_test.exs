@@ -117,6 +117,23 @@ defmodule PhoenixKitWeb.Live.Components.UserSettingsApiKeysTest do
   end
 
   describe "with the context" do
+    test "an explicit nil scope clears the previously supplied context", %{
+      conn: conn,
+      user: user,
+      key: key
+    } do
+      {:ok, view, _html} = host(conn, user, %{"impersonated" => false})
+      assert has_element?(view, "#user-settings-api-keys-key-#{key.uuid}")
+
+      render_click(view, "clear_scope", %{})
+
+      refute has_element?(view, "#user-settings-api-keys-table")
+      assert render(view) =~ "added without the session&#39;s context"
+      assert fire(view, "open_create", %{}) =~ "You are not allowed to do that."
+      assert [only] = keys_of(user)
+      assert only.revoked_at == nil
+    end
+
     test "lists the keys and creates one", %{conn: conn, user: user, key: key} do
       {:ok, view, _html} = host(conn, user, %{"impersonated" => false})
       assert has_element?(view, "#user-settings-api-keys-key-#{key.uuid}", "Mine")

@@ -8,7 +8,54 @@ defmodule PhoenixKit.Modules.Storage.Libraries.Preferences do
   alias PhoenixKit.Activity
   alias PhoenixKit.Modules.Storage.Library
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.{Permissions, Roles}
+
+  @doc "Rechecks the active account and permissions, bounded by the caller's session scope."
+  def fresh_scope(%Scope{user: %Auth.User{uuid: uuid}} = scope) when is_binary(uuid) do
+    case uuid |> Auth.get_user() |> Auth.ensure_active_user() do
+      %Auth.User{api_only: false, managed_by_members: false} = user ->
+        roles =
+          user
+          |> Roles.get_user_role_records()
+          |> Enum.filter(&(&1.name in scope.cached_roles))
+
+        # The caller may be acting as one role. Intersect with that scope rather
+        # than rebuilding a default role from a by-uuid user (no session token).
+        case permissions_for(roles) do
+          {:ok, permissions} ->
+            %{
+              scope
+              | user: user,
+                cached_roles: Enum.map(roles, & &1.name),
+                cached_permissions:
+                  MapSet.intersection(scope.cached_permissions, MapSet.new(permissions))
+            }
+
+          _ ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  def fresh_scope(_scope), do: nil
+
+  defp permissions_for(roles) do
+    if Enum.any?(roles, &(&1.name == "Owner")) do
+      {:ok, Permissions.all_module_keys()}
+    else
+      Enum.reduce_while(roles, {:ok, []}, fn role, {:ok, keys} ->
+        case Permissions.fetch_permissions_for_role(role.uuid) do
+          {:ok, held} -> {:cont, {:ok, held ++ keys}}
+          {:error, _} = error -> {:halt, error}
+        end
+      end)
+    end
+  end
 
   def access_mode(%Library{visibility: "site"} = library) do
     if library.settings["public_audience"] == "authenticated",
@@ -45,6 +92,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries.Preferences do
       {:ok, uuid} ->
         repo.transaction(fn ->
           library = repo.one(from l in Library, where: l.uuid == ^uuid, lock: "FOR UPDATE")
+          scope = fresh_scope(scope)
           unless can_manage?(scope, library), do: repo.rollback(:not_allowed)
           {mode, slug} = validate_change!(repo, scope, library, attrs)
 

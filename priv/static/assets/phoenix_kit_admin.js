@@ -3189,7 +3189,7 @@
       // Try to anchor to the associated shape. Element id is
       // `annotation-composer-popover-<uuid>`; Etcher renders shapes
       // with the matching `data-uuid`.
-      const uuid = el.id.replace(/^annotation-composer-popover-/, "");
+      const uuid = el.dataset.annotationUuid || el.id.replace(/^annotation-composer-popover-/, "");
       const shapeEl = uuid
         ? document.querySelector('[data-uuid="' + uuid + '"]')
         : null;
