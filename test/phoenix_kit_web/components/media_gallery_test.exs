@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
     rotations_map = Keyword.get(opts, :rotations_map, %{})
     cols = Keyword.get(opts, :cols, 4)
     featured_first = Keyword.get(opts, :featured_first, false)
+    external_picker = Keyword.get(opts, :external_picker, false)
 
     %{
       id: "test-gallery",
@@ -44,6 +45,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       scope_folder_id: nil,
       phoenix_kit_current_user: nil,
       readonly: readonly,
+      external_picker: external_picker,
       max_count: nil,
       title: title,
       show_picker: false,
@@ -658,6 +660,158 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
 
       assert length(socket.assigns.selected) <= 2
       assert uuid3 not in socket.assigns.selected
+    end
+  end
+
+  # ── external picker ───────────────────────────────────────────────────────────
+
+  describe "external_picker" do
+    test "open_picker hands the host the current selection, mode and max_count" do
+      uuid1 = "01900000-0000-7000-8000-000000000001"
+      uuid2 = "01900000-0000-7000-8000-000000000002"
+
+      assigns =
+        gallery_assigns(selected: [uuid1, uuid2], external_picker: true)
+        |> Map.put(:max_count, 5)
+
+      {:noreply, socket} = call_handle_event("open_picker", %{}, assigns)
+
+      assert_received {MediaGallery, "test-gallery",
+                       {:open_picker,
+                        %{selected: [^uuid1, ^uuid2], mode: :multiple, max_count: 5}}}
+
+      assert socket.assigns.show_picker == false
+    end
+
+    test "open_picker in :single mode reports the mode" do
+      assigns = gallery_assigns(external_picker: true) |> Map.put(:mode, :single)
+
+      {:noreply, _socket} = call_handle_event("open_picker", %{}, assigns)
+
+      assert_received {MediaGallery, "test-gallery",
+                       {:open_picker, %{selected: [], mode: :single, max_count: nil}}}
+    end
+
+    test "a forged open_picker at max_count asks the host nothing" do
+      uuid1 = "01900000-0000-7000-8000-000000000001"
+      uuid2 = "01900000-0000-7000-8000-000000000002"
+
+      assigns =
+        gallery_assigns(selected: [uuid1, uuid2], external_picker: true)
+        |> Map.put(:max_count, 2)
+
+      {:noreply, _socket} = call_handle_event("open_picker", %{}, assigns)
+
+      refute_received {MediaGallery, _, _}
+    end
+
+    test "a forged open_picker on a full :single gallery asks the host nothing" do
+      assigns =
+        gallery_assigns(selected: ["01900000-0000-7000-8000-000000000001"], external_picker: true)
+        |> Map.put(:mode, :single)
+
+      {:noreply, _socket} = call_handle_event("open_picker", %{}, assigns)
+
+      refute_received {MediaGallery, _, _}
+    end
+
+    test "the built-in picker modal is never rendered" do
+      html = render(gallery_assigns(external_picker: true) |> Map.put(:show_picker, true))
+
+      refute html =~ "test-gallery-media-selector"
+      refute html =~ "media-selector-modal-backdrop"
+    end
+
+    test "the Add tile is the same trigger as without an external picker" do
+      html = render(gallery_assigns(external_picker: true))
+
+      assert html =~ ~s(data-role="open-picker-test-gallery")
+      assert html =~ ~s(phx-click="open_picker")
+    end
+
+    test "defaults to false so the built-in picker stays the default" do
+      {:ok, socket} =
+        MediaGallery.update(%{id: "defaults-gallery", selected: []}, %Phoenix.LiveView.Socket{})
+
+      assert socket.assigns.external_picker == false
+    end
+
+    @tag :integration
+    test "the host's media_selected reply replaces the selection and notifies the host" do
+      uuid1 = "01900000-0000-7000-8000-000000000001"
+      uuid2 = "01900000-0000-7000-8000-000000000002"
+      uuid3 = "01900000-0000-7000-8000-000000000003"
+
+      assigns =
+        gallery_assigns(selected: [uuid1], external_picker: true)
+        |> Map.put(:max_count, 2)
+        |> Map.put(:__changed__, %{})
+
+      {:ok, socket} =
+        MediaGallery.update(
+          %{media_selected: [uuid2, uuid3, uuid1]},
+          %Phoenix.LiveView.Socket{assigns: assigns}
+        )
+
+      assert socket.assigns.selected == [uuid2, uuid3]
+      assert_received {MediaGallery, "test-gallery", {:changed, [^uuid2, ^uuid3]}}
+    end
+  end
+
+  # ── readonly refuses open_picker on the server ────────────────────────────────
+
+  describe "open_picker when readonly" do
+    test "with the built-in picker the modal stays closed" do
+      assigns = gallery_assigns(readonly: true)
+
+      {:noreply, socket} = call_handle_event("open_picker", %{}, assigns)
+
+      assert socket.assigns.show_picker == false
+    end
+
+    test "with an external picker nothing is sent to the host" do
+      assigns = gallery_assigns(readonly: true, external_picker: true)
+
+      {:noreply, socket} = call_handle_event("open_picker", %{}, assigns)
+
+      refute_received {MediaGallery, _, _}
+      assert socket.assigns.show_picker == false
+    end
+  end
+
+  # ── readonly refuses changes on the server ───────────────────────────────────
+
+  describe "remove and reorder when readonly" do
+    test "a forged remove_image keeps the selection and tells the host nothing" do
+      uuid1 = "01900000-0000-7000-8000-000000000001"
+      uuid2 = "01900000-0000-7000-8000-000000000002"
+      assigns = gallery_assigns(selected: [uuid1, uuid2], readonly: true)
+
+      {:noreply, socket} = call_handle_event("remove_image", %{"uuid" => uuid1}, assigns)
+
+      assert socket.assigns.selected == [uuid1, uuid2]
+      refute_received {MediaGallery, _, _}
+    end
+
+    test "a forged reorder_images keeps the order and tells the host nothing" do
+      uuid1 = "01900000-0000-7000-8000-000000000001"
+      uuid2 = "01900000-0000-7000-8000-000000000002"
+      assigns = gallery_assigns(selected: [uuid1, uuid2], readonly: true)
+
+      {:noreply, socket} =
+        call_handle_event("reorder_images", %{"ordered_ids" => [uuid2, uuid1]}, assigns)
+
+      assert socket.assigns.selected == [uuid1, uuid2]
+      refute_received {MediaGallery, _, _}
+    end
+
+    test "preview stays available" do
+      uuid = "01900000-0000-7000-8000-000000000001"
+      assigns = gallery_assigns(selected: [uuid], readonly: true)
+
+      {:noreply, socket} = call_handle_event("preview_image", %{"uuid" => uuid}, assigns)
+
+      assert socket.assigns.preview_uuid == uuid
     end
   end
 

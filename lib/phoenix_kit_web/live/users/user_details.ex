@@ -25,6 +25,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.CustomFields
+  alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -118,6 +119,13 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:connections_enabled, connections_enabled)
           |> assign(:connections_stats, connections_stats)
           |> assign(:crm_contact, crm_contact)
+          |> assign(
+            :manager_actor,
+            case OrganizationActor.from_session(session) do
+              {:ok, actor} -> actor
+              _ -> nil
+            end
+          )
           |> assign(:impersonation_actor, impersonation_actor)
           |> assign(:admin_notes, admin_notes)
           |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
@@ -268,23 +276,30 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
-  def handle_event("confirm_action", %{"action" => action}, socket) do
+  def handle_event("confirm_action", %{"action" => action} = params, socket) do
     socket = assign(socket, :confirmation_modal, %{show: false})
 
     case action do
-      "toggle_user_status" -> toggle_user_status_safely(socket)
-      "toggle_user_confirmation" -> toggle_user_confirmation_safely(socket)
-      _ -> {:noreply, socket}
+      "toggle_user_status" ->
+        toggle_user_status_safely(socket, params["allow_managerless"] == "true")
+
+      "toggle_user_confirmation" ->
+        toggle_user_confirmation_safely(socket)
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
   @impl true
-  def handle_event("delete_user", _params, socket) do
+  def handle_event("delete_user", params, socket) do
     user = socket.assigns.user
     current_user = socket.assigns.phoenix_kit_current_scope.user
 
     opts = %{
       current_user: current_user,
+      manager_actor: socket.assigns.manager_actor,
+      allow_managerless: params["allow_managerless"] == "true",
       ip_address: socket.assigns[:ip_address],
       user_agent: socket.assigns[:user_agent]
     }
@@ -302,6 +317,17 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
          socket
          |> assign(:show_delete_modal, false)
          |> put_flash(:error, gettext("Cannot delete your own account"))}
+
+      {:error, :cannot_remove_last_active_manager} ->
+        {:noreply,
+         socket
+         |> assign(:show_delete_modal, false)
+         |> put_flash(
+           :error,
+           gettext(
+             "This person is the last active manager. Add another manager or explicitly allow the organization to have no managers."
+           )
+         )}
 
       {:error, :cannot_delete_last_owner} ->
         {:noreply,
@@ -448,6 +474,10 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   # --- PubSub Handlers ---
 
   @impl true
+  def handle_info({:phoenix_kit_user_updated, user}, socket) do
+    {:noreply, maybe_refresh_user(socket, user)}
+  end
+
   def handle_info({:user_updated, user}, socket) do
     {:noreply, maybe_refresh_user(socket, user)}
   end
@@ -517,12 +547,14 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     end
   end
 
-  defp toggle_user_status_safely(socket) do
+  defp toggle_user_status_safely(socket, allow_managerless) do
     user = socket.assigns.user
     new_status = !user.is_active
 
     case Auth.update_user_status(user, %{"is_active" => new_status},
-           actor: socket.assigns.phoenix_kit_current_user
+           actor: socket.assigns.phoenix_kit_current_user,
+           manager_actor: socket.assigns.manager_actor,
+           allow_managerless: allow_managerless
          ) do
       {:error, :insufficient_permissions} ->
         {:noreply,
@@ -556,6 +588,16 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
          socket
          |> put_flash(:info, flash_msg)
          |> assign(:user, Auth.get_user_with_roles(updated_user.uuid))}
+
+      {:error, :cannot_remove_last_active_manager} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "This person is the last active manager. Add another manager or explicitly allow the organization to have no managers."
+           )
+         )}
 
       {:error, :cannot_deactivate_last_owner} ->
         {:noreply, put_flash(socket, :error, gettext("Cannot deactivate the last system owner"))}
@@ -651,6 +693,11 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     )
   end
 
+  defp own_organization_admin?(%OrganizationActor{current: ref, root: ref}, scope),
+    do: Scope.owner?(scope) or Scope.has_role?(scope, "Admin")
+
+  defp own_organization_admin?(_, _), do: false
+
   defp target_is_owner?(user), do: Enum.any?(user.roles || [], &(&1.name == "Owner"))
 
   # The linked CRM contact for this user, when the optional CRM module is
@@ -679,6 +726,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   defp crm_contact_label(%{email: email}) when is_binary(email) and email != "", do: email
   defp crm_contact_label(_contact), do: gettext("Unnamed contact")
 
+  defp user_display_name(%Auth.User{managed_by_members: true} = user),
+    do: Auth.User.display_name(user)
+
   defp user_display_name(user) do
     cond do
       user.first_name && user.last_name ->
@@ -691,7 +741,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
         user.username
 
       true ->
-        user.email
+        Auth.User.delivery_email(user)
     end
   end
 

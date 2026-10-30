@@ -128,6 +128,8 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
     default: nil,
     doc: "phx-click event name for event-based tabs (tabs with no link key)"
 
+  attr :target, :any, default: nil, doc: "LiveComponent target for event tabs"
+
   attr :variant, :atom,
     values: [:boxed, :plain, :border],
     default: :boxed,
@@ -164,6 +166,7 @@ defmodule PhoenixKitWeb.Components.Core.NavTabs do
           type="button"
           role="tab"
           phx-click={@on_change}
+          phx-target={@target}
           phx-value-tab={tab.id}
           class={tab_class(tab.id == @active_tab, "[&.phx-click-loading]:animate-pulse")}
         >

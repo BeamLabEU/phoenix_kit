@@ -255,6 +255,7 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
   attr :icon, :string, default: nil
   attr :label, :string, required: true
   attr :variant, :string, default: "default"
+  attr :disabled, :boolean, default: false
   attr :rest, :global
 
   def table_row_menu_button(assigns) do
@@ -263,9 +264,10 @@ defmodule PhoenixKitWeb.Components.Core.TableRowMenu do
       <button
         type="button"
         role="menuitem"
+        disabled={@disabled}
         class={[
           "flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full text-left",
-          "hover:bg-base-200 transition-colors cursor-pointer",
+          "hover:bg-base-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
           item_color_class(@variant)
         ]}
         {@rest}

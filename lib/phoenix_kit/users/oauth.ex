@@ -16,6 +16,7 @@ if Code.ensure_loaded?(Ueberauth) do
     alias PhoenixKit.Users.Auth.User
     alias PhoenixKit.Users.OAuthProvider
     alias PhoenixKit.Users.Referrals
+    alias PhoenixKit.Users.Sessions.Revocation
     alias PhoenixKit.Utils.Routes
 
     require Logger
@@ -29,7 +30,7 @@ if Code.ensure_loaded?(Ueberauth) do
       ip_address = Keyword.get(opts, :ip_address)
       referral_code = Keyword.get(opts, :referral_code)
 
-      Repo.transaction(fn ->
+      Revocation.transaction(fn ->
         with {:ok, user, _status} <-
                find_or_create_user(oauth_data, track_geolocation, ip_address),
              {:ok, _provider} <- link_oauth_provider(user, oauth_data),
@@ -133,10 +134,14 @@ if Code.ensure_loaded?(Ueberauth) do
     # A service user (`api_only`) signs in with an API key only: no provider identity may be
     # linked to it, by a stored link or by an address that happens to match.
     defp found(%User{api_only: true}), do: {:error, :api_only_account}
+    defp found(%User{managed_by_members: true}), do: {:error, :managed_organization}
     defp found(%User{} = user), do: {:ok, user, :found}
 
     defp attach_to_existing_user(%User{api_only: true}, _oauth_data),
       do: {:error, :api_only_account}
+
+    defp attach_to_existing_user(%User{managed_by_members: true}, _oauth_data),
+      do: {:error, :managed_organization}
 
     defp attach_to_existing_user(%User{} = user, oauth_data) do
       if email_ownership_proven?(oauth_data) do
@@ -303,6 +308,25 @@ if Code.ensure_loaded?(Ueberauth) do
     Links an OAuth provider to a user account.
     """
     def link_oauth_provider(%User{} = user, oauth_data) when is_map(oauth_data) do
+      Repo.transaction(fn ->
+        current =
+          Repo.one(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
+
+        case current do
+          %User{managed_by_members: true} -> Repo.rollback(:managed_organization)
+          %User{api_only: true} -> Repo.rollback(:api_only_account)
+          %User{hashed_password: hash} when hash == user.hashed_password -> :ok
+          _ -> Repo.rollback(:account_changed)
+        end
+
+        case insert_oauth_provider(user, oauth_data) do
+          {:ok, provider} -> provider
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+    end
+
+    defp insert_oauth_provider(user, oauth_data) do
       attrs = %{
         user_uuid: user.uuid,
         provider: oauth_data.provider,

@@ -91,9 +91,9 @@
     <%!-- Media selector modal (embedded, self-contained). Only mounted once
          the user clicks the Add tile — this avoids rendering a live_component
          node in static/test contexts where `show_picker` is false and no
-         LiveView process exists. --%>
+         LiveView process exists. Never rendered with an external picker. --%>
     <.live_component
-      :if={not @readonly and @show_picker}
+      :if={not @readonly and @show_picker and not @external_picker}
       module={MediaSelectorModal}
       id={"#{@id}-media-selector"}
       show={true}

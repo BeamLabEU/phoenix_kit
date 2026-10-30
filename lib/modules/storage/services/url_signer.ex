@@ -1,6 +1,7 @@
 defmodule PhoenixKit.Modules.Storage.URLSigner do
   # NOTE: Temporarily supporting the Publishing component system until the storage/media team ships their replacement.
   import Bitwise
+  import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Storage
@@ -287,6 +288,28 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
     (div(now + div(window, 4), window) + 1) * window
   end
 
+  # Audience transitions rotate only this library's time-window links. Without this,
+  # a URL issued behind the sign-in gate would become an anonymous bearer URL after
+  # making that library private. Old libraries keep their existing signatures.
+  defp access_revision_suffix(file_uuid) do
+    repo = PhoenixKit.RepoHelper.repo()
+
+    with {:ok, uuid} <- Ecto.UUID.cast(file_uuid),
+         true <- not is_nil(Process.whereis(repo)),
+         revision when is_binary(revision) <-
+           repo.one(
+             from f in Storage.File,
+               join: l in PhoenixKit.Modules.Storage.Library,
+               on: l.uuid == f.library_uuid,
+               where: f.uuid == ^uuid,
+               select: fragment("?->>'access_revision'", l.settings)
+           ) do
+      ":" <> revision
+    else
+      _ -> ""
+    end
+  end
+
   defp private_mac(file_uuid, instance_name, expires_at) do
     case get_secret_key_base() do
       secret when is_binary(secret) and secret != "" ->
@@ -294,7 +317,8 @@ defmodule PhoenixKit.Modules.Storage.URLSigner do
         |> :crypto.mac(
           :sha256,
           secret,
-          "phoenix_kit_file:#{file_uuid}:#{instance_name}:#{expires_at}"
+          "phoenix_kit_file:#{file_uuid}:#{instance_name}:#{expires_at}" <>
+            access_revision_suffix(file_uuid)
         )
         |> binary_part(0, 16)
         |> Base.url_encode64(padding: false)

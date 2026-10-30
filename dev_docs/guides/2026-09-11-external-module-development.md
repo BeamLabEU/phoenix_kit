@@ -56,6 +56,47 @@ Only one `live_view:` per path (core deduplicates, first wins — avoid). Fallba
 config :phoenix_kit, route_modules: [PhoenixKitEntities.Routes]
 ```
 
+## Session revocation in host transactions and tests
+
+Delete session tokens through `PhoenixKit.Users.Sessions.Revocation`, including
+inside a host's own `Repo.transaction/2`. Disconnects wait for the actual database
+commit; a rollback preserves the sockets. The observer stops after 30 consecutive
+failed database checks and logs the batch size without tokens. A reachable,
+still-open transaction does not consume that failure budget. If retries are
+exhausted, token validation still refuses a committed deletion, but existing
+sockets may remain connected until their next authorization check or reconnect.
+
+An SQL sandbox's outer transaction never commits: it rolls back at test cleanup.
+A revoke inside a host-owned transaction therefore does not produce a disconnect
+in an ordinary sandbox test. To assert commit/disconnect behavior, use real
+connections (for example, a synchronous test with sandbox `:auto` mode), clean up
+the committed fixtures, and restore the sandbox mode afterward. Core's own
+transaction wrapper can otherwise be tested with the normal sandbox.
+
 ## Publishing Routing Strategy
 
 Publishing's `/:language/:group/*path` catch-all matches every 2+ segment URL and Phoenix has no fall-through — host routes declared after `phoenix_kit_routes()` shaped `/:locale/<literal>/...` were silently shadowed. Fix: `compile_publishing_routing/1` in `integration.ex` emits an internal `__phoenix_kit_publishing_dispatch` scope plus a host-router `call/2` override that prepends the internal prefix on a `RouterDispatch.maybe_rewrite/1` cache hit (`restore_path/2` un-rewrites after route bind). Known blind spot: `mix phx.routes` shows publishing routes under the internal prefix, not the user-facing URL. The mechanism generalizes — lift to a registry shape when a second module needs it.
+
+### Managed organization settings and invitations
+
+While acting for an organization, mail and visible addresses use
+`PhoenixKit.Users.Auth.User.delivery_email/1`. Use `PhoenixKitWeb.Actor.opts/1`
+for activity so the real person travels into activity metadata. Credential
+settings are unavailable; the managed account never signs in independently.
+
+A host that replaces the kit settings page can embed the UserSettings
+`:managers` section. In the host LiveView's mount, construct
+`PhoenixKit.Users.ManagedOrganizations.Actor.from_session(session)` from the
+trusted signed session and pass the returned non-secret reference as
+`manager_actor:` to UserSettings, alongside the token-loaded `user:`. Never
+construct it from client parameters. Manager events recheck the live grant;
+the host does not need to grant access to the admin Users section. Contact and
+conversion saves send the usual `{:phoenix_kit_user_updated, user}` message to
+the parent. Reload the current browser identity through its token, as the kit
+ProfileSettings page does, to retain that browser’s acting-person provenance.
+
+Kit live sessions attach `PhoenixKitWeb.Hooks.InvitationHook`. A host's own
+session can attach it after its user/scope hook. The hook is idempotent and
+only offers invitations from a person's own account. LayoutWrapper reads
+pending banners through the mounted scope; a custom layout can render
+`InvitationBanner.invitation_banners/1` with `pk_pending_invitations` explicitly.

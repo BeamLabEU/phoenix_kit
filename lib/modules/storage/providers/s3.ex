@@ -229,7 +229,12 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
         {:error, "Bucket not found"}
 
       {:error, {:http_error, 403, _}} ->
-        {:error, "The bucket could not be written to - check the key's write permission"}
+        if bucket.provider == "r2" do
+          {:error,
+           "R2 refused the test upload (HTTP 403). Give this integration's token Object Read & Write access to this bucket, or Admin Read & Write access. Permission to list buckets alone does not allow uploads."}
+        else
+          {:error, "The bucket could not be written to - check the key's write permission"}
+        end
 
       {:error, reason} ->
         {:error, "Could not write a test file: #{inspect(reason, limit: 5)}"}

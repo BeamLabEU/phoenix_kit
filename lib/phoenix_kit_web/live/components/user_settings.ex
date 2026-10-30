@@ -21,7 +21,10 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   ## Optional assigns
 
     * `sections` — list of sections to display: `:identity`, `:custom_fields`, `:email`, `:password`, `:oauth`, `:notifications`, `:sessions`
-      (default: all). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
+      (default: all; `:integrations` and `:api_keys` are opt-in, see below). `:profile` is accepted as a legacy alias that expands to `[:identity, :custom_fields]`
+    * `manager_actor` — a `ManagedOrganizations.Actor` from the host's trusted
+      signed session. Required to embed the `:managers` section while acting;
+      never construct it from event parameters.
     * `email_confirm_url_fn` — `(token -> url)` for email confirmation links
       (default: `&Routes.url("/profile/settings/confirm-email/\#{&1}")`)
     * `return_to` — where OAuth redirect returns to (default:
@@ -31,6 +34,20 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       by the `:sessions` section to mark the current device and to keep it
       signed in on "sign out other sessions". Without it, no session is
       flagged current and "sign out others" revokes every session.
+
+  ## The `:api_keys` section
+
+  Opt-in, never in `default_sections/0`: it shows the person's own API keys
+  (`PhoenixKitWeb.Live.Components.PersonalApiKeys`, the same component as the page at
+  `/profile/settings/api-keys`). Add `:api_keys` to `sections` and pass two more assigns:
+
+    * `scope` — the session's scope (`@phoenix_kit_current_scope`)
+    * `impersonated` — a boolean, computed in the mount of the host page with
+      `PhoenixKitWeb.Users.MultiSession.impersonated?(session)`, never a constant
+
+  Without both, the section shows only an explanation and no keys, and the nested component
+  refuses every event. The component checks the person's rights itself, so adding the
+  section for someone who holds neither `api_personal_keys` nor `api` shows an explanation too.
 
   ## Parent notifications
 
@@ -82,6 +99,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     :oauth,
     :notifications,
     :sessions,
+    :managers,
     # Last on the page: a reset is the thing you reach for when something
     # is wrong, not part of the daily settings people scroll through.
     :etcher
@@ -96,14 +114,30 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   # which is the whole reason this is a single button.
   @etcher_user_keys ~w(etcher_colors etcher_line_params)
 
+  @credential_sections [:email, :password, :oauth, :sessions, :api_keys]
+  @credential_events ~w(validate_email update_email validate_password update_password
+    connect_oauth_provider disconnect_oauth_provider toggle_email_form
+    toggle_password_form revoke_session revoke_other_sessions)
+
   @doc """
   The section list rendered when a caller doesn't pass `sections` — does NOT
-  include `:integrations` (see the module attribute comment above). A caller
+  include `:integrations` or `:api_keys` (see the module attribute comment above
+  and the moduledoc). A caller
   that wants that section appended should build on this list rather than
   hardcoding a copy, so the two can't drift.
   """
   @spec default_sections() :: [atom()]
   def default_sections, do: @default_sections
+
+  # The keys section shows the signed-in person's keys under their own profile only: the
+  # scope of someone else (an admin looking at a profile) is handed on as absent.
+  defp api_keys_scope(%{uuid: uuid}, %Scope{user: %{uuid: uuid}} = scope), do: scope
+  defp api_keys_scope(_user, _scope), do: nil
+
+  defp allowed_sections(%{managed_by_members: true}, sections),
+    do: sections -- @credential_sections
+
+  defp allowed_sections(_user, sections), do: sections
 
   # Picking a file no longer sets it on the spot: the crop editor opens on
   # the picked image first, so the person frames it once instead of
@@ -135,6 +169,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         other -> [other]
       end)
 
+    sections = allowed_sections(user, sections)
+
     email_confirm_url_fn =
       assigns[:email_confirm_url_fn] || socket.assigns[:email_confirm_url_fn] ||
         (&Routes.url("/profile/settings/confirm-email/#{&1}"))
@@ -147,16 +183,26 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign(:id, assigns.id)
       |> assign(:user, user)
       |> assign(:sections, sections)
+      |> assign(:manager_actor, Map.get(assigns, :manager_actor, socket.assigns[:manager_actor]))
       |> assign(
         :show_google_email,
-        Map.get(
-          assigns,
-          :show_google_email,
-          ProfileSettingsTabs.google_email_shown?()
-        )
+        not user.managed_by_members and
+          Map.get(
+            assigns,
+            :show_google_email,
+            ProfileSettingsTabs.google_email_shown?()
+          )
       )
       |> assign(:email_confirm_url_fn, email_confirm_url_fn)
       |> assign(:return_to, return_to)
+      |> assign(
+        :api_keys_scope,
+        api_keys_scope(user, assigns[:scope] || socket.assigns[:api_keys_scope])
+      )
+      |> assign(
+        :api_keys_impersonated,
+        Map.get(assigns, :impersonated, socket.assigns[:api_keys_impersonated])
+      )
       |> assign_new(:profile_success_message, fn -> nil end)
       |> assign_new(:email_success_message, fn -> assigns[:email_success_message] end)
       |> assign_new(:email_error_message, fn -> assigns[:email_error_message] end)
@@ -239,6 +285,14 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   # Event handlers
 
   @impl true
+  def handle_event(event, _params, %{assigns: %{user: %{managed_by_members: true}}} = socket)
+      when event in @credential_events,
+      do: {:noreply, socket}
+
+  def handle_event(event, _params, %{assigns: %{user: %{managed_by_members: true}}} = socket)
+      when event in ["browser_timezone_detected", "use_browser_timezone"],
+      do: {:noreply, socket}
+
   def handle_event("validate_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params
 
@@ -341,7 +395,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   end
 
   def handle_event("validate_profile", params, socket) do
-    user_params = profile_params(params)
+    user_params = profile_params(params, socket.assigns.user)
 
     merged_params = merge_custom_fields(params, user_params)
 
@@ -364,7 +418,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   end
 
   def handle_event("update_profile", params, socket) do
-    user_params = profile_params(params)
+    user_params = profile_params(params, socket.assigns.user)
 
     user = socket.assigns.user
 
@@ -955,7 +1009,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   # current password and confirms the new address by mail. Taken from the
   # profile events it would re-point the account (and every password-reset
   # link) at an unconfirmed address with one crafted submit.
-  defp profile_params(params) do
+  defp profile_params(params, user) do
     user_params =
       case params do
         %{"user" => user_params} when is_map(user_params) -> user_params
@@ -963,7 +1017,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         _ -> %{}
       end
 
-    Map.delete(user_params, "email")
+    excluded = if user.managed_by_members, do: ["email", "google_email"], else: ["email"]
+    Map.drop(user_params, excluded)
   end
 
   defp extract_custom_fields(params) do
@@ -1007,6 +1062,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           module: "users",
           mode: "manual",
           actor_uuid: updated_user.uuid,
+          acting_user_uuid: user.acting_user_uuid,
           resource_type: "user",
           resource_uuid: updated_user.uuid,
           metadata: %{
@@ -1049,6 +1105,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           module: "users",
           mode: "manual",
           actor_uuid: updated_user.uuid,
+          acting_user_uuid: user.acting_user_uuid,
           resource_type: "user",
           resource_uuid: updated_user.uuid,
           metadata: %{
@@ -1085,6 +1142,16 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
     ~H"""
     <div class="card bg-base-100 shadow-sm max-w-4xl mx-auto">
       <div class="card-body">
+        <.live_component
+          :if={
+            (:managers in @sections and @user.managed_by_members and @user.acting_user_uuid) &&
+              @manager_actor
+          }
+          module={PhoenixKitWeb.Live.Components.OrganizationManagers}
+          id={"#{@id}-managers"}
+          actor={@manager_actor}
+          organization_uuid={@user.uuid}
+        />
         <%!-- Identity Section (avatar, name, username, timezone) --%>
         <%= if :identity in @sections do %>
           <div>
@@ -1177,7 +1244,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <%!-- line stops appearing, look here first.                       --%>
               <div
                 id={"#{@id}-timezone-detector"}
-                phx-hook="TimezoneDetector"
+                phx-hook={if !@user.managed_by_members, do: "TimezoneDetector"}
                 phx-target={@myself}
                 data-event="browser_timezone_detected"
               >
@@ -1941,6 +2008,14 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       <div class="text-xs text-base-content/60 truncate">
                         {session_meta_line(session)}
                       </div>
+                      <div
+                        :for={organization <- session.acting_organizations}
+                        class="text-xs text-base-content/60"
+                      >
+                        {gettext("%{organization}, from this browser",
+                          organization: organization.name
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button
@@ -2062,10 +2137,28 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           </div>
         <% end %>
 
-        <%= if :etcher in @sections do %>
+        <%!-- API keys section — opt-in; the component takes the session's scope and
+             borrowed-session flag from the host and checks the rights itself. --%>
+        <%= if :api_keys in @sections do %>
           <%= if Enum.any?(
                    [:identity, :custom_fields, :email, :password, :oauth, :notifications,
                     :sessions, :integrations],
+                   &(&1 in @sections)
+                 ) do %>
+            <div class="divider"></div>
+          <% end %>
+          <.live_component
+            module={PhoenixKitWeb.Live.Components.PersonalApiKeys}
+            id={"#{@id}-api-keys"}
+            scope={@api_keys_scope}
+            impersonated={@api_keys_impersonated}
+          />
+        <% end %>
+
+        <%= if :etcher in @sections do %>
+          <%= if Enum.any?(
+                   [:identity, :custom_fields, :email, :password, :oauth, :notifications,
+                    :sessions, :integrations, :api_keys],
                    &(&1 in @sections)
                  ) do %>
             <div class="divider"></div>

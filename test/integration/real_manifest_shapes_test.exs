@@ -67,6 +67,77 @@ defmodule PhoenixKit.Integration.RealManifestShapesTest do
     end
   end
 
+  # A CHECK keeps the parse tree of the SQL that created it. core's two
+  # storage-profile CHECKs read `a BETWEEN .. AND ..` chains; a database whose
+  # constraint was parsed with the first BETWEEN folded into the outer AND
+  # prints the same condition with one pair of parentheses fewer. Repair called
+  # that `wrong_shape`. The folded form is written here by hand, which gives
+  # the same stored tree.
+  describe "a CHECK stored with the AND chain nested another way" do
+    @folded_checks %{
+      "phoenix_kit_storage_profiles_copies_check" =>
+        "copies_originals >= 1 AND copies_originals <= 5 AND " <>
+          "(copies_variants >= 1 AND copies_variants <= 5) AND " <>
+          "(min_copies_on_write >= 1 AND min_copies_on_write <= copies_originals)",
+      "phoenix_kit_storage_profiles_local_cloud_check" =>
+        "copies_local >= 0 AND copies_local <= 5 AND " <>
+          "(copies_cloud >= 0 AND copies_cloud <= 5) AND " <>
+          "copies_local + copies_cloud = copies_originals"
+    }
+
+    defp storage_check(name) do
+      Enum.find(
+        required(:constraint),
+        &(&1.id == "constraint:phoenix_kit_storage_profiles.#{name}")
+      )
+    end
+
+    defp observed_check(name) do
+      snapshot = Probe.snapshot(Repo, "public")
+      Probe.lookup(snapshot, storage_check(name).check)
+    end
+
+    defp restore_check_text(name, condition) do
+      Repo.query!(
+        "ALTER TABLE phoenix_kit_storage_profiles DROP CONSTRAINT #{name}, " <>
+          "ADD CONSTRAINT #{name} CHECK (#{condition})"
+      )
+    end
+
+    for {name, condition} <- @folded_checks do
+      test "#{name} still matches the manifest" do
+        name = unquote(name)
+        object = storage_check(name)
+        expected = newest_shape(object)
+
+        # The fresh chain agrees with the manifest to begin with.
+        assert Differ.compare(:constraint, expected, observed_check(name)) == :match
+
+        restore_check_text(name, unquote(condition))
+        observed = observed_check(name)
+
+        # The scenario is real: the stored text is no longer the manifest's.
+        refute observed.definition == expected.definition
+        assert Differ.compare(:constraint, expected, observed) == :match
+      end
+
+      test "#{name} with another bound is a wrong shape" do
+        name = unquote(name)
+        object = storage_check(name)
+
+        restore_check_text(
+          name,
+          String.replace(unquote(condition), "<= 5", "<= 4", global: false)
+        )
+
+        assert {:mismatch, reasons} =
+                 Differ.compare(:constraint, newest_shape(object), observed_check(name))
+
+        assert Enum.any?(reasons, &(&1 =~ "definition"))
+      end
+    end
+  end
+
   defp index_problem(_object, nil), do: :missing
 
   defp index_problem(object, observed) do

@@ -5,7 +5,7 @@
   page_title={@page_title}
   page_section={@page_section}
   page_section_path={@page_section_path}
-  page_subtitle={@user.email}
+  page_subtitle={Auth.User.delivery_email(@user)}
   current_path={@url_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -32,7 +32,7 @@
           :if={MultiSession.impersonable?(@impersonation_actor, @user)}
           href={PhoenixKit.Utils.Routes.path("/users/session/impersonate/#{@user.uuid}")}
           method="post"
-          data-confirm={gettext("Sign in as %{email}?", email: @user.email)}
+          data-confirm={gettext("Sign in as %{email}?", email: Auth.User.delivery_email(@user))}
           icon="hero-arrow-right-end-on-rectangle"
           label={gettext("Sign in as user")}
           variant="warning"
@@ -62,6 +62,7 @@
                  Auth.can_manage_user_status?(@user, @phoenix_kit_current_user) do %>
           <.table_row_menu_divider />
           <.table_row_menu_button
+            :if={not @user.managed_by_members}
             phx-click="request_confirmation_toggle"
             phx-value-is_confirmed={to_string(!!@user.confirmed_at)}
             icon={if @user.confirmed_at, do: "hero-envelope-open", else: "hero-envelope"}
@@ -251,7 +252,7 @@
                       {gettext("Email")}
                     </label>
                     <p class="text-base-content flex items-center gap-2 flex-wrap">
-                      {@user.email}
+                      {Auth.User.delivery_email(@user)}
                       <%= if @user.confirmed_at do %>
                         <span class="badge badge-success badge-sm h-auto">
                           {gettext("Email Confirmed")}
@@ -776,7 +777,9 @@
         <div class="py-4 space-y-4">
           <p class="text-base-content">
             {gettext("Are you sure you want to permanently delete")}
-            <strong>{@user.email}</strong>? {gettext("This action cannot be undone.")}
+            <strong>{Auth.User.delivery_email(@user)}</strong>? {gettext(
+              "This action cannot be undone."
+            )}
           </p>
 
           <%!-- Real counts for THIS user, computed by Auth.preview_user_deletion/1
@@ -813,15 +816,23 @@
           </div>
         </div>
 
-        <div class="modal-action">
-          <button type="button" class="btn btn-error" phx-click="delete_user">
-            <.icon name="hero-trash" class="w-4 h-4 mr-2" />
-            {gettext("Permanently Delete")}
-          </button>
-          <button type="button" class="btn btn-outline" phx-click="hide_delete_modal">
-            {gettext("Cancel")}
-          </button>
-        </div>
+        <form id="delete-user-with-manager-check" phx-submit="delete_user">
+          <PhoenixKitWeb.Components.Core.Checkbox.checkbox
+            :if={own_organization_admin?(@manager_actor, @phoenix_kit_current_scope)}
+            name="allow_managerless"
+            checked={false}
+            label={gettext("Allow managed organizations to have no active managers")}
+          />
+          <div class="modal-action">
+            <button type="submit" class="btn btn-error">
+              <.icon name="hero-trash" class="w-4 h-4 mr-2" />
+              {gettext("Permanently Delete")}
+            </button>
+            <button type="button" class="btn btn-outline" phx-click="hide_delete_modal">
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </form>
       </div>
       <div class="modal-backdrop" phx-click="hide_delete_modal"></div>
     </div>
@@ -832,7 +843,7 @@
     <div class="modal modal-open">
       <div class="modal-box max-w-2xl">
         <h3 class="font-bold text-xl mb-4">
-          Manage Roles for {@user.email}
+          Manage Roles for {Auth.User.delivery_email(@user)}
         </h3>
 
         <form phx-submit="sync_user_roles" class="space-y-4">
@@ -914,23 +925,43 @@
   <% end %>
 
   <%!-- Status / Confirmation Change Modal --%>
+  <.live_component
+    :if={
+      @user.account_type == "organization" and (@org_accounts_enabled or @user.managed_by_members)
+    }
+    module={PhoenixKitWeb.Live.Components.OrganizationManagers}
+    id="organization-managers"
+    organization_uuid={@user.uuid}
+    actor={@manager_actor}
+  />
   <%= if assigns[:confirmation_modal] && @confirmation_modal.show do %>
     <div class="modal modal-open">
       <div class="modal-box">
         <h3 class="font-bold text-lg">{@confirmation_modal.title}</h3>
         <p class="py-4">{@confirmation_modal.message}</p>
-        <div class="modal-action">
-          <button class="btn btn-ghost" phx-click="cancel_confirmation">
-            {gettext("Cancel")}
-          </button>
-          <button
-            class="btn btn-primary"
-            phx-click="confirm_action"
-            phx-value-action={@confirmation_modal.action}
-          >
-            {@confirmation_modal.button_text}
-          </button>
-        </div>
+        <form id="user-status-with-manager-check" phx-submit="confirm_action">
+          <input type="hidden" name="action" value={@confirmation_modal.action} />
+          <PhoenixKitWeb.Components.Core.Checkbox.checkbox
+            :if={
+              @confirmation_modal.action == "toggle_user_status" and @user.is_active and
+                own_organization_admin?(@manager_actor, @phoenix_kit_current_scope)
+            }
+            name="allow_managerless"
+            checked={false}
+            label={gettext("Allow managed organizations to have no active managers")}
+          />
+          <div class="modal-action">
+            <button type="button" class="btn btn-ghost" phx-click="cancel_confirmation">
+              {gettext("Cancel")}
+            </button>
+            <button
+              class="btn btn-primary"
+              type="submit"
+            >
+              {@confirmation_modal.button_text}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   <% end %>

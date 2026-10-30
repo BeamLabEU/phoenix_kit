@@ -229,6 +229,60 @@
           </div>
         </div>
       </.form_section>
+
+      <%!-- Personal API keys --%>
+      <.form_section
+        id="api-personal-keys-card"
+        title={gettext("Personal API keys")}
+        icon="hero-finger-print"
+        class="border border-base-200"
+        body_class="space-y-4"
+      >
+        <:subtitle>
+          {gettext(
+            "A person makes these keys for themselves on My API keys. The “Personal API keys” permission is given to roles (Users, Roles, or the permissions matrix); an Admin does not get it by itself."
+          )}
+        </:subtitle>
+
+        <form id="api-personal-keys-form" phx-submit="save_personal_keys" class="space-y-4">
+          <div
+            :if={@personal_keys_errors != []}
+            id="api-personal-keys-errors"
+            class="alert alert-error text-sm"
+          >
+            <ul class="list-disc pl-4">
+              <li :for={message <- @personal_keys_errors}>{message}</li>
+            </ul>
+          </div>
+
+          <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-2">
+            <.input
+              id="api-personal-keys-max-days"
+              name="personal_keys[max_days]"
+              type="text"
+              inputmode="numeric"
+              wrap_label
+              label={gettext("Longest lifetime of a personal key, in days (1 to 365)")}
+              value={@personal_keys_params["max_days"]}
+            />
+            <.input
+              id="api-personal-keys-max-count"
+              name="personal_keys[max_count]"
+              type="text"
+              inputmode="numeric"
+              wrap_label
+              label={gettext("Personal keys one person may have (1 to 50)")}
+              value={@personal_keys_params["max_count"]}
+            />
+          </div>
+
+          <div class="flex justify-end">
+            <.button type="submit" id="api-personal-keys-submit">
+              {gettext("Save the settings")}
+            </.button>
+          </div>
+        </form>
+      </.form_section>
     </div>
 
     <div id="api-tab-keys" class={["space-y-6", @active_tab != "keys" && "hidden"]}>
@@ -277,6 +331,9 @@
                     size={:xs}
                     class="mt-1"
                   />
+                  <span :if={key.personal} class="badge badge-outline badge-xs mt-1">
+                    {gettext("Personal key")}
+                  </span>
                 </.table_default_cell>
                 <.table_default_cell class="text-sm">
                   {Map.get(@owner_labels, key.user_uuid)}
@@ -298,18 +355,44 @@
                   </div>
                 </.table_default_cell>
                 <.table_default_cell>
-                  <.status_badge
-                    status={Atom.to_string(key_status(key))}
-                    label={status_label(key_status(key))}
-                  />
-                  <div
-                    :if={key_status(key) == :ending}
-                    class="text-xs text-base-content/60 mt-0.5"
-                  >
-                    {gettext("until %{time}",
-                      time: Calendar.strftime(ends_at(key), "%Y-%m-%d %H:%M UTC")
-                    )}
-                  </div>
+                  <%= if key.personal do %>
+                    <.status_badge
+                      status={PersonalKeyDisplay.badge_name(@personal_statuses[key.uuid])}
+                      label={PersonalKeyDisplay.label(@personal_statuses[key.uuid])}
+                    />
+                    <div
+                      :if={@personal_statuses[key.uuid] == :rotating}
+                      class="text-xs text-base-content/60 mt-0.5"
+                    >
+                      {gettext("until %{time}",
+                        time: PersonalKeyDisplay.moment(ends_at(key), @api_scope.user)
+                      )}
+                    </div>
+                    <div
+                      :if={
+                        key.expires_at && PersonalKeyDisplay.live?(@personal_statuses[key.uuid]) &&
+                          @personal_statuses[key.uuid] != :rotating
+                      }
+                      class="text-xs text-base-content/60 mt-0.5"
+                    >
+                      {gettext("Expires on %{date}",
+                        date: PersonalKeyDisplay.expiry_date(key.expires_at, @api_scope.user)
+                      )}
+                    </div>
+                  <% else %>
+                    <.status_badge
+                      status={Atom.to_string(key_status(key))}
+                      label={status_label(key_status(key))}
+                    />
+                    <div
+                      :if={key_status(key) == :ending}
+                      class="text-xs text-base-content/60 mt-0.5"
+                    >
+                      {gettext("until %{time}",
+                        time: Calendar.strftime(ends_at(key), "%Y-%m-%d %H:%M UTC")
+                      )}
+                    </div>
+                  <% end %>
                 </.table_default_cell>
                 <.table_default_cell>
                   <%= if key.last_used_at do %>
@@ -320,23 +403,32 @@
                 </.table_default_cell>
                 <.table_default_cell class="relative z-10">
                   <.table_row_menu
-                    :if={live?(key)}
+                    :if={live?(key) and @key_access[key.uuid] != :none}
                     id={"api-key-menu-#{key.uuid}"}
                     mode="dropdown"
                     label={gettext("Actions")}
                   >
-                    <.table_row_menu_button
-                      phx-click="request_edit_scopes"
-                      phx-value-uuid={key.uuid}
-                      icon="hero-adjustments-horizontal"
-                      label={gettext("Edit scopes")}
-                    />
-                    <.table_row_menu_button
-                      phx-click="request_rotate"
-                      phx-value-uuid={key.uuid}
-                      icon="hero-arrow-path"
-                      label={gettext("Rotate")}
-                    />
+                    <%= if @key_access[key.uuid] == :manage do %>
+                      <.table_row_menu_button
+                        phx-click="request_edit_scopes"
+                        phx-value-uuid={key.uuid}
+                        icon="hero-adjustments-horizontal"
+                        label={gettext("Edit scopes")}
+                      />
+                      <.table_row_menu_button
+                        phx-click="request_rotate"
+                        phx-value-uuid={key.uuid}
+                        icon="hero-arrow-path"
+                        label={gettext("Rotate")}
+                      />
+                    <% else %>
+                      <.table_row_menu_button
+                        phx-click="request_edit_scopes"
+                        phx-value-uuid={key.uuid}
+                        icon="hero-adjustments-horizontal"
+                        label={gettext("Remove scopes")}
+                      />
+                    <% end %>
                     <.table_row_menu_button
                       phx-click="request_revoke"
                       phx-value-uuid={key.uuid}
@@ -906,12 +998,23 @@
   >
     <:title>
       <.icon name="hero-adjustments-horizontal" class="w-5 h-5" />
-      {gettext("Edit the scopes of this key")}
+      {if Map.get(@scopes_form, :mode) == :narrow,
+        do: gettext("Remove scopes from this key"),
+        else: gettext("Edit the scopes of this key")}
     </:title>
 
     <form id="edit-key-scopes-form" phx-submit="save_key_scopes" class="space-y-4">
       <input type="hidden" name="key_scopes[present]" value="1" />
       <p :if={@scopes_form[:name]} class="font-medium">{@scopes_form[:name]}</p>
+      <p
+        :if={Map.get(@scopes_form, :mode) == :narrow}
+        id="edit-key-scopes-narrow-note"
+        class="text-sm text-base-content/70"
+      >
+        {gettext(
+          "This is a personal key of another person. You can take scopes off it, but not add any. Untick what it should lose."
+        )}
+      </p>
 
       <div
         :if={Map.get(@scopes_form, :errors, []) != []}
@@ -940,12 +1043,24 @@
           wrapper_class="py-1"
         >
           <span class="font-mono">{scope}</span>
+          <span
+            :if={
+              Map.get(@scopes_form, :mode) == :narrow and
+                scope in Map.get(@scopes_form, :inactive, [])
+            }
+            class="badge badge-ghost badge-xs ml-1"
+          >
+            {gettext("inactive")}
+          </span>
           <:description>
             {Enum.join(Map.get(Map.get(@scopes_form, :tools, %{}), scope, []), ", ")}
           </:description>
         </.checkbox>
         <div
-          :if={Map.get(@scopes_form, :inactive, []) != []}
+          :if={
+            Map.get(@scopes_form, :inactive, []) != [] and
+              Map.get(@scopes_form, :mode) != :narrow
+          }
           id="edit-key-scopes-inactive"
           class="mt-2"
         >
@@ -972,7 +1087,9 @@
         {gettext("Cancel")}
       </.button>
       <.button type="submit" form="edit-key-scopes-form" id="edit-key-scopes-submit">
-        {gettext("Save the scopes")}
+        {if Map.get(@scopes_form, :mode) == :narrow,
+          do: gettext("Remove the unticked scopes"),
+          else: gettext("Save the scopes")}
       </.button>
     </:actions>
   </.modal>
@@ -1007,6 +1124,15 @@
         value={@rotate_form[:hours]}
         options={grace_options()}
       />
+      <div
+        :if={Map.get(@rotate_form, :at_limit)}
+        id="rotate-api-key-at-limit"
+        class="alert alert-info text-sm"
+      >
+        {gettext(
+          "You already have the largest number of keys allowed, so the old key cannot keep working next to the new one: the grace period starts at 0 and the old key stops at once. Revoke another key first if you need a longer overlap."
+        )}
+      </div>
     </form>
 
     <:actions>

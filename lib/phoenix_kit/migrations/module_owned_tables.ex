@@ -250,6 +250,7 @@ defmodule PhoenixKit.Migrations.ModuleOwnedTables do
     phoenix_kit_mentions
     phoenix_kit_notifications
     phoenix_kit_organization_invitations
+    phoenix_kit_organization_managers
     phoenix_kit_role_permissions
     phoenix_kit_scheduled_jobs
     phoenix_kit_settings

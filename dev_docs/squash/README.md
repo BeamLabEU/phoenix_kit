@@ -297,6 +297,16 @@ against baseline + repair.
 
 ## Manifest + reference policy (regenerate, never hand-merge)
 
+- **Post-squash deltas:** preserve the historical baseline and its revisions.
+  `generate_v227_manifest.exs` snapshots V226 and V227 in a unique scratch
+  schema, feeds their catalog diff through the existing generator, and emits
+  `ExpectedSchema.V227` plus `reference/v227_managed_organizations.sql`.
+  `ExpectedSchema` overlays those generated objects before materialization.
+  This does not regenerate the historical baseline from a squashed chain or
+  replace the pre-squash oracle. Re-run with
+  `PGDATABASE=<scratch-test-db> MIX_ENV=test mix run --no-start dev_docs/squash/generate_v227_manifest.exs`,
+  then format, restamp and verify the resulting objects against the real catalog.
+
 - The `ExpectedSchema` manifest is **tool-generated with a deterministic
   emit order and a `chain_hash`**. It is NEVER hand-merged: after any rebase
   that touches `v*.ex`, and after every **renumber event** (eight so far;

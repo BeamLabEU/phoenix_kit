@@ -1,3 +1,138 @@
+## Unreleased
+
+### Added
+
+- Internal managed-organization creation and conversion, with a required first
+  manager, referral admission, credential revocation, and fresh credentials when
+  converting back. An administrator's dedicated creation form requires an
+  active first manager; organization details provide conversion controls.
+- Manager lifecycle locks and last-active-manager protection cover grant
+  removal and person deactivation/deletion; leaving an organization without an
+  active manager requires an explicit override from a live own-admin session.
+  Manager changes record activities and account notifications.
+
+- Managed-organization foundations (V227): manager grants, contact addresses,
+  grant-bound session provenance and invitation kinds. Authentication refuses
+  independent managed-account logins; scopes exclude Owner, Admin, wildcard and
+  API authority.
+- Account mail uses a managed organization's contact address, and the mailer
+  removes reserved `.invalid` recipients from To, Cc and Bcc.
+- Session revocation collects dependent organization sessions under row locks
+  and disconnects their sockets after commit, including credential changes,
+  user deletion and calls inside host-owned transactions. Rollbacks and
+  savepoint rollbacks preserve restored sessions.
+- Managed organizations cannot use credential or session settings in embedded
+  profile components, and the manager's browser does not trigger organization
+  time-zone detection or mismatch alerts. Host-transaction disconnect observers
+  stop after 30 consecutive failed database checks.
+- Organization switching: enter/leave routes, dropdowns in both navs, and a
+  separate durable cookie slot that works while multi-account switching is off.
+  Entry is limited per root user and serializes concurrent requests and
+  revocation; switching away deletes and disconnects the organization token.
+- Shared manager administration in organization details and a non-hideable
+  Managers settings tab while acting. Managers invite by email; administrators
+  can search and add active people. Grant removal and person deactivation or
+  deletion require an explicit own-admin override to leave no active manager.
+- Manager invitations with locked, kind-aware acceptance, scoped cancellation,
+  generic invite responses, per-person/organization rate limits and mail for
+  both existing and new invitees. Kit pages show invitation banners and refresh
+  the organization switcher after acceptance; registration and confirmation
+  automatically accept the manager kind without changing employment.
+- Acting-person attribution in activity metadata and screens, source-browser
+  organization sessions, contact addresses in user/session lists, presence and
+  mentions, managed badges, and switcher translations in all nine locales.
+- Media browser picker mode supports ordered single or multiple selections,
+  selection limits, scoped file checks, and uploads isolated from other browsers.
+- Picker viewers preview files and select or deselect them without changing
+  file details, annotations, or viewer preferences.
+- Optional file removal guards check host references before removal and provide
+  server-side confirmation, usage details, and host-controlled release actions.
+
+### Changed
+
+- Update Etcher to 0.24.0.
+
+### Fixed
+
+- Forms loaded before organization conversion cannot restore passwords, login
+  addresses, Google addresses or forbidden roles. OAuth linking and API-key
+  creation/rotation share conversion's account lock to prevent credentials from
+  escaping its drain.
+
+## 3.2.2 - 2026-10-30
+
+### Fixed
+
+- Media settings list every library storage bucket with its integration, provider and small
+  role icons, instead of hiding backup bucket names behind a copy count.
+- Site storage labels use the configured project title in library lists and storage forms.
+
+## 3.2.1 - 2026-10-29
+
+### Added
+
+- Library storage shows live file progress, pending work, retry and job states, and per-bucket
+  stored copies, bytes and verification counts. The Media settings page refreshes automatically,
+  and adding backup storage keeps the dialog open to show progress.
+- Connected storage cards identify the integration, provider, bucket and primary or backup role.
+  Bucket pickers hide destinations already attached to the library and label use by other libraries.
+
+### Fixed
+
+- Library dialogs and their settings tabs restore from the URL after reload, reconnect and browser
+  navigation, while ordinary progress refreshes preserve unsaved form values.
+- Storage errors appear inside the backup dialog. R2 upload denials explain the required object
+  write permissions instead of relying on successful bucket listing as proof of upload access.
+- Integration key rotation accepts equivalent endpoint spellings while preserving destination
+  immutability. Backup checks include retained site storage and equivalent AWS endpoints.
+- Personal-storage operations preserve the session's switched role when refreshing permissions.
+  Connection changes during library creation produce an actionable error and roll back creation.
+
+## 3.2.0 - 2026-10-29
+
+### Added
+
+- Owners can add backup storage to existing libraries from Storage and backups. New buckets
+  are tested before attachment; existing storage stays in place while background reconciliation
+  copies and verifies files. The dialog shows pending files and recent failed attempts.
+- Personal and system integration lists and edit forms show dependent libraries, buckets and
+  roles, including disabled buckets and trashed libraries. Private user-library names stay hidden
+  from system integration views.
+
+### Fixed
+
+- Storage dependencies now block integration removal and disconnection. Bucket attachment
+  shares a database row lock with integration mutations and rejects missing or disconnected
+  credentials, closing concurrent deletion and attachment races.
+- Existing storage services cannot be switched. In-use destinations stay fixed, and key rotation
+  checks every dependent bucket before saving. Failed or stale validation preserves the saved
+  credentials and name; edits commit atomically and network checks run outside transactions.
+- Separate integrations pointing at the same physical bucket no longer count as independent
+  backup copies.
+
+## 3.1.0 - 2026-10-27
+
+### Added
+
+- Library access can switch between invited members, all signed-in accounts, and anonymous
+  visitors. Owner/admin updates require explicit confirmation and are recorded in the activity
+  history. Access transitions invalidate existing app time-window links; sign-in-only files
+  require a session, stay on the same origin and use no-store responses.
+- Shared library settings workspace in profile and admin lists: editable names and slugs,
+  audience warnings, members, storage/renditions and host-registered module settings sections.
+  Previous slugs are kept for hosts that support address redirects.
+
+## 3.0.1 - 2026-10-27
+
+### Changed
+
+- Update WebSock adapter to 0.7.0 after upgrading to core 3.0.
+
+### Fixed
+
+- Preserve the personal-storage variant publication fix on core 3.0: new variants are checked in
+  the buckets that accepted the write, including owned buckets outside the shared pool.
+
 ## 3.0.0 - 2026-10-27
 
 **Core no longer creates the tables of the optional modules, and the database layer for email templates is gone.** An
@@ -151,6 +286,15 @@ Nothing in 2.65.0 changes behaviour for a host that does not use them.
   indexes, seed rows and the two email-table data invariants. A damaged module table is no longer reported or
   repaired by core; the module's own chain puts it back on `mix phoenix_kit.update`. Nothing is created, changed or
   dropped in any database, and core's migrations still create the module tables on a fresh install.
+
+## 2.64.2 - 2026-10-27
+
+### Fixed
+
+- **Thumbnails in personal storage buckets.** Variant publication checks the buckets that accepted the
+  write before location rows exist, including user-owned buckets outside the site's shared pool.
+  Explicit bucket reads resolve enabled buckets by UUID, so newly generated previews are no longer
+  rejected as `object_missing`.
 
 ## 2.64.1 - 2026-10-24
 

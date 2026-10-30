@@ -96,10 +96,10 @@ MaintenanceCountdown, PkShiftEnter, PkUrlMirror, PhoenixKitUrlState, PkCheckboxI
 PkChartCrosshair, ViewportPopover, and the five already-lazy library wrappers Leaf, FrescoViewer, FrescoCanvas,
 TesseraLayer, EtcherLayer.
 
-*Admin, 41* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
+*Admin, 42* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
 AnnotationComposerPosition, EtcherReset, StackMemory, StackExpand, WaveformPlayer, MediaDragDrop,
-FolderDropUpload, UploadResume, UploadStats, UploadGuard, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
+FolderDropUpload, UploadResume, RemovalModal, UploadStats, UploadGuard, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
 MentionInput, PkDialogDraft, PkHashHighlight, BulkSelectScope, TableLocalSearch, TableFit, TableCardView, RowMenu,
 RowMenuAuto, ListFilter, TreePickerSearch, CrumbSwitcher, AdminSidebarScroll, IntegrationPickerSearch,
 EmailCharts.

@@ -202,6 +202,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V226 (2026-10-29, personal API keys) DECLARES one object here by hand:
+  # `column:phoenix_kit_api_keys.personal` (boolean NOT NULL DEFAULT false, `pos` 16 after
+  # V219's 15 columns, `backfill: :default` as `phoenix_kit_users.api_only`), built by
+  # `v226_objects/0`. Kept honest by `PhoenixKit.Migrations.Postgres.V226Test`, which runs
+  # the repair differ over every `since: 226` object of a freshly migrated database.
+  # `chain_hash` restamped.
+  #
   # V225 (2026-10-26, a short code on every file) DECLARES two objects here by hand:
   # `column:phoenix_kit_files.short_code` (varchar(12), nullable, no default, `pos` 42 after
   # `longitude` at 41) and `index:phoenix_kit_files_short_code_index` (unique btree on
@@ -655,17 +662,21 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   #   tolerate schema-qualification differences), never by raw text equality across
   #   PG majors.
 
+  alias PhoenixKit.Migrations.ExpectedSchema.V227
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "83a2ad46d1aeedffb8341f19b27c3f9c4d84062f874409bdbc25e431aedaf9d4"
+  @chain_hash "8e0dd3fa084796b1b13dc00507702ffa0546ab43f25b16018c4a1939e11e9531"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
 
     raw_objects()
+    # Catalog-generated post-squash delta; preserves the baseline's historical
+    # revisions and bimodal objects. Regenerate with generate_v227_manifest.exs.
+    |> V227.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -722,7 +733,9 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # `ModuleOwnedTablesTest` still has to prove the ownership lists cover all
   # of core's chain. Goes when step 7 rewrites this file.
   def created_table_names do
-    for %{class: :table, check: {:catalog, %{name: name}}} <- raw_objects(),
+    objects = raw_objects() |> V227.merge()
+
+    for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),
         do: name
   end
@@ -75688,7 +75701,12 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
         presence: :required,
         backfill: nil
       }
-    ] ++ v220_objects() ++ v223_objects() ++ v224_objects() ++ v225_objects()
+    ] ++
+      v220_objects() ++
+      v223_objects() ++
+      v224_objects() ++
+      v225_objects() ++
+      v226_objects()
   end
 
   # --- V220: the dangerous-operation flow (built, not typed; see the header) ---
@@ -75831,6 +75849,25 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
           "timestamp_ops"
         ])
       ] ++ v222_objects(conf)
+  end
+
+  # --- V226: personal API keys (see the header) ---
+
+  defp v226_objects do
+    [
+      %{
+        id: "column:phoenix_kit_api_keys.personal",
+        owner: :core,
+        check: {:catalog, %{table: "phoenix_kit_api_keys", column: "personal", kind: :column}},
+        create:
+          "ALTER TABLE __SCHEMA__.phoenix_kit_api_keys ADD COLUMN IF NOT EXISTS \"personal\" boolean DEFAULT false NOT NULL",
+        since: 226,
+        class: :column,
+        revisions: [{226, %{default: "false", type: "boolean", pos: 16, not_null: true}}],
+        presence: :required,
+        backfill: :default
+      }
+    ]
   end
 
   # --- V225: a short code on every file (see the header) ---

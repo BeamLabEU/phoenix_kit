@@ -46,7 +46,11 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     viewport, more files a page); default `:default`
   - `phoenix_kit_current_user` — required for upload in the picker
   - `readonly` — when `true`, hides the pick button, remove buttons, and DnD;
-    preview (lightbox) still works; default `false`
+    preview (lightbox) still works; the server refuses pick, remove and
+    reorder events too; default `false`
+  - `external_picker` — when `true`, the "Add" tile asks the host to pick
+    instead of opening the built-in `MediaSelectorModal` (which is then never
+    rendered); see "External picker" below. Default `false`
   - `max_count` — integer upper bound on the number of selected images for
     `:multiple` mode; `nil` means unlimited. For `:single` mode the limit is
     always 1 (implied by `mode`). When the limit is reached, the "Add" tile is
@@ -66,6 +70,49 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   picks/reorders are silently dropped (no crash, no warning). Each host
   stores the selection differently (its own field/assoc), so there is
   intentionally no `use ...Embed` macro — the handling is yours to write.
+
+  ## External picker
+
+  With `external_picker={true}` the host supplies its own picker. Clicking
+  "Add" sends the host LiveView (via `send/2`, like `{:changed, …}`):
+
+      {PhoenixKitWeb.Components.MediaGallery, id,
+       {:open_picker, %{selected: uuids, mode: :single | :multiple, max_count: integer | nil}}}
+
+  The host hands the choice back with `send_update/2`. `media_selected` is the
+  complete new selection, not an addition: it replaces `selected`, is limited
+  by `mode` and `max_count` the same way as the built-in picker's, and the
+  gallery then reports it as `{:changed, uuids}` like any other change. Not
+  answering (the person cancelled) leaves the gallery as it was. Thumbnails,
+  reordering, removal and the lightbox work as without the option; uploads
+  are the host picker's business. A `readonly` gallery shows no "Add" tile and
+  refuses `open_picker` on the server, so the host is never asked.
+
+  - The host is not asked while the "Add" tile is hidden either — the
+    selection is at `max_count`, or a `:single` gallery already holds a file
+    — and a forged `open_picker` then is refused on the server.
+  - Make the host's `handle_info` idempotent: every click sends a request, so
+    a double click delivers two `{:open_picker, …}` messages.
+  - Pass `media_selected` uuids without repeats; the gallery does not
+    deduplicate the list.
+
+      <.live_component
+        module={PhoenixKitWeb.Components.MediaGallery}
+        id="my-gallery"
+        selected={@image_uuids}
+        external_picker={true}
+      />
+
+      def handle_info(
+            {PhoenixKitWeb.Components.MediaGallery, "my-gallery", {:open_picker, request}},
+            socket
+          ) do
+        # Open the host's picker; `request.selected` is the current selection.
+        {:noreply, assign(socket, :picker_request, request)}
+      end
+
+      # Later, when the person confirms in the host's picker:
+      send_update(PhoenixKitWeb.Components.MediaGallery, id: "my-gallery", media_selected: uuids)
 
   ## Reorder event contract
 
@@ -130,6 +177,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       |> assign_new(:folder_labels, fn -> %{} end)
       |> assign_new(:phoenix_kit_current_user, fn -> nil end)
       |> assign_new(:readonly, fn -> false end)
+      |> assign_new(:external_picker, fn -> false end)
       |> assign_new(:max_count, fn -> nil end)
       |> assign_new(:title, fn -> nil end)
       |> assign_new(:show_picker, fn -> false end)
@@ -143,6 +191,27 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   @impl true
+  # A readonly gallery renders no Add tile, remove buttons or drag handle;
+  # refuse a forged event too. Preview stays available.
+  def handle_event(event, _params, %{assigns: %{readonly: true}} = socket)
+      when event in ["open_picker", "remove_image", "reorder_images"] do
+    {:noreply, socket}
+  end
+
+  def handle_event("open_picker", _params, %{assigns: %{external_picker: true}} = socket) do
+    %{selected: selected, mode: mode, max_count: max_count} = socket.assigns
+
+    # The "Add" tile is hidden at the limit; a forged click asks the host nothing.
+    unless selection_at_limit?(selected, mode, max_count) do
+      notify_parent(
+        socket,
+        {:open_picker, %{selected: selected, mode: mode, max_count: max_count}}
+      )
+    end
+
+    {:noreply, socket}
+  end
+
   def handle_event("open_picker", _params, socket) do
     {:noreply, assign(socket, :show_picker, true)}
   end
@@ -254,10 +323,9 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
 
   defp selection_at_limit?(_selected, _mode, _max_count), do: false
 
-  defp notify_parent(socket) do
-    parent = self()
-    id = socket.assigns.id
-    selected = socket.assigns.selected
-    send(parent, {PhoenixKitWeb.Components.MediaGallery, id, {:changed, selected}})
+  defp notify_parent(socket), do: notify_parent(socket, {:changed, socket.assigns.selected})
+
+  defp notify_parent(socket, message) do
+    send(self(), {PhoenixKitWeb.Components.MediaGallery, socket.assigns.id, message})
   end
 end

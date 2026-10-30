@@ -41,6 +41,7 @@ defmodule PhoenixKit.Activity.Entry do
     field(:resource_type, :string)
     field(:resource_uuid, Ecto.UUID)
     field(:metadata, :map, default: %{})
+    field(:actor_label, :string, virtual: true)
     # Never pruned. A settings change is the first kind of entry kept this
     # way; any module may keep one (`PhoenixKit.Activity.log/1` with
     # `permanent: true`).

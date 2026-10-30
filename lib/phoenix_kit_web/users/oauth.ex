@@ -65,7 +65,19 @@ if Code.ensure_loaded?(Ueberauth) do
     Uses `Ueberauth.run_request/4` for dynamic OAuth invocation,
     reading credentials from database at runtime.
     """
-    def request(conn, %{"provider" => provider} = params) do
+    def request(conn, %{"add_account" => "1"} = params) do
+      if MultiSession.acting?(get_session(conn)) do
+        conn
+        |> put_flash(:error, gettext("Return to your own account before adding another account."))
+        |> redirect(to: Routes.safe_destination(conn, scope: conn_scope(conn)))
+      else
+        request_provider(conn, params)
+      end
+    end
+
+    def request(conn, params), do: request_provider(conn, params)
+
+    defp request_provider(conn, %{"provider" => provider} = params) do
       Logger.debug("PhoenixKit OAuth request for provider: #{provider}")
 
       # Check if OAuth is enabled in settings

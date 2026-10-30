@@ -19,11 +19,12 @@
         count={data.count}
         expanded={folder.uuid in @expanded_stacks}
         myself={@myself}
+        drop={@folder_actions}
       />
     <% end %>
 
     <button
-      :if={not @readonly}
+      :if={not @readonly and @folder_actions}
       type="button"
       phx-click="open_new_folder_modal"
       phx-target={@myself}
@@ -49,7 +50,7 @@
       id={"pk-stack-#{folder.uuid}"}
       phx-hook="StackExpand"
       data-stack-folder={folder.uuid}
-      data-drop-folder={if not @readonly, do: folder.uuid}
+      data-drop-folder={if not @readonly and @folder_actions, do: folder.uuid}
       data-drop-color={drop_outline_color(folder.color)}
       data-drop-no-bg="true"
       data-animate-open={folder.uuid == @just_opened_stack && "true"}
@@ -76,6 +77,8 @@
               featured={@featured}
               myself={@myself}
               readonly={@readonly}
+              removal_guarded={@removal_guarded}
+              folder_actions={@folder_actions}
             />
           <% end %>
         </div>
@@ -115,7 +118,7 @@
        drop hint when empty (as long as there are folders). --%>
   <%= if @uploaded_files != [] or @folders != [] do %>
     <div
-      data-drop-folder={if not @readonly, do: "root"}
+      data-drop-folder={if not @readonly and @folder_actions, do: "root"}
       data-drop-color="oklch(var(--bc) / 0.45)"
       data-drop-no-bg="true"
       class="rounded-lg"
@@ -136,6 +139,8 @@
               featured={@featured}
               myself={@myself}
               readonly={@readonly}
+              removal_guarded={@removal_guarded}
+              folder_actions={@folder_actions}
             />
           <% end %>
         </div>

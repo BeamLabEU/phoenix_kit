@@ -26,6 +26,7 @@ defmodule PhoenixKit.Notifications.Channels.Email do
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.User
 
   @impl true
   def key, do: "email"
@@ -43,8 +44,10 @@ defmodule PhoenixKit.Notifications.Channels.Email do
 
   @impl true
   def deliver(envelope, _config) do
-    case Auth.get_user(envelope.recipient_uuid) do
-      %{email: address} = user when is_binary(address) and address != "" ->
+    user = Auth.get_user(envelope.recipient_uuid)
+
+    case User.delivery_email(user) do
+      address when is_binary(address) and address != "" ->
         send_email(user, address, envelope)
 
       _ ->

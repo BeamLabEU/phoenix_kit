@@ -75,6 +75,32 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   A replayed `create_key` event does nothing: it is accepted only while the form
   is open and no new token waits to be dismissed.
 
+  ## Personal keys
+
+  A key with `personal == true` is one a person made for themselves on "My API keys"
+  (`PhoenixKit.API.Keys.create_personal_key/3`). The keys table marks it with a "Personal key"
+  badge and shows when it expires ("Expires on" for a live key, "Expires soon" only within
+  seven days, the grace period of a rotation as "until …", "Owner inactive" or "No
+  permission" while its owner may not use it; `PhoenixKitWeb.Components.PersonalKeyDisplay`,
+  shared with "My API keys", computes the statuses once in `assign_state/1`; that costs a
+  permission check per owner of a live personal key, so an event that changes no owner's
+  rights, such as a switch, keeps the owners' rights it has read and reads only an owner it
+  has not seen; each key's own status is always computed from the list just read).
+  The row menu follows `PhoenixKit.API.Keys.can_manage?/2`: the owner has Edit scopes,
+  Rotate and Revoke; an Owner looking at someone else's personal key has only "Remove
+  scopes" and "Revoke" (`Keys.can_revoke?/2`). Removing scopes opens the scopes dialog
+  in narrowing mode, which the server remembers in `:scopes_form` (never from params): it
+  offers only the key's current scopes, all ticked, the inactive ones marked, and
+  `Keys.update_scopes/3` keeps exactly what is left; adding a scope gives
+  `:scopes_not_narrowing`. Rotating a key one cannot manage is refused by the server, and
+  a rotation passes `impersonated:` read from the session at mount
+  (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`), so a personal key is not rotated
+  while the person acts in another account. Editing the scopes and revoking one's own
+  personal key stay allowed in such a session: no token is handed out. At the limit of live
+  personal keys (`Keys.personal_keys_full?/1`) the rotate dialog of a personal key starts at
+  a grace period of 0, because a longer one is refused with `:personal_key_limit`. The two settings
+  of `PhoenixKit.API.PersonalKeysConfig` are edited in a card on the first tab.
+
   ## Limits and advanced
 
   The lists `api_disabled_tools` and `api_mcp_allowed_origins` and the six
@@ -95,6 +121,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.API.FlowConfig
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.DisplayToken
+  alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry
   alias PhoenixKit.API.ServiceUsers
   alias PhoenixKit.ModuleRegistry
@@ -102,8 +129,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.Components.PersonalKeyDisplay
   alias PhoenixKitWeb.Live.Settings.ApiGuidePanel
   alias PhoenixKitWeb.Live.Settings.UrlTabs
+  alias PhoenixKitWeb.Users.MultiSession
 
   # The two switches: the name used in the page, the setting it writes.
   @switches %{"admin" => "api_admin_enabled", "public" => "api_public_enabled"}
@@ -119,7 +148,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   ]
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     socket =
       socket
       |> assign(:page_title, gettext("API"))
@@ -148,9 +177,11 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       |> assign(:service_user_params, default_service_user_params())
       |> assign(:service_user_errors, [])
       |> assign(:api_scope, socket.assigns.phoenix_kit_current_scope)
+      |> assign(:impersonated, MultiSession.impersonated?(session))
       |> assign(:guide, nil)
       |> assign_limits()
       |> assign_flow()
+      |> assign_personal_keys()
       |> assign_state()
 
     {:ok, socket}
@@ -195,7 +226,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
              history(socket)
            ) do
         {:ok, _setting} ->
-          socket |> assign_state() |> put_flash(:info, switch_text(name))
+          socket |> assign_state(statuses: :keep) |> put_flash(:info, switch_text(name))
 
         {:error, _changeset} ->
           put_flash(socket, :error, gettext("The switch could not be saved."))
@@ -285,11 +316,14 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   def handle_event("request_revoke", %{"uuid" => uuid}, socket) do
     with_access(socket, fn socket ->
       case find_key(socket, uuid) do
+        %{} = key ->
+          if Keys.can_revoke?(scope(socket), key),
+            do:
+              assign(socket, :revoke_confirmation, %{show: true, uuid: key.uuid, name: key.name}),
+            else: refuse(socket)
+
         nil ->
           put_flash(socket, :error, gettext("That key was not found."))
-
-        key ->
-          assign(socket, :revoke_confirmation, %{show: true, uuid: key.uuid, name: key.name})
       end
     end)
   end
@@ -304,8 +338,13 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       socket = assign(socket, :revoke_confirmation, %{show: false})
 
       case uuid && find_key(socket, uuid) do
-        %{} = key -> revoke_key(socket, key)
-        _ -> put_flash(socket, :error, gettext("That key was not found."))
+        %{} = key ->
+          if Keys.can_revoke?(scope(socket), key),
+            do: revoke_key(socket, key),
+            else: refuse(socket)
+
+        _ ->
+          put_flash(socket, :error, gettext("That key was not found."))
       end
     end)
   end
@@ -319,7 +358,16 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
           put_flash(socket, :error, gettext("That key was not found."))
 
         key ->
-          assign(socket, :rotate_form, %{show: true, uuid: key.uuid, name: key.name, hours: "1"})
+          if Keys.can_manage?(scope(socket), key),
+            do:
+              assign(socket, :rotate_form, %{
+                show: true,
+                uuid: key.uuid,
+                name: key.name,
+                hours: if(at_personal_limit?(socket, key), do: "0", else: "1"),
+                at_limit: at_personal_limit?(socket, key)
+              }),
+            else: refuse(socket)
       end
     end)
   end
@@ -348,9 +396,19 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     with_access(socket, fn socket ->
       key = find_key(socket, uuid)
 
-      if key && live?(key),
-        do: open_scopes_form(socket, key),
-        else: put_flash(socket, :error, gettext("That key was not found."))
+      cond do
+        is_nil(key) or not live?(key) ->
+          put_flash(socket, :error, gettext("That key was not found."))
+
+        Keys.can_manage?(scope(socket), key) ->
+          open_scopes_form(socket, key)
+
+        narrowing_only?(socket, key) ->
+          open_narrow_form(socket, key)
+
+        true ->
+          refuse(socket)
+      end
     end)
   end
 
@@ -366,7 +424,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
       case uuid && find_key(socket, uuid) do
         %{} = key ->
-          save_scopes(socket, key, string_list(form["scopes"]))
+          case Map.get(socket.assigns.scopes_form, :mode) do
+            :narrow -> narrow_scopes(socket, key, form["scopes"])
+            _manage -> save_scopes(socket, key, string_list(form["scopes"]))
+          end
 
         _ ->
           socket
@@ -410,6 +471,13 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     with_access(socket, fn socket -> save_flow(socket, normalize_flow_params(params)) end)
   end
 
+  def handle_event("save_personal_keys", %{"personal_keys" => params}, socket)
+      when is_map(params) do
+    with_access(socket, fn socket ->
+      save_personal_keys(socket, normalize_personal_keys_params(params))
+    end)
+  end
+
   def handle_event(_event, _params, socket) do
     {:noreply, put_flash(socket, :error, gettext("That action is not available."))}
   end
@@ -448,7 +516,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   # ── State ──────────────────────────────────────────────────────────
 
-  defp assign_state(socket) do
+  # `statuses: :keep` reuses the owners' rights read earlier, for an event that changes no
+  # owner's rights (a switch). Reading them costs a permission check per owner of a live
+  # personal key, so everything else reads them again, once per reload.
+  defp assign_state(socket, opts \\ []) do
     scope = scope(socket)
     keys = Keys.list_keys(scope)
     service_users = ServiceUsers.list(scope)
@@ -463,6 +534,20 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     |> assign(:allowed_roles, ServiceUsers.allowed_roles(scope))
     |> assign(:owner_labels, owner_labels(keys, service_users, scope))
     |> assign(:key_counts, Enum.frequencies_by(keys, & &1.user_uuid))
+    |> assign_personal_statuses(keys, opts[:statuses])
+    |> assign(:key_access, key_access(scope, keys))
+  end
+
+  # The owners' rights are the costly part: a `statuses: :keep` event reuses the ones read
+  # before and reads only an owner that is new. Each key's status is computed from the key
+  # list just read, so a key made or ended in the meantime shows its real status.
+  defp assign_personal_statuses(socket, keys, mode) do
+    known = if mode == :keep, do: socket.assigns[:personal_owner_states] || %{}, else: %{}
+    owners = PersonalKeyDisplay.owner_states(keys, known)
+
+    socket
+    |> assign(:personal_owner_states, owners)
+    |> assign(:personal_statuses, PersonalKeyDisplay.statuses(keys, owners))
   end
 
   # Only this module's key changes; keys of modules that are not installed stay listed. The
@@ -482,7 +567,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
            history(socket)
          ) do
       {:ok, _setting} ->
-        socket |> assign_state() |> put_flash(:info, module_api_saved(mod, on?))
+        socket |> assign_state(statuses: :keep) |> put_flash(:info, module_api_saved(mod, on?))
 
       {:error, _changeset} ->
         put_flash(socket, :error, gettext("The switch could not be saved."))
@@ -504,7 +589,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
            history(socket)
          ) do
       {:ok, _setting} ->
-        socket |> assign_state() |> put_flash(:info, session_write_saved(mod, on?))
+        socket |> assign_state(statuses: :keep) |> put_flash(:info, session_write_saved(mod, on?))
 
       {:error, _changeset} ->
         put_flash(socket, :error, gettext("The switch could not be saved."))
@@ -753,6 +838,22 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp error_messages(:role_not_allowed),
     do: [gettext("You cannot give a role that holds more rights than you do.")]
 
+  defp error_messages(:scopes_not_narrowing),
+    do: [gettext("You can only remove scopes from a personal key, not add any.")]
+
+  defp error_messages(:impersonation_unknown),
+    do: [gettext("This session cannot tell whether you act in another account.")]
+
+  defp error_messages(:impersonated),
+    do: [gettext("Personal keys cannot be rotated while you act in another account.")]
+
+  defp error_messages(:personal_key_limit),
+    do: [
+      gettext(
+        "You already have the largest number of keys allowed, so the old key cannot keep working next to the new one. Rotate with a grace period of 0, or revoke a key first."
+      )
+    ]
+
   defp error_messages(%Ecto.Changeset{} = changeset) do
     changeset
     |> Ecto.Changeset.traverse_errors(&translate_error/1)
@@ -784,8 +885,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   end
 
   defp rotate_key(socket, key, hours) do
-    with {:ok, grace} <- parse_grace(hours),
-         {:ok, new_key, token} <- Keys.rotate(key, grace, scope(socket)) do
+    with :ok <- check_manageable(socket, key),
+         {:ok, grace} <- parse_grace(hours),
+         {:ok, new_key, token} <-
+           Keys.rotate(key, grace, scope(socket), impersonated: socket.assigns.impersonated) do
       socket
       |> assign(:rotate_form, %{show: false})
       |> assign(:new_token, %DisplayToken{value: token})
@@ -795,12 +898,25 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       {:error, :bad_grace} ->
         assign(socket, :rotate_form, Map.put(socket.assigns.rotate_form, :error, true))
 
-      {:error, _reason} ->
+      {:error, reason} ->
         socket
         |> assign(:rotate_form, %{show: false})
-        |> put_flash(:error, gettext("The key could not be rotated."))
+        |> put_flash(:error, rotate_error(reason))
     end
   end
+
+  # At the cap a personal key's rotation keeps no overlap, so the dialog starts at 0 hours.
+  defp at_personal_limit?(socket, key),
+    do: key.personal and Keys.personal_keys_full?(scope(socket))
+
+  defp check_manageable(socket, key),
+    do: if(Keys.can_manage?(scope(socket), key), do: :ok, else: {:error, :forbidden})
+
+  defp rotate_error(reason)
+       when reason in [:impersonated, :impersonation_unknown, :personal_key_limit],
+       do: reason |> error_messages() |> hd()
+
+  defp rotate_error(_reason), do: gettext("The key could not be rotated.")
 
   # 0 to 24 whole hours; anything else is refused, not clamped.
   defp parse_grace(hours) do
@@ -834,6 +950,85 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
       tools: scope_tools(options),
       errors: []
     })
+  end
+
+  # An Owner on someone else's personal key may only take scopes off it. Every scope the
+  # key holds is offered, ticked, the ones its owner cannot use right now marked inactive.
+  defp narrowing_only?(socket, key),
+    do:
+      key.personal and Keys.can_revoke?(scope(socket), key) and
+        not Keys.can_manage?(scope(socket), key)
+
+  defp open_narrow_form(socket, key) do
+    usable =
+      with {:ok, _owner} <- Keys.active_owner(key),
+           {:ok, owner} <- key_owner(key) do
+        Keys.allowed_scopes_for(owner)
+      else
+        _unusable -> []
+      end
+
+    assign(socket, :scopes_form, %{
+      show: true,
+      mode: :narrow,
+      uuid: key.uuid,
+      name: key.name,
+      options: key.scopes,
+      selected: key.scopes,
+      inactive: Enum.reject(key.scopes, &(&1 in usable)),
+      tools: scope_tools(key.scopes),
+      errors: []
+    })
+  end
+
+  # Nothing ticked sends no field; anything but a list of strings is forged and refused
+  # (it must not read as "remove every scope").
+  defp narrow_scopes(socket, key, raw) when is_nil(raw) or is_list(raw) do
+    if Enum.all?(raw || [], &is_binary/1),
+      do: narrow_scopes_checked(socket, key, raw || []),
+      else: narrow_refused(socket)
+  end
+
+  defp narrow_scopes(socket, _key, _raw), do: narrow_refused(socket)
+
+  defp narrow_refused(socket) do
+    assign(
+      socket,
+      :scopes_form,
+      Map.put(socket.assigns.scopes_form, :errors, error_messages(:invalid_scopes))
+    )
+  end
+
+  defp check_narrowing_only(socket, key),
+    do: if(narrowing_only?(socket, key), do: :ok, else: {:error, :forbidden})
+
+  defp check_only_removing(scopes, key),
+    do: if(Enum.all?(scopes, &(&1 in key.scopes)), do: :ok, else: {:error, :scopes_not_narrowing})
+
+  defp narrow_scopes_checked(socket, key, scopes) do
+    with :ok <- check_narrowing_only(socket, key),
+         :ok <- check_only_removing(scopes, key),
+         {:ok, _key} <- Keys.update_scopes(key, scopes, scope(socket)) do
+      socket
+      |> assign(:scopes_form, %{show: false})
+      |> assign_state()
+      |> put_flash(:info, gettext("The scopes were saved."))
+    else
+      {:error, reason} when reason in [:revoked, :not_found] ->
+        socket
+        |> assign(:scopes_form, %{show: false})
+        |> put_flash(:error, gettext("That key was not found."))
+
+      {:error, reason} ->
+        assign(
+          socket,
+          :scopes_form,
+          Map.merge(socket.assigns.scopes_form, %{
+            selected: scopes,
+            errors: error_messages(reason)
+          })
+        )
+    end
   end
 
   defp save_scopes(socket, key, scopes) do
@@ -1056,6 +1251,38 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     end
   end
 
+  defp assign_personal_keys(socket) do
+    socket
+    |> assign(:personal_keys_params, PersonalKeysConfig.current())
+    |> assign(:personal_keys_errors, [])
+  end
+
+  # Only the fields of the form survive, each a string.
+  defp normalize_personal_keys_params(params) do
+    Map.new(PersonalKeysConfig.fields(), fn %{field: field} ->
+      {field, text(params[field], "")}
+    end)
+  end
+
+  defp save_personal_keys(socket, params) do
+    case PersonalKeysConfig.save(params, history(socket)) do
+      {:ok, _changed} ->
+        socket |> assign_personal_keys() |> put_flash(:info, gettext("The settings were saved."))
+
+      {:error, :save_failed} ->
+        socket
+        |> assign(:personal_keys_params, params)
+        |> assign(:personal_keys_errors, [gettext("The settings could not be saved.")])
+
+      {:error, fields} when is_list(fields) ->
+        socket
+        |> assign(:personal_keys_params, params)
+        |> assign(:personal_keys_errors, [
+          gettext("Every value must be a whole number inside its range.")
+        ])
+    end
+  end
+
   defp default_service_user_params, do: %{"name" => "", "roles" => []}
 
   defp normalize_service_user_params(params) do
@@ -1128,4 +1355,19 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   end
 
   defp live?(key), do: key_status(key) in [:active, :ending]
+
+  # What the keys table may offer for each key: `:manage` (edit scopes, rotate, revoke),
+  # `:narrow` (an Owner on someone else's personal key: remove scopes, revoke), or `:none`.
+  defp key_access(scope, keys) do
+    Map.new(keys, fn key ->
+      access =
+        cond do
+          Keys.can_manage?(scope, key) -> :manage
+          key.personal and Keys.can_revoke?(scope, key) -> :narrow
+          true -> :none
+        end
+
+      {key.uuid, access}
+    end)
+  end
 end

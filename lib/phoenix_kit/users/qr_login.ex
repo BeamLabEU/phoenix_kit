@@ -37,6 +37,7 @@ defmodule PhoenixKit.Users.QrLogin do
 
   alias Phoenix.LiveView
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.UserAgent
@@ -68,7 +69,14 @@ defmodule PhoenixKit.Users.QrLogin do
   def peek(token), do: Keyfob.peek(token, keyfob_opts())
 
   @doc "See `Keyfob.approve/3`. `user_ref` is the approving user's uuid."
-  def approve(token, user_ref), do: Keyfob.approve(token, user_ref, keyfob_opts())
+  def approve(token, user_ref) do
+    case Auth.get_user(user_ref) do
+      %Auth.User{managed_by_members: true} -> {:error, :not_allowed}
+      %Auth.User{api_only: true} -> {:error, :not_allowed}
+      %Auth.User{is_active: true} -> Keyfob.approve(token, user_ref, keyfob_opts())
+      _ -> {:error, :not_allowed}
+    end
+  end
 
   @doc "See `Keyfob.deny/2`."
   def deny(token), do: Keyfob.deny(token, keyfob_opts())

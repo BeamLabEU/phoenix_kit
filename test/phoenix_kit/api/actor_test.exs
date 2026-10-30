@@ -25,6 +25,7 @@ defmodule PhoenixKit.API.ActorTest do
                :user_uuid,
                :scopes,
                :scope,
+               :personal,
                :requires_approval,
                :client_token_hash,
                :ip

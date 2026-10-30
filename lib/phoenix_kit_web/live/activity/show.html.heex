@@ -58,7 +58,7 @@
                 <div class="flex items-center gap-2">
                   <.resource_email_link
                     info={@actor_link}
-                    label={@entry.actor.email}
+                    label={PhoenixKit.Activity.actor_label(@entry)}
                     class="font-semibold"
                   />
                   <%= if @entry.metadata["actor_role"] do %>
@@ -89,7 +89,7 @@
               <%= if @entry.target do %>
                 <.resource_email_link
                   info={@target_link}
-                  label={@entry.target.email}
+                  label={PhoenixKit.Users.Auth.User.delivery_email(@entry.target)}
                   class="font-semibold"
                 />
                 <div class="text-xs text-base-content/40 mt-0.5">
@@ -128,7 +128,9 @@
                     <.resource_link info={@resource_link} />
                   </div>
                   <%= if @resource_user && is_nil(@resource_link) do %>
-                    <span class="font-semibold">{@resource_user.email}</span>
+                    <span class="font-semibold">{PhoenixKit.Users.Auth.User.delivery_email(
+                      @resource_user
+                    )}</span>
                   <% end %>
                   <div class="text-xs text-base-content/40 mt-0.5">
                     {to_string(@entry.resource_uuid)}

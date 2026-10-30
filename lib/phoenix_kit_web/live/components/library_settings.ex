@@ -14,8 +14,9 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       their Object Storage integrations and a bucket on it (listed from the
       integration when its key may list buckets), only there or with the site's
       storage plus a backup copy there, and optionally copies on further
-      integrations. The choice is made here, once, and cannot be changed
-      afterwards.
+      integrations. More backup storage can be added afterwards. New rows are
+      backups: existing primary storage stays, and files are copied in the
+      background.
 
   The create form is closed until "Create library" is pressed, so the page is
   first of all the list of the user's libraries. What an integration already
@@ -35,10 +36,15 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.ObjectStorageServices
   alias PhoenixKit.Modules.Storage.{Libraries, Library, LibraryMember, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.Reconciler
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Components.LibraryPreferences
 
   @impl true
+  def update(%{reload_preferences: true}, socket), do: {:ok, load(socket)}
+  def update(%{refresh_storage_progress: true}, socket), do: {:ok, load(socket)}
+
   def update(assigns, socket) do
     socket =
       socket
@@ -46,15 +52,18 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       |> assign(:scope, assigns.scope)
       |> assign(:probe, assigns[:probe])
       |> assign(:list, assigns[:list])
+      |> assign(:url_path, assigns[:url_path])
+      |> assign(:preferences_tab, (assigns[:url_params] || %{})["settings_tab"])
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:dialog, fn -> nil end)
       |> assign_new(:form, fn -> new_form() end)
       |> assign_new(:testing, fn -> false end)
+      |> assign_new(:adding_storage, fn -> false end)
       |> assign_new(:creating, fn -> false end)
       |> assign_new(:bucket_lists, fn -> %{} end)
-      |> assign_new(:pending_create, fn -> nil end)
       |> assign_new(:test_result, fn -> nil end)
       |> load()
+      |> restore_dialog(assigns[:url_params])
 
     {:ok, socket}
   end
@@ -68,6 +77,18 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       Enum.filter(shared, &Libraries.allows?(&1.role, :members))
 
     open = members_uuid(socket.assigns.dialog)
+    connections = connections(scope)
+    own_storage = Profiles.user_storage_for(Enum.map(owned, & &1.library))
+
+    storage_library =
+      case socket.assigns.dialog do
+        {:storage, uuid} -> library_of(uuid, owned)
+        _ -> nil
+      end
+
+    storage_profile = storage_library && Profiles.for_library(storage_library)
+    storage_rows = if storage_profile, do: storage_profile.buckets, else: []
+    usage = bucket_usage(connections, owned, own_storage, storage_library, storage_rows)
 
     socket
     |> assign(:trashed, Libraries.list_trashed_user_libraries(Scope.user_uuid(scope)))
@@ -77,8 +98,14 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     |> assign(:can_create, Libraries.may_create_library?(scope))
     |> assign(:can_public, Libraries.may_create_public_library?(scope))
     |> assign(:can_own_storage, Libraries.may_use_own_storage?(scope))
-    |> assign(:connections, connections(scope))
-    |> assign(:own_storage, Profiles.user_storage_for(Enum.map(owned, & &1.library)))
+    |> assign(:connections, connections)
+    |> assign(:own_storage, own_storage)
+    |> assign(:storage_rows, storage_rows)
+    |> assign(:bucket_usage, usage)
+    |> assign(
+      :storage_progress,
+      Reconciler.progress_by_library(Enum.map(owned, & &1.library.uuid))
+    )
     |> assign(:limit, Libraries.user_library_limit())
     |> assign(:managed_uuids, Enum.map(managed, & &1.library.uuid))
     |> assign(:variant_sets, VariantSets.list_selectable())
@@ -119,13 +146,18 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     do: Enum.find(socket.assigns.owned ++ socket.assigns.shared, &(&1.library.uuid == uuid))
 
   # Who may open which dialog: the owner all of them, a manager rename and members.
+  defp dialog_allowed?("settings", role), do: role in [:owner, :manager]
   defp dialog_allowed?("rename", role), do: Libraries.allows?(role, :rename)
   defp dialog_allowed?("members", role), do: Libraries.allows?(role, :members)
+  defp dialog_allowed?("storage", role), do: role == :owner
   defp dialog_allowed?("sizes", role), do: role == :owner
   defp dialog_allowed?(_kind, _role), do: false
 
-  defp reply(socket, kind, text),
-    do: {:noreply, socket |> assign(:message, {kind, text}) |> load()}
+  defp reply(socket, kind, text) do
+    socket = socket |> assign(:message, {kind, text}) |> load()
+    socket = if is_nil(socket.assigns.dialog), do: patch_dialog(socket, nil, nil), else: socket
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_event("open_create", _params, socket) do
@@ -141,7 +173,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   def handle_event("open_dialog", %{"kind" => kind, "uuid" => uuid}, socket) do
     with %{role: role} <- entry(socket, uuid),
          true <- dialog_allowed?(kind, role) do
-      {:noreply, socket |> assign(:dialog, {String.to_existing_atom(kind), uuid}) |> load()}
+      {:noreply, socket |> open_dialog(kind, uuid) |> patch_dialog(kind, uuid)}
     else
       _ -> {:noreply, socket}
     end
@@ -151,7 +183,8 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     {:noreply,
      socket
      |> assign(dialog: nil, form: new_form(), bucket_lists: %{}, test_result: nil)
-     |> load()}
+     |> load()
+     |> patch_dialog(nil, nil)}
   end
 
   def handle_event("form_change", %{"library" => params}, socket) do
@@ -278,6 +311,33 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     end
   end
 
+  def handle_event("add_storage", %{"library" => params}, socket) do
+    socket = merge_form(socket, params)
+
+    with {:storage, uuid} <- socket.assigns.dialog,
+         %{library: library, role: :owner} <- entry(socket, uuid),
+         false <- socket.assigns.adding_storage do
+      scope = socket.assigns.scope
+      storage = storage_params(socket.assigns.form)
+      opts = probe_opts(socket)
+
+      if socket.assigns[:probe] do
+        storage_added(socket, Libraries.add_user_storage(scope, library, storage, opts))
+      else
+        {:noreply,
+         socket
+         |> assign(:adding_storage, true)
+         |> start_async(:add_storage, fn ->
+           Libraries.add_user_storage(scope, library, storage)
+         end)}
+      end
+    else
+      _ -> reply(socket, :error, gettext("You may not change this library's storage"))
+    end
+  end
+
+  def handle_event("refresh_storage", _params, socket), do: {:noreply, load(socket)}
+
   def handle_event("rename", %{"uuid" => uuid, "name" => name}, socket) do
     with %{library: library} <- entry(socket, uuid),
          {:ok, _} <- Libraries.rename_user_library(socket.assigns.scope, library, name) do
@@ -336,6 +396,13 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
          {:ok, restored} <- Libraries.restore_library(socket.assigns.scope, library) do
       reply(socket, :success, gettext("Library “%{name}” restored", name: restored.name))
     else
+      {:error, :storage_changed} ->
+        reply(
+          socket,
+          :error,
+          gettext("The integration changed during testing. Refresh and try again.")
+        )
+
       {:error, :limit_reached} ->
         reply(socket, :error, gettext("You have reached the number of libraries you may own"))
 
@@ -402,6 +469,64 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     end
   end
 
+  defp open_dialog(socket, kind, uuid) do
+    socket
+    |> assign(
+      dialog: {String.to_existing_atom(kind), uuid},
+      message: nil,
+      form: new_form(),
+      bucket_lists: %{},
+      test_result: nil
+    )
+    |> load()
+    |> preselect_integration()
+  end
+
+  # The URL is authoritative on mount, reconnect, and browser Back/Forward.
+  # Unrelated parent updates keep the in-progress form intact.
+  defp restore_dialog(socket, nil), do: socket
+
+  defp restore_dialog(socket, params) do
+    state = {params["dialog"], params["library"]}
+
+    if socket.assigns[:url_dialog] == state do
+      socket
+    else
+      socket = assign(socket, :url_dialog, state)
+
+      case state do
+        {kind, uuid} when is_binary(kind) and is_binary(uuid) ->
+          with %{role: role} <- entry(socket, uuid),
+               true <- dialog_allowed?(kind, role) do
+            open_dialog(socket, kind, uuid)
+          else
+            _ -> assign(socket, :dialog, nil)
+          end
+
+        _ ->
+          assign(socket, :dialog, nil)
+      end
+    end
+  end
+
+  defp patch_dialog(%{assigns: %{url_path: path}} = socket, kind, uuid) when is_binary(path) do
+    uri = URI.parse(path)
+    params = URI.decode_query(uri.query || "") |> Map.drop(~w(library dialog))
+
+    params =
+      if kind,
+        do: Map.merge(params, %{"library" => uuid, "dialog" => kind}),
+        else: Map.delete(params, "settings_tab")
+
+    query = URI.encode_query(params)
+
+    socket
+    |> assign(:url_dialog, {kind, uuid})
+    |> push_patch(to: uri.path <> if(query == "", do: "", else: "?" <> query))
+  end
+
+  defp patch_dialog(socket, _kind, _uuid), do: socket
+
   @impl true
   def handle_async(:test_storage, {:ok, result}, socket) do
     {:noreply, assign(socket, testing: false, test_result: probe_message(result))}
@@ -432,31 +557,72 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
      )}
   end
 
-  # The bucket was checked off the page's process; now the library is created
-  # (database only) without checking it again.
-  def handle_async(:probe_storage, {:ok, :ok}, socket) do
-    attrs = socket.assigns.pending_create
-    socket = assign(socket, creating: false, pending_create: nil)
-    finish_create(socket, attrs, probe: fn _params -> :ok end)
+  def handle_async(:create_library, {:ok, result}, socket) do
+    create_result(assign(socket, creating: false), result)
   end
 
-  def handle_async(:probe_storage, {:ok, result}, socket) do
-    socket = assign(socket, creating: false, pending_create: nil)
+  def handle_async(:create_library, {:exit, _reason}, socket) do
+    reply(
+      assign(socket, creating: false),
+      :error,
+      gettext("The storage operation stopped unexpectedly. Refresh before trying again.")
+    )
+  end
 
-    case probe_message(result) do
-      {:error, message} ->
-        reply(
-          socket,
-          :error,
-          gettext("Your storage could not be used: %{reason}", reason: message)
+  def handle_async(:add_storage, {:ok, result}, socket) do
+    storage_added(assign(socket, adding_storage: false), result)
+  end
+
+  def handle_async(:add_storage, {:exit, _reason}, socket) do
+    reply(
+      assign(socket, adding_storage: false),
+      :error,
+      gettext("The storage operation stopped unexpectedly. Refresh before trying again.")
+    )
+  end
+
+  defp storage_added(socket, {:ok, _library}) do
+    reply(
+      assign(socket, form: new_form(), bucket_lists: %{}),
+      :success,
+      gettext("Backup storage added. Existing files are copied and verified in the background.")
+    )
+  end
+
+  defp storage_added(socket, {:error, %Ecto.Changeset{} = changeset}),
+    do: reply(socket, :error, storage_message(changeset))
+
+  defp storage_added(socket, {:error, message}) when is_binary(message),
+    do: reply(socket, :error, message)
+
+  defp storage_added(socket, {:error, :duplicate_bucket}),
+    do: reply(socket, :error, gettext("This library already uses that bucket."))
+
+  defp storage_added(socket, {:error, reason}) when reason in [:too_many_buckets, :copy_limit],
+    do:
+      reply(
+        socket,
+        :error,
+        gettext(
+          "This library has reached its storage copy limit. Existing storage has been kept."
         )
-    end
-  end
+      )
 
-  def handle_async(:probe_storage, {:exit, _reason}, socket) do
-    socket = assign(socket, creating: false, pending_create: nil)
-    reply(socket, :error, gettext("The test stopped unexpectedly"))
-  end
+  defp storage_added(socket, {:error, :storage_changed}),
+    do:
+      reply(
+        socket,
+        :error,
+        gettext("The integration changed during testing. Refresh and try again.")
+      )
+
+  defp storage_added(socket, {:error, _}),
+    do:
+      reply(
+        socket,
+        :error,
+        gettext("Storage could not be added. Check your access and the bucket connection.")
+      )
 
   # `:probe` (an assign, unset in production) replaces the bucket check, and with
   # it the wait: the library is created at once.
@@ -475,8 +641,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         {:noreply,
          socket
          |> assign(:creating, true)
-         |> assign(:pending_create, attrs)
-         |> start_async(:probe_storage, fn -> Libraries.probe_own_storage(scope, storage) end)}
+         |> start_async(:create_library, fn -> Libraries.create_user_library(scope, attrs) end)}
 
       probe ->
         finish_create(socket, attrs, probe: probe)
@@ -495,7 +660,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   end
 
   defp finish_create(socket, attrs, opts) do
-    case Libraries.create_user_library(socket.assigns.scope, attrs, opts) do
+    create_result(socket, Libraries.create_user_library(socket.assigns.scope, attrs, opts))
+  end
+
+  defp create_result(socket, result) do
+    case result do
       {:ok, library} ->
         socket =
           assign(socket,
@@ -534,6 +703,20 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
       {:error, %Ecto.Changeset{} = changeset} ->
         reply(socket, :error, changeset_message(changeset))
+
+      {:error, :storage_changed} ->
+        reply(
+          socket,
+          :error,
+          gettext("The integration changed during testing. Refresh and try again.")
+        )
+
+      {:error, _} ->
+        reply(
+          socket,
+          :error,
+          gettext("The library could not be created. Refresh and try again.")
+        )
     end
   end
 
@@ -678,12 +861,52 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           uuid: uuid,
           name: name,
           service: ObjectStorageServices.label(data),
+          endpoint: data["endpoint"],
+          region: data["region"],
           where: data["endpoint"] |> blank_to_nil() || data["region"] |> blank_to_nil()
         }
       end)
     else
       []
     end
+  end
+
+  # Only this account's library names are used in the picker. Connections can
+  # have different keys while addressing the same physical bucket.
+  defp bucket_usage(connections, owned, storage, current_library, current_rows) do
+    rows =
+      Enum.flat_map(owned, fn %{library: library} ->
+        Enum.map(
+          get_in(storage, [to_string(library.uuid), :buckets]) || [],
+          &{library, &1.bucket}
+        )
+      end)
+
+    rows =
+      rows ++
+        if(current_library, do: Enum.map(current_rows, &{current_library, &1.bucket}), else: [])
+
+    Map.new(connections, fn connection ->
+      usage =
+        rows
+        |> Enum.filter(fn {_library, bucket} ->
+          bucket.integration_uuid == connection.uuid or
+            Libraries.same_storage_destination?(bucket, %{
+              endpoint: connection.endpoint,
+              bucket_name: bucket.bucket_name
+            })
+        end)
+        |> Enum.group_by(fn {_library, bucket} -> bucket.bucket_name end, fn {library, _bucket} ->
+          %{uuid: library.uuid, name: library.name}
+        end)
+        |> Map.new(fn {name, libraries} -> {name, Enum.uniq_by(libraries, & &1.uuid)} end)
+
+      {connection.uuid, usage}
+    end)
+  end
+
+  defp storage_connection(connections, bucket) do
+    Enum.find(connections, &(&1.uuid == bucket.integration_uuid))
   end
 
   defp blank_to_nil(value) when is_binary(value),
@@ -730,25 +953,21 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       else: sets ++ List.wrap(VariantSets.get_variant_set(current))
   end
 
-  defp own_storage_label(%{mode: :only, buckets: [first | copies]}) do
-    case length(copies) do
-      0 ->
-        gettext("Your bucket: %{name}", name: first.bucket.bucket_name)
-
-      n ->
-        ngettext(
-          "Your bucket: %{name} (+%{count} copy)",
-          "Your bucket: %{name} (+%{count} copies)",
-          n,
-          name: first.bucket.bucket_name
-        )
-    end
+  defp site_storage_label do
+    gettext("%{project}'s storage", project: PhoenixKit.Settings.get_project_title())
   end
 
-  defp own_storage_label(%{mode: :backup, buckets: buckets}) do
-    gettext("Backed up to: %{names}",
-      names: Enum.map_join(buckets, ", ", & &1.bucket.bucket_name)
-    )
+  defp own_storage_label(%{role: "primary", bucket: bucket}),
+    do: gettext("Your bucket: %{name}", name: bucket.bucket_name)
+
+  defp own_storage_label(%{bucket: bucket}),
+    do: gettext("Backed up to: %{names}", names: bucket.bucket_name)
+
+  defp bucket_integration_label(connections, bucket) do
+    case storage_connection(connections, bucket) do
+      nil -> bucket.provider
+      connection -> Enum.join([connection.name, connection.service], " · ")
+    end
   end
 
   defp trash_confirm(library, own_storage) do
@@ -798,7 +1017,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     ~H"""
     <div id={@id} class="flex flex-col gap-6">
       <div
-        :if={@message}
+        :if={@message && not match?({:storage, _}, @dialog)}
         class={[
           "alert text-sm",
           elem(@message, 0) == :success && "alert-success",
@@ -866,21 +1085,65 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     {gettext("Default")}
                   </span>
                 </div>
+                <.link
+                  href={LibraryPreferences.library_url(library, @scope)}
+                  class="relative z-10 mt-1 block max-w-sm break-all text-xs text-base-content/60 hover:underline"
+                >{LibraryPreferences.library_url(library, @scope)}</.link>
               </.table_default_cell>
               <.table_default_cell>
-                <span
+                <div
                   :if={storage = @own_storage[to_string(library.uuid)]}
-                  class="badge badge-outline badge-sm"
-                  title={gettext("Where this library keeps its files")}
+                  class="flex flex-col gap-2"
                 >
-                  {own_storage_label(storage)}
-                </span>
+                  <div :for={target <- storage.buckets} class="text-sm">
+                    <div class="flex items-start gap-1.5">
+                      <.icon
+                        name={
+                          if target.role == "primary",
+                            do: "hero-circle-stack",
+                            else: "hero-shield-check"
+                        }
+                        class="size-3.5 shrink-0 mt-0.5 text-base-content/60"
+                      />
+                      <span class="break-all">{own_storage_label(target)}</span>
+                    </div>
+                    <div class="flex items-start gap-1.5 text-xs text-base-content/60 mt-0.5">
+                      <.icon name="hero-cloud" class="size-3 shrink-0 mt-0.5" />
+                      <span class="break-all">{bucket_integration_label(@connections, target.bucket)}</span>
+                    </div>
+                  </div>
+                </div>
                 <span
                   :if={!@own_storage[to_string(library.uuid)]}
-                  class="text-sm text-base-content/60"
+                  class="inline-flex items-center gap-1.5 text-sm text-base-content/60"
                 >
-                  {gettext("The site's storage")}
+                  <.icon name="hero-server-stack" class="size-3.5 shrink-0" />
+                  {site_storage_label()}
                 </span>
+                <div :if={progress = @storage_progress[to_string(library.uuid)]} class="mt-2 max-w-xs">
+                  <button
+                    :if={progress.pending > 0 and @own_storage[to_string(library.uuid)]}
+                    type="button"
+                    phx-click="open_dialog"
+                    phx-target={@myself}
+                    phx-value-kind="storage"
+                    phx-value-uuid={library.uuid}
+                    class="relative z-10 flex items-center gap-2 text-xs text-primary hover:underline"
+                  >
+                    <.icon name="hero-arrow-path" class="size-3" />
+                    {gettext("%{done} of %{total} files up to date",
+                      done: progress.completed,
+                      total: progress.total
+                    )}
+                  </button>
+                  <progress
+                    :if={progress.pending > 0}
+                    class="progress progress-primary mt-1 h-1 w-full"
+                    value={progress.completed}
+                    max={max(progress.total, 1)}
+                    aria-label={gettext("Library storage progress")}
+                  ></progress>
+                </div>
               </.table_default_cell>
               <.table_default_cell>
                 <.visibility_badge library={library} />
@@ -891,6 +1154,14 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     navigate={open_href(@scope, library)}
                     icon="hero-photo"
                     label={gettext("Open")}
+                  />
+                  <.table_row_menu_button
+                    phx-click="open_dialog"
+                    phx-target={@myself}
+                    phx-value-kind="settings"
+                    phx-value-uuid={library.uuid}
+                    icon="hero-cog-6-tooth"
+                    label={gettext("Settings")}
                   />
                   <.table_row_menu_button
                     phx-click="open_dialog"
@@ -925,6 +1196,15 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     icon="hero-adjustments-horizontal"
                     label={gettext("Renditions")}
                   />
+                  <.table_row_menu_button
+                    :if={@can_own_storage and @own_storage[to_string(library.uuid)]}
+                    phx-click="open_dialog"
+                    phx-target={@myself}
+                    phx-value-kind="storage"
+                    phx-value-uuid={library.uuid}
+                    icon="hero-cloud-arrow-up"
+                    label={gettext("Storage and backups")}
+                  />
                   <.table_row_menu_divider />
                   <.table_row_menu_button
                     phx-click="trash"
@@ -951,6 +1231,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                   <span class="font-medium">{library.name}</span>
                   <span class="badge badge-ghost badge-sm">{role_label(role)}</span>
                 </div>
+                <.link
+                  href={LibraryPreferences.library_url(library, @scope)}
+                  class="relative z-10 mt-1 block max-w-sm break-all text-xs text-base-content/60 hover:underline"
+                >{LibraryPreferences.library_url(library, @scope)}</.link>
               </.table_default_cell>
               <.table_default_cell>
                 <span class="text-sm text-base-content/60">{gettext("Shared with me")}</span>
@@ -964,6 +1248,15 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     navigate={open_href(@scope, library)}
                     icon="hero-photo"
                     label={gettext("Open")}
+                  />
+                  <.table_row_menu_button
+                    :if={library.uuid in @managed_uuids}
+                    phx-click="open_dialog"
+                    phx-target={@myself}
+                    phx-value-kind="settings"
+                    phx-value-uuid={library.uuid}
+                    icon="hero-cog-6-tooth"
+                    label={gettext("Settings")}
                   />
                   <.table_row_menu_button
                     :if={library.uuid in @managed_uuids}
@@ -1010,7 +1303,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 </div>
               </.table_default_cell>
               <.table_default_cell>
-                <span class="text-sm text-base-content/60">{gettext("The site's storage")}</span>
+                <span class="text-sm text-base-content/60">{site_storage_label()}</span>
               </.table_default_cell>
               <.table_default_cell>
                 <.visibility_badge library={@media.library} />
@@ -1068,6 +1361,196 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           </.table_default_body>
         </.table_default>
       </div>
+
+      <.modal
+        :if={match?({:settings, _}, @dialog) and @dialog_library}
+        id={"#{@id}-preferences"}
+        show
+        on_close="close_dialog"
+        phx-target={@myself}
+        max_width="3xl"
+      >
+        <:title>{gettext("Library settings")} · {@dialog_library.name}</:title>
+        <.live_component
+          module={PhoenixKitWeb.Live.Components.LibraryPreferences}
+          id={"#{@id}-preferences-#{@dialog_library.uuid}"}
+          library_uuid={@dialog_library.uuid}
+          scope={@scope}
+          management_target={@myself}
+          backup_management_target={@myself}
+          notify={%{module: __MODULE__, id: @id}}
+          url_path={@url_path}
+          selected_tab={@preferences_tab}
+        />
+        <:actions>
+          <button type="button" class="btn btn-ghost" phx-click="close_dialog" phx-target={@myself}>{gettext(
+            "Close"
+          )}</button>
+        </:actions>
+      </.modal>
+
+      <.modal
+        :if={match?({:storage, _}, @dialog) and @dialog_library}
+        show
+        id={"#{@id}-storage-modal"}
+        phx-target={@myself}
+        on_close="close_dialog"
+        max_width="2xl"
+      >
+        <:title>{gettext("Storage and backups")} · {@dialog_library.name}</:title>
+        <div class="space-y-4">
+          <p>
+            {gettext(
+              "Add another integration as backup storage. Your current storage stays in place. Existing files, including renditions, are copied and verified in the background."
+            )}
+          </p>
+          <.storage_work
+            progress={@storage_progress[to_string(@dialog_library.uuid)]}
+            id={"#{@id}-storage-progress"}
+          />
+          <div class="space-y-3" aria-label={gettext("Connected storage")}>
+            <article
+              :for={row <- @storage_rows}
+              id={"#{@id}-storage-bucket-#{row.bucket.uuid}"}
+              class="rounded-2xl border border-base-300 bg-gradient-to-br from-base-200 to-base-100 p-4 sm:p-5"
+            >
+              <% connection = storage_connection(@connections, row.bucket) %>
+              <div class="flex items-start gap-3">
+                <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <.icon name="hero-cloud" class="size-7" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-medium uppercase tracking-wider text-base-content/50">
+                    {gettext("Integration")}
+                  </p>
+                  <p class="break-words text-base font-semibold">
+                    {if connection,
+                      do: connection.name,
+                      else:
+                        if(row.bucket.owner_uuid,
+                          do: gettext("Integration unavailable"),
+                          else: gettext("Site storage")
+                        )}
+                  </p>
+                  <p class="break-all text-xs text-base-content/60">
+                    {if connection,
+                      do: integration_line(@connections, connection.uuid),
+                      else: row.bucket.provider}
+                  </p>
+                </div>
+                <span class={[
+                  "badge badge-sm shrink-0",
+                  if(row.role == "primary", do: "badge-primary", else: "badge-outline")
+                ]}>
+                  {if row.role == "primary", do: gettext("Primary"), else: gettext("Backup")}
+                </span>
+              </div>
+              <div class="mt-4 flex items-center gap-3 rounded-xl border border-base-300/60 bg-base-100/80 px-3 py-3">
+                <.icon name="hero-circle-stack" class="size-5 shrink-0 text-primary" />
+                <div class="min-w-0">
+                  <p class="text-xs text-base-content/50">{gettext("Bucket")}</p>
+                  <p class="break-all font-mono text-sm font-medium">
+                    {row.bucket.bucket_name || row.bucket.name}
+                  </p>
+                </div>
+                <.icon name="hero-link" class="ml-auto size-5 shrink-0 text-base-content/40" />
+              </div>
+              <% counts =
+                get_in(@storage_progress, [
+                  to_string(@dialog_library.uuid),
+                  :buckets,
+                  to_string(row.bucket.uuid)
+                ]) || %{stored: 0, bytes: 0, unavailable: 0, verified: 0, syncing: 0} %>
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
+                <span>{gettext("%{count} stored copies", count: counts.stored)}</span>
+                <span>{PhoenixKit.Utils.Format.bytes(counts.bytes || 0)}</span>
+                <span>{gettext("%{count} verified", count: counts.verified)}</span>
+                <span :if={counts.syncing > 0} class="text-primary">{gettext("%{count} copying",
+                  count: counts.syncing
+                )}</span>
+                <span :if={counts.unavailable > 0} class="text-warning">{gettext(
+                  "%{count} unavailable",
+                  count: counts.unavailable
+                )}</span>
+              </div>
+            </article>
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            phx-click="refresh_storage"
+            phx-target={@myself}
+          >{gettext("Refresh status")}</button>
+          <p class="text-xs text-base-content/60">
+            {gettext(
+              "Buckets already connected to this library are hidden. Buckets used by your other libraries are labelled; each library keeps its files separate."
+            )}
+          </p>
+          <form
+            id={"#{@id}-add-storage"}
+            phx-change="form_change"
+            phx-submit="add_storage"
+            phx-target={@myself}
+          >
+            <.target_row
+              :for={{target, index} <- Enum.with_index(@form["targets"])}
+              id={"#{@id}-backup"}
+              index={index}
+              count={length(@form["targets"])}
+              target={target}
+              connections={@connections}
+              usage={@bucket_usage[target["integration_uuid"]] || %{}}
+              library_uuid={@dialog_library.uuid}
+              list={bucket_list(@bucket_lists, index, target["integration_uuid"])}
+              myself={@myself}
+            />
+            <div
+              :if={@message}
+              id={"#{@id}-storage-message"}
+              role="alert"
+              aria-live="assertive"
+              class={[
+                "alert text-sm break-words",
+                elem(@message, 0) == :error && "alert-error",
+                elem(@message, 0) == :success && "alert-success"
+              ]}
+            >
+              <.icon
+                name={
+                  if elem(@message, 0) == :success,
+                    do: "hero-check-circle",
+                    else: "hero-exclamation-circle"
+                }
+                class="size-5 shrink-0"
+              />
+              <span>{elem(@message, 1)}</span>
+            </div>
+            <a
+              href={Routes.path("/profile/settings/integrations/new?provider=object_storage")}
+              target="_blank"
+              rel="noopener"
+              class="btn btn-sm btn-ghost"
+            >{gettext("Add an integration")}</a>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost"
+              phx-click="refresh_connections"
+              phx-target={@myself}
+            >{gettext("Refresh integrations")}</button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              disabled={@adding_storage or @connections == []}
+              phx-disable-with={gettext("Testing and adding...")}
+            >{gettext("Add backup storage")}</button>
+          </form>
+        </div>
+        <:actions>
+          <button type="button" class="btn btn-ghost" phx-click="close_dialog" phx-target={@myself}>{gettext(
+            "Close"
+          )}</button>
+        </:actions>
+      </.modal>
 
       <.create_dialog :if={@dialog == :create} {assigns} />
 
@@ -1202,6 +1685,15 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     """
   end
 
+  defp visibility_badge(
+         %{library: %{visibility: "site", settings: %{"public_audience" => "authenticated"}}} =
+           assigns
+       ) do
+    ~H"""
+    <span class="badge badge-info badge-sm">{gettext("Signed-in users")}</span>
+    """
+  end
+
   defp visibility_badge(%{library: %{visibility: "private"}} = assigns) do
     ~H"""
     <span
@@ -1312,7 +1804,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
               class="radio radio-sm radio-primary mt-0.5"
             />
             <span class="text-sm">
-              {gettext("The site's storage")}
+              {site_storage_label()}
               <span class="block text-xs text-base-content/60">
                 {gettext("Nothing to set up.")}
               </span>
@@ -1377,6 +1869,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
               count={length(@form["targets"])}
               target={target}
               connections={@connections}
+              usage={@bucket_usage[target["integration_uuid"]] || %{}}
               list={bucket_list(@bucket_lists, index, target["integration_uuid"])}
               myself={@myself}
             />
@@ -1435,7 +1928,9 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 class="radio radio-sm radio-primary mt-0.5"
               />
               <span class="text-sm">
-                {gettext("The site's storage, backed up here")}
+                {gettext("%{project}'s storage, backed up here",
+                  project: PhoenixKit.Settings.get_project_title()
+                )}
                 <span class="block text-xs text-base-content/60">
                   <%= if length(@form["targets"]) > 1 do %>
                     {gettext(
@@ -1472,7 +1967,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
             </div>
             <p class="text-xs text-base-content/60">
               {gettext(
-                "Where a library keeps its files cannot be changed once it is created. It is tested again when you create it. Deleting the library deletes the files it stored in your buckets."
+                "The place a library keeps its files stays as it is. More backup storage can be added later, and existing files are copied in the background. It is tested again when you create it. Deleting the library deletes the files it stored in your buckets."
               )}
             </p>
           </div>
@@ -1499,12 +1994,92 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   end
 
   attr :id, :string, required: true
+  attr :progress, :map, required: true
+
+  defp storage_work(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class="rounded-2xl border border-primary/20 bg-primary/5 p-4"
+      aria-label={gettext("Storage activity")}
+    >
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="flex items-center gap-2 font-semibold">
+          <.icon
+            name={if @progress.pending == 0, do: "hero-check-circle", else: "hero-arrow-path"}
+            class="size-5 text-primary"
+          />
+          {storage_state(@progress)}
+        </h3>
+        <span class="text-xs text-base-content/60">{gettext("Updates automatically")}</span>
+      </div>
+      <div :if={@progress.total > 0} class="mt-3">
+        <div class="mb-2 flex items-center justify-between gap-2 text-sm">
+          <span>{gettext("%{done} of %{total} files up to date",
+            done: @progress.completed,
+            total: @progress.total
+          )}</span>
+          <span class="font-semibold tabular-nums">{@progress.percent}%</span>
+        </div>
+        <progress
+          class="progress progress-primary h-2 w-full"
+          value={@progress.completed}
+          max={max(@progress.total, 1)}
+          aria-label={gettext("Library storage progress")}
+        ></progress>
+      </div>
+      <p :if={@progress.total == 0} class="mt-2 text-sm text-base-content/70">
+        {gettext("No files to copy yet. New uploads will use this storage.")}
+      </p>
+      <div :if={@progress.pending > 0} class="mt-3 flex flex-wrap gap-2 text-xs">
+        <span class="badge badge-outline badge-sm">{gettext("%{count} pending",
+          count: @progress.pending
+        )}</span>
+        <span :if={@progress.failing > 0} class="badge badge-warning badge-sm">{gettext(
+          "%{count} waiting to retry",
+          count: @progress.failing
+        )}</span>
+        <span :if={@progress.processing > 0} class="badge badge-outline badge-sm">{gettext(
+          "%{count} processing uploads",
+          count: @progress.processing
+        )}</span>
+      </div>
+      <p :if={@progress.failing > 0} class="mt-2 text-xs text-base-content/70">
+        {gettext(
+          "Some files could not be updated. Failed files become eligible for another attempt after a 10-minute cooldown. Check storage access if failures persist."
+        )}
+      </p>
+      <p class="mt-2 text-xs text-base-content/60">
+        {gettext(
+          "Tracks copying, verification, cleanup and rendition updates. Stored copies include originals and renditions."
+        )}
+      </p>
+    </section>
+    """
+  end
+
+  defp storage_state(%{total: 0}), do: gettext("Storage ready")
+  defp storage_state(%{pending: 0}), do: gettext("Up to date")
+  defp storage_state(%{run_state: "running"}), do: gettext("Updating storage")
+
+  defp storage_state(%{run_state: state}) when state in ["paused", "pausing"],
+    do: gettext("Storage work paused")
+
+  defp storage_state(%{run_state: state}) when state in ["failed", "cancelled", "cancelling"],
+    do: gettext("Storage work needs attention")
+
+  defp storage_state(%{failing: failing}) when failing > 0, do: gettext("Waiting to retry")
+  defp storage_state(_progress), do: gettext("Waiting for background work")
+
+  attr :id, :string, required: true
   attr :index, :integer, required: true
   attr :count, :integer, required: true
   attr :target, :map, required: true
   attr :connections, :list, required: true
   attr :list, :any, default: nil
   attr :myself, :any, required: true
+  attr :usage, :map, default: %{}
+  attr :library_uuid, :string, default: nil
 
   # One bucket of the new library: an integration of the user's, and a bucket on
   # it. What the integration already knows is shown under it, not asked again.
@@ -1514,6 +2089,19 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       |> assign(:uuid, assigns.target["integration_uuid"])
       |> assign(:bucket, assigns.target["bucket_name"])
       |> assign(:line, integration_line(assigns.connections, assigns.target["integration_uuid"]))
+      |> assign(
+        :bucket_options,
+        if(match?({:ok, _}, assigns.list),
+          do:
+            bucket_choices(
+              assigns.list,
+              assigns.target["bucket_name"],
+              assigns.usage,
+              assigns.library_uuid
+            ),
+          else: []
+        )
+      )
 
     ~H"""
     <div
@@ -1555,7 +2143,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
               label={gettext("Bucket")}
               value={@bucket}
               prompt={gettext("Choose a bucket...")}
-              options={bucket_choices(@list, @bucket)}
+              options={@bucket_options}
             />
           </div>
           <button
@@ -1595,8 +2183,19 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         <span :if={match?({:error, _}, @list)} class="text-xs text-warning">
           {elem(@list, 1)}
         </span>
-        <span :if={match?({:ok, _}, @list)} class="text-xs text-base-content/60">
-          {ngettext("%{count} bucket found.", "%{count} buckets found.", length(elem(@list, 1)))}
+        <span
+          :if={match?({:ok, _}, @list) and @bucket_options == []}
+          class="text-xs text-base-content/60"
+        >
+          {gettext(
+            "No available buckets on this integration. Choose another integration or create a new bucket at your provider."
+          )}
+        </span>
+        <span
+          :if={match?({:ok, _}, @list) and @bucket_options != []}
+          class="text-xs text-base-content/60"
+        >
+          {ngettext("%{count} bucket found.", "%{count} buckets found.", length(@bucket_options))}
         </span>
       </div>
     </div>
@@ -1609,8 +2208,23 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
   # The listed buckets, and the one already typed or chosen when the list does
   # not hold it (a key that lists fewer buckets than it can use).
-  defp bucket_choices({:ok, names}, current) do
-    if current in [nil, ""] or current in names, do: names, else: names ++ [current]
+  defp bucket_choices({:ok, names}, current, usage, library_uuid) do
+    names = if current in [nil, ""] or current in names, do: names, else: names ++ [current]
+
+    names
+    |> Enum.reject(fn name -> Enum.any?(usage[name] || [], &(&1.uuid == library_uuid)) end)
+    |> Enum.map(fn name ->
+      case usage[name] || [] do
+        [] ->
+          {name, name}
+
+        libraries ->
+          {gettext("%{bucket} — used by %{libraries}",
+             bucket: name,
+             libraries: Enum.map_join(libraries, ", ", & &1.name)
+           ), name}
+      end
+    end)
   end
 
   attr :id, :string, required: true

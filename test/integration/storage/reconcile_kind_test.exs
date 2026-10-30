@@ -161,6 +161,52 @@ defmodule PhoenixKit.Modules.Storage.ReconcileKindTest do
                Reconciler.counts_by_library([ctx.one.library.uuid])[ctx.one.library.uuid]
     end
 
+    test "progress counts durable completion and copies without including another library", ctx do
+      first = upload!(ctx, ctx.one, "first")
+      second = upload!(ctx, ctx.one, "second")
+      upload!(ctx, ctx.two, "private-other-library")
+      stale!(ctx.one, ctx.c)
+      uuid = to_string(ctx.one.library.uuid)
+
+      assert %{^uuid => %{total: 2, pending: 2, completed: 0, percent: 0}} =
+               Reconciler.progress_by_library([uuid])
+
+      assert :reconciled = Reconciler.reconcile_file(Storage.get_file(first.uuid))
+      recent = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^second.uuid),
+        set: [reconcile_attempted_at: recent]
+      )
+
+      progress = Reconciler.progress_by_library([uuid])
+      assert map_size(progress) == 1
+      assert %{total: 2, pending: 1, completed: 1, percent: 50, failing: 1} = progress[uuid]
+      assert progress[uuid].buckets[to_string(ctx.c.uuid)].stored == 1
+      assert Decimal.to_integer(progress[uuid].buckets[to_string(ctx.c.uuid)].bytes) == 5
+      assert :reconciled = Reconciler.reconcile_file(Storage.get_file(second.uuid))
+
+      assert %{pending: 0, completed: 2, percent: 100} =
+               Reconciler.progress_by_library([uuid])[uuid]
+
+      assert %{} == Reconciler.progress_by_library([])
+    end
+
+    test "progress separates fresh uploads from completed storage work", ctx do
+      file = upload!(ctx, ctx.one, "uploading")
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^file.uuid),
+        set: [
+          status: "processing",
+          updated_at: DateTime.utc_now(:second)
+        ]
+      )
+
+      assert %{total: 1, processing: 1, pending: 1, completed: 0, percent: 0} =
+               Reconciler.progress_by_library([ctx.one.library.uuid])[
+                 to_string(ctx.one.library.uuid)
+               ]
+    end
+
     test "libraries_with_work/0 lists the libraries the reconciler may take now", ctx do
       upload!(ctx, ctx.one, "x")
       upload!(ctx, ctx.two, "y")

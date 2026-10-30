@@ -26,6 +26,7 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
   alias PhoenixKit.Modules.Storage.{Bucket, Endpoint, Libraries, Library, Manager, Profiles}
   alias PhoenixKit.Modules.Storage.Jobs.PurgeLibrary
   alias PhoenixKit.Modules.Storage.Providers.S3
+  alias PhoenixKit.Modules.Storage.Reconciler
   alias PhoenixKit.Modules.Storage.Workers.PurgeLibraryJob
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.{Auth, Permissions, Roles}
@@ -395,6 +396,15 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       assert Agent.get(store, & &1) == before
     end
 
+    test "R2 upload denial explains the token permissions needed", %{store: store} do
+      bucket = %{owned_bucket!(UUIDv7.generate()) | provider: "r2"}
+      memory_s3(store, deny: ["PUT"])
+      assert {:error, message} = S3.test_connection(bucket)
+      assert message =~ "R2 refused the test upload (HTTP 403)"
+      assert message =~ "Object Read & Write"
+      assert message =~ "Permission to list buckets alone does not allow uploads"
+    end
+
     test "uses a fresh key each time" do
       bucket = owned_bucket!(UUIDv7.generate())
       test_pid = self()
@@ -697,7 +707,9 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       {:ok, _file} = upload!(user, library, root, "left behind")
 
       # What deleting the account does first.
-      Integrations.remove_connection(bucket.integration_uuid, nil, owner: {:user, user.uuid})
+      # Simulate account teardown/lost configuration rather than the protected
+      # integration-removal API, which now refuses live storage dependencies.
+      Repo.delete!(Repo.get!(PhoenixKit.Settings.Setting, bucket.integration_uuid))
       library = trash!(library)
 
       assert :ok = Libraries.purge_library(library)
@@ -780,6 +792,79 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
     end
   end
 
+  test "adding storage copies an existing object, verifies it and preserves the primary", %{
+    root: root,
+    store: store
+  } do
+    {:ok, _} = Settings.update_boolean_setting("storage_user_libraries_enabled", true)
+    {:ok, _} = Settings.update_boolean_setting("storage_user_buckets_enabled", true)
+    user = user!(~w(storage storage.create_library storage.own_storage integrations))
+    {library, profile} = own_library!(user, :only)
+
+    # Keep each bucket's bytes independent, so a read from the primary cannot
+    # accidentally make a nonexistent backup appear verified.
+    Req.Test.stub(@stub, fn conn ->
+      [bucket | parts] = conn.path_info
+      key = {bucket, Enum.join(parts, "/")}
+
+      case conn.method do
+        "PUT" ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          Agent.update(store, &Map.put(&1, key, body))
+          conn |> Plug.Conn.put_resp_header("etag", ~s("etag")) |> Plug.Conn.send_resp(200, "")
+
+        "DELETE" ->
+          Agent.update(store, &Map.delete(&1, key))
+          Plug.Conn.send_resp(conn, 204, "")
+
+        method ->
+          case Agent.get(store, &Map.get(&1, key)) do
+            nil ->
+              Plug.Conn.send_resp(conn, 404, "")
+
+            body when method == "HEAD" ->
+              conn
+              |> Plug.Conn.put_resp_header("content-length", to_string(byte_size(body)))
+              |> Plug.Conn.send_resp(200, "")
+
+            body ->
+              Plug.Conn.send_resp(conn, 200, body)
+          end
+      end
+    end)
+
+    {:ok, file} = upload!(user, library, root, "existing photo content")
+    {:ok, file} = Storage.update_file(file, %{status: "active"})
+    assert :reconciled = Reconciler.reconcile_file(file)
+    second = connection!(user.uuid)
+
+    assert {:ok, _} =
+             Libraries.add_user_storage(Scope.for_user(user), library, %{
+               "integration_uuid" => second,
+               "bucket_name" => "backup-bucket",
+               "provider" => "s3",
+               "endpoint" => "https://8.8.8.8"
+             })
+
+    counts = Reconciler.counts_by_library([library.uuid])
+    assert counts[to_string(library.uuid)].out_of_date == 1
+
+    assert :reconciled =
+             Reconciler.reconcile_file(Storage.get_file(file.uuid))
+
+    objects = Agent.get(store, & &1)
+    assert map_size(objects) == 2
+    assert Enum.all?(objects, fn {_key, body} -> body == "existing photo content" end)
+    current = Profiles.for_library(library)
+    primary = Enum.find(current.buckets, &(&1.role == "primary"))
+    assert primary.bucket_uuid == hd(profile.buckets).bucket_uuid
+
+    refute Map.has_key?(
+             Reconciler.counts_by_library([library.uuid]),
+             to_string(library.uuid)
+           )
+  end
+
   # ── 10 ────────────────────────────────────────────────────────────────────
 
   describe "10. the creation probe" do
@@ -815,9 +900,9 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       }
 
       socket = mounted(user)
-      socket = Phoenix.Component.assign(socket, creating: true, pending_create: attrs)
-
-      {:noreply, socket} = LibrarySettings.handle_async(:probe_storage, {:ok, :ok}, socket)
+      socket = Phoenix.Component.assign(socket, creating: true)
+      result = Libraries.create_user_library(Scope.for_user(user), attrs)
+      {:noreply, socket} = LibrarySettings.handle_async(:create_library, {:ok, result}, socket)
 
       assert {:success, _} = socket.assigns.message
       assert socket.assigns.creating == false
@@ -832,8 +917,8 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
 
       {:noreply, failed} =
         LibrarySettings.handle_async(
-          :probe_storage,
-          {:ok, {:error, "no write permission"}},
+          :create_library,
+          {:ok, {:error, {:storage, "no write permission"}}},
           socket
         )
 
@@ -842,7 +927,7 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       assert failed.assigns.creating == false
       assert failed.assigns.owned == []
 
-      {:noreply, died} = LibrarySettings.handle_async(:probe_storage, {:exit, :killed}, socket)
+      {:noreply, died} = LibrarySettings.handle_async(:create_library, {:exit, :killed}, socket)
       assert {:error, _} = died.assigns.message
       assert died.assigns.creating == false
       assert Storage.list_owned_buckets(user.uuid) == []

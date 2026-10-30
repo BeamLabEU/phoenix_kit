@@ -222,6 +222,8 @@ defmodule PhoenixKit.Notifications.Types do
           "user.roles_updated",
           "user.profile_updated",
           "user.timezone_mismatch",
+          "organization.manager_added",
+          "organization.manager_removed",
           "user.avatar_changed",
           "user.note_created",
           "user.note_deleted"

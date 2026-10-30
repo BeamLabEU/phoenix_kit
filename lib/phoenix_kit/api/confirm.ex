@@ -472,12 +472,15 @@ defmodule PhoenixKit.API.Confirm do
   @doc """
   The actor of an API key as it stands **now**, without a token: the key is read from
   the database (not the cache), must not be revoked or expired (`Keys.dead_reason/1`), and
-  its owner must be active; `scopes` are the key's scopes filtered by the owner's live
-  permissions. This is the request-path check of the executor, for code that has no
+  its owner must be active (and, for a personal key, hold `api_personal_keys` or `api`,
+  else `{:error, :personal_keys_not_allowed}`); `scopes` are the key's scopes filtered by
+  the owner's live permissions. This is the request-path check of the executor, for code that has no
   request.
   """
   @spec live_actor(String.t()) ::
-          {:ok, Actor.t()} | {:error, :not_found | :revoked | :expired | :owner_inactive}
+          {:ok, Actor.t()}
+          | {:error,
+             :not_found | :revoked | :expired | :owner_inactive | :personal_keys_not_allowed}
   def live_actor(key_uuid) do
     with %Key{} = key <- Keys.get_key(key_uuid) || {:error, :not_found},
          :ok <- alive(key),

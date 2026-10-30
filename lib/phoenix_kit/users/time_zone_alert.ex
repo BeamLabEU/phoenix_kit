@@ -44,6 +44,8 @@ defmodule PhoenixKit.Users.TimeZoneAlert do
   something that should break the page that triggered it.
   """
   @spec observe(map() | nil, String.t() | any()) :: :ok
+  def observe(%{managed_by_members: true}, _detected), do: :ok
+
   def observe(%{uuid: uuid} = user, detected) when is_binary(uuid) and is_binary(detected) do
     if TimeZone.identifier?(detected) and mismatch?(user, detected) do
       notify(user, detected)

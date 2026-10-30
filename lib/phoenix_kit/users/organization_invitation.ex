@@ -16,6 +16,7 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
 
   schema "phoenix_kit_organization_invitations" do
     field :email, :string
+    field :kind, Ecto.Enum, values: [:member, :manager], default: :member
 
     field :status, Ecto.Enum,
       values: [:pending, :accepted, :declined, :cancelled],
@@ -41,11 +42,18 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
   @doc "Changeset for creating a new invitation."
   def create_changeset(invitation, attrs) do
     invitation
-    |> cast(attrs, [:email, :organization_uuid, :invited_by_uuid, :token, :expires_at])
+    |> cast(attrs, [:email, :organization_uuid, :invited_by_uuid, :token, :expires_at, :kind])
     |> validate_required([:email, :organization_uuid, :token, :expires_at])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email address")
     |> validate_length(:email, max: 160)
+    |> validate_change(:email, fn :email, email ->
+      if User.invalid_email?(email), do: [email: "must use a deliverable email domain"], else: []
+    end)
+    |> validate_required([:kind])
     |> unique_constraint(:token)
+    |> unique_constraint([:organization_uuid, :email, :kind],
+      name: :phoenix_kit_org_invitations_pending_unique_idx
+    )
   end
 
   @doc "Changeset for accepting an invitation."

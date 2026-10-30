@@ -31,6 +31,7 @@ defmodule PhoenixKit.Users.Sessions do
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{KnownDevice, User, UserToken}
+  alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.TimeZone
@@ -67,7 +68,13 @@ defmodule PhoenixKit.Users.Sessions do
         token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
-        user_email: user.email,
+        user_email:
+          fragment(
+            "CASE WHEN ? THEN ? ELSE ? END",
+            user.managed_by_members,
+            user.contact_email,
+            user.email
+          ),
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         browser: token.browser,
@@ -126,7 +133,13 @@ defmodule PhoenixKit.Users.Sessions do
         token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
-        user_email: user.email,
+        user_email:
+          fragment(
+            "CASE WHEN ? THEN ? ELSE ? END",
+            user.managed_by_members,
+            user.contact_email,
+            user.email
+          ),
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         browser: token.browser,
@@ -153,7 +166,16 @@ defmodule PhoenixKit.Users.Sessions do
     where(
       query,
       [token, user],
-      ilike(user.email, ^pattern) or
+      ilike(
+        fragment(
+          "CASE WHEN ? THEN ? ELSE ? END",
+          user.managed_by_members,
+          user.contact_email,
+          user.email
+        ),
+        ^pattern
+      ) or
+        ilike(user.organization_name, ^pattern) or
         ilike(fragment("encode(substring(?, 1, 4), 'hex')", token.token), ^pattern)
     )
   end
@@ -200,7 +222,13 @@ defmodule PhoenixKit.Users.Sessions do
         token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
-        user_email: user.email,
+        user_email:
+          fragment(
+            "CASE WHEN ? THEN ? ELSE ? END",
+            user.managed_by_members,
+            user.contact_email,
+            user.email
+          ),
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         browser: token.browser,
@@ -233,6 +261,7 @@ defmodule PhoenixKit.Users.Sessions do
   def list_user_device_sessions(%User{uuid: user_uuid}, current_token) do
     known = known_devices_by_fingerprint(user_uuid)
     current_uuid = current_session_uuid(user_uuid, current_token)
+    acting = acting_sessions_by_parent(user_uuid)
 
     from(token in UserToken,
       where: token.context == "session",
@@ -270,10 +299,40 @@ defmodule PhoenixKit.Users.Sessions do
         # when not narrowed.
         active_role_uuid: s.active_role_uuid,
         active_role: nil,
+        acting_organizations: Map.get(acting, s.token_uuid, []),
         is_current: s.token_uuid == current_uuid
       }
     end)
     |> with_active_roles()
+  end
+
+  defp acting_sessions_by_parent(person_uuid) do
+    alias PhoenixKit.Users.OrganizationManager
+
+    from(child in UserToken,
+      join: root in UserToken,
+      on: root.uuid == child.acting_session_uuid,
+      join: org in User,
+      on: org.uuid == child.user_uuid,
+      join: grant in OrganizationManager,
+      on: grant.uuid == child.organization_manager_uuid,
+      where:
+        child.context == "session" and root.context == "session" and
+          root.user_uuid == ^person_uuid,
+      where: org.managed_by_members and org.is_active,
+      where: grant.organization_uuid == org.uuid and grant.user_uuid == ^person_uuid,
+      where:
+        root.inserted_at > ago(@session_validity_in_days, "day") and
+          child.inserted_at > ago(@session_validity_in_days, "day"),
+      select: %{
+        parent: root.uuid,
+        token_uuid: child.uuid,
+        organization_uuid: org.uuid,
+        name: org.organization_name
+      }
+    )
+    |> Repo.all()
+    |> Enum.group_by(& &1.parent)
   end
 
   @doc """
@@ -283,15 +342,14 @@ defmodule PhoenixKit.Users.Sessions do
   guessing a token uuid. Returns `:ok` or `{:error, :not_found}`.
   """
   def revoke_user_session(%User{uuid: user_uuid}, token_uuid) when is_binary(token_uuid) do
-    case Repo.delete_all(
+    case Revocation.delete_all(
            from(t in UserToken,
              where:
                t.uuid == ^token_uuid and t.user_uuid == ^user_uuid and t.context == "session",
              select: t.token
            )
          ) do
-      {1, revoked} ->
-        disconnect_tokens(revoked)
+      {1, _revoked} ->
         Events.broadcast_session_revoked(token_uuid)
         :ok
 
@@ -309,8 +367,8 @@ defmodule PhoenixKit.Users.Sessions do
 
   def revoke_other_user_sessions(%User{uuid: user_uuid}, current_token)
       when is_binary(current_token) do
-    {count, revoked} =
-      Repo.delete_all(
+    {count, _revoked} =
+      Revocation.delete_all(
         from(t in UserToken,
           where:
             t.user_uuid == ^user_uuid and t.context == "session" and t.token != ^current_token,
@@ -318,7 +376,6 @@ defmodule PhoenixKit.Users.Sessions do
         )
       )
 
-    disconnect_tokens(revoked)
     if count > 0, do: Events.broadcast_user_sessions_revoked(user_uuid, count)
     count
   end
@@ -346,7 +403,13 @@ defmodule PhoenixKit.Users.Sessions do
         token_uuid: token.uuid,
         token_preview: fragment("encode(substring(?, 1, 4), 'hex')", token.token),
         user_uuid: user.uuid,
-        user_email: user.email,
+        user_email:
+          fragment(
+            "CASE WHEN ? THEN ? ELSE ? END",
+            user.managed_by_members,
+            user.contact_email,
+            user.email
+          ),
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         active_role_uuid: token.active_role_uuid,
@@ -428,14 +491,13 @@ defmodule PhoenixKit.Users.Sessions do
   end
 
   defp do_revoke_session(token_uuid) do
-    case Repo.delete_all(
+    case Revocation.delete_all(
            from(token in UserToken,
              where: token.uuid == ^token_uuid and token.context == "session",
              select: token.token
            )
          ) do
-      {1, revoked} ->
-        disconnect_tokens(revoked)
+      {1, _revoked} ->
         # Broadcast session revocation event
         Events.broadcast_session_revoked(token_uuid)
         :ok
@@ -455,7 +517,7 @@ defmodule PhoenixKit.Users.Sessions do
   @spec revoke_user_sessions_in_role(User.t(), String.t()) :: non_neg_integer()
   def revoke_user_sessions_in_role(%User{uuid: user_uuid}, role_uuid) when is_binary(role_uuid) do
     {count, revoked} =
-      Repo.delete_all(
+      Revocation.delete_all(
         from(token in UserToken,
           where:
             token.user_uuid == ^user_uuid and token.context == "session" and
@@ -464,7 +526,6 @@ defmodule PhoenixKit.Users.Sessions do
         )
       )
 
-    disconnect_tokens(Enum.map(revoked, & &1.token))
     Enum.each(revoked, &Events.broadcast_session_revoked(&1.uuid))
     count
   end
@@ -513,15 +574,13 @@ defmodule PhoenixKit.Users.Sessions do
   defp can_revoke_sessions_now?(_target, _actor), do: false
 
   defp do_revoke_user_sessions(%User{uuid: user_uuid}) do
-    {count, revoked} =
-      Repo.delete_all(
+    {count, _revoked} =
+      Revocation.delete_all(
         from(token in UserToken,
           where: token.user_uuid == ^user_uuid and token.context == "session",
           select: token.token
         )
       )
-
-    disconnect_tokens(revoked)
 
     # Broadcast user sessions revocation event
     if count > 0 do

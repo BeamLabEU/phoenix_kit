@@ -16,7 +16,13 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.IntegrationsUI,
-    only: [integration_status_badge: 1, validation_note_style: 1]
+    only: [
+      integration_status_badge: 1,
+      validation_note_style: 1,
+      connection_usage: 1,
+      usage_summary: 1,
+      integration_error: 1
+    ]
 
   # Imported per-LiveView rather than from `PhoenixKitWeb, :live_view`: a host
   # app that defines its own `row_link/1` would get an ambiguous import the
@@ -61,8 +67,18 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
 
   @impl true
   def handle_event("disconnect", %{"uuid" => uuid}, socket) do
-    Integrations.disconnect(uuid, socket.assigns.user_uuid, owner: owner(socket))
-    {:noreply, socket |> put_flash(:info, gettext("Disconnected")) |> load_connections()}
+    case Integrations.disconnect(uuid, socket.assigns.user_uuid, owner: owner(socket)) do
+      :ok ->
+        {:noreply, socket |> put_flash(:info, gettext("Disconnected")) |> load_connections()}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           integration_error(reason)
+         )}
+    end
   end
 
   def handle_event("remove_connection", %{"uuid" => uuid}, socket) do
@@ -71,8 +87,13 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
         {:noreply,
          socket |> put_flash(:info, gettext("Connection removed")) |> load_connections()}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to remove connection"))}
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           integration_error(reason)
+         )}
     end
   end
 
@@ -126,9 +147,18 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
       Enum.flat_map(providers, fn provider ->
         Map.get(all_connections, provider.key, [])
         |> Enum.map(fn %{uuid: uuid, name: name, data: data} ->
-          %{provider: providers_by_key[provider.key], uuid: uuid, name: name, data: data}
+          %{
+            provider: providers_by_key[provider.key],
+            uuid: uuid,
+            name: name,
+            data: data,
+            usage: []
+          }
         end)
       end)
+
+    usages = Storage.integration_usage_for(Enum.map(connections, & &1.uuid))
+    connections = Enum.map(connections, &Map.put(&1, :usage, Map.get(usages, &1.uuid, [])))
 
     socket
     |> assign(:connections, connections)
@@ -138,9 +168,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
   defp load_connections(socket),
     do: socket |> assign(:connections, []) |> assign(:bucket_counts, %{})
 
-  # What Remove asks. A connection is removed without checking who uses it, so
-  # a library of the user's own storage that does is named before it stops
-  # working.
+  # The context repeats the dependency check when the action is submitted.
   defp remove_confirm(bucket_counts, uuid) do
     case Map.get(bucket_counts, uuid, 0) do
       0 ->
@@ -148,8 +176,8 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
 
       count ->
         ngettext(
-          "%{count} of your libraries keeps its files in a bucket that uses this connection, and will stop working. Remove it?",
-          "%{count} of your libraries keep their files in buckets that use this connection, and will stop working. Remove it?",
+          "%{count} storage bucket uses this connection and prevents its removal.",
+          "%{count} storage buckets use this connection and prevent its removal.",
           count
         )
     end
@@ -202,6 +230,18 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
                   end
 
                 fields = fields ++ [%{label: gettext("Name"), value: conn.name}]
+
+                fields =
+                  if conn.usage == [],
+                    do: fields,
+                    else:
+                      fields ++
+                        [
+                          %{
+                            label: gettext("Used by"),
+                            value: usage_summary(conn.usage)
+                          }
+                        ]
 
                 if conn.data["external_account_id"],
                   do:
@@ -269,6 +309,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
                 </.table_default_cell>
                 <.table_default_cell>
                   {conn.name}
+                  <.connection_usage usage={conn.usage} />
                 </.table_default_cell>
                 <.table_default_cell>
                   <span :if={conn.data["external_account_id"]} class="text-sm">
@@ -317,6 +358,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
                     <.table_row_menu_divider />
                     <.table_row_menu_button
                       phx-click="remove_connection"
+                      disabled={conn.usage != []}
                       phx-value-uuid={conn.uuid}
                       icon="hero-trash"
                       label={gettext("Remove")}
@@ -349,6 +391,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrations do
                 <.table_row_menu_divider />
                 <.table_row_menu_button
                   phx-click="remove_connection"
+                  disabled={conn.usage != []}
                   phx-value-uuid={conn.uuid}
                   icon="hero-trash"
                   label={gettext("Remove")}

@@ -286,7 +286,8 @@ defmodule PhoenixKit.Users.ActiveRole do
       resource_type: "user",
       resource_uuid: user.uuid,
       target_uuid: user.uuid,
-      metadata: %{"from" => from && from.name, "to" => to.name}
+      metadata: %{"from" => from && from.name, "to" => to.name},
+      acting_user_uuid: user.acting_user_uuid
     })
   rescue
     _ -> :ok

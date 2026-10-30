@@ -42,7 +42,7 @@ defmodule PhoenixKit.Integrations do
 
   ## Renaming and removing
 
-  Any connection can be renamed or removed — there's no privileged
+  Connections can be renamed; storage dependencies prevent removal. There's no privileged
   `"default"` name. The storage row's UUID stays stable across renames,
   so consumer references don't break:
 
@@ -71,12 +71,15 @@ defmodule PhoenixKit.Integrations do
   require Logger
 
   alias PhoenixKit.API.LogSafe
+  alias PhoenixKit.Integrations.ConnectionLock
   alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Integrations.Events
   alias PhoenixKit.Integrations.OAuth
   alias PhoenixKit.Integrations.Probe
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Integrations.Validators
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.IntegrationCredentials
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Queries
   alias PhoenixKit.Settings.Setting
@@ -374,6 +377,16 @@ defmodule PhoenixKit.Integrations do
           {:ok, map()} | {:error, :not_configured | :invalid_uuid | term()}
   def save_setup(uuid, attrs, actor_uuid \\ nil, opts \\ [])
       when is_binary(uuid) and is_map(attrs) do
+    attrs = Map.drop(attrs, ["owner_type", "owner_uuid"])
+
+    with {:ok, prepared} <- prepare_storage_edit(uuid, attrs, opts) do
+      ConnectionLock.run(uuid, fn ->
+        do_save_setup(uuid, attrs, actor_uuid, opts, prepared)
+      end)
+    end
+  end
+
+  defp do_save_setup(uuid, attrs, actor_uuid, opts, prepared) do
     owner = Keyword.get(opts, :owner, :system)
     # owner_type/owner_uuid are write-once (set at birth) — never let form attrs
     # overwrite/null it (would silently reassign or promote personal→system).
@@ -387,7 +400,8 @@ defmodule PhoenixKit.Integrations do
             data: existing,
             undecryptable_fields: undecryptable_fields
           }} <-
-           resolve_uuid(uuid, owner) do
+           resolve_uuid(uuid, owner),
+         :ok <- validate_storage_edit(uuid, base_provider, existing, attrs, prepared) do
       provider = Providers.get(base_provider)
 
       data =
@@ -419,6 +433,24 @@ defmodule PhoenixKit.Integrations do
           error
       end
     end
+  end
+
+  @doc "Updates a connection name and setup atomically, preserving both on failure."
+  def update_connection(uuid, name, attrs, actor_uuid \\ nil, opts \\ []) do
+    attrs = Map.drop(attrs, ["owner_type", "owner_uuid"])
+
+    with :ok <- validate_connection_name(name),
+         {:ok, prepared} <- prepare_storage_edit(uuid, attrs, opts) do
+      ConnectionLock.run(uuid, fn ->
+        with {:ok, _} <- do_save_setup(uuid, attrs, actor_uuid, opts, prepared) do
+          do_rename_connection(uuid, name, actor_uuid, opts)
+        end
+      end)
+    end
+  end
+
+  defp validate_connection_name(name) do
+    if String.trim(name) == "", do: {:error, :empty_name}, else: :ok
   end
 
   # ---------------------------------------------------------------------------
@@ -549,50 +581,59 @@ defmodule PhoenixKit.Integrations do
 
   No-op when the uuid doesn't resolve (already gone).
   """
-  @spec disconnect(String.t(), String.t() | nil, keyword()) :: :ok
+  @spec disconnect(String.t(), String.t() | nil, keyword()) :: :ok | {:error, term()}
   def disconnect(uuid, actor_uuid \\ nil, opts \\ []) when is_binary(uuid) do
+    ConnectionLock.run(uuid, fn ->
+      do_disconnect(uuid, actor_uuid, opts)
+    end)
+  end
+
+  defp do_disconnect(uuid, actor_uuid, opts) do
     case resolve_uuid(uuid, Keyword.get(opts, :owner, :system)) do
       {:ok, %{provider: base_provider, name: name, setting: setting, data: data}} ->
-        auth_type = data["auth_type"]
+        with :ok <- storage_unused(uuid) do
+          auth_type = data["auth_type"]
 
-        # `owner_type`/`owner_uuid` MUST be in the retained set — omitting them
-        # (the prior bug) silently converted an owned connection into a system
-        # one (and would now reclassify a dashboard/team owner as a user).
-        cleaned =
-          case auth_type do
-            "oauth2" ->
-              data
-              |> Map.take([
-                "provider",
-                "auth_type",
-                "name",
-                "owner_type",
-                "owner_uuid",
-                "client_id",
-                "client_secret"
-              ])
-              |> Map.put("status", "disconnected")
+          # `owner_type`/`owner_uuid` MUST be in the retained set — omitting them
+          # (the prior bug) silently converted an owned connection into a system
+          # one (and would now reclassify a dashboard/team owner as a user).
+          cleaned =
+            case auth_type do
+              "oauth2" ->
+                data
+                |> Map.take([
+                  "provider",
+                  "auth_type",
+                  "name",
+                  "owner_type",
+                  "owner_uuid",
+                  "client_id",
+                  "client_secret"
+                ])
+                |> Map.put("status", "disconnected")
 
-            _ ->
-              data
-              |> Map.take(["provider", "auth_type", "name", "owner_type", "owner_uuid"])
-              |> Map.put("status", "disconnected")
+              _ ->
+                data
+                |> Map.take(["provider", "auth_type", "name", "owner_type", "owner_uuid"])
+                |> Map.put("status", "disconnected")
+            end
+
+          with {:ok, _} <- save_integration(setting, cleaned) do
+            Events.broadcast_disconnected(base_provider, owner_of(data))
+
+            log_activity(
+              "integration.disconnected",
+              base_provider,
+              name,
+              %{},
+              "manual",
+              actor_uuid,
+              uuid
+            )
+
+            :ok
           end
-
-        save_integration(setting, cleaned)
-        Events.broadcast_disconnected(base_provider, owner_of(data))
-
-        log_activity(
-          "integration.disconnected",
-          base_provider,
-          name,
-          %{},
-          "manual",
-          actor_uuid,
-          uuid
-        )
-
-        :ok
+        end
 
       {:error, _} ->
         :ok
@@ -863,39 +904,85 @@ defmodule PhoenixKit.Integrations do
   Removes a connection by uuid.
 
   Names are pure user-chosen labels — no privileged values. The user is
-  free to delete any connection; consumer modules that referenced the
-  deleted integration row will surface a `:not_configured` (or similar)
-  error on next use, which is the correct loud failure.
+  prevented from deleting connections referenced by storage buckets, including
+  disabled buckets and buckets belonging to trashed libraries.
   """
   @spec remove_connection(String.t(), String.t() | nil, keyword()) :: :ok | {:error, term()}
   def remove_connection(uuid, actor_uuid \\ nil, opts \\ []) when is_binary(uuid) do
+    ConnectionLock.run(uuid, fn ->
+      do_remove_connection(uuid, actor_uuid, opts)
+    end)
+  end
+
+  defp do_remove_connection(uuid, actor_uuid, opts) do
     case resolve_uuid(uuid, Keyword.get(opts, :owner, :system)) do
       {:ok, %{provider: provider, name: name, setting: setting, data: data}} ->
-        case Settings.delete_setting(setting.key) do
-          {:ok, _} ->
-            Events.broadcast_connection_removed(provider, name, owner_of(data))
+        with :ok <- storage_unused(uuid) do
+          case Settings.delete_setting(setting.key) do
+            {:ok, _} ->
+              Events.broadcast_connection_removed(provider, name, owner_of(data))
 
-            log_activity(
-              "integration.connection_removed",
-              provider,
-              name,
-              %{},
-              "manual",
-              actor_uuid,
-              uuid
-            )
+              log_activity(
+                "integration.connection_removed",
+                provider,
+                name,
+                %{},
+                "manual",
+                actor_uuid,
+                uuid
+              )
 
-            :ok
+              :ok
 
-          {:error, :not_found} ->
-            :ok
+            {:error, :not_found} ->
+              :ok
 
-          error ->
-            error
+            error ->
+              error
+          end
         end
 
       {:error, _} ->
         :ok
+    end
+  end
+
+  defp storage_unused(uuid) do
+    case Storage.integration_usage(uuid) do
+      [] -> :ok
+      uses -> {:error, {:in_use, uses}}
+    end
+  end
+
+  defp prepare_storage_edit(uuid, attrs, opts) do
+    with {:ok, %{provider: provider, data: existing}} <-
+           resolve_uuid(uuid, Keyword.get(opts, :owner, :system)) do
+      if provider == "object_storage",
+        do: IntegrationCredentials.prepare(uuid, existing, attrs, opts),
+        else: {:ok, nil}
+    end
+  end
+
+  defp validate_storage_edit(uuid, "object_storage", existing, attrs, prepared) do
+    IntegrationCredentials.validate_prepared(
+      uuid,
+      existing,
+      attrs,
+      prepared
+    )
+  end
+
+  defp validate_storage_edit(_uuid, _provider, _existing, _attrs, _prepared), do: :ok
+
+  @doc """
+  Storage dependencies visible to the connection's owner. A missing or
+  foreign connection returns no information. Includes disabled storage and
+  trashed libraries, whose files still depend on their credentials.
+  """
+  def usage(uuid, opts \\ []) do
+    case resolve_uuid(uuid, Keyword.get(opts, :owner, :system)) do
+      {:ok, _} -> Storage.integration_usage(uuid)
+      {:error, _} -> []
     end
   end
 
@@ -916,6 +1003,12 @@ defmodule PhoenixKit.Integrations do
           | {:error, :empty_name | :not_configured | term()}
   def rename_connection(uuid, new_name, actor_uuid \\ nil, opts \\ [])
       when is_binary(uuid) and is_binary(new_name) do
+    ConnectionLock.run(uuid, fn ->
+      do_rename_connection(uuid, new_name, actor_uuid, opts)
+    end)
+  end
+
+  defp do_rename_connection(uuid, new_name, actor_uuid, opts) do
     trimmed = String.trim(new_name)
 
     with {:ok,
@@ -1431,6 +1524,12 @@ defmodule PhoenixKit.Integrations do
           keyword()
         ) :: :ok
   def record_validation(uuid, result, opts \\ []) when is_binary(uuid) do
+    ConnectionLock.run(uuid, fn ->
+      do_record_validation(uuid, result, opts)
+    end)
+  end
+
+  defp do_record_validation(uuid, result, opts) do
     {new_status, validation_text} = validation_fields(result)
 
     case resolve_uuid(uuid, Keyword.get(opts, :owner, :system)) do

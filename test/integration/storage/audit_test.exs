@@ -612,6 +612,14 @@ defmodule PhoenixKit.Modules.Storage.AuditTest do
           owner: {:user, ctx.user.uuid}
         )
 
+      {:ok, _} =
+        Integrations.save_setup(
+          connection,
+          %{"access_key" => "test-access", "secret_key" => "test-secret"},
+          nil,
+          owner: {:user, ctx.user.uuid}
+        )
+
       {:ok, bucket} =
         Storage.create_owned_bucket(ctx.user.uuid, %{
           "name" => "Private #{ctx.n}",

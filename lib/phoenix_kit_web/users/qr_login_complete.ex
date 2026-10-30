@@ -56,7 +56,8 @@ defmodule PhoenixKitWeb.Users.QrLoginComplete do
   def complete(conn, %{"token" => token} = params) do
     with true <- QrLoginContext.enabled?(),
          {:ok, user_uuid} <- safe_consume(token),
-         %{} = user <- Users.get_user(user_uuid) do
+         %Users.User{is_active: true, api_only: false, managed_by_members: false} = user <-
+           Users.get_user(user_uuid) do
       conn
       # log_in_user/3 reads :user_return_to from the session for its redirect,
       # so stash the (sanitized) destination there before signing in.

@@ -584,7 +584,10 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       # stored; under the directory lock the object is either still there or
       # its deletion is over.
       Storage.lock_storage_paths([Path.dirname(storage_path)])
-      unless Manager.file_exists?(storage_path), do: repo.rollback(:object_missing)
+      # The new key has no location rows yet; check the buckets that accepted
+      # this write, including personal buckets outside the site's shared pool.
+      unless Manager.file_exists?(storage_path, priority_buckets: bucket_uuids),
+        do: repo.rollback(:object_missing)
 
       case Storage.get_file_instance_by_name(file.uuid, variant_name) do
         nil ->

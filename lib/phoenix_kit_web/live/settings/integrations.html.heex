@@ -82,6 +82,11 @@
                   else: fields
 
               fields =
+                if conn.usage == [],
+                  do: fields,
+                  else: fields ++ [%{label: gettext("Used by"), value: usage_summary(conn.usage)}]
+
+              fields =
                 if conn.data["external_account_id"],
                   do:
                     fields ++
@@ -167,6 +172,7 @@
               </.table_default_cell>
               <.table_default_cell>
                 {conn.name}
+                <.connection_usage usage={conn.usage} />
               </.table_default_cell>
               <.table_default_cell>
                 <span :if={conn.data["external_account_id"]} class="text-sm">
@@ -218,6 +224,7 @@
                   <.table_row_menu_button
                     :if={conn.data["status"] == "connected"}
                     phx-click="disconnect"
+                    disabled={conn.usage != []}
                     phx-value-uuid={conn.uuid}
                     icon="hero-link-slash"
                     label={gettext("Disconnect")}
@@ -226,6 +233,7 @@
                   />
                   <.table_row_menu_button
                     phx-click="remove_connection"
+                    disabled={conn.usage != []}
                     phx-value-uuid={conn.uuid}
                     icon="hero-trash"
                     label={gettext("Remove")}
@@ -261,6 +269,7 @@
               <.table_row_menu_button
                 :if={conn.data["status"] == "connected"}
                 phx-click="disconnect"
+                disabled={conn.usage != []}
                 phx-value-uuid={conn.uuid}
                 icon="hero-link-slash"
                 label={gettext("Disconnect")}
@@ -269,6 +278,7 @@
               />
               <.table_row_menu_button
                 phx-click="remove_connection"
+                disabled={conn.usage != []}
                 phx-value-uuid={conn.uuid}
                 icon="hero-trash"
                 label={gettext("Remove")}

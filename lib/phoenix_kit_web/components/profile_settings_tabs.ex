@@ -13,6 +13,9 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
     * `integrations` — your own service connections, for holders of the
       opt-in `integrations` permission. Its own LiveView at
       `/profile/settings/integrations`.
+    * `api-keys` — your own API keys, for holders of the opt-in
+      `api_personal_keys` permission or of `api`. Its own LiveView at
+      `/profile/settings/api-keys`.
     * `media` — how media behaves for you: the annotation-tools section
       (open-in-editor switch, tool reset), and — while user libraries are
       on and you hold the `"storage"` permission — your storage libraries
@@ -53,13 +56,14 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   # The `UserSettings` sections each tab renders, in page order.
   @sections %{
     "account" => [:identity, :custom_fields, :email, :start_page],
+    "managers" => [:managers],
     "security" => [:password, :oauth],
     "sessions" => [:sessions],
     "notifications" => [:notifications],
     "media" => [:etcher]
   }
 
-  @order ~w(account security sessions notifications integrations media)
+  @order ~w(account managers security sessions notifications integrations api-keys media)
 
   @hidden_key "user_settings_hidden_sections"
 
@@ -162,7 +166,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
 
   @doc """
   The `UserSettings` sections a tab rendered by `ProfileSettings` shows, or
-  nil for a tab that is not one of them (integrations has a page of its own).
+  nil for a tab that is not one of them (integrations and api-keys have a page of their own).
   """
   @spec sections(String.t()) :: [atom()] | nil
   def sections(tab) do
@@ -172,7 +176,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
     end
   end
 
-  @doc "Whether `ProfileSettings` renders the tab itself (every tab but integrations)."
+  @doc "Whether `ProfileSettings` renders the tab itself (every tab but integrations and api-keys)."
   @spec rendered_here?(String.t()) :: boolean()
   def rendered_here?(tab), do: Map.has_key?(@sections, tab)
 
@@ -226,11 +230,25 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
     end
   end
 
+  defp visible?("managers", %Scope{user: %{managed_by_members: true, acting_user_uuid: person}}),
+    do: is_binary(person)
+
+  defp visible?("managers", _scope), do: false
+
   defp visible?("notifications", _scope),
     do: NotificationTypes.list() != [] and sections("notifications") != []
 
+  defp visible?(tab, %Scope{user: %{managed_by_members: true}})
+       when tab in ["security", "sessions"],
+       do: false
+
   defp visible?("integrations", scope),
     do: not is_nil(scope) and Scope.has_module_access?(scope, "integrations")
+
+  defp visible?("api-keys", scope),
+    do:
+      not is_nil(scope) and
+        (Scope.can?(scope, "api_personal_keys") or Scope.can?(scope, "api"))
 
   # "media" has no permission gate of its own: the annotation-tools
   # section on it applies to anyone who can open the media viewer, so the
@@ -252,7 +270,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
   @doc """
   The tab strip. `active` is the tab being shown; `scope` decides which tabs
   are offered. Tabs rendered by the same LiveView patch; the integrations
-  tab and the registered ones, each a LiveView of its own, navigate. A
+  and api-keys tabs and the registered ones, each a LiveView of its own, navigate. A
   registered tab's page renders the strip with its own id as `active`.
   """
   attr :active, :string, required: true
@@ -312,19 +330,23 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
 
   defp registered_by_id, do: Map.new(ProfileSettingsTab.all(), &{&1.id, &1})
 
+  defp core_label("managers"), do: gettext("Managers")
   defp core_label("account"), do: gettext("Account")
   defp core_label("security"), do: gettext("Security")
   defp core_label("sessions"), do: gettext("Sessions")
   defp core_label("notifications"), do: gettext("Notifications")
   defp core_label("integrations"), do: gettext("Integrations")
+  defp core_label("api-keys"), do: gettext("API keys")
   defp core_label("media"), do: gettext("Media")
   defp core_label(id), do: id
 
+  defp core_icon("managers"), do: "hero-user-group"
   defp core_icon("account"), do: "hero-user-circle"
   defp core_icon("security"), do: "hero-lock-closed"
   defp core_icon("sessions"), do: "hero-computer-desktop"
   defp core_icon("notifications"), do: "hero-bell"
   defp core_icon("integrations"), do: "hero-link"
+  defp core_icon("api-keys"), do: "hero-key"
   defp core_icon("media"), do: "hero-rectangle-stack"
   defp core_icon(_id), do: "hero-squares-2x2"
 end

@@ -294,3 +294,26 @@ renders content only. It previously nested a second full `Layouts.root` document
 inside the LiveView and passed `app_layout`'s `attr :inner_content, default: nil`
 into a template rendering `{@inner_content}` — so standalone auth pages rendered
 chrome with an entirely empty body.
+
+### Acting for a managed organization
+
+Administrators create a managed organization from Users → New user → Create
+managed organization, with a required first manager. A manager enters it from
+the account menu; this creates a grant-bound session in a separate cookie slot,
+independent of the ordinary multi-account setting. Back to my account revokes
+that session; Log out signs out the whole browser stack.
+
+While acting, Profile Settings → Managers supports contact-address editing,
+manager invitations and removal. This tab cannot be hidden. Administrators can
+also search/add people, convert an organization in either direction, and
+explicitly leave it without an active manager from its details controls. Person
+deactivation/deletion on the admin details page has the same explicit override.
+The independent-login conversion requires a new email/password and sends a new
+confirmation message; no former credentials or grants return.
+
+Manager invitations always reach the invitee by mail: existing accounts get a
+sign-in link; new accounts get a registration link. The inviter sees the same
+response for either address. Accepting adds a manager grant and does not change
+`organization_uuid` (employment). Kit pages display kind-aware banners from the
+invitation hook; acceptance after registration/confirmation uses the same
+locked path, and the organization switcher refreshes after accepting a banner.

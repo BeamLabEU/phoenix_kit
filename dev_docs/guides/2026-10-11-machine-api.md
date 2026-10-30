@@ -59,6 +59,7 @@ The `api` permission gates Settings -> API.
 - The Owner always has it.
 - It is **opt-in for Admin**: `api` is in `Permissions.opt_in_admin_keys/0`, so upgrading core does not hand every Admin the power to mint bearer keys. An Owner grants it on the permissions matrix.
 - The Owner sees and manages every key. Anyone else who holds `api` sees and manages only the keys and service users they created.
+- **Revoke is not manage.** `Keys.can_revoke?/2` is `can_manage?/2` plus, for a personal key, an Owner: an Owner may revoke anyone's personal key and remove scopes from it, but never rotate it. `Keys.revoke/2` authorizes nothing, so call `can_revoke?/2` first.
 
 ## Keys
 
@@ -69,6 +70,19 @@ The `api` permission gates Settings -> API.
 - **Rotation** makes a new key with the same settings; the old key keeps working for a grace period of 0 to 24 whole hours, then stops.
 - **Editing scopes** (`Keys.update_scopes/3`, "Edit scopes" in the key's menu): a key's scopes can be changed to any subset of what its owner may use now. Scopes the owner cannot use right now (the module is switched off, the tool is hidden by `api_disabled_tools`) are listed as inactive and stay on the key when it is saved. Only the key's creator or an Owner may edit, a revoked key cannot be edited, and the change takes effect on the next request (the cache entry is invalidated like for a revoke).
 - Create, rotate, revoke, scope edits (`api.key_scopes_updated`, with the old and the new list) and service-user creation are written to `PhoenixKit.Activity` with module `api` and `permanent: true`. Read them in the Activity log (Admin -> Activity, module `api`); the Settings -> API page has no history card of its own.
+
+### Personal keys
+
+A person's own key, made on the **My API keys** page (`/profile/settings/api-keys`, a tab of the profile settings) or in the `:api_keys` section of `PhoenixKitWeb.Live.Components.UserSettings`. The section is opt-in and takes two assigns, both required: `scope` (the session's scope) and `impersonated` (`MultiSession.impersonated?(session)` from the host page's mount, never a constant); without them it shows an explanation and the component refuses every event.
+
+- **Permission `api_personal_keys`:** a flat core key, opt-in for Admin (never auto-granted). It lets a person keep keys that act as themselves, with their own rights. It does not open Settings -> API, Approvals or service users (those stay `api`). A user with only this key passes `Scope.can_access_admin_area?/1`, like a holder of `integrations`. A holder of `api` may keep personal keys too.
+- **The `personal` column** (V226) is set only by `Keys.create_personal_key/3`. `create_key/3` never sets it, so every key made on Settings -> API, and every key from before V226, behaves as described under "Keys".
+- **Limits:** a personal key must expire, no later than the end of the UTC day `api_personal_key_max_days` days from today (`PersonalKeysConfig.latest_expiry/0`; a rotation gives the new key that expiry); it cannot need approval; a person never has more than `api_personal_key_max_count` live keys, counting a key in the grace period of a rotation: a creation, and a rotation with a grace period (`grace_hours > 0`), are refused with `:personal_key_limit` while the person is at the limit, checked under one advisory lock per person. A rotation with grace 0 replaces the key one for one and is always allowed; the pages offer grace 0 as the default at the limit. Both settings are on Settings -> API.
+- **The permission is checked on every path.** It is one private owner check that `Keys.active_owner/1` and `verify/2` both use (so `active?/1` and `Confirm.live_actor/1` too), and it is part of `actor/3` and `effective_scopes/1`. Taking `api_personal_keys` (and `api`) from the role stops the key on the next request, whatever the cached row says; giving it back revives the key. Do not build an actor from a key anywhere that bypasses this check.
+- **Owner rules:** an Owner can revoke someone's personal key and remove scopes from it (`update_scopes/3` refuses anything that is not narrowing with `:scopes_not_narrowing`); an Owner cannot rotate it. A new token acting as a person goes to that person alone.
+- **A borrowed session:** `create_personal_key/3` and `rotate/4` take `impersonated: boolean` with no default, read from the session. Without it they answer `:impersonation_unknown`, in an impersonated session `:impersonated`. Nobody mints a token in the name of the person they are impersonating.
+- **Residual risk:** someone who signs in as the person directly (not as a second account in the same session, which is a borrowed session for this purpose) with the person's own password (for example after an administrator reset it) can create a key. The key stops with the permission, is revoked by the person or an Owner, and expires within `api_personal_key_max_days`.
+- Create, rotate, revoke and scope edits are in the Activity log like any other key.
 
 ### Service users
 
@@ -441,6 +455,8 @@ The segment that names the public audience in the paths is one constant (`Phoeni
 
 These are deliberate for now; a module author or an operator should know them.
 
+- **A personal key is as strong as its owner's account.** It acts with the owner's rights at the time of each request, so it is as safe as the way into the account: a reset of the password by someone else lets that someone create keys (see "Personal keys"). The expiry ceiling and the right to revoke bound it; nothing else does.
+- **Lowering `api_personal_key_max_days` does not shorten issued keys**, and `api_personal_key_max_count` does not remove keys over a lowered limit; both apply to new keys and rotations.
 - **Settings -> API changes need only the `api` permission.** The Owner-or-creator rule applies to keys and service users. The switches, rate limits, hidden tools, allowed MCP origins, confirmation thresholds and approval TTLs are global, and anyone who holds `api` can change them for every key, the Owner's included. The Admin role does not get `api` by default, so only an Owner's explicit grant widens this. Grant `api` accordingly; every change is an entry in the Activity log with the person as actor.
 - **Dangerous public calls are not deduplicated.** A key that repeats a dangerous call while its code is live gets the same code back; a public caller (a client token) gets a new confirmation row for every call. The rows are bounded only by the public rate-limit buckets (per client token and per network), and unused codes are deleted an hour after they ran out.
 - **`ctx.base_url` and `ctx.hosts` follow the `Host` header** unless the host app configures `:api_request_context` (`config :phoenix_kit, :api_request_context, {MyApp.ApiContext, :resolve}`). They are also stored on an approval and replayed when it runs. A module must not e-mail or otherwise send to a third party a link built from them unless the host configures a fixed host.

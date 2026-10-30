@@ -42,15 +42,35 @@ defmodule PhoenixKitWeb.Actor do
 
   @doc """
   `[actor_uuid: uuid]` for a context call that logs, or `[]` when nobody
-  is signed in — so it can be appended to other options as is.
+  is signed in. Adds `acting_user_uuid:` while acting for an organization;
+  `Activity.log/1,3` merges it into metadata alongside the caller's own values.
   """
   @spec opts(source()) :: keyword()
   def opts(source) do
     case uuid(source) do
-      nil -> []
-      uuid -> [actor_uuid: uuid]
+      nil ->
+        []
+
+      uuid ->
+        case acting_user_uuid(source) do
+          nil -> [actor_uuid: uuid]
+          person -> [actor_uuid: uuid, acting_user_uuid: person]
+        end
     end
   end
+
+  @doc "The real person behind an organization session, from token-loaded provenance."
+  def acting_user_uuid(%Scope{} = scope), do: Scope.acting_user_uuid(scope)
+  def acting_user_uuid(%{assigns: assigns}), do: acting_user_uuid(assigns)
+
+  def acting_user_uuid(%{} = assigns) do
+    case Map.get(assigns, :phoenix_kit_current_scope) do
+      %Scope{} = scope -> Scope.acting_user_uuid(scope)
+      _ -> Map.get(Map.get(assigns, :phoenix_kit_current_user) || %{}, :acting_user_uuid)
+    end
+  end
+
+  def acting_user_uuid(_), do: nil
 
   @doc """
   The name of the role the user is acting as (not PII), or `nil` — for

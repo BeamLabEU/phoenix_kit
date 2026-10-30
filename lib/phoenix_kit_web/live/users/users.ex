@@ -950,7 +950,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
          _current_user,
          _date_time_settings
        ) do
-    truncate_text(user.email, @max_cell_length)
+    truncate_text(User.delivery_email(user) || "", @max_cell_length)
   end
 
   defp render_cell_by_type(
@@ -1075,7 +1075,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   defp get_user_field(user, column_id) do
     case column_id do
       "username" -> user.username
-      "email" -> user.email
+      "email" -> User.delivery_email(user)
       "first_name" -> user.first_name
       "last_name" -> user.last_name
       "inserted_at" -> user.inserted_at

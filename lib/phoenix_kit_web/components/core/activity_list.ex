@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Components.Core.ActivityList do
             </td>
             <td class="text-sm">
               <%= if entry.actor do %>
-                <span class="font-medium">{entry.actor.email}</span>
+                <span class="font-medium">{Activity.actor_label(entry)}</span>
               <% else %>
                 <span class="text-base-content/50">
                   <%= if entry.actor_uuid do %>

@@ -25,9 +25,9 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
   alias PhoenixKit.Utils.Routes
 
   alias PhoenixKitWeb.Components.ProfileSettingsTabs
@@ -58,8 +58,16 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
   def mount(_params, session, socket) do
     {:ok,
      socket
+     |> assign(
+       :manager_actor,
+       case OrganizationActor.from_session(session) do
+         {:ok, actor} -> actor
+         _ -> nil
+       end
+     )
      |> assign(:page_title, gettext("Profile Settings"))
      |> assign(:project_title, Settings.get_project_title())
+     |> assign(:storage_refresh_timer, nil)
      # Raw session token of this browser — lets the Active Sessions section
      # mark the current device and keep it signed in on "sign out others".
      |> assign(:current_session_token, session["user_token"])
@@ -70,7 +78,7 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
   # The tab comes from the URL. One that is not offered here (unknown, or
   # the integrations tab, which is a LiveView of its own) goes to the first.
   @impl true
-  def handle_params(params, _uri, socket) do
+  def handle_params(params, uri, socket) do
     tab = params["tab"] || ProfileSettingsTabs.default_tab()
 
     if ProfileSettingsTabs.rendered_here?(tab) and
@@ -79,10 +87,49 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
        socket
        |> assign(:tab, tab)
        |> assign(:sections, ProfileSettingsTabs.sections(tab) || [])
-       |> assign(:url_path, ProfileSettingsTabs.path(tab))}
+       |> assign(:url_path, ProfileSettingsTabs.path(tab))
+       |> assign(
+         :library_url,
+         URI.parse(uri).path <>
+           if(URI.parse(uri).query, do: "?" <> URI.parse(uri).query, else: "")
+       )
+       |> assign(:library_params, Map.take(params, ~w(library dialog settings_tab)))
+       |> refresh_storage_timer(tab)}
     else
       {:noreply,
        push_patch(socket, to: ProfileSettingsTabs.path(ProfileSettingsTabs.default_tab()))}
+    end
+  end
+
+  defp refresh_storage_timer(socket, "media") do
+    if connected?(socket) and is_nil(socket.assigns.storage_refresh_timer),
+      do:
+        assign(
+          socket,
+          :storage_refresh_timer,
+          Process.send_after(self(), :refresh_library_storage, 3_000)
+        ),
+      else: socket
+  end
+
+  defp refresh_storage_timer(socket, _tab) do
+    if timer = socket.assigns.storage_refresh_timer, do: Process.cancel_timer(timer)
+    assign(socket, :storage_refresh_timer, nil)
+  end
+
+  @impl true
+  def handle_info(:refresh_library_storage, socket) do
+    socket = refresh_storage_timer(socket, nil)
+
+    if socket.assigns.tab == "media" do
+      send_update(PhoenixKitWeb.Live.Components.LibrarySettings,
+        id: "profile-library-settings",
+        refresh_storage_progress: true
+      )
+
+      {:noreply, refresh_storage_timer(socket, "media")}
+    else
+      {:noreply, socket}
     end
   end
 
@@ -90,6 +137,21 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
   # in another tab), so the form redraws against the saved values.
   @impl true
   def handle_info({:phoenix_kit_user_updated, updated_user}, socket) do
-    {:noreply, assign(socket, :phoenix_kit_current_user, updated_user)}
+    user =
+      case socket.assigns[:current_session_token] do
+        token when is_binary(token) -> Auth.get_user_by_session_token(token)
+        _ -> updated_user
+      end
+
+    if user do
+      scope = %{socket.assigns.phoenix_kit_current_scope | user: user}
+
+      {:noreply,
+       socket
+       |> assign(:phoenix_kit_current_user, user)
+       |> assign(:phoenix_kit_current_scope, scope)}
+    else
+      {:noreply, push_navigate(socket, to: Routes.path("/users/log-in"))}
+    end
   end
 end

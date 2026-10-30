@@ -1062,7 +1062,16 @@ owner makes it **public** when creating it (below), and its members are `manager
 - **Public libraries:** a holder of `"storage.public_library"` (nobody, until the site
   grants it) may create a library with `"visibility" => "public"`
   (`Libraries.create_user_library/3`; stored as `visibility: "site"`). It is chosen once,
-  at creation, and cannot be changed; writing it to the history (`storage.library_published`).
+  at creation. Its owner or a site administrator can subsequently change access through
+  `Libraries.Preferences.update/3`: private (owner and invited members), authenticated
+  (any active signed-in account), or anonymous (anyone). Changing access or the slug requires
+  explicit confirmation. Access changes rotate time-window file/tile tokens; direct bucket
+  links and copies already cached or downloaded cannot be recalled. Authenticated-only
+  files require the session on every request, are proxied, and are never cached.
+  The profile and admin library lists share `LibraryPreferences`; hosts contribute module
+  sections through `config :phoenix_kit, :library_settings_components`.
+  Creation is written to the history (`storage.library_published`); updates use
+  `storage.library.settings_changed`.
   **Anyone, signed in or not, may read what is in it**: `Libraries.can?(scope_or_nil, file,
   :read)` and `Libraries.can_read_library?/2` say yes, and every feature built on a library
   asks them, never its own check. Editing stays with the owner and managers. Its files get
@@ -1104,12 +1113,19 @@ picker only while the setting is on).
   `backup`, and `targets`: up to three buckets, each one of the user's
   `object_storage` integrations plus a bucket name). The provider, region and
   endpoint are the integration's own (`Libraries.integration_summary/2`) and are
-  not asked for. Every bucket is probed first (list, write, delete); a failure
+  not asked for. Every bucket is probed first (write, read, delete); a failure
   creates nothing. The form lists an integration's buckets on request
   (`Libraries.list_own_buckets/3`, S3 `ListBuckets`; a key limited to one bucket
-  is refused and the user types the name). **The choice is final**:
+  is refused and the user types the name). **Primary storage stays fixed**:
   `Profiles.set_library_profile/2` refuses to move a library off or onto user
-  storage.
+  storage. The owner can append backups with `Libraries.add_user_storage/4`
+  from **Storage and backups**. This probes every new target, checks the tested
+  connection snapshot again under the integration lock, preserves every existing
+  bucket and minimum write requirement, raises the cloud copy count and queues
+  the reconciler by bumping the profile revision. Pending files and recent
+  failures are visible in the dialog. The three-owned-bucket/five-total-copy
+  limits still apply; reaching the cap never drops existing site copies. Two
+  integrations pointing at the same physical bucket count as one destination.
 - **`only`**: the user's first bucket is the profile's one `primary`; any further
   bucket is a `backup` (a copy of every file, never served, made by the
   reconciler). **`backup`**: the
@@ -1132,6 +1148,16 @@ picker only while the setting is on).
   other buckets is the site's pool alone), and the objects of a user library are
   deleted from its profile's own buckets (`Storage.owned_buckets_for_dir/1`,
   found through the library's `key_prefix`).
+- **Integration lifecycle**: any bucket reference (disabled or unassigned buckets
+  and trashed libraries included) blocks removal and disconnection. Integration
+  lists and edit forms show library/bucket/role usage. Service identity is fixed
+  after initial setup; in-use endpoints, regions and account identifiers are also
+  fixed. Key rotation is tested against every dependent bucket with candidate
+  credentials held only in memory, including an existing object's metadata when
+  available. Failed checks keep the saved name and keys. Network probes run
+  outside transactions; connection/dependency fingerprints are compared under a
+  row lock shared with attachment before committing. Normal bucket writers also
+  reject missing, foreign or disconnected integrations.
 - **Safety**: credentials are read as the owner (`owner: {:user, uuid}`); the
   endpoint is held to the `:personal` policy (https, no local/private/metadata
   address, host resolved) when the bucket is saved and whenever a request is built

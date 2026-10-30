@@ -34,6 +34,7 @@ defmodule PhoenixKit.Integrations.Providers do
 
   require Logger
 
+  alias PhoenixKit.Integrations.ObjectStorageServices
   alias PhoenixKit.ModuleRegistry
 
   @type auth_type :: :oauth2 | :api_key | :key_secret | :bot_token | :credentials
@@ -1874,6 +1875,23 @@ defmodule PhoenixKit.Integrations.Providers do
   end
 
   def setup_label(_provider, _data), do: nil
+
+  @doc "Whether an object storage connection has already chosen its service."
+  def storage_service_locked?(%{key: "object_storage"}, data),
+    do: ObjectStorageServices.current(data) != nil
+
+  def storage_service_locked?(_provider, _data), do: false
+
+  @doc "Setup attributes for editing, retaining omitted immutable storage details."
+  def setup_edit_attrs(%{key: "object_storage"} = provider, data, params) do
+    saved = setup_saved(provider, data, %{})
+    # Identity inputs can be disabled on an in-use integration. Only omitted
+    # non-secret fields are filled; submitted changes still reach validation.
+    identity = Map.take(saved, ~w(service endpoint region account_id jurisdiction))
+    setup_attrs(provider, Map.merge(identity, params))
+  end
+
+  def setup_edit_attrs(provider, _data, params), do: setup_attrs(provider, params)
 
   @doc """
   The saved values a form may show next to the typed ones (see

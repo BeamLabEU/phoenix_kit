@@ -153,6 +153,13 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationFormObjectStorageTest do
              Integrations.get_credentials(uuid)
   end
 
+  test "a connection with no setup yet can make its initial service choice", %{conn: conn} do
+    {:ok, %{uuid: uuid}} = Integrations.add_connection("object_storage", "Not set up yet")
+    {:ok, view, _} = live(conn, Routes.path("/admin/settings/integrations/#{uuid}"))
+    assert has_element?(view, "select[name=service]")
+    refute has_element?(view, "input[type=hidden][name=service]")
+  end
+
   test "an old connection opens on the service its endpoint names", %{conn: conn} do
     {:ok, %{uuid: uuid}} = Integrations.add_connection("object_storage", "legacy b2")
 
@@ -164,9 +171,10 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationFormObjectStorageTest do
         "endpoint" => "s3.us-west-002.backblazeb2.com"
       })
 
-    {:ok, _view, html} = live(conn, Routes.path("/admin/settings/integrations/#{uuid}"))
+    {:ok, view, html} = live(conn, Routes.path("/admin/settings/integrations/#{uuid}"))
 
-    assert html =~ ~r/<option[^>]*value="backblaze_b2"[^>]*selected/
+    assert has_element?(view, "input[type=hidden][name=service][value=backblaze_b2]")
+    refute has_element?(view, "select[name=service]")
     assert html =~ ~s(value="us-west-002")
   end
 

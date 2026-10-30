@@ -12,7 +12,9 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # Imported per-LiveView rather than from `PhoenixKitWeb, :live_view`: a host
   # app that defines its own `row_link/1` would get an ambiguous import the
   # moment core wired this one in project-wide.
-  import PhoenixKitWeb.Components.Core.IntegrationsUI, only: [validation_note_style: 1]
+  import PhoenixKitWeb.Components.Core.IntegrationsUI,
+    only: [validation_note_style: 1, connection_usage: 1, usage_summary: 1, integration_error: 1]
+
   import PhoenixKitWeb.Components.Core.RowLink, only: [row_link: 1]
 
   alias PhoenixKit.Integrations
@@ -72,12 +74,10 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
   # ---------------------------------------------------------------------------
 
   def handle_event("disconnect", %{"uuid" => uuid}, socket) do
-    Integrations.disconnect(uuid, Actor.uuid(socket), owner: :system)
-
-    {:noreply,
-     socket
-     |> put_flash(:info, gettext("Disconnected"))
-     |> load_connections()}
+    case Integrations.disconnect(uuid, Actor.uuid(socket), owner: :system) do
+      :ok -> {:noreply, socket |> put_flash(:info, gettext("Disconnected")) |> load_connections()}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, integration_error(reason))}
+    end
   end
 
   # Which services users may connect on their own (the personal "add" picker).
@@ -110,8 +110,8 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
          |> put_flash(:info, gettext("Connection removed"))
          |> load_connections()}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to remove connection"))}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, integration_error(reason))}
     end
   end
 
@@ -210,8 +210,7 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
     assign(socket, :personal_providers, rows)
   end
 
-  # What the Remove confirmation says. A connection is removed without checking
-  # who uses it, so a bucket that does is named before it stops working.
+  # Dependencies disable removal in the UI and are enforced by the context.
   defp remove_confirm(bucket_counts, uuid) do
     case Map.get(bucket_counts, uuid, 0) do
       0 ->
@@ -221,8 +220,8 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
 
       count ->
         ngettext(
-          "%{count} storage bucket uses this connection and will stop working. Remove it permanently?",
-          "%{count} storage buckets use this connection and will stop working. Remove it permanently?",
+          "%{count} storage bucket uses this connection and prevents its removal.",
+          "%{count} storage buckets use this connection and prevent its removal.",
           count
         )
     end
@@ -250,6 +249,9 @@ defmodule PhoenixKitWeb.Live.Settings.Integrations do
           }
         end)
       end)
+
+    usages = Storage.integration_usage_for(Enum.map(connections, & &1.uuid))
+    connections = Enum.map(connections, &Map.put(&1, :usage, Map.get(usages, &1.uuid, [])))
 
     socket
     |> assign(:connections, connections)

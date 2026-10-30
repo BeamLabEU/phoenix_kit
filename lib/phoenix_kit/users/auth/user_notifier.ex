@@ -31,6 +31,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   alias PhoenixKit.Email.Content
   alias PhoenixKit.Email.CoreTemplates
   alias PhoenixKit.Mailer
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.LoginAttempts
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.RecipientLocale
@@ -44,6 +45,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   # `recipient` is what the locale is resolved from (a user struct, or a bare
   # address where no account exists yet); `address` is who it is sent to. They
   # differ only on the magic-link registration path.
+  defp deliver_templated(_recipient, nil, _name, _variables, _defaults),
+    do: {:ok, %{suppressed: true}}
+
   defp deliver_templated(recipient, address, name, variables, defaults) do
     recipient
     |> build_templated(address, name, variables, defaults)
@@ -56,7 +60,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
     content = Content.resolve(name, recipient, variables, defaults)
 
     new()
-    |> to(address)
+    |> to(address || [])
     |> from({get_from_name(), get_from_email()})
     |> subject(content.subject)
     |> text_body(content.text)
@@ -124,9 +128,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   def deliver_confirmation_instructions(user, url) do
     deliver_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "register",
-      %{"user_email" => user.email, "confirmation_url" => url},
+      %{"user_email" => User.delivery_email(user), "confirmation_url" => url},
       &CoreTemplates.register_defaults/0
     )
   end
@@ -137,9 +141,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   def deliver_reset_password_instructions(user, url) do
     deliver_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "reset_password",
-      %{"user_email" => user.email, "reset_url" => url},
+      %{"user_email" => User.delivery_email(user), "reset_url" => url},
       &CoreTemplates.reset_password_defaults/0
     )
   end
@@ -150,9 +154,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   def deliver_update_email_instructions(user, url) do
     deliver_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "update_email",
-      %{"user_email" => user.email, "update_url" => url},
+      %{"user_email" => User.delivery_email(user), "update_url" => url},
       &CoreTemplates.update_email_defaults/0
     )
   end
@@ -175,9 +179,9 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   def build_welcome(user) do
     build_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "welcome",
-      CoreTemplates.welcome_variables(user.email),
+      CoreTemplates.welcome_variables(User.delivery_email(user) || ""),
       &CoreTemplates.welcome_defaults/0
     )
   end
@@ -199,6 +203,21 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
         "registration_url" => registration_url
       },
       &CoreTemplates.organization_invitation_defaults/0
+    )
+  end
+
+  @doc "Delivers a manager invitation, with a sign-in or registration link for the invitee."
+  def deliver_manager_invitation(email, organization_name, invitation_url) do
+    deliver_templated(
+      email,
+      email,
+      "organization_manager_invitation",
+      %{
+        "user_email" => email,
+        "organization_name" => organization_name,
+        "invitation_url" => invitation_url
+      },
+      &CoreTemplates.organization_manager_invitation_defaults/0
     )
   end
 
@@ -243,7 +262,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
     variables =
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{
-          "user_email" => user.email,
+          "user_email" => User.delivery_email(user),
           "login_time" => login_time(user, attrs.first_seen_at),
           "ip_address" => attrs.ip_address,
           "location" => CoreTemplates.location_line(attrs[:location]),
@@ -262,7 +281,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
     deliver_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "new_login_alert",
       variables,
       &CoreTemplates.new_login_alert_defaults/0
@@ -281,7 +300,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
     variables =
       RecipientLocale.in_locale(RecipientLocale.for_rendering(user), fn ->
         %{
-          "user_email" => user.email,
+          "user_email" => User.delivery_email(user),
           "attempt_count" => Integer.to_string(attrs.count),
           "window_hours" => Integer.to_string(attrs.window_hours),
           "security_url" => Routes.base_url() <> Routes.user_settings_path()
@@ -290,7 +309,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
 
     deliver_templated(
       user,
-      user.email,
+      User.delivery_email(user),
       "failed_login_alert",
       variables,
       &CoreTemplates.failed_login_alert_defaults/0

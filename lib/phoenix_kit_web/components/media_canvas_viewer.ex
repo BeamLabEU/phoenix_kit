@@ -88,6 +88,18 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       `"unset_featured"` straight to `:parent_id` (same `phx-target`
       routing the close/prev/next buttons use) — this component does
       not own the pointer and has no event handler of its own for it.
+    * `:can_trash` (default `false`) — offers "Move to trash" for a file
+      that is not in the trash even without `:edit_target` (a picker's
+      viewer, which writes nothing else). The click posts `"trash_file"`
+      to `:parent_id`, which checks it.
+    * `:server_confirm` (default `false`) — the browser asks for the removal
+      itself (its removal guard), so "Delete forever" carries no
+      `data-confirm` of its own.
+    * `:pick` (default `nil`) — a picker's state for the file shown,
+      `%{picked?: boolean, full?: boolean, max_select: integer | nil}`.
+      When set, the picture carries "Select" (disabled while `full?`) or
+      "Deselect", posting `"viewer_pick"` with the file's uuid to
+      `:parent_id`, which checks the pick.
   """
 
   use PhoenixKitWeb, :live_component
@@ -209,6 +221,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
      |> assign(:viewer_uuid, nil)
      |> assign(:file_writable, true)
      |> assign(:featured, nil)
+     |> assign(:can_trash, false)
+     |> assign(:server_confirm, false)
+     |> assign(:pick, nil)
      |> assign(:media_meta_status_token, 0)}
   end
 
@@ -315,6 +330,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:write_library_uuid, assigns[:write_library_uuid])
       |> assign(:viewer_uuid, assigns[:viewer_uuid])
       |> assign(:featured, assigns[:featured])
+      |> assign(:can_trash, assigns[:can_trash] == true)
+      |> assign(:server_confirm, assigns[:server_confirm] == true)
+      |> assign(:pick, assigns[:pick])
       |> assign_new(:media_meta, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_own, fn -> %{title: "", alt: "", description: ""} end)
       |> assign_new(:media_meta_placeholders, fn -> %{title: "", alt: "", description: ""} end)
@@ -742,7 +760,11 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   def handle_event("toggle_viewer_sidebar", _params, socket) do
     collapsed = not socket.assigns[:sidebar_collapsed]
-    persist_sidebar_collapsed(socket.assigns[:current_user], collapsed)
+    # A picker's viewer (`pick` is set) writes none of the user's preferences:
+    # the sidebar folds for this opening only.
+    if not is_map(socket.assigns[:pick]),
+      do: persist_sidebar_collapsed(socket.assigns[:current_user], collapsed)
+
     {:noreply, assign(socket, :sidebar_collapsed, collapsed)}
   end
 
@@ -829,7 +851,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   defp uploader_name(user_uuid) do
     case PhoenixKit.Config.get_repo().get(PhoenixKit.Config.get_users_module(), user_uuid) do
       nil -> nil
-      user -> user.email
+      user -> Auth.User.delivery_email(user)
     end
   end
 

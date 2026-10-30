@@ -23,7 +23,9 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix
   import Ecto.Query
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Utils.SessionFingerprint
 
   @hash_algorithm :sha256
@@ -52,6 +54,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     # The role this SESSION acts as (`PhoenixKit.Users.ActiveRole`); `nil` is
     # the default role. Session tokens only.
     field :active_role_uuid, UUIDv7
+    field :acting_session_uuid, UUIDv7
+    field :organization_manager_uuid, UUIDv7
 
     belongs_to :user, PhoenixKit.Users.Auth.User,
       foreign_key: :user_uuid,
@@ -164,14 +168,62 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   defp session_user_query(session_tokens) do
     from token in session_tokens,
       join: user in assoc(token, :user),
+      left_join: root in UserToken,
+      on: root.uuid == token.acting_session_uuid,
+      left_join: person in User,
+      on: person.uuid == root.user_uuid,
+      left_join: manager in OrganizationManager,
+      on:
+        manager.uuid == token.organization_manager_uuid and
+          manager.organization_uuid == user.uuid and manager.user_uuid == person.uuid,
       where: token.inserted_at > ago(@session_validity_in_days, "day"),
       # A service user (`api_only`) has no web session, whatever a token row says: this
       # query is how every plug, LiveView mount and multi-account read resolves a
       # session, so a token minted before the flag was set, or by a door nobody guarded,
       # reads as "nobody is signed in".
       where: user.api_only == false,
+      where: ^eligible_session(),
       select: user,
-      select_merge: %{active_role_uuid: token.active_role_uuid}
+      select_merge: %{
+        active_role_uuid: token.active_role_uuid,
+        acting_user_uuid: person.uuid,
+        acting_session_uuid: token.acting_session_uuid,
+        organization_manager_uuid: token.organization_manager_uuid
+      }
+  end
+
+  defp eligible_session do
+    ordinary = ordinary_session()
+    organization = managed_session()
+    root = active_person_session()
+    dynamic(^ordinary or (^organization and ^root))
+  end
+
+  defp ordinary_session do
+    dynamic(
+      [token, user],
+      user.managed_by_members == false and is_nil(token.acting_session_uuid) and
+        is_nil(token.organization_manager_uuid)
+    )
+  end
+
+  defp managed_session do
+    dynamic(
+      [_token, user, _root, _person, manager],
+      user.managed_by_members == true and user.account_type == "organization" and
+        user.is_active == true and not is_nil(manager.uuid)
+    )
+  end
+
+  defp active_person_session do
+    dynamic(
+      [_token, _user, root, person],
+      root.context == "session" and
+        root.inserted_at > ago(@session_validity_in_days, "day") and
+        is_nil(root.acting_session_uuid) and is_nil(root.organization_manager_uuid) and
+        person.is_active == true and person.account_type == "person" and
+        person.api_only == false and person.managed_by_members == false
+    )
   end
 
   @doc """
@@ -253,7 +305,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
             join: user in assoc(token, :user),
             where:
               token.inserted_at > ago(^amount, ^unit) and token.sent_to == user.email and
-                user.api_only == false,
+                user.api_only == false and user.managed_by_members == false,
             select: user
 
         {:ok, query}
@@ -289,6 +341,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
         query =
           from token in by_token_and_context_query(hashed_token, context),
+            join: user in assoc(token, :user),
+            where: user.api_only == false and user.managed_by_members == false,
             where: token.inserted_at > ago(@change_email_validity_in_days, "day")
 
         {:ok, query}

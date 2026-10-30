@@ -95,6 +95,20 @@ defmodule PhoenixKit.Email.CoreTemplates do
         end
       },
       %{
+        name: "organization_manager_invitation",
+        label: gettext("Organization manager invitation"),
+        description:
+          gettext("Invites a person to manage an organization from their own account."),
+        defaults: &organization_manager_invitation_defaults/0,
+        variables: fn ->
+          %{
+            "user_email" => @sample_email,
+            "organization_name" => "Acme Ltd",
+            "invitation_url" => sample_url("/users/log-in")
+          }
+        end
+      },
+      %{
         name: "organization_invitation",
         label: gettext("Organization invitation"),
         description: gettext("Sent to an address that is invited to join an organization."),
@@ -317,6 +331,25 @@ defmodule PhoenixKit.Email.CoreTemplates do
         This invitation link will expire in 7 days.
 
         If you did not expect this invitation, you can safely ignore this email.
+        """)
+    }
+  end
+
+  @doc "Default copy of the manager invitation."
+  def organization_manager_invitation_defaults do
+    %{
+      subject: gettext("You've been invited to manage {{organization_name}}"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        {{organization_name}} has invited you to become a manager. Managers act for the organization using their own account.
+
+        Sign in or create your personal account, then accept the invitation banner.
+
+        [Review manager invitation]({{invitation_url}})
+
+        This invitation expires in 7 days. If you did not expect it, you can ignore this email.
         """)
     }
   end

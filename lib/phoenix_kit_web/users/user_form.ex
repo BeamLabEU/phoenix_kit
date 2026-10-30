@@ -16,12 +16,13 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.FormatCountry
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     user_uuid = params["id"]
     mode = if user_uuid, do: :edit, else: :new
 
@@ -63,6 +64,13 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     socket =
       socket
+      |> assign(
+        :manager_actor,
+        case OrganizationActor.from_session(session) do
+          {:ok, actor} -> actor
+          _ -> nil
+        end
+      )
       |> assign(:mode, mode)
       |> assign(:user_uuid, user_uuid)
       |> assign(:return_to, return_to)
@@ -438,7 +446,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   def handle_event("cancel_invitation", %{"uuid" => uuid}, socket) do
-    case Invitations.cancel_invitation(uuid) do
+    case Invitations.cancel_invitation(
+           socket.assigns.manager_actor,
+           socket.assigns.user.uuid,
+           uuid
+         ) do
       {:ok, _} ->
         organization = socket.assigns.user
 

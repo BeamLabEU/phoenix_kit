@@ -47,6 +47,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     FileInstance,
     FileLocation,
     Library,
+    LibraryState,
     Locations,
     Manager,
     Profiles,
@@ -180,6 +181,83 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     )
     |> repo().all()
     |> Map.new(fn {uuid, counts} -> {to_string(uuid), counts} end)
+  end
+
+  @doc """
+  Current storage work and stored copies for the supplied libraries. File
+  progress comes from placement revisions, not a job's batch cursor. Recent
+  uploads still processing count as pending, and copies include renditions.
+  Callers must supply only library UUIDs the viewer may inspect.
+  """
+  @spec progress_by_library([String.t()]) :: %{String.t() => map()}
+  def progress_by_library([]), do: %{}
+
+  def progress_by_library(library_uuids) when is_list(library_uuids) do
+    before = NaiveDateTime.add(NaiveDateTime.utc_now(), -@processing_grace_seconds)
+    states = LibraryState.for_libraries(library_uuids)
+
+    totals =
+      from(f in StorageFile,
+        where:
+          f.library_uuid in ^library_uuids and
+            f.status in ["active", "trashed", "failed", "processing"],
+        group_by: f.library_uuid,
+        select:
+          {f.library_uuid,
+           %{
+             total: count(f.uuid),
+             processing:
+               filter(count(f.uuid), f.status == "processing" and f.updated_at >= ^before)
+           }}
+      )
+      |> repo().all()
+      |> Map.new()
+
+    copies =
+      from(l in FileLocation,
+        join: i in FileInstance,
+        on: i.uuid == l.file_instance_uuid,
+        join: f in StorageFile,
+        on: f.uuid == i.file_uuid,
+        where:
+          f.library_uuid in ^library_uuids and
+            f.status in ["active", "trashed", "failed", "processing"],
+        group_by: [f.library_uuid, l.bucket_uuid],
+        select:
+          {f.library_uuid, l.bucket_uuid,
+           %{
+             stored: filter(count(l.uuid), l.status == "active"),
+             bytes: filter(sum(i.size), l.status == "active"),
+             unavailable: filter(count(l.uuid), l.status == "failed"),
+             syncing: filter(count(l.uuid), l.status == "syncing"),
+             verified:
+               filter(count(l.uuid), l.status == "active" and not is_nil(l.last_verified_at))
+           }}
+      )
+      |> repo().all()
+      |> Enum.group_by(fn {library, _, _} -> library end, fn {_, bucket, counts} ->
+        {to_string(bucket), counts}
+      end)
+
+    Map.new(library_uuids, fn uuid ->
+      totals = totals[uuid] || %{total: 0, processing: 0}
+      state = Map.fetch!(states, to_string(uuid))
+      work = Map.take(state, [:out_of_date, :eligible, :failing])
+      remaining = min(totals.total, work.out_of_date + totals.processing)
+      completed = max(totals.total - remaining, 0)
+
+      {to_string(uuid),
+       Map.merge(work, %{
+         total: totals.total,
+         processing: totals.processing,
+         completed: completed,
+         pending: remaining,
+         percent: if(totals.total == 0, do: 0, else: div(completed * 100, totals.total)),
+         run_state: state.run && state.run.state,
+         state: state.state,
+         buckets: Map.new(copies[uuid] || [])
+       })}
+    end)
   end
 
   @doc "The libraries that have files the reconciler may take now, as uuid strings."

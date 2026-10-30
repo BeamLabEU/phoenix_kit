@@ -38,6 +38,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
   alias PhoenixKit.API.Registry
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Components.ProfileSettingsTabs
 
   @key_placeholder "<your key>"
 
@@ -58,6 +59,7 @@ defmodule PhoenixKitWeb.Live.Settings.ApiGuidePanel do
     assign(socket, :guide, %{
       settings_path: Routes.path("/admin/settings/api"),
       approvals_path: Routes.path("/admin/approvals"),
+      personal_keys_path: ProfileSettingsTabs.path("api-keys"),
       admin_enabled: Config.admin_enabled?(),
       public_enabled: Config.public_enabled?(),
       base_url: base,

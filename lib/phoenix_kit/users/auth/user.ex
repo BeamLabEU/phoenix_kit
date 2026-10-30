@@ -46,6 +46,9 @@ defmodule PhoenixKit.Users.Auth.User do
           last_name: String.t() | nil,
           is_active: boolean(),
           api_only: boolean(),
+          managed_by_members: boolean(),
+          contact_email: String.t() | nil,
+          acting_user_uuid: UUIDv7.t() | nil,
           confirmed_at: DateTime.t() | nil,
           user_timezone: String.t() | nil,
           registration_ip: String.t() | nil,
@@ -78,6 +81,9 @@ defmodule PhoenixKit.Users.Auth.User do
     # web. Every web authentication door refuses it. Written only by core code that
     # creates a service user - never add it to a `cast/3` list, or a form could mint one.
     field :api_only, :boolean, default: false
+    # Internal account policy; never cast from public profile/registration input.
+    field :managed_by_members, :boolean, default: false
+    field :contact_email, :string
     field :confirmed_at, :utc_datetime
     field :user_timezone, :string
     field :registration_ip, :string
@@ -98,6 +104,10 @@ defmodule PhoenixKit.Users.Auth.User do
     # for a user loaded any other way — both resolve to the DEFAULT role
     # (never to the union) in `Scope.for_user/1`.
     field :active_role_uuid, :string, virtual: true
+    # Provenance is filled only by the session query, never by a uuid lookup.
+    field :acting_user_uuid, UUIDv7, virtual: true
+    field :acting_session_uuid, UUIDv7, virtual: true
+    field :organization_manager_uuid, UUIDv7, virtual: true
 
     has_many :role_assignments, PhoenixKit.Users.RoleAssignment,
       foreign_key: :user_uuid,
@@ -239,7 +249,37 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_required([:email])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
     |> validate_length(:email, max: 160)
+    |> validate_change(:email, &validate_deliverable_email/2)
     |> maybe_validate_unique_email(opts)
+  end
+
+  @doc "Whether an address uses the reserved .invalid domain (including subdomains)."
+  def invalid_email?(email) when is_binary(email) do
+    email |> String.downcase() |> String.trim() |> String.ends_with?(".invalid")
+  end
+
+  def invalid_email?(_), do: false
+
+  defp validate_deliverable_email(field, email) do
+    if invalid_email?(email), do: [{field, "must use a deliverable email domain"}], else: []
+  end
+
+  @doc "The address to display or deliver to; contact email never authenticates an account."
+  def delivery_email(%{managed_by_members: true, contact_email: email}), do: email
+  def delivery_email(%{managed_by_members: true}), do: nil
+  def delivery_email(%{email: email}), do: email
+  def delivery_email(_), do: nil
+
+  @doc "Validates a managed organization's optional, non-unique delivery address."
+  def contact_email_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:contact_email])
+    |> update_change(:contact_email, &normalize_google_email/1)
+    |> validate_format(:contact_email, ~r/^[^\s]+@[^\s]+$/,
+      message: "must be a valid email address"
+    )
+    |> validate_length(:contact_email, max: 160)
+    |> validate_change(:contact_email, &validate_deliverable_email/2)
   end
 
   # The Google address is optional and is never an identity: nothing
@@ -379,6 +419,7 @@ defmodule PhoenixKit.Users.Auth.User do
     user
     |> cast(attrs, [:email])
     |> validate_email(opts)
+    |> refuse_managed_credentials(:email)
     |> case do
       %{changes: %{email: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :email, "did not change")
@@ -403,7 +444,13 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_confirmation(:password, message: "does not match password")
     |> validate_password_different_from_current()
     |> validate_password(opts)
+    |> refuse_managed_credentials(:password)
   end
+
+  defp refuse_managed_credentials(%{data: %{managed_by_members: true}} = changeset, field),
+    do: add_error(changeset, field, "cannot be changed for a managed organization")
+
+  defp refuse_managed_credentials(changeset, _field), do: changeset
 
   @doc """
   Confirms the account by setting `confirmed_at`.
@@ -460,6 +507,11 @@ defmodule PhoenixKit.Users.Auth.User do
   def valid_password?(%PhoenixKit.Users.Auth.User{api_only: true}, _password) do
     # A service user signs in with an API key only. It has a random password hash, but a
     # password somebody sets on it later (an admin form, a reset) must not open the web.
+    Bcrypt.no_user_verify()
+    false
+  end
+
+  def valid_password?(%__MODULE__{managed_by_members: true}, _password) do
     Bcrypt.no_user_verify()
     false
   end
@@ -543,7 +595,18 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_user_timezone()
     |> validate_country()
     |> cast_user_custom_fields(attrs)
+    |> protect_managed_profile_credentials()
   end
+
+  defp protect_managed_profile_credentials(%{data: %{managed_by_members: true}} = changeset) do
+    Enum.reduce([:email, :google_email], changeset, fn field, acc ->
+      if changed?(acc, field),
+        do: add_error(acc, field, "cannot be changed for a managed organization"),
+        else: acc
+    end)
+  end
+
+  defp protect_managed_profile_credentials(changeset), do: changeset
 
   defp cast_user_custom_fields(changeset, attrs) do
     case submitted_custom_fields(attrs) do

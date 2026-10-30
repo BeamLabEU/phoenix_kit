@@ -40,17 +40,27 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     VariantSets
   }
 
+  alias PhoenixKit.Modules.Storage.Libraries.Preferences
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Components.LibraryPreferences
   alias PhoenixKitWeb.Live.Modules.Storage.LibrarySync
 
   import PhoenixKitWeb.Components.Core.Input, only: [input: 1, translate_error: 1]
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, creating: false, rows: nil, scope: nil, sync: %{}, active: false)}
+    {:ok,
+     assign(socket,
+       creating: false,
+       rows: nil,
+       scope: nil,
+       sync: %{},
+       active: false,
+       preferences_uuid: nil
+     )}
   end
 
   @impl true
@@ -58,6 +68,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   def update(%{reload_sync: true}, socket) do
     {:ok, if(socket.assigns.rows, do: load_sync(socket), else: socket)}
   end
+
+  def update(%{reload_preferences: true}, socket), do: {:ok, load(socket)}
 
   def update(assigns, socket) do
     was_active = socket.assigns.active
@@ -69,6 +81,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   end
 
   @impl true
+  def handle_event("preferences", %{"uuid" => uuid}, socket) do
+    library = Libraries.get_library(uuid)
+
+    if Preferences.can_manage?(
+         socket.assigns.scope,
+         library
+       ),
+       do: {:noreply, assign(socket, :preferences_uuid, uuid)},
+       else: {:noreply, socket}
+  end
+
+  def handle_event("close_preferences", _params, socket),
+    do: {:noreply, assign(socket, :preferences_uuid, nil)}
+
   def handle_event("new", _params, socket) do
     {:noreply, socket |> load_choices() |> assign(:creating, true)}
   end
@@ -258,6 +284,32 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   def render(assigns) do
     ~H"""
     <div id={@id}>
+      <.modal
+        :if={@preferences_uuid}
+        id={"#{@id}-preferences"}
+        show
+        on_close="close_preferences"
+        phx-target={@myself}
+        max_width="3xl"
+      >
+        <:title>{gettext("Library settings")}</:title>
+        <.live_component
+          module={PhoenixKitWeb.Live.Components.LibraryPreferences}
+          id={"#{@id}-preferences-#{@preferences_uuid}"}
+          library_uuid={@preferences_uuid}
+          scope={@scope}
+          notify={%{module: __MODULE__, id: @id}}
+        />
+        <:actions>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            phx-click="close_preferences"
+            phx-target={@myself}
+          >{gettext("Close")}</button>
+        </:actions>
+      </.modal>
+
       <div id={"#{@id}-system"} class="card bg-base-100 shadow-xl mb-6 mt-6">
         <div class="card-body">
           <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
@@ -468,6 +520,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                 <tr :for={%{library: library} = row <- @user_rows} id={"#{@id}-user-#{library.uuid}"}>
                   <td>
                     <span class="font-medium">{library.name}</span>
+                    <.link
+                      href={LibraryPreferences.library_url(library, @scope)}
+                      class="block max-w-sm break-all text-xs text-base-content/60 hover:underline"
+                    >{LibraryPreferences.library_url(library, @scope)}</.link>
                     <span :if={library.trashed_at} class="badge badge-sm badge-warning ml-2">
                       {gettext("Trashed")}
                     </span>
@@ -481,7 +537,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                       :if={!Libraries.suspended?(library) and library.visibility == "site"}
                       class="badge badge-info badge-soft badge-sm"
                     >
-                      {gettext("Public")}
+                      {if library.settings["public_audience"] == "authenticated",
+                        do: gettext("Signed-in users"),
+                        else: gettext("Public")}
                     </span>
                     <span
                       :if={!Libraries.suspended?(library) and library.visibility == "private"}
@@ -519,6 +577,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                       {if Libraries.suspended?(library),
                         do: gettext("Restore"),
                         else: gettext("Suspend")}
+                    </button>
+                    <button
+                      :if={is_nil(library.trashed_at)}
+                      type="button"
+                      class="btn btn-xs btn-outline"
+                      phx-click="preferences"
+                      phx-target={@myself}
+                      phx-value-uuid={library.uuid}
+                    >
+                      {gettext("Settings")}
                     </button>
                     <.link
                       :if={is_nil(library.trashed_at)}

@@ -44,6 +44,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @table_name :phoenix_kit_sessions
@@ -132,7 +133,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       metadata
       |> Map.put(:type, :authenticated)
       |> Map.put(:user_uuid, user.uuid)
-      |> Map.put(:user_email, user.email)
+      |> Map.put(:user_email, User.delivery_email(user))
       |> Map.put_new(:connected_at, UtilsDate.utc_now())
 
     case GenServer.call(@server_name, {:track, key, metadata}) do

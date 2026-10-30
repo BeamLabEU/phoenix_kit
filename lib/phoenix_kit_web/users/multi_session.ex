@@ -56,12 +56,15 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.ManagedOrganizations.Sessions, as: OrganizationSessions
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   @stack_key :pk_session_accounts
+  @organization_key :pk_organization_token
   @max_accounts 5
 
   # The durable mirror of the accounts ADDED beyond the remembered one. Separate
@@ -73,6 +76,73 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   @doc "Maximum number of accounts allowed in one stack."
   def max_accounts, do: @max_accounts
+
+  @doc "Whether this signed browser session carries an organization slot."
+  def acting?(session), do: is_binary(organization_token(session))
+
+  defp organization_token(session), do: session["pk_organization_token"]
+
+  @doc false
+  def recover_organization(conn) do
+    session = get_session(conn)
+    token = organization_token(session)
+
+    if token && token == session["user_token"] &&
+         not bound_organization?(token, List.first(stack_tokens(session))) do
+      case leave_organization(conn) do
+        {:ok, conn, _user} -> conn
+        _ -> conn
+      end
+    else
+      conn
+    end
+  end
+
+  @doc "Enters on the root person's authority, independently of multi-account switching."
+  def act_as_organization(conn, uuid) do
+    session = get_session(conn)
+
+    with [root | _] <- stack_tokens(session),
+         {:ok, %{token: token, user: user}} <-
+           OrganizationSessions.enter(root, uuid, organization_token(session)) do
+      stack = Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
+
+      conn =
+        conn
+        |> put_session(@stack_key, stack ++ [token])
+        |> put_session(@organization_key, token)
+        |> renew_and_put_active_token(token)
+        |> persist_organization(token)
+
+      {:ok, conn, user}
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :forbidden}
+    end
+  end
+
+  @doc "Deletes the organization slot and returns to the live root account."
+  def leave_organization(conn) do
+    session = get_session(conn)
+
+    with [root | _] <- stack_tokens(session),
+         %Auth.User{} = user <- root_user_from_token(root),
+         {:ok, :ok} <- OrganizationSessions.leave(root, organization_token(session)) do
+      conn =
+        conn
+        |> put_session(
+          @stack_key,
+          Enum.reject(stack_tokens(session), &(&1 == organization_token(session)))
+        )
+        |> delete_session(@organization_key)
+        |> renew_and_put_active_token(root)
+        |> forget_organization()
+
+      {:ok, conn, user}
+    else
+      _ -> {:error, :root_gone}
+    end
+  end
 
   @doc """
   The list of raw session tokens in the stack. Falls back to the single active
@@ -143,12 +213,12 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     |> Enum.with_index()
     |> Enum.flat_map(fn {token, index} ->
       case {Auth.get_user_by_session_token(token), Auth.get_session_token_record(token)} do
-        {%Auth.User{} = user, %{uuid: ref}} ->
+        {%Auth.User{managed_by_members: false, is_active: true} = user, %{uuid: ref}} ->
           [
             %{
               ref: ref,
               user: user,
-              email: user.email,
+              email: Auth.User.delivery_email(user),
               role: role_label(user),
               active?: token == active,
               root?: index == 0
@@ -181,6 +251,40 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     else
       {false, []}
     end
+  end
+
+  @doc false
+  def populate_scope(%Scope{} = scope, session) do
+    {allowed, accounts} = scope_fields(session)
+    organizations_on = Auth.organization_accounts_enabled?()
+    root_account = Enum.find(accounts, & &1.root?)
+
+    root =
+      cond do
+        root_account -> root_account.user
+        organizations_on or acting?(session) -> root_user(session)
+        true -> nil
+      end
+
+    organizations =
+      case root do
+        %Auth.User{account_type: "person", managed_by_members: false} when organizations_on ->
+          OrganizationSessions.list_for(root.uuid)
+
+        _ ->
+          []
+      end
+
+    person = if root && Scope.acting_user_uuid(scope) == root.uuid, do: root
+
+    %{
+      scope
+      | multi_session_allowed?: allowed,
+        multi_session_accounts: accounts,
+        acting_organizations: organizations,
+        acting_person: person,
+        organization_root: root
+    }
   end
 
   @doc """
@@ -239,38 +343,43 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     session = get_session(conn)
     stack = stack_tokens(session)
 
-    if length(stack) >= @max_accounts do
-      {:error, :stack_full}
-    else
-      # Pass the IP so the per-IP login bucket applies here as it does on the
-      # main login form — otherwise only the per-email bucket limits a spray.
-      case Auth.get_user_by_email_or_username_and_password(
-             email_or_username,
-             password,
-             IpAddress.extract_from_conn(conn)
-           ) do
-        {:ok, %Auth.User{is_active: true, api_only: false} = user} ->
-          if already_in_stack?(stack, user) do
-            {:error, :already_in_stack}
-          else
-            token = Auth.generate_user_session_token(user)
+    cond do
+      acting?(session) ->
+        {:error, :acting_organization}
 
-            conn =
-              conn
-              |> put_session(@stack_key, stack ++ [token])
-              |> renew_and_put_active_token(token)
-              |> persist_account(token)
+      length(stack) >= @max_accounts ->
+        {:error, :stack_full}
 
-            log_event("session.account_added", root_user(session), user)
-            {:ok, conn}
-          end
+      true ->
+        # Pass the IP so the per-IP login bucket applies here as it does on the
+        # main login form — otherwise only the per-email bucket limits a spray.
+        case Auth.get_user_by_email_or_username_and_password(
+               email_or_username,
+               password,
+               IpAddress.extract_from_conn(conn)
+             ) do
+          {:ok, %Auth.User{is_active: true, api_only: false, managed_by_members: false} = user} ->
+            if already_in_stack?(stack, user) do
+              {:error, :already_in_stack}
+            else
+              token = Auth.generate_user_session_token(user)
 
-        {:ok, %Auth.User{}} ->
-          {:error, :inactive}
+              conn =
+                conn
+                |> put_session(@stack_key, stack ++ [token])
+                |> renew_and_put_active_token(token)
+                |> persist_account(token)
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+              log_event("session.account_added", root_user(session), user)
+              {:ok, conn}
+            end
+
+          {:ok, %Auth.User{}} ->
+            {:error, :inactive}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
     end
   end
 
@@ -299,11 +408,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   # A service user (`api_only`) falls through to the last clause with a deactivated one:
   # neither can be added to a browser session, by password, OAuth or impersonation.
-  def add_authenticated_user(conn, %Auth.User{is_active: true, api_only: false} = user, opts) do
+  def add_authenticated_user(
+        conn,
+        %Auth.User{is_active: true, api_only: false, managed_by_members: false} = user,
+        opts
+      ) do
     session = get_session(conn)
     stack = stack_tokens(session)
 
     cond do
+      acting?(session) ->
+        {:error, :acting_organization}
+
       length(stack) >= @max_accounts ->
         {:error, :stack_full}
 
@@ -372,12 +488,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
              | :stack_full
              | :already_in_stack
              | :inactive
+             | :acting_organization
              | :self}
   def impersonate(conn, %Auth.User{} = target) do
     session = get_session(conn)
     actor = root_user(session)
 
-    case authorize_impersonation(actor, target) do
+    decision =
+      if acting?(session),
+        do: {:error, :acting_organization},
+        else: authorize_impersonation(actor, target)
+
+    case decision do
       :ok ->
         case add_authenticated_user(conn, target, event: "session.impersonated", persist: false) do
           {:ok, conn} ->
@@ -406,7 +528,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   """
   @spec may_impersonate?(map()) :: boolean()
   def may_impersonate?(session) when is_map(session) do
-    case root_user(session) do
+    case if(!acting?(session), do: root_user(session)) do
       %Auth.User{} = actor -> staff?(actor)
       _ -> false
     end
@@ -431,7 +553,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   """
   @spec impersonation_actor(map()) :: Auth.User.t() | nil
   def impersonation_actor(session) when is_map(session) do
-    if gate_allowed?(session), do: root_user(session)
+    if not acting?(session) and gate_allowed?(session), do: root_user(session)
   end
 
   @doc """
@@ -461,7 +583,10 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   def impersonable?(nil, %Auth.User{}), do: false
 
-  def impersonable?(%Auth.User{} = actor, %Auth.User{is_active: true, api_only: false} = target) do
+  def impersonable?(
+        %Auth.User{managed_by_members: false} = actor,
+        %Auth.User{is_active: true, api_only: false, managed_by_members: false} = target
+      ) do
     decide_impersonation(
       actor.uuid,
       actor_roles(actor),
@@ -492,11 +617,12 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   def impersonable_uuids(actor, users)
 
   def impersonable_uuids(nil, _users), do: MapSet.new()
+  def impersonable_uuids(%Auth.User{managed_by_members: true}, _users), do: MapSet.new()
 
   def impersonable_uuids(%Auth.User{} = actor, users) when is_list(users) do
     actor_roles = actor_roles(actor)
 
-    for %Auth.User{is_active: true, api_only: false} = user <- users,
+    for %Auth.User{is_active: true, api_only: false, managed_by_members: false} = user <- users,
         decide_impersonation(actor.uuid, actor_roles, user.uuid, role_names(user)) == :ok,
         into: MapSet.new(),
         do: user.uuid
@@ -518,6 +644,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   defp authorize_impersonation(nil, _target), do: {:error, :not_allowed}
+
+  defp authorize_impersonation(_actor, %Auth.User{managed_by_members: true}),
+    do: {:error, :inactive}
 
   defp authorize_impersonation(%Auth.User{} = actor, %Auth.User{} = target) do
     decide_impersonation(
@@ -579,7 +708,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     session = get_session(conn)
     stack = stack_tokens(session)
 
-    case find_token_by_ref(stack, ref) do
+    ordinary = Enum.reject(stack, &(&1 == organization_token(session)))
+
+    case find_token_by_ref(ordinary, ref) do
       nil ->
         {:error, :not_in_stack}
 
@@ -589,6 +720,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
             {:error, :inactive}
 
           user ->
+            conn = if acting?(session), do: end_organization!(conn), else: conn
             conn = conn |> renew_and_put_active_token(token) |> remember_active(token)
             log_event("session.switched", root_user(session), user)
             {:ok, conn, user}
@@ -600,7 +732,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   def remove_account(conn, ref) do
     session = get_session(conn)
     stack = stack_tokens(session)
-    [root_token | _] = stack
+    root_token = List.first(stack)
 
     case find_token_by_ref(stack, ref) do
       nil ->
@@ -610,16 +742,23 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         {:error, :cannot_remove_root}
 
       token ->
-        Auth.delete_user_session_token(token)
-        new_stack = List.delete(stack, token)
-        conn = conn |> put_session(@stack_key, new_stack) |> forget_account(token)
+        if token == organization_token(session) do
+          case leave_organization(conn) do
+            {:ok, conn, _user} -> {:ok, conn}
+            error -> error
+          end
+        else
+          Auth.delete_user_session_token(token)
+          new_stack = List.delete(stack, token)
+          conn = conn |> put_session(@stack_key, new_stack) |> forget_account(token)
 
-        conn =
-          if session["user_token"] == token,
-            do: put_active_token(conn, root_token),
-            else: conn
+          conn =
+            if session["user_token"] == token,
+              do: put_active_token(conn, root_token),
+              else: conn
 
-        {:ok, conn}
+          {:ok, conn}
+        end
     end
   end
 
@@ -647,26 +786,39 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   defp log_out_to_root(conn, session, stack, active, root_token) do
     root_user = Auth.get_user_by_session_token(root_token)
 
-    if is_nil(root_user) do
-      # The root token no longer resolves (revoked by an admin, role change,
-      # expiry) — nothing to switch back to, so drain everything.
-      {:full, conn}
-    else
-      if live_socket_id = session["live_socket_id"] do
-        PhoenixKitWeb.Users.Auth.broadcast_disconnect_for_socket(live_socket_id)
-      end
+    cond do
+      is_nil(root_user) ->
+        # The root token no longer resolves (revoked by an admin, role change,
+        # expiry) — nothing to switch back to, so drain everything.
+        {:full, conn}
 
-      Auth.delete_user_session_token(active)
-      new_stack = List.delete(stack, active)
+      acting?(session) ->
+        case leave_organization(conn) do
+          {:ok, conn, user} -> {:switched, conn, user}
+          _ -> {:full, conn}
+        end
 
-      conn =
-        conn
-        |> put_session(@stack_key, new_stack)
-        |> put_active_token(root_token)
-        |> forget_account(active)
+      true ->
+        if live_socket_id = session["live_socket_id"] do
+          PhoenixKitWeb.Users.Auth.broadcast_disconnect_for_socket(live_socket_id)
+        end
 
-      {:switched, conn, root_user}
+        Auth.delete_user_session_token(active)
+        new_stack = List.delete(stack, active)
+
+        conn =
+          conn
+          |> put_session(@stack_key, new_stack)
+          |> put_active_token(root_token)
+          |> forget_account(active)
+
+        {:switched, conn, root_user}
     end
+  end
+
+  defp end_organization!(conn) do
+    {:ok, conn, _user} = leave_organization(conn)
+    conn
   end
 
   @doc "Deletes every stack token from the DB (used by 'Log out all')."
@@ -677,65 +829,59 @@ defmodule PhoenixKitWeb.Users.MultiSession do
 
   # --- durable stack (see "Surviving a lost session" above) ---
 
-  @doc """
-  Mirrors `token` into the persistent cookie, so the account survives a lost
-  session cookie.
-
-  A no-op unless this browser already holds a remember-me cookie: the mirror
-  must not give an account more persistence than the login it was added from.
-  """
-  @spec persist_account(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  @doc "Mirrors an added account only while this browser remembers its root identity."
   def persist_account(conn, token) do
     case remembered_root(conn) do
-      nil -> conn
-      root -> write_persisted(conn, root, read_persisted(conn, root) ++ [token], token)
+      nil ->
+        conn
+
+      root ->
+        {tokens, organization, _active} = read_state(conn, root)
+        write_persisted(conn, root, tokens ++ [token], organization, token)
     end
   end
 
-  # Records which mirrored account is active (nil = the root, or an account that
-  # is not mirrored). Skips the write when nothing changes, so a switch back to
-  # the root does not put a `Set-Cookie` on the response for no reason.
+  defp persist_organization(conn, token) do
+    case remembered_root(conn) do
+      nil ->
+        conn
+
+      root ->
+        {tokens, _organization, _active} = read_state(conn, root)
+        write_persisted(conn, root, tokens, token, token)
+    end
+  end
+
   defp remember_active(conn, token) do
     case remembered_root(conn) do
       nil ->
         conn
 
       root ->
-        {tokens, current} = read_state(conn, root)
-        active = if token in tokens, do: token
+        {tokens, organization, current} = read_state(conn, root)
+        active = if token in tokens or token == organization, do: token
 
-        if tokens == [] or active == current,
+        if active == current,
           do: conn,
-          else: write_persisted(conn, root, tokens, active)
+          else: write_persisted(conn, root, tokens, organization, active)
     end
   end
 
-  @doc """
-  Drops `token` from the persistent cookie — the counterpart of
-  `persist_account/2` for an account being removed or logged out.
-
-  Reads the remembered identity directly rather than through
-  `remembered_root/1`: a browser must be able to stop persisting an account it
-  already holds even after an operator turns `remember_me_enabled` off.
-  """
-  @spec forget_account(Plug.Conn.t(), binary()) :: Plug.Conn.t()
+  @doc "Stops mirroring one account, including after remember-me has been disabled."
   def forget_account(conn, token) do
     case WebAuth.remembered_token(conn) do
       nil ->
         conn
 
       root ->
-        {tokens, active} = read_state(conn, root)
+        {tokens, organization, active} = read_state(conn, root)
 
-        # An impersonation is in the session stack but never in the mirror, so
-        # removing one reaches here with nothing to drop — rewriting the cookie
-        # with an unchanged list would put a pointless `Set-Cookie` on that
-        # response.
-        if token in tokens do
+        if token in tokens or token == organization do
           write_persisted(
             conn,
             root,
             List.delete(tokens, token),
+            if(organization != token, do: organization),
             if(active != token, do: active)
           )
         else
@@ -744,135 +890,124 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  @doc """
-  Drops the persistent cookie entirely.
-
-  Called wherever the session it mirrors ends or is replaced: full logout, a
-  fresh login (the stack belongs to whoever was signed in before), and the
-  plug's own recovery path when there is no remembered identity to hang a stack
-  on.
-  """
-  @spec forget_persisted_accounts(Plug.Conn.t()) :: Plug.Conn.t()
-  def forget_persisted_accounts(conn) do
-    # Presence is checked against the REQUEST cookies — unconditionally emitting
-    # a deletion would put a `Set-Cookie` on every anonymous response, since the
-    # plug's recovery path runs for every visitor who is not signed in.
-    if Map.has_key?(fetch_cookies(conn).req_cookies, @accounts_cookie) do
-      # Same path/secure/same_site as the write — browsers will not clear a
-      # Secure cookie with a non-Secure deletion, and Plug's own docs require
-      # the delete options to match the put.
-      delete_resp_cookie(conn, @accounts_cookie, accounts_cookie_delete_options())
-    else
-      conn
-    end
-  end
-
-  @doc """
-  Rebuilds the session stack around `root_token` from the persistent cookie.
-
-  Called from the plug's remember-me recovery, the one moment a real session is
-  reconstructed from cookies alone.
-
-  The mirror is accepted only if it names `root_token` as the identity it was
-  built under. Clearing the cookie at login is a request the browser is free to
-  ignore, and the tokens in a stale mirror stay valid until they expire — so
-  without this check the next person to sign in on a shared browser inherits the
-  previous user's accounts, live, in their own switcher. Binding makes that
-  unforgeable rather than merely unlikely: a login mints a new session token, so
-  a mirror written before it can never name the new root.
-
-  Tokens that no longer resolve to an active user are dropped *and* pruned from
-  the cookie: this is the only pass that ever looks at them, so without it a
-  revoked account would be re-offered for the cookie's full life.
-  The root must still resolve too: an added account cannot revive a remembered
-  identity whose session expired, was revoked, or belongs to an inactive user.
-
-  Restores nothing while `multi_session_enabled` is off, and takes the cookie
-  with it — turning the feature off should not leave a browser quietly holding
-  other people's sessions until someone turns it back on.
-  """
-  @spec restore_persisted_accounts(Plug.Conn.t(), binary()) :: Plug.Conn.t()
-  def restore_persisted_accounts(conn, root_token) do
-    if Settings.get_boolean_setting("multi_session_enabled", false) do
-      do_restore(conn, root_token)
-    else
-      forget_persisted_accounts(conn)
-    end
-  end
-
-  defp do_restore(conn, root_token) do
-    case read_state(conn, root_token) do
-      # Nothing usable: no mirror, or one built under a different login. Either
-      # way this browser should stop carrying it.
-      {[], _active} ->
-        forget_persisted_accounts(conn)
-
-      {tokens, active} ->
-        live =
-          if resolves_to_active_user?(root_token),
-            do: Enum.filter(tokens, &resolves_to_active_user?/1),
-            else: []
-
-        active = if active in live, do: active
-
+  defp forget_organization(conn) do
+    case WebAuth.remembered_token(conn) do
+      nil ->
         conn
-        |> restore_stack(root_token, live)
-        |> restore_active(active)
-        |> prune_persisted(root_token, tokens, live, active)
+
+      root ->
+        {tokens, _organization, _active} = read_state(conn, root)
+        write_persisted(conn, root, tokens, nil, nil)
     end
   end
+
+  @doc "Drops the durable mirror when its remembered identity ends or is replaced."
+  def forget_persisted_accounts(conn) do
+    conn = put_private(conn, :pk_persisted_accounts, :cleared)
+
+    if Map.has_key?(fetch_cookies(conn).req_cookies, @accounts_cookie) or
+         Map.has_key?(conn.resp_cookies, @accounts_cookie),
+       do: delete_resp_cookie(conn, @accounts_cookie, accounts_cookie_delete_options()),
+       else: conn
+  end
+
+  @doc """
+  Restores added accounts and the separate organization slot around the remembered
+  root. Ordinary accounts require multi-session; a bound organization survives
+  independently of that switch. Old mirrors without an organization key work.
+  """
+  def restore_persisted_accounts(conn, root_token) do
+    {tokens, organization, active} = original = read_state(conn, root_token)
+    multi = Settings.get_boolean_setting("multi_session_enabled", false)
+    root_live = resolves_to_active_user?(root_token)
+    accounts = if multi and root_live, do: Enum.filter(tokens, &ordinary_token?/1), else: []
+
+    organization =
+      if root_live and active == organization and bound_organization?(organization, root_token),
+        do: organization
+
+    live = accounts ++ List.wrap(organization)
+    active = if active in live, do: active
+
+    conn = conn |> restore_stack(root_token, live) |> restore_active(active)
+
+    conn =
+      if organization,
+        do: put_session(conn, @organization_key, organization),
+        else: delete_session(conn, @organization_key)
+
+    cond do
+      live == [] -> forget_persisted_accounts(conn)
+      original == {accounts, organization, active} -> conn
+      true -> write_persisted(conn, root_token, accounts, organization, active)
+    end
+  end
+
+  defp ordinary_token?(token),
+    do: match?(%Auth.User{managed_by_members: false}, root_user_from_token(token))
+
+  defp bound_organization?(token, root_token) when is_binary(token) and is_binary(root_token) do
+    case {Auth.get_user_by_session_token(token), Auth.get_session_token_record(root_token)} do
+      {%Auth.User{managed_by_members: true, acting_session_uuid: parent, is_active: true},
+       %{uuid: parent}} ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp bound_organization?(_, _), do: false
 
   defp restore_active(conn, nil), do: conn
   defp restore_active(conn, token), do: put_active_token(conn, token)
+  defp restore_stack(conn, _root, []), do: conn
+  defp restore_stack(conn, root, tokens), do: put_session(conn, @stack_key, [root | tokens])
 
-  defp restore_stack(conn, _root_token, []), do: conn
-
-  defp restore_stack(conn, root_token, live),
-    do: put_session(conn, @stack_key, [root_token | live])
-
-  defp prune_persisted(conn, _root_token, tokens, tokens, _active), do: conn
-
-  defp prune_persisted(conn, root_token, _tokens, live, active),
-    do: write_persisted(conn, root_token, live, active)
-
-  # The identity a mirror may be written under, or nil. Gated on the site-wide
-  # switch as well as the cookie, so `remember_me_enabled: false` blocks the
-  # mirror exactly as it blocks the cookie it hangs off.
-  defp remembered_root(conn) do
-    if WebAuth.remember_me_enabled?(), do: WebAuth.remembered_token(conn)
-  end
+  defp remembered_root(conn),
+    do: if(WebAuth.remember_me_enabled?(), do: WebAuth.remembered_token(conn))
 
   defp resolves_to_active_user?(token), do: match?(%Auth.User{}, root_user_from_token(token))
 
-  # The `root` match is the binding check — see `restore_persisted_accounts/2`.
-  defp read_persisted(conn, expected_root), do: conn |> read_state(expected_root) |> elem(0)
-
-  # `{accounts, active}`. A cookie written before the active marker existed has
-  # none and reads as nil (the root), which is what it always restored to.
   defp read_state(conn, expected_root) do
+    case conn.private[:pk_persisted_accounts] do
+      {^expected_root, tokens, organization, active} -> {tokens, organization, active}
+      :cleared -> {[], nil, nil}
+      _ -> read_cookie_state(conn, expected_root)
+    end
+  end
+
+  defp read_cookie_state(conn, expected_root) do
     conn = fetch_cookies(conn, signed: [@accounts_cookie])
 
     case conn.cookies[@accounts_cookie] do
       %{root: ^expected_root, accounts: tokens} = value when is_list(tokens) ->
         tokens = Enum.filter(tokens, &is_binary/1)
+
+        organization =
+          case Map.get(value, :organization) do
+            token when is_binary(token) -> token
+            _ -> nil
+          end
+
         active = Map.get(value, :active)
-        {tokens, if(active in tokens, do: active)}
+        {tokens, organization, if(active in tokens or active == organization, do: active)}
 
       _ ->
-        {[], nil}
+        {[], nil, nil}
     end
   end
 
-  defp write_persisted(conn, _root, [], _active), do: forget_persisted_accounts(conn)
+  defp write_persisted(conn, _root, [], nil, _active), do: forget_persisted_accounts(conn)
 
-  defp write_persisted(conn, root, tokens, active) do
-    # A signed cookie is read back from the REQUEST, so a read after this write
-    # still sees the old value within the same request. Every caller reads once
-    # and writes once; keep it that way.
-    kept = Enum.take(tokens, -(@max_accounts - 1))
-    value = %{root: root, accounts: kept, active: if(active in kept, do: active)}
+  defp write_persisted(conn, root, tokens, organization, active) do
+    kept = tokens |> Enum.uniq() |> Enum.take(-(@max_accounts - 1))
+    active = if active in kept or active == organization, do: active
+    value = %{root: root, accounts: kept, organization: organization, active: active}
 
-    put_resp_cookie(conn, @accounts_cookie, value, accounts_cookie_options())
+    conn
+    |> put_private(:pk_persisted_accounts, {root, kept, organization, active})
+    |> put_resp_cookie(@accounts_cookie, value, accounts_cookie_options())
   end
 
   # Shares the remember-me lifetime deliberately: the mirror exists to last
@@ -940,9 +1075,10 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   # holding a still-valid cookie that these two entry points accepted, letting
   # them mint a fresh session as another live user.
   defp root_user_from_token(root_token) do
-    root_token
-    |> Auth.get_user_by_session_token()
-    |> Auth.ensure_active_user()
+    case root_token |> Auth.get_user_by_session_token() |> Auth.ensure_active_user() do
+      %Auth.User{managed_by_members: false} = user -> user
+      _ -> nil
+    end
   end
 
   defp log_event(action, %Auth.User{} = actor, %Auth.User{} = target) do

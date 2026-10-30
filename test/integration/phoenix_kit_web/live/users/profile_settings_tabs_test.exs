@@ -45,14 +45,14 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettingsTabsTest do
   test "the media tab holds the annotation tools, for a user with no storage access", %{
     conn: conn
   } do
-    # The tab is offered to everyone because this section is on it; the
-    # libraries card inside keeps its own storage gate, so a plain user
-    # sees the annotation tools and nothing about libraries.
+    # Everyone can browse existing libraries and use annotation tools;
+    # creating a library still requires storage access.
     {:ok, _view, html} = live(conn, Routes.path("/profile/settings/media"))
 
     assert html =~ "Annotation tools"
     assert html =~ "Open media ready to annotate"
-    refute html =~ "My libraries"
+    assert html =~ "My libraries"
+    refute html =~ "Create library"
     refute html =~ "Active Sessions"
   end
 

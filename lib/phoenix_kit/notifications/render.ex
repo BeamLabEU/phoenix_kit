@@ -142,6 +142,20 @@ defmodule PhoenixKit.Notifications.Render do
     {"hero-pencil-square", gettext("Your profile was updated.")}
   end
 
+  defp icon_and_text("organization.manager_added", meta) do
+    {"hero-user-plus",
+     gettext("You can now act for %{organization}.",
+       organization: meta_string(meta, "organization_name") || gettext("the organization")
+     )}
+  end
+
+  defp icon_and_text("organization.manager_removed", meta) do
+    {"hero-user-minus",
+     gettext("Your access to act for %{organization} was removed.",
+       organization: meta_string(meta, "organization_name") || gettext("the organization")
+     )}
+  end
+
   defp icon_and_text("user.timezone_mismatch", meta) do
     case meta_string(meta, "detected_timezone") do
       nil ->
@@ -209,6 +223,7 @@ defmodule PhoenixKit.Notifications.Render do
     user.roles_updated user.status_changed user.password_changed user.password_reset
     user.email_changed user.email_confirmed user.email_unconfirmed user.avatar_changed
     user.profile_updated user.note_created user.note_deleted user.timezone_mismatch
+    organization.manager_added organization.manager_removed
   )
 
   defp link_for(%_{action: action}, locale) when action in @account_actions do

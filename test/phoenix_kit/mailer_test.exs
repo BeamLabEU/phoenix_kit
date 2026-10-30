@@ -125,6 +125,31 @@ defmodule PhoenixKit.MailerTest do
   alias PhoenixKit.MailerTest.TrackingProvider
   alias PhoenixKit.Settings
 
+  describe "reserved placeholder recipients" do
+    test "drops .invalid from to, cc and bcc while delivering to real recipients" do
+      email =
+        new()
+        |> to(["org@organization.invalid", "real@example.com"])
+        |> cc("api@service.invalid")
+        |> bcc(["other@Sub.INVALID", "copy@example.com"])
+        |> Swoosh.Email.from("from@example.com")
+        |> subject("Hi")
+
+      assert {:ok, _} = Mailer.deliver_email(email)
+      assert_received {:email, sent}
+      assert sent.to == [{"", "real@example.com"}]
+      assert sent.cc == []
+      assert sent.bcc == [{"", "copy@example.com"}]
+    end
+
+    test "an all-placeholder message is suppressed before either transport is resolved" do
+      email = new() |> to("org@organization.invalid") |> cc("api@service.invalid")
+      assert {:ok, %{suppressed: true}} = Mailer.deliver_email(email)
+      assert {:ok, %{suppressed: true}} = Mailer.deliver_via_integration(email, UUIDv7.generate())
+      refute_received {:email, _}
+    end
+  end
+
   describe "swoosh_config_for/1" do
     test "aws_ses credentials build an AmazonSES adapter config" do
       creds = %{

@@ -59,6 +59,7 @@ defmodule PhoenixKit.Admin.Events do
   """
 
   alias PhoenixKit.PubSub.Manager
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
 
@@ -85,6 +86,21 @@ defmodule PhoenixKit.Admin.Events do
   Broadcasts user update event to admin panels.
   """
   def broadcast_user_updated(user) do
+    user =
+      case user do
+        %User{} ->
+          %{
+            user
+            | active_role_uuid: nil,
+              acting_user_uuid: nil,
+              acting_session_uuid: nil,
+              organization_manager_uuid: nil
+          }
+
+        other ->
+          other
+      end
+
     broadcast(@topic_users, {:user_updated, user})
     maybe_broadcast_stats_updated()
   end

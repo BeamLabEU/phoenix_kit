@@ -21590,3 +21590,613 @@ msgstr "Sprawdzenie połączenia zwróciło nieoczekiwaną odpowiedź"
 #, elixir-autogen, elixir-format
 msgid "These files belong to the module that stored them and cannot be changed here."
 msgstr "Te pliki należą do modułu, który je zapisał, i nie można ich tutaj zmieniać."
+
+#, elixir-autogen, elixir-format
+msgid "Back to my account"
+msgstr "Powrót do mojego konta"
+
+#, elixir-autogen, elixir-format
+msgid "My account"
+msgstr "Moje konto"
+
+#, elixir-autogen, elixir-format
+msgid "You are now acting as %{organization}."
+msgstr "Działasz teraz jako %{organization}."
+
+#, elixir-autogen, elixir-format
+msgid "Too many organization switches. Please try again later."
+msgstr "Zbyt wiele zmian organizacji. Spróbuj ponownie później."
+
+#, elixir-autogen, elixir-format
+msgid "Could not enter that organization."
+msgstr "Nie udało się wejść do tej organizacji."
+
+#, elixir-autogen, elixir-format
+msgid "You are back in your own account."
+msgstr "Wrócono do Twojego własnego konta."
+
+#, elixir-autogen, elixir-format
+msgid "Return to your own account before adding another account."
+msgstr "Wróć do własnego konta przed dodaniem kolejnego konta."
+
+#, elixir-autogen, elixir-format
+msgid "Return to your own account before signing in as another user."
+msgstr "Wróć do własnego konta przed zalogowaniem jako inny użytkownik."
+
+#, elixir-autogen, elixir-format
+msgid "%{organization}, from this browser"
+msgstr "%{organization}, z tej przeglądarki"
+
+#, elixir-autogen, elixir-format
+msgid "%{organization} · via %{person}"
+msgstr "%{organization} · za pośrednictwem %{person}"
+
+#, elixir-autogen, elixir-format
+msgid "Managed organization"
+msgstr "Zarządzana organizacja"
+
+msgid "Add %{person}"
+msgstr "Dodaj %{person}"
+
+msgid "Add another active manager first, or explicitly leave this organization without managers as an administrator."
+msgstr "Najpierw dodaj innego aktywnego zarządcę lub jako administrator jawnie pozostaw organizację bez zarządców."
+
+msgid "Allow managed organizations to have no active managers"
+msgstr "Zezwól organizacjom na brak aktywnych zarządców"
+
+msgid "Allow this organization to have no active managers"
+msgstr "Zezwól tej organizacji na brak aktywnych zarządców"
+
+msgid "Check the email address and required fields."
+msgstr "Sprawdź adres e-mail i wymagane pola."
+
+msgid "Check the organization name, contact email and first manager."
+msgstr "Sprawdź nazwę organizacji, e-mail kontaktowy i pierwszego zarządcę."
+
+msgid "Choose a person"
+msgstr "Wybierz osobę"
+
+msgid "Contact address updated"
+msgstr "Zaktualizowano adres kontaktowy"
+
+msgid "Contact email"
+msgstr "E-mail kontaktowy"
+
+msgid "Convert this organization to manager accounts. Its existing credentials and sessions will be revoked."
+msgstr "Przełącz organizację na konta zarządców. Dotychczasowe dane logowania i sesje zostaną unieważnione."
+
+msgid "Convert to independent organization"
+msgstr "Przekształć w niezależną organizację"
+
+msgid "Convert with %{person} as first manager"
+msgstr "Przekształć z %{person} jako pierwszym zarządcą"
+
+msgid "Create managed organization"
+msgstr "Utwórz zarządzaną organizację"
+
+msgid "Find an active person"
+msgstr "Znajdź aktywną osobę"
+
+msgid "Find the first manager"
+msgstr "Znajdź pierwszego zarządcę"
+
+msgid "First manager"
+msgstr "Pierwszy zarządca"
+
+msgid "Give this organization its own login"
+msgstr "Nadaj organizacji własne dane logowania"
+
+msgid "If this address can receive invitations, a manager invitation is available to its owner."
+msgstr "Jeśli ten adres może otrzymywać zaproszenia, jego właściciel ma dostęp do zaproszenia dla zarządcy."
+
+msgid "Invite a manager by email"
+msgstr "Zaproś zarządcę przez e-mail"
+
+msgid "Invites a person to manage an organization from their own account."
+msgstr "Zaprasza osobę do zarządzania organizacją z własnego konta."
+
+msgid "Managed organization created"
+msgstr "Utworzono zarządzaną organizację"
+
+msgid "Manager added"
+msgstr "Dodano zarządcę"
+
+msgid "Manager removed"
+msgstr "Usunięto zarządcę"
+
+msgid "Managers"
+msgstr "Zarządcy"
+
+msgid "Managers use their own accounts to act for this organization."
+msgstr "Zarządcy działają w imieniu organizacji z własnych kont."
+
+msgid "New login email"
+msgstr "Nowy e-mail logowania"
+
+msgid "New managed organization"
+msgstr "Nowa zarządzana organizacja"
+
+msgid "Organization manager invitation"
+msgstr "Zaproszenie dla zarządcy organizacji"
+
+msgid "Organization name"
+msgstr "Nazwa organizacji"
+
+msgid "Organization now has its own sign-in credentials"
+msgstr "Organizacja ma teraz własne dane logowania"
+
+msgid "Organization now uses manager accounts"
+msgstr "Organizacja korzysta teraz z kont zarządców"
+
+msgid "Remove manager"
+msgstr "Usuń zarządcę"
+
+msgid "Send invitation"
+msgstr "Wyślij zaproszenie"
+
+msgid "The organization has no login of its own. Choose an active person who will manage it using their own account."
+msgstr "Organizacja nie ma własnego logowania. Wybierz aktywną osobę, która będzie zarządzać nią z własnego konta."
+
+msgid "This change is not available. Refresh the page and check your access."
+msgstr "Ta zmiana jest niedostępna. Odśwież stronę i sprawdź uprawnienia."
+
+msgid "This organization has no managers."
+msgstr "Ta organizacja nie ma zarządców."
+
+msgid "This person is the last active manager. Add another manager or explicitly allow the organization to have no managers."
+msgstr "Ta osoba jest ostatnim aktywnym zarządcą. Dodaj innego lub jawnie zezwól na brak zarządców."
+
+msgid "This removes all managers and acting sessions. Set new credentials; previous credentials stay revoked."
+msgstr "Usunie wszystkich zarządców i ich sesje. Ustaw nowe dane logowania; stare pozostaną unieważnione."
+
+msgid "Too many invitations. Please try again later."
+msgstr "Zbyt wiele zaproszeń. Spróbuj ponownie później."
+
+msgid "Use your own administrator account to create a managed organization."
+msgstr "Użyj własnego konta administratora, aby utworzyć zarządzaną organizację."
+
+msgid "You can now act for the organization."
+msgstr "Możesz teraz działać w imieniu organizacji."
+
+msgid "You've been invited to manage %{organization}. Create a personal account to accept the invitation."
+msgstr "Zaproszono Cię do zarządzania %{organization}. Utwórz konto osobiste, aby przyjąć zaproszenie."
+
+msgid "You've been invited to manage {{organization_name}}"
+msgstr "Zaproszenie do zarządzania {{organization_name}}"
+
+msgid "invited you to manage their organization."
+msgstr "zaprasza Cię do zarządzania organizacją."
+
+msgid "You can now act for %{organization}."
+msgstr "Możesz teraz działać w imieniu %{organization}."
+
+msgid "Your access to act for %{organization} was removed."
+msgstr "Odebrano Ci dostęp do działania w imieniu %{organization}."
+
+msgid "the organization"
+msgstr "organizacja"
+
+msgid "another user"
+msgstr "inny użytkownik"
+
+msgid "Hi {{user_email}},\n\n{{organization_name}} has invited you to become a manager. Managers act for the organization using their own account.\n\nSign in or create your personal account, then accept the invitation banner.\n\n[Review manager invitation]({{invitation_url}})\n\nThis invitation expires in 7 days. If you did not expect it, you can ignore this email.\n"
+msgstr "Witaj {{user_email}},\n\n{{organization_name}} zaprasza Cię do roli zarządcy. Zarządcy działają w imieniu organizacji z własnego konta.\n\nZaloguj się lub utwórz konto osobiste, a następnie przyjmij zaproszenie w banerze.\n\n[Zobacz zaproszenie dla zarządcy]({{invitation_url}})\n\nZaproszenie wygaśnie za 7 dni. Jeśli go nie oczekiwano, możesz zignorować tę wiadomość.\n"
+
+#: lib/phoenix_kit/users/permissions.ex
+#, elixir-autogen, elixir-format
+msgid "Personal API keys"
+msgstr "Osobiste klucze API"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The API is switched off by an administrator."
+msgstr "API zostało wyłączone przez administratora."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Keys cannot be changed while you act in another account."
+msgstr "Kluczy nie można zmieniać, gdy działasz na innym koncie."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "This key is already being replaced."
+msgstr "Ten klucz jest już wymieniany."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Your account cannot own keys right now."
+msgstr "Twoje konto nie może teraz mieć kluczy."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Some of the chosen scopes are not available to you."
+msgstr "Niektóre z wybranych zakresów nie są dla Ciebie dostępne."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "You already have the largest number of keys allowed. Revoke one first."
+msgstr "Masz już największą dozwoloną liczbę kluczy. Najpierw unieważnij jeden."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The expiry date is required."
+msgstr "Data wygaśnięcia jest wymagana."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The scopes of this key can only be narrowed."
+msgstr "Zakresy tego klucza można tylko zawęzić."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Expires soon"
+msgstr "Wkrótce wygasa"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Being replaced"
+msgstr "Wymieniany"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "No permission"
+msgstr "Brak uprawnień"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "This section was added without the session's context, so it cannot show your keys."
+msgstr "Ta sekcja została dodana bez kontekstu sesji, więc nie może pokazać Twoich kluczy."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "You do not have access to API keys."
+msgstr "Nie masz dostępu do kluczy API."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "You are acting in another account, so your keys are shown but cannot be changed here. Sign in as yourself to create, rotate or revoke them."
+msgstr "Działasz na innym koncie, więc Twoje klucze są widoczne, ale nie można ich tu zmieniać. Zaloguj się jako Ty, aby je tworzyć, rotować lub unieważniać."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The API is switched off by an administrator. Your keys do not work now; you can still revoke them or change their scopes, but not create or rotate them."
+msgstr "API zostało wyłączone przez administratora. Twoje klucze teraz nie działają; nadal możesz je unieważniać lub zmieniać ich zakresy, ale nie tworzyć ani rotować."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "My API keys"
+msgstr "Moje klucze API"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "A key acts with your rights, never with more. If you lose a right, the key loses it at once."
+msgstr "Klucz działa z Twoimi uprawnieniami, nigdy z większymi. Gdy stracisz uprawnienie, klucz traci je natychmiast."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} of %{max} keys"
+msgstr "%{count} z %{max} kluczy"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Expires on"
+msgstr "Wygasa"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "You have no API keys yet"
+msgstr "Nie masz jeszcze kluczy API"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "How to connect"
+msgstr "Jak się połączyć"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Send the key in the Authorization header of every request:"
+msgstr "Wysyłaj klucz w nagłówku Authorization każdego żądania:"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "REST address:"
+msgstr "Adres REST:"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "MCP address (for AI agents):"
+msgstr "Adres MCP (dla agentów AI):"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The key acts only with your rights; do not give it to other people."
+msgstr "Klucz działa tylko z Twoimi uprawnieniami; nie przekazuj go innym osobom."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Your other keys are on"
+msgstr "Twoje pozostałe klucze są w"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Settings → API"
+msgstr "Ustawienia → API"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "No scopes are available to you, so a key could only read its own identity. Ask an administrator for more rights."
+msgstr "Nie masz dostępnych zakresów, więc klucz mógłby tylko odczytać własną tożsamość. Poproś administratora o więcej uprawnień."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "These scopes are inactive because you can no longer use them or their module's API is switched off. They stay on the key when you save."
+msgstr "Te zakresy są nieaktywne, ponieważ nie możesz już z nich korzystać lub API ich modułu jest wyłączone. Przy zapisie pozostają na kluczu."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "A new key is created with the same scopes and limits and a new expiry date. The old key keeps working for the grace period, then stops."
+msgstr "Tworzony jest nowy klucz z tymi samymi zakresami i ograniczeniami oraz nową datą wygaśnięcia. Stary klucz działa przez okres przejściowy, a potem przestaje."
+
+#: lib/phoenix_kit_web/live/users/my_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "You don't have access to API keys."
+msgstr "Nie masz dostępu do kluczy API."
+
+#: lib/phoenix_kit_web/live/users/my_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Keys that let programs and AI agents act with your rights"
+msgstr "Klucze, dzięki którym programy i agenci AI działają z Twoimi uprawnieniami"
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "Personal keys cannot be rotated while you act in another account."
+msgstr "Kluczy osobistych nie można wymieniać, gdy działasz na innym koncie."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "You can only remove scopes from a personal key, not add any."
+msgstr "Z klucza osobistego można tylko usuwać zakresy, nie dodawać ich."
+
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "This session cannot tell whether you act in another account."
+msgstr "Ta sesja nie może ustalić, czy działasz na innym koncie."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#: lib/phoenix_kit_web/live/settings/api.ex
+#, elixir-autogen, elixir-format
+msgid "You already have the largest number of keys allowed, so the old key cannot keep working next to the new one. Rotate with a grace period of 0, or revoke a key first."
+msgstr "Masz już największą dozwoloną liczbę kluczy, więc stary klucz nie może działać obok nowego. Obróć klucz z okresem przejściowym 0 albo najpierw unieważnij jeden klucz."
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "You already have the largest number of keys allowed, so the old key cannot keep working next to the new one: the grace period starts at 0 and the old key stops at once. Revoke another key first if you need a longer overlap."
+msgstr "Masz już największą dozwoloną liczbę kluczy, więc stary klucz nie może działać obok nowego: okres przejściowy zaczyna się od 0, a stary klucz przestaje działać od razu. Najpierw unieważnij inny klucz, jeśli potrzebujesz dłuższego nakładania."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Expires on %{date}"
+msgstr "Wygasa %{date}"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Remove scopes"
+msgstr "Usuń zakresy"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Remove scopes from this key"
+msgstr "Usuń zakresy z tego klucza"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "This is a personal key of another person. You can take scopes off it, but not add any. Untick what it should lose."
+msgstr "To klucz osobisty innej osoby. Możesz odebrać mu zakresy, ale nie dodawać nowych. Odznacz to, co ma stracić."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Remove the unticked scopes"
+msgstr "Usuń odznaczone zakresy"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "A person makes these keys for themselves on My API keys. The “Personal API keys” permission is given to roles (Users, Roles, or the permissions matrix); an Admin does not get it by itself."
+msgstr "Każda osoba tworzy te klucze dla siebie w „Moje klucze API”. Uprawnienie “Osobiste klucze API” nadaje się rolom (Użytkownicy, Role lub macierz uprawnień); Admin nie dostaje go automatycznie."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Longest lifetime of a personal key, in days (1 to 365)"
+msgstr "Najdłuższy okres ważności klucza osobistego w dniach (od 1 do 365)"
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Personal keys one person may have (1 to 50)"
+msgstr "Liczba kluczy osobistych na osobę (od 1 do 50)"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "Personal keys"
+msgstr "Klucze osobiste"
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "A personal key is a person's key for themselves: it acts with that person's own rights, always has an expiry, and never needs approval."
+msgstr "Klucz osobisty to klucz osoby dla niej samej: działa z jej własnymi uprawnieniami, zawsze ma termin ważności i nigdy nie wymaga zatwierdzenia."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "To allow it, give a role the “Personal API keys” permission (Users, Roles, or the permissions matrix). An Admin does not get it by itself. The person makes the keys at %{path}."
+msgstr "Aby to dopuścić, nadaj roli uprawnienie “Osobiste klucze API” (Użytkownicy, Role lub macierz uprawnień). Admin nie dostaje go automatycznie. Osoba tworzy klucze pod adresem %{path}."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "The Owner sees personal keys in the keys list. The Owner can revoke one or remove scopes from it, but cannot rotate it or add scopes."
+msgstr "Owner widzi klucze osobiste na liście kluczy. Może unieważnić klucz lub odebrać mu zakresy, ale nie może go wymieniać ani dodawać zakresów."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "Someone who signs in as a person directly, not as a second account in the same session, with that person's own password, for example after an administrator reset it, can make a key as that person."
+msgstr "Kto loguje się bezpośrednio jako dana osoba, a nie jako drugie konto w tej samej sesji, z jej własnym hasłem, na przykład po zresetowaniu przez administratora, może utworzyć klucz jako ta osoba."
+
+#: lib/phoenix_kit_web/live/settings/api_guide_panel.html.heex
+#, elixir-autogen, elixir-format
+msgid "A person never has more live personal keys than the limit set under “Switches and modules”, a key in the grace period of a rotation included. At the limit, a key can only be rotated with a grace period of 0, which stops the old key at once."
+msgstr "Osoba nigdy nie ma więcej aktywnych kluczy osobistych niż limit ustawiony w „Przełączniki i moduły”, wliczając klucz w okresie przejściowym rotacji. Przy limicie klucz można obrócić tylko z okresem przejściowym 0, co od razu zatrzymuje stary klucz."
+
+#: lib/phoenix_kit_web/live/settings/api.html.heex
+#, elixir-autogen, elixir-format
+msgid "Personal key"
+msgstr "Klucz osobisty"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Keys: %{count} of %{max}"
+msgstr "Klucze: %{count} z %{max}"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "Your other keys are on Settings → API"
+msgstr "Twoje pozostałe klucze są w Ustawienia → API"
+
+#: lib/phoenix_kit_web/components/personal_key_display.ex
+#, elixir-autogen, elixir-format
+msgid "Owner inactive"
+msgstr "Właściciel nieaktywny"
+
+#: lib/phoenix_kit_web/live/components/personal_api_keys.ex
+#, elixir-autogen, elixir-format
+msgid "The expiry date can be %{date} at the latest."
+msgstr "Data wygaśnięcia może być najpóźniej %{date}."
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Wait for the uploads to finish"
+msgstr "Poczekaj na zakończenie przesyłania"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "No open media browser could receive this upload."
+msgstr "Żadna otwarta przeglądarka multimediów nie mogła odebrać tego przesłania."
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Maximum %{count} file"
+msgid_plural "Maximum %{count} files"
+msgstr[0] "Maksymalnie %{count} plik"
+msgstr[1] "Maksymalnie %{count} pliki"
+msgstr[2] "Maksymalnie %{count} plików"
+
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex
+#, elixir-autogen, elixir-format
+msgid "Deselect"
+msgstr "Odznacz"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "There is nothing left to remove."
+msgstr "Nie ma już nic do usunięcia."
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "The files changed. Check the list and confirm again."
+msgstr "Pliki uległy zmianie. Sprawdź listę i potwierdź ponownie."
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{deleted} deleted, %{kept} kept: in use"
+msgstr "Usunięto: %{deleted}, zachowano: %{kept} — w użyciu"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "The files could not be checked, so nothing was removed. Try again later."
+msgstr "Nie udało się sprawdzić plików, więc nic nie usunięto. Spróbuj ponownie później."
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "The files could not be freed. Nothing was removed."
+msgstr "Nie udało się zwolnić plików. Nic nie usunięto."
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "This cannot be undone."
+msgstr "Tej operacji nie można cofnąć."
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Not available to you"
+msgstr "Niedostępne dla Ciebie"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Please wait…"
+msgstr "Proszę czekać…"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Could not check the files"
+msgstr "Nie udało się sprawdzić plików"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "and %{count} more file"
+msgid_plural "and %{count} more files"
+msgstr[0] "i jeszcze %{count} plik"
+msgstr[1] "i jeszcze %{count} pliki"
+msgstr[2] "i jeszcze %{count} plików"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} file is in use and stays in the trash:"
+msgid_plural "%{count} files are in use and stay in the trash:"
+msgstr[0] "%{count} plik jest w użyciu i zostaje w koszu:"
+msgstr[1] "%{count} pliki są w użyciu i zostają w koszu:"
+msgstr[2] "%{count} plików jest w użyciu i zostaje w koszu:"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Cannot delete: the file is in use"
+msgid_plural "Cannot delete: %{count} files are in use"
+msgstr[0] "Nie można usunąć: plik jest w użyciu"
+msgstr[1] "Nie można usunąć: %{count} pliki są w użyciu"
+msgstr[2] "Nie można usunąć: %{count} plików jest w użyciu"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Move %{count} folder and its contents to trash?"
+msgid_plural "Move %{count} folders and their contents to trash?"
+msgstr[0] "Przenieść %{count} folder i jego zawartość do kosza?"
+msgstr[1] "Przenieść %{count} foldery i ich zawartość do kosza?"
+msgstr[2] "Przenieść %{count} folderów i ich zawartość do kosza?"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Delete %{count} folder and its contents for good?"
+msgid_plural "Delete %{count} folders and their contents for good?"
+msgstr[0] "Trwale usunąć %{count} folder i jego zawartość?"
+msgstr[1] "Trwale usunąć %{count} foldery i ich zawartość?"
+msgstr[2] "Trwale usunąć %{count} folderów i ich zawartość?"
+
+#: lib/phoenix_kit_web/components/media_browser/removal_modal.ex
+#, elixir-autogen, elixir-format
+msgid "Delete %{count} file for good?"
+msgid_plural "Delete %{count} files for good?"
+msgstr[0] "Trwale usunąć %{count} plik?"
+msgstr[1] "Trwale usunąć %{count} pliki?"
+msgstr[2] "Trwale usunąć %{count} plików?"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} item permanently deleted"
+msgid_plural "%{count} items permanently deleted"
+msgstr[0] "%{count} element trwale usunięty"
+msgstr[1] "%{count} elementy trwale usunięte"
+msgstr[2] "%{count} elementów trwale usuniętych"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} item moved to trash"
+msgid_plural "%{count} items moved to trash"
+msgstr[0] "%{count} element przeniesiony do kosza"
+msgstr[1] "%{count} elementy przeniesione do kosza"
+msgstr[2] "%{count} elementów przeniesionych do kosza"

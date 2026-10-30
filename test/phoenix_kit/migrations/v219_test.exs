@@ -266,9 +266,12 @@ defmodule PhoenixKit.Migrations.Postgres.V219Test do
       end
     end
 
+    # By V219 or a later version (V226 adds `personal`).
     test "every column of the table is declared, and nothing else is" do
       declared =
-        for %{class: :column, id: "column:phoenix_kit_api_keys." <> name} <- declared_by_v219(),
+        for %{class: :column, id: "column:phoenix_kit_api_keys." <> name, since: since} <-
+              ExpectedSchema.objects("public"),
+            since >= 219,
             do: name
 
       actual =

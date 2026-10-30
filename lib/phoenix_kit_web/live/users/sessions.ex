@@ -262,7 +262,7 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
           "1 session revoked for %{email}",
           "%{count} sessions revoked for %{email}",
           revoked_count,
-          email: user.email
+          email: Auth.User.delivery_email(user)
         )
       )
       |> assign(:show_revoke_modal, false)

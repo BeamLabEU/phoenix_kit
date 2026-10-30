@@ -95,9 +95,11 @@ defmodule PhoenixKit.Modules.Storage do
   import Ecto.Query, warn: false
   require Logger
 
+  alias PhoenixKit.Integrations.ConnectionLock
   alias PhoenixKit.Integrations.Probe
   alias PhoenixKit.Migrations.ModuleOwnedTables
   alias PhoenixKit.ModuleRegistry
+  alias PhoenixKit.Modules.Storage.ProfileBucket
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   alias PhoenixKit.Modules.Storage.Audit
@@ -403,9 +405,8 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   How many buckets use each Integrations connection, as `%{connection_uuid => count}`.
 
-  Removing a connection does not check who uses it (a missing one fails loudly
-  at the next use), so the Integrations pages read this to say so before it
-  happens.
+  Includes disabled buckets. Connections referenced by these buckets are
+  protected from removal and disconnection.
   """
   @spec bucket_counts_by_connection() :: %{String.t() => pos_integer()}
   def bucket_counts_by_connection do
@@ -415,6 +416,48 @@ defmodule PhoenixKit.Modules.Storage do
     |> select([b], {b.integration_uuid, count(b.uuid)})
     |> repo().all()
     |> Map.new()
+  end
+
+  @doc "Storage dependencies of a connection, including disabled and trashed storage."
+  def integration_usage(uuid), do: Map.get(integration_usage_for([uuid]), uuid, [])
+
+  @doc false
+  def integration_usage_for([]), do: %{}
+
+  def integration_usage_for(uuids) do
+    default = Profiles.default_uuid()
+
+    from(b in Bucket,
+      left_join: pb in ProfileBucket,
+      on: pb.bucket_uuid == b.uuid,
+      left_join: l in Library,
+      on:
+        l.storage_profile_uuid == pb.profile_uuid or
+          (is_nil(l.storage_profile_uuid) and pb.profile_uuid == ^default),
+      where: b.integration_uuid in ^uuids,
+      order_by: [asc: b.name],
+      select:
+        {b.integration_uuid,
+         %{
+           bucket: b.bucket_name,
+           bucket_label: b.name,
+           role: pb.role,
+           library:
+             fragment(
+               "CASE WHEN ? = 'user' AND ? IS NULL THEN NULL ELSE ? END",
+               l.kind,
+               b.owner_uuid,
+               l.name
+             ),
+           private_library:
+             fragment("COALESCE(? = 'user' AND ? IS NULL, false)", l.kind, b.owner_uuid),
+           trashed: not is_nil(l.trashed_at),
+           enabled: b.enabled
+         }},
+      distinct: true
+    )
+    |> repo().all()
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
   end
 
   @doc """
@@ -463,7 +506,14 @@ defmodule PhoenixKit.Modules.Storage do
 
   """
   def create_bucket(attrs \\ %{}, opts \\ []) do
-    Audit.transaction(fn -> do_create_bucket(attrs, opts) end)
+    Audit.transaction(fn ->
+      ConnectionLock.run(
+        attrs[:integration_uuid] || attrs["integration_uuid"],
+        fn ->
+          do_create_bucket(attrs, opts)
+        end
+      )
+    end)
   end
 
   defp do_create_bucket(attrs, opts) do
@@ -476,7 +526,11 @@ defmodule PhoenixKit.Modules.Storage do
       # `log: false` on every bucket write: the row carries `access_key_id` and
       # the `enc:v1:` ciphertext of `secret_access_key`, which Ecto's SQL debug
       # logger would otherwise print as bound parameters.
-      with {:ok, bucket} <- %Bucket{} |> Bucket.changeset(attrs) |> repo().insert(log: false),
+      with {:ok, bucket} <-
+             %Bucket{}
+             |> Bucket.changeset(attrs)
+             |> validate_bucket_connection()
+             |> repo().insert(log: false),
            :ok <- place_new_bucket(bucket, profile, opts) do
         bucket
       else
@@ -539,22 +593,33 @@ defmodule PhoenixKit.Modules.Storage do
   """
   @spec create_owned_bucket(String.t(), map()) :: {:ok, Bucket.t()} | {:error, Ecto.Changeset.t()}
   def create_owned_bucket(owner_uuid, attrs) when is_binary(owner_uuid) do
-    %Bucket{}
-    |> Bucket.owned_changeset(attrs, owner_uuid,
-      connection_owned?: &owns_connection?(owner_uuid, &1)
+    ConnectionLock.run(
+      attrs[:integration_uuid] || attrs["integration_uuid"],
+      fn ->
+        %Bucket{}
+        |> Bucket.owned_changeset(attrs, owner_uuid,
+          connection_owned?: &owns_connection?(owner_uuid, &1)
+        )
+        |> repo().insert(log: false)
+        |> tap(&bucket_changed/1)
+      end
     )
-    |> repo().insert(log: false)
-    |> tap(&bucket_changed/1)
   end
 
   # Whether `owner_uuid` owns the Object Storage connection `uuid`: the lookup
   # is owner-scoped, so another user's (or a site) connection is "not found".
   @doc false
-  def owns_connection?(owner_uuid, uuid) do
-    match?(
-      {:ok, %{provider: "object_storage"}},
-      PhoenixKit.Integrations.get_integration_by_uuid(uuid, {:user, owner_uuid})
-    )
+  def owns_connection?(owner_uuid, uuid),
+    do: usable_storage_connection?(uuid, {:user, owner_uuid})
+
+  defp usable_storage_connection?(uuid, owner) do
+    case PhoenixKit.Integrations.get_integration_by_uuid(uuid, owner) do
+      {:ok, %{provider: "object_storage", data: data}} ->
+        Enum.all?(~w(access_key secret_key), &(is_binary(data[&1]) and data[&1] != ""))
+
+      _ ->
+        false
+    end
   end
 
   @doc """
@@ -585,11 +650,31 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp do_update_bucket(bucket, attrs, opts) do
-    changeset = bucket_update_changeset(bucket, attrs)
+    uuid = attrs[:integration_uuid] || attrs["integration_uuid"] || bucket.integration_uuid
 
-    with :ok <- refuse_disable_while_in_profiles(bucket, changeset) do
-      update_bucket_row(changeset, opts)
-    end
+    ConnectionLock.run(uuid, fn ->
+      changeset = bucket_update_changeset(bucket, attrs) |> validate_bucket_connection()
+
+      with :ok <- refuse_disable_while_in_profiles(bucket, changeset) do
+        update_bucket_row(changeset, opts)
+      end
+    end)
+  end
+
+  defp validate_bucket_connection(changeset) do
+    uuid = Ecto.Changeset.get_field(changeset, :integration_uuid)
+    owner = Ecto.Changeset.get_field(changeset, :owner_uuid)
+    scope = if owner, do: {:user, owner}, else: :system
+
+    if (changeset.valid? and uuid) &&
+         not usable_storage_connection?(uuid, scope),
+       do:
+         Ecto.Changeset.add_error(
+           changeset,
+           :integration_uuid,
+           "must be an existing object storage connection owned by the bucket owner"
+         ),
+       else: changeset
   end
 
   # A disabled bucket is neither written nor read, whatever its profiles say,
@@ -2199,10 +2284,8 @@ defmodule PhoenixKit.Modules.Storage do
         # links the second upload): re-home it there instead of trashing it,
         # exactly as `delete_folder_completely/2` does. Trashing it hid the
         # attachment from every reader outside this folder (2026-09-12).
-        from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid in ^subtree_uuids)
-        |> repo().all()
-        |> Enum.filter(&linked_outside_subtree?(&1.uuid, subtree_uuids, :live))
-        |> Enum.each(&promote_out_of_subtree(&1, subtree_uuids, :live))
+        {promote, _rest} = split_subtree_files(subtree_uuids, :live)
+        Enum.each(promote, &promote_out_of_subtree(&1, subtree_uuids, :live))
 
         # Trash every file still homed in the subtree. Files use both
         # `status: "trashed"` and `trashed_at` (the V99 convention) so the
@@ -2322,18 +2405,13 @@ defmodule PhoenixKit.Modules.Storage do
     subtree_uuids = folder_subtree_uuids(folder.uuid)
 
     # Pull files home in the subtree, then delete bottom-up.
-    files =
-      from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid in ^subtree_uuids)
-      |> repo().all()
-
     # A file that is ALSO linked (via `FolderLink`) into a folder OUTSIDE this
     # subtree lives in another folder too — re-home it there (consuming that one
     # link) so it survives, instead of hard-deleting it. Without this, deleting a
     # folder silently destroys a file shared into an unrelated folder (and the
     # `FolderLink.file_uuid` cascade strips it from there). Only files confined
     # to the subtree are deleted.
-    {to_promote, to_delete} =
-      Enum.split_with(files, &linked_outside_subtree?(&1.uuid, subtree_uuids))
+    {to_promote, to_delete} = split_subtree_files(subtree_uuids, :any)
 
     # A promotion with nowhere live to go lands in a trashed folder and is
     # trashed with it — say so, the same way a trashing does.
@@ -2397,8 +2475,41 @@ defmodule PhoenixKit.Modules.Storage do
     repo().all(query)
   end
 
-  defp linked_outside_subtree?(file_uuid, subtree_uuids, which \\ :any),
-    do: links_outside_subtree(file_uuid, subtree_uuids, which) != []
+  # Which of `file_uuids` a folder outside `subtree_uuids` links — one query for
+  # the whole set (`which` as in `links_outside_subtree/3`).
+  defp files_linked_outside(file_uuids, subtree_uuids, which) do
+    query =
+      from(fl in FolderLink,
+        join: fo in Folder,
+        on: fo.uuid == fl.folder_uuid,
+        where: fl.file_uuid in ^file_uuids and fl.folder_uuid not in ^subtree_uuids,
+        distinct: true,
+        select: fl.file_uuid
+      )
+
+    query =
+      case which do
+        :live -> where(query, [_fl, fo], is_nil(fo.trashed_at))
+        :any -> query
+      end
+
+    linked_uuids = if file_uuids == [], do: [], else: repo().all(query)
+    MapSet.new(linked_uuids, &to_string/1)
+  end
+
+  # The files homed in a subtree, split in two: `{promote, rest}` — those a
+  # folder outside it also holds (they are re-homed there and survive) and
+  # the ones confined to it. The ONE split a folder's trashing and permanent
+  # delete carry out and `removal_plan/2` reports; `which` is as in
+  # `links_outside_subtree/3`.
+  defp split_subtree_files(subtree_uuids, which) do
+    files =
+      from(f in PhoenixKit.Modules.Storage.File, where: f.folder_uuid in ^subtree_uuids)
+      |> repo().all()
+
+    linked = files |> Enum.map(& &1.uuid) |> files_linked_outside(subtree_uuids, which)
+    Enum.split_with(files, &MapSet.member?(linked, to_string(&1.uuid)))
+  end
 
   # Re-home a file to the first folder that links it from outside the deleted
   # subtree (consuming that link), so it survives. Any remaining external links
@@ -3076,47 +3187,11 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp remove_locked(file, folder_uuid) do
-    cond do
-      to_string(file.folder_uuid) == to_string(folder_uuid) ->
-        case other_folder_links(file.uuid, folder_uuid) do
-          [] ->
-            with {:ok, trashed} <- mark_trashed(file), do: {:ok, :trashed, trashed}
+    case removal_outcome(file, folder_uuid) do
+      :trash ->
+        with {:ok, trashed} <- mark_trashed(file), do: {:ok, :trashed, trashed}
 
-          links ->
-            rehome_into_first_live(file, links)
-        end
-
-      link = folder_link(folder_uuid, file.uuid) ->
-        with {:ok, _} <- repo().delete(link), do: {:ok, :unlinked, file}
-
-      # Neither homed nor linked here: a stale or forged row. Refuse
-      # rather than trash a file this folder never held.
-      true ->
-        {:error, :not_in_folder}
-    end
-  end
-
-  # The candidates were read without locking their folders, so one can be
-  # mid-trash: each folder is checked before the file is homed there, and a
-  # trashed one is skipped for the next candidate. (Locking the folder here
-  # instead would take it AFTER the file's row — the opposite of the order
-  # folder moves take, which is a deadlock.) This narrows the race rather
-  # than closing it: a folder trashed between the check and this commit can
-  # still end up holding the file live, since `trash_folder/1`'s file sweep
-  # reads the file's old home. The earlier write-then-check form had the
-  # same window.
-  #
-  # Runs inside `remove_file_from_folder/2`'s transaction, so no transaction
-  # of its own: a nested rollback would poison the outer one, and every
-  # later query in it would raise. Nothing left to rehome into: the file is
-  # trashed.
-  defp rehome_into_first_live(file, []) do
-    with {:ok, trashed} <- mark_trashed(file), do: {:ok, :trashed, trashed}
-  end
-
-  defp rehome_into_first_live(file, [%FolderLink{} = link | rest]) do
-    case get_folder(link.folder_uuid) do
-      %Folder{trashed_at: nil} ->
+      {:rehome, %FolderLink{} = link} ->
         with {:ok, rehomed} <-
                file
                |> Ecto.Changeset.change(%{folder_uuid: link.folder_uuid})
@@ -3127,10 +3202,181 @@ defmodule PhoenixKit.Modules.Storage do
           {:error, reason} -> repo().rollback(reason)
         end
 
-      _ ->
-        rehome_into_first_live(file, rest)
+      {:unlink, %FolderLink{} = link} ->
+        with {:ok, _} <- repo().delete(link), do: {:ok, :unlinked, file}
+
+      # Neither homed nor linked here: a stale or forged row. Refuse
+      # rather than trash a file this folder never held.
+      :not_in_folder ->
+        {:error, :not_in_folder}
     end
   end
+
+  # What removing `file` from `folder_uuid` does to it. The ONE decision
+  # `remove_file_from_folder/2` carries out and `removal_plan/2` reports.
+  #
+  # The candidates for a rehome were read without locking their folders, so
+  # one can be mid-trash: each folder is checked before the file is homed
+  # there, and a trashed one is skipped for the next candidate. (Locking the
+  # folder here instead would take it AFTER the file's row — the opposite of
+  # the order folder moves take, which is a deadlock.) This narrows the race
+  # rather than closing it: a folder trashed between the check and the commit
+  # can still end up holding the file live, since `trash_folder/1`'s file
+  # sweep reads the file's old home. Nothing left to rehome into: the file is
+  # trashed.
+  defp removal_outcome(file, folder_uuid) do
+    cond do
+      to_string(file.folder_uuid) == to_string(folder_uuid) ->
+        file.uuid
+        |> other_folder_links(folder_uuid)
+        |> Enum.find(fn link ->
+          match?(%Folder{trashed_at: nil}, get_folder(link.folder_uuid))
+        end)
+        |> case do
+          nil -> :trash
+          link -> {:rehome, link}
+        end
+
+      link = folder_link(folder_uuid, file.uuid) ->
+        {:unlink, link}
+
+      true ->
+        :not_in_folder
+    end
+  end
+
+  @empty_removal_plan %{trash: [], delete: [], rehome: [], unlink: []}
+
+  @doc """
+  What an action does to files: `%{trash: [uuid], delete: [uuid], rehome:
+  [uuid], unlink: [uuid]}` — the files it sends to the trash, destroys, moves
+  home to another folder that holds them, or only takes out of a folder. Only
+  `trash` and `delete` make a file disappear. Nothing is written.
+
+  The plan is read from the same decisions the operations carry out
+  (`remove_file_from_folder/2`, `trash_folder/2`, `delete_folder_completely/2`),
+  so a caller that asks before acting is asking about what will happen:
+
+    * `{:remove_file, {file, folder_uuid}}` — `remove_file_from_folder/2`
+      (`folder_uuid` nil: the file is viewed outside any folder, so it is
+      trashed). A file already in the trash plans nothing.
+    * `{:delete_files, [file | uuid]}` — `delete_file_completely/2` on each.
+    * `{:trash_folder, folder}` / `{:delete_folder, folder}` — the subtree rule:
+      a file homed in the folder's subtree and linked into a folder OUTSIDE it
+      is rehomed there and survives; a link from inside the same subtree does
+      not save it. A trashing leaves a file already in the trash alone.
+
+  A file or folder of a managed library plans nothing: the operation refuses
+  it. The plan is a moment's reading; run the operation, not the plan.
+  """
+  def removal_plan(:remove_file, {file, folder_uuid}) do
+    case fresh_file(file) do
+      nil ->
+        @empty_removal_plan
+
+      fresh ->
+        if Libraries.check_managed(fresh) == :ok,
+          do: file_removal_plan(fresh, folder_uuid),
+          else: @empty_removal_plan
+    end
+  end
+
+  def removal_plan(:delete_files, files) when is_list(files) do
+    {rows, uuids} = Enum.split_with(files, &is_struct(&1, PhoenixKit.Modules.Storage.File))
+    uuids = Enum.filter(uuids, &is_binary/1)
+
+    fetched =
+      if uuids == [],
+        do: [],
+        else:
+          repo().all(
+            from(f in PhoenixKit.Modules.Storage.File, where: f.uuid in ^Enum.uniq(uuids))
+          )
+
+    deletable =
+      (rows ++ fetched)
+      |> Enum.uniq_by(& &1.uuid)
+      |> Enum.group_by(& &1.library_uuid)
+      |> Enum.filter(fn {library_uuid, _} -> Libraries.check_managed(library_uuid) == :ok end)
+      |> Enum.flat_map(fn {_library_uuid, rows} -> Enum.map(rows, & &1.uuid) end)
+
+    %{@empty_removal_plan | delete: deletable}
+  end
+
+  def removal_plan(action, %Folder{} = folder) when action in [:trash_folder, :delete_folder] do
+    if Libraries.check_managed(folder) == :ok do
+      which = if action == :trash_folder, do: :live, else: :any
+      {promote, rest} = split_subtree_files(folder_subtree_uuids(folder.uuid), which)
+      rehome = Enum.map(promote, & &1.uuid)
+
+      case action do
+        :trash_folder ->
+          trash = for f <- rest, is_nil(f.trashed_at), do: f.uuid
+          %{@empty_removal_plan | trash: trash, rehome: rehome}
+
+        :delete_folder ->
+          # A promotion with nowhere live to go lands in a trashed folder and
+          # takes its trash stamp (`promote_out_of_subtree/3`): a live file
+          # that way is trashed, so it counts as trashed.
+          trashed = promoted_into_trash(promote, folder_subtree_uuids(folder.uuid))
+
+          %{
+            @empty_removal_plan
+            | delete: Enum.map(rest, & &1.uuid),
+              trash: trashed,
+              rehome: rehome -- trashed
+          }
+      end
+    else
+      @empty_removal_plan
+    end
+  end
+
+  # A file already in the trash is not made to disappear by being removed again.
+  defp file_removal_plan(%{status: "trashed"}, _folder_uuid), do: @empty_removal_plan
+
+  defp file_removal_plan(file, nil), do: %{@empty_removal_plan | trash: [file.uuid]}
+
+  defp file_removal_plan(file, folder_uuid) do
+    case removal_outcome(file, folder_uuid) do
+      :trash -> %{@empty_removal_plan | trash: [file.uuid]}
+      {:rehome, _} -> %{@empty_removal_plan | rehome: [file.uuid]}
+      {:unlink, _} -> %{@empty_removal_plan | unlink: [file.uuid]}
+      :not_in_folder -> @empty_removal_plan
+    end
+  end
+
+  # Of the files a permanent delete re-homes, the live ones whose first
+  # folder outside the subtree (live folders first, as `promote_out_of_subtree/3`
+  # picks) is in the trash. One query for the lot.
+  defp promoted_into_trash([], _subtree_uuids), do: []
+
+  defp promoted_into_trash(promote, subtree_uuids) do
+    live = for f <- promote, is_nil(f.trashed_at), do: f.uuid
+
+    if live == [] do
+      []
+    else
+      from(fl in FolderLink,
+        join: fo in Folder,
+        on: fo.uuid == fl.folder_uuid,
+        where: fl.file_uuid in ^live and fl.folder_uuid not in ^subtree_uuids,
+        order_by: [asc: not is_nil(fo.trashed_at), asc: fl.inserted_at],
+        select: {fl.file_uuid, fo.trashed_at}
+      )
+      |> repo().all()
+      |> Enum.uniq_by(fn {file_uuid, _} -> file_uuid end)
+      |> Enum.filter(fn {_file_uuid, trashed_at} -> not is_nil(trashed_at) end)
+      |> Enum.map(fn {file_uuid, _} -> to_string(file_uuid) end)
+    end
+  end
+
+  defp fresh_file(%PhoenixKit.Modules.Storage.File{uuid: uuid}), do: fresh_file(uuid)
+
+  defp fresh_file(uuid) when is_binary(uuid),
+    do: repo().get(PhoenixKit.Modules.Storage.File, uuid)
+
+  defp fresh_file(_), do: nil
 
   @doc """
   Puts an existing file into `folder_uuid` the way every attach surface
@@ -5413,7 +5659,7 @@ defmodule PhoenixKit.Modules.Storage do
 
       prefix ->
         from(l in Library,
-          join: pb in PhoenixKit.Modules.Storage.ProfileBucket,
+          join: pb in ProfileBucket,
           on: pb.profile_uuid == l.storage_profile_uuid,
           join: b in Bucket,
           on: b.uuid == pb.bucket_uuid,
@@ -5608,11 +5854,27 @@ defmodule PhoenixKit.Modules.Storage do
 
   @doc """
   Permanently deletes all trashed files, optionally scoped — to a folder's
-  subtree, and with `library_uuid:` to one storage library.
+  subtree, and with `library_uuid:` to one storage library. `except:` is a
+  list of file uuids that stay in the trash; `only:` limits the deletion to
+  those uuids (a caller that asked about exactly these files).
   """
   def empty_trash(scope \\ nil, opts \\ []) do
-    trashed = list_trashed_files(scope, Keyword.take(opts, [:library_uuid, :viewer_uuid]))
+    except = opts |> Keyword.get(:except, []) |> MapSet.new(&to_string/1)
+
+    trashed =
+      scope
+      |> list_trashed_files(Keyword.take(opts, [:library_uuid, :viewer_uuid]))
+      |> Enum.reject(&MapSet.member?(except, to_string(&1.uuid)))
+      |> only_listed(Keyword.get(opts, :only))
+
     {:ok, delete_counting(trashed)}
+  end
+
+  defp only_listed(files, nil), do: files
+
+  defp only_listed(files, only) do
+    only = MapSet.new(only, &to_string/1)
+    Enum.filter(files, &MapSet.member?(only, to_string(&1.uuid)))
   end
 
   @doc "Permanently deletes trashed files older than the given number of days."

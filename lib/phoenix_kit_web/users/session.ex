@@ -138,6 +138,14 @@ defmodule PhoenixKitWeb.Users.Session do
   end
 
   def delete(conn, _params) do
+    if MultiSession.acting?(get_session(conn)) do
+      conn |> put_flash(:info, gettext("Logged out successfully.")) |> UserAuth.log_out_user()
+    else
+      delete_active_account(conn)
+    end
+  end
+
+  defp delete_active_account(conn) do
     case MultiSession.log_out_active(conn) do
       {:switched, conn, user} ->
         conn
@@ -157,6 +165,48 @@ defmodule PhoenixKitWeb.Users.Session do
   end
 
   # --- multi-session helpers ---
+
+  def enter_organization(conn, %{"uuid" => uuid}) do
+    case MultiSession.act_as_organization(conn, uuid) do
+      {:ok, conn, user} ->
+        conn
+        |> put_flash(
+          :info,
+          gettext("You are now acting as %{organization}.",
+            organization: Auth.User.display_name(user)
+          )
+        )
+        |> redirect(to: Routes.post_auth_path())
+
+      {:error, :rate_limit_exceeded} ->
+        conn
+        |> put_flash(:error, gettext("Too many organization switches. Please try again later."))
+        |> redirect_back(%{})
+
+      {:error, _} ->
+        conn
+        |> put_flash(:error, gettext("Could not enter that organization."))
+        |> redirect_back(%{})
+    end
+  end
+
+  def leave_organization(conn, params) do
+    case MultiSession.leave_organization(conn) do
+      {:ok, conn, user} ->
+        conn
+        |> put_flash(:info, gettext("You are back in your own account."))
+        |> redirect(
+          to:
+            Routes.safe_destination(conn,
+              scope: Scope.for_user(user),
+              return_to: params["return_to"]
+            )
+        )
+
+      {:error, _} ->
+        UserAuth.log_out_user(conn)
+    end
+  end
 
   defp with_gate(conn, _params, fun) do
     if MultiSession.gate_allowed?(get_session(conn)) do
@@ -386,6 +436,14 @@ defmodule PhoenixKitWeb.Users.Session do
           |> put_flash(:error, gettext("That account is already in your session."))
           |> redirect_back(params)
 
+        {:error, :acting_organization} ->
+          conn
+          |> put_flash(
+            :error,
+            gettext("Return to your own account before adding another account.")
+          )
+          |> redirect_back(params)
+
         {:error, reason} ->
           # Same three outcomes as the login form. `:stack_full` and
           # `:already_in_stack` above are not failed sign-ins — the
@@ -492,6 +550,10 @@ defmodule PhoenixKitWeb.Users.Session do
     do: gettext("Only an owner can sign in as another administrator.")
 
   defp impersonation_error(:self), do: gettext("That is already your account.")
+
+  defp impersonation_error(:acting_organization),
+    do: gettext("Return to your own account before signing in as another user.")
+
   defp impersonation_error(:inactive), do: gettext("That account is deactivated.")
 
   defp impersonation_error(:stack_full),

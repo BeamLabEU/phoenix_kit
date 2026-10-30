@@ -14,6 +14,20 @@
   current_locale={@current_locale}
 >
   <div class="flex-col px-4 py-6">
+    <div
+      :if={
+        @mode == :new and @org_accounts_enabled and not is_nil(@manager_actor) and
+          @manager_actor.current == @manager_actor.root and
+          (PhoenixKit.Users.Auth.Scope.owner?(@phoenix_kit_current_scope) or
+             PhoenixKit.Users.Auth.Scope.has_role?(@phoenix_kit_current_scope, "Admin"))
+      }
+      class="max-w-2xl mx-auto mb-4"
+    >
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/new/managed")}
+        class="btn btn-outline"
+      >{gettext("Create managed organization")}</.link>
+    </div>
     <%!-- User Form --%>
     <div class="max-w-2xl mx-auto">
       <div class="bg-base-100 rounded-lg shadow-md p-6">

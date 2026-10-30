@@ -238,6 +238,43 @@
     </div>
   </div>
 
+  <%!-- Personal keys --%>
+  <div id="guide-personal-keys" class="card bg-base-100 shadow-lg border border-base-200">
+    <div class="card-body space-y-3">
+      <h2 class="card-title text-lg">
+        <.icon name="hero-finger-print" class="w-5 h-5" /> {gettext("Personal keys")}
+      </h2>
+      <ul class="list-disc pl-5 space-y-1 text-sm">
+        <li>
+          {gettext(
+            "A personal key is a person's key for themselves: it acts with that person's own rights, always has an expiry, and never needs approval."
+          )}
+        </li>
+        <li>
+          {gettext(
+            "To allow it, give a role the “Personal API keys” permission (Users, Roles, or the permissions matrix). An Admin does not get it by itself. The person makes the keys at %{path}.",
+            path: @guide.personal_keys_path
+          )}
+        </li>
+        <li>
+          {gettext(
+            "The Owner sees personal keys in the keys list. The Owner can revoke one or remove scopes from it, but cannot rotate it or add scopes."
+          )}
+        </li>
+        <li>
+          {gettext(
+            "Someone who signs in as a person directly, not as a second account in the same session, with that person's own password, for example after an administrator reset it, can make a key as that person."
+          )}
+        </li>
+        <li>
+          {gettext(
+            "A person never has more live personal keys than the limit set under “Switches and modules”, a key in the grace period of a rotation included. At the limit, a key can only be rotated with a grace period of 0, which stops the old key at once."
+          )}
+        </li>
+      </ul>
+    </div>
+  </div>
+
   <%!-- Dangerous operations --%>
   <div id="guide-danger" class="card bg-base-100 shadow-lg border border-base-200">
     <div class="card-body space-y-3">

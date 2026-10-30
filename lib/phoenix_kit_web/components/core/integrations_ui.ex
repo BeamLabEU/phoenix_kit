@@ -117,6 +117,77 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
 
   # ── Components ───────────────────────────────────────────────────────
 
+  @doc "Summarizes storage dependencies without exposing credentials."
+  def usage_summary(uses) do
+    Enum.map_join(uses, "; ", fn use ->
+      library = if use.private_library, do: gettext("User library (private)"), else: use.library
+      label = library || gettext("Unassigned bucket")
+
+      role =
+        case use.role do
+          "primary" -> gettext("Primary")
+          "backup" -> gettext("Backup")
+          "replica" -> gettext("Replica")
+          _ -> gettext("Storage")
+        end
+
+      "#{label} · #{use.bucket || use.bucket_label} · #{role}" <>
+        if(use.trashed, do: " · " <> gettext("In trash"), else: "") <>
+        if(use.enabled, do: "", else: " · " <> gettext("Disabled"))
+    end)
+  end
+
+  attr :usage, :list, required: true
+
+  def connection_usage(assigns) do
+    ~H"""
+    <div :if={@usage != []} class="text-sm space-y-1" data-integration-usage>
+      <p class="font-medium">{gettext("Used by")}</p>
+      <ul>
+        <li :for={use <- @usage}>{usage_summary([use])}</li>
+      </ul>
+      <p class="text-base-content/60">
+        {gettext(
+          "Storage depends on this connection. Removal and disconnection are blocked. To rotate keys, the new credentials must pass a test on every bucket."
+        )}
+      </p>
+    </div>
+    """
+  end
+
+  def integration_error({:in_use, _}),
+    do: gettext("Storage depends on this connection. It cannot be removed or disconnected.")
+
+  def integration_error(:storage_changed),
+    do:
+      gettext(
+        "The connection or its storage usage changed during testing. Refresh and try again."
+      )
+
+  def integration_error(:empty_name), do: gettext("Please enter a connection name.")
+
+  def integration_error(:service_immutable),
+    do: gettext("The service cannot be changed. Create a new integration for another service.")
+
+  def integration_error(:storage_destination_immutable),
+    do:
+      gettext(
+        "This connection is used by storage. Create another integration to change its destination."
+      )
+
+  def integration_error(:storage_credentials_required),
+    do: gettext("Storage in use requires both an access key and a secret key.")
+
+  def integration_error({:storage_validation_failed, name}),
+    do:
+      gettext(
+        "New credentials could not access bucket %{bucket}. The saved credentials were kept.",
+        bucket: name
+      )
+
+  def integration_error(_),
+    do: gettext("The integration could not be updated. Refresh and try again.")
+
   @doc """
   Provider picker — a card grid, one card per provider. Clicking a card
   pushes `event` (default `"select_provider"`) with `phx-value-provider`.

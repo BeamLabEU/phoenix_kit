@@ -311,6 +311,8 @@ defmodule PhoenixKitWeb.Integration do
         post "/users/session/impersonate/:user_uuid", Users.Session, :impersonate
         put "/users/session/active", Users.Session, :set_active_account
         put "/users/session/role", Users.Session, :set_active_role
+        post "/users/session/organizations/:uuid", Users.Session, :enter_organization
+        delete "/users/session/organization", Users.Session, :leave_organization
         delete "/users/session/accounts/:ref", Users.Session, :remove_account
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
         # QR device-handoff login — completion endpoint (single-use login token)
@@ -604,6 +606,7 @@ defmodule PhoenixKitWeb.Integration do
       # `lib/phoenix_kit/dashboard/ADMIN_README.md`).
       live "/admin", Live.Dashboard, :index
       live "/admin/users", Live.Users.Users, :index
+      live "/admin/users/new/managed", Live.Users.ManagedOrganizationNew, :new
       live "/admin/users/new", Users.UserForm, :new, as: :user_form
       live "/admin/users/edit/:id", Users.UserForm, :edit, as: :user_form_edit
       live "/admin/users/view/:id", Live.Users.UserDetails, :show
@@ -813,6 +816,10 @@ defmodule PhoenixKitWeb.Integration do
       live "/profile/settings/integrations", Live.Integrations.MyIntegrations, :index
       live "/profile/settings/integrations/new", Live.Integrations.MyIntegrationForm, :new
       live "/profile/settings/integrations/:uuid", Live.Integrations.MyIntegrationForm, :edit
+
+      # The person's own API keys (the opt-in "api_personal_keys" permission, or "api"),
+      # checked in the LiveView's own mount/3. Before `:tab`, like integrations.
+      live "/profile/settings/api-keys", Live.Users.MyApiKeys, :index
 
       # Registered tabs with a page of their own (`PhoenixKit.ProfileSettingsTab`,
       # host config and module `profile_settings_tabs/0`). Full module names,
@@ -1042,7 +1049,8 @@ defmodule PhoenixKitWeb.Integration do
               extra_on_mount() ++
                 [
                   {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
-                  {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+                  {PhoenixKitWeb.Dashboard.ContextProvider, :default},
+                  PhoenixKitWeb.Hooks.InvitationHook
                 ]
             ) do
           live "/dashboard", Live.Dashboard.Index, :index
@@ -1629,6 +1637,8 @@ defmodule PhoenixKitWeb.Integration do
         post "/users/session/impersonate/:user_uuid", Users.Session, :impersonate
         put "/users/session/active", Users.Session, :set_active_account
         put "/users/session/role", Users.Session, :set_active_role
+        post "/users/session/organizations/:uuid", Users.Session, :enter_organization
+        delete "/users/session/organization", Users.Session, :leave_organization
         delete "/users/session/accounts/:ref", Users.Session, :remove_account
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
         # QR device-handoff login — completion endpoint (single-use login token)
@@ -1679,7 +1689,7 @@ defmodule PhoenixKitWeb.Integration do
 
     quote do
       live_session unquote(session_name),
-        on_mount: unquote(extra_on_mount() ++ on_mount) do
+        on_mount: unquote(extra_on_mount() ++ on_mount ++ [PhoenixKitWeb.Hooks.InvitationHook]) do
         scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb do
           pipe_through unquote(pipelines)
           unquote(localized_routes)

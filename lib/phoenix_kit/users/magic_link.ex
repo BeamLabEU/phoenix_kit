@@ -95,7 +95,7 @@ defmodule PhoenixKit.Users.MagicLink do
     case RateLimiter.check_magic_link_rate_limit(email, ip_address) do
       :ok ->
         case Auth.get_user_by_email(email) do
-          %User{api_only: false} = user ->
+          %User{api_only: false, managed_by_members: false} = user ->
             # Revoke any existing magic link tokens for this user
             revoke_magic_links(user)
 
@@ -159,7 +159,7 @@ defmodule PhoenixKit.Users.MagicLink do
                 token.context == ^@magic_link_context and
                 token.inserted_at > ago(^expiry_minutes, "minute") and
                 token.sent_to == user.email and
-                user.api_only == false,
+                user.api_only == false and user.managed_by_members == false,
             select: {user, token}
 
         case repo().one(query) do

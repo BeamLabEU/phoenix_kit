@@ -25,13 +25,16 @@ defmodule PhoenixKit.Activity do
   """
 
   import Ecto.Query, warn: false
+  use Gettext, backend: PhoenixKitWeb.Gettext
   require Logger
 
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @pubsub_topic "phoenix_kit:activity"
 
@@ -273,6 +276,7 @@ defmodule PhoenixKit.Activity do
   @typedoc "What `log/3` and `log_failed/3` take besides the module and the action."
   @type log_opt ::
           {:actor_uuid, String.t() | nil}
+          | {:acting_user_uuid, String.t() | nil}
           | {:mode, String.t()}
           | {:resource_type, String.t()}
           | {:resource_uuid, String.t()}
@@ -285,7 +289,7 @@ defmodule PhoenixKit.Activity do
   wrap in its own `Activity` helper. `module` is the module key
   (`"catalogue"`, `"crm"`, …), stored on the entry.
 
-  Options: `:actor_uuid`, `:mode` (default `"manual"`), `:resource_type`,
+  Options: `:actor_uuid`, `:acting_user_uuid` (merged into metadata), `:mode` (default `"manual"`), `:resource_type`,
   `:resource_uuid`, `:target_uuid`, `:metadata` (a map, or a keyword or
   pair list; keep it PII-free) and `:permanent` (only `true` keeps the
   entry from being pruned). Same result and same never-crash guarantee as `log/1`:
@@ -321,6 +325,7 @@ defmodule PhoenixKit.Activity do
       module: module,
       mode: Keyword.get(opts, :mode, "manual"),
       actor_uuid: Keyword.get(opts, :actor_uuid),
+      acting_user_uuid: Keyword.get(opts, :acting_user_uuid),
       resource_type: Keyword.get(opts, :resource_type),
       resource_uuid: Keyword.get(opts, :resource_uuid),
       target_uuid: Keyword.get(opts, :target_uuid),
@@ -477,6 +482,7 @@ defmodule PhoenixKit.Activity do
       |> offset(^((page - 1) * per_page))
       |> repo().all()
       |> repo().preload(preloads)
+      |> with_actor_labels()
 
     %{
       entries: entries,
@@ -491,7 +497,7 @@ defmodule PhoenixKit.Activity do
   def get_entry(uuid) do
     case repo().get(Entry, uuid) do
       nil -> nil
-      entry -> repo().preload(entry, [:actor, :target])
+      entry -> entry |> repo().preload([:actor, :target]) |> with_actor_label()
     end
   end
 
@@ -500,6 +506,7 @@ defmodule PhoenixKit.Activity do
     Entry
     |> repo().get!(uuid)
     |> repo().preload([:actor, :target])
+    |> with_actor_label()
   end
 
   @doc "Lists activities for a specific user (as actor)."
@@ -515,6 +522,7 @@ defmodule PhoenixKit.Activity do
     |> limit(^limit)
     |> preload([:actor])
     |> repo().all()
+    |> with_actor_labels()
   end
 
   @doc "Counts activities matching the given filters."
@@ -768,8 +776,7 @@ defmodule PhoenixKit.Activity do
   """
   @spec change_side(term(), :from | :to) :: String.t() | :changed
   # The flag case carries no value to show. `:to` answers `:changed` rather
-  # than a word, because this module has no Gettext backend — core keeps its
-  # translations in the web layer — and a bare English "changed" would have
+  # than a word, so the presentation layer controls its copy; English "changed" would have
   # rendered untranslated on every locale's admin (zai, 2026-09-20). The
   # template turns the atom into a translated word.
   def change_side(%{"changed" => true}, :from), do: "…"
@@ -903,11 +910,67 @@ defmodule PhoenixKit.Activity do
   """
   @spec entry_changeset(map()) :: Ecto.Changeset.t()
   def entry_changeset(attrs) when is_map(attrs) do
+    attrs = acting_metadata(attrs)
     permanent? = Map.get(attrs, :permanent) == true
 
     %Entry{}
     |> Entry.changeset(Map.delete(attrs, :permanent))
     |> Ecto.Changeset.put_change(:permanent, permanent?)
+  end
+
+  defp acting_metadata(attrs) do
+    case Map.pop(attrs, :acting_user_uuid) do
+      {nil, attrs} ->
+        attrs
+
+      {person, attrs} ->
+        metadata = Map.get(attrs, :metadata) || %{}
+        Map.put(attrs, :metadata, Map.put(metadata, "acting_user_uuid", person))
+    end
+  end
+
+  @doc "Actor text prepared in one batch for lists, including organization provenance."
+  def actor_label(%Entry{actor_label: label}) when is_binary(label), do: label
+
+  def actor_label(%Entry{actor: %User{} = actor}) do
+    if actor.managed_by_members,
+      do: User.display_name(actor),
+      else: User.delivery_email(actor)
+  end
+
+  def actor_label(_), do: nil
+
+  defp with_actor_label(entry), do: entry |> List.wrap() |> with_actor_labels() |> hd()
+
+  defp with_actor_labels(entries) do
+    ids =
+      entries
+      |> Enum.map(& &1.metadata["acting_user_uuid"])
+      |> Enum.filter(&UUIDUtils.valid?/1)
+      |> Enum.uniq()
+
+    people =
+      if ids == [],
+        do: %{},
+        else:
+          repo().all(from(u in User, where: u.uuid in ^ids))
+          |> Map.new(&{&1.uuid, &1})
+
+    Enum.map(entries, fn entry ->
+      label = actor_label(entry)
+      person = people[entry.metadata["acting_user_uuid"]]
+
+      label =
+        if label && person,
+          do:
+            gettext("%{organization} · via %{person}",
+              organization: label,
+              person: User.display_name(person)
+            ),
+          else: label
+
+      %{entry | actor_label: label}
+    end)
   end
 
   @doc """

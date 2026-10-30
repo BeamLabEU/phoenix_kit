@@ -60,6 +60,77 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       Integer.to_string(:erlang.phash2(f.urls["original"]))
   end
 
+  # The DOM id of one of the browser's own elements. A picker is usually a
+  # second browser on its page, so its ids carry the component id; every
+  # other browser keeps the ids it has always had (hosts, tests and scripts
+  # select them by name).
+  def dom_id(%{picker: true, id: id}, name), do: "#{id}-#{name}"
+  def dom_id(_assigns, name), do: name
+
+  # ── Folder labels (`folder_labels`) ───────────────────────────────
+  #
+  # Display only: a copy of the folder with its label as its name, for the
+  # tree, the breadcrumbs, the title and the tiles. Nothing is saved from it.
+  def label_folder(nil, _labels), do: nil
+
+  def label_folder(folder, labels) when map_size(labels) == 0, do: folder
+
+  def label_folder(folder, labels) do
+    case Map.get(labels, to_string(folder.uuid)) do
+      label when is_binary(label) and label != "" -> %{folder | name: label}
+      _ -> folder
+    end
+  end
+
+  def label_folders(folders, labels) when map_size(labels) == 0, do: folders
+  def label_folders(folders, labels), do: Enum.map(folders, &label_folder(&1, labels))
+
+  def label_tree(tree, labels) when map_size(labels) == 0, do: tree
+
+  def label_tree(tree, labels) do
+    Enum.map(tree, fn node ->
+      %{
+        node
+        | folder: label_folder(node.folder, labels),
+          children: label_tree(node.children, labels)
+      }
+    end)
+  end
+
+  # The browser's root name: the scope folder's label, else its name.
+  def scope_label(scope_folder_id, name, labels) do
+    case scope_folder_id && Map.get(labels, to_string(scope_folder_id)) do
+      label when is_binary(label) and label != "" -> label
+      _ -> name
+    end
+  end
+
+  # A picked file's place in the pick (1-based), or nil.
+  def pick_position(picked, file_uuid) do
+    case Enum.find_index(picked, &(&1 == file_uuid)) do
+      nil -> nil
+      index -> index + 1
+    end
+  end
+
+  # What a picker's viewer offers for the file it shows (MediaCanvasViewer's
+  # `pick`): Deselect for a picked file; else Select, disabled while a
+  # `:multiple` pick is at `max_select`. Nothing for a file in the trash,
+  # which cannot be picked.
+  def viewer_pick_state(_picked, _pick_mode, _max_select, %{status: "trashed"}), do: nil
+
+  def viewer_pick_state(picked, pick_mode, max_select, file) do
+    picked? = file.file_uuid in picked
+
+    %{
+      picked?: picked?,
+      full?:
+        not picked? and pick_mode == :multiple and is_integer(max_select) and
+          length(picked) >= max_select,
+      max_select: max_select
+    }
+  end
+
   # ──────────────────────────────────────────────────────────────
   # Stacks view — function components
   # ──────────────────────────────────────────────────────────────
@@ -71,6 +142,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   attr :count, :integer, default: 0
   attr :expanded, :boolean, default: false
   attr :myself, :any, required: true
+  # `false` (no folder actions): not a drop target for a drag move.
+  attr :drop, :boolean, default: true
 
   def stack_tile(assigns) do
     ~H"""
@@ -86,7 +159,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
             )
       }
       data-stack-tile={@folder.uuid}
-      data-drop-folder={@folder.uuid}
+      data-drop-folder={@drop && @folder.uuid}
       data-drop-color={drop_outline_color(@folder.color)}
       class="group flex flex-col items-center gap-2 w-40 rounded-lg focus:outline-none"
       title={@folder.name}
@@ -230,6 +303,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   # star badge and kebab item off.
   attr :featured, :any, default: nil
   attr :readonly, :boolean, default: false
+  attr :removal_guarded, :boolean, default: false
+  # `false`: no Move (see the moduledoc's "Picker"). The card stays
+  # draggable — long press, Shift-click and box select ride on that — but
+  # no folder, tree node or Trash takes a drag move.
+  attr :folder_actions, :boolean, default: true
 
   def file_card(assigns) do
     ~H"""
@@ -376,7 +454,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
           label={gettext("Rotate right")}
         />
         <.table_row_menu_button
-          :if={not @readonly}
+          :if={not @readonly and @folder_actions}
           phx-click="prepare_move_file"
           phx-target={@myself}
           phx-value-file-uuid={@file.file_uuid}
@@ -400,11 +478,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
           phx-target={@myself}
           phx-value-file-uuid={@file.file_uuid}
           data-confirm={
-            if @filter_trash,
-              do:
-                gettext("Permanently delete '%{name}'? This cannot be undone.",
-                  name: @file.filename
-                )
+            client_confirm(
+              @removal_guarded,
+              if(@filter_trash,
+                do:
+                  gettext("Permanently delete '%{name}'? This cannot be undone.",
+                    name: @file.filename
+                  )
+              )
+            )
           }
           icon="hero-trash"
           label={
@@ -638,6 +720,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   def folder_list_path(%{uuid: uuid}, _scope_id), do: breadcrumb_path(uuid)
 
   def format_file_size(bytes), do: Format.bytes(bytes, base: 1000, decimals: 2)
+
+  # The browser's own confirmation of a removal, left out when a removal guard
+  # asks on the server instead (a second question would be a double confirm).
+  def client_confirm(true, _text), do: nil
+  def client_confirm(_guarded, text), do: text
 
   def delete_selected_confirm(selected_files, selected_folders, filter_trash) do
     file_count = MapSet.size(selected_files)

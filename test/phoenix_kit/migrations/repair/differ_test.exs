@@ -244,5 +244,61 @@ defmodule PhoenixKit.Migrations.Repair.DifferTest do
       assert {:mismatch, reasons} = Differ.compare(:constraint, expected, changed)
       assert Enum.any?(reasons, &(&1 =~ "definition"))
     end
+
+    # The shape a fresh install prints for `a BETWEEN .. AND .. AND b BETWEEN ..`
+    # and the one a constraint parsed with the first BETWEEN folded into the
+    # outer AND prints: the same condition, one extra pair of parentheses.
+    @nested "CHECK ((((x >= 1) AND (x <= 5)) AND ((y >= 1) AND (y <= 5)) AND (z >= 1)))"
+    @folded "CHECK (((x >= 1) AND (x <= 5) AND ((y >= 1) AND (y <= 5)) AND (z >= 1)))"
+
+    test "check: the same condition nested differently in AND is a match, whichever side has which" do
+      nested = %{type: "c", definition: @nested}
+      folded = %{type: "c", definition: @folded}
+
+      assert Differ.compare(:constraint, nested, folded) == :match
+      assert Differ.compare(:constraint, folded, nested) == :match
+    end
+
+    test "check: a different condition behind the same nesting still mismatches" do
+      nested = %{type: "c", definition: @nested}
+
+      for changed <- [
+            String.replace(@folded, "(x <= 5)", "(x <= 6)"),
+            String.replace(@folded, "AND (z >= 1)", "AND (z >= 2)"),
+            String.replace(@folded, "((y >= 1) AND (y <= 5))", "((y >= 1) OR (y <= 5))"),
+            String.replace(@folded, " AND (z >= 1)", "")
+          ] do
+        assert {:mismatch, reasons} =
+                 Differ.compare(:constraint, nested, %{type: "c", definition: changed})
+
+        assert Enum.any?(reasons, &(&1 =~ "definition")), "#{changed} should differ"
+      end
+    end
+
+    test "check: an equivalent nesting is not a mismatch of any kind, so nothing is downgraded to info either" do
+      result =
+        Differ.compare(
+          :constraint,
+          %{type: "c", definition: @nested},
+          %{type: "c", definition: @folded}
+        )
+
+      refute Differ.deparse_text_only?(result)
+      assert result == :match
+    end
+
+    test "check: a nil definition equals only a nil definition" do
+      assert Differ.compare(:constraint, %{type: "c", definition: nil}, %{
+               type: "c",
+               definition: nil
+             }) ==
+               :match
+
+      assert {:mismatch, _} =
+               Differ.compare(:constraint, %{type: "c", definition: nil}, %{
+                 type: "c",
+                 definition: @nested
+               })
+    end
   end
 end

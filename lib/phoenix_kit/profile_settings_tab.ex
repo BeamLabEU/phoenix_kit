@@ -114,7 +114,7 @@ defmodule PhoenixKit.ProfileSettingsTab do
   @fields ~w(id label icon after permission visible live_view)a
 
   # Core's own tabs, plus the confirmation landing page under the same path.
-  @reserved_ids ~w(account security sessions notifications integrations media confirm-email)
+  @reserved_ids ~w(account managers security sessions notifications integrations api-keys media confirm-email)
 
   @id_format ~r/\A[a-z0-9][a-z0-9_-]{0,63}\z/
 

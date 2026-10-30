@@ -38,6 +38,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.IpAddress
@@ -161,7 +162,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorage do
   defp uploader_name(user_uuid) do
     case PhoenixKit.Config.get_repo().get(PhoenixKit.Config.get_users_module(), user_uuid) do
       nil -> nil
-      user -> user.email
+      user -> User.delivery_email(user)
     end
   end
 

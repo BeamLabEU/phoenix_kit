@@ -292,12 +292,11 @@ defmodule PhoenixKitWeb.RoutePrecedenceTest do
 
         assert live_session_name(route) == :phoenix_kit_admin
 
-        # Exactly the admin hook chain — no ContextProvider, nothing extra.
-        # A second hook here is a second thing that may halt the mount, and
-        # the guaranteed landing must not be halt-able by anything but the
-        # account gate.
+        # The account gate protects the landing; the invitation hook adds
+        # pending invitations without changing access to the dashboard.
         assert on_mount_ids(route) == [
-                 {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}
+                 {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin},
+                 {PhoenixKitWeb.Hooks.InvitationHook, :default}
                ]
       end
     end

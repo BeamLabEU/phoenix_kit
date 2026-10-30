@@ -249,7 +249,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <li class="menu-title px-4 py-2">
             <div class="flex flex-col gap-1">
               <span class="text-sm font-medium text-base-content truncate">
-                {PhoenixKit.Users.Auth.Scope.user_email(@scope)}
+                {if PhoenixKit.Users.Auth.Scope.acting_user_uuid(@scope),
+                  do: PhoenixKit.Users.Auth.Scope.session_display_name(@scope),
+                  else: PhoenixKit.Users.Auth.Scope.user_email(@scope)}
               </span>
               <div>
                 <.current_role_badge scope={@scope} />
@@ -343,6 +345,12 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             </li>
           <% end %>
 
+          <PhoenixKitWeb.Components.Core.OrganizationSwitcher.organization_switcher
+            id="admin-organization-switcher"
+            scope={@scope}
+            current_path={@current_path}
+            current_locale={assigns[:current_locale]}
+          />
           <PhoenixKitWeb.Components.Core.RoleSwitcher.role_switcher
             id="admin-role-switcher-menu"
             scope={@scope}
@@ -443,7 +451,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
               </li>
             <% end %>
 
-            <li class="p-0">
+            <li :if={is_nil(PhoenixKit.Users.Auth.Scope.acting_user_uuid(@scope))} class="p-0">
               <label
                 for="pk-add-account-modal"
                 class="!p-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent cursor-pointer"
@@ -560,7 +568,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           />
           <div class="flex-1 min-w-0">
             <div class="truncate text-xs font-medium text-base-content">
-              {PhoenixKit.Users.Auth.Scope.user_email(@scope)}
+              {if PhoenixKit.Users.Auth.Scope.acting_user_uuid(@scope),
+                do: PhoenixKit.Users.Auth.Scope.session_display_name(@scope),
+                else: PhoenixKit.Users.Auth.Scope.user_email(@scope)}
             </div>
             <.current_role_badge scope={@scope} />
           </div>

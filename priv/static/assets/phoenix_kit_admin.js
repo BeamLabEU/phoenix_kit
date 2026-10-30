@@ -984,7 +984,11 @@
         // motion instead of the viewer freezing on the old image.
         const step = e.target.closest && e.target.closest('[phx-click="step_viewer"]');
         if (step) {
-          const modal = document.querySelector('[id$="-viewer-modal"]');
+          // The viewer the press is in: a page can hold two browsers (a picker
+          // beside another), and the first viewer in the document may be the
+          // other one's.
+          const own = step.closest && step.closest('[id$="-viewer-modal"]');
+          const modal = own || document.querySelector('[id$="-viewer-modal"]');
           const d = (modal && modal.dataset) || {};
           const dir = step.getAttribute("phx-value-dir");
           const src = dir === "prev" ? d.stepPrevSrc : d.stepNextSrc;
@@ -999,6 +1003,10 @@
 
         const card = e.target.closest && e.target.closest('[phx-click="click_file"]');
         if (!card) return;
+        // Only this browser's own cards: a page can hold two (a picker opened
+        // beside another), and each has a stand-in of its own.
+        const browser = el.parentElement;
+        if (browser && !browser.contains(card)) return;
         // Select mode turns the same click into a checkbox toggle, and a
         // picker's click may open nothing at all. The browser marks which it
         // is, so this can stay out of both.
@@ -1176,9 +1184,98 @@
     }
   };
 
+  // RemovalModal — the media browser's removal dialog (the removal guard's
+  // confirmation, or the list of places a file is in use). The element carries
+  // `popover="manual"`: shown as a popover it sits in the browser's top layer,
+  // above an open viewer and above a host's <dialog>. Escape closes THIS
+  // dialog and nothing under it: the key is taken in the capture phase, before
+  // the viewer's or the host dialog's own listener sees it.
+  window.PhoenixKitAdminHooks.RemovalModal = {
+    mounted() {
+      const self = this;
+      self._showPopover = function() {
+        const el = self.el;
+        if (!el.hasAttribute || !el.hasAttribute("popover") || typeof el.showPopover !== "function") return;
+        let open = false;
+        try { open = el.matches(":popover-open"); } catch (_e) { open = false; }
+        if (!open) {
+          try { el.showPopover(); } catch (_e) { /* not connected, or already shown */ }
+        }
+      };
+      self._showPopover();
+      // Focusable things inside the dialog: Tab goes round them and never
+      // reaches the page (or the viewer) underneath.
+      function focusables() {
+        const all = (self.el.querySelectorAll && self.el.querySelectorAll("a[href], button")) || [];
+        return Array.prototype.filter.call(all, function(n) { return !n.disabled; });
+      }
+      self._onKey = function(e) {
+        if (e.key === "Tab") {
+          const list = focusables();
+          e.preventDefault();
+          if (!list.length) return;
+          const first = list[0];
+          const last = list[list.length - 1];
+          const active = document.activeElement;
+          const inside = !!(active && self.el.contains && self.el.contains(active));
+          if (!inside || (e.shiftKey && active === first)) {
+            (e.shiftKey && inside ? last : first).focus();
+          } else if (!e.shiftKey && active === last) {
+            first.focus();
+          } else {
+            const i = list.indexOf(active);
+            list[e.shiftKey ? i - 1 : i + 1].focus();
+          }
+          return;
+        }
+        // The viewer under the dialog must not step while it asks about a file.
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.key !== "Escape") return;
+        e.preventDefault();
+        e.stopPropagation();
+        self.pushEventTo(self.el, "removal_cancel", { token: (self.el.dataset && self.el.dataset.token) || "" });
+      };
+      window.addEventListener("keydown", self._onKey, true);
+      // Keyboard focus goes to the dialog's safe button, not a destructive one.
+      const cancel = self.el.querySelector && self.el.querySelector("[id$='-removal-cancel']");
+      if (cancel && typeof cancel.focus === "function") cancel.focus();
+    },
+    updated() {
+      if (this._showPopover) this._showPopover();
+    },
+    destroyed() {
+      if (this._onKey) {
+        window.removeEventListener("keydown", this._onKey, true);
+        this._onKey = null;
+      }
+    }
+  };
+
   window.PhoenixKitAdminHooks.ViewerKeydown = {
     mounted() {
       const self = this;
+      // A picker's viewer carries `popover` (see MediaBrowser's browser
+      // template): shown as a popover it sits in the browser's top layer, so
+      // a host modal's transformed box — the containing block of anything
+      // `position: fixed` inside it — cannot clip it, and it paints above
+      // the host's <dialog>. `manual`: no light dismiss and no Escape of its
+      // own; the key handler below owns Escape. A browser without the
+      // Popover API has no `showPopover` and keeps the popup where it is.
+      // Again from updated(): a patch must not leave it hidden.
+      self._showPopover = function() {
+        const el = self.el;
+        if (!el.hasAttribute || !el.hasAttribute("popover") || typeof el.showPopover !== "function") return;
+        let open = false;
+        try { open = el.matches(":popover-open"); } catch (_e) { open = false; }
+        if (!open) {
+          try { el.showPopover(); } catch (_e) { /* not connected, or already shown */ }
+        }
+      };
+      self._showPopover();
       // Tell the stand-in the real viewer is here. It needs the element to
       // find the image and wait for it to paint — mounted is not painted.
       window.dispatchEvent(new CustomEvent("pk:viewer-open", { detail: { el: self.el } }));
@@ -1291,8 +1388,35 @@
         });
       };
       self._warm();
+      // An open modal <dialog> that does not hold this viewer was opened
+      // over it (one opened from inside the viewer, or after it): the key
+      // is that dialog's.
+      function dialogAbove(el) {
+        const dialogs = (document.querySelectorAll && document.querySelectorAll("dialog")) || [];
+        for (let i = 0; i < dialogs.length; i++) {
+          const d = dialogs[i];
+          let modal;
+          try { modal = d.matches(":modal"); } catch (_e) { modal = !!d.open; }
+          if (modal && !(d.contains && d.contains(el))) return true;
+        }
+        return false;
+      }
       self._handler = function(e) {
         if (e.key !== "Escape" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        // The media browser's removal dialog is open over this viewer: the
+        // arrows are not for the viewer underneath, which stays on the file
+        // the dialog is asking about.
+        if (e.key !== "Escape" && (document.querySelector && document.querySelector("[data-removal-state]"))) return;
+        if (e.key === "Escape" && self.el.hasAttribute && self.el.hasAttribute("popover")) {
+          if (dialogAbove(self.el)) return;
+          // A picker's viewer is the top layer, so Escape closes the viewer
+          // alone. The host <dialog> holding the picker would take the same
+          // key as its own close request; cancelling the keydown cancels
+          // that request (the dialog gets no `cancel`), and so does an
+          // Escape typed in a field of the viewer, which closes nothing.
+          // Any other viewer leaves the key to the page, as it always did.
+          e.preventDefault();
+        }
         const t = document.activeElement;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
                   t.isContentEditable === true)) return;
@@ -1341,6 +1465,7 @@
     // patches (sidebar toggle, a comment) are harmless — with the
     // stand-in hidden the listener only refreshes its layout prediction.
     updated() {
+      if (this._showPopover) this._showPopover();
       window.dispatchEvent(new CustomEvent("pk:viewer-open", { detail: { el: this.el } }));
       // …and the dataset now names the NEW neighbours.
       if (this._warm) this._warm();
@@ -1396,6 +1521,7 @@
       // Arrow-key navigation; suppressed while focus is in a text field.
       self._onKey = function(e) {
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        if ((document.querySelector && document.querySelector("[data-removal-state]"))) return;
         const t = document.activeElement;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
                   t.isContentEditable)) return;
@@ -2545,7 +2671,8 @@
         var typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" ||
                            t.isContentEditable === true);
         var stepping = !typing && (
-          (e.type === "keydown" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) ||
+          (e.type === "keydown" && (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+            !(document.querySelector && document.querySelector("[data-removal-state]"))) ||
           (e.type === "pointerdown" && t && t.closest && t.closest('[phx-click="step_viewer"]'))
         );
         var closing =
@@ -4653,11 +4780,31 @@
       this.setupDragDrop();
       this.setupLongPress();
       this.setupBoxSelect();
+      this.setupPickConfirm();
     },
 
     destroyed: function() {
       if (this.el.__pkCancelBox) this.el.__pkCancelBox();
       if (this.el.__pkBoxHook === this) this.el.__pkBoxHook = null;
+      if (this._pickDblClick) this.el.removeEventListener("dblclick", this._pickDblClick);
+    },
+
+    // A single-pick picker (`data-pick-mode="single"`) confirms on a double
+    // click, file-dialog style: the two clicks have picked the file already,
+    // and this names it again so the server confirms exactly that one.
+    // LiveView has no double-click binding, so the hook listens. Read on
+    // every event, so a re-render that changes the mode needs no rewiring.
+    setupPickConfirm: function() {
+      var self = this;
+      this._pickDblClick = function(e) {
+        if (self.el.dataset.pickMode !== "single") return;
+        var card = e.target && e.target.closest && e.target.closest('[phx-click="click_file"]');
+        if (!card || card.closest('[phx-hook="MediaDragDrop"]') !== self.el) return;
+        var uuid = card.getAttribute("phx-value-file-uuid");
+        if (!uuid) return;
+        self.pushEventTo(self.el, "pick_quick_confirm", { "file-uuid": uuid });
+      };
+      this.el.addEventListener("dblclick", this._pickDblClick);
     },
 
     updated: function() {
@@ -5490,6 +5637,7 @@
       // also run; when the strip cannot slide they pass through untouched.
       self._onKey = function(e) {
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        if ((document.querySelector && document.querySelector("[data-removal-state]"))) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         var t = document.activeElement;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable === true)) return;
@@ -5846,6 +5994,12 @@
       // stash holds file bytes, and the next person to sign in on this browser
       // must not be offered the last one's files.
       this._user = this.el.dataset.user || "";
+      // Set on a picker only. Events pushed by a component reach EVERY
+      // UploadResume hook on the page, so a picker names itself in them and
+      // answers only its own; it also keeps its stash apart (`_scopeNow`), or
+      // its leftovers and its Resume would be offered to the browser beside it.
+      this._browser = this.el.dataset.browser || "";
+      this._picker = this.el.dataset.picker === "true";
       this._scopes = {};
       this._live = {};
       this._root = this.el.parentElement || document.body;
@@ -5865,9 +6019,9 @@
       this._beat = setInterval(function() { self._heartbeat(); }, UPLOAD_STASH_HEARTBEAT_MS);
       this._rescan = null;
 
-      this.handleEvent("phoenix_kit:upload-received", function(p) { self._forget(p.keys); });
-      this.handleEvent("phoenix_kit:upload-discard", function(p) { self._forget(p.keys); });
-      this.handleEvent("phoenix_kit:upload-resume", function(p) { self._resume(p.keys); });
+      this.handleEvent("phoenix_kit:upload-received", function(p) { if (self._mine(p)) self._forget(p.keys); });
+      this.handleEvent("phoenix_kit:upload-discard", function(p) { if (self._mine(p)) self._forget(p.keys); });
+      this.handleEvent("phoenix_kit:upload-resume", function(p) { if (self._mine(p)) self._resume(p.keys); });
 
       // A just-loaded page may still be restoring; give it a moment, then
       // report whatever an earlier page load left behind.
@@ -5898,7 +6052,17 @@
     _scopeNow() {
       var folder = "";
       try { folder = new URLSearchParams(window.location.search).get("folder") || ""; } catch (_) {}
-      return window.location.pathname + "\u0000" + folder + "\u0000" + this._user;
+      var scope = window.location.pathname + "\u0000" + folder + "\u0000" + this._user;
+      // A picker's records are its own. A browser that is not a picker keeps
+      // the scope it always had, so its leftovers survive an upgrade.
+      return this._picker && this._browser ? scope + "\u0000" + this._browser : scope;
+    },
+
+    // A picker's events name it (`browser`); a browser that is not a picker
+    // sends none. A picker answers only its own, any other only the unnamed.
+    _mine(p) {
+      var named = p && p.browser;
+      return this._picker ? named === this._browser : !named;
     },
 
     // The scope a file was picked under — what the server's acknowledgement of
@@ -6012,7 +6176,8 @@
             return new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified });
           });
         if (!files.length) return;
-        var input = self._root.querySelector("#folder-drop-upload-form input[type=file]") ||
+        // `<id>-folder-drop-upload-form` in a picker, which carries its id.
+        var input = self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
                     self._root.querySelector("input[type=file][data-phx-upload-ref]");
         if (!input || typeof DataTransfer === "undefined") return;
         var dt = new DataTransfer();

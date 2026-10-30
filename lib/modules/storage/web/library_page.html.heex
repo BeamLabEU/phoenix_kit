@@ -89,12 +89,31 @@
             </.link>
           </dd>
 
+          <dt class="text-base-content/60">{gettext("Address (slug)")}</dt>
+          <dd class="font-mono text-xs">{@library.slug || "—"}</dd>
+
           <dt class="text-base-content/60">{gettext("Object key prefix")}</dt>
           <dd class="font-mono text-xs">{@library.key_prefix || "—"}</dd>
 
           <dt class="text-base-content/60">{gettext("Created")}</dt>
           <dd>{format_time(@library.inserted_at)}</dd>
         </dl>
+      </div>
+    </div>
+
+    <div
+      :for={extension <- Application.get_env(:phoenix_kit, :library_settings_components, [])}
+      class="card bg-base-100 shadow-sm"
+    >
+      <div class="card-body gap-3">
+        <h2 class="card-title text-lg">{extension.title}</h2>
+        <.live_component
+          module={extension.component}
+          id={"library-feature-#{extension.id}"}
+          library_uuid={@library.uuid}
+          auth={@phoenix_kit_current_scope}
+          notify={false}
+        />
       </div>
     </div>
 

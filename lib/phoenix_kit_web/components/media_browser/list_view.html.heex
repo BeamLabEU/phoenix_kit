@@ -142,15 +142,15 @@
           <% true -> %>
             <tr
               phx-click={
-                if @select_mode,
+                if @select_mode and @folder_actions,
                   do: "toggle_select_folder",
                   else: "navigate_folder"
               }
               phx-target={@myself}
               phx-value-folder-uuid={folder.uuid}
-              data-drop-folder={if not @readonly, do: folder.uuid}
+              data-drop-folder={if not @readonly and @folder_actions, do: folder.uuid}
               data-drop-color={drop_outline_color(folder.color)}
-              data-draggable-folder={if not @readonly, do: folder.uuid}
+              data-draggable-folder={if @drag, do: folder.uuid}
               data-selected={
                 if @select_mode &&
                      MapSet.member?(@selected_folders, folder.uuid),
@@ -166,6 +166,7 @@
               <%= if @select_mode do %>
                 <td>
                   <input
+                    :if={@folder_actions}
                     type="checkbox"
                     class="checkbox checkbox-primary checkbox-xs"
                     checked={MapSet.member?(@selected_folders, folder.uuid)}
@@ -236,7 +237,7 @@
               </td>
               <td>
                 <.table_row_menu
-                  :if={not @readonly}
+                  :if={not @readonly and @folder_actions}
                   id={"folder-kebab-list-#{folder.uuid}"}
                 >
                   <.table_row_menu_button
@@ -297,17 +298,21 @@
                     phx-target={@myself}
                     phx-value-id={folder.uuid}
                     data-confirm={
-                      if @filter_trash,
-                        do:
-                          gettext(
-                            "Permanently delete '%{name}' and all its contents? This cannot be undone.",
-                            name: folder.name
-                          ),
-                        else:
-                          gettext(
-                            "Move '%{name}' and all its contents to trash?",
-                            name: folder.name
-                          )
+                      client_confirm(
+                        @removal_guarded,
+                        if(@filter_trash,
+                          do:
+                            gettext(
+                              "Permanently delete '%{name}' and all its contents? This cannot be undone.",
+                              name: folder.name
+                            ),
+                          else:
+                            gettext(
+                              "Move '%{name}' and all its contents to trash?",
+                              name: folder.name
+                            )
+                        )
+                      )
                     }
                     icon="hero-trash"
                     label={gettext("Delete")}
@@ -488,7 +493,7 @@
                   label={gettext("Rotate right")}
                 />
                 <.table_row_menu_button
-                  :if={not @readonly}
+                  :if={not @readonly and @folder_actions}
                   phx-click="prepare_move_file"
                   phx-target={@myself}
                   phx-value-file-uuid={file.file_uuid}
@@ -501,12 +506,16 @@
                   phx-target={@myself}
                   phx-value-file-uuid={file.file_uuid}
                   data-confirm={
-                    if @filter_trash,
-                      do:
-                        gettext(
-                          "Permanently delete '%{name}'? This cannot be undone.",
-                          name: file.filename
-                        )
+                    client_confirm(
+                      @removal_guarded,
+                      if(@filter_trash,
+                        do:
+                          gettext(
+                            "Permanently delete '%{name}'? This cannot be undone.",
+                            name: file.filename
+                          )
+                      )
+                    )
                   }
                   icon="hero-trash"
                   label={

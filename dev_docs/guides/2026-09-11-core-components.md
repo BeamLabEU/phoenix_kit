@@ -84,6 +84,10 @@ use PhoenixKitWeb.Components.MediaBrowser.Embed
 
 `parent_uploads={@uploads}` is required (LiveView `allow_upload` constraint). Key attrs: `scope_folder_id`, `on_navigate={:navigate}` (controlled mode), `initial_params`, `admin`, `select_mode`.
 
+**Picker:** `picker` makes it a window for choosing files for a slot (`pick_mode`, `max_select`, `selected`, `notify`, `folder_labels`, `folder_actions={false}`) — the moduledoc's "Picker" has the attrs and the three messages the host must handle; a host that stops rendering a browser calls `MediaBrowser.unregister_browser/1`.
+
+**Removal guard:** `config :phoenix_kit, :file_removal_guard, Mod` (`PhoenixKit.Modules.Storage.RemovalGuard`) makes every MediaBrowser — the Media page included — ask the module where a file is in use before it is trashed or deleted, on a server dialog (a browser's `removal_guard` overrides it, `false` goes without; a host passes the acting person's role-narrowed scope as `phoenix_kit_current_scope`). Only a file that really disappears is asked about (`Storage.removal_plan/2`); the module fails closed. Not covered: `prune_trash`, host jobs, the API, "Delete all orphaned". The moduledoc's "Removal guard" has the flow.
+
 **URL sync (shareable folder deep links):** `use …Embed, url_sync: true` puts folder/search/page/view in the URL via lifecycle hooks (`attach_hook`, **not** injected clauses) — composes with a host LV that has its own `handle_params`/`handle_info`. Reference: `lib/phoenix_kit_web/live/users/media.ex`.
 
 ## FeaturedImage Component

@@ -105,7 +105,7 @@
               <tr :for={attempt <- @failed_attempts}>
                 <td class="font-semibold">{attempt.attempt_count}</td>
                 <td>
-                  <span :if={attempt.user} class="text-sm">{attempt.user.email}</span>
+                  <span :if={attempt.user} class="text-sm">{Auth.User.delivery_email(attempt.user)}</span>
                   <span :if={is_nil(attempt.user)} class="text-xs text-base-content/50">
                     {gettext("no such account")}
                   </span>
@@ -198,7 +198,7 @@
                 "Are you sure you want to revoke all %{count} sessions for user %{email}?",
                 @user_sessions_count,
                 count: @user_sessions_count,
-                email: @selected_user.email
+                email: Auth.User.delivery_email(@selected_user)
               )}
             </p>
             <div class="alert alert-warning">

@@ -48,7 +48,9 @@ defmodule PhoenixKit.Users.PermissionsTest do
       assert "languages" in keys
       # The API section: keys and service users. Opt-in for Admin (see the api permission tests).
       assert "api" in keys
-      assert length(keys) == 8
+      # A person's own API keys ("My API keys"). Flat, opt-in for Admin as well.
+      assert "api_personal_keys" in keys
+      assert length(keys) == 9
     end
   end
 

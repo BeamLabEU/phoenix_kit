@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.IntegrationsUI,
-    only: [setup_field: 1, validation_note_style: 1]
+    only: [setup_field: 1, validation_note_style: 1, connection_usage: 1, integration_error: 1]
 
   require Logger
 
@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Actor
 
+  @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: Events.subscribe()
 
@@ -38,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:provider, nil)
       |> assign(:name, nil)
       |> assign(:uuid, nil)
+      |> assign(:storage_usage, [])
       |> assign(:data, %{})
       |> assign(:success, nil)
       |> assign(:error, nil)
@@ -45,6 +47,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
       |> assign(:new_name, "")
       |> assign(:form_values, %{})
       |> assign(:testing, false)
+      |> assign(:saving, false)
       |> assign(:oauth_state, nil)
       |> assign(:site_bot, false)
       |> assign(:site_bot_webhook, false)
@@ -52,6 +55,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     {:ok, socket}
   end
 
+  @impl true
   def handle_params(params, url, socket) do
     # Store the base redirect URI from the actual browser URL so that
     # OAuth callbacks use the same origin Google will redirect to.
@@ -100,6 +104,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
           |> assign(:provider, provider)
           |> assign(:name, name)
           |> assign(:uuid, uuid)
+          |> assign(:storage_usage, Integrations.usage(uuid, owner: :system))
           |> assign(
             :bucket_uses,
             Map.get(Storage.bucket_counts_by_connection(), uuid, 0)
@@ -156,15 +161,14 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
     |> push_navigate(to: Routes.path("/admin/settings/integrations"))
   end
 
-  # A connection is deleted without checking who uses it, so a storage bucket
-  # that does is named before it stops working.
+  # Dependencies disable removal in the UI and are enforced by the context.
   defp delete_confirm(0, false),
     do: gettext("Permanently delete this connection? This cannot be undone.")
 
   defp delete_confirm(count, false) do
     ngettext(
-      "%{count} storage bucket uses this connection and will stop working. Permanently delete it? This cannot be undone.",
-      "%{count} storage buckets use this connection and will stop working. Permanently delete it? This cannot be undone.",
+      "%{count} storage bucket uses this connection and prevents its removal.",
+      "%{count} storage buckets use this connection and prevent its removal.",
       count
     )
   end
@@ -190,6 +194,10 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # ---------------------------------------------------------------------------
   # Events — provider selection (new mode)
   # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event(event, _params, %{assigns: %{live_action: :edit}} = socket)
+      when event in ["select_provider", "back_to_providers"], do: {:noreply, socket}
 
   def handle_event("select_provider", %{"provider" => provider_key}, socket) do
     provider = Providers.get(provider_key)
@@ -251,21 +259,23 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   def handle_event("disconnect_account", _params, socket) do
     uuid = socket.assigns.uuid
 
-    # Keep the setup credentials (client_id/secret) but remove tokens
-    Integrations.disconnect(uuid, Actor.uuid(socket))
+    case Integrations.disconnect(uuid, Actor.uuid(socket)) do
+      :ok ->
+        data =
+          case Integrations.get_integration_by_uuid(uuid, :system) do
+            {:ok, %{data: data}} -> data
+            _ -> %{}
+          end
 
-    # Reload data from the (now-disconnected) row
-    data =
-      case Integrations.get_integration_by_uuid(uuid, :system) do
-        {:ok, %{data: d}} -> d
-        _ -> %{}
-      end
+        {:noreply,
+         socket
+         |> assign(:data, data)
+         |> assign(:success, gettext("Account disconnected"))
+         |> assign(:error, nil)}
 
-    {:noreply,
-     socket
-     |> assign(:data, data)
-     |> assign(:success, gettext("Account disconnected"))
-     |> assign(:error, nil)}
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, integration_error(reason))}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -400,8 +410,8 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
          |> put_flash(:info, gettext("Connection removed"))
          |> push_navigate(to: Routes.path("/admin/settings/integrations"))}
 
-      {:error, _reason} ->
-        {:noreply, assign(socket, :error, gettext("Failed to remove connection."))}
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, integration_error(reason))}
     end
   end
 
@@ -437,6 +447,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   # Async handlers
   # ---------------------------------------------------------------------------
 
+  @impl true
   def handle_info(:do_test_connection, socket) do
     uuid = socket.assigns.uuid
     actor = Actor.uuid(socket)
@@ -508,6 +519,22 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
   # Catch-all to prevent crashes from unexpected messages
   def handle_info(_msg, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_async(:save_storage, {:ok, {uuid, result}}, socket) do
+    socket = assign(socket, :saving, false)
+
+    if socket.assigns.uuid == uuid,
+      do: save_setup_result(socket, result),
+      else: {:noreply, socket}
+  end
+
+  def handle_async(:save_storage, {:exit, _reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:saving, false)
+     |> assign(:error, gettext("Saving stopped unexpectedly. Refresh before trying again."))}
+  end
 
   # ---------------------------------------------------------------------------
   # Private
@@ -607,32 +634,7 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
   end
 
   defp save_form_with_rename(params, socket) do
-    uuid = socket.assigns.uuid
-    provider_key = socket.assigns.selected_provider
-    new_name = String.trim(params["name"])
-
-    case Integrations.rename_connection(uuid, new_name, Actor.uuid(socket)) do
-      {:ok, data} ->
-        socket =
-          socket
-          |> assign(:name, new_name)
-          |> assign(:data, data)
-
-        # Now save credentials under the new name.
-        handle_event("save_setup", params, socket)
-
-      {:error, :empty_name} ->
-        {:noreply,
-         socket
-         |> assign(:form_values, extract_setup_attrs(provider_key, params))
-         |> assign(:error, gettext("Connection name can't be blank."))}
-
-      {:error, _other} ->
-        {:noreply,
-         socket
-         |> assign(:form_values, extract_setup_attrs(provider_key, params))
-         |> assign(:error, gettext("Failed to rename connection."))}
-    end
+    save_setup_fields(socket.assigns.uuid, socket.assigns.selected_provider, params, socket)
   end
 
   defp save_and_redirect(uuid, provider_key, name, params, socket) do
@@ -653,28 +655,44 @@ defmodule PhoenixKitWeb.Live.Settings.IntegrationForm do
 
         {:noreply, socket}
 
-      {:error, _} ->
-        {:noreply, assign(socket, :error, gettext("Failed to save"))}
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, integration_error(reason))}
     end
   end
 
   defp save_setup_fields(uuid, provider_key, params, socket) do
-    attrs = extract_setup_attrs(provider_key, params)
+    attrs = Providers.setup_edit_attrs(Providers.get(provider_key), socket.assigns.data, params)
+    actor = Actor.uuid(socket)
+    name = String.trim(params["name"] || socket.assigns.name)
 
-    case Integrations.save_setup(uuid, attrs, Actor.uuid(socket)) do
-      {:ok, data} ->
-        socket =
-          socket
-          |> assign(:data, data)
-          |> assign(:error, nil)
-          |> assign(:form_values, %{})
-          |> apply_save_outcome(data)
-
-        {:noreply, socket}
-
-      {:error, _} ->
-        {:noreply, assign(socket, :error, gettext("Failed to save"))}
+    if provider_key == "object_storage" and socket.assigns.storage_usage != [] do
+      {:noreply,
+       socket
+       |> assign(:saving, true)
+       |> start_async(:save_storage, fn ->
+         {uuid, Integrations.update_connection(uuid, name, attrs, actor)}
+       end)}
+    else
+      save_setup_result(socket, Integrations.update_connection(uuid, name, attrs, actor))
     end
+  end
+
+  defp save_setup_result(socket, {:ok, data}) do
+    socket = assign(socket, :name, data["name"])
+
+    {:noreply,
+     socket
+     |> assign(:data, data)
+     |> assign(:error, nil)
+     |> assign(:form_values, %{})
+     |> apply_save_outcome(data)}
+  end
+
+  defp save_setup_result(socket, {:error, reason}) do
+    {:noreply,
+     socket
+     |> assign(:storage_usage, Integrations.usage(socket.assigns.uuid))
+     |> assign(:error, integration_error(reason))}
   end
 
   # Choose the right post-save UI state. Two cases:

@@ -18,7 +18,14 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.IntegrationsUI,
-    only: [provider_picker: 1, provider_status_card: 1, setup_field: 1, setup_instructions: 1]
+    only: [
+      provider_picker: 1,
+      provider_status_card: 1,
+      setup_field: 1,
+      setup_instructions: 1,
+      connection_usage: 1,
+      integration_error: 1
+    ]
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Providers
@@ -46,6 +53,8 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
        |> assign(:provider, nil)
        |> assign(:uuid, nil)
        |> assign(:bucket_uses, 0)
+       |> assign(:storage_usage, [])
+       |> assign(:saving, false)
        |> assign(:name, nil)
        |> assign(:data, %{})
        # Groups the last Test found but did not link — held here, never
@@ -99,6 +108,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
         |> assign(:page_title, gettext("Integration"))
         |> assign(:uuid, uuid)
         |> assign(:bucket_uses, Map.get(Storage.bucket_counts_by_connection(), uuid, 0))
+        |> assign(:storage_usage, Storage.integration_usage(uuid))
         |> assign(:name, name)
         |> assign(:data, data)
         |> assign(:selected_provider, provider_key)
@@ -115,6 +125,9 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   # Only a provider the picker offered: the key arrives from the client, and the
   # list is what a site admin chose (`Providers.personal_offered/0`), not whatever
   # a hand-made event names.
+  def handle_event(event, _params, %{assigns: %{live_action: :edit}} = socket)
+      when event in ["select_provider", "back_to_providers"], do: {:noreply, socket}
+
   def handle_event("select_provider", %{"provider" => key}, socket) do
     case Enum.find(socket.assigns.providers, &(&1.key == key)) do
       nil ->
@@ -219,27 +232,23 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     end
   end
 
-  # Edit: rename first if the name changed, then persist setup fields.
+  # The name and setup are committed together after validation.
   def handle_event("save", params, socket) do
     name = String.trim(params["name"] || "")
+    uuid = socket.assigns.uuid
+    attrs = Providers.setup_edit_attrs(socket.assigns.provider, socket.assigns.data, params)
+    actor = socket.assigns.user_uuid
+    opts = [owner: owner(socket)]
 
-    with :ok <- maybe_rename(socket, name),
-         {:ok, data} <-
-           Integrations.save_setup(
-             socket.assigns.uuid,
-             setup_attrs(params, socket.assigns.provider),
-             socket.assigns.user_uuid,
-             owner: owner(socket)
-           ) do
+    if socket.assigns.provider.key == "object_storage" and socket.assigns.storage_usage != [] do
       {:noreply,
        socket
-       |> assign(:data, data)
-       |> assign(:form_values, %{})
-       |> assign(:name, if(name == "", do: socket.assigns.name, else: name))
-       |> put_flash(:info, gettext("Saved"))}
+       |> assign(:saving, true)
+       |> start_async(:save_storage, fn ->
+         {uuid, Integrations.update_connection(uuid, name, attrs, actor, opts)}
+       end)}
     else
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, gettext("Could not save"))}
+      save_result(socket, Integrations.update_connection(uuid, name, attrs, actor, opts))
     end
   end
 
@@ -327,14 +336,49 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   end
 
   def handle_event("delete_connection", _params, socket) do
-    Integrations.remove_connection(socket.assigns.uuid, socket.assigns.user_uuid,
-      owner: owner(socket)
-    )
+    case Integrations.remove_connection(socket.assigns.uuid, socket.assigns.user_uuid,
+           owner: owner(socket)
+         ) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Integration removed"))
+         |> push_navigate(to: Routes.path("/profile/settings/integrations"))}
 
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           integration_error(reason)
+         )}
+    end
+  end
+
+  @impl true
+  def handle_async(:save_storage, {:ok, {uuid, result}}, socket) do
+    socket = assign(socket, :saving, false)
+    if socket.assigns.uuid == uuid, do: save_result(socket, result), else: {:noreply, socket}
+  end
+
+  def handle_async(:save_storage, {:exit, _reason}, socket) do
     {:noreply,
      socket
-     |> put_flash(:info, gettext("Integration removed"))
-     |> push_navigate(to: Routes.path("/profile/settings/integrations"))}
+     |> assign(:saving, false)
+     |> put_flash(:error, gettext("Saving stopped unexpectedly. Refresh before trying again."))}
+  end
+
+  defp save_result(socket, {:ok, data}) do
+    {:noreply,
+     socket
+     |> assign(:data, data)
+     |> assign(:name, data["name"])
+     |> assign(:form_values, %{})
+     |> put_flash(:info, gettext("Saved"))}
+  end
+
+  defp save_result(socket, {:error, reason}) do
+    {:noreply, socket |> reload() |> put_flash(:error, integration_error(reason))}
   end
 
   @impl true
@@ -524,41 +568,30 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
 
   # ── Internals ────────────────────────────────────────────────────────
 
-  # A connection is deleted without checking who uses it, so a library of the
-  # user's own storage that does is named before it stops working.
+  # Dependency checks are enforced again by the context when the action runs.
   defp delete_confirm(0),
     do: gettext("Permanently delete this connection? This cannot be undone.")
 
   defp delete_confirm(count) do
     ngettext(
-      "%{count} of your libraries keeps its files in a bucket that uses this connection, and will stop working. Permanently delete it? This cannot be undone.",
-      "%{count} of your libraries keep their files in buckets that use this connection, and will stop working. Permanently delete it? This cannot be undone.",
+      "%{count} storage bucket uses this connection and prevents its removal.",
+      "%{count} storage buckets use this connection and prevent its removal.",
       count
     )
   end
 
   defp owner(socket), do: {:user, socket.assigns.user_uuid}
 
-  # Rename only when the posted name is non-empty and actually differs.
-  defp maybe_rename(_socket, name)
-       when name == "" or name == nil,
-       do: :ok
-
-  defp maybe_rename(%{assigns: %{name: name}}, name), do: :ok
-
-  defp maybe_rename(socket, name) do
-    case Integrations.rename_connection(socket.assigns.uuid, name, socket.assigns.user_uuid,
-           owner: owner(socket)
-         ) do
-      {:ok, _} -> :ok
-      other -> other
-    end
-  end
-
   defp reload(%{assigns: %{uuid: uuid}} = socket) when is_binary(uuid) do
     case Integrations.get_integration_by_uuid(uuid, owner(socket)) do
-      {:ok, %{name: name, data: data}} -> socket |> assign(:name, name) |> assign(:data, data)
-      _ -> socket
+      {:ok, %{name: name, data: data}} ->
+        socket
+        |> assign(:name, name)
+        |> assign(:data, data)
+        |> assign(:storage_usage, Integrations.usage(uuid, owner: owner(socket)))
+
+      _ ->
+        socket
     end
   end
 
@@ -610,6 +643,8 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
           </button>
 
           <.provider_status_card provider={@provider} data={@data} name={@name} />
+          <.connection_usage usage={@storage_usage} />
+          <p :if={@saving} role="status">{gettext("Checking every bucket before saving...")}</p>
 
           <form
             id="personal-integration-setup-form"
@@ -636,16 +671,45 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
                   />
                 </div>
 
+                <p
+                  :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}
+                  class="text-sm"
+                >
+                  {gettext("Service")}: {Providers.setup_label(@provider, @data)}. {gettext(
+                    "Create a new integration to use another service."
+                  )}
+                </p>
                 <% saved = Providers.setup_saved(@provider, @data, @form_values) %>
-                <.setup_field
-                  :for={field <- Providers.setup_fields(@provider, Map.merge(saved, @form_values))}
-                  field={field}
-                  typed_value={Map.get(@form_values, field.key)}
-                  saved_value={to_string(saved[field.key] || "")}
+                <input
+                  :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}
+                  type="hidden"
+                  name="service"
+                  value={PhoenixKit.Integrations.ObjectStorageServices.current(@data)}
                 />
+                <fieldset
+                  :for={field <- Providers.setup_fields(@provider, Map.merge(saved, @form_values))}
+                  :if={
+                    @live_action == :new or field.key != "service" or
+                      not Providers.storage_service_locked?(@provider, @data)
+                  }
+                  disabled={
+                    @storage_usage != [] and field.key in ~w(endpoint region account_id jurisdiction)
+                  }
+                >
+                  <.setup_field
+                    field={field}
+                    typed_value={Map.get(@form_values, field.key)}
+                    saved_value={to_string(saved[field.key] || "")}
+                  />
+                </fieldset>
 
                 <div class="flex flex-wrap gap-2 items-center pt-2">
-                  <button type="submit" class="btn btn-primary" phx-disable-with={gettext("Saving…")}>
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    disabled={@saving}
+                    phx-disable-with={gettext("Saving…")}
+                  >
                     {if @live_action == :new,
                       do: gettext("Create Connection"),
                       else: gettext("Save Changes")}
@@ -849,6 +913,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
                 <button
                   type="button"
                   phx-click="delete_connection"
+                  disabled={@storage_usage != []}
                   class="btn btn-outline btn-error btn-sm shrink-0"
                   data-confirm={delete_confirm(@bucket_uses)}
                   phx-disable-with={gettext("Deleting…")}

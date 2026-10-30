@@ -169,6 +169,8 @@
            (secondary action, `type="button"` so it doesn't trigger
            submit). OAuth's Connect Account is a separate card below
            — different action shape (auth flow, not a save). --%>
+      <.connection_usage usage={@storage_usage} />
+      <p :if={@saving} role="status">{gettext("Checking every bucket before saving...")}</p>
       <form
         id="integration-setup-form"
         phx-submit="save_form"
@@ -241,13 +243,37 @@
             <%!-- A provider may shape its form from what is typed (object storage
                  asks different things per service), so the field list is asked
                  for rather than read off the provider. --%>
+            <p
+              :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}
+              class="text-sm"
+            >
+              {gettext("Service")}: {Providers.setup_label(@provider, @data)}. {gettext(
+                "Create a new integration to use another service."
+              )}
+            </p>
             <% saved = Providers.setup_saved(@provider, @data, @form_values) %>
-            <.setup_field
-              :for={field <- Providers.setup_fields(@provider, Map.merge(saved, @form_values))}
-              field={field}
-              typed_value={Map.get(@form_values, field.key)}
-              saved_value={to_string(saved[field.key] || "")}
+            <input
+              :if={@live_action == :edit and Providers.storage_service_locked?(@provider, @data)}
+              type="hidden"
+              name="service"
+              value={PhoenixKit.Integrations.ObjectStorageServices.current(@data)}
             />
+            <fieldset
+              :for={field <- Providers.setup_fields(@provider, Map.merge(saved, @form_values))}
+              :if={
+                @live_action == :new or field.key != "service" or
+                  not Providers.storage_service_locked?(@provider, @data)
+              }
+              disabled={
+                @storage_usage != [] and field.key in ~w(endpoint region account_id jurisdiction)
+              }
+            >
+              <.setup_field
+                field={field}
+                typed_value={Map.get(@form_values, field.key)}
+                saved_value={to_string(saved[field.key] || "")}
+              />
+            </fieldset>
 
             <%!-- Action row at the bottom of the same card body.
                  Both buttons submit the SAME form (`save_form`),
@@ -267,6 +293,7 @@
               <button
                 type="submit"
                 class="btn btn-primary"
+                disabled={@saving}
                 phx-disable-with={gettext("Saving…")}
               >
                 {if @name, do: gettext("Save Changes"), else: gettext("Create Connection")}
@@ -299,7 +326,7 @@
                 value="test"
                 formnovalidate
                 class={"btn btn-outline #{if @testing, do: "loading"}"}
-                disabled={@testing}
+                disabled={@testing or @saving}
                 phx-disable-with={gettext("Testing…")}
               >
                 <.icon :if={!@testing} name="hero-signal" class="w-4 h-4" />
@@ -541,6 +568,7 @@
             <button
               type="button"
               phx-click="delete_connection"
+              disabled={@storage_usage != []}
               class="btn btn-outline btn-error btn-sm shrink-0"
               data-confirm={delete_confirm(@bucket_uses, @site_bot)}
               phx-disable-with={gettext("Deleting…")}

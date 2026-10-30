@@ -48,7 +48,7 @@ defmodule PhoenixKit.Users.Permissions do
   ## Constants & Metadata
 
       Permissions.all_module_keys()        # 26 built-in + any custom keys
-      Permissions.core_section_keys()      # 8 core keys
+      Permissions.core_section_keys()      # 9 core keys
       Permissions.feature_module_keys()    # 20 feature keys
       Permissions.enabled_module_keys()    # Core + enabled features + custom keys
       Permissions.valid_module_key?("ai")  # true
@@ -121,8 +121,9 @@ defmodule PhoenixKit.Users.Permissions do
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # `api` (API keys, service users, the Settings → API page) is a core section but
-  # opt-in for Admin: see `@opt_in_admin_keys`.
-  @core_section_keys ~w(dashboard users media settings modules jobs languages api)
+  # opt-in for Admin: see `@opt_in_admin_keys`. So is `api_personal_keys` (a person's own
+  # keys on "My API keys"): FLAT on purpose, a sub-key `api.*` would imply `api` itself.
+  @core_section_keys ~w(dashboard users media settings modules jobs languages api api_personal_keys)
 
   # Sub-permissions of CORE sections. A feature module declares its own in
   # `permission_metadata/0`; a core section has no module, so they live here and
@@ -214,7 +215,10 @@ defmodule PhoenixKit.Users.Permissions do
   # upgrade must not hand it to every existing Admin. It is a core section key, which is
   # exactly why this list matters: the boot sweep (`auto_grant_new_keys_to_admin/0`) walks
   # every core key and reaches `auto_grant_to_admin_roles/1`, where this list stops it.
-  @opt_in_admin_keys [@integrations_personal_key, "api"]
+  #
+  # `api_personal_keys` is the third: a key made with it acts as its holder, so who may hold
+  # it is the Owner's choice, role by role.
+  @opt_in_admin_keys [@integrations_personal_key, "api", "api_personal_keys"]
 
   # Persistent term keys for runtime-registered custom permission keys
   @custom_keys_pterm {PhoenixKit, :custom_permission_keys}
@@ -734,6 +738,7 @@ defmodule PhoenixKit.Users.Permissions do
     "integrations" => "My Integrations",
     "integrations_system" => "System Integrations",
     "api" => "API keys",
+    "api_personal_keys" => "Personal API keys",
     "*" => "Full Access (Superadmin)"
   }
 
@@ -751,6 +756,7 @@ defmodule PhoenixKit.Users.Permissions do
     "integrations" => "hero-link",
     "integrations_system" => "hero-link",
     "api" => "hero-code-bracket",
+    "api_personal_keys" => "hero-finger-print",
     "*" => "hero-key"
   }
 
@@ -767,7 +773,9 @@ defmodule PhoenixKit.Users.Permissions do
     "db" => "Database explorer and schema inspection",
     "integrations" => "Your own personal service connections (API keys, SMTP, etc.)",
     "integrations_system" => "Website-wide integration setup shared across the app",
-    "api" => "API keys and service users for the admin and public APIs",
+    "api" => "Manage all API keys, service users and the settings of the admin and public APIs",
+    "api_personal_keys" =>
+      "Create API keys for yourself only, acting with your own rights (My API keys)",
     "*" =>
       "Grants access to everything, including features added later — the drift-immune way to make a role Owner-equivalent"
   }

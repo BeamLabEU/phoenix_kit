@@ -127,6 +127,16 @@ function cardClick(srcUrl, cls, natural) {
   return { target: { closest: (sel) => (sel.includes("click_file") ? card : null) } };
 }
 
+test("a card of another browser on the page opens nothing here", () => {
+  const { hook, listeners } = loadHook();
+  const el = fakeEl(true);
+  el.parentElement = { contains: () => false };
+  hook.mounted.call({ el });
+
+  listeners.document.click.fn(cardClick("/uploads/small/cat.jpg"));
+  assert.strictEqual(el.style.display, "none", "the other browser's stand-in stays hidden");
+});
+
 test("shows the card's own bitmap on the click", () => {
   const { hook, listeners } = loadHook();
   const el = fakeEl(true);
@@ -569,6 +579,22 @@ test("a chevron press paints the neighbour instantly", () => {
   assert.strictEqual(el.img.attrs.src, "/f/n/small/aa",
     "…with the neighbour's warmed small — a cache hit");
   assert.ok(/rotate-90/.test(el.img.className), "the neighbour's rotation rides along");
+});
+
+test("a chevron press reads the neighbours off ITS viewer, not the first one on the page", () => {
+  const { hook, listeners, doc } = loadHook();
+  const el = fakeEl(true);
+  hook.mounted.call({ el });
+  doc.querySelector = () => ({ dataset: { stepNextSrc: "/f/other/small/xx" } });
+  const mine = { dataset: { stepNextSrc: "/f/mine/small/aa", stepNextRot: "" } };
+  const btn = {
+    getAttribute: (k) => (k === "phx-value-dir" ? "next" : null),
+    closest: (sel) => (sel.includes("-viewer-modal") ? mine : null),
+  };
+  listeners.document.click.fn({
+    target: { closest: (sel) => (sel.includes("step_viewer") ? btn : null) },
+  });
+  assert.strictEqual(el.img.attrs.src, "/f/mine/small/aa");
 });
 
 test("a keyboard step announces itself and the stand-in answers", () => {

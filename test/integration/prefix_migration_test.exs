@@ -32,7 +32,10 @@ defmodule PhoenixKit.Integration.PrefixMigrationTest do
   import ExUnit.CaptureIO
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias PhoenixKit.Migrations.ExpectedSchema
   alias PhoenixKit.Migrations.Postgres
+  alias PhoenixKit.Migrations.Repair.Differ
+  alias PhoenixKit.Migrations.Repair.Probe
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.LoginAttempts
 
@@ -80,6 +83,19 @@ defmodule PhoenixKit.Integration.PrefixMigrationTest do
 
     assert version_comment ==
              to_string(Postgres.current_version())
+
+    snapshot = Probe.snapshot(Repo, @schema)
+
+    for object <- ExpectedSchema.objects(@schema),
+        Enum.any?(object.revisions, &(elem(&1, 0) == 227)) do
+      {_version, expected} = List.last(object.revisions)
+      observed = Probe.lookup(snapshot, object.check)
+      assert observed != nil, object.id
+      result = Differ.compare(object.class, expected, observed)
+
+      assert result == :match or Differ.deparse_text_only?(result),
+             "#{object.id}: #{inspect(result)}"
+    end
 
     # Spot-check the indexes built by the once-buggy CREATE sites
     # (uuid_fk_columns.ex, V56/V57 add_uuid_unique_indexes, V95): they

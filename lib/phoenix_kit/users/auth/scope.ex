@@ -123,7 +123,24 @@ defmodule PhoenixKit.Users.Auth.Scope do
             active_role: nil,
             switchable_roles: [],
             multi_session_accounts: [],
-            multi_session_allowed?: false
+            multi_session_allowed?: false,
+            acting_organizations: [],
+            acting_person: nil,
+            organization_root: nil,
+            pending_invitations: []
+
+  use Gettext, backend: PhoenixKitWeb.Gettext
+
+  @doc "The account label for the current browser, including organization provenance."
+  def session_display_name(%__MODULE__{user: %User{} = user, acting_person: %User{} = person}),
+    do:
+      gettext("%{organization} · via %{person}",
+        organization: User.display_name(user),
+        person: User.display_name(person)
+      )
+
+  def session_display_name(%__MODULE__{user: %User{} = user}), do: User.display_name(user)
+  def session_display_name(_), do: nil
 
   @doc """
   Creates a new scope for the given user.
@@ -154,24 +171,25 @@ defmodule PhoenixKit.Users.Auth.Scope do
 
   def for_user(%User{} = user, opts) do
     held = Roles.get_user_role_records(user)
+    eligible = eligible_roles(user, held)
 
     # Narrow to the active role (plus always-on roles) when the user is acting
     # as one. Everything below reads the EFFECTIVE roles, so an Owner acting as
     # "Seller" gets neither the Owner branch nor Owner's permissions.
     {active_role, effective, switchable} =
       if Keyword.get(opts, :narrow, true),
-        do: ActiveRole.narrow(user, held),
-        else: {nil, held, []}
+        do: ActiveRole.narrow(user, eligible),
+        else: {nil, eligible, []}
 
     cached_roles = Enum.map(effective, & &1.name)
 
     # Load permissions: Owner gets all, others get from DB
     roles = Role.system_roles()
 
-    cached_permissions =
+    permission_keys =
       cond do
         roles.owner in cached_roles ->
-          MapSet.new(Permissions.all_module_keys())
+          Permissions.all_module_keys()
 
         roles.admin in cached_roles ->
           case load_permissions(user, active_role, effective) do
@@ -185,24 +203,24 @@ defmodule PhoenixKit.Users.Auth.Scope do
             # empty rather than escalating.
             [] ->
               if Permissions.permissions_table_ready?() do
-                MapSet.new()
+                []
               else
-                MapSet.new(Permissions.all_module_keys())
+                Permissions.all_module_keys()
               end
 
             perms ->
-              MapSet.new(perms)
+              perms
           end
 
         true ->
-          load_permissions(user, active_role, effective) |> MapSet.new()
+          load_permissions(user, active_role, effective)
       end
 
     %__MODULE__{
       user: user,
       authenticated?: true,
       cached_roles: cached_roles,
-      cached_permissions: cached_permissions,
+      cached_permissions: MapSet.new(permission_ceiling(user, permission_keys)),
       held_roles: Enum.map(held, & &1.name),
       active_role: active_role,
       switchable_roles: switchable
@@ -218,8 +236,37 @@ defmodule PhoenixKit.Users.Auth.Scope do
     }
   end
 
+  defp eligible_roles(%User{managed_by_members: true}, roles),
+    do: Enum.reject(roles, &managed_ceiling_role?(&1.name))
+
+  defp eligible_roles(_user, roles), do: roles
+
+  defp permission_ceiling(%User{managed_by_members: true}, permissions),
+    do: Enum.reject(permissions, &managed_ceiling_key?/1)
+
+  defp permission_ceiling(_user, permissions), do: permissions
+
+  @doc false
+  # The managed-organization ceiling, defined once: the scope applies it here
+  # and `Roles` refuses to assign past it. A role named here is never in a
+  # managed organization's effective roles; a key named here (or a sub-key of
+  # `api`) never in its permissions.
+  @spec managed_ceiling_role?(String.t()) :: boolean()
+  def managed_ceiling_role?(name) do
+    system = Role.system_roles()
+    name in [system.owner, system.admin]
+  end
+
+  @doc false
+  @spec managed_ceiling_key?(String.t()) :: boolean()
+  def managed_ceiling_key?(key) when is_binary(key),
+    do: key in [@superadmin_key, "api", "api_personal_keys"] or String.starts_with?(key, "api.")
+
   # Not narrowed: the union across every held role, exactly as before the
   # active role existed. Narrowed: only the roles in effect.
+  defp load_permissions(%User{managed_by_members: true}, nil, effective),
+    do: Permissions.get_permissions_for_roles(Enum.map(effective, & &1.uuid))
+
   defp load_permissions(user, nil, _effective), do: Permissions.get_permissions_for_user(user)
 
   defp load_permissions(_user, _active_role, effective),
@@ -278,6 +325,11 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def user_uuid(%__MODULE__{user: %User{uuid: uuid}}), do: uuid
   def user_uuid(_), do: nil
 
+  @doc "The person behind an acting organization session; nil for an ordinary account."
+  @spec acting_user_uuid(t() | nil) :: String.t() | nil
+  def acting_user_uuid(%__MODULE__{user: %User{acting_user_uuid: uuid}}), do: uuid
+  def acting_user_uuid(_), do: nil
+
   @doc """
   Gets the user email from the scope.
 
@@ -293,7 +345,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
       nil
   """
   @spec user_email(t() | nil) :: String.t() | nil
-  def user_email(%__MODULE__{user: %User{email: email}}), do: email
+  def user_email(%__MODULE__{user: %User{} = user}), do: User.delivery_email(user)
   def user_email(_), do: nil
 
   @doc """

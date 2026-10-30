@@ -27,14 +27,21 @@ defmodule PhoenixKit.Users.Invitations do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserNotifier
+  alias PhoenixKit.Users.ManagedOrganizations.Invitations, as: ManagerInvitations
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
   @invitation_validity_days 7
 
   @doc """
-  Creates an invitation for the given email to join the organization.
+  Creates an invitation for the given email to join or manage the organization.
+
+  `kind: :member` (the default) takes the inviting User. `kind: :manager`
+  takes a ManagedOrganizations.Actor from the trusted signed browser session;
+  it resolves the inviting person itself and rechecks the live grant/admin.
+  Manager responses and duplicate responses are presented generically by the UI.
 
   Returns `{:ok, invitation, encoded_token}` on success.
   The `encoded_token` must be sent to the invitee (via email for new users,
@@ -45,8 +52,26 @@ defmodule PhoenixKit.Users.Invitations do
   - Cannot invite a user already belonging to an organization
   - Cannot create a duplicate pending invitation from the same org for the same email
   """
-  def create_invitation(%User{} = organization, email, %User{} = invited_by)
+  def create_invitation(organization, email, invited_by, opts \\ [])
+
+  def create_invitation(%User{} = organization, email, actor, opts)
       when is_binary(email) do
+    case Keyword.get(opts, :kind, :member) do
+      :manager ->
+        ManagerInvitations.create(organization.uuid, email, actor)
+
+      :member ->
+        create_member_invitation(organization, email, invited_by_user(actor))
+
+      _ ->
+        {:error, :invalid_kind}
+    end
+  end
+
+  defp invited_by_user(%User{} = user), do: user
+  defp invited_by_user(_), do: nil
+
+  defp create_member_invitation(organization, email, %User{} = invited_by) do
     with :ok <- validate_invitation_allowed(organization, email) do
       raw_token = :crypto.strong_rand_bytes(32)
       hashed_token = :crypto.hash(:sha256, raw_token)
@@ -79,14 +104,17 @@ defmodule PhoenixKit.Users.Invitations do
     end
   end
 
+  defp create_member_invitation(_, _, _), do: {:error, :forbidden}
+
   @doc """
-  Lists all invitations for an organization, ordered by most recent first.
+  Lists member invitations (or `kind: :manager`), ordered by most recent first.
   """
-  def list_invitations(organization_uuid) do
+  def list_invitations(organization_uuid, opts \\ []) do
+    kind = Keyword.get(opts, :kind, :member)
     repo = RepoHelper.repo()
 
     from(i in OrganizationInvitation,
-      where: i.organization_uuid == ^organization_uuid,
+      where: i.organization_uuid == ^organization_uuid and i.kind == ^kind,
       order_by: [desc: i.inserted_at]
     )
     |> repo.all()
@@ -158,6 +186,12 @@ defmodule PhoenixKit.Users.Invitations do
   - `{:error, reason}` — database or validation error
   """
   def accept_invitation_by_uuid(invitation_uuid, %User{} = user) do
+    if UUIDUtils.valid?(invitation_uuid),
+      do: accept_valid_invitation(invitation_uuid, user),
+      else: {:error, :not_found}
+  end
+
+  defp accept_valid_invitation(invitation_uuid, user) do
     repo = RepoHelper.repo()
 
     invitation = repo.get(OrganizationInvitation, invitation_uuid)
@@ -165,6 +199,9 @@ defmodule PhoenixKit.Users.Invitations do
     cond do
       is_nil(invitation) ->
         {:error, :not_found}
+
+      invitation.kind == :manager ->
+        ManagerInvitations.accept(invitation, user)
 
       invitation.status != :pending ->
         {:error, :not_pending}
@@ -198,7 +235,8 @@ defmodule PhoenixKit.Users.Invitations do
   # invitation because a referral bookkeeping write hiccuped, on an install with
   # no referral gate at all, would be absurd. `mark_satisfied/2` is idempotent,
   # so writing it early costs nothing when the acceptance then fails on its own.
-  defp record_admission(user) do
+  @doc false
+  def record_admission(user) do
     case Referrals.mark_satisfied(user, "invitation") do
       {:ok, _user} ->
         :ok
@@ -231,11 +269,20 @@ defmodule PhoenixKit.Users.Invitations do
   Only pending invitations addressed to `user`'s email can be declined.
   """
   def decline_invitation_by_uuid(invitation_uuid, %User{} = user) do
+    if UUIDUtils.valid?(invitation_uuid),
+      do: decline_valid_invitation(invitation_uuid, user),
+      else: {:error, :not_found}
+  end
+
+  defp decline_valid_invitation(invitation_uuid, user) do
     repo = RepoHelper.repo()
 
     case repo.get(OrganizationInvitation, invitation_uuid) do
       nil ->
         {:error, :not_found}
+
+      %OrganizationInvitation{kind: :manager} = invitation ->
+        ManagerInvitations.decline(invitation, user)
 
       %OrganizationInvitation{status: :pending} = invitation ->
         if invitee?(invitation, user) do
@@ -263,7 +310,10 @@ defmodule PhoenixKit.Users.Invitations do
   def invitee?(_, _), do: false
 
   @doc """
-  Cancels a pending invitation by UUID (admin action).
+  Legacy trusted-system cancellation of member invitations only.
+
+  Browser callers use `cancel_invitation/3`, which scopes the row and rechecks
+  their live authority. This arity refuses manager invitations.
 
   Only `:pending` invitations can be cancelled.
   """
@@ -274,6 +324,9 @@ defmodule PhoenixKit.Users.Invitations do
       nil ->
         {:error, :not_found}
 
+      %{kind: :manager} ->
+        {:error, :forbidden}
+
       %{status: :pending} = invitation ->
         invitation
         |> OrganizationInvitation.cancel_changeset()
@@ -283,6 +336,15 @@ defmodule PhoenixKit.Users.Invitations do
         {:error, :not_pending}
     end
   end
+
+  @doc "Cancels an invitation only within the organization and a live authorized browser."
+  def cancel_invitation(actor, organization_uuid, invitation_uuid),
+    do:
+      ManagerInvitations.cancel(
+        actor,
+        organization_uuid,
+        invitation_uuid
+      )
 
   # Private Helpers
 
@@ -301,7 +363,7 @@ defmodule PhoenixKit.Users.Invitations do
             from(i in OrganizationInvitation,
               where:
                 i.organization_uuid == ^organization.uuid and
-                  i.email == ^email and
+                  i.email == ^email and i.kind == :member and
                   i.status == :pending
             )
             |> repo.one()

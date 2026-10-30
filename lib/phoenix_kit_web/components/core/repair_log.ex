@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Components.Core.RepairLog do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
@@ -149,7 +150,7 @@ defmodule PhoenixKitWeb.Components.Core.RepairLog do
       <span class="font-medium">{@row.rendition}</span> · {problem_text(@row.problem)}
     </div>
     <div class="text-base-content/60">
-      {found_by_text(@row.found_by)}<span :if={@row.actor}> · {@row.actor.email}</span>
+      {found_by_text(@row.found_by)}<span :if={@row.actor}> · {User.delivery_email(@row.actor)}</span>
     </div>
     """
   end
@@ -161,7 +162,7 @@ defmodule PhoenixKitWeb.Components.Core.RepairLog do
         <span class="font-medium">{action.rendition}</span> · {action_text(action)}
       </li>
     </ul>
-    <div :if={@row.actor} class="text-base-content/60">{@row.actor.email}</div>
+    <div :if={@row.actor} class="text-base-content/60">{User.delivery_email(@row.actor)}</div>
     <div :if={@row.problems_left && @row.problems_left > 0} class="text-warning">
       {ngettext(
         "%{count} problem was left.",

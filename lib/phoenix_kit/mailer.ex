@@ -274,10 +274,27 @@ defmodule PhoenixKit.Mailer do
   transport — but no mail was sent and nothing was recorded by tracking.
   """
   def deliver_email(email, opts \\ []) do
-    case default_send_integration_uuid() do
-      {:ok, uuid} -> deliver_via_integration(email, uuid, opts)
-      :error -> deliver_via_configured_mailer(email, opts)
-    end
+    with_deliverable_recipients(email, fn email ->
+      case default_send_integration_uuid() do
+        {:ok, uuid} -> deliver_via_integration(email, uuid, opts)
+        :error -> deliver_via_configured_mailer(email, opts)
+      end
+    end)
+  end
+
+  # Re-run at delivery time as well as queueing time: a queued message can
+  # predate the account policy. Never hand placeholder recipients to a relay.
+  defp with_deliverable_recipients(email, deliver) do
+    email =
+      Enum.reduce([:to, :cc, :bcc], email, fn field, email ->
+        Map.update!(email, field, fn recipients ->
+          Enum.reject(recipients, fn {_name, address} -> User.invalid_email?(address) end)
+        end)
+      end)
+
+    if email.to == [] and email.cc == [] and email.bcc == [],
+      do: {:ok, %{id: "no-deliverable-recipients", suppressed: true}},
+      else: deliver.(email)
   end
 
   defp deliver_via_configured_mailer(email, opts) do
@@ -582,6 +599,10 @@ defmodule PhoenixKit.Mailer do
           {:ok, term()} | {:error, term()}
   def deliver_via_integration(email, integration_uuid, opts \\ [])
       when is_binary(integration_uuid) do
+    with_deliverable_recipients(email, &do_deliver_via_integration(&1, integration_uuid, opts))
+  end
+
+  defp do_deliver_via_integration(email, integration_uuid, opts) do
     with :ok <- check_recipient_allowed(email),
          {:ok, creds} <- Integrations.get_credentials(integration_uuid),
          {:ok, {adapter, config}} <- swoosh_config_for(creds) do

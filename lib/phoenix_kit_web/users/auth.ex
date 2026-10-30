@@ -147,8 +147,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Password login, magic link, QR code and OAuth all end here, so the refusal is on the
   # shared funnel as well as in each door's own check. The message is the one a wrong
   # password gets: the page must not say that such an account exists.
-  def log_in_user(conn, %Auth.User{api_only: true} = user, _params) do
-    Logger.warning("PhoenixKit: refused sign-in for API-only user #{user.uuid}")
+  def log_in_user(conn, %Auth.User{} = user, _params)
+      when user.api_only or user.managed_by_members do
+    Logger.warning("PhoenixKit: refused independent sign-in for user #{user.uuid}")
 
     conn
     |> Phoenix.Controller.put_flash(:error, gettext("Invalid email/username or password"))
@@ -560,13 +561,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     active_user = Auth.ensure_active_user(user)
 
     session = get_session(conn)
-    {multi_session_allowed?, multi_session_accounts} = MultiSession.scope_fields(session)
-
-    scope = %{
-      Scope.for_user(active_user)
-      | multi_session_accounts: multi_session_accounts,
-        multi_session_allowed?: multi_session_allowed?
-    }
+    scope = MultiSession.populate_scope(Scope.for_user(active_user), session)
 
     FormatCountry.put_viewer(active_user)
 
@@ -576,8 +571,9 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp ensure_user_token(conn) do
-    if token = get_session(conn, :user_token) do
-      {token, conn}
+    if get_session(conn, :user_token) do
+      conn = MultiSession.recover_organization(conn)
+      {get_session(conn, :user_token), conn}
     else
       conn = fetch_cookies(conn, signed: [@remember_me_cookie])
 
@@ -1555,12 +1551,15 @@ defmodule PhoenixKitWeb.Users.Auth do
   @spec assign_embedded_current_user(LiveView.Socket.t(), map()) :: LiveView.Socket.t()
   def assign_embedded_current_user(socket, session) when is_map(session) do
     if is_nil(socket.assigns[:phoenix_kit_current_scope]) do
-      {user, scope} = reconstruct_embedded_identity(Map.get(session, "current_user_uuid"))
+      {user, scope} =
+        reconstruct_embedded_identity(Map.get(session, "current_user_uuid"), session)
+
       FormatCountry.put_viewer(user)
 
       socket
       |> Phoenix.Component.assign(:phoenix_kit_current_user, user)
       |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+      |> maybe_assign_embedded_token(user, session)
     else
       socket
     end
@@ -1568,8 +1567,12 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def assign_embedded_current_user(socket, _session), do: socket
 
-  defp reconstruct_embedded_identity(uuid) when is_binary(uuid) and uuid != "" do
-    user = uuid |> Auth.get_user() |> Auth.ensure_active_user()
+  defp reconstruct_embedded_identity(uuid, session) when is_binary(uuid) and uuid != "" do
+    user =
+      case uuid |> Auth.get_user() |> Auth.ensure_active_user() do
+        %User{managed_by_members: true} -> embedded_session_user(uuid, session)
+        user -> user
+      end
 
     if is_nil(user) do
       Logger.warning(
@@ -1589,7 +1592,21 @@ defmodule PhoenixKitWeb.Users.Auth do
       {nil, Scope.for_user(nil)}
   end
 
-  defp reconstruct_embedded_identity(_), do: {nil, Scope.for_user(nil)}
+  defp reconstruct_embedded_identity(_, _session), do: {nil, Scope.for_user(nil)}
+
+  defp embedded_session_user(uuid, %{"user_token" => token}) when is_binary(token) do
+    case token |> Auth.get_user_by_session_token() |> Auth.ensure_active_user() do
+      %User{uuid: ^uuid} = user -> user
+      _ -> nil
+    end
+  end
+
+  defp embedded_session_user(_uuid, _session), do: nil
+
+  defp maybe_assign_embedded_token(socket, %User{managed_by_members: true}, session),
+    do: Phoenix.Component.assign(socket, :phoenix_kit_session_token, session["user_token"])
+
+  defp maybe_assign_embedded_token(socket, _user, _session), do: socket
 
   defp mount_phoenix_kit_current_scope(socket, session, params \\ %{}) do
     socket =
@@ -1599,13 +1616,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       |> maybe_attach_timezone_hook()
 
     user = socket.assigns.phoenix_kit_current_user
-    {multi_session_allowed?, multi_session_accounts} = MultiSession.scope_fields(session)
-
-    scope = %{
-      Scope.for_user(user)
-      | multi_session_accounts: multi_session_accounts,
-        multi_session_allowed?: multi_session_allowed?
-    }
+    scope = MultiSession.populate_scope(Scope.for_user(user), session)
 
     # Locale is URL-driven: the URL's `:locale` segment wins; absent
     # that, we fall straight to the default. The previous session-locale
@@ -2466,6 +2477,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Modules => "modules",
     PhoenixKitWeb.Live.Users.Users => "users",
     PhoenixKitWeb.Users.UserForm => "users",
+    PhoenixKitWeb.Live.Users.ManagedOrganizationNew => "users",
     PhoenixKitWeb.Live.Users.UserDetails => "users",
     PhoenixKitWeb.Live.Users.Roles => "users",
     PhoenixKitWeb.Live.Users.PermissionsMatrix => "users",
@@ -3010,7 +3022,10 @@ defmodule PhoenixKitWeb.Users.Auth do
     %{
       scope
       | multi_session_accounts: previous.multi_session_accounts,
-        multi_session_allowed?: previous.multi_session_allowed?
+        multi_session_allowed?: previous.multi_session_allowed?,
+        acting_organizations: previous.acting_organizations,
+        acting_person: previous.acting_person,
+        organization_root: previous.organization_root
     }
   end
 

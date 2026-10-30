@@ -245,6 +245,8 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
       assert html =~ "Bucket"
       assert html =~ "List buckets"
       assert html =~ "How it is used"
+      assert html =~ "More backup storage can be added later"
+      refute html =~ "cannot be changed once it is created"
       # The one integration is already chosen, and says what it is.
       assert html =~ "Tigris for photos"
       assert html =~ "Tigris · t3.storage.dev"
@@ -440,7 +442,7 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
 
     test "a copy on a second integration: the first is main, the second a backup", %{role: role} do
       user = user!(role)
-      aws = connection!(user, %{}, "aws")
+      aws = connection!(user, %{"service" => "aws_s3"}, "aws")
       tigris = connection!(user, %{"endpoint" => "t3.storage.dev"}, "tigris")
 
       socket =
@@ -471,7 +473,12 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
       assert profile.copies_cloud == 2
       assert profile.min_copies_on_write == 1
 
-      assert html(socket) =~ "Your bucket: photos-aws (+1 copy)"
+      rendered = html(socket)
+      assert rendered =~ "Your bucket: photos-aws"
+      assert rendered =~ "Backed up to: photos-tigris"
+      assert rendered =~ "aws · Amazon S3"
+      assert rendered =~ "tigris · Tigris"
+      refute rendered =~ "secret-value"
     end
 
     test "every bucket is checked, and the one that fails is named", %{role: role} do
@@ -546,6 +553,29 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
       assert %{buckets: [_]} = socket.assigns.own_storage[to_string(library.uuid)]
     end
 
+    test "a connection that changes while creating is explained and leaves nothing", %{role: role} do
+      user = user!(role)
+      uuid = connection!(user)
+
+      probe = fn _params ->
+        {:ok, _} =
+          Integrations.save_setup(uuid, %{"access_key" => "changed"}, nil,
+            owner: {:user, user.uuid}
+          )
+
+        :ok
+      end
+
+      socket = user |> mount!(probe) |> create(own(uuid))
+
+      assert {:error, message} = socket.assigns.message
+      assert message =~ "changed during testing"
+      assert socket.assigns.owned == []
+      assert socket.assigns.creating == false
+      assert Storage.list_owned_buckets(user.uuid) == []
+      assert Storage.Libraries.list_user_libraries(user.uuid) == []
+    end
+
     test "a bucket that fails its check creates nothing and says why", %{role: role} do
       user = user!(role)
       failing = fn _params -> {:error, "The bucket can be read but not written to"} end
@@ -617,6 +647,256 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
     end
   end
 
+  test "library dialogs and tabs survive a fresh page and browser navigation", %{
+    conn: conn,
+    role: role
+  } do
+    user = user!(role)
+    socket = user |> mount!() |> create(own(connection!(user)))
+    [%{library: library}] = socket.assigns.owned
+    conn = log_in_user(conn, user)
+    path = Routes.path("/profile/settings/media")
+    {:ok, view, _} = live(conn, path)
+    view |> element("#library-menu-#{library.uuid} button", "Settings") |> render_click()
+    settings_path = assert_patch(view)
+    assert URI.decode_query(URI.parse(settings_path).query)["library"] == library.uuid
+    assert URI.decode_query(URI.parse(settings_path).query)["dialog"] == "settings"
+    prefix = "#profile-library-settings-preferences-#{library.uuid}"
+    view |> element(prefix <> " [role=tab][phx-value-tab=storage]") |> render_click()
+    storage_tab_path = assert_patch(view)
+    assert URI.decode_query(URI.parse(storage_tab_path).query)["settings_tab"] == "storage"
+
+    {:ok, restored, _} = live(conn, storage_tab_path)
+    assert has_element?(restored, prefix <> "-storage:not([hidden])")
+    restored |> element(prefix <> " button[phx-value-kind=storage]") |> render_click()
+    backup_path = assert_patch(restored)
+    assert URI.decode_query(URI.parse(backup_path).query)["dialog"] == "storage"
+    {:ok, backup, html} = live(conn, backup_path)
+    assert has_element?(backup, "#profile-library-settings-storage-modal")
+    assert html =~ "my-photos"
+    backup |> element("#profile-library-settings-storage-modal button", "Close") |> render_click()
+    assert_patch(backup, path)
+    refute has_element?(backup, "#profile-library-settings-storage-modal")
+    render_patch(backup, backup_path)
+    assert has_element?(backup, "#profile-library-settings-storage-modal")
+    render_patch(backup, storage_tab_path)
+    assert has_element?(backup, prefix <> "-storage:not([hidden])")
+  end
+
+  test "storage cards identify integrations and picker hides current buckets across connections",
+       %{role: role} do
+    user = user!(role)
+    attrs = %{"service" => "tigris", "endpoint" => "t3.storage.dev"}
+    first = connection!(user, attrs, "Fotki2-tigris")
+    alias_connection = connection!(user, attrs, "Another key")
+
+    socket =
+      user
+      |> mount!(fn _ -> :ok end, fn _ -> {:ok, ["my-photos", "other-photos", "fresh"]} end)
+      |> create(own(first))
+
+    [%{library: library}] = socket.assigns.owned
+
+    socket =
+      create(
+        socket,
+        Map.put(
+          own(first, %{
+            "targets" => %{"0" => %{"integration_uuid" => first, "bucket_name" => "other-photos"}}
+          }),
+          "name",
+          "Other library"
+        )
+      )
+
+    socket = event(socket, "open_dialog", %{"kind" => "storage", "uuid" => library.uuid})
+
+    socket =
+      form_change(socket, %{
+        "storage" => %{"targets" => %{"0" => %{"integration_uuid" => alias_connection}}}
+      })
+
+    socket = event(socket, "list_buckets", %{"index" => "0"})
+    html = html(socket)
+    assert html =~ "Fotki2-tigris"
+    assert html =~ "Tigris"
+    assert html =~ "hero-circle-stack"
+    assert html =~ "Primary"
+    {:ok, doc} = Floki.parse_fragment(html)
+    select = Floki.find(doc, "#profile-library-settings-backup-bucket-0")
+    assert Floki.find(select, "option[value=my-photos]") == []
+    assert Floki.find(select, "option[value=other-photos]") |> Floki.text() =~ "Other library"
+    assert Floki.find(select, "option[value=fresh]") != []
+  end
+
+  test "a deep link cannot open another account's library dialog", %{conn: conn, role: role} do
+    owner = user!(role)
+    socket = owner |> mount!() |> create(own(connection!(owner)))
+    [%{library: library}] = socket.assigns.owned
+    other = user!(role)
+
+    path =
+      Routes.path("/profile/settings/media") <>
+        "?" <> URI.encode_query(%{"library" => library.uuid, "dialog" => "storage"})
+
+    {:ok, view, _} = live(log_in_user(conn, other), path)
+    refute has_element?(view, "#profile-library-settings-storage-modal")
+  end
+
+  test "backup failures appear inside the open popup and clear when reopened", %{role: role} do
+    user = user!(role)
+    socket = user |> mount!() |> create(own(connection!(user)))
+    [%{library: library}] = socket.assigns.owned
+    backup = connection!(user, %{}, "Backup")
+
+    {:ok, socket} =
+      LibrarySettings.update(
+        %{
+          id: socket.assigns.id,
+          scope: scope(user),
+          probe: fn _ -> {:error, "R2 refused the test upload (HTTP 403)"} end
+        },
+        socket
+      )
+
+    socket = event(socket, "open_dialog", %{"kind" => "storage", "uuid" => library.uuid})
+
+    socket =
+      event(socket, "add_storage", %{
+        "library" =>
+          own(backup, %{
+            "targets" => %{
+              "0" => %{"integration_uuid" => backup, "bucket_name" => "backup-photos"}
+            }
+          })
+      })
+
+    {:ok, doc} = Floki.parse_fragment(html(socket))
+
+    alert =
+      Floki.find(
+        doc,
+        "#profile-library-settings-storage-modal #profile-library-settings-storage-message[role=alert]"
+      )
+
+    assert Floki.text(alert) =~ "R2 refused the test upload"
+    assert Floki.find(doc, "#profile-library-settings > .alert") == []
+    assert socket.assigns.dialog == {:storage, library.uuid}
+
+    socket =
+      socket
+      |> event("close_dialog")
+      |> event("open_dialog", %{"kind" => "storage", "uuid" => library.uuid})
+
+    refute html(socket) =~ "R2 refused the test upload"
+  end
+
+  test "progress refreshes in the open popup without losing form values", %{
+    conn: conn,
+    role: role
+  } do
+    user = user!(role)
+    socket = user |> mount!() |> create(own(connection!(user)))
+    [%{library: library}] = socket.assigns.owned
+    conn = log_in_user(conn, user)
+
+    path =
+      Routes.path("/profile/settings/media") <>
+        "?" <> URI.encode_query(%{"dialog" => "storage", "library" => library.uuid})
+
+    {:ok, view, _} = live(conn, path)
+    modal = "#profile-library-settings-storage-modal"
+
+    assert has_element?(
+             view,
+             modal <> " #profile-library-settings-storage-progress",
+             "Storage ready"
+           )
+
+    view
+    |> form("#profile-library-settings-add-storage",
+      library: %{storage: %{targets: %{"0" => %{bucket_name: "unsaved-backup"}}}}
+    )
+    |> render_change()
+
+    # The actual refresh message sent by the recurring timer.
+    send(view.pid, :refresh_library_storage)
+    assert has_element?(view, modal <> " input[value=unsaved-backup]")
+
+    assert has_element?(
+             view,
+             modal <> " [aria-label='Storage activity']",
+             "Updates automatically"
+           )
+  end
+
+  test "an existing library can add backup storage and see progress", %{role: role} do
+    user = user!(role)
+    socket = user |> mount!() |> create(own(connection!(user)))
+    [%{library: library}] = socket.assigns.owned
+    second = connection!(user, %{}, "backup")
+    socket = event(socket, "open_dialog", %{"kind" => "storage", "uuid" => library.uuid})
+    assert html(socket) =~ "Storage and backups"
+    assert html(socket) =~ "Storage ready"
+
+    socket =
+      event(socket, "add_storage", %{
+        "library" =>
+          own(second, %{
+            "targets" => %{
+              "0" => %{"integration_uuid" => second, "bucket_name" => "backup-photos"}
+            }
+          })
+      })
+
+    assert {:success, message} = socket.assigns.message
+    assert message =~ "copied and verified"
+    assert socket.assigns.dialog == {:storage, library.uuid}
+    assert html(socket) =~ "Updates automatically"
+    assert html(socket) =~ "stored copies"
+    assert Enum.count(Profiles.for_library(library).buckets, &(&1.role == "backup")) == 1
+  end
+
+  test "integration list and edit show usage, refuse removal and permit a safe rename", %{
+    conn: conn,
+    role: role
+  } do
+    user = user!(role)
+    uuid = connection!(user, %{"service" => "aws_s3", "region" => "eu-central-1"})
+    _socket = user |> mount!() |> create(own(uuid))
+    conn = log_in_user(conn, user)
+    {:ok, list, html} = live(conn, Routes.path("/profile/settings/integrations"))
+    assert html =~ "Used by"
+    assert html =~ "Photos"
+    assert html =~ "my-photos"
+    assert has_element?(list, "button[phx-click=remove_connection][disabled]")
+    html = render_click(list, "remove_connection", %{"uuid" => uuid})
+    assert html =~ "cannot be removed"
+    assert {:ok, _} = Integrations.get_integration_by_uuid(uuid, {:user, user.uuid})
+
+    {:ok, edit, html} = live(conn, Routes.path("/profile/settings/integrations/#{uuid}"))
+    assert html =~ "Used by"
+    assert html =~ "Photos"
+    refute html =~ "secret-value"
+    assert has_element?(edit, "input[type=hidden][name=service][value=aws_s3]")
+    refute has_element?(edit, "select[name=service]")
+    assert has_element?(edit, "button[phx-click=delete_connection][disabled]")
+    assert has_element?(edit, "fieldset[disabled] select[name=region]")
+    html = render_click(edit, "select_provider", %{"provider" => "telegram"})
+    refute html =~ "Bot Token"
+
+    render_submit(edit, "save", %{
+      "name" => "Safely renamed",
+      "access_key" => "AKIA",
+      "secret_key" => ""
+    })
+
+    render_async(edit)
+
+    assert {:ok, %{name: "Safely renamed", data: %{"secret_key" => "secret-value"}}} =
+             Integrations.get_integration_by_uuid(uuid, {:user, user.uuid})
+  end
+
   describe "the admin's view" do
     test "the list names the storage and never a credential", %{role: role} do
       user = user!(role)
@@ -649,7 +929,7 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
   end
 
   describe "removing the connection a library's bucket uses" do
-    test "both personal pages say so before it stops working", %{conn: conn, role: role} do
+    test "both personal pages explain why removal is blocked", %{conn: conn, role: role} do
       user = user!(role)
       connection = connection!(user)
       _ = user |> mount!() |> create(own(connection))
@@ -657,10 +937,10 @@ defmodule PhoenixKitWeb.Live.Users.OwnStorageUITest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} = live(conn, Routes.path("/profile/settings/integrations"))
-      assert html =~ "1 of your libraries keeps its files in a bucket that uses this connection"
+      assert html =~ "1 storage bucket uses this connection and prevents its removal."
 
       {:ok, _view, html} = live(conn, Routes.path("/profile/settings/integrations/#{connection}"))
-      assert html =~ "1 of your libraries keeps its files in a bucket that uses this connection"
+      assert html =~ "1 storage bucket uses this connection and prevents its removal."
     end
 
     test "a connection nothing uses keeps the plain question", %{conn: conn, role: role} do

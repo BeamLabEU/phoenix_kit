@@ -69,7 +69,17 @@ defmodule PhoenixKit.Mentions.Users do
       queryable,
       [user: u],
       ilike(u.username, ^contains) or ilike(u.first_name, ^contains) or
-        ilike(u.last_name, ^contains) or ilike(u.email, ^prefix)
+        ilike(u.last_name, ^contains) or ilike(u.organization_name, ^contains) or
+        fragment(
+          "? ILIKE ?",
+          fragment(
+            "CASE WHEN ? THEN ? ELSE ? END",
+            u.managed_by_members,
+            u.contact_email,
+            u.email
+          ),
+          ^prefix
+        )
     )
   end
 

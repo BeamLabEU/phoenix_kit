@@ -160,8 +160,9 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Controller do
   Redirects to XML sitemap (deprecated).
   """
   def html(conn, _params) do
-    prefix = PhoenixKit.Config.get_url_prefix()
-    redirect(conn, to: "#{prefix}/sitemap.xml")
+    # Routes.path/2 drops a root prefix ("/"); gluing it on by hand gave
+    # "//sitemap.xml", which redirect/2 refuses.
+    redirect(conn, to: Routes.path("/sitemap.xml", locale: :none))
   end
 
   @doc """

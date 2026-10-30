@@ -646,7 +646,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   end
 
   def read_order(_file_path, priority_buckets, _purpose, _file_uuid),
-    do: {select_buckets_for_retrieval(priority_buckets), []}
+    do: {forced_buckets(priority_buckets), []}
 
   # A user's own bucket (V206) is not in the site's pool, so the located
   # buckets that are not there are looked up by uuid, and only an enabled,

@@ -118,13 +118,14 @@ defmodule PhoenixKitWeb.FileController do
 
     with {:ok, instance, freshness} <- get_file_instance(file.uuid, variant),
          :ok <- check_version(instance, freshness, requested_version),
-         result <- file |> get_file_access(instance, download?) |> keep_private(private?) do
+         result <-
+           file
+           |> get_file_access(instance, download?)
+           |> keep_private(private?)
+           |> keep_authenticated(file) do
       # A stand-in is never kept, a private file's either: it is not the
       # bytes of this URL.
-      cache =
-        if private? and freshness == :exact,
-          do: :private_file,
-          else: cache_mode(file, freshness, requested_version)
+      cache = request_cache_mode(file, private?, freshness, requested_version)
 
       case result do
         {:local, file_path} ->
@@ -205,6 +206,27 @@ defmodule PhoenixKitWeb.FileController do
   # A private file is never answered with a redirect to a public object
   # URL, which anyone could keep and pass on: it is proxied instead. A
   # signed redirect (short-lived, made for this request) is fine.
+  defp request_cache_mode(file, private?, freshness, requested_version) do
+    cond do
+      login_required?(file) -> :private
+      private? and freshness == :exact -> :private_file
+      true -> cache_mode(file, freshness, requested_version)
+    end
+  end
+
+  defp keep_authenticated(result, file) do
+    if login_required?(file) and elem(result, 0) in [:signed_redirect, :redirect],
+      do: {:proxy, :private},
+      else: result
+  end
+
+  defp login_required?(file) do
+    match?(
+      %{visibility: "site", settings: %{"public_audience" => "authenticated"}},
+      Libraries.get_library(file.library_uuid)
+    )
+  end
+
   defp keep_private({:redirect, _url}, true), do: {:proxy, :private}
   defp keep_private(result, _private?), do: result
 
@@ -269,10 +291,32 @@ defmodule PhoenixKitWeb.FileController do
 
   def get_servable_file(conn, file_uuid) do
     case Storage.get_file(file_uuid) do
-      %{system_managed: true} -> {:error, :not_found}
-      nil -> {:error, :not_found}
-      %{status: "trashed"} = file -> trashed_if_authorized(conn, file)
-      file -> {:ok, file}
+      %{system_managed: true} ->
+        {:error, :not_found}
+
+      nil ->
+        {:error, :not_found}
+
+      %{status: "trashed"} = file ->
+        trashed_if_authorized(conn, file)
+
+      file ->
+        if library_audience_allowed?(conn, file), do: {:ok, file}, else: {:error, :not_found}
+    end
+  end
+
+  defp library_audience_allowed?(conn, file) do
+    if login_required?(file) do
+      user = conn.assigns[:phoenix_kit_current_user]
+
+      if match?(%User{is_active: true}, user) do
+        scope = conn.assigns[:phoenix_kit_current_scope] || Scope.for_user(user)
+        Libraries.can_read_library?(scope, Libraries.get_library(file.library_uuid))
+      else
+        false
+      end
+    else
+      true
     end
   end
 
@@ -721,7 +765,10 @@ defmodule PhoenixKitWeb.FileController do
          :ok <- ensure_manifest_cached(source),
          {:ok, body} <- read_tile_storage(source.base <> ".dzi") do
       conn
-      |> put_resp_header("cache-control", tile_cache_control(requested, source))
+      |> put_resp_header(
+        "cache-control",
+        tile_response_cache_control(file_uuid, requested, source)
+      )
       |> put_resp_content_type("application/xml")
       |> send_resp(200, body)
     else
@@ -763,7 +810,10 @@ defmodule PhoenixKitWeb.FileController do
          :ok <- ensure_tile_cached(source, tile, key),
          {:ok, body} <- read_tile_storage(key) do
       conn
-      |> put_resp_header("cache-control", tile_cache_control(requested, source))
+      |> put_resp_header(
+        "cache-control",
+        tile_response_cache_control(file_uuid, requested, source)
+      )
       |> put_resp_content_type(content_type_for(ext))
       |> send_resp(200, body)
     else
@@ -799,6 +849,18 @@ defmodule PhoenixKitWeb.FileController do
   # A private library's tiles carry a time-window token, but the token is
   # in the URL: `public, immutable` would let a shared cache keep the bytes
   # for a year after the window had ended. Same lifetime as `/file/...`.
+  defp tile_response_cache_control(file_uuid, requested, source) do
+    case Storage.get_file(file_uuid) do
+      nil ->
+        "private, no-store"
+
+      file ->
+        if login_required?(file),
+          do: "private, no-store",
+          else: tile_cache_control(requested, source)
+    end
+  end
+
   @doc false
   def tile_cache_control(_requested, %{status: "trashed"}), do: "private, no-store"
   def tile_cache_control(_requested, %{private: true}), do: "private, max-age=3600"
@@ -817,11 +879,15 @@ defmodule PhoenixKitWeb.FileController do
           else: {:error, :unauthorized}
 
       file ->
-        with :ok <- verify_tile_token(file, token) do
+        with true <- library_audience_allowed?(conn, file),
+             :ok <- verify_tile_token(file, token) do
           if file.status == "trashed" and
                not authorize_trashed_read(conn.assigns[:phoenix_kit_current_user], file),
              do: {:error, :not_found},
              else: :ok
+        else
+          false -> {:error, :not_found}
+          error -> error
         end
     end
   end

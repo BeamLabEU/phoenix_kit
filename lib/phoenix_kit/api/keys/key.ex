@@ -15,6 +15,10 @@ defmodule PhoenixKit.API.Keys.Key do
     * `requires_approval` - every write call of the key (not a read, not a `dry_run`)
       waits for a human, dangerous or not.
     * `expires_at`, `revoked_at` - a key past either is dead.
+    * `personal` - a person's own key, made through `PhoenixKit.API.Keys.create_personal_key/3`
+      (V226). Set by the server only, never cast from attributes: it works only while the
+      owner holds `api_personal_keys` or `api`, always expires, never needs approval, and
+      only its owner may rotate it. `false` for every other key.
     * `last_used_at`, `last_used_ip` - written at most once a minute.
 
   This module is the schema only. Creating, verifying, revoking and rotating keys is
@@ -40,6 +44,7 @@ defmodule PhoenixKit.API.Keys.Key do
     field :revoked_at, :utc_datetime
     field :last_used_at, :utc_datetime
     field :last_used_ip, :string
+    field :personal, :boolean, default: false
 
     belongs_to :user, User, foreign_key: :user_uuid, references: :uuid, type: UUIDv7
     belongs_to :created_by, User, foreign_key: :created_by_uuid, references: :uuid, type: UUIDv7

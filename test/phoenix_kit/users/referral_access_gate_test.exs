@@ -23,10 +23,14 @@ defmodule PhoenixKit.Users.ReferralAccessGateTest do
 
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Settings
+  alias PhoenixKit.Test.ManagedOrganizationFixtures, as: Fixtures
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.ManagedOrganizations
+  alias PhoenixKit.Users.ManagedOrganizations.Actor
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.Roles
 
   defmodule EnabledReferrals do
     @moduledoc false
@@ -116,6 +120,28 @@ defmodule PhoenixKit.Users.ReferralAccessGateTest do
   end
 
   describe "when invite-only is on" do
+    test "a dedicated managed organization is admitted without granting privileged roles", %{
+      owner: owner
+    } do
+      :ok = enable_invite_only(long_ago())
+      manager = Fixtures.person()
+      refute Referrals.access_satisfied?(manager)
+      {:ok, owner} = Auth.admin_confirm_user(owner)
+      {token, _} = Fixtures.session(owner)
+      {:ok, actor} = Actor.from_session(%{"user_token" => token})
+
+      assert {:ok, org} =
+               ManagedOrganizations.create(
+                 actor,
+                 %{organization_name: "Invite-only Co"},
+                 manager.uuid
+               )
+
+      assert Referrals.marked_satisfied?(org)
+      assert Referrals.access_satisfied?(Scope.for_user(org))
+      assert Roles.get_user_roles(org) == ["User"]
+    end
+
     test "an account created after it took effect is not satisfied" do
       user = register_user()
       :ok = enable_invite_only(long_ago())

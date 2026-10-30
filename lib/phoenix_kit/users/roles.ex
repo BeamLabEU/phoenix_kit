@@ -58,6 +58,7 @@ defmodule PhoenixKit.Users.Roles do
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
   alias PhoenixKit.Users.Sessions
+  alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @doc """
@@ -121,32 +122,67 @@ defmodule PhoenixKit.Users.Roles do
         {:error, :role_not_found}
 
       role ->
-        attrs = %{
-          user_uuid: user.uuid,
-          role_uuid: role.uuid,
-          assigned_by_uuid: assigned_by && assigned_by.uuid
-        }
+        repo.transaction(fn ->
+          # Conversion and assignment share the user-row lock. Recheck policy
+          # after acquiring it: a form may still hold an unmanaged struct.
+          repo.one(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
 
-        # Use upsert with ON CONFLICT DO NOTHING for idempotency
-        # This prevents duplicate role assignment errors during concurrent operations
-        %RoleAssignment{}
-        |> RoleAssignment.changeset(attrs)
-        |> repo.insert(
-          on_conflict: :nothing,
-          conflict_target: [:user_uuid, :role_uuid]
-        )
-        |> case do
-          {:ok, assignment} ->
-            if broadcast? do
-              Events.broadcast_user_role_assigned(user, role_name)
-              ScopeNotifier.broadcast_roles_updated(user)
-            end
+          with :ok <- managed_role_allowed(user, role),
+               {:ok, assignment} <-
+                 insert_role_assignment(repo, user, role, assigned_by, broadcast?) do
+            assignment
+          else
+            {:error, reason} -> repo.rollback(reason)
+          end
+        end)
+    end
+  end
 
-            {:ok, assignment}
-
-          {:error, changeset} ->
-            {:error, changeset}
+  defp managed_role_allowed(user, role) do
+    case RepoHelper.repo().get(User, user.uuid) do
+      %User{managed_by_members: true} ->
+        with false <- Scope.managed_ceiling_role?(role.name),
+             {:ok, keys} <- Permissions.fetch_permissions_for_role(to_string(role.uuid)),
+             false <- Enum.any?(keys, &Scope.managed_ceiling_key?/1) do
+          :ok
+        else
+          _ -> {:error, :managed_organization_role_not_allowed}
         end
+
+      %User{} ->
+        :ok
+
+      nil ->
+        {:error, :user_not_found}
+    end
+  end
+
+  defp insert_role_assignment(repo, user, role, assigned_by, broadcast?) do
+    attrs = %{
+      user_uuid: user.uuid,
+      role_uuid: role.uuid,
+      assigned_by_uuid: assigned_by && assigned_by.uuid
+    }
+
+    # Use upsert with ON CONFLICT DO NOTHING for idempotency
+    # This prevents duplicate role assignment errors during concurrent operations
+    %RoleAssignment{}
+    |> RoleAssignment.changeset(attrs)
+    |> repo.insert(
+      on_conflict: :nothing,
+      conflict_target: [:user_uuid, :role_uuid]
+    )
+    |> case do
+      {:ok, assignment} ->
+        if broadcast? do
+          Events.broadcast_user_role_assigned(user, role.name)
+          ScopeNotifier.broadcast_roles_updated(user)
+        end
+
+        {:ok, assignment}
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -1206,7 +1242,7 @@ defmodule PhoenixKit.Users.Roles do
     repo = RepoHelper.repo()
     actor = actor_context(Keyword.get(opts, :actor, :system))
 
-    case repo.transaction(fn ->
+    case Revocation.transaction(fn ->
            # Serialize concurrent role edits for THIS user (per-user key, so
            # different users never contend), so before/after reflect only this
            # transaction's changes — an exact audit, and no interleaving.
@@ -1333,6 +1369,12 @@ defmodule PhoenixKit.Users.Roles do
   # Owner, and the scope their effective permissions are read from.
   defp actor_context(:system), do: :system
 
+  # A managed organization is never an Owner here either: `held_roles` are the
+  # real role rows, and the scope's ceiling does not filter them.
+  defp actor_context(%Scope{user: %User{managed_by_members: true} = user} = scope) do
+    %{user: user, owner?: false, scope: scope}
+  end
+
   defp actor_context(%Scope{user: %User{} = user} = scope) do
     %{user: user, owner?: Role.system_roles().owner in Scope.held_roles(scope), scope: scope}
   end
@@ -1400,6 +1442,7 @@ defmodule PhoenixKit.Users.Roles do
     Enum.split_with(role_names, &role_name_manageable?(ctx, &1))
   end
 
+  defp owner?(%User{managed_by_members: true}), do: false
   defp owner?(%User{} = user), do: Role.system_roles().owner in get_user_roles(user)
 
   # Blocks removing the final active Owner, mirroring safely_remove_role/2.

@@ -18,11 +18,11 @@ Centralized OAuth / API key / bot token / credential management.
 - `lib/phoenix_kit_web/components/core/integration_picker.ex` — reusable picker
 - `lib/phoenix_kit_web/components/core/integrations_ui.ex` — shared setup UI (picker / status card / field / instructions)
 
-**Storage:** `phoenix_kit_settings` JSONB. Keys: `integration:{provider}:{name}` (e.g. `integration:google:default`). **Consumers reference connections by storage row uuid** — stable across renames.
+**Storage:** `phoenix_kit_settings` JSONB. Each row key is its UUID; provider and name live in JSONB. **Consumers reference connections by storage row uuid** — stable across renames.
 
 **Auth types:** `:oauth2`, `:api_key`, `:key_secret`, `:bot_token`, `:credentials`.
 
-**Named connections:** Multiple per provider. `add_connection/3`, `remove_connection/2`, `rename_connection/3`, `list_connections/1`. `"default"` is not privileged. Names match `[a-zA-Z0-9][a-zA-Z0-9\-_]*`.
+**Named connections:** Multiple per provider. `add_connection/3`, `remove_connection/2`, `rename_connection/3`, `list_connections/1`. `"default"` is not privileged. Names are non-empty user labels and may contain spaces.
 
 **API shape (uuid-strict).** Storage-key construction (`"integration:{provider}:{name}"`) happens only in `add_connection/3` and module `migrate_legacy/0` migrators. All other public API takes a uuid:
 
@@ -35,6 +35,22 @@ Centralized OAuth / API key / bot token / credential management.
 A corrupted JSONB `provider`/`name` cannot leak into a new key — no public write API derives keys from JSONB.
 
 **Consumer pattern:** modules store the uuid on their own records (`phoenix_kit_ai_endpoints.integration_uuid`, `document_creator_settings.google_connection`). Lookups via `get_integration_by_uuid/1` or `get_credentials/1`. The system does **not** silently fall back to "any connected row of this provider" — consumers specify which.
+
+**Storage dependencies and edits:** `usage(uuid, owner: …)` returns storage usage only
+for a connection in the caller's owner scope. Lists and edit pages show libraries,
+buckets and roles, including disabled storage and trashed libraries. System views
+anonymize private user-library names. Any referenced bucket blocks removal and
+disconnection (`{:error, {:in_use, usage}}`). The row lock in `ConnectionLock` is
+shared by mutations and normal bucket writers, which recheck live ownership and
+credentials before inserting or repointing a bucket.
+
+An object storage connection's service is fixed after setup. While referenced,
+its destination is fixed too. `save_setup/4` probes candidate key rotations on
+all dependent buckets before persisting, then rechecks fingerprints under the
+lock; concurrent dependency changes return `:storage_changed`. Candidates are
+never published temporarily. `update_connection/5` commits name and setup together
+so a failed rotation does not partially rename the connection. Edit forms keep
+network validation asynchronous and disable removal while usage is present.
 
 **Validation:** `validate_connection/2` calls userinfo (OAuth) or validation endpoint (api_key/bot_token). Success flips `status` → `"connected"` and rewrites `connected_at`. `last_validated_at` is rewritten on every attempt.
 

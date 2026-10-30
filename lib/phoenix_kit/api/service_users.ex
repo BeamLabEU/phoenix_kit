@@ -90,6 +90,8 @@ defmodule PhoenixKit.API.ServiceUsers do
 
   def list(_scope), do: []
 
+  defp authorize(%Scope{user: %User{managed_by_members: true}}), do: {:error, :forbidden}
+
   defp authorize(%Scope{user: %User{}} = scope) do
     if Scope.can?(scope, "api"), do: :ok, else: {:error, :forbidden}
   end

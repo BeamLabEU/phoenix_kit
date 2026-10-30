@@ -27,6 +27,7 @@
 <% show_file_count = header_folder && header_folder.header_show_file_count %>
 <% show_creation_info = show_creator || show_date || show_file_count %>
 <% show_description = header_folder && header_folder.header_show_description %>
+<% ids = %{picker: @picker, id: @id} %>
 <%!-- `relative z-30` lifts the whole header above the file area
      below (same scroll container, later in the DOM), so the
      toolbar dropdowns open *over* the sticky table header
@@ -71,7 +72,7 @@
   <%!-- Action(s), top-right. `z-20` keeps it above the content
        block (also z-10, but later in the DOM) so a tall header
        with lots of content can't cover the button's click area. --%>
-  <%= if @current_folder && not @readonly do %>
+  <%= if @current_folder && not @readonly && @folder_actions do %>
     <div class="absolute top-3 right-3 z-40 flex flex-col items-end gap-2">
       <button
         type="button"
@@ -89,7 +90,7 @@
            except while the image picker is open. --%>
       <%= if @editing_folder_header do %>
         <div
-          id="folder-header-popover"
+          id={dom_id(ids, "folder-header-popover")}
           phx-hook="ViewportPopover"
           class="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] flex flex-col overflow-hidden bg-base-100 rounded-xl shadow-2xl border border-base-300 text-left cursor-default font-normal"
           phx-click-away={!@selecting_cover && "cancel_edit_folder_header"}
@@ -115,7 +116,7 @@
             <%!-- 1. Name + description (saved on Save below; the
                  other sections apply instantly). --%>
             <form
-              id="folder-header-form"
+              id={dom_id(ids, "folder-header-form")}
               phx-submit="save_folder_header"
               phx-change="folder_header_input"
               phx-target={@myself}
@@ -129,12 +130,12 @@
               <div class="mb-3">
                 <label
                   class="text-xs font-medium mb-1 block text-base-content/70"
-                  for="folder-header-name"
+                  for={dom_id(ids, "folder-header-name")}
                 >
                   {gettext("Name")}
                 </label>
                 <input
-                  id="folder-header-name"
+                  id={dom_id(ids, "folder-header-name")}
                   type="text"
                   name="name"
                   value={@folder_header_name}
@@ -148,12 +149,12 @@
               <div>
                 <label
                   class="text-xs font-medium mb-1 block text-base-content/70"
-                  for="folder-header-description"
+                  for={dom_id(ids, "folder-header-description")}
                 >
                   {gettext("Description")}
                 </label>
                 <textarea
-                  id="folder-header-description"
+                  id={dom_id(ids, "folder-header-description")}
                   name="description"
                   rows="3"
                   maxlength="2000"
@@ -341,7 +342,7 @@
             </button>
             <button
               type="submit"
-              form="folder-header-form"
+              form={dom_id(ids, "folder-header-form")}
               class="btn btn-primary btn-sm"
             >
               {gettext("Save name")}
@@ -428,7 +429,7 @@
                    shown when actually inside a folder (editable) —
                    at a scoped root the header is read-only. --%>
               <button
-                :if={@current_folder && not @readonly}
+                :if={@current_folder && not @readonly && @folder_actions}
                 type="button"
                 phx-click="start_edit_folder_header"
                 phx-value-folder-uuid={@current_folder.uuid}
@@ -480,6 +481,49 @@
          Move/Download/Delete on the right); otherwise the normal
          Display/Sort/Filter + search + Add Media row. Both live
          inside the hero so the controls don't jump on toggle. --%>
+    <%!-- Picker: the pick's count and the way out — Confirm hands it to the
+         host, Cancel leaves the host's slot as it was. Both wait while an
+         upload is on its way (the host is told, see the moduledoc). --%>
+    <div :if={@picker} id={"#{@id}-picker-bar"} class="flex flex-wrap items-center gap-2 mt-1">
+      <span class="text-sm font-semibold">
+        <%= if @max_select && @pick_mode == :multiple do %>
+          {gettext("%{count} of %{max} selected", count: length(@picked), max: @max_select)}
+        <% else %>
+          {ngettext("%{count} selected", "%{count} selected", length(@picked))}
+        <% end %>
+      </span>
+      <span :if={@pick_limit_hit} class="badge badge-warning">
+        {ngettext("Maximum %{count} file", "Maximum %{count} files", @max_select)}
+      </span>
+      <span
+        :if={@picker_uploading}
+        class="inline-flex items-center gap-1.5 text-xs text-base-content/70"
+      >
+        <span class="loading loading-spinner loading-xs text-primary"></span>
+        {gettext("Wait for the uploads to finish")}
+      </span>
+      <div class="flex items-center gap-2 ml-auto">
+        <button
+          type="button"
+          phx-click="pick_cancel"
+          phx-target={@myself}
+          disabled={@picker_uploading}
+          class="btn btn-sm btn-ghost"
+        >
+          {gettext("Cancel")}
+        </button>
+        <button
+          type="button"
+          phx-click="pick_confirm"
+          phx-target={@myself}
+          disabled={@picker_uploading}
+          class="btn btn-sm btn-primary gap-1.5"
+        >
+          <.icon name="hero-check" class="w-4 h-4" /> {gettext("Confirm")}
+        </button>
+      </div>
+    </div>
+
     <%= if @select_mode do %>
       <% selected_count =
         MapSet.size(@selected_files) + MapSet.size(@selected_folders) %>
@@ -530,6 +574,7 @@
                  file INTO a folder is how you take it out of the
                  trash, and the handler restores it there. --%>
             <button
+              :if={@folder_actions}
               phx-click="show_move_modal"
               phx-target={@myself}
               class="btn btn-sm btn-primary gap-1"
@@ -553,10 +598,13 @@
               phx-click="delete_selected"
               phx-target={@myself}
               data-confirm={
-                delete_selected_confirm(
-                  @selected_files,
-                  @selected_folders,
-                  @filter_trash
+                client_confirm(
+                  @removal_guarded,
+                  delete_selected_confirm(
+                    @selected_files,
+                    @selected_folders,
+                    @filter_trash
+                  )
                 )
               }
               class="btn btn-sm btn-error gap-1"
@@ -650,8 +698,8 @@
             "flex flex-wrap items-center gap-2",
             (@show_search or @search_query != "") && "hidden sm:flex"
           ]}>
-            <%!-- Display (grid/list) --%>
-            <div class="dropdown">
+            <%!-- Display (grid/list). A picker always shows the grid. --%>
+            <div :if={not @picker} class="dropdown">
               <div tabindex="0" role="button" class="btn btn-sm gap-2">
                 <.icon name={current_view_icon} class="w-4 h-4" />
                 <span class="hidden sm:inline">
@@ -778,15 +826,18 @@
           (@show_search or @search_query != "") && "w-full sm:w-auto"
         ]}>
           <%!-- Empty Trash (trash view) --%>
-          <%= if not @readonly and @filter_trash and @total_count > 0 do %>
+          <%= if not @readonly and not @picker and @filter_trash and @total_count > 0 do %>
             <button
               phx-click="empty_trash"
               phx-target={@myself}
               data-confirm={
-                ngettext(
-                  "Permanently delete %{count} trashed file?",
-                  "Permanently delete all %{count} trashed files?",
-                  @total_count
+                client_confirm(
+                  @removal_guarded,
+                  ngettext(
+                    "Permanently delete %{count} trashed file?",
+                    "Permanently delete all %{count} trashed files?",
+                    @total_count
+                  )
                 )
               }
               class={[
@@ -837,7 +888,7 @@
                   class="w-4 h-4 text-base-content/40 shrink-0"
                 />
                 <input
-                  id="media-search-input"
+                  id={dom_id(ids, "media-search-input")}
                   type="text"
                   name="q"
                   value={@search_query}
@@ -934,7 +985,7 @@
                   <.icon name="hero-magnifying-glass" class="w-4 h-4" /> {gettext("Search")}
                 </button>
               </li>
-              <li :if={not @readonly}>
+              <li :if={not @readonly and not @picker}>
                 <button
                   phx-click="toggle_select_mode"
                   phx-target={@myself}
@@ -943,7 +994,7 @@
                   <.icon name="hero-check-circle" class="w-4 h-4" /> {gettext("Select")}
                 </button>
               </li>
-              <li :if={not @readonly}>
+              <li :if={not @readonly and @folder_actions}>
                 <button phx-click="open_new_folder_modal" phx-target={@myself}>
                   <.icon name="hero-folder-plus" class="w-4 h-4" /> {gettext("New folder")}
                 </button>

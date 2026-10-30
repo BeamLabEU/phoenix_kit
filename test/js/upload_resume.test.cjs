@@ -103,7 +103,7 @@ test("resume feeds files back through the input the way a drop does", () => {
 // The hook run for real, against a fake store and a fake clock.
 // ---------------------------------------------------------------------------
 
-function runHook({ rows, pathname = "/admin/media", search = "", user = "u1" }) {
+function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", browser, picker }) {
   let clock = 1_000_000;
   const timers = [];
   const store = { rows: rows || [], deleted: [], put: [] };
@@ -133,12 +133,14 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1" }) 
     () => ({}), () => {}, {});
   const pushed = [];
   const ctx = Object.assign(Object.create(Hook), {
-    el: { dataset: { user }, parentElement: { addEventListener() {}, removeEventListener() {} } },
+    el: { dataset: Object.assign({ user }, picker ? { browser, picker: "true" } : {}), parentElement: { addEventListener() {}, removeEventListener() {} } },
     handleEvent() {},
     pushEventTo: (_el, name, payload) => pushed.push({ name, payload }),
   });
   ctx._tab = "this-tab";
   ctx._user = user;
+  ctx._browser = picker ? browser : "";
+  ctx._picker = !!picker;
   ctx._scopes = {};
   ctx._live = {};
   return { ctx, win, store, timers, pushed, tick: (ms) => { clock += ms; }, now: () => clock };
@@ -193,4 +195,39 @@ test("a folder is part of the scope, and so is the user", () => {
   const c = runHook({ search: "?folder=f1", user: "u2" }).ctx._scopeNow();
   assert.notStrictEqual(a, b);
   assert.notStrictEqual(a, c);
+});
+
+test("a picker's stash and events are its own; the browser beside it keeps its scope", async () => {
+  const plain = runHook({});
+  const pickA = runHook({ browser: "pick-a", picker: true });
+  const pickB = runHook({ browser: "pick-b", picker: true });
+
+  assert.ok(!plain.ctx._scopeNow().includes("pick"), "a browser that is not a picker: the scope it always had");
+  assert.notStrictEqual(pickA.ctx._scopeNow(), plain.ctx._scopeNow());
+  assert.notStrictEqual(pickA.ctx._scopeNow(), pickB.ctx._scopeNow());
+
+  // What the server pushes: a picker names itself, any other browser does not.
+  assert.strictEqual(plain.ctx._mine({ keys: ["k"] }), true);
+  assert.strictEqual(plain.ctx._mine({ browser: "pick-a", keys: ["k"] }), false);
+  assert.strictEqual(pickA.ctx._mine({ browser: "pick-a", keys: ["k"] }), true);
+  assert.strictEqual(pickA.ctx._mine({ browser: "pick-b", keys: ["k"] }), false);
+  assert.strictEqual(pickA.ctx._mine({ keys: ["k"] }), false);
+});
+
+test("Resume in one browser feeds no file to the other, and leftovers go only to their owner", async () => {
+  const plain = runHook({});
+  const pick = runHook({ browser: "pick-a", picker: true });
+  const shared = [];
+  const row = (h, k) => ({ id: h.ctx._scopeNow() + "\0" + k, key: k, scope: h.ctx._scopeNow(),
+                           name: k, size: 1, blob: {}, tab: "old", touched: 0 });
+  shared.push(row(plain, "plain.png"), row(pick, "picked.png"));
+  plain.store.rows.push(...shared);
+  pick.store.rows.push(...shared);
+
+  plain.ctx._reportLeftovers(false);
+  pick.ctx._reportLeftovers(false);
+  await settle();
+
+  assert.deepStrictEqual(plain.pushed[0].payload.items.map((i) => i.key), ["plain.png"]);
+  assert.deepStrictEqual(pick.pushed[0].payload.items.map((i) => i.key), ["picked.png"]);
 });

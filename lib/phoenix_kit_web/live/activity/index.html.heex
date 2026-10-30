@@ -26,7 +26,11 @@
           fields = [
             %{
               label: gettext("Actor"),
-              value: if(entry.actor, do: entry.actor.email, else: gettext("System"))
+              value:
+                if(entry.actor,
+                  do: PhoenixKit.Activity.actor_label(entry),
+                  else: gettext("System")
+                )
             }
           ]
 
@@ -39,7 +43,13 @@
 
           fields =
             if entry.target do
-              fields ++ [%{label: gettext("Target"), value: entry.target.email}]
+              fields ++
+                [
+                  %{
+                    label: gettext("Target"),
+                    value: PhoenixKit.Users.Auth.User.delivery_email(entry.target)
+                  }
+                ]
             else
               fields
             end
@@ -369,14 +379,16 @@
               </span>
               <%!-- Actor folded in on mobile (the Actor column is hidden there). --%>
               <div class="md:hidden text-xs text-base-content/60 truncate mt-0.5">
-                {if entry.actor, do: entry.actor.email, else: gettext("System")}
+                {if entry.actor,
+                  do: PhoenixKit.Activity.actor_label(entry),
+                  else: gettext("System")}
               </div>
             </.table_default_cell>
             <.table_default_cell class="text-sm hidden md:table-cell">
               <%= if entry.actor do %>
                 <.resource_email_link
                   info={Map.get(@resource_links, {"user", entry.actor_uuid})}
-                  label={entry.actor.email}
+                  label={PhoenixKit.Activity.actor_label(entry)}
                   class="font-semibold"
                 />
                 <%= if entry.metadata["actor_role"] do %>
@@ -400,7 +412,7 @@
                   <span class="text-base-content/50">&rarr;</span>
                   <.resource_email_link
                     info={Map.get(@resource_links, {"user", entry.target_uuid})}
-                    label={entry.target.email}
+                    label={PhoenixKit.Users.Auth.User.delivery_email(entry.target)}
                   />
                 </div>
               <% end %>

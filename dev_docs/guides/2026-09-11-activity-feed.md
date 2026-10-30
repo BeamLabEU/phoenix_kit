@@ -17,6 +17,12 @@ PhoenixKit.Activity.log(%{
 
 - **Profile/field changes** — `log_user_change("user.profile_updated", user, changeset, actor_uuid: …, target_uuid: …, mode: "manual", actor_role: "admin")` auto-extracts `field_from`/`field_to` from a changeset; skips logging if nothing changed.
 - **Conventions:** `action` = `resource.verb`; `module` = key string; `actor_role` baked at log time; `resource_type` usually equals `module`. Examples: `rg 'Activity.log' lib/phoenix_kit/users/`.
+- **Acting for an organization:** `PhoenixKitWeb.Actor.opts/1` keeps the organization
+  as `actor_uuid` and adds `acting_user_uuid:` from the token-loaded scope.
+  `Activity.log/1,3` puts that person into `metadata["acting_user_uuid"]`, preserving
+  the caller's other metadata. Pass the options through; never infer a person
+  from an organization uuid. Background jobs that log must carry the person in
+  their arguments. Activity lists/details resolve and display that provenance.
 - **External modules** — call `PhoenixKit.Activity.log(module_key, action, opts)` (options: `:actor_uuid`, `:mode`, `:resource_type`, `:resource_uuid`, `:target_uuid`, `:metadata`, `:permanent`; `log_failed/3` marks the metadata `"db_pending" => true` for an attempt that did not land). It never raises — a failed insert, a raise, an exit or a throw is logged and returned as `{:error, _}` — so no guard or rescue of your own. Read the actor with `PhoenixKitWeb.Actor` (`uuid/1` and `opts/1` read the scope first, then the bare current user; `role/1` reads the scope's active role, so it is `nil` without a scope), never from assigns by hand. Neither `log/3`/`log_failed/3` nor `PhoenixKitWeb.Actor` exists in core ≤ 2.37.5: a module on the open `~> 2.0` pin checks `Code.ensure_loaded?(PhoenixKit.Activity) and function_exported?(PhoenixKit.Activity, :log, 3)` (and `Code.ensure_loaded?(PhoenixKitWeb.Actor)`) and keeps its old path as the fallback until it raises its core floor.
 - **Storage configuration** is logged by `PhoenixKit.Modules.Storage.Audit` (module `"storage"`, actions `storage.<resource>.<verb>`, `permanent: true`, changes in the `"changes"` shape) and read back on Settings → Media → History with `PhoenixKitWeb.Components.Core.ActivityList`.
 

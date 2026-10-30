@@ -26,13 +26,48 @@ defmodule PhoenixKit.API.Keys do
   - every scope is one the owner could use (`allowed_scopes_for/1`).
 
   Authorization failures are atoms (`:forbidden`, `:owner_not_allowed`,
-  `:owner_inactive`, `:invalid_scopes`); validation failures are changesets.
+  `:owner_inactive`, `:invalid_scopes`; for personal keys also `:impersonated`,
+  `:impersonation_unknown`, `:personal_key_limit`, `:scopes_not_narrowing` and, on a
+  request, `:personal_keys_not_allowed`); validation failures are changesets.
+
+  ## Personal keys
+
+  A **personal** key (`personal = true`, V226) is a person's own key, made through
+  `create_personal_key/3` (the "My API keys" page) by a holder of `api_personal_keys` or
+  `api`. Nothing else sets the flag: `create_key/3` never does, whatever its attributes
+  say, so every key made on Settings -> API, and every key made before V226, is not
+  personal and behaves exactly as described above. A personal key:
+
+  - is owned and created by the same person, never a service user;
+  - must expire, no later than the end of the UTC day
+    `PhoenixKit.API.PersonalKeysConfig.max_days/0` days from today, and cannot need
+    approval (nobody but an Owner could decide, and the owner may not see the queue);
+  - counts towards `PhoenixKit.API.PersonalKeysConfig.max_count/0` live personal keys per
+    person (a key in the grace period of a rotation included), so a person never has more.
+    A creation, and a rotation with a grace period (`rotate/4`), are checked under one
+    advisory lock per person; a rotation without a grace period replaces the key one for
+    one and is always allowed;
+  - works only while its owner holds `api_personal_keys` or `api` (`Scope.for_user/2`,
+    `narrow: false`). The check is one private owner lookup that `active_owner/1` and
+    `verify/2` both use (so `active?/1` and `Confirm.live_actor/1` too), so taking the
+    permission from a role stops the key on the next request; giving it back revives it;
+  - is managed (rotated, its scopes edited) by its owner alone: `can_manage?/2`. An Owner
+    may revoke someone else's personal key (`can_revoke?/2`) and remove scopes from it
+    (`update_scopes/3`, `:scopes_not_narrowing` for anything else), never rotate it: a new
+    token acting as a person goes to nobody but that person;
+  - is created and rotated only outside a borrowed session: both take
+    `impersonated: boolean` with no default (`:impersonation_unknown` without it,
+    `:impersonated` when true), which the page reads from the session
+    (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`).
+
+  A rotation of a personal key gives the new key the latest expiry allowed now
+  (`PersonalKeysConfig.latest_expiry/0`), not the old key's.
 
   ## Token
 
   `pk_<8 hex>_<43 base64url>` (see `PhoenixKit.API.Keys.Token`). The token is
-  returned once, by `create_key/3` and `rotate/3`; only a SHA-256 of its secret
-  is stored.
+  returned once, by `create_key/3`, `create_personal_key/3`, `rotate/3` and `rotate/4`;
+  only a SHA-256 of its secret is stored.
 
   ## Revocation and rotation
 
@@ -40,17 +75,18 @@ defmodule PhoenixKit.API.Keys do
   scheduled revocation: the key works until then. `rotate/3` uses it to keep the
   old key alive for a grace period.
 
-  `rotate/3` takes the person's scope and checks it on the locked row: the person
-  must be able to manage the key (`can_manage?/2`) and, when the owner is a
-  service user, must still hold every permission that service user holds (the
-  rule of `create_key/3`), so a demoted creator cannot mint a token beyond their
-  own rights. The new token acts as the key's owner. When an Owner rotates the
-  key of a regular user, the token they receive therefore acts as that user;
-  this is intended.
+  `rotate/4` (`rotate/3` is its form without options) takes the person's scope and
+  checks it on the locked row: the person must be able to manage the key
+  (`can_manage?/2`) and, when the owner is a service user, must still hold every
+  permission that service user holds (the rule of `create_key/3`), so a demoted
+  creator cannot mint a token beyond their own rights. The new token acts as the
+  key's owner. When an Owner rotates the key of a regular user, the token they receive
+  therefore acts as that user; this is intended for keys made on Settings -> API. A
+  personal key is never rotated by anyone but its owner (see "Personal keys").
 
   `revoke/2` is different: it takes a bare actor uuid and does not authorize.
-  The caller decides with `can_manage?/2` first (the Settings page does, by
-  finding the key through `list_keys/1`).
+  The caller decides with `can_revoke?/2` first (`can_manage?/2`, plus an Owner for a
+  personal key; the Settings page finds the key through `list_keys/1`).
 
   ## Editing scopes
 
@@ -81,6 +117,7 @@ defmodule PhoenixKit.API.Keys do
   alias PhoenixKit.API.Keys.CIDR
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.API.Keys.Token
+  alias PhoenixKit.API.PersonalKeysConfig
   alias PhoenixKit.API.Registry, as: ToolRegistry
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
@@ -93,6 +130,8 @@ defmodule PhoenixKit.API.Keys do
   # wrong secret take the same time.
   @unknown_key_hash :crypto.hash(:sha256, "phoenix_kit_api_unknown_key")
   @max_name_length 100
+  # Either one lets a person keep personal keys (and lets those keys work).
+  @personal_rights ["api_personal_keys", "api"]
   # Every entry is parsed again on each request that presents the key.
   @max_allowed_ips 100
 
@@ -111,6 +150,25 @@ defmodule PhoenixKit.API.Keys do
   @spec create_key(User.t(), Scope.t(), map()) ::
           {:ok, Key.t(), String.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_key(%User{} = owner, %Scope{} = creator_scope, attrs) when is_map(attrs) do
+    repo().transaction(fn ->
+      with :ok <- lock_mint_users(owner.uuid, creator_scope),
+           {:ok, key, token} <- insert_key(owner, creator_scope, attrs) do
+        {key, token}
+      else
+        {:error, reason} -> repo().rollback(reason)
+      end
+    end)
+    |> case do
+      {:ok, {key, token}} ->
+        log_created(key, creator_scope.user.uuid)
+        {:ok, key, token}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp insert_key(owner, creator_scope, attrs) do
     {prefix, token, secret_hash} = Token.generate()
 
     with :ok <- authorize_creator(creator_scope),
@@ -123,10 +181,27 @@ defmodule PhoenixKit.API.Keys do
            |> Ecto.Changeset.put_change(:secret_hash, secret_hash)
            |> Ecto.Changeset.unique_constraint(:prefix)
            |> repo().insert() do
-      log_created(key, creator_scope.user.uuid)
       {:ok, key, token}
     end
   end
+
+  # Minting (creation AND rotation) locks the owner before keys. Conversion holds
+  # that same user lock while draining keys; a concurrent mint must finish
+  # before the drain's snapshot, or see the converted policy afterward.
+  defp lock_mint_users(owner_uuid, %Scope{user: %User{uuid: creator_uuid}}) do
+    owner = repo().one(from(u in User, where: u.uuid in ^[owner_uuid], lock: "FOR NO KEY UPDATE"))
+    creator = if owner_uuid == creator_uuid, do: owner, else: repo().get(User, creator_uuid)
+
+    case creator do
+      %User{managed_by_members: false, is_active: true} -> :ok
+      _ -> {:error, :forbidden}
+    end
+  end
+
+  defp lock_mint_users(_owner, _scope), do: {:error, :forbidden}
+
+  defp authorize_creator(%Scope{user: %User{managed_by_members: true}}),
+    do: {:error, :forbidden}
 
   defp authorize_creator(%Scope{user: %User{}} = scope) do
     if Scope.can?(scope, "api"), do: :ok, else: {:error, :forbidden}
@@ -142,6 +217,8 @@ defmodule PhoenixKit.API.Keys do
       nil -> {:error, :owner_inactive}
     end
   end
+
+  defp owner_allowed(%User{managed_by_members: true}, _scope), do: {:error, :owner_not_allowed}
 
   defp owner_allowed(%User{uuid: uuid} = owner, %Scope{user: %User{uuid: uuid}}), do: {:ok, owner}
 
@@ -175,7 +252,15 @@ defmodule PhoenixKit.API.Keys do
       else: {:error, :invalid_scopes}
   end
 
+  # `personal` is not cast: only `create_personal_key/3` sets it, on the server.
   defp key_changeset(attrs, owner, creator_uuid) do
+    attrs
+    |> base_changeset()
+    |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
+    |> Ecto.Changeset.put_change(:created_by_uuid, creator_uuid)
+  end
+
+  defp base_changeset(attrs) do
     %Key{}
     |> Ecto.Changeset.cast(attrs, [:name, :scopes, :requires_approval, :allowed_ips, :expires_at])
     |> Ecto.Changeset.validate_required([:name])
@@ -185,8 +270,6 @@ defmodule PhoenixKit.API.Keys do
     |> normalize_allowed_ips()
     |> Ecto.Changeset.validate_length(:allowed_ips, max: @max_allowed_ips)
     |> validate_future_expiry()
-    |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
-    |> Ecto.Changeset.put_change(:created_by_uuid, creator_uuid)
   end
 
   # An explicit nil (JSON `null`, an empty form value) means "the default".
@@ -236,6 +319,192 @@ defmodule PhoenixKit.API.Keys do
 
   defp valid(%Ecto.Changeset{valid?: true} = changeset), do: {:ok, changeset}
   defp valid(%Ecto.Changeset{} = changeset), do: {:error, changeset}
+
+  # --- Personal keys -----------------------------------------------------
+
+  @doc """
+  Creates a **personal** key for the person behind `creator_scope`, who is also its
+  owner (see "Personal keys" in the moduledoc).
+
+  `creator_scope` should be the person's full scope read again for this event
+  (`PhoenixKit.API.Access.fresh_scope/2`); the person is read again here as well and must
+  hold `api_personal_keys` or `api` in both. `attrs` takes `name` (required), `scopes`,
+  `allowed_ips` and `expires_at` (required, at most `PersonalKeysConfig.latest_expiry/0`),
+  as `create_key/3`; `requires_approval: true` is a changeset error, not dropped.
+
+  `opts` must say `impersonated: true | false` (no default): a missing or non-boolean value
+  is `{:error, :impersonation_unknown}`, `true` is `{:error, :impersonated}`. Other
+  failures: `:forbidden` (neither permission), `:owner_inactive`, `:owner_not_allowed`
+  (a service user), `:invalid_scopes`, `:personal_key_limit` (the person already has
+  `PersonalKeysConfig.max_count/0` live personal keys), or a changeset.
+  """
+  @spec create_personal_key(Scope.t() | nil, map(), keyword()) ::
+          {:ok, Key.t(), String.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def create_personal_key(%Scope{user: %User{}} = creator_scope, attrs, opts)
+      when is_map(attrs) do
+    {prefix, token, secret_hash} = Token.generate()
+
+    with :ok <- check_not_impersonated(opts),
+         :ok <- authorize_personal(creator_scope),
+         {:ok, owner} <- personal_owner(creator_scope),
+         {:ok, changeset} <- valid(personal_changeset(attrs, owner)),
+         :ok <- authorize_scopes(owner, changeset),
+         {:ok, key} <- insert_personal(changeset, owner, prefix, secret_hash) do
+      log_created(key, owner.uuid)
+      {:ok, key, token}
+    end
+  end
+
+  def create_personal_key(_creator_scope, _attrs, opts) do
+    with :ok <- check_not_impersonated(opts), do: {:error, :forbidden}
+  end
+
+  # The page reads the flag from the session; a caller that forgets to pass it is refused
+  # rather than taken for an unborrowed session.
+  defp check_not_impersonated(opts) when is_list(opts) do
+    case List.keyfind(opts, :impersonated, 0) do
+      {:impersonated, false} -> :ok
+      {:impersonated, true} -> {:error, :impersonated}
+      _missing_or_not_boolean -> {:error, :impersonation_unknown}
+    end
+  end
+
+  defp check_not_impersonated(_opts), do: {:error, :impersonation_unknown}
+
+  defp authorize_personal(scope),
+    do: if(holds_personal_right?(scope), do: :ok, else: {:error, :forbidden})
+
+  defp holds_personal_right?(scope), do: Enum.any?(@personal_rights, &Scope.can?(scope, &1))
+
+  # The person is read again: blocked or deleted since the scope was built is
+  # `:owner_inactive`, and the rights are checked once more on a scope built now.
+  # The owner lookup of a request (`active_user/1`): a person who is not confirmed while
+  # confirmation is required would get a key that never works.
+  defp personal_owner(%Scope{user: %User{uuid: uuid}}) do
+    case active_user(%Key{user_uuid: uuid}) do
+      {:ok, %User{api_only: true}} ->
+        {:error, :owner_not_allowed}
+
+      {:ok, owner} ->
+        if owner |> scope_of() |> holds_personal_right?(),
+          do: {:ok, owner},
+          else: {:error, :forbidden}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp personal_changeset(attrs, owner) do
+    attrs
+    |> base_changeset()
+    |> Ecto.Changeset.validate_required([:expires_at])
+    |> validate_personal_expiry()
+    |> Ecto.Changeset.validate_change(:requires_approval, fn :requires_approval, value ->
+      if value == true,
+        do: [requires_approval: "is not available for a personal key"],
+        else: []
+    end)
+    |> Ecto.Changeset.put_change(:requires_approval, false)
+    |> Ecto.Changeset.put_change(:personal, true)
+    |> Ecto.Changeset.put_change(:user_uuid, owner.uuid)
+    |> Ecto.Changeset.put_change(:created_by_uuid, owner.uuid)
+  end
+
+  defp validate_personal_expiry(changeset) do
+    latest = PersonalKeysConfig.latest_expiry()
+
+    Ecto.Changeset.validate_change(changeset, :expires_at, fn :expires_at, expires_at ->
+      if DateTime.compare(expires_at, latest) == :gt,
+        do: [expires_at: {"must be no later than %{date}", date: Date.to_iso8601(latest)}],
+        else: []
+    end)
+  end
+
+  # The count and the insert run under one advisory lock per person, so simultaneous
+  # creations cannot pass the cap together.
+  defp insert_personal(changeset, owner, prefix, secret_hash) do
+    repo().transaction(fn ->
+      scope = %Scope{user: owner}
+
+      with :ok <- lock_mint_users(owner.uuid, scope),
+           {:ok, _owner} <- personal_owner(scope) do
+        :ok
+      else
+        {:error, reason} -> repo().rollback(reason)
+      end
+
+      lock_personal_keys(owner.uuid)
+
+      if live_personal_key_count(owner.uuid) >= PersonalKeysConfig.max_count() do
+        repo().rollback(:personal_key_limit)
+      else
+        changeset
+        |> Ecto.Changeset.put_change(:prefix, prefix)
+        |> Ecto.Changeset.put_change(:secret_hash, secret_hash)
+        |> Ecto.Changeset.unique_constraint(:prefix)
+        |> repo().insert()
+        |> case do
+          {:ok, key} -> key
+          {:error, changeset} -> repo().rollback(changeset)
+        end
+      end
+    end)
+  end
+
+  defp lock_personal_keys(owner_uuid) do
+    repo().query!("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      "api_personal_keys:" <> owner_uuid
+    ])
+  end
+
+  # Neither revoked nor expired yet; a key in the grace period of a rotation is alive.
+  defp live_personal_key_count(owner_uuid) do
+    now = DateTime.utc_now()
+
+    repo().aggregate(
+      from(k in Key,
+        where:
+          k.user_uuid == ^owner_uuid and k.personal == true and
+            (is_nil(k.revoked_at) or k.revoked_at > ^now) and
+            (is_nil(k.expires_at) or k.expires_at > ^now)
+      ),
+      :count
+    )
+  end
+
+  @doc """
+  Whether the person behind `scope` already has `PersonalKeysConfig.max_count/0` live
+  personal keys (a key in a grace period included): then a new key, and a rotation with a
+  grace period, are refused with `:personal_key_limit`. For the pages, which offer a grace
+  period of 0 in that case; the decision itself is made again under the lock.
+  """
+  @spec personal_keys_full?(Scope.t() | nil) :: boolean()
+  def personal_keys_full?(%Scope{user: %User{uuid: user_uuid}}),
+    do: live_personal_key_count(user_uuid) >= PersonalKeysConfig.max_count()
+
+  def personal_keys_full?(_scope), do: false
+
+  @doc """
+  The personal keys of the person behind `scope` (`personal = true` and owned by them),
+  newest first; `[]` unless they hold `api_personal_keys` or `api`. An Owner sees only
+  their own here (`list_keys/1` lists everyone's).
+  """
+  @spec list_personal_keys(Scope.t() | nil) :: [Key.t()]
+  def list_personal_keys(%Scope{user: %User{uuid: user_uuid}} = scope) do
+    if holds_personal_right?(scope) do
+      repo().all(
+        from(k in Key,
+          where: k.personal == true and k.user_uuid == ^user_uuid,
+          order_by: [desc: k.inserted_at, desc: k.uuid]
+        )
+      )
+    else
+      []
+    end
+  end
+
+  def list_personal_keys(_scope), do: []
 
   # --- Allowed scopes ----------------------------------------------------
 
@@ -311,7 +580,9 @@ defmodule PhoenixKit.API.Keys do
   Verifies a bearer token presented from `ip`.
 
   Checks, in order: the token's shape and secret, revocation, expiry, the IP
-  allow-list, and that the owner exists and is active. On success returns an
+  allow-list, that the owner exists and is active, and, for a personal key, that the
+  owner holds `api_personal_keys` or `api` (`:personal_keys_not_allowed`; the API answers
+  the same 401 for every reason). On success returns an
   `Actor` whose `scopes` are the key's **effective** scopes for this request.
 
   Never raises on bad input, whatever its type (a missing header arrives as
@@ -327,15 +598,21 @@ defmodule PhoenixKit.API.Keys do
   """
   @spec verify(term(), String.t() | nil) ::
           {:ok, Actor.t()}
-          | {:error, :invalid_token | :revoked | :expired | :ip_not_allowed | :owner_inactive}
+          | {:error,
+             :invalid_token
+             | :revoked
+             | :expired
+             | :ip_not_allowed
+             | :owner_inactive
+             | :personal_keys_not_allowed}
   def verify(token, ip) do
     with {:ok, prefix, presented_hash} <- Token.parse(token),
          {:ok, key} <- find_key(prefix, presented_hash),
          :ok <- check_alive(key),
          :ok <- check_ip(key, ip),
-         {:ok, owner} <- active_owner(key) do
+         {:ok, owner, scope} <- checked_owner(key) do
       touch_last_used(key, ip)
-      {:ok, actor(key, owner, ip)}
+      {:ok, build_actor(key, owner, ip, scope || scope_of(owner))}
     else
       :error -> {:error, :invalid_token}
       {:error, _reason} = error -> error
@@ -371,11 +648,42 @@ defmodule PhoenixKit.API.Keys do
 
   @doc """
   The active owner of a key, `{:error, :owner_inactive}` when the user is gone, blocked or
-  not confirmed. The one lookup behind `verify/2`, `active?/1` and `Confirm.live_actor/1`.
+  not confirmed, and `{:error, :personal_keys_not_allowed}` for a personal key whose owner
+  holds neither `api_personal_keys` nor `api` right now. Behind `active?/1` and
+  `Confirm.live_actor/1`. `verify/2` goes through the same private check
+  (`checked_owner/1`), so the two cannot disagree.
   """
-  @spec active_owner(Key.t()) :: {:ok, User.t()} | {:error, :owner_inactive}
-  def active_owner(%Key{user_uuid: user_uuid}) do
+  @spec active_owner(Key.t()) ::
+          {:ok, User.t()} | {:error, :owner_inactive | :personal_keys_not_allowed}
+  def active_owner(%Key{} = key) do
+    with {:ok, owner, _scope} <- checked_owner(key), do: {:ok, owner}
+  end
+
+  # The one owner check of a key: the owner is active and, for a personal key, holds one
+  # of the personal rights now. Returns the owner's full scope when the check had to build
+  # it (a personal key), so `verify/2` does not build it twice; `nil` otherwise. A key that
+  # is not personal needs no permission here (its scopes are filtered by the owner's
+  # rights, as before).
+  defp checked_owner(%Key{} = key) do
+    with {:ok, owner} <- active_user(key), do: check_personal_right(key, owner)
+  end
+
+  defp check_personal_right(%Key{personal: true}, owner) do
+    scope = scope_of(owner)
+
+    if holds_personal_right?(scope),
+      do: {:ok, owner, scope},
+      else: {:error, :personal_keys_not_allowed}
+  end
+
+  defp check_personal_right(_key, owner), do: {:ok, owner, nil}
+
+  defp personal_allowed?(%{personal: true}, %Scope{} = scope), do: holds_personal_right?(scope)
+  defp personal_allowed?(_key_or_actor, _scope), do: true
+
+  defp active_user(%Key{user_uuid: user_uuid}) do
     case user_uuid |> Auth.get_user() |> Auth.ensure_active_user() do
+      %User{managed_by_members: true} -> {:error, :owner_inactive}
       %User{api_only: true} = owner -> {:ok, owner}
       %User{confirmed_at: %DateTime{}} = owner -> {:ok, owner}
       %User{} = owner -> confirmation_optional(owner)
@@ -391,20 +699,24 @@ defmodule PhoenixKit.API.Keys do
 
   @doc """
   The `Actor` of `key` held by its (already loaded, active) `owner`, with the effective
-  scopes. The one builder: `verify/2` and `Confirm.live_actor/1` both use it, so a field
-  added to the actor reaches the request path and an approved operation alike.
+  scopes (none for a personal key whose owner lacks the permission). It and `verify/2`
+  share one private builder, so a field added to the actor reaches the request path and
+  an approved operation (`Confirm.live_actor/1`) alike.
   """
   @spec actor(Key.t(), User.t(), String.t() | nil) :: Actor.t()
-  def actor(%Key{} = key, %User{} = owner, ip) do
-    scope = scope_of(owner)
+  def actor(%Key{} = key, %User{} = owner, ip), do: build_actor(key, owner, ip, scope_of(owner))
 
+  # A personal key whose owner lost the permission carries no scopes, even when a caller
+  # builds its actor without going through `active_owner/1` first.
+  defp build_actor(%Key{} = key, %User{} = owner, ip, %Scope{} = scope) do
     %Actor{
       kind: :key,
       key_uuid: key.uuid,
       key_prefix: key.prefix,
       user_uuid: owner.uuid,
-      scopes: scopes_held_by(key.scopes, scope),
+      scopes: if(personal_allowed?(key, scope), do: scopes_held_by(key.scopes, scope), else: []),
       scope: scope,
+      personal: key.personal,
       requires_approval: key.requires_approval,
       ip: ip
     }
@@ -434,24 +746,29 @@ defmodule PhoenixKit.API.Keys do
   @doc """
   The scopes of a key (or of an `Actor`) that its owner may use **right now**.
 
-  Empty when the owner is blocked or deleted. For code that holds a `Key` row or
+  Empty when the owner is blocked or deleted, and for a personal key (or the actor of
+  one) whose owner holds neither `api_personal_keys` nor `api`. For code that holds a `Key` row or
   an old `Actor` (the Settings page, tests). A request does not need it: the
   `Actor` returned by `verify/2` already carries these scopes and the Executor
   trusts them.
   """
   @spec effective_scopes(Key.t() | Actor.t()) :: [String.t()]
-  def effective_scopes(%Key{scopes: scopes, user_uuid: user_uuid}),
-    do: live_scopes(scopes, user_uuid)
+  def effective_scopes(%Key{scopes: scopes, user_uuid: user_uuid} = key),
+    do: live_scopes(scopes, user_uuid, key)
 
-  def effective_scopes(%Actor{scopes: scopes, user_uuid: user_uuid}),
-    do: live_scopes(scopes, user_uuid)
+  def effective_scopes(%Actor{scopes: scopes, user_uuid: user_uuid} = actor),
+    do: live_scopes(scopes, user_uuid, actor)
 
-  defp live_scopes(_scopes, nil), do: []
+  defp live_scopes(_scopes, nil, _key_or_actor), do: []
 
-  defp live_scopes(scopes, user_uuid) do
+  defp live_scopes(scopes, user_uuid, key_or_actor) do
     case user_uuid |> Auth.get_user() |> Auth.ensure_active_user() do
-      %User{} = owner -> scopes_held_by(scopes, scope_of(owner))
-      nil -> []
+      %User{} = owner ->
+        scope = scope_of(owner)
+        if personal_allowed?(key_or_actor, scope), do: scopes_held_by(scopes, scope), else: []
+
+      nil ->
+        []
     end
   end
 
@@ -469,8 +786,9 @@ defmodule PhoenixKit.API.Keys do
 
   Unlike `rotate/3` and `update_scopes/3`, which take the person's scope and
   authorize it, this takes a bare `actor_uuid` (only for the activity entry) and
-  checks nothing: the CALLER must authorize with `can_manage?/2` first (the
-  Settings page does, by finding the key through `list_keys/1`).
+  checks nothing: the CALLER must authorize with `can_revoke?/2` first (the
+  Settings page does, on the key it found through `list_keys/1`; "My API keys" on one it
+  found through `list_personal_keys/1`).
   """
   @spec revoke(Key.t(), String.t() | nil) :: {:ok, Key.t()} | {:error, term()}
   def revoke(%Key{} = key, actor_uuid) do
@@ -500,6 +818,19 @@ defmodule PhoenixKit.API.Keys do
   Issues a new key with the same owner, scopes, flags, IP list and expiry, and
   retires the old one after `grace_hours` (0 to 24; 0 revokes it now).
 
+  A **personal** key is rotated by its owner only (`can_manage?/2`), with
+  `opts[:impersonated]` given and `false` (`:impersonation_unknown` / `:impersonated`, as
+  in `create_personal_key/3`; `rotate/3` passes no opts, so it refuses a personal key).
+  The new key stays personal, never needs approval and expires at
+  `PersonalKeysConfig.latest_expiry/0`, not at the old key's expiry.
+
+  A rotation of a personal key takes the same per-person advisory lock as a creation,
+  before the row lock. With a grace period (`grace_hours > 0`) the old key stays alive
+  next to the new one, so it is refused with `{:error, :personal_key_limit}` while the
+  person already has `PersonalKeysConfig.max_count/0` live personal keys (a key in a
+  grace period included), checked under that lock. Without one (`0`) the swap is one for
+  one and always allowed.
+
   The old key keeps working until then, so a client can switch over without
   downtime. The creator must be able to manage the key (`can_manage?/2`) and, when the owner
   is a service user, still hold every permission the service user holds
@@ -511,10 +842,13 @@ defmodule PhoenixKit.API.Keys do
   (also through a stale struct), and one whose retirement is already scheduled
   `:rotation_pending`.
   """
-  @spec rotate(Key.t(), 0..24, Scope.t()) :: {:ok, Key.t(), String.t()} | {:error, term()}
-  def rotate(%Key{} = key, grace_hours, %Scope{} = creator_scope)
+  @spec rotate(Key.t(), 0..24, Scope.t(), keyword()) ::
+          {:ok, Key.t(), String.t()} | {:error, term()}
+  def rotate(key, grace_hours, creator_scope, opts \\ [])
+
+  def rotate(%Key{} = key, grace_hours, %Scope{} = creator_scope, opts)
       when is_integer(grace_hours) and grace_hours in 0..24 do
-    case swap_keys(key, grace_hours, creator_scope) do
+    case swap_keys(key, grace_hours, creator_scope, opts) do
       {:ok, {retired, new_key, token}} ->
         Cache.invalidate(retired.prefix)
         log_rotated(retired, new_key, grace_hours, creator_scope.user.uuid)
@@ -525,26 +859,31 @@ defmodule PhoenixKit.API.Keys do
     end
   end
 
-  def rotate(%Key{}, _grace_hours, %Scope{}), do: {:error, :invalid_grace}
+  def rotate(%Key{}, _grace_hours, %Scope{}, _opts), do: {:error, :invalid_grace}
 
   # The row is locked and read again, so the checks run on what is stored now,
   # not on the caller's struct: a stale struct cannot revive a revoked key, and
   # two rotations of one key cannot both succeed.
-  defp swap_keys(%Key{uuid: uuid}, grace_hours, creator_scope) do
+  defp swap_keys(%Key{uuid: uuid}, grace_hours, creator_scope, opts) do
     {prefix, token, secret_hash} = Token.generate()
     retire_at = DateTime.add(now(), grace_hours * 3600, :second)
 
     repo().transaction(fn ->
-      with {:ok, current} <- lock(uuid),
+      with %Key{} = original <- repo().get(Key, uuid),
+           :ok <- lock_mint_users(original.user_uuid, creator_scope),
+           {:ok, current} <- lock_for_rotation(uuid),
            :ok <- authorize_manage(creator_scope, current),
+           :ok <- check_personal_rotation(current, opts),
            :ok <- authorize_service_owner(current, creator_scope),
            :ok <- check_alive(current),
            :ok <- check_not_retiring(current),
+           :ok <- check_rotation_room(current, grace_hours),
            {:ok, new_key} <- insert_copy(current, prefix, secret_hash),
            {:ok, retired} <-
              current |> Ecto.Changeset.change(revoked_at: retire_at) |> repo().update() do
         {retired, new_key, token}
       else
+        nil -> repo().rollback(:not_found)
         {:error, reason} -> repo().rollback(reason)
       end
     end)
@@ -559,11 +898,57 @@ defmodule PhoenixKit.API.Keys do
 
   defp lock(_uuid), do: {:error, :not_found}
 
+  # A personal key takes its owner's advisory lock before the row lock, in the order a
+  # creation takes them. `personal` and `user_uuid` never change, so the unlocked read
+  # that finds them cannot be stale in a way that matters; the row is locked and read
+  # again right after.
+  defp lock_for_rotation(uuid) do
+    case lock_target(uuid) do
+      %{personal: true, user_uuid: owner_uuid} when is_binary(owner_uuid) ->
+        lock_personal_keys(owner_uuid)
+        lock(uuid)
+
+      _other ->
+        lock(uuid)
+    end
+  end
+
+  defp lock_target(uuid) when is_binary(uuid),
+    do:
+      repo().one(from(k in Key, where: k.uuid == ^uuid, select: map(k, [:personal, :user_uuid])))
+
+  defp lock_target(_uuid), do: nil
+
+  # The person's rights are read again here, as `create_personal_key/3` reads them: the
+  # scope a caller passes may be the one captured at mount.
+  defp check_personal_rotation(%Key{personal: true, user_uuid: owner_uuid}, opts) do
+    with :ok <- check_not_impersonated(opts),
+         {:ok, _owner} <- personal_owner(%Scope{user: %User{uuid: owner_uuid}}),
+         do: :ok
+  end
+
+  defp check_personal_rotation(%Key{}, _opts), do: :ok
+
   # A future `revoked_at` means a rotation is already under way; rotating again
   # would push the old key's end date out and leave a third key behind.
   defp check_not_retiring(%Key{revoked_at: nil}), do: :ok
   defp check_not_retiring(%Key{}), do: {:error, :rotation_pending}
 
+  # A rotation with a grace period adds a live key for that period (the old one stays
+  # alive), so it needs room under the cap like a creation does; checked under the
+  # person's advisory lock taken in `lock_for_rotation/1`. Without a grace period the old
+  # key dies at once, a one-for-one swap that never raises the count.
+  defp check_rotation_room(%Key{personal: true, user_uuid: owner_uuid}, grace_hours)
+       when grace_hours > 0 do
+    if live_personal_key_count(owner_uuid) >= PersonalKeysConfig.max_count(),
+      do: {:error, :personal_key_limit},
+      else: :ok
+  end
+
+  defp check_rotation_room(%Key{}, _grace_hours), do: :ok
+
+  # A personal key's copy stays personal, gets the latest expiry allowed now and never
+  # needs approval; any other key's copy keeps the old flags and expiry.
   defp insert_copy(key, prefix, secret_hash) do
     %Key{}
     |> Ecto.Changeset.change(%{
@@ -571,9 +956,10 @@ defmodule PhoenixKit.API.Keys do
       created_by_uuid: key.created_by_uuid,
       name: key.name,
       scopes: key.scopes,
-      requires_approval: key.requires_approval,
+      requires_approval: key.requires_approval and not key.personal,
       allowed_ips: key.allowed_ips,
-      expires_at: key.expires_at,
+      expires_at: if(key.personal, do: PersonalKeysConfig.latest_expiry(), else: key.expires_at),
+      personal: key.personal,
       prefix: prefix,
       secret_hash: secret_hash
     })
@@ -606,7 +992,8 @@ defmodule PhoenixKit.API.Keys do
     log("api.key_rotated", retired, actor_uuid, %{
       "new_key_uuid" => new_key.uuid,
       "new_key_prefix" => new_key.prefix,
-      "grace_hours" => grace_hours
+      "grace_hours" => grace_hours,
+      "personal" => retired.personal
     })
   end
 
@@ -614,7 +1001,11 @@ defmodule PhoenixKit.API.Keys do
   Replaces the scopes of a live key.
 
   - `editor_scope` must be able to manage the key (`can_manage?/2`), else
-    `{:error, :forbidden}`;
+    `{:error, :forbidden}`; an Owner who may not manage someone else's **personal** key
+    may still remove scopes from it: every scope of `new_scopes` must already be on the
+    stored row, else `{:error, :scopes_not_narrowing}` (no token changes hands, and the
+    key can only lose rights). In that case the saved list is exactly `new_scopes`:
+    inactive scopes are not kept (the rule below does not apply), so any scope can go;
   - the key is re-read: gone gives `{:error, :not_found}`, revoked (even if the
     struct passed in is stale) `{:error, :revoked}`;
   - `new_scopes` is the desired list of **active** scopes: a list of strings, and
@@ -638,14 +1029,15 @@ defmodule PhoenixKit.API.Keys do
   key already has, in any order, changes and logs nothing.
   """
   @spec update_scopes(Key.t(), [String.t()], Scope.t()) ::
-          {:ok, Key.t()} | {:error, :forbidden | :invalid_scopes | :revoked | :not_found}
+          {:ok, Key.t()}
+          | {:error, :forbidden | :invalid_scopes | :scopes_not_narrowing | :revoked | :not_found}
   def update_scopes(%Key{uuid: uuid}, new_scopes, %Scope{} = editor_scope) do
     result =
       repo().transaction(fn ->
         with {:ok, current} <- lock(uuid),
-             :ok <- authorize_manage(editor_scope, current),
+             {:ok, mode} <- authorize_scope_edit(editor_scope, current),
              :ok <- check_not_revoked(current),
-             {:ok, scopes} <- validate_new_scopes(current, new_scopes, editor_scope) do
+             {:ok, scopes} <- validate_scope_edit(mode, current, new_scopes, editor_scope) do
           write_scopes(current, scopes)
         else
           {:error, reason} -> repo().rollback(reason)
@@ -691,6 +1083,37 @@ defmodule PhoenixKit.API.Keys do
   end
 
   defp validate_new_scopes(_key, _scopes, _editor_scope), do: {:error, :invalid_scopes}
+
+  # Decided on the locked, re-read row: a forged `personal` or `scopes` counts for nothing.
+  defp authorize_scope_edit(editor_scope, %Key{} = current) do
+    cond do
+      can_manage?(editor_scope, current) -> {:ok, :manage}
+      current.personal and Scope.owner?(editor_scope) -> {:ok, :narrow}
+      true -> {:error, :forbidden}
+    end
+  end
+
+  defp validate_scope_edit(:manage, current, scopes, editor_scope),
+    do: validate_new_scopes(current, scopes, editor_scope)
+
+  # Only scopes already on the stored row, and exactly those asked for: unlike an edit by
+  # someone who manages the key, inactive scopes are not merged back, so an Owner can take
+  # any scope off (the key only loses rights; nothing else changes).
+  defp validate_scope_edit(:narrow, %Key{} = current, scopes, _editor_scope)
+       when is_list(scopes) do
+    if Enum.all?(scopes, &is_binary/1) do
+      cleaned = clean_scopes(scopes)
+
+      if Enum.all?(cleaned, &(&1 in current.scopes)),
+        do: {:ok, cleaned},
+        else: {:error, :scopes_not_narrowing}
+    else
+      {:error, :invalid_scopes}
+    end
+  end
+
+  defp validate_scope_edit(:narrow, _current, _scopes, _editor_scope),
+    do: {:error, :invalid_scopes}
 
   # A scope is added to a key only when its owner may use it and the editor
   # holds the permission of its tools too: the creator's authority was checked
@@ -745,15 +1168,36 @@ defmodule PhoenixKit.API.Keys do
   # --- Access ------------------------------------------------------------
 
   @doc """
-  Whether the person behind `scope` may revoke or rotate `key`: they hold `api`
-  and are an Owner or created the key.
+  Whether the person behind `scope` may revoke, rotate or edit the scopes of `key`: they
+  hold `api` and are an Owner or created the key. A **personal** key is managed by its
+  owner alone, while they hold `api_personal_keys` or `api` (an Owner included: see
+  `can_revoke?/2`).
   """
   @spec can_manage?(Scope.t(), Key.t()) :: boolean()
+  def can_manage?(%Scope{user: %User{uuid: user_uuid}} = scope, %Key{
+        personal: true,
+        user_uuid: owner_uuid
+      }) do
+    is_binary(owner_uuid) and owner_uuid == user_uuid and holds_personal_right?(scope)
+  end
+
   def can_manage?(%Scope{user: %User{uuid: user_uuid}} = scope, %Key{created_by_uuid: creator}) do
     Scope.can?(scope, "api") and (Scope.owner?(scope) or creator == user_uuid)
   end
 
   def can_manage?(_scope, _key), do: false
+
+  @doc """
+  Whether the person behind `scope` may revoke `key`: `can_manage?/2`, and an Owner for
+  anyone's personal key too (revoking hands out no token). Callers of `revoke/2` check
+  this first.
+  """
+  @spec can_revoke?(Scope.t(), Key.t()) :: boolean()
+  def can_revoke?(%Scope{user: %User{}} = scope, %Key{personal: true} = key),
+    do: can_manage?(scope, key) or Scope.owner?(scope)
+
+  def can_revoke?(scope, %Key{} = key), do: can_manage?(scope, key)
+  def can_revoke?(_scope, _key), do: false
 
   @doc "Fetches a key by uuid; `nil` for an unknown or malformed uuid."
   @spec get_key(String.t()) :: Key.t() | nil
@@ -833,7 +1277,8 @@ defmodule PhoenixKit.API.Keys do
       "scopes" => key.scopes,
       "requires_approval" => key.requires_approval,
       "allowed_ips" => key.allowed_ips,
-      "expires_at" => key.expires_at && DateTime.to_iso8601(key.expires_at)
+      "expires_at" => key.expires_at && DateTime.to_iso8601(key.expires_at),
+      "personal" => key.personal
     })
   end
 

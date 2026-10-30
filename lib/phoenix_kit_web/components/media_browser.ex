@@ -61,8 +61,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       <.live_component
         module={PhoenixKitWeb.Components.MediaBrowser}
         id="audio-picker"
-        select_mode
+        picker
+        pick_mode={:single}
         only_file_type="audio"
+        parent_uploads={@uploads}
         phoenix_kit_current_user={@phoenix_kit_current_user}
       />
 
@@ -72,6 +74,195 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   re-check, the PNG lands in the field and renders as a dead `<audio>`.
 
   Values: `image`, `video`, `document`, `audio`, `archive`, `other`.
+
+  ## Picker
+
+  `picker` turns the browser into a window for choosing files — the folder
+  tree, upload into the open folder, search and sort stay; what is chosen goes
+  back to the host:
+
+      <.live_component
+        module={PhoenixKitWeb.Components.MediaBrowser}
+        id="slot-picker"
+        picker
+        pick_mode={:multiple}
+        max_select={4}
+        selected={@slot_file_uuids}
+        scope_folder_id={@order_folder_uuid}
+        folder_labels={%{@kitchen_folder_uuid => "Kitchen"}}
+        folder_actions={false}
+        only_file_type="image"
+        parent_uploads={@uploads}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
+      />
+
+  - `picker` (default `false`) — a click on a file picks it and opens no
+    viewer; folders are browsed, never picked. The view is always the grid
+    (no view switch), and the picker writes none of the user's view or
+    folder-tree preferences. Bulk select (Select, box select, Shift-click,
+    long press) is off: the pick is its own ordered list. The toolbar shows
+    the count with Confirm and Cancel.
+    Set it when the browser is mounted: the view, the tree and the upload
+    registration are made then, so turning it on or off on a mounted browser
+    leaves it half one and half the other. Mount another browser instead.
+  - `pick_mode` — `:multiple` (default) keeps the files in the order they were
+    picked, a second click takes one out; `:single` replaces the pick on every
+    click, and a double click picks and confirms.
+  - `max_select` — the most files `:multiple` takes (`nil`, the default, is no
+    limit). A click past it is refused and the toolbar says so.
+  - `selected` — the pick the browser opens with, in order. Read on the
+    first mount only: a later render of the host (an upload tick, any changed
+    assign) leaves the working pick alone. Replace it with
+    `send_update(MediaBrowser, id: id, picker_reset: uuids)`. Both keep what
+    a click could pick (below), at most `max_select` of it (one in
+    `:single`); anything else is dropped without a word, and Confirm returns
+    the list without it — a slot's file outside the scope, in the trash or of
+    another type leaves the slot when the person confirms.
+  - `notify` — `{module, id}` of a host LiveComponent. Confirm sends it
+    `send_update(module, id: id, picked: uuids)`, Cancel
+    `picked: :cancelled`, and a change of the upload state
+    `picker_uploading: boolean`. Without `notify` the host LiveView process
+    gets THREE messages, and must match all three (or have a catch-all
+    `handle_info`): `{MediaBrowser, id, {:picked, uuids}}`,
+    `{MediaBrowser, id, :pick_cancelled}` and
+    `{MediaBrowser, id, {:picker_uploading, boolean}}` — the last one with every
+    upload, whether or not the host cares. ⚠️ A host that funnels every
+    `{MediaBrowser, _, _}` message into `handle_parent_info/2` must match them
+    before it, as with `{:set_featured, _}`: the delegate only logs them. A
+    Confirm or Cancel pressed again with nothing changed is reported once, so
+    a host that keeps the picker mounted between openings (hidden, not
+    removed) sends `picker_reset` when it opens it again — otherwise a
+    Confirm of the same pick reports nothing.
+  - `folder_labels` — `%{folder_uuid => label}`: the label is shown instead of
+    the folder's name in the tree, the breadcrumbs, the title and the folder
+    tiles. Display only; nothing is renamed.
+  - `folder_actions` (default `true`) — `false` takes away New folder,
+    renaming and every other folder edit (header, description, colour,
+    cover), moving files and folders, trashing and deleting folders, the
+    sidebar's Trash link and drag moves: hidden AND refused on the server.
+    Dropping files from the computer still uploads. A file moved to the Trash
+    from such a browser cannot be brought back from it (the Trash view and
+    Restore are folder actions here). Outside a picker the file cards stay
+    draggable for the selection gestures (long press, Shift-click, box
+    select), but no folder, tree node or Trash takes a move, and folders are
+    never selected. The content area stays a drop target, for files dropped
+    from the computer; a move dropped there is refused on the server.
+
+  A picker's file menu keeps Download and Move to Trash. Rotate, Edit image,
+  the featured toggle and deleting for good (the Trash view's Delete, Empty
+  Trash) are hidden and refused: the files are someone's, opened to be chosen
+  from.
+
+  Every pick is checked on the server, whatever the click named: a file of
+  this library the viewer may see, live (not in the trash), inside the scope
+  folder (homed there or linked into it) and of `only_file_type`. Confirm
+  leaves out a picked file that has been trashed or deleted since. A file
+  uploaded in the picker picks itself, under the same check — the store
+  answers with the row it kept, and a duplicate of an earlier upload is that
+  row, in the trash or of another type: `:single` replaces the pick,
+  `:multiple` adds it while there is room under `max_select`.
+
+  While an upload is on its way (a transfer, or a file waiting to be stored)
+  Confirm and Cancel are disabled with a note, and refused, and the host is
+  told (`picker_uploading`) so it can keep its own close control from
+  dropping the upload.
+
+  A file's tile has an eye: it opens the viewer on that file and changes
+  nothing in the pick (nor does closing the viewer). Previous / next step
+  through the files loaded on the page of the open folder. The viewer's
+  Select / Deselect picks or unpicks the file shown, under the same rules
+  and server check as a click (`:single` replaces; Deselect empties it);
+  Select is disabled while `:multiple` is at `max_select`. The viewer writes
+  nothing to the file — no rotation saved, no annotations, no title or
+  description, no image editor, no featured toggle, refused on the server as
+  under `readonly` — but offers Move to trash for a live file (not under
+  `readonly`; `folder_actions: false` does not take it away, it is an action
+  on a file). A file removed that way leaves the pick.
+
+  Escape closes the viewer and nothing else: the pick stays and the picker
+  stays open. The viewer opens in the browser's top layer (a `popover`), so
+  a host modal whose box is transformed (daisyUI's `.modal-box` is) cannot
+  clip it, and while it is open its Escape is cancelled for the page, so a
+  host `<dialog>` — core `<.modal>`, or any dialog with the `PkDialog` hook —
+  stays open: hosts of those need nothing. A host that closes its modal on
+  Escape by its own key listener (`phx-window-keydown`, a script) must skip
+  an Escape whose `defaultPrevented` is set, or it closes with the viewer.
+
+  A picker is usually a second browser on its page, so its DOM ids carry its
+  `id` (`<id>-media-browser-sidebar`, `<id>-folder-drop-upload-form`, …).
+  Without `picker` the ids are the ones they have always been — hosts, tests
+  and scripts select them by name — so two browsers that are not pickers on
+  one page still share them, as before.
+
+  A picker uploads through an upload of its own, `:media_picker_files`, which
+  `setup_uploads/1` (and so `Embed`) registers next to `:media_files` with the
+  same limits. A page has one file input per upload: sharing `:media_files`
+  would give a picker opened beside another browser a second input with the
+  same id, the other browser's transfers in its list, and its uploads copied
+  into the other browser's folder too. A picker's upload goes to the pickers
+  only, any other upload to the other browsers only. A host that calls
+  `allow_upload` itself instead of `setup_uploads/1` adds
+  `:media_picker_files` with the same options (`progress:
+  &MediaBrowser.parent_progress/3`) for a picker beside another browser;
+  without it the picker uses `:media_files`, which is fine while it is the
+  only browser on the page. `only_file_type` is held for either upload.
+
+  ## Removal guard
+
+  A file can be in use where the media library cannot see — an order's
+  attachment, a page's picture. `config :phoenix_kit, :file_removal_guard,
+  MyApp.FileRemovalGuard` names a module (the
+  `PhoenixKit.Modules.Storage.RemovalGuard` behaviour) that every media
+  browser asks before a file disappears, the Media page of the core included:
+
+  - `removal_guard` — overrides the configured module for one browser; `false`
+    goes without. With no module configured, nothing here applies: the browser
+    acts and confirms as it always did.
+  - `phoenix_kit_current_scope` — the scope of the person acting, handed to the
+    guard as `ctx.scope`. A host that narrows rights to the person's active role
+    passes the narrowed scope; without it the scope is built from
+    `phoenix_kit_current_user`.
+
+  The events that can remove a file — `trash_file` (tile, menu, viewer, the drag
+  onto Trash), `delete_file`, `delete_selected` (folders in it too),
+  `trash_folder`, `delete_folder` and `empty_trash` — are stopped before their
+  handlers. `Storage.removal_plan/2`, the reading the operations themselves
+  decide by, says which files would be trashed or deleted; a file only unlinked
+  from a folder or re-homed to another that holds it is not asked about. The
+  module is asked where the others are in use, and a **server dialog** (inside
+  the browser, above an open viewer, Escape closes it and not the viewer or the
+  picker) asks the person:
+
+  - no place: "Move 3 files to trash?" / "Delete 3 files for good?" with the
+    names, then the action runs;
+  - places: "Cannot delete: the file is in use", with the places (links open in
+    a new tab; a place with no label is "not available to you"). When the module
+    has `release/2` and `release_label/1` gives this person a text, a button with
+    it frees the files, the module is asked again, and the confirmation follows;
+  - **Empty trash** and deleting a selection of files in the Trash view skip the
+    files that are in use (they stay in the trash): "2 deleted, 1 kept: in use".
+
+  The browser's own `data-confirm` for these actions is dropped while a guard is
+  configured (it would be a second question). A folder is confirmed in the
+  dialog even when no file goes with it. The confirmation runs the same event
+  again through every gate (readonly, `viewer_uuid`, `own_files_only`, the shown
+  library) and from a fresh plan: if the files, or what is in use, changed since
+  the dialog was drawn, the dialog is drawn again instead of removing. A guard
+  that raises, exits or answers a shape that is not the contract removes
+  nothing (the log names the module and the exception, no request data).
+
+  **Not covered**, by design: the daily `Storage.prune_trash/1`, the host's own
+  background jobs, the API and the console, and "Delete all orphaned" (an orphan
+  is in no folder).
+
+  ## Taking a browser off the page
+
+  The page routes every finished upload to each browser that registered on
+  mount. A host that stops rendering one (a closed modal, another tab) calls
+  `unregister_browser/1` with its id, or uploads keep being routed — and
+  copied — to it. With no browser registered an upload is not deleted: it
+  stays in the user's upload inbox and shows under "Upload problems", with
+  Retry, in the next browser opened.
 
   ## Usage (controlled — URL-sync driven by parent)
 
@@ -183,6 +374,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Called by module, never imported: an import would make this module wait
   # for the view to finish compiling instead of compiling beside it.
   alias PhoenixKitWeb.Components.MediaBrowser.Helpers
+  alias PhoenixKitWeb.Components.MediaBrowser.Removal
   alias PhoenixKitWeb.Components.MediaBrowser.View
 
   alias PhoenixKit.Modules.Storage
@@ -196,6 +388,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.TreeQuery
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
 
@@ -204,6 +397,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # no grid→list flash while the client restores a localStorage value
   # after connect.
   @media_view_mode_key "media_view_mode"
+
+  # The parent's upload a picker renders and watches (see `setup_uploads/1`).
+  @picker_upload :media_picker_files
 
   # Sidebar folder-tree state, also persisted server-side in user meta and
   # rendered on first paint — same reasoning as the view mode above: restoring
@@ -357,40 +553,77 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign_new(:gallery_mode, fn -> false end)
       |> assign_new(:upload_in_flight, fn -> false end)
       |> assign_new(:upload_problems_session, fn -> [] end)
+      # The picker (see the moduledoc's "Picker"). `picked` is the working
+      # pick, an ordered list of file uuids; `selected` is only where it
+      # starts (first mount) — the host's later renders never reach it.
+      |> assign_new(:picker, fn -> false end)
+      |> assign_new(:pick_mode, fn -> :multiple end)
+      |> assign_new(:max_select, fn -> nil end)
+      |> assign_new(:selected, fn -> [] end)
+      |> assign_new(:notify, fn -> nil end)
+      |> assign_new(:folder_labels, fn -> %{} end)
+      |> assign_new(:folder_actions, fn -> true end)
+      # The removal guard (see the moduledoc's "Removal guard"): `nil` takes
+      # the module configured for every browser, a module overrides it,
+      # `false` goes without. `removal_pending` is the dialog's state.
+      |> assign_new(:removal_guard, fn -> nil end)
+      |> assign_new(:phoenix_kit_current_scope, fn -> nil end)
+      |> assign_new(:removal_pending, fn -> nil end)
+      |> normalize_picker_attrs()
+      |> assign_removal_guarded()
+      |> assign_upload_name()
+      |> assign_new(:picked, fn -> [] end)
+      |> assign_new(:pick_limit_hit, fn -> false end)
+      |> assign_new(:picker_uploading, fn -> false end)
       |> close_upload_on_start()
       |> harvest_rejected_uploads()
       |> force_managed_readonly()
 
     socket = maybe_switch_library(socket, shown_library)
 
-    cond do
-      not Map.has_key?(socket.assigns, :uploaded_files) ->
-        socket = init_socket(socket)
+    socket =
+      cond do
+        not Map.has_key?(socket.assigns, :uploaded_files) ->
+          socket = init_socket(socket)
 
-        # Register this component id with the parent so it can route uploads here
-        send(self(), {__MODULE__, :register_component, socket.assigns.id})
+          # Register this component id with the parent so it can route uploads here
+          send(self(), {__MODULE__, :register_component, socket.assigns.id})
 
-        # Apply initial params if provided (avoids flash of root before correct view)
-        socket =
+          socket = put_pick(socket, start_pick(socket, socket.assigns.selected))
+
+          # Apply initial params if provided (avoids flash of root before correct view)
           if Map.has_key?(assigns, :initial_params),
             do: apply_nav_params(socket, assigns.initial_params),
             else: socket
 
-        {:ok, socket}
+        Map.has_key?(assigns, :picker_reset) ->
+          put_pick(socket, start_pick(socket, assigns.picker_reset))
 
+        Map.get(assigns, :action) == :picker_idle_check ->
+          settle_picker_idle(socket)
+
+        true ->
+          update_from_message(socket, assigns)
+      end
+
+    {:ok, socket |> maybe_register_picker() |> sync_picker_uploading()}
+  end
+
+  defp update_from_message(socket, assigns) do
+    cond do
       Map.has_key?(assigns, :nav_params) ->
-        {:ok, apply_nav_params(socket, socket.assigns.nav_params)}
+        apply_nav_params(socket, socket.assigns.nav_params)
 
       Map.has_key?(assigns, :pending_upload) ->
-        {:ok, receive_pending_upload(socket, assigns.pending_upload)}
+        receive_pending_upload(socket, assigns.pending_upload)
 
       Map.get(assigns, :action) == :drain_upload_queue ->
-        {:ok, drain_upload_queue(socket)}
+        drain_upload_queue(socket)
 
       # Background processing finished (see attach_file_event_forwarding/1).
       Map.has_key?(assigns, :file_processed) ->
         notify_image_editor(socket, assigns.file_processed)
-        {:ok, refresh_processed_file(socket, assigns.file_processed)}
+        refresh_processed_file(socket, assigns.file_processed)
 
       # Annotated thumbnail (re)baked, or a burn stored — refresh the grid
       # row only. The open viewer must NOT be swapped: the annotator is
@@ -406,22 +639,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       Map.has_key?(assigns, :thumbnail_updated) ->
         socket = refresh_processed_file(socket, assigns.thumbnail_updated, viewer: false)
         poke_viewer_burn(socket, assigns.thumbnail_updated)
-        {:ok, socket}
+        socket
 
       # The header-image picker (MediaSelectorModal) reports back here via
       # `notify: {__MODULE__, id}`: a confirmed selection sets the cover or logo
       # (per `@image_picker_target`); a close just dismisses the picker.
       Map.has_key?(assigns, :media_selected) ->
-        {:ok, set_image_from_selection(socket, assigns.media_selected)}
+        set_image_from_selection(socket, assigns.media_selected)
 
       Map.has_key?(assigns, :media_selector_closed) ->
-        {:ok, assign(socket, :selecting_cover, false)}
+        assign(socket, :selecting_cover, false)
 
       Map.get(assigns, :action) == :commit_upload_batch ->
-        {:ok, commit_upload_batch(socket)}
+        commit_upload_batch(socket)
 
       true ->
-        {:ok, socket}
+        socket
     end
   end
 
@@ -442,6 +675,294 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if managed?, do: assign(socket, :readonly, true), else: socket
   end
 
+  # ──────────────────────────────────────────────────────────────
+  # Picker (see the moduledoc's "Picker")
+  # ──────────────────────────────────────────────────────────────
+
+  defp normalize_picker_attrs(socket) do
+    pick_mode = if socket.assigns.pick_mode in [:single, "single"], do: :single, else: :multiple
+
+    max_select =
+      case socket.assigns.max_select do
+        n when is_integer(n) and n > 0 -> n
+        _ -> nil
+      end
+
+    socket
+    |> assign(:picker, socket.assigns.picker == true)
+    |> assign(:folder_actions, socket.assigns.folder_actions != false)
+    |> assign(:pick_mode, pick_mode)
+    |> assign(:max_select, max_select)
+  end
+
+  # The parent's upload this browser renders and watches: a picker's own
+  # (see `setup_uploads/1`), or the shared one — also for a picker whose host
+  # allowed only that.
+  defp assign_upload_name(socket) do
+    name =
+      if socket.assigns.picker and
+           is_map_key(socket.assigns[:parent_uploads] || %{}, @picker_upload),
+         do: @picker_upload,
+         else: :media_files
+
+    assign(socket, :upload_name, name)
+  end
+
+  # A browser on the picker's own upload takes only that upload's files (see
+  # `setup_uploads/1`); a picker on `:media_files` (a host that allowed only
+  # that) is routed like any other browser. Registered once, whenever the
+  # picker's upload first reaches it — a host may hand `parent_uploads` down
+  # after the first render.
+  defp maybe_register_picker(socket) do
+    if socket.assigns.upload_name == @picker_upload and socket.assigns[:registered_picker] != true do
+      send(self(), {__MODULE__, :register_picker, socket.assigns.id})
+      assign(socket, :registered_picker, true)
+    else
+      socket
+    end
+  end
+
+  # The pick a picker opens with (`selected`) or is reset to (`picker_reset`):
+  # what a click could pick (`pickable?/2`) — anything else is dropped without
+  # a word — each once, in the host's order, one in `:single` and at most
+  # `max_select` in `:multiple`.
+  defp start_pick(%{assigns: %{picker: true}} = socket, uuids) when is_list(uuids) do
+    uuids = uuids |> Enum.filter(&uuid_string?/1) |> Enum.uniq()
+
+    limit =
+      case socket.assigns do
+        %{pick_mode: :single} -> 1
+        %{max_select: max} when is_integer(max) -> max
+        _ -> :infinity
+      end
+
+    uuids
+    |> Stream.filter(&pickable?(socket, &1))
+    |> then(&if(limit == :infinity, do: Enum.to_list(&1), else: Enum.take(&1, limit)))
+  end
+
+  defp start_pick(_socket, _uuids), do: []
+
+  # Every change of the pick goes through here: a Confirm reported before it
+  # no longer stands for what is picked (see `report_once/2`).
+  defp put_pick(socket, uuids) do
+    socket
+    |> assign(:picked, uuids)
+    |> assign(:pick_limit_hit, false)
+    |> assign(:pick_reported, nil)
+  end
+
+  # A uuid in its 36-character text form. `Ecto.UUID.cast/1` alone would also
+  # take any 16-byte string as a raw uuid.
+  defp uuid_string?(value),
+    do: is_binary(value) and byte_size(value) == 36 and UUIDUtils.valid?(value)
+
+  # A click on a file. `:multiple` takes a picked file back out; `:single`
+  # keeps it (a file dialog does not unselect on a second click). Adding is
+  # for a file this picker could have listed only.
+  defp pick(socket, file_uuid) do
+    %{picked: picked, pick_mode: pick_mode} = socket.assigns
+
+    cond do
+      file_uuid in picked and pick_mode == :multiple ->
+        put_pick(socket, List.delete(picked, file_uuid))
+
+      file_uuid in picked ->
+        socket
+
+      pickable?(socket, file_uuid) ->
+        add_pick(socket, file_uuid)
+
+      true ->
+        # The value is the client's: only the fact is logged.
+        Logger.warning(
+          "MediaBrowser id=#{socket.assigns.id}: pick refused — not a file this picker lists"
+        )
+
+        socket
+    end
+  end
+
+  # `:single` replaces the pick; `:multiple` appends while there is room under
+  # `max_select`, and says so when there is not.
+  defp add_pick(socket, file_uuid) do
+    %{picked: picked, pick_mode: pick_mode, max_select: max} = socket.assigns
+
+    cond do
+      pick_mode == :single ->
+        put_pick(socket, [file_uuid])
+
+      file_uuid in picked ->
+        socket
+
+      is_integer(max) and length(picked) >= max ->
+        assign(socket, :pick_limit_hit, true)
+
+      true ->
+        put_pick(socket, picked ++ [file_uuid])
+    end
+  end
+
+  # What the picker could have listed, whatever page, search or filter is on
+  # screen: a live file of this library that the viewer may see, of the
+  # locked type, homed inside the scope folder or linked into it.
+  defp pickable?(socket, file_uuid) do
+    with true <- uuid_string?(file_uuid),
+         %Storage.File{system_managed: false} = file <- Storage.get_file(file_uuid),
+         true <- file.status != "trashed",
+         true <- socket.assigns[:only_file_type] in [nil, file.file_type],
+         true <- in_browser_library?(socket, file),
+         true <- Storage.viewer_can_see_file?(socket.assigns[:viewer_uuid], file) do
+      in_pick_scope?(file, scope_folder_id(socket))
+    else
+      _ -> false
+    end
+  end
+
+  defp in_pick_scope?(_file, nil), do: true
+
+  defp in_pick_scope?(file, scope) do
+    (is_binary(file.folder_uuid) and Storage.within_scope?(file.folder_uuid, scope)) or
+      PhoenixKit.Config.get_repo().exists?(
+        from(fl in Storage.FolderLink,
+          where:
+            fl.file_uuid == ^file.uuid and
+              fl.folder_uuid in ^TreeQuery.subtree_uuids(Storage.Folder, [scope])
+        )
+      )
+  end
+
+  # An upload made in the picker picks itself (see `buffer_pending_upload/3`)
+  # — when a click could pick it. The store answers with the row it kept, and
+  # that may not be what the upload claimed: the type is the bytes' (an
+  # "image" that is not one), and a duplicate of an earlier upload is that
+  # earlier row, in the trash or of another type.
+  defp pick_upload(%{assigns: %{picker: true}} = socket, {:ok, %{file_uuid: uuid}}) do
+    uuid = to_string(uuid)
+
+    if pickable?(socket, uuid) do
+      add_pick(socket, uuid)
+    else
+      Logger.warning(
+        "MediaBrowser id=#{socket.assigns.id}: uploaded file #{uuid} not picked — " <>
+          "not a file this picker lists"
+      )
+
+      socket
+    end
+  end
+
+  defp pick_upload(socket, _result), do: socket
+
+  # Confirm hands the host the pick minus what was trashed or deleted since it
+  # was picked.
+  defp confirm_pick(socket) do
+    uuids = still_live(socket.assigns.picked)
+
+    socket
+    |> assign(:picked, uuids)
+    |> report_once({:picked, uuids})
+  end
+
+  # Confirm or Cancel pressed again with nothing changed in between (a double
+  # press, a slow host) reports nothing new, so the host hears it once.
+  defp report_once(socket, message) do
+    if socket.assigns[:pick_reported] == message do
+      socket
+    else
+      socket
+      |> assign(:pick_reported, message)
+      |> notify_picker_host(message)
+    end
+  end
+
+  defp still_live([]), do: []
+
+  defp still_live(uuids) do
+    live =
+      from(f in Storage.File,
+        where: f.uuid in ^uuids and f.status != "trashed",
+        select: f.uuid
+      )
+      |> PhoenixKit.Config.get_repo().all()
+      |> MapSet.new(&to_string/1)
+
+    Enum.filter(uuids, &MapSet.member?(live, &1))
+  end
+
+  defp notify_picker_host(socket, message) do
+    case socket.assigns[:notify] do
+      {module, id} -> send_update(module, [{:id, id} | picker_update(message)])
+      _ -> send(self(), {__MODULE__, socket.assigns.id, message})
+    end
+
+    socket
+  end
+
+  defp picker_update({:picked, uuids}), do: [picked: uuids]
+  defp picker_update(:pick_cancelled), do: [picked: :cancelled]
+  defp picker_update({:picker_uploading, uploading?}), do: [picker_uploading: uploading?]
+
+  # Confirm and Cancel wait while an upload is on its way: a transfer the
+  # page is receiving, or a received file not yet stored (queued, being
+  # stored, or stored and waiting for its batch).
+  defp upload_in_progress?(socket) do
+    a = socket.assigns
+
+    match?(%{entries: [_ | _]}, a[:parent_uploads][a[:upload_name] || :media_files]) or
+      a[:upload_processing] != nil or
+      (a[:upload_process_queue] || []) != [] or
+      (a[:pending_batch] || []) != []
+  end
+
+  defp picker_busy?(socket), do: socket.assigns.picker_uploading or upload_in_progress?(socket)
+
+  # Tells the host when the picker starts and stops waiting for an upload.
+  # The stop is reported a moment late, once it holds: between a transfer
+  # ending and the page handing the file to this browser there is a render
+  # with nothing in flight, and reporting it would let the host close the
+  # picker on the upload it is about to receive.
+  @picker_idle_ms 300
+
+  defp sync_picker_uploading(%{assigns: %{picker: true}} = socket) do
+    busy? = upload_in_progress?(socket)
+
+    cond do
+      busy? and not socket.assigns.picker_uploading ->
+        socket
+        |> assign(:picker_uploading, true)
+        |> notify_picker_host({:picker_uploading, true})
+
+      not busy? and socket.assigns.picker_uploading and
+          socket.assigns[:picker_idle_check] != true ->
+        Phoenix.LiveView.send_update_after(
+          __MODULE__,
+          [id: socket.assigns.id, action: :picker_idle_check],
+          @picker_idle_ms
+        )
+
+        assign(socket, :picker_idle_check, true)
+
+      true ->
+        socket
+    end
+  end
+
+  defp sync_picker_uploading(socket), do: socket
+
+  defp settle_picker_idle(socket) do
+    socket = assign(socket, :picker_idle_check, false)
+
+    if socket.assigns.picker and socket.assigns.picker_uploading and
+         not upload_in_progress?(socket) do
+      socket
+      |> assign(:picker_uploading, false)
+      |> notify_picker_host({:picker_uploading, false})
+    else
+      socket
+    end
+  end
+
   # The upload drawer's job ends the moment files are accepted: transfers
   # are auto_upload, and their progress renders as the same inline rows the
   # drag-drop path uses — so a drawer left open past that point only spends
@@ -452,9 +973,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # user who deliberately reopens the drawer mid-upload (to add more
   # files) is not fighting a panel that snaps shut on every tick.
   defp close_upload_on_start(socket) do
+    name = socket.assigns.upload_name
+
     active =
       case socket.assigns[:parent_uploads] do
-        %{media_files: %{entries: [_ | _]}} -> true
+        %{^name => %{entries: [_ | _]}} -> true
         _ -> false
       end
 
@@ -616,9 +1139,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       if browser == [] do
         socket
       else
-        push_event(socket, "phoenix_kit:upload-resume", %{
-          keys: Enum.map(browser, & &1.client_key)
-        })
+        push_event(
+          socket,
+          "phoenix_kit:upload-resume",
+          Map.merge(resume_target(socket), %{keys: Enum.map(browser, & &1.client_key)})
+        )
       end
 
     set_upload_problems(socket, keep)
@@ -664,8 +1189,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
     socket =
       case for(%{kind: :browser, client_key: key} <- gone, do: key) do
-        [] -> socket
-        keys -> push_event(socket, "phoenix_kit:upload-discard", %{keys: keys})
+        [] ->
+          socket
+
+        keys ->
+          push_event(
+            socket,
+            "phoenix_kit:upload-discard",
+            Map.merge(resume_target(socket), %{keys: keys})
+          )
       end
 
     set_upload_problems(socket, keep)
@@ -818,6 +1350,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(:pending_batch, batch)
       |> assign(:last_uploaded_file_uuids, new_uuids)
+      |> pick_upload(result)
 
     if socket.assigns[:batch_scheduled] do
       socket
@@ -941,6 +1474,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       :selected_files,
       MapSet.difference(socket.assigns[:selected_files] || MapSet.new(), gone)
     )
+    |> assign(:picked, Enum.reject(socket.assigns[:picked] || [], &MapSet.member?(gone, &1)))
     |> then(fn socket ->
       viewer = socket.assigns[:viewer_file]
 
@@ -1507,14 +2041,20 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       :folder_tree,
       if(scope_invalid, do: [], else: Storage.list_folder_tree(scope, lib_opts(socket)))
     )
+    # A picker keeps its tree to itself: it neither reads nor writes the
+    # user's saved tree (see `persist_tree_state/1`).
     |> assign(
       :sidebar_collapsed,
-      load_user_sidebar_collapsed(socket.assigns[:phoenix_kit_current_user])
+      not socket.assigns.picker and
+        load_user_sidebar_collapsed(socket.assigns[:phoenix_kit_current_user])
     )
     |> assign(:sidebar_rev, 0)
     |> assign(
       :expanded_folders,
-      load_user_expanded_folders(socket.assigns[:phoenix_kit_current_user])
+      if(socket.assigns.picker,
+        do: MapSet.new(),
+        else: load_user_expanded_folders(socket.assigns[:phoenix_kit_current_user])
+      )
     )
     |> assign(:renaming_folder, nil)
     |> assign(:renaming_source, nil)
@@ -1526,7 +2066,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:editing_folder_header, nil)
     |> assign(:folder_header_name, "")
     |> assign(:folder_header_description, "")
-    |> assign(:view_mode, load_user_view_mode(socket.assigns[:phoenix_kit_current_user]))
+    # A picker always shows the grid, whatever the user chose elsewhere.
+    |> assign(
+      :view_mode,
+      if(socket.assigns.picker,
+        do: "grid",
+        else: load_user_view_mode(socket.assigns[:phoenix_kit_current_user])
+      )
+    )
     # Toolbar sort + file-type filter (socket state, applied to the listing).
     |> assign(:sort_by, "newest")
     # `only_file_type` locks this to one kind for the whole session — see the
@@ -1594,15 +2141,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     else
       max_size_mb = max_upload_size_mb()
 
-      socket
-      |> assign(:max_upload_size_mb, max_size_mb)
-      |> allow_upload(:media_files,
+      upload_opts = [
         accept: :any,
         max_entries: 10,
         max_file_size: max_size_mb * 1_000_000,
         auto_upload: true,
         progress: &__MODULE__.parent_progress/3
-      )
+      ]
+
+      # Pickers upload through an upload of their own (`@picker_upload`): a
+      # page has one file input per upload, so a picker opened beside another
+      # browser would otherwise render a second input with the same id, show
+      # the other browser's transfers, and have its uploads copied there too.
+      socket
+      |> assign(:max_upload_size_mb, max_size_mb)
+      |> allow_upload(:media_files, upload_opts)
+      |> allow_upload(@picker_upload, upload_opts)
       |> attach_file_event_forwarding()
     end
   end
@@ -1622,10 +2176,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # however its entries were registered. The uploads live on the parent's
   # socket, so the cancel is the parent's (`:cancel_rejected_uploads`).
   defp harvest_rejected_uploads(socket) do
+    name = socket.assigns.upload_name
+
     case socket.assigns[:parent_uploads] do
       # A real upload config only: `upload_errors/1,2` read its internals,
       # and component tests hand down plain maps standing in for one.
-      %{media_files: %Phoenix.LiveView.UploadConfig{} = conf} ->
+      %{^name => %Phoenix.LiveView.UploadConfig{} = conf} ->
         seen = socket.assigns[:upload_rejected_refs] || MapSet.new()
 
         case Enum.reject(rejected_entries(conf), fn {e, _} -> MapSet.member?(seen, e.ref) end) do
@@ -1768,7 +2324,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   @doc false
   # Progress callback that runs on the parent LiveView socket.
   # Consumes the upload and sends the file to the MediaBrowser component for processing.
-  def parent_progress(:media_files, entry, socket) do
+  def parent_progress(name, entry, socket) when name in [:media_files, @picker_upload] do
     if entry.done? do
       # Persist file to a temp path since consume_uploaded_entry cleans up the original
       persistent_path = Path.join(System.tmp_dir!(), "pk_upload_#{entry.uuid}")
@@ -1817,10 +2373,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # received by the server, or rejected with a reason the panel shows. The
   # key is what the browser itself knows about a picked file.
   defp ack_received(socket, entries) do
-    push_event(socket, "phoenix_kit:upload-received", %{
-      keys: Enum.map(entries, &client_key/1)
-    })
+    push_event(
+      socket,
+      "phoenix_kit:upload-received",
+      Map.merge(resume_target(socket), %{keys: Enum.map(entries, &client_key/1)})
+    )
   end
+
+  # These events reach every UploadResume hook on the page. A picker names
+  # itself so that the hook of the browser beside it ignores them (and it
+  # ignores that browser's); any other browser sends them as it always did.
+  defp resume_target(socket),
+    do: if(socket.assigns[:picker] == true, do: %{browser: socket.assigns.id}, else: %{})
 
   @doc false
   def client_key(entry),
@@ -1858,10 +2422,64 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     end
   end
 
+  @doc """
+  Takes the browser `id` off the page's upload routing.
+
+  Every browser registers with its LiveView when it mounts, and the page sends
+  each finished upload — and a copy of it — to every browser registered. A
+  host that stops rendering a browser (a closed modal, a switched tab) calls
+  this, from the LiveView or from one of its LiveComponents (both run in the
+  LiveView's process), so nothing is routed to a browser that is gone. It
+  sends `{MediaBrowser, :unregister, id}` to the calling process, which
+  `handle_parent_info/2` handles. Rendering the browser again registers it
+  again — a new mount; a browser kept mounted (hidden) and unregistered is
+  not registered again, and its uploads go to the inbox. Unregister only a
+  browser you stop rendering.
+  """
+  @spec unregister_browser(String.t()) :: :ok
+  def unregister_browser(id) do
+    send(self(), {__MODULE__, :unregister, id})
+    :ok
+  end
+
   @doc "Catch-all handler for parent LiveViews to delegate MediaBrowser messages."
   def handle_parent_info({__MODULE__, :register_component, id}, socket) do
     ids = MapSet.put(socket.assigns[:media_browser_ids] || MapSet.new(), id)
     {:noreply, assign(socket, :media_browser_ids, ids)}
+  end
+
+  def handle_parent_info({__MODULE__, :register_picker, id}, socket) do
+    ids = MapSet.put(socket.assigns[:media_picker_ids] || MapSet.new(), id)
+    {:noreply, assign(socket, :media_picker_ids, ids)}
+  end
+
+  def handle_parent_info({__MODULE__, :unregister, id}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       :media_browser_ids,
+       MapSet.delete(socket.assigns[:media_browser_ids] || MapSet.new(), id)
+     )
+     |> assign(
+       :media_picker_ids,
+       MapSet.delete(socket.assigns[:media_picker_ids] || MapSet.new(), id)
+     )}
+  end
+
+  # A picker's report is the host's to handle, ahead of this delegate (see the
+  # moduledoc's "Picker"). One that ends up here was not handled: said in the
+  # log rather than dropped in silence.
+  def handle_parent_info({__MODULE__, id, payload}, socket)
+      when payload == :pick_cancelled or
+             (is_tuple(payload) and tuple_size(payload) == 2 and
+                elem(payload, 0) in [:picked, :picker_uploading]) do
+    Logger.warning(
+      "MediaBrowser id=#{id}: the host did not handle the picker's " <>
+        "#{inspect(if is_tuple(payload), do: elem(payload, 0), else: payload)} — match " <>
+        "{MediaBrowser, id, _} picker messages before handle_parent_info/2"
+    )
+
+    {:noreply, socket}
   end
 
   def handle_parent_info({__MODULE__, _id, {:flash, kind, message}}, socket)
@@ -1874,14 +2492,21 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     # the page, copy the temp file per recipient so each component owns its own
     # path — otherwise the first one to run would delete the shared file and the
     # rest would crash on `File.stat/1`.
+    # The picker upload's files go to the browsers on it, any other upload's
+    # to the other browsers (see `setup_uploads/1`). A retried or hand-built
+    # entry carries no upload name and goes to the other browsers, as every
+    # upload used to.
+    browsers = socket.assigns[:media_browser_ids] || MapSet.new()
+    pickers = socket.assigns[:media_picker_ids] || MapSet.new()
+
     component_ids =
-      socket.assigns[:media_browser_ids]
-      |> Kernel.||(MapSet.new())
-      |> MapSet.to_list()
+      if Map.get(entry, :upload_config) == @picker_upload,
+        do: browsers |> MapSet.intersection(pickers) |> MapSet.to_list(),
+        else: browsers |> MapSet.difference(pickers) |> MapSet.to_list()
 
     case component_ids do
       [] ->
-        drop_upload_bytes(path, UploadInbox.locate(path))
+        keep_unrouted_upload(path)
 
       [single] ->
         send_update(__MODULE__, id: single, pending_upload: {path, entry})
@@ -1907,17 +2532,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_parent_info({__MODULE__, :cancel_rejected_uploads, entries}, socket) do
     socket =
       Enum.reduce(entries, socket, fn entry, acc ->
-        open? =
-          match?(%{media_files: %{entries: list}} when is_list(list), acc.assigns[:uploads]) and
-            Enum.any?(acc.assigns.uploads.media_files.entries, &(&1.ref == entry.ref))
+        name = Map.get(entry, :upload_config) || :media_files
 
-        if open?, do: cancel_upload(acc, :media_files, entry.ref), else: acc
+        open? =
+          case acc.assigns[:uploads] do
+            %{^name => %{entries: list}} when is_list(list) ->
+              Enum.any?(list, &(&1.ref == entry.ref))
+
+            _ ->
+              false
+          end
+
+        if open?, do: cancel_upload(acc, name, entry.ref), else: acc
       end)
 
     {:noreply, ack_received(socket, entries)}
   end
 
   def handle_parent_info(_msg, socket), do: {:noreply, socket}
+
+  # No browser is registered to take the upload: the host took the last one
+  # off the page while the transfer ran. Deleting it lost the file without a
+  # word; kept in the inbox it is an upload problem the next browser lists,
+  # with Retry. A plain temp file (no user, no inbox) has nowhere to be
+  # listed, so it goes.
+  defp keep_unrouted_upload(path) do
+    case UploadInbox.locate(path) do
+      {user_uuid, id} ->
+        UploadInbox.fail(
+          user_uuid,
+          id,
+          gettext("No open media browser could receive this upload.")
+        )
+
+      nil ->
+        Logger.warning("MediaBrowser: no browser was registered to receive an upload")
+        File.rm(path)
+    end
+  end
 
   defp maybe_allow_upload(socket, has_buckets) do
     if has_buckets do
@@ -1971,7 +2623,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     retry_all_uploads retry_upload rotate_file save_folder_description
     save_folder_header box_select select_all set_featured set_header_size show_move_modal show_upload
     start_edit_folder_description start_edit_folder_header start_rename_folder
-    submit_new_folder toggle_header_option toggle_move_folder toggle_select
+    removal_confirm removal_release submit_new_folder toggle_header_option toggle_move_folder toggle_select
     toggle_select_folder toggle_select_mode toggle_upload trash_file trash_folder
     unset_featured
   )
@@ -1984,6 +2636,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # The actions that work on every file of the view at once.
   @every_file_events ~w(empty_trash delete_all_orphaned)
+
+  # The events the removal guard stands in front of: each can send a file to
+  # the trash or delete it (the drag onto the Trash button pushes
+  # `trash_file`, `trash_folder` or `delete_selected`). "Delete all orphaned"
+  # is not one of them: orphans are in no folder.
+  @removal_events ~w(trash_file delete_file delete_selected trash_folder delete_folder empty_trash)
 
   # The actions that carry every file homed under a folder with them: trash,
   # delete and move a folder. Renaming or recolouring one is shared folder
@@ -2000,6 +2658,65 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     toggle_header_option open_cover_picker open_logo_picker remove_folder_cover
     remove_folder_logo trash_folder delete_folder restore_folder
   )
+
+  # The folder writes `folder_actions: false` takes away (see the moduledoc's
+  # "Picker"): every folder edit, every move, folders in a selection, and the
+  # Trash view. Hidden in the markup and refused below, ahead of every other
+  # clause — the markup is a courtesy, a console can send any event.
+  @folder_action_events ~w(
+    open_new_folder_modal new_folder_input submit_new_folder
+    start_rename_folder rename_folder_input rename_folder change_folder_color
+    start_edit_folder_description folder_description_input save_folder_description
+    start_edit_folder_header folder_header_input save_folder_header set_header_size
+    toggle_header_option open_cover_picker open_logo_picker remove_folder_cover
+    remove_folder_logo trash_folder delete_folder restore_folder
+    move_folder_to_folder prepare_move_folder move_file_to_folder prepare_move_file
+    show_move_modal toggle_move_folder move_selected_to_folder toggle_select_folder
+    toggle_trash_filter empty_trash restore_file restore_selected
+  )
+
+  @doc false
+  def folder_action_events, do: @folder_action_events
+
+  # What a picker does not have: bulk select (its pick is an ordered list of
+  # its own) and the view switch (it always shows the grid).
+  @picker_off_events ~w(
+    toggle_select_mode long_press_select toggle_select toggle_select_folder
+    select_all box_select set_view_mode
+  )
+
+  @doc false
+  def picker_off_events, do: @picker_off_events
+
+  # What a picker does not do to the files it shows: they are someone's
+  # files, opened to be chosen from. Rotating, editing, the featured pointer
+  # and emptying the trash are refused; Download and Move to Trash stay.
+  # Deleting for good (the Trash view's Delete) is refused below.
+  @picker_file_write_events ~w(rotate_file open_image_editor set_featured unset_featured empty_trash)
+
+  @doc false
+  def picker_file_write_events, do: @picker_file_write_events
+
+  def handle_event(event, _params, socket)
+      when event in @folder_action_events and socket.assigns.folder_actions == false do
+    {:noreply, log_refused(socket, event, "folder actions are off")}
+  end
+
+  def handle_event(event, _params, socket)
+      when event in @picker_off_events and socket.assigns.picker == true do
+    {:noreply, log_refused(socket, event, "the browser is a picker")}
+  end
+
+  def handle_event(event, _params, socket)
+      when event in @picker_file_write_events and socket.assigns.picker == true do
+    {:noreply, log_refused(socket, event, "the browser is a picker")}
+  end
+
+  def handle_event(event, _params, socket)
+      when event in ~w(delete_file delete_folder delete_selected) and
+             socket.assigns.picker == true and socket.assigns.filter_trash == true do
+    {:noreply, log_refused(socket, event, "a picker deletes nothing for good")}
+  end
 
   # A restricted viewer (`viewer_uuid`) is shown only what is theirs, and this is
   # the boundary for what an event NAMES: any uuid can be sent from a console.
@@ -2080,9 +2797,73 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket = %{socket | private: Map.put(socket.private, :library_checked, true)}
 
       {:noreply, socket} = handle_event(event, params, socket)
-      {:noreply, unchecked(socket)}
+      # An event can end an upload's wait without the page rendering again
+      # (a Retry whose store failed empties the browser's own queue): the
+      # picker's report to its host follows it here, as it follows
+      # `update/2`. The page's transfers are read from its last render, so a
+      # cancelled transfer is seen on the next `update/2`, not here.
+      {:noreply, socket |> unchecked() |> sync_picker_uploading()}
     end
   end
+
+  # The removal guard (see the moduledoc's "Removal guard"). Every event that
+  # can make a file disappear is stopped here, AFTER the gates above (readonly
+  # is left to the handler, which refuses it; the viewer, own-files and
+  # library gates have run) and BEFORE its handler: the plan says which files
+  # would go, the module is asked where they are in use, and the dialog asks
+  # the person. The handler itself runs on the confirmation, through the
+  # gates again. With no guard, or nothing that disappears, it runs at once —
+  # as it always did.
+  def handle_event(event, params, socket)
+      when event in @removal_events and not is_map_key(socket.private, :removal_checked) do
+    run_removal(event, params, socket)
+  end
+
+  def handle_event("removal_confirm", _params, socket)
+      when socket.assigns.readonly == true do
+    {:noreply, log_readonly_blocked(socket, "removal_confirm")}
+  end
+
+  def handle_event("removal_release", _params, socket)
+      when socket.assigns.readonly == true do
+    {:noreply, log_readonly_blocked(socket, "removal_release")}
+  end
+
+  # Only the dialog this browser shows now: a click from a stale render, or an
+  # event made up in a console, names a token that is not the pending one.
+  def handle_event("removal_confirm", %{"token" => token}, socket) do
+    case socket.assigns[:removal_pending] do
+      %{token: ^token, event: event, params: params, failed?: false} = pending ->
+        socket
+        |> assign(:removal_pending, nil)
+        |> replay_removal(event, params, {:confirm, pending})
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("removal_release", %{"token" => token}, socket) do
+    case socket.assigns[:removal_pending] do
+      %{token: ^token, release_label: label} = pending when is_binary(label) ->
+        release_removal(socket, pending)
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("removal_cancel", %{"token" => token}, socket) do
+    case socket.assigns[:removal_pending] do
+      %{token: ^token} -> {:noreply, assign(socket, :removal_pending, nil)}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # No token, or not a map of params the dialog sends: nothing to answer.
+  def handle_event(event, _params, socket)
+      when event in ~w(removal_confirm removal_release removal_cancel),
+      do: {:noreply, socket}
 
   # Finder/Explorer-style instant folder creation. Click the "+" button
   # in any toolbar and a folder appears named "untitled" (or
@@ -2325,9 +3106,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
          put_flash(socket, :error, gettext("Cannot move file outside the allowed scope"))}
 
       true ->
+        result = Storage.remove_file_from_folder(file, viewed)
+
         {:noreply,
          socket
-         |> put_flash(:info, removal_flash(Storage.remove_file_from_folder(file, viewed)))
+         |> put_flash(:info, removal_flash(result))
+         |> unpick_removed(file_uuid, result)
          |> close_viewer_on(file_uuid)
          |> reload_current_page()}
     end
@@ -3025,12 +3809,97 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
      |> assign(:selected_files, MapSet.put(socket.assigns.selected_files, uuid))}
   end
 
+  # Without folder actions a folder is never selected (see `selectable_on_screen/1`).
+  def handle_event(
+        "long_press_select",
+        %{"type" => "folder"},
+        %{assigns: %{folder_actions: false}} = socket
+      ),
+      do: {:noreply, log_refused(socket, "long_press_select", "folder actions are off")}
+
   def handle_event("long_press_select", %{"type" => "folder", "uuid" => uuid}, socket) do
     {:noreply,
      socket
      |> assign(:select_mode, true)
      |> assign(:selected_folders, MapSet.put(socket.assigns.selected_folders, uuid))}
   end
+
+  # A picker's click picks (see `pick/2`) and opens nothing.
+  def handle_event(
+        "click_file",
+        %{"file-uuid" => file_uuid},
+        %{assigns: %{picker: true}} = socket
+      ) do
+    {:noreply, pick(socket, file_uuid)}
+  end
+
+  # A double click in a `:single` picker picks that file and confirms, file
+  # dialog style (MediaDragDrop sends it). A double click elsewhere is just
+  # two clicks.
+  def handle_event(
+        "pick_quick_confirm",
+        %{"file-uuid" => file_uuid},
+        %{assigns: %{picker: true, pick_mode: :single}} = socket
+      ) do
+    socket = pick(socket, file_uuid)
+
+    cond do
+      socket.assigns.picked != [file_uuid] -> {:noreply, socket}
+      picker_busy?(socket) -> {:noreply, log_refused(socket, "pick_quick_confirm", "uploading")}
+      true -> {:noreply, confirm_pick(socket)}
+    end
+  end
+
+  def handle_event("pick_quick_confirm", _params, socket), do: {:noreply, socket}
+
+  # Confirm and Cancel are disabled while an upload is on its way (see
+  # `upload_in_progress?/1`); refused here too.
+  def handle_event(event, _params, %{assigns: %{picker: true}} = socket)
+      when event in ~w(pick_confirm pick_cancel) do
+    cond do
+      picker_busy?(socket) -> {:noreply, log_refused(socket, event, "an upload is on its way")}
+      event == "pick_confirm" -> {:noreply, confirm_pick(socket)}
+      true -> {:noreply, report_once(socket, :pick_cancelled)}
+    end
+  end
+
+  def handle_event(event, _params, socket) when event in ~w(pick_confirm pick_cancel),
+    do: {:noreply, socket}
+
+  # A tile's eye (a picker's click picks, so its viewer opens from here). It
+  # opens the viewer on a file of the page and leaves the pick alone; prev /
+  # next step through the page it is on (`locate_file/2`).
+  def handle_event(
+        "view_file",
+        %{"file-uuid" => file_uuid},
+        %{assigns: %{picker: true}} = socket
+      ) do
+    case locate_file(socket, file_uuid) do
+      {file, siblings} -> {:noreply, open_viewer(socket, file, siblings) |> notify_viewer_nav()}
+      nil -> {:noreply, socket}
+    end
+  end
+
+  # Another browser has no eye: its click opens the viewer (or selects).
+  def handle_event("view_file", _params, socket),
+    do: {:noreply, log_refused(socket, "view_file", "the browser is not a picker")}
+
+  # The picker viewer's Select / Deselect for the file it shows: a picked
+  # file comes out of the pick (in `:single` too, which a tile's click never
+  # does), any other is picked as a click picks it, checked the same way.
+  def handle_event(
+        "viewer_pick",
+        %{"file-uuid" => file_uuid},
+        %{assigns: %{picker: true}} = socket
+      ) do
+    if file_uuid in socket.assigns.picked do
+      {:noreply, put_pick(socket, List.delete(socket.assigns.picked, file_uuid))}
+    else
+      {:noreply, pick(socket, file_uuid)}
+    end
+  end
+
+  def handle_event("viewer_pick", _params, socket), do: {:noreply, socket}
 
   # In selection mode, clicks toggle the file in/out and stay in selection
   # mode (the toolbar's "Select" button is how callers reach bulk-select).
@@ -3366,7 +4235,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # belt-and-braces guard: only files actually in the trash may be
       # destroyed, no matter how a uuid ended up in the selection.
       Enum.each(files, fn file ->
-        if file.status == "trashed" && Storage.within_scope?(file.folder_uuid, scope) do
+        if file.status == "trashed" && Storage.within_scope?(file.folder_uuid, scope) &&
+             file.uuid not in removal_except(socket) &&
+             (is_nil(removal_only(socket)) or file.uuid in removal_only(socket)) do
           Storage.delete_file_completely(file)
         end
       end)
@@ -3390,10 +4261,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     file_count = length(files)
     folder_count = length(folders)
 
+    count = file_count + folder_count
+
     flash =
       if socket.assigns.filter_trash,
-        do: "#{file_count + folder_count} item(s) permanently deleted",
-        else: "#{file_count + folder_count} item(s) moved to trash"
+        do:
+          ngettext(
+            "%{count} item permanently deleted",
+            "%{count} items permanently deleted",
+            count
+          ),
+        else: ngettext("%{count} item moved to trash", "%{count} items moved to trash", count)
 
     {:noreply,
      socket
@@ -3494,19 +4372,24 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # destroying the record and its bytes reaches every folder holding
       # the file, so appearing here (a link from outside) is not enough. A
       # linked file in this folder's trash is unlinked instead.
-      flash =
-        if file.status == "trashed" and Storage.within_scope?(file.folder_uuid, scope) do
-          Storage.delete_file_completely(file)
-          gettext("File permanently deleted")
-        else
-          removal_flash(Storage.remove_file_from_folder(file, viewed))
-        end
+      cond do
+        # A picker deletes nothing for good, from whatever view: the
+        # permanent branch below is chosen by the row, not by the view.
+        socket.assigns[:picker] == true and file.status == "trashed" ->
+          {:noreply, log_refused(socket, "delete_file", "a picker deletes nothing for good")}
 
-      {:noreply,
-       socket
-       |> put_flash(:info, flash)
-       |> close_viewer_on(file_uuid)
-       |> reload_current_page()}
+        file.status == "trashed" and Storage.within_scope?(file.folder_uuid, scope) ->
+          Storage.delete_file_completely(file)
+          {:noreply, removed(socket, file_uuid, gettext("File permanently deleted"))}
+
+        true ->
+          result = Storage.remove_file_from_folder(file, viewed)
+
+          {:noreply,
+           socket
+           |> unpick_removed(file_uuid, result)
+           |> removed(file_uuid, removal_flash(result))}
+      end
     else
       # Nothing in this browser shows that file: a stale row, a uuid from
       # another listing, a forged one. Refusing is right; refusing in
@@ -3717,11 +4600,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_event("empty_trash", _params, socket) do
     # Scoped to the folder you're viewing the Trash of — emptying a folder's
     # trash must not purge sibling roots' trashed files.
-    {:ok, count} = Storage.empty_trash(trash_scope(socket), lib_opts(socket))
+    {:ok, count} =
+      Storage.empty_trash(trash_scope(socket), [
+        {:except, removal_except(socket)} | [{:only, removal_only(socket)} | lib_opts(socket)]
+      ])
 
     {:noreply,
      socket
-     |> assign(:filter_trash, false)
+     # What the removal guard kept stays in the trash, and in view.
+     |> assign(:filter_trash, removal_except(socket) != [])
      |> put_flash(
        :info,
        ngettext("%{count} file permanently deleted", "%{count} files permanently deleted", count)
@@ -3903,7 +4790,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def handle_event("upload_resume_available", _params, socket), do: {:noreply, socket}
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :media_files, ref)}
+    {:noreply, cancel_upload(socket, socket.assigns.upload_name, ref)}
   end
 
   def handle_event("set_page", %{"page" => page_str}, socket) do
@@ -3970,8 +4857,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     files =
       MapSet.new(Enum.map(socket.assigns.uploaded_files, & &1.file_uuid) ++ stack_file_uuids)
 
-    folders = MapSet.new(socket.assigns.folders, & &1.uuid)
-    {files, folders}
+    # Without folder actions a folder is never in a selection: every bulk
+    # action on one (move, trash, delete) is a folder action.
+    folders =
+      if socket.assigns.folder_actions,
+        do: socket.assigns.folders,
+        else: []
+
+    {files, MapSet.new(folders, & &1.uuid)}
   end
 
   defp box_uuids(list, allowed) when is_list(list) do
@@ -4393,6 +5286,415 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     end
   end
 
+  # `delete_file` done: say so, close the viewer on the file, reload.
+  defp removed(socket, file_uuid, flash) do
+    socket
+    |> put_flash(:info, flash)
+    |> close_viewer_on(file_uuid)
+    |> reload_current_page()
+  end
+
+  # A file removed here (trashed, or taken out of this folder) leaves a
+  # picker's pick at once — the trash broadcast that also drops it does not
+  # come for a file only unlinked or rehomed.
+  defp unpick_removed(socket, file_uuid, {:ok, _how, _file}) do
+    picked = socket.assigns[:picked] || []
+    if file_uuid in picked, do: put_pick(socket, List.delete(picked, file_uuid)), else: socket
+  end
+
+  defp unpick_removed(socket, _file_uuid, _result), do: socket
+
+  # ── Removal guard ────────────────────────────────────────────────────
+  #
+  # `mode` is where the event came from: `:fresh` (a click), `{:confirm,
+  # pending}` (the person confirmed the dialog) or `{:reask, pending}` (the
+  # guard released the files). Only a confirmation removes anything after the
+  # dialog was shown, and only what the dialog showed.
+
+  defp run_removal(event, params, socket) do
+    mode = Map.get(socket.private, :removal_mode, :fresh)
+    module = Removal.guard(socket.assigns)
+
+    if is_nil(module) or socket.assigns.readonly == true do
+      removal_pass(event, params, socket, [])
+    else
+      case removal_analysis(event, params, socket) do
+        :pass when mode == :fresh ->
+          removal_pass(event, params, socket, [])
+
+        :pass ->
+          {:noreply, put_flash(socket, :info, gettext("There is nothing left to remove."))}
+
+        analysis ->
+          removal_decide(module, event, params, socket, analysis, mode)
+      end
+    end
+  end
+
+  # Runs the handler. `except` are files it must leave alone (kept by the guard).
+  defp removal_pass(event, params, socket, except, only \\ nil) do
+    private =
+      socket.private
+      |> Map.put(:removal_checked, true)
+      |> Map.put(:removal_except, except)
+      |> Map.put(:removal_only, only)
+
+    {:noreply, socket} = handle_event(event, params, %{socket | private: private})
+
+    {:noreply,
+     %{
+       socket
+       | private: Map.drop(socket.private, [:removal_checked, :removal_except, :removal_only])
+     }}
+  end
+
+  defp removal_except(socket), do: Map.get(socket.private, :removal_except, [])
+
+  # The files the dialog showed as free, when the action skips what is in use:
+  # the handler deletes exactly these, not whatever it finds now.
+  defp removal_only(socket), do: Map.get(socket.private, :removal_only)
+
+  # The person's click on the dialog runs the event again, so every gate of
+  # `handle_event/3` — viewer, own files, library — judges it once more.
+  #
+  # The confirmation itself passed those gates, and their markers ride in
+  # `private`; they are taken off so that the replay is judged afresh, against
+  # the rows as they are now.
+  defp replay_removal(socket, event, params, mode) do
+    private =
+      socket.private
+      |> Map.drop([:viewer_checked, :own_files_checked, :library_checked])
+      |> Map.put(:removal_mode, mode)
+
+    socket = %{socket | private: private}
+    {:noreply, socket} = handle_event(event, params, socket)
+    {:noreply, %{socket | private: Map.delete(socket.private, :removal_mode)}}
+  end
+
+  defp release_removal(socket, pending) do
+    module = Removal.guard(socket.assigns)
+    ctx = Removal.ctx(socket.assigns, pending.action, pending.folder_uuid)
+    held = pending.places |> Enum.map(& &1.file_uuid) |> Enum.uniq()
+
+    result = if module, do: Removal.release(module, held, ctx), else: {:error, nil}
+
+    case result do
+      :ok ->
+        socket
+        |> assign(:removal_pending, nil)
+        |> replay_removal(pending.event, pending.params, {:reask, pending})
+
+      {:error, message} ->
+        {:noreply, assign(socket, :removal_pending, %{pending | error: message || :generic})}
+    end
+  end
+
+  defp removal_decide(module, event, params, socket, analysis, mode) do
+    ctx = Removal.ctx(socket.assigns, analysis.action, analysis.folder_uuid)
+
+    case removal_places(module, analysis.files, ctx) do
+      :error ->
+        {:noreply, assign(socket, :removal_pending, removal_failed(analysis))}
+
+      {:ok, places} ->
+        held = places |> Enum.map(& &1.file_uuid) |> Enum.uniq()
+        free = analysis.files -- held
+        shown = shown_removal(mode)
+
+        if removal_confirmed?(mode, analysis, free, held) do
+          removal_execute(event, params, socket, analysis, free, held)
+        else
+          error =
+            if shown && not same_files?(shown, analysis, free),
+              do: gettext("The files changed. Check the list and confirm again.")
+
+          pending =
+            removal_pending(module, ctx, socket, analysis, {event, params}, %{
+              places: places,
+              free: free,
+              held: held,
+              error: error
+            })
+
+          {:noreply, assign(socket, :removal_pending, pending)}
+        end
+    end
+  end
+
+  defp removal_places(_module, [], _ctx), do: {:ok, []}
+  defp removal_places(module, files, ctx), do: Removal.places(module, files, ctx)
+
+  defp shown_removal({:confirm, pending}), do: pending
+  defp shown_removal({:reask, _pending}), do: nil
+  defp shown_removal(:fresh), do: nil
+
+  # The same plan the dialog showed, and still removable: all of it, or — for
+  # the actions that skip what is in use — what was free.
+  defp removal_confirmed?({:confirm, pending}, analysis, free, held) do
+    same_files?(pending, analysis, free) and (free != [] or analysis.folders > 0) and
+      (held == [] or analysis.skip?)
+  end
+
+  defp removal_confirmed?(_mode, _analysis, _free, _held), do: false
+
+  defp same_files?(pending, analysis, free),
+    do:
+      Enum.sort(pending.files) == Enum.sort(analysis.files) and
+        Enum.sort(pending.free) == Enum.sort(free)
+
+  defp removal_execute(event, params, socket, analysis, free, held) do
+    only = if analysis.skip?, do: free
+
+    {:noreply, socket} = removal_pass(event, params, socket, held, only)
+
+    if held == [] do
+      {:noreply, socket}
+    else
+      # What is left of the free files was not deleted (a refusal, a race):
+      # the summary counts the fact, not the plan.
+      left = count_files(free)
+
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         gettext("%{deleted} deleted, %{kept} kept: in use",
+           deleted: length(free) - left,
+           kept: length(held) + left
+         )
+       )}
+    end
+  end
+
+  defp count_files([]), do: 0
+
+  defp count_files(uuids) do
+    PhoenixKit.Config.get_repo().aggregate(
+      from(f in Storage.File, where: f.uuid in ^uuids),
+      :count,
+      :uuid
+    )
+  end
+
+  @removal_names_shown 8
+  @removal_names_held 50
+
+  defp removal_pending(module, ctx, socket, analysis, {event, params}, found) do
+    %{places: places, free: free, held: held, error: error} = found
+    free_shown = Enum.take(free, @removal_names_shown)
+    names = removal_names(socket, Enum.take(held, @removal_names_held) ++ free_shown)
+
+    free_names = for uuid <- free_shown, name = names[uuid], do: name
+
+    %{
+      token: Base.url_encode64(:crypto.strong_rand_bytes(9), padding: false),
+      failed?: false,
+      event: event,
+      params: params,
+      action: analysis.action,
+      folder_uuid: analysis.folder_uuid,
+      kind: analysis.kind,
+      skip?: analysis.skip?,
+      folders: analysis.folders,
+      files: analysis.files,
+      free: free,
+      places: places,
+      names: names,
+      free_names: free_names,
+      free_hidden: length(free) - length(free_names),
+      release_label: if(held != [], do: Removal.release_label(module, ctx)),
+      error: error
+    }
+  end
+
+  defp removal_failed(analysis) do
+    %{
+      token: Base.url_encode64(:crypto.strong_rand_bytes(9), padding: false),
+      failed?: true,
+      kind: analysis.kind,
+      folders: analysis.folders,
+      files: analysis.files,
+      free: [],
+      places: [],
+      names: %{},
+      free_names: [],
+      free_hidden: 0,
+      release_label: nil,
+      error: nil
+    }
+  end
+
+  # File names for the dialog, of the files this browser shows only.
+  defp removal_names(_socket, []), do: %{}
+
+  defp removal_names(socket, uuids) do
+    uuids
+    |> load_by_uuid(Storage.File)
+    |> shown_only(socket)
+    |> Map.new(&{&1.uuid, &1.original_file_name || &1.file_name})
+  end
+
+  # What an event would remove, from the same readings its handler acts on
+  # (`Storage.removal_plan/2`). `:pass` when no file disappears, or when the
+  # event names nothing this browser can act on (no such file or folder, out
+  # of scope, a picker's delete for good). It does not judge everything the
+  # handler might still refuse (a managed folder, say): the dialog may be
+  # drawn first, and the replay refuses.
+  defp removal_analysis("trash_file", %{"file_uuid" => file_uuid}, socket)
+       when is_binary(file_uuid) do
+    scope = scope_folder_id(socket)
+    file = PhoenixKit.Config.get_repo().get(Storage.File, file_uuid)
+    viewed = file && appearance_folder(socket, file)
+
+    if file && removable_here?(file, viewed, scope),
+      do:
+        removal_analysis_of(
+          :trash_file,
+          :trash,
+          Storage.removal_plan(:remove_file, {file, viewed}),
+          viewed
+        ),
+      else: :pass
+  end
+
+  defp removal_analysis("delete_file", %{"file-uuid" => file_uuid}, socket)
+       when is_binary(file_uuid) do
+    scope = scope_folder_id(socket)
+    file = PhoenixKit.Config.get_repo().get(Storage.File, file_uuid)
+    viewed = file && appearance_folder(socket, file)
+
+    cond do
+      is_nil(file) or not removable_here?(file, viewed, scope) ->
+        :pass
+
+      # The handler refuses a picker's delete for good.
+      socket.assigns[:picker] == true and file.status == "trashed" ->
+        :pass
+
+      file.status == "trashed" and Storage.within_scope?(file.folder_uuid, scope) ->
+        removal_analysis_of(
+          :delete_file,
+          :delete,
+          Storage.removal_plan(:delete_files, [file]),
+          viewed
+        )
+
+      true ->
+        removal_analysis_of(
+          :delete_file,
+          :trash,
+          Storage.removal_plan(:remove_file, {file, viewed}),
+          viewed
+        )
+    end
+  end
+
+  defp removal_analysis("trash_folder", %{"folder_uuid" => folder_uuid}, socket)
+       when is_binary(folder_uuid) do
+    folder_removal_analysis(:trash_folder, :trash_folder, :trash, folder_uuid, socket)
+  end
+
+  defp removal_analysis("delete_folder", %{"id" => folder_uuid}, socket)
+       when is_binary(folder_uuid) do
+    if socket.assigns[:filter_trash],
+      do: folder_removal_analysis(:delete_folder, :delete_folder, :delete, folder_uuid, socket),
+      else: folder_removal_analysis(:delete_folder, :trash_folder, :trash, folder_uuid, socket)
+  end
+
+  defp removal_analysis("delete_selected", _params, socket) do
+    scope = scope_folder_id(socket)
+    {files, folders} = shown_selection(socket)
+    folders = folders_in_scope(folders, scope)
+    trash? = socket.assigns[:filter_trash] == true
+
+    file_plan =
+      if trash? do
+        files
+        |> Enum.filter(&(&1.status == "trashed" and Storage.within_scope?(&1.folder_uuid, scope)))
+        |> then(&Storage.removal_plan(:delete_files, &1))
+      else
+        files
+        |> Enum.filter(&removable_here?(&1, appearance_folder(socket, &1), scope))
+        |> Enum.map(&Storage.removal_plan(:remove_file, {&1, appearance_folder(socket, &1)}))
+        |> merge_removal_plans()
+      end
+
+    folder_action = if trash?, do: :delete_folder, else: :trash_folder
+
+    plan =
+      merge_removal_plans([
+        file_plan | Enum.map(folders, &Storage.removal_plan(folder_action, &1))
+      ])
+
+    removal_analysis_of(
+      :delete_selected,
+      if(trash?, do: :delete, else: :trash),
+      plan,
+      current_folder_uuid(socket),
+      skip?: trash? and folders == [],
+      folders: length(folders)
+    )
+  end
+
+  defp removal_analysis("empty_trash", _params, socket) do
+    trashed =
+      Storage.list_trashed_files(
+        trash_scope(socket),
+        Keyword.take(lib_opts(socket), [:library_uuid, :viewer_uuid])
+      )
+
+    removal_analysis_of(
+      :empty_trash,
+      :delete,
+      Storage.removal_plan(:delete_files, trashed),
+      current_folder_uuid(socket),
+      skip?: true
+    )
+  end
+
+  defp removal_analysis(_event, _params, _socket), do: :pass
+
+  defp folder_removal_analysis(action, plan_action, kind, folder_uuid, socket) do
+    folder = Storage.get_folder(folder_uuid)
+
+    if folder && Storage.within_scope?(folder.uuid, scope_folder_id(socket)),
+      do:
+        removal_analysis_of(action, kind, Storage.removal_plan(plan_action, folder), folder.uuid,
+          folders: 1
+        ),
+      else: :pass
+  end
+
+  # Only `trash` and `delete` make a file disappear: a plan with neither needs
+  # no guard. A folder removed has always been confirmed, though, so an action
+  # on folders asks even when no file goes with them.
+  defp removal_analysis_of(action, kind, plan, folder_uuid, opts \\ []) do
+    files = Enum.uniq(plan.trash ++ plan.delete)
+    folders = Keyword.get(opts, :folders, 0)
+
+    if files == [] and folders == 0 do
+      :pass
+    else
+      %{
+        action: action,
+        kind: kind,
+        files: files,
+        folders: folders,
+        folder_uuid: folder_uuid,
+        skip?: Keyword.get(opts, :skip?, false)
+      }
+    end
+  end
+
+  defp merge_removal_plans(plans) do
+    Enum.reduce(plans, %{trash: [], delete: [], rehome: [], unlink: []}, fn plan, acc ->
+      Map.merge(acc, plan, fn _key, a, b -> a ++ b end)
+    end)
+  end
+
+  defp assign_removal_guarded(socket),
+    do: assign(socket, :removal_guarded, not is_nil(Removal.guard(socket.assigns)))
+
   defp removal_flash({:ok, :trashed, _}), do: gettext("File moved to trash")
   defp removal_flash({:ok, _unlinked_or_rehomed, _}), do: gettext("File removed from this folder")
   defp removal_flash(_), do: gettext("Failed to move file")
@@ -4655,6 +5957,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # custom_fields map (no server-side merge) — using the in-socket copy would
   # clobber any custom_fields key written elsewhere since this socket loaded
   # (e.g. notification preferences saved on the settings page in another tab).
+  defp persist_tree_state(%{assigns: %{picker: true}} = socket), do: socket
+
   defp persist_tree_state(socket) do
     case socket.assigns[:phoenix_kit_current_user] do
       %{uuid: uuid} = user when is_binary(uuid) ->
@@ -5330,8 +6634,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         PhoenixKit.Config.get_repo().all(from(r in schema, where: r.uuid in ^Enum.to_list(uuids)))
   end
 
+  # The folders of a selection a removal reaches: the ones in the browser's
+  # scope. The analysis and the handler read the same set.
+  defp folders_in_scope(folders, scope),
+    do: Enum.filter(folders, &Storage.within_scope?(&1.uuid, scope))
+
   defp delete_selected_folders(socket, folders, scope) do
-    Enum.each(folders, fn folder ->
+    folders
+    |> folders_in_scope(scope)
+    |> Enum.each(fn folder ->
       if socket.assigns.filter_trash,
         do: Storage.delete_folder_completely(folder, scope),
         else: Storage.trash_folder(folder, scope)
@@ -5497,6 +6808,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   defp param_uuids(_value, acc), do: acc
+
+  defp log_refused(socket, event, why) do
+    Logger.warning("MediaBrowser id=#{socket.assigns.id}: #{event} refused — #{why}")
+    socket
+  end
 
   defp log_readonly_blocked(socket, event) do
     Logger.warning(

@@ -14,7 +14,7 @@
       <div class="modal modal-open">
         <div class="modal-box max-w-2xl">
           <h3 class="font-bold text-xl mb-4">
-            Manage Roles for {@managing_user.email}
+            Manage Roles for {User.delivery_email(@managing_user)}
           </h3>
 
           <form phx-submit="sync_user_roles" class="space-y-4">
@@ -105,7 +105,7 @@
         view_mode={@view_mode}
         view_event="set_view_mode"
         items={@users}
-        card_title={fn user -> user.email end}
+        card_title={fn user -> User.delivery_email(user) end}
         card_fields={
           fn user ->
             build_card_fields(
@@ -408,12 +408,19 @@
             <.user_avatar user={user} size="sm" />
             <div class="flex flex-col gap-0.5 min-w-0">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="font-medium text-sm truncate min-w-0">{user.email}</span>
+                <span class="font-medium text-sm truncate min-w-0">{User.delivery_email(user)}</span>
+                <span
+                  :if={user.managed_by_members}
+                  class="badge badge-secondary badge-xs shrink-0"
+                >{gettext("Managed organization")}</span>
                 <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                   <span class="badge badge-info badge-xs h-auto shrink-0">{gettext("you")}</span>
                 <% end %>
               </div>
-              <% full_name = User.full_name(user) %>
+              <% full_name =
+                if user.managed_by_members,
+                  do: User.display_name(user),
+                  else: User.full_name(user) %>
               <%= if full_name && full_name != "" do %>
                 <span class="text-sm text-base-content/60 truncate">{full_name}</span>
               <% end %>
@@ -488,7 +495,7 @@
                       <.row_link
                         :if={column_id == link_column}
                         navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")}
-                        label={user.email}
+                        label={User.delivery_email(user)}
                       />
                       <%= cond do %>
                         <% column_id == "email" -> %>
@@ -503,10 +510,14 @@
                               <div class="flex items-center gap-2 min-w-0">
                                 <span
                                   class="font-medium link link-hover truncate min-w-0"
-                                  title={user.email}
+                                  title={User.delivery_email(user)}
                                 >
-                                  {user.email}
+                                  {User.delivery_email(user)}
                                 </span>
+                                <span
+                                  :if={user.managed_by_members}
+                                  class="badge badge-secondary badge-xs shrink-0"
+                                >{gettext("Managed organization")}</span>
                                 <%= if user.uuid == @phoenix_kit_current_user.uuid do %>
                                   <span class="badge badge-info badge-xs h-auto shrink-0">
                                     {gettext("you")}
@@ -701,7 +712,9 @@
                                 )
                               }
                               method="post"
-                              data-confirm={gettext("Sign in as %{email}?", email: user.email)}
+                              data-confirm={
+                                gettext("Sign in as %{email}?", email: User.delivery_email(user))
+                              }
                               icon="hero-arrow-right-end-on-rectangle"
                               label={gettext("Sign in as user")}
                               variant="warning"
@@ -740,6 +753,7 @@
                                     `require_email_confirmation`. --%>
                               <%= if Auth.can_manage_user_status?(user, @actor_with_roles) do %>
                                 <.table_row_menu_button
+                                  :if={not user.managed_by_members}
                                   phx-click="request_confirmation_toggle"
                                   phx-value-user_uuid={user.uuid}
                                   phx-value-is_confirmed={to_string(!!user.confirmed_at)}
@@ -809,7 +823,7 @@
               :if={user.uuid in @impersonable_uuids}
               href={PhoenixKit.Utils.Routes.path("/users/session/impersonate/#{user.uuid}")}
               method="post"
-              data-confirm={gettext("Sign in as %{email}?", email: user.email)}
+              data-confirm={gettext("Sign in as %{email}?", email: User.delivery_email(user))}
               icon="hero-arrow-right-end-on-rectangle"
               label={gettext("Sign in as user")}
               variant="warning"
@@ -838,6 +852,7 @@
                     switch as much as for the status one. --%>
               <%= if Auth.can_manage_user_status?(user, @actor_with_roles) do %>
                 <.table_row_menu_button
+                  :if={not user.managed_by_members}
                   phx-click="request_confirmation_toggle"
                   phx-value-user_uuid={user.uuid}
                   phx-value-is_confirmed={to_string(!!user.confirmed_at)}

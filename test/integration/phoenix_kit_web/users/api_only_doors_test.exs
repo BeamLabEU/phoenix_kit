@@ -360,7 +360,8 @@ defmodule PhoenixKitWeb.Users.ApiOnlyDoorsTest do
     defp approved_login_token(user) do
       {:ok, %{token: request}} = QrLogin.create_request()
       :ok = QrLogin.subscribe(request)
-      :ok = QrLogin.approve(request, user.uuid)
+      # Simulate an approval minted before the account became API-only.
+      :ok = Keyfob.approve(request, user.uuid, QrLogin.keyfob_opts())
       assert_receive {:keyfob, ^request, {:approved, login_token}}
       login_token
     end

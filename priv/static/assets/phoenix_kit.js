@@ -4521,6 +4521,7 @@
     "ViewerHiresLoading",
     "UploadResume",
     "FolderDropUpload",
+    "RemovalModal",
     "StackMemory",
     "StackExpand",
     "WaveformPlayer",

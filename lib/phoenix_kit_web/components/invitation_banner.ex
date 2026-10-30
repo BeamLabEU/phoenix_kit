@@ -41,7 +41,9 @@ defmodule PhoenixKitWeb.Components.InvitationBanner do
       <div class="flex w-full items-center justify-between gap-4 flex-wrap">
         <span class="text-sm">
           <strong>{@invitation.organization.organization_name}</strong>
-          {" "}{gettext("invited you to join their organization.")}
+          {" "}{if @invitation.kind == :manager,
+            do: gettext("invited you to manage their organization."),
+            else: gettext("invited you to join their organization.")}
         </span>
         <div class="flex gap-2 shrink-0">
           <button

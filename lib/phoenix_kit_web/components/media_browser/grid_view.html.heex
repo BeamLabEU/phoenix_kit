@@ -9,27 +9,29 @@
   data-media-grid
   class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3 [transform:translateZ(0)]"
 >
-  <%!-- Folders --%>
+  <%!-- Folders. Without folder actions a folder is neither a drop target nor
+       selectable (every bulk action on one is a folder action). --%>
+  <% select_folders = @select_mode and @folder_actions %>
   <%= for folder <- if(@file_view == "all", do: [], else: @folders) do %>
     <div
-      data-drop-folder={if not @readonly, do: folder.uuid}
+      data-drop-folder={if not @readonly and @folder_actions, do: folder.uuid}
       data-drop-color={drop_outline_color(folder.color)}
-      data-draggable-folder={if not @readonly, do: folder.uuid}
+      data-draggable-folder={if @drag, do: folder.uuid}
       data-selected={
-        if @select_mode && MapSet.member?(@selected_folders, folder.uuid),
+        if select_folders && MapSet.member?(@selected_folders, folder.uuid),
           do: "true"
       }
       class={[
         "group relative flex flex-col items-center justify-center aspect-square bg-base-200 rounded-lg cursor-pointer hover:bg-base-300 hover:shadow-lg transition-colors",
-        @select_mode && MapSet.member?(@selected_folders, folder.uuid) &&
+        select_folders && MapSet.member?(@selected_folders, folder.uuid) &&
           "ring-2 ring-primary !bg-primary/20"
       ]}
       style={folder_bg_style(folder.color)}
-      phx-click={if @select_mode, do: "toggle_select_folder"}
+      phx-click={if select_folders, do: "toggle_select_folder"}
       phx-target={@myself}
-      phx-value-folder-uuid={if @select_mode, do: folder.uuid}
+      phx-value-folder-uuid={if select_folders, do: folder.uuid}
     >
-      <%= if @select_mode do %>
+      <%= if select_folders do %>
         <label class="absolute top-1 left-1 z-10 cursor-pointer">
           <input
             type="checkbox"
@@ -138,8 +140,8 @@
             <% end %>
           </button>
           <.table_row_menu
-            :if={not @readonly}
-            id={"folder-kebab-grid-#{folder.uuid}"}
+            :if={not @readonly and @folder_actions}
+            id={dom_id(%{picker: @picker, id: @id}, "folder-kebab-grid-#{folder.uuid}")}
             class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100"
           >
             <.table_row_menu_button
@@ -208,20 +210,25 @@
               label={gettext("Move")}
             />
             <.table_row_menu_button
+              :if={not (@picker and @filter_trash)}
               phx-click="delete_folder"
               phx-target={@myself}
               phx-value-id={folder.uuid}
               data-confirm={
-                if @filter_trash,
-                  do:
-                    gettext(
-                      "Permanently delete '%{name}' and all its contents? This cannot be undone.",
-                      name: folder.name
-                    ),
-                  else:
-                    gettext("Move '%{name}' and all its contents to trash?",
-                      name: folder.name
-                    )
+                client_confirm(
+                  @removal_guarded,
+                  if(@filter_trash,
+                    do:
+                      gettext(
+                        "Permanently delete '%{name}' and all its contents? This cannot be undone.",
+                        name: folder.name
+                      ),
+                    else:
+                      gettext("Move '%{name}' and all its contents to trash?",
+                        name: folder.name
+                      )
+                  )
+                )
               }
               icon="hero-trash"
               label={gettext("Delete")}
@@ -231,17 +238,24 @@
       <% end %>
     </div>
   <% end %>
-  <%!-- Files --%>
+  <%!-- Files. In a picker a click picks (`click_file`); a picked file is
+       ringed and numbered in the order it was picked, and the card is not
+       draggable (no long press, Shift-click or box select either). Without
+       folder actions the card stays draggable — the selection gestures ride
+       on that — but no folder, tree node or Trash takes a move (the content
+       area stays a drop target for uploads; the server refuses a move). --%>
   <%= for file <- @uploaded_files do %>
+    <% pick_order = @picker && pick_position(@picked, file.file_uuid) %>
     <div
-      data-draggable-file={if not @readonly, do: file.file_uuid}
+      data-draggable-file={if not @readonly and not @picker, do: file.file_uuid}
       data-selected={
         if @select_mode && MapSet.member?(@selected_files, file.file_uuid),
           do: "true"
       }
+      data-pick-order={pick_order}
       class={[
         "group relative aspect-square bg-base-300 rounded-lg overflow-hidden hover:shadow-lg transition-shadow",
-        @select_mode && MapSet.member?(@selected_files, file.file_uuid) &&
+        ((@select_mode && MapSet.member?(@selected_files, file.file_uuid)) || pick_order) &&
           "ring-2 ring-primary"
       ]}
     >
@@ -317,6 +331,17 @@
           </div>
         <% end %>
 
+        <div
+          :if={pick_order}
+          class="absolute bottom-2 left-2 min-w-6 h-6 px-1.5 flex items-center justify-center rounded-full bg-primary text-primary-content text-xs font-bold shadow pointer-events-none"
+        >
+          <%= if @pick_mode == :single do %>
+            <.icon name="hero-check" class="w-4 h-4" />
+          <% else %>
+            {pick_order}
+          <% end %>
+        </div>
+
         <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none flex items-center gap-1">
           <%!-- A panorama (2:1 or wider), as Apple Photos marks one. --%>
           <span
@@ -333,10 +358,26 @@
       <.featured_badge
         file={file}
         featured={@featured}
-        interactive={not @readonly and not @select_mode and not @filter_trash}
+        interactive={not @readonly and not @select_mode and not @filter_trash and not @picker}
         select_mode={@select_mode}
         myself={@myself}
       />
+      <%!-- A picker's click picks, so its viewer opens from the eye. A
+           sibling of the click target, as the kebab is: its click must not
+           pick, and a double click on it must not confirm. Always shown on
+           a touch screen, which has no hover to reveal it. --%>
+      <button
+        :if={@picker}
+        type="button"
+        phx-click="view_file"
+        phx-target={@myself}
+        phx-value-file-uuid={file.file_uuid}
+        class="btn btn-xs btn-ghost btn-circle !absolute top-1 right-8 !bg-black/40 hover:!bg-black/60 !text-white !border-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+        title={gettext("View")}
+        aria-label={gettext("View")}
+      >
+        <.icon name="hero-eye" class="w-4 h-4" />
+      </button>
       <%!--
       Per-file kebab menu. Sibling of the click target so
       its buttons don't fire `click_file`. Mirrors the
@@ -346,7 +387,7 @@
     --%>
       <%= unless @select_mode do %>
         <.table_row_menu
-          id={"file-kebab-grid-#{file.file_uuid}"}
+          id={dom_id(%{picker: @picker, id: @id}, "file-kebab-grid-#{file.file_uuid}")}
           class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100"
           trigger_class="!bg-black/40 hover:!bg-black/60 !text-white !border-0"
         >
@@ -366,7 +407,7 @@
                 button; the thumbnail reorients live. --%>
           <.table_row_menu_button
             :if={
-              not @readonly and file.file_type == "image" and
+              not @readonly and not @picker and file.file_type == "image" and
                 not @filter_trash and
                 ImageEditing.editable_mime?(file.mime_type)
             }
@@ -380,7 +421,7 @@
                 entirely when the host didn't opt in. --%>
           <.table_row_menu_button
             :if={
-              (not @readonly and @featured) && file.file_type == "image" &&
+              (not @readonly and not @picker and @featured) && file.file_type == "image" &&
                 !@filter_trash
             }
             phx-click={
@@ -402,7 +443,7 @@
             }
           />
           <.table_row_menu_button
-            :if={not @readonly and file.file_type == "image"}
+            :if={not @readonly and not @picker and file.file_type == "image"}
             phx-click="rotate_file"
             phx-target={@myself}
             phx-value-file-uuid={file.file_uuid}
@@ -411,7 +452,7 @@
             label={gettext("Rotate left")}
           />
           <.table_row_menu_button
-            :if={not @readonly and file.file_type == "image"}
+            :if={not @readonly and not @picker and file.file_type == "image"}
             phx-click="rotate_file"
             phx-target={@myself}
             phx-value-file-uuid={file.file_uuid}
@@ -420,7 +461,7 @@
             label={gettext("Rotate right")}
           />
           <.table_row_menu_button
-            :if={not @readonly}
+            :if={not @readonly and @folder_actions}
             phx-click="prepare_move_file"
             phx-target={@myself}
             phx-value-file-uuid={file.file_uuid}
@@ -439,18 +480,24 @@
             icon="hero-arrow-uturn-left"
             label={gettext("Restore")}
           />
+          <%!-- A picker moves a file to the Trash but deletes nothing for
+               good (see the moduledoc's "Picker"). --%>
           <.table_row_menu_button
-            :if={not @readonly}
+            :if={not @readonly and not (@picker and @filter_trash)}
             phx-click="delete_file"
             phx-target={@myself}
             phx-value-file-uuid={file.file_uuid}
             data-confirm={
-              if @filter_trash,
-                do:
-                  gettext(
-                    "Permanently delete '%{name}'? This cannot be undone.",
-                    name: file.filename
-                  )
+              client_confirm(
+                @removal_guarded,
+                if(@filter_trash,
+                  do:
+                    gettext(
+                      "Permanently delete '%{name}'? This cannot be undone.",
+                      name: file.filename
+                    )
+                )
+              )
             }
             icon="hero-trash"
             label={

@@ -54,6 +54,12 @@ defmodule PhoenixKit.Modules.Storage.BucketCredentialsTest do
 
     {:ok, %{uuid: uuid}} = Integrations.add_connection("object_storage", "Account")
 
+    {:ok, _} =
+      Integrations.save_setup(uuid, %{
+        "access_key" => "test-access",
+        "secret_key" => "test-secret"
+      })
+
     {:ok, on_connection} =
       Storage.create_bucket(%{
         name: "On connection",

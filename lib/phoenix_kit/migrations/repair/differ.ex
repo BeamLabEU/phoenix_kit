@@ -59,7 +59,13 @@ defmodule PhoenixKit.Migrations.Repair.Differ do
       never `definition`; `"p"`/`"u"` (primary key/unique) compare
       `columns`; `"c"` (check) and `"x"` (exclusion) have no further
       decomposition available in the catalog snapshot and fall back to
-      `definition` text (spec's explicit exception for this exact case).
+      `definition` text (spec's explicit exception for this exact case) —
+      compared through `PhoenixKit.Migrations.Repair.CheckExpression`, which
+      ignores only what cannot change the meaning: how an `AND`/`OR` chain is
+      nested, redundant parentheses and spacing. A constraint keeps the parse
+      tree of the SQL that created it, so the same condition prints with
+      different parentheses on a database whose constraint was parsed another
+      way, and a text comparison called that `:wrong_shape`.
     * `:table`/`:extension` — no shape to diff (existence is the whole
       story; `Object.shape/0` is `%{}` for both) — `compare/3` always
       returns `:match`.
@@ -83,6 +89,7 @@ defmodule PhoenixKit.Migrations.Repair.Differ do
   """
 
   alias PhoenixKit.Migrations.ExpectedSchema.Object
+  alias PhoenixKit.Migrations.Repair.CheckExpression
 
   @typedoc "`:match`, or a mismatch with the field names that disagreed."
   @type result :: :match | {:mismatch, [String.t()]}
@@ -198,13 +205,13 @@ defmodule PhoenixKit.Migrations.Repair.Differ do
   end
 
   def compare(:constraint, %{type: type} = expected, observed) when type in ["c", "x"] do
-    # No further structural decomposition available for CHECK/exclusion
-    # predicates — this is the explicit "raw-text equality only where no
-    # structural decomposition exists" exception, not a shortcut.
+    # No catalog decomposition for CHECK/exclusion predicates, so the text is
+    # compared — through `CheckExpression`, which reads the boolean structure
+    # and ignores only AND/OR nesting, redundant parentheses and spacing.
     reasons =
       reason_if(
         [],
-        normalize_default(expected.definition) != normalize_default(observed.definition),
+        not check_equivalent?(expected.definition, observed.definition),
         # Same deparse-rendering caveat as :index predicates — see the marker's
         # definition and Repair's server-version preflight.
         "#{@deparse_text_marker}definition: expected #{inspect(expected.definition)}, " <>
@@ -212,6 +219,18 @@ defmodule PhoenixKit.Migrations.Repair.Differ do
       )
 
     result(reasons)
+  end
+
+  # Same text after the default normalisation, or the same condition under
+  # `CheckExpression`'s reading of the boolean structure. A nil definition (no
+  # text to read) is equal only to nil.
+  defp check_equivalent?(expected, observed) do
+    expected = normalize_default(expected)
+    observed = normalize_default(observed)
+
+    expected == observed or
+      (is_binary(expected) and is_binary(observed) and
+         CheckExpression.equivalent?(expected, observed))
   end
 
   # See the moduledoc's `:column` bullet: a `not_null: true, default: nil`

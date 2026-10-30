@@ -144,6 +144,10 @@ defmodule PhoenixKit.Users.RateLimiter do
     # QR login request creation: 10 per minute per IP (pre-auth, no email to key on)
     qr_login_limit: 10,
     qr_login_window_ms: 60_000,
+    manager_invitation_limit: 10,
+    manager_invitation_window_ms: 60_000,
+    organization_enter_limit: 30,
+    organization_enter_window_ms: 60_000,
     # File upload: 30 per minute per account. The endpoint requires auth, so an
     # account is always available to key on; this bounds storage/queue abuse by
     # an authenticated user without impeding a normal media-browser session.
@@ -568,6 +572,28 @@ defmodule PhoenixKit.Users.RateLimiter do
   end
 
   def check_access_request_rate_limit(_), do: :ok
+
+  @doc "Limits manager invites, including duplicates, per acting person and organization."
+  def check_manager_invitation_rate_limit(person_uuid, organization_uuid) do
+    config = get_config()
+
+    check_rate_limit(
+      "organization:invite:#{person_uuid}:#{organization_uuid}",
+      config[:manager_invitation_window_ms],
+      config[:manager_invitation_limit]
+    )
+  end
+
+  @doc "Limits all organization-entry attempts, including no-ops, per root account."
+  def check_organization_enter_rate_limit(user_uuid) do
+    config = get_config()
+
+    check_rate_limit(
+      "organization:enter:#{user_uuid}",
+      config[:organization_enter_window_ms],
+      config[:organization_enter_limit]
+    )
+  end
 
   @doc """
   Resets rate limit for a specific action and identifier.
