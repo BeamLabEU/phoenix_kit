@@ -59,4 +59,73 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerTest do
                "Ensure no <% %> expressions, comments, or other content appear before the root <div>."
     end
   end
+
+  describe "pdf preview" do
+    # Chrome blocks its PDF viewer in a sandboxed iframe, so a PDF preview
+    # with `sandbox` renders as an error page instead of the document.
+    defp pdf_assigns do
+      %{
+        id: "canvas-test",
+        file: %{
+          file_uuid: @file_uuid,
+          filename: "doc.pdf",
+          file_type: "document",
+          mime_type: "application/pdf",
+          size: 1024,
+          inserted_at: ~U[2026-05-19 12:00:00Z],
+          width: nil,
+          height: nil,
+          urls: %{"original" => "/file/x/original/y"}
+        },
+        board: nil,
+        current_user: nil,
+        parent_id: "media-browser-test",
+        has_prev: false,
+        has_next: false,
+        viewer_only: false,
+        can_annotate: false,
+        viewer_canvas: nil,
+        burn_mode: false,
+        burn_canvas: nil,
+        burn_version: nil,
+        etchings_hidden: false,
+        auto_annotate: false,
+        viewer_annotations: [],
+        replying_annotation_uuid: nil,
+        reply_parent_uuid: nil,
+        etcher_colors: [],
+        etcher_line_params: %{},
+        viewer_rotation: 0,
+        persist_rotation: false,
+        rotation_status: nil,
+        sidebar_collapsed: true,
+        details_path: nil,
+        edit_target: nil,
+        write_scope: nil,
+        file_writable: false,
+        featured: nil,
+        media_meta: %{title: "", alt: "", description: ""},
+        media_meta_own: %{title: "", alt: "", description: ""},
+        media_meta_placeholders: %{title: "", alt: "", description: ""},
+        media_meta_lang: nil,
+        media_meta_lang_name: nil,
+        media_details_open: false,
+        media_meta_status: nil,
+        invert_two_finger_pan: false,
+        nav_overflow: MediaCanvasViewer.nav_overflow(),
+        myself: %Phoenix.LiveComponent.CID{cid: 1}
+      }
+    end
+
+    test "pdf iframe is not sandboxed" do
+      html =
+        pdf_assigns() |> MediaCanvasViewer.render() |> Phoenix.LiveViewTest.rendered_to_string()
+
+      assert [iframe] = Regex.run(~r/<iframe[^>]*id="canvas-test-pdf"[^>]*>/, html),
+             "no PDF iframe rendered"
+
+      assert iframe =~ ~s(src="/file/x/original/y")
+      refute iframe =~ "sandbox"
+    end
+  end
 end

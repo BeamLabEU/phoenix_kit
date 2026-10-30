@@ -409,9 +409,16 @@
                 {gettext("Your browser does not support the video tag.")}
               </video>
             <% f.mime_type == "application/pdf" -> %>
+              <%!-- No `sandbox` here: Chrome refuses to run its built-in PDF
+               viewer inside any sandboxed frame (no token set re-enables it) and
+               shows an error page instead. The file route serves the original
+               with its stored type and nosniff, and HTML/SVG never inline, so
+               non-PDF bytes end in a viewer error, not in a page. Trade-off, as
+               with opening the file URL directly: a link inside the PDF can
+               navigate the top page. --%>
               <iframe
+                id={"#{@id}-pdf"}
                 src={f.urls["original"]}
-                sandbox="allow-same-origin"
                 class="w-full h-full rounded border-0"
                 title={f.filename}
               ></iframe>
