@@ -101,11 +101,12 @@ a stubbed hook before the bundle arrives (`updated`, `beforeUpdate`, `disconnect
 dropped, and `mounted` reads the DOM as it is when it finally runs.
 
 The media browser's hooks (the cards and their drag and drop, the viewer, the upload stash, the removal
-dialog) are admin hooks, and so are the ones of a picker built on it (`MediaSelectorModal`, which
-`MediaGallery` and `FeaturedImage` open): core renders them only inside the admin area and the user
-dashboard. A host that puts such a picker on a page of its own, outside both, loses nothing — the first
-mount of a stub fetches the bundle — but the picker's first open waits for that request; marking the page's
-layout with `data-pk-admin` starts the download while the socket connects.
+dialog) are admin hooks, and so are the ones of a picker (`MediaBrowser` with `picker`, which modules and hosts
+embed in their forms): core itself mounts the browser only on `/admin/media` and `/admin/libraries`. A host
+that puts a browser or a picker on a page of its own, outside the admin area and the user dashboard, loses
+nothing — the first mount of a stub fetches the bundle — but that page waits for one request before the browser
+answers; marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping
+these hooks public instead would add about 10 KB (minified, gzipped) to every public page.
 
 A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
 one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,
