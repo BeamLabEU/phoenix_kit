@@ -16,7 +16,7 @@ Measured on this tree (esbuild 0.25.4, `gzip -9`):
 |---|---:|---:|---:|---:|
 | `phoenix_kit.js` as shipped | 764 466 | 226 325 | 412 810 | 131 912 |
 | — Chart.js 4.5.1 (lines 1–20, used by one hook, `EmailCharts`) | 208 689 | 70 498 | 208 153 | 72 582 |
-| — the 72 hooks and helpers (lines 21–end, hand-written, never minified) | 555 777 | 155 968 | 203 053 | 58 723 |
+| — the 72 hooks and helpers at the time of measuring (lines 21–end, hand-written, never minified) | 555 777 | 155 968 | 203 053 | 58 723 |
 | `phoenix_kit_modules.js` built from 19 prebuilt module bundles | 476 593 | 132 699 | 266 755 | 77 275 |
 
 Two facts that shape the design:

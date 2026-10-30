@@ -92,7 +92,8 @@ once the failure has been reported to the console and, for admins, the page noti
 ## Writing a hook in core
 
 A new hook goes in `phoenix_kit.js` only if a page outside the admin area and the user dashboard can
-render it — a generic form or UI primitive, or something every page needs. Everything else goes in
+render it — one that core's own code or a known module renders there: a generic form or UI primitive, or
+something every page needs. Everything else goes in
 `phoenix_kit_admin.js`, registered as `window.PhoenixKitAdminHooks.Name = { … }`, and its name is added to
 `ADMIN_HOOKS` in `phoenix_kit.js`. Three places have to agree — the `ADMIN_HOOKS` array, the keys the
 admin file defines, and the hook lists in `test/js/admin_split.test.cjs` — and the test fails when they
@@ -104,9 +105,11 @@ The media browser's hooks (the cards and their drag and drop, the viewer, the up
 dialog) are admin hooks, and so are the ones of a picker (`MediaBrowser` with `picker`, which modules and hosts
 embed in their forms): core itself mounts the browser only on `/admin/media` and `/admin/libraries`. A host
 that puts a browser or a picker on a page of its own, outside the admin area and the user dashboard, loses
-nothing — the first mount of a stub fetches the bundle — but that page waits for one request before the browser
-answers; marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping
-these hooks public instead would add about 10 KB (minified, gzipped) to every public page.
+nothing — the first mount of a stub fetches the bundle — but what the hooks do (the viewer, which stays hidden
+until `ViewerKeydown` shows it, the double-click confirm of a single pick, the upload stash, files dropped
+from the computer) waits for that one request; picking a card is a plain LiveView click and does not.
+Marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping these
+hooks public instead would add at least 10 KB (minified, gzipped) to every public page.
 
 A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
 one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,
