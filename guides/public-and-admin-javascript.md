@@ -107,7 +107,9 @@ embed in their forms): core itself mounts the browser only on `/admin/media` and
 that puts a browser or a picker on a page of its own, outside the admin area and the user dashboard, loses
 nothing — the first mount of a stub fetches the bundle — but what the hooks do (the viewer, which stays hidden
 until `ViewerKeydown` shows it, the double-click confirm of a single pick, the upload stash, files dropped
-from the computer) waits for that one request; picking a card is a plain LiveView click and does not.
+from the computer) waits for that one request; picking a card is a plain LiveView click and does not. The
+lightbox of `MediaGallery` / `MediaViewer` behaves the same way: `MediaViewerDialog` opens its `<dialog>` in
+`mounted`, that is, once the admin bundle has arrived.
 Marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping these
 hooks public instead would add at least 10 KB (minified, gzipped) to every public page.
 

@@ -8554,6 +8554,8 @@
   }
 })();
 
+  // Still inside the function that opens at the top of this file. The blocks
+  // above that start at column 0 were moved from phoenix_kit.js as they were.
   // A hook defined here that nothing stubs is unreachable: say so while
   // developing. (A module's admin hooks are stubbed by phoenix_kit_modules.js.)
   Object.keys(window.PhoenixKitAdminHooks).forEach(function(name) {
