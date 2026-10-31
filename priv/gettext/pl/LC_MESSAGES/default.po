@@ -22200,3 +22200,39 @@ msgid_plural "%{count} items moved to trash"
 msgstr[0] "%{count} element przeniesiony do kosza"
 msgstr[1] "%{count} elementy przeniesione do kosza"
 msgstr[2] "%{count} elementów przeniesionych do kosza"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5786
+#, elixir-autogen, elixir-format
+msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
+msgstr "Ten plik jest używany gdzie indziej (na przykład w komentarzu), więc nie można go usunąć."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3040
+#, elixir-autogen, elixir-format
+msgid "Some files in this folder are in use by something else, so they and their folders were kept."
+msgstr "Niektóre pliki w tym folderze są używane gdzie indziej, więc one i ich foldery zostały zachowane."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3051
+#, elixir-autogen, elixir-format
+msgid "Could not delete the folder. Nothing was removed."
+msgstr "Nie udało się usunąć folderu. Nic nie zostało usunięte."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3052
+#, elixir-autogen, elixir-format
+msgid "Could not move the folder to the trash. Nothing was moved."
+msgstr "Nie udało się przenieść folderu do kosza. Nic nie zostało przeniesione."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6762
+#, elixir-autogen, elixir-format
+msgid "%{count} item is in use by something else and was kept."
+msgid_plural "%{count} items are in use by something else and were kept."
+msgstr[0] "%{count} element jest używany gdzie indziej i został zachowany."
+msgstr[1] "%{count} elementy są używane gdzie indziej i zostały zachowane."
+msgstr[2] "%{count} elementów jest używanych gdzie indziej i zostały zachowane."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6770
+#, elixir-autogen, elixir-format
+msgid "%{count} item could not be removed."
+msgid_plural "%{count} items could not be removed."
+msgstr[0] "Nie udało się usunąć %{count} elementu."
+msgstr[1] "Nie udało się usunąć %{count} elementy."
+msgstr[2] "Nie udało się usunąć %{count} elementów."

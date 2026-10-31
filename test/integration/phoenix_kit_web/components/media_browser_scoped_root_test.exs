@@ -130,7 +130,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
     test "takes the link away and says so", ctx do
       assert linked?(ctx.media, ctx.sub), "the sub-order points at it"
 
-      {:noreply, socket} =
+      {:noreply, _socket} =
         MediaBrowser.handle_event(
           "delete_file",
           %{"file-uuid" => ctx.media.uuid},
@@ -144,8 +144,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
 
       assert fresh(ctx.media).status == "active", "removing a link never trashes the file"
 
-      assert socket.assigns.flash["info"],
-             "the press has to say something — silence is the bug being fixed"
+      # The browser's flash goes to the host LiveView (a component's own
+      # flash never reaches the page): it arrives as a message.
+      assert_received {MediaBrowser, "mb", {:flash, :info, _}},
+                      "the press has to say something — silence is the bug being fixed"
     end
 
     test "a file that the scope does not show at all is refused, out loud", ctx do
@@ -155,7 +157,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
       elsewhere = folder!(ctx.user, "elsewhere")
       {:ok, _} = Storage.move_file_to_folder(stranger.uuid, elsewhere.uuid, nil)
 
-      {:noreply, socket} =
+      {:noreply, _socket} =
         MediaBrowser.handle_event(
           "delete_file",
           %{"file-uuid" => stranger.uuid},
@@ -164,14 +166,16 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
 
       assert fresh(stranger).status == "active"
       assert to_string(fresh(stranger).folder_uuid) == to_string(elsewhere.uuid)
-      assert socket.assigns.flash["error"], "a refusal is not a silent no-op either"
+
+      assert_received {MediaBrowser, "mb", {:flash, :error, _}},
+                      "a refusal is not a silent no-op either"
     end
 
     test "dragging it to the trash removes it from here, not from its home", ctx do
       # `trash_file` shares the gate, and refused with "Cannot move file
       # outside the allowed scope" — an error about scope for a file the
       # folder was displaying.
-      {:noreply, socket} =
+      {:noreply, _socket} =
         MediaBrowser.handle_event(
           "trash_file",
           %{"file_uuid" => ctx.media.uuid},
@@ -180,8 +184,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
 
       refute linked?(ctx.media, ctx.sub)
       assert fresh(ctx.media).status == "active", "the order keeps its file"
-      assert socket.assigns.flash["info"]
-      refute socket.assigns.flash["error"]
+      assert_received {MediaBrowser, "mb", {:flash, :info, _}}
+      refute_received {MediaBrowser, "mb", {:flash, :error, _}}
     end
 
     test "a selection holding it is removed too", ctx do
@@ -202,7 +206,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
       own = file!(ctx.user)
       {:ok, _} = Storage.move_file_to_folder(own.uuid, ctx.sub.uuid, nil)
 
-      {:noreply, socket} =
+      {:noreply, _socket} =
         MediaBrowser.handle_event(
           "delete_file",
           %{"file-uuid" => own.uuid},
@@ -210,7 +214,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserScopedRootTest do
         )
 
       assert fresh(own).status == "trashed"
-      assert socket.assigns.flash["info"]
+      assert_received {MediaBrowser, "mb", {:flash, :info, _}}
     end
   end
 end

@@ -22333,3 +22333,39 @@ msgid_plural "%{count} items moved to trash"
 msgstr[0] "%{count} объект перемещён в корзину"
 msgstr[1] "%{count} объекта перемещено в корзину"
 msgstr[2] "%{count} объектов перемещено в корзину"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5437
+#, elixir-autogen, elixir-format
+msgid "%{count} item is in use by something else and was kept."
+msgid_plural "%{count} items are in use by something else and were kept."
+msgstr[0] "%{count} элемент используется чем-то другим и был сохранён."
+msgstr[1] "%{count} элемента используются чем-то другим и были сохранены."
+msgstr[2] "%{count} элементов используются чем-то другим и были сохранены."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5444
+#, elixir-autogen, elixir-format
+msgid "%{count} item could not be removed."
+msgid_plural "%{count} items could not be removed."
+msgstr[0] "%{count} элемент не удалось удалить."
+msgstr[1] "%{count} элемента не удалось удалить."
+msgstr[2] "%{count} элементов не удалось удалить."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:4469
+#, elixir-autogen, elixir-format
+msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
+msgstr "Этот файл используется чем-то другим (например, комментарием), поэтому его нельзя удалить."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:2248
+#, elixir-autogen, elixir-format
+msgid "Some files in this folder are in use by something else, so they and their folders were kept."
+msgstr "Некоторые файлы в этой папке используются чем-то другим, поэтому они и их папки были сохранены."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3051
+#, elixir-autogen, elixir-format
+msgid "Could not delete the folder. Nothing was removed."
+msgstr "Не удалось удалить папку. Ничего не было удалено."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3052
+#, elixir-autogen, elixir-format
+msgid "Could not move the folder to the trash. Nothing was moved."
+msgstr "Не удалось переместить папку в корзину. Ничего не было перемещено."

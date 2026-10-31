@@ -57,8 +57,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowserOwnFilesTest do
     }
   end
 
-  defp refused?({:noreply, socket}),
-    do: socket.assigns.flash["error"] == "You can only change files you uploaded"
+  # The browser's flash goes to the host LiveView as a message (a
+  # component's own flash never reaches the page).
+  defp refused?({:noreply, _socket}) do
+    receive do
+      {MediaBrowser, _, {:flash, :error, "You can only change files you uploaded"}} -> true
+    after
+      0 -> false
+    end
+  end
 
   test "someone else's file is refused; the selection and the trash too" do
     contributor = user!()

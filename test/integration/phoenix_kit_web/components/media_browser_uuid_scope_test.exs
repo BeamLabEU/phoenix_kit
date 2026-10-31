@@ -172,8 +172,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUuidScopeTest do
     }
   end
 
-  defp refused?({:noreply, socket}, flash \\ "That is not in this library"),
-    do: socket.assigns.flash["error"] == flash
+  # The browser's flash goes to the host LiveView as a message (a
+  # component's own flash never reaches the page).
+  defp refused?({:noreply, _socket}, flash \\ "That is not in this library") do
+    receive do
+      {MediaBrowser, _, {:flash, :error, ^flash}} -> true
+    after
+      0 -> false
+    end
+  end
 
   # ── forged events through the real page ───────────────────────────────────
 

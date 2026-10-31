@@ -22123,3 +22123,37 @@ msgid "%{count} item moved to trash"
 msgid_plural "%{count} items moved to trash"
 msgstr[0] "%{count} élément déplacé vers la corbeille"
 msgstr[1] "%{count} éléments déplacés vers la corbeille"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5786
+#, elixir-autogen, elixir-format
+msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
+msgstr "Ce fichier est utilisé ailleurs (dans un commentaire, par exemple), il ne peut donc pas être supprimé."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3040
+#, elixir-autogen, elixir-format
+msgid "Some files in this folder are in use by something else, so they and their folders were kept."
+msgstr "Certains fichiers de ce dossier sont utilisés ailleurs : eux et leurs dossiers ont été conservés."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3051
+#, elixir-autogen, elixir-format
+msgid "Could not delete the folder. Nothing was removed."
+msgstr "Impossible de supprimer le dossier. Rien n'a été supprimé."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3052
+#, elixir-autogen, elixir-format
+msgid "Could not move the folder to the trash. Nothing was moved."
+msgstr "Impossible de déplacer le dossier vers la corbeille. Rien n'a été déplacé."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6762
+#, elixir-autogen, elixir-format
+msgid "%{count} item is in use by something else and was kept."
+msgid_plural "%{count} items are in use by something else and were kept."
+msgstr[0] "%{count} élément est utilisé ailleurs et a été conservé."
+msgstr[1] "%{count} éléments sont utilisés ailleurs et ont été conservés."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6770
+#, elixir-autogen, elixir-format
+msgid "%{count} item could not be removed."
+msgid_plural "%{count} items could not be removed."
+msgstr[0] "%{count} élément n'a pas pu être supprimé."
+msgstr[1] "%{count} éléments n'ont pas pu être supprimés."

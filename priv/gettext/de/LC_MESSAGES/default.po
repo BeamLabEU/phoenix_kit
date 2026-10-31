@@ -22123,3 +22123,37 @@ msgid "%{count} item moved to trash"
 msgid_plural "%{count} items moved to trash"
 msgstr[0] "%{count} Element in den Papierkorb verschoben"
 msgstr[1] "%{count} Elemente in den Papierkorb verschoben"
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5786
+#, elixir-autogen, elixir-format
+msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
+msgstr "Diese Datei wird woanders verwendet (zum Beispiel in einem Kommentar), deshalb kann sie nicht gelöscht werden."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3040
+#, elixir-autogen, elixir-format
+msgid "Some files in this folder are in use by something else, so they and their folders were kept."
+msgstr "Einige Dateien in diesem Ordner werden woanders verwendet, deshalb wurden sie und ihre Ordner beibehalten."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3051
+#, elixir-autogen, elixir-format
+msgid "Could not delete the folder. Nothing was removed."
+msgstr "Der Ordner konnte nicht gelöscht werden. Es wurde nichts entfernt."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3052
+#, elixir-autogen, elixir-format
+msgid "Could not move the folder to the trash. Nothing was moved."
+msgstr "Der Ordner konnte nicht in den Papierkorb verschoben werden. Es wurde nichts verschoben."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6762
+#, elixir-autogen, elixir-format
+msgid "%{count} item is in use by something else and was kept."
+msgid_plural "%{count} items are in use by something else and were kept."
+msgstr[0] "%{count} Element wird woanders verwendet und wurde beibehalten."
+msgstr[1] "%{count} Elemente werden woanders verwendet und wurden beibehalten."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:6770
+#, elixir-autogen, elixir-format
+msgid "%{count} item could not be removed."
+msgid_plural "%{count} items could not be removed."
+msgstr[0] "%{count} Element konnte nicht entfernt werden."
+msgstr[1] "%{count} Elemente konnten nicht entfernt werden."

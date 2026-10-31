@@ -773,6 +773,54 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Deleting reports what actually happened
+  # ---------------------------------------------------------------------------
+
+  describe "delete reporting" do
+    test "a folder delete reports success only when it happened", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path)
+      render_hook(element(view, "#media-browser"), "delete_folder", %{"id" => folder.uuid})
+
+      assert render(view) =~ "Folder moved to trash"
+      assert Storage.get_folder(folder.uuid).trashed_at
+    end
+
+    test "a bulk delete counts only what it removed", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      folder = create_folder!()
+      [a, b] = for _ <- 1..2, do: create_file!(folder.uuid)
+      for f <- [a, b], do: {:ok, _} = Storage.trash_file(Storage.get_file(f.uuid))
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path <> "?folder=#{folder.uuid}")
+      view |> element("[phx-click='toggle_trash_filter']") |> render_click()
+      browser = element(view, "#media-browser")
+
+      render_hook(browser, "box_select", %{
+        "files" => [a.uuid, b.uuid],
+        "folders" => [],
+        "additive" => false
+      })
+
+      # Restored by someone else before Delete: no longer in the trash, so it
+      # is (rightly) not destroyed, and not counted as if it were.
+      {:ok, _} = Storage.restore_file(Storage.get_file(b.uuid))
+
+      render_hook(browser, "delete_selected", %{})
+      html = render(view)
+
+      assert html =~ "1 item permanently deleted"
+      refute html =~ "2 items permanently deleted"
+      refute Storage.get_file(a.uuid)
+      assert Storage.get_file(b.uuid).status == "active"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Image editor — opened from a file's menu or the viewer
   # ---------------------------------------------------------------------------
 

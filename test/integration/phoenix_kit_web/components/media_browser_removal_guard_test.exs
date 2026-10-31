@@ -685,6 +685,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserRemovalGuardTest do
       assert is_nil(Repo.get(StorageFile, one.uuid))
       assert status(kept) == "trashed"
       assert flash(view) =~ "1 deleted, 1 kept: in use"
+      # The kept file is reported as kept, not as a failure to remove.
+      refute flash(view) =~ "could not be removed"
     end
 
     test "delete_folder in the trash view asks over the subtree and deletes the folder",

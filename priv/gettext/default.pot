@@ -22243,3 +22243,37 @@ msgid "%{count} item moved to trash"
 msgid_plural "%{count} items moved to trash"
 msgstr[0] ""
 msgstr[1] ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5437
+#, elixir-autogen, elixir-format
+msgid "%{count} item is in use by something else and was kept."
+msgid_plural "%{count} items are in use by something else and were kept."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:5444
+#, elixir-autogen, elixir-format
+msgid "%{count} item could not be removed."
+msgid_plural "%{count} items could not be removed."
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:4469
+#, elixir-autogen, elixir-format
+msgid "This file is in use by something else (a comment, for instance), so it can't be deleted."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:2248
+#, elixir-autogen, elixir-format
+msgid "Some files in this folder are in use by something else, so they and their folders were kept."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3051
+#, elixir-autogen, elixir-format
+msgid "Could not delete the folder. Nothing was removed."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex:3052
+#, elixir-autogen, elixir-format
+msgid "Could not move the folder to the trash. Nothing was moved."
+msgstr ""
