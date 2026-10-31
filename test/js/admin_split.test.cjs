@@ -18,6 +18,18 @@ const os = require("os");
 const path = require("path");
 const { createEnv, makeHook, ASSETS } = require("./support/pk_env.cjs");
 
+// The fake bundles each test writes get a directory of their own; the file's last
+// test is followed by their removal.
+const tmpDirs = [];
+function tmpDir(prefix) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tmpDirs.push(dir);
+  return dir;
+}
+test.after(() => {
+  for (const dir of tmpDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0), plus
 // the ones added since (`RemovalModal`, #999). A hook
 // that is neither listed as public nor as admin has been lost; one that is
@@ -26,14 +38,15 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   LanguageSwitcherSearch LanguageSwitcherPosition PkDialog PkDialogTrigger PopupLink ResetSelect
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
-  PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer`.split(/\s+/);
+  PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
+  MentionInput UploadStats UploadGuard`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
   MediaViewerDialog PkHashHighlight BulkSelectScope TableLocalSearch AdminSidebarScroll PkDialogDraft
   AnnotationBurn EtcherTooltipActions AnnotationComposerPosition ListFilter TreePickerSearch CrumbSwitcher
   TableFit TableCardView RowMenu RowMenuAuto EmailCharts IntegrationPickerSearch MediaDragDrop EtcherReset
   ViewerSwipe ViewerGallery ViewerHiresLoading UploadResume FolderDropUpload RemovalModal StackMemory StackExpand
-  WaveformPlayer SearchPicker MentionInput UploadStats UploadGuard ContextMenu AvatarCrop ImageEditor`.split(/\s+/);
+  WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor`.split(/\s+/);
 
 const ADMIN_FILE = path.join(ASSETS, "phoenix_kit_admin.js");
 const PUBLIC_FILE = path.join(ASSETS, "phoenix_kit.js");
@@ -60,8 +73,8 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 // ── The inventory ──────────────────────────────────────────────────────────
 
 test("the two lists are disjoint and together are the 73 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 31);
-  assert.equal(ADMIN.length, 42);
+  assert.equal(PUBLIC.length, 34);
+  assert.equal(ADMIN.length, 39);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
 
@@ -173,7 +186,9 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  assert.ok(publicBytes < 240 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  // 256 KiB: the public half is about 242 KiB with the mention field and the two upload hooks (a public
+  // portal renders them), so this leaves room for a few hooks and still trips on an admin hook put back.
+  assert.ok(publicBytes < 256 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 
@@ -202,7 +217,7 @@ function fakeAdmin(calls) {
 }
 
 function withFakeAdmin() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
+  const dir = tmpDir("pk_admin_");
   const file = path.join(dir, "fake_admin.js");
   fs.writeFileSync(file, fakeAdmin());
   const env = publicPage();
@@ -292,7 +307,7 @@ test("a hook destroyed before the bundle arrives never mounts late", async () =>
 });
 
 test("a page that already has the admin bundle fetches nothing", async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
+  const dir = tmpDir("pk_admin_");
   const file = path.join(dir, "fake_admin.js");
   fs.writeFileSync(file, fakeAdmin());
   const env = publicPage();
@@ -334,7 +349,7 @@ test("a retry after a failure works", async () => {
   t.env.advance(RETRY_PAUSE_MS + 1);
   const again = makeHook(t.env.window.PhoenixKitHooks.RowMenu);
   again.mounted();
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
+  const dir = tmpDir("pk_admin_");
   const file = path.join(dir, "fake_admin.js");
   fs.writeFileSync(file, fakeAdmin());
   t.env.load(file);
@@ -434,7 +449,7 @@ const MODULE_STUBS =
 // The admin bundle as the compiler builds it for that module: the module's
 // bundle, then the fold into the namespace the stubs read from.
 function moduleAdminBundle() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_mod_admin_"));
+  const dir = tmpDir("pk_mod_admin_");
   const file = path.join(dir, "grid_admin.js");
   fs.writeFileSync(file,
     "window.GridHooks = { GridSort: { mounted() { (window.__mods = window.__mods || []).push(this.el.id); } } };\n" +
@@ -527,7 +542,7 @@ test("the admin bundle is asked for again after every failure, however many ther
 });
 
 function fakeAdminFile(t) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_admin_"));
+  const dir = tmpDir("pk_admin_");
   const file = path.join(dir, "fake_admin.js");
   fs.writeFileSync(file, fakeAdmin());
   return file;
@@ -599,7 +614,7 @@ test("an exported hook nobody listed is reported too: it has no stub, so no page
 test("a stub whose hook is not in the bundle names the module's side of the mismatch", async () => {
   const env = publicPage();
   runSnippet(env, MODULE_STUBS);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_empty_admin_"));
+  const dir = tmpDir("pk_empty_admin_");
   const file = path.join(dir, "empty_admin.js");
   // A bundle that loads but exports nothing under the listed name.
   fs.writeFileSync(file, "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};\nwindow.PhoenixKitAdminLoaded = true;\n");

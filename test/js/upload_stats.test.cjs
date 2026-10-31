@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for the pure math behind the UploadStats hook in
-// priv/static/assets/phoenix_kit_admin.js — the live "3.2 MB / 12.4 MB · 2.8 MB/s ·
+// priv/static/assets/phoenix_kit.js — the live "3.2 MB / 12.4 MB · 2.8 MB/s ·
 // 4s left" line under upload progress bars, and its "Processing on server…"
 // phase once the transfer hits 100%. The bundle is browser code (IIFEs that
 // assign onto `window`), so stub the globals it touches at load time; the
@@ -54,7 +54,7 @@ const storage = {
 };
 
 global.window = {
-  PhoenixKitAdminHooks: {},
+  PhoenixKitHooks: {},
   addEventListener: noop,
   removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -75,7 +75,7 @@ const {
   formatDuration,
   windowSpeed,
   uploadStatsText,
-} = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+} = require("../../priv/static/assets/phoenix_kit.js");
 
 // ── formatBytes ─────────────────────────────────────────────────────────────
 // Decimal units (base 1000), matching the Elixir-side Format.bytes calls.

@@ -50,7 +50,7 @@ global.document = {
 };
 const storage = { getItem: () => null, setItem: noop, removeItem: noop, key: () => null, length: 0 };
 global.window = {
-  PhoenixKitAdminHooks: {},
+  PhoenixKitHooks: {},
   scrollX: 0, scrollY: 0, innerHeight: 800,
   addEventListener: noop, removeEventListener: noop,
   matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop }),
@@ -64,8 +64,8 @@ global.localStorage = storage;
 global.sessionStorage = storage;
 global.MutationObserver = function() { this.observe = noop; this.disconnect = noop; };
 
-(require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
-const MentionInput = global.window.PhoenixKitAdminHooks.MentionInput;
+require("../../priv/static/assets/phoenix_kit.js");
+const MentionInput = global.window.PhoenixKitHooks.MentionInput;
 
 function mountWith(dataset) {
   const el = stubElement();

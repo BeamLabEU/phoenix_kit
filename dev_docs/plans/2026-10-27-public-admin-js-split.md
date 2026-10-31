@@ -89,18 +89,20 @@ the user dashboard, or when it is a global behaviour every page needs; generic s
 public (their cost is a few hundred gzip bytes each, less than one lazy request); specialised or heavy hooks go
 to the admin bundle.** The split is an explicit list in `phoenix_kit.js` (`ADMIN_HOOKS`), and a node test pins it.
 
-*Public, 31* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
+*Public, 34* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
 LanguageSwitcherSearch, LanguageSwitcherPosition, PkDialog, PkDialogTrigger, PopupLink, ResetSelect,
 SelectOnMount, TimeAgo, CopyToClipboard, FadeOut, PreserveScroll, InfiniteScroll, PageSizeAutoFit,
 MaintenanceCountdown, PkShiftEnter, PkUrlMirror, PhoenixKitUrlState, PkCheckboxIndeterminate, PkDateInput,
 PkChartCrosshair, ViewportPopover, and the five already-lazy library wrappers Leaf, FrescoViewer, FrescoCanvas,
-TesseraLayer, EtcherLayer.
+TesseraLayer, EtcherLayer; and MentionInput, UploadStats and UploadGuard, which core's own `file_upload` component
+and its mention-enabled text fields render, so a module's public page (a form with an upload, a comment box) has
+them.
 
-*Admin, 42* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
+*Admin, 39* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
 AnnotationComposerPosition, EtcherReset, StackMemory, StackExpand, WaveformPlayer, MediaDragDrop,
-FolderDropUpload, UploadResume, RemovalModal, UploadStats, UploadGuard, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
-MentionInput, PkDialogDraft, PkHashHighlight, BulkSelectScope, TableLocalSearch, TableFit, TableCardView, RowMenu,
+FolderDropUpload, UploadResume, RemovalModal, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
+PkDialogDraft, PkHashHighlight, BulkSelectScope, TableLocalSearch, TableFit, TableCardView, RowMenu,
 RowMenuAuto, ListFilter, TreePickerSearch, CrumbSwitcher, AdminSidebarScroll, IntegrationPickerSearch,
 EmailCharts.
 

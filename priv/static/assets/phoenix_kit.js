@@ -4526,9 +4526,6 @@
     "StackExpand",
     "WaveformPlayer",
     "SearchPicker",
-    "MentionInput",
-    "UploadStats",
-    "UploadGuard",
     "ContextMenu",
     "AvatarCrop",
     "ImageEditor"
@@ -5170,6 +5167,544 @@
     if (detail.clear) clearRegions(detail.clear);
     apply(detail);
   });
+})();
+
+// ---------------------------------------------------------------------------
+// MentionInput — @ pings and # record links in any plain textarea.
+//
+// The surface this has to reach is ~70 ordinary `<textarea>` fields, not a
+// rich editor, so this attaches to the field itself and owns nothing else.
+// It watches for a trigger character at a word boundary, tracks the query
+// the user types after it, asks the server, and renders a small list
+// anchored under the caret.
+//
+// The server decides WHAT can be inserted; this decides only where the menu
+// sits and when it closes. Everything it inserts is a complete token, so a
+// half-typed mention is always just text.
+//
+// State is per-hook-instance, never global: several LiveViews can share a
+// page, and two textareas on one page must not fight over one menu.
+// ---------------------------------------------------------------------------
+(function() {
+  if (typeof window === "undefined") return;
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  // A trigger only counts at the start of a word. Without this, an email
+  // address turns the rest of the line into a search box.
+  function triggerAt(value, caret) {
+    var i = caret - 1;
+    while (i >= 0) {
+      var ch = value[i];
+      if (ch === "@" || ch === "#") {
+        var before = i === 0 ? " " : value[i - 1];
+        if (/[\s(\[]/.test(before) || i === 0) {
+          return { char: ch, start: i, query: value.slice(i + 1, caret) };
+        }
+        return null;
+      }
+      // A query is one short run of ordinary characters. Newlines and the
+      // token's own delimiters end it, so an unclosed menu can't swallow a
+      // paragraph.
+      if (/[\n\r\]|]/.test(ch)) return null;
+      if (caret - i > 40) return null;
+      i--;
+    }
+    return null;
+  }
+
+  // Where a character of the textarea's value sits, in pixels from the
+  // field's top-left corner (scrolling already subtracted): a hidden mirror
+  // with the field's own type and box metrics holds the text up to that
+  // index and a marker span from there on, so the marker lands where the
+  // character does. The menu opens under the `@`/`#` itself, not under the
+  // whole field.
+  var MIRROR_PROPS = [
+    "boxSizing", "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant", "letterSpacing",
+    "lineHeight", "textTransform", "wordSpacing", "textIndent", "tabSize", "textRendering"
+  ];
+
+  function charBox(el, index) {
+    var cs = window.getComputedStyle(el);
+    var mirror = document.createElement("div");
+    MIRROR_PROPS.forEach(function(prop) { mirror.style[prop] = cs[prop]; });
+    mirror.style.position = "absolute";
+    mirror.style.visibility = "hidden";
+    mirror.style.top = "0";
+    mirror.style.left = "-9999px";
+    mirror.style.height = "auto";
+    mirror.style.overflow = "hidden";
+    mirror.style.whiteSpace = "pre-wrap";
+    mirror.style.overflowWrap = "break-word";
+    mirror.setAttribute("aria-hidden", "true");
+    mirror.textContent = el.value.slice(0, index);
+    var marker = document.createElement("span");
+    marker.textContent = el.value.slice(index) || ".";
+    mirror.appendChild(marker);
+    document.body.appendChild(mirror);
+    var lineHeight = parseFloat(cs.lineHeight);
+    var box = {
+      top: marker.offsetTop + (parseFloat(cs.borderTopWidth) || 0) - el.scrollTop,
+      left: marker.offsetLeft + (parseFloat(cs.borderLeftWidth) || 0) - el.scrollLeft,
+      height: isNaN(lineHeight) ? marker.offsetHeight || 16 : lineHeight
+    };
+    document.body.removeChild(mirror);
+    return box;
+  }
+
+  window.PhoenixKitHooks.MentionInput = {
+    mounted: function() {
+      var self = this;
+      this.el.setAttribute("autocomplete", "off");
+      this.active = null;
+      this.results = [];
+      this.cursor = 0;
+      this.seq = 0;
+
+      this.menu = document.createElement("ul");
+      this.menu.className =
+        "pk-mention-menu menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 " +
+        "absolute z-[9999] hidden max-h-64 overflow-y-auto w-72 p-1";
+      this.menu.setAttribute("role", "listbox");
+      document.body.appendChild(this.menu);
+
+      // A field inside an open <dialog> (a popup shown with showModal())
+      // sits in the browser's top layer, which paints over everything
+      // outside it whatever its z-index — a menu left on <body> is there,
+      // open, and invisible behind the popup; and a modal dialog makes
+      // everything outside it inert, so a top-layer popover on <body> is
+      // painted but takes no click (measured in Chrome, 2026-10-05). The
+      // menu therefore lives INSIDE the open dialog while the field is in
+      // one, as a manual popover — the top layer paints it over the
+      // dialog's own content, and as a dialog descendant it is not inert.
+      // The dialog is LiveView's to patch, and a patch discards any node it
+      // did not render: a MutationObserver puts the menu back the moment
+      // that happens, before the frame is painted.
+      this.popover = typeof this.menu.showPopover === "function";
+      if (this.popover) {
+        this.menu.setAttribute("popover", "manual");
+        // The UA sheet centres a popover (inset: 0; margin: auto) and gives
+        // it a border, padding and colours of its own.
+        this.menu.style.inset = "auto";
+        this.menu.style.margin = "0";
+        this.menu.style.position = "fixed";
+      }
+
+      this.host = function() {
+        var dialog = self.el.closest ? self.el.closest("dialog") : null;
+        return dialog && dialog.open ? dialog : document.body;
+      };
+
+      this.mount = function() {
+        var host = self.host();
+        if (self.menu.parentNode !== host) host.appendChild(self.menu);
+        // Viewport coordinates whenever the menu does not scroll with the
+        // document: in the top layer, or inside a fixed dialog.
+        self.fixed = self.popover || host !== document.body;
+        if (!self.popover) self.menu.style.position = self.fixed ? "fixed" : "";
+        self.observe(host);
+      };
+
+      this.observe = function(host) {
+        if (self.observedHost === host) return;
+        if (self.observer) self.observer.disconnect();
+        self.observer = null;
+        self.observedHost = host;
+        if (host === document.body || typeof MutationObserver !== "function") return;
+        self.observer = new MutationObserver(function() {
+          if (!self.active || self.menu.parentNode === host || !host.isConnected) return;
+          host.appendChild(self.menu);
+          // Leaving the DOM closed the popover; back in, it reopens.
+          self.show();
+        });
+        self.observer.observe(host, { childList: true });
+      };
+
+      this.show = function() {
+        self.menu.classList.remove("hidden");
+        if (self.popover && self.menu.isConnected !== false && !self.menu.matches(":popover-open")) {
+          self.menu.showPopover();
+        }
+      };
+
+      this.hide = function() {
+        if (self.popover && self.menu.matches(":popover-open")) self.menu.hidePopover();
+        self.menu.classList.add("hidden");
+      };
+
+      this.close = function() {
+        self.active = null;
+        self.results = [];
+        self.cursor = 0;
+        self.hide();
+      };
+
+      this.render = function() {
+        if (!self.active || !self.results.length) {
+          self.hide();
+          return;
+        }
+        self.menu.innerHTML = "";
+        self.results.forEach(function(r, idx) {
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.className = idx === self.cursor ? "active" : "";
+          a.setAttribute("role", "option");
+          var title = document.createElement("span");
+          title.className = "font-medium truncate";
+          title.textContent = r.title;
+          a.appendChild(title);
+          if (r.subtitle) {
+            var sub = document.createElement("span");
+            sub.className = "text-xs opacity-60 truncate";
+            sub.textContent = r.subtitle;
+            a.appendChild(sub);
+          }
+          // mousedown, not click: click fires after blur, and blur has
+          // already closed the menu by then.
+          a.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            self.choose(idx);
+          });
+          li.appendChild(a);
+          self.menu.appendChild(li);
+        });
+        // Shown first, so the menu has a size to place.
+        self.mount();
+        self.show();
+        self.position();
+      };
+
+      // The trigger character's box in the field — overridable, so the
+      // placement arithmetic can be exercised without a layout engine.
+      this.anchor = function() {
+        var index = self.active ? self.active.start : self.el.selectionStart || 0;
+        return charBox(self.el, index);
+      };
+
+      // Under the `@`/`#` the user typed: its line's bottom, its column —
+      // kept inside the field's width and the viewport, and flipped above
+      // the line when there is no room below.
+      this.position = function() {
+        self.mount();
+        var rect = self.el.getBoundingClientRect();
+        var box = self.anchor();
+        var scrollY = self.fixed ? 0 : window.scrollY;
+        var scrollX = self.fixed ? 0 : window.scrollX;
+        var viewportWidth = document.documentElement.clientWidth;
+        var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        var width = self.menu.offsetWidth || 0;
+        var height = self.menu.offsetHeight || 0;
+
+        var lineTop = rect.top + Math.max(0, Math.min(box.top, rect.height - box.height));
+        var top = lineTop + box.height + 2;
+        if (viewportHeight && top + height > viewportHeight - 8 && lineTop - height - 2 >= 8) {
+          top = lineTop - height - 2;
+        }
+        var left = rect.left + Math.max(0, Math.min(box.left, rect.width));
+        var maxLeft = viewportWidth - width - 8;
+
+        self.menu.style.top = top + scrollY + "px";
+        self.menu.style.left = Math.max(8, Math.min(left, maxLeft)) + scrollX + "px";
+      };
+
+      this.choose = function(idx) {
+        var r = self.results[idx];
+        if (!r || !self.active) return;
+        var value = self.el.value;
+        var before = value.slice(0, self.active.start);
+        var after = value.slice(self.el.selectionStart);
+        // The server sends the finished token: building it here by
+        // concatenation produced something unparseable whenever a
+        // record's own name contained a `|` or a `]`.
+        var token = r.token;
+        if (!token) return;
+        self.el.value = before + token + " " + after;
+        var caret = (before + token + " ").length;
+        self.el.setSelectionRange(caret, caret);
+        self.close();
+        // The field is inside a phx-change form; without this the server
+        // never sees the inserted token and the next save writes the old
+        // text back over it.
+        self.el.dispatchEvent(new Event("input", { bubbles: true }));
+        self.el.focus();
+      };
+
+      // The page's context for the search, from `data-mention-context`;
+      // null when the field carries none or the JSON is broken.
+      this.context = function() {
+        var raw = self.el.dataset ? self.el.dataset.mentionContext : null;
+        if (!raw) return null;
+        try {
+          var parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_e) {
+          return null;
+        }
+      };
+
+      this.search = function() {
+        var caret = self.el.selectionStart;
+        var found = triggerAt(self.el.value, caret);
+        if (!found) {
+          self.close();
+          return;
+        }
+        self.active = found;
+        self.seq += 1;
+        var seq = self.seq;
+        self.pushEvent(
+          "pk_mention_search",
+          {
+            kind: found.char === "@" ? "user" : "resource",
+            query: found.query,
+            seq: seq,
+            // Where the field is: `data-mention-context` (JSON) names the
+            // record the page is about, so a `#` offers what belongs with
+            // it rather than everything the viewer may see.
+            context: self.context()
+          },
+          function(reply) {
+            // Out-of-order replies: the user kept typing while this one was
+            // in flight, so its results describe a query that no longer
+            // exists. Dropping them stops the list flickering backwards.
+            if (!reply || reply.seq !== self.seq) return;
+            self.results = reply.results || [];
+            self.cursor = 0;
+            self.render();
+          }
+        );
+      };
+
+      this.onInput = function() { self.search(); };
+
+      this.onKeyDown = function(e) {
+        if (!self.active || !self.results.length) {
+          if (e.key === "Escape") self.close();
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          self.cursor = (self.cursor + 1) % self.results.length;
+          self.render();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          self.cursor = (self.cursor - 1 + self.results.length) % self.results.length;
+          self.render();
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          self.choose(self.cursor);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          self.close();
+        }
+      };
+
+      this.onBlur = function() { window.setTimeout(self.close, 120); };
+
+      this.el.addEventListener("input", this.onInput);
+      this.el.addEventListener("click", this.onInput);
+      this.el.addEventListener("keydown", this.onKeyDown);
+      this.el.addEventListener("blur", this.onBlur);
+      this.repositionHandler = function() { if (self.active) self.position(); };
+      window.addEventListener("scroll", this.repositionHandler, true);
+      window.addEventListener("resize", this.repositionHandler);
+    },
+
+    destroyed: function() {
+      // The menu lives on document.body, so it outlives the hook's element
+      // unless it is taken down explicitly — a LiveView patch that replaces
+      // the textarea would otherwise leave an orphan floating over the page.
+      if (this.observer) this.observer.disconnect();
+      if (this.menu && this.hide) this.hide();
+      if (this.menu && this.menu.parentNode) this.menu.parentNode.removeChild(this.menu);
+      window.removeEventListener("scroll", this.repositionHandler, true);
+      window.removeEventListener("resize", this.repositionHandler);
+    }
+  };
+})();
+
+
+// ============================================================================
+// UploadStats - live transfer stats under upload progress bars
+// ============================================================================
+//
+// Attached to a text element rendered next to a LiveView upload entry's
+// progress bar. The server only patches `data-progress` (0-100); everything
+// shown is computed in the browser, so the numbers reflect the network as the
+// user experiences it:
+//
+//   uploading:   "3.2 MB / 12.4 MB · 2.8 MB/s · 4s left"
+//   at 100%:     "12.4 MB · Processing on server… 3s"   (tick continues while
+//                the server consumes the entry and the bar sits frozen)
+//
+// Markup contract: id (required for hooks), data-progress={entry.progress},
+// data-size={entry.client_size}, plus gettext'd labels in
+// data-label-processing / data-label-left. The hook owns the element's text.
+(function() {
+  "use strict";
+
+  // Decimal units, matching the Elixir-side Format.bytes(base: 1000) used in
+  // the media file listings.
+  function formatBytes(n) {
+    if (!isFinite(n) || n < 0) n = 0;
+    if (n < 1000) return Math.round(n) + " B";
+    var units = ["KB", "MB", "GB", "TB"];
+    var v = n;
+    for (var i = 0; i < units.length; i++) {
+      v = v / 1000;
+      if (v < 1000 || i === units.length - 1) {
+        return (v >= 100 ? String(Math.round(v)) : v.toFixed(1)) + " " + units[i];
+      }
+    }
+  }
+
+  function formatDuration(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return s + "s";
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + "m " + (s % 60) + "s";
+    var h = Math.floor(m / 60);
+    return h + "h " + (m % 60) + "m";
+  }
+
+  // Transfer rate in bytes/sec over a trailing window. `samples` is an
+  // ordered list of {t (ms), bytes} pairs. The denominator ends at `now`,
+  // not at the last sample, so a stalled transfer decays toward 0 instead
+  // of freezing at its last good speed.
+  function windowSpeed(samples, now, windowMs) {
+    windowMs = windowMs || 5000;
+    if (!samples || samples.length < 2) return 0;
+    var latest = samples[samples.length - 1];
+    var cutoff = now - windowMs;
+    // Baseline: the newest sample before `latest` that falls outside the
+    // window (anchors the span as the window slides), or the oldest sample
+    // we still hold. Never `latest` itself — during a hard stall every
+    // sample is old, and the span must still run from real data to `now`
+    // so the rate decays rather than snapping to 0.
+    var base = latest;
+    for (var i = samples.length - 2; i >= 0; i--) {
+      base = samples[i];
+      if (samples[i].t < cutoff) break;
+    }
+    if (base === latest) return 0;
+    var seconds = (now - base.t) / 1000;
+    if (seconds <= 0) return 0;
+    return Math.max(0, (latest.bytes - base.bytes) / seconds);
+  }
+
+  // The whole line as a pure function of the tracked state (node-testable).
+  function uploadStatsText(opts) {
+    var labels = opts.labels || {};
+    if (opts.doneAt != null) {
+      var label = labels.processing || "Processing on server…";
+      return formatBytes(opts.size) + " · " + label + " " +
+        formatDuration(opts.now - opts.doneAt);
+    }
+    var parts = [formatBytes(opts.bytes) + " / " + formatBytes(opts.size)];
+    var speed = windowSpeed(opts.samples, opts.now);
+    if (speed > 0) {
+      parts.push(formatBytes(speed) + "/s");
+      var etaMs = (Math.max(0, opts.size - opts.bytes) / speed) * 1000;
+      if (isFinite(etaMs)) parts.push(formatDuration(etaMs) + " " + (labels.left || "left"));
+    }
+    return parts.join(" · ");
+  }
+
+  window.PhoenixKitHooks.UploadStats = {
+    mounted() {
+      this.size = parseInt(this.el.dataset.size || "0", 10) || 0;
+      this.samples = [];
+      this.bytes = 0;
+      this.doneAt = null;
+      this.sample();
+      var self = this;
+      // The interval keeps elapsed/ETA moving between LiveView patches —
+      // that is what makes a stall or a long server phase visibly tick.
+      this.timer = setInterval(function() { self.render(); }, 500);
+      this.render();
+    },
+
+    updated() {
+      this.sample();
+      this.render();
+    },
+
+    sample() {
+      var progress = parseFloat(this.el.dataset.progress || "0") || 0;
+      var now = Date.now();
+      this.bytes = Math.round(this.size * Math.min(progress, 100) / 100);
+      if (progress >= 100 && this.doneAt == null) this.doneAt = now;
+      var last = this.samples[this.samples.length - 1];
+      if (!last || last.bytes !== this.bytes) {
+        this.samples.push({ t: now, bytes: this.bytes });
+        // Progress events arrive per chunk; keep enough to cover the speed
+        // window at any realistic event rate without growing unbounded.
+        if (this.samples.length > 128) this.samples.shift();
+      }
+    },
+
+    render() {
+      this.el.textContent = uploadStatsText({
+        size: this.size,
+        bytes: this.bytes,
+        samples: this.samples,
+        now: Date.now(),
+        doneAt: this.doneAt,
+        labels: {
+          processing: this.el.dataset.labelProcessing,
+          left: this.el.dataset.labelLeft
+        }
+      });
+    },
+
+    destroyed() {
+      clearInterval(this.timer);
+    }
+  };
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.formatBytes = formatBytes;
+    module.exports.formatDuration = formatDuration;
+    module.exports.windowSpeed = windowSpeed;
+    module.exports.uploadStatsText = uploadStatsText;
+  }
+})();
+
+// ============================================================================
+// UploadGuard - native leave-page guard while uploads are in flight
+// ============================================================================
+//
+// Attached to an upload component's root. The server patches
+// `data-active` ("true" while any upload entry exists); while active, the
+// browser's own beforeunload dialog blocks an accidental refresh / tab
+// close that would kill the transfer (interrupted LiveView uploads are not
+// resumed). This replaces disclaimer prose with actual protection. Note it
+// guards full page unloads only — LiveView patch/navigate stays free.
+(function() {
+  "use strict";
+
+  window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+  window.PhoenixKitHooks.UploadGuard = {
+    mounted() {
+      var self = this;
+      this.handler = function(e) {
+        if (self.el.dataset.active === "true") {
+          e.preventDefault();
+          // Chrome requires returnValue to show the dialog; the text is
+          // browser-controlled either way.
+          e.returnValue = "";
+        }
+      };
+      window.addEventListener("beforeunload", this.handler);
+    },
+
+    destroyed() {
+      window.removeEventListener("beforeunload", this.handler);
+    }
+  };
 })();
 
 // ===========================================================================

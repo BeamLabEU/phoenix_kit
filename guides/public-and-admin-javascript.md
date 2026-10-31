@@ -93,7 +93,9 @@ once the failure has been reported to the console and, for admins, the page noti
 
 A new hook goes in `phoenix_kit.js` only if a page outside the admin area and the user dashboard can
 render it — one that core's own code or a known module renders there: a generic form or UI primitive, or
-something every page needs. Everything else goes in
+something every page needs. (`MentionInput`, `UploadStats` and `UploadGuard` are public for that reason: core's
+`file_upload` component and its mention-enabled text fields render them, and so do the public pages of modules —
+an upload form, a comment box.) Everything else goes in
 `phoenix_kit_admin.js`, registered as `window.PhoenixKitAdminHooks.Name = { … }`, and its name is added to
 `ADMIN_HOOKS` in `phoenix_kit.js`. Three places have to agree — the `ADMIN_HOOKS` array, the keys the
 admin file defines, and the hook lists in `test/js/admin_split.test.cjs` — and the test fails when they
