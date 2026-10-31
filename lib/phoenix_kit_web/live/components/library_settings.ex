@@ -50,6 +50,14 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       socket
       |> assign(:id, assigns.id)
       |> assign(:scope, assigns.scope)
+      |> assign(
+        :media_view,
+        if((assigns[:url_params] || %{})["media_view"] == "activity",
+          do: "activity",
+          else: "libraries"
+        )
+      )
+      |> assign(:activity_params, assigns[:url_params] || %{})
       |> assign(:probe, assigns[:probe])
       |> assign(:list, assigns[:list])
       |> assign(:url_path, assigns[:url_path])
@@ -91,9 +99,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     usage = bucket_usage(connections, owned, own_storage, storage_library, storage_rows)
 
     socket
+    |> assign(:activity_refresh, System.unique_integer([:positive]))
     |> assign(:trashed, Libraries.list_trashed_user_libraries(Scope.user_uuid(scope)))
     |> assign(:owned, owned)
     |> assign(:shared, shared)
+    |> assign(:content_stats, Libraries.content_stats(Enum.map(entries, & &1.library.uuid)))
     |> assign(:media, media_row(scope))
     |> assign(:can_create, Libraries.may_create_library?(scope))
     |> assign(:can_public, Libraries.may_create_public_library?(scope))
@@ -176,6 +186,27 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       {:noreply, socket |> open_dialog(kind, uuid) |> patch_dialog(kind, uuid)}
     else
       _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("media_view", %{"view" => view}, socket)
+      when view in ["libraries", "activity"] do
+    {:noreply,
+     socket |> assign(:media_view, view) |> assign(:dialog, nil) |> patch_activity(view, nil)}
+  end
+
+  def handle_event("verify_library", %{"uuid" => uuid}, socket) do
+    case entry(socket, uuid) do
+      %{role: :owner} ->
+        {:noreply,
+         socket
+         |> assign(:media_view, "activity")
+         |> assign(:dialog, nil)
+         |> assign(:activity_params, %{"verify" => uuid})
+         |> patch_activity("activity", uuid)}
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
@@ -508,6 +539,21 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       end
     end
   end
+
+  defp patch_activity(%{assigns: %{url_path: path}} = socket, view, verify)
+       when is_binary(path) do
+    uri = URI.parse(path)
+
+    params =
+      URI.decode_query(uri.query || "")
+      |> Map.drop(~w(library dialog settings_tab run verify activity_page log_page))
+      |> Map.put("media_view", view)
+
+    params = if verify, do: Map.put(params, "verify", verify), else: params
+    push_patch(socket, to: uri.path <> "?" <> URI.encode_query(params))
+  end
+
+  defp patch_activity(socket, _view, _verify), do: socket
 
   defp patch_dialog(%{assigns: %{url_path: path}} = socket, kind, uuid) when is_binary(path) do
     uri = URI.parse(path)
@@ -953,6 +999,19 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       else: sets ++ List.wrap(VariantSets.get_variant_set(current))
   end
 
+  attr :stats, :map, required: true
+
+  defp library_content_stats(assigns) do
+    ~H"""
+    <div class="mt-0.5 flex items-center gap-1.5 text-xs text-base-content/60">
+      <.icon name="hero-document" class="size-3 shrink-0" />
+      <span>{ngettext("%{count} file", "%{count} files", @stats.files)}</span>
+      <span aria-hidden="true">·</span>
+      <span>{PhoenixKit.Utils.Format.bytes(@stats.bytes)}</span>
+    </div>
+    """
+  end
+
   defp site_storage_label do
     gettext("%{project}'s storage", project: PhoenixKit.Settings.get_project_title())
   end
@@ -1027,7 +1086,37 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         {elem(@message, 1)}
       </div>
 
-      <div :if={@owned != [] or @shared != [] or @media}>
+      <div role="tablist" aria-label={gettext("Media sections")} class="tabs tabs-border">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={@media_view == "libraries"}
+          class={["tab gap-2", @media_view == "libraries" && "tab-active"]}
+          phx-click="media_view"
+          phx-value-view="libraries"
+          phx-target={@myself}
+        ><.icon name="hero-rectangle-stack" class="size-4" />{gettext("Libraries")}</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={@media_view == "activity"}
+          class={["tab gap-2", @media_view == "activity" && "tab-active"]}
+          phx-click="media_view"
+          phx-value-view="activity"
+          phx-target={@myself}
+        ><.icon name="hero-queue-list" class="size-4" />{gettext("Activity")}</button>
+      </div>
+      <.live_component
+        :if={@media_view == "activity"}
+        module={PhoenixKitWeb.Live.Components.LibraryActivity}
+        id={"#{@id}-activity"}
+        scope={@scope}
+        url_path={@url_path}
+        url_params={@activity_params}
+        refresh={@activity_refresh}
+      />
+
+      <div :if={@media_view == "libraries" and (@owned != [] or @shared != [] or @media)}>
         <.table_default id={"#{@id}-table"}>
           <:toolbar_title>
             <div>
@@ -1080,7 +1169,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 <.row_link navigate={open_href(@scope, library)} label={library.name} />
                 <div class="flex items-center gap-2">
                   <.icon name="hero-rectangle-stack" class="w-4 h-4 text-base-content/60" />
-                  <span class="font-medium">{library.name}</span>
+                  <div>
+                    <span class="font-medium">{library.name}</span>
+                    <.library_content_stats stats={@content_stats[library.uuid]} />
+                  </div>
                   <span :if={library.is_default} class="badge badge-primary badge-sm">
                     {gettext("Default")}
                   </span>
@@ -1156,6 +1248,13 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     label={gettext("Open")}
                   />
                   <.table_row_menu_button
+                    phx-click="verify_library"
+                    phx-target={@myself}
+                    phx-value-uuid={library.uuid}
+                    icon="hero-shield-check"
+                    label={gettext("Verify library")}
+                  />
+                  <.table_row_menu_button
                     phx-click="open_dialog"
                     phx-target={@myself}
                     phx-value-kind="settings"
@@ -1228,7 +1327,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 <.row_link navigate={open_href(@scope, library)} label={library.name} />
                 <div class="flex items-center gap-2">
                   <.icon name="hero-users" class="w-4 h-4 text-base-content/60" />
-                  <span class="font-medium">{library.name}</span>
+                  <div>
+                    <span class="font-medium">{library.name}</span>
+                    <.library_content_stats stats={@content_stats[library.uuid]} />
+                  </div>
                   <span class="badge badge-ghost badge-sm">{role_label(role)}</span>
                 </div>
                 <.link
@@ -1335,7 +1437,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         </p>
       </div>
 
-      <div :if={@trashed != []} id={"#{@id}-trash"} class="flex flex-col gap-2">
+      <div
+        :if={@media_view == "libraries" and @trashed != []}
+        id={"#{@id}-trash"}
+        class="flex flex-col gap-2"
+      >
         <.section_header icon="hero-trash" title={gettext("Trash")} />
         <p class="text-sm text-base-content/60">
           {gettext(

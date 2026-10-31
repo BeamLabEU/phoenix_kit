@@ -93,7 +93,13 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
          URI.parse(uri).path <>
            if(URI.parse(uri).query, do: "?" <> URI.parse(uri).query, else: "")
        )
-       |> assign(:library_params, Map.take(params, ~w(library dialog settings_tab)))
+       |> assign(
+         :library_params,
+         Map.take(
+           params,
+           ~w(library dialog settings_tab media_view run verify activity_page log_page)
+         )
+       )
        |> refresh_storage_timer(tab)}
     else
       {:noreply,

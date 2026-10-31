@@ -404,9 +404,18 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   @spec list_system_libraries_with_stats() :: [stats()]
   def list_system_libraries_with_stats, do: with_stats(list_system_libraries())
 
-  defp with_stats(libraries) do
-    uuids = Enum.map(libraries, & &1.uuid)
+  @doc """
+  Live file counts and original content bytes for the supplied library UUIDs,
+  in one query. Excludes trash and system-managed files; replicas and generated
+  instances do not multiply the size. Empty libraries receive zero totals.
+  Callers must supply only libraries the viewer may inspect.
+  """
+  @spec content_stats([String.t()]) :: %{
+          String.t() => %{files: non_neg_integer(), bytes: non_neg_integer()}
+        }
+  def content_stats([]), do: %{}
 
+  def content_stats(uuids) do
     files =
       from(f in StorageFile,
         where: f.library_uuid in ^uuids and f.system_managed == false and f.status != "trashed",
@@ -415,6 +424,17 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
       )
       |> repo().all()
       |> Map.new()
+
+    Map.new(uuids, fn uuid ->
+      {count, bytes} = Map.get(files, uuid, {0, 0})
+      {uuid, %{files: count, bytes: to_integer(bytes)}}
+    end)
+  end
+
+  defp with_stats(libraries) do
+    uuids = Enum.map(libraries, & &1.uuid)
+
+    files = content_stats(uuids)
 
     folders =
       from(f in Folder,
@@ -428,7 +448,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     held = libraries_holding(uuids)
 
     Enum.map(libraries, fn library ->
-      {count, bytes} = Map.get(files, library.uuid, {0, 0})
+      %{files: count, bytes: bytes} = Map.fetch!(files, library.uuid)
 
       %{
         library: library,

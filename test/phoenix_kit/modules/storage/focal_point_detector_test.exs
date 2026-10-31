@@ -6,9 +6,11 @@ defmodule PhoenixKit.Modules.Storage.FocalPointDetectorTest do
   @moduletag :tmp_dir
 
   defmodule Faces do
+    alias PhoenixKit.Modules.Storage.ImageProcessor
+
     def detect(path) do
       # The callback must receive an oriented, bounded JPEG, not the source.
-      {:ok, {width, height}} = PhoenixKit.Modules.Storage.ImageProcessor.extract_dimensions(path)
+      {:ok, {width, height}} = ImageProcessor.extract_dimensions(path)
 
       if max(width, height) <= 512 and Path.extname(path) == ".jpg",
         do: {:ok, {0.25, 0.4}},

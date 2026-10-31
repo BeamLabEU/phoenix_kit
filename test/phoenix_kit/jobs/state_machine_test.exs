@@ -13,6 +13,25 @@ defmodule PhoenixKit.Jobs.StateMachineTest do
   defp t(run, event), do: StateMachine.transition(run, event, @now)
   defp changes({:ok, changes, _effects}), do: changes
 
+  describe "durable batch logs" do
+    test "metadata travels with a successful checkpoint, including a draining run" do
+      log = %{"checked" => 5, "problems" => [%{"problem" => "missing"}]}
+
+      for state <- ~w(running pausing cancelling) do
+        assert {:ok, _, [{:log, "job.batch", ^log} | _]} =
+                 t(
+                   claimed(state: state),
+                   {:checkpoint, @token, {:more, %{done: 4, failed: 1, log: log}, []}}
+                 )
+      end
+    end
+
+    test "a stale claim cannot publish batch log metadata" do
+      assert {:error, :claim_lost} =
+               t(claimed(), {:checkpoint, "old-token", {:done, %{log: %{"checked" => 10}}, %{}}})
+    end
+  end
+
   describe "claim" do
     test "takes a queued or running run and marks it running" do
       for state <- ~w(queued running) do
@@ -350,7 +369,7 @@ defmodule PhoenixKit.Jobs.StateMachineTest do
     test "one Oban will retry releases the claim and changes no state" do
       run = claimed(generation: 2)
 
-      assert {:ok, %{claim_token: nil, error: "boom"} = changes, []} =
+      assert {:ok, %{claim_token: nil, error: "boom"} = changes, [{:log, "job.interrupted", %{}}]} =
                t(run, {:checkpoint, @token, {:release, "boom"}})
 
       refute Map.has_key?(changes, :state)
@@ -360,7 +379,8 @@ defmodule PhoenixKit.Jobs.StateMachineTest do
     test "while a pause was asked it settles the pause" do
       run = claimed(state: "pausing")
 
-      assert {:ok, %{state: "paused", claim_token: nil}, [{:log, "job.paused", _}]} =
+      assert {:ok, %{state: "paused", claim_token: nil},
+              [{:log, "job.interrupted", %{}}, {:log, "job.paused", _}]} =
                t(run, {:checkpoint, @token, {:release, "boom"}})
     end
 

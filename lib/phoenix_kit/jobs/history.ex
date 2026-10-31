@@ -37,6 +37,8 @@ defmodule PhoenixKit.Jobs.History do
             "scope_type" => run.scope_type,
             "scope_uuid" => run.scope_uuid && to_string(run.scope_uuid),
             "done" => run.done,
+            "failed" => run.failed_count,
+            "retry_of" => run.args["retry_of"],
             "total" => run.total,
             "error" => run.error
           }

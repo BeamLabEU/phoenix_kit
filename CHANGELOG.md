@@ -59,6 +59,22 @@
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
 
+## 3.2.5 - 2026-10-31
+
+### Added
+
+- Personal Media Activity tab for library verification and copying history,
+  with owner controls, membership-scoped logs and live file/byte totals.
+- Read-only presence and SHA-256 verification of originals and optional previews,
+  with resumable batches and durable findings. Admission allows one unfinished
+  verification per installation and one new check per library every 30 days.
+- Transactional job admission hooks and batch history saved atomically with
+  checkpoints; copying jobs report incomplete files in the same history.
+
+### Fixed
+
+- Alias the image processor in focal-point detector tests for strict Credo checks.
+
 ## 3.2.4 - 2026-10-31
 
 ### Fixed

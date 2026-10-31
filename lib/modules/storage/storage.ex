@@ -5086,7 +5086,8 @@ defmodule PhoenixKit.Modules.Storage do
       PhoenixKit.Modules.Storage.Jobs.ChecksumBackfill,
       PhoenixKit.Modules.Storage.Jobs.LocationBackfill,
       PhoenixKit.Modules.Storage.Jobs.PurgeLibrary,
-      PhoenixKit.Modules.Storage.Jobs.Reconcile
+      PhoenixKit.Modules.Storage.Jobs.Reconcile,
+      PhoenixKit.Modules.Storage.Jobs.VerifyLibrary
     ]
   end
 

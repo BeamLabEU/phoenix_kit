@@ -445,7 +445,30 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       {:ok, _} = Settings.update_setting("project_title", "Library Host")
       user = user!(role)
       first = library!(user, "First")
-      _second = library!(user, "Second")
+      second = library!(user, "Second")
+
+      stored!(user, "visible.png", first.uuid)
+      trashed = stored!(user, "trashed.png", first.uuid)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^trashed.uuid),
+        set: [status: "trashed"]
+      )
+
+      managed = stored!(user, "managed.png", first.uuid)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^managed.uuid),
+        set: [system_managed: true]
+      )
+
+      other = library!(user!(role), "Other user's library")
+      stored!(user, "other.png", other.uuid)
+
+      assert Libraries.content_stats([]) == %{}
+
+      assert Libraries.content_stats([first.uuid, second.uuid]) == %{
+               first.uuid => %{files: 1, bytes: 1},
+               second.uuid => %{files: 0, bytes: 0}
+             }
 
       {:ok, view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
 
@@ -454,6 +477,13 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       assert html =~ "Second"
       assert html =~ "Stored in"
       assert has_element?(view, "#library-row-#{first.uuid}", "Library Host's storage")
+      first_row = view |> element("#library-row-#{first.uuid}") |> render()
+      second_row = view |> element("#library-row-#{second.uuid}") |> render()
+      assert first_row =~ "1 file"
+      assert first_row =~ "1 B"
+      assert second_row =~ "0 files"
+      assert second_row =~ "0 B"
+      refute html =~ "Other user&#39;s library"
       assert html =~ "Visibility"
       assert html =~ "Private"
       # The first library a user makes is their default.

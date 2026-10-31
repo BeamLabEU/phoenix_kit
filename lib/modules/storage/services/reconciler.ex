@@ -321,7 +321,8 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   from the start), in uuid order. Returns `{:more, last_uuid, totals}`
   while a full batch was read, `{:done, totals}` once the walk has passed
   the last one; `totals` counts files `:reconciled`, `:stale` (still) and
-  `:skipped`. `library_uuid:` walks one library's files only.
+  `:skipped`. `library_uuid:` walks one library's files only. `log_problems: true` adds
+  `:problems`, the UUIDs of files that could not be finished in this batch.
   """
   @spec run_batch(String.t() | nil, pos_integer(), map(), keyword()) ::
           {:more, String.t(), map()} | {:done, map()}
@@ -335,7 +336,12 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
     totals =
       Enum.reduce(batch, totals, fn file, acc ->
-        Map.update(acc, reconcile_file(file), 1, &(&1 + 1))
+        outcome = reconcile_file(file)
+        acc = Map.update(acc, outcome, 1, &(&1 + 1))
+
+        if Keyword.get(opts, :log_problems, false) and outcome == :stale,
+          do: Map.update(acc, :problems, [file.uuid], &[file.uuid | &1]),
+          else: acc
       end)
 
     if length(batch) < limit,
