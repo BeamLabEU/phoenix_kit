@@ -59,6 +59,15 @@
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
 
+## 3.2.3 - 2026-10-31
+
+### Added
+
+- Optional host focal-point detector for face-first subject crops. Detectors
+  receive a bounded, oriented JPEG; missing subjects, invalid coordinates and
+  detector errors fall back to libvips visual attention. Stored manual focal
+  points retain precedence.
+
 ## 3.2.2 - 2026-10-30
 
 ### Fixed
