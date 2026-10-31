@@ -15,11 +15,11 @@ const path = require("path");
 const assert = require("node:assert");
 const { test } = require("node:test");
 
-const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js");
+const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
 const src = fs.readFileSync(SOURCE, "utf8");
 
 function loadHook() {
-  const start = src.indexOf("  window.PhoenixKitHooks.FolderDropUpload = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.FolderDropUpload = {");
   assert.notStrictEqual(start, -1, "could not find FolderDropUpload");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
   function FakeDataTransfer() {
@@ -29,8 +29,8 @@ function loadHook() {
   }
   const fn = new Function(
     "window", "document", "setTimeout", "DataTransfer", "Event",
-    "window.PhoenixKitHooks = window.PhoenixKitHooks || {};" +
-      src.slice(start, end) + "; return window.PhoenixKitHooks.FolderDropUpload;"
+    "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};" +
+      src.slice(start, end) + "; return window.PhoenixKitAdminHooks.FolderDropUpload;"
   );
   return fn({}, {}, (cb) => cb(), FakeDataTransfer,
     function E(name, opts) { this.type = name; this.bubbles = opts && opts.bubbles; });

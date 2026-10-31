@@ -35,10 +35,11 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     facts = ViewerLibraries.vendor!(root)
 
     assert Enum.sort(Map.keys(facts)) ==
-             ~w(cally etcher fresco leaf panzoom sortable tessera wavesurfer)
+             ~w(cally chartjs etcher fresco leaf panzoom sortable tessera wavesurfer)
 
     assert facts["cally"].file =~ ~r/\Acally-0\.9\.2-[0-9a-f]{8}\.js\z/
     assert facts["panzoom"].file =~ ~r/\Apanzoom-4\.6\.0-[0-9a-f]{8}\.js\z/
+    assert facts["chartjs"].file =~ ~r/\Achartjs-4\.5\.1-[0-9a-f]{8}\.js\z/
     assert facts["wavesurfer"].file =~ ~r/\Awavesurfer-7\.12\.12-[0-9a-f]{8}\.js\z/
     assert facts["sortable"].file =~ ~r/\Asortable-1\.15\.0-[0-9a-f]{8}\.js\z/
 
@@ -82,7 +83,7 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
     committed = for %{sha256: _} = lib <- ViewerLibraries.libraries(), do: lib
 
     assert committed |> Enum.map(& &1.name) |> Enum.sort() ==
-             ~w(cally panzoom sortable wavesurfer)
+             ~w(cally chartjs panzoom sortable wavesurfer)
 
     for %{name: name, sha256: expected, source: {:phoenix_kit, path}} <- committed do
       full = Path.join(to_string(:code.priv_dir(:phoenix_kit)), path)
@@ -143,6 +144,279 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
 
     assert File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js")) ==
              before
+  end
+
+  describe "the admin bundle" do
+    test "vendor_all vendors phoenix_kit_admin.js as the \"admin\" library and names it in the facts",
+         %{root: root} do
+      :ok = Compiler.vendor_all(root)
+
+      modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+      [_, json] = Regex.run(~r/window\.PHOENIX_KIT_LIBS=(\{.*?\});/, modules)
+      %{"admin" => %{"file" => file, "cdn" => cdn}} = Jason.decode!(json)
+
+      vsn = to_string(Application.spec(:phoenix_kit, :vsn))
+      assert file =~ ~r/\Aadmin-#{Regex.escape(vsn)}-[0-9a-f]{8}\.js\z/
+      assert cdn == nil, "a bundle built on the host has no CDN copy"
+
+      source =
+        Path.join(to_string(:code.priv_dir(:phoenix_kit)), "static/assets/phoenix_kit_admin.js")
+
+      assert File.read!(lib_path(root, file)) == File.read!(source)
+    end
+
+    test "an unchanged compile rewrites nothing, and a changed bundle gets a new name", %{
+      root: root
+    } do
+      :ok = Compiler.vendor_all(root)
+      %{"admin" => %{"file" => file}} = facts_of(root)
+      path = lib_path(root, file)
+      File.touch!(path, {{2000, 1, 1}, {0, 0, 0}})
+
+      :ok = Compiler.vendor_all(root)
+      assert File.stat!(path).mtime == {{2000, 1, 1}, {0, 0, 0}}
+
+      a = ViewerLibraries.file_name("admin", "3.0.0", "one")
+      b = ViewerLibraries.file_name("admin", "3.0.0", "two")
+      assert a != b
+      assert a =~ ~r/\Aadmin-3\.0\.0-[0-9a-f]{8}\.js\z/
+    end
+  end
+
+  describe "where the libraries are served from" do
+    setup do
+      previous = Application.get_env(:phoenix_kit, :library_base_url)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:phoenix_kit, :library_base_url),
+          else: Application.put_env(:phoenix_kit, :library_base_url, previous)
+      end)
+    end
+
+    test "unconfigured, the facts carry the compiler's default under a key of its own", %{
+      root: root
+    } do
+      :ok = Compiler.vendor_all(root)
+      modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+
+      # Not window.PHOENIX_KIT_LIB_BASE: that one overrides the tag the bundle was
+      # loaded from, which is right for a CDN or a path prefix, so a default must
+      # not claim it.
+      assert modules =~
+               ~s(window.PHOENIX_KIT_LIB_BASE_DEFAULT=window.PHOENIX_KIT_LIB_BASE_DEFAULT||"/assets/vendor/lib/";)
+
+      refute modules =~ ~r/window\.PHOENIX_KIT_LIB_BASE=/
+      assert ViewerLibraries.base_url!() == nil
+    end
+
+    test "a host that serves its assets elsewhere says where, and a host's own window value still wins",
+         %{root: root} do
+      Application.put_env(
+        :phoenix_kit,
+        :library_base_url,
+        "https://cdn.example.test/app/assets/vendor/lib"
+      )
+
+      :ok = Compiler.vendor_all(root)
+      modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+
+      assert modules =~
+               ~s(window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||"https://cdn.example.test/app/assets/vendor/lib/";)
+
+      refute modules =~ "PHOENIX_KIT_LIB_BASE_DEFAULT"
+    end
+
+    test "a base that is not a string is refused loudly", %{root: root} do
+      Application.put_env(:phoenix_kit, :library_base_url, :nope)
+      assert_raise Mix.Error, ~r/library_base_url/, fn -> Compiler.vendor_all(root) end
+    end
+
+    test "a base that is neither an absolute path nor a URL is used but flagged at compile time" do
+      Application.put_env(:phoenix_kit, :library_base_url, "assets/vendor/lib")
+      assert ViewerLibraries.base_url!() == "assets/vendor/lib/"
+      assert_received {:mix_shell, :info, [msg]}
+      assert msg =~ "library_base_url"
+      assert msg =~ "absolute path"
+
+      for ok <- ["/assets/vendor/lib/", "https://cdn.example.test/x", "http://localhost:4000/lib"] do
+        Application.put_env(:phoenix_kit, :library_base_url, ok)
+        ViewerLibraries.base_url!()
+        refute_received {:mix_shell, :info, _}
+      end
+    end
+  end
+
+  describe "minifying what the compiler writes" do
+    setup do
+      previous = Application.get_env(:phoenix_kit, :minify_libraries)
+      previous_fun = Application.get_env(:phoenix_kit, :js_minifier)
+
+      on_exit(fn ->
+        restore(:minify_libraries, previous)
+        restore(:js_minifier, previous_fun)
+      end)
+
+      Application.put_env(:phoenix_kit, :minify_libraries, true)
+    end
+
+    defp restore(key, nil), do: Application.delete_env(:phoenix_kit, key)
+    defp restore(key, value), do: Application.put_env(:phoenix_kit, key, value)
+
+    # Stand-in for the host's esbuild, which the test environment does not have.
+    def fake_minifier(content), do: {:ok, "/*min*/" <> String.replace(content, ~r/\s+/, " ")}
+    def failing_minifier(_content), do: {:error, "esbuild exited 1"}
+
+    test "the vendored phoenix_kit.js, the admin bundle and phoenix_kit_modules.js all go through the minifier",
+         %{root: root} do
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :fake_minifier})
+      :ok = Compiler.vendor_all(root)
+
+      vendor = Path.join(root, "priv/static/assets/vendor")
+      assert File.read!(Path.join(vendor, "phoenix_kit.js")) =~ ~r/\A\/\*min\*\//
+
+      # The install facts keep their JSON shape (the doctor and people read them);
+      # what follows them is what the minifier gets.
+      modules = File.read!(Path.join(vendor, "phoenix_kit_modules.js"))
+      assert modules =~ ~s(window.PHOENIX_KIT_LIBS={"admin":{"file":")
+
+      %{"admin" => %{"file" => file}} = facts_of(root)
+      assert file =~ ~r/\.min\.js\z/
+      assert File.read!(lib_path(root, file)) =~ ~r/\A\/\*min\*\//
+    end
+
+    test "the minified result is stable: a second compile writes nothing", %{root: root} do
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :fake_minifier})
+      :ok = Compiler.vendor_all(root)
+      path = Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js")
+      File.touch!(path, {{2000, 1, 1}, {0, 0, 0}})
+
+      :ok = Compiler.vendor_all(root)
+      assert File.stat!(path).mtime == {{2000, 1, 1}, {0, 0, 0}}
+    end
+
+    test "a minifier that fails costs nothing but the size: readable files, no raise", %{
+      root: root
+    } do
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :failing_minifier})
+      assert :ok = Compiler.vendor_all(root)
+
+      vendor = Path.join(root, "priv/static/assets/vendor")
+      refute File.read!(Path.join(vendor, "phoenix_kit.js")) =~ "/*min*/"
+      assert File.read!(Path.join(vendor, "phoenix_kit_modules.js")) =~ "window.PHOENIX_KIT_LIBS="
+      %{"admin" => %{"file" => file}} = facts_of(root)
+      refute file =~ ~r/\.min\.js\z/
+    end
+
+    def scripted_minifier(content), do: Application.get_env(:phoenix_kit, :test_minify).(content)
+
+    test "nothing to minify is not sent to the minifier: a host without module bundles gets no false note",
+         %{root: root} do
+      test = self()
+
+      # Like esbuild, which writes nothing for an empty input and calls that an error.
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :scripted_minifier})
+
+      Application.put_env(:phoenix_kit, :test_minify, fn content ->
+        send(test, {:minified, content})
+
+        if String.trim(content) == "",
+          do: {:error, "esbuild wrote nothing"},
+          else: {:ok, "/*min*/"}
+      end)
+
+      on_exit(fn -> Application.delete_env(:phoenix_kit, :test_minify) end)
+
+      for empty <- ["", "   ", "\n  \n"] do
+        assert ViewerLibraries.maybe_minify(empty, "x") == empty
+      end
+
+      refute_received {:minified, _}
+      assert collect_notes([]) == []
+
+      # And the compiler's own run: no module declares a bundle, so the part after
+      # the facts is empty.
+      assert :ok = Compiler.vendor_all(root)
+      assert collect_notes([]) == [], "no 'Could not minify' for a body that is empty"
+      modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+      assert modules =~ "PHOENIX_KIT_LIBS"
+      refute_received {:minified, ""}
+    end
+
+    for {label, answer} <- [
+          {"nothing at all", quote(do: :ok)},
+          {"an empty file", quote(do: {:ok, ""})},
+          {"something that is not a file", quote(do: {:ok, 42})},
+          {"an error that is not a string", quote(do: {:error, :boom})},
+          {"a raise", quote(do: raise("boom"))},
+          {"an exit", quote(do: exit(:boom))}
+        ] do
+      test "a minifier that answers #{label} is a failed minify: readable files, one note, no crash",
+           %{root: root} do
+        Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :scripted_minifier})
+        Application.put_env(:phoenix_kit, :test_minify, fn _ -> unquote(answer) end)
+        on_exit(fn -> Application.delete_env(:phoenix_kit, :test_minify) end)
+
+        assert :ok = Compiler.vendor_all(root)
+
+        vendor = Path.join(root, "priv/static/assets/vendor")
+        assert File.read!(Path.join(vendor, "phoenix_kit.js")) =~ "PhoenixKit JavaScript Bundle"
+        assert File.read!(Path.join(vendor, "phoenix_kit_modules.js")) =~ "PHOENIX_KIT_LIBS"
+        %{"admin" => %{"file" => file}} = facts_of(root)
+        refute file =~ ~r/\.min\.js\z/
+        assert File.stat!(lib_path(root, file)).size > 0
+
+        notes = collect_notes([])
+        assert length(notes) == 1, "one line per compile, not one per file: #{inspect(notes)}"
+        assert hd(notes) =~ "Could not minify"
+      end
+    end
+
+    defp collect_notes(acc) do
+      receive do
+        {:mix_shell, :info, [msg]} ->
+          collect_notes(if msg =~ "Could not minify", do: [msg | acc], else: acc)
+      after
+        0 -> Enum.reverse(acc)
+      end
+    end
+
+    test "with a real esbuild, minifying already minified output changes nothing that runs" do
+      # The test environment has no esbuild (core lists it for :dev only), so this
+      # runs where one is installed and passes quietly elsewhere; the JS tests were
+      # also run by hand against the output of one and of two real esbuild passes.
+      Application.delete_env(:phoenix_kit, :js_minifier)
+
+      source =
+        "var answer = 40 + 2;\nfunction greet(name) { return 'hi ' + name; }\nwindow.x = greet(answer);"
+
+      case ViewerLibraries.minify(source) do
+        {:ok, once} ->
+          assert {:ok, twice} = ViewerLibraries.minify(once)
+          assert byte_size(twice) <= byte_size(once)
+          assert twice =~ "window.x="
+
+        {:error, _no_esbuild} ->
+          :ok
+      end
+    end
+
+    test "development builds stay readable unless asked", %{root: root} do
+      Application.delete_env(:phoenix_kit, :minify_libraries)
+      Application.put_env(:phoenix_kit, :js_minifier, {__MODULE__, :fake_minifier})
+      :ok = Compiler.vendor_all(root)
+
+      unless ViewerLibraries.minify?() do
+        refute File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit.js")) =~
+                 "/*min*/"
+      end
+    end
+  end
+
+  defp facts_of(root) do
+    modules = File.read!(Path.join(root, "priv/static/assets/vendor/phoenix_kit_modules.js"))
+    [_, json] = Regex.run(~r/window\.PHOENIX_KIT_LIBS=(\{.*?\});/, modules)
+    Jason.decode!(json)
   end
 
   describe "minifying the Hex libraries" do

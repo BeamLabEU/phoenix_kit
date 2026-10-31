@@ -1,6 +1,6 @@
 "use strict";
 
-// Tests for PkHashHighlight in priv/static/assets/phoenix_kit.js — the hook that
+// Tests for PkHashHighlight in priv/static/assets/phoenix_kit_admin.js — the hook that
 // lights the element the URL fragment names, so that a link followed in the app
 // (history.pushState, which does not update CSS :target) looks like one loaded
 // directly.
@@ -61,8 +61,8 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { hashTargetId } = require("../../priv/static/assets/phoenix_kit.js");
-const hook = global.window.PhoenixKitHooks.PkHashHighlight;
+const { hashTargetId } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
+const hook = global.window.PhoenixKitAdminHooks.PkHashHighlight;
 
 function fakeElement(id) {
   const attrs = {};

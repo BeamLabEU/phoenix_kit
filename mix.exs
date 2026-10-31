@@ -493,6 +493,7 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "guides/upgrading-to-3.0.md",
+        "guides/public-and-admin-javascript.md",
         "guides/integration.md",
         "guides/oauth-and-magic-link-setup.md",
         "guides/aws-email-setup.md",

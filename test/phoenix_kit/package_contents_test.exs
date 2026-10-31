@@ -26,6 +26,10 @@ defmodule PhoenixKit.PackageContentsTest do
 
     refute Enum.any?(paths, &String.starts_with?(&1, "priv/media/"))
     assert "priv/static/assets/phoenix_kit.js" in paths
+    # The admin half of the hook bundle and Chart.js are fetched by the public
+    # file on demand; a package without them breaks the admin area.
+    assert "priv/static/assets/phoenix_kit_admin.js" in paths
+    assert "priv/static/assets/vendor_libs/chartjs/chart.umd.js" in paths
     assert "priv/gettext/default.pot" in paths
     assert "lib/phoenix_kit.ex" in paths
     assert {:pass, _} = ReleaseCheck.check_package_contents(tar_path)

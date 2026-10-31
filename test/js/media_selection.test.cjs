@@ -9,9 +9,15 @@ const vm = require("node:vm");
 // Run the shipped media selection listeners and hook, with a small event/DOM
 // harness so gestures can be exercised without LiveView or a browser driver.
 function browser() {
-  const source = fs.readFileSync(path.join(__dirname, "../../priv/static/assets/phoenix_kit.js"), "utf8");
+  // The listeners and the hook live in the admin bundle (the media browser is an
+  // admin hook); a public page never loads them.
+  const source = fs.readFileSync(path.join(__dirname, "../../priv/static/assets/phoenix_kit_admin.js"), "utf8");
   const start = source.indexOf("  function startBoxSelect(");
-  const end = source.indexOf("\n  // MAINTENANCE COUNTDOWN HOOK", start);
+  const hookAt = source.indexOf("  window.PhoenixKitAdminHooks.MediaDragDrop = {", start);
+  assert.ok(start !== -1 && hookAt !== -1, "the box select code is in phoenix_kit_admin.js");
+  const hookEnd = source.indexOf("\n  };\n", hookAt);
+  assert.ok(hookEnd !== -1, "the end of the MediaDragDrop hook is in phoenix_kit_admin.js");
+  const end = hookEnd + "\n  };\n".length;
   const listeners = {};
   const windowListeners = {};
   const calls = [];
@@ -46,7 +52,7 @@ function browser() {
     addEventListener: (name, fn) => (listeners[name] ||= []).push(fn),
   };
   const window = {
-    PhoenixKitHooks: {},
+    PhoenixKitAdminHooks: {},
     getSelection: () => ({ removeAllRanges: noop }),
     addEventListener: (name, fn) => (windowListeners[name] ||= new Set()).add(fn),
     removeEventListener: (name, fn) => windowListeners[name]?.delete(fn),
@@ -55,7 +61,7 @@ function browser() {
     document, window, setTimeout: noop,
     requestAnimationFrame: () => 1, cancelAnimationFrame: noop,
   });
-  const hook = Object.assign(Object.create(window.PhoenixKitHooks.MediaDragDrop), {
+  const hook = Object.assign(Object.create(window.PhoenixKitAdminHooks.MediaDragDrop), {
     el: root,
     pushEventTo: (_el, event, payload) => calls.push({ event, payload: JSON.parse(JSON.stringify(payload)) }),
   });

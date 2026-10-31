@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const src = fs.readFileSync(
-  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js"),
+  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js"),
   "utf8"
 );
 

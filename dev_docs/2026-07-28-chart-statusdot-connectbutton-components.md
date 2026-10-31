@@ -167,7 +167,9 @@ heights stay proportional.
   (`version_switcher.ex`, `status_dot_classes/3`) — the exact duplication
   `StatusDot` exists to remove.
 - NordSwitch adopts these on release.
-- Unrelated but noticed: `priv/static/assets/phoenix_kit.js` already bundles the
-  full **Chart.js UMD library**, which sets `window.Chart`. Worth a deliberate
-  decision about whether the kit wants two charting stories now that zero-JS
-  primitives exist.
+- Unrelated but noticed: core ships the full **Chart.js UMD library** (it was
+  inlined in `priv/static/assets/phoenix_kit.js`; since the public/admin split it
+  is the vendored `vendor_libs/chartjs/` file, loaded on demand by the email
+  dashboard and by `window.PhoenixKitLibraries.chartjs()`), which sets
+  `window.Chart`. Worth a deliberate decision about whether the kit wants two
+  charting stories now that zero-JS primitives exist.
