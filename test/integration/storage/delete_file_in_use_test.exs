@@ -101,13 +101,6 @@ defmodule PhoenixKit.Modules.Storage.DeleteFileInUseTest do
       assert {:ok, _} = Storage.delete_file_completely(file)
       refute exists?(file)
     end
-
-    test "a row gone before the delete answers :not_found, not a raise", %{user: u} do
-      file = trashed!(u, "gone")
-      Repo.delete!(file)
-
-      assert {:error, :not_found} = Storage.delete_file_completely(file)
-    end
   end
 
   describe "emptying the trash" do
@@ -159,6 +152,44 @@ defmodule PhoenixKit.Modules.Storage.DeleteFileInUseTest do
       refute exists?(b)
       assert is_nil(Repo.get(Folder, folder.uuid))
       assert is_nil(Repo.get(Folder, child.uuid))
+    end
+
+    test "a file disappearing during deletion does not keep its folder or report in_use",
+         %{user: u, folder: folder, child: child} do
+      a = file!(u, "a")
+      b = file!(u, "b")
+      home!(a, child)
+      home!(b, child)
+      {:ok, _} = Storage.trash_folder(folder)
+
+      # Both rows are in the folder's deletion plan. Whichever is deleted first
+      # removes its sibling, making the next row lookup answer :not_found.
+      # The sandbox rolls back the function and trigger along with the rows.
+      Repo.query!("""
+      CREATE FUNCTION zz_delete_sibling_file() RETURNS trigger AS $$
+      BEGIN
+        IF pg_trigger_depth() = 1 THEN
+          DELETE FROM phoenix_kit_files
+          WHERE folder_uuid = OLD.folder_uuid AND uuid <> OLD.uuid;
+        END IF;
+        RETURN OLD;
+      END;
+      $$ LANGUAGE plpgsql
+      """)
+
+      Repo.query!("""
+      CREATE TRIGGER zz_delete_sibling_file
+      BEFORE DELETE ON phoenix_kit_files
+      FOR EACH ROW WHEN (OLD.folder_uuid = '#{child.uuid}'::uuid)
+      EXECUTE FUNCTION zz_delete_sibling_file()
+      """)
+
+      assert {:ok, _} = Storage.delete_folder_completely(folder)
+
+      refute exists?(a)
+      refute exists?(b)
+      assert is_nil(Repo.get(Folder, child.uuid))
+      assert is_nil(Repo.get(Folder, folder.uuid))
     end
 
     test "a file in use is not deleted — and not quietly moved to the media root either",

@@ -812,7 +812,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserRemovalGuardTest do
 
       html = hook(view, "delete_selected")
 
-      assert html =~ "Move 2 files and 1 folder (including all folder contents) to trash?"
+      assert html =~ "Move 1 file and 1 folder (including all folder contents) to trash?"
       assert_received {:places, uuids, %{action: :delete_selected}}
       assert Enum.sort(uuids) == Enum.sort([inside.uuid, loose.uuid])
 
@@ -837,7 +837,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserRemovalGuardTest do
       html = hook(view, "delete_selected")
 
       assert html =~
-               "Permanently delete 2 files and 1 folder (including all folder contents)? This cannot be undone."
+               "Permanently delete 1 file and 1 folder (including all folder contents)? This cannot be undone."
 
       assert length(String.split(html, "This cannot be undone.")) == 2,
              "the title carries the warning; the paragraph does not repeat it"

@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.RemovalModal do
         <p
           :if={
             @state == :confirm and @pending.kind == :delete and
-              not combined_title?(@pending, @free_count)
+              not combined_title?(@pending)
           }
           class="py-3 text-sm"
         >
@@ -176,11 +176,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.RemovalModal do
     )
   end
 
-  # Folders and files together: the same wording the client-side confirm of
-  # the same action uses, so the two never disagree.
-  defp title(:confirm, %{kind: kind, folders: folder_count}, free, _blocked)
-       when folder_count > 0 and free > 0 do
-    files = ngettext("%{count} file", "%{count} files", free)
+  # Count separately selected files here; `free` also includes folder contents.
+  defp title(
+         :confirm,
+         %{kind: kind, folders: folder_count, selected_file_count: file_count},
+         _free,
+         _blocked
+       )
+       when folder_count > 0 and file_count > 0 do
+    files = ngettext("%{count} file", "%{count} files", file_count)
     folders = ngettext("%{count} folder", "%{count} folders", folder_count)
 
     if kind == :trash do
@@ -223,7 +227,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.RemovalModal do
 
   # Whether the title already says what the "This cannot be undone." paragraph
   # says (the combined folders-and-files delete title ends with it).
-  defp combined_title?(%{folders: folders}, free_count), do: folders > 0 and free_count > 0
+  defp combined_title?(%{folders: folders, selected_file_count: file_count}),
+    do: folders > 0 and file_count > 0
 
   defp error_text(message) when is_binary(message), do: message
   defp error_text(_), do: gettext("The files could not be freed. Nothing was removed.")

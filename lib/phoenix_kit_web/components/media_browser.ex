@@ -5576,6 +5576,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       kind: analysis.kind,
       skip?: analysis.skip?,
       folders: analysis.folders,
+      selected_file_count: analysis.selected_file_count,
       folder_uuids: analysis.folder_uuids,
       files: analysis.files,
       free: free,
@@ -5594,6 +5595,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       failed?: true,
       kind: analysis.kind,
       folders: analysis.folders,
+      selected_file_count: analysis.selected_file_count,
       files: analysis.files,
       free: [],
       places: [],
@@ -5713,6 +5715,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       plan,
       current_folder_uuid(socket),
       skip?: trash? and folders == [],
+      selected_file_count: length(Enum.uniq(file_plan.trash ++ file_plan.delete)),
       folder_uuids: Enum.map(folders, & &1.uuid)
     )
   end
@@ -5762,6 +5765,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         kind: kind,
         files: files,
         folders: folders,
+        selected_file_count: Keyword.get(opts, :selected_file_count, 0),
         folder_uuids: folder_uuids,
         folder_uuid: folder_uuid,
         skip?: Keyword.get(opts, :skip?, false)
