@@ -35,6 +35,8 @@
  *     PkShiftEnter, PkUrlMirror, PhoenixKitUrlState, PkCheckboxIndeterminate,
  *     PkChartCrosshair, ViewportPopover, SelectOnMount, MaintenanceCountdown,
  *     LibraryLoadNotice
+ *   - MentionInput ............ @ and # menu in plain textareas
+ *   - UploadStats, UploadGuard  Transfer line under an upload bar; leave-page guard
  *   - Leaf, FrescoViewer, FrescoCanvas, TesseraLayer, EtcherLayer: wrappers that
  *     load the vendored viewer/editor library on first mount
  *
