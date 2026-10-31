@@ -27,11 +27,19 @@ const { createEnv, makeHook } = require("./support/pk_env.cjs");
 const FACTS = { admin: { file: "admin-3.0.0-cafebabe.js", cdn: null } };
 const FILE = "admin-3.0.0-cafebabe.js?vsn=d";
 
+// Each facts file is written to a directory of its own, removed when the file's tests
+// are done (a test that fails halfway leaves nothing behind either).
+const tmpDirs = [];
+test.after(() => {
+  for (const dir of tmpDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // What the compiler writes at the top of phoenix_kit_modules.js (the Elixir side
 // asserts the same statements): the default under its own key, or the configured
 // URL under the key a host's own word also uses.
 function factsFile(kind, base) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pk_facts_"));
+  tmpDirs.push(dir);
   const file = path.join(dir, "phoenix_kit_modules.js");
   const statement =
     kind === "configured"
@@ -40,7 +48,7 @@ function factsFile(kind, base) {
         ? "window.PHOENIX_KIT_LIB_BASE_DEFAULT=window.PHOENIX_KIT_LIB_BASE_DEFAULT||" + JSON.stringify(base) + ";\n"
         : "";
   fs.writeFileSync(file, statement + "window.PHOENIX_KIT_LIBS=" + JSON.stringify(FACTS) + ";\n");
-  return { file, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  return { file };
 }
 
 // phoenix_kit.js evaluated as the script at `src`; the facts file at `factsSrc`.
@@ -51,7 +59,6 @@ function page({ src, factsSrc, kind = "default", base = "/assets/vendor/lib/", b
   env.load(facts.file, { src: factsSrc || "https://app.test/assets/vendor/phoenix_kit_modules.js" });
   env.load("phoenix_kit.js", { src });
   makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
-  facts.cleanup();
   return env.scripts[0] && env.scripts[0].src;
 }
 
@@ -116,7 +123,6 @@ test("a base the host set on window itself beats everything, set before the fact
   env.load("phoenix_kit.js", { src: "https://app.test/assets/js/app.js" });
   makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
   assert.equal(env.scripts[0].src, "https://app.test/later/lib/" + FILE);
-  facts.cleanup();
 });
 
 test("facts from an older version name no default: the directory of the script still decides", () => {
