@@ -59,6 +59,13 @@
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
 
+## 3.2.4 - 2026-10-31
+
+### Fixed
+
+- Update locked Bandit to 1.14.1, Phoenix HTML to 4.4.0 and ssl_verify_fun to
+  1.1.8, aligning the development lock with the host's security updates.
+
 ## 3.2.3 - 2026-10-31
 
 ### Added
