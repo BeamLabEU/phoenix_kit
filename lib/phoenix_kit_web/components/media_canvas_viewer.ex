@@ -114,6 +114,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Format
 
   # Etcher's toolbar color slots are a single palette shared across every
@@ -461,9 +462,9 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
       # Nor a file of a managed library, whatever the host said (`Libraries.managed?/1`).
       {true, %{} = file, _} ->
-        if managed_file?(file),
-          do: {:noreply, socket},
-          else: {:noreply, sync_annotations(socket, file, new_annotations)}
+        if annotation_file_writable?(file, socket.assigns),
+          do: {:noreply, sync_annotations(socket, file, new_annotations)},
+          else: {:noreply, socket}
 
       {true, nil, %{} = board} ->
         {:noreply, sync_annotations(socket, board, new_annotations)}
@@ -557,6 +558,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   def handle_event("annotation_reply", %{"uuid" => uuid}, socket) do
     with %{} <- socket.assigns[:current_user],
+         true <- annotation_file_writable?(socket.assigns[:file], socket.assigns),
          %{} = ann <- find_viewer_annotation(socket, uuid),
          {:ok, master_uuid} <- ensure_master_comment(socket, ann) do
       {:noreply,
@@ -703,6 +705,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # the old `width * height` fallback collided for two burns of one size.
   def handle_event("burn_stored", params, socket) do
     with %{file_uuid: uuid} when is_binary(uuid) <- socket.assigns[:file],
+         true <- user_library_readable?(uuid, socket.assigns[:current_user]),
          variant when variant in ~w(burned_large burned) <- params["variant"] || "burned",
          %{width: w, height: h} = instance
          when is_integer(w) and w > 0 and is_integer(h) and h > 0 <-
@@ -965,6 +968,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # Carry the browser's boundaries into every write in its child viewer.
   defp file_writable?(%Storage.File{} = row, assigns) do
     not Libraries.managed?(row) and
+      user_library_writable?(row, assigns[:current_user]) and
       Storage.within_scope?(row.folder_uuid, assigns[:write_scope]) and
       (is_nil(assigns[:own_files_only]) or row.user_uuid == assigns[:own_files_only]) and
       (is_nil(assigns[:write_library_uuid]) or
@@ -974,11 +978,36 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
 
   defp file_writable?(_row, _assigns), do: false
 
-  # A file of a managed library is changed by nobody from here.
-  defp managed_file?(%{file_uuid: uuid}) when is_binary(uuid),
-    do: Libraries.managed?(Storage.get_file(uuid))
+  defp user_library_writable?(row, user) do
+    case Libraries.get_library(row.library_uuid) do
+      %{kind: "user"} -> user != nil and Libraries.can?(viewer_scope(user), row, :edit)
+      _ -> true
+    end
+  end
 
-  defp managed_file?(_file), do: false
+  defp viewer_scope(%Auth.User{} = user), do: Scope.for_user(user)
+  defp viewer_scope(_user), do: nil
+
+  defp annotation_file_writable?(%{file_uuid: uuid}, assigns) when is_binary(uuid) do
+    case Storage.get_file(uuid) do
+      %Storage.File{} = row ->
+        not Libraries.managed?(row) and user_library_writable?(row, assigns[:current_user])
+
+      _ ->
+        true
+    end
+  end
+
+  defp annotation_file_writable?(_file, _assigns), do: true
+
+  defp user_library_readable?(uuid, user) do
+    with %Storage.File{} = row <- Storage.get_file(uuid),
+         %{kind: "user"} <- Libraries.get_library(row.library_uuid) do
+      Libraries.can?(if(user, do: viewer_scope(user)), row, :read)
+    else
+      _ -> true
+    end
+  end
 
   # A form field, or whatever a forged event put in its place.
   defp text_param(value) when is_binary(value), do: String.trim(value)
@@ -2321,7 +2350,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
         _ -> nil
       end
 
-    if not managed_file?(socket.assigns[:file]) do
+    if annotation_file_writable?(socket.assigns[:file], socket.assigns) do
       persist_annotation_title(annotation_uuid, normalize_annotation_title(title))
     end
 

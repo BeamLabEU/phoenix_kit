@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Modules.Storage.Libraries.MembershipHistory
   alias PhoenixKit.Modules.Storage.RepairLog
   alias PhoenixKit.Users.Auth.Scope
 
@@ -134,7 +135,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.HistoryComponent do
   defp load(socket) do
     result =
       Activity.list(
-        query: history_query(socket.assigns.filter),
+        # This tab is global storage configuration, not private-library
+        # membership history. The latter lives in the member dialog.
+        query: MembershipHistory.visible_query(history_query(socket.assigns.filter), nil),
         page: socket.assigns.page,
         per_page: @per_page,
         preload: [:actor]

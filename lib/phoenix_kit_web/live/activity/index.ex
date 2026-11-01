@@ -16,6 +16,8 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   alias PhoenixKitWeb.Components.Core.ActivityList
 
   alias PhoenixKit.Activity
+  alias PhoenixKit.Activity.Entry
+  alias PhoenixKit.Modules.Storage.Libraries.MembershipHistory
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -152,8 +154,14 @@ defmodule PhoenixKitWeb.Live.Activity.Index do
   end
 
   defp load_activities(socket) do
+    query =
+      if socket.assigns.full_log_access?,
+        do: Entry,
+        else: MembershipHistory.visible_query(Entry, socket.assigns.phoenix_kit_current_scope)
+
     result =
       Activity.list(
+        query: query,
         page: socket.assigns.page,
         per_page: socket.assigns.per_page,
         module: socket.assigns.filter_module,

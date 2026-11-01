@@ -59,6 +59,34 @@
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
 
+## 3.2.6 - 2026-11-01
+
+### Added
+
+- Permanent, transactional library membership history for additions, role
+  changes, removal and voluntary leaving. Owners and current Managers can read
+  paginated history in the member dialog; identities resolve at display time.
+  Rejected and unchanged operations create no event, and an audit-write failure
+  rolls back the membership change. Non-administrator Activity views respect
+  current library membership for these records.
+
+### Fixed
+
+- Successful library membership additions, role changes and removals notify
+  library-settings subscribers so open readers can recheck access immediately.
+- Only library owners may appoint, change or remove Managers; Managers can
+  manage Viewers and Contributors and voluntarily leave their own membership.
+  Membership mutations serialize on a freshly read library row, and member
+  controls reflect the same policy, including stale dialogs after demotion.
+- User-library file access follows current membership: former uploaders lose
+  private reads and edits, and Viewers cannot edit their earlier contributions.
+  System-library uploader privileges are unchanged.
+- Open Media browsers recheck user-library permissions for events and uploads;
+  embedded viewers recheck edits and annotation writes after role changes.
+- Storage can optionally distinguish newly created rows (including cross-user
+  clones) from existing duplicates so callers can compensate refused uploads
+  without trashing previously accepted files.
+
 ## 3.2.5 - 2026-10-31
 
 ### Added

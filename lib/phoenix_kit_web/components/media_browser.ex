@@ -292,7 +292,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   ## Optional attributes
 
-  - `phoenix_kit_current_user` — logged-in user struct (for upload attribution)
+  - `phoenix_kit_current_user` — logged-in user struct (for upload attribution;
+    required for access checks when showing a user library)
   - `scope_folder_id` — constrain the browser to a virtual root folder
   - `on_navigate` — when truthy, enables controlled mode (URL-sync via parent)
   - `admin` — clicking a file always opens the in-place modal viewer
@@ -1290,6 +1291,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # committed from commit_upload_batch/1 once the batch debounce window closes,
   # so dropping N files produces one page reload instead of N.
   defp process_pending_upload(socket, {path, entry}) do
+    socket = refresh_library_permissions(socket)
+
     cond do
       # `pending_upload` is broadcast to every registered MediaBrowser
       # instance on the page (see handle_parent_info/2), not just the one
@@ -2718,6 +2721,23 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   @doc false
   def picker_file_write_events, do: @picker_file_write_events
+
+  # A host may keep its browser open while membership changes in another tab.
+  # Recheck before reads and writes rather than trusting cached readonly/role
+  # assigns. The recursion marker lets the remaining ownership gates run once.
+  def handle_event(event, params, socket)
+      when is_binary(socket.assigns.library_uuid) and
+             not is_map_key(socket.private, :library_access_checked) do
+    socket = refresh_library_permissions(socket)
+
+    if socket.assigns[:library_access_allowed] == false do
+      {:noreply, log_refused(socket, event, "library access was removed")}
+    else
+      socket = %{socket | private: Map.put(socket.private, :library_access_checked, true)}
+      {:noreply, socket} = handle_event(event, params, socket)
+      {:noreply, %{socket | private: Map.delete(socket.private, :library_access_checked)}}
+    end
+  end
 
   def handle_event(event, _params, socket)
       when event in @folder_action_events and socket.assigns.folder_actions == false do
@@ -6119,6 +6139,30 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp editor_scope(%User{} = user), do: Scope.for_user(user)
   defp editor_scope(_user), do: nil
 
+  defp refresh_library_permissions(socket) do
+    case Libraries.get_library(socket.assigns[:library_uuid]) do
+      %{kind: "user"} = library ->
+        scope = editor_scope(socket.assigns[:phoenix_kit_current_user])
+        role = Libraries.role(library, Scope.user_uuid(scope))
+        privileged? = Scope.system_role?(scope)
+
+        assign(socket,
+          library_access_allowed: Libraries.can_read_library?(scope, library),
+          readonly:
+            socket.assigns[:readonly] == true or
+              not (privileged? or Libraries.allows?(role, :upload)),
+          own_files_only:
+            if(role == :contributor and not privileged?,
+              do: Scope.user_uuid(scope),
+              else: socket.assigns[:own_files_only]
+            )
+        )
+
+      _ ->
+        assign(socket, :library_access_allowed, true)
+    end
+  end
+
   # The scope for the Trash view + badge: the folder you're currently in (its
   # whole subtree), falling back to the embedded browser scope at the root.
   # Keeps a folder's Trash to what was deleted under it — never a sibling
@@ -6385,15 +6429,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp store_upload(socket, path, entry, ext, mime_type, file_type, user_uuid, file_size) do
     file_hash = Auth.calculate_file_hash(path)
 
-    case Storage.store_file_in_buckets(
-           path,
-           file_type,
-           user_uuid,
-           file_hash,
-           ext,
-           entry.client_name,
-           [mime_type: mime_type] ++ lib_opts(socket)
-         ) do
+    result =
+      Storage.store_file_in_buckets(
+        path,
+        file_type,
+        user_uuid,
+        file_hash,
+        ext,
+        entry.client_name,
+        [mime_type: mime_type, return_creation_status: true] ++ lib_opts(socket)
+      )
+      |> authorize_stored_upload(socket)
+
+    case result do
       # Dedup is still per uploader across the whole install: the same bytes
       # this person already stored in another library come back as that
       # file, which this library cannot show or hold.
@@ -6412,6 +6460,24 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       {:error, reason} ->
         Logger.error("MediaBrowser upload error: #{inspect(reason)}")
         {:postpone, reason}
+    end
+  end
+
+  defp authorize_stored_upload({:error, _} = error, _socket), do: error
+
+  defp authorize_stored_upload(result, socket) do
+    if refresh_library_permissions(socket).assigns[:readonly] == true do
+      case result do
+        {:ok, file, :created} -> Storage.trash_file(file)
+        _ -> :ok
+      end
+
+      {:error, :not_allowed}
+    else
+      case result do
+        {:ok, file, :created} -> {:ok, file}
+        other -> other
+      end
     end
   end
 
