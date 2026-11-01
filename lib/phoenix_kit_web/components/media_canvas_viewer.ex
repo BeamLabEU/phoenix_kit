@@ -319,7 +319,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       |> assign(:has_prev, assigns[:has_prev] || false)
       |> assign(:has_next, assigns[:has_next] || false)
       |> assign(:viewer_only, assigns[:viewer_only] || false)
-      |> assign(:can_annotate, assigns[:can_annotate] != false)
+      |> assign_can_annotate(assigns, file)
       # Opt-in: hosts that pass `persist_rotation` write a rotation back to the
       # shared file row (see handle_event "fresco:rotate") — the media browser
       # popup and the detail page do, so any user who can open and rotate a file
@@ -414,6 +414,23 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
       end
 
     {:ok, socket}
+  end
+
+  # The host's say, and the file's own rules (a managed library, a user-library
+  # role that may not edit it): the writes are refused on those anyway, so the
+  # tools are not offered. Worked out once per file (the id encodes the file);
+  # the writes are checked again each time.
+  defp assign_can_annotate(socket, assigns, file) do
+    socket =
+      assign_new(socket, :annotation_writable, fn ->
+        is_nil(file) or annotation_file_writable?(file, assigns)
+      end)
+
+    assign(
+      socket,
+      :can_annotate,
+      assigns[:can_annotate] != false and socket.assigns.annotation_writable
+    )
   end
 
   # The `:board` assign, validated: a target pair plus a canvas extent

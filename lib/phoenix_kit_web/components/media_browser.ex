@@ -526,6 +526,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # featured toggle, image editor. Navigation, the viewer and downloads
       # stay live. See the moduledoc's `readonly` attribute.
       |> assign_new(:readonly, fn -> false end)
+      # What the host itself said, kept apart from `readonly` / `own_files_only`,
+      # which `refresh_library_permissions/1` also derives from the viewer's
+      # current role: a promotion must be able to lift what a role once imposed.
+      |> assign(:host_readonly, host_value(assigns, socket, :readonly, :host_readonly, false))
+      |> assign(
+        :host_own_files_only,
+        host_value(assigns, socket, :own_files_only, :host_own_files_only, nil)
+      )
       # A user uuid: every write may touch only files that user uploaded
       # (a user library's contributor). Folders stay shared. nil: no limit.
       |> assign_new(:own_files_only, fn -> nil end)
@@ -6139,6 +6147,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp editor_scope(%User{} = user), do: Scope.for_user(user)
   defp editor_scope(_user), do: nil
 
+  # The host's value of `key` when this update carries it, else the one kept.
+  defp host_value(assigns, socket, key, kept, default) do
+    if Map.has_key?(assigns, key),
+      do: assigns[key],
+      else: Map.get(socket.assigns, kept, default)
+  end
+
   defp refresh_library_permissions(socket) do
     case Libraries.get_library(socket.assigns[:library_uuid]) do
       %{kind: "user"} = library ->
@@ -6146,15 +6161,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         role = Libraries.role(library, Scope.user_uuid(scope))
         privileged? = Scope.system_role?(scope)
 
+        managed? = match?({_, true}, socket.assigns[:managed_library])
+
         assign(socket,
           library_access_allowed: Libraries.can_read_library?(scope, library),
           readonly:
-            socket.assigns[:readonly] == true or
+            socket.assigns[:host_readonly] == true or managed? or
               not (privileged? or Libraries.allows?(role, :upload)),
           own_files_only:
             if(role == :contributor and not privileged?,
               do: Scope.user_uuid(scope),
-              else: socket.assigns[:own_files_only]
+              else: socket.assigns[:host_own_files_only]
             )
         )
 

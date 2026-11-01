@@ -260,6 +260,34 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       refute html =~ storage
     end
 
+    test "an open library follows the member's role: a promotion gives the tools, removal sends back",
+         %{conn: conn, role: role} do
+      owner = user!(role)
+      library = library!(owner, "Family")
+      member = user!(role)
+      {:ok, _} = Libraries.add_member(scope(owner), library, member.email, "viewer")
+
+      {:ok, view, _html} =
+        live(log_in_user(conn, member), Routes.path("/admin/libraries/#{library.uuid}"))
+
+      upload = ~s(#library-browser button[phx-click="toggle_upload"])
+      refute has_element?(view, upload)
+
+      {:ok, _} = Libraries.update_member_role(scope(owner), library, member.uuid, "contributor")
+      assert has_element?(view, upload)
+
+      # The browser's own check on an event must not undo the promotion either.
+      render_click(element(view, upload <> ".btn-primary"))
+      assert has_element?(view, upload)
+
+      {:ok, _} = Libraries.update_member_role(scope(owner), library, member.uuid, "viewer")
+      refute has_element?(view, upload)
+
+      :ok = Libraries.remove_member(scope(owner), library, member.uuid)
+      assert_patch(view, Routes.path("/admin/libraries"))
+      assert render(view) =~ "no longer have access"
+    end
+
     test "an owner opening their own library gets no admin banner", %{conn: conn, role: role} do
       owner = user!(role)
       library = library!(owner, "Mine")
@@ -273,6 +301,35 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
   end
 
   describe "the media browser inside a library" do
+    test "the viewer offers drawing tools only to whom may edit the file", %{role: role} do
+      owner = user!(role)
+      library = library!(owner, "Drawn")
+      file = stored!(owner, "a.png", library.uuid)
+
+      contributor = user!(role)
+      viewer = user!(role)
+      {:ok, _} = Libraries.add_member(scope(owner), library, contributor.email, "contributor")
+      {:ok, _} = Libraries.add_member(scope(owner), library, viewer.email, "viewer")
+
+      can_annotate? = fn user ->
+        # A canvas already there: the update only works out the assigns.
+        socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}, viewer_canvas: :built}}
+
+        {:ok, socket} =
+          PhoenixKitWeb.Components.MediaCanvasViewer.update(
+            %{id: "v", file: %{file_uuid: file.uuid}, current_user: user, can_annotate: true},
+            socket
+          )
+
+        socket.assigns.can_annotate
+      end
+
+      assert can_annotate?.(owner)
+      # Someone else's file, and a viewer: the writes are refused, so no tools.
+      refute can_annotate?.(contributor)
+      refute can_annotate?.(viewer)
+    end
+
     test "an event naming a file of another library is refused", %{role: role} do
       owner = user!(role)
       library = library!(owner, "Guarded")

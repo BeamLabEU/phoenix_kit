@@ -54,6 +54,14 @@
 
 ### Fixed
 
+- An open user library (`/admin/libraries/<id>`) follows membership changes:
+  a promoted member gets the browser's tools without a reload, a demoted one
+  loses them, and a removed one is sent back to the list. The media browser no
+  longer keeps `readonly`/`own_files_only` from an earlier role once set.
+- The media viewer hides the drawing tools on a file whose annotations would be
+  refused (a viewer, or a contributor on someone else's file, in a user
+  library; a managed library) instead of dropping the shapes silently.
+
 - Forms loaded before organization conversion cannot restore passwords, login
   addresses, Google addresses or forbidden roles. OAuth linking and API-key
   creation/rotation share conversion's account lock to prevent credentials from

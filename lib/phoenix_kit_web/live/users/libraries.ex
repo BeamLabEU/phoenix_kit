@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
 
   alias PhoenixKit.AuditLog
   alias PhoenixKit.Modules.Storage.{Libraries, Library}
+  alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
@@ -34,8 +35,13 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
+    if connected?(socket), do: Manager.subscribe("storage:library_settings")
+
     {:ok,
      socket
+     # A hook, not a handle_info/2 clause: `MediaBrowser.Embed` injects that
+     # function's clauses at the end of the module.
+     |> attach_hook(:library_settings, :handle_info, &library_settings_changed/2)
      |> assign(:page_title, gettext("Libraries"))
      |> assign(:project_title, Settings.get_project_title())
      |> assign(:current_locale, params["locale"] || socket.assigns[:current_locale])
@@ -150,6 +156,35 @@ defmodule PhoenixKitWeb.Live.Users.Libraries do
         end
     end
   end
+
+  # Members, roles or the library itself changed (`Libraries` broadcasts after
+  # each change). The role shown is read again, so a promotion gives the
+  # browser its tools at once and a demotion takes them; one who may no longer
+  # read the library is sent back to the list. The browser checks again on
+  # every event, so this is about what is on screen, not what is allowed.
+  defp library_settings_changed({:library_settings_changed, uuid}, socket) do
+    case socket.assigns.library do
+      %Library{uuid: ^uuid} when socket.assigns.role != :admin ->
+        scope = socket.assigns[:phoenix_kit_current_scope]
+        socket = assign(socket, :libraries, Libraries.list_user_libraries(Scope.user_uuid(scope)))
+
+        case Libraries.get_user_library(scope, uuid) do
+          %{library: library, role: role} ->
+            {:halt, shown(socket, library, role)}
+
+          nil ->
+            {:halt,
+             socket
+             |> put_flash(:error, gettext("You no longer have access to that library"))
+             |> push_patch(to: Routes.path("/admin/libraries"))}
+        end
+
+      _ ->
+        {:halt, socket}
+    end
+  end
+
+  defp library_settings_changed(_message, socket), do: {:cont, socket}
 
   defp shown(socket, library, role) do
     owner_email = if role == :admin, do: owner_email(library)
