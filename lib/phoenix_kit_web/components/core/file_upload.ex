@@ -41,6 +41,12 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
     default: nil,
     doc: "List of file IDs from last upload (for external use)"
 
+  attr :show_entries, :boolean,
+    default: true,
+    doc:
+      "list the entries in flight under the drop zone. FALSE when an " <>
+        "`upload_manager` on the page already lists them"
+
   attr :standalone, :boolean,
     default: true,
     doc:
@@ -116,7 +122,7 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
       <.drop_zone :if={not @standalone} {assigns} />
 
       <%!-- Active Uploads --%>
-      <%= if length(@upload.entries) > 0 do %>
+      <%= if @show_entries and length(@upload.entries) > 0 do %>
         <div class="space-y-2">
           <%= for entry <- @upload.entries do %>
             <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-50">

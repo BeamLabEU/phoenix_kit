@@ -401,6 +401,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Utils.TreeQuery
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
 
   # Grid/list view preference is persisted per-user in `custom_fields`
   # ("user meta") so the server renders the correct mode on first paint —
@@ -2190,8 +2191,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(:max_upload_size_mb, max_size_mb)
       |> assign(:max_upload_files, max_files)
+      |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
       |> allow_upload(:media_files, upload_opts)
       |> allow_upload(@picker_upload, upload_opts)
+      # The upload manager's cancel button: the uploads live on this socket,
+      # so this is where the event has to be answered.
+      |> UploadManager.attach()
       |> attach_file_event_forwarding()
     end
   end
@@ -2628,10 +2633,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
       |> assign(:max_upload_size_mb, max_upload_size_mb())
       |> assign(:max_upload_files, Storage.max_upload_files())
+      |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
     else
       socket
       |> assign(:max_upload_size_mb, 0)
       |> assign(:max_upload_files, 0)
+      |> assign(:max_concurrent_uploads, 1)
     end
   end
 

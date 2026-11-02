@@ -148,6 +148,36 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
       refute html =~ "did not upload"
     end
 
+    test "the browser carries the upload manager, capped by the site's setting", %{
+      conn: conn,
+      user: user
+    } do
+      view = open(conn, user)
+      html = render(view)
+
+      assert html =~ ~s(phx-hook="UploadManager")
+      assert html =~ ~s(data-max="5")
+      # One input for the upload, as before: the manager takes what arrives
+      # there rather than adding a second.
+      assert length(Regex.scan(~r/data-phx-upload-ref=/, html)) == 1
+
+      {:ok, _} = Settings.update_setting("storage_max_concurrent_uploads", "2")
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_concurrent_uploads") end)
+
+      assert render(open(conn, user)) =~ ~s(data-max="2")
+    end
+
+    test "the manager's cancel button cancels the entry", %{conn: conn, user: user} do
+      view = open(conn, user)
+      input = drop(view, files(["slow.png"]))
+      render_upload(input, "slow.png", 10)
+      [entry] = entries(view)
+
+      render_hook(view, "pk_upload_cancel", %{"ref" => entry.ref, "name" => "media_files"})
+
+      assert entries(view) == []
+    end
+
     test "the upload area says how many files fit", %{conn: conn, user: user} do
       view = open(conn, user)
 

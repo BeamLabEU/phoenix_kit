@@ -51,6 +51,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   alias PhoenixKit.Utils.Pagination
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
 
   import Ecto.Query
 
@@ -90,10 +91,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       |> assign(:scope_folder, scope_folder)
       |> allow_upload(:media_files,
         accept: :any,
-        max_entries: PhoenixKit.Modules.Storage.max_upload_files(),
+        max_entries: Storage.max_upload_files(),
         auto_upload: true,
         progress: &handle_progress/3
       )
+      |> UploadManager.attach()
 
     {:ok, socket}
   end

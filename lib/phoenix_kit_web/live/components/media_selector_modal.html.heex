@@ -139,45 +139,18 @@
                   <.live_file_input upload={@uploads.media_files} class="hidden" />
                 </div>
 
-                <%!-- Active Uploads --%>
-                <%= if length(@uploads.media_files.entries) > 0 do %>
-                  <div class="space-y-2 mt-3">
-                    <%= for entry <- @uploads.media_files.entries do %>
-                      <div class="flex items-center gap-3 p-2 border border-base-300 rounded-lg bg-base-50">
-                        <div class="flex-1">
-                          <p class="font-medium text-xs truncate">{entry.client_name}</p>
-                          <div class="flex gap-2 items-center mt-1">
-                            <progress
-                              value={entry.progress}
-                              max="100"
-                              class="progress progress-primary progress-sm flex-1"
-                            >
-                              {entry.progress}%
-                            </progress>
-                            <span class="text-xs text-base-content/60 min-w-max">
-                              {entry.progress}%
-                            </span>
-                          </div>
-                          <.upload_entry_stats
-                            entry={entry}
-                            class="block text-xs text-base-content/60 tabular-nums mt-0.5"
-                          />
-                        </div>
-                        <%!-- Cancel Button --%>
-                        <button
-                          type="button"
-                          phx-click="cancel_upload"
-                          phx-value-ref={entry.ref}
-                          phx-target={@myself}
-                          class="btn btn-xs btn-ghost text-error"
-                          title={gettext("Cancel upload")}
-                        >
-                          <.icon name="hero-x-mark" class="w-4 h-4" />
-                        </button>
-                      </div>
-                    <% end %>
-                  </div>
-                <% end %>
+                <%!-- The upload queue: sends a few files at a time and lists each
+                     with its own controls (pause, skip, cancel). --%>
+                <.upload_manager
+                  id={"#{@id}-upload-manager"}
+                  upload={@uploads.media_files}
+                  max_concurrent={PhoenixKit.Modules.Storage.max_concurrent_uploads()}
+                  dropzone={false}
+                  layout={:inline}
+                  scope="parent"
+                  cancel_event="cancel_upload"
+                  cancel_target={@myself}
+                />
               </form>
             <% else %>
               <%!-- No buckets - show disabled upload area --%>

@@ -30,6 +30,20 @@
     class="hidden"
   >
   </div>
+  <%!-- The upload queue: sends a few files at a time (measuring the connection
+       to choose how many, up to the site's setting), shows the speed, and lets
+       each file be paused, skipped, moved up or cancelled. It takes the files
+       that reach this browser's upload input — picked, dropped on a folder, or
+       resumed — so it sits beside the resume hook and listens on the same
+       root. See `PhoenixKitWeb.Components.Core.UploadManager`. --%>
+  <.upload_manager
+    :if={not @readonly and @has_buckets and assigns[:parent_uploads]}
+    id={dom_id(assigns, "upload-manager")}
+    upload={@parent_uploads[@upload_name]}
+    max_concurrent={@max_concurrent_uploads}
+    dropzone={false}
+    scope="parent"
+  />
   <style>
     @keyframes rename-pulse {
       0%, 100% { opacity: 1; }
@@ -94,6 +108,7 @@
               upload={@parent_uploads[@upload_name]}
               label={gettext("Upload Media Files")}
               icon="hero-cloud-arrow-up"
+              show_entries={false}
               accept_description={gettext("All file types supported")}
               max_size_description={
                 gettext("%{mb}MB per file, up to %{count} files at once",

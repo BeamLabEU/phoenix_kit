@@ -4308,6 +4308,121 @@ msgstr "Gestisci le impostazioni e le preferenze del tuo account"
 msgid "Max Upload Size (MB)"
 msgstr "Dimensione massima di caricamento (MB)"
 
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Max Concurrent Uploads"
+msgstr "Caricamenti simultanei massimi"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "The most files sent at the same time (1 to %{max}). The upload manager measures the connection and uses as many as help, up to this; 1 sends one file at a time."
+msgstr "Il massimo di file inviati contemporaneamente (da 1 a %{max}). Il gestore dei caricamenti misura la connessione e ne usa quanti servono, fino a questo valore; 1 invia un file alla volta."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Show or hide the list"
+msgstr "Mostra o nascondi l'elenco"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Pause all"
+msgstr "Metti tutto in pausa"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Resume all"
+msgstr "Riprendi tutto"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Retry failed"
+msgstr "Riprova i falliti"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Cancel all"
+msgstr "Annulla tutto"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Clear finished"
+msgstr "Rimuovi i completati"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Upload this next"
+msgstr "Carica questo dopo"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Skip"
+msgstr "Salta"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Add back"
+msgstr "Aggiungi di nuovo"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{done} of %{total} uploaded"
+msgstr "%{done} di %{total} caricati"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} at once"
+msgstr "%{count} alla volta"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{time} left"
+msgstr "%{time} rimanenti"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "measuring speed…"
+msgstr "misurazione della velocità…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "auto, up to %{max}"
+msgstr "automatico, fino a %{max}"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "paused"
+msgstr "in pausa"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Failed: %{count}"
+msgstr "Falliti: %{count}"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Skipped"
+msgstr "Saltato"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Larger than the upload limit"
+msgstr "Più grande del limite di caricamento"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Not accepted"
+msgstr "Non accettato"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Too many files at once"
+msgstr "Troppi file alla volta"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Nowhere to upload to"
+msgstr "Nessuna destinazione per il caricamento"
+
 #: lib/modules/storage/web/settings.html.heex:540
 #, elixir-autogen, elixir-format
 msgid "Max Files Per Upload"

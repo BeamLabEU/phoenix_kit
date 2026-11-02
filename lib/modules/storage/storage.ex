@@ -6116,6 +6116,35 @@ defmodule PhoenixKit.Modules.Storage do
     :exit, _ -> @default_max_upload_files
   end
 
+  @default_max_concurrent_uploads 5
+  @max_concurrent_uploads_ceiling 20
+
+  @doc """
+  The most files the upload manager sends at the same time
+  (`storage_max_concurrent_uploads`, default #{@default_max_concurrent_uploads}, at most
+  #{@max_concurrent_uploads_ceiling}).
+
+  This is the cap, not the number: the manager measures the connection and uses
+  as many as help, up to this. `1` sends one file at a time.
+  """
+  @spec max_concurrent_uploads() :: pos_integer()
+  def max_concurrent_uploads do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_concurrent_uploads", "5"))
+         ) do
+      {n, _} when n > 0 -> min(n, @max_concurrent_uploads_ceiling)
+      _ -> @default_max_concurrent_uploads
+    end
+  rescue
+    _ -> @default_max_concurrent_uploads
+  catch
+    :exit, _ -> @default_max_concurrent_uploads
+  end
+
+  @doc "The most the concurrent upload cap may be set to."
+  @spec max_concurrent_uploads_ceiling() :: pos_integer()
+  def max_concurrent_uploads_ceiling, do: @max_concurrent_uploads_ceiling
+
   @doc "The most files an upload may be set to carry at once."
   @spec max_upload_files_ceiling() :: pos_integer()
   def max_upload_files_ceiling, do: @max_upload_files_ceiling

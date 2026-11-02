@@ -553,6 +553,28 @@
               </p>
             </div>
 
+            <%!-- Concurrent uploads --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Max Concurrent Uploads")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext(
+                    "The most files sent at the same time (1 to %{max}). The upload manager measures the connection and uses as many as help, up to this; 1 sends one file at a time.",
+                    max: PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()
+                  )}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_max_concurrent_uploads"
+                value={@form_max_concurrent_uploads}
+                min="1"
+                max={PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()}
+              />
+            </div>
+
             <%!-- Trash retention --%>
             <div class="fieldset">
               <div class="mb-2">
@@ -598,6 +620,7 @@
               @form_image_edit_mode == @image_edit_mode and
               @form_max_upload_size_mb == @max_upload_size_mb and
               @form_max_upload_files == @max_upload_files and
+              @form_max_concurrent_uploads == @max_concurrent_uploads and
               @form_trash_retention_days == @trash_retention_days and
               @form_bucket_log_retention_days == @bucket_log_retention_days %>
           <div class="fieldset mt-4">

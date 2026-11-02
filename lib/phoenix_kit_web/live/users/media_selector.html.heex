@@ -52,20 +52,17 @@
             </div>
           </label>
 
-          <%!-- Upload Progress --%>
-          <%= for entry <- @uploads.media_files.entries do %>
-            <div class="mt-4">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-sm text-base-content/70">{entry.client_name}</span>
-                <span class="text-sm text-base-content/50">{entry.progress}%</span>
-              </div>
-              <progress
-                class="progress progress-primary w-full"
-                value={entry.progress}
-                max="100"
-              ></progress>
-            </div>
-          <% end %>
+          <%!-- The upload queue: sends a few files at a time and lists each
+               with its own controls (pause, skip, cancel). --%>
+          <.upload_manager
+            id="media-selector-upload-manager"
+            upload={@uploads.media_files}
+            max_concurrent={PhoenixKit.Modules.Storage.max_concurrent_uploads()}
+            dropzone={false}
+            layout={:inline}
+            scope="parent"
+            class="mt-4"
+          />
         </.form>
       </div>
     </div>

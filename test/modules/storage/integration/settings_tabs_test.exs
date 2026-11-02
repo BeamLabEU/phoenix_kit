@@ -341,4 +341,47 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
                PhoenixKit.Modules.Storage.max_upload_files_ceiling()
     end
   end
+
+  describe "concurrent uploads" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_concurrent_uploads") end)
+    end
+
+    test "defaults to five" do
+      PhoenixKit.Settings.update_setting("storage_max_concurrent_uploads", "5")
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 5
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ ~s(name="form_max_concurrent_uploads")
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "8"})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 8
+    end
+
+    test "nothing below one or above the ceiling is accepted", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      ceiling = PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "0"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 1
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "500"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == ceiling
+    end
+
+    test "a stored value that is not a number reads as the default" do
+      for bad <- ["0", "-3", "many", ""] do
+        PhoenixKit.Settings.update_setting("storage_max_concurrent_uploads", bad)
+        PhoenixKit.Cache.invalidate(:settings, "storage_max_concurrent_uploads")
+        assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 5
+      end
+    end
+  end
 end
