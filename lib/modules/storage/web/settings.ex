@@ -63,6 +63,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
 
     # Read through the functions that apply the defaults and the sanity rules,
     # not the raw setting: the form must show the number the system uses.
+    max_upload_files = Storage.max_upload_files()
     trash_retention_days = Storage.trash_retention_days()
     bucket_log_retention_days = BucketLog.retention_days()
 
@@ -90,6 +91,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
       |> assign(:image_edit_mode, image_edit_mode)
       |> assign(:form_image_edit_mode, image_edit_mode)
+      |> assign(:max_upload_files, max_upload_files)
+      |> assign(:form_max_upload_files, max_upload_files)
       |> assign(:trash_retention_days, trash_retention_days)
       |> assign(:form_trash_retention_days, trash_retention_days)
       |> assign(:bucket_log_retention_days, bucket_log_retention_days)
@@ -180,6 +183,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, form_max_upload_size_mb)
       |> assign(:form_image_edit_mode, form_image_edit_mode)
       |> assign(
+        :form_max_upload_files,
+        params["form_max_upload_files"]
+        |> positive_param(socket.assigns.form_max_upload_files)
+        |> min(Storage.max_upload_files_ceiling())
+      )
+      |> assign(
         :form_trash_retention_days,
         positive_param(
           params["form_trash_retention_days"],
@@ -207,6 +216,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     Settings.update_setting(
       "storage_max_upload_size_mb",
       to_string(socket.assigns.form_max_upload_size_mb),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
+      "storage_max_upload_files",
+      to_string(socket.assigns.form_max_upload_files),
       Actor.opts(socket) ++ [source: "settings"]
     )
 
@@ -244,6 +259,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
       |> assign(:image_edit_mode, ImageEditing.mode())
       |> assign(:form_image_edit_mode, ImageEditing.mode())
+      |> assign(:max_upload_files, Storage.max_upload_files())
+      |> assign(:form_max_upload_files, Storage.max_upload_files())
       |> assign(:trash_retention_days, Storage.trash_retention_days())
       |> assign(:form_trash_retention_days, Storage.trash_retention_days())
       |> assign(:bucket_log_retention_days, BucketLog.retention_days())

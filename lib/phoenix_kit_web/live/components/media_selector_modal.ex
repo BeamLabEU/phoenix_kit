@@ -244,7 +244,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       has_buckets ->
         allow_upload(socket, :media_files,
           accept: accept_for(socket.assigns[:file_type_filter]),
-          max_entries: 10,
+          max_entries: PhoenixKit.Modules.Storage.max_upload_files(),
           auto_upload: true,
           progress: &handle_progress/3
         )
@@ -269,7 +269,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> disallow_upload(:media_files)
       |> allow_upload(:media_files,
         accept: accept_for(filter),
-        max_entries: 10,
+        max_entries: PhoenixKit.Modules.Storage.max_upload_files(),
         auto_upload: true,
         progress: &handle_progress/3
       )

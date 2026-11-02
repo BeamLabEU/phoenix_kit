@@ -95,7 +95,12 @@
               label={gettext("Upload Media Files")}
               icon="hero-cloud-arrow-up"
               accept_description={gettext("All file types supported")}
-              max_size_description={gettext("%{mb}MB per file", mb: @max_upload_size_mb)}
+              max_size_description={
+                gettext("%{mb}MB per file, up to %{count} files at once",
+                  mb: @max_upload_size_mb,
+                  count: @max_upload_files
+                )
+              }
             />
           <% else %>
             <div class="alert alert-warning">

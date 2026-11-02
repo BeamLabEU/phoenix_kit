@@ -528,6 +528,31 @@
               </p>
             </div>
 
+            <%!-- Files per upload --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Max Files Per Upload")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext(
+                    "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message.",
+                    max: PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+                  )}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_max_upload_files"
+                value={@form_max_upload_files}
+                min="1"
+                max={PhoenixKit.Modules.Storage.max_upload_files_ceiling()}
+              />
+              <p class="text-xs text-base-content/70 mt-1">
+                {gettext("Current limit: %{count} files", count: @form_max_upload_files)}
+              </p>
+            </div>
+
             <%!-- Trash retention --%>
             <div class="fieldset">
               <div class="mb-2">
@@ -572,6 +597,7 @@
             @form_annotated_thumbnails_enabled == @annotated_thumbnails_enabled and
               @form_image_edit_mode == @image_edit_mode and
               @form_max_upload_size_mb == @max_upload_size_mb and
+              @form_max_upload_files == @max_upload_files and
               @form_trash_retention_days == @trash_retention_days and
               @form_bucket_log_retention_days == @bucket_log_retention_days %>
           <div class="fieldset mt-4">

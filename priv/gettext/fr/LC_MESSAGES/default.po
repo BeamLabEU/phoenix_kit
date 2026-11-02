@@ -4308,6 +4308,26 @@ msgstr "Gérez les paramètres et préférences de votre compte"
 msgid "Max Upload Size (MB)"
 msgstr "Taille maximale de téléversement (Mo)"
 
+#: lib/modules/storage/web/settings.html.heex:540
+#, elixir-autogen, elixir-format
+msgid "Max Files Per Upload"
+msgstr "Nombre maximal de fichiers par envoi"
+
+#: lib/modules/storage/web/settings.html.heex:543
+#, elixir-autogen, elixir-format
+msgid "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message."
+msgstr "Combien de fichiers peuvent être sélectionnés ou déposés à la fois (de 1 à %{max}). Les suivants sont refusés avec un message."
+
+#: lib/modules/storage/web/settings.html.heex:556
+#, elixir-autogen, elixir-format
+msgid "Current limit: %{count} files"
+msgstr "Limite actuelle : %{count} fichiers"
+
+#: lib/phoenix_kit_web/components/media_browser/browser.html.heex:99
+#, elixir-autogen, elixir-format
+msgid "%{mb}MB per file, up to %{count} files at once"
+msgstr "%{mb} Mo par fichier, jusqu'à %{count} fichiers à la fois"
+
 #: lib/modules/storage/web/settings.html.heex:530
 #, elixir-autogen, elixir-format
 msgid "Keep trashed files for (days)"

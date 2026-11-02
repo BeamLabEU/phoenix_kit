@@ -90,7 +90,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       |> assign(:scope_folder, scope_folder)
       |> allow_upload(:media_files,
         accept: :any,
-        max_entries: 10,
+        max_entries: PhoenixKit.Modules.Storage.max_upload_files(),
         auto_upload: true,
         progress: &handle_progress/3
       )

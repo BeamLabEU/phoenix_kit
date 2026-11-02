@@ -4315,6 +4315,26 @@ msgstr "Gestione los ajustes y preferencias de su cuenta"
 msgid "Max Upload Size (MB)"
 msgstr "Tamaño máximo de subida (MB)"
 
+#: lib/modules/storage/web/settings.html.heex:540
+#, elixir-autogen, elixir-format
+msgid "Max Files Per Upload"
+msgstr "Máximo de archivos por subida"
+
+#: lib/modules/storage/web/settings.html.heex:543
+#, elixir-autogen, elixir-format
+msgid "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message."
+msgstr "Cuántos archivos se pueden seleccionar o soltar a la vez (de 1 a %{max}). Los demás se rechazan con un mensaje."
+
+#: lib/modules/storage/web/settings.html.heex:556
+#, elixir-autogen, elixir-format
+msgid "Current limit: %{count} files"
+msgstr "Límite actual: %{count} archivos"
+
+#: lib/phoenix_kit_web/components/media_browser/browser.html.heex:99
+#, elixir-autogen, elixir-format
+msgid "%{mb}MB per file, up to %{count} files at once"
+msgstr "%{mb} MB por archivo, hasta %{count} archivos a la vez"
+
 #: lib/modules/storage/web/settings.html.heex:530
 #, elixir-autogen, elixir-format
 msgid "Keep trashed files for (days)"

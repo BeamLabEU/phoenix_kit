@@ -101,10 +101,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
   end
 
   describe "turned away before transfer" do
-    test "eleven at once: ten upload, the eleventh is named — and stops holding a slot", %{
-      conn: conn,
-      user: user
-    } do
+    test "more than the limit at once: the limit uploads, the next is named — and stops holding a slot",
+         %{conn: conn, user: user} do
+      {:ok, _} = Settings.update_setting("storage_max_upload_files", "10")
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files") end)
+
       view = open(conn, user)
       dropped = files(for i <- 1..11, do: "pic#{i}.png")
       input = drop(view, dropped)
@@ -119,6 +120,43 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
 
       assert entries(view) == [],
              "a rejected entry left in the list sits at 0% forever and costs the next drop a slot"
+    end
+
+    test "the limit is the site's setting, not a fixed ten", %{conn: conn, user: user} do
+      {:ok, _} = Settings.update_setting("storage_max_upload_files", "3")
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files") end)
+
+      view = open(conn, user)
+      input = drop(view, files(for i <- 1..4, do: "p#{i}.png"))
+
+      for i <- 1..3, do: render_upload(input, "p#{i}.png")
+      html = settle(view)
+
+      assert stored_count(user) == 3
+      assert html =~ "Up to 3 files upload at once"
+    end
+
+    test "by default a hundred can go at once — twelve is no trouble", %{conn: conn, user: user} do
+      view = open(conn, user)
+      dropped = files(for i <- 1..12, do: "many#{i}.png")
+      input = drop(view, dropped)
+
+      for i <- 1..12, do: render_upload(input, "many#{i}.png")
+      html = settle(view)
+
+      assert stored_count(user) == 12
+      refute html =~ "did not upload"
+    end
+
+    test "the upload area says how many files fit", %{conn: conn, user: user} do
+      view = open(conn, user)
+
+      html =
+        view
+        |> element(~s(button.btn-primary[phx-click="toggle_upload"]))
+        |> render_click()
+
+      assert html =~ "up to 100 files at once"
     end
 
     test "a file over the size limit is named with the limit", %{conn: conn, user: user} do

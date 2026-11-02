@@ -2173,10 +2173,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
     else
       max_size_mb = max_upload_size_mb()
+      max_files = Storage.max_upload_files()
 
       upload_opts = [
         accept: :any,
-        max_entries: 10,
+        max_entries: max_files,
         max_file_size: max_size_mb * 1_000_000,
         auto_upload: true,
         progress: &__MODULE__.parent_progress/3
@@ -2188,6 +2189,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # the other browser's transfers, and have its uploads copied there too.
       socket
       |> assign(:max_upload_size_mb, max_size_mb)
+      |> assign(:max_upload_files, max_files)
       |> allow_upload(:media_files, upload_opts)
       |> allow_upload(@picker_upload, upload_opts)
       |> attach_file_event_forwarding()
@@ -2623,9 +2625,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   defp maybe_allow_upload(socket, has_buckets) do
     if has_buckets do
-      assign(socket, :max_upload_size_mb, max_upload_size_mb())
+      socket
+      |> assign(:max_upload_size_mb, max_upload_size_mb())
+      |> assign(:max_upload_files, Storage.max_upload_files())
     else
-      assign(socket, :max_upload_size_mb, 0)
+      socket
+      |> assign(:max_upload_size_mb, 0)
+      |> assign(:max_upload_files, 0)
     end
   end
 

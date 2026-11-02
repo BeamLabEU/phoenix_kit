@@ -290,4 +290,55 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
       end
     end
   end
+
+  describe "files per upload" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files") end)
+    end
+
+    test "defaults to a hundred" do
+      PhoenixKit.Settings.update_setting("storage_max_upload_files", "100")
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 100
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ ~s(name="form_max_upload_files")
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "250"})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 250
+    end
+
+    test "nothing below one or above the ceiling is accepted", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      ceiling = PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "0"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 1
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "999999"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_upload_files() == ceiling
+    end
+
+    test "a stored value that is not a number reads as the default" do
+      for bad <- ["0", "-3", "lots", ""] do
+        PhoenixKit.Settings.update_setting("storage_max_upload_files", bad)
+        PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files")
+        assert PhoenixKit.Modules.Storage.max_upload_files() == 100
+      end
+    end
+
+    test "a stored value above the ceiling is held to it" do
+      PhoenixKit.Settings.update_setting("storage_max_upload_files", "5000000")
+      PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files")
+
+      assert PhoenixKit.Modules.Storage.max_upload_files() ==
+               PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+    end
+  end
 end

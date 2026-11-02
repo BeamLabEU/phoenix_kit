@@ -6093,6 +6093,33 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
+  @default_max_upload_files 100
+  @max_upload_files_ceiling 1000
+
+  @doc """
+  How many files one upload may carry at once (`storage_max_upload_files`,
+  default #{@default_max_upload_files}, at most #{@max_upload_files_ceiling}).
+
+  Every upload surface of the media module (the browser, the pickers) allows
+  this many files per selection or drop. A stored value that is not a positive
+  whole number reads as the default.
+  """
+  @spec max_upload_files() :: pos_integer()
+  def max_upload_files do
+    case Integer.parse(to_string(Settings.get_setting_cached("storage_max_upload_files", "100"))) do
+      {n, _} when n > 0 -> min(n, @max_upload_files_ceiling)
+      _ -> @default_max_upload_files
+    end
+  rescue
+    _ -> @default_max_upload_files
+  catch
+    :exit, _ -> @default_max_upload_files
+  end
+
+  @doc "The most files an upload may be set to carry at once."
+  @spec max_upload_files_ceiling() :: pos_integer()
+  def max_upload_files_ceiling, do: @max_upload_files_ceiling
+
   @doc """
   Returns the configured trash retention period in days (default 30).
 

@@ -4313,6 +4313,26 @@ msgstr "Halda oma konto seadeid ja eelistusi"
 msgid "Max Upload Size (MB)"
 msgstr "Maksimaalne üleslaadimise suurus (MB)"
 
+#: lib/modules/storage/web/settings.html.heex:540
+#, elixir-autogen, elixir-format
+msgid "Max Files Per Upload"
+msgstr "Faile ühe üleslaadimise kohta"
+
+#: lib/modules/storage/web/settings.html.heex:543
+#, elixir-autogen, elixir-format
+msgid "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message."
+msgstr "Mitu faili saab korraga valida või lohistada (1 kuni %{max}). Ülejäänud lükatakse teatega tagasi."
+
+#: lib/modules/storage/web/settings.html.heex:556
+#, elixir-autogen, elixir-format
+msgid "Current limit: %{count} files"
+msgstr "Praegune piir: %{count} faili"
+
+#: lib/phoenix_kit_web/components/media_browser/browser.html.heex:99
+#, elixir-autogen, elixir-format
+msgid "%{mb}MB per file, up to %{count} files at once"
+msgstr "%{mb} MB faili kohta, kuni %{count} faili korraga"
+
 #: lib/modules/storage/web/settings.html.heex:530
 #, elixir-autogen, elixir-format
 msgid "Keep trashed files for (days)"
