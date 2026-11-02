@@ -4258,8 +4258,11 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Deletes a file.
 
-  This only removes the database record. Use `delete_file_data/1` to
-  remove the actual file data from storage buckets.
+  This only removes the database record: no "in use" check (a referenced file
+  raises a constraint error rather than answering `{:error, :in_use}`), and the
+  stored objects stay where they are. For a user-facing delete use
+  `delete_file_completely/2`, which does both properly; `trash_file/2` is the
+  reversible one.
   """
   def delete_file(%PhoenixKit.Modules.Storage.File{} = file) do
     repo().delete(file)
@@ -6090,14 +6093,20 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
-  @doc "Returns the configured trash retention period in days (default 30)."
+  @doc """
+  Returns the configured trash retention period in days (default 30).
+
+  A stored value that is not a positive whole number reads as the default: a
+  retention of 0 would have the daily prune delete everything in the trash as
+  soon as it ran.
+  """
   def trash_retention_days do
     Settings.get_setting("trash_retention_days", "30")
     |> to_string()
     |> Integer.parse()
     |> case do
-      {n, _} -> n
-      :error -> 30
+      {n, _} when n > 0 -> n
+      _ -> 30
     end
   rescue
     _ -> 30

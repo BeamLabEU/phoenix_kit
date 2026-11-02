@@ -47,11 +47,32 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
 
   @doc """
   Process a file and generate variants.
+
+  A file that is still `"processing"` when its last attempt fails is marked
+  `"failed"`. Nothing else ever would: the upload left it `"processing"` and
+  only a successful run flips it to `"active"`, so a file whose original
+  cannot be read or whose metadata cannot be extracted sat there for good,
+  showing as processing in every view. `"failed"` is a state the interface
+  and the reconciler already know how to show and retry; a later successful
+  run still makes the file `"active"`.
   """
   @impl Oban.Worker
-  def perform(%Oban.Job{
-        args: %{"file_uuid" => file_uuid, "filename" => filename} = _args
-      }) do
+  def perform(%Oban.Job{args: %{"file_uuid" => file_uuid}} = job) do
+    run(job)
+  rescue
+    error ->
+      mark_failed_on_last_attempt(job, file_uuid)
+      reraise error, __STACKTRACE__
+  else
+    {:error, _reason} = error ->
+      mark_failed_on_last_attempt(job, file_uuid)
+      error
+
+    other ->
+      other
+  end
+
+  defp run(%Oban.Job{args: %{"file_uuid" => file_uuid, "filename" => filename}}) do
     Logger.info("ProcessFileJob: EXECUTING for file_uuid=#{file_uuid}, filename=#{filename}")
 
     file = Storage.get_file(file_uuid)
@@ -86,6 +107,26 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
       end
     end
   end
+
+  defp mark_failed_on_last_attempt(%Oban.Job{attempt: attempt, max_attempts: max}, file_uuid)
+       when attempt >= max do
+    {count, _} =
+      PhoenixKit.RepoHelper.repo().update_all(
+        from(f in PhoenixKit.Modules.Storage.File,
+          where: f.uuid == ^file_uuid and f.status == "processing"
+        ),
+        set: [status: "failed", updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+      )
+
+    if count > 0 do
+      Logger.error("ProcessFileJob: gave up on file_uuid=#{file_uuid}; marked it failed")
+      Storage.broadcast_file_processed(file_uuid)
+    end
+
+    :ok
+  end
+
+  defp mark_failed_on_last_attempt(_job, _file_uuid), do: :ok
 
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)

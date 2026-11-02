@@ -219,4 +219,75 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert PhoenixKit.Settings.get_setting("storage_annotated_thumbnails_enabled", "false") ==
              flipped
   end
+
+  describe "retention" do
+    @retention_keys ["trash_retention_days", "bucket_log_retention_days"]
+
+    setup do
+      # The rows are rolled back with the sandbox; the cached copies are not.
+      on_exit(fn -> Enum.each(@retention_keys, &PhoenixKit.Cache.invalidate(:settings, &1)) end)
+    end
+
+    defp configuration(conn),
+      do: live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+
+    defp change_form(view, params),
+      do: render_change(view, "update_storage_form", params)
+
+    test "the Configuration tab offers both periods, showing what is in use", %{conn: conn} do
+      {:ok, _view, html} = configuration(conn)
+
+      assert html =~ ~s(name="form_trash_retention_days")
+      assert html =~ ~s(name="form_bucket_log_retention_days")
+      assert html =~ ~s(value="#{PhoenixKit.Modules.Storage.trash_retention_days()}")
+    end
+
+    test "Apply Changes saves them", %{conn: conn} do
+      {:ok, view, _html} = configuration(conn)
+
+      change_form(view, %{
+        "form_trash_retention_days" => "14",
+        "form_bucket_log_retention_days" => "7"
+      })
+
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == 14
+      assert PhoenixKit.Modules.Storage.BucketLog.retention_days() == 7
+    end
+
+    test "nothing below one day is accepted — 0 would empty the trash at the next prune", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = configuration(conn)
+
+      change_form(view, %{
+        "form_trash_retention_days" => "0",
+        "form_bucket_log_retention_days" => "-5"
+      })
+
+      render_click(view, "apply_storage_settings", %{})
+
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == 1
+      assert PhoenixKit.Modules.Storage.BucketLog.retention_days() == 1
+    end
+
+    test "text that is not a number leaves the field as it was", %{conn: conn} do
+      {:ok, view, _html} = configuration(conn)
+      before = PhoenixKit.Modules.Storage.trash_retention_days()
+
+      change_form(view, %{"form_trash_retention_days" => "soon"})
+      render_click(view, "apply_storage_settings", %{})
+
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == before
+    end
+
+    test "a stored 0 or negative value reads as the default, not as 'delete everything'" do
+      for bad <- ["0", "-3", "abc", ""] do
+        PhoenixKit.Settings.update_setting("trash_retention_days", bad)
+        assert PhoenixKit.Modules.Storage.trash_retention_days() == 30
+      end
+    end
+  end
 end

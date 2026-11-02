@@ -4308,6 +4308,26 @@ msgstr "Gestisci le impostazioni e le preferenze del tuo account"
 msgid "Max Upload Size (MB)"
 msgstr "Dimensione massima di caricamento (MB)"
 
+#: lib/modules/storage/web/settings.html.heex:530
+#, elixir-autogen, elixir-format
+msgid "Keep trashed files for (days)"
+msgstr "Conserva i file nel cestino per (giorni)"
+
+#: lib/modules/storage/web/settings.html.heex:533
+#, elixir-autogen, elixir-format
+msgid "A file or folder in the trash can be restored until this many days have passed; then it is deleted for good."
+msgstr "Un file o una cartella nel cestino può essere ripristinato finché non è trascorso questo numero di giorni; poi viene eliminato definitivamente."
+
+#: lib/modules/storage/web/settings.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Keep the bucket log for (days)"
+msgstr "Conserva il registro del bucket per (giorni)"
+
+#: lib/modules/storage/web/settings.html.heex:554
+#, elixir-autogen, elixir-format
+msgid "Entries in each bucket's log are removed after this many days."
+msgstr "Le voci del registro di ogni bucket vengono rimosse dopo questo numero di giorni."
+
 #: lib/modules/storage/web/settings.html.heex:515
 #, elixir-autogen, elixir-format
 msgid "Maximum file size allowed per upload"

@@ -4313,6 +4313,26 @@ msgstr "Halda oma konto seadeid ja eelistusi"
 msgid "Max Upload Size (MB)"
 msgstr "Maksimaalne üleslaadimise suurus (MB)"
 
+#: lib/modules/storage/web/settings.html.heex:530
+#, elixir-autogen, elixir-format
+msgid "Keep trashed files for (days)"
+msgstr "Prügikastis olevaid faile hoitakse (päeva)"
+
+#: lib/modules/storage/web/settings.html.heex:533
+#, elixir-autogen, elixir-format
+msgid "A file or folder in the trash can be restored until this many days have passed; then it is deleted for good."
+msgstr "Prügikastis olevat faili või kausta saab taastada, kuni on möödunud see arv päevi; seejärel kustutatakse see jäädavalt."
+
+#: lib/modules/storage/web/settings.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Keep the bucket log for (days)"
+msgstr "Salvestusruumi logi hoitakse (päeva)"
+
+#: lib/modules/storage/web/settings.html.heex:554
+#, elixir-autogen, elixir-format
+msgid "Entries in each bucket's log are removed after this many days."
+msgstr "Iga salvestusruumi logi kirjed eemaldatakse pärast seda arvu päevi."
+
 #: lib/modules/storage/web/settings.html.heex:515
 #, elixir-autogen, elixir-format
 msgid "Maximum file size allowed per upload"

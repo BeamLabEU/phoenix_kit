@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   alias PhoenixKit.Jobs.Events
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.BucketCredentials
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.VariantSets
@@ -60,6 +61,11 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     annotated_thumbnails_enabled =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
+    # Read through the functions that apply the defaults and the sanity rules,
+    # not the raw setting: the form must show the number the system uses.
+    trash_retention_days = Storage.trash_retention_days()
+    bucket_log_retention_days = BucketLog.retention_days()
+
     image_edit_mode = ImageEditing.mode()
 
     # Store form values for batch updates
@@ -84,6 +90,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
       |> assign(:image_edit_mode, image_edit_mode)
       |> assign(:form_image_edit_mode, image_edit_mode)
+      |> assign(:trash_retention_days, trash_retention_days)
+      |> assign(:form_trash_retention_days, trash_retention_days)
+      |> assign(:bucket_log_retention_days, bucket_log_retention_days)
+      |> assign(:form_bucket_log_retention_days, bucket_log_retention_days)
       |> assign(:external_tools, Dependencies.external_tools())
 
     # A library's reconcile run moving updates the Libraries tab's sync column.
@@ -169,6 +179,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       socket
       |> assign(:form_max_upload_size_mb, form_max_upload_size_mb)
       |> assign(:form_image_edit_mode, form_image_edit_mode)
+      |> assign(
+        :form_trash_retention_days,
+        positive_param(
+          params["form_trash_retention_days"],
+          socket.assigns.form_trash_retention_days
+        )
+      )
+      |> assign(
+        :form_bucket_log_retention_days,
+        positive_param(
+          params["form_bucket_log_retention_days"],
+          socket.assigns.form_bucket_log_retention_days
+        )
+      )
 
     {:noreply, socket}
   end
@@ -192,6 +216,20 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       Actor.opts(socket) ++ [source: "settings"]
     )
 
+    # Whole days, at least one: 0 would have the daily prune empty the trash
+    # (and the bucket log) the moment it ran.
+    Settings.update_setting(
+      "trash_retention_days",
+      to_string(socket.assigns.form_trash_retention_days),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
+      "bucket_log_retention_days",
+      to_string(socket.assigns.form_bucket_log_retention_days),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
     # Read back what was saved, so the form shows what is stored
     saved_annotated_thumbnails =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
@@ -206,6 +244,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
       |> assign(:image_edit_mode, ImageEditing.mode())
       |> assign(:form_image_edit_mode, ImageEditing.mode())
+      |> assign(:trash_retention_days, Storage.trash_retention_days())
+      |> assign(:form_trash_retention_days, Storage.trash_retention_days())
+      |> assign(:bucket_log_retention_days, BucketLog.retention_days())
+      |> assign(:form_bucket_log_retention_days, BucketLog.retention_days())
       |> put_flash(:info, gettext("Storage settings updated successfully"))
 
     {:noreply, socket}
@@ -528,6 +570,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     |> assign(:bucket_totals, bucket_totals)
     |> load_bucket_usage()
   end
+
+  # A whole number of at least 1 from a form field, else what the form already had.
+  defp positive_param(value, _current) when is_integer(value), do: max(value, 1)
+
+  defp positive_param(value, current) when is_binary(value),
+    do: max(parse_integer(value, current), 1)
+
+  defp positive_param(_value, current), do: current
 
   defp parse_integer(val, fallback) do
     case Integer.parse(val) do
