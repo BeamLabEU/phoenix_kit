@@ -30,6 +30,7 @@
     </div>
     <%!-- One component per tab: its sections load their data once, on mount. --%>
     <.live_component
+      :if={@tab != "media" or @library_params["media_view"] != "activity"}
       module={PhoenixKitWeb.Live.Components.UserSettings}
       id={"profile-user-settings-#{@tab}"}
       user={@phoenix_kit_current_user}

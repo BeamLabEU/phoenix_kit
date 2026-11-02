@@ -43,7 +43,9 @@ defmodule PhoenixKit.Jobs.Kind do
       `%{cursor:, done:, failed:, total:}`; `done` and `failed` are **increments
       of this batch** (the engine adds them in the checkpoint transaction, so a
       replayed batch cannot count twice), `cursor` is where the next batch
-      resumes, `total` (optional) replaces the known total. `opts`:
+      resumes, `total` (optional) replaces the known total. Optional `log` is bounded, safe
+      metadata saved as a `job.batch` history entry atomically with the checkpoint.
+      Never put credentials, raw provider errors or private names in it. `opts`:
       `schedule_in: seconds` — the pause before the next batch.
     * `{:done, result}` or `{:done, result, progress}` — the run is finished;
       `result` is a map kept on the run, `progress` the last batch's increments.
@@ -91,6 +93,7 @@ defmodule PhoenixKit.Jobs.Kind do
 
   @type progress :: %{
           optional(:cursor) => map(),
+          optional(:log) => map(),
           optional(:done) => non_neg_integer(),
           optional(:failed) => non_neg_integer(),
           optional(:total) => non_neg_integer() | nil
@@ -130,6 +133,16 @@ defmodule PhoenixKit.Jobs.Kind do
   @doc "Validates a start. `{:error, reason}` refuses it. No side effects."
   @callback on_start(args :: map()) :: :ok | {:error, term()}
 
+  @doc """
+  Admits a start inside the engine's insertion transaction, before the run and
+  dispatch are written. May take transaction-scoped locks and reserve durable
+  quotas; those writes roll back if the run cannot be created. Return an error
+  to refuse a start. Existing active runs must remain idempotent where intended.
+  Never broadcast or do external I/O here. Optional for older kind modules.
+  """
+  @callback admit_start(args :: map(), scope :: :site | {String.t(), String.t()}) ::
+              :ok | {:error, term()}
+
   @doc "After the run finished (`state`: `completed`, `failed` or `cancelled`). Idempotent."
   @callback on_finish(Run.t(), state :: String.t()) :: any()
 
@@ -150,6 +163,7 @@ defmodule PhoenixKit.Jobs.Kind do
                       max_attempts: 0,
                       timeout: 0,
                       on_start: 1,
+                      admit_start: 2,
                       on_finish: 2,
                       restart: 0,
                       permission: 0,
@@ -172,6 +186,9 @@ defmodule PhoenixKit.Jobs.Kind do
       def on_start(_args), do: :ok
 
       @impl PhoenixKit.Jobs.Kind
+      def admit_start(_args, _scope), do: :ok
+
+      @impl PhoenixKit.Jobs.Kind
       def on_finish(_run, _state), do: :ok
 
       @impl PhoenixKit.Jobs.Kind
@@ -187,6 +204,7 @@ defmodule PhoenixKit.Jobs.Kind do
                      max_attempts: 0,
                      timeout: 0,
                      on_start: 1,
+                     admit_start: 2,
                      on_finish: 2,
                      restart: 0,
                      permission: 0,

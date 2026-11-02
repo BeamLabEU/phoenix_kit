@@ -113,7 +113,7 @@ defmodule PhoenixKit.Jobs.Engine do
         generation: 1
       }
 
-      case insert_and_dispatch(attrs, ctx) do
+      case insert_and_dispatch(kind, scope, attrs, ctx) do
         {:ok, run, entries} ->
           published(run, entries, :started)
           {:ok, run, :started}
@@ -129,10 +129,11 @@ defmodule PhoenixKit.Jobs.Engine do
     end
   end
 
-  defp insert_and_dispatch(attrs, ctx) do
+  defp insert_and_dispatch(kind, scope, attrs, ctx) do
     result =
       transact(fn ->
-        with {:ok, run} <- repo().insert(Run.insert_changeset(attrs)),
+        with :ok <- admit_start(kind, attrs.args, scope),
+             {:ok, run} <- repo().insert(Run.insert_changeset(attrs)),
              {:ok, run, entries} <-
                run_effects(run, [{:dispatch, 0}, {:log, "job.started", %{}}], ctx) do
           {run, entries}
@@ -145,6 +146,12 @@ defmodule PhoenixKit.Jobs.Engine do
       {:ok, {run, entries}} -> {:ok, run, entries}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp admit_start(kind, args, scope) do
+    if function_exported?(kind, :admit_start, 2),
+      do: kind.admit_start(args, scope),
+      else: :ok
   end
 
   # A start that finds a run already active returns it. A kind that wants a fresh

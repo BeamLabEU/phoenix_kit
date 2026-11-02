@@ -36,7 +36,9 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.CaptureDate
+  alias PhoenixKit.Modules.Storage.DrawnSource
   alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
@@ -108,12 +110,16 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   defp process_image(file) do
     Logger.info("ProcessFileJob: process_image/1 called for file_uuid=#{file.uuid}")
 
-    with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid) do
-      with_temp_file(temp_path, fn ->
-        with {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
-             metadata = with_capture_date(metadata, temp_path, file),
-             metadata = with_exif(metadata, temp_path, file),
-             metadata = with_animation(metadata, temp_path, file),
+    with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid),
+         {:ok, picture} <- picture_of(file, temp_path) do
+      with_temp_file([temp_path, picture], fn ->
+        # A raw file's EXIF is in the raw file, not in the JPEG developed from it.
+        tagged = if CameraRaw.mime?(file.mime_type), do: temp_path, else: picture
+
+        with {:ok, metadata} <- extract_and_log_image_metadata(picture),
+             metadata = with_capture_date(metadata, tagged, file),
+             metadata = with_exif(metadata, tagged, picture, file),
+             metadata = with_animation(metadata, picture, file),
              :ok <- update_and_log_metadata(file, source, metadata),
              :ok <- log_dimensions_info() do
           generate_and_log_variants(file)
@@ -235,10 +241,24 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # Runs `fun` and removes the downloaded copy whatever the outcome. A failed
   # step used to leave it behind, and a file that can never be processed fails
   # on every attempt of every re-queued job.
-  defp with_temp_file(temp_path, fun) do
+  defp with_temp_file(paths, fun) do
     fun.()
   after
-    File.rm(temp_path)
+    paths |> List.wrap() |> Enum.uniq() |> Enum.each(&File.rm/1)
+  end
+
+  # What an image's size and metadata are read from: the file itself, or a picture
+  # drawn from it (`DrawnSource`: a PNG of an SVG, a JPEG developed from a raw file).
+  defp picture_of(file, path) do
+    case DrawnSource.picture(file.mime_type, path) do
+      {:ok, picture} ->
+        {:ok, picture}
+
+      {:error, reason} = error ->
+        File.rm(path)
+        Logger.warning("ProcessFileJob: #{file.uuid} could not be drawn: #{inspect(reason)}")
+        error
+    end
   end
 
   # When the image or video was taken, read from the same bytes as its
@@ -271,13 +291,14 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
-  defp with_exif(metadata, path, %{original_file_uuid: backup}) when is_binary(backup),
-    do: Map.put(metadata, :hdr, Hdr.read(path))
+  defp with_exif(metadata, _tagged, picture, %{original_file_uuid: backup})
+       when is_binary(backup),
+       do: Map.put(metadata, :hdr, Hdr.read(picture))
 
-  defp with_exif(metadata, path, _file) do
+  defp with_exif(metadata, tagged, picture, _file) do
     metadata
-    |> Map.merge(path |> Exif.read() |> Exif.file_attrs())
-    |> Map.put(:hdr, Hdr.read(path))
+    |> Map.merge(tagged |> Exif.read() |> Exif.file_attrs())
+    |> Map.put(:hdr, Hdr.read(picture))
   end
 
   defp extract_pdf_metadata(temp_path) do

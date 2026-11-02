@@ -54,10 +54,78 @@
 
 ### Fixed
 
+- An open user library (`/admin/libraries/<id>`) follows membership changes:
+  a promoted member gets the browser's tools without a reload, a demoted one
+  loses them, and a removed one is sent back to the list. The media browser no
+  longer keeps `readonly`/`own_files_only` from an earlier role once set.
+- The media viewer hides the drawing tools on a file whose annotations would be
+  refused (a viewer, or a contributor on someone else's file, in a user
+  library; a managed library) instead of dropping the shapes silently.
+
 - Forms loaded before organization conversion cannot restore passwords, login
   addresses, Google addresses or forbidden roles. OAuth linking and API-key
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
+
+## 3.2.6 - 2026-11-01
+
+### Added
+
+- Permanent, transactional library membership history for additions, role
+  changes, removal and voluntary leaving. Owners and current Managers can read
+  paginated history in the member dialog; identities resolve at display time.
+  Rejected and unchanged operations create no event, and an audit-write failure
+  rolls back the membership change. Non-administrator Activity views respect
+  current library membership for these records.
+
+### Fixed
+
+- Successful library membership additions, role changes and removals notify
+  library-settings subscribers so open readers can recheck access immediately.
+- Only library owners may appoint, change or remove Managers; Managers can
+  manage Viewers and Contributors and voluntarily leave their own membership.
+  Membership mutations serialize on a freshly read library row, and member
+  controls reflect the same policy, including stale dialogs after demotion.
+- User-library file access follows current membership: former uploaders lose
+  private reads and edits, and Viewers cannot edit their earlier contributions.
+  System-library uploader privileges are unchanged.
+- Open Media browsers recheck user-library permissions for events and uploads;
+  embedded viewers recheck edits and annotation writes after role changes.
+- Storage can optionally distinguish newly created rows (including cross-user
+  clones) from existing duplicates so callers can compensate refused uploads
+  without trashing previously accepted files.
+
+## 3.2.5 - 2026-10-31
+
+### Added
+
+- Personal Media Activity tab for library verification and copying history,
+  with owner controls, membership-scoped logs and live file/byte totals.
+- Read-only presence and SHA-256 verification of originals and optional previews,
+  with resumable batches and durable findings. Admission allows one unfinished
+  verification per installation and one new check per library every 30 days.
+- Transactional job admission hooks and batch history saved atomically with
+  checkpoints; copying jobs report incomplete files in the same history.
+
+### Fixed
+
+- Alias the image processor in focal-point detector tests for strict Credo checks.
+
+## 3.2.4 - 2026-10-31
+
+### Fixed
+
+- Update locked Bandit to 1.14.1, Phoenix HTML to 4.4.0 and ssl_verify_fun to
+  1.1.8, aligning the development lock with the host's security updates.
+
+## 3.2.3 - 2026-10-31
+
+### Added
+
+- Optional host focal-point detector for face-first subject crops. Detectors
+  receive a bounded, oriented JPEG; missing subjects, invalid coordinates and
+  detector errors fall back to libvips visual attention. Stored manual focal
+  points retain precedence.
 
 ## 3.2.2 - 2026-10-30
 

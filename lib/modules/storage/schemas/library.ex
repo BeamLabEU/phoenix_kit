@@ -57,6 +57,8 @@ defmodule PhoenixKit.Modules.Storage.Library do
     # library, which is the bare `/admin/media`. Kept when the library is
     # renamed, so its links keep working.
     field :slug, :string
+    # Includes the internal verification_last_started_at cooldown, which must
+    # survive pruning job history. User-facing settings updates preserve it.
     field :settings, :map, default: %{}
     field :is_default, :boolean, default: false
     field :trashed_at, :utc_datetime

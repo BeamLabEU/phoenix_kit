@@ -20,6 +20,13 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
     package; without it, or when detection fails, there is no point and the crop
     stays at the center.
 
+  A host may set `config :phoenix_kit, :focal_point_detector, MyDetector` to
+  prioritize faces or another subject before visual attention. `detect/1` on
+  that module receives a temporary, auto-oriented JPEG (long edge at most 512)
+  and returns `{:ok, {x, y}}` in normalized displayed coordinates, or `:error`.
+  Invalid results and detector failures fall back to libvips. Manual points
+  and already stored automatic points are retained until explicitly changed.
+
   `ensure/2` is what the generator calls the first time a photo needs one: the
   stored point, else a detected one (stored for next time), else `nil`.
   """
@@ -49,9 +56,12 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
 
   @type point :: {float(), float()}
 
-  @doc "Whether detection is available (the optional `vix` package is loaded)."
+  @doc "Whether a host detector is configured or the optional `vix` package is loaded."
   @spec detection_available?() :: boolean()
-  def detection_available?, do: Code.ensure_loaded?(Vix.Vips.Operation)
+  def detection_available? do
+    not is_nil(Application.get_env(:phoenix_kit, :focal_point_detector)) or
+      Code.ensure_loaded?(Vix.Vips.Operation)
+  end
 
   @doc """
   The focal point stored on `file` and where it came from, or `nil`:
@@ -305,10 +315,35 @@ defmodule PhoenixKit.Modules.Storage.FocalPoint do
   # no HEVC decoder, which ImageMagick has) is not "no subject": it is looked at
   # again through a small JPEG preview ImageMagick makes of it.
   defp safe_attention(path, preview) do
-    case try_attention(path) do
-      :unreadable -> from_preview(path, preview)
-      found -> found
+    case preferred_detection(path, preview) do
+      {:ok, point} ->
+        {:ok, point}
+
+      _ ->
+        case try_attention(path) do
+          :unreadable -> from_preview(path, preview)
+          found -> found
+        end
     end
+  end
+
+  # Hosts can prioritize faces without imposing a model/runtime on every install.
+  # The detector sees a bounded, auto-oriented JPEG and returns normalized
+  # coordinates. It runs inside the same timeout and preview cleanup as attention.
+  defp preferred_detection(path, preview) do
+    with module when not is_nil(module) <-
+           Application.get_env(:phoenix_kit, :focal_point_detector),
+         {:ok, _} <- ImageProcessor.preview_jpeg(path, preview, @shrink_to),
+         {:ok, {x, y}} <- module.detect(preview),
+         true <- is_number(x) and is_number(y) and x >= 0 and x <= 1 and y >= 0 and y <= 1 do
+      {:ok, {x / 1, y / 1}}
+    else
+      _ -> :error
+    end
+  rescue
+    _ -> :error
+  catch
+    _, _ -> :error
   end
 
   defp try_attention(path) do

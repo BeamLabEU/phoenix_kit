@@ -260,6 +260,34 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       refute html =~ storage
     end
 
+    test "an open library follows the member's role: a promotion gives the tools, removal sends back",
+         %{conn: conn, role: role} do
+      owner = user!(role)
+      library = library!(owner, "Family")
+      member = user!(role)
+      {:ok, _} = Libraries.add_member(scope(owner), library, member.email, "viewer")
+
+      {:ok, view, _html} =
+        live(log_in_user(conn, member), Routes.path("/admin/libraries/#{library.uuid}"))
+
+      upload = ~s(#library-browser button[phx-click="toggle_upload"])
+      refute has_element?(view, upload)
+
+      {:ok, _} = Libraries.update_member_role(scope(owner), library, member.uuid, "contributor")
+      assert has_element?(view, upload)
+
+      # The browser's own check on an event must not undo the promotion either.
+      render_click(element(view, upload <> ".btn-primary"))
+      assert has_element?(view, upload)
+
+      {:ok, _} = Libraries.update_member_role(scope(owner), library, member.uuid, "viewer")
+      refute has_element?(view, upload)
+
+      :ok = Libraries.remove_member(scope(owner), library, member.uuid)
+      assert_patch(view, Routes.path("/admin/libraries"))
+      assert render(view) =~ "no longer have access"
+    end
+
     test "an owner opening their own library gets no admin banner", %{conn: conn, role: role} do
       owner = user!(role)
       library = library!(owner, "Mine")
@@ -273,6 +301,35 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
   end
 
   describe "the media browser inside a library" do
+    test "the viewer offers drawing tools only to whom may edit the file", %{role: role} do
+      owner = user!(role)
+      library = library!(owner, "Drawn")
+      file = stored!(owner, "a.png", library.uuid)
+
+      contributor = user!(role)
+      viewer = user!(role)
+      {:ok, _} = Libraries.add_member(scope(owner), library, contributor.email, "contributor")
+      {:ok, _} = Libraries.add_member(scope(owner), library, viewer.email, "viewer")
+
+      can_annotate? = fn user ->
+        # A canvas already there: the update only works out the assigns.
+        socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}, viewer_canvas: :built}}
+
+        {:ok, socket} =
+          PhoenixKitWeb.Components.MediaCanvasViewer.update(
+            %{id: "v", file: %{file_uuid: file.uuid}, current_user: user, can_annotate: true},
+            socket
+          )
+
+        socket.assigns.can_annotate
+      end
+
+      assert can_annotate?.(owner)
+      # Someone else's file, and a viewer: the writes are refused, so no tools.
+      refute can_annotate?.(contributor)
+      refute can_annotate?.(viewer)
+    end
+
     test "an event naming a file of another library is refused", %{role: role} do
       owner = user!(role)
       library = library!(owner, "Guarded")
@@ -445,7 +502,30 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       {:ok, _} = Settings.update_setting("project_title", "Library Host")
       user = user!(role)
       first = library!(user, "First")
-      _second = library!(user, "Second")
+      second = library!(user, "Second")
+
+      stored!(user, "visible.png", first.uuid)
+      trashed = stored!(user, "trashed.png", first.uuid)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^trashed.uuid),
+        set: [status: "trashed"]
+      )
+
+      managed = stored!(user, "managed.png", first.uuid)
+
+      Repo.update_all(from(f in Storage.File, where: f.uuid == ^managed.uuid),
+        set: [system_managed: true]
+      )
+
+      other = library!(user!(role), "Other user's library")
+      stored!(user, "other.png", other.uuid)
+
+      assert Libraries.content_stats([]) == %{}
+
+      assert Libraries.content_stats([first.uuid, second.uuid]) == %{
+               first.uuid => %{files: 1, bytes: 1},
+               second.uuid => %{files: 0, bytes: 0}
+             }
 
       {:ok, view, html} = live(log_in_user(conn, user), Routes.path("/profile/settings/media"))
 
@@ -454,6 +534,13 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       assert html =~ "Second"
       assert html =~ "Stored in"
       assert has_element?(view, "#library-row-#{first.uuid}", "Library Host's storage")
+      first_row = view |> element("#library-row-#{first.uuid}") |> render()
+      second_row = view |> element("#library-row-#{second.uuid}") |> render()
+      assert first_row =~ "1 file"
+      assert first_row =~ "1 B"
+      assert second_row =~ "0 files"
+      assert second_row =~ "0 B"
+      refute html =~ "Other user&#39;s library"
       assert html =~ "Visibility"
       assert html =~ "Private"
       # The first library a user makes is their default.

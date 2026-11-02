@@ -1099,6 +1099,57 @@ owner makes it **public** when creating it (below), and its members are `manager
   (`storage.library_opened`).
 
 
+### Personal library verification and activity
+
+The personal Media settings page has **Libraries** and **Activity** tabs. Library
+owners start **Verify library** from the row menu or **Verify a library** in
+Activity. Availability checks examine originals by default; **Include generated
+previews** includes other renditions, and **Deep verification** reads each copy
+from its own bucket and compares its SHA-256 and size. Deep checks consume storage
+bandwidth. Verification never repairs, deletes or changes location health.
+
+Only **one unfinished verification across all libraries and accounts** is allowed,
+including queued, paused and draining runs. Each library may start **one check per
+rolling 30 days**, shared by availability/deep checks and preview options. Failed
+and cancelled checks still count; manual retry must wait for the cooldown too.
+Resuming a paused run and automatic retries of its batches continue the same
+operation. Copying/reconciliation is not subject to verification limits. The UI
+shows when a library can next be checked and explains when the global slot is busy.
+
+`VerificationPolicy` admits starts under a PostgreSQL advisory transaction lock,
+through `Jobs.Kind.admit_start/2` inside the engine's insertion transaction. All
+start paths (personal, admin, trusted/system and manual retry) use the same gate.
+A successful start stamps `verification_last_started_at` in the library's internal
+settings, with recent job history as a fallback for checks predating this policy.
+Log/run pruning cannot reset the allowance, and a rolled-back start consumes none.
+Trash is excluded; files still processing are reported as inconclusive.
+Missing objects and failed availability requests are reported as **missing or
+inaccessible**, not proof of deletion. Legacy checksums that cannot be compared
+with SHA-256 are reported as inconclusive.
+
+`Storage.LibraryOperations` is the authorization boundary. Current members can
+read library-scoped verification/reconciliation runs and their logs; only owners
+can start checks or pause/resume/cancel/retry these kinds. Every action refreshes
+the caller's session role and checks current library ownership. This grants no
+`jobs.manage` or access to global maintenance. Anonymous/public library access
+never grants job-log access.
+
+`Jobs.VerifyLibrary` walks live, non-system-managed files in batches of five,
+with a durable cursor and a start-time UUID bound. Uploads added later belong to
+the next check. A completed check may have findings (`failed_count` counts files
+needing attention); worker failure is a different state. Concurrent file changes
+are reported as inconclusive. Copying jobs (`Jobs.Reconcile`) share Activity and
+record batch summaries and files that could not finish.
+
+Job kinds may return `log: metadata` in batch progress. The engine saves it as a
+`job.batch` Activity entry in the checkpoint transaction, guarded by the claim.
+No successful per-file entries are written. Problem details contain UUIDs and fixed
+codes; file and bucket names are resolved only after read authorization. Logs are
+paginated, follow `activity_retention_days`, and survive reloads/restarts. Runs
+follow `job_runs_retention_days` (both default to 90 days). Each interrupted batch
+is recorded, and manual retries retain a link to the previous attempt. The Media
+page refreshes operations and logs every three seconds.
+
 ### User-owned storage (V206)
 
 A user may keep a library's files in their **own S3-compatible bucket** (AWS S3,

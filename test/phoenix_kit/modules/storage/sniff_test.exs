@@ -19,6 +19,21 @@ defmodule PhoenixKit.Modules.Storage.SniffTest do
     assert {:ok, %{format: :avif}} = format(<<0, 0, 0, 24>> <> "ftypavif" <> "0000")
   end
 
+  test "recognises the camera raw formats that have headers of their own" do
+    assert {:ok, %{format: :cr3, mime: "image/x-canon-cr3"}} =
+             format(<<0, 0, 0, 24>> <> "ftypcrx " <> "0000")
+
+    assert {:ok, %{format: :raf}} = format("FUJIFILMCCD-RAW 0201FF383501")
+    assert {:ok, %{format: :orf}} = format("IIRS" <> <<8, 0, 0, 0>>)
+    assert {:ok, %{format: :orf}} = format("IIRO" <> <<8, 0, 0, 0>>)
+    assert {:ok, %{format: :rw2}} = format(<<"IIU", 0, 24, 0, 0, 0>>)
+
+    # The TIFF-shaped ones (NEF, CR2, DNG…) are TIFFs to the bytes.
+    assert {:ok, %{format: :tiff}} = format(<<"MM", 0, 42, 0, 0, 0, 8>>)
+
+    for format <- Sniff.camera_raw_formats(), do: refute(Sniff.raster?(format))
+  end
+
   test "a BMP needs its header, not just the letters BM" do
     header = fn dib -> <<"BM", 70::little-32, 0::32, 54::little-32, dib::little-32, 0, 0>> end
 

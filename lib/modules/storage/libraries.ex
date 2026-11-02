@@ -111,6 +111,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   require Logger
 
+  alias PhoenixKit.Activity
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.ConnectionLock
   alias PhoenixKit.Integrations.{ObjectStorageServices, Probe}
@@ -121,6 +122,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   alias PhoenixKit.Modules.Storage.{Folder, Library, LibraryMember, Profiles, VariantSets}
   alias PhoenixKit.Modules.Storage.Providers.S3
   alias PhoenixKit.Modules.Storage.Workers.PurgeLibraryJob
+  alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.{Scope, User}
 
@@ -404,9 +406,18 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   @spec list_system_libraries_with_stats() :: [stats()]
   def list_system_libraries_with_stats, do: with_stats(list_system_libraries())
 
-  defp with_stats(libraries) do
-    uuids = Enum.map(libraries, & &1.uuid)
+  @doc """
+  Live file counts and original content bytes for the supplied library UUIDs,
+  in one query. Excludes trash and system-managed files; replicas and generated
+  instances do not multiply the size. Empty libraries receive zero totals.
+  Callers must supply only libraries the viewer may inspect.
+  """
+  @spec content_stats([String.t()]) :: %{
+          String.t() => %{files: non_neg_integer(), bytes: non_neg_integer()}
+        }
+  def content_stats([]), do: %{}
 
+  def content_stats(uuids) do
     files =
       from(f in StorageFile,
         where: f.library_uuid in ^uuids and f.system_managed == false and f.status != "trashed",
@@ -415,6 +426,17 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
       )
       |> repo().all()
       |> Map.new()
+
+    Map.new(uuids, fn uuid ->
+      {count, bytes} = Map.get(files, uuid, {0, 0})
+      {uuid, %{files: count, bytes: to_integer(bytes)}}
+    end)
+  end
+
+  defp with_stats(libraries) do
+    uuids = Enum.map(libraries, & &1.uuid)
+
+    files = content_stats(uuids)
 
     folders =
       from(f in Folder,
@@ -428,7 +450,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     held = libraries_holding(uuids)
 
     Enum.map(libraries, fn library ->
-      {count, bytes} = Map.get(files, library.uuid, {0, 0})
+      %{files: count, bytes: bytes} = Map.fetch!(files, library.uuid)
 
       %{
         library: library,
@@ -1222,7 +1244,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   Whether `scope` may do `action` to `file`. One predicate for every
   per-file check, so they stop drifting apart:
 
-    * `:read` — the file's info and signed URLs: its uploader, an
+    * `:read` — the file's info and signed URLs: a system library's uploader, an
       Owner/Admin (`Scope.system_role?/1`, whatever library the file is in, a
       hidden one included), or — for a file in a user
       library — that library's owner or any of its members, or **anyone**,
@@ -1230,10 +1252,12 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
       NOT the `"media"` permission: a single permission must not open every
       other user's file metadata (issue #687).
     * `:edit` — change the picture (image editing, annotation burn-in, the
-      unedited original): the uploader, an Owner/Admin, a holder of the
+      unedited original): a system library's uploader, an Owner/Admin, a holder of the
       `"media"` permission with `"media.view_all"` when the file is in a system
       library that is not hidden (`hidden?/1`), or the
-      owner or a manager of the user library it is in. Nobody, whoever they
+      owner or a manager of the user library it is in, or a current contributor
+      editing their own upload. Former members and Viewers have no uploader
+      editing privilege in a user library. Nobody, whoever they
       are, may edit a file of a managed library (`managed?/1`).
 
   Anything else is refused, and a scope without a user, or none at all (`nil`),
@@ -1247,8 +1271,8 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     if action == :edit and managed?(library_uuid) do
       false
     else
-      uploader?(scope, file) or Scope.system_role?(scope) or
-        library_grants?(scope, library_uuid, action)
+      library = if media?(library_uuid), do: :media, else: get_library(library_uuid)
+      Scope.system_role?(scope) or file_grants?(scope, library, file, action)
     end
   end
 
@@ -1257,10 +1281,14 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   def can?(_scope, _file, _action), do: false
 
-  defp library_grants?(scope, library_uuid, action) do
-    library = if media?(library_uuid), do: :media, else: get_library(library_uuid)
-    grants?(scope, library, action)
+  defp file_grants?(scope, %Library{kind: "user"} = library, file, action) do
+    grants?(scope, library, action) or
+      (action == :edit and role(library, Scope.user_uuid(scope)) == :contributor and
+         uploader?(scope, file))
   end
+
+  defp file_grants?(scope, library, file, action),
+    do: uploader?(scope, file) or grants?(scope, library, action)
 
   # Changing someone else's file in a site library is for a holder of `media` who
   # sees everyone's files (`media.view_all`); a holder of `media` alone changes only
@@ -1422,7 +1450,8 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
     * `:read` — see its files: everyone
     * `:upload` — add files: owner, manager, contributor
     * `:edit_any` — change or trash anyone's files: owner, manager
-    * `:members` — add, change and remove members: owner, manager
+    * `:members` — manage members: owner, manager; membership APIs additionally
+      reserve Manager grants and changes to the owner (voluntary leaving is allowed)
     * `:rename` — owner, manager
     * `:own` — trash the library, make it the default: owner only
   """
@@ -2758,56 +2787,189 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   @doc """
   Adds the user with `email` to a user library as `role`, for its owner or
-  a manager. `:no_such_user` when nobody has that email, `:owner` when it is
-  the owner's own.
+  a manager. Only the owner may appoint a manager. `:no_such_user` when nobody
+  has that email, `:owner` when it is the owner's own. Membership mutations
+  reload and lock the library so concurrent role changes cannot bypass policy.
   """
   @spec add_member(Scope.t() | nil, Library.t(), String.t(), String.t()) ::
           {:ok, LibraryMember.t()}
-          | {:error, :not_allowed | :no_such_user | :owner | Ecto.Changeset.t()}
-  def add_member(scope, %Library{kind: "user"} = library, email, role) when is_binary(email) do
-    with true <- allows?(scope_role(scope, library), :members) || {:error, :not_allowed},
-         %User{} = user <-
-           repo().one(from(u in User, where: u.email == ^String.trim(email))) ||
-             {:error, :no_such_user},
-         true <- user.uuid != library.owner_uuid || {:error, :owner} do
-      %LibraryMember{}
-      |> LibraryMember.changeset(%{library_uuid: library.uuid, user_uuid: user.uuid, role: role})
-      |> repo().insert()
-    end
+          | {:error,
+             :not_allowed | :no_such_user | :owner | :history_unavailable | Ecto.Changeset.t()}
+  def add_member(scope, %Library{kind: "user"} = library, email, role)
+      when is_binary(email) and is_binary(role) do
+    change_membership(scope, library, fn current ->
+      with true <-
+             may_manage_member?(scope_role(scope, current), nil, role) || {:error, :not_allowed},
+           %User{} = user <-
+             repo().one(from(u in User, where: u.email == ^String.trim(email))) ||
+               {:error, :no_such_user},
+           true <- user.uuid != current.owner_uuid || {:error, :owner} do
+        changeset =
+          LibraryMember.changeset(%LibraryMember{}, %{
+            library_uuid: current.uuid,
+            user_uuid: user.uuid,
+            role: role
+          })
+
+        with {:ok, member} <- repo().insert(changeset, mode: :savepoint) do
+          {:changed, {:ok, member},
+           %{
+             action: "storage.library.member_added",
+             target_uuid: member.user_uuid,
+             previous_role: nil,
+             new_role: member.role
+           }}
+        end
+      end
+    end)
   end
 
   def add_member(_scope, _library, _email, _role), do: {:error, :not_allowed}
 
-  @doc "Changes a member's role, for the library's owner or a manager."
+  @doc "Changes a member's role; only the owner may grant or change a Manager role."
   @spec update_member_role(Scope.t() | nil, Library.t(), term(), String.t()) ::
-          {:ok, LibraryMember.t()} | {:error, :not_allowed | :not_found | Ecto.Changeset.t()}
-  def update_member_role(scope, %Library{kind: "user"} = library, user_uuid, role) do
-    with true <- allows?(scope_role(scope, library), :members) || {:error, :not_allowed},
-         %LibraryMember{} = member <- get_member(library, user_uuid) || {:error, :not_found} do
-      member |> LibraryMember.role_changeset(%{role: role}) |> repo().update()
-    end
+          {:ok, LibraryMember.t()}
+          | {:error, :not_allowed | :not_found | :history_unavailable | Ecto.Changeset.t()}
+  def update_member_role(scope, %Library{kind: "user"} = library, user_uuid, role)
+      when is_binary(role) do
+    change_membership(scope, library, fn current ->
+      actor_role = scope_role(scope, current)
+
+      with true <- allows?(actor_role, :members) || {:error, :not_allowed},
+           %LibraryMember{} = member <- get_member(current, user_uuid) || {:error, :not_found},
+           true <- may_manage_member?(actor_role, member.role, role) || {:error, :not_allowed} do
+        write_member_role(member, role)
+      end
+    end)
   end
 
   def update_member_role(_scope, _library, _user_uuid, _role), do: {:error, :not_allowed}
 
-  @doc """
-  Removes a member, for the library's owner or a manager, or the member
-  themselves (leaving).
-  """
-  @spec remove_member(Scope.t() | nil, Library.t(), term()) ::
-          :ok | {:error, :not_allowed | :not_found}
-  def remove_member(scope, %Library{kind: "user"} = library, user_uuid) do
-    self? = Scope.user_uuid(scope) == to_string(user_uuid)
+  defp write_member_role(%LibraryMember{role: role} = member, role), do: {:ok, member}
 
-    with true <-
-           (self? or allows?(scope_role(scope, library), :members)) || {:error, :not_allowed},
-         %LibraryMember{} = member <- get_member(library, user_uuid) || {:error, :not_found} do
-      repo().delete!(member)
-      :ok
+  defp write_member_role(member, role) do
+    with {:ok, updated} <-
+           member
+           |> LibraryMember.role_changeset(%{role: role})
+           |> repo().update(mode: :savepoint) do
+      {:changed, {:ok, updated},
+       %{
+         action: "storage.library.member_role_changed",
+         target_uuid: member.user_uuid,
+         previous_role: member.role,
+         new_role: updated.role
+       }}
     end
   end
 
+  @doc """
+  Removes a member, for the library's owner or a manager, or the member
+  themselves (leaving). Only the owner may remove a manager, except that a
+  manager may voluntarily leave their own membership.
+  """
+  @spec remove_member(Scope.t() | nil, Library.t(), term()) ::
+          :ok | {:error, :not_allowed | :not_found | :history_unavailable}
+  def remove_member(scope, %Library{kind: "user"} = library, user_uuid) do
+    self? = Scope.user_uuid(scope) == to_string(user_uuid)
+
+    change_membership(scope, library, fn current ->
+      actor_role = scope_role(scope, current)
+
+      with true <- (self? or allows?(actor_role, :members)) || {:error, :not_allowed},
+           %LibraryMember{} = member <- get_member(current, user_uuid) || {:error, :not_found},
+           true <-
+             (self? or may_manage_member?(actor_role, member.role, nil)) || {:error, :not_allowed} do
+        repo().delete!(member)
+
+        {:changed, :ok,
+         %{
+           action:
+             if(self?, do: "storage.library.member_left", else: "storage.library.member_removed"),
+           target_uuid: member.user_uuid,
+           previous_role: member.role,
+           new_role: nil
+         }}
+      end
+    end)
+  end
+
   def remove_member(_scope, _library, _user_uuid), do: {:error, :not_allowed}
+
+  defp may_manage_member?(:owner, _previous_role, _next_role), do: true
+
+  defp may_manage_member?(:manager, previous_role, next_role),
+    do: previous_role != "manager" and next_role != "manager"
+
+  defp may_manage_member?(_actor_role, _previous_role, _next_role), do: false
+
+  defp change_membership(scope, library, change) do
+    external_transaction? = repo().in_transaction?()
+
+    repo().transaction(fn ->
+      case locked_library(library.uuid) do
+        %Library{kind: "user", trashed_at: nil} = current ->
+          case change.(current) do
+            {:changed, result, event} -> {result, record_membership(scope, current, event)}
+            result -> {result, nil}
+          end
+
+        _ ->
+          {{:error, :not_allowed}, nil}
+      end
+    end)
+    |> case do
+      {:ok, {result, nil}} ->
+        result
+
+      {:ok, {result, entry}} ->
+        # Follow Storage.Audit's convention for caller-owned transactions:
+        # suppress feed announcements until their outcome is known. The member
+        # dialog's periodic reload finds committed history from those callers.
+        unless external_transaction?, do: Activity.broadcast(entry)
+        notify_membership_change(result, library)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp record_membership(scope, library, event) do
+    %{
+      module: "storage",
+      action: event.action,
+      mode: "manual",
+      resource_type: "library",
+      resource_uuid: library.uuid,
+      actor_uuid: Scope.user_uuid(scope),
+      target_uuid: event.target_uuid,
+      acting_user_uuid: Scope.acting_user_uuid(scope),
+      permanent: true,
+      metadata: %{"previous_role" => event.previous_role, "new_role" => event.new_role}
+    }
+    |> Activity.entry_changeset()
+    |> repo().insert(mode: :savepoint)
+    |> case do
+      {:ok, entry} -> entry
+      {:error, _reason} -> repo().rollback(:history_unavailable)
+    end
+  rescue
+    error ->
+      Logger.warning("Membership history insert failed: #{inspect(error.__struct__)}")
+      repo().rollback(:history_unavailable)
+  end
+
+  # Membership changes affect viewing and uploading just like audience changes.
+  # Notify only after a successful write; clients re-read the current permissions.
+  defp notify_membership_change(result, library) do
+    if result == :ok or match?({:ok, _}, result) do
+      Manager.broadcast(
+        "storage:library_settings",
+        {:library_settings_changed, library.uuid}
+      )
+    end
+
+    result
+  end
 
   defp get_member(%Library{uuid: uuid}, user_uuid) do
     case Ecto.UUID.cast(user_uuid) do
