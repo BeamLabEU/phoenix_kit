@@ -29,7 +29,9 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   import Ecto.Query, only: [from: 2]
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.Dimension
+  alias PhoenixKit.Modules.Storage.DrawnSource
   alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.FocalPoint
   alias PhoenixKit.Modules.Storage.Hdr
@@ -39,7 +41,6 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.Shape
-  alias PhoenixKit.Modules.Storage.SvgRaster
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.VideoHdrPoster
   alias PhoenixKit.Modules.Storage.VideoSource
@@ -174,13 +175,22 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
          (file.file_type == "document" and file.mime_type == "application/pdf"))
   end
 
-  defp do_generate_variant(file, dimension, variant_name, format_override, key_suffix \\ "") do
+  # `shared` is a picture already made for a whole run (`process_variants/2`), as
+  # `{path, source_key}`; it belongs to the run, which removes it. Without one, the
+  # original is fetched (and drawn) for this size alone.
+  defp do_generate_variant(
+         file,
+         dimension,
+         variant_name,
+         format_override,
+         key_suffix \\ "",
+         shared \\ nil
+       ) do
     Logger.info("Generating variant: #{variant_name} for file: #{file.uuid}")
 
     # Download original file to temp location
     result =
-      with {:ok, downloaded_path, source_key} <- retrieve_original_file(file),
-           {:ok, original_path} <- picture_of(file, downloaded_path) do
+      with {:ok, original_path, source_key, owned} <- source_picture(file, shared) do
         # The format is decided from the pixels, so it comes after the
         # download: a JPEG size of a see-through image would turn its
         # transparent background black.
@@ -259,7 +269,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
             )
           end
         after
-          cleanup_temp_files(Enum.uniq([downloaded_path, original_path, variant_path]))
+          cleanup_temp_files(Enum.uniq([variant_path | owned]))
         end
       end
 
@@ -743,13 +753,29 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   defp process_variants(file, dimensions) do
     expanded = expand_dimensions_with_alternatives(dimensions)
 
+    # A picture that has to be drawn (a raw file's development can take seconds and
+    # most of a gigabyte) is made once for every size, not once per size.
+    {shared, owned} =
+      if DrawnSource.drawn?(file.mime_type) do
+        case source_picture(file, nil) do
+          {:ok, path, key, owned} -> {{path, key}, owned}
+          {:error, _} -> {nil, []}
+        end
+      else
+        {nil, []}
+      end
+
     results =
-      expanded
-      |> Enum.map(fn {dim, vname, fmt} ->
-        Task.async(fn -> do_generate_variant(file, dim, vname, fmt) end)
-      end)
-      # Video transcoding can take several minutes for large files
-      |> Task.await_many(:timer.minutes(10))
+      try do
+        expanded
+        |> Enum.map(fn {dim, vname, fmt} ->
+          Task.async(fn -> do_generate_variant(file, dim, vname, fmt, "", shared) end)
+        end)
+        # Video transcoding can take several minutes for large files
+        |> Task.await_many(:timer.minutes(10))
+      after
+        cleanup_temp_files(owned)
+      end
 
     # Separate successful and failed results
     {successful, failed} =
@@ -773,9 +799,9 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # Image formats ImageMagick can read here but has no encoder for.
   @unwritable_formats ~w(heic heif avif)
 
-  # Vector formats whose sizes are drawn from a PNG of them (`SvgRaster`): a size
-  # that keeps the original's format is a picture, not another SVG.
-  @drawn_formats ~w(svg)
+  # Formats whose sizes are made from a picture drawn from them (`DrawnSource`): a
+  # size that keeps the original's format is that picture's, not another SVG or raw.
+  @drawn_formats ~w(svg) ++ CameraRaw.extensions()
 
   @doc false
   # The format a size is actually written in. A size configured as JPEG (or
@@ -848,20 +874,22 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     end
   end
 
-  # The picture the sizes are made from: the original, or for an SVG a PNG drawn
-  # from it (`SvgRaster`). Everything after this reads pixels, never the SVG.
-  defp picture_of(file, path) do
-    if SvgRaster.svg?(file.mime_type) do
-      case SvgRaster.to_png(path) do
-        {:ok, png} ->
-          {:ok, png}
+  # The picture the sizes are made from, its source key, and the temporary files that
+  # are this caller's to remove: the original, or a picture drawn from it
+  # (`DrawnSource`: a PNG of an SVG, a JPEG developed from a raw file). Everything
+  # after this reads pixels, never the SVG or the raw file.
+  defp source_picture(_file, {path, source_key}), do: {:ok, path, source_key, []}
+
+  defp source_picture(file, nil) do
+    with {:ok, downloaded, source_key} <- retrieve_original_file(file) do
+      case DrawnSource.picture(file.mime_type, downloaded) do
+        {:ok, picture} ->
+          {:ok, picture, source_key, Enum.uniq([downloaded, picture])}
 
         {:error, _} = error ->
-          File.rm(path)
+          File.rm(downloaded)
           error
       end
-    else
-      {:ok, path}
     end
   end
 

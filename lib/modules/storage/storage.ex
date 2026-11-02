@@ -130,6 +130,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.RemoteFetch
   alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.ShortCode
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.Sniff
   alias PhoenixKit.Modules.Storage.StorageProfile
   # NOTE: Temporary helper for Publishing component system.
@@ -7916,6 +7917,13 @@ defmodule PhoenixKit.Modules.Storage do
     case Sniff.sniff(source_path) do
       {:ok, %{format: format, mime: sniffed}} ->
         cond do
+          # A camera raw file: most are TIFF-shaped, so its bytes cannot name the
+          # maker's format, and the claim (from its name) stands. It is developed by
+          # libraw, never decoded as the TIFF it looks like (`CameraRaw`).
+          CameraRaw.mime?(claimed) and
+              (format == :tiff or format in Sniff.camera_raw_formats()) ->
+            claimed
+
           Sniff.raster?(format) and sniffed != claimed ->
             log_mime_mismatch(filename, claimed, sniffed)
             sniffed

@@ -36,12 +36,13 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.CaptureDate
+  alias PhoenixKit.Modules.Storage.DrawnSource
   alias PhoenixKit.Modules.Storage.Exif
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
-  alias PhoenixKit.Modules.Storage.SvgRaster
   alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
@@ -112,9 +113,12 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid),
          {:ok, picture} <- picture_of(file, temp_path) do
       with_temp_file([temp_path, picture], fn ->
+        # A raw file's EXIF is in the raw file, not in the JPEG developed from it.
+        tagged = if CameraRaw.mime?(file.mime_type), do: temp_path, else: picture
+
         with {:ok, metadata} <- extract_and_log_image_metadata(picture),
-             metadata = with_capture_date(metadata, picture, file),
-             metadata = with_exif(metadata, picture, file),
+             metadata = with_capture_date(metadata, tagged, file),
+             metadata = with_exif(metadata, tagged, picture, file),
              metadata = with_animation(metadata, picture, file),
              :ok <- update_and_log_metadata(file, source, metadata),
              :ok <- log_dimensions_info() do
@@ -243,21 +247,17 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     paths |> List.wrap() |> Enum.uniq() |> Enum.each(&File.rm/1)
   end
 
-  # What an image's size and metadata are read from: the file itself, or for an SVG
-  # a PNG drawn from it (`SvgRaster`), which ImageMagick is never given unpinned.
+  # What an image's size and metadata are read from: the file itself, or a picture
+  # drawn from it (`DrawnSource`: a PNG of an SVG, a JPEG developed from a raw file).
   defp picture_of(file, path) do
-    if SvgRaster.svg?(file.mime_type) do
-      case SvgRaster.to_png(path) do
-        {:ok, png} ->
-          {:ok, png}
+    case DrawnSource.picture(file.mime_type, path) do
+      {:ok, picture} ->
+        {:ok, picture}
 
-        {:error, reason} = error ->
-          File.rm(path)
-          Logger.warning("ProcessFileJob: SVG #{file.uuid} did not render: #{inspect(reason)}")
-          error
-      end
-    else
-      {:ok, path}
+      {:error, reason} = error ->
+        File.rm(path)
+        Logger.warning("ProcessFileJob: #{file.uuid} could not be drawn: #{inspect(reason)}")
+        error
     end
   end
 
@@ -291,13 +291,14 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     end
   end
 
-  defp with_exif(metadata, path, %{original_file_uuid: backup}) when is_binary(backup),
-    do: Map.put(metadata, :hdr, Hdr.read(path))
+  defp with_exif(metadata, _tagged, picture, %{original_file_uuid: backup})
+       when is_binary(backup),
+       do: Map.put(metadata, :hdr, Hdr.read(picture))
 
-  defp with_exif(metadata, path, _file) do
+  defp with_exif(metadata, tagged, picture, _file) do
     metadata
-    |> Map.merge(path |> Exif.read() |> Exif.file_attrs())
-    |> Map.put(:hdr, Hdr.read(path))
+    |> Map.merge(tagged |> Exif.read() |> Exif.file_attrs())
+    |> Map.put(:hdr, Hdr.read(picture))
   end
 
   defp extract_pdf_metadata(temp_path) do
