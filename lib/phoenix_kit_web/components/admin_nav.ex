@@ -375,8 +375,15 @@ defmodule PhoenixKitWeb.Components.AdminNav do
               at different depths and the emails drifted apart by a pad's width.
             --%>
             <%= for account <- @accounts do %>
-              <li class="p-0">
-                <div class="!p-0 flex items-center gap-1 min-w-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
+              <%!--
+                `flex-nowrap` on the li and `w-full` on the row: daisyUI's
+                menu `li` is a WRAPPING column flex, whose line is as wide as
+                its widest item's content, so a long email stretched the row
+                past the menu's edge (the active row's badge and check cut
+                off) however `min-w-0`/`truncate` were set inside it.
+              --%>
+              <li class="p-0 min-w-0 flex-nowrap">
+                <div class="!p-0 flex w-full items-center gap-1 min-w-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
                   <%= if account.active? do %>
                     <div class="flex-1 min-w-0">
                       <div class="flex w-full min-w-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-content">
