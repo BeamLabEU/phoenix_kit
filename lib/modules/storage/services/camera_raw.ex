@@ -2,8 +2,15 @@ defmodule PhoenixKit.Modules.Storage.CameraRaw do
   @moduledoc """
   Camera raw files: DNG and the makers' own (CR2, CR3, NEF, NRW, ARW, ORF, RW2, RAF,
   PEF, SRW, 3FR). The raw file is kept as it is; its size, renditions and previews are
-  made from a JPEG **developed** from it by libraw (`develop/1`), the way an SVG's are
-  made from a PNG (`SvgRaster`). `DrawnSource` picks which.
+  made from a JPEG of it (`develop/1`), the way an SVG's are made from a PNG
+  (`SvgRaster`). `DrawnSource` picks which.
+
+  ## Which JPEG
+
+  The camera's own, when the raw file embeds one at least `preview_min_side/0` pixels
+  on its long side (`RawPreview`): the colours the camera rendered, which libraw gets
+  wrong for a camera newer than itself. Else one developed by libraw. Either is turned
+  upright by the orientation in the raw file's header (`RawPreview.orientation/1`).
 
   ## What a raw file is
 
@@ -13,7 +20,8 @@ defmodule PhoenixKit.Modules.Storage.CameraRaw do
   their own (`Sniff.camera_raw_formats/0`). Either way a file is developed only when
   its bytes are one of those shapes, and always through ImageMagick's libraw coder
   pinned by name (`dng:`, which reads every raw format libraw knows), with
-  `ImageProcessor`'s resource limits. libraw applies the camera's rotation itself.
+  `ImageProcessor`'s resource limits. libraw leaves the picture as the sensor saw it
+  (an ORF taken upright came out on its side), so the rotation is applied after.
 
   ## Its EXIF
 
@@ -23,7 +31,7 @@ defmodule PhoenixKit.Modules.Storage.CameraRaw do
   EXIF's own tag names, so `Exif` and `CaptureDate` take them as they are.
   """
 
-  alias PhoenixKit.Modules.Storage.{ImageProcessor, Sniff}
+  alias PhoenixKit.Modules.Storage.{ImageProcessor, RawPreview, Sniff}
 
   @mimes %{
     "dng" => "image/x-adobe-dng",
@@ -77,33 +85,73 @@ defmodule PhoenixKit.Modules.Storage.CameraRaw do
     end
   end
 
+  # The largest rendition a site makes by default is 1920 px wide.
+  @preview_min_side 1920
+
+  @doc "The shortest long side an embedded JPEG may have to be used instead of libraw's."
+  @spec preview_min_side() :: pos_integer()
+  def preview_min_side, do: @preview_min_side
+
   @doc """
-  Develops the raw file at `path` into a new JPEG (quality 92, sRGB, upright) and
-  returns its path. The caller removes it.
+  A new JPEG (quality 92, upright) of the raw file at `path`: the camera's embedded
+  one when it is big enough, else libraw's development. The caller removes it.
   """
   @spec develop(Path.t()) :: {:ok, Path.t()} | {:error, term()}
   def develop(path) do
-    jpeg = Path.join(System.tmp_dir!(), "phoenix_kit_raw_#{token()}.jpg")
+    with true <- raw_shaped?(path) || {:error, :not_raw},
+         {:ok, bin} <- File.read(path) do
+      orientation = RawPreview.orientation(bin)
+
+      case RawPreview.find(bin) do
+        %{width: w, height: h} = preview when max(w, h) >= @preview_min_side ->
+          case from_preview(bin, preview, orientation) do
+            {:ok, _jpeg} = ok -> ok
+            {:error, _} -> from_libraw(path, orientation)
+          end
+
+        _ ->
+          from_libraw(path, orientation)
+      end
+    end
+  end
+
+  defp from_preview(bin, %{offset: offset, length: length}, orientation) do
+    source = temp()
+    File.write!(source, binary_part(bin, offset, length))
+
+    try do
+      # Its own EXIF orientation counts only when the raw file's header has none (a RAF).
+      magick("jpeg:" <> source, orientation)
+    after
+      File.rm(source)
+    end
+  end
+
+  defp from_libraw(path, orientation), do: magick("dng:" <> path, orientation || 1)
+
+  defp magick(input, orientation) do
+    jpeg = temp()
 
     args =
       ["-quiet"] ++
         ImageProcessor.limit_args() ++
-        ["dng:" <> path, "-quality", "92", "jpeg:" <> jpeg]
+        [input] ++
+        orient(orientation) ++ ["-auto-orient", "-quality", "92", "jpeg:" <> jpeg]
 
-    with true <- raw_shaped?(path) || {:error, :not_raw},
-         {_output, 0} <- System.cmd("magick", args, stderr_to_stdout: true),
-         true <- File.exists?(jpeg) || {:error, :raw_no_output} do
-      {:ok, jpeg}
-    else
-      {:error, _} = error ->
-        File.rm(jpeg)
-        error
+    case System.cmd("magick", args, stderr_to_stdout: true) do
+      {_output, 0} ->
+        if File.exists?(jpeg), do: {:ok, jpeg}, else: {:error, :raw_no_output}
 
       {output, status} ->
         File.rm(jpeg)
         {:error, {:raw_develop, status, output}}
     end
   end
+
+  defp orient(nil), do: []
+  defp orient(orientation), do: ["-orient", RawPreview.magick_orient(orientation)]
+
+  defp temp, do: Path.join(System.tmp_dir!(), "phoenix_kit_raw_#{token()}.jpg")
 
   @doc """
   What libraw reads of the raw file at `path`, as EXIF tags (`DateTimeOriginal`,
