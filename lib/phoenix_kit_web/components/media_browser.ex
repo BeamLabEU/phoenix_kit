@@ -2377,7 +2377,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
       # The bytes are the server's now: the browser can drop the copy it
       # stashed in case the transfer was cut short (the UploadResume hook).
-      {:noreply, ack_received(socket, [entry])}
+      {:noreply, ack_received(socket, [entry], name)}
     else
       {:noreply, socket}
     end
@@ -2405,13 +2405,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Tells the UploadResume hook which stashed files it can let go of —
   # received by the server, or rejected with a reason the panel shows. The
   # key is what the browser itself knows about a picked file.
-  defp ack_received(socket, entries) do
-    push_event(
-      socket,
-      "phoenix_kit:upload-received",
-      Map.merge(resume_target(socket), %{keys: Enum.map(entries, &client_key/1)})
-    )
+  #
+  # Both callers run on the HOST's socket, which has no `:picker` assign, so
+  # `resume_target/1` cannot name the picker there: a picker's upload is
+  # acknowledged to every picker registered on the page instead (each hook
+  # forgets only the keys it holds), anything else unnamed, as before.
+  defp ack_received(socket, entries, upload_name) do
+    keys = Enum.map(entries, &client_key/1)
+
+    socket
+    |> ack_targets(upload_name)
+    |> Enum.reduce(socket, fn target, acc ->
+      push_event(acc, "phoenix_kit:upload-received", Map.put(target, :keys, keys))
+    end)
   end
+
+  defp ack_targets(socket, @picker_upload),
+    do: Enum.map(socket.assigns[:media_picker_ids] || MapSet.new(), &%{browser: &1})
+
+  defp ack_targets(_socket, _upload_name), do: [%{}]
 
   # These events reach every UploadResume hook on the page. A picker names
   # itself so that the hook of the browser beside it ignores them (and it
@@ -2579,7 +2591,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         if open?, do: cancel_upload(acc, name, entry.ref), else: acc
       end)
 
-    {:noreply, ack_received(socket, entries)}
+    socket =
+      entries
+      |> Enum.group_by(&(Map.get(&1, :upload_config) || :media_files))
+      |> Enum.reduce(socket, fn {name, group}, acc -> ack_received(acc, group, name) end)
+
+    {:noreply, socket}
   end
 
   def handle_parent_info(_msg, socket), do: {:noreply, socket}
@@ -2722,10 +2739,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def picker_off_events, do: @picker_off_events
 
   # What a picker does not do to the files it shows: they are someone's
-  # files, opened to be chosen from. Rotating, editing, the featured pointer
-  # and emptying the trash are refused; Download and Move to Trash stay.
-  # Deleting for good (the Trash view's Delete) is refused below.
-  @picker_file_write_events ~w(rotate_file open_image_editor set_featured unset_featured empty_trash)
+  # files, opened to be chosen from. Rotating, editing, the featured pointer,
+  # emptying the trash and clearing the orphans are refused; Download and Move
+  # to Trash stay. Deleting for good (the Trash view's Delete) is refused below.
+  @picker_file_write_events ~w(
+    rotate_file open_image_editor set_featured unset_featured empty_trash delete_all_orphaned
+  )
 
   @doc false
   def picker_file_write_events, do: @picker_file_write_events
@@ -2739,6 +2758,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     socket = refresh_library_permissions(socket)
 
     if socket.assigns[:library_access_allowed] == false do
+      # Nothing more of the library is shown: an open viewer closes with the
+      # refusal. Left open, a picker's viewer (a top-layer popover whose Escape
+      # is kept from the host's dialog) stayed on screen with every event —
+      # its Close and Escape included — refused, until a reload.
+      socket =
+        if socket.assigns[:viewer_file],
+          do: socket |> open_viewer(nil) |> notify_viewer_nav(),
+          else: socket
+
       {:noreply, log_refused(socket, event, "library access was removed")}
     else
       socket = %{socket | private: Map.put(socket.private, :library_access_checked, true)}
@@ -2766,6 +2794,17 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       when event in ~w(delete_file delete_folder delete_selected) and
              socket.assigns.picker == true and socket.assigns.filter_trash == true do
     {:noreply, log_refused(socket, event, "a picker deletes nothing for good")}
+  end
+
+  # The orphans are the library's (files no module references, in any folder),
+  # never a scope's: a scoped browser offers neither the orphan view nor "Delete
+  # all orphaned" (the header hides both), and the handlers read no scope. A
+  # forged event is refused; turning an open orphan view off stays allowed.
+  def handle_event(event, _params, socket)
+      when is_binary(socket.assigns.scope_folder_id) and
+             (event == "delete_all_orphaned" or
+                (event == "toggle_orphan_filter" and socket.assigns.filter_orphaned != true)) do
+    {:noreply, log_refused(socket, event, "orphans are not a scope's")}
   end
 
   # A restricted viewer (`viewer_uuid`) is shown only what is theirs, and this is
@@ -3027,10 +3066,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # descendants via `Storage.folder_subtree_uuids/1` and apply the
       # operation atomically.
       result =
-        if socket.assigns[:filter_trash] do
-          Storage.delete_folder_completely(folder, scope)
-        else
-          Storage.trash_folder(folder, scope)
+        cond do
+          not socket.assigns[:filter_trash] -> Storage.trash_folder(folder, scope)
+          # Only a folder in the trash is deleted for good — the file branch's
+          # `status == "trashed"` check, for folders. A folder an edit's reload
+          # or a forged event put in the Trash view must not lose its tree.
+          is_nil(folder.trashed_at) -> {:error, :not_trashed}
+          true -> Storage.delete_folder_completely(folder, scope)
         end
 
       # Only `{:ok, _}` is a deletion. Everything else used to fall through
@@ -3539,15 +3581,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if folder && name != "" do
       case Storage.update_folder(folder, %{name: String.trim(name)}, scope) do
         {:ok, updated} ->
-          parent_uuid = current_folder_uuid(socket)
-
           {:noreply,
            socket
            |> assign(:renaming_folder, nil)
            |> assign(:renaming_source, nil)
            |> assign(:renaming_text, "")
-           |> assign(:folders, Storage.list_folders(parent_uuid, scope, lib_opts(socket)))
-           |> assign(:folder_tree, Storage.list_folder_tree(scope, lib_opts(socket)))
+           |> reload_folder_lists()
            |> refresh_header_folder(folder_uuid, updated)}
 
         {:error, :out_of_scope} ->
@@ -3617,8 +3656,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if folder do
       case Storage.update_folder(folder, %{description: value}, scope) do
         {:ok, updated} ->
-          parent_uuid = current_folder_uuid(socket)
-
           socket =
             socket
             |> assign(:editing_folder_description, nil)
@@ -3626,8 +3663,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
             # Reload the listing so the grid card / list row reflects the new
             # description immediately (they render from `@folders`, not the
             # tree), plus the tree.
-            |> assign(:folders, Storage.list_folders(parent_uuid, scope, lib_opts(socket)))
-            |> assign(:folder_tree, Storage.list_folder_tree(scope, lib_opts(socket)))
+            |> reload_folder_lists()
 
           # Refresh the header's folder if we're editing the one we're inside.
           socket =
@@ -3826,12 +3862,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     if folder do
       case Storage.update_folder(folder, %{color: color}, scope) do
         {:ok, _} ->
-          parent_uuid = current_folder_uuid(socket)
-
           {:noreply,
            socket
-           |> assign(:folders, Storage.list_folders(parent_uuid, scope, lib_opts(socket)))
-           |> assign(:folder_tree, Storage.list_folder_tree(scope, lib_opts(socket)))}
+           |> reload_folder_lists()}
 
         {:error, :out_of_scope} ->
           {:noreply,
@@ -4949,8 +4982,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     assign(socket, :selected_files, selected)
   end
 
-  # Leave select mode and drop any selection — shared by the toolbar Cancel
-  # button and the Esc key.
   # Everything a selection can pick right now: the files rendered on screen
   # (`uploaded_files` AND, in stacks view, each expanded stack's own list —
   # the same duality as `locate_file/2`) and the folders listed.
@@ -4965,9 +4996,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       MapSet.new(Enum.map(socket.assigns.uploaded_files, & &1.file_uuid) ++ stack_file_uuids)
 
     # Without folder actions a folder is never in a selection: every bulk
-    # action on one (move, trash, delete) is a folder action.
+    # action on one (move, trash, delete) is a folder action. The all-files
+    # view renders no folders (`grid_view`/`list_view`), so none is on screen.
     folders =
-      if socket.assigns.folder_actions,
+      if socket.assigns.folder_actions and socket.assigns[:file_view] != "all",
         do: socket.assigns.folders,
         else: []
 
@@ -5984,15 +6016,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   defp save_folder_header(socket, folder, folder_uuid, scope, name, desc_value) do
     case Storage.update_folder(folder, %{name: name, description: desc_value}, scope) do
       {:ok, updated} ->
-        parent_uuid = current_folder_uuid(socket)
-
         socket =
           socket
           |> reset_folder_header_edit()
           # Reload the listing + tree so any grid card / list row / sidebar
           # entry for this folder reflects the new name and description.
-          |> assign(:folders, Storage.list_folders(parent_uuid, scope, lib_opts(socket)))
-          |> assign(:folder_tree, Storage.list_folder_tree(scope, lib_opts(socket)))
+          |> reload_folder_lists()
 
         # Refresh the header's folder + breadcrumbs when editing the folder
         # we're currently inside, so the title, description and breadcrumb
@@ -6827,9 +6856,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     folders
     |> folders_in_scope(scope)
     |> Enum.map(fn folder ->
-      if socket.assigns.filter_trash,
-        do: Storage.delete_folder_completely(folder, scope),
-        else: Storage.trash_folder(folder, scope)
+      cond do
+        not socket.assigns.filter_trash -> Storage.trash_folder(folder, scope)
+        # As in `delete_folder`: only a trashed folder is deleted for good.
+        is_nil(folder.trashed_at) -> {:error, :not_trashed}
+        true -> Storage.delete_folder_completely(folder, scope)
+      end
     end)
   end
 

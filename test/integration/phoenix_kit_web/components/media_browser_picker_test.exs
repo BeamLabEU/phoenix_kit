@@ -836,6 +836,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       assert uuid == stored.uuid
     end
 
+    test "the picker's UploadResume hook is told the bytes arrived", %{conn: conn} = ctx do
+      view = open(conn, ctx)
+
+      input = upload(view, ["kitchen.png"])
+      render_upload(input, "kitchen.png")
+
+      # The ack is pushed from the HOST's socket; unnamed, the picker's hook
+      # (`data-picker`) ignored it and kept the stashed copy for 7 days.
+      assert_push_event(view, "phoenix_kit:upload-received", %{browser: "pick", keys: [key]})
+      assert key =~ "kitchen.png|"
+    end
+
     test "multiple: the uploaded file is added, up to max_select", %{conn: conn} = ctx do
       a = file!(ctx.scope)
       view = open(conn, ctx, %{"opts" => %{max_select: 2}, "selected" => [a.uuid]})
@@ -1297,7 +1309,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
                "expected #{event} to be refused in a picker's trash view"
       end
 
-      for event <- ~w(rotate_file open_image_editor set_featured unset_featured empty_trash) do
+      for event <-
+            ~w(rotate_file open_image_editor set_featured unset_featured empty_trash delete_all_orphaned) do
         assert event in MediaBrowser.picker_file_write_events()
       end
     end

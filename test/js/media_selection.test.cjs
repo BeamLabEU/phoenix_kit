@@ -25,6 +25,9 @@ function browser() {
   };
   const area = {
     scrollTop: 0,
+    clientWidth: 290,
+    clientHeight: 300,
+    closest: selector => selector === "[data-box-area]" ? area : null,
     querySelectorAll: () => cards,
     getBoundingClientRect: () => ({ left: 0, top: 0, right: 300, bottom: 300 }),
   };
@@ -73,7 +76,7 @@ function browser() {
     }, attrs);
   }
   return {
-    cards, root, hook, calls, document, overlays,
+    cards, root, area, hook, calls, document, overlays,
     click: (card, attrs) => listeners.click.forEach(fn => fn(event(card, attrs))),
     down: attrs => listeners.pointerdown.forEach(fn => fn(event(null, attrs))),
     fire: (name, attrs) => [...(windowListeners[name] || [])].forEach(fn => fn(event(null, attrs))),
@@ -127,4 +130,24 @@ test("destroying the browser cancels an active box and restores text selection",
   assert.equal(b.listenerCount("pointermove"), 0);
   assert.equal(b.listenerCount("pointerup"), 0);
   assert.equal(b.calls.length, 0, "navigation does not commit the unfinished box");
+});
+
+test("a move with no button held ends the box without selecting", () => {
+  const b = browser();
+  b.down();
+  b.fire("pointermove", { clientX: 90, clientY: 90 });
+  assert.equal(b.overlays.size, 1);
+  // The button came up where no pointerup reached the window listeners.
+  b.fire("pointermove", { clientX: 95, clientY: 95, buttons: 0 });
+  assert.equal(b.overlays.size, 0);
+  assert.equal(b.listenerCount("pointermove"), 0);
+  assert.equal(b.listenerCount("pointerup"), 0);
+  assert.equal(b.calls.length, 0);
+});
+
+test("a press on the column's scrollbar does not start a box", () => {
+  const b = browser();
+  b.down({ target: b.area, offsetX: 295, offsetY: 10 });
+  assert.equal(b.listenerCount("pointermove"), 0);
+  assert.equal(b.listenerCount("pointerup"), 0);
 });

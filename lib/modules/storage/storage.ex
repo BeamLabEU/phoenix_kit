@@ -105,6 +105,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.BucketLog
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.Endpoint
@@ -130,7 +131,6 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.RemoteFetch
   alias PhoenixKit.Modules.Storage.Shape
   alias PhoenixKit.Modules.Storage.ShortCode
-  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.Sniff
   alias PhoenixKit.Modules.Storage.StorageProfile
   # NOTE: Temporary helper for Publishing component system.
@@ -654,12 +654,23 @@ defmodule PhoenixKit.Modules.Storage do
     uuid = attrs[:integration_uuid] || attrs["integration_uuid"] || bucket.integration_uuid
 
     ConnectionLock.run(uuid, fn ->
-      changeset = bucket_update_changeset(bucket, attrs) |> validate_bucket_connection()
+      changeset = bucket_update_changeset(bucket, attrs) |> validate_changed_bucket_connection()
 
       with :ok <- refuse_disable_while_in_profiles(bucket, changeset) do
         update_bucket_row(changeset, opts)
       end
     end)
+  end
+
+  # An update checks the connection only when it changes or the bucket is being
+  # switched on. Its keys can turn unreadable after it was attached (a
+  # `secret_key_base` rotation): checking on every update then refused the very
+  # edit that takes the broken bucket out of use — disabling it.
+  defp validate_changed_bucket_connection(changeset) do
+    if Ecto.Changeset.changed?(changeset, :integration_uuid) or
+         Ecto.Changeset.get_change(changeset, :enabled) == true,
+       do: validate_bucket_connection(changeset),
+       else: changeset
   end
 
   defp validate_bucket_connection(changeset) do
@@ -7916,25 +7927,7 @@ defmodule PhoenixKit.Modules.Storage do
   def content_mime_type(claimed, source_path, filename) do
     case Sniff.sniff(source_path) do
       {:ok, %{format: format, mime: sniffed}} ->
-        cond do
-          # A camera raw file: most are TIFF-shaped, so its bytes cannot name the
-          # maker's format, and the claim (from its name) stands. It is developed by
-          # libraw, never decoded as the TIFF it looks like (`CameraRaw`).
-          CameraRaw.mime?(claimed) and
-              (format == :tiff or format in Sniff.camera_raw_formats()) ->
-            claimed
-
-          Sniff.raster?(format) and sniffed != claimed ->
-            log_mime_mismatch(filename, claimed, sniffed)
-            sniffed
-
-          claimed in @raster_mimes and not Sniff.raster?(format) ->
-            log_mime_mismatch(filename, claimed, sniffed)
-            sniffed
-
-          true ->
-            claimed
-        end
+        recognised_mime_type(claimed, format, sniffed, filename)
 
       # Bytes nothing recognises are not an image, whatever the claim —
       # raster or not (an `image/svg+xml` claim over unknown bytes too).
@@ -7945,6 +7938,28 @@ defmodule PhoenixKit.Modules.Storage do
         else
           claimed
         end
+    end
+  end
+
+  defp recognised_mime_type(claimed, format, sniffed, filename) do
+    cond do
+      # A camera raw file: most are TIFF-shaped, so its bytes cannot name the
+      # maker's format, and the claim (from its name) stands. It is developed by
+      # libraw, never decoded as the TIFF it looks like (`CameraRaw`).
+      CameraRaw.mime?(claimed) and
+          (format == :tiff or format in Sniff.camera_raw_formats()) ->
+        claimed
+
+      Sniff.raster?(format) and sniffed != claimed ->
+        log_mime_mismatch(filename, claimed, sniffed)
+        sniffed
+
+      claimed in @raster_mimes and not Sniff.raster?(format) ->
+        log_mime_mismatch(filename, claimed, sniffed)
+        sniffed
+
+      true ->
+        claimed
     end
   end
 

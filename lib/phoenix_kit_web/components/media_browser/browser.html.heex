@@ -464,6 +464,10 @@
                 `data-drop-upload`: files dragged in from the computer land
                 here too — the folder being shown — and are uploaded into it
                 (MediaDragDrop paints it, FolderDropUpload takes the files).
+
+                `data-drop-origin-unknown`: a search at the root lists the
+                whole tree here, so this zone is not each card's home and the
+                drag code must not refuse a drop on "root" as a no-op.
               --%>
               <div
                 class="rounded-lg flex-1 pr-1"
@@ -471,6 +475,10 @@
                   if not @readonly and not @filter_trash and @file_view != "all" do
                     if @current_folder, do: @current_folder.uuid, else: "root"
                   end
+                }
+                data-drop-origin-unknown={
+                  if assigns[:search_query] not in [nil, ""] and is_nil(@current_folder),
+                    do: "true"
                 }
                 data-drop-no-bg
                 data-drop-upload={

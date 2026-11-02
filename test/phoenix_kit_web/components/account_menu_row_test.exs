@@ -13,8 +13,9 @@ defmodule PhoenixKitWeb.Components.AccountMenuRowTest do
     test "#{file}: the account row's li does not wrap and the row takes its width" do
       source = File.read!(Path.join("lib/phoenix_kit_web/components", unquote(file)))
 
+      # Whitespace-tolerant: a re-indent of the template must not fail it.
       assert source =~
-               ~s(<li class="p-0 min-w-0 flex-nowrap">\n                <div class="!p-0 flex w-full items-center gap-1 min-w-0)
+               ~r/<li class="p-0 min-w-0 flex-nowrap">\s*<div class="!p-0 flex w-full items-center gap-1 min-w-0/
     end
   end
 end

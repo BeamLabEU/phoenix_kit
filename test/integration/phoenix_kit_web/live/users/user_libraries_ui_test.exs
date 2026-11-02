@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.MediaBrowser
+  alias PhoenixKitWeb.Components.MediaCanvasViewer
   alias PhoenixKitWeb.Live.Components.LibrarySettings
 
   setup do
@@ -316,7 +317,7 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
         socket = %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}, viewer_canvas: :built}}
 
         {:ok, socket} =
-          PhoenixKitWeb.Components.MediaCanvasViewer.update(
+          MediaCanvasViewer.update(
             %{id: "v", file: %{file_uuid: file.uuid}, current_user: user, can_annotate: true},
             socket
           )

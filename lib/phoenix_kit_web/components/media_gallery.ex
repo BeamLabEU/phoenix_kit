@@ -95,6 +95,13 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     a double click delivers two `{:open_picker, …}` messages.
   - Pass `media_selected` uuids without repeats; the gallery does not
     deduplicate the list.
+  - Return image files only. The built-in picker is locked to images; the
+    gallery does not filter what `media_selected` names, and a PDF or a video
+    renders as a broken thumbnail.
+  - Build the reply from the selection the host holds *now*, not from
+    `request.selected`: that is a snapshot taken at the click, and a remove or
+    reorder made while a non-modal host picker was open would be reverted by
+    a reply built from it.
 
       <.live_component
         module={PhoenixKitWeb.Components.MediaGallery}
@@ -107,7 +114,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
             {PhoenixKitWeb.Components.MediaGallery, "my-gallery", {:open_picker, request}},
             socket
           ) do
-        # Open the host's picker; `request.selected` is the current selection.
+        # Open the host's picker; `request.selected` is the selection at the click.
         {:noreply, assign(socket, :picker_request, request)}
       end
 

@@ -446,7 +446,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
       eye(view, b)
 
       assert has_element?(view, ~s(#pick-viewer-modal button[phx-click="viewer_pick"][disabled]))
-      assert render(element(view, "#pick-viewer-modal")) =~ "Maximum 1 files"
+      badge = render(element(view, "#pick-viewer-modal"))
+      assert badge =~ "Maximum 1 file"
+      refute badge =~ "Maximum 1 files"
 
       hook(view, "viewer_pick", %{"file-uuid" => b.uuid})
       assert confirm(view) == [a.uuid]

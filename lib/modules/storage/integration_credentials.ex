@@ -23,6 +23,9 @@ defmodule PhoenixKit.Modules.Storage.IntegrationCredentials do
 
   @identity_fields ~w(endpoint region account_id jurisdiction)
   @credential_fields ~w(access_key secret_key)
+  # How many existing objects a rotation tries before a missing one (404) is
+  # taken as gone rather than unreadable (`readable_sample/3`).
+  @existing_object_samples 5
 
   def prepare(uuid, existing, attrs, opts) do
     candidate = Map.merge(existing, attrs)
@@ -186,28 +189,43 @@ defmodule PhoenixKit.Modules.Storage.IntegrationCredentials do
   # key that can still read the library. Check an existing object's metadata
   # as well as the new probe object, without downloading a large original.
   defp check_existing_object(bucket) do
-    path =
-      RepoHelper.repo().one(
+    paths =
+      RepoHelper.repo().all(
         from(l in FileLocation,
           where: l.bucket_uuid == ^bucket.uuid and l.status == "active",
           order_by: l.uuid,
-          limit: 1,
+          limit: @existing_object_samples,
           select: l.path
         )
       )
 
-    if path do
+    if paths == [] do
+      :ok
+    else
       Probe.run(fn ->
-        with {:ok, provider} <- ProviderRegistry.get_provider(bucket.provider),
-             true <- provider.file_exists?(bucket, path) do
-          :ok
-        else
+        case ProviderRegistry.get_provider(bucket.provider) do
+          {:ok, provider} -> readable_sample(provider, bucket, paths)
           _ -> {:error, :existing_object_unreadable}
         end
       end)
-    else
-      :ok
     end
+  end
+
+  # The first object found settles it. A missing one (`false`, a 404) proves
+  # nothing about reading: the object may simply be gone (a lifecycle rule, an
+  # out-of-band delete), and with the same oldest row sampled every time, one
+  # such object refused every rotation of the connection for good. So it moves
+  # on to the next; only when every sample is missing is the key taken as able
+  # to see the bucket. A refusal (403) raises in the provider, which
+  # `Probe.run/1` answers as an error.
+  defp readable_sample(provider, bucket, paths) do
+    Enum.reduce_while(paths, :ok, fn path, acc ->
+      case provider.file_exists?(bucket, path) do
+        true -> {:halt, :ok}
+        false -> {:cont, acc}
+        _other -> {:halt, {:error, :existing_object_unreadable}}
+      end
+    end)
   end
 
   defp validate_rotation(buckets, candidate, opts) do

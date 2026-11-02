@@ -125,6 +125,7 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
   alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.{Scope, User}
+  alias PhoenixKit.Users.Referrals
 
   @media_uuid "00000000-0000-7000-8000-000000000001"
 
@@ -2313,9 +2314,19 @@ defmodule PhoenixKit.Modules.Storage.Libraries do
 
   def audience_allows?(_scope, _library), do: false
 
+  # A signed-in reader is an account the application itself admits: active, its
+  # email confirmed while `require_email_confirmation` is on, and past the
+  # referral gate — the account gate every authenticated page applies
+  # (`PhoenixKitWeb.Users.Auth`). A session alone is not that: one is minted for
+  # an unconfirmed account too, and `/file` runs no `require_*` plug, so
+  # "Signed-in users" would mean "anyone who registers an address".
   @doc false
-  def authenticated_reader?(%Scope{user: %{uuid: uuid, is_active: true}}) when is_binary(uuid),
-    do: true
+  def authenticated_reader?(%Scope{user: %User{uuid: uuid, is_active: true} = user} = scope)
+      when is_binary(uuid) do
+    (not is_nil(user.confirmed_at) or
+       not Settings.get_boolean_setting("require_email_confirmation", true)) and
+      Referrals.access_satisfied?(scope)
+  end
 
   def authenticated_reader?(_scope), do: false
 

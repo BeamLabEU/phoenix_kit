@@ -511,7 +511,7 @@
               :if={pick.full?}
               class="badge badge-warning badge-sm shadow"
             >
-              {gettext("Maximum %{count} files", count: pick.max_select)}
+              {ngettext("Maximum %{count} file", "Maximum %{count} files", pick.max_select)}
             </span>
             <button
               type="button"
