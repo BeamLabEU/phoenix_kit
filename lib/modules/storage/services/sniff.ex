@@ -16,7 +16,9 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
   PDF, PostScript/EPS, MVG, MSL and the rest reach their decoders through
   delegates (librsvg, Ghostscript…) with a long history of command injection
   and memory-safety bugs; they are recognised here so they can be *refused*,
-  never pinned.
+  never pinned. The one exception is drawn elsewhere on purpose: an SVG is
+  rendered to a PNG by `SvgRaster`, through ImageMagick's librsvg coder only
+  (`rsvg:`, never `svg:` or `msvg:`), alone in a private folder.
   """
 
   @type format ::

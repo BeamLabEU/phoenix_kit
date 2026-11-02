@@ -41,6 +41,7 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   alias PhoenixKit.Modules.Storage.Hdr
   alias PhoenixKit.Modules.Storage.ImageProcessor
   alias PhoenixKit.Modules.Storage.PdfProcessor
+  alias PhoenixKit.Modules.Storage.SvgRaster
   alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
@@ -108,12 +109,13 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   defp process_image(file) do
     Logger.info("ProcessFileJob: process_image/1 called for file_uuid=#{file.uuid}")
 
-    with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid) do
-      with_temp_file(temp_path, fn ->
-        with {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
-             metadata = with_capture_date(metadata, temp_path, file),
-             metadata = with_exif(metadata, temp_path, file),
-             metadata = with_animation(metadata, temp_path, file),
+    with {:ok, temp_path, source} <- retrieve_and_log_file(file.uuid),
+         {:ok, picture} <- picture_of(file, temp_path) do
+      with_temp_file([temp_path, picture], fn ->
+        with {:ok, metadata} <- extract_and_log_image_metadata(picture),
+             metadata = with_capture_date(metadata, picture, file),
+             metadata = with_exif(metadata, picture, file),
+             metadata = with_animation(metadata, picture, file),
              :ok <- update_and_log_metadata(file, source, metadata),
              :ok <- log_dimensions_info() do
           generate_and_log_variants(file)
@@ -235,10 +237,28 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   # Runs `fun` and removes the downloaded copy whatever the outcome. A failed
   # step used to leave it behind, and a file that can never be processed fails
   # on every attempt of every re-queued job.
-  defp with_temp_file(temp_path, fun) do
+  defp with_temp_file(paths, fun) do
     fun.()
   after
-    File.rm(temp_path)
+    paths |> List.wrap() |> Enum.uniq() |> Enum.each(&File.rm/1)
+  end
+
+  # What an image's size and metadata are read from: the file itself, or for an SVG
+  # a PNG drawn from it (`SvgRaster`), which ImageMagick is never given unpinned.
+  defp picture_of(file, path) do
+    if SvgRaster.svg?(file.mime_type) do
+      case SvgRaster.to_png(path) do
+        {:ok, png} ->
+          {:ok, png}
+
+        {:error, reason} = error ->
+          File.rm(path)
+          Logger.warning("ProcessFileJob: SVG #{file.uuid} did not render: #{inspect(reason)}")
+          error
+      end
+    else
+      {:ok, path}
+    end
   end
 
   # When the image or video was taken, read from the same bytes as its

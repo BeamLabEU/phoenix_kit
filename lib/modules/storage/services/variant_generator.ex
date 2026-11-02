@@ -39,6 +39,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   alias PhoenixKit.Modules.Storage.Manager
   alias PhoenixKit.Modules.Storage.PdfProcessor
   alias PhoenixKit.Modules.Storage.Shape
+  alias PhoenixKit.Modules.Storage.SvgRaster
   alias PhoenixKit.Modules.Storage.VariantSets
   alias PhoenixKit.Modules.Storage.VideoHdrPoster
   alias PhoenixKit.Modules.Storage.VideoSource
@@ -178,7 +179,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
     # Download original file to temp location
     result =
-      with {:ok, original_path, source_key} <- retrieve_original_file(file) do
+      with {:ok, downloaded_path, source_key} <- retrieve_original_file(file),
+           {:ok, original_path} <- picture_of(file, downloaded_path) do
         # The format is decided from the pixels, so it comes after the
         # download: a JPEG size of a see-through image would turn its
         # transparent background black.
@@ -257,7 +259,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
             )
           end
         after
-          cleanup_temp_files([original_path, variant_path])
+          cleanup_temp_files(Enum.uniq([downloaded_path, original_path, variant_path]))
         end
       end
 
@@ -771,6 +773,10 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   # Image formats ImageMagick can read here but has no encoder for.
   @unwritable_formats ~w(heic heif avif)
 
+  # Vector formats whose sizes are drawn from a PNG of them (`SvgRaster`): a size
+  # that keeps the original's format is a picture, not another SVG.
+  @drawn_formats ~w(svg)
+
   @doc false
   # The format a size is actually written in. A size configured as JPEG (or
   # one that keeps a JPEG original's format) of an image with an alpha
@@ -787,7 +793,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       # ImageMagick reads them but has no encoder, and a browser other than Safari
       # cannot show them. It becomes a JPEG, or the see-through format for a photo
       # with transparency.
-      file.file_type == "image" and is_nil(format) and target in @unwritable_formats ->
+      file.file_type == "image" and is_nil(format) and
+          target in (@unwritable_formats ++ @drawn_formats) ->
         if ImageProcessor.has_alpha_channel?(original_path), do: alpha_format(), else: "jpg"
 
       file.file_type == "image" and target in ["jpg", "jpeg"] and
@@ -838,6 +845,23 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
       ext = String.trim_leading(original_ext, ".")
       # PDF variants are rendered as JPEG images
       if ext == "pdf", do: "jpg", else: ext
+    end
+  end
+
+  # The picture the sizes are made from: the original, or for an SVG a PNG drawn
+  # from it (`SvgRaster`). Everything after this reads pixels, never the SVG.
+  defp picture_of(file, path) do
+    if SvgRaster.svg?(file.mime_type) do
+      case SvgRaster.to_png(path) do
+        {:ok, png} ->
+          {:ok, png}
+
+        {:error, _} = error ->
+          File.rm(path)
+          error
+      end
+    else
+      {:ok, path}
     end
   end
 
