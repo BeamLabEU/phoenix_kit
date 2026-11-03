@@ -23867,3 +23867,13 @@ msgstr "Te ei saa selle kogu salvestust muuta"
 #, elixir-autogen, elixir-format
 msgid "You no longer have access to that library"
 msgstr "Teil pole enam juurdepääsu sellele kogule"
+
+#: lib/phoenix_kit/integrations/object_storage_services.ex:295
+#, elixir-autogen, elixir-format
+msgid "From Hetzner Console → your project → Security → S3 Credentials."
+msgstr "Hetzner Console'is → sinu projekt → Security → S3 Credentials."
+
+#: lib/phoenix_kit/integrations/object_storage_services.ex:285
+#, elixir-autogen, elixir-format
+msgid "The bucket's location; its endpoint is <location>.your-objectstorage.com. Pick one or type it."
+msgstr "Bucketi asukoht; selle lõpp-punkt on <location>.your-objectstorage.com. Vali üks või sisesta ise."

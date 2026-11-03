@@ -1,3 +1,16 @@
+## Unreleased
+
+### Added
+
+- Hetzner Object Storage as a storage service and bucket provider (`hetzner`).
+  Its connection form asks for the location (Falkenstein `fsn1`, Nuremberg
+  `nbg1`, Helsinki `hel1`) and builds the endpoint
+  `<location>.your-objectstorage.com`, with the location as the signing region.
+  Buckets are addressed virtual-host style
+  (`<bucket>.<location>.your-objectstorage.com`), as Hetzner documents. Users
+  may bring their own Hetzner bucket, like any other S3-compatible one. No
+  migration.
+
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,

@@ -12,6 +12,8 @@ defmodule PhoenixKit.Modules.Storage.ProviderRegistry do
     "b2" => PhoenixKit.Modules.Storage.Providers.S3,
     # R2 uses S3-compatible API
     "r2" => PhoenixKit.Modules.Storage.Providers.S3,
+    # Hetzner Object Storage uses S3-compatible API
+    "hetzner" => PhoenixKit.Modules.Storage.Providers.S3,
     # Tigris uses S3-compatible API
     "tigris" => PhoenixKit.Modules.Storage.Providers.S3
   }
@@ -25,6 +27,8 @@ defmodule PhoenixKit.Modules.Storage.ProviderRegistry do
   def get_provider("b2"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   # R2 is S3-compatible
   def get_provider("r2"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
+  # Hetzner Object Storage is S3-compatible
+  def get_provider("hetzner"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   # Tigris is S3-compatible
   def get_provider("tigris"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   def get_provider(provider), do: {:error, "Unknown provider: #{provider}"}

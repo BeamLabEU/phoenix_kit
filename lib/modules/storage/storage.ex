@@ -898,7 +898,7 @@ defmodule PhoenixKit.Modules.Storage do
   # would create and delete files in a directory of the server's choosing. The
   # owner is set by the caller from the signed-in user, never from a form.
   defp check_probe_provider(%Bucket{owner_uuid: owner, provider: provider})
-       when is_binary(owner) and provider not in ~w(s3 b2 r2 tigris),
+       when is_binary(owner) and provider not in ~w(s3 b2 r2 hetzner tigris),
        do: {:error, "Your own storage must be an S3-compatible bucket"}
 
   defp check_probe_provider(_bucket), do: :ok

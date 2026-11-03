@@ -3,8 +3,8 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
   The service-by-service setup form of the `object_storage` integration.
 
   "S3-compatible" is a protocol, not a place to connect to: the same access key
-  and secret reach Amazon S3, Cloudflare R2, Backblaze B2, Tigris, Wasabi,
-  DigitalOcean Spaces and a self-hosted MinIO, but what else the form must ask
+  and secret reach Amazon S3, Cloudflare R2, Backblaze B2, Hetzner Object
+  Storage, Tigris, Wasabi, DigitalOcean Spaces and a self-hosted MinIO, but what else the form must ask
   differs for each (a region you pick, an account id the endpoint is built from,
   nothing at all), and what the endpoint is differs too. The form therefore
   opens on a choice of service and shows only the fields that service needs.
@@ -13,7 +13,8 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
   `endpoint` (everything that reads a connection — the validator, a bucket —
   keeps reading those four). The form works out `region` and `endpoint` from
   what the service asks: a Backblaze region becomes
-  `s3.<region>.backblazeb2.com`, an R2 account id becomes
+  `s3.<region>.backblazeb2.com`, a Hetzner location becomes
+  `<location>.your-objectstorage.com`, an R2 account id becomes
   `<account>.r2.cloudflarestorage.com`. Three more keys remember what was
   chosen so an edit shows it again: `service`, `account_id` and `jurisdiction`.
 
@@ -32,7 +33,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
 
   @type values :: %{optional(String.t()) => term()}
 
-  @services ~w(aws_s3 cloudflare_r2 backblaze_b2 tigris wasabi digitalocean_spaces other)
+  @services ~w(aws_s3 cloudflare_r2 backblaze_b2 hetzner tigris wasabi digitalocean_spaces other)
 
   # Keys a service may leave behind that another service must not inherit.
   @service_keys ~w(region endpoint account_id jurisdiction)
@@ -58,6 +59,14 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
     {"ap-northeast-2", "Osaka"},
     {"ap-southeast-1", "Singapore"},
     {"ap-southeast-2", "Sydney"}
+  ]
+
+  # Hetzner's Object Storage locations; the code is both the endpoint's first
+  # label and the signing region.
+  @hetzner_locations [
+    {"fsn1", "Falkenstein"},
+    {"nbg1", "Nuremberg"},
+    {"hel1", "Helsinki"}
   ]
 
   @spaces_regions [
@@ -87,6 +96,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
   def name("aws_s3"), do: "Amazon S3"
   def name("cloudflare_r2"), do: "Cloudflare R2"
   def name("backblaze_b2"), do: "Backblaze B2"
+  def name("hetzner"), do: "Hetzner Object Storage"
   def name("tigris"), do: "Tigris"
   def name("wasabi"), do: "Wasabi"
   def name("digitalocean_spaces"), do: "DigitalOcean Spaces"
@@ -100,6 +110,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
   @spec bucket_provider(String.t() | nil) :: String.t()
   def bucket_provider("cloudflare_r2"), do: "r2"
   def bucket_provider("backblaze_b2"), do: "b2"
+  def bucket_provider("hetzner"), do: "hetzner"
   def bucket_provider("tigris"), do: "tigris"
   def bucket_provider(_service), do: "s3"
 
@@ -142,6 +153,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
       domain?(host, "amazonaws.com") or domain?(host, "amazonaws.com.cn") -> "aws_s3"
       domain?(host, "r2.cloudflarestorage.com") -> "cloudflare_r2"
       domain?(host, "backblazeb2.com") -> "backblaze_b2"
+      domain?(host, "your-objectstorage.com") -> "hetzner"
       domain?(host, "tigris.dev") or host == "t3.storage.dev" -> "tigris"
       domain?(host, "wasabisys.com") -> "wasabi"
       domain?(host, "digitaloceanspaces.com") -> "digitalocean_spaces"
@@ -263,6 +275,26 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
         gettext("From Backblaze → App Keys → Add a New Application Key.")
       ),
       secret_field(gettext("Application Key"), gettext("Shown once, when the key is created."))
+    ]
+  end
+
+  defp fields_for("hetzner") do
+    [
+      region_combo(
+        gettext("Location"),
+        gettext(
+          "The bucket's location; its endpoint is <location>.your-objectstorage.com. Pick one or type it."
+        ),
+        "fsn1",
+        Enum.map(@hetzner_locations, fn {code, place} -> %{value: code, label: place} end)
+      ),
+      key_field(
+        "access_key",
+        gettext("Access Key"),
+        nil,
+        gettext("From Hetzner Console → your project → Security → S3 Credentials.")
+      ),
+      secret_field(gettext("Secret Key"), gettext("Shown once, when the key is created."))
     ]
   end
 
@@ -455,6 +487,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
   end
 
   defp derive("backblaze_b2", params), do: regional(params, &"s3.#{&1}.backblazeb2.com")
+  defp derive("hetzner", params), do: regional(params, &"#{&1}.your-objectstorage.com")
   defp derive("wasabi", params), do: regional(params, &"s3.#{&1}.wasabisys.com")
 
   defp derive("digitalocean_spaces", params),
@@ -554,13 +587,8 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
               %{}
           end
 
-        service when service in ["backblaze_b2", "wasabi", "digitalocean_spaces"] ->
-          case String.split(host, ".") do
-            ["s3", region, "backblazeb2", "com"] -> %{"region" => region}
-            ["s3", region, "wasabisys", "com"] -> %{"region" => region}
-            [region, "digitaloceanspaces", "com"] -> %{"region" => region}
-            _ -> %{}
-          end
+        service when service in ["backblaze_b2", "hetzner", "wasabi", "digitalocean_spaces"] ->
+          regional_endpoint_region(host)
 
         _ ->
           %{}
@@ -569,6 +597,17 @@ defmodule PhoenixKit.Integrations.ObjectStorageServices do
     Enum.reduce(inferred, data, fn {key, value}, acc ->
       if text(acc[key]) == "", do: Map.put(acc, key, value), else: acc
     end)
+  end
+
+  # The region in a regional endpoint host, as `derive/2` builds them.
+  defp regional_endpoint_region(host) do
+    case String.split(host, ".") do
+      ["s3", region, "backblazeb2", "com"] -> %{"region" => region}
+      [region, "your-objectstorage", "com"] -> %{"region" => region}
+      ["s3", region, "wasabisys", "com"] -> %{"region" => region}
+      [region, "digitaloceanspaces", "com"] -> %{"region" => region}
+      _ -> %{}
+    end
   end
 
   defp text(value) when is_binary(value), do: String.trim(value)

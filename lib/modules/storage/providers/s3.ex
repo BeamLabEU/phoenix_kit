@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   AWS S3 storage provider.
 
   Stores files in Amazon S3 buckets using the ExAWS library.
-  Supports all S3-compatible services (like Backblaze B2, Cloudflare R2, Tigris).
+  Supports all S3-compatible services (like Backblaze B2, Cloudflare R2, Hetzner, Tigris).
 
   Files under 5 MB are uploaded via `put_object` (single request).
   Files at or above 5 MB use multipart upload via `ExAws.S3.upload/4`
@@ -114,8 +114,9 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
 
   # A custom S3-compatible endpoint is where the object is, not
   # amazonaws.com, addressed the way the requests are: virtual-host style
-  # for Tigris (it refuses path style for newer buckets), path style for
-  # the rest (B2, MinIO, Wasabi).
+  # for Tigris (it refuses path style for newer buckets) and Hetzner (whose
+  # documentation gives only `<bucket>.<location>.your-objectstorage.com`),
+  # path style for the rest (B2, MinIO, Wasabi).
   defp object_url(bucket, %{scheme: scheme, host: host, port: port}, file_path) do
     authority = "#{url_host(host)}#{port_suffix(scheme, port)}"
 
@@ -130,7 +131,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   @doc false
   # Whether requests to this bucket name it in the host
   # (`bucket.host/key`) rather than the path (`host/bucket/key`).
-  def virtual_host?(%{provider: "tigris"}), do: true
+  def virtual_host?(%{provider: provider}) when provider in ["tigris", "hetzner"], do: true
   def virtual_host?(_bucket), do: false
 
   @doc """

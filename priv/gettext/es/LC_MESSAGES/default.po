@@ -23866,3 +23866,13 @@ msgstr "No puede cambiar el almacenamiento de esta biblioteca"
 #, elixir-autogen, elixir-format
 msgid "You no longer have access to that library"
 msgstr "Ya no tiene acceso a esa biblioteca"
+
+#: lib/phoenix_kit/integrations/object_storage_services.ex:295
+#, elixir-autogen, elixir-format
+msgid "From Hetzner Console → your project → Security → S3 Credentials."
+msgstr "En Hetzner Console → tu proyecto → Security → S3 Credentials."
+
+#: lib/phoenix_kit/integrations/object_storage_services.ex:285
+#, elixir-autogen, elixir-format
+msgid "The bucket's location; its endpoint is <location>.your-objectstorage.com. Pick one or type it."
+msgstr "La ubicación del bucket; su endpoint es <location>.your-objectstorage.com. Elige una o escríbela."
