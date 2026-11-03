@@ -1,4 +1,7 @@
-## Unreleased
+## 3.3.0 - 2026-11-03
+
+The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,
+which were versioned on `main` but never published. Run `mix phoenix_kit.update` (V226 and V227).
 
 ### Added
 
