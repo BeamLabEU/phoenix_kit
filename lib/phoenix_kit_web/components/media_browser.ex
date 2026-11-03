@@ -5750,32 +5750,33 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     folders = folders_in_scope(folders, scope)
     trash? = socket.assigns[:filter_trash] == true
 
-    file_plan =
+    selected =
       if trash? do
         files
         |> Enum.filter(&(&1.status == "trashed" and Storage.within_scope?(&1.folder_uuid, scope)))
-        |> then(&Storage.removal_plan(:delete_files, &1))
+        |> Enum.map(&{&1, nil})
       else
         files
         |> Enum.filter(&removable_here?(&1, appearance_folder(socket, &1), scope))
-        |> Enum.map(&Storage.removal_plan(:remove_file, {&1, appearance_folder(socket, &1)}))
-        |> merge_removal_plans()
+        |> Enum.map(&{&1, appearance_folder(socket, &1)})
       end
 
-    folder_action = if trash?, do: :delete_folder, else: :trash_folder
+    kind = if trash?, do: :delete, else: :trash
 
-    plan =
-      merge_removal_plans([
-        file_plan | Enum.map(folders, &Storage.removal_plan(folder_action, &1))
-      ])
+    # One plan for the whole selection, not one per item merged: the handler runs
+    # the items in turn, so a file one of them moves into a folder another takes
+    # away is lost with it — and must be asked about (`Storage.removal_plan/2`).
+    plan = Storage.removal_plan(:selection, %{files: selected, folders: folders, kind: kind})
+    selected_uuids = MapSet.new(selected, fn {file, _folder} -> to_string(file.uuid) end)
 
     removal_analysis_of(
       :delete_selected,
-      if(trash?, do: :delete, else: :trash),
+      kind,
       plan,
       current_folder_uuid(socket),
       skip?: trash? and folders == [],
-      selected_file_count: length(Enum.uniq(file_plan.trash ++ file_plan.delete)),
+      selected_file_count:
+        Enum.count(Enum.uniq(plan.trash ++ plan.delete), &MapSet.member?(selected_uuids, &1)),
       folder_uuids: Enum.map(folders, & &1.uuid)
     )
   end
@@ -5831,12 +5832,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         skip?: Keyword.get(opts, :skip?, false)
       }
     end
-  end
-
-  defp merge_removal_plans(plans) do
-    Enum.reduce(plans, %{trash: [], delete: [], rehome: [], unlink: []}, fn plan, acc ->
-      Map.merge(acc, plan, fn _key, a, b -> a ++ b end)
-    end)
   end
 
   defp assign_removal_guarded(socket),

@@ -3318,6 +3318,13 @@ defmodule PhoenixKit.Modules.Storage do
       a file homed in the folder's subtree and linked into a folder OUTSIDE it
       is rehomed there and survives; a link from inside the same subtree does
       not save it. A trashing leaves a file already in the trash alone.
+    * `{:selection, %{files: [{file, folder_uuid}], folders: [folder], kind:
+      :trash | :delete}}` — a bulk removal that runs the above one item after
+      another (`:trash`: `remove_file_from_folder/2` on each file, then
+      `trash_folder/2` on each folder; `:delete`: `delete_file_completely/2`,
+      then `delete_folder_completely/2`), read as ONE unit: a file one item
+      would re-home into a folder another item takes away is planned as
+      trashed (or deleted), which the per-item plans cannot see.
 
   A file or folder of a managed library plans nothing: the operation refuses
   it. The plan is a moment's reading; run the operation, not the plan.
@@ -3383,6 +3390,129 @@ defmodule PhoenixKit.Modules.Storage do
     else
       @empty_removal_plan
     end
+  end
+
+  def removal_plan(:selection, %{files: files, folders: folders, kind: kind})
+      when kind in [:trash, :delete] and is_list(files) and is_list(folders) do
+    file_plans =
+      case kind do
+        :trash -> Enum.map(files, &removal_plan(:remove_file, &1))
+        :delete -> [removal_plan(:delete_files, Enum.map(files, &elem(&1, 0)))]
+      end
+
+    folder_action = if kind == :trash, do: :trash_folder, else: :delete_folder
+
+    (file_plans ++ Enum.map(folders, &removal_plan(folder_action, &1)))
+    |> merge_removal_plans()
+    |> settle_selection(files, folders, kind)
+  end
+
+  defp merge_removal_plans(plans) do
+    plans
+    |> Enum.reduce(@empty_removal_plan, fn plan, acc ->
+      Map.merge(acc, plan, fn _key, a, b -> a ++ b end)
+    end)
+    |> Map.new(fn {key, uuids} -> {key, uuids |> Enum.map(&to_string/1) |> Enum.uniq()} end)
+  end
+
+  # The per-item plans read the tree as it is BEFORE the action, but the items
+  # run one after another: a file one item re-homes into (or leaves in) a folder
+  # another item takes away goes with that folder, or — in the Trash view — is
+  # deleted for good with it. So the selection is read as one unit: `gone` is
+  # every folder it trashes or deletes, and a file the plans only move survives
+  # only where something outside `gone` still holds it.
+  #
+  #   * trash: its home, unless the home is in `gone` or is the folder the file
+  #     is being taken out of; or a link from a LIVE folder outside `gone`, other
+  #     than that folder (`trash_folder/2` promotes along live links only).
+  #   * delete: a link from any folder outside `gone` (a permanent delete
+  #     promotes into a trashed folder too; the file is then trashed, not lost).
+  #
+  # Without a folder in the selection nothing cascades: a file re-homed by its
+  # own removal lands in a folder the selection leaves alone.
+  defp settle_selection(plan, _files, [], _kind), do: plan
+
+  defp settle_selection(plan, files, folders, kind) do
+    gone =
+      folders
+      |> Enum.flat_map(&folder_subtree_uuids(&1.uuid))
+      |> MapSet.new(&to_string/1)
+
+    viewed =
+      Map.new(files, fn {file, folder_uuid} ->
+        {to_string(file.uuid), folder_uuid && to_string(folder_uuid)}
+      end)
+
+    {moved_keys, lost_key} =
+      case kind do
+        :trash -> {[:rehome, :unlink], :trash}
+        :delete -> {[:rehome, :trash], :delete}
+      end
+
+    lost =
+      moved_keys
+      |> Enum.flat_map(&Map.fetch!(plan, &1))
+      |> Enum.uniq()
+      |> places_of()
+      |> Enum.reject(fn {uuid, places} ->
+        survives_selection?(kind, places, gone, Map.get(viewed, uuid, :not_selected))
+      end)
+      |> Enum.map(&elem(&1, 0))
+
+    plan
+    |> Map.new(fn {key, uuids} ->
+      if key in moved_keys, do: {key, uuids -- lost}, else: {key, uuids}
+    end)
+    |> Map.update!(lost_key, &Enum.uniq(&1 ++ lost))
+  end
+
+  # A file the trash would only move, already in the trash, is not lost by it.
+  defp survives_selection?(:trash, %{trashed?: true}, _gone, _viewed), do: true
+
+  defp survives_selection?(:trash, %{home: home, links: links}, gone, viewed) do
+    (not MapSet.member?(gone, home) and home != viewed) or
+      Enum.any?(links, fn {folder_uuid, trashed_at} ->
+        is_nil(trashed_at) and not MapSet.member?(gone, folder_uuid) and folder_uuid != viewed
+      end)
+  end
+
+  defp survives_selection?(:delete, %{links: links}, gone, _viewed),
+    do:
+      Enum.any?(links, fn {folder_uuid, _trashed_at} -> not MapSet.member?(gone, folder_uuid) end)
+
+  # Each file's home and every folder linking it (with that folder's trash
+  # stamp), two queries for the lot. A file that is gone already is left out.
+  defp places_of([]), do: []
+
+  defp places_of(uuids) do
+    links =
+      from(fl in FolderLink,
+        join: fo in Folder,
+        on: fo.uuid == fl.folder_uuid,
+        where: fl.file_uuid in ^uuids,
+        select: {fl.file_uuid, fl.folder_uuid, fo.trashed_at}
+      )
+      |> repo().all()
+      |> Enum.group_by(
+        fn {file_uuid, _, _} -> to_string(file_uuid) end,
+        fn {_, folder_uuid, trashed_at} -> {to_string(folder_uuid), trashed_at} end
+      )
+
+    from(f in PhoenixKit.Modules.Storage.File,
+      where: f.uuid in ^uuids,
+      select: {f.uuid, f.folder_uuid, f.status}
+    )
+    |> repo().all()
+    |> Enum.map(fn {uuid, home, status} ->
+      uuid = to_string(uuid)
+
+      {uuid,
+       %{
+         home: home && to_string(home),
+         trashed?: status == "trashed",
+         links: Map.get(links, uuid, [])
+       }}
+    end)
   end
 
   # A file already in the trash is not made to disappear by being removed again.

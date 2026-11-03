@@ -11,37 +11,37 @@ msgstr ""
 "Language: pl\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10||n%100>=20) ? 1 : 2);\n"
 
-#: lib/phoenix_kit/users/invitations.ex:311
+#: lib/phoenix_kit/users/invitations.ex:373
 #, elixir-autogen, elixir-format
 msgid "A pending invitation already exists for this email"
 msgstr "Dla tego adresu e-mail istnieje już oczekujące zaproszenie"
 
-#: lib/phoenix_kit/users/invitations.ex:297
+#: lib/phoenix_kit/users/invitations.ex:359
 #, elixir-autogen, elixir-format
 msgid "This user already belongs to an organization"
 msgstr "Ten użytkownik już należy do organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1259
+#: lib/phoenix_kit/users/auth.ex:1281
 #, elixir-autogen, elixir-format
 msgid "cannot change to person while organization has members"
 msgstr "nie można zmienić na osobę, dopóki organizacja ma członków"
 
-#: lib/phoenix_kit/users/auth.ex:1239
+#: lib/phoenix_kit/users/auth.ex:1261
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "nie może odnosić się do siebie"
 
-#: lib/phoenix_kit/users/auth.ex:1247
+#: lib/phoenix_kit/users/auth.ex:1269
 #, elixir-autogen, elixir-format
 msgid "only person accounts can join an organization"
 msgstr "tylko konta osób mogą dołączyć do organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1234
+#: lib/phoenix_kit/users/auth.ex:1256
 #, elixir-autogen, elixir-format
 msgid "organization not found"
 msgstr "nie znaleziono organizacji"
 
-#: lib/phoenix_kit/users/auth.ex:1233
+#: lib/phoenix_kit/users/auth.ex:1255
 #, elixir-autogen, elixir-format
 msgid "target user is not an organization"
 msgstr "użytkownik docelowy nie jest organizacją"

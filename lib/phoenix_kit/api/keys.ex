@@ -146,10 +146,24 @@ defmodule PhoenixKit.API.Keys do
 
   Returns the stored key and the token, which exists nowhere else and is never
   shown again.
+
+  `opts[:impersonated]`: a caller that knows the session is borrowed
+  (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`) passes `true` and gets
+  `{:error, :impersonated}` — no token is minted in the name of an account someone
+  acts in. Omitted, nothing is assumed (a mix task, a seed, a test).
   """
-  @spec create_key(User.t(), Scope.t(), map()) ::
+  @spec create_key(User.t(), Scope.t(), map(), keyword()) ::
           {:ok, Key.t(), String.t()} | {:error, Ecto.Changeset.t() | atom()}
-  def create_key(%User{} = owner, %Scope{} = creator_scope, attrs) when is_map(attrs) do
+  def create_key(owner, creator_scope, attrs, opts \\ [])
+
+  def create_key(%User{} = owner, %Scope{} = creator_scope, attrs, opts)
+      when is_map(attrs) and is_list(opts) do
+    if Keyword.get(opts, :impersonated) == true,
+      do: {:error, :impersonated},
+      else: do_create_key(owner, creator_scope, attrs)
+  end
+
+  defp do_create_key(owner, creator_scope, attrs) do
     repo().transaction(fn ->
       with :ok <- lock_mint_users(owner.uuid, creator_scope),
            {:ok, key, token} <- insert_key(owner, creator_scope, attrs) do
@@ -821,6 +835,8 @@ defmodule PhoenixKit.API.Keys do
   A **personal** key is rotated by its owner only (`can_manage?/2`), with
   `opts[:impersonated]` given and `false` (`:impersonation_unknown` / `:impersonated`, as
   in `create_personal_key/3`; `rotate/3` passes no opts, so it refuses a personal key).
+  Any other key is refused with `:impersonated` when `opts[:impersonated]` is `true`
+  (the new token would act as the borrowed account); omitted, nothing is assumed.
   The new key stays personal, never needs approval and expires at
   `PersonalKeysConfig.latest_expiry/0`, not at the old key's expiry.
 
@@ -927,7 +943,14 @@ defmodule PhoenixKit.API.Keys do
          do: :ok
   end
 
-  defp check_personal_rotation(%Key{}, _opts), do: :ok
+  # An ordinary key needs no session answer (a mix task rotates one), but a caller
+  # that says the session is borrowed is refused: the new token would act as the
+  # account someone is only acting in.
+  defp check_personal_rotation(%Key{}, opts) do
+    if is_list(opts) and Keyword.get(opts, :impersonated) == true,
+      do: {:error, :impersonated},
+      else: :ok
+  end
 
   # A future `revoked_at` means a rotation is already under way; rotating again
   # would push the old key's end date out and leave a third key behind.

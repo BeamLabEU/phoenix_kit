@@ -445,34 +445,64 @@ defmodule PhoenixKitWeb.Live.Settings.ApiPersonalKeysTest do
       assert has_element?(view, ~s(#rotate-grace-hours option[value="1"][selected]))
     end
 
-    test "in a borrowed session it is refused; an ordinary key rotates as before", %{conn: conn} do
+    test "in a borrowed session no key is rotated, personal or ordinary", %{conn: conn} do
       {user, _role} = KeyTestSupport.user_with(["media"])
       scope = KeyTestSupport.scope_of(user)
       {personal, _} = personal!(scope)
       {ordinary, _} = KeyTestSupport.create_key!(user, scope)
       before = Repo.aggregate(Key, :count)
 
-      {:ok, view, _html} = live(borrowed(log_in_user(conn, user)), @path)
+      {:ok, view, html} = live(borrowed(log_in_user(conn, user)), @path)
+      assert html =~ "While you act in another account, no key can be created or rotated"
 
-      menu_button(view, personal, "request_rotate") |> render_click()
+      for key <- [personal, ordinary] do
+        html = menu_button(view, key, "request_rotate") |> render_click()
+        assert html =~ "no key can be created or rotated and no service user can be created."
+        refute has_element?(view, "#rotate-api-key-form")
+      end
 
-      html =
-        view
-        |> form("#rotate-api-key-form", %{"rotate" => %{"grace_hours" => "1"}})
-        |> render_submit()
+      # The submit is refused on its own too (a console can send it).
+      render_click(view, "confirm_rotate", %{"rotate" => %{"grace_hours" => "1"}})
 
-      assert html =~ "Personal keys cannot be rotated while you act in another account."
       assert Repo.aggregate(Key, :count) == before
       assert reloaded(personal).revoked_at == nil
+      assert reloaded(ordinary).revoked_at == nil
+    end
 
-      menu_button(view, ordinary, "request_rotate") |> render_click()
+    test "in a borrowed session no key and no service user is created", %{conn: conn} do
+      {user, _role} = KeyTestSupport.user_with(["media"])
+      keys_before = Repo.aggregate(Key, :count)
+      users_before = Repo.aggregate(PhoenixKit.Users.Auth.User, :count)
 
-      view
-      |> form("#rotate-api-key-form", %{"rotate" => %{"grace_hours" => "1"}})
-      |> render_submit()
+      {:ok, view, _html} = live(borrowed(log_in_user(conn, user)), @path)
 
-      assert Repo.aggregate(Key, :count) == before + 1
-      assert reloaded(ordinary).revoked_at
+      view |> element("#api-new-key") |> render_click()
+      refute has_element?(view, "#create-api-key-form")
+
+      # Forged submits, with no dialog open and with one the server never opened.
+      for {event, params} <- [
+            {"create_key", %{"key" => %{"name" => "minted", "owner" => "self"}}},
+            {"open_service_user_form", %{}},
+            {"create_service_user", %{"service_user" => %{"name" => "svc", "roles" => []}}}
+          ] do
+        assert render_click(view, event, params) =~ "no key can be created or rotated"
+      end
+
+      assert Repo.aggregate(Key, :count) == keys_before
+      assert Repo.aggregate(PhoenixKit.Users.Auth.User, :count) == users_before
+    end
+
+    test "Keys refuses a borrowed session for an ordinary key too" do
+      {user, _role} = KeyTestSupport.user_with(["media"])
+      scope = KeyTestSupport.scope_of(user)
+      {ordinary, _} = KeyTestSupport.create_key!(user, scope)
+
+      assert {:error, :impersonated} =
+               Keys.create_key(user, scope, %{name: "minted"}, impersonated: true)
+
+      assert {:error, :impersonated} = Keys.rotate(ordinary, 0, scope, impersonated: true)
+      assert reloaded(ordinary).revoked_at == nil
+      assert {:ok, _key, _token} = Keys.rotate(ordinary, 0, scope, impersonated: false)
     end
 
     test "editing the scopes and revoking one's own personal key work in a borrowed session", %{

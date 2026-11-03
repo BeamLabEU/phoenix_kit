@@ -68,7 +68,7 @@ file on the site, Media included; tiles add ~3 queries each; `access_revision_su
 private URL minted or verified. Load the library once per request and pass it down; batch or cache the
 revision (invalidated by `Preferences.update`).
 
-### IMPROVEMENT - MEDIUM — the PR's strings are not in the catalogs (OPEN, part of a larger gap)
+### IMPROVEMENT - MEDIUM — the PR's strings were not in the catalogs (fixed 2026-11-03, with the whole gap)
 Dozens of the PR's msgids ("Library settings saved", "Signed-in users — account required", "Storage and
 backups", …) are in no catalog. Measured on this tree, `mix gettext.extract` adds **282 msgids** to
 `default.pot` (45 obsolete) across this and other recent work. Needs the full extract/merge round trip and
@@ -83,3 +83,11 @@ translation into the nine locales (0 fuzzy) as its own pass before the next rele
 - Three copies of `fresh_scope` (`Preferences`, `LibraryOperations`, `API.Access`).
 - **PLAUSIBLE:** a leftover user bucket row with locations (left by `finish_purge`) keeps blocking its
   connection's removal, and the user has no UI to delete it.
+
+**Follow-up 2026-11-03 — catalogs round-tripped.** `mix gettext.extract` + `merge` added the missing
+msgids (214 per Western locale, 200 in et/ru) and flagged 88 (80) entries fuzzy, each serving a
+translation copied from a different msgid. All were translated by hand (one translator per locale,
+applied through a round-trip tool that rewrites only `msgstr`/flag lines and checks `%{}` parity):
+**0 untranslated, 0 fuzzy in de, es, et, fr, it, pl, ru, uk**; `en` stays empty by design, its 142 fuzzy
+flags cleared (two served wrong English: "Manage members" → "Managers", "Personal storage" →
+"Personal"). A second extract + merge changes nothing.

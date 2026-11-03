@@ -1,6 +1,6 @@
 # PR #992 — Add personal API keys
 
-**Author:** timujinne · **Reviewer:** Claude · **Verdict:** approve, no code changes; two items for the maintainer
+**Author:** timujinne · **Reviewer:** Claude · **Verdict:** approve; borrowed-session minting refused and CHANGELOG entry added (follow-up of 2026-11-03)
 
 Reviewed against current `main` (the managed-organization commits since added `lock_mint_users`, refused
 managed organizations in `active_user` and put `api_personal_keys` under `managed_ceiling_key?`). Codex's
@@ -32,25 +32,23 @@ one finding (an explicit `scope: nil` keeping the old scope) is fixed in `user_s
 
 ## Findings
 
-### IMPROVEMENT - HIGH — a borrowed session can still mint ordinary keys on Settings → API (DECISION NEEDED)
-Pre-existing; the PR kept it on purpose and pins it with a test ("in a borrowed session it is refused; an
-ordinary key rotates as before"). `create_key`, `confirm_rotate` of an ordinary key and
-`create_service_user` never look at `socket.assigns.impersonated`, and `Keys.create_key/3` / `rotate/4`
-check impersonation only for personal keys. An Admin without `api` who impersonates a user holding `api`
-(through a custom role) can create a key with owner "self" — a bearer token acting as that user that
-outlives the impersonation, logged with the user as actor. The guide's sentence "Nobody mints a token in
-the name of the person they are impersonating" reads as general.
-Not changed here because it is a policy call: `MultiSession.impersonated?/1` is also true for an account
-added to the session with its own password, so refusing would lock such users out of managing keys in
-that account. Options: refuse key creation/rotation/service users on Settings → API when impersonated
-(and flip that test), or keep it and narrow the guide's sentence to personal keys.
+### IMPROVEMENT - HIGH — a borrowed session could still mint ordinary keys on Settings → API (fixed)
+Pre-existing; the PR kept it on purpose and pinned it with a test. `create_key`, `confirm_rotate` of an
+ordinary key and `create_service_user` never looked at `socket.assigns.impersonated`, and `Keys` checked
+impersonation only for personal keys: an Admin without `api` impersonating a user who holds it could
+create a bearer token acting as that user that outlives the impersonation.
+**Decision (maintainer, 2026-11-03): refuse.** Settings → API refuses `open_create_key`, `create_key`,
+`request_rotate`, `confirm_rotate`, `open_service_user_form` and `create_service_user` in a borrowed
+session (one clause ahead of the others, so a forged submit is refused too) and shows a notice in the
+keys card; `Keys.create_key/4` and `Keys.rotate/4` answer `{:error, :impersonated}` to
+`impersonated: true` for every key (omitted, nothing is assumed — mix tasks and seeds). Editing scopes
+and revoking stay allowed. The pinning test is replaced by three: no rotation (personal or ordinary,
+forged submit included), no creation of a key or a service user, and the `Keys` refusal. This also
+refuses a person who added a second account with its own password — the trade-off accepted.
 
-### IMPROVEMENT - MEDIUM — personal keys and V226 shipped without a CHANGELOG entry (for the next release)
-`f58f986fb` set `@version "3.2.0"` with this merge in it, but the 3.2.0 entry lists only storage and
-integration changes; the file never mentions personal keys, V226 (`api_keys.personal`), the
-`api_personal_keys` permission, `/profile/settings/api-keys` or the `api_personal_key_max_*` settings.
-Hosts are not told to run `mix phoenix_kit.update` (without the column every `Key` query fails). Not
-edited here (CHANGELOG belongs to the release commit): add a late note when the next release is cut.
+### IMPROVEMENT - MEDIUM — personal keys and V226 shipped without a CHANGELOG entry (fixed)
+Added under 3.2.0 (marked as missing when that version was cut): V226 and `mix phoenix_kit.update`,
+the opt-in `api_personal_keys` permission, "My API keys", the two limits and the owner rules.
 
 ### IMPROVEMENT - MEDIUM — an Owner's revoke or narrowing of someone's key does not notify them (OPEN)
 `Keys.log/4` sets no `target_uuid`, so `Notifications.maybe_create_from_activity/1` creates nothing; the
