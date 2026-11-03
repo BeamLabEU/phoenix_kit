@@ -58,7 +58,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   ### The first manager of `host_convert_to_managed/3`
 
   `first_manager` is the uuid of an existing person, or a function of no
-  arguments returning `{:ok, person_uuid}` or `{:error, reason}`. The function
+  arguments returning `{:ok, person_uuid}`, `{:ok, %User{}}` or
+  `{:error, reason}`, so `fn -> Auth.admin_create_user(attrs, created_by) end`
+  can be the function as it is. The function
   exists for an organization whose login email is the email of the person who
   should manage it: that address is only free after the organization has been
   converted, and the person cannot exist before it. It is called inside the
@@ -165,7 +167,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   Host-application form of `convert_to_managed/3`; see the module documentation.
 
   `first_manager` is a person uuid, or a function creating the new person
-  (`fn -> {:ok, person_uuid} | {:error, reason} end`).
+  (`fn -> {:ok, person_uuid} | {:ok, %User{}} | {:error, reason} end`).
   """
   def host_convert_to_managed(organization_uuid, first_manager, created_by)
       when is_function(first_manager, 0) do
@@ -214,6 +216,8 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
 
     person_uuid =
       case fun.() do
+        # The shape `Auth.admin_create_user/2` answers, so it can be the function.
+        {:ok, %User{uuid: uuid}} -> uuid
         {:ok, uuid} -> uuid
         {:error, reason} -> RepoHelper.repo().rollback(reason)
         _ -> RepoHelper.repo().rollback(:invalid_first_manager)

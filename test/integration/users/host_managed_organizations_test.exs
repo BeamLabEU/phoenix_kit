@@ -347,6 +347,34 @@ defmodule PhoenixKit.Users.HostManagedOrganizationsTest do
       assert_logged("organization.manager_added", org, created_by)
     end
 
+    test "Auth.admin_create_user/2 can be the function as it is", %{created_by: created_by} do
+      org = independent(%{email: "admin-made-#{System.unique_integer([:positive])}@example.com"})
+
+      # Its `{:ok, %User{}}` is taken as the person, and the core's own creation
+      # path (a nested transaction, no savepoint) passes the "new person" check.
+      fun = fn ->
+        Auth.admin_create_user(%{"email" => org.email, "password" => @password}, created_by)
+      end
+
+      assert {:ok, %User{managed_by_members: true}} =
+               ManagedOrganizations.host_convert_to_managed(org.uuid, fun, created_by)
+
+      person = Repo.get_by!(User, email: org.email)
+      assert person.created_by_uuid == created_by.uuid
+
+      assert Repo.get_by!(OrganizationManager,
+               organization_uuid: org.uuid,
+               user_uuid: person.uuid
+             )
+
+      assert {:error, %Ecto.Changeset{}} =
+               ManagedOrganizations.host_convert_to_managed(
+                 independent().uuid,
+                 fn -> Auth.admin_create_user(%{"email" => "bad"}, created_by) end,
+                 created_by
+               )
+    end
+
     test "a new person is accepted whatever the session time zone is", %{
       created_by: created_by
     } do
