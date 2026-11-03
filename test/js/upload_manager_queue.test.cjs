@@ -404,3 +404,48 @@ test("formatting", () => {
   assert.strictEqual(formatDuration(4000), "4s");
   assert.strictEqual(formatDuration(125000), "2m 5s");
 });
+
+test("dismiss clears what is over and keeps what still waits on the user", () => {
+  const q = new UploadQueue({ cap: 3 });
+  const [done, failed, cancelled, skipped, queued] = q.add(files(5, 100));
+  done.state = "done"; failed.state = "failed"; cancelled.state = "cancelled";
+  skipped.state = "skipped"; queued.state = "queued";
+
+  q.dismiss();
+  assert.deepStrictEqual(q.items.map((i) => i.state).sort(), ["queued", "skipped"]);
+});
+
+test("dismiss on a finished batch leaves an empty, reset queue", () => {
+  const q = new UploadQueue({ cap: 3 });
+  const [a, b] = q.add(files(2, 100));
+  a.state = "done"; b.state = "failed";
+  q.tune.target = 4;
+
+  q.dismiss();
+  assert.strictEqual(q.items.length, 0);
+  assert.strictEqual(q.tune.target, 1, "the next batch probes again");
+});
+
+const { panelAfter } = load();
+const counts = (o) => ({ queued: 0, uploading: 0, paused: 0, skipped: 0, done: 0, failed: 0, cancelled: 0, ...o });
+
+test("a new batch opens a minimised panel", () => {
+  assert.deepStrictEqual(panelAfter(counts({ uploading: 1 }), false, true), { live: true, collapsed: false });
+});
+
+test("a batch that ends cleanly shrinks the panel to its summary", () => {
+  assert.deepStrictEqual(panelAfter(counts({ done: 5 }), true, false), { live: false, collapsed: true });
+});
+
+test("a batch that ends with a failure stays open", () => {
+  assert.deepStrictEqual(panelAfter(counts({ done: 4, failed: 1 }), true, true), { live: false, collapsed: false });
+});
+
+test("the user's own choice stands while nothing changes", () => {
+  assert.strictEqual(panelAfter(counts({ uploading: 2 }), true, true).collapsed, true, "minimised mid-batch stays minimised");
+  assert.strictEqual(panelAfter(counts({ done: 3 }), false, false).collapsed, false, "opened after the end stays open");
+});
+
+test("paused files keep the panel live", () => {
+  assert.strictEqual(panelAfter(counts({ paused: 1, done: 2 }), true, false).live, true);
+});

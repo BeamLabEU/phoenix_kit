@@ -116,6 +116,13 @@ browser and hands them to LiveView a few at a time.
 * **Self-healing.** A file that has not started within 6 s, or has shown no
   progress for 20 s, is cancelled and sent again once, then reported as failed.
 
+**The panel.** Floating, it sits in the bottom-right corner (`position={:bottom_left}`
+for the other) and spans the bottom of a phone. A new batch opens it; while
+files are sending it has no close button (Cancel all asks first); a batch that
+ends cleanly shrinks to a one-line "✓ 12 uploaded" with a dismiss button, and
+one that ends with a failure stays open with Retry failed. Only the summary
+line is announced to screen readers, not the changing speed.
+
 **Pausing a file that is already sending stops it and sends it again from the
 start when resumed.** LiveView's upload channel cannot resume. A file still
 waiting is simply held.

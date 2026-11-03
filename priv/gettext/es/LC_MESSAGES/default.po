@@ -24062,3 +24062,15 @@ msgstr "No tienes permiso para subir"
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Stopped sending"
 msgstr "Envío detenido"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "✓ %{count} uploaded"
+msgstr "✓ %{count} subidos"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Cancel the uploads in progress?"
+msgstr "¿Cancelar las subidas en curso?"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Upload progress"
+msgstr "Progreso de la subida"

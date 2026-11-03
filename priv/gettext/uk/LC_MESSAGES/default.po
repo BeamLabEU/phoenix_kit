@@ -24124,3 +24124,15 @@ msgstr "Завантаження не дозволено"
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Stopped sending"
 msgstr "Надсилання зупинилося"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "✓ %{count} uploaded"
+msgstr "✓ Завантажено: %{count}"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Cancel the uploads in progress?"
+msgstr "Скасувати поточні завантаження?"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Upload progress"
+msgstr "Хід завантаження"

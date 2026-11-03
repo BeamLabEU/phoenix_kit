@@ -24053,3 +24053,15 @@ msgstr "Caricamento non consentito"
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Stopped sending"
 msgstr "Invio interrotto"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "✓ %{count} uploaded"
+msgstr "✓ %{count} caricati"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Cancel the uploads in progress?"
+msgstr "Annullare i caricamenti in corso?"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Upload progress"
+msgstr "Avanzamento del caricamento"

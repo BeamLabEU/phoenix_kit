@@ -58,6 +58,8 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
       chunks the server keeps: pause stops a file where it is and resume goes
       on from there, and a lost connection or a reloaded page carries on instead
       of starting over. See `PhoenixKitWeb.ResumableUpload`.
+    * `position` — `:bottom_right` (the default) or `:bottom_left`, the corner a
+      `:floating` panel sits in. On a phone it is a bar across the bottom.
     * `scope` — where the manager listens for the files that reach the upload
       input: `"self"` (this component's own wrapper, the default when it
       renders the drop zone), `"parent"` (the element the component is placed
@@ -91,6 +93,12 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
   attr :upload, :any, required: true
   attr :max_concurrent, :integer, default: @default_max_concurrent
   attr :layout, :atom, default: :floating, values: [:floating, :inline]
+
+  attr :position, :atom,
+    default: :bottom_right,
+    values: [:bottom_right, :bottom_left],
+    doc: "which corner a `:floating` panel sits in (on a phone it is a bar across the bottom)"
+
   attr :dropzone, :boolean, default: true
   attr :scope, :string, default: nil
 
@@ -177,15 +185,33 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
         data-labels={Jason.encode!(@labels)}
         class={[
           @layout == :floating &&
-            "fixed bottom-4 right-4 z-[1000] w-[min(26rem,calc(100vw-2rem))] shadow-2xl",
+            [
+              "fixed bottom-0 inset-x-0 z-[1000] w-full shadow-2xl pb-[env(safe-area-inset-bottom)]",
+              "sm:bottom-4 sm:inset-x-auto sm:w-[26rem] sm:pb-0",
+              @position == :bottom_right && "sm:right-4",
+              @position == :bottom_left && "sm:left-4"
+            ],
           @layout == :inline && "w-full",
           @class
         ]}
       >
-        <div class="rounded-box border border-base-300 bg-base-100">
+        <div
+          role="region"
+          aria-label={gettext("Upload progress")}
+          class="rounded-box border border-base-300 bg-base-100 max-sm:rounded-b-none"
+        >
           <div class="flex items-center gap-2 border-b border-base-200 px-3 py-2">
-            <div class="min-w-0 flex-1" role="status" aria-live="polite">
-              <p class="truncate text-sm font-semibold" data-role="summary"></p>
+            <%!-- Only the summary is announced: it changes when a file finishes
+                 or fails. The detail line (speed, time left) changes every
+                 moment and is left for people who look. --%>
+            <div class="min-w-0 flex-1">
+              <p
+                class="truncate text-sm font-semibold"
+                data-role="summary"
+                role="status"
+                aria-live="polite"
+              >
+              </p>
               <p class="truncate text-xs tabular-nums text-base-content/60" data-role="detail"></p>
             </div>
             <button
@@ -198,16 +224,27 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
             >
               <.icon name="hero-chevron-up-down" class="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              data-act="dismiss"
+              hidden
+              class="btn btn-ghost btn-xs btn-circle"
+              title={gettext("Dismiss")}
+              aria-label={gettext("Dismiss")}
+            >
+              <.icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
           </div>
 
           <progress
             class="progress progress-primary h-1 w-full rounded-none"
+            aria-label={gettext("Upload progress")}
             data-role="total"
             value="0"
             max="1"
           ></progress>
 
-          <div class="flex flex-wrap items-center gap-1 px-3 py-1.5 text-xs">
+          <div class="flex flex-wrap items-center gap-1 px-3 py-1.5 text-xs" data-role="controls">
             <button type="button" data-act="pause-all" hidden class="btn btn-ghost btn-xs gap-1">
               <.icon name="hero-pause" class="h-3.5 w-3.5" /> {gettext("Pause all")}
             </button>
@@ -407,6 +444,8 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
       summary_active: gettext("%{done} of %{total} uploaded", done: "%{done}", total: "%{total}"),
       summary_finished:
         gettext("%{done} of %{total} uploaded", done: "%{done}", total: "%{total}"),
+      summary_all_done: gettext("✓ %{count} uploaded", count: "%{count}"),
+      confirm_cancel_all: gettext("Cancel the uploads in progress?"),
       at_once: gettext("%{count} at once", count: "%{count}"),
       eta: gettext("%{time} left", time: "%{time}"),
       measuring: gettext("measuring speed…"),

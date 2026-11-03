@@ -24063,3 +24063,15 @@ msgstr "Üleslaadimine pole lubatud"
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Stopped sending"
 msgstr "Saatmine peatus"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "✓ %{count} uploaded"
+msgstr "✓ %{count} üles laaditud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Cancel the uploads in progress?"
+msgstr "Kas katkestada käimasolevad üleslaadimised?"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Upload progress"
+msgstr "Üleslaadimise edenemine"

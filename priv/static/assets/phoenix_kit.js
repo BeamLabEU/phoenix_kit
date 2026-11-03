@@ -14215,6 +14215,16 @@ if (typeof window.Chart === "undefined") {
     for (var i = 0; i < this.items.length; i++) this.retry(this.items[i].id);
   };
 
+  // Closes the panel's list once nothing is waiting on the user: everything
+  // left (done, cancelled, failed) goes. Files still queued, sending, paused
+  // or skipped stay.
+  UploadQueue.prototype.dismiss = function() {
+    this.items = this.items.filter(function(it) {
+      return it.state === "queued" || it.state === "uploading" || it.state === "paused" || it.state === "skipped";
+    });
+    if (!this.items.length) this.reset();
+  };
+
   // Drops what is over and done with from the list.
   UploadQueue.prototype.clearFinished = function() {
     this.items = this.items.filter(function(it) {
@@ -14276,6 +14286,16 @@ if (typeof window.Chart === "undefined") {
       paused: this.paused
     };
   };
+
+  // Whether the panel is open. A new batch opens it; one that ends cleanly
+  // shrinks it to a one-line confirmation; one that ends with failures stays
+  // open, since something needs the user.
+  function panelAfter(counts, wasLive, collapsed) {
+    var live = counts.uploading + counts.queued + counts.paused > 0;
+    if (live && !wasLive) collapsed = false;
+    else if (!live && wasLive) collapsed = counts.failed === 0;
+    return { live: live, collapsed: collapsed };
+  }
 
   // --------------------------------------------------------------------------
   // Formatting
@@ -14567,6 +14587,7 @@ if (typeof window.Chart === "undefined") {
       this.list = this.el.querySelector('[data-role="list"]');
       this.rowEls = {};
       this.collapsed = false;
+      this.wasLive = false;
 
       // Files are caught where they arrive, on the element that holds the
       // upload's input: the component's own wrapper ("self", the default, for
@@ -14729,10 +14750,13 @@ if (typeof window.Chart === "undefined") {
         case "pause-all": q.pauseAll(); break;
         case "resume-all": q.resumeAll(); break;
         case "cancel-all":
+          // Stopping what is on its way is not undone by a click.
+          if (q.count("uploading") && typeof window.confirm === "function" && !window.confirm(this._t("confirm_cancel_all"))) return;
           q.cancelAll().forEach(function(r) { chunked.discard(r); this._cancelEntry(r); }, this);
           break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;
+        case "dismiss": q.dismiss(); break;
         case "collapse": this.collapsed = !this.collapsed; break;
         default: return;
       }
@@ -14767,11 +14791,16 @@ if (typeof window.Chart === "undefined") {
         if (n && n.textContent !== text) n.textContent = text;
       };
 
+      var panel = panelAfter(s.counts, this.wasLive, this.collapsed);
+      this.collapsed = panel.collapsed;
+      this.wasLive = panel.live;
+
       var finished = s.counts.done;
       var live = s.counts.uploading + s.counts.queued + s.counts.paused;
-      var head = live
-        ? this._t("summary_active", { done: finished, total: s.total })
-        : this._t("summary_finished", { done: finished, total: s.total });
+      var head;
+      if (live) head = this._t("summary_active", { done: finished, total: s.total });
+      else if (finished && s.total === finished) head = this._t("summary_all_done", { count: finished });
+      else head = this._t("summary_finished", { done: finished, total: s.total });
       setText("summary", head);
 
       var detail = [];
@@ -14791,6 +14820,9 @@ if (typeof window.Chart === "undefined") {
       this._show("cancel-all", live || s.counts.skipped);
       this._show("retry-failed", s.counts.failed > 0);
       this._show("clear", !live && (s.counts.done || s.counts.cancelled));
+      this._show("dismiss", !live && !s.counts.skipped);
+      var controls = el.querySelector('[data-role="controls"]');
+      if (controls) controls.hidden = this.collapsed;
 
       var bar = el.querySelector('[data-role="total"]');
       if (bar) {
@@ -14917,6 +14949,7 @@ if (typeof window.Chart === "undefined") {
     fileKey: fileKey,
     formatBytes: formatBytes,
     formatDuration: formatDuration,
+    panelAfter: panelAfter,
     ChunkJob: ChunkJob,
     chunked: chunked,
     hook: UploadManagerHook

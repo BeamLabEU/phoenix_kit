@@ -101,8 +101,8 @@ defmodule PhoenixKitWeb.Components.Core.UploadManagerTest do
     end
 
     test "layout" do
-      assert html(%{}) =~ "fixed bottom-4 right-4"
-      refute html(%{layout: :inline}) =~ "fixed bottom-4"
+      assert html(%{}) =~ "fixed bottom-0 inset-x-0"
+      refute html(%{layout: :inline}) =~ "fixed bottom-"
     end
 
     test "the labels the script shows are handed over, with their placeholders intact" do
@@ -194,6 +194,52 @@ defmodule PhoenixKitWeb.Components.Core.UploadManagerTest do
 
       assert {:cont, ^socket} =
                UploadManager.__handle_cancel__("pk_upload_cancel", %{"ref" => 1}, socket)
+    end
+  end
+
+  describe "the panel" do
+    defp panel(extra \\ []) do
+      assigns = Map.new(Keyword.merge([upload: config(), id: "um"], extra))
+
+      rendered_to_string(~H"""
+      <UploadManager.upload_manager {assigns} />
+      """)
+    end
+
+    test "sits bottom right on a screen, across the bottom of a phone" do
+      html = panel()
+      assert html =~ "sm:right-4"
+      assert html =~ "inset-x-0"
+      assert html =~ "sm:w-[26rem]"
+      refute html =~ "sm:left-4"
+    end
+
+    test "can sit bottom left" do
+      html = panel(position: :bottom_left)
+      assert html =~ "sm:left-4"
+      refute html =~ "sm:right-4"
+    end
+
+    test "an inline panel is not fixed to a corner" do
+      refute panel(layout: :inline) =~ "fixed"
+    end
+
+    test "has a dismiss button, hidden until the script shows it" do
+      assert panel() =~ ~r/<button[^>]*data-act="dismiss"[^>]*hidden/s
+    end
+
+    test "is a labelled region; only the summary is announced" do
+      html = panel()
+      assert html =~ ~s(role="region")
+      assert html =~ ~s(aria-label="Upload progress")
+      assert length(Regex.scan(~r/aria-live=/, html)) == 1
+      assert html =~ ~r/<p[^>]*data-role="summary"[^>]*role="status"/s
+    end
+
+    test "hands the script the labels for the finished state and the confirmation" do
+      html = panel()
+      assert html =~ "summary_all_done"
+      assert html =~ "confirm_cancel_all"
     end
   end
 end
