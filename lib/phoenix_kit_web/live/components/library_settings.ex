@@ -5,7 +5,8 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
     * create one (with `storage.create_library`, up to the per-user limit)
     * rename, make the default, trash (the owner; a manager may rename)
-    * members: add by email, change a role, remove (the owner or a manager)
+    * members: add by email, change a role, remove (the owner or a manager;
+      only the owner appoints, changes or removes other managers)
     * leave a library someone else shared
     * pick the variant set of a library they own, among the ones an admin
       made selectable (V205): which sizes its uploads get
@@ -36,8 +37,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.ObjectStorageServices
   alias PhoenixKit.Modules.Storage.{Libraries, Library, LibraryMember, Profiles, VariantSets}
+  alias PhoenixKit.Modules.Storage.Libraries.MembershipHistory
   alias PhoenixKit.Modules.Storage.Reconciler
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Components.LibraryPreferences
 
@@ -50,12 +53,21 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       socket
       |> assign(:id, assigns.id)
       |> assign(:scope, assigns.scope)
+      |> assign(
+        :media_view,
+        if((assigns[:url_params] || %{})["media_view"] == "activity",
+          do: "activity",
+          else: "libraries"
+        )
+      )
+      |> assign(:activity_params, assigns[:url_params] || %{})
       |> assign(:probe, assigns[:probe])
       |> assign(:list, assigns[:list])
       |> assign(:url_path, assigns[:url_path])
       |> assign(:preferences_tab, (assigns[:url_params] || %{})["settings_tab"])
       |> assign_new(:message, fn -> nil end)
       |> assign_new(:dialog, fn -> nil end)
+      |> assign_new(:membership_history_page, fn -> 1 end)
       |> assign_new(:form, fn -> new_form() end)
       |> assign_new(:testing, fn -> false end)
       |> assign_new(:adding_storage, fn -> false end)
@@ -71,12 +83,22 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   defp load(socket) do
     scope = socket.assigns.scope
     entries = Libraries.list_user_libraries(Scope.user_uuid(scope))
+    socket = refresh_dialog_access(socket, entries)
     {owned, shared} = Enum.split_with(entries, &(&1.role == :owner))
 
     managed =
       Enum.filter(shared, &Libraries.allows?(&1.role, :members))
 
     open = members_uuid(socket.assigns.dialog)
+
+    history =
+      if open do
+        case MembershipHistory.list(scope, open, socket.assigns.membership_history_page) do
+          {:ok, result} -> result
+          _ -> nil
+        end
+      end
+
     connections = connections(scope)
     own_storage = Profiles.user_storage_for(Enum.map(owned, & &1.library))
 
@@ -91,9 +113,12 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     usage = bucket_usage(connections, owned, own_storage, storage_library, storage_rows)
 
     socket
+    |> assign(:membership_history, history)
+    |> assign(:activity_refresh, System.unique_integer([:positive]))
     |> assign(:trashed, Libraries.list_trashed_user_libraries(Scope.user_uuid(scope)))
     |> assign(:owned, owned)
     |> assign(:shared, shared)
+    |> assign(:content_stats, Libraries.content_stats(Enum.map(entries, & &1.library.uuid)))
     |> assign(:media, media_row(scope))
     |> assign(:can_create, Libraries.may_create_library?(scope))
     |> assign(:can_public, Libraries.may_create_public_library?(scope))
@@ -134,6 +159,18 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
 
   defp members_uuid({:members, uuid}), do: uuid
   defp members_uuid(_dialog), do: nil
+
+  defp refresh_dialog_access(%{assigns: %{dialog: {kind, uuid}}} = socket, entries) do
+    case Enum.find(entries, &(&1.library.uuid == uuid)) do
+      %{role: role} ->
+        if dialog_allowed?(to_string(kind), role), do: socket, else: assign(socket, :dialog, nil)
+
+      _ ->
+        assign(socket, :dialog, nil)
+    end
+  end
+
+  defp refresh_dialog_access(socket, _entries), do: socket
 
   defp library_of(uuid, entries) do
     Enum.find_value(entries, fn %{library: library} -> library.uuid == uuid && library end)
@@ -179,6 +216,27 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     end
   end
 
+  def handle_event("media_view", %{"view" => view}, socket)
+      when view in ["libraries", "activity"] do
+    {:noreply,
+     socket |> assign(:media_view, view) |> assign(:dialog, nil) |> patch_activity(view, nil)}
+  end
+
+  def handle_event("verify_library", %{"uuid" => uuid}, socket) do
+    case entry(socket, uuid) do
+      %{role: :owner} ->
+        {:noreply,
+         socket
+         |> assign(:media_view, "activity")
+         |> assign(:dialog, nil)
+         |> assign(:activity_params, %{"verify" => uuid})
+         |> patch_activity("activity", uuid)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("close_dialog", _params, socket) do
     {:noreply,
      socket
@@ -186,6 +244,18 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
      |> load()
      |> patch_dialog(nil, nil)}
   end
+
+  def handle_event("membership_history_page", %{"page" => page}, socket) when is_binary(page) do
+    case Integer.parse(page) do
+      {value, ""} ->
+        {:noreply, socket |> assign(:membership_history_page, max(value, 1)) |> load()}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("membership_history_page", _params, socket), do: {:noreply, socket}
 
   def handle_event("form_change", %{"library" => params}, socket) do
     {:noreply,
@@ -429,6 +499,9 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       {:error, :owner} ->
         reply(socket, :error, gettext("The owner is always in the library"))
 
+      {:error, :history_unavailable} ->
+        reply(socket, :error, membership_save_error())
+
       {:error, %Ecto.Changeset{} = changeset} ->
         reply(socket, :error, changeset_message(changeset))
 
@@ -442,6 +515,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
          {:ok, _} <- Libraries.update_member_role(socket.assigns.scope, library, user_uuid, role) do
       reply(socket, :success, gettext("Role changed"))
     else
+      {:error, :history_unavailable} -> reply(socket, :error, membership_save_error())
       _ -> reply(socket, :error, gettext("You may not manage this library's members"))
     end
   end
@@ -451,6 +525,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
          :ok <- Libraries.remove_member(socket.assigns.scope, library, user_uuid) do
       reply(socket, :success, gettext("Member removed"))
     else
+      {:error, :history_unavailable} -> reply(socket, :error, membership_save_error())
       _ -> reply(socket, :error, gettext("You may not manage this library's members"))
     end
   end
@@ -465,6 +540,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
            ) do
       reply(socket, :success, gettext("You left “%{name}”", name: library.name))
     else
+      {:error, :history_unavailable} -> reply(socket, :error, membership_save_error())
       _ -> reply(socket, :error, gettext("Could not leave the library"))
     end
   end
@@ -473,6 +549,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
     socket
     |> assign(
       dialog: {String.to_existing_atom(kind), uuid},
+      membership_history_page: 1,
       message: nil,
       form: new_form(),
       bucket_lists: %{},
@@ -508,6 +585,21 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       end
     end
   end
+
+  defp patch_activity(%{assigns: %{url_path: path}} = socket, view, verify)
+       when is_binary(path) do
+    uri = URI.parse(path)
+
+    params =
+      URI.decode_query(uri.query || "")
+      |> Map.drop(~w(library dialog settings_tab run verify activity_page log_page))
+      |> Map.put("media_view", view)
+
+    params = if verify, do: Map.put(params, "verify", verify), else: params
+    push_patch(socket, to: uri.path <> "?" <> URI.encode_query(params))
+  end
+
+  defp patch_activity(socket, _view, _verify), do: socket
 
   defp patch_dialog(%{assigns: %{url_path: path}} = socket, kind, uuid) when is_binary(path) do
     uri = URI.parse(path)
@@ -953,6 +1045,19 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       else: sets ++ List.wrap(VariantSets.get_variant_set(current))
   end
 
+  attr :stats, :map, required: true
+
+  defp library_content_stats(assigns) do
+    ~H"""
+    <div class="mt-0.5 flex items-center gap-1.5 text-xs text-base-content/60">
+      <.icon name="hero-document" class="size-3 shrink-0" />
+      <span>{ngettext("%{count} file", "%{count} files", @stats.files)}</span>
+      <span aria-hidden="true">·</span>
+      <span>{PhoenixKit.Utils.Format.bytes(@stats.bytes)}</span>
+    </div>
+    """
+  end
+
   defp site_storage_label do
     gettext("%{project}'s storage", project: PhoenixKit.Settings.get_project_title())
   end
@@ -992,6 +1097,55 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   def role_label(role) when is_atom(role), do: role |> to_string() |> role_label()
   def role_label(_role), do: ""
 
+  defp membership_save_error,
+    do: gettext("Could not save the membership change. Please try again.")
+
+  defp history_account_name(%User{} = user), do: User.display_name(user)
+  defp history_account_name(_user), do: gettext("Deleted account")
+
+  defp membership_description(event, people) do
+    account = history_account_name(event.actor)
+    person_uuid = event.metadata["acting_user_uuid"]
+
+    actor =
+      if person_uuid,
+        do:
+          gettext("%{account} (via %{person})",
+            account: account,
+            person: history_account_name(people[person_uuid])
+          ),
+        else: account
+
+    member = history_account_name(event.target)
+
+    case event.action do
+      "storage.library.member_added" ->
+        gettext("%{actor} added %{member} as %{role}",
+          actor: actor,
+          member: member,
+          role: role_label(event.metadata["new_role"])
+        )
+
+      "storage.library.member_role_changed" ->
+        gettext("%{actor} changed %{member} from %{previous} to %{role}",
+          actor: actor,
+          member: member,
+          previous: role_label(event.metadata["previous_role"]),
+          role: role_label(event.metadata["new_role"])
+        )
+
+      "storage.library.member_removed" ->
+        gettext("%{actor} removed %{member} (%{role})",
+          actor: actor,
+          member: member,
+          role: role_label(event.metadata["previous_role"])
+        )
+
+      "storage.library.member_left" ->
+        gettext("%{actor} left the library", actor: actor)
+    end
+  end
+
   # The library a rename / members / renditions dialog is about, as the lists
   # hold it now.
   defp dialog_library(%{dialog: {_kind, uuid}} = assigns) do
@@ -1027,7 +1181,37 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         {elem(@message, 1)}
       </div>
 
-      <div :if={@owned != [] or @shared != [] or @media}>
+      <div role="tablist" aria-label={gettext("Media sections")} class="tabs tabs-border">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={@media_view == "libraries"}
+          class={["tab gap-2", @media_view == "libraries" && "tab-active"]}
+          phx-click="media_view"
+          phx-value-view="libraries"
+          phx-target={@myself}
+        ><.icon name="hero-rectangle-stack" class="size-4" />{gettext("Libraries")}</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={@media_view == "activity"}
+          class={["tab gap-2", @media_view == "activity" && "tab-active"]}
+          phx-click="media_view"
+          phx-value-view="activity"
+          phx-target={@myself}
+        ><.icon name="hero-queue-list" class="size-4" />{gettext("Activity")}</button>
+      </div>
+      <.live_component
+        :if={@media_view == "activity"}
+        module={PhoenixKitWeb.Live.Components.LibraryActivity}
+        id={"#{@id}-activity"}
+        scope={@scope}
+        url_path={@url_path}
+        url_params={@activity_params}
+        refresh={@activity_refresh}
+      />
+
+      <div :if={@media_view == "libraries" and (@owned != [] or @shared != [] or @media)}>
         <.table_default id={"#{@id}-table"}>
           <:toolbar_title>
             <div>
@@ -1080,7 +1264,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 <.row_link navigate={open_href(@scope, library)} label={library.name} />
                 <div class="flex items-center gap-2">
                   <.icon name="hero-rectangle-stack" class="w-4 h-4 text-base-content/60" />
-                  <span class="font-medium">{library.name}</span>
+                  <div>
+                    <span class="font-medium">{library.name}</span>
+                    <.library_content_stats stats={@content_stats[library.uuid]} />
+                  </div>
                   <span :if={library.is_default} class="badge badge-primary badge-sm">
                     {gettext("Default")}
                   </span>
@@ -1156,6 +1343,13 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                     label={gettext("Open")}
                   />
                   <.table_row_menu_button
+                    phx-click="verify_library"
+                    phx-target={@myself}
+                    phx-value-uuid={library.uuid}
+                    icon="hero-shield-check"
+                    label={gettext("Verify library")}
+                  />
+                  <.table_row_menu_button
                     phx-click="open_dialog"
                     phx-target={@myself}
                     phx-value-kind="settings"
@@ -1228,7 +1422,10 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
                 <.row_link navigate={open_href(@scope, library)} label={library.name} />
                 <div class="flex items-center gap-2">
                   <.icon name="hero-users" class="w-4 h-4 text-base-content/60" />
-                  <span class="font-medium">{library.name}</span>
+                  <div>
+                    <span class="font-medium">{library.name}</span>
+                    <.library_content_stats stats={@content_stats[library.uuid]} />
+                  </div>
                   <span class="badge badge-ghost badge-sm">{role_label(role)}</span>
                 </div>
                 <.link
@@ -1335,7 +1532,11 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
         </p>
       </div>
 
-      <div :if={@trashed != []} id={"#{@id}-trash"} class="flex flex-col gap-2">
+      <div
+        :if={@media_view == "libraries" and @trashed != []}
+        id={"#{@id}-trash"}
+        class="flex flex-col gap-2"
+      >
         <.section_header icon="hero-trash" title={gettext("Trash")} />
         <p class="text-sm text-base-content/60">
           {gettext(
@@ -1653,8 +1854,61 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
           library={@dialog_library}
           members={@members}
           roles={@roles}
+          scope={@scope}
           myself={@myself}
         />
+        <section
+          :if={@membership_history}
+          id={"#{@id}-membership-history"}
+          class="mt-6 space-y-3"
+          aria-label={gettext("Membership history")}
+        >
+          <h3 class="font-semibold">{gettext("Membership history")}</h3>
+          <p :if={@membership_history.total == 0} class="text-sm text-base-content/60">
+            {gettext("No membership changes recorded yet.")}
+          </p>
+          <ol class="divide-y divide-base-300">
+            <li
+              :for={event <- @membership_history.entries}
+              id={"#{@id}-membership-event-#{event.uuid}"}
+              class="py-2 text-sm space-y-1"
+            >
+              <p>{membership_description(event, @membership_history.people)}</p>
+              <time
+                datetime={DateTime.to_iso8601(event.inserted_at)}
+                class="text-xs text-base-content/60"
+              >
+                {Calendar.strftime(event.inserted_at, "%Y-%m-%d %H:%M:%S UTC")}
+              </time>
+            </li>
+          </ol>
+          <nav
+            :if={@membership_history.pages > 1}
+            class="flex items-center gap-3"
+            aria-label={gettext("Membership history pages")}
+          >
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              phx-click="membership_history_page"
+              phx-value-page={@membership_history.page - 1}
+              phx-target={@myself}
+              disabled={@membership_history.page == 1}
+            >{gettext("Previous")}</button>
+            <span class="text-sm">{gettext("Page %{page} of %{pages}",
+              page: @membership_history.page,
+              pages: @membership_history.pages
+            )}</span>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              phx-click="membership_history_page"
+              phx-value-page={@membership_history.page + 1}
+              phx-target={@myself}
+              disabled={@membership_history.page == @membership_history.pages}
+            >{gettext("Next")}</button>
+          </nav>
+        </section>
         <:actions>
           <button type="button" class="btn btn-primary" phx-click="close_dialog" phx-target={@myself}>
             {gettext("Done")}
@@ -2231,9 +2485,22 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
   attr :library, :map, required: true
   attr :members, :list, required: true
   attr :roles, :list, required: true
+  attr :scope, :any, required: true
   attr :myself, :any, required: true
 
   defp members_panel(assigns) do
+    role = Libraries.role(assigns.library, Scope.user_uuid(assigns.scope))
+
+    assigns =
+      assigns
+      |> assign(:owner?, role == :owner)
+      |> assign(:may_manage?, Libraries.allows?(role, :members))
+      |> assign(:user_uuid, Scope.user_uuid(assigns.scope))
+      |> assign(
+        :roles,
+        if(role == :owner, do: assigns.roles, else: List.delete(assigns.roles, "manager"))
+      )
+
     ~H"""
     <div id={"#{@id}-members-#{@library.uuid}"} class="flex flex-col gap-4">
       <div :if={@members == []} class="text-sm text-base-content/60">
@@ -2242,6 +2509,7 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
       <div :for={member <- @members} class="flex flex-wrap items-center gap-2">
         <span class="grow truncate text-sm">{member.user.email}</span>
         <form
+          :if={@may_manage? and (@owner? or member.role != "manager")}
           id={"#{@id}-role-#{@library.uuid}-#{member.user_uuid}"}
           phx-change="member_role"
           phx-target={@myself}
@@ -2256,21 +2524,33 @@ defmodule PhoenixKitWeb.Live.Components.LibrarySettings do
             aria-label={gettext("Role")}
           />
         </form>
+        <span
+          :if={!@may_manage? or (!@owner? and member.role == "manager")}
+          class="badge badge-outline"
+        >
+          {role_label(member.role)}
+        </span>
         <button
+          :if={
+            member.user_uuid == @user_uuid or (@may_manage? and (@owner? or member.role != "manager"))
+          }
           type="button"
           phx-click="remove_member"
           phx-value-uuid={@library.uuid}
           phx-value-user={member.user_uuid}
           phx-target={@myself}
           class="btn btn-sm btn-ghost"
-          aria-label={gettext("Remove")}
+          aria-label={
+            if member.user_uuid == @user_uuid, do: gettext("Leave"), else: gettext("Remove")
+          }
         >
           <.icon name="hero-x-mark" class="w-4 h-4" />
         </button>
       </div>
 
-      <.section_header icon="hero-user-plus" title={gettext("Add a member")} />
+      <.section_header :if={@may_manage?} icon="hero-user-plus" title={gettext("Add a member")} />
       <form
+        :if={@may_manage?}
         id={"#{@id}-add-member-#{@library.uuid}"}
         phx-submit="add_member"
         phx-target={@myself}

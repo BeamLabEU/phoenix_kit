@@ -266,7 +266,12 @@ defmodule PhoenixKitWeb.Live.StorageHistoryTest do
     assert render(view) =~ "Page 2 of 2"
     Repo.delete_all(from e in Entry, where: e.resource_type == "job_run")
     send(view.pid, :refresh_library_sync)
-    assert has_element?(view, "#media-history-list", "Nothing recorded yet.")
+    # The parent forwards this as an asynchronous component update, as in
+    # the caller-owned-transaction refresh test above.
+    assert eventually(fn ->
+             has_element?(view, "#media-history-list", "Nothing recorded yet.")
+           end)
+
     refute render(view) =~ "Page 2"
   end
 

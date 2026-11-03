@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Activity.Show do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Activity
+  alias PhoenixKit.Modules.Storage.Libraries.MembershipHistory
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -97,6 +98,8 @@ defmodule PhoenixKitWeb.Live.Activity.Show do
   defp can_view_entry?(scope, entry) do
     # "Own" == authored by this user (actor), NOT merely targeted at them —
     # see Activity.own_entry?/2, the single definition shared with the list.
-    Activity.full_log_access?(scope) or Activity.own_entry?(scope, entry)
+    Activity.full_log_access?(scope) or
+      (Activity.own_entry?(scope, entry) and
+         MembershipHistory.visible_entry?(scope, entry))
   end
 end

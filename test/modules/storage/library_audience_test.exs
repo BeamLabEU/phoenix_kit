@@ -9,9 +9,9 @@ defmodule PhoenixKit.Modules.Storage.LibraryAudienceTest do
     struct!(Library, Map.merge(%{kind: "user", visibility: "site", settings: %{}}, attrs))
   end
 
-  defp scope(uuid, active \\ true) do
+  defp scope(uuid, active \\ true, confirmed_at \\ ~U[2026-01-01 00:00:00Z]) do
     %Scope{
-      user: %User{uuid: uuid, is_active: active},
+      user: %User{uuid: uuid, is_active: active, confirmed_at: confirmed_at},
       authenticated?: true,
       cached_roles: [],
       cached_permissions: MapSet.new()
@@ -26,6 +26,13 @@ defmodule PhoenixKit.Modules.Storage.LibraryAudienceTest do
     refute Libraries.audience_allows?(Scope.for_user(nil), library)
     assert Libraries.audience_allows?(scope(Ecto.UUID.generate()), library)
     refute Libraries.audience_allows?(scope(Ecto.UUID.generate(), false), library)
+  end
+
+  test "an account whose email is not confirmed is not a signed-in reader" do
+    # `require_email_confirmation` defaults to true; a session is minted for an
+    # unconfirmed account, so the audience must check the account itself.
+    library = library(%{settings: %{"public_audience" => "authenticated"}})
+    refute Libraries.audience_allows?(scope(Ecto.UUID.generate(), true, nil), library)
   end
 
   test "anonymous publication is explicit and suspension and trash close that audience" do

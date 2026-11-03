@@ -44,6 +44,7 @@ defmodule PhoenixKit.Jobs.StateMachine do
   @type actor :: String.t() | nil
   @type progress :: %{
           optional(:cursor) => map(),
+          optional(:log) => map(),
           optional(:done) => non_neg_integer(),
           optional(:failed) => non_neg_integer(),
           optional(:total) => non_neg_integer() | nil
@@ -183,7 +184,9 @@ defmodule PhoenixKit.Jobs.StateMachine do
 
   def transition(%Run{claim_token: token} = run, {:checkpoint, token, outcome}, now)
       when not is_nil(token) do
-    checkpoint(run, outcome, now)
+    with {:ok, changes, effects} <- checkpoint(run, outcome, now) do
+      {:ok, changes, batch_log(outcome) ++ effects}
+    end
   end
 
   def transition(%Run{}, {:checkpoint, _token, _outcome}, _now), do: {:error, :claim_lost}
@@ -408,6 +411,18 @@ defmodule PhoenixKit.Jobs.StateMachine do
 
   # What a batch adds. `done` and `failed` are increments; `total`, when given,
   # replaces the old one.
+  # Batch logs land with the checkpoint, after the claim has been checked.
+  # No log survives a lost claim or a rollback. Kinds supply bounded, safe metadata.
+  defp batch_log({:more, progress, _opts}), do: progress_log(progress)
+  defp batch_log({:done, progress, _result}), do: progress_log(progress)
+  defp batch_log({:release, _message}), do: [{:log, "job.interrupted", %{}}]
+  defp batch_log(_outcome), do: []
+
+  defp progress_log(%{log: metadata}) when is_map(metadata),
+    do: [{:log, "job.batch", metadata}]
+
+  defp progress_log(_progress), do: []
+
   defp progress(%Run{} = run, {:more, %{} = progress, _opts}), do: add(run, progress, true)
   defp progress(%Run{} = run, {:done, %{} = progress, _result}), do: add(run, progress, false)
 

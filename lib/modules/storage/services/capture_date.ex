@@ -42,7 +42,7 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
   stronger source, and a manual date never.
   """
 
-  alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.{CameraRaw, ImageProcessor, Sniff}
 
   @typedoc "Where a capture date came from. See the moduledoc."
   @type source :: String.t()
@@ -164,6 +164,32 @@ defmodule PhoenixKit.Modules.Storage.CaptureDate do
   """
   @spec read_exif(Path.t()) :: %{String.t() => String.t()}
   def read_exif(path) do
+    # A raw file with a header of its own (CR3, RAF, ORF, RW2) is read by libraw; a
+    # TIFF-shaped one (NEF, CR2, DNG…) carries ordinary TIFF EXIF, read below.
+    case Sniff.sniff(path) do
+      {:ok, %{format: :tiff}} -> path |> read_raster_exif() |> with_raw_tags(path)
+      {:ok, %{format: format}} -> read_camera_or_raster_exif(format, path)
+      :unknown -> %{}
+    end
+  end
+
+  defp read_camera_or_raster_exif(format, path) do
+    if format in Sniff.camera_raw_formats(),
+      do: CameraRaw.exif_tags(path),
+      else: read_raster_exif(path)
+  end
+
+  # ImageMagick's TIFF reader keeps a TIFF's camera and some makers' EXIF out of
+  # `%[EXIF:*]` (an ARW's entirely). When the date or camera is missing, libraw is asked
+  # too; its reading fills only what the TIFF's own tags lack. A plain TIFF libraw
+  # cannot read adds nothing.
+  defp with_raw_tags(tags, path) do
+    if Map.has_key?(tags, "DateTimeOriginal") and Map.has_key?(tags, "Make"),
+      do: tags,
+      else: Map.merge(CameraRaw.exif_tags(path), tags)
+  end
+
+  defp read_raster_exif(path) do
     # Decoder pinned to the sniffed raster format, with the processor's
     # resource limits; anything that is not a known raster image has no EXIF
     # worth reading here.

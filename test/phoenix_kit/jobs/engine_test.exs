@@ -386,7 +386,7 @@ defmodule PhoenixKit.Jobs.EngineTest do
 
       assert error =~ "boom at step 0"
       assert finished
-      assert actions(run) == ["job.started", "job.failed"]
+      assert actions(run) == ["job.started", "job.interrupted", "job.interrupted", "job.failed"]
     end
 
     test "a kind that is gone fails the run instead of looping" do

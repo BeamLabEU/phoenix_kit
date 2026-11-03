@@ -16,7 +16,9 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
   PDF, PostScript/EPS, MVG, MSL and the rest reach their decoders through
   delegates (librsvg, Ghostscript…) with a long history of command injection
   and memory-safety bugs; they are recognised here so they can be *refused*,
-  never pinned.
+  never pinned. The one exception is drawn elsewhere on purpose: an SVG is
+  rendered to a PNG by `SvgRaster`, through ImageMagick's librsvg coder only
+  (`rsvg:`, never `svg:` or `msvg:`), alone in a private folder.
   """
 
   @type format ::
@@ -30,6 +32,10 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
           | :heic
           | :avif
           | :svg
+          | :cr3
+          | :raf
+          | :orf
+          | :rw2
           | :pdf
           | :postscript
           | :zip
@@ -55,6 +61,10 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
     heic: "image/heic",
     avif: "image/avif",
     svg: "image/svg+xml",
+    cr3: "image/x-canon-cr3",
+    raf: "image/x-fuji-raf",
+    orf: "image/x-olympus-orf",
+    rw2: "image/x-panasonic-rw2",
     pdf: "application/pdf",
     postscript: "application/postscript",
     zip: "application/zip",
@@ -69,6 +79,16 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
   @doc "The raster formats ImageMagick may decode, each with a pinned coder."
   @spec raster_formats() :: [format()]
   def raster_formats, do: @raster
+
+  # Camera raw files whose header is not a plain TIFF's. The TIFF-shaped ones (DNG, CR2,
+  # NEF, ARW, PEF, SRW…) sniff as `:tiff`; their type then comes from the name
+  # (`Storage.CameraRaw`). Neither kind is a raster format: their pixels are developed
+  # by libraw, never decoded by a coder chosen here.
+  @camera_raw [:cr3, :raf, :orf, :rw2]
+
+  @doc "The camera raw formats recognised by their own header (not the TIFF-shaped ones)."
+  @spec camera_raw_formats() :: [format()]
+  def camera_raw_formats, do: @camera_raw
 
   @doc "Whether `format` is one ImageMagick may be given."
   @spec raster?(format() | nil) :: boolean()
@@ -121,6 +141,11 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
   defp detect(<<"GIF89a", _::binary>>), do: :gif
   defp detect(<<"RIFF", _size::binary-size(4), "WEBP", _::binary>>), do: :webp
   defp detect(<<"RIFF", _size::binary-size(4), "WAVE", _::binary>>), do: :wav
+  defp detect(<<"FUJIFILMCCD-RAW", _::binary>>), do: :raf
+  defp detect(<<"IIRO", _::binary>>), do: :orf
+  defp detect(<<"IIRS", _::binary>>), do: :orf
+  defp detect(<<"MMOR", _::binary>>), do: :orf
+  defp detect(<<"IIU", 0, _::binary>>), do: :rw2
   defp detect(<<"II", 42, 0, _::binary>>), do: :tiff
   defp detect(<<"MM", 0, 42, _::binary>>), do: :tiff
   # "BM" alone is two letters a CSV or a note can start with ("BMI,weight"),
@@ -149,6 +174,7 @@ defmodule PhoenixKit.Modules.Storage.Sniff do
       brand in ["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"] -> :heic
       brand in ["avif", "avis"] -> :avif
       brand == "qt  " -> :quicktime
+      brand == "crx " -> :cr3
       true -> :mp4
     end
   end

@@ -105,6 +105,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Modules.Storage.Audit
   alias PhoenixKit.Modules.Storage.Bucket
   alias PhoenixKit.Modules.Storage.BucketLog
+  alias PhoenixKit.Modules.Storage.CameraRaw
   alias PhoenixKit.Modules.Storage.CaptureDate
   alias PhoenixKit.Modules.Storage.Dimension
   alias PhoenixKit.Modules.Storage.Endpoint
@@ -653,12 +654,23 @@ defmodule PhoenixKit.Modules.Storage do
     uuid = attrs[:integration_uuid] || attrs["integration_uuid"] || bucket.integration_uuid
 
     ConnectionLock.run(uuid, fn ->
-      changeset = bucket_update_changeset(bucket, attrs) |> validate_bucket_connection()
+      changeset = bucket_update_changeset(bucket, attrs) |> validate_changed_bucket_connection()
 
       with :ok <- refuse_disable_while_in_profiles(bucket, changeset) do
         update_bucket_row(changeset, opts)
       end
     end)
+  end
+
+  # An update checks the connection only when it changes or the bucket is being
+  # switched on. Its keys can turn unreadable after it was attached (a
+  # `secret_key_base` rotation): checking on every update then refused the very
+  # edit that takes the broken bucket out of use — disabling it.
+  defp validate_changed_bucket_connection(changeset) do
+    if Ecto.Changeset.changed?(changeset, :integration_uuid) or
+         Ecto.Changeset.get_change(changeset, :enabled) == true,
+       do: validate_bucket_connection(changeset),
+       else: changeset
   end
 
   defp validate_bucket_connection(changeset) do
@@ -2392,7 +2404,8 @@ defmodule PhoenixKit.Modules.Storage do
   A file in the subtree that cannot be deleted (`{:error, :in_use}` from
   `delete_file_completely/1`) stays, and so do the folders that hold it, up to
   this one: everything else is removed, and the answer is `{:error, :in_use}`
-  rather than `{:ok, folder}`.
+  rather than `{:ok, folder}`. A file whose row vanished mid-delete
+  (`{:error, :not_found}`) blocks nothing — it holds no folder any more.
   """
   def delete_folder_completely(folder, scope_folder_id \\ nil, opts \\ [])
 
@@ -2443,8 +2456,10 @@ defmodule PhoenixKit.Modules.Storage do
     # Folders that still hold such a file are kept, with every folder above them
     # inside this subtree: a folder's key on its files is `ON DELETE SET NULL`, so
     # deleting one would not delete the file it still holds — it would drop the
-    # file, quietly, into the media root.
-    kept = folders_still_holding(for({file, {:error, _}} <- results, do: file), subtree_uuids)
+    # file, quietly, into the media root. `{:error, :not_found}` blocks nothing:
+    # the row is already gone (a concurrent delete), so no folder still holds it.
+    blocked = for {file, {:error, reason}} when reason != :not_found <- results, do: file
+    kept = folders_still_holding(blocked, subtree_uuids)
 
     # Delete folders from deepest first so parent_uuid foreign keys
     # don't break. `folder_subtree_uuids/1` walks breadth-first; reverse
@@ -5083,7 +5098,8 @@ defmodule PhoenixKit.Modules.Storage do
       PhoenixKit.Modules.Storage.Jobs.ChecksumBackfill,
       PhoenixKit.Modules.Storage.Jobs.LocationBackfill,
       PhoenixKit.Modules.Storage.Jobs.PurgeLibrary,
-      PhoenixKit.Modules.Storage.Jobs.Reconcile
+      PhoenixKit.Modules.Storage.Jobs.Reconcile,
+      PhoenixKit.Modules.Storage.Jobs.VerifyLibrary
     ]
   end
 
@@ -6420,6 +6436,11 @@ defmodule PhoenixKit.Modules.Storage do
       prefix. A duplicate the same uploader already has is returned as it
       is, in whatever library it is in — compare `library_uuid` if that
       matters to you.
+    * `:return_creation_status` — when true, newly inserted files (including
+      cross-user clones) return `{:ok, file, :created}`. An existing uploader's
+      row still returns `{:ok, file, :duplicate}`. Use this to compensate a
+      refused upload without trashing a file that was already in the library.
+      Defaults to false, preserving the historical return shapes.
     * `:dedup` — `true` (the default) keeps one row per uploader and library
       for the same bytes: a second upload comes back as
       `{:ok, existing_file, :duplicate}`, and another uploader's active copy
@@ -6474,37 +6495,43 @@ defmodule PhoenixKit.Modules.Storage do
       ) do
     # Check if any enabled bucket exists, a user's own included (V206): the
     # library's profile then decides which of them this file goes to.
-    case buckets_available?() do
-      false ->
-        {:error, :no_buckets_configured}
+    result =
+      case buckets_available?() do
+        false ->
+          {:error, :no_buckets_configured}
 
-      true ->
-        if opts[:dedup] == false do
-          # Neither the uploader's own copy nor another's active one is
-          # looked for. No dedup key either (`nil`): the row gets one of its
-          # own, see `row_user_file_checksum/2`.
-          store_new_file_in_buckets(
-            source_path,
-            file_type,
-            user_uuid,
-            file_checksum,
-            nil,
-            ext,
-            original_filename,
-            opts
-          )
-        else
-          # Proceed with storage
-          store_file_with_buckets_available(
-            source_path,
-            file_type,
-            user_uuid,
-            file_checksum,
-            ext,
-            original_filename,
-            opts
-          )
-        end
+        true ->
+          if opts[:dedup] == false do
+            # Neither the uploader's own copy nor another's active one is
+            # looked for. No dedup key either (`nil`): the row gets one of its
+            # own, see `row_user_file_checksum/2`.
+            store_new_file_in_buckets(
+              source_path,
+              file_type,
+              user_uuid,
+              file_checksum,
+              nil,
+              ext,
+              original_filename,
+              opts
+            )
+          else
+            # Proceed with storage
+            store_file_with_buckets_available(
+              source_path,
+              file_type,
+              user_uuid,
+              file_checksum,
+              ext,
+              original_filename,
+              opts
+            )
+          end
+      end
+
+    case {result, opts[:return_creation_status]} do
+      {{:ok, file}, true} -> {:ok, file, :created}
+      {other, _} -> other
     end
   end
 
@@ -6911,7 +6938,9 @@ defmodule PhoenixKit.Modules.Storage do
     end)
     |> case do
       {:ok, {new_file, :duplicate}} ->
-        {:ok, new_file, :duplicate}
+        if opts[:return_creation_status],
+          do: {:ok, new_file, :created},
+          else: {:ok, new_file, :duplicate}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         Logger.error("Failed to clone file for user: #{inspect(changeset.errors)}")
@@ -7898,18 +7927,7 @@ defmodule PhoenixKit.Modules.Storage do
   def content_mime_type(claimed, source_path, filename) do
     case Sniff.sniff(source_path) do
       {:ok, %{format: format, mime: sniffed}} ->
-        cond do
-          Sniff.raster?(format) and sniffed != claimed ->
-            log_mime_mismatch(filename, claimed, sniffed)
-            sniffed
-
-          claimed in @raster_mimes and not Sniff.raster?(format) ->
-            log_mime_mismatch(filename, claimed, sniffed)
-            sniffed
-
-          true ->
-            claimed
-        end
+        recognised_mime_type(claimed, format, sniffed, filename)
 
       # Bytes nothing recognises are not an image, whatever the claim —
       # raster or not (an `image/svg+xml` claim over unknown bytes too).
@@ -7920,6 +7938,28 @@ defmodule PhoenixKit.Modules.Storage do
         else
           claimed
         end
+    end
+  end
+
+  defp recognised_mime_type(claimed, format, sniffed, filename) do
+    cond do
+      # A camera raw file: most are TIFF-shaped, so its bytes cannot name the
+      # maker's format, and the claim (from its name) stands. It is developed by
+      # libraw, never decoded as the TIFF it looks like (`CameraRaw`).
+      CameraRaw.mime?(claimed) and
+          (format == :tiff or format in Sniff.camera_raw_formats()) ->
+        claimed
+
+      Sniff.raster?(format) and sniffed != claimed ->
+        log_mime_mismatch(filename, claimed, sniffed)
+        sniffed
+
+      claimed in @raster_mimes and not Sniff.raster?(format) ->
+        log_mime_mismatch(filename, claimed, sniffed)
+        sniffed
+
+      true ->
+        claimed
     end
   end
 

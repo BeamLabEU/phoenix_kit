@@ -4531,6 +4531,9 @@
     var area = e.target.closest && e.target.closest("[data-box-area]");
     if (!area || !root.contains(area)) return;
     if (e.target.closest(NOT_EMPTY)) return;
+    // A press on the column's own scrollbar is a scroll, not a box: Chrome
+    // sends no pointerup for it, which would leave the gesture armed.
+    if (e.target === area && (e.offsetX >= area.clientWidth || e.offsetY >= area.clientHeight)) return;
 
     if (root.__pkCancelBox) root.__pkCancelBox();
     var additive = e.shiftKey || e.metaKey || e.ctrlKey;
@@ -4647,6 +4650,8 @@
 
     function onMove(ev) {
       if (ev.pointerId !== e.pointerId) return;
+      // The button came up where no pointerup reached us: end, select nothing.
+      if (ev.buttons === 0) { finish(false); return; }
       last = { x: ev.clientX, y: ev.clientY };
       if (!box) {
         if (Math.abs(last.x - start.x) < THRESHOLD && Math.abs(last.y - start.y) < THRESHOLD) return;
@@ -4902,6 +4907,9 @@
       // node). A batch counts only when all of it shares one home.
       function originOf(el) {
         var zone = el.parentElement && el.parentElement.closest("[data-drop-folder]");
+        // A search at the root lists the whole tree inside the root zone: a
+        // card there may live in any folder, so its home is unknown.
+        if (zone && zone.hasAttribute("data-drop-origin-unknown")) return null;
         return zone ? zone.dataset.dropFolder : null;
       }
       function dragOrigin(el) {

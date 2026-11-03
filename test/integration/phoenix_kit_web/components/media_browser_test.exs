@@ -721,6 +721,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
 
       assert selected?.(a) and selected?.(b)
       refute selected?.(c)
+      # `elsewhere` is never rendered, so only the count shows it was dropped.
+      assert has_element?(view, "#media-browser[data-selection-count='2']")
       assert has_element?(view, "[phx-click='deselect_all']"), "select mode is on"
 
       render_hook(browser, "box_select", %{
@@ -817,6 +819,40 @@ defmodule PhoenixKitWeb.Components.MediaBrowserTest do
       refute html =~ "2 items permanently deleted"
       refute Storage.get_file(a.uuid)
       assert Storage.get_file(b.uuid).status == "active"
+    end
+
+    test "the Trash view deletes for good only a folder that is in the trash", %{conn: conn} do
+      {user, _token} = create_admin_user()
+      active = create_folder!()
+      kept_file = create_file!(active.uuid)
+      trashed = create_folder!()
+      {:ok, _} = Storage.trash_folder(trashed)
+      conn = log_in_user(conn, user)
+
+      {:ok, view, _html} = live(conn, @media_path)
+      view |> element("[phx-click='toggle_trash_filter']") |> render_click()
+      browser = element(view, "#media-browser")
+      card = fn folder -> "[data-drop-color][data-drop-folder='#{folder.uuid}']" end
+      assert has_element?(view, card.(trashed))
+
+      # A folder edit in the Trash view reloaded the grid with the ACTIVE
+      # folders, each offered the trash's "delete for good".
+      render_hook(browser, "change_folder_color", %{
+        "folder-uuid" => trashed.uuid,
+        "color" => "red"
+      })
+
+      assert has_element?(view, card.(trashed))
+      refute has_element?(view, card.(active))
+
+      # Forged, or reached before the fix: an active folder keeps its tree.
+      render_hook(browser, "delete_folder", %{"id" => active.uuid})
+      assert render(view) =~ "Could not delete the folder"
+      assert Storage.get_folder(active.uuid)
+      assert Storage.get_file(kept_file.uuid)
+
+      render_hook(browser, "delete_folder", %{"id" => trashed.uuid})
+      refute Storage.get_folder(trashed.uuid)
     end
   end
 

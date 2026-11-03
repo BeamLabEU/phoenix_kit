@@ -84,7 +84,7 @@ defmodule PhoenixKit.Modules.Storage.Jobs.Reconcile do
 
   @impl true
   def batch(run) do
-    scope = scope_opts(run)
+    scope = Keyword.put(scope_opts(run), :log_problems, true)
 
     total =
       if run.cursor["after"] in [nil, ""],
@@ -101,6 +101,10 @@ defmodule PhoenixKit.Modules.Storage.Jobs.Reconcile do
       {:done, batch} ->
         {:done, %{"outcomes" => outcomes(run, batch)}, Map.merge(total, counts(batch))}
     end
+  rescue
+    _ -> {:error, "Storage update could not finish this batch; check storage access and retry"}
+  catch
+    _, _ -> {:error, "Storage update could not finish this batch; check storage access and retry"}
   end
 
   defp scope_opts(%{scope_type: "library", scope_uuid: uuid}), do: [library_uuid: to_string(uuid)]
@@ -109,16 +113,39 @@ defmodule PhoenixKit.Modules.Storage.Jobs.Reconcile do
   # What every batch of the pass did so far, kept in the cursor so the last one can
   # report the whole pass.
   defp outcomes(run, batch) do
-    Enum.reduce(batch, run.cursor["outcomes"] || %{}, fn {outcome, n}, acc ->
-      Map.update(acc, Atom.to_string(outcome), n, &(&1 + n))
-    end)
+    Enum.reduce(
+      Map.take(batch, [:reconciled, :stale, :skipped]),
+      run.cursor["outcomes"] || %{},
+      fn {outcome, n}, acc ->
+        Map.update(acc, Atom.to_string(outcome), n, &(&1 + n))
+      end
+    )
   end
 
   # A file brought up to date is done; one that could not be finished yet is
   # failed (it stays stale and is tried again); one another reconciler holds
   # (`:skipped`) is neither — that reconciler counts it.
-  defp counts(batch),
-    do: %{done: Map.get(batch, :reconciled, 0), failed: Map.get(batch, :stale, 0)}
+  defp counts(batch) do
+    done = Map.get(batch, :reconciled, 0)
+    failed = Map.get(batch, :stale, 0)
+    skipped = Map.get(batch, :skipped, 0)
+
+    %{
+      done: done,
+      failed: failed,
+      log: %{
+        "checked" => done + failed + skipped,
+        "healthy" => done,
+        "needs_attention" => failed,
+        "skipped" => skipped,
+        "problems" =>
+          Enum.map(
+            Map.get(batch, :problems, []),
+            &%{"file_uuid" => &1, "problem" => "copy_incomplete"}
+          )
+      }
+    }
+  end
 
   @doc """
   Starts a run for every library that has files the reconciler may take now,

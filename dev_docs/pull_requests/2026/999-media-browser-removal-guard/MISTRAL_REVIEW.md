@@ -50,11 +50,15 @@ the guard's "kept: in use" summary. Fixed in the #1003 follow-up review (see
 `../1003-media-delete-in-use-files/MISTRAL_REVIEW.md`): excepted files are
 now excluded from the results entirely, with a regression assertion.
 
-### NITPICK — folder+file selection title names only the folders
+### IMPROVEMENT - LOW — folder+file selection title named only the folders (fixed)
 
-`RemovalModal.title/4` shows "Move N folders and their contents…" whenever
-`folders > 0`, even when files are selected too; the file count appears in
-the list below. Cosmetic only, left as is.
+`RemovalModal.title/4` showed "Move N folders and their contents…" whenever
+`folders > 0`, even when files were selected too. It now has a combined clause
+reusing the client-side confirm's already-translated wording ("Move %{files}
+and %{folders} (including all folder contents) to trash?" / "Permanently
+delete …"), and the separate "This cannot be undone." paragraph is skipped
+when the combined delete title already carries it. Locked by two tests in
+`media_browser_removal_guard_test.exs`.
 
 ## Validation
 

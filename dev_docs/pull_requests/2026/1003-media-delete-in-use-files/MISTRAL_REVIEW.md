@@ -59,12 +59,14 @@ to de/en/es/fr/it/pl/uk (et/ru got the two folder strings), and extended
 shipped locales (`~w(de es et fr it pl ru uk)`) with the folder strings in
 `@singular`. 17 tests pass.
 
-### NITPICK — a concurrently deleted file reports `:in_use`
+### IMPROVEMENT - LOW — a concurrently deleted file reported `:in_use` (fixed)
 
-`delete_folder_completely/3` keeps folders for ANY failed file deletion,
-including `{:error, :not_found}` from a concurrent delete, and then answers
-`{:error, :in_use}`. The conservative answer is safe (nothing is wrongly
-deleted), and the race is narrow; left as is.
+`delete_folder_completely/3` kept folders for ANY failed file deletion,
+including `{:error, :not_found}` from a concurrent delete, and then answered
+`{:error, :in_use}`. Now only a real refusal blocks: `:not_found` holds no
+folder (the row is already gone), so the folder tree is removed and the
+answer stays `{:ok, folder}`. Locked by a `:not_found` test in
+`delete_file_in_use_test.exs`.
 
 ## Validation
 

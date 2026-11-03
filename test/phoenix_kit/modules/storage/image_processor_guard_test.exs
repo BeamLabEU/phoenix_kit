@@ -72,6 +72,23 @@ defmodule PhoenixKit.Modules.Storage.ImageProcessorGuardTest do
       assert Storage.content_mime_type("image/png", text, "y.png") == "application/octet-stream"
     end
 
+    test "a camera raw file keeps the type its name gives, over the TIFF it looks like", %{
+      tmp_dir: dir
+    } do
+      nef = Path.join(dir, "a.nef")
+      File.write!(nef, <<"MM", 0, 42, 0, 0, 0, 8>>)
+      assert Storage.content_mime_type("image/x-nikon-nef", nef, "a.nef") == "image/x-nikon-nef"
+
+      raf = Path.join(dir, "a.raf")
+      File.write!(raf, "FUJIFILMCCD-RAW 0201")
+      assert Storage.content_mime_type("image/x-fuji-raf", raf, "a.raf") == "image/x-fuji-raf"
+
+      # A JPEG called .nef is a JPEG.
+      jpeg = Path.join(dir, "b.nef")
+      File.write!(jpeg, <<0xFF, 0xD8, 0xFF, 0xE0, 0>>)
+      assert Storage.content_mime_type("image/x-nikon-nef", jpeg, "b.nef") == "image/jpeg"
+    end
+
     test "non-image claims are left alone", %{tmp_dir: dir} do
       path = Path.join(dir, "notes.txt")
       File.write!(path, "plain text")

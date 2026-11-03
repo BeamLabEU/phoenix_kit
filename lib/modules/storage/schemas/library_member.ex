@@ -4,7 +4,9 @@ defmodule PhoenixKit.Modules.Storage.LibraryMember do
   what:
 
     * `manager` — everything the owner does to the library's files, and
-      managing its members; not trashing the library, nor handing it on
+      managing its viewers and contributors; not appointing, changing or
+      removing other managers, trashing the library, nor handing it on.
+      Only the owner manages Manager roles; a manager may still leave
     * `contributor` — upload, and change the files they uploaded; folder
       names and looks are shared. The media browser (`own_files_only`)
       refuses a contributor's change to anyone else's file, a folder write
