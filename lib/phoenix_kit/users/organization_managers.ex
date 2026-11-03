@@ -22,14 +22,15 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   as of the read) and must be an active person that is neither a managed
   organization nor a service user, else the call fails with
   `{:error, :forbidden}` (so does `nil` or anything that is not a `%User{}`).
-  The organization is looked up first, so an unknown one is
+  The organization is looked up before `created_by`, so an unknown one is
   `{:error, :organization_not_found}` even when `created_by` is unfit. Never
   pass a value taken from request parameters.
 
   The locks, the organization and person checks, the notification to the
   person (not sent when the person is `created_by` itself) and the last-manager
-  rule are those of `add/3`, `remove/4` and `update_contact/3`. `host_remove/3` has no override: removing the last
-  active manager is `{:error, :cannot_remove_last_active_manager}`. `host_add/3`
+  rule are those of `add/3`, `remove/4` and `update_contact/3`. `host_remove/3`
+  has no override: removing the last active manager is
+  `{:error, :cannot_remove_last_active_manager}`. `host_add/3`
   answers `{:error, :organization_accounts_disabled}` while the
   `enable_organization_accounts` setting is off. They join an outer
   `Repo.transaction/1` of the host, and an error rolls that transaction back too.

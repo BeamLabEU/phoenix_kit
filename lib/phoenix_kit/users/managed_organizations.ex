@@ -29,17 +29,18 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   `{:error, :forbidden}` (so does `nil` or anything that is not a `%User{}`).
   That lock excludes a concurrent delete or key change; `is_active` is as of
   the read (a concurrent deactivation is not serialized with the call, as with
-  `Actor.admin/1`). The organization is looked up first, so an unknown one is
-  `{:error, :organization_not_found}` even when `created_by` is unfit. Never
-  pass a value taken from request parameters.
+  `Actor.admin/1`). The conversions look the organization up before
+  `created_by`, so an unknown one is `{:error, :organization_not_found}` even
+  when `created_by` is unfit. Never pass a value taken from request parameters.
 
   Everything else is shared with the `Actor` functions: the lock order (person,
   organization, users), the organization checks (`:organization_policy_mismatch`,
   `:managed_organization_role_not_allowed`), the first manager's eligibility
   (`:manager_must_be_active_person`), credential revocation on conversion,
   referrals and the notification to the manager (not sent when the manager is
-  `created_by` itself, as `Activity.log/1` skips a person's own action). The functions that bring an
-  organization into the managed state (`host_create/3`, `host_convert_to_managed/3`)
+  `created_by` itself, as `Activity.log/1` skips a person's own action). The
+  functions that bring an organization into the managed state (`host_create/3`,
+  `host_convert_to_managed/3`)
   answer `{:error, :organization_accounts_disabled}` while the
   `enable_organization_accounts` setting is off; the way back
   (`host_convert_to_independent/3`) does not depend on it.
@@ -49,8 +50,10 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   but its PubSub broadcast and the notification to the manager go out when
   `Activity.log/1` runs, not at the outer commit: if the host rolls back after
   the core returned `{:ok, _}`, the rows disappear and the event has already
-  been sent. Do the host's own fallible work before the call, or accept that
-  window (the `Actor` functions have none, as they commit on their own).
+  been sent. The `Actor` functions broadcast just before their own commit too;
+  the difference is that here the commit is not the core's, and the host's
+  later work sits in between. Do the host's own fallible work before the call,
+  or accept that window.
 
   ### The first manager of `host_convert_to_managed/3`
 
