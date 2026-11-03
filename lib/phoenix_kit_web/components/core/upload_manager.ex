@@ -53,6 +53,11 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
     * `dropzone` — render a drop zone and the file input (default `true`).
       `false` when the page already has a `<.live_file_input>` for this upload
       and the manager should take the files that arrive there
+    * `resumable` — `true` when the upload names
+      `external: PhoenixKitWeb.ResumableUpload.external()`. Files then travel in
+      chunks the server keeps: pause stops a file where it is and resume goes
+      on from there, and a lost connection or a reloaded page carries on instead
+      of starting over. See `PhoenixKitWeb.ResumableUpload`.
     * `scope` — where the manager listens for the files that reach the upload
       input: `"self"` (this component's own wrapper, the default when it
       renders the drop zone), `"parent"` (the element the component is placed
@@ -88,6 +93,12 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
   attr :layout, :atom, default: :floating, values: [:floating, :inline]
   attr :dropzone, :boolean, default: true
   attr :scope, :string, default: nil
+
+  attr :resumable, :boolean,
+    default: false,
+    doc:
+      "the upload names `external: PhoenixKitWeb.ResumableUpload.external()`: pausing keeps a file's place and a lost connection carries on"
+
   attr :cancel_event, :string, default: @cancel_event
   attr :cancel_target, :any, default: nil
   attr :accept_description, :string, default: nil
@@ -158,6 +169,7 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
         data-upload-ref={@upload.ref}
         data-upload-name={@upload.name}
         data-max={@max}
+        data-resumable={to_string(@resumable)}
         data-entries={@entries_id}
         data-scope={@scope}
         data-cancel-event={@cancel_event}
@@ -407,11 +419,14 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
       st_done: gettext("Uploaded"),
       st_cancelled: gettext("Cancelled"),
       st_failed: gettext("Failed"),
+      st_reconnecting: gettext("Reconnecting…"),
       err_too_large: gettext("Larger than the upload limit"),
       err_not_accepted: gettext("Not accepted"),
       err_too_many_files: gettext("Too many files at once"),
       err_no_input: gettext("Nowhere to upload to"),
-      err_stalled: gettext("Stopped sending")
+      err_stalled: gettext("Stopped sending"),
+      err_external_client_failure: gettext("Connection lost. Retry to carry on."),
+      err_unauthorized: gettext("Not allowed to upload")
     }
   end
 end

@@ -402,6 +402,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
   alias PhoenixKitWeb.Components.Core.UploadManager
+  alias PhoenixKitWeb.ResumableUpload
 
   # Grid/list view preference is persisted per-user in `custom_fields`
   # ("user meta") so the server renders the correct mode on first paint —
@@ -2184,6 +2185,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         progress: &__MODULE__.parent_progress/3
       ]
 
+      upload_opts =
+        if Storage.resumable_uploads?(),
+          do: Keyword.put(upload_opts, :external, ResumableUpload.external()),
+          else: upload_opts
+
       # Pickers upload through an upload of their own (`@picker_upload`): a
       # page has one file input per upload, so a picker opened beside another
       # browser would otherwise render a second input with the same id, show
@@ -2370,7 +2376,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       persistent_path = Path.join(System.tmp_dir!(), "pk_upload_#{entry.uuid}")
 
       result =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        ResumableUpload.consume(socket, entry, fn %{path: path} ->
           File.cp!(path, persistent_path)
           {:ok, :done}
         end)
@@ -2647,7 +2653,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     socket =
       if entry.done? do
         result =
-          consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          ResumableUpload.consume(socket, entry, fn %{path: path} ->
             process_single_upload(socket, path, entry)
           end)
 

@@ -1383,6 +1383,7 @@ storage_tile_generation_enabled: "false" # The Default variant set's old generat
 storage_max_upload_size_mb: "500"        # Per-file upload cap
 storage_max_upload_files: "100"          # Files one selection or drop may carry (1-1000)
 storage_max_concurrent_uploads: "5"      # The most files the upload manager sends at once (1-20)
+storage_resumable_uploads: "true"        # Send files in chunks the server keeps (pause carries on, reload resumes); "false" = LiveView's own uploader
 trash_retention_days: "30"               # How long the trash keeps a file before the daily prune deletes it
 bucket_log_retention_days: "30"          # How long a bucket's log entries are kept
 storage_user_libraries_enabled: "false"  # User libraries on/off (V203)
@@ -1413,6 +1414,16 @@ the speed and what is left, and each file can be paused, skipped, moved up the
 queue or cancelled. The component and its script
 (`priv/static/assets/phoenix_kit_upload_manager.js`) know nothing of the media
 module and can be used for any upload in a LiveView.
+
+With `storage_resumable_uploads` on (the default), files travel in 2 MiB chunks
+to `PhoenixKitWeb.ResumableUpload` (`POST`-less: `GET`/`PATCH`/`DELETE
+/api/resumable-uploads/:id`, authorised by a signed token LiveView hands the
+browser). The server keeps the partial file in
+`config :phoenix_kit, :resumable_upload_dir` (default
+`<tmp>/phoenix_kit_resumable`, swept after a day), so a paused file goes on
+from where it stopped and a dropped connection or a reload does not start it
+over. An upload callback consumes the assembled file through
+`ResumableUpload.consume/3`.
 
 ---
 

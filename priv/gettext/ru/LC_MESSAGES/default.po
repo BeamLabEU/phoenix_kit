@@ -24128,3 +24128,19 @@ msgstr "Сколько места в хранилище сайта могут з
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Хранилище на пользователя (МБ)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Повторное подключение…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Соединение потеряно. Повторите, чтобы продолжить."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "Загрузка не разрешена"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Отправка остановилась"

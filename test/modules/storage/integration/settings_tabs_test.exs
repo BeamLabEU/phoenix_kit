@@ -384,4 +384,31 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
       end
     end
   end
+
+  describe "resumable uploads" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads") end)
+    end
+
+    test "on unless the site turned it off" do
+      PhoenixKit.Settings.update_setting("storage_resumable_uploads", "false")
+      PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads")
+      refute PhoenixKit.Modules.Storage.resumable_uploads?()
+
+      PhoenixKit.Settings.update_setting("storage_resumable_uploads", "true")
+      PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads")
+      assert PhoenixKit.Modules.Storage.resumable_uploads?()
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ "Resumable uploads"
+
+      render_click(view, "toggle_form_resumable_uploads", %{})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      refute PhoenixKit.Modules.Storage.resumable_uploads?()
+    end
+  end
 end

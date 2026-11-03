@@ -24046,3 +24046,19 @@ msgstr "Cuánto almacenamiento del sitio pueden usar las bibliotecas de cada per
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Almacenamiento por usuario (MB)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Reconectando…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Conexión perdida. Reintenta para continuar."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "No tienes permiso para subir"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Envío detenido"

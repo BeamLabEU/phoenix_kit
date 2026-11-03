@@ -65,6 +65,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     # not the raw setting: the form must show the number the system uses.
     max_upload_files = Storage.max_upload_files()
     max_concurrent_uploads = Storage.max_concurrent_uploads()
+    resumable_uploads = Storage.resumable_uploads?()
     trash_retention_days = Storage.trash_retention_days()
     bucket_log_retention_days = BucketLog.retention_days()
 
@@ -96,6 +97,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_files, max_upload_files)
       |> assign(:max_concurrent_uploads, max_concurrent_uploads)
       |> assign(:form_max_concurrent_uploads, max_concurrent_uploads)
+      |> assign(:resumable_uploads, resumable_uploads)
+      |> assign(:form_resumable_uploads, resumable_uploads)
       |> assign(:trash_retention_days, trash_retention_days)
       |> assign(:form_trash_retention_days, trash_retention_days)
       |> assign(:bucket_log_retention_days, bucket_log_retention_days)
@@ -158,6 +161,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   def handle_event("toggle_form_annotated_thumbnails", _params, socket) do
     new_value = not socket.assigns.form_annotated_thumbnails_enabled
     {:noreply, assign(socket, :form_annotated_thumbnails_enabled, new_value)}
+  end
+
+  def handle_event("toggle_form_resumable_uploads", _params, socket) do
+    {:noreply, assign(socket, :form_resumable_uploads, not socket.assigns.form_resumable_uploads)}
   end
 
   def handle_event("update_storage_form", params, socket) do
@@ -229,6 +236,12 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     )
 
     Settings.update_setting(
+      "storage_resumable_uploads",
+      if(socket.assigns.form_resumable_uploads, do: "true", else: "false"),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
       "storage_max_upload_files",
       to_string(socket.assigns.form_max_upload_files),
       Actor.opts(socket) ++ [source: "settings"]
@@ -278,6 +291,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_files, Storage.max_upload_files())
       |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
       |> assign(:form_max_concurrent_uploads, Storage.max_concurrent_uploads())
+      |> assign(:resumable_uploads, Storage.resumable_uploads?())
+      |> assign(:form_resumable_uploads, Storage.resumable_uploads?())
       |> assign(:trash_retention_days, Storage.trash_retention_days())
       |> assign(:form_trash_retention_days, Storage.trash_retention_days())
       |> assign(:bucket_log_retention_days, BucketLog.retention_days())

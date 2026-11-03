@@ -24047,3 +24047,19 @@ msgstr "Kui palju saidi salvestusruumi võivad ühe inimese kogud kasutada: orig
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Salvestusruum kasutaja kohta (MB)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Ühendan uuesti…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Ühendus katkes. Proovi uuesti, et jätkata."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "Üleslaadimine pole lubatud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Saatmine peatus"

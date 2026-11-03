@@ -6141,6 +6141,21 @@ defmodule PhoenixKit.Modules.Storage do
     :exit, _ -> @default_max_concurrent_uploads
   end
 
+  @doc """
+  Whether uploads travel in resumable chunks (`storage_resumable_uploads`,
+  default on): a paused file goes on from where it stopped, and a dropped
+  connection or a reloaded page does not start it over. Off, uploads use
+  LiveView's own uploader. See `PhoenixKitWeb.ResumableUpload`.
+  """
+  @spec resumable_uploads?() :: boolean()
+  def resumable_uploads? do
+    to_string(Settings.get_setting_cached("storage_resumable_uploads", "true")) != "false"
+  rescue
+    _ -> true
+  catch
+    :exit, _ -> true
+  end
+
   @doc "The most the concurrent upload cap may be set to."
   @spec max_concurrent_uploads_ceiling() :: pos_integer()
   def max_concurrent_uploads_ceiling, do: @max_concurrent_uploads_ceiling

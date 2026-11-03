@@ -23,6 +23,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
   @buckets_cache :phoenix_kit_buckets_cache
 
   setup do
+    # These tests drive LiveView's own uploader (`render_upload` sends the
+    # bytes over the upload channel); the resumable path has its own test.
+    {:ok, _} = Settings.update_setting("storage_resumable_uploads", "false")
     :persistent_term.erase(@buckets_cache)
     n = System.unique_integer([:positive])
     root = Path.join(System.tmp_dir!(), "pk_upload_problems_#{n}")

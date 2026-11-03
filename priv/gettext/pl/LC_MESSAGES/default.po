@@ -24114,3 +24114,19 @@ msgstr "Ile miejsca w magazynie witryny mogą zajmować biblioteki jednej osoby:
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Miejsce na użytkownika (MB)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Ponowne łączenie…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Utracono połączenie. Spróbuj ponownie, aby kontynuować."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "Brak zgody na przesyłanie"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Wysyłanie zatrzymane"

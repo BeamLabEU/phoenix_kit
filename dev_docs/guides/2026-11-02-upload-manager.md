@@ -156,6 +156,69 @@ Uploads on a component's own socket: pass `cancel_event="cancel_upload"` and
 and calls `cancel_upload/3`. (Uploads on the parent LiveView need only
 `attach/1` there.)
 
+## Resumable uploads (optional)
+
+LiveView's own uploader sends a file in one go and cannot resume it. With
+`PhoenixKitWeb.ResumableUpload` the file travels in chunks the server keeps
+(`resumable_upload.ex`, one file: a Plug, the store, and the `external:`
+function). The manager then:
+
+* **pauses a file where it is** and resumes from there (the chunk on its way
+  is dropped and sent again; at most one chunk, 2 MiB by default, is repeated);
+* **retries a dropped connection** by itself (1 s, 2 s, 4 s ... 30 s, six
+  tries; offline waits for the browser to come back) and says "Reconnecting";
+* **carries on after a reload**: the same file picked again, by the same
+  person, is the same upload, and the server says how much it already has.
+  In the media browser the files the page stashed before it went away are
+  offered again with Resume, so even the re-pick is one click (up to the
+  stash's size limit);
+* **checks every chunk** (SHA-256 when the browser has Web Crypto), writes it
+  only at the exact end of the file (a repeated or late chunk gets `409` and
+  the right offset), and never writes past the declared size.
+
+Turn it on for one upload with three small things:
+
+```elixir
+allow_upload(:photos, ..., external: PhoenixKitWeb.ResumableUpload.external())
+# the progress callback:
+PhoenixKitWeb.ResumableUpload.consume(socket, entry, fn %{path: path} -> ... {:ok, x} end)
+```
+
+```heex
+<.upload_manager id="photos" upload={@uploads.photos} resumable />
+```
+
+`consume/3` is `consume_uploaded_entry/3` that also deletes the assembled file
+when the callback returns `{:ok, _}`; the meta's `path` is that file, so a
+callback written for LiveView's own uploader needs no change. PhoenixKit mounts
+the plug itself (`/api/resumable-uploads`) and the media browser, the selector
+page and the picker use it unless an admin turns off *Resumable uploads* in
+Settings -> Media.
+
+Anywhere else:
+
+1. Copy `lib/phoenix_kit_web/uploads/resumable_upload.ex` (needs only `plug`,
+   `phoenix` and `jason`; rename the module; `external/1` takes `base:` and
+   `owner:` so no PhoenixKit call is left in use).
+2. Mount it: `forward "/uploads", MyAppWeb.ResumableUpload` in the router, and
+   pass `base: "/uploads"` to `external/1`. The endpoint's `Plug.Parsers` must
+   let `application/octet-stream` through (`pass: ["*/*"]`, the generated
+   default). The signed token uses the endpoint's `secret_key_base`.
+3. `owner:` is `fn socket -> some_id end`; no owner, no upload. The default
+   reads PhoenixKit's signed-in user.
+
+Limits to know:
+
+* Partial files live in `config :phoenix_kit, :resumable_upload_dir` (default
+  `System.tmp_dir!/phoenix_kit_resumable`) and are swept after a day without a
+  chunk. Point it at a disk with room for the largest batch.
+* Chunks go to one server: behind a load balancer without sticky routing,
+  chunks of a file must reach the same node (the partial file is local).
+* Browsers only reopen files the page stashed or the user picks again; none can
+  read a path by itself.
+* Cancelling a file in the manager deletes its partial file; closing the tab or
+  a failure does not (that is the point).
+
 ## How the script and the markup talk
 
 The component renders one `<span data-pk-upload-entry>` per LiveView upload
@@ -186,7 +249,7 @@ Found while building it, handled in the script:
 
 ## Taking it to another project
 
-Two files, nothing else: `upload_manager.ex` (needs `Phoenix.Component`, a
+Two files (three with resumable uploads, see above), nothing else: `upload_manager.ex` (needs `Phoenix.Component`, a
 gettext backend and an `icon/1` component) and
 `priv/static/assets/phoenix_kit_upload_manager.js`, which registers the hook
 `UploadManager` in `window.PhoenixKitHooks`. Import the script in `app.js` and

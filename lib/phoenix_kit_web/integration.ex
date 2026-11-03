@@ -388,6 +388,14 @@ defmodule PhoenixKitWeb.Integration do
         get "/assets/:file", AssetsController, :serve
       end
 
+      # Resumable uploads: chunks of a file the upload manager is sending. No
+      # pipeline, no session, no CSRF: the plug accepts only a request that
+      # carries the signed token LiveView handed the browser (see
+      # `PhoenixKitWeb.ResumableUpload`).
+      scope unquote(url_prefix) do
+        forward "/api/resumable-uploads", PhoenixKitWeb.ResumableUpload
+      end
+
       # Router-served fallback for phoenix_kit_catalogue's vendored PDF.js
       # viewer. Served at the literal `/_pdfjs` path (no prefix/locale) so it
       # matches the same URL the catalogue's iframe + endpoint `Plug.Static`

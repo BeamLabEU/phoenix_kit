@@ -575,6 +575,22 @@
               />
             </div>
 
+            <%!-- Resumable uploads --%>
+            <div class="fieldset">
+              <.checkbox
+                name="form_resumable_uploads"
+                checked={@form_resumable_uploads}
+                phx-click="toggle_form_resumable_uploads"
+                label={gettext("Resumable uploads")}
+              >
+                <:description>
+                  {gettext(
+                    "Send files in pieces the server keeps. A paused upload goes on from where it stopped, and a lost connection or a reloaded page does not start a file over. With this off, files are sent whole by LiveView's own uploader."
+                  )}
+                </:description>
+              </.checkbox>
+            </div>
+
             <%!-- Trash retention --%>
             <div class="fieldset">
               <div class="mb-2">
@@ -621,6 +637,7 @@
               @form_max_upload_size_mb == @max_upload_size_mb and
               @form_max_upload_files == @max_upload_files and
               @form_max_concurrent_uploads == @max_concurrent_uploads and
+              @form_resumable_uploads == @resumable_uploads and
               @form_trash_retention_days == @trash_retention_days and
               @form_bucket_log_retention_days == @bucket_log_retention_days %>
           <div class="fieldset mt-4">

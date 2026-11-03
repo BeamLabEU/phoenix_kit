@@ -145,6 +145,7 @@
                   id={"#{@id}-upload-manager"}
                   upload={@uploads.media_files}
                   max_concurrent={PhoenixKit.Modules.Storage.max_concurrent_uploads()}
+                  resumable={is_function(@uploads.media_files.external)}
                   dropzone={false}
                   layout={:inline}
                   scope="parent"

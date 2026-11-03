@@ -204,6 +204,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
   # ---------------------------------------------------------------------------
 
   setup do
+    # LiveView's own uploader: `render_upload` sends the bytes over its channel.
+    {:ok, _} = PhoenixKit.Settings.update_setting("storage_resumable_uploads", "false")
     :persistent_term.erase(@buckets_cache)
     n = System.unique_integer([:positive])
     root = Path.join(System.tmp_dir!(), "pk_picker_#{n}")

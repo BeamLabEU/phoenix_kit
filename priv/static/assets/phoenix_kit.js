@@ -13785,6 +13785,10 @@ if (typeof window.Chart === "undefined") {
   function UploadQueue(opts) {
     opts = opts || {};
     this.cap = clamp(opts.cap == null ? 5 : opts.cap, 1, HARD_CAP);
+    // Files travel in resumable chunks (see ChunkJob): pausing one keeps its
+    // place, and the transfer retries by itself, so the stall watchdog stands
+    // down.
+    this.resumable = !!opts.resumable;
     this.items = [];
     this.nextId = 1;
     this.paused = false;
@@ -13821,7 +13825,11 @@ if (typeof window.Chart === "undefined") {
         started: false,
         progressAt: null,
         attempts: 0,
-        error: null
+        error: null,
+        // Paused or skipped while sending, keeping its place (resumable only).
+        soft: false,
+        // Bytes the server already had when this transfer started.
+        base: 0
       };
       this.items.push(item);
       added.push(item);
@@ -13862,6 +13870,7 @@ if (typeof window.Chart === "undefined") {
       it.progressAt = now;
       it.ref = null;
       it.bytes = 0;
+      it.base = 0;
       out.push(it);
     }
     if (out.length && this.tune.probeStart == null) this.tune.probeStart = now;
@@ -13901,6 +13910,7 @@ if (typeof window.Chart === "undefined") {
     for (i = 0; i < sending.length; i++) {
       var item = sending[i];
       var row = matched[item.id];
+      if (item.progressAt == null) item.progressAt = now;
 
       if (row) {
         item.seen = true;
@@ -13931,7 +13941,7 @@ if (typeof window.Chart === "undefined") {
       if (item.state === "uploading") {
         var waited = now - item.progressAt;
         var limit = item.bytes > 0 ? STALL_MS : START_WAIT_MS;
-        if (item.seen && waited > limit) {
+        if (item.seen && waited > limit && !this.resumable) {
           if (item.ref) cancel.push(item.ref);
           this._stalled(item);
         }
@@ -13985,7 +13995,7 @@ if (typeof window.Chart === "undefined") {
   UploadQueue.prototype._finish = function(item) {
     item.state = "done";
     item.bytes = item.size;
-    this.doneBytes += item.size;
+    this.doneBytes += Math.max(0, item.size - item.base);
   };
 
   // Bytes moved so far, over every file in the batch: finished ones in full,
@@ -13993,7 +14003,8 @@ if (typeof window.Chart === "undefined") {
   UploadQueue.prototype.movedBytes = function() {
     var b = this.doneBytes;
     for (var i = 0; i < this.items.length; i++) {
-      if (this.items[i].state === "uploading") b += this.items[i].bytes;
+      // What the server already had when a resumed file began is not speed.
+      if (this.items[i].state === "uploading") b += Math.max(0, this.items[i].bytes - this.items[i].base);
     }
     return b;
   };
@@ -14108,7 +14119,7 @@ if (typeof window.Chart === "undefined") {
 
   UploadQueue.prototype.resume = function(id) {
     var it = this.get(id);
-    if (it && it.state === "paused") it.state = "queued";
+    if (it && it.state === "paused") this._unsoft(it, "queued");
     return null;
   };
 
@@ -14120,7 +14131,7 @@ if (typeof window.Chart === "undefined") {
 
   UploadQueue.prototype.restore = function(id) {
     var it = this.get(id);
-    if (it && it.state === "skipped") it.state = "queued";
+    if (it && it.state === "skipped") this._unsoft(it, "queued");
     return null;
   };
 
@@ -14132,7 +14143,7 @@ if (typeof window.Chart === "undefined") {
 
   UploadQueue.prototype.retry = function(id) {
     var it = this.get(id);
-    if (it && it.state === "failed") { it.state = "queued"; it.error = null; it.bytes = 0; it.seen = false; it.started = false; it.ref = null; it.attempts = 0; }
+    if (it && it.state === "failed") { it.state = "queued"; it.error = null; it.bytes = 0; it.base = 0; it.seen = false; it.started = false; it.ref = null; it.attempts = 0; }
     return null;
   };
 
@@ -14140,6 +14151,7 @@ if (typeof window.Chart === "undefined") {
   UploadQueue.prototype.prioritize = function(id) {
     var it = this.get(id);
     if (!it || (it.state !== "queued" && it.state !== "paused")) return null;
+    if (it.soft) { this._unsoft(it, "queued"); return null; }
     it.state = "queued";
     var from = this.items.indexOf(it);
     this.items.splice(from, 1);
@@ -14149,9 +14161,30 @@ if (typeof window.Chart === "undefined") {
     return null;
   };
 
+  // A file that kept its place while stopped goes on from it; any other
+  // goes back in the line.
+  UploadQueue.prototype._unsoft = function(it, otherwise) {
+    if (it.soft) {
+      it.soft = false;
+      it.state = "uploading";
+      it.progressAt = null;
+    } else {
+      it.state = otherwise;
+    }
+  };
+
   UploadQueue.prototype._stop = function(it, state) {
-    var ref = it.state === "uploading" ? it.ref : null;
+    // Resumable: a pause or a skip stops the transfer where it is and keeps
+    // the entry, so it can go on from there. Cancelling lets go of it.
+    if (this.resumable && it.state === "uploading" && it.ref && (state === "paused" || state === "skipped")) {
+      it.soft = true;
+      it.state = state;
+      return null;
+    }
+    var ref = (it.state === "uploading" || it.soft) ? it.ref : null;
     if (ref) this.stale[ref] = true;
+    it.soft = false;
+    it.base = 0;
     it.state = state;
     it.bytes = 0;
     it.seen = false;
@@ -14273,6 +14306,248 @@ if (typeof window.Chart === "undefined") {
   }
 
   // --------------------------------------------------------------------------
+  // Resumable transfer. For an upload whose server side names `external:
+  // ResumableUpload.external()`, LiveView hands each entry here instead of
+  // opening its own channel. A file goes in chunks; the server keeps what it
+  // has and says where it ends, so a pause, a dropped connection or a page
+  // that was reloaded carries on from that point and not from the start.
+  // The manager steers a job by entry ref (pause / resume / discard); a job
+  // reports through LiveView's own `entry.progress`, so the server side and
+  // the manager read it as any other upload.
+  // --------------------------------------------------------------------------
+  var CHUNK_RETRY_MS = [1000, 2000, 4000, 8000, 15000, 30000];
+  var CHUNK_TIMEOUT_MS = 120000;
+  var jobs = {};
+
+  function sleep(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+  function hex(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) out += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+    return out;
+  }
+
+  function ChunkJob(entry) {
+    this.entry = entry;
+    this.meta = entry.meta || {};
+    this.file = entry.file;
+    this.size = entry.file.size;
+    this.chunk = Math.max(64 * 1024, parseInt(this.meta.chunk_size, 10) || 2 * 1024 * 1024);
+    this.offset = 0;
+    this.start = 0;
+    this.inflight = 0;
+    this.synced = false;
+    this.sentEmpty = false;
+    this.paused = false;
+    this.stopped = false;
+    this.failures = 0;
+    this.status = "starting";
+    this.xhr = null;
+    this.waiters = [];
+    jobs[entry.ref] = this;
+  }
+
+  // One request. Resolves {status, offset}; rejects {aborted} / {network}.
+  ChunkJob.prototype.request = function(method, headers, body) {
+    var self = this;
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      self.xhr = xhr;
+      xhr.open(method, self.meta.url, true);
+      xhr.timeout = CHUNK_TIMEOUT_MS;
+      xhr.setRequestHeader("x-upload-token", self.meta.token);
+      Object.keys(headers || {}).forEach(function(k) { xhr.setRequestHeader(k, headers[k]); });
+      if (xhr.upload && body) {
+        xhr.upload.onprogress = function(e) {
+          if (e.lengthComputable) { self.inflight = e.loaded; self.report(); }
+        };
+      }
+      xhr.onload = function() {
+        self.xhr = null;
+        var off = parseInt(xhr.getResponseHeader("upload-offset"), 10);
+        resolve({ status: xhr.status, offset: isFinite(off) ? off : null });
+      };
+      xhr.onerror = xhr.ontimeout = function() { self.xhr = null; reject({ network: true }); };
+      xhr.onabort = function() { self.xhr = null; reject({ aborted: true }); };
+      xhr.send(body || null);
+    });
+  };
+
+  ChunkJob.prototype.sync = function() {
+    var self = this;
+    return this.request("GET").then(function(r) {
+      if (r.status === 401 || r.status === 403) throw { fatal: "unauthorized" };
+      if (r.status !== 200 || r.offset == null) throw { network: true };
+      self.offset = Math.min(r.offset, self.size);
+      if (!self.synced && self.start === 0) self.start = self.offset;
+      self.synced = true;
+      self.inflight = 0;
+    });
+  };
+
+  ChunkJob.prototype.send = function() {
+    var self = this;
+    var from = this.offset;
+    var blob = this.file.slice(from, Math.min(from + this.chunk, this.size));
+    var headers = { "upload-offset": String(from), "content-type": "application/octet-stream" };
+    var sum = (window.crypto && window.crypto.subtle && blob.arrayBuffer)
+      ? blob.arrayBuffer().then(function(buf) { return window.crypto.subtle.digest("SHA-256", buf); }).then(hex)
+      : Promise.resolve(null);
+
+    return sum.then(function(h) {
+      if (h) headers["x-chunk-sha256"] = h;
+      if (self.paused || self.stopped) throw { aborted: true };
+      self.inflight = 0;
+      return self.request("PATCH", headers, blob);
+    }).then(function(r) {
+      self.inflight = 0;
+      if (r.status === 200 || r.status === 409) {
+        if (r.offset == null) throw { network: true };
+        self.offset = Math.min(r.offset, self.size);
+        if (self.size === 0) self.sentEmpty = true;
+        return;
+      }
+      if (r.status === 401 || r.status === 403) throw { fatal: "unauthorized" };
+      if (r.status === 413) throw { fatal: "too_large" };
+      // A checksum that did not match, or a server having a bad moment.
+      throw { network: true };
+    });
+  };
+
+  ChunkJob.prototype.report = function() {
+    if (!this.size || this.stopped) return;
+    var sent = Math.min(this.size, this.offset + this.inflight);
+    // 100 is the server's to hear, once the last chunk is acknowledged.
+    this.entry.progress(Math.min(99, Math.floor(sent / this.size * 100)));
+  };
+
+  // Blocks while paused.
+  ChunkJob.prototype.gate = function() {
+    var self = this;
+    if (!this.paused || this.stopped) return Promise.resolve();
+    this.status = "paused";
+    return new Promise(function(resolve) { self.waiters.push(resolve); });
+  };
+
+  ChunkJob.prototype.wake = function() {
+    var w = this.waiters;
+    this.waiters = [];
+    w.forEach(function(fn) { fn(); });
+  };
+
+  ChunkJob.prototype.pause = function() {
+    this.paused = true;
+    this.status = "paused";
+    // The chunk on its way is dropped (the server writes a chunk only whole)
+    // and sent again, from the offset the server confirms, on resume.
+    if (this.xhr) this.xhr.abort();
+  };
+
+  ChunkJob.prototype.resume = function() {
+    this.paused = false;
+    this.synced = false;
+    this.wake();
+  };
+
+  ChunkJob.prototype.stop = function() {
+    this.stopped = true;
+    if (this.xhr) this.xhr.abort();
+    this.wake();
+    delete jobs[this.entry.ref];
+  };
+
+  // Given up on for good: the server's partial file goes too.
+  ChunkJob.prototype.discard = function() {
+    var req = new XMLHttpRequest();
+    var token = this.meta.token;
+    var url = this.meta.url;
+    this.stop();
+    try {
+      req.open("DELETE", url, true);
+      req.setRequestHeader("x-upload-token", token);
+      req.send();
+    } catch (_e) { /* the sweep will get it */ }
+  };
+
+  ChunkJob.prototype.backoff = function() {
+    var delay = CHUNK_RETRY_MS[Math.min(this.failures, CHUNK_RETRY_MS.length) - 1];
+    // Offline is not a failure to count: wait for the network to come back.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return new Promise(function(resolve) {
+        var done = function() { window.removeEventListener("online", done); resolve(); };
+        window.addEventListener("online", done);
+        setTimeout(done, 30000);
+      });
+    }
+    return sleep(delay);
+  };
+
+  ChunkJob.prototype.run = async function() {
+    var self = this;
+    this.entry.onCancel(function() { self.stop(); });
+    var finished = false;
+
+    while (!this.stopped) {
+      await this.gate();
+      if (this.stopped) break;
+      try {
+        if (!this.synced) {
+          this.status = "starting";
+          await this.sync();
+          this.report();
+        }
+        if (this.offset >= this.size && (this.size > 0 || this.sentEmpty)) { finished = true; break; }
+        this.status = "sending";
+        await this.send();
+        this.failures = 0;
+        this.report();
+      } catch (err) {
+        if (err && err.aborted) { this.synced = false; continue; }
+        if (err && err.fatal) { this.fail(err.fatal); return; }
+        this.synced = false;
+        if (typeof navigator === "undefined" || navigator.onLine !== false) this.failures += 1;
+        if (this.failures > CHUNK_RETRY_MS.length) { this.fail("network"); return; }
+        this.status = "retrying";
+        await this.backoff();
+      }
+    }
+
+    if (finished && !this.stopped) {
+      this.entry.progress(100);
+      this.stop();
+    }
+  };
+
+  ChunkJob.prototype.fail = function(reason) {
+    var entry = this.entry;
+    this.stop();
+    entry.error(reason);
+  };
+
+  function chunkedUploader(entries) {
+    entries.forEach(function(entry) { new ChunkJob(entry).run(); });
+  }
+
+  // The manager's handle on the jobs, by entry ref.
+  var chunked = {
+    pause: function(ref) { if (jobs[ref]) jobs[ref].pause(); },
+    resume: function(ref) { if (jobs[ref]) jobs[ref].resume(); },
+    discard: function(ref) { if (jobs[ref]) jobs[ref].discard(); },
+    info: function(ref) {
+      var j = jobs[ref];
+      return j ? { status: j.status, start: j.start } : null;
+    },
+    // For a page that does not render the manager component but wants the
+    // uploader: `PhoenixKitUploadManager.chunked.register(liveSocket)`.
+    register: function(liveSocket) {
+      if (liveSocket && liveSocket.uploaders && !liveSocket.uploaders.PkChunked) {
+        liveSocket.uploaders.PkChunked = chunkedUploader;
+      }
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // The hook: the page side of it.
   // --------------------------------------------------------------------------
   var UploadManagerHook = {
@@ -14285,7 +14560,9 @@ if (typeof window.Chart === "undefined") {
       this.cancelEvent = d.cancelEvent || "pk_upload_cancel";
       this.cancelTarget = d.cancelTarget || null;
       try { this.labels = JSON.parse(d.labels || "{}"); } catch (_e) { this.labels = {}; }
-      this.queue = new UploadQueue({ cap: d.max });
+      this.resumable = d.resumable === "true";
+      this.queue = new UploadQueue({ cap: d.max, resumable: this.resumable });
+      if (this.resumable) chunked.register(this.liveSocket || window.liveSocket);
       this.rowTemplate = this.el.querySelector('[data-role="row"]');
       this.list = this.el.querySelector('[data-role="list"]');
       this.rowEls = {};
@@ -14380,6 +14657,13 @@ if (typeof window.Chart === "undefined") {
 
     sync: function() {
       var now = Date.now();
+      if (this.resumable) {
+        // A resumed file starts where the server had it: that is not speed.
+        this.queue.items.forEach(function(it) {
+          var inf = it.state === "uploading" && it.ref ? chunked.info(it.ref) : null;
+          if (inf && it.size > 0) it.base = Math.min(it.size, inf.start);
+        });
+      }
       var cancels = this.queue.observe(this._rows(), now);
       for (var i = 0; i < cancels.length; i++) this._cancelEntry(cancels[i]);
 
@@ -14430,24 +14714,35 @@ if (typeof window.Chart === "undefined") {
       var id = li ? parseInt(li.dataset.item, 10) : null;
       var q = this.queue;
       var ref = null;
+      var item = id != null ? q.get(id) : null;
+      var wasSoft = !!(item && item.soft);
+      var itemRef = item ? item.ref : null;
 
       switch (act) {
         case "pause": ref = q.pause(id); break;
         case "resume": q.resume(id); break;
         case "skip": ref = q.skip(id); break;
         case "restore": q.restore(id); break;
-        case "cancel": ref = q.cancel(id); break;
+        case "cancel": ref = q.cancel(id); if (ref) chunked.discard(ref); break;
         case "retry": q.retry(id); break;
         case "prioritize": q.prioritize(id); break;
         case "pause-all": q.pauseAll(); break;
         case "resume-all": q.resumeAll(); break;
-        case "cancel-all": q.cancelAll().forEach(this._cancelEntry.bind(this)); break;
+        case "cancel-all":
+          q.cancelAll().forEach(function(r) { chunked.discard(r); this._cancelEntry(r); }, this);
+          break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;
         case "collapse": this.collapsed = !this.collapsed; break;
         default: return;
       }
       if (ref) this._cancelEntry(ref);
+
+      // Resumable: a transfer stopped or started again in place is told.
+      if (this.resumable && item && itemRef) {
+        if (item.soft && !wasSoft) chunked.pause(itemRef);
+        else if (!item.soft && wasSoft && item.state === "uploading") chunked.resume(itemRef);
+      }
       e.preventDefault();
       this.sync();
     },
@@ -14578,9 +14873,13 @@ if (typeof window.Chart === "undefined") {
         var status;
         switch (it.state) {
           case "queued": status = self._t("st_queued"); break;
-          case "uploading": status = pct + "% · " + formatBytes(it.size); break;
-          case "paused": status = self._t("st_paused"); break;
-          case "skipped": status = self._t("st_skipped"); break;
+          case "uploading": {
+            var inf = self.resumable && it.ref ? chunked.info(it.ref) : null;
+            status = inf && inf.status === "retrying" ? self._t("st_reconnecting") : pct + "% · " + formatBytes(it.size);
+            break;
+          }
+          case "paused": status = self._t("st_paused") + (it.soft && pct > 0 ? " · " + pct + "%" : ""); break;
+          case "skipped": status = self._t("st_skipped") + (it.soft && pct > 0 ? " · " + pct + "%" : ""); break;
           case "done": status = self._t("st_done") + " · " + formatBytes(it.size); break;
           case "cancelled": status = self._t("st_cancelled"); break;
           case "failed": status = self._t("err_" + it.error) !== "err_" + it.error ? self._t("err_" + it.error) : (it.error || self._t("st_failed")); break;
@@ -14589,7 +14888,7 @@ if (typeof window.Chart === "undefined") {
         if (st.textContent !== status) st.textContent = status;
 
         var prog = li.querySelector('[data-role="progress"]');
-        prog.hidden = !(it.state === "uploading" || it.state === "done");
+        prog.hidden = !(it.state === "uploading" || it.state === "done" || (it.soft && pct > 0));
         prog.value = pct;
 
         var allowed = {
@@ -14618,6 +14917,8 @@ if (typeof window.Chart === "undefined") {
     fileKey: fileKey,
     formatBytes: formatBytes,
     formatDuration: formatDuration,
+    ChunkJob: ChunkJob,
+    chunked: chunked,
     hook: UploadManagerHook
   };
 

@@ -41,6 +41,7 @@
     id={dom_id(assigns, "upload-manager")}
     upload={@parent_uploads[@upload_name]}
     max_concurrent={@max_concurrent_uploads}
+    resumable={is_function(@parent_uploads[@upload_name].external)}
     dropzone={false}
     scope="parent"
   />

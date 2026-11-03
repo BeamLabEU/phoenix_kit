@@ -24037,3 +24037,19 @@ msgstr "Quanto spazio di archiviazione del sito possono usare le librerie di cia
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Spazio per utente (MB)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Riconnessione…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Connessione persa. Riprova per continuare."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "Caricamento non consentito"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Invio interrotto"
