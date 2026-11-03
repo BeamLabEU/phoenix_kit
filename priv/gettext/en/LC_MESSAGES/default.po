@@ -24036,6 +24036,7 @@ msgstr ""
 #: lib/modules/storage/web/libraries_component.ex:506
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
+msgstr ""
 
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Reconnecting…"
@@ -24051,7 +24052,6 @@ msgstr ""
 
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
 msgid "Stopped sending"
-
 msgstr ""
 
 #: lib/phoenix_kit_web/components/core/upload_manager.ex
