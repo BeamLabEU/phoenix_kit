@@ -121,6 +121,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.TreeQuery
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
   alias PhoenixKitWeb.ResumableUpload
 
   import Ecto.Query
@@ -243,7 +244,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         socket
 
       has_buckets ->
-        allow_upload(
+        UploadManager.allow_upload(
           socket,
           :media_files,
           upload_options(accept_for(socket.assigns[:file_type_filter]))
@@ -256,16 +257,13 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   end
 
   defp upload_options(accept) do
-    options = [
+    [
       accept: accept,
       max_entries: Storage.max_upload_files(),
-      auto_upload: true,
-      progress: &handle_progress/3
+      max_file_size: Storage.max_upload_size_mb() * 1_000_000,
+      progress: &handle_progress/3,
+      resumable: Storage.resumable_uploads?()
     ]
-
-    if Storage.resumable_uploads?(),
-      do: Keyword.put(options, :external, ResumableUpload.external()),
-      else: options
   end
 
   # The upload `accept` list is fixed at allow_upload time, so the OS file
@@ -280,7 +278,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     if socket.assigns.has_buckets && config && config.entries == [] do
       socket
       |> disallow_upload(:media_files)
-      |> allow_upload(:media_files, upload_options(accept_for(filter)))
+      |> UploadManager.allow_upload(:media_files, upload_options(accept_for(filter)))
     else
       socket
     end

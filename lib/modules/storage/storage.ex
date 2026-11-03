@@ -6142,6 +6142,26 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
+  The largest file one upload may carry, in megabytes
+  (`storage_max_upload_size_mb`, default 500). LiveView refuses what is larger
+  before a byte is sent; an upload that names no `max_file_size` of its own is
+  held to LiveView's 8 MB default instead, so every upload says this.
+  """
+  @spec max_upload_size_mb() :: pos_integer()
+  def max_upload_size_mb do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_upload_size_mb", "500"))
+         ) do
+      {n, _} when n > 0 -> n
+      _ -> 500
+    end
+  rescue
+    _ -> 500
+  catch
+    :exit, _ -> 500
+  end
+
+  @doc """
   Whether uploads travel in resumable chunks (`storage_resumable_uploads`,
   default on): a paused file goes on from where it stopped, and a dropped
   connection or a reloaded page does not start it over. Off, uploads use

@@ -4,18 +4,70 @@
 per-file controls for any Phoenix LiveView upload. Used by the media browser and
 both media pickers; usable anywhere else, and portable (see the end).
 
-## Quick start (in a PhoenixKit app)
+## For an AI agent: how to add this to a page
 
-1. Nothing to install: `use PhoenixKitWeb, :live_view` already imports
-   `upload_manager/1`, and `phoenix_kit.js` already registers the
-   `UploadManager` hook.
-2. In `mount`, declare the upload and attach the manager:
-   `allow_upload(:photos, accept: :any, max_entries: 100, auto_upload: true, progress: &handle_progress/3) |> UploadManager.attach()`.
-3. In `handle_progress/3`, store a finished entry with `consume_uploaded_entry/3`
-   (`if entry.done?`). The manager treats a consumed entry as done.
-4. In the template: `<.upload_manager id="photo-uploads" upload={@uploads.photos} max_concurrent={5} />`.
-   The id must be unique on the page. For a limit an admin can change, read it
-   with `PhoenixKit.Modules.Storage.max_concurrent_uploads/0`.
+Read this section and the module doc of `PhoenixKitWeb.Components.Core.UploadManager`;
+nothing else is needed. In a PhoenixKit app there is nothing to install: the
+component is imported by `use PhoenixKitWeb, :live_view` / `:live_component`,
+the script is part of `phoenix_kit.js`, and the route for chunks is mounted.
+
+1. **Mount** (the one call; `accept` and `max_file_size` are yours to decide,
+   LiveView's default size limit is 8 MB, which is almost never what you want):
+
+   ```elixir
+   alias PhoenixKitWeb.Components.Core.UploadManager
+   alias PhoenixKitWeb.ResumableUpload
+
+   socket
+   |> UploadManager.allow_upload(:photos,
+     accept: ~w(.jpg .png),
+     max_entries: PhoenixKit.Modules.Storage.max_upload_files(),
+     max_file_size: PhoenixKit.Modules.Storage.max_upload_size_mb() * 1_000_000,
+     progress: &handle_progress/3
+   )
+   ```
+
+2. **Store** in the progress callback. `consume/3` is `consume_uploaded_entry/3`
+   that also deletes the assembled file once your function returns `{:ok, _}`:
+
+   ```elixir
+   def handle_progress(:photos, entry, socket) do
+     if entry.done? do
+       ResumableUpload.consume(socket, entry, fn %{path: path} ->
+         {:ok, MyApp.store!(path, entry.client_name)}
+       end)
+     end
+
+     {:noreply, socket}
+   end
+   ```
+
+3. **Render**:
+
+   ```heex
+   <.upload_manager id="photos" upload={@uploads.photos}
+     max_concurrent={PhoenixKit.Modules.Storage.max_concurrent_uploads()} />
+   ```
+
+   A page that already has its own `<.live_file_input>`: add `dropzone={false}`.
+   In a LiveComponent, add `cancel_event="cancel_upload" cancel_target={@myself}`
+   and answer that event with `cancel_upload/3`.
+
+4. **Optional**: `notify_event="batch_done"` (an event to your LiveView when a
+   batch ends), `position={:bottom_left}`, `layout={:inline}`,
+   `remember_scope={user_uuid}`. See "Telling the page" below.
+
+Mistakes to avoid: calling `consume_uploaded_entry/3` directly on a resumable
+upload (the assembled file is then never deleted; use `ResumableUpload.consume/3`),
+leaving out `max_file_size`, giving two uploads on one page the same component
+`id`, and rendering the component inside something with `phx-update="ignore"`.
+
+Check it: `node --test test/js/upload_manager_*.test.cjs` (the script),
+`mix test test/phoenix_kit_web/components/core/upload_manager_test.exs` and
+`test/phoenix_kit_web/uploads` (the component, the plug). Real examples to
+copy: `media_selector.ex` (a LiveView) and `media_selector_modal.ex` (a
+LiveComponent). In a browser, a pick must show the panel; if files upload with
+no panel, the hook is not registered.
 
 ## Quick start (in any other Phoenix 1.8 / LiveView 1.x project)
 
@@ -183,17 +235,9 @@ function). The manager then:
   only at the exact end of the file (a repeated or late chunk gets `409` and
   the right offset), and never writes past the declared size.
 
-Turn it on for one upload with three small things:
-
-```elixir
-allow_upload(:photos, ..., external: PhoenixKitWeb.ResumableUpload.external())
-# the progress callback:
-PhoenixKitWeb.ResumableUpload.consume(socket, entry, fn %{path: path} -> ... {:ok, x} end)
-```
-
-```heex
-<.upload_manager id="photos" upload={@uploads.photos} resumable />
-```
+`UploadManager.allow_upload/3` turns it on by default (`resumable: false` opts
+out); the component notices by itself. Finished entries are consumed with
+`ResumableUpload.consume/3`, as in the agent section above.
 
 `consume/3` is `consume_uploaded_entry/3` that also deletes the assembled file
 when the callback returns `{:ok, _}`; the meta's `path` is that file, so a
@@ -225,6 +269,34 @@ Limits to know:
   read a path by itself.
 * Cancelling a file in the manager deletes its partial file; closing the tab or
   a failure does not (that is the point).
+
+## Telling the page
+
+Two ways to hear what the manager does, neither needs the page to read its
+internals:
+
+* **DOM events**, fired on the panel and bubbling, with details in
+  `event.detail`: `pk-upload:file-done` and `pk-upload:file-failed`
+  (`{name, size, key, error}`), and `pk-upload:batch-complete` when the last
+  thing in flight ends (`{done, failed, cancelled, skipped, total, bytes}`).
+* **An event to the LiveView**: `notify_event="batch_done"` pushes
+  `batch-complete`'s detail as string keys to `handle_event("batch_done", params, socket)`;
+  `notify_target={@myself}` sends it to a component instead.
+
+A retry that fails again is announced again; a file is never announced twice
+for the same outcome.
+
+## Unfinished uploads
+
+When a page is reloaded, closed or loses the network while files are waiting or
+sending, the manager remembers (in this browser's `localStorage`: names and
+sizes, no bytes, for a day, per page, upload and `remember_scope`) which files
+did not make it. On the next visit the panel opens as "Unfinished uploads":
+*Didn't finish: a.mp4, b.mov. Choose the files again to continue.* with a
+*Choose files* button. Picking a file again (the same name, size and date)
+takes it off the list, and with resumable uploads it carries on from where the
+server has it. The X forgets the list. `remember={false}` turns it off; the
+media browser does, because it has its own panel for this.
 
 ## How the script and the markup talk
 

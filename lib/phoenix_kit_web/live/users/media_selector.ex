@@ -90,23 +90,19 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       |> assign(:selection_mode, mode)
       |> assign(:selected_uuids, selected_uuids)
       |> assign(:scope_folder, scope_folder)
-      |> allow_upload(:media_files, upload_options())
-      |> UploadManager.attach()
+      |> UploadManager.allow_upload(:media_files, upload_options())
 
     {:ok, socket}
   end
 
   defp upload_options do
-    options = [
+    [
       accept: :any,
       max_entries: Storage.max_upload_files(),
-      auto_upload: true,
-      progress: &handle_progress/3
+      max_file_size: Storage.max_upload_size_mb() * 1_000_000,
+      progress: &handle_progress/3,
+      resumable: Storage.resumable_uploads?()
     ]
-
-    if Storage.resumable_uploads?(),
-      do: Keyword.put(options, :external, ResumableUpload.external()),
-      else: options
   end
 
   # The list is loaded here rather than in mount/3: UrlState calls this after

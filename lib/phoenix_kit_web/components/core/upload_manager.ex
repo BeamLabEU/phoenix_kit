@@ -24,18 +24,22 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
 
       # mount
       socket
-      |> allow_upload(:photos, accept: :any, max_entries: 100, auto_upload: true,
-           progress: &handle_progress/3)
-      |> PhoenixKitWeb.Components.Core.UploadManager.attach()
+      |> PhoenixKitWeb.Components.Core.UploadManager.allow_upload(:photos,
+        accept: :any,
+        max_entries: 100,
+        max_file_size: 50_000_000,
+        progress: &handle_progress/3
+      )
 
       # template
       <.upload_manager id="photo-uploads" upload={@uploads.photos} max_concurrent={5} />
 
   That renders the drop zone and the panel. Consume the finished entries in
-  the `progress:` callback as usual (`consume_uploaded_entry/3`); the manager
-  counts an entry as done when it is consumed. `attach/1` handles the cancel
-  button for every upload on the page with a hook, so the LiveView needs no
-  event of its own.
+  the `progress:` callback with `PhoenixKitWeb.ResumableUpload.consume/3` (it
+  is `consume_uploaded_entry/3`, and also removes the assembled file); the
+  manager counts an entry as done when it is consumed. `allow_upload/3`
+  attaches a hook that answers the cancel button for every upload on the page,
+  so the LiveView needs no event of its own.
 
   Inside a LiveComponent, or anywhere an event must go to a particular
   target, name it: `cancel_target={@myself}` and `cancel_event="cancel_upload"`
@@ -66,6 +70,13 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
       in, the default without a drop zone: for a page whose own input sits
       beside it) or a CSS selector
     * `cancel_event`, `cancel_target` — see above
+    * `notify_event`, `notify_target` — an event pushed to the LiveView (or the
+      target) when a batch ends, with `done`, `failed`, `cancelled`, `skipped`,
+      `total` and `bytes`. The panel also fires `pk-upload:file-done`,
+      `pk-upload:file-failed` and `pk-upload:batch-complete` DOM events.
+    * `remember`, `remember_scope` — after a reload, list the files that did not
+      finish and offer to pick them again (names and sizes in `localStorage`;
+      on by default; `remember_scope` keeps people apart)
     * `class` — extra classes for the panel
     * `accept_description`, `max_size_description` — hints under the drop zone
 
@@ -103,9 +114,25 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
   attr :scope, :string, default: nil
 
   attr :resumable, :boolean,
-    default: false,
+    default: nil,
     doc:
-      "the upload names `external: PhoenixKitWeb.ResumableUpload.external()`: pausing keeps a file's place and a lost connection carries on"
+      "pausing keeps a file's place and a lost connection carries on. Found out from the upload itself (`allow_upload/3` below, or `external: PhoenixKitWeb.ResumableUpload.external()`); set it only to override"
+
+  attr :notify_event, :string,
+    default: nil,
+    doc:
+      "an event pushed to the LiveView when a batch ends: `%{\"done\" => n, \"failed\" => n, \"cancelled\" => n, \"skipped\" => n, \"total\" => n, \"bytes\" => n}`"
+
+  attr :notify_target, :any, default: nil, doc: "where `notify_event` goes (e.g. `@myself`)"
+
+  attr :remember, :boolean,
+    default: true,
+    doc:
+      "after a reload, say which files did not finish and offer to pick them again (kept in the browser's localStorage: names and sizes, no bytes)"
+
+  attr :remember_scope, :string,
+    default: "",
+    doc: "keeps that memory apart per person, e.g. the signed-in user's id"
 
   attr :cancel_event, :string, default: @cancel_event
   attr :cancel_target, :any, default: nil
@@ -118,6 +145,7 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
     assigns =
       assigns
       |> assign(:max, clamp(assigns.max_concurrent))
+      |> assign(:resumable, resolve_resumable(assigns.resumable, assigns.upload))
       |> assign(:scope, assigns.scope || if(assigns.dropzone, do: "self", else: "parent"))
       |> assign(:labels, labels())
       |> assign(:entries_id, assigns.id <> "-entries")
@@ -178,6 +206,10 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
         data-upload-name={@upload.name}
         data-max={@max}
         data-resumable={to_string(@resumable)}
+        data-notify-event={@notify_event}
+        data-notify-target={target_selector(@notify_target)}
+        data-remember={to_string(@remember)}
+        data-remember-scope={@remember_scope}
         data-entries={@entries_id}
         data-scope={@scope}
         data-cancel-event={@cancel_event}
@@ -236,13 +268,26 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
             </button>
           </div>
 
-          <progress
-            class="progress progress-primary h-1 w-full rounded-none"
-            aria-label={gettext("Upload progress")}
-            data-role="total"
-            value="0"
-            max="1"
-          ></progress>
+          <div class="px-3 pt-2" data-role="total-wrap">
+            <progress
+              class="progress progress-primary h-1.5 w-full"
+              aria-label={gettext("Upload progress")}
+              data-role="total"
+              value="0"
+              max="1"
+            ></progress>
+          </div>
+
+          <div
+            data-role="unfinished"
+            hidden
+            class="mx-3 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-box bg-warning/10 px-3 py-2 text-xs"
+          >
+            <p class="min-w-0 flex-1" data-role="unfinished-text"></p>
+            <button type="button" data-act="pick-unfinished" class="btn btn-warning btn-xs">
+              {gettext("Choose files")}
+            </button>
+          </div>
 
           <div class="flex flex-wrap items-center gap-1 px-3 py-1.5 text-xs" data-role="controls">
             <button type="button" data-act="pause-all" hidden class="btn btn-ghost btn-xs gap-1">
@@ -369,8 +414,65 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
   """
   @spec attach(LiveView.Socket.t()) :: LiveView.Socket.t()
   def attach(socket) do
-    LiveView.attach_hook(socket, :pk_upload_manager, :handle_event, &handle_cancel/3)
+    # Once per socket, however many uploads the page has.
+    socket
+    |> LiveView.detach_hook(:pk_upload_manager, :handle_event)
+    |> LiveView.attach_hook(:pk_upload_manager, :handle_event, &handle_cancel/3)
   end
+
+  @doc """
+  `Phoenix.LiveView.allow_upload/3` set up for the manager, in one call: the
+  upload starts by itself (`auto_upload: true`), is resumable, and the manager's
+  cancel handling is attached.
+
+      socket
+      |> UploadManager.allow_upload(:photos,
+        max_entries: 100,
+        max_file_size: 50_000_000,
+        progress: &handle_progress/3
+      )
+
+  Options are `allow_upload/3`'s, plus `:resumable`: `true` (the default) sends
+  files in chunks the server keeps (`PhoenixKitWeb.ResumableUpload`; its route
+  must be mounted, which PhoenixKit does itself), `false` uses LiveView's own
+  uploader, a keyword list is passed to `ResumableUpload.external/1`
+  (`owner:`, `base:`, `chunk_size:`). An `:external` you give is left alone.
+  Consume finished entries with `PhoenixKitWeb.ResumableUpload.consume/3`, which
+  also works for a non-resumable upload.
+  """
+  @spec allow_upload(LiveView.Socket.t(), atom(), keyword()) :: LiveView.Socket.t()
+  def allow_upload(socket, name, opts \\ []) do
+    {resumable, opts} = Keyword.pop(opts, :resumable, true)
+    opts = Keyword.put_new(opts, :auto_upload, true)
+
+    opts =
+      cond do
+        Keyword.has_key?(opts, :external) ->
+          opts
+
+        resumable == false ->
+          opts
+
+        resumable == true ->
+          Keyword.put(opts, :external, PhoenixKitWeb.ResumableUpload.external())
+
+        is_list(resumable) ->
+          Keyword.put(opts, :external, PhoenixKitWeb.ResumableUpload.external(resumable))
+      end
+
+    socket
+    |> LiveView.allow_upload(name, opts)
+    |> attach()
+  end
+
+  # An upload is resumable when its `external` function is the one
+  # `ResumableUpload.external/1` builds: a closure defined in that module.
+  # Named by atom, not called, so this file does not need the other to compile.
+  defp resolve_resumable(nil, %{external: fun}) when is_function(fun),
+    do: Function.info(fun, :module) == {:module, PhoenixKitWeb.ResumableUpload}
+
+  defp resolve_resumable(nil, _upload), do: false
+  defp resolve_resumable(value, _upload), do: value == true
 
   @doc false
   # Public so the event can be tested without a running LiveView.
@@ -445,6 +547,13 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
       summary_finished:
         gettext("%{done} of %{total} uploaded", done: "%{done}", total: "%{total}"),
       summary_all_done: gettext("✓ %{count} uploaded", count: "%{count}"),
+      unfinished_title: gettext("Unfinished uploads"),
+      unfinished:
+        gettext("Didn't finish: %{names}. Choose the files again to continue.",
+          names: "%{names}"
+        ),
+      unfinished_more:
+        gettext("%{names} and %{count} more", names: "%{names}", count: "%{count}"),
       confirm_cancel_all: gettext("Cancel the uploads in progress?"),
       at_once: gettext("%{count} at once", count: "%{count}"),
       eta: gettext("%{time} left", time: "%{time}"),

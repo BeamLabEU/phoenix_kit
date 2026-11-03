@@ -527,6 +527,39 @@
     for (var i = 0; i < this.items.length; i++) this.retry(this.items[i].id);
   };
 
+  // What happened since the last call, for the page to hear about: each file
+  // that finished or failed (once each; a retry that fails again is news
+  // again) and, when the last thing in flight ends, the batch.
+  UploadQueue.prototype.takeNotices = function() {
+    var out = { files: [], batch: null };
+    var live = false;
+    var done = 0, failed = 0, cancelled = 0, skipped = 0, bytes = 0;
+
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.state === "queued" || it.state === "uploading" || it.state === "paused") live = true;
+      if (it.state === "done") { done++; bytes += it.size; }
+      if (it.state === "failed") failed++;
+      if (it.state === "cancelled") cancelled++;
+      if (it.state === "skipped") skipped++;
+
+      if (it.state === "done" || it.state === "failed") {
+        if (it.notified !== it.state) {
+          it.notified = it.state;
+          out.files.push({ type: it.state, name: it.name, size: it.size, key: it.key, error: it.error || null });
+        }
+      } else {
+        it.notified = null;
+      }
+    }
+
+    if (this.wasLive && !live) {
+      out.batch = { done: done, failed: failed, cancelled: cancelled, skipped: skipped, total: this.items.length, bytes: bytes };
+    }
+    this.wasLive = live;
+    return out;
+  };
+
   // Closes the panel's list once nothing is waiting on the user: everything
   // left (done, cancelled, failed) goes. Files still queued, sending, paused
   // or skipped stay.
@@ -598,6 +631,36 @@
       paused: this.paused
     };
   };
+
+  // The files that have not made it: waiting, sending, stopped, skipped or
+  // failed. What the page remembers across a reload.
+  function unfinishedOf(items) {
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.state === "queued" || it.state === "uploading" || it.state === "paused" || it.state === "skipped" || it.state === "failed") {
+        out.push({ key: it.key, name: it.name, size: it.size });
+      }
+    }
+    return out;
+  }
+
+  // Remembered files plus the ones in hand, each once.
+  function mergeUnfinished(remembered, items) {
+    var seen = {};
+    return remembered.concat(unfinishedOf(items)).filter(function(f) {
+      if (seen[f.key]) return false;
+      seen[f.key] = true;
+      return true;
+    });
+  }
+
+  // Remembered files, less the ones that have just been picked again.
+  function withoutPicked(remembered, files) {
+    var picked = {};
+    for (var i = 0; i < files.length; i++) picked[fileKey(files[i])] = true;
+    return remembered.filter(function(f) { return !picked[f.key]; });
+  }
 
   // Whether the panel is open. A new batch opens it; one that ends cleanly
   // shrinks it to a one-line confirmation; one that ends with failures stays
@@ -900,6 +963,14 @@
       this.rowEls = {};
       this.collapsed = false;
       this.wasLive = false;
+      this.notifyEvent = d.notifyEvent || null;
+      this.notifyTarget = d.notifyTarget || null;
+
+      // Which files did not finish, kept in this browser across a reload.
+      this.remember = d.remember !== "false";
+      this.rememberKey = "pk-um:" + window.location.pathname + "|" + this.uploadName + "|" + (d.rememberScope || "");
+      this.saved = null;
+      this.leftovers = this._loadLeftovers();
 
       // Files are caught where they arrive, on the element that holds the
       // upload's input: the component's own wrapper ("self", the default, for
@@ -965,8 +1036,54 @@
       if (!files.length) return;
       try { input.value = ""; } catch (_e) { /* a read-only input is not ours to clear */ }
 
+      this.leftovers = withoutPicked(this.leftovers, files);
       this.queue.add(files);
       this.sync();
+    },
+
+    _loadLeftovers: function() {
+      if (!this.remember) return [];
+      try {
+        var saved = JSON.parse(window.localStorage.getItem(this.rememberKey) || "null");
+        // The server drops a partial file after a day; so does this.
+        if (saved && saved.at && Date.now() - saved.at < 24 * 3600 * 1000 && Array.isArray(saved.files)) return saved.files;
+      } catch (_e) { /* storage refused or unreadable: remember nothing */ }
+      return [];
+    },
+
+    _saveLeftovers: function() {
+      if (!this.remember) return;
+      var files = mergeUnfinished(this.leftovers, this.queue.items);
+      var json = JSON.stringify(files);
+      if (json === this.saved) return;
+      this.saved = json;
+      try {
+        if (files.length) window.localStorage.setItem(this.rememberKey, JSON.stringify({ at: Date.now(), files: files }));
+        else window.localStorage.removeItem(this.rememberKey);
+      } catch (_e) { /* a full or blocked storage is not worth a failed upload */ }
+    },
+
+    // What the page can listen for: DOM events from the panel, and one event
+    // to the LiveView when a batch ends.
+    _emit: function(name, detail) {
+      try {
+        this.el.dispatchEvent(new CustomEvent("pk-upload:" + name, { bubbles: true, detail: detail }));
+      } catch (_e) { /* no CustomEvent: nobody is listening */ }
+    },
+
+    _announce: function() {
+      var notices = this.queue.takeNotices();
+      for (var i = 0; i < notices.files.length; i++) {
+        var n = notices.files[i];
+        this._emit(n.type === "done" ? "file-done" : "file-failed", n);
+      }
+      if (notices.batch) {
+        this._emit("batch-complete", notices.batch);
+        if (this.notifyEvent) {
+          if (this.notifyTarget) this.pushEventTo(this.notifyTarget, this.notifyEvent, notices.batch);
+          else this.pushEvent(this.notifyEvent, notices.batch);
+        }
+      }
     },
 
     _rows: function() {
@@ -1004,6 +1121,8 @@
       var feed = this.queue.next(now);
       if (feed.length) this._feed(feed);
 
+      this._announce();
+      this._saveLeftovers();
       this.render(now);
     },
 
@@ -1068,7 +1187,8 @@
           break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;
-        case "dismiss": q.dismiss(); break;
+        case "dismiss": q.dismiss(); this.leftovers = []; break;
+        case "pick-unfinished": { var input = this._input(); if (input) input.click(); break; }
         case "collapse": this.collapsed = !this.collapsed; break;
         default: return;
       }
@@ -1095,8 +1215,41 @@
       var s = q.stats(now);
       var el = this.el;
 
-      if (!q.items.length) { el.hidden = true; return; }
+      var remembered = this.leftovers.length > 0;
+      if (!q.items.length && !remembered) { el.hidden = true; return; }
       el.hidden = false;
+
+      var show = function(role, on) {
+        var n = el.querySelector('[data-role="' + role + '"]');
+        if (n) n.hidden = !on;
+      };
+      var unfinished = el.querySelector('[data-role="unfinished"]');
+      if (unfinished) {
+        unfinished.hidden = !remembered;
+        if (remembered) {
+          var names = this.leftovers.slice(0, 3).map(function(f) { return f.name; }).join(", ");
+          var text = this.leftovers.length > 3
+            ? this._t("unfinished_more", { names: names, count: this.leftovers.length - 3 })
+            : names;
+          var note = this._t("unfinished", { names: text });
+          var tn = unfinished.querySelector('[data-role="unfinished-text"]');
+          if (tn && tn.textContent !== note) tn.textContent = note;
+        }
+      }
+
+      // Nothing in hand, only files remembered from before: the notice alone.
+      if (!q.items.length) {
+        var title = el.querySelector('[data-role="summary"]');
+        if (title) title.textContent = this._t("unfinished_title");
+        var d = el.querySelector('[data-role="detail"]');
+        if (d) d.textContent = "";
+        show("total-wrap", false);
+        show("controls", false);
+        this.list.hidden = true;
+        this._show("dismiss", true);
+        return;
+      }
+      show("total-wrap", true);
 
       var setText = function(role, text) {
         var n = el.querySelector('[data-role="' + role + '"]');
@@ -1262,6 +1415,9 @@
     formatBytes: formatBytes,
     formatDuration: formatDuration,
     panelAfter: panelAfter,
+    unfinishedOf: unfinishedOf,
+    mergeUnfinished: mergeUnfinished,
+    withoutPicked: withoutPicked,
     ChunkJob: ChunkJob,
     chunked: chunked,
     hook: UploadManagerHook

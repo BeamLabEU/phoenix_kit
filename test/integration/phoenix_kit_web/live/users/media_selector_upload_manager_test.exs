@@ -40,4 +40,22 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelectorUploadManagerTest do
     # Still alive and rendering.
     assert render(view) =~ "UploadManager"
   end
+
+  test "the page holds files to the site's size limit, not LiveView's 8 MB default", %{
+    conn: conn,
+    user: user
+  } do
+    on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_size_mb") end)
+
+    {:ok, view, _html} = live(log_in_user(conn, user), Routes.path("/admin/media/selector"))
+    config = :sys.get_state(view.pid).socket.assigns.uploads.media_files
+    assert config.max_file_size == 500 * 1_000_000
+
+    {:ok, _} = PhoenixKit.Settings.update_setting("storage_max_upload_size_mb", "1200")
+    PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_size_mb")
+
+    {:ok, view, _html} = live(log_in_user(conn, user), Routes.path("/admin/media/selector"))
+    config = :sys.get_state(view.pid).socket.assigns.uploads.media_files
+    assert config.max_file_size == 1200 * 1_000_000
+  end
 end

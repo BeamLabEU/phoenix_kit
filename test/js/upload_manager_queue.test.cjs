@@ -449,3 +449,102 @@ test("the user's own choice stands while nothing changes", () => {
 test("paused files keep the panel live", () => {
   assert.strictEqual(panelAfter(counts({ paused: 1, done: 2 }), true, false).live, true);
 });
+
+// -- What the page hears about, and what it remembers across a reload --------
+const { unfinishedOf, mergeUnfinished, withoutPicked } = load();
+
+function item(q, state, f) {
+  const [it] = q.add([f]);
+  it.state = state;
+  return it;
+}
+
+test("each finished or failed file is announced once", () => {
+  const q = new UploadQueue();
+  const a = item(q, "done", file("a.bin", 10, 1));
+  item(q, "failed", file("b.bin", 20, 2)).error = "stalled";
+
+  const first = q.takeNotices();
+  assert.deepStrictEqual(first.files.map((n) => [n.type, n.name]).sort(), [["done", "a.bin"], ["failed", "b.bin"]]);
+  assert.strictEqual(first.files.find((n) => n.type === "failed").error, "stalled");
+  assert.strictEqual(q.takeNotices().files.length, 0, "not again");
+  assert.strictEqual(a.state, "done");
+});
+
+test("a retry that fails again is news again", () => {
+  const q = new UploadQueue();
+  const it = item(q, "failed", file("a.bin", 10));
+  q.takeNotices();
+
+  it.state = "queued"; q.takeNotices();
+  it.state = "failed";
+  assert.strictEqual(q.takeNotices().files.length, 1);
+});
+
+test("the batch ends once, when the last thing in flight ends", () => {
+  const q = new UploadQueue();
+  const a = item(q, "uploading", file("a.bin", 10, 1));
+  const b = item(q, "queued", file("b.bin", 20, 2));
+  assert.strictEqual(q.takeNotices().batch, null);
+
+  a.state = "done";
+  assert.strictEqual(q.takeNotices().batch, null, "b is still waiting");
+
+  b.state = "failed";
+  const end = q.takeNotices().batch;
+  assert.deepStrictEqual(end, { done: 1, failed: 1, cancelled: 0, skipped: 0, total: 2, bytes: 10 });
+  assert.strictEqual(q.takeNotices().batch, null, "once");
+});
+
+test("a paused file keeps the batch open", () => {
+  const q = new UploadQueue();
+  const a = item(q, "uploading", file("a.bin", 10));
+  q.takeNotices();
+  a.state = "paused";
+  assert.strictEqual(q.takeNotices().batch, null);
+});
+
+test("cancelling everything ends the batch too", () => {
+  const q = new UploadQueue();
+  const a = item(q, "uploading", file("a.bin", 10));
+  q.takeNotices();
+  a.state = "cancelled";
+  assert.deepStrictEqual(q.takeNotices().batch, { done: 0, failed: 0, cancelled: 1, skipped: 0, total: 1, bytes: 0 });
+});
+
+test("a second batch is announced again", () => {
+  const q = new UploadQueue();
+  const a = item(q, "uploading", file("a.bin", 10, 1));
+  q.takeNotices(); a.state = "done"; assert.ok(q.takeNotices().batch);
+  const b = item(q, "uploading", file("b.bin", 10, 2));
+  q.takeNotices(); b.state = "done";
+  assert.ok(q.takeNotices().batch);
+});
+
+test("what did not make it is what the page remembers", () => {
+  const q = new UploadQueue();
+  item(q, "done", file("done.bin", 1, 1));
+  item(q, "cancelled", file("cancelled.bin", 2, 2));
+  item(q, "queued", file("queued.bin", 3, 3));
+  item(q, "uploading", file("sending.bin", 4, 4));
+  item(q, "paused", file("paused.bin", 5, 5));
+  item(q, "skipped", file("skipped.bin", 6, 6));
+  item(q, "failed", file("failed.bin", 7, 7));
+
+  assert.deepStrictEqual(unfinishedOf(q.items).map((f) => f.name).sort(), ["failed.bin", "paused.bin", "queued.bin", "sending.bin", "skipped.bin"]);
+});
+
+test("remembered files and files in hand are listed once each", () => {
+  const q = new UploadQueue();
+  item(q, "queued", file("a.bin", 1, 1));
+  const merged = mergeUnfinished([{ key: fileKey(file("a.bin", 1, 1)), name: "a.bin", size: 1 }, { key: "x", name: "x.bin", size: 9 }], q.items);
+  assert.deepStrictEqual(merged.map((f) => f.name), ["a.bin", "x.bin"]);
+});
+
+test("picking a remembered file again takes it off the list", () => {
+  const remembered = [
+    { key: fileKey(file("a.bin", 1, 1)), name: "a.bin", size: 1 },
+    { key: fileKey(file("b.bin", 2, 2)), name: "b.bin", size: 2 }
+  ];
+  assert.deepStrictEqual(withoutPicked(remembered, [file("a.bin", 1, 1), file("other.bin", 5, 5)]).map((f) => f.name), ["b.bin"]);
+});
