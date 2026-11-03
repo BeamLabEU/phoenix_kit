@@ -100,6 +100,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Migrations.ModuleOwnedTables
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Storage.ProfileBucket
+  alias PhoenixKit.Modules.Storage.Quotas
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   alias PhoenixKit.Modules.Storage.Audit
@@ -6631,23 +6632,8 @@ defmodule PhoenixKit.Modules.Storage do
           {:error, :no_buckets_configured}
 
         true ->
-          if opts[:dedup] == false do
-            # Neither the uploader's own copy nor another's active one is
-            # looked for. No dedup key either (`nil`): the row gets one of its
-            # own, see `row_user_file_checksum/2`.
-            store_new_file_in_buckets(
-              source_path,
-              file_type,
-              user_uuid,
-              file_checksum,
-              nil,
-              ext,
-              original_filename,
-              opts
-            )
-          else
-            # Proceed with storage
-            store_file_with_buckets_available(
+          with :ok <- check_quota(source_path, user_uuid, file_checksum, opts) do
+            store_checked_file(
               source_path,
               file_type,
               user_uuid,
@@ -6662,6 +6648,67 @@ defmodule PhoenixKit.Modules.Storage do
     case {result, opts[:return_creation_status]} do
       {{:ok, file}, true} -> {:ok, file, :created}
       {other, _} -> other
+    end
+  end
+
+  # The owner of the library a new file goes into must have room for it
+  # (`Storage.Quotas`). An upload the uploader already has in that library is a
+  # duplicate: it stores nothing new, so it is never refused.
+  defp check_quota(source_path, user_uuid, file_checksum, opts) do
+    library_uuid = opts[:library_uuid]
+
+    duplicate? =
+      is_binary(library_uuid) and opts[:dedup] != false and
+        not is_nil(
+          get_file_by_user_checksum(
+            calculate_user_file_checksum(user_uuid, file_checksum, library_uuid)
+          )
+        )
+
+    if is_nil(library_uuid) or duplicate? do
+      :ok
+    else
+      case Elixir.File.stat(source_path) do
+        {:ok, %{size: size}} -> Quotas.check_upload(library_uuid, size)
+        _ -> :ok
+      end
+    end
+  end
+
+  defp store_checked_file(
+         source_path,
+         file_type,
+         user_uuid,
+         file_checksum,
+         ext,
+         original_filename,
+         opts
+       ) do
+    if opts[:dedup] == false do
+      # Neither the uploader's own copy nor another's active one is
+      # looked for. No dedup key either (`nil`): the row gets one of its
+      # own, see `row_user_file_checksum/2`.
+      store_new_file_in_buckets(
+        source_path,
+        file_type,
+        user_uuid,
+        file_checksum,
+        nil,
+        ext,
+        original_filename,
+        opts
+      )
+    else
+      # Proceed with storage
+      store_file_with_buckets_available(
+        source_path,
+        file_type,
+        user_uuid,
+        file_checksum,
+        ext,
+        original_filename,
+        opts
+      )
     end
   end
 

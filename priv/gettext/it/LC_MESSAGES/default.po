@@ -23872,3 +23872,13 @@ msgstr "La posizione del bucket; il suo endpoint è <location>.your-objectstorag
 #, elixir-autogen, elixir-format
 msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
 msgstr "Conservare su questo backup solo gli originali, non le dimensioni e le tessere, che si possono ricreare da essi."
+
+#: lib/modules/storage/web/libraries_component.ex:501
+#, elixir-autogen, elixir-format
+msgid "How much of the site's storage each person's libraries may use: originals and the sizes made from them. Blank for no limit. Libraries on their own bucket do not count."
+msgstr "Quanto spazio di archiviazione del sito possono usare le librerie di ciascuna persona: gli originali e le dimensioni create da essi. Vuoto per nessun limite. Le librerie sul proprio bucket non contano."
+
+#: lib/modules/storage/web/libraries_component.ex:506
+#, elixir-autogen, elixir-format
+msgid "Storage per user (MB)"
+msgstr "Spazio per utente (MB)"

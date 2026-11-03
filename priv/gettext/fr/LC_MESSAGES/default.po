@@ -23872,3 +23872,13 @@ msgstr "L'emplacement du bucket ; son point de terminaison est <location>.your-o
 #, elixir-autogen, elixir-format
 msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
 msgstr "Ne garder sur cette sauvegarde que les originaux, pas les tailles ni les tuiles, qui peuvent être refaites à partir d'eux."
+
+#: lib/modules/storage/web/libraries_component.ex:501
+#, elixir-autogen, elixir-format
+msgid "How much of the site's storage each person's libraries may use: originals and the sizes made from them. Blank for no limit. Libraries on their own bucket do not count."
+msgstr "Quelle part du stockage du site les bibliothèques de chaque personne peuvent utiliser : les originaux et les tailles faites à partir d'eux. Vide pour aucune limite. Les bibliothèques sur leur propre bucket ne comptent pas."
+
+#: lib/modules/storage/web/libraries_component.ex:506
+#, elixir-autogen, elixir-format
+msgid "Storage per user (MB)"
+msgstr "Stockage par utilisateur (Mo)"

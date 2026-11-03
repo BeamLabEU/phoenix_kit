@@ -24,8 +24,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
   (`storage_user_libraries_enabled`, off by default), whether they may keep a
   library on their own bucket (`storage_user_buckets_enabled`, off by
   default), sets how many each
-  user may own (`storage_user_library_limit`) and how long a private file
-  URL stays valid (`storage_private_url_window_hours`), and lists every
+  user may own (`storage_user_library_limit`), how much of the site's storage
+  each may use (`storage_user_quota_mb`, see `Storage.Quotas`) and how long a
+  private file URL stays valid (`storage_private_url_window_hours`), and lists every
   user library as **metadata only**: owner, members, files, size and trash
   state. Their files are the users' own. Opening one goes through
   `/admin/libraries/<uuid>`, which admits only an Owner or Admin and writes
@@ -37,6 +38,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     Libraries,
     LibraryState,
     Profiles,
+    Quotas,
     VariantSets
   }
 
@@ -173,6 +175,13 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
         _ -> div(URLSigner.private_url_window_seconds(), 3600)
       end
 
+    # Blank or 0 is no limit, stored as "0" (a setting cannot be empty).
+    quota =
+      case Integer.parse(String.trim(to_string(params["quota_mb"]))) do
+        {n, ""} when n > 0 -> to_string(n)
+        _ -> "0"
+      end
+
     opts = actor(socket) ++ [source: "settings"]
 
     with {:ok, _} <-
@@ -181,7 +190,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
            Settings.update_boolean_setting("storage_user_buckets_enabled", buckets?, opts),
          {:ok, _} <- Settings.update_setting("storage_user_library_limit", to_string(limit), opts),
          {:ok, _} <-
-           Settings.update_setting("storage_private_url_window_hours", to_string(hours), opts) do
+           Settings.update_setting("storage_private_url_window_hours", to_string(hours), opts),
+         {:ok, _} <- Settings.update_setting(Quotas.setting_key(), quota, opts) do
       {:noreply, socket |> load() |> flash(:info, gettext("User library settings saved"))}
     else
       _ -> {:noreply, flash(socket, :error, gettext("User library settings could not be saved"))}
@@ -220,6 +230,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
     |> assign(:user_buckets_enabled, Libraries.user_buckets_enabled?())
     |> assign(:user_library_limit, Libraries.user_library_limit())
     |> assign(:window_hours, div(URLSigner.private_url_window_seconds(), 3600))
+    |> assign(:quota_mb, Quotas.site_limit_mb())
     |> load_choices()
   end
 
@@ -482,6 +493,24 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
                 max="1000"
                 value={@user_library_limit}
                 class="input input-sm input-bordered w-28"
+              />
+            </label>
+            <label
+              class="form-control"
+              title={
+                gettext(
+                  "How much of the site's storage each person's libraries may use: originals and the sizes made from them. Blank for no limit. Libraries on their own bucket do not count."
+                )
+              }
+            >
+              <span class="label-text text-sm">{gettext("Storage per user (MB)")}</span>
+              <input
+                type="number"
+                name="user_libraries[quota_mb]"
+                min="0"
+                value={@quota_mb}
+                placeholder={gettext("No limit")}
+                class="input input-sm input-bordered w-32"
               />
             </label>
             <label class="form-control">

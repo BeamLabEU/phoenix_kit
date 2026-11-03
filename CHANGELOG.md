@@ -21,6 +21,19 @@
   `phoenix_kit_storage_profile_buckets.stores` column again (V205, unused since
   2.53.0); a leftover `derived` value is treated as `all`. Changing it makes
   the profile's files stale. No migration.
+- **Storage quotas** (`Storage.Quotas`). An account is charged for the user
+  libraries it owns, whoever uploaded into them: originals plus the sizes and
+  tiles made from them, each object once (a profile's extra copies are the
+  site's cost), trash included until purged, libraries on the owner's own
+  storage excluded. The limit is the new `storage_user_quota_mb` setting
+  (Settings → Media → Libraries, "Storage per user (MB)"; `0` is none), or a
+  host's own answer per account (`config :phoenix_kit, :storage_quota,
+  {Mod, :fun}` returning bytes, `nil` or `:default`), for plans.
+  `Storage.store_file_in_buckets/7` refuses a new file that would take the
+  library's owner past it with `{:error, :quota_exceeded}`; a duplicate the
+  uploader already has is never refused, and nothing stored is removed.
+  `Quotas.usage/1` and `Quotas.status/1` are for pages that show it. No
+  migration.
 
 ## 3.3.0 - 2026-11-03
 

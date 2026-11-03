@@ -23943,3 +23943,13 @@ msgstr "Розташування bucket'а; його кінцева точка �
 #, elixir-autogen, elixir-format
 msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
 msgstr "Зберігати в цій резервній копії лише оригінали, без розмірів і тайлів: їх можна знову створити з оригіналів."
+
+#: lib/modules/storage/web/libraries_component.ex:501
+#, elixir-autogen, elixir-format
+msgid "How much of the site's storage each person's libraries may use: originals and the sizes made from them. Blank for no limit. Libraries on their own bucket do not count."
+msgstr "Скільки місця у сховищі сайту можуть займати бібліотеки однієї людини: оригінали та створені з них розміри. Порожньо — без обмеження. Бібліотеки на власному bucket'і не враховуються."
+
+#: lib/modules/storage/web/libraries_component.ex:506
+#, elixir-autogen, elixir-format
+msgid "Storage per user (MB)"
+msgstr "Сховище на користувача (МБ)"
