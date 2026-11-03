@@ -16,7 +16,8 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   not.** `created_by` is the person on whose behalf the host acts: the core only
   records it (as the granting person and as the actor of the activity entries,
   which carry `"via" => "host"`), the way `PhoenixKit.Users.Auth.admin_create_user/2`
-  does. It is re-read under `FOR KEY SHARE` and must be an active person that
+  does. It is re-read under `FOR KEY SHARE` (excluding a concurrent delete or
+  key change; `is_active` is as of the read) and must be an active person that
   is neither a managed organization nor a service user, else the call fails
   with `{:error, :forbidden}`. Never pass a value taken from request
   parameters.

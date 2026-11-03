@@ -2,9 +2,11 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   @moduledoc """
   Managed-account creation and conversion for own-account administrators.
 
-  Every call takes an `Actor` made from a trusted signed session,
-  rechecks an Owner/Admin's own live session and locks current database state.
-  Creation never uses registration or the first-user Owner bootstrap.
+  `create/3`, `convert_to_managed/3` and `convert_to_independent/3` take an
+  `Actor` made from a trusted signed session, recheck an Owner/Admin's own live
+  session and lock current database state. The `host_*` functions below are the
+  same operations for a host application. Creation never uses registration or
+  the first-user Owner bootstrap.
 
   ## Host application calls
 
@@ -13,13 +15,17 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   API (and so no browser session to build an `Actor` from).
 
   **The host checks who may do this; the core does not.** `created_by` is the
-  person on whose behalf the host acts, and the core only records it (as
-  `created_by_uuid`, as the granting person and as the actor of the activity
-  entries, which carry `"via" => "host"`), the way `PhoenixKit.Users.Auth.admin_create_user/2`
-  records its actor. It is re-read under `FOR KEY SHARE` and must be an active
-  person that is neither a managed organization nor a service user, else the
-  call fails with `{:error, :forbidden}`. Never pass a value taken from
-  request parameters.
+  person on whose behalf the host acts, and the core only records it, the way
+  `PhoenixKit.Users.Auth.admin_create_user/2` records its actor:
+  `host_create/3` writes it as the organization's `created_by_uuid`; every
+  `host_*` function records it as the granting person of a new grant and as the
+  actor of the activity entries, which carry `"via" => "host"`. The conversions
+  do not change `created_by_uuid`. It is re-read under `FOR KEY SHARE` and must
+  be an active person that is neither a managed organization nor a service
+  user, else the call fails with `{:error, :forbidden}`. That lock excludes a
+  concurrent delete or key change; `is_active` is as of the read (a concurrent
+  deactivation is not serialized with the call, as with `Actor.admin/1`). Never
+  pass a value taken from request parameters.
 
   Everything else is shared with the `Actor` functions: the lock order (person,
   organization, users), the organization checks (`:organization_policy_mismatch`,
@@ -41,16 +47,26 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   exists for an organization whose login email is the email of the person who
   should manage it: that address is only free after the organization has been
   converted, and the person cannot exist before it. It is called inside the
-  transaction, after the organization has given up its email. Contract:
+  transaction, after the organization has given up its email, while the
+  organization row is held `FOR NO KEY UPDATE`, `created_by` is held
+  `FOR KEY SHARE` and the organization's credentials are already revoked: keep
+  it to inserting the person (no mail, HTTP or other locks — send a
+  confirmation after the commit). Contract:
 
     * It creates a **new** person. To use an existing person pass the uuid:
       locking an existing person after the organization would invert the lock
-      order (person, organization) the grant functions rely on. The core checks
-      that the returned person row was written by this very transaction while
-      the function ran and was inserted no earlier than the transaction began;
-      otherwise the call fails with `{:error, :invalid_first_manager}`. (A
-      function that opens a savepoint of its own writes under another
-      transaction id and fails that check.)
+      order (person, organization) the grant functions rely on. The core
+      guards against a found person with a heuristic, not a proof: the
+      returned row must carry this transaction's id (`xmin`), a command id
+      later than the organization's write before the call (`cmin`), and an
+      `inserted_at` no earlier than the transaction began (an application-clock
+      value compared with the database clock, so a host clock running behind
+      the database can refuse a genuinely new person; do not set `inserted_at`
+      by hand). Otherwise the call fails with `{:error, :invalid_first_manager}`.
+      The check cannot tell an insert from an update by this transaction, so
+      the "new person only" rule is the host's to keep. A function that opens
+      a savepoint of its own writes under another transaction id and fails
+      the check.
     * The core then takes the person's lock and row lock and validates the
       person as for any first manager.
     * `{:error, reason}` is returned as it is, so an `Ecto.Changeset` of the

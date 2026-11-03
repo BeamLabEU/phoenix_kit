@@ -73,8 +73,10 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   Unlike `admin/1` this proves nothing about a browser session: the host has
   already decided that the person may act, and `created_by` only records who
   that was. What it does check is that the recorded person is a real, live
-  one. The row is re-read under `FOR KEY SHARE`, so a concurrent deactivation
-  or deletion cannot slip in between the check and the writes. Must run inside
+  one. The row is re-read under `FOR KEY SHARE`, which excludes a concurrent
+  delete or key change until the transaction ends; `is_active` is as of the
+  read, since a deactivation (a non-key update) is not blocked by that lock —
+  the same as for `admin/1`. Must run inside
   a transaction; rolls back with `:forbidden` when `created_by` is not an
   active person (not an organization, not a managed organization, not a
   service user).
