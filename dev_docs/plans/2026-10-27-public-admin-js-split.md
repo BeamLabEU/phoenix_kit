@@ -108,7 +108,7 @@ EmailCharts.
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
 `--minify`, `gzip -9 -n`): `phoenix_kit.js` is 248 202 B raw, 70 842 gzip, 93 018 minified, 28 495 minified + gzip;
-`phoenix_kit_admin.js` is 352 022 / 99 237 / 129 057 / 37 090. The size budget in `admin_split.test.cjs` (256 KiB for
+`phoenix_kit_admin.js` is 352 635 / 99 457 / 129 208 / 37 150. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -147,7 +147,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
 248 KB raw / 71 KB gzip readable, 28 KB gzip minified, the mention field and the two upload hooks being public;
-the admin bundle is 352 KB / 99 KB readable, 129 KB / 37 KB gzip minified;
+the admin bundle is 353 KB / 99 KB readable, 129 KB / 37 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.
