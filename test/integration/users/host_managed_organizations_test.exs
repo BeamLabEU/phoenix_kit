@@ -137,7 +137,10 @@ defmodule PhoenixKit.Users.HostManagedOrganizationsTest do
         independent(),
         %User{uuid: UUIDv7.generate()},
         %User{uuid: nil},
-        %User{uuid: "not-a-uuid"}
+        %User{uuid: "not-a-uuid"},
+        nil,
+        :nobody,
+        %{uuid: UUIDv7.generate()}
       ]
 
       users = Repo.aggregate(User, :count)
@@ -344,6 +347,71 @@ defmodule PhoenixKit.Users.HostManagedOrganizationsTest do
       assert_logged("organization.manager_added", org, created_by)
     end
 
+    test "a new person is accepted whatever the session time zone is", %{
+      created_by: created_by
+    } do
+      for zone <- ["America/New_York", "Asia/Tokyo"] do
+        org = independent()
+
+        assert {:ok, %User{managed_by_members: true}} =
+                 Repo.transaction(fn ->
+                   Repo.query!("SET LOCAL TIME ZONE '#{zone}'")
+
+                   case ManagedOrganizations.host_convert_to_managed(
+                          org.uuid,
+                          fn ->
+                            new_person("tz-#{System.unique_integer([:positive])}@example.com")
+                          end,
+                          created_by
+                        ) do
+                     {:ok, managed} -> managed
+                     {:error, reason} -> Repo.rollback(reason)
+                   end
+                 end)
+      end
+    end
+
+    test "a person the host inserted earlier in the same transaction is not new", %{
+      created_by: created_by
+    } do
+      org = independent()
+
+      assert {:error, :invalid_first_manager} =
+               Repo.transaction(fn ->
+                 {:ok, person_uuid} =
+                   new_person("earlier-#{System.unique_integer([:positive])}@example.com")
+
+                 case ManagedOrganizations.host_convert_to_managed(
+                        org.uuid,
+                        fn -> {:ok, person_uuid} end,
+                        created_by
+                      ) do
+                   {:ok, managed} -> managed
+                   {:error, reason} -> Repo.rollback(reason)
+                 end
+               end)
+
+      assert_untouched(org)
+    end
+
+    test "a function that opens a savepoint of its own fails the check", %{
+      created_by: created_by
+    } do
+      org = independent()
+
+      fun = fn ->
+        Repo.query!("SAVEPOINT first_manager")
+        result = new_person(org.email)
+        Repo.query!("RELEASE SAVEPOINT first_manager")
+        result
+      end
+
+      assert {:error, :invalid_first_manager} =
+               ManagedOrganizations.host_convert_to_managed(org.uuid, fun, created_by)
+
+      assert_untouched(org)
+    end
+
     test "the function takes the new person's lock after the organization's", %{
       created_by: created_by
     } do
@@ -533,6 +601,42 @@ defmodule PhoenixKit.Users.HostManagedOrganizationsTest do
       assert_logged("organization.manager_removed", org, created_by, 1)
       {notifications, _} = Notifications.list_for_user(manager.uuid)
       assert length(notifications) == 2
+    end
+
+    test "created_by may be the manager itself: no notification, no self-deadlock", %{
+      created_by: created_by
+    } do
+      org = F.organization()
+      F.manager(org, F.person())
+
+      assert {:ok, grant} = OrganizationManagers.host_add(org.uuid, created_by.uuid, created_by)
+      assert grant.user_uuid == created_by.uuid and grant.granted_by_uuid == created_by.uuid
+      assert {:ok, :ok} = OrganizationManagers.host_remove(org.uuid, created_by.uuid, created_by)
+
+      converted = independent()
+
+      assert {:ok, %User{managed_by_members: true}} =
+               ManagedOrganizations.host_convert_to_managed(
+                 converted.uuid,
+                 created_by.uuid,
+                 created_by
+               )
+
+      assert {:ok, %User{managed_by_members: true} = created} =
+               ManagedOrganizations.host_create(
+                 %{organization_name: "Self Co"},
+                 created_by.uuid,
+                 created_by
+               )
+
+      assert Repo.get_by!(OrganizationManager,
+               organization_uuid: created.uuid,
+               user_uuid: created_by.uuid
+             )
+
+      assert_logged("organization.manager_added", org, created_by, 1)
+      assert_logged("organization.manager_removed", org, created_by, 1)
+      assert {[], _} = Notifications.list_for_user(created_by.uuid)
     end
 
     test "add refuses an unfit person, an organization that is not managed and a missing one", %{

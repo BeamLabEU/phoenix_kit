@@ -4,6 +4,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Locks do
   import Ecto.Query
 
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -50,6 +51,11 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Locks do
       [%User{account_type: "organization"} = org] -> org
       _ -> RepoHelper.repo().rollback(:organization_not_found)
     end
+  end
+
+  def accounts_enabled! do
+    unless Auth.organization_accounts_enabled?(),
+      do: RepoHelper.repo().rollback(:organization_accounts_disabled)
   end
 
   def value!(:ok), do: :ok

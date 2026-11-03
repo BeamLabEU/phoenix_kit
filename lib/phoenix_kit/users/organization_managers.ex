@@ -14,27 +14,34 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   host application with its own screens or API, which has no browser session to
   build an `Actor` from. **The host checks who may do this; the core does
   not.** `created_by` is the person on whose behalf the host acts: the core only
-  records it (as the granting person and as the actor of the activity entries,
-  which carry `"via" => "host"`), the way `PhoenixKit.Users.Auth.admin_create_user/2`
-  does. It is re-read under `FOR KEY SHARE` (excluding a concurrent delete or
-  key change; `is_active` is as of the read) and must be an active person that
-  is neither a managed organization nor a service user, else the call fails
-  with `{:error, :forbidden}`. Never pass a value taken from request
-  parameters.
+  records it (as the granting person and as the actor of the activity entries;
+  the `organization.manager_added` and `organization.manager_removed` entries
+  carry `"via" => "host"`, while `host_update_contact/3` logs nothing), the way
+  `PhoenixKit.Users.Auth.admin_create_user/2` does. It is re-read under
+  `FOR KEY SHARE` (excluding a concurrent delete or key change; `is_active` is
+  as of the read) and must be an active person that is neither a managed
+  organization nor a service user, else the call fails with
+  `{:error, :forbidden}` (so does `nil` or anything that is not a `%User{}`).
+  The organization is looked up first, so an unknown one is
+  `{:error, :organization_not_found}` even when `created_by` is unfit. Never
+  pass a value taken from request parameters.
 
   The locks, the organization and person checks, the notification to the
-  person and the last-manager rule are those of `add/3`, `remove/4` and
-  `update_contact/3`. `host_remove/3` has no override: removing the last
+  person (not sent when the person is `created_by` itself) and the last-manager
+  rule are those of `add/3`, `remove/4` and `update_contact/3`. `host_remove/3` has no override: removing the last
   active manager is `{:error, :cannot_remove_last_active_manager}`. `host_add/3`
   answers `{:error, :organization_accounts_disabled}` while the
   `enable_organization_accounts` setting is off. They join an outer
   `Repo.transaction/1` of the host, and an error rolls that transaction back too.
+  ⚠️ The activity entry is inserted in that transaction, but its PubSub
+  broadcast and the notification to the person go out when `Activity.log/1`
+  runs, not at the outer commit: if the host rolls back after the core returned
+  `{:ok, _}`, the rows disappear and the event has already been sent.
   """
 
   import Ecto.Query
 
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Users.ManagedOrganizations.Actor
@@ -73,7 +80,7 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   end
 
   @doc "Host-application form of `update_contact/3`; see the module documentation."
-  def host_update_contact(organization_uuid, attrs, %User{} = created_by) do
+  def host_update_contact(organization_uuid, attrs, created_by) do
     Revocation.transaction(fn ->
       org = Locks.organization!(organization_uuid)
       Actor.host!(created_by)
@@ -134,11 +141,9 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   end
 
   @doc "Host-application form of `add/3`; see the module documentation."
-  def host_add(organization_uuid, person_uuid, %User{} = created_by) do
+  def host_add(organization_uuid, person_uuid, created_by) do
     Revocation.transaction(fn ->
-      unless Auth.organization_accounts_enabled?(),
-        do: RepoHelper.repo().rollback(:organization_accounts_disabled)
-
+      Locks.accounts_enabled!()
       Locks.person!(person_uuid)
       org = Locks.organization!(organization_uuid)
       Locks.users!([person_uuid])
@@ -159,7 +164,7 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   end
 
   @doc "Host-application form of `remove/4` without an override; see the module documentation."
-  def host_remove(organization_uuid, person_uuid, %User{} = created_by) do
+  def host_remove(organization_uuid, person_uuid, created_by) do
     Revocation.transaction(fn ->
       Locks.person!(person_uuid)
       org = Locks.organization!(organization_uuid)

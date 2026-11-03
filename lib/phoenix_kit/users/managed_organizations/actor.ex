@@ -3,7 +3,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   Internal browser authority for organization lifecycle operations.
 
   Construct only from the trusted signed cookie session, in a controller or a
-  connected LiveView mount. Never accept this credential or its references from
+  connected LiveView mount (the exception is `host!/1`, the authority of a host
+  application's own trusted call, which has no session and returns a plain map,
+  not this struct). Never accept this credential or its references from
   request parameters/events. A bare User or Scope cannot prove that an Admin is
   in their own account rather than a borrowed account in a session stack.
 
@@ -94,6 +96,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
           person_uuid: user.uuid,
           actor_uuid: user.uuid,
           granted_by_uuid: user.uuid,
+          # Not a %Scope{}: the shared bodies read only `authority.scope.user`.
           scope: %{user: user}
         }
 

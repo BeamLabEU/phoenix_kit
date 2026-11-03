@@ -19,26 +19,38 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   `PhoenixKit.Users.Auth.admin_create_user/2` records its actor:
   `host_create/3` writes it as the organization's `created_by_uuid`; every
   `host_*` function records it as the granting person of a new grant and as the
-  actor of the activity entries, which carry `"via" => "host"`. The conversions
-  do not change `created_by_uuid`. It is re-read under `FOR KEY SHARE` and must
-  be an active person that is neither a managed organization nor a service
-  user, else the call fails with `{:error, :forbidden}`. That lock excludes a
-  concurrent delete or key change; `is_active` is as of the read (a concurrent
-  deactivation is not serialized with the call, as with `Actor.admin/1`). Never
+  actor of the activity entries. The `organization.manager_added` and
+  `organization.manager_removed` entries carry `"via" => "host"`; the
+  `api.key_revoked` entries of a conversion (written by `PhoenixKit.API.Keys`)
+  do not, and `OrganizationManagers.host_update_contact/3` logs nothing. The
+  conversions do not change `created_by_uuid`. It is re-read under
+  `FOR KEY SHARE` and must be an active person that is neither a managed
+  organization nor a service user, else the call fails with
+  `{:error, :forbidden}` (so does `nil` or anything that is not a `%User{}`).
+  That lock excludes a concurrent delete or key change; `is_active` is as of
+  the read (a concurrent deactivation is not serialized with the call, as with
+  `Actor.admin/1`). The organization is looked up first, so an unknown one is
+  `{:error, :organization_not_found}` even when `created_by` is unfit. Never
   pass a value taken from request parameters.
 
   Everything else is shared with the `Actor` functions: the lock order (person,
   organization, users), the organization checks (`:organization_policy_mismatch`,
   `:managed_organization_role_not_allowed`), the first manager's eligibility
   (`:manager_must_be_active_person`), credential revocation on conversion,
-  referrals and the notification to the manager. The functions that bring an
+  referrals and the notification to the manager (not sent when the manager is
+  `created_by` itself, as `Activity.log/1` skips a person's own action). The functions that bring an
   organization into the managed state (`host_create/3`, `host_convert_to_managed/3`)
   answer `{:error, :organization_accounts_disabled}` while the
   `enable_organization_accounts` setting is off; the way back
   (`host_convert_to_independent/3`) does not depend on it.
 
   They join an outer `Repo.transaction/1` of the host, and an error rolls that
-  transaction back too.
+  transaction back too. ⚠️ The activity entry is inserted in that transaction,
+  but its PubSub broadcast and the notification to the manager go out when
+  `Activity.log/1` runs, not at the outer commit: if the host rolls back after
+  the core returned `{:ok, _}`, the rows disappear and the event has already
+  been sent. Do the host's own fallible work before the call, or accept that
+  window (the `Actor` functions have none, as they commit on their own).
 
   ### The first manager of `host_convert_to_managed/3`
 
@@ -68,7 +80,12 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
       a savepoint of its own writes under another transaction id and fails
       the check.
     * The core then takes the person's lock and row lock and validates the
-      person as for any first manager.
+      person as for any first manager. This takes the person's advisory lock
+      after the organization's lock, the reverse of the order of the uuid form;
+      it is safe because nobody else knows a new person's uuid, apart from the
+      advisory key being a 32-bit `hashtext`, shared by all persons: a
+      colliding lock held by a transaction that waits for this organization
+      can deadlock (about 2^-32 per concurrent pair; Postgres aborts one side).
     * `{:error, reason}` is returned as it is, so an `Ecto.Changeset` of the
       person reaches the host to show against its form fields. Anything else
       the function returns is `{:error, :invalid_first_manager}`.
@@ -80,7 +97,6 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
@@ -106,9 +122,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   end
 
   @doc "Host-application form of `create/3`; see the module documentation."
-  def host_create(attrs, first_manager_uuid, %User{} = created_by) do
+  def host_create(attrs, first_manager_uuid, created_by) do
     Revocation.transaction(fn ->
-      require_accounts_enabled!()
+      Locks.accounts_enabled!()
       Locks.person!(first_manager_uuid)
       Locks.users!([first_manager_uuid])
       authority = Actor.host!(created_by)
@@ -148,19 +164,19 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   `first_manager` is a person uuid, or a function creating the new person
   (`fn -> {:ok, person_uuid} | {:error, reason} end`).
   """
-  def host_convert_to_managed(organization_uuid, first_manager, %User{} = created_by)
+  def host_convert_to_managed(organization_uuid, first_manager, created_by)
       when is_function(first_manager, 0) do
     Revocation.transaction(fn ->
-      require_accounts_enabled!()
+      Locks.accounts_enabled!()
       org = Locks.organization!(organization_uuid)
       authority = Actor.host!(created_by)
       make_managed!(org, authority, &create_first_manager!(&1, first_manager))
     end)
   end
 
-  def host_convert_to_managed(organization_uuid, first_manager_uuid, %User{} = created_by) do
+  def host_convert_to_managed(organization_uuid, first_manager_uuid, created_by) do
     Revocation.transaction(fn ->
-      require_accounts_enabled!()
+      Locks.accounts_enabled!()
       Locks.person!(first_manager_uuid)
       org = Locks.organization!(organization_uuid)
       Locks.users!([first_manager_uuid])
@@ -219,12 +235,14 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
     |> RepoHelper.repo().one!()
   end
 
+  # xmin/cmin are meaningful only within this transaction: a row written by it
+  # carries its id, and a command id later than `cmin` means written after it.
   defp new_in_transaction?(uuid, {xmin, cmin}) do
     from(u in User,
       where: u.uuid == ^uuid and u.account_type == "person",
       where: fragment("?.xmin::text", u) == ^xmin,
       where: fragment("?.cmin::text::bigint", u) > ^cmin,
-      where: u.inserted_at >= fragment("date_trunc('second', now() AT TIME ZONE 'UTC')")
+      where: u.inserted_at >= fragment("date_trunc('second', now())")
     )
     |> RepoHelper.repo().exists?()
   end
@@ -239,7 +257,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
   end
 
   @doc "Host-application form of `convert_to_independent/3`; see the module documentation."
-  def host_convert_to_independent(organization_uuid, attrs, %User{} = created_by) do
+  def host_convert_to_independent(organization_uuid, attrs, created_by) do
     Revocation.transaction(fn ->
       org = Locks.organization!(organization_uuid)
       authority = Actor.host!(created_by)
@@ -304,11 +322,6 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
       google_email: nil,
       confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second)
     ]
-  end
-
-  defp require_accounts_enabled! do
-    unless Auth.organization_accounts_enabled?(),
-      do: RepoHelper.repo().rollback(:organization_accounts_disabled)
   end
 
   defp require_policy!(
