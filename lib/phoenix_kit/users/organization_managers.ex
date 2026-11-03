@@ -7,11 +7,33 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   Authority and eligibility are re-read while those locks are held. Manager
   additions by a manager will go through invitation acceptance, never a person
   search or this admin-only direct-add function.
+
+  ## Host application calls
+
+  `host_add/3`, `host_remove/3` and `host_update_contact/3` do the same for a
+  host application with its own screens or API, which has no browser session to
+  build an `Actor` from. **The host checks who may do this; the core does
+  not.** `created_by` is the person on whose behalf the host acts: the core only
+  records it (as the granting person and as the actor of the activity entries,
+  which carry `"via" => "host"`), the way `PhoenixKit.Users.Auth.admin_create_user/2`
+  does. It is re-read under `FOR KEY SHARE` and must be an active person that
+  is neither a managed organization nor a service user, else the call fails
+  with `{:error, :forbidden}`. Never pass a value taken from request
+  parameters.
+
+  The locks, the organization and person checks, the notification to the
+  person and the last-manager rule are those of `add/3`, `remove/4` and
+  `update_contact/3`. `host_remove/3` has no override: removing the last
+  active manager is `{:error, :cannot_remove_last_active_manager}`. `host_add/3`
+  answers `{:error, :organization_accounts_disabled}` while the
+  `enable_organization_accounts` setting is off. They join an outer
+  `Repo.transaction/1` of the host, and an error rolls that transaction back too.
   """
 
   import Ecto.Query
 
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Invitations
   alias PhoenixKit.Users.ManagedOrganizations.Actor
@@ -45,9 +67,22 @@ defmodule PhoenixKit.Users.OrganizationManagers do
       org = Locks.organization!(organization_uuid)
       Locks.users!([Actor.person_uuid(actor)], "FOR KEY SHARE")
       actor |> Actor.authorize(org.uuid) |> Locks.value!()
-      unless org.managed_by_members, do: RepoHelper.repo().rollback(:organization_not_managed)
-      org |> User.contact_email_changeset(attrs) |> RepoHelper.repo().update() |> Locks.value!()
+      change_contact!(org, attrs)
     end)
+  end
+
+  @doc "Host-application form of `update_contact/3`; see the module documentation."
+  def host_update_contact(organization_uuid, attrs, %User{} = created_by) do
+    Revocation.transaction(fn ->
+      org = Locks.organization!(organization_uuid)
+      Actor.host!(created_by)
+      change_contact!(org, attrs)
+    end)
+  end
+
+  defp change_contact!(org, attrs) do
+    unless org.managed_by_members, do: RepoHelper.repo().rollback(:organization_not_managed)
+    org |> User.contact_email_changeset(attrs) |> RepoHelper.repo().update() |> Locks.value!()
   end
 
   @doc "Admin-only person search; managers add people only by email invitation."
@@ -97,6 +132,20 @@ defmodule PhoenixKit.Users.OrganizationManagers do
     end)
   end
 
+  @doc "Host-application form of `add/3`; see the module documentation."
+  def host_add(organization_uuid, person_uuid, %User{} = created_by) do
+    Revocation.transaction(fn ->
+      unless Auth.organization_accounts_enabled?(),
+        do: RepoHelper.repo().rollback(:organization_accounts_disabled)
+
+      Locks.person!(person_uuid)
+      org = Locks.organization!(organization_uuid)
+      Locks.users!([person_uuid])
+      authority = Actor.host!(created_by)
+      insert_locked(org, person_uuid, authority)
+    end)
+  end
+
   def remove(actor, organization_uuid, person_uuid, opts \\ []) do
     Revocation.transaction(fn ->
       Locks.person!(person_uuid)
@@ -104,28 +153,42 @@ defmodule PhoenixKit.Users.OrganizationManagers do
       Locks.users!([person_uuid])
       Locks.users!([Actor.person_uuid(actor)], "FOR KEY SHARE")
       authority = actor |> Actor.authorize(organization_uuid) |> Locks.value!()
-
-      unless org.managed_by_members,
-        do: RepoHelper.repo().rollback(:organization_not_managed)
-
-      case RepoHelper.repo().get_by(OrganizationManager,
-             organization_uuid: org.uuid,
-             user_uuid: person_uuid
-           ) do
-        nil ->
-          :ok
-
-        grant ->
-          ensure_can_lose!(org, person_uuid, override?(authority, opts))
-
-          Revocation.delete_manager_grants(
-            from(m in OrganizationManager, where: m.uuid == ^grant.uuid)
-          )
-
-          log_change("organization.manager_removed", org, person_uuid, authority)
-          :ok
-      end
+      remove_locked(org, person_uuid, authority, opts)
     end)
+  end
+
+  @doc "Host-application form of `remove/4` without an override; see the module documentation."
+  def host_remove(organization_uuid, person_uuid, %User{} = created_by) do
+    Revocation.transaction(fn ->
+      Locks.person!(person_uuid)
+      org = Locks.organization!(organization_uuid)
+      Locks.users!([person_uuid])
+      authority = Actor.host!(created_by)
+      remove_locked(org, person_uuid, authority, [])
+    end)
+  end
+
+  defp remove_locked(org, person_uuid, authority, opts) do
+    unless org.managed_by_members,
+      do: RepoHelper.repo().rollback(:organization_not_managed)
+
+    case RepoHelper.repo().get_by(OrganizationManager,
+           organization_uuid: org.uuid,
+           user_uuid: person_uuid
+         ) do
+      nil ->
+        :ok
+
+      grant ->
+        ensure_can_lose!(org, person_uuid, override?(authority, opts))
+
+        Revocation.delete_manager_grants(
+          from(m in OrganizationManager, where: m.uuid == ^grant.uuid)
+        )
+
+        log_change("organization.manager_removed", org, person_uuid, authority)
+        :ok
+    end
   end
 
   @doc false
@@ -257,9 +320,11 @@ defmodule PhoenixKit.Users.OrganizationManagers do
 
   defp log_change(action, org, person_uuid, authority) do
     metadata =
-      if authority.kind == :manager,
-        do: %{"acting_user_uuid" => authority.person_uuid},
-        else: %{}
+      case authority.kind do
+        :manager -> %{"acting_user_uuid" => authority.person_uuid}
+        :host -> %{"via" => "host"}
+        _ -> %{}
+      end
 
     PhoenixKit.Activity.log(%{
       action: action,
