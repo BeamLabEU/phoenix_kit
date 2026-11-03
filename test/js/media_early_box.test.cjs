@@ -23,6 +23,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 function page() {
   const env = createEnv({ facts: FACTS });
   env.window.PointerEvent = function PointerEvent(type, init) {
+    this.buttons = 0; // as in the DOM: an event made by script holds no button unless it says so
     Object.assign(this, init);
     this.type = type;
     this.preventDefault = () => { this.defaultPrevented = true; };
@@ -60,7 +61,8 @@ function page() {
   return {
     env, area, root, cards, hook, pushed, emptySpace, elsewhere,
     press: (target, extra) => { const e = ev(Object.assign({ type: "pointerdown", target }, extra)); env.fireDocument("pointerdown", e); return e; },
-    onWindow: (type, extra) => env.window.dispatchEvent(ev(Object.assign({ type }, extra))),
+    // A move while the press is held reports the button, a release does not, as in the DOM.
+    onWindow: (type, extra) => env.window.dispatchEvent(ev(Object.assign({ type, buttons: type === "pointermove" ? 1 : 0 }, extra))),
     select: () => { const e = ev({ type: "selectstart" }); env.fireDocument("selectstart", e); return e; },
     arrive: async () => { env.load("phoenix_kit_admin.js"); if (env.scripts.length) env.loaded(0); await tick(); },
   };
@@ -206,6 +208,24 @@ test("a press on a card or a button is not replayed as a box", async () => {
   await p.arrive();
   assert.deepEqual(seen, [], "no synthetic event reaches the host's window listeners");
   assert.equal(p.env.window.__pkPendingBox, undefined);
+});
+
+test("a press on the column's own scrollbar is not replayed as a box", async () => {
+  const p = page();
+  const seen = [];
+  p.env.window.addEventListener("pointermove", (ev) => seen.push(ev.type));
+  p.area.clientWidth = 290;
+  p.area.clientHeight = 300;
+  p.area.closest = (sel) => (sel === "[data-box-area]" ? p.area : sel.includes("phx-hook") ? p.root : null);
+  // The column is the target and the press lies beyond its content box: the scrollbar.
+  p.press(p.area, { offsetX: 295, offsetY: 10 });
+  p.onWindow("pointerup", { clientX: 90, clientY: 90 });
+  seen.length = 0;
+  await p.arrive();
+  assert.deepEqual(seen, [], "no synthetic event reaches the host's window listeners");
+  assert.deepEqual(p.pushed, []);
+  assert.equal(p.env.window.__pkPendingBox, undefined);
+  assert.deepEqual(plain(p.env.errors), []);
 });
 
 test("a press older than a few seconds, or on a page that has gone, is dropped", async () => {

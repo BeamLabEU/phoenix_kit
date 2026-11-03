@@ -108,7 +108,7 @@ EmailCharts.
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
 `--minify`, `gzip -9 -n`): `phoenix_kit.js` is 248 202 B raw, 70 842 gzip, 93 018 minified, 28 495 minified + gzip;
-`phoenix_kit_admin.js` is 352 635 / 99 457 / 129 208 / 37 150. The size budget in `admin_split.test.cjs` (256 KiB for
+`phoenix_kit_admin.js` is 352 883 / 99 552 / 129 238 / 37 162. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -147,7 +147,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
 248 KB raw / 71 KB gzip readable, 28 KB gzip minified, the mention field and the two upload hooks being public;
-the admin bundle is 353 KB / 99 KB readable, 129 KB / 37 KB gzip minified;
+the admin bundle is 353 KB / 100 KB readable, 129 KB / 37 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.
@@ -229,7 +229,8 @@ sortable list and the media browser with the console open.
   public file therefore keeps a catcher of about 0.2 KB min+gz: a capture-phase `pointerdown` on
   `[data-box-area]` refuses `selectstart` until the pointer is released and stores the press, its last move and
   its release (`window.__pkEarlyPress`); the admin file takes it over when it runs (`startBoxSelect`, then
-  synthetic `pointermove`/`pointerup` at the stored positions through the same code; a released box waits in
+  synthetic `pointermove` (with `buttons: 1`: a box ends on a move that reports no button) and `pointerup` at the stored
+  positions through the same code; a released box waits in
   `__pkPendingBox` for the hook). Nothing of the box logic is duplicated in the public file. Limits: nothing is
   drawn before the admin file arrives (the early start narrows that window; a host layout without
   `data-pk-admin` has none), the replay uses the geometry as it is at takeover (a scroll in between moves the

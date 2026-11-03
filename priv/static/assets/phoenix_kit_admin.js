@@ -5365,8 +5365,12 @@
       var at = root.__pkCancelBox && (early.end || early.last);
       if (!at) return;
       ["pointermove"].concat(early.end ? ["pointerup"] : []).forEach(function(type) {
+        // The press was held for the replayed move, and `onMove` ends a box
+        // whose move reports no button; a release has none, as in the DOM
+        // (`onUp` does not read the field).
         window.dispatchEvent(new PointerEvent(type, {
-          pointerId: e.pointerId, clientX: at.x, clientY: at.y, bubbles: true, cancelable: true
+          pointerId: e.pointerId, clientX: at.x, clientY: at.y, bubbles: true, cancelable: true,
+          buttons: type === "pointermove" ? 1 : 0
         }));
       });
     } catch (_e) { /* a stale or foreign press */ }
