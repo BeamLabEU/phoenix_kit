@@ -222,6 +222,12 @@ defmodule PhoenixKitWeb.Components.Core.UploadManager do
 
           <template data-role="row">
             <li class="flex items-center gap-2 px-3 py-2 data-[state=done]:opacity-60 data-[state=cancelled]:opacity-50">
+              <div
+                data-role="thumb"
+                class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-base-200 text-[10px] font-semibold uppercase text-base-content/50"
+                aria-hidden="true"
+              >
+              </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm" data-role="name"></p>
                 <progress

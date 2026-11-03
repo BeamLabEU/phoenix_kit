@@ -14515,6 +14515,35 @@ if (typeof window.Chart === "undefined") {
       if (n) n.hidden = !on;
     },
 
+    // A small picture of an image, or the file's extension for anything else,
+    // so a row can be told apart without reading its name. Pictures are
+    // decoded at thumbnail size, a couple at a time: a hundred full-size
+    // decodes at once would stall the page.
+    _thumb: function(it, box) {
+      var ext = (it.name.lastIndexOf(".") > 0 ? it.name.slice(it.name.lastIndexOf(".") + 1) : "").slice(0, 4);
+      box.textContent = ext;
+      var file = it.file;
+      if (!file || !/^image\/(png|jpe?g|gif|webp|bmp|avif)$/i.test(file.type || "") || typeof createImageBitmap !== "function") return;
+      var q = this.thumbQueue || (this.thumbQueue = { waiting: [], running: 0 });
+      q.waiting.push(function(done) {
+        createImageBitmap(file, { resizeWidth: 80, resizeQuality: "low" }).then(function(bmp) {
+          var c = document.createElement("canvas");
+          c.width = bmp.width; c.height = bmp.height;
+          c.className = "size-full object-cover";
+          c.getContext("2d").drawImage(bmp, 0, 0);
+          if (bmp.close) bmp.close();
+          if (box.isConnected !== false) { box.textContent = ""; box.appendChild(c); }
+        }).catch(function() { /* keep the extension */ }).then(done);
+      });
+      var pump = function() {
+        while (q.running < 2 && q.waiting.length) {
+          q.running += 1;
+          q.waiting.shift()(function() { q.running -= 1; pump(); });
+        }
+      };
+      pump();
+    },
+
     _renderRows: function() {
       var self = this;
       var seen = {};
@@ -14535,6 +14564,7 @@ if (typeof window.Chart === "undefined") {
           li.dataset.item = String(it.id);
           li.querySelector('[data-role="name"]').textContent = it.name;
           li.querySelector('[data-role="name"]').title = it.name;
+          self._thumb(it, li.querySelector('[data-role="thumb"]'));
           self.rowEls[it.id] = li;
         }
         // Keep the list in queue order.
