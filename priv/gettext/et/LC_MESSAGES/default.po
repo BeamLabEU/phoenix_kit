@@ -4313,6 +4313,161 @@ msgstr "Halda oma konto seadeid ja eelistusi"
 msgid "Max Upload Size (MB)"
 msgstr "Maksimaalne üleslaadimise suurus (MB)"
 
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Max Concurrent Uploads"
+msgstr "Samaaegsete üleslaadimiste maksimum"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "The most files sent at the same time (1 to %{max}). The upload manager measures the connection and uses as many as help, up to this; 1 sends one file at a time."
+msgstr "Mitu faili saadetakse korraga (1 kuni %{max}). Üleslaadimishaldur mõõdab ühendust ja kasutab nii palju, kui aitab, kuni selle väärtuseni; 1 saadab ühe faili korraga."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Show or hide the list"
+msgstr "Näita või peida loend"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Pause all"
+msgstr "Peata kõik"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Resume all"
+msgstr "Jätka kõiki"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Retry failed"
+msgstr "Proovi ebaõnnestunuid uuesti"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Cancel all"
+msgstr "Tühista kõik"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Clear finished"
+msgstr "Eemalda valmis"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Upload this next"
+msgstr "Laadi see järgmisena üles"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Skip"
+msgstr "Jäta vahele"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Add back"
+msgstr "Lisa tagasi"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{done} of %{total} uploaded"
+msgstr "%{done} / %{total} üles laaditud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{count} at once"
+msgstr "%{count} korraga"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "%{time} left"
+msgstr "%{time} jäänud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "measuring speed…"
+msgstr "kiirust mõõdetakse…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "auto, up to %{max}"
+msgstr "automaatne, kuni %{max}"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "paused"
+msgstr "peatatud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Failed: %{count}"
+msgstr "Ebaõnnestunud: %{count}"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Skipped"
+msgstr "Vahele jäetud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Larger than the upload limit"
+msgstr "Suurem kui üleslaadimise piir"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Not accepted"
+msgstr "Ei ole aktsepteeritud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Too many files at once"
+msgstr "Liiga palju faile korraga"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+#, elixir-autogen, elixir-format
+msgid "Nowhere to upload to"
+msgstr "Üleslaadimiseks pole sihtkohta"
+
+#: lib/modules/storage/web/settings.html.heex:540
+#, elixir-autogen, elixir-format
+msgid "Max Files Per Upload"
+msgstr "Faile ühe üleslaadimise kohta"
+
+#: lib/modules/storage/web/settings.html.heex:543
+#, elixir-autogen, elixir-format
+msgid "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message."
+msgstr "Mitu faili saab korraga valida või lohistada (1 kuni %{max}). Ülejäänud lükatakse teatega tagasi."
+
+#: lib/modules/storage/web/settings.html.heex:556
+#, elixir-autogen, elixir-format
+msgid "Current limit: %{count} files"
+msgstr "Praegune piir: %{count} faili"
+
+#: lib/phoenix_kit_web/components/media_browser/browser.html.heex:99
+#, elixir-autogen, elixir-format
+msgid "%{mb}MB per file, up to %{count} files at once"
+msgstr "%{mb} MB faili kohta, kuni %{count} faili korraga"
+
+#: lib/modules/storage/web/settings.html.heex:530
+#, elixir-autogen, elixir-format
+msgid "Keep trashed files for (days)"
+msgstr "Prügikastis olevaid faile hoitakse (päeva)"
+
+#: lib/modules/storage/web/settings.html.heex:533
+#, elixir-autogen, elixir-format
+msgid "A file or folder in the trash can be restored until this many days have passed; then it is deleted for good."
+msgstr "Prügikastis olevat faili või kausta saab taastada, kuni on möödunud see arv päevi; seejärel kustutatakse see jäädavalt."
+
+#: lib/modules/storage/web/settings.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Keep the bucket log for (days)"
+msgstr "Salvestusruumi logi hoitakse (päeva)"
+
+#: lib/modules/storage/web/settings.html.heex:554
+#, elixir-autogen, elixir-format
+msgid "Entries in each bucket's log are removed after this many days."
+msgstr "Iga salvestusruumi logi kirjed eemaldatakse pärast seda arvu päevi."
+
 #: lib/modules/storage/web/settings.html.heex:515
 #, elixir-autogen, elixir-format
 msgid "Maximum file size allowed per upload"
@@ -23892,3 +24047,31 @@ msgstr "Kui palju saidi salvestusruumi võivad ühe inimese kogud kasutada: orig
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Salvestusruum kasutaja kohta (MB)"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Reconnecting…"
+msgstr "Ühendan uuesti…"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Connection lost. Retry to carry on."
+msgstr "Ühendus katkes. Proovi uuesti, et jätkata."
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Not allowed to upload"
+msgstr "Üleslaadimine pole lubatud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Stopped sending"
+msgstr "Saatmine peatus"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "✓ %{count} uploaded"
+msgstr "✓ %{count} üles laaditud"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Cancel the uploads in progress?"
+msgstr "Kas katkestada käimasolevad üleslaadimised?"
+
+#: lib/phoenix_kit_web/components/core/upload_manager.ex
+msgid "Upload progress"
+msgstr "Üleslaadimise edenemine"

@@ -527,13 +527,119 @@
                 {gettext("Current limit: %{size} MB", size: @form_max_upload_size_mb)}
               </p>
             </div>
+
+            <%!-- Files per upload --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Max Files Per Upload")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext(
+                    "How many files can be selected or dropped at once (1 to %{max}). More than this are turned away with a message.",
+                    max: PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+                  )}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_max_upload_files"
+                value={@form_max_upload_files}
+                min="1"
+                max={PhoenixKit.Modules.Storage.max_upload_files_ceiling()}
+              />
+              <p class="text-xs text-base-content/70 mt-1">
+                {gettext("Current limit: %{count} files", count: @form_max_upload_files)}
+              </p>
+            </div>
+
+            <%!-- Concurrent uploads --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Max Concurrent Uploads")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext(
+                    "The most files sent at the same time (1 to %{max}). The upload manager measures the connection and uses as many as help, up to this; 1 sends one file at a time.",
+                    max: PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()
+                  )}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_max_concurrent_uploads"
+                value={@form_max_concurrent_uploads}
+                min="1"
+                max={PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()}
+              />
+            </div>
+
+            <%!-- Resumable uploads --%>
+            <div class="fieldset">
+              <.checkbox
+                name="form_resumable_uploads"
+                checked={@form_resumable_uploads}
+                phx-click="toggle_form_resumable_uploads"
+                label={gettext("Resumable uploads")}
+              >
+                <:description>
+                  {gettext(
+                    "Send files in pieces the server keeps. A paused upload goes on from where it stopped, and a lost connection or a reloaded page does not start a file over. With this off, files are sent whole by LiveView's own uploader."
+                  )}
+                </:description>
+              </.checkbox>
+            </div>
+
+            <%!-- Trash retention --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Keep trashed files for (days)")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext(
+                    "A file or folder in the trash can be restored until this many days have passed; then it is deleted for good."
+                  )}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_trash_retention_days"
+                value={@form_trash_retention_days}
+                min="1"
+              />
+            </div>
+
+            <%!-- Bucket log retention --%>
+            <div class="fieldset">
+              <div class="mb-2">
+                <span class="fieldset-legend font-semibold">
+                  {gettext("Keep the bucket log for (days)")}
+                </span>
+                <span class="block text-xs text-base-content/60">
+                  {gettext("Entries in each bucket's log are removed after this many days.")}
+                </span>
+              </div>
+              <.input
+                type="number"
+                name="form_bucket_log_retention_days"
+                value={@form_bucket_log_retention_days}
+                min="1"
+              />
+            </div>
           </.form>
 
           <%!-- Apply Button --%>
           <% storage_form_clean =
             @form_annotated_thumbnails_enabled == @annotated_thumbnails_enabled and
               @form_image_edit_mode == @image_edit_mode and
-              @form_max_upload_size_mb == @max_upload_size_mb %>
+              @form_max_upload_size_mb == @max_upload_size_mb and
+              @form_max_upload_files == @max_upload_files and
+              @form_max_concurrent_uploads == @max_concurrent_uploads and
+              @form_resumable_uploads == @resumable_uploads and
+              @form_trash_retention_days == @trash_retention_days and
+              @form_bucket_log_retention_days == @bucket_log_retention_days %>
           <div class="fieldset mt-4">
             <button
               type="button"

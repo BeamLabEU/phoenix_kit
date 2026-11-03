@@ -4258,8 +4258,11 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Deletes a file.
 
-  This only removes the database record. Use `delete_file_data/1` to
-  remove the actual file data from storage buckets.
+  This only removes the database record: no "in use" check (a referenced file
+  raises a constraint error rather than answering `{:error, :in_use}`), and the
+  stored objects stay where they are. For a user-facing delete use
+  `delete_file_completely/2`, which does both properly; `trash_file/2` is the
+  reversible one.
   """
   def delete_file(%PhoenixKit.Modules.Storage.File{} = file) do
     repo().delete(file)
@@ -6090,14 +6093,111 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
-  @doc "Returns the configured trash retention period in days (default 30)."
+  @default_max_upload_files 100
+  @max_upload_files_ceiling 1000
+
+  @doc """
+  How many files one upload may carry at once (`storage_max_upload_files`,
+  default #{@default_max_upload_files}, at most #{@max_upload_files_ceiling}).
+
+  Every upload surface of the media module (the browser, the pickers) allows
+  this many files per selection or drop. A stored value that is not a positive
+  whole number reads as the default.
+  """
+  @spec max_upload_files() :: pos_integer()
+  def max_upload_files do
+    case Integer.parse(to_string(Settings.get_setting_cached("storage_max_upload_files", "100"))) do
+      {n, _} when n > 0 -> min(n, @max_upload_files_ceiling)
+      _ -> @default_max_upload_files
+    end
+  rescue
+    _ -> @default_max_upload_files
+  catch
+    :exit, _ -> @default_max_upload_files
+  end
+
+  @default_max_concurrent_uploads 5
+  @max_concurrent_uploads_ceiling 20
+
+  @doc """
+  The most files the upload manager sends at the same time
+  (`storage_max_concurrent_uploads`, default #{@default_max_concurrent_uploads}, at most
+  #{@max_concurrent_uploads_ceiling}).
+
+  This is the cap, not the number: the manager measures the connection and uses
+  as many as help, up to this. `1` sends one file at a time.
+  """
+  @spec max_concurrent_uploads() :: pos_integer()
+  def max_concurrent_uploads do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_concurrent_uploads", "5"))
+         ) do
+      {n, _} when n > 0 -> min(n, @max_concurrent_uploads_ceiling)
+      _ -> @default_max_concurrent_uploads
+    end
+  rescue
+    _ -> @default_max_concurrent_uploads
+  catch
+    :exit, _ -> @default_max_concurrent_uploads
+  end
+
+  @doc """
+  The largest file one upload may carry, in megabytes
+  (`storage_max_upload_size_mb`, default 500). LiveView refuses what is larger
+  before a byte is sent; an upload that names no `max_file_size` of its own is
+  held to LiveView's 8 MB default instead, so every upload says this.
+  """
+  @spec max_upload_size_mb() :: pos_integer()
+  def max_upload_size_mb do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_upload_size_mb", "500"))
+         ) do
+      {n, _} when n > 0 -> n
+      _ -> 500
+    end
+  rescue
+    _ -> 500
+  catch
+    :exit, _ -> 500
+  end
+
+  @doc """
+  Whether uploads travel in resumable chunks (`storage_resumable_uploads`,
+  default on): a paused file goes on from where it stopped, and a dropped
+  connection or a reloaded page does not start it over. Off, uploads use
+  LiveView's own uploader. See `PhoenixKitWeb.ResumableUpload`.
+  """
+  @spec resumable_uploads?() :: boolean()
+  def resumable_uploads? do
+    to_string(Settings.get_setting_cached("storage_resumable_uploads", "true")) != "false"
+  rescue
+    _ -> true
+  catch
+    :exit, _ -> true
+  end
+
+  @doc "The most the concurrent upload cap may be set to."
+  @spec max_concurrent_uploads_ceiling() :: pos_integer()
+  def max_concurrent_uploads_ceiling, do: @max_concurrent_uploads_ceiling
+
+  @doc "The most files an upload may be set to carry at once."
+  @spec max_upload_files_ceiling() :: pos_integer()
+  def max_upload_files_ceiling, do: @max_upload_files_ceiling
+
+  @doc """
+  Returns the configured trash retention period in days (default 30).
+
+  A stored value that is not a positive whole number reads as the default: a
+  retention of 0 would have the daily prune delete everything in the trash as
+  soon as it ran.
+  """
   def trash_retention_days do
     Settings.get_setting("trash_retention_days", "30")
     |> to_string()
     |> Integer.parse()
     |> case do
-      {n, _} -> n
-      :error -> 30
+      {n, _} when n > 0 -> n
+      _ -> 30
     end
   rescue
     _ -> 30

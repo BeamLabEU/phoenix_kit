@@ -219,4 +219,196 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.SettingsTabsTest do
     assert PhoenixKit.Settings.get_setting("storage_annotated_thumbnails_enabled", "false") ==
              flipped
   end
+
+  describe "retention" do
+    @retention_keys ["trash_retention_days", "bucket_log_retention_days"]
+
+    setup do
+      # The rows are rolled back with the sandbox; the cached copies are not.
+      on_exit(fn -> Enum.each(@retention_keys, &PhoenixKit.Cache.invalidate(:settings, &1)) end)
+    end
+
+    defp configuration(conn),
+      do: live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+
+    defp change_form(view, params),
+      do: render_change(view, "update_storage_form", params)
+
+    test "the Configuration tab offers both periods, showing what is in use", %{conn: conn} do
+      {:ok, _view, html} = configuration(conn)
+
+      assert html =~ ~s(name="form_trash_retention_days")
+      assert html =~ ~s(name="form_bucket_log_retention_days")
+      assert html =~ ~s(value="#{PhoenixKit.Modules.Storage.trash_retention_days()}")
+    end
+
+    test "Apply Changes saves them", %{conn: conn} do
+      {:ok, view, _html} = configuration(conn)
+
+      change_form(view, %{
+        "form_trash_retention_days" => "14",
+        "form_bucket_log_retention_days" => "7"
+      })
+
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == 14
+      assert PhoenixKit.Modules.Storage.BucketLog.retention_days() == 7
+    end
+
+    test "nothing below one day is accepted — 0 would empty the trash at the next prune", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = configuration(conn)
+
+      change_form(view, %{
+        "form_trash_retention_days" => "0",
+        "form_bucket_log_retention_days" => "-5"
+      })
+
+      render_click(view, "apply_storage_settings", %{})
+
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == 1
+      assert PhoenixKit.Modules.Storage.BucketLog.retention_days() == 1
+    end
+
+    test "text that is not a number leaves the field as it was", %{conn: conn} do
+      {:ok, view, _html} = configuration(conn)
+      before = PhoenixKit.Modules.Storage.trash_retention_days()
+
+      change_form(view, %{"form_trash_retention_days" => "soon"})
+      render_click(view, "apply_storage_settings", %{})
+
+      assert PhoenixKit.Modules.Storage.trash_retention_days() == before
+    end
+
+    test "a stored 0 or negative value reads as the default, not as 'delete everything'" do
+      for bad <- ["0", "-3", "abc", ""] do
+        PhoenixKit.Settings.update_setting("trash_retention_days", bad)
+        assert PhoenixKit.Modules.Storage.trash_retention_days() == 30
+      end
+    end
+  end
+
+  describe "files per upload" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files") end)
+    end
+
+    test "defaults to a hundred" do
+      PhoenixKit.Settings.update_setting("storage_max_upload_files", "100")
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 100
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ ~s(name="form_max_upload_files")
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "250"})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 250
+    end
+
+    test "nothing below one or above the ceiling is accepted", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      ceiling = PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "0"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_upload_files() == 1
+
+      render_change(view, "update_storage_form", %{"form_max_upload_files" => "999999"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_upload_files() == ceiling
+    end
+
+    test "a stored value that is not a number reads as the default" do
+      for bad <- ["0", "-3", "lots", ""] do
+        PhoenixKit.Settings.update_setting("storage_max_upload_files", bad)
+        PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files")
+        assert PhoenixKit.Modules.Storage.max_upload_files() == 100
+      end
+    end
+
+    test "a stored value above the ceiling is held to it" do
+      PhoenixKit.Settings.update_setting("storage_max_upload_files", "5000000")
+      PhoenixKit.Cache.invalidate(:settings, "storage_max_upload_files")
+
+      assert PhoenixKit.Modules.Storage.max_upload_files() ==
+               PhoenixKit.Modules.Storage.max_upload_files_ceiling()
+    end
+  end
+
+  describe "concurrent uploads" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_max_concurrent_uploads") end)
+    end
+
+    test "defaults to five" do
+      PhoenixKit.Settings.update_setting("storage_max_concurrent_uploads", "5")
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 5
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ ~s(name="form_max_concurrent_uploads")
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "8"})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 8
+    end
+
+    test "nothing below one or above the ceiling is accepted", %{conn: conn} do
+      {:ok, view, _html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      ceiling = PhoenixKit.Modules.Storage.max_concurrent_uploads_ceiling()
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "0"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 1
+
+      render_change(view, "update_storage_form", %{"form_max_concurrent_uploads" => "500"})
+      render_click(view, "apply_storage_settings", %{})
+      assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == ceiling
+    end
+
+    test "a stored value that is not a number reads as the default" do
+      for bad <- ["0", "-3", "many", ""] do
+        PhoenixKit.Settings.update_setting("storage_max_concurrent_uploads", bad)
+        PhoenixKit.Cache.invalidate(:settings, "storage_max_concurrent_uploads")
+        assert PhoenixKit.Modules.Storage.max_concurrent_uploads() == 5
+      end
+    end
+  end
+
+  describe "resumable uploads" do
+    setup do
+      on_exit(fn -> PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads") end)
+    end
+
+    test "on unless the site turned it off" do
+      PhoenixKit.Settings.update_setting("storage_resumable_uploads", "false")
+      PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads")
+      refute PhoenixKit.Modules.Storage.resumable_uploads?()
+
+      PhoenixKit.Settings.update_setting("storage_resumable_uploads", "true")
+      PhoenixKit.Cache.invalidate(:settings, "storage_resumable_uploads")
+      assert PhoenixKit.Modules.Storage.resumable_uploads?()
+    end
+
+    test "the Configuration tab offers it and Apply Changes saves it", %{conn: conn} do
+      {:ok, view, html} = live(admin_conn(conn), @media_settings_path <> "?tab=configuration")
+      assert html =~ "Resumable uploads"
+
+      render_click(view, "toggle_form_resumable_uploads", %{})
+      html = render_click(view, "apply_storage_settings", %{})
+
+      assert html =~ "Storage settings updated successfully"
+      refute PhoenixKit.Modules.Storage.resumable_uploads?()
+    end
+  end
 end
