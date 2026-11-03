@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
 
   alias PhoenixKit.AuditLog.Entry
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, VariantSets}
+  alias PhoenixKit.Modules.Storage.{Libraries, Quotas, VariantSets}
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
@@ -777,14 +777,14 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
       |> form("#media-libraries-user-settings", %{user_libraries: %{quota_mb: "1024"}})
       |> render_submit()
 
-      assert PhoenixKit.Modules.Storage.Quotas.site_limit_mb() == 1024
+      assert Quotas.site_limit_mb() == 1024
       assert render(view) =~ ~s(value="1024")
 
       view
       |> form("#media-libraries-user-settings", %{user_libraries: %{quota_mb: ""}})
       |> render_submit()
 
-      assert PhoenixKit.Modules.Storage.Quotas.site_limit_mb() == nil
+      assert Quotas.site_limit_mb() == nil
     end
   end
 end

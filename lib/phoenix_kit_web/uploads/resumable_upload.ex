@@ -127,14 +127,35 @@ defmodule PhoenixKitWeb.ResumableUpload do
   `Phoenix.LiveView.consume_uploaded_entry/3` for an entry that came through
   `external/1`: the assembled file is deleted once `fun` returns `{:ok, _}`
   (it has been copied or stored by then), kept on `{:postpone, _}`.
+
+  For such an entry it is the browser that says the file is done, so `fun`
+  runs only when the server holds every declared byte. Otherwise the entry
+  is dropped, `fun` is not called, the partial file is kept (picked again,
+  the file carries on from it) and the answer is
+  `{:error, :incomplete_upload}`. That happens when the same file (the same
+  name, size and date, so the same upload) was in flight twice and the other
+  entry was consumed first, or when a client claims a finish it did not send.
   """
   def consume(socket, entry, fun) when is_function(fun, 1) do
     Phoenix.LiveView.consume_uploaded_entry(socket, entry, fn meta ->
-      result = fun.(meta)
-      if match?({:ok, _}, result), do: release(meta)
-      result
+      if assembled?(meta, entry) do
+        result = fun.(meta)
+        if match?({:ok, _}, result), do: release(meta)
+        result
+      else
+        {:ok, {:error, :incomplete_upload}}
+      end
     end)
   end
+
+  # LiveView takes an external upload's progress from the browser, so the
+  # bytes are counted here. Any other upload's file is LiveView's own.
+  defp assembled?(%{uploader: @uploader, path: path}, %{client_size: size})
+       when is_binary(path) do
+    match?({:ok, %{size: ^size}}, File.stat(path))
+  end
+
+  defp assembled?(_meta, _entry), do: true
 
   @doc "Deletes the assembled file named by a consumed entry's meta."
   def release(%{uploader: @uploader, path: path}) when is_binary(path) do
@@ -293,35 +314,41 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
   defp handle(conn, _method, _claims), do: reply(conn, 405, %{error: "method_not_allowed"})
 
+  # The lock is this node's only: the partial file is on this node's disk, and
+  # a cluster-wide lock would cost a round trip to every node for each chunk.
   defp write_chunk(conn, id, size, start, body) do
-    :global.trans({{__MODULE__, id}, self()}, fn ->
-      File.mkdir_p!(dir())
-      held = received(id, size)
-      len = byte_size(body)
+    :global.trans(
+      {{__MODULE__, id}, self()},
+      fn ->
+        File.mkdir_p!(dir())
+        held = received(id, size)
+        len = byte_size(body)
 
-      cond do
-        start + len > size ->
-          reply(conn, 413, %{error: "past_declared_size"})
+        cond do
+          start + len > size ->
+            reply(conn, 413, %{error: "past_declared_size"})
 
-        # Nothing to write twice: an offset that does not match is told where
-        # the file really ends.
-        start != held ->
-          conn
-          |> put_resp_header("upload-offset", Integer.to_string(held))
-          |> reply(409, %{error: "offset_mismatch", offset: held})
+          # Nothing to write twice: an offset that does not match is told where
+          # the file really ends.
+          start != held ->
+            conn
+            |> put_resp_header("upload-offset", Integer.to_string(held))
+            |> reply(409, %{error: "offset_mismatch", offset: held})
 
-        not chunk_intact?(conn, body) ->
-          reply(conn, 422, %{error: "checksum_mismatch"})
+          not chunk_intact?(conn, body) ->
+            reply(conn, 422, %{error: "checksum_mismatch"})
 
-        true ->
-          :ok = File.write(part_path(id), body, [:append, :binary])
-          done = held + len
+          true ->
+            :ok = File.write(part_path(id), body, [:append, :binary])
+            done = held + len
 
-          conn
-          |> put_resp_header("upload-offset", Integer.to_string(done))
-          |> reply(200, %{offset: done, size: size, complete: done == size})
-      end
-    end)
+            conn
+            |> put_resp_header("upload-offset", Integer.to_string(done))
+            |> reply(200, %{offset: done, size: size, complete: done == size})
+        end
+      end,
+      [node()]
+    )
   end
 
   defp start_offset(conn) do

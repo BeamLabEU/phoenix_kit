@@ -107,6 +107,37 @@ defmodule PhoenixKitWeb.Live.Users.MediaResumableUploadTest do
     refute File.exists?(path)
   end
 
+  # The browser says when an external upload is done; the server holds what
+  # actually arrived. A partial file is what a client claiming a finish it did
+  # not send leaves; a missing one is what a second entry of the same file
+  # (the same upload) finds after the first was consumed and its file removed.
+  for {label, held} <- [{"partial", :half}, {"missing", :none}] do
+    test "an entry reported done with its assembled file #{label} is not stored, and the page lives on",
+         %{conn: conn, user: user} do
+      view = open(conn, user)
+      content = "resumable-bytes-#{System.unique_integer()}"
+      path = part_for(user, "early.png", content)
+      File.mkdir_p!(Path.dirname(path))
+
+      if unquote(held) == :half,
+        do: File.write!(path, binary_part(content, 0, div(byte_size(content), 2)))
+
+      input =
+        file_input(view, "#folder-drop-upload-form", :media_files, [
+          %{name: "early.png", content: content, type: "image/png", last_modified: @modified}
+        ])
+
+      render_upload(input, "early.png")
+      Process.sleep(800)
+      render(view)
+
+      assert Process.alive?(view.pid)
+      assert stored_count(user) == 0
+      # A partial file is kept: the same file picked again carries on from it.
+      assert File.exists?(path) == (unquote(held) == :half)
+    end
+  end
+
   test "with the setting off, the uploads are LiveView's own", %{conn: conn, user: user} do
     {:ok, _} = Settings.update_setting("storage_resumable_uploads", "false")
     view = open(conn, user)

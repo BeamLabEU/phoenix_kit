@@ -220,6 +220,72 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
     end
   end
 
+  describe "consume/3" do
+    # A finished external entry on a socket, as LiveView holds it: the meta
+    # comes from `external/1`, and it is the browser that marked it done.
+    defp finished(size) do
+      entry = %Phoenix.LiveView.UploadEntry{
+        ref: "0",
+        upload_config: :photos,
+        done?: true,
+        client_name: "cat.png",
+        client_size: size,
+        client_last_modified: 99
+      }
+
+      user_socket = socket(%{uuid: "u1"})
+      {:ok, meta, _} = ResumableUpload.external(base: "/up").(entry, user_socket)
+
+      conf = %Phoenix.LiveView.UploadConfig{
+        name: :photos,
+        ref: "phx-photos",
+        external: true,
+        entries: [entry],
+        entry_refs_to_metas: %{"0" => meta}
+      }
+
+      {%{user_socket | assigns: Map.put(user_socket.assigns, :uploads, %{photos: conf})}, entry,
+       meta.path}
+    end
+
+    defp store(path) do
+      send(self(), {:stored, File.read!(path)})
+      {:ok, :stored}
+    end
+
+    test "every byte held: the callback runs and the assembled file goes", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+
+      assert ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end) == :stored
+      assert_received {:stored, "01234"}
+      refute File.exists?(path)
+    end
+
+    test "a partial file is not handed over, and is kept to carry on from", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "012")
+
+      assert ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end) ==
+               {:error, :incomplete_upload}
+
+      refute_received {:stored, _}
+      assert File.read!(path) == "012"
+    end
+
+    test "a file already taken by another entry of the same upload is not handed over" do
+      {socket, entry, path} = finished(5)
+      refute File.exists?(path)
+
+      assert ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end) ==
+               {:error, :incomplete_upload}
+
+      refute_received {:stored, _}
+    end
+  end
+
   describe "keeping the disk tidy" do
     test "release/1 deletes the assembled file, and only inside the upload directory", %{dir: dir} do
       File.mkdir_p!(dir)
