@@ -3,7 +3,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   Internal browser authority for organization lifecycle operations.
 
   Construct only from the trusted signed cookie session, in a controller or a
-  connected LiveView mount. Never accept this credential or its references from
+  connected LiveView mount (the exception is `host!/1`, the authority of a host
+  application's own trusted call, which has no session and returns a plain map,
+  not this struct). Never accept this credential or its references from
   request parameters/events. A bare User or Scope cannot prove that an Admin is
   in their own account rather than a borrowed account in a session stack.
 
@@ -17,7 +19,9 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.SessionRef
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Users.ManagedOrganizations.Locks
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Users.MultiSession
@@ -64,6 +68,44 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
       _ -> {:error, :forbidden}
     end
   end
+
+  @doc """
+  Authority of a host application's trusted call (`host_*` functions).
+
+  Unlike `admin/1` this proves nothing about a browser session: the host has
+  already decided that the person may act, and `created_by` only records who
+  that was. What it does check is that the recorded person is a real, live
+  one. The row is re-read under `FOR KEY SHARE`, which excludes a concurrent
+  delete or key change until the transaction ends; `is_active` is as of the
+  read, since a deactivation (a non-key update) is not blocked by that lock —
+  the same as for `admin/1`. Must run inside
+  a transaction; rolls back with `:forbidden` when `created_by` is not an
+  active person (not an organization, not a managed organization, not a
+  service user).
+  """
+  def host!(%User{uuid: uuid}) when is_binary(uuid) do
+    unless UUIDUtils.valid?(uuid), do: RepoHelper.repo().rollback(:forbidden)
+
+    case Locks.users!([uuid], "FOR KEY SHARE") do
+      [
+        %User{account_type: "person", is_active: true, managed_by_members: false, api_only: false} =
+            user
+      ] ->
+        %{
+          kind: :host,
+          person_uuid: user.uuid,
+          actor_uuid: user.uuid,
+          granted_by_uuid: user.uuid,
+          # Not a %Scope{}: the shared bodies read only `authority.scope.user`.
+          scope: %{user: user}
+        }
+
+      _ ->
+        RepoHelper.repo().rollback(:forbidden)
+    end
+  end
+
+  def host!(_), do: RepoHelper.repo().rollback(:forbidden)
 
   defp lock_token(uuid) do
     RepoHelper.repo().one(from(t in UserToken, where: t.uuid == ^uuid, lock: "FOR KEY SHARE"),
