@@ -17,30 +17,82 @@ both media pickers; usable anywhere else, and portable (see the end).
    The id must be unique on the page. For a limit an admin can change, read it
    with `PhoenixKit.Modules.Storage.max_concurrent_uploads/0`.
 
-## Quick start (in any other Phoenix 1.7+ / LiveView 1.0+ project)
+## Quick start (in any other Phoenix 1.8 / LiveView 1.x project)
 
-Requirements: Tailwind and daisyUI 5 (the panel uses `btn`, `badge`,
-`progress`, `card` classes), Heroicons through the usual Tailwind plugin
-(`hero-*` classes), and Tailwind scanning the component file.
+Tested by wiring it into a fresh `mix phx.new` app from this section alone.
 
-1. Copy `lib/phoenix_kit_web/components/core/upload_manager.ex` into your web
-   app. Rename the module, and replace its three PhoenixKit references:
-   `use Gettext, backend: PhoenixKitWeb.Gettext` (your own backend; the labels
-   are plain English msgids, so an untranslated backend just shows them) and
-   `import PhoenixKitWeb.Components.Core.Icon` (your `icon/1`, which takes
-   `name` and `class`). Import `upload_manager/1` in your `html_helpers`.
-2. Copy `priv/static/assets/phoenix_kit_upload_manager.js` into `assets/js/`.
-   In `app.js`: `import "./phoenix_kit_upload_manager.js"`, then
-   `hooks: {...colocatedHooks, ...window.PhoenixKitHooks}` (the script sets
-   `window.PhoenixKitHooks.UploadManager`).
-3. Steps 2 to 4 of the PhoenixKit quick start above, with your module's
-   `attach/1`.
-4. Make sure Tailwind scans the copied `.ex` file (it is in `lib/`, so the
-   default content paths already do).
+Requirements: Tailwind, daisyUI 5 (the panel uses `btn`, `badge`, `progress`,
+`card`) and the Heroicons Tailwind plugin (`hero-*` classes). Phoenix 1.8's
+generators include all three.
 
-Check it works: pick several files; a panel appears with speed and a row per
-file. If nothing is intercepted, the hook is not registered (look for
-`UploadManager` in the browser's `liveSocket.hooks`).
+1. Copy `lib/phoenix_kit_web/components/core/upload_manager.ex` to
+   `lib/my_app_web/components/upload_manager.ex` and rename the module to
+   `MyAppWeb.UploadManager`. Two lines need changing:
+   * `use Gettext, backend: PhoenixKitWeb.Gettext` becomes
+     `use Gettext, backend: MyAppWeb.Gettext` (the generated backend works
+     unchanged; the labels are plain English msgids, so untranslated they show
+     as written).
+   * `import PhoenixKitWeb.Components.Core.Icon` becomes
+     `import MyAppWeb.CoreComponents, only: [icon: 1]` (the stock `icon/1`;
+     `only:` avoids a clash with the import already in `html_helpers`).
+   The `PhoenixKitWeb...` names left in the moduledoc are only text.
+   Keep the file under `lib/my_app_web/` so Phoenix 1.8's
+   `@source "../../lib/my_app_web"` in `app.css` makes Tailwind scan it.
+2. In `html_helpers` of `my_app_web.ex`, right after the `CoreComponents`
+   import, add `import MyAppWeb.UploadManager, only: [upload_manager: 1]`.
+3. Copy `priv/static/assets/phoenix_kit_upload_manager.js` to `assets/js/`.
+   In `assets/js/app.js`, above `new LiveSocket(...)`, add
+   `import "./phoenix_kit_upload_manager.js"`, and pass
+   `hooks: {...colocatedHooks, ...window.PhoenixKitHooks}`. The script creates
+   `window.PhoenixKitHooks` and sets `UploadManager` on it.
+4. A complete minimal LiveView:
+
+   ```elixir
+   defmodule MyAppWeb.UploadLive do
+     use MyAppWeb, :live_view
+
+     def mount(_params, _session, socket) do
+       {:ok,
+        socket
+        |> allow_upload(:photos,
+          accept: :any,
+          max_entries: 50,
+          auto_upload: true,
+          progress: &handle_progress/3
+        )
+        |> MyAppWeb.UploadManager.attach()}
+     end
+
+     def handle_progress(:photos, entry, socket) do
+       if entry.done? do
+         consume_uploaded_entry(socket, entry, fn %{path: path} ->
+           dest = Path.join(System.tmp_dir!(), entry.client_name)
+           File.cp!(path, dest)
+           {:ok, dest}
+         end)
+       end
+
+       {:noreply, socket}
+     end
+
+     def render(assigns) do
+       ~H"""
+       <Layouts.app flash={@flash}>
+         <.upload_manager id="photo-uploads" upload={@uploads.photos} max_concurrent={5} />
+       </Layouts.app>
+       """
+     end
+   end
+   ```
+
+   Add `live "/upload", UploadLive` to the router.
+
+Check it works: on first render you will see `phx-hook="UploadManager"`,
+`#photo-uploads-wrap` and `#photo-uploads-entries`; the panel stays hidden and
+the `data-pk-upload-entry` rows appear only after files are picked. In a
+browser, pick several files: a panel shows speed and a row per file. If files
+upload with no panel, the hook is not registered (look for `UploadManager` in
+`liveSocket.hooks`).
 
 ## Why it exists
 
