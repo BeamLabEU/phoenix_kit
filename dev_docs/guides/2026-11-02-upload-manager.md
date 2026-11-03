@@ -4,6 +4,44 @@
 per-file controls for any Phoenix LiveView upload. Used by the media browser and
 both media pickers; usable anywhere else, and portable (see the end).
 
+## Quick start (in a PhoenixKit app)
+
+1. Nothing to install: `use PhoenixKitWeb, :live_view` already imports
+   `upload_manager/1`, and `phoenix_kit.js` already registers the
+   `UploadManager` hook.
+2. In `mount`, declare the upload and attach the manager:
+   `allow_upload(:photos, accept: :any, max_entries: 100, auto_upload: true, progress: &handle_progress/3) |> UploadManager.attach()`.
+3. In `handle_progress/3`, store a finished entry with `consume_uploaded_entry/3`
+   (`if entry.done?`). The manager treats a consumed entry as done.
+4. In the template: `<.upload_manager id="photo-uploads" upload={@uploads.photos} max_concurrent={5} />`.
+   The id must be unique on the page. For a limit an admin can change, read it
+   with `PhoenixKit.Modules.Storage.max_concurrent_uploads/0`.
+
+## Quick start (in any other Phoenix 1.7+ / LiveView 1.0+ project)
+
+Requirements: Tailwind and daisyUI 5 (the panel uses `btn`, `badge`,
+`progress`, `card` classes), Heroicons through the usual Tailwind plugin
+(`hero-*` classes), and Tailwind scanning the component file.
+
+1. Copy `lib/phoenix_kit_web/components/core/upload_manager.ex` into your web
+   app. Rename the module, and replace its three PhoenixKit references:
+   `use Gettext, backend: PhoenixKitWeb.Gettext` (your own backend; the labels
+   are plain English msgids, so an untranslated backend just shows them) and
+   `import PhoenixKitWeb.Components.Core.Icon` (your `icon/1`, which takes
+   `name` and `class`). Import `upload_manager/1` in your `html_helpers`.
+2. Copy `priv/static/assets/phoenix_kit_upload_manager.js` into `assets/js/`.
+   In `app.js`: `import "./phoenix_kit_upload_manager.js"`, then
+   `hooks: {...colocatedHooks, ...window.PhoenixKitHooks}` (the script sets
+   `window.PhoenixKitHooks.UploadManager`).
+3. Steps 2 to 4 of the PhoenixKit quick start above, with your module's
+   `attach/1`.
+4. Make sure Tailwind scans the copied `.ex` file (it is in `lib/`, so the
+   default content paths already do).
+
+Check it works: pick several files; a panel appears with speed and a row per
+file. If nothing is intercepted, the hook is not registered (look for
+`UploadManager` in the browser's `liveSocket.hooks`).
+
 ## Why it exists
 
 LiveView's browser uploader starts every picked file at once, each on a channel
