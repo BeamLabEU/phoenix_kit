@@ -16,10 +16,14 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
       `storage_class` is allowed only on a `backup` row, because archive
       tiers need a restore before a read.
 
-  A bucket holds everything the profile sends it, an original and what is made
-  from it. The table still has a `stores` column (V205); nothing reads or writes
-  it any more, and the schema leaves it out, so a row that has it set to
-  something other than `all` is treated as `all`.
+    * `stores` — `all` (the default: an original and everything made from it)
+      or, on a `backup` row only, `originals`: an off-site copy of what cannot
+      be made again, without the sizes, tiles and renders that can. Placement
+      and the reconciler leave such a bucket out for derived objects
+      (`takes?/2`), so the copies a profile wants of them are capped at the
+      buckets that take them, and derived copies already there are removed.
+      Any other value (`derived`, left from before 2.53, or `originals` on a
+      row that is not a backup) is treated as `all`.
 
   A bucket's global `enabled` flag is still the stop: a disabled bucket is
   neither written nor read, whatever its profile rows say. Because that would
@@ -38,6 +42,7 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
 
   @roles ~w(primary replica backup)
   @statuses ~w(active read_only draining)
+  @stores ~w(all originals)
 
   @type t :: %__MODULE__{
           profile_uuid: UUIDv7.t() | nil,
@@ -46,6 +51,7 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
           write_priority: integer() | nil,
           serve_order: integer(),
           status: String.t(),
+          stores: String.t(),
           storage_class: String.t() | nil,
           encryption: map() | nil,
           bucket: PhoenixKit.Modules.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
@@ -68,6 +74,7 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
     field :write_priority, :integer
     field :serve_order, :integer, default: 0
     field :status, :string, default: "active"
+    field :stores, :string, default: "all"
     field :storage_class, :string
     field :encryption, :map
 
@@ -80,13 +87,24 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
   @doc "The statuses."
   def statuses, do: @statuses
 
+  @doc """
+  Whether a profile sends this bucket objects of `kind` (`:original` or
+  `:derived`): every bucket takes originals, and every one but a backup that
+  stores originals only takes what is made from them.
+  """
+  @spec takes?(%{optional(:role) => String.t(), optional(:stores) => String.t()}, atom()) ::
+          boolean()
+  def takes?(%{role: "backup", stores: "originals"}, :derived), do: false
+  def takes?(_row, _kind), do: true
+
   @doc "How a profile uses a bucket. The keys are set by the caller."
   def changeset(row, attrs) do
     row
-    |> cast(attrs, [:role, :write_priority, :serve_order, :status, :storage_class])
+    |> cast(attrs, [:role, :write_priority, :serve_order, :status, :stores, :storage_class])
     |> validate_required([:role, :serve_order, :status])
     |> validate_inclusion(:role, @roles)
     |> validate_inclusion(:status, @statuses)
+    |> normalize_stores()
     |> validate_number(:write_priority, greater_than_or_equal_to: 1)
     |> validate_number(:serve_order, greater_than_or_equal_to: 0)
     |> validate_length(:storage_class, max: 64)
@@ -95,6 +113,22 @@ defmodule PhoenixKit.Modules.Storage.ProfileBucket do
     |> unique_constraint([:profile_uuid, :bucket_uuid],
       name: :phoenix_kit_storage_profile_buckets_pkey
     )
+  end
+
+  # Only a backup may store originals alone: a primary or replica is served
+  # from, and must hold what is served. Leaving the backup role stores
+  # everything again rather than failing the save.
+  defp normalize_stores(changeset) do
+    cond do
+      get_field(changeset, :role) != "backup" and get_field(changeset, :stores) != "all" ->
+        put_change(changeset, :stores, "all")
+
+      get_field(changeset, :stores) in [nil, ""] ->
+        put_change(changeset, :stores, "all")
+
+      true ->
+        validate_inclusion(changeset, :stores, @stores)
+    end
   end
 
   defp validate_storage_class(changeset) do

@@ -19,8 +19,9 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
       kind has fewer than the profile wants (capped at the buckets it can use),
       the object is copied to more of that kind's writable buckets and each
       copy is checked before it counts. Once both kinds have enough, copies on
-      buckets the profile no longer uses (not listed, `draining`, or a kind
-      with zero copies wanted) are unlinked: the location row goes, and the
+      buckets the profile no longer uses (not listed, `draining`, a kind
+      with zero copies wanted, or a size or tile on a backup that stores
+      originals only) are unlinked: the location row goes, and the
       object on that bucket only when nothing else there names the key (G11,
       `Storage.unlink_location/2`).
     * **variants** (G15, G16) — sizes of the set the file lacks are made,
@@ -50,6 +51,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     LibraryState,
     Locations,
     Manager,
+    ProfileBucket,
     Profiles,
     StorageProfile,
     VariantGenerator,
@@ -453,7 +455,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
     Enum.reduce(instances, true, fn instance, ok? ->
       if instance.uuid in checked do
-        place_instance(instance, profile) and ok?
+        place_instance(instance, profile, object(file, instance)) and ok?
       else
         false
       end
@@ -470,19 +472,27 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     |> Enum.reject(&(&1 in unchecked))
   end
 
+  # What an instance is to placement: a file's own original, or something made
+  # from one (a size, or a tile, which is a system file's "original").
+  defp object(%StorageFile{system_managed: true}, _instance), do: :derived
+  defp object(_file, %FileInstance{variant_name: "original"}), do: :original
+  defp object(_file, _instance), do: :derived
+
   # One instance: enough good copies of each kind, then no copies where the
   # profile no longer wants them. True when both hold.
-  defp place_instance(instance, profile) do
-    # Buckets whose copy counts: in the profile, active or read-only, enabled.
+  defp place_instance(instance, profile, object) do
+    # Buckets whose copy counts: in the profile, active or read-only, enabled,
+    # and taking this object (a backup of originals only keeps no size).
     keep =
       for row <- profile.buckets,
           row.status in ["active", "read_only"],
           match?(%{enabled: true}, row.bucket),
+          ProfileBucket.takes?(row, object),
           Profiles.copies(profile, Bucket.group(row.bucket)) > 0,
           into: %{},
           do: {to_string(row.bucket_uuid), row.bucket}
 
-    plan = Manager.placement_plan(profile)
+    plan = Manager.placement_plan(profile, object)
     writable = plan |> Enum.filter(&(elem(&1, 2) > 0)) |> Enum.flat_map(&elem(&1, 1))
     located = located_buckets(instance)
     good = located |> Map.keys() |> Enum.filter(&Map.has_key?(keep, &1))

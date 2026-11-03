@@ -10,6 +10,17 @@
   (`<bucket>.<location>.your-objectstorage.com`), as Hetzner documents. Users
   may bring their own Hetzner bucket, like any other S3-compatible one. No
   migration.
+- A backup bucket of a storage profile can keep **originals only** (the
+  profile editor's "Originals only" on a backup row; `stores: "originals"` on
+  `Profiles.put_bucket/4`): an off-site copy of what cannot be made again,
+  without the sizes, tiles and renders that can. Placement, the reconciler and
+  library verification leave such a bucket out for derived objects, so the
+  copies wanted of a size are capped at the buckets that take one, and sizes
+  already on it are removed by the reconciler. Only a backup may store
+  originals alone: any other role stores everything. This reads the
+  `phoenix_kit_storage_profile_buckets.stores` column again (V205, unused since
+  2.53.0); a leftover `derived` value is treated as `all`. Changing it makes
+  the profile's files stale. No migration.
 
 ## 3.3.0 - 2026-11-03
 

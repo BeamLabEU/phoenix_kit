@@ -23938,3 +23938,8 @@ msgstr "У Hetzner Console → ваш проєкт → Security → S3 Credentia
 #, elixir-autogen, elixir-format
 msgid "The bucket's location; its endpoint is <location>.your-objectstorage.com. Pick one or type it."
 msgstr "Розташування bucket'а; його кінцева точка — <location>.your-objectstorage.com. Виберіть розташування або введіть його."
+
+#: lib/modules/storage/web/profiles_component.ex:799
+#, elixir-autogen, elixir-format
+msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
+msgstr "Зберігати в цій резервній копії лише оригінали, без розмірів і тайлів: їх можна знову створити з оригіналів."

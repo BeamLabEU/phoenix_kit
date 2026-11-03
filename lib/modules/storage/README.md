@@ -345,9 +345,11 @@ touches profiles behaves as before. A profile has:
   never served), a fixed `write_priority` (nil is the shuffled pool), a `serve_order`, and a
   `status` (`active`; `read_only` serves but gets no new files; `draining`
   has its files moved to the profile's other buckets). A bucket holds
-  everything the profile sends it, an original and what is made from it: there
-  is no `stores` choice (V205's column stays in the table, and nothing reads or
-  writes it).
+  everything the profile sends it, an original and what is made from it, except
+  a `backup` with `stores: "originals"`: an off-site copy of the originals
+  alone, which placement, the reconciler and verification leave out for sizes,
+  tiles and renders (`ProfileBucket.takes?/2`), capping the copies wanted of
+  those at the buckets that take them. Any other role stores everything.
 
 **A bucket a profile lists is protected.** `Storage.delete_bucket/2` and
 `Storage.update_bucket/3` (disabling) refuse it with

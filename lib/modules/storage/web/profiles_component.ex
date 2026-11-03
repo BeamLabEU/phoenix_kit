@@ -13,7 +13,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
   file gets on local buckets and on cloud ones (the cloud count can be set only
   where the profile has a cloud bucket), and how many copies an upload needs to
   succeed. A bucket holds everything the profile sends it, an original and what
-  is made from it.
+  is made from it, except a backup marked "Originals only", which keeps the
+  originals and none of the sizes and tiles made from them.
 
   Every library without its own profile uses the Default, which every
   bucket joins when it is created. Any change bumps the profile's revision,
@@ -780,15 +781,37 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.ProfilesComponent do
                   </div>
                 </div>
 
-                <select name="row[role]" class="select select-sm select-bordered w-full">
-                  <option
-                    :for={role <- ProfileBucket.roles()}
-                    value={role}
-                    selected={row.role == role}
+                <div class="space-y-1">
+                  <select name="row[role]" class="select select-sm select-bordered w-full">
+                    <option
+                      :for={role <- ProfileBucket.roles()}
+                      value={role}
+                      selected={row.role == role}
+                    >
+                      {role_label(role)}
+                    </option>
+                  </select>
+                  <label
+                    :if={row.role == "backup"}
+                    id={"#{@id}-stores-#{profile.uuid}-#{row.bucket_uuid}"}
+                    class="flex cursor-pointer items-center gap-2 text-xs"
+                    title={
+                      gettext(
+                        "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
+                      )
+                    }
                   >
-                    {role_label(role)}
-                  </option>
-                </select>
+                    <input type="hidden" name="row[stores]" value="all" />
+                    <input
+                      type="checkbox"
+                      name="row[stores]"
+                      value="originals"
+                      checked={row.stores == "originals"}
+                      class="checkbox checkbox-xs"
+                    />
+                    <span>{gettext("Originals only")}</span>
+                  </label>
+                </div>
                 <input
                   :if={upload_order_matters?(advice, row)}
                   type="number"

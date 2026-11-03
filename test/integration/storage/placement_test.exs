@@ -335,6 +335,64 @@ defmodule PhoenixKit.Modules.Storage.PlacementTest do
       assert placed(tile_file) == {to_string(ctx.profile.uuid), revision(ctx.profile)}
     end
 
+    test "a backup that stores originals only gets the original, not a variant or a tile",
+         ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, ctx.b, %{role: "backup", stores: "originals"})
+      {:ok, _} = Profiles.update_profile(profile, %{copies_local: 2})
+
+      {:ok, file} = upload(ctx.user, ctx.library, "originals only")
+      assert original_buckets(file) == uuids([ctx.a, ctx.b])
+
+      {:ok, info} =
+        Storage.store_by_profile(source!("size"), file.library_uuid, :derived,
+          path_prefix: "#{file.file_path}/variant_small.txt"
+        )
+
+      # One copy is all a size can get: complete, so the file is not stale.
+      assert MapSet.new(info.bucket_ids, &to_string/1) == uuids([ctx.a])
+      assert info.complete?
+
+      tile_key = "#{file.file_path}/_tiles/0_0_0.jpg"
+
+      {:ok, _} =
+        Storage.store_system_file(source!("tile"), tile_key,
+          parent_file_uuid: file.uuid,
+          mime_type: "image/jpeg"
+        )
+
+      assert Locations.bucket_uuids(tile_key) == [to_string(ctx.a.uuid)]
+    end
+
+    test "only a backup stores originals alone; any other role stores everything", ctx do
+      {:ok, row} =
+        Profiles.put_bucket(ctx.profile, ctx.a.uuid, %{role: "primary", stores: "originals"})
+
+      assert row.stores == "all"
+
+      {:ok, row} =
+        Profiles.put_bucket(ctx.profile, ctx.a.uuid, %{role: "backup", stores: "originals"})
+
+      assert row.stores == "originals"
+
+      {:ok, row} = Profiles.put_bucket(ctx.profile, ctx.a.uuid, %{role: "replica"})
+      assert row.stores == "all"
+
+      assert {:error, changeset} =
+               Profiles.put_bucket(ctx.profile, ctx.a.uuid, %{role: "backup", stores: "derived"})
+
+      assert %{stores: _} = errors_on(changeset)
+    end
+
+    test "changing what a backup stores makes the profile's files stale", ctx do
+      profile = put!(ctx.profile, ctx.a)
+      profile = put!(profile, ctx.b, %{role: "backup"})
+      before = profile.revision
+
+      profile = put!(profile, ctx.b, %{stores: "originals"})
+      assert profile.revision == before + 1
+    end
+
     test "a derived copy that fails is reported incomplete", ctx do
       profile = put!(ctx.profile, ctx.a)
       profile = put!(profile, broken_bucket!())

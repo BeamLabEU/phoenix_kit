@@ -317,6 +317,28 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       refute on(ctx.a, key)
     end
 
+    test "a backup of originals only keeps the original and drops its sizes", ctx do
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{role: "backup"})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
+
+      file = image!(ctx)
+      original = key(file)
+      small = Storage.get_file_instance_by_name(file.uuid, "small").file_name
+      assert on(ctx.b, original) and on(ctx.b, small)
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+      assert stale?(file)
+
+      assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+      refute stale?(file)
+
+      assert buckets_of(original) == uuids([ctx.a, ctx.b])
+      assert buckets_of(small) == uuids([ctx.a])
+      assert on(ctx.b, original)
+      refute on(ctx.b, small)
+      assert on(ctx.a, small)
+    end
+
     test "a disabled size is kept, not made again", ctx do
       file = image!(ctx)
       small = Storage.get_dimension_by_name("small", ctx.set.uuid)

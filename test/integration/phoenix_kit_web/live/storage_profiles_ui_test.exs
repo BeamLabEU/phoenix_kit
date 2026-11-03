@@ -94,6 +94,28 @@ defmodule PhoenixKitWeb.Live.StorageProfilesUITest do
       refute Profiles.get_profile(profile.uuid)
     end
 
+    test "a backup row can keep originals only; other rows do not offer it", ctx do
+      {:ok, profile} = Profiles.create_profile(%{name: "Off-site #{System.unique_integer()}"})
+      {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{role: "primary"})
+      stores = "#media-profiles-stores-#{profile.uuid}-#{ctx.bucket.uuid}"
+
+      view = settings(ctx.conn)
+      refute has_element?(view, stores)
+
+      {:ok, _} = Profiles.put_bucket(profile, ctx.bucket.uuid, %{role: "backup"})
+      view = settings(ctx.conn)
+      assert has_element?(view, stores, "Originals only")
+
+      view
+      |> form("#media-profiles-row-#{profile.uuid}-#{ctx.bucket.uuid}", %{
+        "row" => %{"role" => "backup", "stores" => "originals"}
+      })
+      |> render_submit()
+
+      assert [%{role: "backup", stores: "originals"}] = Profiles.get_profile(profile.uuid).buckets
+      assert view |> element("#{stores} input[type=checkbox]") |> render() =~ "checked"
+    end
+
     test "the folder layout: the table follows the select, and saving stores it", ctx do
       {:ok, profile} =
         Profiles.create_profile(%{name: "Layouts #{System.unique_integer([:positive])}"})

@@ -44,7 +44,9 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   preloaded, `Storage.Profiles.for_library/1`), or the Default profile
   when none is given. `:kind` says what the object is: `:original` (an
   original upload, the default) or `:derived` (a size, a tile, a render),
-  which only matters to the copies an upload must make. Every file gets the
+  which matters to the copies an upload must make and to a backup that
+  stores originals only (`ProfileBucket.takes?/2`), which a derived object
+  skips. Every file gets the
   profile's copies per kind of bucket: `copies_local` on local buckets and
   `copies_cloud` on cloud ones. Buckets that are enabled, `active` in the
   profile and not over their `max_size_mb` are written, primaries before
@@ -127,7 +129,7 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   # is not written, whatever buckets it has.
   defp profile_placement(profile, kind) do
     groups =
-      for {_group, buckets, copies} <- placement_plan(profile),
+      for {_group, buckets, copies} <- placement_plan(profile, kind),
           want = min(copies, length(buckets)),
           want > 0,
           do: {buckets, want}
@@ -183,15 +185,16 @@ defmodule PhoenixKit.Modules.Storage.Manager do
 
   @doc false
   # Per kind of bucket (`:local`, then `:cloud`): `{kind, buckets, copies}`, the
-  # buckets `profile` may write to in write order (enabled, active in the
-  # profile, not over capacity; by role, then fixed write priority, then the
-  # shuffled pool) and how many copies the profile wants there, not capped.
-  def placement_plan(profile) do
+  # buckets `profile` may write an `object` (`:original` or `:derived`) to, in
+  # write order (enabled, active in the profile, taking that object, not over
+  # capacity; by role, then fixed write priority, then the shuffled pool) and
+  # how many copies the profile wants there, not capped.
+  def placement_plan(profile, object \\ :original) do
     by_kind =
       profile.buckets
       |> Enum.filter(fn row ->
         row.status == "active" and match?(%{enabled: true}, row.bucket) and
-          not bucket_full?(row.bucket)
+          ProfileBucket.takes?(row, object) and not bucket_full?(row.bucket)
       end)
       |> Enum.group_by(&Bucket.group(&1.bucket))
 
@@ -214,8 +217,8 @@ defmodule PhoenixKit.Modules.Storage.Manager do
 
   @doc false
   # Every bucket `placement_plan/1` lists, whatever the copy counts.
-  def placement_candidates(profile) do
-    profile |> placement_plan() |> Enum.flat_map(&elem(&1, 1))
+  def placement_candidates(profile, object \\ :original) do
+    profile |> placement_plan(object) |> Enum.flat_map(&elem(&1, 1))
   end
 
   # Fewer copies than an original needs undo the write; fewer than wanted

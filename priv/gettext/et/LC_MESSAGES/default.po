@@ -23877,3 +23877,8 @@ msgstr "Hetzner Console'is → sinu projekt → Security → S3 Credentials."
 #, elixir-autogen, elixir-format
 msgid "The bucket's location; its endpoint is <location>.your-objectstorage.com. Pick one or type it."
 msgstr "Bucketi asukoht; selle lõpp-punkt on <location>.your-objectstorage.com. Vali üks või sisesta ise."
+
+#: lib/modules/storage/web/profiles_component.ex:799
+#, elixir-autogen, elixir-format
+msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
+msgstr "Hoia sellel varukoopial ainult originaale, mitte suurusi ja paane: need saab originaalidest uuesti teha."
