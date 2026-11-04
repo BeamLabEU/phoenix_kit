@@ -14,9 +14,11 @@ const SOURCE = path.join(
   __dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_upload_manager.js"
 );
 
+const dom = { querySelector: () => null, getElementById: () => null };
+
 function load() {
   const window = {};
-  new Function("window", "document", fs.readFileSync(SOURCE, "utf8"))(window, {});
+  new Function("window", "document", fs.readFileSync(SOURCE, "utf8"))(window, dom);
   return window;
 }
 
@@ -161,4 +163,200 @@ test("the hook marks the queue offline, then on reconnect requeues and syncs", (
   assert.strictEqual(q.offline, false);
   assert.strictEqual(item.state, "queued");
   assert.strictEqual(syncs, 1);
+});
+
+test("autoTune does not run while offline", () => {
+  const q = new UploadQueue({ cap: 5 });
+  q.add([photo()]);
+  q.next(0);
+  q.offline = true;
+  const before = JSON.stringify(q.tune);
+  q.autoTune(30000);
+  assert.strictEqual(JSON.stringify(q.tune), before);
+});
+
+test("requeueUnseen starts the tuning over when nothing is left sending", () => {
+  const q = new UploadQueue({ cap: 5 });
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.tune.target = 4;
+  q.tune.phase = "settled";
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "queued");
+  assert.strictEqual(q.tune.target, 1);
+  assert.strictEqual(q.tune.phase, "probe");
+});
+
+test("requeueUnseen keeps the tuning while a file is still sending", () => {
+  const q = new UploadQueue({ cap: 5 });
+  q.tune.target = 2;
+  const [a, b] = q.add([
+    new File(["a"], "a.jpg", { lastModified: 1 }),
+    new File(["bb"], "b.jpg", { lastModified: 2 })
+  ]);
+  q.next(0);
+  q.observe([{ ref: "r1", key: b.key, size: b.size, progress: 50, done: false, error: "" }], 100);
+  q.tune.phase = "settled";
+  q.requeueUnseen();
+  assert.strictEqual(a.state, "queued");
+  assert.strictEqual(q.tune.target, 2);
+  assert.strictEqual(q.tune.phase, "settled");
+});
+
+test("the stall watchdog stands down while offline and its clock does not run", () => {
+  const q = new UploadQueue(); // not resumable
+  const [item] = q.add([photo()]);
+  q.next(0);
+  const row = { ref: "r1", key: item.key, size: item.size, progress: 30, done: false, error: "" };
+  q.observe([row], 100);
+  q.offline = true;
+  q.observe([row], 100 + 60000);
+  assert.strictEqual(item.state, "uploading");
+  assert.deepStrictEqual(q.observe([row], 100 + 60000), []);
+  q.offline = false;
+  q.observe([row], 100 + 60000 + 5000);
+  assert.strictEqual(item.state, "uploading", "the time offline is not held against it");
+});
+
+test("a not_accepted verdict reached before the drop was noticed is undone on reconnect", () => {
+  const q = new UploadQueue();
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.observe([], 9000);
+  assert.strictEqual(item.error, "not_accepted");
+
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "queued");
+  assert.strictEqual(item.error, null);
+  assert.strictEqual(item.attempts, 0);
+});
+
+test("a failure that was not a missing entry stays failed on reconnect", () => {
+  const q = new UploadQueue();
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.observe([{ ref: "r1", key: item.key, size: item.size, progress: 0, done: false, error: "too_large" }], 100);
+  assert.strictEqual(item.state, "failed");
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "failed");
+  assert.strictEqual(item.error, "too_large");
+});
+
+// ------------------------------------------------------- the hook's side ----
+// A page stand-in: an input registered under the upload's ref, found by the
+// same selector the hook uses, and a DataTransfer that keeps what it is given.
+
+class FakeDataTransfer {
+  constructor() { const list = []; this.items = { add: (f) => list.push(f) }; this.files = list; }
+}
+globalThis.DataTransfer = FakeDataTransfer;
+
+function page(ref) {
+  const input = {
+    tagName: "INPUT", type: "file", files: [], value: "x", fed: [],
+    getAttribute(name) { return name === "data-phx-upload-ref" ? input.ref : null; },
+    dispatchEvent(ev) { input.fed.push({ ev, files: input.files.slice() }); return true; }
+  };
+  input.ref = ref;
+  dom.querySelector = (sel) => {
+    const m = sel.match(/data-phx-upload-ref="([^"]*)"/);
+    return m && m[1] === input.ref ? input : null;
+  };
+  return input;
+}
+
+function hookCtx(ref) {
+  const ctx = Object.assign(Object.create(Hook), {
+    el: { dataset: { uploadRef: ref } },
+    queue: new UploadQueue({ cap: 5 }),
+    resumable: false,
+    leftovers: [],
+    uploadName: "photos",
+    _rows: () => [],
+    _announce() {},
+    _saveLeftovers() {},
+    render() {}
+  });
+  return ctx;
+}
+
+const pick = (input, files) => {
+  input.files = files;
+  let stopped = false;
+  const ev = { target: input, stopImmediatePropagation() { stopped = true; } };
+  return { ev, stopped: () => stopped };
+};
+
+test("the hook follows the upload's ref when a rejoin changes it", () => {
+  const input = page("phx-OLD");
+  const ctx = hookCtx("phx-OLD");
+  assert.strictEqual(ctx._input(), input);
+
+  // The rejoined LiveView registers the upload again under a new ref.
+  input.ref = "phx-NEW";
+  ctx.el.dataset.uploadRef = "phx-NEW";
+  assert.strictEqual(ctx._input(), input, "the input is found under the new ref");
+
+  const p = pick(input, [photo()]);
+  ctx._onPick(p.ev);
+  assert.ok(p.stopped(), "the pick is taken");
+  assert.strictEqual(ctx.queue.items.length, 1);
+});
+
+test("a pick from an input that is not this upload's is left alone", () => {
+  const input = page("phx-OTHER");
+  const ctx = hookCtx("phx-NEW");
+  const p = pick(input, [photo()]);
+  ctx._onPick(p.ev);
+  assert.ok(!p.stopped());
+  assert.strictEqual(ctx.queue.items.length, 0);
+});
+
+test("a pick while offline waits, and is fed as a fresh File after reconnected", () => {
+  const input = page("phx-1");
+  const ctx = hookCtx("phx-1");
+  const original = photo();
+
+  Hook.disconnected.call(ctx);
+  ctx._onPick(pick(input, [original]).ev);
+  assert.strictEqual(input.fed.length, 0, "nothing is dispatched to a dead socket");
+  assert.strictEqual(ctx.queue.items[0].state, "queued");
+
+  // The socket comes back with a new ref, as after any rejoin.
+  input.ref = "phx-2";
+  ctx.el.dataset.uploadRef = "phx-2";
+  Hook.reconnected.call(ctx);
+
+  assert.strictEqual(input.fed.length, 1);
+  assert.strictEqual(input.fed[0].ev.__pkUploadManagerFeed, true);
+  assert.strictEqual(input.fed[0].files[0], original, "the first hand-over is the picked File");
+  assert.strictEqual(ctx.queue.items[0].state, "uploading");
+});
+
+test("_feed gives LiveView what fileToFeed returns, so a re-send is a fresh File", () => {
+  const input = page("phx-1");
+  const ctx = hookCtx("phx-1");
+  const original = photo();
+  ctx._onPick(pick(input, [original]).ev);
+  assert.strictEqual(input.fed[0].files[0], original);
+
+  // Never showed up: the connection dropped and came back.
+  Hook.disconnected.call(ctx);
+  Hook.reconnected.call(ctx);
+
+  assert.strictEqual(input.fed.length, 2);
+  sameBytesDifferentObject(original, input.fed[1].files[0]);
+  assert.strictEqual(input.fed[1].files[0], ctx.queue.items[0].file);
+});
+
+test("nothing is pushed to cancel an entry while offline", () => {
+  const ctx = hookCtx("phx-1");
+  const pushed = [];
+  ctx.pushEvent = (...a) => pushed.push(a);
+  ctx.queue.offline = true;
+  ctx._cancelEntry("ref-1");
+  assert.deepStrictEqual(pushed, []);
+  ctx.queue.offline = false;
+  ctx._cancelEntry("ref-1");
+  assert.strictEqual(pushed.length, 1);
 });

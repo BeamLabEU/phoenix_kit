@@ -325,6 +325,17 @@ Found while building it, handled in the script:
 * **`cancel_upload/3` can crash the LiveView.** It raises when the entry is
   already gone and *exits* when the entry's channel has just ended. `attach/1`
   rescues both.
+* **A file handed over while the socket is down is dropped silently.** LiveView's
+  input handler returns early when the view is not connected, so no entry ever
+  appears. The manager feeds nothing while disconnected, gives no verdict for
+  time spent offline, and on reconnect sends again what never showed up.
+* **A File LiveView has handled cannot be fed again.** It carries LiveView's
+  stamp and is ignored. Every re-send (a retry, a stall, a reconnect) hands over
+  a fresh `File` over the same bytes.
+* **The upload's ref changes after a rejoin.** The new LiveView process
+  registers the upload again, so the input's `data-phx-upload-ref` and the
+  panel's `data-upload-ref` (updated even though the panel is `phx-update="ignore"`)
+  differ from what they were at mount. The script reads the ref when it needs it.
 
 ## Taking it to another project
 

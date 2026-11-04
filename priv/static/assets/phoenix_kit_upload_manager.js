@@ -44,6 +44,7 @@
   var HARD_CAP = 20;
   // A file handed to LiveView whose row never shows up was refused (or lost)
   // somewhere between the browser and the server; say so instead of waiting.
+  // Time with the LiveView connection down does not count (see `offline`).
   var UNSEEN_GRACE_MS = 8000;
   // Files are handed to LiveView one batch at a time: the next goes only once
   // the last has started to move. Preflights that overlap can leave an entry
@@ -111,8 +112,12 @@
     this.ghosts = {};
     this.stale = {};
     this.doneBytes = 0;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
+    this.tune = freshTune(this.cap);
+  }
+
+  function freshTune(cap) {
+    return {
+      phase: cap > 1 ? "probe" : "hold",
       target: 1,
       level: {},
       windowStart: null,
@@ -140,7 +145,8 @@
         started: false,
         progressAt: null,
         attempts: 0,
-        // Times handed to LiveView. Unlike `attempts`, a Retry does not reset it.
+        // Times handed to LiveView, a re-send after a reconnect included.
+        // Unlike `attempts`, neither a Retry nor a reconnect takes it back.
         feeds: 0,
         error: null,
         // Paused or skipped while sending, keeping its place (resumable only).
@@ -257,6 +263,8 @@
       }
 
       if (item.state === "uploading") {
+        // A silent connection is not a stalled file: the clock waits.
+        if (this.offline) item.progressAt = now;
         var waited = now - item.progressAt;
         var limit = item.bytes > 0 ? STALL_MS : START_WAIT_MS;
         if (item.seen && waited > limit && !this.resumable) {
@@ -297,18 +305,24 @@
 
   // The connection is back: what was handed over but never showed up as an
   // entry was most likely dropped by the dead socket. Send it again, as if
-  // it had not been sent, and without counting it as an attempt.
+  // it had not been sent, and without counting it as an attempt. That includes
+  // a file already judged "not_accepted" before the page noticed the drop
+  // (a half-open socket looks alive for a while).
   UploadQueue.prototype.requeueUnseen = function() {
     for (var i = 0; i < this.items.length; i++) {
       var it = this.items[i];
-      if (it.state !== "uploading" || it.seen) continue;
+      if (it.seen) continue;
+      if (it.state !== "uploading" && !(it.state === "failed" && it.error === "not_accepted")) continue;
       it.state = "queued";
+      it.error = null;
       it.attempts = Math.max(0, it.attempts - 1);
       it.ref = null;
       it.started = false;
       it.bytes = 0;
       it.base = 0;
     }
+    // What was measured before the drop says nothing about the link now.
+    if (this.count("uploading") === 0) this.tune = freshTune(this.cap);
   };
 
   // The file to give LiveView for an item that `next` just returned. LiveView
@@ -386,6 +400,8 @@
   // while the total speed keeps rising by TUNE_GAIN, and settle where adding
   // another stopped helping.
   UploadQueue.prototype.autoTune = function(now) {
+    // Nothing moves while the connection is down: not a speed to learn from.
+    if (this.offline) return;
     var t = this.tune;
     var waiting = this.count("queued") + this.count("uploading");
 
@@ -983,7 +999,6 @@
     mounted: function() {
       var self = this;
       var d = this.el.dataset;
-      this.uploadRef = d.uploadRef;
       this.uploadName = d.uploadName || "";
       this.entriesId = d.entries;
       this.cancelEvent = d.cancelEvent || "pk_upload_cancel";
@@ -1064,8 +1079,15 @@
       window.removeEventListener("beforeunload", this.onUnload);
     },
 
+    // The upload's ref is new each time the LiveView process is: after a
+    // reconnect the input and this element both carry the new one, so it is
+    // read when needed, not kept from mounting.
+    _ref: function() {
+      return this.el.dataset.uploadRef;
+    },
+
     _input: function() {
-      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this.uploadRef + '"]');
+      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this._ref() + '"]');
     },
 
     // Files arriving at LiveView's input (a click on the picker, a drop that
@@ -1074,7 +1096,7 @@
     _onPick: function(e) {
       var input = e.target;
       if (!input || input.tagName !== "INPUT" || input.type !== "file") return;
-      if (input.getAttribute("data-phx-upload-ref") !== this.uploadRef) return;
+      if (input.getAttribute("data-phx-upload-ref") !== this._ref()) return;
       if (e.__pkUploadManagerFeed) return;
 
       var files = input.files ? Array.prototype.slice.call(input.files) : [];
@@ -1188,7 +1210,8 @@
     },
 
     _cancelEntry: function(ref) {
-      if (!ref) return;
+      // The entry is gone with the old LiveView process; there is no one to tell.
+      if (!ref || this.queue.offline) return;
       var payload = { ref: ref, name: this.uploadName };
       if (this.cancelTarget) this.pushEventTo(this.cancelTarget, this.cancelEvent, payload);
       else this.pushEvent(this.cancelEvent, payload);
