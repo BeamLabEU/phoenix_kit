@@ -123,10 +123,14 @@ hook in `window.PhoenixKitHooks`, as its guide says); PhoenixKit's pages get a c
 `window.PhoenixKitAdminHooks` (`test/js/upload_manager_bundle.test.cjs` keeps the two in step), behind a stub
 in `phoenix_kit.js`. The component comes with `use PhoenixKitWeb, :live_view`, so a host can render it on a page
 outside the admin area and the dashboard, and it works there: the queue and the panel start when the admin
-bundle has arrived. Files picked before then go to LiveView as they would without the manager (all at once),
-and an upload that names the chunked uploader is not sent at all, since the manager registers that uploader
-when it starts: the files have to be chosen again. `window.PhoenixKitUploadManager` is defined from the same
-moment, not at page load. `data-pk-admin` on such a layout starts the download early.
+bundle has arrived. Files picked before then go to LiveView as they would without the manager (all at once, no
+queue, no panel). A resumable upload names the chunked uploader (`PkChunked`), which the manager registers when it
+starts; until then the stub of `UploadManager` keeps a stand-in under that name, which takes the files LiveView
+hands it, waits for the bundle and passes them on to the real uploader. **If the admin file cannot be loaded,
+uploading in the media browser and the pickers does not work**: the stand-in marks those files failed (and the
+console says why), and no panel is shown; with *Resumable uploads* off in Settings -> Media the files go through
+LiveView's own uploader all the same, unqueued. `window.PhoenixKitUploadManager` is defined from the bundle's
+arrival, not at page load. `data-pk-admin` on such a layout starts the download early.
 
 A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
 one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,

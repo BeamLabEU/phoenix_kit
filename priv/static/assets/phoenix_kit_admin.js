@@ -8060,7 +8060,8 @@
 // already sending stops it and sends it again from the start when resumed.
 // A file still waiting is simply held.
 //
-// SETUP (outside PhoenixKit's own bundle, which already includes this file):
+// SETUP (in a project outside PhoenixKit; PhoenixKit's own pages get this file
+// inside phoenix_kit_admin.js and need none of it):
 //
 //   import "../../deps/phoenix_kit/priv/static/assets/phoenix_kit_upload_manager.js"
 //   let liveSocket = new LiveSocket("/live", Socket, {
@@ -9467,10 +9468,12 @@
   // Still inside the function that opens at the top of this file. The blocks
   // above that start at column 0 were moved from phoenix_kit.js as they were.
   // A hook defined here that nothing stubs is unreachable: say so while
-  // developing. (A module's admin hooks are stubbed by phoenix_kit_modules.js.)
+  // developing. (A module's admin hooks are stubbed by phoenix_kit_modules.js.
+  // The upload manager is the one hook that may be on the page itself, put
+  // there by the standalone script: that is the very hook defined here.)
   Object.keys(window.PhoenixKitAdminHooks).forEach(function(name) {
     var stub = window.PhoenixKitHooks && window.PhoenixKitHooks[name];
-    if (!(stub && stub.__pkAdminStub)) {
+    if (!stub || (!stub.__pkAdminStub && stub !== window.PhoenixKitAdminHooks[name])) {
       console.warn("[PhoenixKit] The admin hook " + name + " has no stub in phoenix_kit.js, so no page can mount it.");
     }
   });

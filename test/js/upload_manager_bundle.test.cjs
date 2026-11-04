@@ -20,6 +20,7 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("node:assert");
 const { test } = require("node:test");
+const { webcrypto } = require("node:crypto");
 const { createEnv, makeHook, ASSETS } = require("./support/pk_env.cjs");
 
 const STANDALONE_FILE = path.join(ASSETS, "phoenix_kit_upload_manager.js");
@@ -64,7 +65,8 @@ test("the admin bundle registers the hook once, in its own namespace", () => {
 
 test("the public bundle holds the hook's name and none of its code", () => {
   assert.ok(!pub.includes(BEGIN), "the upload manager's copy belongs in phoenix_kit_admin.js");
-  for (const marker of ["PhoenixKitUploadManager", "function UploadQueue(", "function ChunkJob(", "PkChunked", "pk-um:"]) {
+  // The stub names the manager's global and its uploader (`holdChunkedUploader`), so only code is pinned.
+  for (const marker of ["function UploadQueue(", "function ChunkJob(", "function chunkedUploader(", "pk-um:"]) {
     assert.ok(!pub.includes(marker), marker + " is upload manager code: it belongs in phoenix_kit_admin.js");
     assert.ok(admin.includes(marker), marker + " is missing from phoenix_kit_admin.js");
   }
@@ -107,6 +109,7 @@ test("the stub starts the real hook on LiveView's own instance, and a resumable 
     assert.deepStrictEqual(wrapper.listeners.map((l) => l.join(":")).sort(), ["change:true", "input:true"]);
     assert.strictEqual(env.window.PhoenixKitAdminHooks.UploadManager, env.window.PhoenixKitUploadManager.hook);
     assert.deepStrictEqual(Array.from(env.errors), []);
+    assert.deepStrictEqual(Array.from(env.warnings), []);
   } finally {
     hook.destroyed();
   }
@@ -132,7 +135,182 @@ test("a page that ran the standalone file after building LiveSocket still gets t
     assert.strictEqual(env.window.PhoenixKitAdminHooks.UploadManager, first.hook);
     assert.strictEqual(hook.queue.cap, 3, "the stub found the hook and started it");
     assert.deepStrictEqual(Array.from(env.errors), []);
+    assert.deepStrictEqual(Array.from(env.warnings), [], "the real hook on the page is the one the bundle defines: nothing to warn about");
   } finally {
     hook.destroyed();
   }
+});
+
+test("a page that ran the standalone file before phoenix_kit.js keeps its hook, and the bundle warns of nothing", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit_upload_manager.js");
+  const first = env.window.PhoenixKitUploadManager;
+  env.load("phoenix_kit.js");
+  assert.strictEqual(env.window.PhoenixKitHooks.UploadManager, first.hook, "the public file does not stub over a hook that is there");
+
+  env.load("phoenix_kit_admin.js");
+  assert.strictEqual(env.window.PhoenixKitUploadManager, first, "the copy in the bundle stood down");
+  assert.strictEqual(env.window.PhoenixKitAdminHooks.UploadManager, first.hook);
+  assert.strictEqual(env.window.PhoenixKitHooks.UploadManager, first.hook);
+  assert.deepStrictEqual(Array.from(env.warnings), []);
+});
+
+test("a page that ran the standalone file between phoenix_kit.js and LiveSocket gets the real hook, and the bundle warns of nothing", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js");
+  env.load("phoenix_kit_upload_manager.js");
+  const first = env.window.PhoenixKitUploadManager;
+  assert.strictEqual(env.window.PhoenixKitHooks.UploadManager, first.hook, "LiveSocket would be built from the real hook");
+
+  env.load("phoenix_kit_admin.js");
+  assert.strictEqual(env.window.PhoenixKitUploadManager, first);
+  assert.strictEqual(env.window.PhoenixKitAdminHooks.UploadManager, first.hook);
+  assert.deepStrictEqual(Array.from(env.warnings), []);
+});
+
+test("a hook of the admin bundle that nothing stubs still draws the warning", () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js");
+  delete env.window.PhoenixKitHooks.UploadManager;
+  env.load("phoenix_kit_admin.js");
+  assert.deepStrictEqual(Array.from(env.warnings), [
+    "[PhoenixKit] The admin hook UploadManager has no stub in phoenix_kit.js, so no page can mount it."
+  ]);
+});
+
+// ── Files chosen before the bundle has arrived ─────────────────────────────
+//
+// LiveView preflights a file at once and, when the server answers, looks the
+// entry's uploader up in `liveSocket.uploaders` and calls it with
+// (entries, onError, resp, liveSocket). The manager registers `PkChunked`
+// there when it starts, which for a stub is after the bundle has arrived.
+
+// The server of the chunked upload: it keeps the bytes it was given.
+function chunkServer() {
+  const server = { held: 0, body: Buffer.alloc(0), token: "tok" };
+  server.XHR = class FakeXHR {
+    constructor() { this.upload = {}; this.headers = {}; }
+    open(method) { this.method = method; }
+    setRequestHeader(k, v) { this.headers[k.toLowerCase()] = v; }
+    getResponseHeader(k) { return k.toLowerCase() === "upload-offset" ? String(server.held) : null; }
+    abort() {}
+    send(body) {
+      Promise.resolve().then(async () => {
+        this.status = 200;
+        if (this.method === "PATCH") {
+          if (parseInt(this.headers["upload-offset"], 10) !== server.held) this.status = 409;
+          else {
+            const buf = Buffer.from(await body.arrayBuffer());
+            server.body = Buffer.concat([server.body, buf]);
+            server.held += buf.length;
+          }
+        }
+        this.onload && this.onload();
+      });
+    }
+  };
+  return server;
+}
+
+function chosenEntry(bytes) {
+  return {
+    ref: "e1", file: new File([bytes], "f.bin"),
+    meta: { url: "/u/x", token: "tok", chunk_size: 65536, uploader: "PkChunked" },
+    pct: [], err: null,
+    progress(p) { this.pct.push(p); },
+    error(r) { this.err = r; },
+    onCancel() {}
+  };
+}
+
+const until = async (fn, ms = 2000) => {
+  const t = Date.now();
+  while (!fn()) {
+    if (Date.now() - t > ms) throw new Error("timed out");
+    await new Promise((r) => setImmediate(r));
+  }
+};
+
+function stubbedPanel(opts) {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js");
+  const { el } = panel(env);
+  if (opts && opts.dataset) Object.assign(el.dataset, opts.dataset);
+  const hook = makeHook(env.window.PhoenixKitHooks.UploadManager, el);
+  hook.liveSocket = { uploaders: (opts && opts.uploaders) || {} };
+  return { env, hook, el };
+}
+
+test("a file chosen before the bundle arrives is sent once it has, and the stand-in is gone", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+
+  const standIn = hook.liveSocket.uploaders.PkChunked;
+  assert.strictEqual(typeof standIn, "function", "LiveView finds an uploader when the server answers");
+
+  // The server's answer reaches LiveView while the bundle is still on its way.
+  const data = Buffer.from(Array.from({ length: 150000 }, (_, i) => i % 251));
+  const entry = chosenEntry(data);
+  const running = standIn([entry], () => {}, {}, hook.liveSocket);
+  assert.deepStrictEqual(entry.pct, [], "nothing is sent yet");
+
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await running;
+  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
+
+  try {
+    assert.strictEqual(entry.err, null);
+    assert.ok(server.body.equals(data), "every byte arrived, in order");
+    assert.strictEqual(entry.pct[entry.pct.length - 1], 100);
+    assert.notStrictEqual(hook.liveSocket.uploaders.PkChunked, standIn, "the real uploader took the stand-in's place");
+    assert.strictEqual(hook.liveSocket.uploaders.PkChunked.name, "chunkedUploader");
+    assert.strictEqual(hook.queue.resumable, true, "the manager started on the same instance");
+    assert.deepStrictEqual(Array.from(env.errors), []);
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("the stand-in is replaced by the real uploader when the bundle arrives, whether or not a file came", async () => {
+  const { env, hook } = stubbedPanel();
+  hook.mounted();
+  const standIn = hook.liveSocket.uploaders.PkChunked;
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await tick();
+  try {
+    assert.notStrictEqual(hook.liveSocket.uploaders.PkChunked, standIn);
+    assert.strictEqual(hook.liveSocket.uploaders.PkChunked.name, "chunkedUploader");
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("no stand-in for a panel that is not resumable, and none over an uploader that is there", () => {
+  const plain = stubbedPanel({ dataset: { resumable: "false" } });
+  plain.hook.mounted();
+  assert.strictEqual(plain.hook.liveSocket.uploaders.PkChunked, undefined);
+
+  const mine = () => {};
+  const taken = stubbedPanel({ uploaders: { PkChunked: mine } });
+  taken.hook.mounted();
+  assert.strictEqual(taken.hook.liveSocket.uploaders.PkChunked, mine);
+});
+
+test("when the bundle cannot be loaded a file chosen before it is failed, not left at 0%", async () => {
+  const { env, hook } = stubbedPanel();
+  hook.mounted();
+  const entry = chosenEntry(Buffer.from("abc"));
+  const running = hook.liveSocket.uploaders.PkChunked([entry], () => {}, {}, hook.liveSocket);
+
+  env.failed(0);
+  await running;
+
+  assert.strictEqual(entry.err, "failed");
+  assert.deepStrictEqual(entry.pct, []);
+  assert.ok(Array.from(env.errors).some((m) => /could not be sent/.test(m)), "the console says so");
 });

@@ -4557,12 +4557,53 @@
     });
   }
 
+  // The upload manager registers the chunked uploader (`PkChunked`) with the
+  // page's LiveSocket when it starts, and a stub starts it only once the bundle
+  // is here. A file chosen before then is preflighted all the same, and LiveView
+  // looks the uploader up when the server answers: finding none it throws, and
+  // the entry stays on the server at 0%, holding a `max_entries` slot that the
+  // manager's queue knows nothing about. Until the real uploader is registered
+  // a stand-in takes the entries, waits for the bundle and passes them, with
+  // the same arguments, to the real one (or fails them, when the bundle does
+  // not come). The stand-in leaves as soon as the bundle has arrived.
+  function holdChunkedUploader(hook) {
+    var sock = hook.liveSocket;
+    if (!hook.el || !hook.el.dataset || hook.el.dataset.resumable !== "true") return;
+    if (!sock || !sock.uploaders || sock.uploaders.PkChunked) return;
+
+    function handOver() {
+      return loadAdminBundle().then(function() {
+        if (sock.uploaders.PkChunked === standIn) delete sock.uploaders.PkChunked;
+        if (window.PhoenixKitUploadManager) window.PhoenixKitUploadManager.chunked.register(sock);
+      });
+    }
+
+    function standIn(entries) {
+      var args = arguments;
+      return handOver().then(function() {
+        var real = sock.uploaders.PkChunked;
+        if (typeof real !== "function" || real === standIn) throw new Error("the admin bundle defines no chunked uploader");
+        return real.apply(null, args);
+      }).catch(function(err) {
+        console.error("[PhoenixKit] A file chosen before the admin bundle arrived could not be sent:", err);
+        entries.forEach(function(entry) { entry.error("failed"); });
+      });
+    }
+
+    sock.uploaders.PkChunked = standIn;
+    handOver().catch(function() { /* the loader has reported it; the stand-in fails what reaches it */ });
+  }
+
+  // What a stub does on its first mount, before it waits for the bundle.
+  var ADMIN_STUB_SETUP = { UploadManager: holdChunkedUploader };
+
   function adminStub(name) {
     return {
       __pkAdminStub: true,
       mounted: function() {
         var self = this;
         self.__pkGone = false;
+        if (ADMIN_STUB_SETUP[name]) ADMIN_STUB_SETUP[name](self);
         loadAdminBundle().then(function() {
           if (self.__pkGone) return;
           var real = window.PhoenixKitAdminHooks && window.PhoenixKitAdminHooks[name];
