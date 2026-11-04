@@ -1915,9 +1915,6 @@ defmodule PhoenixKit.Users.Auth do
   # loader; a by-uuid read alone must not silently change the active role.
   defp password_update_multi(user, changeset_fun) do
     Ecto.Multi.new()
-    # A chat linked to the site bot acts as the user in the Machine API: a new password is
-    # recovery, so it ends there too, in the transaction that ends the sessions.
-    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     |> Ecto.Multi.run(:credential_user, fn repo, _ ->
       current = repo.one!(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
 
@@ -1931,6 +1928,10 @@ defmodule PhoenixKit.Users.Auth do
        }}
     end)
     |> Ecto.Multi.update(:user, fn %{credential_user: current} -> changeset_fun.(current) end)
+    # A chat linked to the site bot acts as the user in the Machine API: a new password is
+    # recovery, so it ends there too, in the transaction that ends the sessions. After the
+    # validating step: a refused change must not log (and broadcast) a drop that never happened.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
   end
 
   # Session-only fields originate with the caller's token loader. Return them

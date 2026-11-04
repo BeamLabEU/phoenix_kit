@@ -193,9 +193,9 @@ defmodule PhoenixKit.API.Executor do
       none is confirmed from one;
     * instead of the session, the **link** is checked on every call: the user is the one
       whose link is that chat of that bot now (`Linking.linked_user/2`); an unlinked or
-      relinked chat, another bot, a chat two accounts linked, a service user or a
-      malformed reference, a service user or a managed organization (which have no web
-      session of their own) is `401 unauthorized` with `context.reason` `:unlinked`;
+      relinked chat, another bot, a chat two accounts linked, a malformed reference, a
+      service user or a managed organization (which have no web session of their own) is
+      `401 unauthorized` with `context.reason` `:unlinked`;
     * the account gate is the session's own (`SessionRef.scope_for_user/2`), so a blocked,
       unconfirmed or invite-parked user is refused with the same answer a session gets;
     * the scope is narrowed the way a session's is that never switched
@@ -207,8 +207,8 @@ defmodule PhoenixKit.API.Executor do
       (unless the caller passes `via:`), so a handler (and whatever it logs) tells the
       chat from a browser session.
 
-  The link ends with account recovery (`PhoenixKit.Integrations.Telegram.Linking`, "A link
-  is a standing credential"): a password change, signing out all sessions.
+  The link ends with account recovery; which events end it is listed in
+  `PhoenixKit.Integrations.Telegram.Linking`, "A link is a standing credential".
 
   Only the code that read the update from the bot may build this reference, and only from
   `Linking.actor_ref/2`, which accepts a private chat written by that very person (a

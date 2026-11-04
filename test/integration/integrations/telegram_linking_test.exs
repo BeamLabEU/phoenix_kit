@@ -11,12 +11,14 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
 
   import Ecto.Query
 
+  alias PhoenixKit.Activity
   alias PhoenixKit.Activity.Entry
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Notifications.ChannelConfig
   alias PhoenixKit.Notifications.Prefs
   alias PhoenixKit.Notifications.Types
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.UserToken
@@ -847,6 +849,8 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       assert Sessions.revoke_other_user_sessions(u, token) == 1
 
       refute still_linked?(connection, 6005)
+      assert [%{actor_uuid: actor_uuid}] = dropped_entries(u.uuid)
+      assert actor_uuid == u.uuid
     end
 
     test "deleting every session token of the user (deactivation) drops it", %{
@@ -925,6 +929,21 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
 
       assert still_linked?(connection, 6012)
       assert dropped_entries(u.uuid) == []
+    end
+
+    test "a failed password change announces no drop on the activity topic", %{
+      connection: connection
+    } do
+      {u, _token} = linked_user_with_session(connection, 6015)
+      PubSubManager.subscribe(Activity.pubsub_topic())
+
+      assert {:error, _} =
+               Auth.update_user_password(u, "WrongCurrentPassword1!", %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      refute_receive {:activity_logged, %{action: "telegram.link_dropped"}}, 200
     end
 
     test "dropping a link is recorded in the activity feed, without the chat", %{
@@ -1201,7 +1220,7 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
     test "a reader that cannot answer is warned about at most once in a while", %{
       connection: connection
     } do
-      :persistent_term.erase({Linking, :unanswered_logged_at})
+      :persistent_term.erase({Linking, :warned_at, :unanswered})
       Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :raises, []})
 
       log =
@@ -1210,6 +1229,27 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
         end)
 
       assert length(String.split(log, "did not answer")) == 2
+    end
+
+    test "the two warnings do not hide each other", %{connection: connection} do
+      :persistent_term.erase({Linking, :warned_at, :unanswered})
+      :persistent_term.erase({Linking, :warned_at, :not_running})
+
+      log =
+        ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+          Application.put_env(
+            :phoenix_kit,
+            :telegram_updates_reader,
+            {__MODULE__, :not_running, []}
+          )
+
+          assert Linking.resident_reader?(connection) == false
+          Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :raises, []})
+          assert Linking.resident_reader?(connection) == true
+        end)
+
+      assert log =~ "is not running"
+      assert log =~ "did not answer"
     end
 
     test "no reader configured holds nothing", %{connection: connection} do
