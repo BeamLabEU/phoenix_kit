@@ -262,10 +262,10 @@ test("a file chosen before the bundle arrives is sent once it has, and the stand
 
   env.load("phoenix_kit_admin.js");
   env.loaded(0);
-  await running;
-  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
 
   try {
+    await running;
+    await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
     assert.strictEqual(entry.err, null);
     assert.ok(server.body.equals(data), "every byte arrived, in order");
     assert.strictEqual(entry.pct[entry.pct.length - 1], 100);
@@ -428,6 +428,7 @@ test("when the bundle cannot be loaded, an entry its join dropped is not failed 
     await running;
     assert.strictEqual(entry.err, null, "failing it would be a push to the new process");
     assert.deepStrictEqual(entry.pct, []);
+    assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)), "and the console names the file that went, not only the loader's error");
   } finally {
     hook.destroyed();
   }
@@ -467,6 +468,76 @@ test("a rejoin while the stand-in's file is being sent stops the transfer", asyn
     assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)));
   } finally {
     hook.destroyed();
+  }
+});
+
+test("a transfer that finished before the connection dropped is left alone: no warning, nothing to stop", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+
+  const entry = chosenEntry(Buffer.from("abc"));
+  const ch = channel();
+  const running = hook.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, hook.liveSocket);
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+
+  try {
+    await running;
+    const { chunked } = env.window.PhoenixKitUploadManager;
+    await until(() => entry.pct[entry.pct.length - 1] === 100 && chunked.info(entry.ref) === null);
+    const stopped = [];
+    const stop = chunked.stop;
+    chunked.stop = (ref) => { stopped.push(ref); return stop(ref); };
+
+    ch.fail();
+
+    assert.deepStrictEqual(stopped, [], "nothing was running, so nothing is stopped");
+    assert.deepStrictEqual(Array.from(env.warnings), [], "and nobody is told to choose the file again");
+    assert.ok(server.body.equals(Buffer.from("abc")));
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("a bundle that failed and loaded later takes the stand-in away, so the manager's first file does not pass through it", async () => {
+  const { env, hook: first } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  first.mounted();
+  const standIn = first.liveSocket.uploaders.PkChunked;
+  env.failed(0);
+  await tick();
+  assert.strictEqual(first.liveSocket.uploaders.PkChunked, standIn, "the failed load left the stand-in where it was");
+
+  // Another panel mounts once the pause after the failure is over, and its request succeeds.
+  env.advance(5000);
+  const { el } = panel(env);
+  const second = makeHook(env.window.PhoenixKitHooks.UploadManager, el);
+  second.liveSocket = first.liveSocket;
+  second.mounted();
+  env.load("phoenix_kit_admin.js");
+  env.loaded(env.scripts.length - 1);
+  await tick();
+
+  try {
+    assert.notStrictEqual(first.liveSocket.uploaders.PkChunked, standIn, "the stand-in is gone before any file reaches it");
+    assert.strictEqual(first.liveSocket.uploaders.PkChunked.name, "chunkedUploader");
+
+    // A file the manager feeds meets the real uploader, which ignores the channel: the drop is the manager's to handle.
+    server.gate = new Promise(() => {});
+    const entry = chosenEntry(Buffer.from(Array.from({ length: 100000 }, (_, i) => i % 251)));
+    const ch = channel();
+    first.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, first.liveSocket);
+    await until(() => server.patches === 1);
+    ch.fail();
+    assert.deepStrictEqual(Array.from(env.warnings), [], "no \"choose it again\" for a file the manager re-sends itself");
+  } finally {
+    first.destroyed();
+    second.destroyed();
   }
 });
 
@@ -542,14 +613,17 @@ test("a page that ran the standalone file after building LiveSocket gets the rea
   assert.strictEqual(uploader.name, "chunkedUploader", "no stand-in: the script is here");
 
   env.failed(0);
-  await tick();
-  const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
-  const entry = chosenEntry(data);
-  uploader([entry], () => {}, {}, hook.liveSocket);
-  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
+  try {
+    await tick();
+    const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
+    const entry = chosenEntry(data);
+    uploader([entry], () => {}, {}, hook.liveSocket);
+    await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
 
-  assert.strictEqual(entry.err, null);
-  assert.ok(server.body.equals(data), "the file was sent although the bundle never arrived");
-  assert.strictEqual(hook.liveSocket.uploaders.PkChunked, uploader);
-  hook.destroyed();
+    assert.strictEqual(entry.err, null);
+    assert.ok(server.body.equals(data), "the file was sent although the bundle never arrived");
+    assert.strictEqual(hook.liveSocket.uploaders.PkChunked, uploader);
+  } finally {
+    hook.destroyed();
+  }
 });

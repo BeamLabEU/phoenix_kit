@@ -186,7 +186,7 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 256 KiB: the public half is about 247 KiB with the mention field and the two upload hooks (public pages
+  // 256 KiB: the public half is about 248 KiB with the mention field and the two upload hooks (public pages
   // render them). A coarse backstop only: a small admin hook would still fit in the margin, and it is the name
   // checks above that catch one put in the wrong file.
   assert.ok(publicBytes < 256 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");

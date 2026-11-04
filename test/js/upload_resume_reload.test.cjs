@@ -261,10 +261,11 @@ function reloadedPage({ order }) {
       // queue and the hand-over, not the rows.
       manager.render = () => {};
     },
-    // The channel of the join errors (the socket drops), then the page is told, then it is back.
+    // The socket drops: LiveView's own handler for the channel's error is the first one registered and
+    // tells the page, then the uploads' callbacks run; the page is told it is back later.
     dropConnection() {
-      lv.onErrorCallbacks.splice(0).forEach((callback) => callback());
       manager.disconnected();
+      lv.onErrorCallbacks.splice(0).forEach((callback) => callback());
     },
     restoreConnection() { manager.reconnected(); },
     destroy() { resume.destroyed(); manager.destroyed(); }

@@ -122,7 +122,9 @@ then on the entries belong to a process that is gone, and what is pushed for the
 know) or is ignored (an entry it does not know of an upload it does): one still waiting in the stand-in is dropped with a
 console warning, neither started nor failed (a failed mark is a push too), and one the real uploader is already sending
 is stopped (`chunked.stop`, which leaves the partial file on the server). The callback is per call, so it does not depend
-on which panel's stub installed the stand-in. Every `UploadManager` stub also keeps the connection state LiveView reports
+on which panel's stub installed the stand-in; a drop that finds nothing sending, or a job already done, stops and says nothing.
+The stand-in leaves when the bundle arrives through any stub: the stub whose own request failed cannot take it away, so
+the stub the real hook is mounted for does (`releaseStandIn`), and the manager's first file never passes through it. Every `UploadManager` stub also keeps the connection state LiveView reports
 (a stub has no `disconnected` / `reconnected` of its own, and LiveView calls them only on the hook instance it made) and
 tells the real hook once it has mounted, so a bundle that arrives during an outage starts the manager offline instead of
 feeding a file to a dead socket. `UploadResume` (the browser's stash of picked files, which #1011 makes send them again by
@@ -132,7 +134,7 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 252 894 B raw, 72 220 gzip, 94 583 minified, 28 978 minified + gzip;
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 253 733 B raw, 72 415 gzip, 94 841 minified, 29 027 minified + gzip;
 `phoenix_kit_admin.js` is 425 996 / 119 980 / 160 836 / 47 214. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
@@ -171,7 +173,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-253 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
+254 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
 the admin bundle is 426 KB / 120 KB readable, 161 KB / 47 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 

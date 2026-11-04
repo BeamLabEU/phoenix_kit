@@ -4615,12 +4615,13 @@
         if (typeof real !== "function" || real === standIn) throw new Error("the admin bundle defines no chunked uploader");
         return real.apply(null, args);
       }).catch(function(err) {
-        if (lost) return;
+        if (dropped()) return;
         console.error("[PhoenixKit] A file chosen before the admin bundle arrived could not be sent:", err);
         entries.forEach(function(entry) { entry.error("failed"); });
       });
     }
 
+    standIn.__pkStandIn = true;
     sock.uploaders.PkChunked = standIn;
     handOver().catch(function() { /* the loader has reported it; the stand-in fails what reaches it */ });
   }
@@ -4638,13 +4639,28 @@
     return function(mounted) { if (down) mounted.disconnected(); };
   }
 
+  // The stand-in leaves when the bundle arrives, but only through the stub that
+  // installed it, and only if that stub's own request was the one that succeeded.
+  // After a failed load and a later one (another mount asked again) it is still
+  // under `PkChunked`, and the first file the manager queued would go through it.
+  // Whichever stub the real hook is mounted for takes it away.
+  function releaseStandIn(hook) {
+    var uploaders = hook.liveSocket && hook.liveSocket.uploaders;
+    if (!uploaders || !uploaders.PkChunked || !uploaders.PkChunked.__pkStandIn) return;
+    delete uploaders.PkChunked;
+    if (window.PhoenixKitUploadManager) window.PhoenixKitUploadManager.chunked.register(hook.liveSocket);
+  }
+
   // What a stub does on every mount, before it waits for the bundle; what it
   // returns is called with the hook once the real one has mounted.
   var ADMIN_STUB_SETUP = {
     UploadManager: function(hook) {
       var replay = holdConnectionState(hook);
       holdChunkedUploader(hook);
-      return replay;
+      return function(mounted) {
+        replay(mounted);
+        releaseStandIn(mounted);
+      };
     }
   };
 
