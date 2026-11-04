@@ -222,7 +222,7 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
     end
   end
 
-  describe "assign/4 — one object answers for at most one declared object" do
+  describe "assign/3 — one object answers for at most one declared object" do
     defp resolved(id, bound \\ 142), do: Scope.resolve(object(id), bound)
 
     defp clone_of_index(name) do
@@ -255,6 +255,20 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
                {:index, "b_legacy"}
     end
 
+    test "a legacy-optional object takes no twin from a required one after it" do
+      optional = %{
+        clone_of_index("phoenix_kit_fixture_widgets_owner_uuid_optional_index")
+        | presence: :legacy_optional
+      }
+
+      claimed = Equivalence.claimed_names([optional | @objects])
+      resolved = [Scope.resolve(optional, 142), resolved(@index_id)]
+
+      twins = Equivalence.assign(snapshot(indexes: %{"legacy" => index()}), resolved, claimed)
+
+      assert twins == %{@index_id => {:index, "legacy"}}
+    end
+
     test "an object present under its own name gets no twin and takes none" do
       declared = "phoenix_kit_fixture_widgets_owner_uuid_index"
       snapshot = snapshot(indexes: %{declared => index(), "legacy" => index()})
@@ -275,7 +289,7 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
     end
   end
 
-  describe "with_twins_as_present/5" do
+  describe "with_twins_as_present/4" do
     test "lists a twin under the declared name and leaves the rest alone" do
       snapshot = snapshot(indexes: %{"legacy" => index()})
       index_object = object(@index_id)

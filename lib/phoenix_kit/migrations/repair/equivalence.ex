@@ -9,7 +9,7 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   "missing", and a repair would build a second, identical object next to the
   one that is already there.
 
-  `assign/4` looks for that twin for every declared object that is absent by
+  `assign/3` looks for that twin for every declared object that is absent by
   name: an index, or a primary key, unique or foreign key constraint, on the same
   table, that the manifest does not name itself and whose structure is the one
   the manifest declares. "The same structure" is `Differ.compare/3` returning
@@ -81,14 +81,17 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   @doc """
   The twin of every declared object in `resolved` (`Scope.resolve/2` results, in
   the order they are applied) that is absent by name and has one, as a map from
-  the object's id to the twin. `claimed` is `claimed_names/1`.
-
+  the object's id to the twin. `claimed` is `claimed_names/1`. A legacy-optional
+  object never takes a twin.
   """
   @spec assign(Probe.snapshot(), [Scope.resolved()], claimed()) :: %{String.t() => twin()}
   def assign(snapshot, resolved, claimed) do
     {twins, _taken} =
       Enum.reduce(resolved, {%{}, claimed}, fn %{object: object, shape: shape}, {twins, taken} ->
-        with nil <- Probe.lookup(snapshot, object.check),
+        # A legacy-optional object is reported absent whatever is there, so it
+        # takes no twin away from a required one.
+        with false <- Map.get(object, :presence) == :legacy_optional,
+             nil <- Probe.lookup(snapshot, object.check),
              {kind, name} = twin <- find(snapshot, object, shape, taken) do
           {_, spec} = object.check
           {Map.put(twins, object.id, twin), MapSet.put(taken, key(kind, spec, name))}
@@ -152,7 +155,7 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   The version-marker cross-check asks "is everything introduced at version N
   there?" and a twin answers yes; without this a host with one renamed index
   would read as "comment ahead of schema" forever. It assigns twins with
-  `assign/4`, in the same order `Repair` applies the objects.
+  `assign/3`, in the same order `Repair` applies the objects.
   """
   @spec with_twins_as_present(Probe.snapshot(), [Object.t()], claimed(), pos_integer()) ::
           Probe.snapshot()
