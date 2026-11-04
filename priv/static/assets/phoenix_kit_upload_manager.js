@@ -453,6 +453,16 @@
     return this._stop(it, "cancelled");
   };
 
+  // Whether a file with this key is in the queue and not over: waiting,
+  // sending, paused or skipped.
+  UploadQueue.prototype.holds = function(key) {
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.key === key && (ACTIVE[it.state] || it.state === "skipped")) return true;
+    }
+    return false;
+  };
+
   UploadQueue.prototype.retry = function(id) {
     var it = this.get(id);
     if (it && it.state === "failed") { it.state = "queued"; it.error = null; it.bytes = 0; it.base = 0; it.seen = false; it.started = false; it.ref = null; it.attempts = 0; }
@@ -1018,8 +1028,17 @@
       window.removeEventListener("beforeunload", this.onUnload);
     },
 
+    // The upload's ref is new each time the page mounts again (a reconnect
+    // after the server restarted or the tab was discarded), and this element
+    // is `phx-update="ignore"`: its data attributes follow, this object's copy
+    // would not. Read it off the element, or the manager stops seeing its own
+    // input.
+    _ref: function() {
+      return this.el.dataset.uploadRef || this.uploadRef;
+    },
+
     _input: function() {
-      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this.uploadRef + '"]');
+      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this._ref() + '"]');
     },
 
     // Files arriving at LiveView's input (a click on the picker, a drop that
@@ -1028,13 +1047,22 @@
     _onPick: function(e) {
       var input = e.target;
       if (!input || input.tagName !== "INPUT" || input.type !== "file") return;
-      if (input.getAttribute("data-phx-upload-ref") !== this.uploadRef) return;
+      if (input.getAttribute("data-phx-upload-ref") !== this._ref()) return;
       if (e.__pkUploadManagerFeed) return;
 
       var files = input.files ? Array.prototype.slice.call(input.files) : [];
       e.stopImmediatePropagation();
       if (!files.length) return;
       try { input.value = ""; } catch (_e) { /* a read-only input is not ours to clear */ }
+
+      // Files handed back by the stash (UploadResume) after a lost transfer:
+      // one this queue still holds is on its way already, and sending it
+      // twice would be the same upload twice.
+      if (e.__pkUploadResume) {
+        var queue = this.queue;
+        files = files.filter(function(f) { return !queue.holds(fileKey(f)); });
+        if (!files.length) return;
+      }
 
       this.leftovers = withoutPicked(this.leftovers, files);
       this.queue.add(files);
@@ -1175,7 +1203,11 @@
         case "resume": q.resume(id); break;
         case "skip": ref = q.skip(id); break;
         case "restore": q.restore(id); break;
-        case "cancel": ref = q.cancel(id); if (ref) chunked.discard(ref); break;
+        case "cancel":
+          ref = q.cancel(id);
+          if (ref) chunked.discard(ref);
+          if (item && item.state === "cancelled") this._emit("cancelled", { keys: [item.key] });
+          break;
         case "retry": q.retry(id); break;
         case "prioritize": q.prioritize(id); break;
         case "pause-all": q.pauseAll(); break;
@@ -1183,7 +1215,10 @@
         case "cancel-all":
           // Stopping what is on its way is not undone by a click.
           if (q.count("uploading") && typeof window.confirm === "function" && !window.confirm(this._t("confirm_cancel_all"))) return;
+          var stopping = q.items.filter(function(it) { return ACTIVE[it.state] || it.state === "skipped"; })
+            .map(function(it) { return it.key; });
           q.cancelAll().forEach(function(r) { chunked.discard(r); this._cancelEntry(r); }, this);
+          if (stopping.length) this._emit("cancelled", { keys: stopping });
           break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;

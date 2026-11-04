@@ -9,7 +9,9 @@
 //     server pushes and handles;
 //   - a reconnect counts this tab's in-flight files as leftovers (upload
 //     channels die with the socket), and stale records from other tabs are
-//     never mistaken for this tab's live ones.
+//     never mistaken for this tab's live ones;
+//   - the server answers a report with the keys to send again (`auto`), and
+//     the hook sends exactly those, once, flagged for the upload manager.
 //
 //   node --test test/js/upload_resume.test.cjs
 
@@ -78,7 +80,7 @@ test("files are captured before LiveView reads (and the drop hook replaces) them
 });
 
 test("a reconnect turns this tab's in-flight files into leftovers", () => {
-  assert.match(hook, /reconnected\(\) \{\s*this\._reportLeftovers\(true\);/);
+  assert.match(hook, /reconnected\(\) \{[\s\S]*?this\._reportLeftovers\(true\);/);
   const report = hook.slice(hook.indexOf("_reportLeftovers(mine) {"));
   assert.match(report, /if \(mine\) return row\.tab === self\._tab && self\._live\[row\.key\];/,
     "after a reconnect: this tab's own live records");
@@ -93,10 +95,10 @@ test("a huge file keeps its name but not its bytes", () => {
 });
 
 test("resume feeds files back through the input the way a drop does", () => {
-  const resume = hook.slice(hook.indexOf("_resume(keys) {"));
+  const resume = hook.slice(hook.indexOf("_resume(keys, auto) {"));
   assert.match(resume, /new File\(\[row\.blob\], row\.name, \{ type: row\.type, lastModified: row\.lastModified \}\)/,
     "same name and lastModified, so the re-sent file has the same key");
-  assert.match(resume, /input\.files = dt\.files;\s*input\.dispatchEvent\(new Event\("input", \{ bubbles: true \}\)\);/);
+  assert.match(resume, /input\.files = dt\.files;\s*var ev = new Event\("input", \{ bubbles: true \}\);\s*ev\.__pkUploadResume = true;\s*input\.dispatchEvent\(ev\);/);
 });
 
 // ---------------------------------------------------------------------------
@@ -143,6 +145,9 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", br
   ctx._picker = !!picker;
   ctx._scopes = {};
   ctx._live = {};
+  ctx._fed = {};
+  ctx._writing = 0;
+  ctx._lookAfterWrite = false;
   return { ctx, win, store, timers, pushed, tick: (ms) => { clock += ms; }, now: () => clock };
 }
 
@@ -230,4 +235,174 @@ test("Resume in one browser feeds no file to the other, and leftovers go only to
 
   assert.deepStrictEqual(plain.pushed[0].payload.items.map((i) => i.key), ["plain.png"]);
   assert.deepStrictEqual(pick.pushed[0].payload.items.map((i) => i.key), ["picked.png"]);
+});
+
+// ---------------------------------------------------------------------------
+// Sending leftovers again without a click: the server names the keys.
+// ---------------------------------------------------------------------------
+
+// The pieces of the browser `_resume` touches: a File that remembers what it
+// was made from, a DataTransfer, and an Event.
+class FakeFile {
+  constructor(parts, name, opts) { this.parts = parts; this.name = name; this.type = opts.type; this.lastModified = opts.lastModified; }
+}
+class FakeTransfer {
+  constructor() { this.list = []; this.items = { add: (f) => this.list.push(f) }; }
+  get files() { return this.list; }
+}
+
+function withBrowser(fn) {
+  const saved = { File: globalThis.File, DataTransfer: globalThis.DataTransfer };
+  globalThis.File = FakeFile;
+  globalThis.DataTransfer = FakeTransfer;
+  return Promise.resolve(fn()).finally(() => {
+    globalThis.File = saved.File;
+    if (saved.DataTransfer === undefined) delete globalThis.DataTransfer; else globalThis.DataTransfer = saved.DataTransfer;
+  });
+}
+
+function leftover(h, key, extra = {}) {
+  const scope = h.ctx._scopeNow();
+  const [name] = key.split("|");
+  return Object.assign({ id: scope + "\0" + key, key, scope, name, type: "image/png", size: 5, lastModified: 7,
+                         blob: { bytes: key }, tab: "old-tab", touched: 0 }, extra);
+}
+
+function withInput(h) {
+  const input = { events: [], dispatchEvent(ev) { this.events.push(ev); }, files: null };
+  h.ctx._root = { querySelector: () => input, addEventListener() {}, removeEventListener() {} };
+  return input;
+}
+
+test("the server names the keys; the hook feeds those, flagged as a resume, and only those", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    const input = withInput(h);
+    h.store.rows.push(leftover(h, "a.png|5|7"), leftover(h, "b.png|5|7"), leftover(h, "c.png|5|7", { blob: null }));
+
+    h.ctx._resume(["a.png|5|7", "c.png|5|7"], true);
+    await settle();
+
+    assert.deepStrictEqual(input.files.map((f) => f.name), ["a.png"], "b was not named; c has no bytes to send");
+    assert.strictEqual(input.files[0].lastModified, 7, "the same key as before");
+    assert.strictEqual(input.events.length, 1);
+    assert.strictEqual(input.events[0].type, "input");
+    assert.strictEqual(input.events[0].__pkUploadResume, true, "the upload manager is told it is a resume");
+    assert.deepStrictEqual(h.pushed, [], "fed: nothing to hand back");
+  });
+});
+
+test("the events the server pushes reach _resume with `auto` only when it says so", () => {
+  const h = runHook({});
+  const handlers = {};
+  h.ctx.handleEvent = (name, fn) => { handlers[name] = fn; };
+  h.ctx.mounted();
+  const calls = [];
+  h.ctx._resume = (keys, auto) => calls.push({ keys, auto });
+
+  handlers["phoenix_kit:upload-resume"]({ keys: ["k"], auto: true });
+  handlers["phoenix_kit:upload-resume"]({ keys: ["j"] });
+  handlers["phoenix_kit:upload-resume"]({ keys: ["x"], auto: true, browser: "some-picker" });
+  assert.deepStrictEqual(calls, [{ keys: ["k"], auto: true }, { keys: ["j"], auto: false }]);
+});
+
+test("a feed that cannot happen is handed back to the server for the Resume button", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    h.ctx._root = { querySelector: () => null, addEventListener() {}, removeEventListener() {} };
+    h.store.rows.push(leftover(h, "a.png|5|7"));
+
+    h.ctx._resume(["a.png|5|7"], true);
+    await settle();
+
+    assert.strictEqual(h.pushed.length, 1);
+    assert.strictEqual(h.pushed[0].name, "upload_resume_available");
+    assert.deepStrictEqual(h.pushed[0].payload.items,
+      [{ key: "a.png|5|7", name: "a.png", size: 5, blob: true, manual: true }]);
+    assert.ok(!h.ctx._fed["a.png|5|7"], "nothing was fed");
+  });
+});
+
+test("a click on Resume that cannot feed stays as quiet as it was", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    h.ctx._root = { querySelector: () => null, addEventListener() {}, removeEventListener() {} };
+    h.store.rows.push(leftover(h, "a.png|5|7"));
+    h.ctx._resume(["a.png|5|7"], false);
+    await settle();
+    assert.deepStrictEqual(h.pushed, []);
+  });
+});
+
+test("a file fed back is not offered again by a later look, until it is acknowledged", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    withInput(h);
+    h.store.rows.push(leftover(h, "a.png|5|7"));
+
+    h.ctx._resume(["a.png|5|7"], true);
+    await settle();
+    // The record is still the old page load's (its rewrite has not landed).
+    h.ctx._reportLeftovers(false);
+    await settle();
+    assert.deepStrictEqual(h.pushed, [], "it is on its way");
+
+    h.ctx._forget(["a.png|5|7"]);
+    h.store.rows.push(leftover(h, "a.png|5|7"));
+    h.ctx._reportLeftovers(false);
+    await settle();
+    assert.strictEqual(h.pushed.length, 1, "after the acknowledgement it is an ordinary leftover again");
+  });
+});
+
+test("a reconnect forgets what was fed: the transfer it started died with the socket", async () => {
+  const h = runHook({});
+  h.ctx._fed["a.png|5|7"] = true;
+  h.ctx.reconnected();
+  assert.deepStrictEqual(h.ctx._fed, {});
+});
+
+test("a pick written while the reconnect looked is looked for once the write is over — and an ordinary pick causes no look", async () => {
+  const h = runHook({});
+  const looks = [];
+  h.ctx._reportLeftovers = (mine) => looks.push(mine);
+  const file = (name) => ({ name, size: 5, lastModified: 7, type: "image/png" });
+
+  h.ctx._stash([file("plain.png")]);
+  await settle();
+  assert.deepStrictEqual(looks, [], "no reconnect, no look: the page is sending it itself");
+
+  h.ctx._stash([file("camera.png")]);
+  h.ctx.reconnected();
+  assert.deepStrictEqual(looks, [true], "the reconnect's own look");
+  await settle();
+  assert.deepStrictEqual(looks, [true, true], "and one more, once the write is done");
+
+  h.ctx._stash([file("later.png")]);
+  await settle();
+  assert.deepStrictEqual(looks, [true, true], "only once");
+});
+
+test("a file cancelled in the upload manager is let go of", async () => {
+  const h = runHook({});
+  const listeners = {};
+  h.ctx.handleEvent = () => {};
+  h.ctx.el.parentElement = { addEventListener: (n, fn) => { listeners[n] = fn; }, removeEventListener() {} };
+  h.ctx.mounted();
+  h.ctx._tab = "this-tab";
+
+  h.ctx._live["a.png|5|7"] = true;
+  h.ctx._scopes["a.png|5|7"] = h.ctx._scopeNow();
+  listeners["pk-upload:cancelled"]({ detail: { keys: ["a.png|5|7"] } });
+  await settle();
+
+  assert.deepStrictEqual(h.store.deleted, [h.ctx._scopeNow() + "\0a.png|5|7"]);
+  assert.ok(!h.ctx._live["a.png|5|7"]);
+});
+
+test("the server and the hook agree on the new wire: auto resume, discard, manual hand-back", () => {
+  assert.match(server, /push_resume_keys\("phoenix_kit:upload-resume", resend, %\{auto: true\}\)/);
+  assert.match(server, /push_resume_keys\("phoenix_kit:upload-discard", taken\)/);
+  assert.match(server, /&\(&1\["manual"\] == true\)/);
+  assert.match(hook, /manual: true/);
 });

@@ -52,6 +52,11 @@ defmodule PhoenixKitWeb.ResumableUpload do
   a wrong offset is `409` with the right one. The file's bytes are kept in
   `dir/0`; a partial file nobody touches for a day is swept away.
 
+  Once `consume/3` has handed a file over, a small marker is left for a week
+  (`taken?/2`) and the partial file goes. A browser that kept its own copy,
+  and whose page closed before it heard the file had arrived, asks the marker
+  before it sends the copy again. A new upload of the same file removes it.
+
   ## Security
 
   Every request carries the token (`x-upload-token`), which names the upload,
@@ -71,6 +76,7 @@ defmodule PhoenixKitWeb.ResumableUpload do
   @chunk_size 2 * 1_048_576
   @max_chunk 16 * 1_048_576
   @keep_seconds 86_400
+  @done_keep_seconds 7 * 86_400
   @sweep_every_seconds 600
   @uploader "PkChunked"
 
@@ -100,6 +106,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
         owner ->
           sweep_now_and_then()
           id = upload_id(owner, entry)
+          # Picked or sent again: whatever was taken before is not this one.
+          File.rm(done_path(id))
 
           token =
             Phoenix.Token.sign(socket.endpoint, @salt, %{
@@ -140,7 +148,12 @@ defmodule PhoenixKitWeb.ResumableUpload do
     Phoenix.LiveView.consume_uploaded_entry(socket, entry, fn meta ->
       if assembled?(meta, entry) do
         result = fun.(meta)
-        if match?({:ok, _}, result), do: release(meta)
+
+        if match?({:ok, _}, result) do
+          mark_taken(meta)
+          release(meta)
+        end
+
         result
       else
         {:ok, {:error, :incomplete_upload}}
@@ -164,6 +177,30 @@ defmodule PhoenixKitWeb.ResumableUpload do
   end
 
   def release(_meta), do: :ok
+
+  @doc """
+  Whether the server has already taken this person's file, the one named by
+  `client_name`, `client_size` and `client_last_modified` (an upload entry's
+  fields, or the same three in a map of strings): its bytes were handed over
+  by `consume/3` and it has not been picked or sent again since.
+
+  A browser that kept its own copy of a file in case the transfer was cut
+  short asks this before sending the copy again — the page it was told on may
+  have gone before the news arrived.
+  """
+  def taken?(owner, fields) when is_map(fields) do
+    File.exists?(done_path(upload_id(to_string(owner), fields)))
+  end
+
+  # A marker, not a copy: kept for as long as the browser may keep its own.
+  defp mark_taken(%{uploader: @uploader, id: id}) when is_binary(id) do
+    File.mkdir_p(dir())
+    File.write(done_path(id), "")
+  end
+
+  defp mark_taken(_meta), do: :ok
+
+  defp done_path(id), do: Path.join(dir(), id <> ".done")
 
   defp owner(socket, opts) do
     case Keyword.get(opts, :owner) do
@@ -221,17 +258,20 @@ defmodule PhoenixKitWeb.ResumableUpload do
     end
   end
 
-  @doc "Deletes partial files nobody has touched for `max_age` seconds."
+  @doc """
+  Deletes partial files nobody has touched for `max_age` seconds, and the
+  markers of taken files a week after they were written.
+  """
   def sweep(max_age \\ @keep_seconds) do
-    cutoff = System.os_time(:second) - max_age
+    now = System.os_time(:second)
 
     case File.ls(dir()) do
       {:ok, names} ->
-        for name <- names, String.ends_with?(name, ".part") do
+        for name <- names, limit = mtime_limit(name, now, max_age) do
           path = Path.join(dir(), name)
 
           case File.stat(path, time: :posix) do
-            {:ok, %{mtime: mtime}} when mtime < cutoff -> File.rm(path)
+            {:ok, %{mtime: mtime}} when mtime < limit -> File.rm(path)
             _ -> :ok
           end
         end
@@ -240,6 +280,14 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
       _ ->
         :ok
+    end
+  end
+
+  defp mtime_limit(name, now, max_age) do
+    cond do
+      String.ends_with?(name, ".part") -> now - max_age
+      String.ends_with?(name, ".done") -> now - @done_keep_seconds
+      true -> nil
     end
   end
 

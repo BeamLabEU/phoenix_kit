@@ -275,6 +275,60 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       assert File.read!(path) == "012"
     end
 
+    @fields %{client_name: "cat.png", client_size: "5", client_last_modified: "99"}
+
+    test "a file handed over is remembered as taken — by the key a browser reports it under",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      refute ResumableUpload.taken?("u1", @fields)
+
+      assert ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end) == :stored
+
+      assert ResumableUpload.taken?("u1", @fields)
+
+      refute ResumableUpload.taken?("u2", @fields),
+             "someone else's file of the same name is not it"
+
+      refute ResumableUpload.taken?("u1", %{@fields | client_last_modified: "100"})
+      assert ResumableUpload.taken?("u1", entry), "an upload entry names the same file"
+    end
+
+    test "a file the callback refused is not taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+
+      ResumableUpload.consume(socket, entry, fn _ -> {:postpone, :later} end)
+
+      refute ResumableUpload.taken?("u1", @fields)
+      assert File.exists?(path)
+    end
+
+    test "a partial file is not taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "012")
+
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      refute ResumableUpload.taken?("u1", @fields)
+    end
+
+    test "the same file sent again is no longer taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+      assert ResumableUpload.taken?("u1", @fields)
+
+      {:ok, _meta, _} = ResumableUpload.external(base: "/up").(entry, socket)
+
+      refute ResumableUpload.taken?("u1", @fields),
+             "a new upload of it has begun: a copy left behind by it is not stale"
+    end
+
     test "a file already taken by another entry of the same upload is not handed over" do
       {socket, entry, path} = finished(5)
       refute File.exists?(path)
@@ -300,6 +354,21 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       ResumableUpload.release(%{uploader: "PkChunked", path: path})
       refute File.exists?(path)
       File.rm(outside)
+    end
+
+    test "sweep/1 keeps the mark of a taken file for a week, not a day", %{dir: dir} do
+      File.mkdir_p!(dir)
+      a_week = Path.join(dir, "week.done")
+      two_days = Path.join(dir, "two-days.done")
+      File.write!(a_week, "")
+      File.write!(two_days, "")
+      File.touch!(a_week, System.os_time(:second) - 8 * 86_400)
+      File.touch!(two_days, System.os_time(:second) - 2 * 86_400)
+
+      ResumableUpload.sweep(86_400)
+
+      refute File.exists?(a_week)
+      assert File.exists?(two_days)
     end
 
     test "sweep/1 removes partial files nobody has touched", %{dir: dir} do
