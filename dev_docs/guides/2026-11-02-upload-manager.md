@@ -400,7 +400,8 @@ which register the hook in `window.PhoenixKitAdminHooks`), kept in step by
 `test/js/upload_manager_bundle.test.cjs`. A stub in `phoenix_kit.js` loads that bundle on the first mount of the
 manager, so on a page outside the admin area and the user dashboard the panel starts one request later
 (`guides/public-and-admin-javascript.md`): files chosen before then are sent as soon as the bundle arrives, without
-the queue. If the admin file cannot be loaded, uploading in the media browser and the pickers does not work.
+the queue, unless the page reconnects to the server first: such a file belongs to the old connection, is dropped (the
+console says so) and has to be picked again. If the admin file cannot be loaded, uploading in the media browser and the pickers does not work.
 
 ## Tests
 

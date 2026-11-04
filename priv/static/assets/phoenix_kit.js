@@ -4557,6 +4557,8 @@
     });
   }
 
+  var DROPPED_MESSAGE = "[PhoenixKit] A file chosen before the admin bundle arrived was dropped: the page reconnected to the server meanwhile. Choose it again.";
+
   // The upload manager registers the chunked uploader (`PkChunked`) with the
   // page's LiveSocket when it starts, and a stub starts it only once the bundle
   // is here. A file chosen before then is preflighted all the same, and LiveView
@@ -4585,30 +4587,35 @@
       });
     }
 
-    // A stub gets no connection callbacks from the real hook, so the rejoins are
-    // counted here. A rejoined LiveView is a new process that knows none of the
-    // entries the old one held, and progress pushed for them fails it: such an
-    // entry is let go, neither started nor failed (failing it is a push too).
-    var down = false;
-    var rejoins = 0;
-    hook.disconnected = function() { down = true; };
-    hook.reconnected = function() { down = false; rejoins += 1; };
-
-    function standIn(entries) {
+    // LiveView hands every uploader a second argument: a function that takes a
+    // callback to run when the channel of the join that preflighted these entries
+    // errors (the socket drops, the process dies). From then on the entries belong
+    // to a process that is gone, and what is pushed for them fails it or is
+    // ignored: one still waiting here is let go (neither started nor failed, a
+    // failed mark is a push too), one already sending is stopped.
+    function standIn(entries, onError) {
       var args = arguments;
-      var rejoinsAtCall = rejoins;
-      function orphaned() {
-        if (!down && rejoins === rejoinsAtCall) return false;
-        console.warn("[PhoenixKit] A file chosen before the admin bundle arrived was dropped: the page reconnected to the server meanwhile. Choose it again.");
-        return true;
+      var lost = false;
+      if (typeof onError === "function") {
+        onError(function() {
+          lost = true;
+          var chunked = window.PhoenixKitUploadManager && window.PhoenixKitUploadManager.chunked;
+          var sending = chunked ? entries.filter(function(entry) { return chunked.info(entry.ref); }) : [];
+          sending.forEach(function(entry) { chunked.stop(entry.ref); });
+          if (sending.length) console.warn(DROPPED_MESSAGE);
+        });
+      }
+      function dropped() {
+        if (lost) console.warn(DROPPED_MESSAGE);
+        return lost;
       }
       return handOver().then(function() {
-        if (orphaned()) return;
+        if (dropped()) return;
         var real = sock.uploaders.PkChunked;
         if (typeof real !== "function" || real === standIn) throw new Error("the admin bundle defines no chunked uploader");
         return real.apply(null, args);
       }).catch(function(err) {
-        if (orphaned()) return;
+        if (lost) return;
         console.error("[PhoenixKit] A file chosen before the admin bundle arrived could not be sent:", err);
         entries.forEach(function(entry) { entry.error("failed"); });
       });
@@ -4618,8 +4625,28 @@
     handOver().catch(function() { /* the loader has reported it; the stand-in fails what reaches it */ });
   }
 
-  // What a stub does on its first mount, before it waits for the bundle.
-  var ADMIN_STUB_SETUP = { UploadManager: holdChunkedUploader };
+  // A stub gets no `disconnected` / `reconnected` of the real hook, and LiveView
+  // calls them only on the hook instance it made. The upload manager has to know
+  // that the socket is down when it starts (a bundle that arrives during an
+  // outage), or a file picked then is fed to a dead socket, judged not accepted
+  // and never sent again: every stub of it keeps the state as LiveView reports it
+  // and tells the real hook once it is mounted.
+  function holdConnectionState(hook) {
+    var down = false;
+    hook.disconnected = function() { down = true; };
+    hook.reconnected = function() { down = false; };
+    return function(mounted) { if (down) mounted.disconnected(); };
+  }
+
+  // What a stub does on every mount, before it waits for the bundle; what it
+  // returns is called with the hook once the real one has mounted.
+  var ADMIN_STUB_SETUP = {
+    UploadManager: function(hook) {
+      var replay = holdConnectionState(hook);
+      holdChunkedUploader(hook);
+      return replay;
+    }
+  };
 
   function adminStub(name) {
     return {
@@ -4627,7 +4654,7 @@
       mounted: function() {
         var self = this;
         self.__pkGone = false;
-        if (Object.prototype.hasOwnProperty.call(ADMIN_STUB_SETUP, name)) ADMIN_STUB_SETUP[name](self);
+        var started = Object.prototype.hasOwnProperty.call(ADMIN_STUB_SETUP, name) ? ADMIN_STUB_SETUP[name](self) : null;
         loadAdminBundle().then(function() {
           if (self.__pkGone) return;
           var real = window.PhoenixKitAdminHooks && window.PhoenixKitAdminHooks[name];
@@ -4642,6 +4669,7 @@
             if (key !== "mounted") self[key] = real[key];
           });
           if (typeof real.mounted === "function") real.mounted.call(self);
+          if (typeof started === "function") started(self);
         }, function() {
           // loadLibrary has reported the failure; this names the hook that went without.
           var urls = pkLibUrls("admin");

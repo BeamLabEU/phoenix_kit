@@ -115,17 +115,24 @@ would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B r
 Behind a stub it has the limit of every stub, and one more cost: the manager registers the chunked uploader
 (`PkChunked`) when it starts, and a file chosen before the bundle has arrived is preflighted regardless, so the stub
 of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) which takes the entries LiveView hands
-it, waits for the bundle and passes them on, or fails them when the bundle does not come. It also counts the
-stub's `disconnected` / `reconnected` calls, which no real hook is there to receive yet: an entry the stand-in was
-handed before a LiveView rejoin (or while the socket is down) belongs to a process that is gone, and the server
-raises on progress for an upload it does not know, so such an entry is dropped with a console warning, neither
-started nor failed. `UploadResume` (the browser's stash of picked files, which #1011 makes send them again by
-themselves after a reload) is admin as well; the stash is read only once the bundle is here, and the resumed
-file reaches the real uploader because the bundle replaces the stand-in before any hook of it mounts
+it, waits for the bundle and passes them on, or fails them when the bundle does not come. It also uses the second
+argument LiveView gives every uploader, `onError(callback)`, whose callback runs when the channel of the join that
+preflighted the entries errors (the socket drops, the process dies; `view.ts` and `live_uploader.js` of LiveView 1.2). From
+then on the entries belong to a process that is gone, and what is pushed for them fails that process (an upload it does not
+know) or is ignored (an entry it does not know of an upload it does): one still waiting in the stand-in is dropped with a
+console warning, neither started nor failed (a failed mark is a push too), and one the real uploader is already sending
+is stopped (`chunked.stop`, which leaves the partial file on the server). The callback is per call, so it does not depend
+on which panel's stub installed the stand-in. Every `UploadManager` stub also keeps the connection state LiveView reports
+(a stub has no `disconnected` / `reconnected` of its own, and LiveView calls them only on the hook instance it made) and
+tells the real hook once it has mounted, so a bundle that arrives during an outage starts the manager offline instead of
+feeding a file to a dead socket. `UploadResume` (the browser's stash of picked files, which #1011 makes send them again by
+themselves after a reload) is admin as well; the stash is read only once the bundle is here, and the resumed file reaches the
+real uploader because the bundle replaces the stand-in in the turn the hooks mount, before any preflight reply (the real
+`UploadResume` may mount a moment before the replacement, but its report goes to the server and back first)
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 251 521 B raw, 71 824 gzip, 94 229 minified, 28 890 minified + gzip;
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 252 894 B raw, 72 220 gzip, 94 583 minified, 28 978 minified + gzip;
 `phoenix_kit_admin.js` is 425 996 / 119 980 / 160 836 / 47 214. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
@@ -164,7 +171,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-252 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
+253 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
 the admin bundle is 426 KB / 120 KB readable, 161 KB / 47 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 

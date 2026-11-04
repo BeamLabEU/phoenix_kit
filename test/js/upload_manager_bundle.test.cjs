@@ -187,15 +187,18 @@ test("a hook of the admin bundle that nothing stubs still draws the warning", ()
 
 // The server of the chunked upload: it keeps the bytes it was given.
 function chunkServer() {
-  const server = { held: 0, body: Buffer.alloc(0), token: "tok" };
+  const server = { held: 0, body: Buffer.alloc(0), token: "tok", gate: null, patches: 0 };
   server.XHR = class FakeXHR {
     constructor() { this.upload = {}; this.headers = {}; }
     open(method) { this.method = method; }
     setRequestHeader(k, v) { this.headers[k.toLowerCase()] = v; }
     getResponseHeader(k) { return k.toLowerCase() === "upload-offset" ? String(server.held) : null; }
-    abort() {}
+    abort() { this.aborted = true; this.onabort && this.onabort(); }
     send(body) {
+      if (this.method === "PATCH") server.patches += 1;
       Promise.resolve().then(async () => {
+        if (this.method === "PATCH" && server.gate) await server.gate;
+        if (this.aborted) return;
         this.status = 200;
         if (this.method === "PATCH") {
           if (parseInt(this.headers["upload-offset"], 10) !== server.held) this.status = 409;
@@ -315,9 +318,15 @@ test("when the bundle cannot be loaded a file chosen before it is failed, not le
   assert.ok(Array.from(env.errors).some((m) => /could not be sent/.test(m)), "the console says so");
 });
 
-// LiveView calls `disconnected` and `reconnected` on the hook instance; a stub
-// has none of its own, so the stand-in installs two to count the rejoins.
-test("a file chosen before a LiveView rejoin is dropped when the bundle arrives: its entry belongs to a process that is gone", async () => {
+// LiveView hands each uploader a second argument, `onError(callback)`: the callback
+// runs when the channel of the join that preflighted the entries errors. The
+// stand-in uses it, so it knows of a rejoin whichever stub installed it.
+function channel() {
+  const callbacks = [];
+  return { onError: (cb) => callbacks.push(cb), fail: () => callbacks.forEach((cb) => cb()) };
+}
+
+test("an entry whose join errored before the bundle arrived is dropped: its process is gone", async () => {
   const { env, hook } = stubbedPanel();
   const server = chunkServer();
   env.window.XMLHttpRequest = server.XHR;
@@ -326,16 +335,16 @@ test("a file chosen before a LiveView rejoin is dropped when the bundle arrives:
   const standIn = hook.liveSocket.uploaders.PkChunked;
 
   const entry = chosenEntry(Buffer.from(Array.from({ length: 70000 }, (_, i) => i % 251)));
-  const running = standIn([entry], () => {}, {}, hook.liveSocket);
-  hook.disconnected();
-  hook.reconnected();
+  const ch = channel();
+  const running = standIn([entry], ch.onError, {}, hook.liveSocket);
+  ch.fail();
 
   env.load("phoenix_kit_admin.js");
   env.loaded(0);
-  await running;
-  await tick();
 
   try {
+    await running;
+    await tick();
     assert.strictEqual(server.held, 0, "no byte was sent for it");
     assert.deepStrictEqual(entry.pct, [], "and nothing was pushed to the new process about it");
     assert.strictEqual(entry.err, null, "failing it would be a push to the new process too");
@@ -346,70 +355,174 @@ test("a file chosen before a LiveView rejoin is dropped when the bundle arrives:
   }
 });
 
-test("a file whose bundle arrives while the connection is down is dropped too: the rejoin that follows would be a new process", async () => {
+test("a second panel does not need the first: the stand-in knows of the rejoin by itself", async () => {
+  const { env, hook: first } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  first.mounted();
+  const { el } = panel(env);
+  const second = makeHook(env.window.PhoenixKitHooks.UploadManager, el);
+  second.liveSocket = first.liveSocket;
+  second.mounted(); // the stand-in is there already: this stub installs none
+  first.destroyed(); // the panel that installed it is gone before the bundle
+
+  const entry = chosenEntry(Buffer.from("abc"));
+  const ch = channel();
+  const running = first.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, first.liveSocket);
+  ch.fail();
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  try {
+    await running;
+    await tick();
+    assert.strictEqual(server.held, 0);
+    assert.deepStrictEqual(entry.pct, []);
+    assert.strictEqual(entry.err, null);
+  } finally {
+    second.destroyed();
+  }
+});
+
+test("a file whose join did not error is sent, whatever happened to the ones before it", async () => {
   const { env, hook } = stubbedPanel();
   const server = chunkServer();
   env.window.XMLHttpRequest = server.XHR;
   env.window.crypto = webcrypto;
   hook.mounted();
-  const standIn = hook.liveSocket.uploaders.PkChunked;
 
-  const entry = chosenEntry(Buffer.from("early"));
-  const running = standIn([entry], () => {}, {}, hook.liveSocket);
-  hook.disconnected(); // and no `reconnected` yet when the bundle arrives
+  const gone = channel();
+  const goneEntry = chosenEntry(Buffer.from("old"));
+  hook.liveSocket.uploaders.PkChunked([goneEntry], gone.onError, {}, hook.liveSocket);
+  gone.fail();
 
+  const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
+  const entry = chosenEntry(data);
+  entry.ref = "e2";
+  entry.meta = Object.assign({}, entry.meta, { url: "/u/new" });
+  const ch = channel();
+  const running = hook.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, hook.liveSocket);
   env.load("phoenix_kit_admin.js");
   env.loaded(0);
-  await running;
   try {
-    assert.deepStrictEqual(entry.pct, []);
+    await running;
+    await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
     assert.strictEqual(entry.err, null);
-    assert.strictEqual(server.held, 0);
+    assert.ok(server.body.equals(data));
+    assert.deepStrictEqual(goneEntry.pct, []);
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("when the bundle cannot be loaded, an entry its join dropped is not failed either", async () => {
+  const { env, hook } = stubbedPanel();
+  hook.mounted();
+  const entry = chosenEntry(Buffer.from("abc"));
+  const ch = channel();
+  const running = hook.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, hook.liveSocket);
+  ch.fail();
+
+  env.failed(0);
+  try {
+    await running;
+    assert.strictEqual(entry.err, null, "failing it would be a push to the new process");
+    assert.deepStrictEqual(entry.pct, []);
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("a rejoin while the stand-in's file is being sent stops the transfer", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+
+  const data = Buffer.from(Array.from({ length: 300000 }, (_, i) => i % 251));
+  const entry = chosenEntry(data);
+  const ch = channel();
+  // The first chunk is held on the wire from the start: the channel goes while it is there.
+  let release = () => {};
+  server.gate = new Promise((r) => { release = r; });
+  const running = hook.liveSocket.uploaders.PkChunked([entry], ch.onError, {}, hook.liveSocket);
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+
+  try {
+    await running;
+    const { chunked } = env.window.PhoenixKitUploadManager;
+    await until(() => server.patches === 1);
+    assert.notStrictEqual(chunked.info(entry.ref), null, "the real uploader is sending it");
+    ch.fail();
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+
+    assert.strictEqual(chunked.info(entry.ref), null, "the job let go of its place");
+    assert.strictEqual(server.held, 0, "the chunk that was on the wire did not arrive");
+    assert.strictEqual(server.patches, 1, "and no other was sent");
+    assert.ok(!entry.pct.includes(100), "and the new process was not told it was done");
+    assert.strictEqual(entry.err, null);
     assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)));
   } finally {
     hook.destroyed();
   }
 });
 
-test("a file chosen after the rejoin but before the bundle is sent once it has arrived", async () => {
+test("a bundle that arrives while the socket is down starts the manager offline, and the reconnect brings it back", async () => {
   const { env, hook } = stubbedPanel();
-  const server = chunkServer();
-  env.window.XMLHttpRequest = server.XHR;
-  env.window.crypto = webcrypto;
   hook.mounted();
-  hook.disconnected();
-  hook.reconnected();
+  hook.disconnected(); // LiveView tells the stub, the only hook there is
 
-  const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
-  const entry = chosenEntry(data);
-  const running = hook.liveSocket.uploaders.PkChunked([entry], () => {}, {}, hook.liveSocket);
   env.load("phoenix_kit_admin.js");
   env.loaded(0);
-  await running;
-  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
+  await tick();
   try {
-    assert.strictEqual(entry.err, null);
-    assert.ok(server.body.equals(data));
-    assert.deepStrictEqual(Array.from(env.warnings), []);
+    assert.strictEqual(hook.queue.offline, true, "files picked now are held, not fed to a dead socket");
+    assert.notStrictEqual(hook.queue.offlineSince, null, "so a verdict on what was fed just before can be undone");
+    hook.reconnected();
+    assert.strictEqual(hook.queue.offline, false);
   } finally {
     hook.destroyed();
   }
 });
 
-test("when the bundle cannot be loaded, a file whose entry a rejoin took is not failed either", async () => {
+test("a bundle that arrives after the socket came back starts the manager online", async () => {
   const { env, hook } = stubbedPanel();
   hook.mounted();
-  const entry = chosenEntry(Buffer.from("abc"));
-  const running = hook.liveSocket.uploaders.PkChunked([entry], () => {}, {}, hook.liveSocket);
   hook.disconnected();
   hook.reconnected();
 
-  env.failed(0);
-  await running;
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await tick();
+  try {
+    assert.strictEqual(hook.queue.offline, false);
+  } finally {
+    hook.destroyed();
+  }
+});
 
-  assert.strictEqual(entry.err, null, "failing it would be a push to the new process");
-  assert.deepStrictEqual(entry.pct, []);
-  assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)));
+test("every panel's stub keeps the connection, not just the one that installed the stand-in", async () => {
+  const { env, hook: first } = stubbedPanel();
+  first.mounted();
+  const { el } = panel(env);
+  const second = makeHook(env.window.PhoenixKitHooks.UploadManager, el);
+  second.liveSocket = first.liveSocket;
+  second.mounted();
+  second.disconnected();
+
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await tick();
+  try {
+    assert.strictEqual(second.queue.offline, true);
+    assert.strictEqual(first.queue.offline, false, "the other panel was never told");
+  } finally {
+    first.destroyed();
+    second.destroyed();
+  }
 });
 
 test("a page that ran the standalone file after building LiveSocket gets the real uploader at once, whether or not the bundle comes", async () => {

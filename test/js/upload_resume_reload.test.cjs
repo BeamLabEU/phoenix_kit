@@ -10,7 +10,11 @@
 //     the real chunked uploader when its preflight is answered, not the
 //     stand-in the stub kept for files chosen before the bundle;
 //   - a file the person chose before the bundle and the one resumed from the
-//     stash both arrive whole.
+//     stash both arrive whole;
+//   - a connection that drops while the bundle is on its way costs the file
+//     chosen meanwhile (its entry belongs to a process that is gone), not the
+//     stash; and a bundle that arrives during the outage starts the manager
+//     offline.
 //
 //   node --test test/js/upload_resume_reload.test.cjs
 
@@ -192,7 +196,8 @@ function reloadedPage({ order }) {
 
   // LiveView: a file in the input is preflighted, and when the server's answer
   // comes the uploader the entry names is looked up on the socket.
-  const lv = { entries: [], lookups: [], errors: [] };
+  const lv = { entries: [], lookups: [], errors: [], onErrorCallbacks: [] };
+  const onError = (callback) => lv.onErrorCallbacks.push(callback);
   input.addEventListener("input", () => {
     const files = Array.from(input.files);
     const entries = files.map((file, i) => ({
@@ -211,7 +216,7 @@ function reloadedPage({ order }) {
         lv.errors.push("no uploader configured for PkChunked");
         return;
       }
-      uploader(entries, () => {}, {}, liveSocket);
+      uploader(entries, onError, {}, liveSocket);
     });
   });
 
@@ -256,6 +261,12 @@ function reloadedPage({ order }) {
       // queue and the hand-over, not the rows.
       manager.render = () => {};
     },
+    // The channel of the join errors (the socket drops), then the page is told, then it is back.
+    dropConnection() {
+      lv.onErrorCallbacks.splice(0).forEach((callback) => callback());
+      manager.disconnected();
+    },
+    restoreConnection() { manager.reconnected(); },
     destroy() { resume.destroyed(); manager.destroyed(); }
   };
   return page;
@@ -332,8 +343,8 @@ test("a rejoin while the bundle is on its way drops the file chosen meanwhile, a
     page.choose(new File([early], "early.bin", { lastModified: 1700000000001 }));
     await until(() => page.lv.lookups.length === 1);
     // LiveView rejoined: the entry above belongs to a process that is gone.
-    page.manager.disconnected();
-    page.manager.reconnected();
+    page.dropConnection();
+    page.restoreConnection();
 
     await page.bundleArrives();
     page.stash(leftover(stashed));
@@ -347,6 +358,30 @@ test("a rejoin while the bundle is on its way drops the file chosen meanwhile, a
     assert.strictEqual(page.lv.lookups[1], "chunkedUploader");
     assert.ok(Array.from(page.env.warnings).some((m) => /reconnected/.test(m)), "the console says why the first one went");
     assert.deepStrictEqual(Array.from(page.env.errors), []);
+  } finally {
+    page.destroy();
+  }
+});
+
+test("the bundle arriving during an outage: a file picked then waits for the reconnect, and is sent after it", async () => {
+  const page = reloadedPage({ order: ["resume", "manager"] });
+  const data = bytes(70000, 11);
+  try {
+    page.dropConnection();
+    await page.bundleArrives();
+    assert.strictEqual(page.manager.queue.offline, true, "the manager knows the socket is down");
+
+    page.choose(new File([data], "waiting.bin", { lastModified: 1700000000002 }));
+    await tick();
+    await tick();
+    assert.strictEqual(page.manager.queue.items.length, 1, "the manager took the file");
+    assert.deepStrictEqual(page.lv.entries, [], "and fed nothing to the dead socket");
+
+    page.restoreConnection();
+    await until(() => page.lv.entries[0] && (page.lv.entries[0].pct.at(-1) === 100 || page.lv.entries[0].err));
+    assert.strictEqual(page.lv.entries[0].err, null);
+    assert.ok(page.store.files["/u/waiting.bin"].body.equals(data), "it arrived whole once the socket was back");
+    assert.deepStrictEqual(page.lv.errors, []);
   } finally {
     page.destroy();
   }
