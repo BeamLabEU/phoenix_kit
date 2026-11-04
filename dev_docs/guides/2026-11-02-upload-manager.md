@@ -336,6 +336,12 @@ Found while building it, handled in the script:
   registers the upload again, so the input's `data-phx-upload-ref` and the
   panel's `data-upload-ref` (updated even though the panel is `phx-update="ignore"`)
   differ from what they were at mount. The script reads the ref when it needs it.
+* **A rejoin drops every entry.** The new process has none of the old one's
+  entries, so a row that vanishes is not proof the host consumed it. While the
+  socket is down the script reaches no "done" verdict, and on reconnect it stops
+  the old transfers and sends the unfinished files again as fresh `File`s; a
+  resumable one carries on from the offset the server kept (same name, size and
+  date, same upload id).
 
 ## Taking it to another project
 

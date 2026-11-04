@@ -255,8 +255,10 @@
           if (row.progress >= 100) item.progressAt = now;
         }
       } else if (item.seen) {
-        // It was there and now it is not: the host consumed it. Done.
-        this._finish(item);
+        // It was there and now it is not: the host consumed it. Done. Not
+        // while the connection is down: a rejoined LiveView does not know the
+        // entry, and that is not consumption (see `requeueSeen`).
+        if (!this.offline) this._finish(item);
       } else if (!this.offline && now - item.fedAt > UNSEEN_GRACE_MS) {
         item.state = "failed";
         item.error = "not_accepted";
@@ -323,6 +325,35 @@
     }
     // What was measured before the drop says nothing about the link now.
     if (this.count("uploading") === 0) this.tune = freshTune(this.cap);
+  };
+
+  // The connection is back, and with it a new LiveView process: it knows
+  // nothing of the entries the old one held. A file that was on its way (or
+  // stopped in place, resumable) has lost its entry; it goes back in the line
+  // to be handed over again, no failure and no attempt used up. Returns the
+  // refs of the lost entries, for the caller to stop their transfers. A
+  // resumable file carries on from the offset the server kept, because the
+  // fresh File it is sent as has the same name, size and date, so it is the
+  // same upload there.
+  UploadQueue.prototype.requeueSeen = function() {
+    var refs = [];
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      var sending = it.state === "uploading" && it.seen;
+      if (!sending && !(it.soft && it.seen)) continue;
+      if (it.ref) refs.push(it.ref);
+      if (sending) {
+        it.state = "queued";
+        it.attempts = Math.max(0, it.attempts - 1);
+      }
+      it.soft = false;
+      it.seen = false;
+      it.started = false;
+      it.ref = null;
+      it.bytes = 0;
+      it.base = 0;
+    }
+    return refs;
   };
 
   // The file to give LiveView for an item that `next` just returned. LiveView
@@ -979,6 +1010,8 @@
     pause: function(ref) { if (jobs[ref]) jobs[ref].pause(); },
     resume: function(ref) { if (jobs[ref]) jobs[ref].resume(); },
     discard: function(ref) { if (jobs[ref]) jobs[ref].discard(); },
+    // Let go of the transfer but leave the partial file on the server.
+    stop: function(ref) { if (jobs[ref]) jobs[ref].stop(); },
     info: function(ref) {
       var j = jobs[ref];
       return j ? { status: j.status, start: j.start } : null;
@@ -1061,6 +1094,8 @@
     },
 
     reconnected: function() {
+      var lost = this.queue.requeueSeen();
+      if (this.resumable) lost.forEach(function(ref) { chunked.stop(ref); });
       this.queue.offline = false;
       this.queue.requeueUnseen();
       this.sync();

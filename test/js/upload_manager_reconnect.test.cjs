@@ -25,6 +25,7 @@ function load() {
 const win = load();
 const { UploadQueue } = win.PhoenixKitUploadManager;
 const Hook = win.PhoenixKitHooks.UploadManager;
+const { ChunkJob, chunked } = win.PhoenixKitUploadManager;
 
 const photo = () => new File(["x".repeat(2000)], "IMG_1.jpg", { type: "image/jpeg", lastModified: 1700000000000 });
 
@@ -359,4 +360,120 @@ test("nothing is pushed to cancel an entry while offline", () => {
   ctx.queue.offline = false;
   ctx._cancelEntry("ref-1");
   assert.strictEqual(pushed.length, 1);
+});
+
+// -------------------------------- a file that was mid-transfer at the drop ----
+
+function sendingSeen(q, f = photo(), ref = "7") {
+  const [item] = q.add([f]);
+  q.next(0);
+  q.observe([{ ref, key: item.key, size: item.size, progress: 17, done: false, error: "" }], 100);
+  assert.strictEqual(item.seen, true);
+  return item;
+}
+
+test("a row that disappears while offline finishes nothing", () => {
+  const q = new UploadQueue();
+  const item = sendingSeen(q);
+  q.offline = true;
+  q.observe([], 200);
+  q.observe([], 60000);
+  assert.strictEqual(item.state, "uploading");
+  assert.strictEqual(q.doneBytes, 0);
+});
+
+test("a row that disappears while connected is still a file the host consumed", () => {
+  const q = new UploadQueue();
+  const item = sendingSeen(q);
+  q.observe([], 200);
+  assert.strictEqual(item.state, "done");
+});
+
+test("requeueSeen puts a mid-transfer file back, without a failure or an attempt", () => {
+  const q = new UploadQueue();
+  const item = sendingSeen(q);
+  const attempts = item.attempts;
+  q.offline = true;
+
+  assert.deepStrictEqual(q.requeueSeen(), ["7"], "the lost entry, to stop its transfer");
+  assert.strictEqual(item.state, "queued");
+  assert.strictEqual(item.error, null);
+  assert.strictEqual(item.attempts, attempts - 1);
+  assert.strictEqual(item.ref, null);
+  assert.strictEqual(item.seen, false);
+  assert.strictEqual(item.bytes, 0);
+  assert.strictEqual(item.base, 0);
+});
+
+test("requeueSeen leaves finished, failed and waiting files alone", () => {
+  const q = new UploadQueue();
+  q.tune.target = 3;
+  const [done, failed, waiting] = q.add([
+    new File(["a"], "a.jpg", { lastModified: 1 }),
+    new File(["bb"], "b.jpg", { lastModified: 2 }),
+    new File(["ccc"], "c.jpg", { lastModified: 3 })
+  ]);
+  q.next(0);
+  q.observe([
+    { ref: "1", key: done.key, size: done.size, progress: 100, done: true, error: "" },
+    { ref: "2", key: failed.key, size: failed.size, progress: 0, done: false, error: "too_large" }
+  ], 100);
+  assert.deepStrictEqual([done.state, failed.state, waiting.state], ["done", "failed", "uploading"]);
+
+  q.requeueSeen();
+  assert.deepStrictEqual([done.state, failed.state, waiting.state], ["done", "failed", "uploading"]);
+});
+
+test("a file paused in place is made an ordinary paused file, ready to be fed anew", () => {
+  const q = new UploadQueue({ resumable: true });
+  const item = sendingSeen(q);
+  q.pause(item.id);
+  assert.strictEqual(item.soft, true);
+
+  assert.deepStrictEqual(q.requeueSeen(), ["7"]);
+  assert.strictEqual(item.state, "paused");
+  assert.strictEqual(item.soft, false);
+  assert.strictEqual(item.ref, null);
+
+  q.resume(item.id);
+  assert.strictEqual(item.state, "queued", "resuming it hands it over again");
+});
+
+function fakeJob(ref) {
+  const entry = { ref, meta: {}, file: { size: 100 }, progress() {}, onCancel() {}, error() {} };
+  return new ChunkJob(entry);
+}
+
+test("on reconnect a mid-transfer file's old job is stopped and the file is fed as a fresh File", () => {
+  const input = page("phx-1");
+  const ctx = hookCtx("phx-1");
+  ctx.resumable = true;
+  const original = photo();
+  ctx._onPick(pick(input, [original]).ev);
+  const item = ctx.queue.items[0];
+  item.progressAt = 0;
+
+  // LiveView shows its entry, and a job is sending it.
+  const job = fakeJob("9");
+  ctx._rows = () => [{ ref: "9", key: item.key, size: item.size, progress: 17, done: false, error: "" }];
+  ctx.sync();
+  assert.strictEqual(item.seen, true);
+  assert.notStrictEqual(chunked.info("9"), null);
+
+  // The socket drops; the new process knows no entries.
+  Hook.disconnected.call(ctx);
+  ctx._rows = () => [];
+  ctx.sync();
+  assert.strictEqual(item.state, "uploading", "not reported done");
+  assert.strictEqual(job.stopped, false, "left to carry on while the socket is down");
+
+  Hook.reconnected.call(ctx);
+
+  assert.strictEqual(job.stopped, true, "the old job is stopped");
+  assert.strictEqual(chunked.info("9"), null);
+  assert.strictEqual(item.state, "uploading", "and it is on its way again");
+  assert.strictEqual(item.feeds, 2);
+  assert.strictEqual(input.fed.length, 2);
+  sameBytesDifferentObject(original, input.fed[1].files[0]);
+  assert.strictEqual(item.attempts, 1, "no attempt was used up");
 });
