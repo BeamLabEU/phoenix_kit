@@ -425,6 +425,8 @@
                 renaming_text={assigns[:renaming_text]}
                 scope_folder={assigns[:scope_folder]}
                 scope_folder_id={assigns[:scope_folder_id]}
+                subtree_toggle={assigns[:subtree_toggle]}
+                subtree_view={assigns[:subtree_view]}
                 scope_folder_name={
                   scope_label(
                     assigns[:scope_folder_id],
@@ -483,7 +485,8 @@
                     do: "true"
                 }
               >
-                <%= if @uploaded_files == [] && (@folders == [] or @file_view == "all") do %>
+                <%= if @uploaded_files == [] &&
+                         (@folders == [] or @file_view == "all" or subtree_listing?(assigns)) do %>
                   <%!-- Empty state --%>
                   <div class={[
                     "rounded-lg p-8 text-center",
@@ -565,6 +568,8 @@
                       select_mode={assigns[:select_mode]}
                       selected_files={assigns[:selected_files]}
                       selected_folders={assigns[:selected_folders]}
+                      scope_folder_id={assigns[:scope_folder_id]}
+                      subtree_listing={subtree_listing?(assigns)}
                       uploaded_files={assigns[:uploaded_files]}
                     />
                   <% end %>
@@ -618,7 +623,17 @@
               </div>
 
               <%!-- Pagination (event-based; URL sync deferred to Task 3) --%>
-              <%= if @total_count > @per_page do %>
+              <%!-- A picker pages with the core page-numbered controls (events,
+                   not links); the browser keeps its own Prev / n of N / Next. --%>
+              <div :if={@picker and @total_count > @per_page} class="flex justify-center mt-4">
+                <.pagination_controls
+                  page={@current_page}
+                  total_pages={@total_pages}
+                  on_page="set_page"
+                  target={@myself}
+                />
+              </div>
+              <%= if not @picker and @total_count > @per_page do %>
                 <div class="flex justify-center items-center gap-2 mt-4">
                   <%= if @current_page > 1 do %>
                     <button

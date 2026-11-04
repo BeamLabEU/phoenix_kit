@@ -9046,6 +9046,9 @@ if (typeof window.Chart === "undefined") {
       // same goes for every other zone naming that folder (its sidebar
       // node). A batch counts only when all of it shares one home.
       function originOf(el) {
+        // A picker listing the subfolders' files shows them in the zone of the
+        // folder viewed; the card says which folder it is really in.
+        if (el.dataset.originFolder) return el.dataset.originFolder;
         var zone = el.parentElement && el.parentElement.closest("[data-drop-folder]");
         // A search at the root lists the whole tree inside the root zone: a
         // card there may live in any folder, so its home is unknown.

@@ -24127,6 +24127,16 @@ msgstr ""
 msgid "Unfinished uploads"
 msgstr ""
 
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Include subfolders"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Show the files of the folders below this one too"
+
 #: lib/phoenix_kit_web/components/media_browser.ex
 #, elixir-autogen, elixir-format
 msgid "Nothing to move"

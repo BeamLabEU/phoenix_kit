@@ -166,6 +166,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     action stays refused under `folder_actions: false`. `readonly` still takes
     it all away. The move is a mouse drag: a touch screen has no drag, so a
     picker on one has no move.
+  - `subtree_toggle` (default `false`; a picker only) — puts an "Include
+    subfolders" switch in the picker's bar. Off, the picker lists the folder
+    it stands in, as it always did. On, it lists the files of that folder AND
+    of every folder below it (homed or linked, each file once), flat, with no
+    folder tiles, paged like any listing; at the top of the scope that is all
+    of the scope. The switch is the picker's own state: it holds while the
+    person walks the tree (another folder shows its own subtree), is not part
+    of the URL, and starts off on every mount. Search, the type, shape and
+    sort options, the library and the viewer's visibility all apply as they
+    do to a folder; the scope is never widened. The switch is not offered
+    over the Trash, the orphaned files or All Files, and those listings are
+    their own whatever the switch says. A file listed from a
+    subfolder is picked, viewed, trashed and (with `allow_move`) dragged as
+    a file of that subfolder. Works in a controlled browser (`on_navigate`)
+    too — the switch is applied here, and a page or folder change that comes
+    back through the nav params keeps it.
+  - `per_page` (a picker only; default 50, at most 500) — the files on a page.
+    Anything that is not a positive integer is 50. A change on a mounted
+    picker reloads it from the first page. Not read outside a picker.
 
   A picker's file menu keeps Download and Move to Trash. Rotate, Edit image,
   the featured toggle and deleting for good (the Trash view's Delete, Empty
@@ -531,6 +550,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   def update(assigns, socket) do
     shown_library = socket.assigns[:library_uuid]
+    shown_per_page = socket.assigns[:per_page]
 
     socket =
       socket
@@ -604,6 +624,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign_new(:folder_labels, fn -> %{} end)
       |> assign_new(:folder_actions, fn -> true end)
       |> assign_new(:allow_move, fn -> false end)
+      |> assign_new(:subtree_toggle, fn -> false end)
       # The removal guard (see the moduledoc's "Removal guard"): `nil` takes
       # the module configured for every browser, a module overrides it,
       # `false` goes without. `removal_pending` is the dialog's state.
@@ -620,7 +641,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> harvest_rejected_uploads()
       |> force_managed_readonly()
 
-    socket = maybe_switch_library(socket, shown_library)
+    socket =
+      socket
+      |> maybe_switch_library(shown_library)
+      |> maybe_reload_for_per_page(shown_per_page)
 
     socket =
       cond do
@@ -733,9 +757,44 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     |> assign(:picker, socket.assigns.picker == true)
     |> assign(:folder_actions, socket.assigns.folder_actions != false)
     |> assign(:allow_move, socket.assigns.picker == true and socket.assigns.allow_move == true)
+    |> assign(
+      :subtree_toggle,
+      socket.assigns.picker == true and socket.assigns.subtree_toggle == true
+    )
     |> assign(:pick_mode, pick_mode)
     |> assign(:max_select, max_select)
+    |> normalize_per_page()
   end
+
+  @default_per_page 50
+  @picker_max_per_page 500
+
+  # A picker may be given its page size; every other browser pages by 50
+  # whatever the host passes (`init_socket/1` sets that).
+  defp normalize_per_page(%{assigns: %{picker: true}} = socket) do
+    per_page =
+      case socket.assigns[:per_page] do
+        n when is_integer(n) and n > 0 -> min(n, @picker_max_per_page)
+        _ -> @default_per_page
+      end
+
+    assign(socket, :per_page, per_page)
+  end
+
+  # Not a picker: the browser's own page size, whatever the host passed.
+  defp normalize_per_page(socket), do: assign(socket, :per_page, @default_per_page)
+
+  # A mounted picker whose host changed `per_page` lists again from the first page.
+  defp maybe_reload_for_per_page(socket, shown_per_page) do
+    if socket.assigns.picker and is_integer(shown_per_page) and
+         shown_per_page != socket.assigns.per_page and
+         Map.has_key?(socket.assigns, :uploaded_files),
+       do: socket |> assign(:current_page, 1) |> reload_current_page(),
+       else: socket
+  end
+
+  defp initial_per_page(%{assigns: %{picker: true, per_page: per_page}}), do: per_page
+  defp initial_per_page(_socket), do: @default_per_page
 
   # The parent's upload this browser renders and watches: a picker's own
   # (see `setup_uploads/1`), or the shared one — also for a picker whose host
@@ -1876,7 +1935,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         actual_uuid,
         filter_orphaned,
         file_view,
-        list_extra(socket)
+        list_extra_in(
+          socket,
+          file_view: file_view,
+          filter_orphaned: filter_orphaned,
+          filter_trash: false
+        )
       )
 
     orphaned_count =
@@ -2012,7 +2076,21 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       sort: socket.assigns[:sort_by] || "newest",
       file_type: socket.assigns[:file_type_filter] || "all",
       shape: socket.assigns[:shape_filter] || "all"
-    ] ++ lib_opts(socket)
+    ] ++ subtree_opts(socket) ++ lib_opts(socket)
+  end
+
+  # The options of the listing a handler is about to show, before it has
+  # assigned the view it moves to: the subfolders switch is judged on that view,
+  # not on the one being left.
+  @folder_view [file_view: nil, filter_trash: false, filter_orphaned: false]
+
+  defp list_extra_in(socket, view), do: socket |> assign(view) |> list_extra()
+
+  # A picker with the subfolders switched on lists the viewed folder's whole
+  # subtree (`Storage.list_files_in_scope/2` `:subtree`), whatever the
+  # navigation path that asks for a listing.
+  defp subtree_opts(socket) do
+    if Helpers.subtree_listing?(socket.assigns), do: [subtree: true], else: []
   end
 
   # Another library than the one on screen: nothing listed belongs to it —
@@ -2168,7 +2246,10 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     # Starts collapsed → top-level folders only, drill in via the chevrons.
     |> assign(:move_expanded, MapSet.new())
     |> assign(:current_page, 1)
-    |> assign(:per_page, 50)
+    |> assign(:per_page, initial_per_page(socket))
+    # A picker's own view option: the files of the subfolders too. Socket
+    # state, never saved (see `subtree_toggle`).
+    |> assign(:subtree_view, false)
     |> then(fn s ->
       if scope_invalid,
         do: assign(s, uploaded_files: [], total_count: 0, total_pages: 0),
@@ -3498,7 +3579,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       per_page = socket.assigns.per_page
       q = socket.assigns.search_query
 
-      {files, total_count} = load_all_view_files(scope, 1, per_page, q, list_extra(socket))
+      {files, total_count} =
+        load_all_view_files(scope, 1, per_page, q, list_extra_in(socket, file_view: "all"))
 
       {:noreply,
        socket
@@ -4733,7 +4815,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         scope = scope_folder_id(socket)
         folder_uuid = current_folder_uuid(socket)
 
-        load_scoped_files(scope, 1, socket.assigns.per_page, folder_uuid, "", list_extra(socket))
+        load_scoped_files(
+          scope,
+          1,
+          socket.assigns.per_page,
+          folder_uuid,
+          "",
+          list_extra_in(socket, @folder_view)
+        )
       end
 
     # In trash view `@folders` becomes the trashed-folder list so the
@@ -4913,7 +5002,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         if filter_orphaned do
           load_orphaned_files(1, per_page, lib_opts(socket))
         else
-          load_scoped_files(scope, 1, per_page, folder_uuid, search, list_extra(socket))
+          load_scoped_files(
+            scope,
+            1,
+            per_page,
+            folder_uuid,
+            search,
+            list_extra_in(socket, filter_orphaned: false)
+          )
         end
 
       orphaned_count =
@@ -5063,6 +5159,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, socket.assigns.upload_name, ref)}
+  end
+
+  # The picker's "Include subfolders" switch. Local state: a controlled
+  # browser applies it here too, the listing it reloads is the folder it
+  # stands in. The page goes back to the first.
+  def handle_event("set_subtree_view", %{"on" => on}, socket)
+      when on in ["true", "false"] and socket.assigns.subtree_toggle == true do
+    {:noreply,
+     socket
+     |> assign(:subtree_view, on == "true")
+     |> assign(:current_page, 1)
+     |> reload_current_page()}
+  end
+
+  def handle_event("set_subtree_view", _params, socket) do
+    {:noreply, log_refused(socket, "set_subtree_view", "the picker has no such switch")}
   end
 
   def handle_event("set_page", %{"page" => page_str}, socket) do
@@ -5267,7 +5379,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       scope = scope_folder_id(socket)
       per_page = socket.assigns.per_page
 
-      {files, total_count} = load_scoped_files(scope, 1, per_page, nil, "", list_extra(socket))
+      {files, total_count} =
+        load_scoped_files(scope, 1, per_page, nil, "", list_extra_in(socket, @folder_view))
 
       {:noreply,
        socket
@@ -5314,7 +5427,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       per_page = socket.assigns.per_page
 
       {files, total_count} =
-        load_scoped_files(scope, 1, per_page, actual_uuid, "", list_extra(socket))
+        load_scoped_files(
+          scope,
+          1,
+          per_page,
+          actual_uuid,
+          "",
+          list_extra_in(socket, @folder_view)
+        )
 
       {:noreply,
        socket
@@ -5576,7 +5696,39 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         end)
       )
 
-    here
+    elsewhere = Enum.filter(files, &is_nil(here[to_string(&1.uuid)]))
+    Map.merge(here, subtree_appearances(socket, elsewhere))
+  end
+
+  # A picker listing the subfolders' files too shows a file of a folder below
+  # the viewed one: it appears in the folder that holds it (its home when that
+  # is in the subtree, else a folder of the subtree it is linked into), and
+  # a per-file action addresses that folder, as it would in the folder itself.
+  # The subtree is the one the listing walks: no folder in the trash.
+  defp subtree_appearances(_socket, []), do: %{}
+
+  defp subtree_appearances(socket, files) do
+    if Helpers.subtree_listing?(socket.assigns) do
+      root = current_folder_uuid(socket) || scope_folder_id(socket)
+
+      if is_nil(root) do
+        Map.new(files, &{to_string(&1.uuid), &1.folder_uuid})
+      else
+        folders = MapSet.new(Storage.folder_subtree_uuids(root, live: true))
+        {homed, away} = Enum.split_with(files, &(to_string(&1.folder_uuid) in folders))
+
+        linked =
+          away
+          |> Enum.map(& &1.uuid)
+          |> Storage.folder_links_among(MapSet.to_list(folders))
+          |> Enum.reduce(%{}, fn {file, folder}, acc -> Map.put_new(acc, file, folder) end)
+
+        Map.new(homed, &{to_string(&1.uuid), &1.folder_uuid})
+        |> Map.merge(Map.new(away, &{to_string(&1.uuid), linked[to_string(&1.uuid)]}))
+      end
+    else
+      %{}
+    end
   end
 
   # Where a picker's move may put files, checked once before any file is: "" is
@@ -6585,7 +6737,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     folder_uuids =
       files |> Enum.map(& &1.folder_uuid) |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
-    folder_paths = Map.new(folder_uuids, fn fuuid -> {fuuid, Helpers.breadcrumb_path(fuuid)} end)
+    folder_paths = Helpers.breadcrumb_paths(folder_uuids)
 
     # Which libraries of the batch have annotated thumbnails on (a library's
     # own choice, else the site setting), in one query — when off, the baked
@@ -6643,6 +6795,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         # matches what the viewer's canvas shows. Baked variants are
         # unrotated on disk; nil/garbage reads as unrotated.
         rotation: Map.get(file.metadata || %{}, "rotation"),
+        folder_uuid: file.folder_uuid,
         folder_path: Map.get(folder_paths, file.folder_uuid),
         # What the file's burned copy was rendered from, so the viewer can
         # tell whether the drawing in front of it has already been burned

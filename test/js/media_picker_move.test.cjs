@@ -198,8 +198,30 @@ test("a pick that is all on screen still ignores the folder shown", () => {
 
 test("in a picker the grid takes no move: a card must be dropped on a folder", () => {
   const b = browser({ pickMode: "multiple", cardAttrs: [PICKED, NOT_PICKED, PICKED], rootData: { pickCount: "2" } });
+  const fromElsewhere = { dataset: { originFolder: "kitchen" } };
+  const c = browser({ pickMode: "multiple", cardAttrs: [fromElsewhere, {}, {}] });
+  c.drag(c.cards[0], "current");
   b.drag(b.cards[1], "current");
-  assert.deepEqual(b.calls, []);
+  assert.deepEqual(c.calls.concat(b.calls), []);
+});
+
+test("listing the subfolders, a card's folder is the one it names, not the grid's", () => {
+  const fromKitchen = { dataset: { originFolder: "kitchen" } };
+  const fromCurrent = { dataset: { originFolder: "current" } };
+  const b = browser({ pickMode: "multiple", cardAttrs: [fromKitchen, fromCurrent, {}] });
+  b.drag(b.cards[0], "node");
+  b.drag(b.cards[1], "node");
+  b.drag(b.cards[0], "kitchen");
+  assert.deepEqual(b.calls, [
+    { event: "move_file_to_folder", payload: { file_uuid: "a", folder_uuid: "current" } }
+  ]);
+});
+
+test("a picked batch from several folders may go to any node", () => {
+  const picked = (folder) => ({ attrs: { "data-pick-order": "1" }, dataset: { originFolder: folder } });
+  const b = browser({ pickMode: "multiple", cardAttrs: [picked("kitchen"), picked("current"), {}], rootData: { pickCount: "2" } });
+  b.drag(b.cards[0], "node");
+  assert.deepEqual(b.calls.map(c => c.payload["folder-uuid"]), ["current"]);
 });
 
 test("text or a link dropped on a folder is not taken for a card", () => {
@@ -211,4 +233,11 @@ test("text or a link dropped on a folder is not taken for a card", () => {
   assert.equal(prevented, false, "not accepted as a drop");
   b.targets.kitchen.listeners.drop.forEach(fn => fn(ev));
   assert.deepEqual(b.calls, []);
+});
+
+test("outside a picker the grid still takes a card that came from another folder", () => {
+  const fromKitchen = { dataset: { originFolder: "kitchen" } };
+  const b = browser({ cardAttrs: [fromKitchen, {}, {}] });
+  b.drag(b.cards[0], "current");
+  assert.deepEqual(b.calls, [{ event: "move_file_to_folder", payload: { file_uuid: "a", folder_uuid: "current" } }]);
 });

@@ -24204,6 +24204,16 @@ msgstr "Wysyłaj pliki w częściach, które serwer przechowuje. Wstrzymane prze
 msgid "Unfinished uploads"
 msgstr "Nieukończone przesyłanie"
 
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Uwzględnij podfoldery"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Pokaż także pliki z folderów poniżej"
+
 #: lib/phoenix_kit_web/components/media_browser.ex
 #, elixir-autogen, elixir-format
 msgid "Nothing to move"
