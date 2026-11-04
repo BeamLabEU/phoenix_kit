@@ -146,6 +146,42 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
       assert {:error, :unauthorized, _, %{reason: :unlinked}, []} = run(ref, @read_items)
     end
 
+    test "a managed organization or a service user with a link is refused", %{
+      connection: connection
+    } do
+      for fields <- [[managed_by_members: true, account_type: "organization"], [api_only: true]] do
+        user = user_with_roles([["dashboard"]])
+        ref = linked!(user, connection, @chat + 10)
+        assert {:ok, _, _} = run(ref, @read_items)
+        assert_received {:read_items, _, _}
+
+        set_user(user, fields)
+
+        assert {:error, :unauthorized, _, %{reason: :unlinked}, []} = run(ref, @read_items)
+
+        assert {:error, :unauthorized, _, %{reason: :unlinked}, []} =
+                 Executor.visible_for(ref, :admin, [])
+
+        refute_received {:read_items, _, _}
+      end
+    end
+
+    test "the link ends with a password reset: the next call is refused", %{
+      connection: connection
+    } do
+      user = user_with_roles([["dashboard"]])
+      ref = linked!(user, connection)
+      assert {:ok, _, _} = run(ref, @read_items)
+
+      assert {:ok, _} =
+               Auth.reset_user_password(user, %{
+                 password: "AnotherValidPassword456!",
+                 password_confirmation: "AnotherValidPassword456!"
+               })
+
+      assert {:error, :unauthorized, _, %{reason: :unlinked}, []} = run(ref, @read_items)
+    end
+
     test "a malformed link is refused, never an exception" do
       for ref <- [
             {:telegram_link, nil, nil, nil},
@@ -216,6 +252,30 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
     end
   end
 
+  describe "who the handler says is calling" do
+    test "ctx.via is telegram for a chat, unless the caller says otherwise, and session for a session",
+         %{connection: connection} do
+      user = user_with_roles([["dashboard"]])
+      ref = linked!(user, connection)
+
+      assert {:ok, _, _} = run(ref, @read_items)
+      assert_received {:read_items, _, %{via: "telegram"}}
+
+      assert {:ok, _, _} = run(ref, @read_items, %{}, via: "bot")
+      assert_received {:read_items, _, %{via: "bot"}}
+
+      assert {:ok, _, _} = run(session!(user), @read_items)
+      assert_received {:read_items, _, %{via: "session"}}
+    end
+
+    test "a missing right is said about the chat, not a session", %{connection: connection} do
+      ref = linked!(user_with_roles([["dashboard"]]), connection)
+
+      assert {:error, :forbidden, detail, _, _} = run(ref, "sessiontest.read_a")
+      assert detail =~ "This chat lacks"
+    end
+  end
+
   describe "the account gate" do
     # The same user, the same refusal, through a live session and through a linked chat.
     defp both_refusals(user, connection) do
@@ -272,7 +332,9 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
       assert names == visible_names(session!(user))
     end
 
-    test "is the union of the user's roles, never narrowed to one", %{connection: connection} do
+    test "is narrowed to the default role, as a session that never switched", %{
+      connection: connection
+    } do
       capture_log(fn ->
         {:ok, _} = Settings.update_boolean_setting("role_switcher_enabled", true)
       end)
@@ -280,8 +342,10 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
       user = user_with_roles([["dashboard"], ["users"]])
       names = visible_names(linked!(user, connection))
 
-      assert @read_items in names
-      assert "sessiontest.read_a" in names
+      # Not the union of both roles (`sessiontest.read_a` needs the scope only both hold), and
+      # exactly what a fresh session of the same user is offered.
+      refute "sessiontest.read_a" in names
+      assert names == visible_names(session!(user))
     end
   end
 

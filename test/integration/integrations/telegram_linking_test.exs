@@ -668,6 +668,12 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
     end
   end
 
+  # A managed organization is an organization account (a database constraint).
+  @managed [managed_by_members: true, account_type: "organization"]
+
+  defp set_user(u, fields),
+    do: RepoHelper.repo().update_all(from(x in Auth.User, where: x.uuid == ^u.uuid), set: fields)
+
   describe "linked_user/2" do
     test "the user whose link is this chat of this bot, read now", %{connection: connection} do
       u = user()
@@ -702,10 +708,242 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       assert Linking.linked_user(connection, 555) == nil
     end
 
+    test "a managed organization is nobody's link", %{connection: connection} do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 556)
+
+      set_user(u, @managed)
+
+      assert Linking.linked_user(connection, 556) == nil
+    end
+
     test "a malformed argument is nil, never an exception" do
       assert Linking.linked_user(nil, 1) == nil
       assert Linking.linked_user("x", nil) == nil
       assert Linking.linked_user("x", %{}) == nil
+    end
+  end
+
+  describe "who may be linked" do
+    defp set_user(u, fields),
+      do:
+        RepoHelper.repo().update_all(from(x in Auth.User, where: x.uuid == ^u.uuid), set: fields)
+
+    test "a managed organization and a service user get no token and no link", %{
+      connection: connection
+    } do
+      for fields <- [@managed, [api_only: true]] do
+        u = user()
+        set_user(u, fields)
+        refused = Auth.get_user!(u.uuid)
+
+        assert {:error, :not_linkable} = Linking.create_token(refused, connection)
+        assert {:error, :not_linkable} = Linking.link_chat(refused, connection, 31_337)
+        assert linked(u.uuid)["site_chat_id"] == nil
+      end
+    end
+
+    test "a token minted before the account became managed links nothing", %{
+      connection: connection,
+      updates: updates
+    } do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+      set_user(u, @managed)
+      put_updates(updates, [start_update(1, 4040, token)])
+
+      assert {:ok, %{linked: 0}} = Linking.poll(connection)
+      assert linked(u.uuid)["site_chat_id"] == nil
+      assert Linking.linked_user(connection, 4040) == nil
+    end
+  end
+
+  describe "the link ends when the account is recovered" do
+    alias PhoenixKit.Users.Sessions
+
+    @new_password "AnotherValidPassword456!"
+
+    defp linked_user_with_session(connection, chat) do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, chat)
+      {:ok, _} = Auth.merge_user_custom_fields(u, %{"keep" => "me"}, ensure_definitions: false)
+      token = Auth.generate_user_session_token(u)
+      {Auth.get_user!(u.uuid), token}
+    end
+
+    defp still_linked?(connection, chat), do: Linking.linked_user(connection, chat) != nil
+
+    defp unlinked_but_kept(u) do
+      fresh = Auth.get_user!(u.uuid)
+      config = ChannelConfig.for_channel(fresh, "telegram")
+
+      refute Map.has_key?(config, "site_chat_id")
+      refute Map.has_key?(config, "site_connection_uuid")
+      refute Map.has_key?(config, "linked_at")
+      # What the user chose about notifications, and everything else, stays.
+      assert is_map(config["types"])
+      assert fresh.custom_fields["keep"] == "me"
+    end
+
+    test "a password reset drops it", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6001)
+      assert still_linked?(connection, 6001)
+
+      assert {:ok, _} =
+               Auth.reset_user_password(u, %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      refute still_linked?(connection, 6001)
+      unlinked_but_kept(u)
+    end
+
+    test "changing the password drops it", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6002)
+
+      assert {:ok, _} =
+               Auth.update_user_password(u, "ValidPassword123!", %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      refute still_linked?(connection, 6002)
+      unlinked_but_kept(u)
+    end
+
+    test "an administrator setting the password drops it", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6003)
+
+      assert {:ok, _} =
+               Auth.admin_update_user_password(u, %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      refute still_linked?(connection, 6003)
+    end
+
+    test "revoking all of the user's sessions drops it", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6004)
+
+      Sessions.revoke_user_sessions(u)
+
+      refute still_linked?(connection, 6004)
+      unlinked_but_kept(u)
+    end
+
+    test "signing out the other sessions drops it", %{connection: connection} do
+      {u, token} = linked_user_with_session(connection, 6005)
+
+      Sessions.revoke_other_user_sessions(u, token)
+
+      refute still_linked?(connection, 6005)
+    end
+
+    test "deleting every session token of the user (deactivation) drops it", %{
+      connection: connection
+    } do
+      {u, _token} = linked_user_with_session(connection, 6006)
+
+      :ok = Auth.delete_all_user_session_tokens(u)
+
+      refute still_linked?(connection, 6006)
+    end
+
+    test "ending one session, or logging out, leaves it", %{connection: connection} do
+      {_u, token} = linked_user_with_session(connection, 6007)
+
+      Auth.delete_user_session_token(token)
+
+      assert still_linked?(connection, 6007)
+    end
+
+    test "only the user's own link goes", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6008)
+      {_other, _} = linked_user_with_session(connection, 6009)
+
+      Sessions.revoke_user_sessions(u)
+
+      refute still_linked?(connection, 6008)
+      assert still_linked?(connection, 6009)
+    end
+  end
+
+  describe "chat_for_update/1 and actor_ref/2" do
+    defp private_message(id, from_id),
+      do: %{
+        "update_id" => 1,
+        "message" => %{
+          "chat" => %{"id" => id, "type" => "private"},
+          "from" => %{"id" => from_id},
+          "text" => "hi"
+        }
+      }
+
+    defp callback(chat_type, chat_id, from_id),
+      do: %{
+        "update_id" => 2,
+        "callback_query" => %{
+          "id" => "cb",
+          "from" => %{"id" => from_id},
+          "message" => %{"chat" => %{"id" => chat_id, "type" => chat_type}}
+        }
+      }
+
+    test "a private message from that chat names the chat" do
+      assert Linking.chat_for_update(private_message(77, 77)) == {:ok, 77}
+    end
+
+    test "a button pressed in that private chat by that person names the chat" do
+      assert Linking.chat_for_update(callback("private", 77, 77)) == {:ok, 77}
+    end
+
+    test "a group, a channel, a sender other than the chat and junk name nobody" do
+      group = put_in(private_message(-100, 77), ["message", "chat", "type"], "supergroup")
+
+      no_sender = update_in(private_message(77, 77), ["message"], &Map.delete(&1, "from"))
+
+      for update <- [
+            group,
+            private_message(77, 78),
+            no_sender,
+            callback("group", -100, 77),
+            callback("private", 77, 78),
+            callback("private", "77", "77"),
+            %{"update_id" => 3, "edited_message" => %{}},
+            %{"callback_query" => %{"id" => "cb"}},
+            %{},
+            nil,
+            "x"
+          ] do
+        assert Linking.chat_for_update(update) == :error, inspect(update)
+      end
+    end
+
+    test "actor_ref/2 is the Executor's reference for a linked private chat", %{
+      connection: connection
+    } do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 88)
+
+      assert Linking.actor_ref(connection, private_message(88, 88)) ==
+               {:ok, {:telegram_link, u.uuid, connection, 88}}
+
+      assert Linking.actor_ref(connection, callback("private", 88, 88)) ==
+               {:ok, {:telegram_link, u.uuid, connection, 88}}
+    end
+
+    test "actor_ref/2 refuses an unlinked chat, another bot and what is not private-from-chat",
+         %{connection: connection} do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 88)
+
+      assert Linking.actor_ref(connection, private_message(89, 89)) == :error
+      assert Linking.actor_ref(Ecto.UUID.generate(), private_message(88, 88)) == :error
+      # The linked person's id inside somebody else's chat, or in a group.
+      assert Linking.actor_ref(connection, private_message(88, 99)) == :error
+      assert Linking.actor_ref(connection, callback("group", -5, 88)) == :error
     end
   end
 
@@ -727,14 +965,39 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       assert_received {:telegram, "sendMessage", %{"chat_id" => 4242}}
     end
 
-    test "the default confirmation moves the offset past the batch", %{connection: connection} do
+    test "confirms nothing by default: the reader moves the offset itself", %{
+      connection: connection
+    } do
       u = user()
       {:ok, token} = Linking.create_token(u, connection)
 
       assert {:ok, %{linked: 1}} =
                Linking.handle_updates(connection, [start_update(9, 77, token)])
 
-      assert_received {:telegram, "getUpdates", %{"offset" => 10}}
+      assert linked(u.uuid)["site_chat_id"] == "77"
+      refute_received {:telegram, "getUpdates", _}
+    end
+
+    test "a batch without /start asks Telegram nothing by default", %{connection: connection} do
+      assert {:ok, %{linked: 0}} =
+               Linking.handle_updates(connection, [
+                 %{"update_id" => 3, "callback_query" => %{"id" => "cb"}}
+               ])
+
+      refute_received {:telegram, "getUpdates", _}
+    end
+
+    test "an explicit confirm function is what moves the offset", %{connection: connection} do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+      me = self()
+
+      confirm = fn updates -> send(me, {:confirmed, length(updates)}) && :ok end
+
+      assert {:ok, %{linked: 1}} =
+               Linking.handle_updates(connection, [start_update(9, 78, token)], confirm: confirm)
+
+      assert_received {:confirmed, 1}
     end
 
     test "a batch without /start links nothing and takes no lock", %{connection: connection} do
@@ -770,16 +1033,47 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       assert linked(u.uuid)["site_chat_id"] == nil
     end
 
-    test "reads as before when the reader does not hold it, or cannot answer", %{
+    test "reads as before when the reader does not hold it", %{
       connection: connection,
       updates: agent
     } do
-      for reader <- [{__MODULE__, :holds?, [false]}, {__MODULE__, :no_such_function, []}] do
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :holds?, [false]})
+      put_updates(agent, [])
+
+      assert Linking.poll(connection) == {:ok, %{linked: 0}}
+      assert_received {:telegram, "getUpdates", _}
+    end
+
+    def raises(_connection_uuid), do: raise("busy")
+    def exits(_connection_uuid), do: exit(:timeout)
+
+    test "a reader that cannot answer is taken to hold the bot: nothing is read", %{
+      connection: connection,
+      updates: agent
+    } do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+
+      for reader <- [
+            {__MODULE__, :raises, []},
+            {__MODULE__, :exits, []},
+            {__MODULE__, :no_such_function, []},
+            {__MODULE__, :holds?, [:maybe]}
+          ] do
         Application.put_env(:phoenix_kit, :telegram_updates_reader, reader)
-        put_updates(agent, [])
+        put_updates(agent, [start_update(1, 56, token)])
+
+        assert Linking.resident_reader?(connection) == true
         assert Linking.poll(connection) == {:ok, %{linked: 0}}
-        assert_received {:telegram, "getUpdates", _}
       end
+
+      refute_received {:telegram, "getUpdates", _}
+      assert linked(u.uuid)["site_chat_id"] == nil
+    end
+
+    test "no reader configured holds nothing", %{connection: connection} do
+      Application.delete_env(:phoenix_kit, :telegram_updates_reader)
+      assert Linking.resident_reader?(connection) == false
     end
   end
 

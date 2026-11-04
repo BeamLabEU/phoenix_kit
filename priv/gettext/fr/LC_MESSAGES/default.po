@@ -24155,4 +24155,9 @@ msgstr "%{moved} sur %{total} éléments déplacés"
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex
 #, elixir-autogen, elixir-format
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
-msgstr ""
+msgstr "Les messages du bot sont lus par le site, votre conversation ne peut donc pas être détectée ici : associez plutôt votre conversation par son ID ci-dessous."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Telegram can't be connected from this session."
+msgstr "Telegram ne peut pas être connecté depuis cette session."

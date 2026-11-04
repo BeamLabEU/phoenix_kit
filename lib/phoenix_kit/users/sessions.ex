@@ -26,6 +26,7 @@ defmodule PhoenixKit.Users.Sessions do
   import Ecto.Query, warn: false
   require Logger
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.RepoHelper, as: Repo
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
@@ -376,6 +377,9 @@ defmodule PhoenixKit.Users.Sessions do
         )
       )
 
+    # The user locked their account down: a chat linked to the site bot is one of the others.
+    Linking.drop_links(user_uuid)
+
     if count > 0, do: Events.broadcast_user_sessions_revoked(user_uuid, count)
     count
   end
@@ -581,6 +585,9 @@ defmodule PhoenixKit.Users.Sessions do
           select: token.token
         )
       )
+
+    # A chat linked to the site bot acts as the user: "sign out everywhere" ends it too.
+    Linking.drop_links(user_uuid)
 
     # Broadcast user sessions revocation event
     if count > 0 do

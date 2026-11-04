@@ -45,9 +45,32 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   bot. `poll/1` then reads nothing, and the reader hands every batch it reads
   to `handle_updates/3`, which links the chats as `poll/1` would.
 
+  The question is asked from any node (a request on one node, the reader on
+  another), so `holds?` must answer for the whole cluster, not for its own node.
+  It fails closed: a reader that raises, exits (a call that times out while it is
+  busy in its long poll) or answers anything but `false` is taken to hold the bot,
+  and nothing is read. `handle_updates/3` confirms nothing unless it is given a
+  `:confirm` function: the reader moves the offset itself.
+
+  Updates are acted on by the host, so it has to know who wrote.
+  `chat_for_update/1` and `actor_ref/2` are the one place that says "a private
+  chat, written by that very person": a host builds the
+  `PhoenixKit.API.Executor` reference of a chat from `actor_ref/2` only.
+
   The stored link is `custom_fields["notification_channel:telegram"]`
   (`"site_chat_id"`, `"site_connection_uuid"`, `"linked_at"`), next to the
   routing the notification channel already keeps there.
+
+  ## A link is a standing credential
+
+  A linked chat can act as the user in the Machine API (`PhoenixKit.API.Executor`),
+  so the link is dropped (`drop_links/1`, the routing choices stay) when the user
+  recovers the account: a password change or reset (also by an administrator), signing
+  out all or all other sessions, deactivation. Signing out one session leaves it.
+  `PhoenixKit.Users.Auth.delete_all_user_session_tokens/1` and the password writes call
+  it in the transaction that revokes the sessions. A managed organization (`managed_by_members`)
+  and a service user (`api_only`) cannot link a chat (`linkable?/1`) and are nobody's link
+  (`linked_user/2`).
   """
 
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -65,6 +88,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
 
   @context "telegram_link"
@@ -83,7 +107,19 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   user's earlier one.
   """
   @spec create_token(map(), String.t()) :: {:ok, String.t()} | {:error, term()}
-  def create_token(%{uuid: user_uuid} = user, connection_uuid) when is_binary(connection_uuid) do
+  def create_token(user, connection_uuid) when is_binary(connection_uuid) do
+    if linkable?(user), do: mint_token(user, connection_uuid), else: {:error, :not_linkable}
+  end
+
+  @doc """
+  Whether `user` may link a chat: not a managed organization and not a service user, who
+  have no web session of their own to link from.
+  """
+  @spec linkable?(map()) :: boolean()
+  def linkable?(user),
+    do: Map.get(user, :managed_by_members) != true and Map.get(user, :api_only) != true
+
+  defp mint_token(%{uuid: user_uuid} = user, connection_uuid) do
     {token, row} = UserToken.build_email_token(user, @context)
     repo = RepoHelper.repo()
 
@@ -178,9 +214,14 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
              limit: 100,
              owner: :system
            ) do
-        {:ok, []} -> {:ok, %{linked: 0}}
-        {:ok, updates} when is_list(updates) -> handle_updates(connection_uuid, updates)
-        {:error, reason} -> {:error, reason}
+        {:ok, []} ->
+          {:ok, %{linked: 0}}
+
+        {:ok, updates} when is_list(updates) ->
+          handle_updates(connection_uuid, updates, confirm: &confirm(connection_uuid, &1))
+
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end
@@ -191,11 +232,11 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   token's owner, and the chat is answered. Other updates are passed over.
 
   `opts[:confirm]` is how the batch is confirmed to Telegram once the links are
-  committed: a function of the updates answering `:ok` or `:error`. The default
-  confirms by `getUpdates` with the next offset, as `poll/1` needs; a resident
-  reader that moves the offset itself passes `fn _updates -> :ok end`. An
-  "expired" answer is held back when the confirmation failed (the batch comes
-  round again).
+  committed: a function of the updates answering `:ok` or `:error`. There is no
+  default that asks Telegram: the caller is the reader of the batch and moves the
+  offset itself, and a second `getUpdates` here would be a second reader (`poll/1`
+  passes its own confirming function). An "expired" answer is held back when the
+  confirmation failed (the batch comes round again).
 
   Returns `{:ok, %{linked: n}}`, or `:busy` when another node is linking this
   bot's batch right now (nothing was done; read the batch again).
@@ -204,7 +245,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
           {:ok, %{linked: non_neg_integer()}} | :busy
   def handle_updates(connection_uuid, updates, opts \\ [])
       when is_binary(connection_uuid) and is_list(updates) do
-    confirm = Keyword.get(opts, :confirm, &confirm(connection_uuid, &1))
+    confirm = Keyword.get(opts, :confirm, fn _updates -> :ok end)
 
     case commands(connection_uuid, updates) do
       [] ->
@@ -227,24 +268,42 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   @doc """
   Whether the host's resident reader (`config :phoenix_kit,
   :telegram_updates_reader, {mod, fun, args}`, asked with the connection uuid
-  appended) holds this bot. A reader that cannot answer does not hold it.
+  appended) holds this bot. Nothing configured holds nothing. **A reader that cannot
+  answer holds the bot**: it raises, exits, or answers anything but `false`, or the
+  setting is not a `{mod, fun, args}` — reading then would take its updates away.
 
-  Anything else that would call `getUpdates` on a bot must ask first: a second
+  `fun` is asked from any node and must answer for the cluster, not only for its own
+  node. Anything else that would call `getUpdates` on a bot must ask first: a second
   reader takes the updates away from the resident one.
   """
   @spec resident_reader?(String.t()) :: boolean()
   def resident_reader?(connection_uuid) do
     case Application.get_env(:phoenix_kit, :telegram_updates_reader) do
-      {mod, fun, args} when is_atom(mod) and is_atom(fun) and is_list(args) ->
-        apply(mod, fun, args ++ [connection_uuid]) == true
-
-      _ ->
+      nil ->
         false
+
+      {mod, fun, args} when is_atom(mod) and is_atom(fun) and is_list(args) ->
+        ask_reader(mod, fun, args, connection_uuid)
+
+      _malformed ->
+        unanswered()
+    end
+  end
+
+  defp ask_reader(mod, fun, args, connection_uuid) do
+    case apply(mod, fun, args ++ [connection_uuid]) do
+      false -> false
+      _holds_or_unclear -> true
     end
   rescue
-    _ -> false
+    _ -> unanswered()
   catch
-    :exit, _ -> false
+    _, _ -> unanswered()
+  end
+
+  defp unanswered do
+    Logger.warning("[Telegram.Linking] the resident reader did not answer; the bot is held")
+    true
   end
 
   # The database half: one transaction under the lock, no Telegram in it.
@@ -375,21 +434,24 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
 
   # The chat is already someone's link to this bot: a batch read again after a
   # failed confirmation, or Start pressed twice. Nothing to say to it.
-  defp already_linked?(connection_uuid, chat_id) do
-    RepoHelper.repo().exists?(
-      from u in PhoenixKit.Users.Auth.User,
-        where:
+  defp already_linked?(connection_uuid, chat_id),
+    do: RepoHelper.repo().exists?(holders(connection_uuid, chat_id))
+
+  # The users whose stored link is this chat of this bot. One definition for the answer to
+  # "already linked?" and for `linked_user/2`, so the two cannot drift.
+  defp holders(connection_uuid, chat_id) do
+    from u in User,
+      where:
+        fragment(
+          "?->'notification_channel:telegram'->>'site_chat_id' = ?",
+          u.custom_fields,
+          ^to_string(chat_id)
+        ) and
           fragment(
-            "?->'notification_channel:telegram'->>'site_chat_id' = ?",
+            "?->'notification_channel:telegram'->>'site_connection_uuid' = ?",
             u.custom_fields,
-            ^to_string(chat_id)
-          ) and
-            fragment(
-              "?->'notification_channel:telegram'->>'site_connection_uuid' = ?",
-              u.custom_fields,
-              ^connection_uuid
-            )
-    )
+            ^connection_uuid
+          )
   end
 
   # After the commit: the activity entry and the answer in the chat. An
@@ -436,7 +498,8 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   # --- Storage ------------------------------------------------------------------
 
   @doc """
-  Records the link on the user. The FIRST link also switches on the notification
+  Records the link on the user, unless they are not `linkable?/1` (`{:error, :not_linkable}`).
+  The FIRST link also switches on the notification
   types the user already receives in the app; later links keep whatever the
   user chose. A channel the delivery worker had switched off because the old
   chat was dead is switched back on.
@@ -446,18 +509,22 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
     # Fresh from the database: `ChannelConfig.update/3` writes back what it read.
     user = Auth.get_user!(user_uuid)
 
-    ChannelConfig.update(user, @channel, fn config ->
-      config
-      |> Map.drop(["status", "disabled_reason"])
-      |> Map.put("enabled", true)
-      |> Map.put("site_chat_id", to_string(chat_id))
-      |> Map.put("site_connection_uuid", connection_uuid)
-      |> Map.put(
-        "linked_at",
-        DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
-      )
-      |> put_default_types(user)
-    end)
+    if linkable?(user) do
+      ChannelConfig.update(user, @channel, fn config ->
+        config
+        |> Map.drop(["status", "disabled_reason"])
+        |> Map.put("enabled", true)
+        |> Map.put("site_chat_id", to_string(chat_id))
+        |> Map.put("site_connection_uuid", connection_uuid)
+        |> Map.put(
+          "linked_at",
+          DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+        )
+        |> put_default_types(user)
+      end)
+    else
+      {:error, :not_linkable}
+    end
   end
 
   defp put_default_types(%{"types" => %{}} = config, _user), do: config
@@ -500,26 +567,20 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
 
   @doc """
   The user whose site-bot link is chat `chat_id` of the bot `connection_uuid`, read from
-  the database now, or `nil`. A chat linked by two accounts names nobody, and a service
-  user (`api_only`) is nobody's link. The user is not checked any further (active,
-  confirmed): that is the caller's account gate.
+  the database now, or `nil`. A chat linked by two accounts names nobody, and neither a
+  service user (`api_only`) nor a managed organization (`managed_by_members`) is anybody's
+  link. The user is not checked any further (active, confirmed): that is the caller's
+  account gate (`PhoenixKit.Users.Auth.SessionRef.scope_for_user/2`).
+
+  Looking it up reads `users` by two JSON paths, with no index behind them: it is meant for
+  a link's own chat (one lookup per message), not for scanning.
   """
-  @spec linked_user(String.t(), integer() | String.t()) :: PhoenixKit.Users.Auth.User.t() | nil
+  @spec linked_user(String.t(), integer() | String.t()) :: User.t() | nil
   def linked_user(connection_uuid, chat_id)
       when is_binary(connection_uuid) and (is_binary(chat_id) or is_integer(chat_id)) do
     query =
-      from u in PhoenixKit.Users.Auth.User,
-        where:
-          fragment(
-            "?->'notification_channel:telegram'->>'site_chat_id' = ?",
-            u.custom_fields,
-            ^to_string(chat_id)
-          ) and
-            fragment(
-              "?->'notification_channel:telegram'->>'site_connection_uuid' = ?",
-              u.custom_fields,
-              ^connection_uuid
-            ) and u.api_only == false,
+      from u in holders(connection_uuid, chat_id),
+        where: u.api_only == false and u.managed_by_members == false,
         limit: 2
 
     case RepoHelper.repo().all(query) do
@@ -529,6 +590,84 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   end
 
   def linked_user(_connection_uuid, _chat_id), do: nil
+
+  @doc """
+  Drops the site-bot link of the user `user_uuid` (the chat, the bot and the time), in one
+  statement that touches nothing else in `custom_fields`: the routing choices stay, as with
+  `unlink/1`. Runs inside the caller's transaction when there is one. See "A link is a
+  standing credential" in the moduledoc.
+  """
+  @spec drop_links(String.t()) :: :ok
+  def drop_links(user_uuid) when is_binary(user_uuid) do
+    {_count, _} =
+      RepoHelper.repo().update_all(
+        from(u in User,
+          where: u.uuid == ^user_uuid,
+          update: [
+            set: [
+              custom_fields:
+                fragment(
+                  "((? #- '{notification_channel:telegram,site_chat_id}') #- '{notification_channel:telegram,site_connection_uuid}') #- '{notification_channel:telegram,linked_at}'",
+                  u.custom_fields
+                )
+            ]
+          ]
+        ),
+        []
+      )
+
+    :ok
+  end
+
+  @typedoc "The private chat an update comes from: its id, as a number."
+  @type chat_id :: integer()
+
+  @doc """
+  The chat of `update` (a raw update of the bot) if it is a **private** chat written to by
+  that very person: a `message` whose chat is private and whose sender is that chat, or a
+  `callback_query` (a button) pressed by the person whose private chat holds it. Anything
+  else is `:error`: a group or channel, a sender other than the chat, an update without a
+  sender, any other kind of update.
+
+  This is the one place that says whose update it is. A host that acts for a chat builds
+  its reference with `actor_ref/2`, never from a field of its own.
+  """
+  @spec chat_for_update(term()) :: {:ok, chat_id()} | :error
+  def chat_for_update(%{
+        "message" => %{"chat" => %{"type" => "private", "id" => id}, "from" => %{"id" => id}}
+      })
+      when is_integer(id),
+      do: {:ok, id}
+
+  def chat_for_update(%{
+        "callback_query" => %{
+          "from" => %{"id" => id},
+          "message" => %{"chat" => %{"type" => "private", "id" => id}}
+        }
+      })
+      when is_integer(id),
+      do: {:ok, id}
+
+  def chat_for_update(_update), do: :error
+
+  @doc """
+  The `PhoenixKit.API.Executor` reference (`{:telegram_link, user_uuid, connection_uuid,
+  chat_id}`) of the chat `update` came from, for the site bot `connection_uuid`: the update
+  passes `chat_for_update/1` and the chat is linked to one user now (`linked_user/2`).
+  `:error` otherwise. The executor checks the link again on every call.
+  """
+  @spec actor_ref(String.t(), term()) ::
+          {:ok, {:telegram_link, String.t(), String.t(), chat_id()}} | :error
+  def actor_ref(connection_uuid, update) when is_binary(connection_uuid) do
+    with {:ok, chat_id} <- chat_for_update(update),
+         %User{uuid: user_uuid} <- linked_user(connection_uuid, chat_id) do
+      {:ok, {:telegram_link, user_uuid, connection_uuid, chat_id}}
+    else
+      _ -> :error
+    end
+  end
+
+  def actor_ref(_connection_uuid, _update), do: :error
 
   @doc "The user's site-bot link as `%{chat_id:, connection_uuid:, linked_at:}`, or `nil`."
   @spec linked(map()) ::

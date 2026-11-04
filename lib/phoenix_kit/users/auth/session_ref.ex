@@ -47,12 +47,18 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
   expired, not a session row, or a service user's), `:mismatch` (the session belongs to
   another user), `:inactive` (the user is blocked), `:unconfirmed` (the email is not
   confirmed and confirmation is required) or `:referral_required` (the invite-only gate
-  still asks for a referral code).
+  still asks for a referral code). `:service_user` and `:managed_organization` are refused
+  by `scope_for_user/2` only: a session never belongs to either on its own.
   """
   @type refusal :: :session_gone | :mismatch | account_refusal()
 
   @typedoc "Why the account gate stops a user: see `t:refusal/0`."
-  @type account_refusal :: :inactive | :unconfirmed | :referral_required
+  @type account_refusal ::
+          :inactive
+          | :unconfirmed
+          | :referral_required
+          | :service_user
+          | :managed_organization
 
   @doc """
   The scope of the live session `session_token_uuid`, which must belong to `user_uuid`.
@@ -64,7 +70,7 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
   def scope_for_session(session_token_uuid, user_uuid) do
     with {:ok, %User{} = user} <- session_user(session_token_uuid),
          :ok <- same_user(user, user_uuid) do
-      scope_for_user(user, narrow: true)
+      account_gate(user, narrow: true)
     end
   end
 
@@ -75,13 +81,26 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
   an actor that is not a browser session (a linked Telegram chat, see
   `PhoenixKit.API.Executor.execute_as/5`). Pass the user as just read from the database.
 
+  Two kinds of account have no web session of their own, and so no scope here either: a
+  service user (`api_only`) and a managed organization (`managed_by_members`), whose only
+  session is one minted for a manager and bound to that person's grant
+  (`PhoenixKit.Users.Auth.UserToken`). A caller that has no such session to check must not
+  act for them, so both are refused first.
+
   Options: `:narrow` (default `true`), as `PhoenixKit.Users.Auth.Scope.for_user/2`:
   narrowed to the role the user acts as, or (`false`) the union of every held role.
 
   Returns `{:ok, scope}` or `{:error, reason}` (`t:account_refusal/0`).
   """
   @spec scope_for_user(User.t(), keyword()) :: {:ok, Scope.t()} | {:error, account_refusal()}
-  def scope_for_user(%User{} = user, opts) do
+  def scope_for_user(%User{} = user, opts \\ []) do
+    with :ok <- web_session_possible(user), do: account_gate(user, opts)
+  end
+
+  # The checks of the web's account gate. A session found through its token row has passed
+  # the person checks already (`UserToken`'s session query), so `scope_for_session/2` comes
+  # straight here: a managed organization's session minted for a manager is a session.
+  defp account_gate(%User{} = user, opts) do
     with %User{} = active <- Auth.ensure_active_user(user) || {:error, :inactive},
          :ok <- confirmed(active),
          scope = Scope.for_user(active, narrow: Keyword.get(opts, :narrow, true)),
@@ -131,6 +150,10 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
       {:error, :session_gone}
     end
   end
+
+  defp web_session_possible(%User{api_only: true}), do: {:error, :service_user}
+  defp web_session_possible(%User{managed_by_members: true}), do: {:error, :managed_organization}
+  defp web_session_possible(%User{}), do: :ok
 
   defp same_user(%User{uuid: uuid}, uuid), do: :ok
   defp same_user(%User{}, _user_uuid), do: {:error, :mismatch}

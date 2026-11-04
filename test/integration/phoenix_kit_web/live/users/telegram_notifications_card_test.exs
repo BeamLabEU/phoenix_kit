@@ -18,6 +18,7 @@ defmodule PhoenixKitWeb.Live.Users.TelegramNotificationsCardTest do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Test.TelegramCardHostLive, as: Host
 
   @stub __MODULE__.Telegram
   @path Routes.path("/profile/settings/notifications")
@@ -493,6 +494,106 @@ defmodule PhoenixKitWeb.Live.Users.TelegramNotificationsCardTest do
       |> render_submit()
 
       assert config(user)["later"] == "kept"
+    end
+  end
+
+  describe "where a link is not made" do
+    setup %{site: site},
+      do:
+        (
+          :ok = SiteBot.select(site)
+          :ok
+        )
+
+    defp host(conn, user, session),
+      do: live_isolated(conn, Host, session: Map.put(session, "user_uuid", user.uuid))
+
+    defp forge_connect(view),
+      do: view |> with_target("#telegram-notifications-card") |> render_hook("connect", %{})
+
+    defp link_tokens(user),
+      do:
+        RepoHelper.repo().aggregate(
+          from(t in UserToken, where: t.user_uuid == ^user.uuid and t.context == "telegram_link"),
+          :count
+        )
+
+    test "a host that says the session is not borrowed gets the card", %{conn: conn, user: user} do
+      {:ok, view, html} = host(conn, user, %{"impersonated" => false})
+
+      assert html =~ "Connect Telegram"
+      assert forge_connect(view) =~ "t.me/shop_bot?start="
+      assert link_tokens(user) == 1
+    end
+
+    test "a borrowed session offers no Connect, and a forged connect mints nothing", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, view, html} = host(conn, user, %{"impersonated" => true})
+
+      refute html =~ "Connect Telegram"
+      assert html =~ "can&#39;t be connected from this session"
+
+      html = forge_connect(view)
+
+      assert html =~ "can&#39;t be connected from this session"
+      refute html =~ "t.me/shop_bot"
+      assert link_tokens(user) == 0
+      refute_received {:telegram, "getMe", _}
+    end
+
+    test "a host that does not say is refused like a borrowed session", %{conn: conn, user: user} do
+      for session <- [%{}, %{"impersonated" => nil}, %{"impersonated" => "false"}] do
+        {:ok, view, html} = host(conn, user, session)
+
+        refute html =~ "Connect Telegram"
+        forge_connect(view)
+        assert link_tokens(user) == 0
+      end
+    end
+
+    test "a borrowed session does not offer to reconnect or get a new link", %{
+      conn: conn,
+      user: user,
+      site: site
+    } do
+      {:ok, _} = Linking.link_chat(user, site, 9_001)
+
+      {:ok, _} =
+        ChannelConfig.update(
+          Auth.get_user!(user.uuid),
+          "telegram",
+          &Map.put(&1, "status", "disabled")
+        )
+
+      {:ok, view, html} = host(conn, user, %{"impersonated" => true})
+
+      assert html =~ "Switched off"
+      refute html =~ "Reconnect"
+      forge_connect(view)
+      assert link_tokens(user) == 0
+
+      # Disconnecting stays possible, as revoking a key does.
+      view |> element("button", "Disconnect") |> render_click()
+      assert config(user)["site_chat_id"] == nil
+    end
+
+    test "a managed organization is shown no card, whatever event is forged", %{
+      conn: conn,
+      user: user
+    } do
+      RepoHelper.repo().update_all(from(u in Auth.User, where: u.uuid == ^user.uuid),
+        set: [managed_by_members: true, account_type: "organization"]
+      )
+
+      {:ok, view, html} = host(conn, user, %{"impersonated" => false})
+
+      refute html =~ "Telegram"
+      forge_connect(view)
+      view |> with_target("#telegram-notifications-card") |> render_hook("check", %{})
+      assert link_tokens(user) == 0
+      refute_received {:telegram, "getMe", _}
     end
   end
 end

@@ -46,7 +46,10 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       `PhoenixKitWeb.Users.MultiSession.impersonated?(session)`, never a constant
 
   Without both, the section shows only an explanation and no keys, and the nested component
-  refuses every event. The component checks the person's rights itself, so adding the
+  refuses every event.
+
+  `impersonated` also gates the Telegram card of `:notifications`: a chat link is a standing
+  credential, so a page that does not pass `impersonated: false` offers no Connect there. The component checks the person's rights itself, so adding the
   section for someone who holds neither `api_personal_keys` nor `api` shows an explanation too.
 
   ## Parent notifications
@@ -1959,6 +1962,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               module={PhoenixKitWeb.Live.Components.TelegramNotificationsCard}
               id="telegram-notifications-card"
               user={@user}
+              impersonated={@api_keys_impersonated}
             />
           </div>
         <% end %>

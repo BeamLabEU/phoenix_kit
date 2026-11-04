@@ -15,7 +15,7 @@ defmodule PhoenixKit.API.Actor do
       (`PhoenixKit.API.Keys.held_scopes_of/1`).
     * `scope` - the `PhoenixKit.Users.Auth.Scope` those scopes were computed from: the
       owner's `Scope.for_user(owner, narrow: false)` for a key, the session's narrowed
-      scope for `:user` (the full one for a linked chat), `nil` for an anonymous caller.
+      scope for `:user` (the user's default role's, for a linked chat too), `nil` for an anonymous caller.
       Handlers read it as `ctx.scope`.
     * `personal` - the key is a personal one (`PhoenixKit.API.Keys.Key`'s `personal`): its
       owner's right to personal keys was checked when the actor was built.

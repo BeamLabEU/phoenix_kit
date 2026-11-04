@@ -249,6 +249,25 @@ defmodule PhoenixKit.Users.Auth.SessionRefTest do
     end
   end
 
+  describe "scope_for_user/2 and the people a session never is" do
+    test "refuses a service user and a managed organization, as no web session would let them in" do
+      assert {:error, :service_user} =
+               SessionRef.scope_for_user(%{register_user!() | api_only: true}, narrow: false)
+
+      assert {:error, :managed_organization} =
+               SessionRef.scope_for_user(%{register_user!() | managed_by_members: true},
+                 narrow: false
+               )
+    end
+
+    test "opts are optional, and the default narrows like a session that never switched" do
+      user = register_user!()
+
+      assert {:ok, %Scope{} = scope} = SessionRef.scope_for_user(user)
+      assert scope.user.uuid == user.uuid
+    end
+  end
+
   describe "from_session/1" do
     test "the token row's id and its user, from the session's user_token" do
       user = register_user!()

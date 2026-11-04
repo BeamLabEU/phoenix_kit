@@ -71,6 +71,7 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
@@ -1508,6 +1509,7 @@ defmodule PhoenixKit.Users.Auth do
   """
   def delete_all_user_session_tokens(user) do
     Revocation.delete_all(UserToken.by_user_and_contexts_query(user, ["session"]))
+    Linking.drop_links(user.uuid)
     :ok
   end
 
@@ -1911,6 +1913,9 @@ defmodule PhoenixKit.Users.Auth do
   # loader; a by-uuid read alone must not silently change the active role.
   defp password_update_multi(user, changeset_fun) do
     Ecto.Multi.new()
+    # A chat linked to the site bot acts as the user in the Machine API: a new password is
+    # recovery, so it ends there too, in the transaction that ends the sessions.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     |> Ecto.Multi.run(:credential_user, fn repo, _ ->
       current = repo.one!(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
 

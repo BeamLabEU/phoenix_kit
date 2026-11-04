@@ -22,7 +22,22 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
   as such, with a **Reconnect** button that runs the same one-tap flow. A link
   that runs out before Start is pressed says so.
 
-  Attrs: `id`, `user` (the signed-in `%User{}`).
+  A link is a standing credential — a linked chat can read through the Machine API as the
+  user (`PhoenixKit.API.Executor`) — so the card refuses to make one where a session must
+  not hand out a credential:
+
+    * in a **borrowed session** (an administrator impersonating the user): the host passes
+      `impersonated`, a boolean computed with
+      `PhoenixKitWeb.Users.MultiSession.impersonated?/1` in the mount of the page, never a
+      constant. Anything but `false` (including no value) is refused, as in
+      `PhoenixKitWeb.Live.Components.PersonalApiKeys`; the buttons are replaced by a note
+      and the `connect` event is refused on the server;
+    * for a **managed organization** (`managed_by_members`) or a service user: the card
+      is not shown and every event is refused.
+
+  Disconnecting stays possible in a borrowed session, like revoking a key.
+
+  Attrs: `id`, `user` (the signed-in `%User{}`), `impersonated` (boolean, see above).
   """
   use PhoenixKitWeb, :live_component
 
@@ -92,6 +107,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
 
     socket
     |> assign(:fresh_user, user)
+    |> assign(:refusal, refusal(user, socket.assigns[:impersonated]))
     |> assign(:connection, connection)
     |> assign(:linked, linked)
     |> assign(:disabled?, disabled?)
@@ -100,6 +116,15 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
     |> assign(:active, active)
     |> assign(:own_bot?, own_bot?(user))
     |> note_expiry(was_waiting?, waiting, active)
+  end
+
+  # Who may not link a chat from here. Fails closed: `impersonated` must be `false`.
+  defp refusal(user, impersonated) do
+    cond do
+      not Linking.linkable?(user) -> :managed
+      impersonated != false -> :borrowed
+      true -> nil
+    end
   end
 
   # A link that was waiting (or on screen) and is neither used nor still alive
@@ -128,6 +153,13 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
   # --- Events ---------------------------------------------------------------
 
   @impl true
+  def handle_event(_event, _params, %{assigns: %{refusal: :managed}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("connect", _params, %{assigns: %{refusal: :borrowed}} = socket) do
+    {:noreply, assign(socket, :message, {:error, borrowed_message()})}
+  end
+
   def handle_event("connect", _params, socket) do
     if throttled?(socket) do
       {:noreply, socket}
@@ -200,6 +232,8 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
          assign(socket, :message, {:error, gettext("Could not save your Telegram preferences.")})}
     end
   end
+
+  defp borrowed_message, do: gettext("Telegram can't be connected from this session.")
 
   defp throttled?(%{assigns: %{last_call_at: nil}}), do: false
 
@@ -274,7 +308,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
     ~H"""
     <div id={@id}>
       <div
-        :if={@connection != nil or @linked != nil}
+        :if={(@connection != nil or @linked != nil) and @refusal != :managed}
         class="mt-6 rounded-box border border-base-300 p-4 space-y-3"
       >
         <h3 class="font-semibold flex items-center gap-2">
@@ -313,7 +347,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
               </span>
               <span class="flex items-center gap-1">
                 <button
-                  :if={@disabled?}
+                  :if={@disabled? and @refusal == nil}
                   type="button"
                   phx-click="connect"
                   phx-target={@myself}
@@ -400,6 +434,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
                 {gettext("I've sent it")}
               </button>
               <button
+                :if={@refusal == nil}
                 type="button"
                 phx-click="connect"
                 phx-target={@myself}
@@ -409,12 +444,16 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
               </button>
             </div>
           <% true -> %>
-            <p class="text-sm text-base-content/70">
+            <p :if={@refusal == :borrowed} class="text-sm text-base-content/70">
+              {borrowed_message()}
+            </p>
+            <p :if={@refusal == nil} class="text-sm text-base-content/70">
               {gettext(
                 "Get your notifications in Telegram. You open a link, press Start, and your chat is connected to this account."
               )}
             </p>
             <button
+              :if={@refusal == nil}
               type="button"
               phx-click="connect"
               phx-target={@myself}
