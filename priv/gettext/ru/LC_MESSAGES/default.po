@@ -24217,3 +24217,13 @@ msgstr "Отправлять файлы частями, которые серв�
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Незавершённые загрузки"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Нечего переносить"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "Перенесено: %{moved} из %{total}"

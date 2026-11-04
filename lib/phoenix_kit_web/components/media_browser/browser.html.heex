@@ -12,6 +12,7 @@
   phx-window-keydown={@select_mode && "exit_select_mode"}
   phx-key="Escape"
   data-pick-mode={@picker && to_string(@pick_mode)}
+  data-pick-count={@allow_move && length(@picked)}
   class={@fill_height && "flex flex-col flex-1 min-h-0 w-full"}
 >
   <%!-- Keeps a copy of every picked file in the browser (IndexedDB) until
@@ -171,6 +172,7 @@
           show_rename={not @readonly and @folder_actions}
           show_trash={@folder_actions}
           enable_drag={not @readonly and @folder_actions and not @picker}
+          drop_only={not @readonly and @allow_move}
         />
 
         <%!-- Main content area --%>
@@ -541,6 +543,7 @@
                 <% else %>
                   <%= if @view_mode == "grid" do %>
                     <MediaBrowser.GridView.grid_view
+                      allow_move={assigns[:allow_move]}
                       drag={not @readonly and @folder_actions and not @picker}
                       editing_folder_description={assigns[:editing_folder_description]}
                       featured={assigns[:featured]}

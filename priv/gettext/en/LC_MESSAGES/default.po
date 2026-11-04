@@ -24126,3 +24126,13 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr ""
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Nothing to move"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "%{moved} of %{total} items moved"

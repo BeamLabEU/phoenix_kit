@@ -2626,6 +2626,23 @@ defmodule PhoenixKit.Modules.Storage do
     |> List.flatten()
   end
 
+  @doc """
+  The links of `file_uuids` into `folder_uuids` (a home does not count), as
+  `{file_uuid, folder_uuid}` pairs ordered by folder uuid. One query.
+  """
+  def folder_links_among(file_uuids, folder_uuids)
+      when is_list(file_uuids) and is_list(folder_uuids) and file_uuids != [] and
+             folder_uuids != [] do
+    from(fl in FolderLink,
+      where: fl.file_uuid in ^file_uuids and fl.folder_uuid in ^folder_uuids,
+      order_by: [asc: fl.folder_uuid],
+      select: {fl.file_uuid, fl.folder_uuid}
+    )
+    |> repo().all()
+  end
+
+  def folder_links_among(_file_uuids, _folder_uuids), do: []
+
   @doc "Returns trashed folders ordered by trashed_at descending, with optional scope."
   def list_trashed_folders(scope_folder_id \\ nil, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)

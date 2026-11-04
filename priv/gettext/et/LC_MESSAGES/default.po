@@ -24136,3 +24136,13 @@ msgstr "Saada failid osadena, mida server säilitab. Peatatud üleslaadimine jä
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Lõpetamata üleslaadimised"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Pole midagi liigutada"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "Liigutatud: %{moved} / %{total}"

@@ -24203,3 +24203,13 @@ msgstr "Wysyłaj pliki w częściach, które serwer przechowuje. Wstrzymane prze
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Nieukończone przesyłanie"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Nic do przeniesienia"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "Przeniesiono: %{moved} z %{total}"
