@@ -98,17 +98,24 @@ TesseraLayer, EtcherLayer; and MentionInput, UploadStats and UploadGuard, which 
 and its mention-enabled text fields render, so a module's public page (a form with an upload, a comment box) has
 them.
 
-*Admin, 39* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
+*Admin, 40* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
 AnnotationComposerPosition, EtcherReset, StackMemory, StackExpand, WaveformPlayer, MediaDragDrop,
-FolderDropUpload, UploadResume, RemovalModal, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
+FolderDropUpload, UploadResume, UploadManager, RemovalModal, ContextMenu, AvatarCrop, ImageEditor, SearchPicker,
 PkDialogDraft, PkHashHighlight, BulkSelectScope, TableLocalSearch, TableFit, TableCardView, RowMenu,
 RowMenuAuto, ListFilter, TreePickerSearch, CrumbSwitcher, AdminSidebarScroll, IntegrationPickerSearch,
 EmailCharts.
 
+`UploadManager` (the upload manager of #1006, a queue and panel for any LiveView upload) is admin by the same rule:
+core renders it in the media browser, its pickers and the selector page and nowhere else, and no known module puts
+it on a public page. Its script is also a standalone file for projects outside PhoenixKit
+(`phoenix_kit_upload_manager.js`), of which `phoenix_kit_admin.js` holds a copy, identical but for the lines that
+register the hook (`PhoenixKitAdminHooks` instead of `PhoenixKitHooks`; `upload_manager_bundle.test.cjs`). Public, it
+would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B raw, over the 256 KiB budget).
+
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 248 202 B raw, 70 842 gzip, 93 018 minified, 28 495 minified + gzip;
-`phoenix_kit_admin.js` is 352 883 / 99 552 / 129 238 / 37 162. The size budget in `admin_split.test.cjs` (256 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 248 223 B raw, 70 849 gzip, 93 034 minified, 28 502 minified + gzip;
+`phoenix_kit_admin.js` is 408 605 / 114 905 / 155 963 / 45 715. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -147,7 +154,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
 248 KB raw / 71 KB gzip readable, 28 KB gzip minified, the mention field and the two upload hooks being public;
-the admin bundle is 353 KB / 100 KB readable, 129 KB / 37 KB gzip minified;
+the admin bundle is 409 KB / 115 KB readable, 156 KB / 46 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.

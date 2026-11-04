@@ -433,7 +433,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
 
   # Adding a bucket to a profile, or changing how the profile uses it. Only the
   # row's own fields are named, with their old and new values.
-  @row_fields [:role, :status, :serve_order, :write_priority, :storage_class]
+  @row_fields [:role, :status, :serve_order, :write_priority, :stores, :storage_class]
 
   defp audit_bucket_row(profile, saved, changeset, added?, opts) do
     bucket = bucket_name(saved.bucket_uuid)
@@ -480,12 +480,13 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     )
   end
 
-  # What a file's placement depends on: a bucket's status and its role (a file
-  # needs a copy it may serve). The serve order is read
+  # What a file's placement depends on: a bucket's status, its role (a file
+  # needs a copy it may serve) and what it stores (a backup of originals only
+  # drops its derived copies). The serve order is read
   # when a request is served, and a write priority or storage class only
   # applies to the next write: changing them makes no file stale.
   defp moves_bytes?(changeset),
-    do: Map.take(changeset.changes, [:status, :role]) != %{}
+    do: Map.take(changeset.changes, [:status, :role, :stores]) != %{}
 
   @doc "Takes `bucket_uuid` out of `profile` and bumps the profile's revision."
   @spec remove_bucket(StorageProfile.t(), term(), keyword()) :: :ok | {:error, term()}
@@ -1015,7 +1016,8 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
       role: row.role,
       write_priority: row.write_priority,
       serve_order: row.serve_order,
-      status: row.status
+      status: row.status,
+      stores: row.stores
     }
   end
 

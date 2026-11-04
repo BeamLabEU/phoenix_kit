@@ -2,6 +2,46 @@
 
 ### Added
 
+- Hetzner Object Storage as a storage service and bucket provider (`hetzner`).
+  Its connection form asks for the location (Falkenstein `fsn1`, Nuremberg
+  `nbg1`, Helsinki `hel1`) and builds the endpoint
+  `<location>.your-objectstorage.com`, with the location as the signing region.
+  Buckets are addressed virtual-host style
+  (`<bucket>.<location>.your-objectstorage.com`), as Hetzner documents. Users
+  may bring their own Hetzner bucket, like any other S3-compatible one. No
+  migration.
+- A backup bucket of a storage profile can keep **originals only** (the
+  profile editor's "Originals only" on a backup row; `stores: "originals"` on
+  `Profiles.put_bucket/4`): an off-site copy of what cannot be made again,
+  without the sizes, tiles and renders that can. Placement, the reconciler and
+  library verification leave such a bucket out for derived objects, so the
+  copies wanted of a size are capped at the buckets that take one, and sizes
+  already on it are removed by the reconciler. Only a backup may store
+  originals alone: any other role stores everything. This reads the
+  `phoenix_kit_storage_profile_buckets.stores` column again (V205, unused since
+  2.53.0); a leftover `derived` value is treated as `all`. Changing it makes
+  the profile's files stale. No migration.
+- **Storage quotas** (`Storage.Quotas`). An account is charged for the user
+  libraries it owns, whoever uploaded into them: originals plus the sizes and
+  tiles made from them, each object once (a profile's extra copies are the
+  site's cost), trash included until purged, libraries on the owner's own
+  storage excluded. The limit is the new `storage_user_quota_mb` setting
+  (Settings → Media → Libraries, "Storage per user (MB)"; `0` is none), or a
+  host's own answer per account (`config :phoenix_kit, :storage_quota,
+  {Mod, :fun}` returning bytes, `nil` or `:default`), for plans.
+  `Storage.store_file_in_buckets/7` refuses a new file that would take the
+  library's owner past it with `{:error, :quota_exceeded}`; a duplicate the
+  uploader already has is never refused, and nothing stored is removed.
+  `Quotas.usage/1` and `Quotas.status/1` are for pages that show it. No
+  migration.
+
+## 3.3.0 - 2026-11-03
+
+The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,
+which were versioned on `main` but never published. Run `mix phoenix_kit.update` (V226 and V227).
+
+### Added
+
 - Internal managed-organization creation and conversion, with a required first
   manager, referral admission, credential revocation, and fresh credentials when
   converting back. An administrator's dedicated creation form requires an
@@ -47,6 +87,10 @@
   file details, annotations, or viewer preferences.
 - Optional file removal guards check host references before removal and provide
   server-side confirmation, usage details, and host-controlled release actions.
+- `MediaGallery` takes `external_picker={true}`: the Add tile asks the host LiveView
+  (`{:open_picker, %{selected:, mode:, max_count:}}`) and the host answers with
+  `send_update(…, media_selected: uuids)`.
+- `Storage.removal_plan(:selection, %{files:, folders:, kind:})` plans a bulk removal as one unit.
 
 ### Changed
 
@@ -66,6 +110,44 @@
   addresses, Google addresses or forbidden roles. OAuth linking and API-key
   creation/rotation share conversion's account lock to prevent credentials from
   escaping its drain.
+
+- Settings -> API creates no key, rotates no key and creates no service user in a borrowed
+  session (an impersonation, or an account added to the session): the token would act as that
+  account after the session ends. `Keys.create_key/4` and `Keys.rotate/4` answer `:impersonated`
+  to `impersonated: true` for every key, not only a personal one.
+- A bulk delete with the removal guard on asks about every file the selection makes disappear:
+  a file one selected folder re-homes into another selected folder (or a selected file re-homed
+  into a selected subfolder) is trashed with it, and in the Trash view deleted for good, and was
+  never asked about.
+- The Trash view deletes for good only folders that are in the trash. Renaming, recolouring or
+  describing a folder there refilled the grid with the active folders, each offered "Delete";
+  Select all in the all-files view no longer picks the folders it does not show.
+- Permanently deleting a file another record still references answers "in use" instead of
+  crashing the media page; a folder delete keeps the folders that still hold such a file.
+- A box selection ends when the button comes up where no `pointerup` arrives, and a press on the
+  column's scrollbar starts none; a file found by a search at the root can be dragged to Home.
+- A picker's uploads are acknowledged to its own resume hook, so their browser copies are released
+  instead of reappearing as "Upload problems" after a reconnect.
+- A scoped media browser refuses the orphan view and "Delete all orphaned" (orphans are the
+  library's, never a scope's), and a picker refuses "Delete all orphaned".
+- With library access revoked mid-session, the refusal closes an open viewer instead of leaving
+  a picker's viewer on screen until a reload.
+- A library open to "Signed-in users" admits only accounts the site itself admits: an unconfirmed
+  email (while `require_email_confirmation` is on) or an unmet referral gate no longer reads its
+  files.
+- Rotating an object storage connection's keys samples up to five existing objects, so one object
+  removed from the bucket no longer refuses every rotation; a bucket whose connection keys became
+  unreadable can be disabled.
+- The avatar menu's account rows stay inside the menu with a long email.
+- The picker viewer's limit badge says "Maximum 1 file".
+
+### i18n
+
+- Every message is translated again in all nine locales: about 290 strings added since the last
+  catalog round trip (library access and membership history, backup storage and verification,
+  managed organizations, the picker, the removal guard, personal API keys, Telegram) were shown in
+  English, and 88 entries per locale served a translation gettext had copied from a similar but
+  different message (in English too: "Manage members" read "Managers").
 
 ## 3.2.6 - 2026-11-01
 
@@ -160,6 +242,16 @@
 
 ### Added
 
+- Personal API keys (V226, run `mix phoenix_kit.update`): a holder of the new opt-in
+  `api_personal_keys` permission (never granted to Admin automatically) keeps keys of their own
+  on "My API keys" (`/profile/settings/api-keys`), acting as themselves with their own rights.
+  A personal key must expire (`api_personal_key_max_days`, default 90), never needs approval,
+  stops working when its owner loses the permission, and counts against
+  `api_personal_key_max_count` (default 5), both set on Settings -> API. Owners can revoke one or
+  remove its scopes; nobody but its owner rotates it, and never in a borrowed session. *(Missing
+  from this entry when 3.2.0 was cut.)*
+- Media browser: box select over the grid, Shift-click ranges, and drag and drop of a whole
+  selection onto a folder or the Trash. *(Missing from this entry when 3.2.0 was cut.)*
 - Owners can add backup storage to existing libraries from Storage and backups. New buckets
   are tested before attachment; existing storage stays in place while background reconciliation
   copies and verifies files. The dialog shows pending files and recent failed attempts.
@@ -177,6 +269,13 @@
   credentials and name; edits commit atomically and network checks run outside transactions.
 - Separate integrations pointing at the same physical bucket no longer count as independent
   backup copies.
+- `/sitemap.html` redirects to `/sitemap.xml` on a site mounted at the root instead of answering
+  500 (the redirect target was `//sitemap.xml`).
+- `mix phoenix_kit.repair` no longer reports `wrong_shape` for a CHECK constraint whose `AND`
+  chain is only nested differently (as after a `pg_dump` restore); only AND/OR nesting, redundant
+  parentheses and spacing are ignored.
+- The 3.0 upgrade guide says exactly which lower databases are refused and covers rebuilding an
+  empty database from a host's old migration files.
 
 ## 3.1.0 - 2026-10-27
 

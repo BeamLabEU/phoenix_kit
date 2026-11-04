@@ -121,6 +121,8 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   alias PhoenixKit.Utils.Format
   alias PhoenixKit.Utils.TreeQuery
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
+  alias PhoenixKitWeb.ResumableUpload
 
   import Ecto.Query
 
@@ -242,17 +244,26 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         socket
 
       has_buckets ->
-        allow_upload(socket, :media_files,
-          accept: accept_for(socket.assigns[:file_type_filter]),
-          max_entries: 10,
-          auto_upload: true,
-          progress: &handle_progress/3
+        UploadManager.allow_upload(
+          socket,
+          :media_files,
+          upload_options(accept_for(socket.assigns[:file_type_filter]))
         )
 
       true ->
         # No buckets - don't allow upload
         socket
     end
+  end
+
+  defp upload_options(accept) do
+    [
+      accept: accept,
+      max_entries: Storage.max_upload_files(),
+      max_file_size: Storage.max_upload_size_mb() * 1_000_000,
+      progress: &handle_progress/3,
+      resumable: Storage.resumable_uploads?()
+    ]
   end
 
   # The upload `accept` list is fixed at allow_upload time, so the OS file
@@ -267,12 +278,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     if socket.assigns.has_buckets && config && config.entries == [] do
       socket
       |> disallow_upload(:media_files)
-      |> allow_upload(:media_files,
-        accept: accept_for(filter),
-        max_entries: 10,
-        auto_upload: true,
-        progress: &handle_progress/3
-      )
+      |> UploadManager.allow_upload(:media_files, upload_options(accept_for(filter)))
     else
       socket
     end
@@ -605,7 +611,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       entry.done? ->
         # Consume the uploaded entry and capture the file ID
         uploaded_results =
-          consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          ResumableUpload.consume(socket, entry, fn %{path: path} ->
             process_upload(socket, path, entry)
           end)
 

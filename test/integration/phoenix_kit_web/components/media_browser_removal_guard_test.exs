@@ -822,6 +822,90 @@ defmodule PhoenixKitWeb.Components.MediaBrowserRemovalGuardTest do
       assert Storage.get_folder(a.uuid).trashed_at
     end
 
+    # The items of a selection run one after another, so a file one of them
+    # re-homes into a folder another takes away goes with it. Planned item by
+    # item, such a file was never asked about.
+    test "delete_selected: a file re-homed from one selected folder into another is asked about",
+         %{conn: conn} = ctx do
+      a = folder!("A", ctx.scope)
+      b = folder!("B", ctx.scope)
+      f = file!(a)
+      {:ok, _} = Storage.create_folder_link(b.uuid, f.uuid)
+      attach!(f)
+      view = open(conn, ctx)
+      hook(view, "toggle_select_mode")
+      hook(view, "toggle_select_folder", %{"folder-uuid" => a.uuid})
+      hook(view, "toggle_select_folder", %{"folder-uuid" => b.uuid})
+
+      html = hook(view, "delete_selected")
+
+      assert_received {:places, uuids, %{action: :delete_selected}}
+      assert f.uuid in uuids
+      assert html =~ "Cannot delete"
+      refute has_element?(view, "#mb-removal-confirm")
+      assert status(f) == "active"
+      assert is_nil(Storage.get_folder(a.uuid).trashed_at)
+      assert is_nil(Storage.get_folder(b.uuid).trashed_at)
+    end
+
+    test "delete_selected: a file re-homed into a selected subfolder is asked about, and trashed",
+         %{conn: conn} = ctx do
+      sub = folder!("Sub", ctx.scope)
+      f = file!(ctx.scope)
+      {:ok, _} = Storage.create_folder_link(sub.uuid, f.uuid)
+      view = open(conn, ctx)
+      hook(view, "toggle_select_mode")
+      hook(view, "toggle_select", %{"file-uuid" => f.uuid})
+      hook(view, "toggle_select_folder", %{"folder-uuid" => sub.uuid})
+
+      html = hook(view, "delete_selected")
+
+      # Taken out of the scope folder it would be re-homed into `sub` — which the
+      # same selection trashes.
+      assert html =~ "Move 1 file and 1 folder (including all folder contents) to trash?"
+      assert_received {:places, [uuid], %{action: :delete_selected}}
+      assert uuid == f.uuid
+
+      press(view, "confirm")
+      assert status(f) == "trashed"
+      assert Storage.get_folder(sub.uuid).trashed_at
+    end
+
+    test "delete_selected in the trash view: a file one deleted folder passes to another is asked about",
+         %{conn: conn} = ctx do
+      a = folder!("A", ctx.scope)
+      b = folder!("B", ctx.scope)
+      f = file!(a)
+      {:ok, _} = Storage.create_folder_link(b.uuid, f.uuid)
+      {:ok, _} = Storage.trash_folder(a)
+      {:ok, _} = Storage.trash_folder(b)
+      attach!(f)
+      view = open(conn, ctx)
+      trash_view(view)
+      hook(view, "toggle_select_mode")
+      hook(view, "toggle_select_folder", %{"folder-uuid" => a.uuid})
+      hook(view, "toggle_select_folder", %{"folder-uuid" => b.uuid})
+
+      html = hook(view, "delete_selected")
+
+      # Deleting A promotes `f` into B, and deleting B then deleted it for good.
+      assert_received {:places, uuids, %{action: :delete_selected}}
+      assert f.uuid in uuids
+      assert html =~ "Cannot delete"
+      assert Repo.get(StorageFile, f.uuid)
+      assert Storage.get_folder(a.uuid)
+      assert Storage.get_folder(b.uuid)
+
+      plan =
+        Storage.removal_plan(:selection, %{
+          files: [],
+          folders: [Storage.get_folder(a.uuid), Storage.get_folder(b.uuid)],
+          kind: :delete
+        })
+
+      assert f.uuid in plan.delete
+    end
+
     test "delete_selected in the trash view names folders and files together, warning once",
          %{conn: conn} = ctx do
       a = folder!("B", ctx.scope)

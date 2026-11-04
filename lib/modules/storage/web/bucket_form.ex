@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   alias PhoenixKitWeb.Actor
   alias PhoenixKitWeb.Live.Modules.Storage.BucketUsage
 
-  @cloud_providers ~w(s3 b2 r2 tigris)
+  @cloud_providers ~w(s3 b2 r2 hetzner tigris)
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: IntegrationEvents.subscribe()
@@ -611,6 +611,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   defp provider_label("s3", _service), do: "AWS S3"
   defp provider_label("b2", _service), do: "Backblaze B2"
   defp provider_label("r2", _service), do: "Cloudflare R2"
+  defp provider_label("hetzner", _service), do: "Hetzner Object Storage"
   defp provider_label("tigris", _service), do: "Tigris"
   defp provider_label(provider, _service), do: String.upcase(provider || "Unknown")
 

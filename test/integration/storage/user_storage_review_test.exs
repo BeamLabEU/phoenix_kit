@@ -300,6 +300,12 @@ defmodule PhoenixKit.Modules.Storage.UserStorageReviewTest do
       bucket = %Bucket{provider: "tigris", bucket_name: "photos"}
       assert S3.request_host(bucket, "fly.storage.tigris.dev") == "photos.fly.storage.tigris.dev"
 
+      # Hetzner documents only `<bucket>.<location>.your-objectstorage.com`.
+      hetzner = %Bucket{provider: "hetzner", bucket_name: "photos"}
+
+      assert S3.request_host(hetzner, "fsn1.your-objectstorage.com") ==
+               "photos.fsn1.your-objectstorage.com"
+
       assert S3.request_host(%Bucket{provider: "s3", bucket_name: "photos"}, "minio.example") ==
                "minio.example"
     end

@@ -31,7 +31,7 @@ test.after(() => {
 });
 
 // Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0), plus
-// the ones added since (`RemovalModal`, #999). A hook
+// the ones added since (`RemovalModal`, #999; `UploadManager`, #1006). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -45,7 +45,7 @@ const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKe
   MediaViewerDialog PkHashHighlight BulkSelectScope TableLocalSearch AdminSidebarScroll PkDialogDraft
   AnnotationBurn EtcherTooltipActions AnnotationComposerPosition ListFilter TreePickerSearch CrumbSwitcher
   TableFit TableCardView RowMenu RowMenuAuto EmailCharts IntegrationPickerSearch MediaDragDrop EtcherReset
-  ViewerSwipe ViewerGallery ViewerHiresLoading UploadResume FolderDropUpload RemovalModal StackMemory StackExpand
+  ViewerSwipe ViewerGallery ViewerHiresLoading UploadResume UploadManager FolderDropUpload RemovalModal StackMemory StackExpand
   WaveformPlayer SearchPicker ContextMenu AvatarCrop ImageEditor`.split(/\s+/);
 
 const ADMIN_FILE = path.join(ASSETS, "phoenix_kit_admin.js");
@@ -72,9 +72,9 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 73 hooks the bundle has", () => {
+test("the two lists are disjoint and together are the 74 hooks the bundle has", () => {
   assert.equal(PUBLIC.length, 34);
-  assert.equal(ADMIN.length, 39);
+  assert.equal(ADMIN.length, 40);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
 

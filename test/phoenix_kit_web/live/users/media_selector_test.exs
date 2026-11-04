@@ -108,6 +108,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelectorTest do
 
   describe "upload with scope_folder set" do
     setup do
+      # LiveView's own uploader: `render_upload` sends the bytes over its channel.
+      {:ok, _} = PhoenixKit.Settings.update_setting("storage_resumable_uploads", "false")
+
       tmp_root =
         Path.join(
           System.tmp_dir!(),

@@ -100,6 +100,7 @@ defmodule PhoenixKit.Modules.Storage do
   alias PhoenixKit.Migrations.ModuleOwnedTables
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Storage.ProfileBucket
+  alias PhoenixKit.Modules.Storage.Quotas
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   alias PhoenixKit.Modules.Storage.Audit
@@ -898,7 +899,7 @@ defmodule PhoenixKit.Modules.Storage do
   # would create and delete files in a directory of the server's choosing. The
   # owner is set by the caller from the signed-in user, never from a form.
   defp check_probe_provider(%Bucket{owner_uuid: owner, provider: provider})
-       when is_binary(owner) and provider not in ~w(s3 b2 r2 tigris),
+       when is_binary(owner) and provider not in ~w(s3 b2 r2 hetzner tigris),
        do: {:error, "Your own storage must be an S3-compatible bucket"}
 
   defp check_probe_provider(_bucket), do: :ok
@@ -3318,6 +3319,13 @@ defmodule PhoenixKit.Modules.Storage do
       a file homed in the folder's subtree and linked into a folder OUTSIDE it
       is rehomed there and survives; a link from inside the same subtree does
       not save it. A trashing leaves a file already in the trash alone.
+    * `{:selection, %{files: [{file, folder_uuid}], folders: [folder], kind:
+      :trash | :delete}}` — a bulk removal that runs the above one item after
+      another (`:trash`: `remove_file_from_folder/2` on each file, then
+      `trash_folder/2` on each folder; `:delete`: `delete_file_completely/2`,
+      then `delete_folder_completely/2`), read as ONE unit: a file one item
+      would re-home into a folder another item takes away is planned as
+      trashed (or deleted), which the per-item plans cannot see.
 
   A file or folder of a managed library plans nothing: the operation refuses
   it. The plan is a moment's reading; run the operation, not the plan.
@@ -3383,6 +3391,129 @@ defmodule PhoenixKit.Modules.Storage do
     else
       @empty_removal_plan
     end
+  end
+
+  def removal_plan(:selection, %{files: files, folders: folders, kind: kind})
+      when kind in [:trash, :delete] and is_list(files) and is_list(folders) do
+    file_plans =
+      case kind do
+        :trash -> Enum.map(files, &removal_plan(:remove_file, &1))
+        :delete -> [removal_plan(:delete_files, Enum.map(files, &elem(&1, 0)))]
+      end
+
+    folder_action = if kind == :trash, do: :trash_folder, else: :delete_folder
+
+    (file_plans ++ Enum.map(folders, &removal_plan(folder_action, &1)))
+    |> merge_removal_plans()
+    |> settle_selection(files, folders, kind)
+  end
+
+  defp merge_removal_plans(plans) do
+    plans
+    |> Enum.reduce(@empty_removal_plan, fn plan, acc ->
+      Map.merge(acc, plan, fn _key, a, b -> a ++ b end)
+    end)
+    |> Map.new(fn {key, uuids} -> {key, uuids |> Enum.map(&to_string/1) |> Enum.uniq()} end)
+  end
+
+  # The per-item plans read the tree as it is BEFORE the action, but the items
+  # run one after another: a file one item re-homes into (or leaves in) a folder
+  # another item takes away goes with that folder, or — in the Trash view — is
+  # deleted for good with it. So the selection is read as one unit: `gone` is
+  # every folder it trashes or deletes, and a file the plans only move survives
+  # only where something outside `gone` still holds it.
+  #
+  #   * trash: its home, unless the home is in `gone` or is the folder the file
+  #     is being taken out of; or a link from a LIVE folder outside `gone`, other
+  #     than that folder (`trash_folder/2` promotes along live links only).
+  #   * delete: a link from any folder outside `gone` (a permanent delete
+  #     promotes into a trashed folder too; the file is then trashed, not lost).
+  #
+  # Without a folder in the selection nothing cascades: a file re-homed by its
+  # own removal lands in a folder the selection leaves alone.
+  defp settle_selection(plan, _files, [], _kind), do: plan
+
+  defp settle_selection(plan, files, folders, kind) do
+    gone =
+      folders
+      |> Enum.flat_map(&folder_subtree_uuids(&1.uuid))
+      |> MapSet.new(&to_string/1)
+
+    viewed =
+      Map.new(files, fn {file, folder_uuid} ->
+        {to_string(file.uuid), folder_uuid && to_string(folder_uuid)}
+      end)
+
+    {moved_keys, lost_key} =
+      case kind do
+        :trash -> {[:rehome, :unlink], :trash}
+        :delete -> {[:rehome, :trash], :delete}
+      end
+
+    lost =
+      moved_keys
+      |> Enum.flat_map(&Map.fetch!(plan, &1))
+      |> Enum.uniq()
+      |> places_of()
+      |> Enum.reject(fn {uuid, places} ->
+        survives_selection?(kind, places, gone, Map.get(viewed, uuid, :not_selected))
+      end)
+      |> Enum.map(&elem(&1, 0))
+
+    plan
+    |> Map.new(fn {key, uuids} ->
+      if key in moved_keys, do: {key, uuids -- lost}, else: {key, uuids}
+    end)
+    |> Map.update!(lost_key, &Enum.uniq(&1 ++ lost))
+  end
+
+  # A file the trash would only move, already in the trash, is not lost by it.
+  defp survives_selection?(:trash, %{trashed?: true}, _gone, _viewed), do: true
+
+  defp survives_selection?(:trash, %{home: home, links: links}, gone, viewed) do
+    (not MapSet.member?(gone, home) and home != viewed) or
+      Enum.any?(links, fn {folder_uuid, trashed_at} ->
+        is_nil(trashed_at) and not MapSet.member?(gone, folder_uuid) and folder_uuid != viewed
+      end)
+  end
+
+  defp survives_selection?(:delete, %{links: links}, gone, _viewed),
+    do:
+      Enum.any?(links, fn {folder_uuid, _trashed_at} -> not MapSet.member?(gone, folder_uuid) end)
+
+  # Each file's home and every folder linking it (with that folder's trash
+  # stamp), two queries for the lot. A file that is gone already is left out.
+  defp places_of([]), do: []
+
+  defp places_of(uuids) do
+    links =
+      from(fl in FolderLink,
+        join: fo in Folder,
+        on: fo.uuid == fl.folder_uuid,
+        where: fl.file_uuid in ^uuids,
+        select: {fl.file_uuid, fl.folder_uuid, fo.trashed_at}
+      )
+      |> repo().all()
+      |> Enum.group_by(
+        fn {file_uuid, _, _} -> to_string(file_uuid) end,
+        fn {_, folder_uuid, trashed_at} -> {to_string(folder_uuid), trashed_at} end
+      )
+
+    from(f in PhoenixKit.Modules.Storage.File,
+      where: f.uuid in ^uuids,
+      select: {f.uuid, f.folder_uuid, f.status}
+    )
+    |> repo().all()
+    |> Enum.map(fn {uuid, home, status} ->
+      uuid = to_string(uuid)
+
+      {uuid,
+       %{
+         home: home && to_string(home),
+         trashed?: status == "trashed",
+         links: Map.get(links, uuid, [])
+       }}
+    end)
   end
 
   # A file already in the trash is not made to disappear by being removed again.
@@ -4127,8 +4258,11 @@ defmodule PhoenixKit.Modules.Storage do
   @doc """
   Deletes a file.
 
-  This only removes the database record. Use `delete_file_data/1` to
-  remove the actual file data from storage buckets.
+  This only removes the database record: no "in use" check (a referenced file
+  raises a constraint error rather than answering `{:error, :in_use}`), and the
+  stored objects stay where they are. For a user-facing delete use
+  `delete_file_completely/2`, which does both properly; `trash_file/2` is the
+  reversible one.
   """
   def delete_file(%PhoenixKit.Modules.Storage.File{} = file) do
     repo().delete(file)
@@ -5959,14 +6093,111 @@ defmodule PhoenixKit.Modules.Storage do
     end)
   end
 
-  @doc "Returns the configured trash retention period in days (default 30)."
+  @default_max_upload_files 100
+  @max_upload_files_ceiling 1000
+
+  @doc """
+  How many files one upload may carry at once (`storage_max_upload_files`,
+  default #{@default_max_upload_files}, at most #{@max_upload_files_ceiling}).
+
+  Every upload surface of the media module (the browser, the pickers) allows
+  this many files per selection or drop. A stored value that is not a positive
+  whole number reads as the default.
+  """
+  @spec max_upload_files() :: pos_integer()
+  def max_upload_files do
+    case Integer.parse(to_string(Settings.get_setting_cached("storage_max_upload_files", "100"))) do
+      {n, _} when n > 0 -> min(n, @max_upload_files_ceiling)
+      _ -> @default_max_upload_files
+    end
+  rescue
+    _ -> @default_max_upload_files
+  catch
+    :exit, _ -> @default_max_upload_files
+  end
+
+  @default_max_concurrent_uploads 5
+  @max_concurrent_uploads_ceiling 20
+
+  @doc """
+  The most files the upload manager sends at the same time
+  (`storage_max_concurrent_uploads`, default #{@default_max_concurrent_uploads}, at most
+  #{@max_concurrent_uploads_ceiling}).
+
+  This is the cap, not the number: the manager measures the connection and uses
+  as many as help, up to this. `1` sends one file at a time.
+  """
+  @spec max_concurrent_uploads() :: pos_integer()
+  def max_concurrent_uploads do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_concurrent_uploads", "5"))
+         ) do
+      {n, _} when n > 0 -> min(n, @max_concurrent_uploads_ceiling)
+      _ -> @default_max_concurrent_uploads
+    end
+  rescue
+    _ -> @default_max_concurrent_uploads
+  catch
+    :exit, _ -> @default_max_concurrent_uploads
+  end
+
+  @doc """
+  The largest file one upload may carry, in megabytes
+  (`storage_max_upload_size_mb`, default 500). LiveView refuses what is larger
+  before a byte is sent; an upload that names no `max_file_size` of its own is
+  held to LiveView's 8 MB default instead, so every upload says this.
+  """
+  @spec max_upload_size_mb() :: pos_integer()
+  def max_upload_size_mb do
+    case Integer.parse(
+           to_string(Settings.get_setting_cached("storage_max_upload_size_mb", "500"))
+         ) do
+      {n, _} when n > 0 -> n
+      _ -> 500
+    end
+  rescue
+    _ -> 500
+  catch
+    :exit, _ -> 500
+  end
+
+  @doc """
+  Whether uploads travel in resumable chunks (`storage_resumable_uploads`,
+  default on): a paused file goes on from where it stopped, and a dropped
+  connection or a reloaded page does not start it over. Off, uploads use
+  LiveView's own uploader. See `PhoenixKitWeb.ResumableUpload`.
+  """
+  @spec resumable_uploads?() :: boolean()
+  def resumable_uploads? do
+    to_string(Settings.get_setting_cached("storage_resumable_uploads", "true")) != "false"
+  rescue
+    _ -> true
+  catch
+    :exit, _ -> true
+  end
+
+  @doc "The most the concurrent upload cap may be set to."
+  @spec max_concurrent_uploads_ceiling() :: pos_integer()
+  def max_concurrent_uploads_ceiling, do: @max_concurrent_uploads_ceiling
+
+  @doc "The most files an upload may be set to carry at once."
+  @spec max_upload_files_ceiling() :: pos_integer()
+  def max_upload_files_ceiling, do: @max_upload_files_ceiling
+
+  @doc """
+  Returns the configured trash retention period in days (default 30).
+
+  A stored value that is not a positive whole number reads as the default: a
+  retention of 0 would have the daily prune delete everything in the trash as
+  soon as it ran.
+  """
   def trash_retention_days do
     Settings.get_setting("trash_retention_days", "30")
     |> to_string()
     |> Integer.parse()
     |> case do
-      {n, _} -> n
-      :error -> 30
+      {n, _} when n > 0 -> n
+      _ -> 30
     end
   rescue
     _ -> 30
@@ -6501,23 +6732,8 @@ defmodule PhoenixKit.Modules.Storage do
           {:error, :no_buckets_configured}
 
         true ->
-          if opts[:dedup] == false do
-            # Neither the uploader's own copy nor another's active one is
-            # looked for. No dedup key either (`nil`): the row gets one of its
-            # own, see `row_user_file_checksum/2`.
-            store_new_file_in_buckets(
-              source_path,
-              file_type,
-              user_uuid,
-              file_checksum,
-              nil,
-              ext,
-              original_filename,
-              opts
-            )
-          else
-            # Proceed with storage
-            store_file_with_buckets_available(
+          with :ok <- check_quota(source_path, user_uuid, file_checksum, opts) do
+            store_checked_file(
               source_path,
               file_type,
               user_uuid,
@@ -6532,6 +6748,67 @@ defmodule PhoenixKit.Modules.Storage do
     case {result, opts[:return_creation_status]} do
       {{:ok, file}, true} -> {:ok, file, :created}
       {other, _} -> other
+    end
+  end
+
+  # The owner of the library a new file goes into must have room for it
+  # (`Storage.Quotas`). An upload the uploader already has in that library is a
+  # duplicate: it stores nothing new, so it is never refused.
+  defp check_quota(source_path, user_uuid, file_checksum, opts) do
+    library_uuid = opts[:library_uuid]
+
+    duplicate? =
+      is_binary(library_uuid) and opts[:dedup] != false and
+        not is_nil(
+          get_file_by_user_checksum(
+            calculate_user_file_checksum(user_uuid, file_checksum, library_uuid)
+          )
+        )
+
+    if is_nil(library_uuid) or duplicate? do
+      :ok
+    else
+      case Elixir.File.stat(source_path) do
+        {:ok, %{size: size}} -> Quotas.check_upload(library_uuid, size)
+        _ -> :ok
+      end
+    end
+  end
+
+  defp store_checked_file(
+         source_path,
+         file_type,
+         user_uuid,
+         file_checksum,
+         ext,
+         original_filename,
+         opts
+       ) do
+    if opts[:dedup] == false do
+      # Neither the uploader's own copy nor another's active one is
+      # looked for. No dedup key either (`nil`): the row gets one of its
+      # own, see `row_user_file_checksum/2`.
+      store_new_file_in_buckets(
+        source_path,
+        file_type,
+        user_uuid,
+        file_checksum,
+        nil,
+        ext,
+        original_filename,
+        opts
+      )
+    else
+      # Proceed with storage
+      store_file_with_buckets_available(
+        source_path,
+        file_type,
+        user_uuid,
+        file_checksum,
+        ext,
+        original_filename,
+        opts
+      )
     end
   end
 

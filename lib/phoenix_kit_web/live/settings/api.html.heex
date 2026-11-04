@@ -306,6 +306,15 @@
           </.button>
         </:actions>
 
+        <div :if={@impersonated} id="api-keys-borrowed" class="alert alert-warning text-sm">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <span>
+            {gettext(
+              "While you act in another account, no key can be created or rotated and no service user can be created."
+            )}
+          </span>
+        </div>
+
         <div :if={@keys != []} id="api-keys-table">
           <.table_default>
             <.table_default_header>

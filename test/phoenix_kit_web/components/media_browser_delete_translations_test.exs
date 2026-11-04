@@ -14,7 +14,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowserDeleteTranslationsTest do
     "This file is in use by something else (a comment, for instance), so it can't be deleted.",
     "Some files in this folder are in use by something else, so they and their folders were kept.",
     "Could not delete the folder. Nothing was removed.",
-    "Could not move the folder to the trash. Nothing was moved."
+    "Could not move the folder to the trash. Nothing was moved.",
+    "This folder belongs to a module and can't be deleted here."
   ]
 
   @plural [

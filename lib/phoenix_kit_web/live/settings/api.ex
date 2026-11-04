@@ -92,11 +92,12 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   in narrowing mode, which the server remembers in `:scopes_form` (never from params): it
   offers only the key's current scopes, all ticked, the inactive ones marked, and
   `Keys.update_scopes/3` keeps exactly what is left; adding a scope gives
-  `:scopes_not_narrowing`. Rotating a key one cannot manage is refused by the server, and
-  a rotation passes `impersonated:` read from the session at mount
-  (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`), so a personal key is not rotated
-  while the person acts in another account. Editing the scopes and revoking one's own
-  personal key stay allowed in such a session: no token is handed out. At the limit of live
+  `:scopes_not_narrowing`. Rotating a key one cannot manage is refused by the server.
+  In a borrowed session (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`, read at
+  mount) no key is created or rotated and no service user created — a token minted there
+  would act as the borrowed account after the session ends: the opening and the submit
+  events are refused, and `Keys.create_key/4` and `Keys.rotate/4` get `impersonated:` too.
+  Editing scopes and revoking stay allowed in such a session: no token is handed out. At the limit of live
   personal keys (`Keys.personal_keys_full?/1`) the rotate dialog of a personal key starts at
   a grace period of 0, because a longer one is refused with `:personal_key_limit`. The two settings
   of `PhoenixKit.API.PersonalKeysConfig` are edited in a card on the first tab.
@@ -211,9 +212,31 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     ]
   end
 
-  # ── Switches ───────────────────────────────────────────────────────
+  # ── A borrowed session ─────────────────────────────────────────────
+
+  # A borrowed session (`MultiSession.impersonated?/1`, read at mount) hands out no
+  # token and creates no account: a key, a rotated key or a service user made in it
+  # would act as the borrowed account long after the session ends. Refused when the
+  # dialog would open and again on its submit, since a console can send either;
+  # `Keys` refuses `impersonated: true` as well. Editing scopes and revoking stay.
+  @borrowed_refused_events ~w(
+    open_create_key create_key request_rotate confirm_rotate
+    open_service_user_form create_service_user
+  )
 
   @impl true
+  def handle_event(event, _params, socket)
+      when event in @borrowed_refused_events and socket.assigns.impersonated == true do
+    {:noreply,
+     socket
+     |> close_key_form()
+     |> assign(:rotate_form, %{show: false})
+     |> close_service_user_form()
+     |> put_flash(:error, borrowed_message())}
+  end
+
+  # ── Switches ───────────────────────────────────────────────────────
+
   def handle_event("toggle_switch", %{"switch" => name}, socket)
       when is_map_key(@switches, name) do
     with_access(socket, fn socket ->
@@ -512,6 +535,12 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
 
   defp refuse(socket), do: put_flash(socket, :error, gettext("That action is not available."))
 
+  defp borrowed_message,
+    do:
+      gettext(
+        "While you act in another account, no key can be created or rotated and no service user can be created."
+      )
+
   defp history(socket), do: [actor_uuid: Actor.uuid(socket), source: "settings"]
 
   # ── State ──────────────────────────────────────────────────────────
@@ -784,7 +813,10 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
     with {:ok, owner} <- resolve_owner(socket, params["owner"]),
          :ok <- check_scopes(params["scopes"], Keys.allowed_scopes_for(owner)),
          {:ok, expires_at} <- parse_expiry(params["expires_on"]),
-         {:ok, key, token} <- Keys.create_key(owner, scope(socket), key_attrs(params, expires_at)) do
+         {:ok, key, token} <-
+           Keys.create_key(owner, scope(socket), key_attrs(params, expires_at),
+             impersonated: socket.assigns.impersonated
+           ) do
       socket
       |> close_key_form()
       |> assign(:new_token, %DisplayToken{value: token})
@@ -844,8 +876,7 @@ defmodule PhoenixKitWeb.Live.Settings.Api do
   defp error_messages(:impersonation_unknown),
     do: [gettext("This session cannot tell whether you act in another account.")]
 
-  defp error_messages(:impersonated),
-    do: [gettext("Personal keys cannot be rotated while you act in another account.")]
+  defp error_messages(:impersonated), do: [borrowed_message()]
 
   defp error_messages(:personal_key_limit),
     do: [

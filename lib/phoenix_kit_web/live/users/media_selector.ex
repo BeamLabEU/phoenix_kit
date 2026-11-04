@@ -51,6 +51,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   alias PhoenixKit.Utils.Pagination
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
+  alias PhoenixKitWeb.ResumableUpload
 
   import Ecto.Query
 
@@ -88,14 +90,19 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       |> assign(:selection_mode, mode)
       |> assign(:selected_uuids, selected_uuids)
       |> assign(:scope_folder, scope_folder)
-      |> allow_upload(:media_files,
-        accept: :any,
-        max_entries: 10,
-        auto_upload: true,
-        progress: &handle_progress/3
-      )
+      |> UploadManager.allow_upload(:media_files, upload_options())
 
     {:ok, socket}
+  end
+
+  defp upload_options do
+    [
+      accept: :any,
+      max_entries: Storage.max_upload_files(),
+      max_file_size: Storage.max_upload_size_mb() * 1_000_000,
+      progress: &handle_progress/3,
+      resumable: Storage.resumable_uploads?()
+    ]
   end
 
   # The list is loaded here rather than in mount/3: UrlState calls this after
@@ -207,7 +214,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   defp handle_progress(:media_files, entry, socket) do
     if entry.done? do
       result =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        ResumableUpload.consume(socket, entry, fn %{path: path} ->
           process_upload(socket, path, entry)
         end)
 

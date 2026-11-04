@@ -186,6 +186,50 @@ defmodule PhoenixKit.Modules.Storage.LibraryOperationsTest do
              LibraryVerification.check(file, "presence", false)
   end
 
+  test "a size is not short of copies for missing a backup of originals only", ctx do
+    backup =
+      Storage.create_bucket(%{
+        name: "verification-backup-#{System.unique_integer([:positive])}",
+        provider: "local",
+        endpoint: Path.join(ctx.tmp, "backup"),
+        enabled: true
+      })
+      |> elem(1)
+
+    profile = Profiles.default_profile()
+    {:ok, _} = Profiles.put_bucket(profile, backup.uuid, %{role: "backup", stores: "originals"})
+    {:ok, _} = Profiles.update_profile(Profiles.default_profile(), %{copies_local: 2})
+    :persistent_term.erase(:phoenix_kit_buckets_cache)
+
+    file = upload!(ctx)
+    original = Storage.get_file_instance_by_name(file.uuid, "original")
+    preview_key = Path.join(Path.dirname(original.file_name), "preview.txt")
+    File.mkdir_p!(Path.dirname(Path.join(ctx.bucket.endpoint, preview_key)))
+    File.write!(Path.join(ctx.bucket.endpoint, preview_key), "preview")
+
+    {:ok, preview} =
+      Storage.create_file_instance(%{
+        file_uuid: file.uuid,
+        variant_name: "thumbnail",
+        file_name: preview_key,
+        mime_type: "text/plain",
+        ext: "txt",
+        checksum: "abcd",
+        size: 7,
+        processing_status: "completed"
+      })
+
+    Repo.insert!(%FileLocation{
+      file_instance_uuid: preview.uuid,
+      bucket_uuid: ctx.bucket.uuid,
+      path: preview_key,
+      status: "active"
+    })
+
+    findings = LibraryVerification.check(file, "presence", true)
+    refute Enum.any?(findings, &(&1["problem"] == "insufficient_copies")), inspect(findings)
+  end
+
   test "provider errors and missing checksums are safe findings", ctx do
     file = upload!(ctx)
 

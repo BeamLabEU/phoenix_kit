@@ -115,6 +115,19 @@ lightbox of `MediaGallery` / `MediaViewer` behaves the same way: `MediaViewerDia
 Marking the page's layout with `data-pk-admin` starts the download while the socket connects. Keeping these
 hooks public instead would add at least 10 KB (minified, gzipped) to every public page.
 
+The upload manager (`UploadManager`, the queue and panel that `<.upload_manager>` renders) is an admin hook
+too: core renders it only in the media browser, its pickers and the selector page. Its script,
+`phoenix_kit_upload_manager.js`, stays a file of its own for projects that take just that (it registers the
+hook in `window.PhoenixKitHooks`, as its guide says); PhoenixKit's pages get a copy of it inside
+`phoenix_kit_admin.js`, the same text but for its last lines, which register the hook in
+`window.PhoenixKitAdminHooks` (`test/js/upload_manager_bundle.test.cjs` keeps the two in step), behind a stub
+in `phoenix_kit.js`. The component comes with `use PhoenixKitWeb, :live_view`, so a host can render it on a page
+outside the admin area and the dashboard, and it works there: the queue and the panel start when the admin
+bundle has arrived. Files picked before then go to LiveView as they would without the manager (all at once),
+and an upload that names the chunked uploader is not sent at all, since the manager registers that uploader
+when it starts: the files have to be chosen again. `window.PhoenixKitUploadManager` is defined from the same
+moment, not at page load. `data-pk-admin` on such a layout starts the download early.
+
 A gesture whose very first moments must not be lost is the exception, and the media browser's box select is
 one: it listens on `document`, and a drag that starts before the bundle has run would select text. For that,
 `phoenix_kit.js` holds a small catcher (a primary-button press on `[data-box-area]`: it refuses the text

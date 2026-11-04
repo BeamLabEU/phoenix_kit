@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   alias PhoenixKit.Jobs.Events
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.BucketCredentials
+  alias PhoenixKit.Modules.Storage.BucketLog
   alias PhoenixKit.Modules.Storage.ImageEditing
   alias PhoenixKit.Modules.Storage.Profiles
   alias PhoenixKit.Modules.Storage.VariantSets
@@ -60,6 +61,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     annotated_thumbnails_enabled =
       Settings.get_setting("storage_annotated_thumbnails_enabled", "false")
 
+    # Read through the functions that apply the defaults and the sanity rules,
+    # not the raw setting: the form must show the number the system uses.
+    max_upload_files = Storage.max_upload_files()
+    max_concurrent_uploads = Storage.max_concurrent_uploads()
+    resumable_uploads = Storage.resumable_uploads?()
+    trash_retention_days = Storage.trash_retention_days()
+    bucket_log_retention_days = BucketLog.retention_days()
+
     image_edit_mode = ImageEditing.mode()
 
     # Store form values for batch updates
@@ -84,6 +93,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, current_max_upload_size_mb)
       |> assign(:image_edit_mode, image_edit_mode)
       |> assign(:form_image_edit_mode, image_edit_mode)
+      |> assign(:max_upload_files, max_upload_files)
+      |> assign(:form_max_upload_files, max_upload_files)
+      |> assign(:max_concurrent_uploads, max_concurrent_uploads)
+      |> assign(:form_max_concurrent_uploads, max_concurrent_uploads)
+      |> assign(:resumable_uploads, resumable_uploads)
+      |> assign(:form_resumable_uploads, resumable_uploads)
+      |> assign(:trash_retention_days, trash_retention_days)
+      |> assign(:form_trash_retention_days, trash_retention_days)
+      |> assign(:bucket_log_retention_days, bucket_log_retention_days)
+      |> assign(:form_bucket_log_retention_days, bucket_log_retention_days)
       |> assign(:external_tools, Dependencies.external_tools())
 
     # A library's reconcile run moving updates the Libraries tab's sync column.
@@ -144,6 +163,10 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     {:noreply, assign(socket, :form_annotated_thumbnails_enabled, new_value)}
   end
 
+  def handle_event("toggle_form_resumable_uploads", _params, socket) do
+    {:noreply, assign(socket, :form_resumable_uploads, not socket.assigns.form_resumable_uploads)}
+  end
+
   def handle_event("update_storage_form", params, socket) do
     form_max_upload_size_mb =
       case params["form_max_upload_size_mb"] do
@@ -169,6 +192,32 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       socket
       |> assign(:form_max_upload_size_mb, form_max_upload_size_mb)
       |> assign(:form_image_edit_mode, form_image_edit_mode)
+      |> assign(
+        :form_max_upload_files,
+        params["form_max_upload_files"]
+        |> positive_param(socket.assigns.form_max_upload_files)
+        |> min(Storage.max_upload_files_ceiling())
+      )
+      |> assign(
+        :form_max_concurrent_uploads,
+        params["form_max_concurrent_uploads"]
+        |> positive_param(socket.assigns.form_max_concurrent_uploads)
+        |> min(Storage.max_concurrent_uploads_ceiling())
+      )
+      |> assign(
+        :form_trash_retention_days,
+        positive_param(
+          params["form_trash_retention_days"],
+          socket.assigns.form_trash_retention_days
+        )
+      )
+      |> assign(
+        :form_bucket_log_retention_days,
+        positive_param(
+          params["form_bucket_log_retention_days"],
+          socket.assigns.form_bucket_log_retention_days
+        )
+      )
 
     {:noreply, socket}
   end
@@ -187,8 +236,40 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     )
 
     Settings.update_setting(
+      "storage_resumable_uploads",
+      if(socket.assigns.form_resumable_uploads, do: "true", else: "false"),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
+      "storage_max_upload_files",
+      to_string(socket.assigns.form_max_upload_files),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
+      "storage_max_concurrent_uploads",
+      to_string(socket.assigns.form_max_concurrent_uploads),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
       ImageEditing.mode_setting(),
       socket.assigns.form_image_edit_mode,
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    # Whole days, at least one: 0 would have the daily prune empty the trash
+    # (and the bucket log) the moment it ran.
+    Settings.update_setting(
+      "trash_retention_days",
+      to_string(socket.assigns.form_trash_retention_days),
+      Actor.opts(socket) ++ [source: "settings"]
+    )
+
+    Settings.update_setting(
+      "bucket_log_retention_days",
+      to_string(socket.assigns.form_bucket_log_retention_days),
       Actor.opts(socket) ++ [source: "settings"]
     )
 
@@ -206,6 +287,16 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
       |> assign(:form_max_upload_size_mb, String.to_integer(saved_max_upload))
       |> assign(:image_edit_mode, ImageEditing.mode())
       |> assign(:form_image_edit_mode, ImageEditing.mode())
+      |> assign(:max_upload_files, Storage.max_upload_files())
+      |> assign(:form_max_upload_files, Storage.max_upload_files())
+      |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
+      |> assign(:form_max_concurrent_uploads, Storage.max_concurrent_uploads())
+      |> assign(:resumable_uploads, Storage.resumable_uploads?())
+      |> assign(:form_resumable_uploads, Storage.resumable_uploads?())
+      |> assign(:trash_retention_days, Storage.trash_retention_days())
+      |> assign(:form_trash_retention_days, Storage.trash_retention_days())
+      |> assign(:bucket_log_retention_days, BucketLog.retention_days())
+      |> assign(:form_bucket_log_retention_days, BucketLog.retention_days())
       |> put_flash(:info, gettext("Storage settings updated successfully"))
 
     {:noreply, socket}
@@ -528,6 +619,14 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     |> assign(:bucket_totals, bucket_totals)
     |> load_bucket_usage()
   end
+
+  # A whole number of at least 1 from a form field, else what the form already had.
+  defp positive_param(value, _current) when is_integer(value), do: max(value, 1)
+
+  defp positive_param(value, current) when is_binary(value),
+    do: max(parse_integer(value, current), 1)
+
+  defp positive_param(_value, current), do: current
 
   defp parse_integer(val, fallback) do
     case Integer.parse(val) do

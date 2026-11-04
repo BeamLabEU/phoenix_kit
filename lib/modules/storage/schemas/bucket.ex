@@ -25,7 +25,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   ## Fields
 
   - `name` - Display name for the bucket
-  - `provider` - Storage provider: "local", "s3", "b2", "r2", "tigris"
+  - `provider` - Storage provider: "local", "s3", "b2", "r2", "hetzner", "tigris"
   - `region` - AWS region or equivalent (nullable)
   - `endpoint` - Custom S3-compatible endpoint (nullable)
   - `bucket_name` - S3 bucket name (nullable)
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   # Every provider that speaks the S3 protocol and so needs a bucket name and
   # credentials. Tigris is one: it was once left out of this list, so a Tigris
   # bucket saved with neither.
-  @cloud_providers ~w(s3 b2 r2 tigris)
+  @cloud_providers ~w(s3 b2 r2 hetzner tigris)
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
@@ -163,7 +163,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   ## Required Fields
 
   - `name`
-  - `provider` (must be one of: "local", "s3", "b2", "r2", "tigris")
+  - `provider` (must be one of: "local", "s3", "b2", "r2", "hetzner", "tigris")
 
   ## Validation Rules
 
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
       :max_size_mb
     ])
     |> validate_required([:name, :provider])
-    |> validate_inclusion(:provider, ["local", "s3", "b2", "r2", "tigris"])
+    |> validate_inclusion(:provider, ["local" | @cloud_providers])
     |> validate_inclusion(:access_type, ["public", "private", "signed"])
     |> validate_number(:priority, greater_than_or_equal_to: 0)
     |> validate_number(:max_size_mb, greater_than: 0)
@@ -281,10 +281,10 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
     end
   end
 
-  # B2, R2 and Tigris have no default host: without an endpoint every request
-  # would go to AWS.
+  # B2, R2, Hetzner and Tigris have no default host: without an endpoint every
+  # request would go to AWS.
   defp validate_endpoint_required(changeset) do
-    if get_field(changeset, :provider) in ["b2", "r2", "tigris"],
+    if get_field(changeset, :provider) in ["b2", "r2", "hetzner", "tigris"],
       do: validate_required(changeset, [:endpoint]),
       else: changeset
   end
@@ -390,14 +390,14 @@ defmodule PhoenixKit.Modules.Storage.Bucket do
   def local?(_), do: false
 
   @doc """
-  Returns whether this bucket is a cloud storage bucket (S3, B2, R2, Tigris).
+  Returns whether this bucket is a cloud storage bucket (S3, B2, R2, Hetzner, Tigris).
   """
   def cloud?(%__MODULE__{provider: provider}) when provider in @cloud_providers, do: true
   def cloud?(_), do: false
 
   @doc """
   The kind of place a bucket is for the copies a storage profile counts:
-  `:local` (the server's own disk) or `:cloud` (S3, B2, R2, Tigris).
+  `:local` (the server's own disk) or `:cloud` (S3, B2, R2, Hetzner, Tigris).
   """
   @spec group(t() | map()) :: :local | :cloud
   def group(%{provider: "local"}), do: :local

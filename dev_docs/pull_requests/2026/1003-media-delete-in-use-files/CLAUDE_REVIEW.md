@@ -20,7 +20,7 @@ Mistral's two fixes (double reporting of guard-kept files, i18n of the delete me
 
 ## Findings
 
-### IMPROVEMENT - MEDIUM — the managed-folder message is untranslated (OPEN, part of a larger gap)
+### IMPROVEMENT - MEDIUM — the managed-folder message was untranslated (fixed 2026-11-03, with the whole gap)
 `managed_folder_message/0` ("This folder belongs to a module and can't be deleted here.", added in
 124e9c515) is in no catalog, and `MediaBrowserDeleteTranslationsTest` does not list it. Not hand-appended:
 the catalogs are **282 msgids behind `lib/`** (`mix gettext.extract` on this tree; 45 obsolete), from many
@@ -51,3 +51,11 @@ outside a transaction" or check `repo().in_transaction?()`.
 row is `:in_use`; the still-referenced row is left with its bytes gone, and the purge retries forever
 logging "kept their objects on the user's own bucket". Worth its own fix: check the references (or run the
 row delete) before the object delete.
+
+**Follow-up 2026-11-03 — catalogs round-tripped.** `mix gettext.extract` + `merge` added the missing
+msgids (214 per Western locale, 200 in et/ru) and flagged 88 (80) entries fuzzy, each serving a
+translation copied from a different msgid. All were translated by hand (one translator per locale,
+applied through a round-trip tool that rewrites only `msgstr`/flag lines and checks `%{}` parity):
+**0 untranslated, 0 fuzzy in de, es, et, fr, it, pl, ru, uk**; `en` stays empty by design, its 142 fuzzy
+flags cleared (two served wrong English: "Manage members" → "Managers", "Personal storage" →
+"Personal"). A second extract + merge changes nothing.

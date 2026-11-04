@@ -69,6 +69,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketInfo do
   defp provider_name("s3"), do: "AWS S3"
   defp provider_name("b2"), do: "Backblaze B2"
   defp provider_name("r2"), do: "Cloudflare R2"
+  defp provider_name("hetzner"), do: "Hetzner Object Storage"
   defp provider_name("tigris"), do: "Tigris"
   defp provider_name(provider), do: String.upcase(to_string(provider))
 end

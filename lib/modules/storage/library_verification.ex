@@ -4,7 +4,7 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
   never updates location health, rewrites bytes or queues repairs. Problems carry
   identifiers and fixed codes only; no provider responses or credentials enter logs.
   """
-  alias PhoenixKit.Modules.Storage.{Bucket, FileReport, Manager, Profiles}
+  alias PhoenixKit.Modules.Storage.{Bucket, FileReport, Manager, ProfileBucket, Profiles}
 
   @doc "Checks one file. The optional probe functions are also used by fixture tests."
   def check(file, mode, include_previews, opts \\ []) do
@@ -22,7 +22,7 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
         base = %{"file_uuid" => file.uuid, "rendition" => row.name}
         state = state_problems(row, base)
         copies = Enum.flat_map(row.copies, &check_copy(file, row, &1, mode, base, opts))
-        placement = placement_problems(profile, row, base)
+        placement = placement_problems(profile, row, object(file, row), base)
         state ++ copies ++ placement
       end)
   end
@@ -78,16 +78,26 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
   defp compare_checksum({:error, :not_found}, _checksum, _size), do: "missing_or_inaccessible"
   defp compare_checksum({:error, _}, _checksum, _size), do: "read_failed"
 
-  defp placement_problems(nil, _row, base), do: [Map.put(base, "problem", "profile_missing")]
-  defp placement_problems(_profile, %{instance: nil}, _base), do: []
+  # A file's own original, or something made from one (a size, or a tile:
+  # a system file's original), as placement sees it.
+  defp object(%{system_managed: true}, _row), do: :derived
+  defp object(_file, %{kind: :original}), do: :original
+  defp object(_file, _row), do: :derived
 
-  defp placement_problems(profile, row, base) do
+  defp placement_problems(nil, _row, _object, base),
+    do: [Map.put(base, "problem", "profile_missing")]
+
+  defp placement_problems(_profile, %{instance: nil}, _object, _base), do: []
+
+  defp placement_problems(profile, row, object, base) do
     # A pooled profile need not use every candidate bucket. Check its required
     # copy counts by storage kind instead of inventing a particular destination.
+    # A backup of originals only is no place for a size or tile.
     allowed =
       for target <- profile.buckets,
           target.status in ["active", "read_only"],
           match?(%{enabled: true}, target.bucket),
+          ProfileBucket.takes?(target, object),
           into: %{},
           do: {target.bucket_uuid, target}
 
@@ -99,7 +109,7 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
 
     missing =
       for group <- [:local, :cloud],
-          Profiles.copies(profile, group) > Map.get(counts, group, 0),
+          wanted(profile, allowed, group, object) > Map.get(counts, group, 0),
           do:
             Map.merge(base, %{
               "problem" => "insufficient_copies",
@@ -108,5 +118,15 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
 
     serving? = Enum.any?(active, &(allowed[&1.bucket.uuid].role in ["primary", "replica"]))
     if serving?, do: missing, else: missing ++ [Map.put(base, "problem", "no_serving_copy")]
+  end
+
+  # The copies of `group` a profile wants of an original. Of a derived object,
+  # no more than the buckets of that group that take one: a profile counting a
+  # backup of originals only wants one copy fewer of each size.
+  defp wanted(profile, _allowed, group, :original), do: Profiles.copies(profile, group)
+
+  defp wanted(profile, allowed, group, :derived) do
+    takers = Enum.count(allowed, fn {_uuid, row} -> Bucket.group(row.bucket) == group end)
+    min(Profiles.copies(profile, group), takers)
   end
 end

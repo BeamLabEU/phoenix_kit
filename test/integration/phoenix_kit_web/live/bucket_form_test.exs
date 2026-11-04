@@ -265,6 +265,29 @@ defmodule PhoenixKitWeb.Live.BucketFormTest do
       assert html =~ ~s(name="bucket[region]" value="auto")
     end
 
+    test "a Hetzner connection brings its provider, location and endpoint", %{conn: conn} do
+      uuid =
+        connection("hz", %{
+          "service" => "hetzner",
+          "region" => "fsn1",
+          "endpoint" => "fsn1.your-objectstorage.com"
+        })
+
+      {:ok, view, _html} = live(conn, @new_path)
+
+      html = render_change(view, "validate", %{"bucket" => %{"provider" => "s3"}})
+      assert html =~ "hz — Hetzner Object Storage"
+
+      html =
+        render_change(view, "validate", %{
+          "bucket" => %{"provider" => "s3", "integration_uuid" => uuid}
+        })
+
+      assert html =~ ~s(name="bucket[provider]" value="hetzner")
+      assert html =~ ~s(name="bucket[region]" value="fsn1")
+      assert html =~ "fsn1.your-objectstorage.com"
+    end
+
     test "a connection added elsewhere appears in the picker without a reload", %{conn: conn} do
       {:ok, view, _html} = live(conn, @new_path)
       render_change(view, "validate", %{"bucket" => %{"provider" => "s3"}})

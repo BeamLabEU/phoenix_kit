@@ -139,10 +139,10 @@ defmodule PhoenixKit.Modules.Storage.UserBucketsTest do
       end
     end
 
-    test "B2, R2 and Tigris need an endpoint: there is no default host", %{owner: owner} do
+    test "B2, R2, Hetzner and Tigris need an endpoint: there is no default host", %{owner: owner} do
       connection = personal_connection(owner)
 
-      for provider <- ~w(b2 r2 tigris) do
+      for provider <- ~w(b2 r2 hetzner tigris) do
         assert {:error, changeset} =
                  Storage.create_owned_bucket(owner, attrs(connection, %{"provider" => provider}))
 

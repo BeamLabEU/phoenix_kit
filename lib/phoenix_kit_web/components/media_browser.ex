@@ -394,13 +394,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   alias PhoenixKit.Modules.Storage.UploadInbox
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Modules.Storage.VariantSets
-  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.TreeQuery
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
   alias PhoenixKitWeb.Components.Core.MediaThumbnail
+  alias PhoenixKitWeb.Components.Core.UploadManager
+  alias PhoenixKitWeb.ResumableUpload
 
   # Grid/list view preference is persisted per-user in `custom_fields`
   # ("user meta") so the server renders the correct mode on first paint —
@@ -1973,12 +1974,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   # Sort + file-type filter opts from the toolbar, for the listing query.
   # The setting is free-text in the DB — a non-numeric value must degrade to
   # the default, not crash every media surface at mount (String.to_integer).
-  defp max_upload_size_mb do
-    case Integer.parse(Settings.get_setting_cached("storage_max_upload_size_mb", "500")) do
-      {n, _} when n > 0 -> n
-      _ -> 500
-    end
-  end
+  defp max_upload_size_mb, do: Storage.max_upload_size_mb()
 
   defp list_extra(socket) do
     [
@@ -2173,13 +2169,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       socket
     else
       max_size_mb = max_upload_size_mb()
+      max_files = Storage.max_upload_files()
 
       upload_opts = [
         accept: :any,
-        max_entries: 10,
+        max_entries: max_files,
         max_file_size: max_size_mb * 1_000_000,
-        auto_upload: true,
-        progress: &__MODULE__.parent_progress/3
+        progress: &__MODULE__.parent_progress/3,
+        resumable: Storage.resumable_uploads?()
       ]
 
       # Pickers upload through an upload of their own (`@picker_upload`): a
@@ -2188,8 +2185,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       # the other browser's transfers, and have its uploads copied there too.
       socket
       |> assign(:max_upload_size_mb, max_size_mb)
-      |> allow_upload(:media_files, upload_opts)
-      |> allow_upload(@picker_upload, upload_opts)
+      |> assign(:max_upload_files, max_files)
+      |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
+      # The uploads live on this socket, so this is where the upload
+      # manager's cancel button has to be answered (`allow_upload/3` attaches).
+      |> UploadManager.allow_upload(:media_files, upload_opts)
+      |> UploadManager.allow_upload(@picker_upload, upload_opts)
       |> attach_file_event_forwarding()
     end
   end
@@ -2363,7 +2364,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       persistent_path = Path.join(System.tmp_dir!(), "pk_upload_#{entry.uuid}")
 
       result =
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        ResumableUpload.consume(socket, entry, fn %{path: path} ->
           File.cp!(path, persistent_path)
           {:ok, :done}
         end)
@@ -2623,9 +2624,15 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   defp maybe_allow_upload(socket, has_buckets) do
     if has_buckets do
-      assign(socket, :max_upload_size_mb, max_upload_size_mb())
+      socket
+      |> assign(:max_upload_size_mb, max_upload_size_mb())
+      |> assign(:max_upload_files, Storage.max_upload_files())
+      |> assign(:max_concurrent_uploads, Storage.max_concurrent_uploads())
     else
-      assign(socket, :max_upload_size_mb, 0)
+      socket
+      |> assign(:max_upload_size_mb, 0)
+      |> assign(:max_upload_files, 0)
+      |> assign(:max_concurrent_uploads, 1)
     end
   end
 
@@ -2634,7 +2641,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     socket =
       if entry.done? do
         result =
-          consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          ResumableUpload.consume(socket, entry, fn %{path: path} ->
             process_single_upload(socket, path, entry)
           end)
 
@@ -5750,32 +5757,33 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     folders = folders_in_scope(folders, scope)
     trash? = socket.assigns[:filter_trash] == true
 
-    file_plan =
+    selected =
       if trash? do
         files
         |> Enum.filter(&(&1.status == "trashed" and Storage.within_scope?(&1.folder_uuid, scope)))
-        |> then(&Storage.removal_plan(:delete_files, &1))
+        |> Enum.map(&{&1, nil})
       else
         files
         |> Enum.filter(&removable_here?(&1, appearance_folder(socket, &1), scope))
-        |> Enum.map(&Storage.removal_plan(:remove_file, {&1, appearance_folder(socket, &1)}))
-        |> merge_removal_plans()
+        |> Enum.map(&{&1, appearance_folder(socket, &1)})
       end
 
-    folder_action = if trash?, do: :delete_folder, else: :trash_folder
+    kind = if trash?, do: :delete, else: :trash
 
-    plan =
-      merge_removal_plans([
-        file_plan | Enum.map(folders, &Storage.removal_plan(folder_action, &1))
-      ])
+    # One plan for the whole selection, not one per item merged: the handler runs
+    # the items in turn, so a file one of them moves into a folder another takes
+    # away is lost with it — and must be asked about (`Storage.removal_plan/2`).
+    plan = Storage.removal_plan(:selection, %{files: selected, folders: folders, kind: kind})
+    selected_uuids = MapSet.new(selected, fn {file, _folder} -> to_string(file.uuid) end)
 
     removal_analysis_of(
       :delete_selected,
-      if(trash?, do: :delete, else: :trash),
+      kind,
       plan,
       current_folder_uuid(socket),
       skip?: trash? and folders == [],
-      selected_file_count: length(Enum.uniq(file_plan.trash ++ file_plan.delete)),
+      selected_file_count:
+        Enum.count(Enum.uniq(plan.trash ++ plan.delete), &MapSet.member?(selected_uuids, &1)),
       folder_uuids: Enum.map(folders, & &1.uuid)
     )
   end
@@ -5831,12 +5839,6 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
         skip?: Keyword.get(opts, :skip?, false)
       }
     end
-  end
-
-  defp merge_removal_plans(plans) do
-    Enum.reduce(plans, %{trash: [], delete: [], rehome: [], unlink: []}, fn plan, acc ->
-      Map.merge(acc, plan, fn _key, a, b -> a ++ b end)
-    end)
   end
 
   defp assign_removal_guarded(socket),

@@ -24,6 +24,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
                ~w(service account_id jurisdiction access_key secret_key)
 
       assert keys(%{"service" => "backblaze_b2"}) == ~w(service region access_key secret_key)
+      assert keys(%{"service" => "hetzner"}) == ~w(service region access_key secret_key)
       assert keys(%{"service" => "tigris"}) == ~w(service access_key secret_key)
       assert keys(%{"service" => "wasabi"}) == ~w(service region access_key secret_key)
 
@@ -41,8 +42,8 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
       assert %{value: "eu-central-1"} = Enum.find(options, &(&1.value == "eu-central-1"))
     end
 
-    test "Backblaze, Wasabi and Spaces take a typed region with suggestions" do
-      for service <- ~w(backblaze_b2 wasabi digitalocean_spaces) do
+    test "Backblaze, Hetzner, Wasabi and Spaces take a typed region with suggestions" do
+      for service <- ~w(backblaze_b2 hetzner wasabi digitalocean_spaces) do
         region = Enum.find(Services.fields(%{"service" => service}), &(&1.key == "region"))
         assert region.type == :combo
         assert region.options != []
@@ -57,6 +58,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
                "cloudflare_r2"
 
       assert Services.current(%{"endpoint" => "fly.storage.tigris.dev"}) == "tigris"
+      assert Services.current(%{"endpoint" => "fsn1.your-objectstorage.com"}) == "hetzner"
       assert Services.current(%{"endpoint" => "s3.eu-central-1.wasabisys.com"}) == "wasabi"
 
       assert Services.current(%{"endpoint" => "fra1.digitaloceanspaces.com"}) ==
@@ -119,6 +121,14 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
 
       assert %{"endpoint" => "fra1.digitaloceanspaces.com"} =
                Services.attrs(%{"service" => "digitalocean_spaces", "region" => "fra1"})
+    end
+
+    test "Hetzner builds the endpoint from the location, which is also the signing region" do
+      assert %{"endpoint" => "hel1.your-objectstorage.com", "region" => "hel1"} =
+               Services.attrs(%{"service" => "hetzner", "region" => "HEL1"})
+
+      region = Enum.find(Services.fields(%{"service" => "hetzner"}), &(&1.key == "region"))
+      assert Enum.map(region.options, & &1.value) == ~w(fsn1 nbg1 hel1)
     end
 
     test "a region that is not a region name never becomes part of a host" do
@@ -223,6 +233,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
     test "legacy regional endpoints supply a region when none was stored" do
       for {service, endpoint, region} <- [
             {"backblaze_b2", "s3.us-west-004.backblazeb2.com", "us-west-004"},
+            {"hetzner", "nbg1.your-objectstorage.com", "nbg1"},
             {"wasabi", "s3.eu-central-1.wasabisys.com", "eu-central-1"},
             {"digitalocean_spaces", "fra1.digitaloceanspaces.com", "fra1"}
           ] do
@@ -237,6 +248,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
       for endpoint <- [
             "amazonaws.com.example.org",
             "minio.wasabisys.com.example.org",
+            "fsn1.your-objectstorage.com.example.org",
             "minio.local:9000/?host=backblazeb2.com"
           ] do
         assert Services.infer(endpoint) == "other"
@@ -296,6 +308,7 @@ defmodule PhoenixKit.Integrations.ObjectStorageServicesTest do
       assert Services.bucket_provider("cloudflare_r2") == "r2"
       assert Services.bucket_provider("backblaze_b2") == "b2"
       assert Services.bucket_provider("tigris") == "tigris"
+      assert Services.bucket_provider("hetzner") == "hetzner"
       assert Services.bucket_provider("aws_s3") == "s3"
       assert Services.bucket_provider("wasabi") == "s3"
       assert Services.bucket_provider(nil) == "s3"

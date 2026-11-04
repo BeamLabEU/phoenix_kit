@@ -4522,6 +4522,7 @@
     "ViewerGallery",
     "ViewerHiresLoading",
     "UploadResume",
+    "UploadManager",
     "FolderDropUpload",
     "RemovalModal",
     "StackMemory",

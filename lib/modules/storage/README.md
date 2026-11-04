@@ -345,9 +345,11 @@ touches profiles behaves as before. A profile has:
   never served), a fixed `write_priority` (nil is the shuffled pool), a `serve_order`, and a
   `status` (`active`; `read_only` serves but gets no new files; `draining`
   has its files moved to the profile's other buckets). A bucket holds
-  everything the profile sends it, an original and what is made from it: there
-  is no `stores` choice (V205's column stays in the table, and nothing reads or
-  writes it).
+  everything the profile sends it, an original and what is made from it, except
+  a `backup` with `stores: "originals"`: an off-site copy of the originals
+  alone, which placement, the reconciler and verification leave out for sizes,
+  tiles and renders (`ProfileBucket.takes?/2`), capping the copies wanted of
+  those at the buckets that take them. Any other role stores everything.
 
 **A bucket a profile lists is protected.** `Storage.delete_bucket/2` and
 `Storage.update_bucket/3` (disabling) refuse it with
@@ -1379,6 +1381,11 @@ storage_redundancy_copies: "1"           # The Default storage profile's copy co
 storage_auto_generate_variants: "true"   # The Default variant set's generate_variants (V205 alias)
 storage_tile_generation_enabled: "false" # The Default variant set's old generate_tiles flag (V205 alias); deep zoom is now per library
 storage_max_upload_size_mb: "500"        # Per-file upload cap
+storage_max_upload_files: "100"          # Files one selection or drop may carry (1-1000)
+storage_max_concurrent_uploads: "5"      # The most files the upload manager sends at once (1-20)
+storage_resumable_uploads: "true"        # Send files in chunks the server keeps (pause carries on, reload resumes); "false" = LiveView's own uploader
+trash_retention_days: "30"               # How long the trash keeps a file before the daily prune deletes it
+bucket_log_retention_days: "30"          # How long a bucket's log entries are kept
 storage_user_libraries_enabled: "false"  # User libraries on/off (V203)
 storage_user_library_limit: "10"         # Libraries one user may own (V203)
 storage_private_url_window_hours: "12"   # How long a private file's link lasts (V203)
@@ -1392,6 +1399,31 @@ Storage.redundancy_copies()            # Storage.set_redundancy_copies(2)
 Storage.get_auto_generate_variants()   # Storage.set_auto_generate_variants(true)
 Storage.tile_generation_enabled?()     # Storage.set_tile_generation(false)
 ```
+
+### Uploading many files: the upload manager
+
+LiveView's uploader starts every picked file at once, each on a channel of its
+own, so a hundred files is a hundred simultaneous transfers. The media browser
+and both media pickers send their uploads through
+`PhoenixKitWeb.Components.Core.UploadManager` instead (guide:
+`dev_docs/guides/2026-11-02-upload-manager.md`): files are held in the browser
+and handed to LiveView a few at a time. The first goes alone as a speed probe;
+the manager then adds a transfer at a time while the total speed keeps rising,
+up to `storage_max_concurrent_uploads`. A panel shows how many are in flight,
+the speed and what is left, and each file can be paused, skipped, moved up the
+queue or cancelled. The component and its script
+(`priv/static/assets/phoenix_kit_upload_manager.js`) know nothing of the media
+module and can be used for any upload in a LiveView.
+
+With `storage_resumable_uploads` on (the default), files travel in 2 MiB chunks
+to `PhoenixKitWeb.ResumableUpload` (`POST`-less: `GET`/`PATCH`/`DELETE
+/api/resumable-uploads/:id`, authorised by a signed token LiveView hands the
+browser). The server keeps the partial file in
+`config :phoenix_kit, :resumable_upload_dir` (default
+`<tmp>/phoenix_kit_resumable`, swept after a day), so a paused file goes on
+from where it stopped and a dropped connection or a reload does not start it
+over. An upload callback consumes the assembled file through
+`ResumableUpload.consume/3`.
 
 ---
 
