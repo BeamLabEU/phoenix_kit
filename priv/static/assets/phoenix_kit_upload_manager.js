@@ -104,6 +104,9 @@
     this.items = [];
     this.nextId = 1;
     this.paused = false;
+    // The page has lost its LiveView connection: nothing is handed over (it
+    // would be dropped), and waiting for an entry to show up proves nothing.
+    this.offline = false;
     this.samples = [];
     this.ghosts = {};
     this.stale = {};
@@ -137,6 +140,8 @@
         started: false,
         progressAt: null,
         attempts: 0,
+        // Times handed to LiveView. Unlike `attempts`, a Retry does not reset it.
+        feeds: 0,
         error: null,
         // Paused or skipped while sending, keeping its place (resumable only).
         soft: false,
@@ -163,7 +168,7 @@
   // The files to hand to LiveView now: as many as the current level has room
   // for, in queue order. Marks them as sent.
   UploadQueue.prototype.next = function(now) {
-    if (this.paused) return [];
+    if (this.paused || this.offline) return [];
     // One batch at a time: wait for the last one to start moving.
     for (var j = 0; j < this.items.length; j++) {
       var f = this.items[j];
@@ -176,6 +181,7 @@
       if (it.state !== "queued") continue;
       it.state = "uploading";
       it.attempts += 1;
+      it.feeds += 1;
       it.fedAt = now;
       it.seen = false;
       it.started = false;
@@ -245,7 +251,7 @@
       } else if (item.seen) {
         // It was there and now it is not: the host consumed it. Done.
         this._finish(item);
-      } else if (now - item.fedAt > UNSEEN_GRACE_MS) {
+      } else if (!this.offline && now - item.fedAt > UNSEEN_GRACE_MS) {
         item.state = "failed";
         item.error = "not_accepted";
       }
@@ -287,6 +293,34 @@
     this._sample(now);
     // Once each, however many reasons there were.
     return cancel.filter(function(ref, at) { return cancel.indexOf(ref) === at; });
+  };
+
+  // The connection is back: what was handed over but never showed up as an
+  // entry was most likely dropped by the dead socket. Send it again, as if
+  // it had not been sent, and without counting it as an attempt.
+  UploadQueue.prototype.requeueUnseen = function() {
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.state !== "uploading" || it.seen) continue;
+      it.state = "queued";
+      it.attempts = Math.max(0, it.attempts - 1);
+      it.ref = null;
+      it.started = false;
+      it.bytes = 0;
+      it.base = 0;
+    }
+  };
+
+  // The file to give LiveView for an item that `next` just returned. LiveView
+  // stamps the File objects it has handled. One that is sent again (a retry,
+  // a resume, a re-send after a reconnect) is given as a fresh object over the
+  // same bytes, so it cannot be mistaken for the transfer that was stopped.
+  UploadQueue.prototype.fileToFeed = function(item) {
+    if (item.feeds > 1 && typeof File === "function") {
+      var f = item.file;
+      item.file = new File([f], f.name, { type: f.type, lastModified: f.lastModified });
+    }
+    return item.file;
   };
 
   // A file that has not moved: sent again by itself, then reported.
@@ -1005,6 +1039,18 @@
       this.render();
     },
 
+    // The socket is down: files picked now wait, and the time does not count
+    // against the ones already handed over.
+    disconnected: function() {
+      this.queue.offline = true;
+    },
+
+    reconnected: function() {
+      this.queue.offline = false;
+      this.queue.requeueUnseen();
+      this.sync();
+    },
+
     // LiveView rebinding or a re-mount of the page under this hook: nothing
     // to do, the queue lives in this object.
     updated: function() {},
@@ -1133,18 +1179,8 @@
         return;
       }
       var dt = new DataTransfer();
-      items.forEach(function(it) {
-        // LiveView stamps the File objects it has handled. One that was
-        // cancelled and is being sent again (a resume, a retry) is given as a
-        // fresh object over the same bytes, so it cannot be mistaken for the
-        // transfer that was stopped.
-        var file = it.file;
-        if (it.attempts > 1 && typeof File === "function") {
-          file = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
-          it.file = file;
-        }
-        dt.items.add(file);
-      });
+      var queue = this.queue;
+      items.forEach(function(it) { dt.items.add(queue.fileToFeed(it)); });
       input.files = dt.files;
       var ev = new Event("input", { bubbles: true });
       ev.__pkUploadManagerFeed = true;
