@@ -13734,10 +13734,11 @@ if (typeof window.Chart === "undefined") {
   // somewhere between the browser and the server; say so instead of waiting.
   // Time with the LiveView connection down does not count (see `offline`).
   var UNSEEN_GRACE_MS = 8000;
-  // A dead socket looks alive until the next heartbeat (about 30 s) goes
-  // unanswered. A "not_accepted" verdict reached within this long before the
-  // page noticed the drop may have been the drop's doing.
-  var DROP_LOOKBACK_MS = 30000;
+  // A dead socket looks alive until a heartbeat (every 30 s) goes unanswered
+  // (30 s more), so the page can notice a drop up to about a minute late. A
+  // file fed within this long before the page noticed the drop may have got its
+  // "not_accepted" verdict from the drop.
+  var DROP_LOOKBACK_MS = 70000;
   // Files are handed to LiveView one batch at a time: the next goes only once
   // the last has started to move. Preflights that overlap can leave an entry
   // registered on the server that the browser never starts sending — it sits
@@ -14002,10 +14003,10 @@ if (typeof window.Chart === "undefined") {
   // The connection is back: what was handed over but never showed up as an
   // entry was most likely dropped by the dead socket. Send it again, as if
   // it had not been sent, and without counting it as an attempt. That includes
-  // a file judged "not_accepted" shortly before the page noticed the drop (a
-  // half-open socket looks alive for a while). An older verdict stands: LiveView
-  // refuses some files for good (an empty one, say) and that is not the
-  // drop's doing.
+  // a file judged "not_accepted" that was fed shortly before the page noticed
+  // the drop (a half-open socket looks alive for a while). An older verdict
+  // stands: LiveView refuses some files for good (an empty one, say) and that
+  // is not the drop's doing.
   UploadQueue.prototype.requeueUnseen = function() {
     var since = this.offlineSince;
     this.offlineSince = null;
@@ -14024,11 +14025,9 @@ if (typeof window.Chart === "undefined") {
       it.base = 0;
     }
     // What was measured before the drop says nothing about the link now.
-    if (this.count("uploading") === 0) {
-      this.samples = [];
-      this.doneBytes = 0;
-      this.tune = freshTune(this.cap);
-    }
+    this.samples = [];
+    this.doneBytes = 0;
+    this.tune = freshTune(this.cap);
   };
 
   // The connection is back, and with it a new LiveView process: it knows
@@ -14871,7 +14870,11 @@ if (typeof window.Chart === "undefined") {
       } catch (_e) { /* no CustomEvent: nobody is listening */ }
     },
 
+    // Held while the view is down: the batch notice is a pushEvent, which a
+    // dead channel rejects. The queue keeps what is owed, and `reconnected`
+    // announces it (or not, if the file that ended the batch is back in line).
     _announce: function() {
+      if (this.queue.offline) return;
       var notices = this.queue.takeNotices();
       for (var i = 0; i < notices.files.length; i++) {
         var n = notices.files[i];

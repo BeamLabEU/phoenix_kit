@@ -270,7 +270,7 @@ Limits to know:
 * Cancelling a file in the manager deletes its partial file; closing the tab or
   a failure does not (that is the point). One exception: after a reconnect the
   manager no longer knows the old transfer's job, so cancelling a requeued file
-  leaves its old partial to the daily sweep.
+  while it is still waiting leaves its old partial to the daily sweep.
 
 ## Telling the page
 
@@ -331,6 +331,9 @@ Found while building it, handled in the script:
   input handler returns early when the view is not connected, so no entry ever
   appears. The manager feeds nothing while disconnected, gives no verdict for
   time spent offline, and on reconnect sends again what never showed up.
+  A dead socket can look alive for about a minute, so a file fed within 70 s
+  before the manager noticed the drop and judged "not_accepted" is sent again
+  too; an older "not_accepted" verdict stands.
 * **A File LiveView has handled cannot be fed again.** It carries LiveView's
   stamp and is ignored. Every re-send (a retry, a stall, a reconnect) hands over
   a fresh `File` over the same bytes.

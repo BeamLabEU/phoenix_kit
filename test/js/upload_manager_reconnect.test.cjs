@@ -178,7 +178,7 @@ test("autoTune does not run while offline", () => {
   assert.strictEqual(JSON.stringify(q.tune), before);
 });
 
-test("requeueUnseen starts the tuning over when nothing is left sending", () => {
+test("requeueUnseen starts the tuning over", () => {
   const q = new UploadQueue({ cap: 5 });
   const [item] = q.add([photo()]);
   q.next(0);
@@ -218,22 +218,6 @@ test("reset gives the same tuning as a new queue", () => {
   assert.strictEqual(new UploadQueue({ cap: 1 }).tune.phase, "hold");
 });
 
-test("requeueUnseen keeps the tuning while a file is still sending", () => {
-  const q = new UploadQueue({ cap: 5 });
-  q.tune.target = 2;
-  const [a, b] = q.add([
-    new File(["a"], "a.jpg", { lastModified: 1 }),
-    new File(["bb"], "b.jpg", { lastModified: 2 })
-  ]);
-  q.next(0);
-  q.observe([{ ref: "r1", key: b.key, size: b.size, progress: 50, done: false, error: "" }], 100);
-  q.tune.phase = "hold";
-  q.requeueUnseen();
-  assert.strictEqual(a.state, "queued");
-  assert.strictEqual(q.tune.target, 2);
-  assert.strictEqual(q.tune.phase, "hold");
-});
-
 test("the stall watchdog stands down while offline and its clock does not run", () => {
   const q = new UploadQueue(); // not resumable
   const [item] = q.add([photo()]);
@@ -261,6 +245,18 @@ test("a not_accepted verdict reached before the drop was noticed is undone on re
   assert.strictEqual(item.state, "queued");
   assert.strictEqual(item.error, null);
   assert.strictEqual(item.attempts, 0);
+});
+
+test("a file fed a minute before the drop was noticed is still undone on reconnect", () => {
+  const q = new UploadQueue();
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.observe([], 9000);
+
+  q.offlineSince = 65000; // a heartbeat, then its timeout, went by before the page knew
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "queued");
+  assert.strictEqual(item.error, null);
 });
 
 test("an older not_accepted verdict is not undone by a later reconnect", () => {
@@ -414,6 +410,33 @@ test("_feed gives LiveView what fileToFeed returns, so a re-send is a fresh File
   assert.strictEqual(input.fed.length, 2);
   sameBytesDifferentObject(original, input.fed[1].files[0]);
   assert.strictEqual(input.fed[1].files[0], ctx.queue.items[0].file);
+});
+
+test("the batch notice is held while offline and sent after reconnected", () => {
+  const ctx = hookCtx("phx-1");
+  delete ctx._announce; // the real one
+  const pushed = [];
+  const emitted = [];
+  ctx.pushEvent = (...a) => pushed.push(a);
+  ctx._emit = (name) => emitted.push(name);
+  ctx.notifyEvent = "upload_batch_done";
+  const [item] = ctx.queue.add([photo()]);
+  ctx._announce();
+  assert.deepStrictEqual(pushed, [], "still in flight");
+
+  Hook.disconnected.call(ctx);
+  ctx.queue.cancel(item.id); // the last live file goes while the view is down
+  assert.strictEqual(item.state, "cancelled");
+  ctx._announce();
+  assert.deepStrictEqual(pushed, [], "nothing is pushed to a dead channel");
+  assert.deepStrictEqual(emitted, []);
+
+  ctx.sync = ctx._announce;
+  Hook.reconnected.call(ctx);
+  assert.strictEqual(pushed.length, 1);
+  assert.strictEqual(pushed[0][0], "upload_batch_done");
+  assert.strictEqual(pushed[0][1].cancelled, 1);
+  assert.deepStrictEqual(emitted, ["batch-complete"]);
 });
 
 test("nothing is pushed to cancel an entry while offline", () => {
