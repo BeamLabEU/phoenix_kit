@@ -202,8 +202,8 @@ defmodule PhoenixKit.MixProject do
       # requirement move and a read of phoenix_kit.js's use of it. No test
       # holds the ceiling (leaf_bundle_pin_test.exs went with the CDN pin).
       # 0.9 added tag previews and `media_url`; 0.10 sanitizes what it renders
-      # and writes typed text back as text — phoenix_kit.js only registers the
-      # hook and reads `LeafHooks.version`, both unchanged.
+      # and writes typed text back as text — phoenix_kit.js only looks up
+      # `window.LeafHooks.Leaf` to register the hook, unchanged in both.
       {:leaf, "~> 0.4.1 or ~> 0.5.0 or ~> 0.6.0 or ~> 0.7.0 or ~> 0.8.0 or ~> 0.9.0 or ~> 0.10.0"},
 
       # Markdown → HTML (comrak). Declared here in core so every module shares
