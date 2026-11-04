@@ -13734,6 +13734,10 @@ if (typeof window.Chart === "undefined") {
   // somewhere between the browser and the server; say so instead of waiting.
   // Time with the LiveView connection down does not count (see `offline`).
   var UNSEEN_GRACE_MS = 8000;
+  // A dead socket looks alive until the next heartbeat (about 30 s) goes
+  // unanswered. A "not_accepted" verdict reached within this long before the
+  // page noticed the drop may have been the drop's doing.
+  var DROP_LOOKBACK_MS = 30000;
   // Files are handed to LiveView one batch at a time: the next goes only once
   // the last has started to move. Preflights that overlap can leave an entry
   // registered on the server that the browser never starts sending — it sits
@@ -13796,6 +13800,8 @@ if (typeof window.Chart === "undefined") {
     // The page has lost its LiveView connection: nothing is handed over (it
     // would be dropped), and waiting for an entry to show up proves nothing.
     this.offline = false;
+    // When the page noticed the drop.
+    this.offlineSince = null;
     this.samples = [];
     this.ghosts = {};
     this.stale = {};
@@ -13996,13 +14002,19 @@ if (typeof window.Chart === "undefined") {
   // The connection is back: what was handed over but never showed up as an
   // entry was most likely dropped by the dead socket. Send it again, as if
   // it had not been sent, and without counting it as an attempt. That includes
-  // a file already judged "not_accepted" before the page noticed the drop
-  // (a half-open socket looks alive for a while).
+  // a file judged "not_accepted" shortly before the page noticed the drop (a
+  // half-open socket looks alive for a while). An older verdict stands: LiveView
+  // refuses some files for good (an empty one, say) and that is not the
+  // drop's doing.
   UploadQueue.prototype.requeueUnseen = function() {
+    var since = this.offlineSince;
+    this.offlineSince = null;
     for (var i = 0; i < this.items.length; i++) {
       var it = this.items[i];
       if (it.seen) continue;
-      if (it.state !== "uploading" && !(it.state === "failed" && it.error === "not_accepted")) continue;
+      var lost = it.state === "failed" && it.error === "not_accepted" &&
+        since != null && it.fedAt != null && it.fedAt >= since - DROP_LOOKBACK_MS;
+      if (it.state !== "uploading" && !lost) continue;
       it.state = "queued";
       it.error = null;
       it.attempts = Math.max(0, it.attempts - 1);
@@ -14012,7 +14024,11 @@ if (typeof window.Chart === "undefined") {
       it.base = 0;
     }
     // What was measured before the drop says nothing about the link now.
-    if (this.count("uploading") === 0) this.tune = freshTune(this.cap);
+    if (this.count("uploading") === 0) {
+      this.samples = [];
+      this.doneBytes = 0;
+      this.tune = freshTune(this.cap);
+    }
   };
 
   // The connection is back, and with it a new LiveView process: it knows
@@ -14353,15 +14369,7 @@ if (typeof window.Chart === "undefined") {
     this.stale = {};
     this.doneBytes = 0;
     this.paused = false;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
-      target: 1,
-      level: {},
-      windowStart: null,
-      windowAt: null,
-      settledAt: null,
-      probeStart: null
-    };
+    this.tune = freshTune(this.cap);
   };
 
   // Anything still to do or in progress.
@@ -14778,6 +14786,7 @@ if (typeof window.Chart === "undefined") {
     // The socket is down: files picked now wait, and the time does not count
     // against the ones already handed over.
     disconnected: function() {
+      if (!this.queue.offline) this.queue.offlineSince = Date.now();
       this.queue.offline = true;
     },
 

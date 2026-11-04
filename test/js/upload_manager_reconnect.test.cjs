@@ -1,7 +1,9 @@
-// The upload manager when the LiveView socket drops: a file handed over while
-// the socket is down is ignored by LiveView, so the queue must not give up on
-// it (nor feed anything) until the connection is back, and must feed a Retry
-// as a fresh File. Pure queue logic, plus the hook's two connection callbacks.
+// The upload manager when the LiveView connection drops and comes back. A file
+// handed over while the socket is down is ignored by LiveView, so the queue
+// feeds nothing and reaches no verdict until the connection is back; then what
+// never showed up, or lost its entry to the rejoined LiveView process, is sent
+// again as a fresh File (a Retry too). Pure queue logic, plus the hook's
+// connection callbacks driven against a stand-in page.
 //
 //   node --test test/js/upload_manager_reconnect.test.cjs
 
@@ -181,11 +183,39 @@ test("requeueUnseen starts the tuning over when nothing is left sending", () => 
   const [item] = q.add([photo()]);
   q.next(0);
   q.tune.target = 4;
-  q.tune.phase = "settled";
+  q.tune.phase = "hold";
   q.requeueUnseen();
   assert.strictEqual(item.state, "queued");
   assert.strictEqual(q.tune.target, 1);
   assert.strictEqual(q.tune.phase, "probe");
+});
+
+test("requeueUnseen forgets the bytes and samples of the old link with the tuning", () => {
+  const q = new UploadQueue({ cap: 5 });
+  const [first, second] = q.add([
+    new File(["a"], "a.jpg", { lastModified: 1 }),
+    new File(["bb"], "b.jpg", { lastModified: 2 })
+  ]);
+  q.next(0);
+  q.observe([{ ref: "1", key: first.key, size: first.size, progress: 100, done: true, error: "" }], 100);
+  assert.ok(q.doneBytes > 0);
+  assert.ok(q.samples.length > 0);
+  q.next(200);
+  assert.strictEqual(second.state, "uploading");
+
+  q.requeueUnseen();
+  assert.strictEqual(q.doneBytes, 0, "a finished file must not end the solo probe at once");
+  assert.deepStrictEqual(q.samples, []);
+  assert.strictEqual(q.tune.phase, "probe");
+});
+
+test("reset gives the same tuning as a new queue", () => {
+  const q = new UploadQueue({ cap: 5 });
+  q.tune.target = 3;
+  q.tune.phase = "hold";
+  q.reset();
+  assert.deepStrictEqual(q.tune, new UploadQueue({ cap: 5 }).tune);
+  assert.strictEqual(new UploadQueue({ cap: 1 }).tune.phase, "hold");
 });
 
 test("requeueUnseen keeps the tuning while a file is still sending", () => {
@@ -197,11 +227,11 @@ test("requeueUnseen keeps the tuning while a file is still sending", () => {
   ]);
   q.next(0);
   q.observe([{ ref: "r1", key: b.key, size: b.size, progress: 50, done: false, error: "" }], 100);
-  q.tune.phase = "settled";
+  q.tune.phase = "hold";
   q.requeueUnseen();
   assert.strictEqual(a.state, "queued");
   assert.strictEqual(q.tune.target, 2);
-  assert.strictEqual(q.tune.phase, "settled");
+  assert.strictEqual(q.tune.phase, "hold");
 });
 
 test("the stall watchdog stands down while offline and its clock does not run", () => {
@@ -226,10 +256,46 @@ test("a not_accepted verdict reached before the drop was noticed is undone on re
   q.observe([], 9000);
   assert.strictEqual(item.error, "not_accepted");
 
+  q.offlineSince = 9500; // the page noticed the drop a moment later
   q.requeueUnseen();
   assert.strictEqual(item.state, "queued");
   assert.strictEqual(item.error, null);
   assert.strictEqual(item.attempts, 0);
+});
+
+test("an older not_accepted verdict is not undone by a later reconnect", () => {
+  const q = new UploadQueue();
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.observe([], 9000);
+
+  q.offlineSince = 5 * 60 * 1000;
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "failed");
+  assert.strictEqual(item.error, "not_accepted");
+  assert.strictEqual(item.attempts, 1);
+});
+
+test("without a noticed drop no verdict is undone", () => {
+  const q = new UploadQueue();
+  const [item] = q.add([photo()]);
+  q.next(0);
+  q.observe([], 9000);
+  q.requeueUnseen();
+  assert.strictEqual(item.state, "failed");
+});
+
+test("the hook notes when the drop was noticed, and the reconnect uses it once", () => {
+  const q = new UploadQueue();
+  const ctx = { queue: q, sync() {} };
+  const before = Date.now();
+  Hook.disconnected.call(ctx);
+  const noted = q.offlineSince;
+  assert.ok(noted >= before && noted <= Date.now());
+  Hook.disconnected.call(ctx);
+  assert.strictEqual(q.offlineSince, noted, "a second notice does not move it");
+  Hook.reconnected.call(Object.assign(ctx, { resumable: false, queue: q }));
+  assert.strictEqual(q.offlineSince, null);
 });
 
 test("a failure that was not a missing entry stays failed on reconnect", () => {
@@ -437,6 +503,23 @@ test("a file paused in place is made an ordinary paused file, ready to be fed an
 
   q.resume(item.id);
   assert.strictEqual(item.state, "queued", "resuming it hands it over again");
+});
+
+test("a file skipped in place is made an ordinary skipped file, and restoring it feeds it anew", () => {
+  const q = new UploadQueue({ resumable: true });
+  const item = sendingSeen(q);
+  q.skip(item.id);
+  assert.strictEqual(item.state, "skipped");
+  assert.strictEqual(item.soft, true);
+
+  assert.deepStrictEqual(q.requeueSeen(), ["7"]);
+  assert.strictEqual(item.state, "skipped");
+  assert.strictEqual(item.soft, false);
+  assert.strictEqual(item.ref, null);
+  assert.strictEqual(item.seen, false);
+
+  q.restore(item.id);
+  assert.strictEqual(item.state, "queued");
 });
 
 function fakeJob(ref) {

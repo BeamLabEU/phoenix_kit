@@ -268,7 +268,9 @@ Limits to know:
 * Browsers only reopen files the page stashed or the user picks again; none can
   read a path by itself.
 * Cancelling a file in the manager deletes its partial file; closing the tab or
-  a failure does not (that is the point).
+  a failure does not (that is the point). One exception: after a reconnect the
+  manager no longer knows the old transfer's job, so cancelling a requeued file
+  leaves its old partial to the daily sweep.
 
 ## Telling the page
 
@@ -342,6 +344,8 @@ Found while building it, handled in the script:
   the old transfers and sends the unfinished files again as fresh `File`s; a
   resumable one carries on from the offset the server kept (same name, size and
   date, same upload id).
+  If the host consumed an entry just before the drop, the file can be stored
+  twice: the manager prefers a duplicate to a loss.
 
 ## Taking it to another project
 
