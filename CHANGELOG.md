@@ -35,6 +35,34 @@
   `Quotas.usage/1` and `Quotas.status/1` are for pages that show it. No
   migration.
 
+### Fixed
+
+- **Backblaze B2 works.** ExAws 2.7 looks a host up from the region before a
+  caller's host applies, and raises for a region shaped like AWS's that AWS
+  does not have, which is every B2 region (`us-west-002`, `eu-central-003`):
+  every request to a B2 bucket failed with "s3 not supported in region … for
+  partition aws", and checking a B2 connection said "Could not reach the
+  storage endpoint". S3-compatible requests now go through
+  `Storage.Providers.S3Request`: with a host named, the config is built with a
+  region ExAws knows and then signed for the real one. Requests to AWS itself
+  (no host) are unchanged. Verified against a real B2 bucket (write, read,
+  delete, signed URL).
+
+- **The reconciler's file lock works behind PgBouncer and for large files.**
+  It was a session advisory lock taken on a pooled connection. Behind
+  PgBouncer in transaction pooling, statements outside a transaction may each
+  run on a different server connection, so the unlock could miss the one that
+  took the lock: it stayed held there, and the file was `:skipped` from then
+  on. And the pool takes back a connection held past its 15 s timeout, so
+  copying a large video (90 MB from one cloud to another) failed the whole
+  batch with "connection is closed", and the storage move stopped partway.
+  `Reconciler.with_file_lock/2` now holds a transaction advisory lock (same
+  key) in a transaction, with no timeout, on a connection of its own opened
+  from the repo's config. The lock ends with the transaction: when the work
+  returns or raises, and when its process dies. A process that holds the lock
+  takes it again (a repair runs the reconciler). Each locked file uses one
+  short-lived connection besides the pool. No migration.
+
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,

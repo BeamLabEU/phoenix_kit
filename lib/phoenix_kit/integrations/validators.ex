@@ -34,6 +34,7 @@ defmodule PhoenixKit.Integrations.Validators do
   alias PhoenixKit.Mailer.SmtpEndpointPolicy
   alias PhoenixKit.Mailer.SmtpTransport
   alias PhoenixKit.Modules.Storage.Endpoint
+  alias PhoenixKit.Modules.Storage.Providers.S3Request
   alias PhoenixKit.Utils.Number
 
   @http_timeout 15_000
@@ -699,7 +700,7 @@ defmodule PhoenixKit.Integrations.Validators do
 
   defp list_buckets_request(data) do
     ExAws.S3.list_buckets()
-    |> ExAws.request(object_storage_config(data))
+    |> S3Request.request(object_storage_config(data))
     |> case do
       {:ok, _result} -> :ok
       {:error, reason} -> interpret_object_storage_error(reason)

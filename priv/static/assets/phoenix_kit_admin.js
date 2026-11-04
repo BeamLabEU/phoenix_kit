@@ -4839,6 +4839,9 @@
     // fight drag-to-move on touch.
     setupLongPress: function() {
       var self = this;
+      // A picker has no select mode to enter: its cards are draggable only
+      // for `allow_move`, and a hold must not eat the click that picks.
+      if (this.el.dataset.pickMode) return;
       var LONG_PRESS_MS = 450;
       var MOVE_TOLERANCE = 10;
       var items = this.el.querySelectorAll("[data-draggable-file], [data-draggable-folder]");
@@ -4906,17 +4909,42 @@
       // same goes for every other zone naming that folder (its sidebar
       // node). A batch counts only when all of it shares one home.
       function originOf(el) {
+        // A picker listing the subfolders' files shows them in the zone of the
+        // folder viewed; the card says which folder it is really in.
+        if (el.dataset.originFolder) return el.dataset.originFolder;
         var zone = el.parentElement && el.parentElement.closest("[data-drop-folder]");
         // A search at the root lists the whole tree inside the root zone: a
         // card there may live in any folder, so its home is unknown.
         if (zone && zone.hasAttribute("data-drop-origin-unknown")) return null;
         return zone ? zone.dataset.dropFolder : null;
       }
+      // Whether this target takes nothing from the drag in hand. In a picker
+      // the grid itself (`data-drop-no-bg`) takes no move: a card let go over
+      // it by accident moves nothing; a folder is pointed at. The folder a
+      // card is in takes none either, unless the pick has files in other
+      // folders as well (`_gatherPick`): then its node gathers them.
+      function declines(target) {
+        if (inPicker() && target.dataset.dropNoBg !== undefined) return true;
+        if (!self._dragOrigin || target.dataset.dropFolder !== self._dragOrigin) return false;
+        return !self._gatherPick;
+      }
+      // What a drag of this card takes along. A picker's batch is its pick
+      // (`data-pick-order` marks the picked cards on screen, the server holds
+      // the pick and moves all of it); elsewhere it is the selection.
+      function inPicker() { return !!self.el.dataset.pickMode; }
+      function isSelected(el) {
+        return inPicker() ? el.hasAttribute("data-pick-order") : el.dataset.selected === "true";
+      }
+      function selectedEls() {
+        return Array.prototype.slice.call(inPicker()
+          ? self.el.querySelectorAll("[data-pick-order]")
+          : document.querySelectorAll('[data-selected="true"]'));
+      }
       function dragOrigin(el) {
-        if (el.dataset.selected !== "true") return originOf(el);
+        if (!isSelected(el)) return originOf(el);
         var origin;
         var same = true;
-        document.querySelectorAll('[data-selected="true"]').forEach(function(s) {
+        selectedEls().forEach(function(s) {
           var o = originOf(s);
           if (origin === undefined) origin = o;
           else if (o !== origin) same = false;
@@ -4928,11 +4956,10 @@
       // (the grabbed one on top) and a badge with how many are moving, in
       // place of the browser's snapshot of the single card under the mouse.
       function selectionGhost(e, grabbed) {
-        var count = parseInt(self.el.dataset.selectionCount || "0", 10) ||
-          document.querySelectorAll('[data-selected="true"]').length;
+        var count = parseInt((inPicker() ? self.el.dataset.pickCount : self.el.dataset.selectionCount) || "0", 10) ||
+          selectedEls().length;
         if (count < 2 || !e.dataTransfer.setDragImage) return;
-        var others = Array.prototype.slice.call(document.querySelectorAll('[data-selected="true"]'))
-          .filter(function(el) { return el !== grabbed; });
+        var others = selectedEls().filter(function(el) { return el !== grabbed; });
         // Pictures before folders: a pile reads as what is being carried.
         var pictured = function(el) { return el.querySelector("img") ? 0 : 1; };
         others.sort(function(a, b) { return pictured(a) - pictured(b); });
@@ -4997,10 +5024,16 @@
           // existing `move_selected_to_folder` event (which iterates
           // `@selected_files` + `@selected_folders` server-side) rather
           // than the single-item move. All selected items get
-          // opacity-50 for visual feedback.
-          if (el.dataset.selected === "true") {
+          // opacity-50 for visual feedback. In a picker the batch is the
+          // pick, and the server (`move_picked_to_folder`) moves what it
+          // holds as picked.
+          if (isSelected(el)) {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
+            // The pick holds more than the cards on screen (files picked in
+            // other folders): a drop on the node of the folder shown gathers them.
+            self._gatherPick = inPicker() &&
+              (parseInt(self.el.dataset.pickCount || "0", 10) || 0) > selectedEls().length;
             selectionGhost(e, el);
             setBatchVisuals(true);
           } else {
@@ -5012,6 +5045,7 @@
         el.removeEventListener("dragend", el._dragend);
         el._dragend = function() {
           self._dragOrigin = null;
+          self._gatherPick = false;
           self._internalDrag = false;
           if (self._draggedBatch) {
             setBatchVisuals(false);
@@ -5055,7 +5089,7 @@
           // set so self-drop suppression in dragover still works for
           // the source folder; the batch marker takes precedence in
           // the drop handler.
-          if (el.dataset.selected === "true") {
+          if (isSelected(el)) {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
             selectionGhost(e, el);
@@ -5119,7 +5153,7 @@
       // from heex, so a single querySelectorAll handles all four
       // rendering paths (grid/list × file/folder).
       function setBatchVisuals(active) {
-        document.querySelectorAll('[data-selected="true"]').forEach(function(el) {
+        selectedEls().forEach(function(el) {
           if (active) {
             el.classList.add("opacity-50");
           } else {
@@ -5155,6 +5189,9 @@
             target.style.outlineOffset = "6px";
             return;
           }
+          // Text or a link dragged in from elsewhere is no card of this page:
+          // not accepted, so it is not dropped here either.
+          if (!self._internalDrag) return;
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           if (isFolder && target.dataset.dropFolder === self._draggedFolderUuid) {
             // Drop-on-self for a folder — skip preventDefault so the
@@ -5166,7 +5203,7 @@
           }
           // The folder the dragged card is already in (see `originOf`):
           // no accept indicator, no drop.
-          if (self._dragOrigin && target.dataset.dropFolder === self._dragOrigin) {
+          if (declines(target)) {
             if (self._activeDropTarget === target) {
               clearHighlight(target);
               self._activeDropTarget = null;
@@ -5238,6 +5275,8 @@
             if (self._activeDropTarget === target) self._activeDropTarget = null;
             return;
           }
+          // Not one of this page's cards (text, a link): nothing to move.
+          if (!self._internalDrag) return;
           e.preventDefault();
           e.stopPropagation();
           clearHighlight(target);
@@ -5250,7 +5289,7 @@
           // Let go over the folder it came from: nothing moves, so nothing
           // is asked of the server (LiveView's page-wide dragover lets the
           // drop happen even though this zone declined it).
-          if (self._dragOrigin && dropFolderUuid === self._dragOrigin) return;
+          if (declines(target)) return;
 
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           var isBatch = e.dataTransfer.types.indexOf("application/x-pk-batch") !== -1;
@@ -5265,7 +5304,9 @@
             // for a folder in the batch is handled server-side (the
             // bulk handler skips moving a folder onto itself).
             // The same key the move dialog sends (`phx-value-folder-uuid`).
-            self.pushEventTo(self.el, "move_selected_to_folder", {
+            // A picker's pick has its own event: the move dialog's
+            // `move_selected_to_folder` works on what the dialog was opened for.
+            self.pushEventTo(self.el, inPicker() ? "move_picked_to_folder" : "move_selected_to_folder", {
               "folder-uuid": resolvedTarget
             });
           } else if (isFolder) {
@@ -5930,14 +5971,24 @@
   // (`phoenix_kit:upload-resume`) and the files are fed to the upload input
   // again, exactly as a drop would.
   //
+  // The server answers that report itself unless the host asked to be asked
+  // (`upload_resume: :ask`): the keys it accepts come back in the same
+  // `upload-resume` event and are fed without a click. It decides — it leaves
+  // out what it has already taken, what is already on its way and what the
+  // upload's limits have no room for — and `upload-discard` tells the hook to
+  // let go of a file the server has. A feed that cannot happen (no input, no
+  // DataTransfer) is reported back as a row for the Resume button.
+  //
   // Files over UPLOAD_STASH_MAX_BYTES keep their name but not their bytes —
   // a copy of a 2 GB video in the browser's storage is a worse failure than
   // asking for it again — and are listed as "add it again".
   //
   // Records are scoped to the page path (a library page resumes into that
-  // library) and the signed-in user, and owned by the tab that made them: each tab keeps its live
-  // records' `touched` fresh, so a second tab never mistakes another's
-  // in-flight files for leftovers.
+  // library) and the signed-in user, and owned by the tab that made them: each
+  // tab holds a Web Lock, so a second tab never mistakes another's in-flight
+  // files for leftovers — and takes a dead tab's at once. Where Web Locks are
+  // missing, each tab keeps its live records' `touched` fresh and a record
+  // untouched for a while is taken to be abandoned.
   // ----------------------------------------------------------------------------
 
   var UPLOAD_STASH_DB = "phoenix_kit_upload_stash";
@@ -5946,11 +5997,48 @@
   var UPLOAD_STASH_STALE_MS = 15000;
   var UPLOAD_STASH_HEARTBEAT_MS = 5000;
   var UPLOAD_STASH_KEEP_MS = 7 * 24 * 3600 * 1000;
+  // Each hook holds a Web Lock named after its tab id for as long as it lives:
+  // a record whose owner's lock is free was abandoned (the page is gone), one
+  // whose lock is held belongs to a page that is still there, throttled or not.
+  var UPLOAD_STASH_LOCK = "phoenix_kit_upload_stash:";
+  // How often a record whose owner's lock is held is looked at again: quickly
+  // at first (a reload hands its lock over within moments), then ever less
+  // often while another page goes on holding it.
+  var UPLOAD_STASH_LOCK_LOOK_MS = [5000, 15000, 60000];
 
   // The same three things the server's `client_key/1` reads off an upload
   // entry — LiveView sends the File's own name, size and lastModified.
   function uploadStashKey(file) {
     return file.name + "|" + file.size + "|" + file.lastModified;
+  }
+
+  // The key's parts, for a record that is gone: a name may hold the
+  // separator, the size and the date do not.
+  function uploadStashParse(key) {
+    var parts = String(key).split("|");
+    if (parts.length < 3) return { name: String(key), size: null };
+    return { name: parts.slice(0, parts.length - 2).join("|"), size: parseInt(parts[parts.length - 2], 10) || 0 };
+  }
+
+  function uploadStashLocks() {
+    try {
+      if (typeof navigator !== "undefined" && navigator.locks && typeof navigator.locks.request === "function") return navigator.locks;
+    } catch (_) {}
+    return null;
+  }
+
+  // true: no page holds that tab's lock any more; false: one does; null: the
+  // browser cannot say (no Web Locks on an insecure origin) — the caller falls
+  // back on how long ago the record was touched.
+  function uploadStashTabGone(tab) {
+    var locks = uploadStashLocks();
+    if (!locks) return Promise.resolve(null);
+    try {
+      return Promise.resolve(locks.request(UPLOAD_STASH_LOCK + tab, { ifAvailable: true }, function(lock) { return lock !== null; }))
+        .catch(function() { return null; });
+    } catch (_) {
+      return Promise.resolve(null);
+    }
   }
 
   function uploadStashOpen() {
@@ -6014,6 +6102,21 @@
       this._picker = this.el.dataset.picker === "true";
       this._scopes = {};
       this._live = {};
+      // Keys fed back by this page and not yet acknowledged: a second look
+      // must not offer them again while their records are being rewritten.
+      this._fed = {};
+      // Keys reported after a reconnect that the server has not asked to be
+      // sent yet (no room): they are asked about again when a batch ends.
+      this._held = {};
+      this._lockLooks = 0;
+      this._destroyed = false;
+      // Keys the server acknowledged or the person cancelled: a re-send asked
+      // for after that is moot, not a lost file.
+      this._forgotten = {};
+      // Stash writes still running, and whether a reconnect looked while one
+      // was: its record was not there to be found.
+      this._writing = 0;
+      this._lookAfterWrite = false;
       this._root = this.el.parentElement || document.body;
 
       // Capture phase on the browser's root: runs before LiveView's own
@@ -6028,12 +6131,28 @@
       this._root.addEventListener("input", this._onPick, true);
       this._root.addEventListener("change", this._onPick, true);
 
+      // A batch ending frees room under the upload's limit: leftovers the
+      // server held back are asked about again.
+      this._onBatch = function() {
+        self._reportLeftovers(false);
+        self._reportLeftovers(true, true);
+      };
+      this._root.addEventListener("pk-upload:batch-complete", this._onBatch);
+
+      // A file the person cancelled in the upload manager is not a leftover.
+      this._onCancelled = function(e) {
+        var keys = e && e.detail && e.detail.keys;
+        if (keys && keys.length) self._forget(keys);
+      };
+      this._root.addEventListener("pk-upload:cancelled", this._onCancelled);
+
+      this._hold();
       this._beat = setInterval(function() { self._heartbeat(); }, UPLOAD_STASH_HEARTBEAT_MS);
       this._rescan = null;
 
       this.handleEvent("phoenix_kit:upload-received", function(p) { if (self._mine(p)) self._forget(p.keys); });
       this.handleEvent("phoenix_kit:upload-discard", function(p) { if (self._mine(p)) self._forget(p.keys); });
-      this.handleEvent("phoenix_kit:upload-resume", function(p) { if (self._mine(p)) self._resume(p.keys); });
+      this.handleEvent("phoenix_kit:upload-resume", function(p) { if (self._mine(p)) self._resume(p.keys, !!p.auto); });
 
       // A just-loaded page may still be restoring; give it a moment, then
       // report whatever an earlier page load left behind.
@@ -6043,6 +6162,9 @@
     // A reconnect ends every transfer this tab had in flight — upload
     // channels do not survive it — so those are leftovers now, not live.
     reconnected() {
+      this._fed = {};
+      this._lockLooks = 0;
+      this._lookAfterWrite = this._writing > 0;
       this._reportLeftovers(true);
     },
 
@@ -6053,7 +6175,25 @@
       if (this._root) {
         this._root.removeEventListener("input", this._onPick, true);
         this._root.removeEventListener("change", this._onPick, true);
+        this._root.removeEventListener("pk-upload:cancelled", this._onCancelled);
+        this._root.removeEventListener("pk-upload:batch-complete", this._onBatch);
       }
+      this._destroyed = true;
+      if (this._release) this._release();
+    },
+
+    // Holds this hook's lock until the page goes (or the hook is destroyed).
+    _hold() {
+      var locks = uploadStashLocks();
+      if (!locks) return;
+      var self = this;
+      try {
+        locks.request(UPLOAD_STASH_LOCK + this._tab, function() {
+          // Destroyed before the lock was granted: do not keep it.
+          if (self._destroyed) return;
+          return new Promise(function(release) { self._release = release; });
+        }).catch(function() {});
+      } catch (_) {}
     },
 
     // Where a file picked now belongs: the page's path (a library switch
@@ -6091,7 +6231,9 @@
         var scope = self._scopeNow();
         self._live[key] = true;
         self._scopes[key] = scope;
+        delete self._forgotten[key];
         var keep = file.size <= UPLOAD_STASH_MAX_BYTES;
+        self._writing++;
         uploadStashRun("readwrite", function(store) {
           store.put({
             id: uploadStashId(scope, key),
@@ -6103,10 +6245,22 @@
             lastModified: file.lastModified,
             blob: keep ? file : null,
             tab: self._tab,
+            // When it was picked: the heartbeat moves `touched`, never this.
+            picked: now,
             touched: now
           });
-        });
+        }).then(function() { self._written(); });
       });
+    },
+
+    // A page that wakes up around a reconnect may be handed a file (a camera's
+    // pick) before the connection is back: the look the reconnect made ran
+    // before this record existed. Look once more when the write is over.
+    _written() {
+      this._writing--;
+      if (this._writing > 0 || !this._lookAfterWrite) return;
+      this._lookAfterWrite = false;
+      this._reportLeftovers(true);
     },
 
     _heartbeat() {
@@ -6128,74 +6282,143 @@
     _forget(keys) {
       var self = this;
       var ids = (keys || []).map(function(key) { return uploadStashId(self._scopeOf(key), key); });
-      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; });
+      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; delete self._fed[key]; delete self._held[key]; self._forgotten[key] = true; });
       uploadStashRun("readwrite", function(store) {
         ids.forEach(function(id) { store.delete(id); });
       });
     },
 
-    // `mine`: this tab's own live records (after a reconnect). Otherwise:
-    // records nobody has touched lately, from any earlier page load.
-    _reportLeftovers(mine) {
+    // `mine`: this tab's own live records (after a reconnect) and those it
+    // reported before and has not been asked to send yet; `held`: only the
+    // latter. Otherwise: records of earlier page loads whose page is gone.
+    _reportLeftovers(mine, held) {
       var self = this;
       var now = Date.now();
       uploadStashAll().then(function(rows) {
         var expired = [];
         var scope = self._scopeNow();
-        var nextLook = null;
-        var items = rows.filter(function(row) {
+        var candidates = rows.filter(function(row) {
           if (now - row.touched > UPLOAD_STASH_KEEP_MS) { expired.push(row.id); return false; }
           if (row.scope !== scope) return false;
-          if (mine) return row.tab === self._tab && self._live[row.key];
-          if (row.tab === self._tab) return false;
-          if (now - row.touched > UPLOAD_STASH_STALE_MS) return true;
-          // Another page load's record that is still fresh: a refresh leaves
-          // its records for the heartbeat to age out, so look again when this
-          // one would be stale — it is either gone by then (its page finished)
-          // or a leftover to offer.
-          var wait = UPLOAD_STASH_STALE_MS - (now - row.touched) + 500;
-          nextLook = nextLook === null ? wait : Math.min(nextLook, wait);
-          return false;
+          if (mine) {
+            return row.tab === self._tab && !self._fed[row.key] &&
+              (self._held[row.key] || (!held && self._live[row.key]));
+          }
+          return row.tab !== self._tab && !self._fed[row.key];
         });
-        if (nextLook !== null && !mine) {
-          clearTimeout(self._rescan);
-          self._rescan = setTimeout(function() { self._reportLeftovers(false); }, nextLook);
-        }
         if (expired.length) {
           uploadStashRun("readwrite", function(store) { expired.forEach(function(id) { store.delete(id); }); });
         }
-        if (mine) items.forEach(function(row) { delete self._live[row.key]; });
+        return mine ? candidates : self._abandoned(candidates, now);
+      }).then(function(items) {
+        if (mine) items.forEach(function(row) { delete self._live[row.key]; self._held[row.key] = true; });
         if (!items.length) return;
         self.pushEventTo(self.el, "upload_resume_available", {
           items: items.map(function(row) {
-            return { key: row.key, name: row.name, size: row.size, blob: !!row.blob };
+            var item = { key: row.key, name: row.name, size: row.size, blob: !!row.blob };
+            // How long ago the copy was picked, so the server can tell a file
+            // it took before that from this one.
+            if (row.picked) item.age_ms = Math.max(0, now - row.picked);
+            return item;
           })
         });
       });
     },
 
+    // Which of another page load's records were left by a page that is gone.
+    // A record whose owner's lock is free is; one whose lock is held belongs
+    // to a page still running (a background tab is throttled, not dead) and is
+    // looked at again later. Without locks: untouched for a while.
+    _abandoned(rows, now) {
+      var self = this;
+      var tabs = rows.map(function(row) { return row.tab; })
+        .filter(function(tab, at, all) { return all.indexOf(tab) === at; });
+      return Promise.all(tabs.map(uploadStashTabGone)).then(function(gone) {
+        var free = {};
+        tabs.forEach(function(tab, at) { free[tab] = gone[at]; });
+        var nextLook = null;
+        var look = function(ms) { nextLook = nextLook === null ? ms : Math.min(nextLook, ms); };
+        var heldLock = false;
+        var items = rows.filter(function(row) {
+          if (free[row.tab] === true) return true;
+          if (free[row.tab] === false) { heldLock = true; return false; }
+          if (now - row.touched > UPLOAD_STASH_STALE_MS) return true;
+          // Another page load's record that is still fresh: a refresh leaves
+          // its records for the heartbeat to age out, so look again when this
+          // one would be stale — it is either gone by then (its page finished)
+          // or a leftover to offer.
+          look(UPLOAD_STASH_STALE_MS - (now - row.touched) + 500);
+          return false;
+        });
+        if (heldLock) {
+          look(UPLOAD_STASH_LOCK_LOOK_MS[Math.min(self._lockLooks, UPLOAD_STASH_LOCK_LOOK_MS.length - 1)]);
+          self._lockLooks++;
+        } else {
+          self._lockLooks = 0;
+        }
+        if (nextLook !== null) {
+          clearTimeout(self._rescan);
+          self._rescan = setTimeout(function() { self._reportLeftovers(false); }, nextLook);
+        }
+        return items;
+      });
+    },
+
     // Feed stashed files back to the upload input, the way the drop hook
     // does: a DataTransfer's FileList on the input, then the input event
-    // LiveView listens for.
-    _resume(keys) {
+    // LiveView listens for. The upload manager takes the event (it is flagged
+    // as a resume, so a file it already holds is not queued twice).
+    //
+    // `auto`: the server sent these without a click. If they cannot be fed,
+    // they are reported again as `manual` — the Resume button is the fallback.
+    _resume(keys, auto) {
       var self = this;
       var want = {};
       (keys || []).forEach(function(key) { want[key] = true; });
       uploadStashAll().then(function(rows) {
-        var files = rows
-          .filter(function(row) { return row.scope === self._scopeNow() && want[row.key] && row.blob; })
-          .map(function(row) {
-            return new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified });
-          });
-        if (!files.length) return;
+        var scope = self._scopeNow();
+        var held = {};
+        rows.forEach(function(row) { if (row.scope === scope && want[row.key]) held[row.key] = row; });
+        var found = [];
+        var lost = [];
+        Object.keys(want).forEach(function(key) {
+          var row = held[key];
+          if (row && row.blob) found.push(row);
+          // Asked for and not here to send: the record or its bytes went (a
+          // second tab, the browser's own cleanup) — unless it was let go of
+          // on purpose, which the server's request only crossed.
+          else if (auto && !self._forgotten[key]) lost.push(row || Object.assign(uploadStashParse(key), { key: key, gone: true }));
+        });
+        var manual = lost.map(function(row) {
+          var item = { key: row.key, name: row.name, size: row.size, blob: false, manual: true };
+          // No record at all, as against a record without bytes (too large).
+          if (row.gone) item.gone = true;
+          return item;
+        });
         // `<id>-folder-drop-upload-form` in a picker, which carries its id.
-        var input = self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
-                    self._root.querySelector("input[type=file][data-phx-upload-ref]");
-        if (!input || typeof DataTransfer === "undefined") return;
-        var dt = new DataTransfer();
-        files.forEach(function(f) { dt.items.add(f); });
-        input.files = dt.files;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        var input = found.length && (self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
+                    self._root.querySelector("input[type=file][data-phx-upload-ref]"));
+        if (found.length && (!input || typeof DataTransfer === "undefined")) {
+          if (auto) manual = manual.concat(self._manualItems(found));
+        } else if (found.length) {
+          var dt = new DataTransfer();
+          found.forEach(function(row) {
+            self._fed[row.key] = true;
+            delete self._held[row.key];
+            dt.items.add(new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified }));
+          });
+          input.files = dt.files;
+          var ev = new Event("input", { bubbles: true });
+          ev.__pkUploadResume = true;
+          input.dispatchEvent(ev);
+        }
+        if (manual.length) self.pushEventTo(self.el, "upload_resume_available", { items: manual });
+      });
+    },
+
+    _manualItems(rows) {
+      return rows.map(function(row) {
+        return { key: row.key, name: row.name, size: row.size, blob: true, manual: true };
       });
     }
   };
@@ -8076,7 +8299,13 @@
   var HARD_CAP = 20;
   // A file handed to LiveView whose row never shows up was refused (or lost)
   // somewhere between the browser and the server; say so instead of waiting.
+  // Time with the LiveView connection down does not count (see `offline`).
   var UNSEEN_GRACE_MS = 8000;
+  // A dead socket looks alive until a heartbeat (every 30 s) goes unanswered
+  // (30 s more), so the page can notice a drop up to about a minute late. A
+  // file fed within this long before the page noticed the drop may have got its
+  // "not_accepted" verdict from the drop.
+  var DROP_LOOKBACK_MS = 70000;
   // Files are handed to LiveView one batch at a time: the next goes only once
   // the last has started to move. Preflights that overlap can leave an entry
   // registered on the server that the browser never starts sending — it sits
@@ -8136,12 +8365,21 @@
     this.items = [];
     this.nextId = 1;
     this.paused = false;
+    // The page has lost its LiveView connection: nothing is handed over (it
+    // would be dropped), and waiting for an entry to show up proves nothing.
+    this.offline = false;
+    // When the page noticed the drop.
+    this.offlineSince = null;
     this.samples = [];
     this.ghosts = {};
     this.stale = {};
     this.doneBytes = 0;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
+    this.tune = freshTune(this.cap);
+  }
+
+  function freshTune(cap) {
+    return {
+      phase: cap > 1 ? "probe" : "hold",
       target: 1,
       level: {},
       windowStart: null,
@@ -8169,6 +8407,9 @@
         started: false,
         progressAt: null,
         attempts: 0,
+        // Times handed to LiveView, a re-send after a reconnect included.
+        // Unlike `attempts`, neither a Retry nor a reconnect takes it back.
+        feeds: 0,
         error: null,
         // Paused or skipped while sending, keeping its place (resumable only).
         soft: false,
@@ -8195,7 +8436,7 @@
   // The files to hand to LiveView now: as many as the current level has room
   // for, in queue order. Marks them as sent.
   UploadQueue.prototype.next = function(now) {
-    if (this.paused) return [];
+    if (this.paused || this.offline) return [];
     // One batch at a time: wait for the last one to start moving.
     for (var j = 0; j < this.items.length; j++) {
       var f = this.items[j];
@@ -8208,6 +8449,7 @@
       if (it.state !== "queued") continue;
       it.state = "uploading";
       it.attempts += 1;
+      it.feeds += 1;
       it.fedAt = now;
       it.seen = false;
       it.started = false;
@@ -8275,14 +8517,18 @@
           if (row.progress >= 100) item.progressAt = now;
         }
       } else if (item.seen) {
-        // It was there and now it is not: the host consumed it. Done.
-        this._finish(item);
-      } else if (now - item.fedAt > UNSEEN_GRACE_MS) {
+        // It was there and now it is not: the host consumed it. Done. Not
+        // while the connection is down: a rejoined LiveView does not know the
+        // entry, and that is not consumption (see `requeueSeen`).
+        if (!this.offline) this._finish(item);
+      } else if (!this.offline && now - item.fedAt > UNSEEN_GRACE_MS) {
         item.state = "failed";
         item.error = "not_accepted";
       }
 
       if (item.state === "uploading") {
+        // A silent connection is not a stalled file: the clock waits.
+        if (this.offline) item.progressAt = now;
         var waited = now - item.progressAt;
         var limit = item.bytes > 0 ? STALL_MS : START_WAIT_MS;
         if (item.seen && waited > limit && !this.resumable) {
@@ -8319,6 +8565,77 @@
     this._sample(now);
     // Once each, however many reasons there were.
     return cancel.filter(function(ref, at) { return cancel.indexOf(ref) === at; });
+  };
+
+  // The connection is back: what was handed over but never showed up as an
+  // entry was most likely dropped by the dead socket. Send it again, as if
+  // it had not been sent, and without counting it as an attempt. That includes
+  // a file judged "not_accepted" that was fed shortly before the page noticed
+  // the drop (a half-open socket looks alive for a while). An older verdict
+  // stands: LiveView refuses some files for good (an empty one, say) and that
+  // is not the drop's doing.
+  UploadQueue.prototype.requeueUnseen = function() {
+    var since = this.offlineSince;
+    this.offlineSince = null;
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.seen) continue;
+      var lost = it.state === "failed" && it.error === "not_accepted" &&
+        since != null && it.fedAt != null && it.fedAt >= since - DROP_LOOKBACK_MS;
+      if (it.state !== "uploading" && !lost) continue;
+      it.state = "queued";
+      it.error = null;
+      it.attempts = Math.max(0, it.attempts - 1);
+      it.ref = null;
+      it.started = false;
+      it.bytes = 0;
+      it.base = 0;
+    }
+    // What was measured before the drop says nothing about the link now.
+    this.samples = [];
+    this.doneBytes = 0;
+    this.tune = freshTune(this.cap);
+  };
+
+  // The connection is back, and with it a new LiveView process: it knows
+  // nothing of the entries the old one held. A file that was on its way (or
+  // stopped in place, resumable) has lost its entry; it goes back in the line
+  // to be handed over again, no failure and no attempt used up. Returns the
+  // refs of the lost entries, for the caller to stop their transfers. A
+  // resumable file carries on from the offset the server kept, because the
+  // fresh File it is sent as has the same name, size and date, so it is the
+  // same upload there.
+  UploadQueue.prototype.requeueSeen = function() {
+    var refs = [];
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      var sending = it.state === "uploading" && it.seen;
+      if (!sending && !(it.soft && it.seen)) continue;
+      if (it.ref) refs.push(it.ref);
+      if (sending) {
+        it.state = "queued";
+        it.attempts = Math.max(0, it.attempts - 1);
+      }
+      it.soft = false;
+      it.seen = false;
+      it.started = false;
+      it.ref = null;
+      it.bytes = 0;
+      it.base = 0;
+    }
+    return refs;
+  };
+
+  // The file to give LiveView for an item that `next` just returned. LiveView
+  // stamps the File objects it has handled. One that is sent again (a retry,
+  // a resume, a re-send after a reconnect) is given as a fresh object over the
+  // same bytes, so it cannot be mistaken for the transfer that was stopped.
+  UploadQueue.prototype.fileToFeed = function(item) {
+    if (item.feeds > 1 && typeof File === "function") {
+      var f = item.file;
+      item.file = new File([f], f.name, { type: f.type, lastModified: f.lastModified });
+    }
+    return item.file;
   };
 
   // A file that has not moved: sent again by itself, then reported.
@@ -8384,6 +8701,8 @@
   // while the total speed keeps rising by TUNE_GAIN, and settle where adding
   // another stopped helping.
   UploadQueue.prototype.autoTune = function(now) {
+    // Nothing moves while the connection is down: not a speed to learn from.
+    if (this.offline) return;
     var t = this.tune;
     var waiting = this.count("queued") + this.count("uploading");
 
@@ -8483,6 +8802,16 @@
     var it = this.get(id);
     if (!it || !(ACTIVE[it.state] || it.state === "skipped" || it.state === "failed")) return null;
     return this._stop(it, "cancelled");
+  };
+
+  // Whether a file with this key is in the queue and not over: waiting,
+  // sending, paused or skipped.
+  UploadQueue.prototype.holds = function(key) {
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.key === key && (ACTIVE[it.state] || it.state === "skipped")) return true;
+    }
+    return false;
   };
 
   UploadQueue.prototype.retry = function(id) {
@@ -8616,15 +8945,7 @@
     this.stale = {};
     this.doneBytes = 0;
     this.paused = false;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
-      target: 1,
-      level: {},
-      windowStart: null,
-      windowAt: null,
-      settledAt: null,
-      probeStart: null
-    };
+    this.tune = freshTune(this.cap);
   };
 
   // Anything still to do or in progress.
@@ -8961,6 +9282,8 @@
     pause: function(ref) { if (jobs[ref]) jobs[ref].pause(); },
     resume: function(ref) { if (jobs[ref]) jobs[ref].resume(); },
     discard: function(ref) { if (jobs[ref]) jobs[ref].discard(); },
+    // Let go of the transfer but leave the partial file on the server.
+    stop: function(ref) { if (jobs[ref]) jobs[ref].stop(); },
     info: function(ref) {
       var j = jobs[ref];
       return j ? { status: j.status, start: j.start } : null;
@@ -8981,7 +9304,6 @@
     mounted: function() {
       var self = this;
       var d = this.el.dataset;
-      this.uploadRef = d.uploadRef;
       this.uploadName = d.uploadName || "";
       this.entriesId = d.entries;
       this.cancelEvent = d.cancelEvent || "pk_upload_cancel";
@@ -9037,6 +9359,21 @@
       this.render();
     },
 
+    // The socket is down: files picked now wait, and the time does not count
+    // against the ones already handed over.
+    disconnected: function() {
+      if (!this.queue.offline) this.queue.offlineSince = Date.now();
+      this.queue.offline = true;
+    },
+
+    reconnected: function() {
+      var lost = this.queue.requeueSeen();
+      if (this.resumable) lost.forEach(function(ref) { chunked.stop(ref); });
+      this.queue.offline = false;
+      this.queue.requeueUnseen();
+      this.sync();
+    },
+
     // LiveView rebinding or a re-mount of the page under this hook: nothing
     // to do, the queue lives in this object.
     updated: function() {},
@@ -9050,8 +9387,15 @@
       window.removeEventListener("beforeunload", this.onUnload);
     },
 
+    // The upload's ref is new each time the LiveView process is: after a
+    // reconnect the input and this element both carry the new one, so it is
+    // read when needed, not kept from mounting.
+    _ref: function() {
+      return this.el.dataset.uploadRef;
+    },
+
     _input: function() {
-      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this.uploadRef + '"]');
+      return document.querySelector('input[type="file"][data-phx-upload-ref="' + this._ref() + '"]');
     },
 
     // Files arriving at LiveView's input (a click on the picker, a drop that
@@ -9060,13 +9404,22 @@
     _onPick: function(e) {
       var input = e.target;
       if (!input || input.tagName !== "INPUT" || input.type !== "file") return;
-      if (input.getAttribute("data-phx-upload-ref") !== this.uploadRef) return;
+      if (input.getAttribute("data-phx-upload-ref") !== this._ref()) return;
       if (e.__pkUploadManagerFeed) return;
 
       var files = input.files ? Array.prototype.slice.call(input.files) : [];
       e.stopImmediatePropagation();
       if (!files.length) return;
       try { input.value = ""; } catch (_e) { /* a read-only input is not ours to clear */ }
+
+      // Files handed back by the stash (UploadResume) after a lost transfer:
+      // one this queue still holds is on its way already, and sending it
+      // twice would be the same upload twice.
+      if (e.__pkUploadResume) {
+        var queue = this.queue;
+        files = files.filter(function(f) { return !queue.holds(fileKey(f)); });
+        if (!files.length) return;
+      }
 
       this.leftovers = withoutPicked(this.leftovers, files);
       this.queue.add(files);
@@ -9103,7 +9456,11 @@
       } catch (_e) { /* no CustomEvent: nobody is listening */ }
     },
 
+    // Held while the view is down: the batch notice is a pushEvent, which a
+    // dead channel rejects. The queue keeps what is owed, and `reconnected`
+    // announces it (or not, if the file that ended the batch is back in line).
     _announce: function() {
+      if (this.queue.offline) return;
       var notices = this.queue.takeNotices();
       for (var i = 0; i < notices.files.length; i++) {
         var n = notices.files[i];
@@ -9165,18 +9522,8 @@
         return;
       }
       var dt = new DataTransfer();
-      items.forEach(function(it) {
-        // LiveView stamps the File objects it has handled. One that was
-        // cancelled and is being sent again (a resume, a retry) is given as a
-        // fresh object over the same bytes, so it cannot be mistaken for the
-        // transfer that was stopped.
-        var file = it.file;
-        if (it.attempts > 1 && typeof File === "function") {
-          file = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
-          it.file = file;
-        }
-        dt.items.add(file);
-      });
+      var queue = this.queue;
+      items.forEach(function(it) { dt.items.add(queue.fileToFeed(it)); });
       input.files = dt.files;
       var ev = new Event("input", { bubbles: true });
       ev.__pkUploadManagerFeed = true;
@@ -9184,7 +9531,8 @@
     },
 
     _cancelEntry: function(ref) {
-      if (!ref) return;
+      // The entry is gone with the old LiveView process; there is no one to tell.
+      if (!ref || this.queue.offline) return;
       var payload = { ref: ref, name: this.uploadName };
       if (this.cancelTarget) this.pushEventTo(this.cancelTarget, this.cancelEvent, payload);
       else this.pushEvent(this.cancelEvent, payload);
@@ -9207,7 +9555,11 @@
         case "resume": q.resume(id); break;
         case "skip": ref = q.skip(id); break;
         case "restore": q.restore(id); break;
-        case "cancel": ref = q.cancel(id); if (ref) chunked.discard(ref); break;
+        case "cancel":
+          ref = q.cancel(id);
+          if (ref) chunked.discard(ref);
+          if (item && item.state === "cancelled") this._emit("cancelled", { keys: [item.key] });
+          break;
         case "retry": q.retry(id); break;
         case "prioritize": q.prioritize(id); break;
         case "pause-all": q.pauseAll(); break;
@@ -9215,7 +9567,10 @@
         case "cancel-all":
           // Stopping what is on its way is not undone by a click.
           if (q.count("uploading") && typeof window.confirm === "function" && !window.confirm(this._t("confirm_cancel_all"))) return;
+          var stopping = q.items.filter(function(it) { return ACTIVE[it.state] || it.state === "skipped"; })
+            .map(function(it) { return it.key; });
           q.cancelAll().forEach(function(r) { chunked.discard(r); this._cancelEntry(r); }, this);
+          if (stopping.length) this._emit("cancelled", { keys: stopping });
           break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;

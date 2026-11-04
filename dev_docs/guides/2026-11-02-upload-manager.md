@@ -230,8 +230,8 @@ function). The manager then:
 * **carries on after a reload**: the same file picked again, by the same
   person, is the same upload, and the server says how much it already has.
   In the media browser the files the page stashed before it went away are
-  offered again with Resume, so even the re-pick is one click (up to the
-  stash's size limit);
+  sent again by themselves when the page comes back (up to the stash's size
+  limit; see "Files left in the browser" below);
 * **checks every chunk** (SHA-256 when the browser has Web Crypto), writes it
   only at the exact end of the file (a repeated or late chunk gets `409` and
   the right offset), and never writes past the declared size.
@@ -269,7 +269,44 @@ Limits to know:
 * Browsers only reopen files the page stashed or the user picks again; none can
   read a path by itself.
 * Cancelling a file in the manager deletes its partial file; closing the tab or
-  a failure does not (that is the point).
+  a failure does not (that is the point). One exception: after a reconnect the
+  manager no longer knows the old transfer's job, so cancelling a requeued file
+  while it is still waiting leaves its old partial to the daily sweep.
+
+### Files left in the browser (media browser)
+
+The media browser copies every file a person picks into the browser's
+IndexedDB (`UploadResume`) and drops the copy when the server says it has the
+bytes. What a lost page leaves behind — a reload, a discarded phone tab, a
+dropped connection — is reported when the page loads and again on a reconnect;
+the server answers with what to do with each file:
+
+* **`upload_resume: :auto`** (the default of `MediaBrowser`): the files whose
+  bytes the browser holds are sent again by themselves, through the upload
+  manager, with no click. The server leaves out files already listed or
+  arriving, sends no more than the upload has room for under `max_entries`
+  (the rest wait in the stash, and the hook asks again when a batch ends), and
+  lists a file too large for the browser to keep as "add it again". If the
+  browser cannot start a re-send, the file is listed with a Resume button.
+* **`upload_resume: :ask`**: every leftover is listed as an upload problem with
+  a Resume button, as before.
+
+`:auto` applies only to a resumable upload. `ResumableUpload.consume/3` leaves
+a small `.done` marker (in the upload directory, kept a week) when it hands a
+file over; a leftover whose marker is newer than the moment it was picked has
+already been taken — the news died with the old page — and the hook is told to
+let it go instead of sending it again. A copy picked after the marker was
+written is not judged by it (the report says how long ago it was picked). The
+marker is node-local, like the partial files: on another node, or once the
+directory is wiped, the file is sent again, which is why a non-resumable
+upload (no marker) falls back to `:ask`. It is kept for the signed-in person,
+the owner `ResumableUpload.external/1` uses by default; a host whose own
+`allow_upload` names another `:owner` should use `:ask`.
+
+A page that was left is told apart from one that is only quiet by a Web Lock
+each page holds; where the browser has none (an insecure origin or an old
+browser) a record untouched for 15 seconds counts as left. A file cancelled in the manager is
+forgotten.
 
 ## Telling the page
 
@@ -279,7 +316,9 @@ internals:
 * **DOM events**, fired on the panel and bubbling, with details in
   `event.detail`: `pk-upload:file-done` and `pk-upload:file-failed`
   (`{name, size, key, error}`), and `pk-upload:batch-complete` when the last
-  thing in flight ends (`{done, failed, cancelled, skipped, total, bytes}`).
+  thing in flight ends (`{done, failed, cancelled, skipped, total, bytes}`);
+  `pk-upload:cancelled` (`{keys}`) when the person cancels files, so a page
+  that keeps its own copy of them can let go.
 * **An event to the LiveView**: `notify_event="batch_done"` pushes
   `batch-complete`'s detail as string keys to `handle_event("batch_done", params, socket)`;
   `notify_target={@myself}` sends it to a component instead.
@@ -326,6 +365,28 @@ Found while building it, handled in the script:
 * **`cancel_upload/3` can crash the LiveView.** It raises when the entry is
   already gone and *exits* when the entry's channel has just ended. `attach/1`
   rescues both.
+* **A file handed over while the socket is down is dropped silently.** LiveView's
+  input handler returns early when the view is not connected, so no entry ever
+  appears. The manager feeds nothing while disconnected, gives no verdict for
+  time spent offline, and on reconnect sends again what never showed up.
+  A dead socket can look alive for about a minute, so a file fed within 70 s
+  before the manager noticed the drop and judged "not_accepted" is sent again
+  too; an older "not_accepted" verdict stands.
+* **A File LiveView has handled cannot be fed again.** It carries LiveView's
+  stamp and is ignored. Every re-send (a retry, a stall, a reconnect) hands over
+  a fresh `File` over the same bytes.
+* **The upload's ref changes after a rejoin.** The new LiveView process
+  registers the upload again, so the input's `data-phx-upload-ref` and the
+  panel's `data-upload-ref` (updated even though the panel is `phx-update="ignore"`)
+  differ from what they were at mount. The script reads the ref when it needs it.
+* **A rejoin drops every entry.** The new process has none of the old one's
+  entries, so a row that vanishes is not proof the host consumed it. While the
+  socket is down the script reaches no "done" verdict, and on reconnect it stops
+  the old transfers and sends the unfinished files again as fresh `File`s; a
+  resumable one carries on from the offset the server kept (same name, size and
+  date, same upload id).
+  If the host consumed an entry just before the drop, the file can be stored
+  twice: the manager prefers a duplicate to a loss.
 
 ## Taking it to another project
 

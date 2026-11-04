@@ -722,6 +722,46 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   def folder_list_path(nil, scope_id), do: breadcrumb_path(scope_id)
   def folder_list_path(%{uuid: uuid}, _scope_id), do: breadcrumb_path(uuid)
 
+  # The paths of many folders at once ("A / B / C", root first), for the file
+  # rows of one page: a query per LEVEL of the deepest folder, not per folder.
+  # A folder with no name chain is left out, as `breadcrumb_path/1` gives nil.
+  def breadcrumb_paths(folder_uuids) do
+    chains = Storage.folder_name_chains(folder_uuids)
+
+    for {uuid, names} <- chains, names != [], into: %{} do
+      {uuid, Enum.join(names, " / ")}
+    end
+  end
+
+  # Whether a picker's "Include subfolders" switch is on offer: the picker has
+  # it (`subtree_toggle`) and the view is a folder listing — the Trash, the
+  # orphaned files and All Files are flat listings of their own.
+  def subtree_offered?(assigns) do
+    Map.get(assigns, :picker) == true and Map.get(assigns, :subtree_toggle) == true and
+      Map.get(assigns, :filter_trash) != true and Map.get(assigns, :filter_orphaned) != true and
+      Map.get(assigns, :file_view) != "all"
+  end
+
+  # Whether the listing on screen is the viewed folder's whole subtree: the
+  # switch is on offer and on. The one question the listing, the grid, the
+  # empty state and the per-file actions all ask.
+  def subtree_listing?(assigns),
+    do: subtree_offered?(assigns) and Map.get(assigns, :subtree_view) == true
+
+  # The drop-zone name of the folder a card is really in, for a listing that
+  # shows the subfolders' files in the viewed folder's zone ("root" is the top
+  # of the browser: the scope folder in a scoped one). nil when it is not so.
+  def card_origin(true, file, scope_folder_id) do
+    home = file.folder_uuid
+
+    if is_nil(home) or
+         (not is_nil(scope_folder_id) and to_string(home) == to_string(scope_folder_id)),
+       do: "root",
+       else: home
+  end
+
+  def card_origin(_listing, _file, _scope_folder_id), do: nil
+
   def format_file_size(bytes), do: Format.bytes(bytes, base: 1000, decimals: 2)
 
   # The browser's own confirmation of a removal, left out when a removal guard
