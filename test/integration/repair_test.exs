@@ -142,6 +142,37 @@ defmodule PhoenixKit.Integration.RepairTest do
     def chain_hash, do: "module_index"
   end
 
+  # The fixture, but its owner_uuid index is declared unique: the kind of index
+  # a failed `CREATE ... CONCURRENTLY` really leaves behind, invalid.
+  defmodule UniqueIndexManifest do
+    @moduledoc false
+    alias PhoenixKit.Test.FixtureExpectedSchema
+
+    defdelegate data_invariants(prefix), to: FixtureExpectedSchema
+    defdelegate chain_hash, to: FixtureExpectedSchema
+
+    def objects(prefix) do
+      for object <- FixtureExpectedSchema.objects(prefix) do
+        if object.id == "index:phoenix_kit_fixture_widgets_owner_uuid_index" do
+          revisions =
+            for {since, shape} <- object.revisions do
+              {since,
+               %{
+                 shape
+                 | unique: true,
+                   definition:
+                     String.replace(shape.definition, "CREATE INDEX", "CREATE UNIQUE INDEX")
+               }}
+            end
+
+          %{object | revisions: revisions}
+        else
+          object
+        end
+      end
+    end
+  end
+
   # The fixture, but its owner_uuid index is declared descending.
   defmodule DescIndexManifest do
     @moduledoc false
@@ -478,6 +509,34 @@ defmodule PhoenixKit.Integration.RepairTest do
         assert Enum.any?(findings, &(&1.kind == :equivalent_under_another_name)) == twin?
         assert Enum.any?(findings, &(&1.kind == :missing)) == not twin?
       end
+    end
+
+    test "an index a failed concurrent build left invalid does not stand in for the declared one" do
+      Application.put_env(:phoenix_kit, :expected_schema_module, UniqueIndexManifest)
+      Repo.query!("DROP INDEX #{@prefix}.#{@index}")
+      Repo.query!("INSERT INTO #{@prefix}.#{@owners} (slug) VALUES ('invalid-index-owner')")
+
+      Repo.query!("""
+      INSERT INTO #{@prefix}.#{@widgets} (name, owner_uuid)
+      SELECT n, (SELECT uuid FROM #{@prefix}.#{@owners} WHERE slug = 'invalid-index-owner')
+      FROM unnest(ARRAY['one', 'two']) AS n
+      """)
+
+      # Two rows of one owner: the build fails and leaves its index behind.
+      assert_raise Postgrex.Error, ~r/could not create unique index/, fn ->
+        Repo.query!(
+          "CREATE UNIQUE INDEX CONCURRENTLY legacy_widgets_owner_idx " <>
+            "ON #{@prefix}.#{@widgets} (owner_uuid)"
+        )
+      end
+
+      assert "legacy_widgets_owner_idx" in index_names(@widgets)
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+      findings = Report.findings(report)
+
+      assert Enum.any?(findings, &(&1.kind == :missing and &1.object_id == "index:#{@index}"))
+      refute Enum.any?(findings, &(&1.kind == :equivalent_under_another_name))
     end
 
     test "a manifest that cannot be read: no twin is matched, and the run says so" do

@@ -195,7 +195,8 @@ defmodule PhoenixKit.Migrations.Repair.Probe do
           FROM unnest(string_to_array(i.indclass::text, ' ')::oid[])
                WITH ORDINALITY AS u(opcoid, ord)
           JOIN pg_opclass op ON op.oid = u.opcoid),
-         con.contype::text
+         con.contype::text,
+         i.indisvalid
   FROM pg_index i
   JOIN pg_class ic ON ic.oid = i.indexrelid
   JOIN pg_class t ON t.oid = i.indrelid
@@ -371,7 +372,18 @@ defmodule PhoenixKit.Migrations.Repair.Probe do
   end
 
   defp partition_index_row(
-         [table, name, unique, method, definition, predicate, keys, opclasses, backing_contype],
+         [
+           table,
+           name,
+           unique,
+           method,
+           definition,
+           predicate,
+           keys,
+           opclasses,
+           backing_contype,
+           valid
+         ],
          {plain, constraint_backed}
        ) do
     shape = %{
@@ -381,7 +393,8 @@ defmodule PhoenixKit.Migrations.Repair.Probe do
       definition: definition,
       predicate: predicate,
       keys: keys || [],
-      opclasses: opclasses || []
+      opclasses: opclasses || [],
+      valid: valid
     }
 
     if is_nil(backing_contype) do

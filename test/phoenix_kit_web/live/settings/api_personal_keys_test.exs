@@ -471,10 +471,12 @@ defmodule PhoenixKitWeb.Live.Settings.ApiPersonalKeysTest do
 
     test "in a borrowed session no key and no service user is created", %{conn: conn} do
       {user, _role} = KeyTestSupport.user_with(["media"])
+      # Counted after `borrowed/1`, which adds the person who borrows the session.
+      conn = borrowed(log_in_user(conn, user))
       keys_before = Repo.aggregate(Key, :count)
       users_before = Repo.aggregate(PhoenixKit.Users.Auth.User, :count)
 
-      {:ok, view, _html} = live(borrowed(log_in_user(conn, user)), @path)
+      {:ok, view, _html} = live(conn, @path)
 
       view |> element("#api-new-key") |> render_click()
       refute has_element?(view, "#create-api-key-form")

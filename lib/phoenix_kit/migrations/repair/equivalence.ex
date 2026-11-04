@@ -39,6 +39,10 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
     * An index that backs a primary key or unique constraint is not a candidate
       for an index, and a plain unique index is not a candidate for a unique
       constraint.
+    * An index left invalid (`pg_index.indisvalid` false: what a failed
+      `CREATE INDEX CONCURRENTLY` leaves behind) is not a candidate. The planner
+      never uses it, so it answers for nothing, and the declared index still has
+      to be built.
 
   Found by name, the name is the identity and the structure is only checked for
   drift; for a twin the structure is the only identity, so the index definition
@@ -47,8 +51,8 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   `__SCHEMA__` token standing for that qualifier on a declaration that still
   carries it. A definition that cannot be read that way is not a twin.
 
-  What is not compared: validity of an index, and the validity, deferrability,
-  `MATCH` type and `NULLS NOT DISTINCT` of a key constraint.
+  What is not compared: the validity, deferrability, `MATCH` type and
+  `NULLS NOT DISTINCT` of a key constraint.
 
   A partial index whose predicate Postgres prints differently from the manifest
   (a major outside the verified range can) is not a twin: `Differ` cannot tell a
@@ -139,7 +143,7 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
       ) do
     snapshot.indexes
     |> Enum.filter(fn {candidate, observed} ->
-      candidate != name and observed.table == table and
+      candidate != name and observed.table == table and Map.get(observed, :valid, true) and
         not MapSet.member?(excluded, {:index, candidate})
     end)
     |> Enum.sort_by(fn {candidate, _observed} -> candidate end)

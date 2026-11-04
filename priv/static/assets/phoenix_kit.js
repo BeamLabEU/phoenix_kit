@@ -10452,6 +10452,8 @@ if (typeof window.Chart === "undefined") {
         }
         return mine ? candidates : self._abandoned(candidates, now);
       }).then(function(items) {
+        // The stash is read asynchronously: the hook can be gone by now.
+        if (self._destroyed) return;
         if (mine) items.forEach(function(row) { delete self._live[row.key]; self._held[row.key] = true; });
         if (!items.length) return;
         self.pushEventTo(self.el, "upload_resume_available", {
@@ -10475,6 +10477,8 @@ if (typeof window.Chart === "undefined") {
       var tabs = rows.map(function(row) { return row.tab; })
         .filter(function(tab, at, all) { return all.indexOf(tab) === at; });
       return Promise.all(tabs.map(uploadStashTabGone)).then(function(gone) {
+        // `destroyed` cleared the timers: one set now would run for good.
+        if (self._destroyed) return [];
         var free = {};
         tabs.forEach(function(tab, at) { free[tab] = gone[at]; });
         var nextLook = null;
