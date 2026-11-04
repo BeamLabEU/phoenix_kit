@@ -228,6 +228,13 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
       assert find(snapshot(indexes: %{declared => index()}), @index_id) == nil
     end
 
+    test "that a failed concurrent build left invalid is not a twin" do
+      assert find(snapshot(indexes: %{"legacy" => index(valid: true)}), @index_id) ==
+               {:index, "legacy"}
+
+      assert find(snapshot(indexes: %{"legacy" => index(valid: false)}), @index_id) == nil
+    end
+
     test "an index backed by a constraint is not looked at" do
       snapshot = snapshot(constraint_backed_indexes: %{"legacy" => index()})
       assert find(snapshot, @index_id) == nil

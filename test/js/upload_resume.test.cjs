@@ -462,6 +462,20 @@ test("a record whose tab holds its lock is not abandoned, however long it has be
   assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["a.png|5|7"]);
 });
 
+test("a look still running when the hook is destroyed reports nothing and schedules nothing", async () => {
+  const h = runHook({ locks: fakeLocks({ "old-tab": true }) });
+  h.store.rows.push(leftover(h, "a.png|5|7", { touched: 0 }));
+  h.store.rows.push(leftover(h, "b.png|5|7", { tab: "gone-tab" }));
+
+  h.ctx._reportLeftovers(false);
+  h.ctx.destroyed();
+  await settle();
+
+  assert.deepStrictEqual(h.pushed, [], "a held lock and a free one, and nobody left to tell");
+  assert.deepStrictEqual(h.timers.filter((t) => !t.cleared && t.ms >= 1000), [],
+    "`destroyed` has cleared the timers already: a new one would run for good");
+});
+
 test("one lock check per tab, however many records it left", async () => {
   const locks = fakeLocks();
   const h = runHook({ locks });
