@@ -18998,6 +18998,11 @@ msgstr "Il caricamento si è interrotto: la pagina è stata chiusa o ricaricata.
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "Il caricamento si è interrotto e il file era troppo grande per conservarne una copia. Aggiungilo di nuovo."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1240
+#, elixir-autogen, elixir-format
+msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+msgstr "Il caricamento si è interrotto e il browser non ha più una copia del file. Aggiungilo di nuovo."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:6456
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."

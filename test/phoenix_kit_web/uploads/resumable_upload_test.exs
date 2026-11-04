@@ -275,6 +275,124 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       assert File.read!(path) == "012"
     end
 
+    @fields %{client_name: "cat.png", client_size: "5", client_last_modified: "99"}
+
+    test "a file handed over is remembered as taken — by the key a browser reports it under",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      refute ResumableUpload.taken?("u1", @fields)
+
+      assert ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end) == :stored
+
+      assert ResumableUpload.taken?("u1", @fields)
+
+      refute ResumableUpload.taken?("u2", @fields),
+             "someone else's file of the same name is not it"
+
+      refute ResumableUpload.taken?("u1", %{@fields | client_last_modified: "100"})
+      assert ResumableUpload.taken?("u1", entry), "an upload entry names the same file"
+    end
+
+    test "a file the callback refused is not taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+
+      ResumableUpload.consume(socket, entry, fn _ -> {:postpone, :later} end)
+
+      refute ResumableUpload.taken?("u1", @fields)
+      assert File.exists?(path)
+    end
+
+    test "a partial file is not taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "012")
+
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      refute ResumableUpload.taken?("u1", @fields)
+    end
+
+    test "a marker is judged against when the browser's copy was picked", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      assert ResumableUpload.taken?("u1", @fields, 60_000), "taken after the copy was picked"
+      assert ResumableUpload.taken?("u1", @fields, 0)
+
+      marker = Path.join(dir, Path.basename(path, ".part") <> ".done")
+      File.touch!(marker, System.os_time(:second) - 3600)
+
+      refute ResumableUpload.taken?("u1", @fields, 60_000), "taken before the copy was picked"
+      assert ResumableUpload.taken?("u1", @fields, 2 * 3_600_000), "…and after an older copy"
+      assert ResumableUpload.taken?("u1", @fields), "no age: any marker counts"
+      assert ResumableUpload.taken?("u1", @fields, nil)
+      assert ResumableUpload.taken?("u1", @fields, -1)
+    end
+
+    test "the tolerance is one second: a marker written in the second of the pick counts, a later pick does not",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      written = System.os_time(:second) - 100
+      File.touch!(Path.join(dir, Path.basename(path, ".part") <> ".done"), written)
+      age = fn picked_ms -> System.os_time(:millisecond) - picked_ms end
+
+      # Whole seconds are all the file system tells: a pick 900 ms into the
+      # second the marker is stamped with may well have come before it.
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000 + 900))
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000))
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000 - 5000))
+
+      # The next second and a half on: the marker was stamped before the pick.
+      refute ResumableUpload.taken?("u1", @fields, age.((written + 1) * 1000 + 500))
+      refute ResumableUpload.taken?("u1", @fields, age.((written + 1) * 1000 + 5000))
+    end
+
+    test "a marker that cannot be written is logged, and the file is still handed over",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert :stored ==
+                   ResumableUpload.consume(socket, entry, fn %{path: p} ->
+                     result = store(p)
+                     # The directory turns into a file under it: no marker fits.
+                     File.rm_rf!(dir)
+                     File.write!(dir, "not a directory")
+                     result
+                   end)
+        end)
+
+      assert log =~ "could not mark an upload as taken"
+      refute ResumableUpload.taken?("u1", @fields)
+      File.rm(dir)
+    end
+
+    test "the same file sent again is no longer taken", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+      assert ResumableUpload.taken?("u1", @fields)
+
+      {:ok, _meta, _} = ResumableUpload.external(base: "/up").(entry, socket)
+
+      refute ResumableUpload.taken?("u1", @fields),
+             "a new upload of it has begun: a copy left behind by it is not stale"
+    end
+
     test "a file already taken by another entry of the same upload is not handed over" do
       {socket, entry, path} = finished(5)
       refute File.exists?(path)
@@ -283,6 +401,16 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
                {:error, :incomplete_upload}
 
       refute_received {:stored, _}
+    end
+  end
+
+  describe "external?/1" do
+    test "is true for the function external/1 builds, and for no other" do
+      assert ResumableUpload.external?(ResumableUpload.external())
+      assert ResumableUpload.external?(ResumableUpload.external(base: "/up"))
+      refute ResumableUpload.external?(fn _entry, socket -> {:ok, %{}, socket} end)
+      refute ResumableUpload.external?(false)
+      refute ResumableUpload.external?(nil)
     end
   end
 
@@ -300,6 +428,21 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       ResumableUpload.release(%{uploader: "PkChunked", path: path})
       refute File.exists?(path)
       File.rm(outside)
+    end
+
+    test "sweep/1 keeps the mark of a taken file for a week, not a day", %{dir: dir} do
+      File.mkdir_p!(dir)
+      a_week = Path.join(dir, "week.done")
+      two_days = Path.join(dir, "two-days.done")
+      File.write!(a_week, "")
+      File.write!(two_days, "")
+      File.touch!(a_week, System.os_time(:second) - 8 * 86_400)
+      File.touch!(two_days, System.os_time(:second) - 2 * 86_400)
+
+      ResumableUpload.sweep(86_400)
+
+      refute File.exists?(a_week)
+      assert File.exists?(two_days)
     end
 
     test "sweep/1 removes partial files nobody has touched", %{dir: dir} do

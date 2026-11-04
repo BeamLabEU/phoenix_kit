@@ -19050,6 +19050,11 @@ msgstr "Przesyłanie zostało przerwane — strona została zamknięta lub odśw
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "Przesyłanie zostało przerwane, a plik był zbyt duży, by zachować jego kopię. Dodaj go ponownie."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1240
+#, elixir-autogen, elixir-format
+msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+msgstr "Przesyłanie zostało przerwane, a przeglądarka nie ma już kopii pliku. Dodaj go ponownie."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:6456
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."

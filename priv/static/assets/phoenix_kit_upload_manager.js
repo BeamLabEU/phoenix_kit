@@ -549,6 +549,16 @@
     return this._stop(it, "cancelled");
   };
 
+  // Whether a file with this key is in the queue and not over: waiting,
+  // sending, paused or skipped.
+  UploadQueue.prototype.holds = function(key) {
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.key === key && (ACTIVE[it.state] || it.state === "skipped")) return true;
+    }
+    return false;
+  };
+
   UploadQueue.prototype.retry = function(id) {
     var it = this.get(id);
     if (it && it.state === "failed") { it.state = "queued"; it.error = null; it.bytes = 0; it.base = 0; it.seen = false; it.started = false; it.ref = null; it.attempts = 0; }
@@ -1147,6 +1157,15 @@
       if (!files.length) return;
       try { input.value = ""; } catch (_e) { /* a read-only input is not ours to clear */ }
 
+      // Files handed back by the stash (UploadResume) after a lost transfer:
+      // one this queue still holds is on its way already, and sending it
+      // twice would be the same upload twice.
+      if (e.__pkUploadResume) {
+        var queue = this.queue;
+        files = files.filter(function(f) { return !queue.holds(fileKey(f)); });
+        if (!files.length) return;
+      }
+
       this.leftovers = withoutPicked(this.leftovers, files);
       this.queue.add(files);
       this.sync();
@@ -1281,7 +1300,11 @@
         case "resume": q.resume(id); break;
         case "skip": ref = q.skip(id); break;
         case "restore": q.restore(id); break;
-        case "cancel": ref = q.cancel(id); if (ref) chunked.discard(ref); break;
+        case "cancel":
+          ref = q.cancel(id);
+          if (ref) chunked.discard(ref);
+          if (item && item.state === "cancelled") this._emit("cancelled", { keys: [item.key] });
+          break;
         case "retry": q.retry(id); break;
         case "prioritize": q.prioritize(id); break;
         case "pause-all": q.pauseAll(); break;
@@ -1289,7 +1312,10 @@
         case "cancel-all":
           // Stopping what is on its way is not undone by a click.
           if (q.count("uploading") && typeof window.confirm === "function" && !window.confirm(this._t("confirm_cancel_all"))) return;
+          var stopping = q.items.filter(function(it) { return ACTIVE[it.state] || it.state === "skipped"; })
+            .map(function(it) { return it.key; });
           q.cancelAll().forEach(function(r) { chunked.discard(r); this._cancelEntry(r); }, this);
+          if (stopping.length) this._emit("cancelled", { keys: stopping });
           break;
         case "retry-failed": q.retryFailed(); break;
         case "clear": q.clearFinished(); break;

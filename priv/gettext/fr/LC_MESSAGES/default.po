@@ -18998,6 +18998,11 @@ msgstr "Le téléversement a été interrompu — la page a été fermée ou rec
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "Le téléversement a été interrompu et le fichier était trop volumineux pour en garder une copie. Ajoutez-le à nouveau."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1240
+#, elixir-autogen, elixir-format
+msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+msgstr "Le téléversement a été interrompu et le navigateur n'a plus de copie du fichier. Ajoutez-le à nouveau."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:6456
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."

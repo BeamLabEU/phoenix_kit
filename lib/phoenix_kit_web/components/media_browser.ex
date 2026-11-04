@@ -341,6 +341,19 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     rotations made in the viewer persist to the file row. Bulk-select is
     still reachable via the toolbar's Select button — once `select_mode`
     is on, clicks toggle selection instead of opening the modal.
+  - `upload_resume` (default `:auto`) — what to do with files whose transfer
+    was cut short (the page was refreshed, the tab discarded, the connection
+    lost) and whose copy the browser kept: `:auto` sends them again by
+    itself, `:ask` lists them as upload problems with a Resume button. Files
+    the server has already taken, or is receiving, are never sent again; a
+    file too large for the browser to keep is listed either way, to be added
+    again. If a re-send cannot start in the browser, the file is listed with
+    Resume. `:auto` applies only to a resumable upload (the default, see
+    *Resumable uploads* in Settings -> Media): the server's record of what it
+    has taken comes from there, and without it the browser asks. That record
+    is kept for the signed-in person (`phoenix_kit_current_user`), the owner
+    `ResumableUpload.external/1` uses by default; a host whose own
+    `allow_upload` names another `:owner` should use `:ask`.
   - `readonly` (default `false`) — embed the browser for viewing only.
     Every write-capable affordance is hidden — the upload zone and
     drag-drop upload input, the toolbar's Add Media / Select / New folder
@@ -613,6 +626,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> assign_new(:gallery_mode, fn -> false end)
       |> assign_new(:upload_in_flight, fn -> false end)
       |> assign_new(:upload_problems_session, fn -> [] end)
+      # What happens to files a lost transfer left in the browser's stash:
+      # `:auto` sends them again, `:ask` lists them with a Resume button.
+      |> assign_new(:upload_resume, fn -> :auto end)
       # The picker (see the moduledoc's "Picker"). `picked` is the working
       # pick, an ordered list of file uuids; `selected` is only where it
       # starts (first mount) — the host's later renders never reach it.
@@ -1291,6 +1307,130 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       client_size: problem.client_size || 0,
       client_last_modified: nil
     }
+  end
+
+  defp add_resume_problem(socket, item) do
+    add_upload_problem(socket, %{
+      kind: :browser,
+      client_name: if(is_binary(item["name"]), do: item["name"], else: "file"),
+      client_size: item["size"],
+      client_key: item["key"],
+      retry: item["blob"] == true,
+      reason: resume_reason(item)
+    })
+  end
+
+  defp resume_reason(%{"blob" => true}),
+    do: gettext("The upload was cut short — the page was closed or refreshed.")
+
+  # The browser had no record of it any more when it came to send it.
+  defp resume_reason(%{"gone" => true}),
+    do:
+      gettext(
+        "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+      )
+
+  defp resume_reason(_item),
+    do:
+      gettext(
+        "The upload was cut short, and the file was too large to keep a copy of. Add it again."
+      )
+
+  defp push_resume_keys(socket, event, items, extra \\ %{})
+  defp push_resume_keys(socket, _event, [], _extra), do: socket
+
+  defp push_resume_keys(socket, event, items, extra) do
+    keys = Enum.map(items, & &1["key"])
+    payload = socket |> resume_target() |> Map.merge(extra) |> Map.put(:keys, keys)
+    push_event(socket, event, payload)
+  end
+
+  # Already listed, or being received right now: the report adds nothing.
+  defp known_upload?(socket, key) do
+    Enum.any?(socket.assigns[:upload_problems_session] || [], &(&1[:client_key] == key)) or
+      Enum.any?(upload_entries(socket), &(client_key(&1) == key))
+  end
+
+  defp upload_entries(socket) do
+    case upload_config(socket) do
+      %{entries: entries} when is_list(entries) -> entries
+      _ -> []
+    end
+  end
+
+  defp upload_config(socket) do
+    case socket.assigns[:parent_uploads] do
+      %{} = uploads -> Map.get(uploads, socket.assigns[:upload_name] || :media_files)
+      _ -> nil
+    end
+  end
+
+  # The file was handed to the server by an earlier page (see
+  # `ResumableUpload.taken?/2`). The owner is the signed-in person, as the
+  # default `ResumableUpload.external/1` takes it. `age_ms` is how long ago
+  # the browser's copy was picked: a marker older than that is not about it.
+  defp upload_taken?(socket, %{"key" => key} = item) do
+    with %{uuid: owner} <- socket.assigns[:phoenix_kit_current_user],
+         {:ok, fields} <- split_client_key(key) do
+      ResumableUpload.taken?(owner, fields, item["age_ms"])
+    else
+      _ -> false
+    end
+  end
+
+  # The reverse of `client_key/1`. A name may hold the separator; the size and
+  # the date, which cannot, are the last two parts.
+  defp split_client_key(key) do
+    case key |> String.split("|") |> Enum.reverse() do
+      [modified, size, first | rest] ->
+        name = [first | rest] |> Enum.reverse() |> Enum.join("|")
+        {:ok, %{client_name: name, client_size: size, client_last_modified: modified}}
+
+      _ ->
+        :error
+    end
+  end
+
+  # What is done with files the browser holds whole, in `:auto` mode: the hook
+  # is told to send as many as the upload has room for (`max_entries` less the
+  # entries it holds now); the rest wait in the stash, and the hook asks again
+  # when a batch ends. Anything else is listed with its Resume button.
+  #
+  # `:auto` needs the server's own record of what it has taken (the marker of
+  # `ResumableUpload.consume/3`): an upload that is not resumable has none, and
+  # a file it already consumed would go again. It asks, as `:ask` does.
+  defp split_auto_resume(socket, items) do
+    if auto_resume?(socket) do
+      {candidates, others} = Enum.split_with(items, &(&1["blob"] == true))
+
+      {resend, waiting} =
+        case upload_room(socket) do
+          :infinity -> {candidates, []}
+          room -> Enum.split(candidates, room)
+        end
+
+      {resend, others, waiting}
+    else
+      {[], items, []}
+    end
+  end
+
+  defp auto_resume?(socket) do
+    socket.assigns[:upload_resume] != :ask and socket.assigns[:readonly] != true and
+      resumable_upload?(upload_config(socket))
+  end
+
+  defp resumable_upload?(%{external: fun}), do: ResumableUpload.external?(fun)
+  defp resumable_upload?(_config), do: false
+
+  defp upload_room(socket) do
+    case upload_config(socket) do
+      %{max_entries: limit} when is_integer(limit) ->
+        max(limit - length(upload_entries(socket)), 0)
+
+      _ ->
+        :infinity
+    end
   end
 
   defp discard_upload_problems(socket, pick) do
@@ -5125,32 +5265,33 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
 
   # The UploadResume hook found files a previous page load stashed and never
   # heard back about: the transfer was cut short (a refresh, a closed tab, a
-  # dropped connection). Listed like any other problem; Resume re-sends them.
+  # dropped connection). The server decides what becomes of each one:
+  #
+  #   * the file is already on its way, or listed: nothing;
+  #   * the server has already taken it (the news of that died with the old
+  #     page): the hook is told to let go of it;
+  #   * the browser holds the bytes and `upload_resume` is `:auto`: the hook is
+  #     told to send it again, while the upload has room for more entries (the
+  #     rest are left in the stash, and the hook reports again when a batch ends);
+  #   * anything else is listed like any other problem; Resume re-sends it.
+  #
+  # `"manual"` items are the hook handing back what it could not send itself.
   def handle_event("upload_resume_available", %{"items" => items}, socket)
       when is_list(items) do
-    socket =
+    {manual, items} =
       items
       |> Enum.filter(&(is_map(&1) and is_binary(&1["key"])))
-      |> Enum.reject(fn item ->
-        Enum.any?(socket.assigns.upload_problems_session, &(&1[:client_key] == item["key"]))
-      end)
-      |> Enum.reduce(socket, fn item, acc ->
-        add_upload_problem(acc, %{
-          kind: :browser,
-          client_name: if(is_binary(item["name"]), do: item["name"], else: "file"),
-          client_size: item["size"],
-          client_key: item["key"],
-          retry: item["blob"] == true,
-          reason:
-            if(item["blob"] == true,
-              do: gettext("The upload was cut short — the page was closed or refreshed."),
-              else:
-                gettext(
-                  "The upload was cut short, and the file was too large to keep a copy of. Add it again."
-                )
-            )
-        })
-      end)
+      |> Enum.reject(&known_upload?(socket, &1["key"]))
+      |> Enum.split_with(&(&1["manual"] == true))
+
+    {taken, items} = Enum.split_with(items, &upload_taken?(socket, &1))
+    {resend, listed, _waiting} = split_auto_resume(socket, items)
+
+    socket =
+      (manual ++ listed)
+      |> Enum.reduce(socket, &add_resume_problem(&2, &1))
+      |> push_resume_keys("phoenix_kit:upload-discard", taken)
+      |> push_resume_keys("phoenix_kit:upload-resume", resend, %{auto: true})
 
     {:noreply, socket}
   end

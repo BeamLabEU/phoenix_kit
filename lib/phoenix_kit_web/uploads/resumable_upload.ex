@@ -52,6 +52,11 @@ defmodule PhoenixKitWeb.ResumableUpload do
   a wrong offset is `409` with the right one. The file's bytes are kept in
   `dir/0`; a partial file nobody touches for a day is swept away.
 
+  Once `consume/3` has handed a file over, a small marker is left for a week
+  (`taken?/2`) and the partial file goes. A browser that kept its own copy,
+  and whose page closed before it heard the file had arrived, asks the marker
+  before it sends the copy again. A new upload of the same file removes it.
+
   ## Security
 
   Every request carries the token (`x-upload-token`), which names the upload,
@@ -64,6 +69,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
   import Plug.Conn
 
+  require Logger
+
   alias PhoenixKit.Utils.Routes
 
   @salt "phoenix_kit resumable upload"
@@ -71,6 +78,7 @@ defmodule PhoenixKitWeb.ResumableUpload do
   @chunk_size 2 * 1_048_576
   @max_chunk 16 * 1_048_576
   @keep_seconds 86_400
+  @done_keep_seconds 7 * 86_400
   @sweep_every_seconds 600
   @uploader "PkChunked"
 
@@ -100,6 +108,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
         owner ->
           sweep_now_and_then()
           id = upload_id(owner, entry)
+          # Picked or sent again: whatever was taken before is not this one.
+          File.rm(done_path(id))
 
           token =
             Phoenix.Token.sign(socket.endpoint, @salt, %{
@@ -140,7 +150,12 @@ defmodule PhoenixKitWeb.ResumableUpload do
     Phoenix.LiveView.consume_uploaded_entry(socket, entry, fn meta ->
       if assembled?(meta, entry) do
         result = fun.(meta)
-        if match?({:ok, _}, result), do: release(meta)
+
+        if match?({:ok, _}, result) do
+          mark_taken(meta)
+          release(meta)
+        end
+
         result
       else
         {:ok, {:error, :incomplete_upload}}
@@ -164,6 +179,62 @@ defmodule PhoenixKitWeb.ResumableUpload do
   end
 
   def release(_meta), do: :ok
+
+  @doc """
+  Whether the server has already taken this person's file, the one named by
+  `client_name`, `client_size` and `client_last_modified` (an upload entry's
+  fields, or the same three in a map of strings): its bytes were handed over
+  by `consume/3` and it has not been picked or sent again since.
+
+  A browser that kept its own copy of a file in case the transfer was cut
+  short asks this before sending the copy again — the page it was told on may
+  have gone before the news arrived.
+
+  The marker belongs to the file, not to the browser's copy, so a copy picked
+  AFTER the file was taken must not be judged by it: `age_ms` is how long ago
+  the browser's copy was picked, and only a marker written since then counts.
+  Without it (a copy that does not say) any marker counts.
+
+  The marker is a file in this node's temporary directory (`dir/0`), as the
+  partial files are. On another node, or after that directory is wiped, a
+  taken file is not known to be: the browser's copy is sent again.
+  """
+  def taken?(owner, fields, age_ms \\ nil) when is_map(fields) do
+    case File.stat(done_path(upload_id(to_string(owner), fields)), time: :posix) do
+      {:ok, %{mtime: written}} -> written_since?(written, age_ms)
+      _ -> false
+    end
+  end
+
+  # Whole seconds: a marker written in the second the copy was picked counts.
+  defp written_since?(_written, age_ms) when not is_integer(age_ms) or age_ms < 0, do: true
+
+  defp written_since?(written, age_ms),
+    do: (written + 1) * 1000 > System.os_time(:millisecond) - age_ms
+
+  @doc """
+  Whether `fun` (an upload config's `external`) is the one `external/1` builds:
+  a closure defined in this module.
+  """
+  def external?(fun) when is_function(fun),
+    do: Function.info(fun, :module) == {:module, __MODULE__}
+
+  def external?(_fun), do: false
+
+  # A marker, not a copy: kept for as long as the browser may keep its own.
+  defp mark_taken(%{uploader: @uploader, id: id}) when is_binary(id) do
+    with :ok <- File.mkdir_p(dir()),
+         :ok <- File.write(done_path(id), "") do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("ResumableUpload: could not mark an upload as taken (#{inspect(reason)})")
+    end
+  end
+
+  defp mark_taken(_meta), do: :ok
+
+  defp done_path(id), do: Path.join(dir(), id <> ".done")
 
   defp owner(socket, opts) do
     case Keyword.get(opts, :owner) do
@@ -221,17 +292,20 @@ defmodule PhoenixKitWeb.ResumableUpload do
     end
   end
 
-  @doc "Deletes partial files nobody has touched for `max_age` seconds."
+  @doc """
+  Deletes partial files nobody has touched for `max_age` seconds, and the
+  markers of taken files a week after they were written.
+  """
   def sweep(max_age \\ @keep_seconds) do
-    cutoff = System.os_time(:second) - max_age
+    now = System.os_time(:second)
 
     case File.ls(dir()) do
       {:ok, names} ->
-        for name <- names, String.ends_with?(name, ".part") do
+        for name <- names, limit = mtime_limit(name, now, max_age) do
           path = Path.join(dir(), name)
 
           case File.stat(path, time: :posix) do
-            {:ok, %{mtime: mtime}} when mtime < cutoff -> File.rm(path)
+            {:ok, %{mtime: mtime}} when mtime < limit -> File.rm(path)
             _ -> :ok
           end
         end
@@ -243,6 +317,14 @@ defmodule PhoenixKitWeb.ResumableUpload do
     end
   end
 
+  defp mtime_limit(name, now, max_age) do
+    cond do
+      String.ends_with?(name, ".part") -> now - max_age
+      String.ends_with?(name, ".done") -> now - @done_keep_seconds
+      true -> nil
+    end
+  end
+
   # At most every few minutes, in the process that is already doing the work.
   defp sweep_now_and_then do
     now = System.monotonic_time(:second)
@@ -250,7 +332,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
     if is_nil(last) or now - last > @sweep_every_seconds do
       :persistent_term.put({__MODULE__, :swept}, now)
-      sweep()
+      # Off the caller's process: it is a LiveView, and this stats every file.
+      Task.start(fn -> sweep() end)
     end
   end
 

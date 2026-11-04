@@ -18998,6 +18998,11 @@ msgstr "Der Upload wurde abgebrochen — die Seite wurde geschlossen oder neu ge
 msgid "The upload was cut short, and the file was too large to keep a copy of. Add it again."
 msgstr "Der Upload wurde abgebrochen, und die Datei war zu groß, um eine Kopie aufzubewahren. Bitte fügen Sie sie erneut hinzu."
 
+#: lib/phoenix_kit_web/components/media_browser.ex:1240
+#, elixir-autogen, elixir-format
+msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+msgstr "Der Upload wurde abgebrochen, und der Browser hat keine Kopie der Datei mehr. Bitte fügen Sie sie erneut hinzu."
+
 #: lib/phoenix_kit_web/components/media_browser.ex:6456
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."
