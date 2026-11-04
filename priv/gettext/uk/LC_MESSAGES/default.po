@@ -24197,3 +24197,23 @@ msgstr "Надсилати файли частинами, які сервер з
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Незавершені завантаження"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Включно з вкладеними папками"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Показувати також файли з папок нижче"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Нічого переносити"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "Перенесено: %{moved} з %{total}"

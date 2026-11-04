@@ -24,10 +24,18 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
   @doc """
   Displays pagination controls with page numbers and navigation buttons.
 
+  Two modes. With `build_url` every page is a patch link (URL-driven pages).
+  With `on_page` every page is a button that sends that LiveView event with
+  `phx-value-page` (embeddable views with no URL of their own; `target` is its
+  `phx-target`, a LiveComponent's `@myself`). `build_url` is required unless
+  `on_page` is set: with neither, rendering raises an `ArgumentError`.
+
   ## Attributes
   - `page` - Current page number (required)
   - `total_pages` - Total number of pages (required)
-  - `build_url` - Function that takes page number and returns URL (required)
+  - `build_url` - Function that takes page number and returns URL (links mode)
+  - `on_page` - Event name; set it for buttons instead of links (events mode)
+  - `target` - `phx-target` of the events (events mode)
   - `class` - Additional CSS classes
 
   ## Examples
@@ -37,11 +45,64 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
         total_pages={@total_pages}
         build_url={&build_page_url(&1, assigns)}
       />
+
+      <.pagination_controls
+        page={@page}
+        total_pages={@total_pages}
+        on_page="set_page"
+        target={@myself}
+      />
   """
   attr :page, :integer, required: true
   attr :total_pages, :integer, required: true
-  attr :build_url, :any, required: true
+  attr :build_url, :any, default: nil
+  attr :on_page, :string, default: nil
+  attr :target, :any, default: nil
   attr :class, :string, default: ""
+
+  def pagination_controls(%{on_page: on_page} = assigns) when is_binary(on_page) do
+    ~H"""
+    <div :if={@total_pages > 1} class={["join", @class]}>
+      <button
+        :if={@page > 1}
+        type="button"
+        phx-click={@on_page}
+        phx-value-page={@page - 1}
+        phx-target={@target}
+        class="join-item btn btn-sm"
+      >
+        « {gettext("Prev")}
+      </button>
+
+      <button
+        :for={page_num <- pagination_range(@page, @total_pages)}
+        type="button"
+        phx-click={@on_page}
+        phx-value-page={page_num}
+        phx-target={@target}
+        class={["join-item btn btn-sm", page_num == @page && "btn-active"]}
+      >
+        {page_num}
+      </button>
+
+      <button
+        :if={@page < @total_pages}
+        type="button"
+        phx-click={@on_page}
+        phx-value-page={@page + 1}
+        phx-target={@target}
+        class="join-item btn btn-sm"
+      >
+        {gettext("Next")} »
+      </button>
+    </div>
+    """
+  end
+
+  def pagination_controls(%{build_url: nil}) do
+    raise ArgumentError,
+          "pagination_controls needs either build_url (links) or on_page (events)"
+  end
 
   def pagination_controls(assigns) do
     ~H"""

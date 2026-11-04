@@ -24136,3 +24136,23 @@ msgstr "Saada failid osadena, mida server säilitab. Peatatud üleslaadimine jä
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Lõpetamata üleslaadimised"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Kaasa alamkaustad"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Näita ka allpool asuvate kaustade faile"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Pole midagi liigutada"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "Liigutatud: %{moved} / %{total}"

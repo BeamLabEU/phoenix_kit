@@ -24126,3 +24126,23 @@ msgstr "Dateien in Teilen senden, die der Server aufbewahrt. Ein angehaltener Up
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Unvollständige Uploads"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Unterordner einbeziehen"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Auch die Dateien der darunterliegenden Ordner anzeigen"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Nichts zu verschieben"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "%{moved} von %{total} Elementen verschoben"

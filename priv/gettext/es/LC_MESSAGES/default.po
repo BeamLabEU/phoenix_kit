@@ -24135,3 +24135,23 @@ msgstr "Enviar los archivos en partes que el servidor conserva. Una subida en pa
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Subidas sin terminar"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Incluir subcarpetas"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Mostrar también los archivos de las carpetas de debajo"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Nada que mover"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "%{moved} de %{total} elementos movidos"

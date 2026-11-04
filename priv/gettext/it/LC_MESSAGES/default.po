@@ -24126,3 +24126,23 @@ msgstr "Invia i file in parti che il server conserva. Un caricamento in pausa ri
 #, elixir-autogen, elixir-format
 msgid "Unfinished uploads"
 msgstr "Caricamenti non completati"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Include subfolders"
+msgstr "Includi le sottocartelle"
+
+#: lib/phoenix_kit_web/components/media_browser/header.html.heex
+#, elixir-autogen, elixir-format
+msgid "Show the files of the folders below this one too"
+msgstr "Mostra anche i file delle cartelle sottostanti"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "Nothing to move"
+msgstr "Niente da spostare"
+
+#: lib/phoenix_kit_web/components/media_browser.ex
+#, elixir-autogen, elixir-format
+msgid "%{moved} of %{total} items moved"
+msgstr "%{moved} su %{total} elementi spostati"
