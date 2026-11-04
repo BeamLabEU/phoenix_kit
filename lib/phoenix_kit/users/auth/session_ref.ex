@@ -45,20 +45,23 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
   @typedoc """
   Why a session cannot act: `:session_gone` (no such live session: logged out, revoked,
   expired, not a session row, or a service user's), `:mismatch` (the session belongs to
-  another user), `:inactive` (the user is blocked), `:unconfirmed` (the email is not
-  confirmed and confirmation is required) or `:referral_required` (the invite-only gate
-  still asks for a referral code). `:service_user` and `:managed_organization` are refused
-  by `scope_for_user/2` only: a session never belongs to either on its own.
+  another user), or a refusal of the account gate (`t:gate_refusal/0`).
   """
-  @type refusal :: :session_gone | :mismatch | account_refusal()
+  @type refusal :: :session_gone | :mismatch | gate_refusal()
 
-  @typedoc "Why the account gate stops a user: see `t:refusal/0`."
-  @type account_refusal ::
-          :inactive
-          | :unconfirmed
-          | :referral_required
-          | :service_user
-          | :managed_organization
+  @typedoc """
+  Why the account gate stops a user: `:inactive` (the user is blocked), `:unconfirmed` (the
+  email is not confirmed and confirmation is required) or `:referral_required` (the
+  invite-only gate still asks for a referral code).
+  """
+  @type gate_refusal :: :inactive | :unconfirmed | :referral_required
+
+  @typedoc """
+  Why `scope_for_user/2` stops an account that has no web session of its own: a service user
+  or a managed organization. A session never belongs to either on its own, so
+  `scope_for_session/2` never answers these.
+  """
+  @type account_refusal :: gate_refusal() | :service_user | :managed_organization
 
   @doc """
   The scope of the live session `session_token_uuid`, which must belong to `user_uuid`.
@@ -100,6 +103,7 @@ defmodule PhoenixKit.Users.Auth.SessionRef do
   # The checks of the web's account gate. A session found through its token row has passed
   # the person checks already (`UserToken`'s session query), so `scope_for_session/2` comes
   # straight here: a managed organization's session minted for a manager is a session.
+  @spec account_gate(User.t(), keyword()) :: {:ok, Scope.t()} | {:error, gate_refusal()}
   defp account_gate(%User{} = user, opts) do
     with %User{} = active <- Auth.ensure_active_user(user) || {:error, :inactive},
          :ok <- confirmed(active),

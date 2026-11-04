@@ -377,10 +377,12 @@ defmodule PhoenixKit.Users.Sessions do
         )
       )
 
-    # The user locked their account down: a chat linked to the site bot is one of the others.
-    Linking.drop_links(user_uuid)
+    if count > 0 do
+      # The user locked their account down: a chat linked to the site bot is one of the others.
+      Linking.drop_links(user_uuid)
+      Events.broadcast_user_sessions_revoked(user_uuid, count)
+    end
 
-    if count > 0, do: Events.broadcast_user_sessions_revoked(user_uuid, count)
     count
   end
 

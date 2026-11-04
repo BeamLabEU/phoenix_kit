@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Live.Users.TelegramNotificationsCardTest do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.UserToken
+  alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Test.TelegramCardHostLive, as: Host
 
@@ -548,9 +549,34 @@ defmodule PhoenixKitWeb.Live.Users.TelegramNotificationsCardTest do
         {:ok, view, html} = host(conn, user, session)
 
         refute html =~ "Connect Telegram"
+        # The host forgot the attribute; that is not the session's fault.
+        assert html =~ "can&#39;t be connected on this page"
+        refute html =~ "from this session"
         forge_connect(view)
         assert link_tokens(user) == 0
       end
+    end
+
+    test "the profile page itself refuses to connect in an impersonated session", %{
+      conn: conn,
+      user: user
+    } do
+      root_token = Auth.generate_user_session_token(register("root"))
+      active_token = Plug.Conn.get_session(conn, :user_token)
+      borrowed = Plug.Conn.put_session(conn, :pk_session_accounts, [root_token, active_token])
+
+      {:ok, view, html} = live(borrowed, @path)
+
+      refute html =~ "Connect Telegram"
+      assert html =~ "can&#39;t be connected from this session"
+
+      forge_connect(view)
+      assert link_tokens(user) == 0
+      refute_received {:telegram, "getMe", _}
+
+      # The same page in the person's own session offers it.
+      {:ok, _view, html} = live(conn, @path)
+      assert html =~ "Connect Telegram"
     end
 
     test "a borrowed session does not offer to reconnect or get a new link", %{
@@ -594,6 +620,72 @@ defmodule PhoenixKitWeb.Live.Users.TelegramNotificationsCardTest do
       view |> with_target("#telegram-notifications-card") |> render_hook("check", %{})
       assert link_tokens(user) == 0
       refute_received {:telegram, "getMe", _}
+    end
+
+    test "a managed organization with a link stored earlier can only disconnect it", %{
+      conn: conn,
+      user: user,
+      site: site
+    } do
+      {:ok, _} = Linking.link_chat(user, site, 9_100)
+
+      RepoHelper.repo().update_all(from(u in Auth.User, where: u.uuid == ^user.uuid),
+        set: [managed_by_members: true, account_type: "organization"]
+      )
+
+      {:ok, view, html} = host(conn, user, %{"impersonated" => false})
+
+      assert html =~ "Disconnect"
+      refute html =~ "Connect Telegram"
+      refute html =~ "Reconnect"
+      refute html =~ "telegram_types"
+
+      forge_connect(view)
+      assert link_tokens(user) == 0
+
+      view
+      |> with_target("#telegram-notifications-card")
+      |> render_hook("save_types", %{"telegram_types" => %{"x" => "true"}})
+
+      refute Map.has_key?(config(user)["types"] || %{}, "x")
+
+      view |> element("button", "Disconnect") |> render_click()
+      assert config(user)["site_chat_id"] == nil
+      refute render(view) =~ "Telegram"
+    end
+  end
+
+  describe "a link that was dropped" do
+    setup %{site: site},
+      do:
+        (
+          :ok = SiteBot.select(site)
+          :ok
+        )
+
+    test "the card says it was disconnected and must be connected again", %{
+      conn: conn,
+      user: user,
+      site: site
+    } do
+      {:ok, _} = Linking.link_chat(user, site, 9_200)
+      Sessions.revoke_user_sessions(Auth.get_user!(user.uuid))
+
+      {:ok, _view, html} = live(log_in_user(conn, user), @path)
+
+      assert html =~ "was disconnected"
+      assert html =~ "Connect Telegram"
+
+      # Connecting again clears the note.
+      {:ok, _} = Linking.link_chat(Auth.get_user!(user.uuid), site, 9_200)
+      {:ok, _view, html} = live(log_in_user(conn, user), @path)
+      refute html =~ "was disconnected"
+      assert html =~ "Connected"
+    end
+
+    test "a user who never had a link is not told anything", %{conn: conn} do
+      {:ok, _view, html} = live(conn, @path)
+      refute html =~ "was disconnected"
     end
   end
 end

@@ -1667,6 +1667,8 @@ defmodule PhoenixKit.Users.Auth do
     |> WelcomeEmail.track_transition(user)
     |> Ecto.Multi.update(:user, changeset)
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
+    # The pre-registrant keeps nothing, a chat linked to the site bot included.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     # Enqueued in this transaction — and in the OAuth callback's around it —
     # so a rollback takes the welcome email with the confirmation.
     |> WelcomeEmail.multi()

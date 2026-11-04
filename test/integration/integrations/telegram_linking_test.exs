@@ -97,6 +97,13 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
     )
   end
 
+  defp dropped_entries(user_uuid) do
+    RepoHelper.repo().all(
+      from e in Entry,
+        where: e.action == "telegram.link_dropped" and e.resource_uuid == ^user_uuid
+    )
+  end
+
   defp linked(user_uuid) do
     user = Auth.get_user!(user_uuid)
     ChannelConfig.for_channel(user, "telegram")
@@ -835,8 +842,9 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
 
     test "signing out the other sessions drops it", %{connection: connection} do
       {u, token} = linked_user_with_session(connection, 6005)
+      _other = Auth.generate_user_session_token(u)
 
-      Sessions.revoke_other_user_sessions(u, token)
+      assert Sessions.revoke_other_user_sessions(u, token) == 1
 
       refute still_linked?(connection, 6005)
     end
@@ -857,6 +865,100 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
       Auth.delete_user_session_token(token)
 
       assert still_linked?(connection, 6007)
+    end
+
+    test "a link token minted before the recovery does not link afterwards", %{
+      connection: connection,
+      updates: agent
+    } do
+      recoveries = [
+        {6101, fn u, _token -> Sessions.revoke_user_sessions(u) end},
+        {6102, fn u, token -> Sessions.revoke_other_user_sessions(u, token) end},
+        {6103, fn u, _token -> Auth.delete_all_user_session_tokens(u) end}
+      ]
+
+      for {chat, recover} <- recoveries do
+        {u, session_token} = linked_user_with_session(connection, chat + 1000)
+        # A second session, so "the others" has something to sign out.
+        _other = Auth.generate_user_session_token(u)
+        {:ok, link_token} = Linking.create_token(u, connection)
+
+        recover.(u, session_token)
+
+        put_updates(agent, [start_update(chat, chat, link_token)])
+        assert {:ok, %{linked: 0}} = Linking.poll(connection)
+        refute still_linked?(connection, chat)
+        assert Linking.consume_token(link_token, connection) == :error
+      end
+    end
+
+    test "signing out the others when there are none changes nothing", %{connection: connection} do
+      {u, token} = linked_user_with_session(connection, 6010)
+      {:ok, link_token} = Linking.create_token(u, connection)
+
+      assert Sessions.revoke_other_user_sessions(u, token) == 0
+
+      assert still_linked?(connection, 6010)
+      assert Linking.pending?(u, connection)
+      assert dropped_entries(u.uuid) == []
+      assert is_binary(link_token)
+    end
+
+    test "a confirmation by an external proof drops it", %{connection: connection} do
+      u = user()
+      {:ok, _} = Linking.link_chat(u, connection, 6011)
+      assert still_linked?(connection, 6011)
+
+      assert {:ok, _} = Auth.confirm_user_from_external_proof(Auth.get_user!(u.uuid))
+
+      refute still_linked?(connection, 6011)
+    end
+
+    test "a failed password change keeps it", %{connection: connection} do
+      {u, _token} = linked_user_with_session(connection, 6012)
+
+      assert {:error, _} =
+               Auth.update_user_password(u, "WrongCurrentPassword1!", %{
+                 password: @new_password,
+                 password_confirmation: @new_password
+               })
+
+      assert still_linked?(connection, 6012)
+      assert dropped_entries(u.uuid) == []
+    end
+
+    test "dropping a link is recorded in the activity feed, without the chat", %{
+      connection: connection
+    } do
+      {u, _token} = linked_user_with_session(connection, 6013)
+
+      Sessions.revoke_user_sessions(u)
+
+      assert [entry] = dropped_entries(u.uuid)
+      refute inspect(entry.metadata) =~ "6013"
+      refute inspect(entry.metadata) =~ connection
+
+      # Nothing left to drop: no second entry.
+      Sessions.revoke_user_sessions(u)
+      assert [_] = dropped_entries(u.uuid)
+    end
+
+    test "the user is told on the config; connecting again or disconnecting clears it", %{
+      connection: connection
+    } do
+      {u, _token} = linked_user_with_session(connection, 6014)
+      refute Map.has_key?(linked(u.uuid), "link_dropped_at")
+
+      Sessions.revoke_user_sessions(u)
+      assert is_binary(linked(u.uuid)["link_dropped_at"])
+
+      {:ok, _} = Linking.link_chat(Auth.get_user!(u.uuid), connection, 6014)
+      refute Map.has_key?(linked(u.uuid), "link_dropped_at")
+
+      Sessions.revoke_user_sessions(u)
+      assert is_binary(linked(u.uuid)["link_dropped_at"])
+      :ok = Linking.unlink(Auth.get_user!(u.uuid))
+      refute Map.has_key?(linked(u.uuid), "link_dropped_at")
     end
 
     test "only the user's own link goes", %{connection: connection} do
@@ -1069,6 +1171,45 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
 
       refute_received {:telegram, "getUpdates", _}
       assert linked(u.uuid)["site_chat_id"] == nil
+    end
+
+    def not_running(_connection_uuid),
+      do: exit({:noproc, {GenServer, :call, [:reader_that_is_down, :holds?, 5_000]}})
+
+    def not_running_bare(_connection_uuid), do: exit(:noproc)
+
+    test "a reader that is not running holds nothing: the bot is read", %{
+      connection: connection,
+      updates: agent
+    } do
+      u = user()
+      {:ok, token} = Linking.create_token(u, connection)
+
+      for reader <- [:not_running, :not_running_bare] do
+        Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, reader, []})
+        assert Linking.resident_reader?(connection) == false
+      end
+
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :not_running, []})
+      put_updates(agent, [start_update(1, 57, token)])
+
+      assert Linking.poll(connection) == {:ok, %{linked: 1}}
+      assert_received {:telegram, "getUpdates", _}
+      assert linked(u.uuid)["site_chat_id"] == "57"
+    end
+
+    test "a reader that cannot answer is warned about at most once in a while", %{
+      connection: connection
+    } do
+      :persistent_term.erase({Linking, :unanswered_logged_at})
+      Application.put_env(:phoenix_kit, :telegram_updates_reader, {__MODULE__, :raises, []})
+
+      log =
+        ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+          for _ <- 1..5, do: assert(Linking.resident_reader?(connection) == true)
+        end)
+
+      assert length(String.split(log, "did not answer")) == 2
     end
 
     test "no reader configured holds nothing", %{connection: connection} do

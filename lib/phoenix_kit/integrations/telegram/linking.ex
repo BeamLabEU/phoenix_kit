@@ -65,12 +65,22 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
 
   A linked chat can act as the user in the Machine API (`PhoenixKit.API.Executor`),
   so the link is dropped (`drop_links/1`, the routing choices stay) when the user
-  recovers the account: a password change or reset (also by an administrator), signing
-  out all or all other sessions, deactivation. Signing out one session leaves it.
-  `PhoenixKit.Users.Auth.delete_all_user_session_tokens/1` and the password writes call
-  it in the transaction that revokes the sessions. A managed organization (`managed_by_members`)
-  and a service user (`api_only`) cannot link a chat (`linkable?/1`) and are nobody's link
-  (`linked_user/2`).
+  recovers the account: a password change or reset (also by an administrator), the
+  confirmation of an unconfirmed account by an external proof, signing out all sessions or
+  the others (when there were any), deactivation. Signing out one session leaves it.
+  Link tokens not used yet go with it, because a token is not bound to the session that
+  minted it. The chat is also where the user's Telegram notifications go, so they stop
+  until it is connected again: the activity feed gets a `telegram.link_dropped` entry
+  and the card says so (`link_dropped_at`).
+
+  The password writes and the confirmation drop the link in the transaction that rotates the
+  credential, so a failed change keeps it. Signing out sessions and deactivation drop it in a
+  statement of their own right after the sessions are deleted: if that one failed, the
+  sessions would be gone and the link would stay.
+
+  A managed organization (`managed_by_members`) and a service user (`api_only`) cannot link
+  a chat (`linkable?/1`) and are nobody's link (`linked_user/2`); a link one of them stored
+  earlier is inert, and the card lets such an account disconnect it.
   """
 
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -94,6 +104,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   @context "telegram_link"
   @ttl_minutes 15
   @channel "telegram"
+  @warn_every_ms 60_000
   # Anything shaped like one of our tokens gets an answer when it fails; any
   # other `/start` payload is somebody else's business.
   @token_shape ~r/\A[A-Za-z0-9_-]{32,64}\z/
@@ -268,9 +279,11 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   @doc """
   Whether the host's resident reader (`config :phoenix_kit,
   :telegram_updates_reader, {mod, fun, args}`, asked with the connection uuid
-  appended) holds this bot. Nothing configured holds nothing. **A reader that cannot
-  answer holds the bot**: it raises, exits, or answers anything but `false`, or the
-  setting is not a `{mod, fun, args}` — reading then would take its updates away.
+  appended) holds this bot. Nothing configured holds nothing, and neither does a reader
+  that is not running (`holds?` exits with `:noproc`). **A reader that cannot answer holds
+  the bot**: it raises, exits otherwise (a timeout), or answers anything but `false`, or the
+  setting is not a `{mod, fun, args}` — reading then would take its updates away. Either
+  case is logged as a warning at most once a minute.
 
   `fun` is asked from any node and must answer for the cluster, not only for its own
   node. Anything else that would call `getUpdates` on a bot must ask first: a second
@@ -298,12 +311,33 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   rescue
     _ -> unanswered()
   catch
+    # A reader that is configured but not running (its process is down) holds nothing.
+    :exit, :noproc -> not_running()
+    :exit, {:noproc, _} -> not_running()
     _, _ -> unanswered()
   end
 
   defp unanswered do
-    Logger.warning("[Telegram.Linking] the resident reader did not answer; the bot is held")
+    warn_now_and_then("the resident reader did not answer; the bot is held")
     true
+  end
+
+  defp not_running do
+    warn_now_and_then("the resident reader is not running; reading the bot's updates here")
+    false
+  end
+
+  # `poll/1` runs every few seconds per open page: say it once in a while.
+  defp warn_now_and_then(message) do
+    now = System.monotonic_time(:millisecond)
+    last = :persistent_term.get({__MODULE__, :unanswered_logged_at}, nil)
+
+    if last == nil or now - last >= @warn_every_ms do
+      :persistent_term.put({__MODULE__, :unanswered_logged_at}, now)
+      Logger.warning("[Telegram.Linking] " <> message)
+    end
+
+    :ok
   end
 
   # The database half: one transaction under the lock, no Telegram in it.
@@ -512,7 +546,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
     if linkable?(user) do
       ChannelConfig.update(user, @channel, fn config ->
         config
-        |> Map.drop(["status", "disabled_reason"])
+        |> Map.drop(["status", "disabled_reason", "link_dropped_at"])
         |> Map.put("enabled", true)
         |> Map.put("site_chat_id", to_string(chat_id))
         |> Map.put("site_connection_uuid", connection_uuid)
@@ -549,7 +583,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
     case ChannelConfig.update(
            user,
            @channel,
-           &Map.drop(&1, ["site_chat_id", "site_connection_uuid", "linked_at"])
+           &Map.drop(&1, ["site_chat_id", "site_connection_uuid", "linked_at", "link_dropped_at"])
          ) do
       {:ok, _} ->
         Activity.log("notifications", "telegram.unlinked",
@@ -592,29 +626,53 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   def linked_user(_connection_uuid, _chat_id), do: nil
 
   @doc """
-  Drops the site-bot link of the user `user_uuid` (the chat, the bot and the time), in one
-  statement that touches nothing else in `custom_fields`: the routing choices stay, as with
-  `unlink/1`. Runs inside the caller's transaction when there is one. See "A link is a
-  standing credential" in the moduledoc.
+  Drops the site-bot link of the user `user_uuid` (the chat, the bot and the time) and the
+  link tokens they minted and have not used, in two statements that touch nothing else: the
+  routing choices stay, as with `unlink/1`. When a link was there it leaves a
+  `link_dropped_at` mark for the card to explain, and a `telegram.link_dropped` entry in the
+  activity feed (no chat, no bot). Runs inside the caller's transaction when there is one.
+  See "A link is a standing credential" in the moduledoc.
   """
   @spec drop_links(String.t()) :: :ok
   def drop_links(user_uuid) when is_binary(user_uuid) do
-    {_count, _} =
-      RepoHelper.repo().update_all(
+    repo = RepoHelper.repo()
+    now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+    {dropped, _} =
+      repo.update_all(
         from(u in User,
-          where: u.uuid == ^user_uuid,
+          where:
+            u.uuid == ^user_uuid and
+              fragment(
+                "? #>> '{notification_channel:telegram,site_chat_id}' IS NOT NULL",
+                u.custom_fields
+              ),
           update: [
             set: [
               custom_fields:
                 fragment(
-                  "((? #- '{notification_channel:telegram,site_chat_id}') #- '{notification_channel:telegram,site_connection_uuid}') #- '{notification_channel:telegram,linked_at}'",
-                  u.custom_fields
+                  "jsonb_set(((? #- '{notification_channel:telegram,site_chat_id}') #- '{notification_channel:telegram,site_connection_uuid}') #- '{notification_channel:telegram,linked_at}', '{notification_channel:telegram,link_dropped_at}', to_jsonb(?::text))",
+                  u.custom_fields,
+                  ^now
                 )
             ]
           ]
         ),
         []
       )
+
+    # A token is not bound to the session that minted it: one kept from before the
+    # recovery would link a chat again.
+    repo.delete_all(
+      from t in UserToken, where: t.user_uuid == ^user_uuid and t.context == @context
+    )
+
+    if dropped > 0 do
+      Activity.log("notifications", "telegram.link_dropped",
+        resource_type: "user",
+        resource_uuid: user_uuid
+      )
+    end
 
     :ok
   end

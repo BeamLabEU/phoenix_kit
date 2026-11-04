@@ -911,6 +911,8 @@ defmodule PhoenixKit.API.Executor do
   defp session_refusal(:unconfirmed), do: "The user's email is not confirmed."
   defp session_refusal(:referral_required), do: "The user has not entered a referral code."
   defp session_refusal(:unlinked), do: "The chat is not linked to this user."
+  # Only a linked chat reaches the two below (`SessionRef.scope_for_user/2`), and
+  # `Linking.linked_user/2` filters both first: they are the second layer, not a dead end.
   defp session_refusal(:service_user), do: "A service user has no session."
 
   defp session_refusal(:managed_organization),
