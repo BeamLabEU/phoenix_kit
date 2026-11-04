@@ -135,7 +135,7 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
 `--minify`, `gzip -9 -n`): `phoenix_kit.js` is 253 733 B raw, 72 415 gzip, 94 841 minified, 29 027 minified + gzip;
-`phoenix_kit_admin.js` is 425 996 / 119 980 / 160 836 / 47 214. The size budget in `admin_split.test.cjs` (256 KiB for
+`phoenix_kit_admin.js` is 426 222 / 120 055 / 160 877 / 47 229. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 

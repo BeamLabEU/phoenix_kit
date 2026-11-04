@@ -160,10 +160,16 @@ function reloadedPage({ order }) {
   w.location.pathname = "/admin/media";
   // The resume hook looks for what an earlier page left 1.5 s after it mounts;
   // the test says when.
-  const timers = { scan: null };
+  const timers = { scan: null, set: [] };
   w.setTimeout = (fn, ms) => {
     if (ms === 1500) { timers.scan = fn; return 0; }
-    return setTimeout(fn, ms);
+    const t = setTimeout(fn, ms);
+    timers.set.push({ ms, t, cleared: false });
+    return t;
+  };
+  w.clearTimeout = (t) => {
+    clearTimeout(t);
+    timers.set.forEach((x) => { if (x.t === t) x.cleared = true; });
   };
   env.load("phoenix_kit.js");
 
@@ -243,10 +249,10 @@ function reloadedPage({ order }) {
       input.dispatchEvent(new FakeEvent("input", { bubbles: true }));
     },
     // What an earlier page load left in the browser.
-    stash(file) {
+    stash(file, ageMs) {
       const scope = resume._scopeNow();
       const key = file.name + "|" + file.size + "|" + file.lastModified;
-      const old = env.window.Date.now() - 60000;
+      const old = env.window.Date.now() - (ageMs === undefined ? 60000 : ageMs);
       idb.rows.set(scope + "\u0000" + key, {
         id: scope + "\u0000" + key, key, scope, name: file.name, size: file.size, type: file.type,
         lastModified: file.lastModified, blob: file, tab: "an-earlier-page", picked: old, touched: old
@@ -383,6 +389,64 @@ test("the bundle arriving during an outage: a file picked then waits for the rec
     assert.strictEqual(page.lv.entries[0].err, null);
     assert.ok(page.store.files["/u/waiting.bin"].body.equals(data), "it arrived whole once the socket was back");
     assert.deepStrictEqual(page.lv.errors, []);
+  } finally {
+    page.destroy();
+  }
+});
+
+test("an UploadResume stub destroyed before the bundle never starts the real hook: the stash is not read, nothing is scheduled", async () => {
+  const page = reloadedPage({ order: ["resume", "manager"] });
+  try {
+    page.resume.destroyed(); // LiveView removed the element while the bundle was on its way
+    await page.bundleArrives();
+    assert.strictEqual(page.timers.scan, null, "no look at the stash was ever scheduled");
+    assert.strictEqual(page.idb.transactions, 0, "and the stash was not opened");
+    assert.deepStrictEqual(page.reports, []);
+    assert.strictEqual(typeof page.manager.queue, "object", "the manager beside it mounted all the same");
+  } finally {
+    page.destroy();
+  }
+});
+
+test("a hook destroyed while its look at the stash is running reports nothing and schedules nothing", async () => {
+  const page = reloadedPage({ order: ["manager", "resume"] });
+  try {
+    await page.bundleArrives();
+    page.stash(leftover(bytes(1000, 3))); // left by an earlier page: would be reported
+    page.stash(new File([bytes(500, 7)], "fresh.bin", { lastModified: 1700000000003 }), 1000); // still touched: would be looked at again
+    const before = page.timers.set.length;
+
+    page.timers.scan(); // the look starts: it reads the stash asynchronously
+    page.resume.destroyed();
+    await tick();
+    await tick();
+    await tick();
+
+    assert.deepStrictEqual(page.reports, [], "nobody is left to tell");
+    assert.deepStrictEqual(page.timers.set.slice(before).filter((t) => !t.cleared && t.ms >= 1000), [],
+      "and no timer set now would be cleared by anything");
+  } finally {
+    page.destroy();
+  }
+});
+
+test("a hook destroyed while the look after a reconnect is running reports nothing", async () => {
+  const page = reloadedPage({ order: ["resume", "manager"] });
+  try {
+    await page.bundleArrives();
+    // A file this page picked itself: its record is this tab's, and a reconnect makes it a leftover.
+    page.resume._stash([leftover(bytes(1000, 3))]);
+    await tick();
+    await tick();
+    assert.strictEqual(page.idb.rows.size, 1, "the pick was written to the stash");
+
+    page.resume.reconnected(); // the look begins
+    page.resume.destroyed();
+    await tick();
+    await tick();
+    await tick();
+
+    assert.deepStrictEqual(page.reports, [], "the page is gone: nobody is told");
   } finally {
     page.destroy();
   }
