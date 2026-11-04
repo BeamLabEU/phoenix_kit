@@ -16,7 +16,9 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   `:match`, nothing looser:
 
     * an index: uniqueness, access method, key columns, operator classes and
-      predicate;
+      predicate, and the column part of its definition (everything after
+      `USING`), which carries what the key list does not: sort direction,
+      `NULLS FIRST/LAST`, `COLLATE`, `INCLUDE` and `WITH (...)`;
     * a primary key or unique constraint: its type and columns;
     * a foreign key: its columns, the referenced table and columns, and the
       `ON DELETE` / `ON UPDATE` actions.
@@ -38,9 +40,15 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
       for an index, and a plain unique index is not a candidate for a unique
       constraint.
 
-  What is not compared is what `Differ.compare/3` does not compare for objects
-  found by name either: the sort order, `NULLS FIRST/LAST` and collation of an
-  index column, storage parameters, validity, and deferrability.
+  Found by name, the name is the identity and the structure is only checked for
+  drift; for a twin the structure is the only identity, so the index definition
+  is compared too. The two texts are compared with the index name and the schema
+  qualifier of the table (and of anything else in the text) left out, the
+  `__SCHEMA__` token standing for that qualifier on a declaration that still
+  carries it. A definition that cannot be read that way is not a twin.
+
+  What is not compared: validity of an index, and the validity, deferrability,
+  `MATCH` type and `NULLS NOT DISTINCT` of a key constraint.
 
   A partial index whose predicate Postgres prints differently from the manifest
   (a major outside the verified range can) is not a twin: `Differ` cannot tell a
@@ -60,6 +68,8 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   @type twin :: {:index | :constraint, String.t()}
 
   @key_constraint_types ["p", "u", "f"]
+
+  @schema_token Object.schema_token()
 
   @doc """
   Every index and constraint name `objects` declare, as `{:index, name}` and
@@ -86,21 +96,31 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   """
   @spec assign(Probe.snapshot(), [Scope.resolved()], claimed()) :: %{String.t() => twin()}
   def assign(snapshot, resolved, claimed) do
-    {twins, _taken} =
-      Enum.reduce(resolved, {%{}, claimed}, fn %{object: object, shape: shape}, {twins, taken} ->
-        # A legacy-optional object is reported absent whatever is there, so it
-        # takes no twin away from a required one.
-        with false <- Map.get(object, :presence) == :legacy_optional,
-             nil <- Probe.lookup(snapshot, object.check),
-             {kind, name} = twin <- find(snapshot, object, shape, taken) do
-          {_, spec} = object.check
-          {Map.put(twins, object.id, twin), MapSet.put(taken, key(kind, spec, name))}
-        else
-          _ -> {twins, taken}
-        end
-      end)
-
+    {twins, _taken} = assign_taken(snapshot, resolved, claimed)
     twins
+  end
+
+  @doc """
+  `assign/3`, and with the twins it handed out the names now taken: `claimed`
+  plus one entry per twin. Pass that set as `claimed` of the next pass over the
+  same snapshot (a module manifest after core's) so one object is never the twin
+  of two declared objects.
+  """
+  @spec assign_taken(Probe.snapshot(), [Scope.resolved()], claimed()) ::
+          {%{String.t() => twin()}, claimed()}
+  def assign_taken(snapshot, resolved, claimed) do
+    Enum.reduce(resolved, {%{}, claimed}, fn %{object: object, shape: shape}, {twins, taken} ->
+      # A legacy-optional object is reported absent whatever is there, so it
+      # takes no twin away from a required one.
+      with false <- Map.get(object, :presence) == :legacy_optional,
+           nil <- Probe.lookup(snapshot, object.check),
+           {kind, name} = twin <- find(snapshot, object, shape, taken) do
+        {_, spec} = object.check
+        {Map.put(twins, object.id, twin), MapSet.put(taken, key(kind, spec, name))}
+      else
+        _ -> {twins, taken}
+      end
+    end)
   end
 
   @doc """
@@ -124,7 +144,7 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
     end)
     |> Enum.sort_by(fn {candidate, _observed} -> candidate end)
     |> Enum.find_value(fn {candidate, observed} ->
-      if Differ.compare(:index, expected, observed) == :match, do: {:index, candidate}
+      if same_index?(expected, observed, table), do: {:index, candidate}
     end)
   end
 
@@ -147,6 +167,36 @@ defmodule PhoenixKit.Migrations.Repair.Equivalence do
   end
 
   def find(_snapshot, _object, _expected, _excluded), do: nil
+
+  defp same_index?(expected, observed, table) do
+    Differ.compare(:index, expected, observed) == :match and
+      same_columns_part?(Map.get(expected, :definition), Map.get(observed, :definition), table)
+  end
+
+  # Everything after `USING` in `pg_get_indexdef`: method, columns with their
+  # ordering and collation, INCLUDE, WITH, predicate. Reads `ON [ONLY] <schema>.<table>
+  # USING <rest>`; the schema qualifier is whatever stands between `ON` and the
+  # table, and the same qualifier is replaced by the token wherever else it
+  # appears, so the two sides meet.
+  defp same_columns_part?(expected, observed, table) do
+    with {:ok, expected_part} <- columns_part(expected, table),
+         {:ok, observed_part} <- columns_part(observed, table) do
+      expected_part == observed_part
+    else
+      _ -> false
+    end
+  end
+
+  defp columns_part(definition, table) when is_binary(definition) do
+    pattern = ~r/ ON (?:ONLY )?(.+)\.#{Regex.escape(table)} USING (.*)\z/s
+
+    case Regex.run(pattern, definition) do
+      [_, qualifier, rest] -> {:ok, String.replace(rest, qualifier <> ".", @schema_token <> ".")}
+      _ -> :error
+    end
+  end
+
+  defp columns_part(_definition, _table), do: :error
 
   @doc """
   `snapshot` with every object of `objects` that is in scope at `bound`, absent

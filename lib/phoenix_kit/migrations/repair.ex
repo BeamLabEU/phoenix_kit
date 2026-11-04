@@ -244,6 +244,7 @@ defmodule PhoenixKit.Migrations.Repair do
       ctx.prefix
       |> Report.new(ctx.dry_run, %{comment: comment1, floor: ctx.floor, current: ctx.current})
       |> add_server_version_finding(ctx)
+      |> add_twin_matching_finding(ctx)
 
     if ctx.adopt? do
       run_adopt(ctx, comment1, report, skip_validate?)
@@ -264,6 +265,7 @@ defmodule PhoenixKit.Migrations.Repair do
     objects = ctx.manifest.objects(ctx.prefix)
     invariants = ctx.manifest.data_invariants(ctx.prefix)
     snapshot = Probe.snapshot(ctx.repo, ctx.prefix)
+    {ctx, _taken} = assign_twins(ctx, ctx.declared_names, objects, snapshot, ctx.floor)
 
     report =
       apply_scope(ctx, objects, invariants, snapshot, ctx.floor, report, skip_validate?)
@@ -297,13 +299,15 @@ defmodule PhoenixKit.Migrations.Repair do
       ctx.prefix
       |> Report.new(ctx.dry_run, %{comment: comment1, floor: ctx.floor, current: ctx.current})
       |> add_server_version_finding(ctx)
+      |> add_twin_matching_finding(ctx)
 
     objects = ctx.manifest.objects(ctx.prefix)
     invariants = ctx.manifest.data_invariants(ctx.prefix)
     snapshot = Probe.snapshot(ctx.repo, ctx.prefix)
+    {core_ctx, taken} = assign_twins(ctx, ctx.declared_names, objects, snapshot, comment)
 
     report =
-      apply_scope(ctx, objects, invariants, snapshot, comment, report, skip_validate?)
+      apply_scope(core_ctx, objects, invariants, snapshot, comment, report, skip_validate?)
 
     report = delegate_oban(ctx, report)
 
@@ -312,7 +316,7 @@ defmodule PhoenixKit.Migrations.Repair do
         report
         |> add_pending_findings(objects, comment)
         |> add_cross_check_finding_and_action(ctx, objects, snapshot, comment)
-        |> add_module_passes(ctx, skip_validate?)
+        |> add_module_passes(ctx, taken, skip_validate?)
 
       {:ok, report}
     end
@@ -331,58 +335,75 @@ defmodule PhoenixKit.Migrations.Repair do
   # Every object of a module manifest has `since: 1`.
   @module_bound 1
 
-  defp add_module_passes(report, ctx, skip_validate?) do
-    ctx.module_manifests
-    |> Enum.sort_by(&elem(&1, 0))
-    |> Enum.reduce(report, fn {app, entry}, report ->
-      module_pass(report, ctx, app, entry, skip_validate?)
-    end)
+  #
+  # `taken` is what core's pass left unavailable to a twin (the declared names and
+  # the twins it handed out); each pass hands its own on, so one object is never
+  # the twin of two declared objects, across manifests either.
+  defp add_module_passes(report, ctx, taken, skip_validate?) do
+    {report, _taken} =
+      ctx.module_manifests
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.reduce({report, taken}, fn {app, entry}, {report, taken} ->
+        module_pass(report, ctx, taken, app, entry, skip_validate?)
+      end)
+
+    report
   end
 
   defp module_pass(
          report,
          ctx,
+         taken,
          app,
          %{manifest: manifest, migrations: migrations},
          skip_validate?
        ) do
     case module_version_state(ctx, migrations) do
       :not_installed ->
-        report
+        {report, taken}
 
       :unknown ->
-        report
+        {report, taken}
 
       {:behind, at, head} ->
         message =
           "#{app}: migrated to version #{at}, its chain is at #{head}; its tables are not " <>
             "checked until mix phoenix_kit.update brings it to #{head}"
 
-        Report.add_finding(
-          report,
-          app |> module_finding(:module_behind, :info, nil, nil, message)
-        )
+        report =
+          Report.add_finding(
+            report,
+            app |> module_finding(:module_behind, :info, nil, nil, message)
+          )
+
+        {report, taken}
 
       {:current, _head} ->
-        sub = run_module_manifest(ctx, manifest, skip_validate?)
+        {sub, taken} = run_module_manifest(ctx, manifest, taken, skip_validate?)
 
-        sub
-        |> Report.findings()
-        |> Enum.reduce(report, fn finding, report ->
-          tagged = tag_module_finding(finding, app)
-          Report.add_finding(report, tagged)
-        end)
+        report =
+          sub
+          |> Report.findings()
+          |> Enum.reduce(report, fn finding, report ->
+            tagged = tag_module_finding(finding, app)
+            Report.add_finding(report, tagged)
+          end)
+
+        {report, taken}
     end
   end
 
-  defp run_module_manifest(ctx, manifest, skip_validate?) do
+  defp run_module_manifest(ctx, manifest, taken, skip_validate?) do
     module_ctx = %{ctx | manifest: manifest}
     objects = manifest.objects(ctx.prefix)
     invariants = manifest.data_invariants(ctx.prefix)
     snapshot = Probe.snapshot(ctx.repo, ctx.prefix)
+    {module_ctx, taken} = assign_twins(module_ctx, taken, objects, snapshot, @module_bound)
 
     sub = Report.new(ctx.prefix, ctx.dry_run, %{comment: nil, floor: 1, current: 1})
-    apply_scope(module_ctx, objects, invariants, snapshot, @module_bound, sub, skip_validate?)
+
+    {apply_scope(module_ctx, objects, invariants, snapshot, @module_bound, sub, skip_validate?),
+     taken}
   end
 
   defp module_version_state(ctx, migrations) do
@@ -492,8 +513,6 @@ defmodule PhoenixKit.Migrations.Repair do
   # appends one more finding to the report but not to that list.
 
   defp apply_scope(ctx, objects, invariants, snapshot, bound, report, skip_validate?) do
-    {in_scope, _pending} = Scope.partition(objects, bound)
-
     # Resolve every in-scope object to the shape `bound` selects FIRST, then
     # sort the resolved set via `Scope.execution_order/1` — spec §6.1's
     # literal class-ordering requirement ("apply/verify slice class-ordered:
@@ -506,20 +525,7 @@ defmodule PhoenixKit.Migrations.Repair do
     # coincidence of real migration history, not a defended invariant — and
     # `execution_order/1` exists precisely so this module never has to rely
     # on that coincidence.
-    ordered =
-      in_scope
-      |> Enum.map(&Scope.resolve(&1, bound))
-      |> Enum.reject(&is_nil/1)
-      |> Scope.execution_order()
-
-    # Absent by name but present under another: assigned once, in the order the
-    # objects are applied, so one object answers for at most one declared one.
-    ctx =
-      Map.put(
-        ctx,
-        :twins,
-        Equivalence.assign(snapshot, ordered, ctx.declared_names)
-      )
+    ordered = scope_order(objects, bound)
 
     report =
       Enum.reduce(ordered, report, fn resolved, report ->
@@ -529,6 +535,30 @@ defmodule PhoenixKit.Migrations.Repair do
     report
     |> then(&apply_invariants(ctx, invariants, bound, &1))
     |> add_extra_column_findings(objects, snapshot)
+  end
+
+  # The objects in scope at `bound`, resolved to the shape it selects and sorted
+  # into the order they are applied.
+  defp scope_order(objects, bound) do
+    {in_scope, _pending} = Scope.partition(objects, bound)
+
+    in_scope
+    |> Enum.map(&Scope.resolve(&1, bound))
+    |> Enum.reject(&is_nil/1)
+    |> Scope.execution_order()
+  end
+
+  # Absent by name but present under another: assigned once, in the order the
+  # objects are applied, so one object answers for at most one declared one.
+  # `claimed` is every name a pass may not take (`Equivalence.claimed_names/1`,
+  # plus the twins an earlier pass handed out); `nil` when a manifest could not
+  # be read, and then nothing is matched. Returns the context with `:twins` set,
+  # and the names now taken.
+  defp assign_twins(ctx, nil, _objects, _snapshot, _bound), do: {Map.put(ctx, :twins, %{}), nil}
+
+  defp assign_twins(ctx, claimed, objects, snapshot, bound) do
+    {twins, taken} = Equivalence.assign_taken(snapshot, scope_order(objects, bound), claimed)
+    {Map.put(ctx, :twins, twins), taken}
   end
 
   defp apply_resolved(ctx, resolved, snapshot, skip_validate?, report) do
@@ -624,31 +654,55 @@ defmodule PhoenixKit.Migrations.Repair do
   # creating the declared one would only add a second, identical object. It is
   # reported, never created, in a dry run and in a real one alike.
   defp presence_missing_finding(ctx, object, resolved, skip_validate?) do
-    case Map.get(Map.get(ctx, :twins, %{}), object.id) do
+    case Map.get(ctx.twins, object.id) do
       nil -> missing_finding(ctx, resolved, skip_validate?)
       twin -> equivalent_finding(object, twin)
     end
   end
 
   # Every index and constraint name the core manifest and the module manifests
-  # declare. A name another manifest owns is never a twin for this one.
+  # declare. A name another manifest owns is never a twin for this one. `nil`
+  # when any manifest cannot be read: the set would be short of that manifest's
+  # names, and a core object could take its index as a twin, so a run that
+  # cannot know every claimed name matches no twin at all.
   defp declared_names(manifest, module_manifests, prefix) do
-    module_objects =
-      for {_app, %{manifest: module_manifest}} <- module_manifests,
-          object <- manifest_objects(module_manifest, prefix),
-          do: object
+    modules = for {_app, %{manifest: module}} <- module_manifests, do: module
+    manifests = [manifest | modules]
 
-    manifest
-    |> manifest_objects(prefix)
-    |> Enum.concat(module_objects)
-    |> Equivalence.claimed_names()
+    manifests
+    |> Enum.reduce_while([], fn manifest, acc ->
+      case manifest_objects(manifest, prefix) do
+        {:ok, objects} -> {:cont, acc ++ objects}
+        :error -> {:halt, :error}
+      end
+    end)
+    |> case do
+      :error -> nil
+      objects -> Equivalence.claimed_names(objects)
+    end
   end
 
   defp manifest_objects(manifest, prefix) do
-    manifest.objects(prefix)
+    {:ok, manifest.objects(prefix)}
   rescue
-    _ -> []
+    _ -> :error
   end
+
+  defp add_twin_matching_finding(report, %{declared_names: nil}) do
+    Report.add_finding(
+      report,
+      finding(
+        :twin_matching_skipped,
+        :info,
+        nil,
+        nil,
+        "a manifest could not be read, so an index or key constraint under another name " <>
+          "is not looked for: one that is absent by name is reported missing"
+      )
+    )
+  end
+
+  defp add_twin_matching_finding(report, _ctx), do: report
 
   defp equivalent_finding(%{check: {:catalog, %{name: declared, table: table}}} = object, twin) do
     {kind, name} = twin
@@ -917,12 +971,15 @@ defmodule PhoenixKit.Migrations.Repair do
 
   # ── R2/R5 cross-check + --heal-comment ──────────────────────────────
 
+  defp snapshot_with_twins(%{declared_names: nil}, _objects, snapshot, _comment), do: snapshot
+
+  defp snapshot_with_twins(ctx, objects, snapshot, comment),
+    do: Equivalence.with_twins_as_present(snapshot, objects, ctx.declared_names, comment)
+
   defp add_cross_check_finding_and_action(report, ctx, objects, snapshot, comment) do
     presence =
       objects
-      |> Probe.presence_by_since(
-        Equivalence.with_twins_as_present(snapshot, objects, ctx.declared_names, comment)
-      )
+      |> Probe.presence_by_since(snapshot_with_twins(ctx, objects, snapshot, comment))
       |> pad_vacuous_versions(ctx.floor, comment)
 
     highest = CommentPolicy.highest_fully_present_version(presence)

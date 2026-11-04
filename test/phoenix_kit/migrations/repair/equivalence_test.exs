@@ -33,14 +33,15 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
 
   defp snapshot(parts), do: Map.merge(@empty_snapshot, Map.new(parts))
 
-  # The fixture's `widgets_owner_uuid_index`: a plain btree on owner_uuid.
+  # The fixture's `widgets_owner_uuid_index`: a plain btree on owner_uuid, as
+  # `pg_get_indexdef` prints it under another name.
   defp index(attrs \\ []) do
     Map.merge(
       %{
         table: @widgets,
         unique: false,
         method: "btree",
-        definition: "",
+        definition: "CREATE INDEX legacy ON public.#{@widgets} USING btree (owner_uuid)",
         predicate: nil,
         keys: ["owner_uuid"],
         opclasses: ["uuid_ops"]
@@ -117,6 +118,101 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
 
     test "on another table is not a twin" do
       assert find(snapshot(indexes: %{"legacy" => index(table: @owners)}), @index_id) == nil
+    end
+
+    test "a definition that differs after USING (sort order, NULLS, COLLATE, INCLUDE, WITH) is not a twin" do
+      for tail <- [
+            "btree (owner_uuid DESC)",
+            "btree (owner_uuid NULLS FIRST)",
+            "btree (owner_uuid COLLATE \"C\")",
+            "btree (owner_uuid) INCLUDE (name)",
+            "btree (owner_uuid) WITH (fillfactor='70')"
+          ] do
+        other = index(definition: "CREATE INDEX legacy ON public.#{@widgets} USING #{tail}")
+        assert find(snapshot(indexes: %{"legacy" => other}), @index_id) == nil, tail
+      end
+    end
+
+    test "a definition printed with another name and schema qualifier is still the twin" do
+      other =
+        index(
+          definition: "CREATE INDEX other_name ON public.#{@widgets} USING btree (owner_uuid)"
+        )
+
+      assert find(snapshot(indexes: %{"legacy" => other}), @index_id) == {:index, "legacy"}
+    end
+
+    test "a definition that cannot be read is not a twin" do
+      assert find(snapshot(indexes: %{"legacy" => index(definition: "")}), @index_id) == nil
+    end
+
+    test "declared with DESC: a descending index is the twin, an ascending one is not" do
+      object = object(@index_id)
+
+      expected =
+        Map.put(
+          shape(object),
+          :definition,
+          "CREATE INDEX #{@index_id} ON public.#{@widgets} USING btree (owner_uuid DESC)"
+        )
+
+      desc =
+        index(
+          definition: "CREATE INDEX legacy ON public.#{@widgets} USING btree (owner_uuid DESC)"
+        )
+
+      asc = index()
+
+      assert Equivalence.find(snapshot(indexes: %{"legacy" => desc}), object, expected, @claimed) ==
+               {:index, "legacy"}
+
+      assert Equivalence.find(snapshot(indexes: %{"legacy" => asc}), object, expected, @claimed) ==
+               nil
+    end
+
+    test "declared with INCLUDE: the same INCLUDE is the twin, another is not" do
+      object = object(@index_id)
+
+      declared =
+        "CREATE INDEX #{@index_id} ON public.#{@widgets} USING btree (owner_uuid) INCLUDE (name)"
+
+      expected = Map.put(shape(object), :definition, declared)
+
+      same =
+        index(
+          definition:
+            "CREATE INDEX legacy ON public.#{@widgets} USING btree (owner_uuid) INCLUDE (name)"
+        )
+
+      other =
+        index(
+          definition:
+            "CREATE INDEX legacy ON public.#{@widgets} USING btree (owner_uuid) INCLUDE (slug)"
+        )
+
+      assert Equivalence.find(snapshot(indexes: %{"legacy" => same}), object, expected, @claimed) ==
+               {:index, "legacy"}
+
+      assert Equivalence.find(snapshot(indexes: %{"legacy" => other}), object, expected, @claimed) ==
+               nil
+    end
+
+    test "the schema token in a declaration is read like the schema it stands for" do
+      object = object(@index_id)
+
+      expected =
+        Map.put(
+          shape(object),
+          :definition,
+          "CREATE INDEX #{@index_id} ON __SCHEMA__.#{@widgets} USING btree (owner_uuid)"
+        )
+
+      assert Equivalence.find(
+               snapshot(indexes: %{"legacy" => index()}),
+               object,
+               expected,
+               @claimed
+             ) == {:index, "legacy"}
     end
 
     test "that the manifest names itself is never a twin" do
@@ -274,6 +370,30 @@ defmodule PhoenixKit.Migrations.Repair.EquivalenceTest do
       snapshot = snapshot(indexes: %{declared => index(), "legacy" => index()})
 
       assert Equivalence.assign(snapshot, [resolved(@index_id)], @claimed) == %{}
+    end
+  end
+
+  describe "assign_taken/3 — the taken set can be carried into the next pass" do
+    test "returns the claimed names plus the twins handed out" do
+      snapshot = snapshot(indexes: %{"legacy" => index()})
+
+      {twins, taken} = Equivalence.assign_taken(snapshot, [resolved(@index_id)], @claimed)
+
+      assert twins == %{@index_id => {:index, "legacy"}}
+      assert MapSet.member?(taken, {:index, "legacy"})
+      assert MapSet.subset?(@claimed, taken)
+    end
+
+    test "an object handed out in one pass is not handed out again in the next" do
+      snapshot = snapshot(indexes: %{"legacy" => index()})
+      second = clone_of_index("phoenix_kit_fixture_widgets_owner_uuid_second_index")
+      claimed = Equivalence.claimed_names([second | @objects])
+
+      {first, taken} = Equivalence.assign_taken(snapshot, [resolved(@index_id)], claimed)
+      {next, _taken} = Equivalence.assign_taken(snapshot, [Scope.resolve(second, 142)], taken)
+
+      assert first == %{@index_id => {:index, "legacy"}}
+      assert next == %{}
     end
   end
 

@@ -89,6 +89,88 @@ defmodule PhoenixKit.Integration.RepairTest do
   # 63-byte-NAMEDATALEN truncation the cap exists to reject outright).
   @prefix "pk_fixture_test"
 
+  defmodule NotInstalledMigrations do
+    @moduledoc false
+    def current_version, do: 2
+    def migrated_version_runtime(_opts), do: 0
+  end
+
+  defmodule HeadMigrations do
+    @moduledoc false
+    def current_version, do: 2
+    def migrated_version_runtime(_opts), do: 2
+  end
+
+  defmodule UnreadableManifest do
+    @moduledoc false
+    def objects(_prefix), do: raise("manifest broke")
+    def data_invariants(_prefix), do: []
+    def chain_hash, do: "unreadable"
+  end
+
+  # The fixture's index on owner_uuid, declared once more under a name of a module.
+  defmodule ModuleIndexManifest do
+    @moduledoc false
+    alias PhoenixKit.Test.FixtureExpectedSchema
+
+    def objects(prefix) do
+      name = "pk_module_widgets_owner_idx"
+
+      FixtureExpectedSchema.objects(prefix)
+      |> Enum.find(&(&1.id == "index:phoenix_kit_fixture_widgets_owner_uuid_index"))
+      |> then(fn object ->
+        {:catalog, spec} = object.check
+        [{_since, shape}] = object.revisions
+        shape = %{shape | definition: String.replace(shape.definition, object_name(object), name)}
+
+        [
+          %{
+            object
+            | id: "index:#{name}",
+              since: 1,
+              revisions: [{1, shape}],
+              check: {:catalog, %{spec | name: name}},
+              create: String.replace(object.create, object_name(object), name)
+          }
+        ]
+      end)
+    end
+
+    defp object_name(%{check: {:catalog, %{name: name}}}), do: name
+
+    def data_invariants(_prefix), do: []
+    def chain_hash, do: "module_index"
+  end
+
+  # The fixture, but its owner_uuid index is declared descending.
+  defmodule DescIndexManifest do
+    @moduledoc false
+    alias PhoenixKit.Test.FixtureExpectedSchema
+
+    defdelegate data_invariants(prefix), to: FixtureExpectedSchema
+    defdelegate chain_hash, to: FixtureExpectedSchema
+
+    def objects(prefix) do
+      for object <- FixtureExpectedSchema.objects(prefix) do
+        if object.id == "index:phoenix_kit_fixture_widgets_owner_uuid_index" do
+          revisions =
+            for {since, shape} <- object.revisions do
+              {since,
+               %{
+                 shape
+                 | definition:
+                     String.replace(shape.definition, "(owner_uuid)", "(owner_uuid DESC)")
+               }}
+            end
+
+          %{object | revisions: revisions}
+        else
+          object
+        end
+      end
+    end
+  end
+
   setup do
     Sandbox.mode(Repo, :auto)
 
@@ -378,6 +460,60 @@ defmodule PhoenixKit.Integration.RepairTest do
 
         refute Enum.any?(findings, &(&1.kind == :equivalent_under_another_name))
       end
+    end
+
+    test "a declared DESC index is not stood in for by an ascending one, and is by a descending one" do
+      for {order, twin?} <- [{"", false}, {" DESC", true}] do
+        Repo.query!("DROP INDEX IF EXISTS #{@prefix}.legacy_widgets_owner_idx")
+        Repo.query!("DROP INDEX IF EXISTS #{@prefix}.#{@index}")
+
+        Repo.query!(
+          "CREATE INDEX legacy_widgets_owner_idx ON #{@prefix}.#{@widgets} (owner_uuid#{order})"
+        )
+
+        Application.put_env(:phoenix_kit, :expected_schema_module, DescIndexManifest)
+        {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo)
+        findings = Report.findings(report)
+
+        assert Enum.any?(findings, &(&1.kind == :equivalent_under_another_name)) == twin?
+        assert Enum.any?(findings, &(&1.kind == :missing)) == not twin?
+      end
+    end
+
+    test "a manifest that cannot be read: no twin is matched, and the run says so" do
+      Repo.query!("ALTER INDEX #{@prefix}.#{@index} RENAME TO legacy_widgets_owner_idx")
+
+      modules = %{
+        broken: %{manifest: UnreadableManifest, migrations: NotInstalledMigrations}
+      }
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo, module_manifests: modules)
+      findings = Report.findings(report)
+
+      refute Enum.any?(findings, &(&1.kind == :equivalent_under_another_name))
+      assert Enum.any?(findings, &(&1.kind == :missing and &1.object_id == "index:#{@index}"))
+      assert Enum.any?(findings, &(&1.kind == :twin_matching_skipped and &1.severity == :info))
+    end
+
+    test "an object handed out as the twin of a core object is not handed out again to a module" do
+      Repo.query!("ALTER INDEX #{@prefix}.#{@index} RENAME TO legacy_widgets_owner_idx")
+
+      modules = %{
+        module_app: %{manifest: ModuleIndexManifest, migrations: HeadMigrations}
+      }
+
+      {:ok, report} = Repair.verify(prefix: @prefix, repo: Repo, module_manifests: modules)
+      findings = Report.findings(report)
+
+      assert [core_twin] = Enum.filter(findings, &(&1.kind == :equivalent_under_another_name))
+      assert core_twin.object_id == "index:#{@index}"
+      refute Map.get(core_twin, :module)
+
+      assert Enum.any?(
+               findings,
+               &(&1.kind == :missing and &1.module == :module_app and
+                   &1.object_id == "index:pk_module_widgets_owner_idx")
+             )
     end
 
     test "a foreign key kept under its old name is not built again" do
