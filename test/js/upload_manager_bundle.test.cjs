@@ -315,6 +315,103 @@ test("when the bundle cannot be loaded a file chosen before it is failed, not le
   assert.ok(Array.from(env.errors).some((m) => /could not be sent/.test(m)), "the console says so");
 });
 
+// LiveView calls `disconnected` and `reconnected` on the hook instance; a stub
+// has none of its own, so the stand-in installs two to count the rejoins.
+test("a file chosen before a LiveView rejoin is dropped when the bundle arrives: its entry belongs to a process that is gone", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+  const standIn = hook.liveSocket.uploaders.PkChunked;
+
+  const entry = chosenEntry(Buffer.from(Array.from({ length: 70000 }, (_, i) => i % 251)));
+  const running = standIn([entry], () => {}, {}, hook.liveSocket);
+  hook.disconnected();
+  hook.reconnected();
+
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await running;
+  await tick();
+
+  try {
+    assert.strictEqual(server.held, 0, "no byte was sent for it");
+    assert.deepStrictEqual(entry.pct, [], "and nothing was pushed to the new process about it");
+    assert.strictEqual(entry.err, null, "failing it would be a push to the new process too");
+    assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)), "the console says why");
+    assert.strictEqual(hook.liveSocket.uploaders.PkChunked.name, "chunkedUploader", "the real uploader is in all the same");
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("a file whose bundle arrives while the connection is down is dropped too: the rejoin that follows would be a new process", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+  const standIn = hook.liveSocket.uploaders.PkChunked;
+
+  const entry = chosenEntry(Buffer.from("early"));
+  const running = standIn([entry], () => {}, {}, hook.liveSocket);
+  hook.disconnected(); // and no `reconnected` yet when the bundle arrives
+
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await running;
+  try {
+    assert.deepStrictEqual(entry.pct, []);
+    assert.strictEqual(entry.err, null);
+    assert.strictEqual(server.held, 0);
+    assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)));
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("a file chosen after the rejoin but before the bundle is sent once it has arrived", async () => {
+  const { env, hook } = stubbedPanel();
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  hook.mounted();
+  hook.disconnected();
+  hook.reconnected();
+
+  const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
+  const entry = chosenEntry(data);
+  const running = hook.liveSocket.uploaders.PkChunked([entry], () => {}, {}, hook.liveSocket);
+  env.load("phoenix_kit_admin.js");
+  env.loaded(0);
+  await running;
+  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
+  try {
+    assert.strictEqual(entry.err, null);
+    assert.ok(server.body.equals(data));
+    assert.deepStrictEqual(Array.from(env.warnings), []);
+  } finally {
+    hook.destroyed();
+  }
+});
+
+test("when the bundle cannot be loaded, a file whose entry a rejoin took is not failed either", async () => {
+  const { env, hook } = stubbedPanel();
+  hook.mounted();
+  const entry = chosenEntry(Buffer.from("abc"));
+  const running = hook.liveSocket.uploaders.PkChunked([entry], () => {}, {}, hook.liveSocket);
+  hook.disconnected();
+  hook.reconnected();
+
+  env.failed(0);
+  await running;
+
+  assert.strictEqual(entry.err, null, "failing it would be a push to the new process");
+  assert.deepStrictEqual(entry.pct, []);
+  assert.ok(Array.from(env.warnings).some((m) => /reconnected/.test(m)));
+});
+
 test("a page that ran the standalone file after building LiveSocket gets the real uploader at once, whether or not the bundle comes", async () => {
   const env = createEnv({ facts: FACTS });
   env.load("phoenix_kit.js");

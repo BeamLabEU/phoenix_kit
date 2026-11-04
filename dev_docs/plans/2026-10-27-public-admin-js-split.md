@@ -115,11 +115,18 @@ would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B r
 Behind a stub it has the limit of every stub, and one more cost: the manager registers the chunked uploader
 (`PkChunked`) when it starts, and a file chosen before the bundle has arrived is preflighted regardless, so the stub
 of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) which takes the entries LiveView hands
-it, waits for the bundle and passes them on, or fails them when the bundle does not come.
+it, waits for the bundle and passes them on, or fails them when the bundle does not come. It also counts the
+stub's `disconnected` / `reconnected` calls, which no real hook is there to receive yet: an entry the stand-in was
+handed before a LiveView rejoin (or while the socket is down) belongs to a process that is gone, and the server
+raises on progress for an upload it does not know, so such an entry is dropped with a console warning, neither
+started nor failed. `UploadResume` (the browser's stash of picked files, which #1011 makes send them again by
+themselves after a reload) is admin as well; the stash is read only once the bundle is here, and the resumed
+file reaches the real uploader because the bundle replaces the stand-in before any hook of it mounts
+(`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 250 657 B raw, 71 560 gzip, 93 939 minified, 28 772 minified + gzip;
-`phoenix_kit_admin.js` is 408 856 / 114 987 / 156 003 / 45 727. The size budget in `admin_split.test.cjs` (256 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 251 521 B raw, 71 824 gzip, 94 229 minified, 28 890 minified + gzip;
+`phoenix_kit_admin.js` is 425 996 / 119 980 / 160 836 / 47 214. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
 
@@ -157,8 +164,8 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-251 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
-the admin bundle is 409 KB / 115 KB readable, 156 KB / 46 KB gzip minified;
+252 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
+the admin bundle is 426 KB / 120 KB readable, 161 KB / 47 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
 `dev` builds stay readable, so a stack trace points at real lines.
@@ -209,7 +216,7 @@ module's admin stubs are registered whichever of `phoenix_kit.js` and `phoenix_k
    file's keys equal `ADMIN_HOOKS`; stubs load once for N mounts, delegate `mounted/updated/destroyed` with the
    right `this`, survive destroy-while-loading and a failed load; a public-size budget. Then move the code; the
    existing `test/js` files that exercise admin hooks are pointed at the file that now holds what they test (as built:
-   26 of main's 46; there were 39 test files when this was written).
+   27 of main's 49; there were 39 test files when this was written).
 3. **Delivery.** Tests: `vendor_all` writes the admin file under a content-hash name, the facts name it, an
    unchanged compile writes nothing, `minify?` true + esbuild present yields smaller files for the three outputs,
    absent esbuild yields the readable ones. Facts file sets the library base. Doctor check.

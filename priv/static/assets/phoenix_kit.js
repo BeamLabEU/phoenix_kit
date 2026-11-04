@@ -4585,13 +4585,30 @@
       });
     }
 
+    // A stub gets no connection callbacks from the real hook, so the rejoins are
+    // counted here. A rejoined LiveView is a new process that knows none of the
+    // entries the old one held, and progress pushed for them fails it: such an
+    // entry is let go, neither started nor failed (failing it is a push too).
+    var down = false;
+    var rejoins = 0;
+    hook.disconnected = function() { down = true; };
+    hook.reconnected = function() { down = false; rejoins += 1; };
+
     function standIn(entries) {
       var args = arguments;
+      var rejoinsAtCall = rejoins;
+      function orphaned() {
+        if (!down && rejoins === rejoinsAtCall) return false;
+        console.warn("[PhoenixKit] A file chosen before the admin bundle arrived was dropped: the page reconnected to the server meanwhile. Choose it again.");
+        return true;
+      }
       return handOver().then(function() {
+        if (orphaned()) return;
         var real = sock.uploaders.PkChunked;
         if (typeof real !== "function" || real === standIn) throw new Error("the admin bundle defines no chunked uploader");
         return real.apply(null, args);
       }).catch(function(err) {
+        if (orphaned()) return;
         console.error("[PhoenixKit] A file chosen before the admin bundle arrived could not be sent:", err);
         entries.forEach(function(entry) { entry.error("failed"); });
       });

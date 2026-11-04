@@ -126,7 +126,13 @@ outside the admin area and the dashboard, and it works there: the queue and the 
 bundle has arrived. Files picked before then go to LiveView as they would without the manager (all at once, no
 queue, no panel). A resumable upload names the chunked uploader (`PkChunked`), which the manager registers when it
 starts; until then the stub of `UploadManager` keeps a stand-in under that name, which takes the files LiveView
-hands it, waits for the bundle and passes them on to the real uploader. **If the admin file cannot be loaded,
+hands it, waits for the bundle and passes them on to the real uploader. A file whose entry a LiveView reconnect
+orphaned before the bundle arrived (the rejoined process knows nothing of it, and anything pushed for it fails that
+process) is dropped, not started and not marked failed; the console says so and the person picks it again. Such a
+file is not in the browser's stash either: `UploadResume`, which keeps picked files for a reload, is an admin hook
+too and starts with the bundle. After a reload it is the same bundle that reads the stash, so the files an earlier
+page left are reported and sent again by themselves a moment after the bundle has arrived, through the real
+uploader; until then the stash is not touched. **If the admin file cannot be loaded,
 uploading in the media browser and the pickers does not work**: the stand-in marks those files failed (and the
 console says why), and no panel is shown; with *Resumable uploads* off in Settings -> Media the files go through
 LiveView's own uploader all the same, unqueued. `window.PhoenixKitUploadManager` is defined from the bundle's
