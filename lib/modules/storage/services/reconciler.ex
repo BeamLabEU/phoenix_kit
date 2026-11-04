@@ -358,27 +358,109 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   Makes `file` match its library's profile and variant set, and stamps it
   when it does. Returns `:reconciled`, `:stale` (something could not be
   done yet; it stays stale) or `:skipped` (another reconciler holds it).
-  One reconciler at a time per file, across nodes: a session advisory lock
-  on the file, held while its bytes are copied.
+  One reconciler at a time per file, across nodes: an advisory lock on the
+  file, held while its bytes are copied (`with_file_lock/2`).
   """
   @spec reconcile_file(StorageFile.t()) :: :reconciled | :stale | :skipped
   def reconcile_file(%StorageFile{} = file) do
     with_file_lock(file.uuid, fn -> do_reconcile(file) end)
   end
 
-  @doc false
+  @doc """
+  Runs `fun` while holding the file's lock, or returns `:skipped` when
+  someone else holds it.
+
+  The lock is a **transaction** advisory lock, taken in a transaction on a
+  connection of its own that stays open while `fun` runs; `fun`'s queries go
+  through the pool as usual. Two things rule out the simpler session lock on
+  a pooled connection:
+
+    * behind PgBouncer in transaction pooling, statements outside a
+      transaction may each run on a different server connection, so the
+      unlock can miss the connection that took the lock, which then keeps it
+      and makes the file `:skipped` from then on;
+    * the pool takes a connection back from a caller that holds it longer
+      than its timeout (15 s), and copying a large video takes longer.
+
+  The transaction pins one server connection, and its lock ends with it: when
+  `fun` returns or raises, and when the caller dies (the connection is linked
+  to it). The connection is opened from the repo's own config, without its
+  pool, so it is outside the test sandbox too.
+
+  A process that already holds the lock gets it again (a repair runs the
+  reconciler on the file it holds), as it did with the session lock.
+  """
+  @spec with_file_lock(term(), (-> result)) :: result | :skipped when result: term()
   def with_file_lock(file_uuid, fun) do
-    repo().checkout(fn ->
-      if try_lock(file_uuid) do
-        try do
-          fun.()
-        after
-          unlock(file_uuid)
-        end
-      else
-        :skipped
+    file_uuid = to_string(file_uuid)
+    held = Process.get(:phoenix_kit_reconcile_locks, MapSet.new())
+
+    if MapSet.member?(held, file_uuid) do
+      fun.()
+    else
+      {:ok, conn} = Postgrex.start_link(lock_connection_opts())
+      ref = make_ref()
+
+      try do
+        lock_and_run(conn, file_uuid, ref, fn ->
+          Process.put(:phoenix_kit_reconcile_locks, MapSet.put(held, file_uuid))
+
+          try do
+            fun.()
+          after
+            Process.put(:phoenix_kit_reconcile_locks, held)
+          end
+        end)
+      after
+        GenServer.stop(conn)
       end
-    end)
+    end
+  end
+
+  defp lock_and_run(conn, file_uuid, ref, fun) do
+    locked =
+      Postgrex.transaction(
+        conn,
+        fn lock_conn ->
+          if try_lock(lock_conn, file_uuid) do
+            # Kept out of the transaction's return value: if the lock's
+            # connection is lost meanwhile, the commit fails, and `fun`'s
+            # work (already done) must still be answered.
+            send(self(), {ref, fun.()})
+            :locked
+          else
+            :skipped
+          end
+        end,
+        timeout: :infinity
+      )
+
+    receive do
+      {^ref, result} -> result
+    after
+      0 -> skipped(locked)
+    end
+  rescue
+    error in DBConnection.ConnectionError ->
+      receive do
+        {^ref, result} -> result
+      after
+        0 -> reraise error, __STACKTRACE__
+      end
+  end
+
+  defp skipped({:ok, :skipped}), do: :skipped
+
+  # Only connection settings (as `Test.PostgresPreflight` takes them): the
+  # repo's `:pool` (the sandbox in tests), queue and ownership settings would
+  # rebuild the pool this connection is meant to be outside of.
+  @lock_connection_keys ~w(hostname port database username password ssl ssl_opts socket
+                           socket_dir socket_options parameters endpoints)a
+
+  defp lock_connection_opts do
+    repo().config()
+    |> Keyword.take(@lock_connection_keys)
+    |> Keyword.merge(pool_size: 1, types: Postgrex.DefaultTypes)
   end
 
   defp do_reconcile(file) do
@@ -738,23 +820,17 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
 
   # ── Locks ────────────────────────────────────────────────────────────
 
-  defp try_lock(file_uuid) do
+  # The same key as a session lock on it (`pg_advisory_lock(hashtext(…))`), so
+  # either kind held elsewhere keeps this one out.
+  defp try_lock(conn, file_uuid) do
     %{rows: [[locked?]]} =
-      repo().query!(
-        "SELECT pg_try_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
-        [to_string(file_uuid)],
-        log: false
+      Postgrex.query!(
+        conn,
+        "SELECT pg_try_advisory_xact_lock(hashtext('phoenix_kit_reconcile:' || $1))",
+        [file_uuid]
       )
 
     locked?
-  end
-
-  defp unlock(file_uuid) do
-    repo().query!(
-      "SELECT pg_advisory_unlock(hashtext('phoenix_kit_reconcile:' || $1))",
-      [to_string(file_uuid)],
-      log: false
-    )
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()

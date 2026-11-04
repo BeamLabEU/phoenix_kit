@@ -360,6 +360,92 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     for file <- files, do: refute(stale?(file))
   end
 
+  # `with_file_lock/2` holds the lock in a transaction on a connection of its
+  # own (PgBouncer's transaction pooling breaks a session lock, and the pool
+  # takes back a connection held past its timeout).
+  describe "the file lock" do
+    test "is one holder at a time, and is free again however the holder ends" do
+      key = Ecto.UUID.generate()
+      parent = self()
+
+      holder =
+        Task.async(fn ->
+          Reconciler.with_file_lock(key, fn ->
+            send(parent, :holding)
+            receive do: (:release -> :done)
+          end)
+        end)
+
+      assert_receive :holding, 5_000
+      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+
+      send(holder.pid, :release)
+      assert Task.await(holder) == :done
+      assert Reconciler.with_file_lock(key, fn -> :ran end) == :ran
+
+      assert_raise RuntimeError, fn -> Reconciler.with_file_lock(key, fn -> raise "boom" end) end
+      assert Reconciler.with_file_lock(key, fn -> :again end) == :again
+    end
+
+    test "is taken again by the process that holds it (a repair runs the reconciler)" do
+      key = Ecto.UUID.generate()
+
+      assert Reconciler.with_file_lock(key, fn ->
+               Reconciler.with_file_lock(key, fn -> :inner end)
+             end) == :inner
+    end
+
+    test "is freed when its holder is killed" do
+      key = Ecto.UUID.generate()
+      parent = self()
+
+      {holder, ref} =
+        spawn_monitor(fn ->
+          Reconciler.with_file_lock(key, fn ->
+            send(parent, :holding)
+            Process.sleep(:infinity)
+          end)
+        end)
+
+      assert_receive :holding, 5_000
+      Process.exit(holder, :kill)
+      assert_receive {:DOWN, ^ref, :process, ^holder, :killed}
+
+      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+    end
+
+    test "is kept out by a session lock on the same key, as the repair tests take it" do
+      key = Ecto.UUID.generate()
+      opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
+      {:ok, other} = Postgrex.start_link(opts)
+
+      Postgrex.query!(
+        other,
+        "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
+        [key]
+      )
+
+      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+
+      GenServer.stop(other)
+      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+    end
+  end
+
+  defp eventually(fun, tries \\ 50) do
+    cond do
+      fun.() ->
+        true
+
+      tries == 0 ->
+        false
+
+      true ->
+        Process.sleep(20)
+        eventually(fun, tries - 1)
+    end
+  end
+
   defp back_off!(file, seconds) do
     at = NaiveDateTime.add(NaiveDateTime.utc_now(), -seconds) |> NaiveDateTime.truncate(:second)
 

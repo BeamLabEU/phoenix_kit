@@ -35,6 +35,23 @@
   `Quotas.usage/1` and `Quotas.status/1` are for pages that show it. No
   migration.
 
+### Fixed
+
+- **The reconciler's file lock works behind PgBouncer and for large files.**
+  It was a session advisory lock taken on a pooled connection. Behind
+  PgBouncer in transaction pooling, statements outside a transaction may each
+  run on a different server connection, so the unlock could miss the one that
+  took the lock: it stayed held there, and the file was `:skipped` from then
+  on. And the pool takes back a connection held past its 15 s timeout, so
+  copying a large video (90 MB from one cloud to another) failed the whole
+  batch with "connection is closed", and the storage move stopped partway.
+  `Reconciler.with_file_lock/2` now holds a transaction advisory lock (same
+  key) in a transaction, with no timeout, on a connection of its own opened
+  from the repo's config. The lock ends with the transaction: when the work
+  returns or raises, and when its process dies. A process that holds the lock
+  takes it again (a repair runs the reconciler). Each locked file uses one
+  short-lived connection besides the pool. No migration.
+
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,
