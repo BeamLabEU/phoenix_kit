@@ -301,8 +301,8 @@ the owner `ResumableUpload.external/1` uses by default; a host whose own
 `allow_upload` names another `:owner` should use `:ask`.
 
 A page that was left is told apart from one that is only quiet by a Web Lock
-each page holds; where the browser has none (an insecure origin) a record
-untouched for 15 seconds counts as left. A file cancelled in the manager is
+each page holds; where the browser has none (an insecure origin or an old
+browser) a record untouched for 15 seconds counts as left. A file cancelled in the manager is
 forgotten.
 
 ## Telling the page

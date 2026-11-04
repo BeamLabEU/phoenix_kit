@@ -1226,16 +1226,25 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       client_size: item["size"],
       client_key: item["key"],
       retry: item["blob"] == true,
-      reason:
-        if(item["blob"] == true,
-          do: gettext("The upload was cut short — the page was closed or refreshed."),
-          else:
-            gettext(
-              "The upload was cut short, and the file was too large to keep a copy of. Add it again."
-            )
-        )
+      reason: resume_reason(item)
     })
   end
+
+  defp resume_reason(%{"blob" => true}),
+    do: gettext("The upload was cut short — the page was closed or refreshed.")
+
+  # The browser had no record of it any more when it came to send it.
+  defp resume_reason(%{"gone" => true}),
+    do:
+      gettext(
+        "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
+      )
+
+  defp resume_reason(_item),
+    do:
+      gettext(
+        "The upload was cut short, and the file was too large to keep a copy of. Add it again."
+      )
 
   defp push_resume_keys(socket, event, items, extra \\ %{})
   defp push_resume_keys(socket, _event, [], _extra), do: socket

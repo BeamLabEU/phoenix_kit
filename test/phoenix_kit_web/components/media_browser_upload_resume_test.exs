@@ -111,6 +111,26 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
                [{@resume, %{browser: "pick-1", keys: ["a.png|5|7"], auto: true}}]
     end
 
+    test "a file whose record the browser lost is listed to be added again, with its own reason" do
+      socket =
+        report(socket(), [
+          item("gone.png", %{"blob" => false, "manual" => true, "gone" => true}),
+          item("big.mov", %{"blob" => false, "manual" => true})
+        ])
+
+      assert pushed(socket) == []
+
+      assert [
+               %{client_key: "big.mov|5|7", reason: too_large},
+               %{client_key: "gone.png|5|7"} = gone
+             ] =
+               problems(socket)
+
+      assert too_large =~ "too large"
+      assert gone.reason =~ "no longer has a copy"
+      refute gone.retry
+    end
+
     test "what the hook could not send itself is listed with Resume, never pushed again" do
       socket = report(socket(), [item("a.png", %{"manual" => true})])
 

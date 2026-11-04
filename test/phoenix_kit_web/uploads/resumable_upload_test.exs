@@ -335,6 +335,28 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       assert ResumableUpload.taken?("u1", @fields, -1)
     end
 
+    test "the tolerance is one second: a marker written in the second of the pick counts, a later pick does not",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      written = System.os_time(:second) - 100
+      File.touch!(Path.join(dir, Path.basename(path, ".part") <> ".done"), written)
+      age = fn picked_ms -> System.os_time(:millisecond) - picked_ms end
+
+      # Whole seconds are all the file system tells: a pick 900 ms into the
+      # second the marker is stamped with may well have come before it.
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000 + 900))
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000))
+      assert ResumableUpload.taken?("u1", @fields, age.(written * 1000 - 5000))
+
+      # The next second and a half on: the marker was stamped before the pick.
+      refute ResumableUpload.taken?("u1", @fields, age.((written + 1) * 1000 + 500))
+      refute ResumableUpload.taken?("u1", @fields, age.((written + 1) * 1000 + 5000))
+    end
+
     test "a marker that cannot be written is logged, and the file is still handed over",
          %{dir: dir} do
       {socket, entry, path} = finished(5)

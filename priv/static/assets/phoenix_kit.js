@@ -10101,7 +10101,10 @@ if (typeof window.Chart === "undefined") {
   // a record whose owner's lock is free was abandoned (the page is gone), one
   // whose lock is held belongs to a page that is still there, throttled or not.
   var UPLOAD_STASH_LOCK = "phoenix_kit_upload_stash:";
-  var UPLOAD_STASH_LOCK_LOOK_MS = 5000;
+  // How often a record whose owner's lock is held is looked at again: quickly
+  // at first (a reload hands its lock over within moments), then ever less
+  // often while another page goes on holding it.
+  var UPLOAD_STASH_LOCK_LOOK_MS = [5000, 15000, 60000];
 
   // The same three things the server's `client_key/1` reads off an upload
   // entry — LiveView sends the File's own name, size and lastModified.
@@ -10202,6 +10205,11 @@ if (typeof window.Chart === "undefined") {
       // Keys fed back by this page and not yet acknowledged: a second look
       // must not offer them again while their records are being rewritten.
       this._fed = {};
+      // Keys reported after a reconnect that the server has not asked to be
+      // sent yet (no room): they are asked about again when a batch ends.
+      this._held = {};
+      this._lockLooks = 0;
+      this._destroyed = false;
       // Keys the server acknowledged or the person cancelled: a re-send asked
       // for after that is moot, not a lost file.
       this._forgotten = {};
@@ -10225,7 +10233,10 @@ if (typeof window.Chart === "undefined") {
 
       // A batch ending frees room under the upload's limit: leftovers the
       // server held back are asked about again.
-      this._onBatch = function() { self._reportLeftovers(false); };
+      this._onBatch = function() {
+        self._reportLeftovers(false);
+        self._reportLeftovers(true, true);
+      };
       this._root.addEventListener("pk-upload:batch-complete", this._onBatch);
 
       // A file the person cancelled in the upload manager is not a leftover.
@@ -10252,6 +10263,7 @@ if (typeof window.Chart === "undefined") {
     // channels do not survive it — so those are leftovers now, not live.
     reconnected() {
       this._fed = {};
+      this._lockLooks = 0;
       this._lookAfterWrite = this._writing > 0;
       this._reportLeftovers(true);
     },
@@ -10266,6 +10278,7 @@ if (typeof window.Chart === "undefined") {
         this._root.removeEventListener("pk-upload:cancelled", this._onCancelled);
         this._root.removeEventListener("pk-upload:batch-complete", this._onBatch);
       }
+      this._destroyed = true;
       if (this._release) this._release();
     },
 
@@ -10276,6 +10289,8 @@ if (typeof window.Chart === "undefined") {
       var self = this;
       try {
         locks.request(UPLOAD_STASH_LOCK + this._tab, function() {
+          // Destroyed before the lock was granted: do not keep it.
+          if (self._destroyed) return;
           return new Promise(function(release) { self._release = release; });
         }).catch(function() {});
       } catch (_) {}
@@ -10367,15 +10382,16 @@ if (typeof window.Chart === "undefined") {
     _forget(keys) {
       var self = this;
       var ids = (keys || []).map(function(key) { return uploadStashId(self._scopeOf(key), key); });
-      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; delete self._fed[key]; self._forgotten[key] = true; });
+      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; delete self._fed[key]; delete self._held[key]; self._forgotten[key] = true; });
       uploadStashRun("readwrite", function(store) {
         ids.forEach(function(id) { store.delete(id); });
       });
     },
 
-    // `mine`: this tab's own live records (after a reconnect). Otherwise:
-    // records of earlier page loads whose page is gone.
-    _reportLeftovers(mine) {
+    // `mine`: this tab's own live records (after a reconnect) and those it
+    // reported before and has not been asked to send yet; `held`: only the
+    // latter. Otherwise: records of earlier page loads whose page is gone.
+    _reportLeftovers(mine, held) {
       var self = this;
       var now = Date.now();
       uploadStashAll().then(function(rows) {
@@ -10384,7 +10400,10 @@ if (typeof window.Chart === "undefined") {
         var candidates = rows.filter(function(row) {
           if (now - row.touched > UPLOAD_STASH_KEEP_MS) { expired.push(row.id); return false; }
           if (row.scope !== scope) return false;
-          if (mine) return row.tab === self._tab && self._live[row.key];
+          if (mine) {
+            return row.tab === self._tab && !self._fed[row.key] &&
+              (self._held[row.key] || (!held && self._live[row.key]));
+          }
           return row.tab !== self._tab && !self._fed[row.key];
         });
         if (expired.length) {
@@ -10392,7 +10411,7 @@ if (typeof window.Chart === "undefined") {
         }
         return mine ? candidates : self._abandoned(candidates, now);
       }).then(function(items) {
-        if (mine) items.forEach(function(row) { delete self._live[row.key]; });
+        if (mine) items.forEach(function(row) { delete self._live[row.key]; self._held[row.key] = true; });
         if (!items.length) return;
         self.pushEventTo(self.el, "upload_resume_available", {
           items: items.map(function(row) {
@@ -10419,9 +10438,10 @@ if (typeof window.Chart === "undefined") {
         tabs.forEach(function(tab, at) { free[tab] = gone[at]; });
         var nextLook = null;
         var look = function(ms) { nextLook = nextLook === null ? ms : Math.min(nextLook, ms); };
+        var heldLock = false;
         var items = rows.filter(function(row) {
           if (free[row.tab] === true) return true;
-          if (free[row.tab] === false) { look(UPLOAD_STASH_LOCK_LOOK_MS); return false; }
+          if (free[row.tab] === false) { heldLock = true; return false; }
           if (now - row.touched > UPLOAD_STASH_STALE_MS) return true;
           // Another page load's record that is still fresh: a refresh leaves
           // its records for the heartbeat to age out, so look again when this
@@ -10430,6 +10450,12 @@ if (typeof window.Chart === "undefined") {
           look(UPLOAD_STASH_STALE_MS - (now - row.touched) + 500);
           return false;
         });
+        if (heldLock) {
+          look(UPLOAD_STASH_LOCK_LOOK_MS[Math.min(self._lockLooks, UPLOAD_STASH_LOCK_LOOK_MS.length - 1)]);
+          self._lockLooks++;
+        } else {
+          self._lockLooks = 0;
+        }
         if (nextLook !== null) {
           clearTimeout(self._rescan);
           self._rescan = setTimeout(function() { self._reportLeftovers(false); }, nextLook);
@@ -10461,10 +10487,13 @@ if (typeof window.Chart === "undefined") {
           // Asked for and not here to send: the record or its bytes went (a
           // second tab, the browser's own cleanup) — unless it was let go of
           // on purpose, which the server's request only crossed.
-          else if (auto && !self._forgotten[key]) lost.push(row || Object.assign(uploadStashParse(key), { key: key }));
+          else if (auto && !self._forgotten[key]) lost.push(row || Object.assign(uploadStashParse(key), { key: key, gone: true }));
         });
         var manual = lost.map(function(row) {
-          return { key: row.key, name: row.name, size: row.size, blob: false, manual: true };
+          var item = { key: row.key, name: row.name, size: row.size, blob: false, manual: true };
+          // No record at all, as against a record without bytes (too large).
+          if (row.gone) item.gone = true;
+          return item;
         });
         // `<id>-folder-drop-upload-form` in a picker, which carries its id.
         var input = found.length && (self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
@@ -10475,6 +10504,7 @@ if (typeof window.Chart === "undefined") {
           var dt = new DataTransfer();
           found.forEach(function(row) {
             self._fed[row.key] = true;
+            delete self._held[row.key];
             dt.items.add(new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified }));
           });
           input.files = dt.files;

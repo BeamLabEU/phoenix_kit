@@ -81,9 +81,9 @@ test("files are captured before LiveView reads (and the drop hook replaces) them
 
 test("a reconnect turns this tab's in-flight files into leftovers", () => {
   assert.match(hook, /reconnected\(\) \{[\s\S]*?this\._reportLeftovers\(true\);/);
-  const report = hook.slice(hook.indexOf("_reportLeftovers(mine) {"));
-  assert.match(report, /if \(mine\) return row\.tab === self\._tab && self\._live\[row\.key\];/,
-    "after a reconnect: this tab's own live records");
+  const report = hook.slice(hook.indexOf("_reportLeftovers(mine, held) {"));
+  assert.match(report, /row\.tab === self\._tab && !self\._fed\[row\.key\]/,
+    "after a reconnect: this tab's own records");
   assert.match(report, /if \(now - row\.touched > UPLOAD_STASH_STALE_MS\) return true;/,
     "otherwise: only other page loads' records nobody has touched lately");
 });
@@ -147,6 +147,9 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", br
   ctx._live = {};
   ctx._fed = {};
   ctx._forgotten = {};
+  ctx._held = {};
+  ctx._lockLooks = 0;
+  ctx._destroyed = false;
   ctx._writing = 0;
   ctx._lookAfterWrite = false;
   return { ctx, win, store, timers, pushed, tick: (ms) => { clock += ms; }, now: () => clock };
@@ -287,7 +290,7 @@ test("the server names the keys; the hook feeds those, flagged as a resume, and 
     assert.deepStrictEqual(input.files.map((f) => f.name), ["a.png"], "b was not named; c has no bytes to send");
     assert.deepStrictEqual(h.pushed.map((p) => p.payload.items), [[
       { key: "c.png|5|7", name: "c.png", size: 5, blob: false, manual: true }
-    ]], "c is handed back to be listed, not silently dropped");
+    ]], "c is there but has no bytes (too large): handed back to be listed, not silently dropped");
     assert.strictEqual(input.files[0].lastModified, 7, "the same key as before");
     assert.strictEqual(input.events.length, 1);
     assert.strictEqual(input.events[0].type, "input");
@@ -411,14 +414,18 @@ const LOCK = "phoenix_kit_upload_stash:";
 
 // navigator.locks as far as the hook uses it: `held` names the tabs whose lock
 // some page holds; an `ifAvailable` request says so with a null lock.
-function fakeLocks(held = {}) {
+function fakeLocks(held = {}, { defer = false } = {}) {
   return {
     held,
     requests: [],
+    pending: [],
+    // With `defer`, a lock to hold is granted only when the test says so.
+    grant() { return this.pending.splice(0).map((fn) => fn()); },
     request(name, opts, fn) {
       if (typeof opts === "function") { fn = opts; opts = {}; }
       this.requests.push({ name, opts });
       const tab = name.slice(LOCK.length);
+      if (defer && !opts.ifAvailable) { this.pending.push(() => fn({ name })); return Promise.resolve(); }
       if (opts.ifAvailable) return Promise.resolve(held[tab] ? fn(null) : fn({ name }));
       held[tab] = true;
       return Promise.resolve(fn({ name }));
@@ -529,7 +536,7 @@ test("a re-send asked for whose record is gone is handed back as a row to add ag
     h.ctx._resume(["my|photo.png|5|7"], true);
     await settle();
     assert.deepStrictEqual(h.pushed.map((p) => p.payload.items), [[
-      { key: "my|photo.png|5|7", name: "my|photo.png", size: 5, blob: false, manual: true }
+      { key: "my|photo.png|5|7", name: "my|photo.png", size: 5, blob: false, manual: true, gone: true }
     ]]);
   });
 });
@@ -575,8 +582,113 @@ test("a batch ending in the upload manager makes the hook report leftovers again
   h.ctx.el.parentElement = { addEventListener: (n, fn) => { listeners[n] = fn; }, removeEventListener() {} };
   h.ctx.mounted();
   const looks = [];
-  h.ctx._reportLeftovers = (mine) => looks.push(mine);
+  h.ctx._reportLeftovers = (mine, held) => looks.push([mine, held]);
 
   listeners["pk-upload:batch-complete"]({ detail: {} });
-  assert.deepStrictEqual(looks, [false], "other page loads' records, not this tab's own");
+  assert.deepStrictEqual(looks, [[false, undefined], [true, true]],
+    "other page loads' records, and this tab's own that the server has not asked for yet");
+});
+
+test("a lock still being asked for when the hook is destroyed is let go of the moment it is granted", () => {
+  const locks = fakeLocks({}, { defer: true });
+  const h = runHook({ locks });
+  h.ctx.handleEvent = () => {};
+  h.ctx.mounted();
+  assert.strictEqual(locks.pending.length, 1, "asked for, not granted yet");
+
+  h.ctx.destroyed();
+  const [held] = locks.grant();
+
+  assert.strictEqual(held, undefined, "the callback returns at once, which releases the lock");
+  assert.strictEqual(h.ctx._release, undefined);
+});
+
+test("a lock granted before the hook is destroyed is kept until then", () => {
+  const locks = fakeLocks({}, { defer: true });
+  const h = runHook({ locks });
+  h.ctx.handleEvent = () => {};
+  h.ctx.mounted();
+  const [held] = locks.grant();
+  assert.ok(held instanceof Promise, "held for as long as the promise is pending");
+  assert.strictEqual(typeof h.ctx._release, "function");
+});
+
+test("a tab another page keeps holding is looked at less and less often", async () => {
+  const locks = fakeLocks({ "old-tab": true });
+  const h = runHook({ locks });
+  h.store.rows.push(leftover(h, "a.png|5|7", { touched: 0 }));
+
+  const waits = [];
+  for (let i = 0; i < 5; i++) {
+    h.ctx._reportLeftovers(false);
+    await settle();
+    waits.push(h.timers.filter((t) => !t.cleared).pop().ms);
+  }
+  assert.deepStrictEqual(waits, [5000, 15000, 60000, 60000, 60000]);
+
+  // Its page goes: reported, and the next one that holds a lock starts again.
+  delete locks.held["old-tab"];
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.strictEqual(h.pushed.length, 1);
+  assert.strictEqual(h.ctx._lockLooks, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Leftovers reported after a reconnect but not asked for yet (no room).
+// ---------------------------------------------------------------------------
+
+test("what the server did not ask for after a reconnect is asked about again, once, until it is sent", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    const input = withInput(h);
+    for (const key of ["a.png|5|7", "b.png|5|7", "c.png|5|7"]) {
+      h.store.rows.push(leftover(h, key, { tab: "this-tab" }));
+      h.ctx._live[key] = true;
+    }
+
+    h.ctx._reportLeftovers(true);
+    await settle();
+    assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["a.png|5|7", "b.png|5|7", "c.png|5|7"]);
+    assert.deepStrictEqual(h.ctx._live, {}, "reported: no longer just live");
+
+    // The server has room for one.
+    h.ctx._resume(["a.png|5|7"], true);
+    await settle();
+    assert.deepStrictEqual(input.files.map((f) => f.name), ["a.png"]);
+    h.pushed.length = 0;
+
+    // A batch ends: the other two are asked about again; a is on its way.
+    h.ctx._reportLeftovers(true, true);
+    await settle();
+    assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["b.png|5|7", "c.png|5|7"]);
+
+    // Cancelled in the manager, c is let go of and is not asked about again.
+    h.ctx._forget(["c.png|5|7"]);
+    h.pushed.length = 0;
+    h.ctx._reportLeftovers(true, true);
+    await settle();
+    assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["b.png|5|7"]);
+  });
+});
+
+test("a batch ending asks only about what was reported before, not about files still being sent", async () => {
+  const h = runHook({});
+  h.store.rows.push(leftover(h, "queued.png|5|7", { tab: "this-tab" }));
+  h.ctx._live["queued.png|5|7"] = true; // picked and waiting in the manager's queue
+
+  h.ctx._reportLeftovers(true, true);
+  await settle();
+  assert.deepStrictEqual(h.pushed, []);
+});
+
+test("a second reconnect reports what is still held back, with what is live", async () => {
+  const h = runHook({});
+  h.store.rows.push(leftover(h, "held.png|5|7", { tab: "this-tab" }), leftover(h, "live.png|5|7", { tab: "this-tab" }));
+  h.ctx._held["held.png|5|7"] = true;
+  h.ctx._live["live.png|5|7"] = true;
+
+  h.ctx._reportLeftovers(true);
+  await settle();
+  assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key).sort(), ["held.png|5|7", "live.png|5|7"]);
 });
