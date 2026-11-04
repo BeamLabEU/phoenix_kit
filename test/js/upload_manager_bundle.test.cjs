@@ -314,3 +314,32 @@ test("when the bundle cannot be loaded a file chosen before it is failed, not le
   assert.deepStrictEqual(entry.pct, []);
   assert.ok(Array.from(env.errors).some((m) => /could not be sent/.test(m)), "the console says so");
 });
+
+test("a page that ran the standalone file after building LiveSocket gets the real uploader at once, whether or not the bundle comes", async () => {
+  const env = createEnv({ facts: FACTS });
+  env.load("phoenix_kit.js");
+  const built = Object.assign({}, env.window.PhoenixKitHooks); // what LiveSocket was given
+  env.load("phoenix_kit_upload_manager.js");
+  const server = chunkServer();
+  env.window.XMLHttpRequest = server.XHR;
+  env.window.crypto = webcrypto;
+  const { el } = panel(env);
+  const hook = makeHook(built.UploadManager, el);
+  hook.liveSocket = { uploaders: {} };
+  hook.mounted();
+
+  const uploader = hook.liveSocket.uploaders.PkChunked;
+  assert.strictEqual(uploader.name, "chunkedUploader", "no stand-in: the script is here");
+
+  env.failed(0);
+  await tick();
+  const data = Buffer.from(Array.from({ length: 90000 }, (_, i) => i % 251));
+  const entry = chosenEntry(data);
+  uploader([entry], () => {}, {}, hook.liveSocket);
+  await until(() => entry.pct[entry.pct.length - 1] === 100 || entry.err);
+
+  assert.strictEqual(entry.err, null);
+  assert.ok(server.body.equals(data), "the file was sent although the bundle never arrived");
+  assert.strictEqual(hook.liveSocket.uploaders.PkChunked, uploader);
+  hook.destroyed();
+});

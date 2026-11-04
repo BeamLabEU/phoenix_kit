@@ -4571,6 +4571,13 @@
     if (!hook.el || !hook.el.dataset || hook.el.dataset.resumable !== "true") return;
     if (!sock || !sock.uploaders || sock.uploaders.PkChunked) return;
 
+    // The script is already on the page (the standalone file, run after LiveSocket was built):
+    // the real uploader goes in now, whether or not the bundle comes.
+    if (window.PhoenixKitUploadManager) {
+      window.PhoenixKitUploadManager.chunked.register(sock);
+      return;
+    }
+
     function handOver() {
       return loadAdminBundle().then(function() {
         if (sock.uploaders.PkChunked === standIn) delete sock.uploaders.PkChunked;
@@ -4603,7 +4610,7 @@
       mounted: function() {
         var self = this;
         self.__pkGone = false;
-        if (ADMIN_STUB_SETUP[name]) ADMIN_STUB_SETUP[name](self);
+        if (Object.prototype.hasOwnProperty.call(ADMIN_STUB_SETUP, name)) ADMIN_STUB_SETUP[name](self);
         loadAdminBundle().then(function() {
           if (self.__pkGone) return;
           var real = window.PhoenixKitAdminHooks && window.PhoenixKitAdminHooks[name];

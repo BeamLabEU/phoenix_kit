@@ -118,7 +118,7 @@ of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) whic
 it, waits for the bundle and passes them on, or fails them when the bundle does not come.
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 250 328 B raw, 71 463 gzip, 93 809 minified, 28 739 minified + gzip;
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 250 657 B raw, 71 560 gzip, 93 939 minified, 28 772 minified + gzip;
 `phoenix_kit_admin.js` is 408 856 / 114 987 / 156 003 / 45 727. The size budget in `admin_split.test.cjs` (256 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
@@ -157,7 +157,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-250 KB raw / 71 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
+251 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
 the admin bundle is 409 KB / 115 KB readable, 156 KB / 46 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
