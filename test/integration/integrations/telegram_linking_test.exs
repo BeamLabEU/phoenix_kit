@@ -734,10 +734,6 @@ defmodule PhoenixKit.Integration.Integrations.TelegramLinkingTest do
   end
 
   describe "who may be linked" do
-    defp set_user(u, fields),
-      do:
-        RepoHelper.repo().update_all(from(x in Auth.User, where: x.uuid == ^u.uuid), set: fields)
-
     test "a managed organization and a service user get no token and no link", %{
       connection: connection
     } do
