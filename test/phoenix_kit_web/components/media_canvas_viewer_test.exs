@@ -59,4 +59,67 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewerTest do
                "Ensure no <% %> expressions, comments, or other content appear before the root <div>."
     end
   end
+
+  describe "pdf preview" do
+    # Chrome blocks its PDF viewer in a sandboxed iframe, so a PDF preview
+    # with `sandbox` renders as an error page instead of the document.
+    # `rendered_to_string/1` renders the whole template, which reads more
+    # assigns than the single-root check above needs.
+    defp pdf_assigns do
+      render_assigns()
+      |> Map.merge(%{
+        board: nil,
+        viewer_only: false,
+        can_annotate: false,
+        burn_mode: false,
+        burn_canvas: nil,
+        burn_version: nil,
+        etchings_hidden: false,
+        auto_annotate: false,
+        replying_annotation_uuid: nil,
+        reply_parent_uuid: nil,
+        etcher_colors: [],
+        etcher_line_params: %{},
+        viewer_rotation: 0,
+        persist_rotation: false,
+        rotation_status: nil,
+        sidebar_collapsed: true,
+        details_path: nil,
+        edit_target: nil,
+        write_scope: nil,
+        file_writable: false,
+        featured: nil,
+        media_meta: %{title: "", alt: "", description: ""},
+        media_meta_own: %{title: "", alt: "", description: ""},
+        media_meta_placeholders: %{title: "", alt: "", description: ""},
+        media_meta_lang: nil,
+        media_meta_lang_name: nil,
+        media_details_open: false,
+        media_meta_status: nil,
+        invert_two_finger_pan: false,
+        nav_overflow: MediaCanvasViewer.nav_overflow()
+      })
+      |> Map.update!(:file, fn file ->
+        Map.merge(file, %{
+          filename: "doc.pdf",
+          file_type: "document",
+          mime_type: "application/pdf",
+          width: nil,
+          height: nil,
+          urls: %{"original" => "/file/x/original/y"}
+        })
+      end)
+    end
+
+    test "pdf iframe is not sandboxed" do
+      html =
+        pdf_assigns() |> MediaCanvasViewer.render() |> Phoenix.LiveViewTest.rendered_to_string()
+
+      assert [iframe] = Regex.run(~r/<iframe[^>]*id="pk-pdf-#{@file_uuid}"[^>]*>/, html),
+             "no PDF iframe rendered"
+
+      assert iframe =~ ~s(src="/file/x/original/y")
+      refute iframe =~ "sandbox"
+    end
+  end
 end

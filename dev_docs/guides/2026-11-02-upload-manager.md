@@ -268,7 +268,9 @@ Limits to know:
 * Browsers only reopen files the page stashed or the user picks again; none can
   read a path by itself.
 * Cancelling a file in the manager deletes its partial file; closing the tab or
-  a failure does not (that is the point).
+  a failure does not (that is the point). One exception: after a reconnect the
+  manager no longer knows the old transfer's job, so cancelling a requeued file
+  while it is still waiting leaves its old partial to the daily sweep.
 
 ### Files left in the browser (media browser)
 
@@ -362,6 +364,28 @@ Found while building it, handled in the script:
 * **`cancel_upload/3` can crash the LiveView.** It raises when the entry is
   already gone and *exits* when the entry's channel has just ended. `attach/1`
   rescues both.
+* **A file handed over while the socket is down is dropped silently.** LiveView's
+  input handler returns early when the view is not connected, so no entry ever
+  appears. The manager feeds nothing while disconnected, gives no verdict for
+  time spent offline, and on reconnect sends again what never showed up.
+  A dead socket can look alive for about a minute, so a file fed within 70 s
+  before the manager noticed the drop and judged "not_accepted" is sent again
+  too; an older "not_accepted" verdict stands.
+* **A File LiveView has handled cannot be fed again.** It carries LiveView's
+  stamp and is ignored. Every re-send (a retry, a stall, a reconnect) hands over
+  a fresh `File` over the same bytes.
+* **The upload's ref changes after a rejoin.** The new LiveView process
+  registers the upload again, so the input's `data-phx-upload-ref` and the
+  panel's `data-upload-ref` (updated even though the panel is `phx-update="ignore"`)
+  differ from what they were at mount. The script reads the ref when it needs it.
+* **A rejoin drops every entry.** The new process has none of the old one's
+  entries, so a row that vanishes is not proof the host consumed it. While the
+  socket is down the script reaches no "done" verdict, and on reconnect it stops
+  the old transfers and sends the unfinished files again as fresh `File`s; a
+  resumable one carries on from the offset the server kept (same name, size and
+  date, same upload id).
+  If the host consumed an entry just before the drop, the file can be stored
+  twice: the manager prefers a duplicate to a loss.
 
 ## Taking it to another project
 

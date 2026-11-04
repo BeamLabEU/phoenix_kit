@@ -8976,6 +8976,9 @@ if (typeof window.Chart === "undefined") {
     // fight drag-to-move on touch.
     setupLongPress: function() {
       var self = this;
+      // A picker has no select mode to enter: its cards are draggable only
+      // for `allow_move`, and a hold must not eat the click that picks.
+      if (this.el.dataset.pickMode) return;
       var LONG_PRESS_MS = 450;
       var MOVE_TOLERANCE = 10;
       var items = this.el.querySelectorAll("[data-draggable-file], [data-draggable-folder]");
@@ -9043,17 +9046,42 @@ if (typeof window.Chart === "undefined") {
       // same goes for every other zone naming that folder (its sidebar
       // node). A batch counts only when all of it shares one home.
       function originOf(el) {
+        // A picker listing the subfolders' files shows them in the zone of the
+        // folder viewed; the card says which folder it is really in.
+        if (el.dataset.originFolder) return el.dataset.originFolder;
         var zone = el.parentElement && el.parentElement.closest("[data-drop-folder]");
         // A search at the root lists the whole tree inside the root zone: a
         // card there may live in any folder, so its home is unknown.
         if (zone && zone.hasAttribute("data-drop-origin-unknown")) return null;
         return zone ? zone.dataset.dropFolder : null;
       }
+      // Whether this target takes nothing from the drag in hand. In a picker
+      // the grid itself (`data-drop-no-bg`) takes no move: a card let go over
+      // it by accident moves nothing; a folder is pointed at. The folder a
+      // card is in takes none either, unless the pick has files in other
+      // folders as well (`_gatherPick`): then its node gathers them.
+      function declines(target) {
+        if (inPicker() && target.dataset.dropNoBg !== undefined) return true;
+        if (!self._dragOrigin || target.dataset.dropFolder !== self._dragOrigin) return false;
+        return !self._gatherPick;
+      }
+      // What a drag of this card takes along. A picker's batch is its pick
+      // (`data-pick-order` marks the picked cards on screen, the server holds
+      // the pick and moves all of it); elsewhere it is the selection.
+      function inPicker() { return !!self.el.dataset.pickMode; }
+      function isSelected(el) {
+        return inPicker() ? el.hasAttribute("data-pick-order") : el.dataset.selected === "true";
+      }
+      function selectedEls() {
+        return Array.prototype.slice.call(inPicker()
+          ? self.el.querySelectorAll("[data-pick-order]")
+          : document.querySelectorAll('[data-selected="true"]'));
+      }
       function dragOrigin(el) {
-        if (el.dataset.selected !== "true") return originOf(el);
+        if (!isSelected(el)) return originOf(el);
         var origin;
         var same = true;
-        document.querySelectorAll('[data-selected="true"]').forEach(function(s) {
+        selectedEls().forEach(function(s) {
           var o = originOf(s);
           if (origin === undefined) origin = o;
           else if (o !== origin) same = false;
@@ -9065,11 +9093,10 @@ if (typeof window.Chart === "undefined") {
       // (the grabbed one on top) and a badge with how many are moving, in
       // place of the browser's snapshot of the single card under the mouse.
       function selectionGhost(e, grabbed) {
-        var count = parseInt(self.el.dataset.selectionCount || "0", 10) ||
-          document.querySelectorAll('[data-selected="true"]').length;
+        var count = parseInt((inPicker() ? self.el.dataset.pickCount : self.el.dataset.selectionCount) || "0", 10) ||
+          selectedEls().length;
         if (count < 2 || !e.dataTransfer.setDragImage) return;
-        var others = Array.prototype.slice.call(document.querySelectorAll('[data-selected="true"]'))
-          .filter(function(el) { return el !== grabbed; });
+        var others = selectedEls().filter(function(el) { return el !== grabbed; });
         // Pictures before folders: a pile reads as what is being carried.
         var pictured = function(el) { return el.querySelector("img") ? 0 : 1; };
         others.sort(function(a, b) { return pictured(a) - pictured(b); });
@@ -9134,10 +9161,16 @@ if (typeof window.Chart === "undefined") {
           // existing `move_selected_to_folder` event (which iterates
           // `@selected_files` + `@selected_folders` server-side) rather
           // than the single-item move. All selected items get
-          // opacity-50 for visual feedback.
-          if (el.dataset.selected === "true") {
+          // opacity-50 for visual feedback. In a picker the batch is the
+          // pick, and the server (`move_picked_to_folder`) moves what it
+          // holds as picked.
+          if (isSelected(el)) {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
+            // The pick holds more than the cards on screen (files picked in
+            // other folders): a drop on the node of the folder shown gathers them.
+            self._gatherPick = inPicker() &&
+              (parseInt(self.el.dataset.pickCount || "0", 10) || 0) > selectedEls().length;
             selectionGhost(e, el);
             setBatchVisuals(true);
           } else {
@@ -9149,6 +9182,7 @@ if (typeof window.Chart === "undefined") {
         el.removeEventListener("dragend", el._dragend);
         el._dragend = function() {
           self._dragOrigin = null;
+          self._gatherPick = false;
           self._internalDrag = false;
           if (self._draggedBatch) {
             setBatchVisuals(false);
@@ -9192,7 +9226,7 @@ if (typeof window.Chart === "undefined") {
           // set so self-drop suppression in dragover still works for
           // the source folder; the batch marker takes precedence in
           // the drop handler.
-          if (el.dataset.selected === "true") {
+          if (isSelected(el)) {
             e.dataTransfer.setData("application/x-pk-batch", "1");
             self._draggedBatch = true;
             selectionGhost(e, el);
@@ -9256,7 +9290,7 @@ if (typeof window.Chart === "undefined") {
       // from heex, so a single querySelectorAll handles all four
       // rendering paths (grid/list × file/folder).
       function setBatchVisuals(active) {
-        document.querySelectorAll('[data-selected="true"]').forEach(function(el) {
+        selectedEls().forEach(function(el) {
           if (active) {
             el.classList.add("opacity-50");
           } else {
@@ -9292,6 +9326,9 @@ if (typeof window.Chart === "undefined") {
             target.style.outlineOffset = "6px";
             return;
           }
+          // Text or a link dragged in from elsewhere is no card of this page:
+          // not accepted, so it is not dropped here either.
+          if (!self._internalDrag) return;
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           if (isFolder && target.dataset.dropFolder === self._draggedFolderUuid) {
             // Drop-on-self for a folder — skip preventDefault so the
@@ -9303,7 +9340,7 @@ if (typeof window.Chart === "undefined") {
           }
           // The folder the dragged card is already in (see `originOf`):
           // no accept indicator, no drop.
-          if (self._dragOrigin && target.dataset.dropFolder === self._dragOrigin) {
+          if (declines(target)) {
             if (self._activeDropTarget === target) {
               clearHighlight(target);
               self._activeDropTarget = null;
@@ -9375,6 +9412,8 @@ if (typeof window.Chart === "undefined") {
             if (self._activeDropTarget === target) self._activeDropTarget = null;
             return;
           }
+          // Not one of this page's cards (text, a link): nothing to move.
+          if (!self._internalDrag) return;
           e.preventDefault();
           e.stopPropagation();
           clearHighlight(target);
@@ -9387,7 +9426,7 @@ if (typeof window.Chart === "undefined") {
           // Let go over the folder it came from: nothing moves, so nothing
           // is asked of the server (LiveView's page-wide dragover lets the
           // drop happen even though this zone declined it).
-          if (self._dragOrigin && dropFolderUuid === self._dragOrigin) return;
+          if (declines(target)) return;
 
           var isFolder = e.dataTransfer.types.indexOf("application/x-pk-folder") !== -1;
           var isBatch = e.dataTransfer.types.indexOf("application/x-pk-batch") !== -1;
@@ -9402,7 +9441,9 @@ if (typeof window.Chart === "undefined") {
             // for a folder in the batch is handled server-side (the
             // bulk handler skips moving a folder onto itself).
             // The same key the move dialog sends (`phx-value-folder-uuid`).
-            self.pushEventTo(self.el, "move_selected_to_folder", {
+            // A picker's pick has its own event: the move dialog's
+            // `move_selected_to_folder` works on what the dialog was opened for.
+            self.pushEventTo(self.el, inPicker() ? "move_picked_to_folder" : "move_selected_to_folder", {
               "folder-uuid": resolvedTarget
             });
           } else if (isFolder) {
@@ -13914,7 +13955,13 @@ if (typeof window.Chart === "undefined") {
   var HARD_CAP = 20;
   // A file handed to LiveView whose row never shows up was refused (or lost)
   // somewhere between the browser and the server; say so instead of waiting.
+  // Time with the LiveView connection down does not count (see `offline`).
   var UNSEEN_GRACE_MS = 8000;
+  // A dead socket looks alive until a heartbeat (every 30 s) goes unanswered
+  // (30 s more), so the page can notice a drop up to about a minute late. A
+  // file fed within this long before the page noticed the drop may have got its
+  // "not_accepted" verdict from the drop.
+  var DROP_LOOKBACK_MS = 70000;
   // Files are handed to LiveView one batch at a time: the next goes only once
   // the last has started to move. Preflights that overlap can leave an entry
   // registered on the server that the browser never starts sending — it sits
@@ -13974,12 +14021,21 @@ if (typeof window.Chart === "undefined") {
     this.items = [];
     this.nextId = 1;
     this.paused = false;
+    // The page has lost its LiveView connection: nothing is handed over (it
+    // would be dropped), and waiting for an entry to show up proves nothing.
+    this.offline = false;
+    // When the page noticed the drop.
+    this.offlineSince = null;
     this.samples = [];
     this.ghosts = {};
     this.stale = {};
     this.doneBytes = 0;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
+    this.tune = freshTune(this.cap);
+  }
+
+  function freshTune(cap) {
+    return {
+      phase: cap > 1 ? "probe" : "hold",
       target: 1,
       level: {},
       windowStart: null,
@@ -14007,6 +14063,9 @@ if (typeof window.Chart === "undefined") {
         started: false,
         progressAt: null,
         attempts: 0,
+        // Times handed to LiveView, a re-send after a reconnect included.
+        // Unlike `attempts`, neither a Retry nor a reconnect takes it back.
+        feeds: 0,
         error: null,
         // Paused or skipped while sending, keeping its place (resumable only).
         soft: false,
@@ -14033,7 +14092,7 @@ if (typeof window.Chart === "undefined") {
   // The files to hand to LiveView now: as many as the current level has room
   // for, in queue order. Marks them as sent.
   UploadQueue.prototype.next = function(now) {
-    if (this.paused) return [];
+    if (this.paused || this.offline) return [];
     // One batch at a time: wait for the last one to start moving.
     for (var j = 0; j < this.items.length; j++) {
       var f = this.items[j];
@@ -14046,6 +14105,7 @@ if (typeof window.Chart === "undefined") {
       if (it.state !== "queued") continue;
       it.state = "uploading";
       it.attempts += 1;
+      it.feeds += 1;
       it.fedAt = now;
       it.seen = false;
       it.started = false;
@@ -14113,14 +14173,18 @@ if (typeof window.Chart === "undefined") {
           if (row.progress >= 100) item.progressAt = now;
         }
       } else if (item.seen) {
-        // It was there and now it is not: the host consumed it. Done.
-        this._finish(item);
-      } else if (now - item.fedAt > UNSEEN_GRACE_MS) {
+        // It was there and now it is not: the host consumed it. Done. Not
+        // while the connection is down: a rejoined LiveView does not know the
+        // entry, and that is not consumption (see `requeueSeen`).
+        if (!this.offline) this._finish(item);
+      } else if (!this.offline && now - item.fedAt > UNSEEN_GRACE_MS) {
         item.state = "failed";
         item.error = "not_accepted";
       }
 
       if (item.state === "uploading") {
+        // A silent connection is not a stalled file: the clock waits.
+        if (this.offline) item.progressAt = now;
         var waited = now - item.progressAt;
         var limit = item.bytes > 0 ? STALL_MS : START_WAIT_MS;
         if (item.seen && waited > limit && !this.resumable) {
@@ -14157,6 +14221,77 @@ if (typeof window.Chart === "undefined") {
     this._sample(now);
     // Once each, however many reasons there were.
     return cancel.filter(function(ref, at) { return cancel.indexOf(ref) === at; });
+  };
+
+  // The connection is back: what was handed over but never showed up as an
+  // entry was most likely dropped by the dead socket. Send it again, as if
+  // it had not been sent, and without counting it as an attempt. That includes
+  // a file judged "not_accepted" that was fed shortly before the page noticed
+  // the drop (a half-open socket looks alive for a while). An older verdict
+  // stands: LiveView refuses some files for good (an empty one, say) and that
+  // is not the drop's doing.
+  UploadQueue.prototype.requeueUnseen = function() {
+    var since = this.offlineSince;
+    this.offlineSince = null;
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      if (it.seen) continue;
+      var lost = it.state === "failed" && it.error === "not_accepted" &&
+        since != null && it.fedAt != null && it.fedAt >= since - DROP_LOOKBACK_MS;
+      if (it.state !== "uploading" && !lost) continue;
+      it.state = "queued";
+      it.error = null;
+      it.attempts = Math.max(0, it.attempts - 1);
+      it.ref = null;
+      it.started = false;
+      it.bytes = 0;
+      it.base = 0;
+    }
+    // What was measured before the drop says nothing about the link now.
+    this.samples = [];
+    this.doneBytes = 0;
+    this.tune = freshTune(this.cap);
+  };
+
+  // The connection is back, and with it a new LiveView process: it knows
+  // nothing of the entries the old one held. A file that was on its way (or
+  // stopped in place, resumable) has lost its entry; it goes back in the line
+  // to be handed over again, no failure and no attempt used up. Returns the
+  // refs of the lost entries, for the caller to stop their transfers. A
+  // resumable file carries on from the offset the server kept, because the
+  // fresh File it is sent as has the same name, size and date, so it is the
+  // same upload there.
+  UploadQueue.prototype.requeueSeen = function() {
+    var refs = [];
+    for (var i = 0; i < this.items.length; i++) {
+      var it = this.items[i];
+      var sending = it.state === "uploading" && it.seen;
+      if (!sending && !(it.soft && it.seen)) continue;
+      if (it.ref) refs.push(it.ref);
+      if (sending) {
+        it.state = "queued";
+        it.attempts = Math.max(0, it.attempts - 1);
+      }
+      it.soft = false;
+      it.seen = false;
+      it.started = false;
+      it.ref = null;
+      it.bytes = 0;
+      it.base = 0;
+    }
+    return refs;
+  };
+
+  // The file to give LiveView for an item that `next` just returned. LiveView
+  // stamps the File objects it has handled. One that is sent again (a retry,
+  // a resume, a re-send after a reconnect) is given as a fresh object over the
+  // same bytes, so it cannot be mistaken for the transfer that was stopped.
+  UploadQueue.prototype.fileToFeed = function(item) {
+    if (item.feeds > 1 && typeof File === "function") {
+      var f = item.file;
+      item.file = new File([f], f.name, { type: f.type, lastModified: f.lastModified });
+    }
+    return item.file;
   };
 
   // A file that has not moved: sent again by itself, then reported.
@@ -14222,6 +14357,8 @@ if (typeof window.Chart === "undefined") {
   // while the total speed keeps rising by TUNE_GAIN, and settle where adding
   // another stopped helping.
   UploadQueue.prototype.autoTune = function(now) {
+    // Nothing moves while the connection is down: not a speed to learn from.
+    if (this.offline) return;
     var t = this.tune;
     var waiting = this.count("queued") + this.count("uploading");
 
@@ -14464,15 +14601,7 @@ if (typeof window.Chart === "undefined") {
     this.stale = {};
     this.doneBytes = 0;
     this.paused = false;
-    this.tune = {
-      phase: this.cap > 1 ? "probe" : "hold",
-      target: 1,
-      level: {},
-      windowStart: null,
-      windowAt: null,
-      settledAt: null,
-      probeStart: null
-    };
+    this.tune = freshTune(this.cap);
   };
 
   // Anything still to do or in progress.
@@ -14809,6 +14938,8 @@ if (typeof window.Chart === "undefined") {
     pause: function(ref) { if (jobs[ref]) jobs[ref].pause(); },
     resume: function(ref) { if (jobs[ref]) jobs[ref].resume(); },
     discard: function(ref) { if (jobs[ref]) jobs[ref].discard(); },
+    // Let go of the transfer but leave the partial file on the server.
+    stop: function(ref) { if (jobs[ref]) jobs[ref].stop(); },
     info: function(ref) {
       var j = jobs[ref];
       return j ? { status: j.status, start: j.start } : null;
@@ -14829,7 +14960,6 @@ if (typeof window.Chart === "undefined") {
     mounted: function() {
       var self = this;
       var d = this.el.dataset;
-      this.uploadRef = d.uploadRef;
       this.uploadName = d.uploadName || "";
       this.entriesId = d.entries;
       this.cancelEvent = d.cancelEvent || "pk_upload_cancel";
@@ -14885,6 +15015,21 @@ if (typeof window.Chart === "undefined") {
       this.render();
     },
 
+    // The socket is down: files picked now wait, and the time does not count
+    // against the ones already handed over.
+    disconnected: function() {
+      if (!this.queue.offline) this.queue.offlineSince = Date.now();
+      this.queue.offline = true;
+    },
+
+    reconnected: function() {
+      var lost = this.queue.requeueSeen();
+      if (this.resumable) lost.forEach(function(ref) { chunked.stop(ref); });
+      this.queue.offline = false;
+      this.queue.requeueUnseen();
+      this.sync();
+    },
+
     // LiveView rebinding or a re-mount of the page under this hook: nothing
     // to do, the queue lives in this object.
     updated: function() {},
@@ -14898,13 +15043,11 @@ if (typeof window.Chart === "undefined") {
       window.removeEventListener("beforeunload", this.onUnload);
     },
 
-    // The upload's ref is new each time the page mounts again (a reconnect
-    // after the server restarted or the tab was discarded), and this element
-    // is `phx-update="ignore"`: its data attributes follow, this object's copy
-    // would not. Read it off the element, or the manager stops seeing its own
-    // input.
+    // The upload's ref is new each time the LiveView process is: after a
+    // reconnect the input and this element both carry the new one, so it is
+    // read when needed, not kept from mounting.
     _ref: function() {
-      return this.el.dataset.uploadRef || this.uploadRef;
+      return this.el.dataset.uploadRef;
     },
 
     _input: function() {
@@ -14969,7 +15112,11 @@ if (typeof window.Chart === "undefined") {
       } catch (_e) { /* no CustomEvent: nobody is listening */ }
     },
 
+    // Held while the view is down: the batch notice is a pushEvent, which a
+    // dead channel rejects. The queue keeps what is owed, and `reconnected`
+    // announces it (or not, if the file that ended the batch is back in line).
     _announce: function() {
+      if (this.queue.offline) return;
       var notices = this.queue.takeNotices();
       for (var i = 0; i < notices.files.length; i++) {
         var n = notices.files[i];
@@ -15031,18 +15178,8 @@ if (typeof window.Chart === "undefined") {
         return;
       }
       var dt = new DataTransfer();
-      items.forEach(function(it) {
-        // LiveView stamps the File objects it has handled. One that was
-        // cancelled and is being sent again (a resume, a retry) is given as a
-        // fresh object over the same bytes, so it cannot be mistaken for the
-        // transfer that was stopped.
-        var file = it.file;
-        if (it.attempts > 1 && typeof File === "function") {
-          file = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
-          it.file = file;
-        }
-        dt.items.add(file);
-      });
+      var queue = this.queue;
+      items.forEach(function(it) { dt.items.add(queue.fileToFeed(it)); });
       input.files = dt.files;
       var ev = new Event("input", { bubbles: true });
       ev.__pkUploadManagerFeed = true;
@@ -15050,7 +15187,8 @@ if (typeof window.Chart === "undefined") {
     },
 
     _cancelEntry: function(ref) {
-      if (!ref) return;
+      // The entry is gone with the old LiveView process; there is no one to tell.
+      if (!ref || this.queue.offline) return;
       var payload = { ref: ref, name: this.uploadName };
       if (this.cancelTarget) this.pushEventTo(this.cancelTarget, this.cancelEvent, payload);
       else this.pushEvent(this.cancelEvent, payload);

@@ -12,9 +12,9 @@
   <%!-- Folders. Without folder actions a folder is neither a drop target nor
        selectable (every bulk action on one is a folder action). --%>
   <% select_folders = @select_mode and @folder_actions %>
-  <%= for folder <- if(@file_view == "all", do: [], else: @folders) do %>
+  <%= for folder <- if(@file_view == "all" or @subtree_listing, do: [], else: @folders) do %>
     <div
-      data-drop-folder={if not @readonly and @folder_actions, do: folder.uuid}
+      data-drop-folder={if not @readonly and (@folder_actions or @allow_move), do: folder.uuid}
       data-drop-color={drop_outline_color(folder.color)}
       data-draggable-folder={if @drag, do: folder.uuid}
       data-selected={
@@ -240,14 +240,20 @@
   <% end %>
   <%!-- Files. In a picker a click picks (`click_file`); a picked file is
        ringed and numbered in the order it was picked, and the card is not
-       draggable (no long press, Shift-click or box select either). Without
-       folder actions the card stays draggable — the selection gestures ride
-       on that — but no folder, tree node or Trash takes a move (the content
-       area stays a drop target for uploads; the server refuses a move). --%>
+       draggable (no long press, Shift-click or box select either) — unless
+       `allow_move`: then it is dragged to a folder, a picked card taking the
+       whole pick with it (`data-pick-order` tells the drag script which are
+       picked). Listing the subfolders' files too, a card names the folder it
+       is really in (`data-origin-folder`), as the drag script reads it: the
+       zone it sits in is the viewed folder. Outside a picker the card is
+       draggable for the selection gestures too (long press, Shift-click, box
+       select), and without folder actions no folder, tree node or Trash takes
+       a move. --%>
   <%= for file <- @uploaded_files do %>
     <% pick_order = @picker && pick_position(@picked, file.file_uuid) %>
     <div
-      data-draggable-file={if not @readonly and not @picker, do: file.file_uuid}
+      data-draggable-file={if not @readonly and (not @picker or @allow_move), do: file.file_uuid}
+      data-origin-folder={card_origin(@allow_move && @subtree_listing, file, @scope_folder_id)}
       data-selected={
         if @select_mode && MapSet.member?(@selected_files, file.file_uuid),
           do: "true"
