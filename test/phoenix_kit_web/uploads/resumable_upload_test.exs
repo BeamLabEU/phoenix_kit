@@ -316,6 +316,48 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
       refute ResumableUpload.taken?("u1", @fields)
     end
 
+    test "a marker is judged against when the browser's copy was picked", %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+      ResumableUpload.consume(socket, entry, fn %{path: p} -> store(p) end)
+
+      assert ResumableUpload.taken?("u1", @fields, 60_000), "taken after the copy was picked"
+      assert ResumableUpload.taken?("u1", @fields, 0)
+
+      marker = Path.join(dir, Path.basename(path, ".part") <> ".done")
+      File.touch!(marker, System.os_time(:second) - 3600)
+
+      refute ResumableUpload.taken?("u1", @fields, 60_000), "taken before the copy was picked"
+      assert ResumableUpload.taken?("u1", @fields, 2 * 3_600_000), "…and after an older copy"
+      assert ResumableUpload.taken?("u1", @fields), "no age: any marker counts"
+      assert ResumableUpload.taken?("u1", @fields, nil)
+      assert ResumableUpload.taken?("u1", @fields, -1)
+    end
+
+    test "a marker that cannot be written is logged, and the file is still handed over",
+         %{dir: dir} do
+      {socket, entry, path} = finished(5)
+      File.mkdir_p!(dir)
+      File.write!(path, "01234")
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert :stored ==
+                   ResumableUpload.consume(socket, entry, fn %{path: p} ->
+                     result = store(p)
+                     # The directory turns into a file under it: no marker fits.
+                     File.rm_rf!(dir)
+                     File.write!(dir, "not a directory")
+                     result
+                   end)
+        end)
+
+      assert log =~ "could not mark an upload as taken"
+      refute ResumableUpload.taken?("u1", @fields)
+      File.rm(dir)
+    end
+
     test "the same file sent again is no longer taken", %{dir: dir} do
       {socket, entry, path} = finished(5)
       File.mkdir_p!(dir)
@@ -337,6 +379,16 @@ defmodule PhoenixKitWeb.ResumableUploadTest do
                {:error, :incomplete_upload}
 
       refute_received {:stored, _}
+    end
+  end
+
+  describe "external?/1" do
+    test "is true for the function external/1 builds, and for no other" do
+      assert ResumableUpload.external?(ResumableUpload.external())
+      assert ResumableUpload.external?(ResumableUpload.external(base: "/up"))
+      refute ResumableUpload.external?(fn _entry, socket -> {:ok, %{}, socket} end)
+      refute ResumableUpload.external?(false)
+      refute ResumableUpload.external?(nil)
     end
   end
 

@@ -310,7 +310,12 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     the server has already taken, or is receiving, are never sent again; a
     file too large for the browser to keep is listed either way, to be added
     again. If a re-send cannot start in the browser, the file is listed with
-    Resume.
+    Resume. `:auto` applies only to a resumable upload (the default, see
+    *Resumable uploads* in Settings -> Media): the server's record of what it
+    has taken comes from there, and without it the browser asks. That record
+    is kept for the signed-in person (`phoenix_kit_current_user`), the owner
+    `ResumableUpload.external/1` uses by default; a host whose own
+    `allow_upload` names another `:owner` should use `:ask`.
   - `readonly` (default `false`) — embed the browser for viewing only.
     Every write-capable affordance is hidden — the upload zone and
     drag-drop upload input, the toolbar's Add Media / Select / New folder
@@ -1262,11 +1267,13 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   end
 
   # The file was handed to the server by an earlier page (see
-  # `ResumableUpload.taken?/2`); an upload with no resumable store never says so.
-  defp upload_taken?(socket, key) do
+  # `ResumableUpload.taken?/2`). The owner is the signed-in person, as the
+  # default `ResumableUpload.external/1` takes it. `age_ms` is how long ago
+  # the browser's copy was picked: a marker older than that is not about it.
+  defp upload_taken?(socket, %{"key" => key} = item) do
     with %{uuid: owner} <- socket.assigns[:phoenix_kit_current_user],
          {:ok, fields} <- split_client_key(key) do
-      ResumableUpload.taken?(owner, fields)
+      ResumableUpload.taken?(owner, fields, item["age_ms"])
     else
       _ -> false
     end
@@ -1285,29 +1292,45 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     end
   end
 
-  # Files the hook is told to send again: whole files the browser holds, in
-  # `:auto` mode, as many as the upload has room for (`max_entries` less the
-  # entries it holds now). The rest are listed with their Resume button.
+  # What is done with files the browser holds whole, in `:auto` mode: the hook
+  # is told to send as many as the upload has room for (`max_entries` less the
+  # entries it holds now); the rest wait in the stash, and the hook asks again
+  # when a batch ends. Anything else is listed with its Resume button.
+  #
+  # `:auto` needs the server's own record of what it has taken (the marker of
+  # `ResumableUpload.consume/3`): an upload that is not resumable has none, and
+  # a file it already consumed would go again. It asks, as `:ask` does.
   defp split_auto_resume(socket, items) do
-    if socket.assigns[:upload_resume] != :ask and socket.assigns[:readonly] != true do
+    if auto_resume?(socket) do
       {candidates, others} = Enum.split_with(items, &(&1["blob"] == true))
 
-      {resend, over} =
+      {resend, waiting} =
         case upload_room(socket) do
           :infinity -> {candidates, []}
           room -> Enum.split(candidates, room)
         end
 
-      {resend, over ++ others}
+      {resend, others, waiting}
     else
-      {[], items}
+      {[], items, []}
     end
   end
 
+  defp auto_resume?(socket) do
+    socket.assigns[:upload_resume] != :ask and socket.assigns[:readonly] != true and
+      resumable_upload?(upload_config(socket))
+  end
+
+  defp resumable_upload?(%{external: fun}), do: ResumableUpload.external?(fun)
+  defp resumable_upload?(_config), do: false
+
   defp upload_room(socket) do
     case upload_config(socket) do
-      %{max_entries: max} when is_integer(max) -> max(max - length(upload_entries(socket)), 0)
-      _ -> :infinity
+      %{max_entries: limit} when is_integer(limit) ->
+        max(limit - length(upload_entries(socket)), 0)
+
+      _ ->
+        :infinity
     end
   end
 
@@ -5018,7 +5041,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   #   * the server has already taken it (the news of that died with the old
   #     page): the hook is told to let go of it;
   #   * the browser holds the bytes and `upload_resume` is `:auto`: the hook is
-  #     told to send it again, while the upload has room for more entries;
+  #     told to send it again, while the upload has room for more entries (the
+  #     rest are left in the stash, and the hook reports again when a batch ends);
   #   * anything else is listed like any other problem; Resume re-sends it.
   #
   # `"manual"` items are the hook handing back what it could not send itself.
@@ -5030,8 +5054,8 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
       |> Enum.reject(&known_upload?(socket, &1["key"]))
       |> Enum.split_with(&(&1["manual"] == true))
 
-    {taken, items} = Enum.split_with(items, &upload_taken?(socket, &1["key"]))
-    {resend, listed} = split_auto_resume(socket, items)
+    {taken, items} = Enum.split_with(items, &upload_taken?(socket, &1))
+    {resend, listed, _waiting} = split_auto_resume(socket, items)
 
     socket =
       (manual ++ listed)

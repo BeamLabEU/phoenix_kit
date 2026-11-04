@@ -105,7 +105,7 @@ test("resume feeds files back through the input the way a drop does", () => {
 // The hook run for real, against a fake store and a fake clock.
 // ---------------------------------------------------------------------------
 
-function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", browser, picker }) {
+function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", browser, picker, locks }) {
   let clock = 1_000_000;
   const timers = [];
   const store = { rows: rows || [], deleted: [], put: [] };
@@ -128,11 +128,11 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", br
     }
     return window.PhoenixKitHooks.UploadResume;`;
   const Hook = new Function("window", "store", "Date", "setTimeout", "clearTimeout",
-    "setInterval", "clearInterval", "document", code)(
+    "setInterval", "clearInterval", "document", "navigator", code)(
     win, store, { now: () => clock },
     (fn, ms) => { const t = { fn, ms, at: clock + ms }; timers.push(t); return t; },
     (t) => { if (t) t.cleared = true; },
-    () => ({}), () => {}, {});
+    () => ({}), () => {}, {}, locks ? { locks } : {});
   const pushed = [];
   const ctx = Object.assign(Object.create(Hook), {
     el: { dataset: Object.assign({ user }, picker ? { browser, picker: "true" } : {}), parentElement: { addEventListener() {}, removeEventListener() {} } },
@@ -146,6 +146,7 @@ function runHook({ rows, pathname = "/admin/media", search = "", user = "u1", br
   ctx._scopes = {};
   ctx._live = {};
   ctx._fed = {};
+  ctx._forgotten = {};
   ctx._writing = 0;
   ctx._lookAfterWrite = false;
   return { ctx, win, store, timers, pushed, tick: (ms) => { clock += ms; }, now: () => clock };
@@ -284,11 +285,13 @@ test("the server names the keys; the hook feeds those, flagged as a resume, and 
     await settle();
 
     assert.deepStrictEqual(input.files.map((f) => f.name), ["a.png"], "b was not named; c has no bytes to send");
+    assert.deepStrictEqual(h.pushed.map((p) => p.payload.items), [[
+      { key: "c.png|5|7", name: "c.png", size: 5, blob: false, manual: true }
+    ]], "c is handed back to be listed, not silently dropped");
     assert.strictEqual(input.files[0].lastModified, 7, "the same key as before");
     assert.strictEqual(input.events.length, 1);
     assert.strictEqual(input.events[0].type, "input");
     assert.strictEqual(input.events[0].__pkUploadResume, true, "the upload manager is told it is a resume");
-    assert.deepStrictEqual(h.pushed, [], "fed: nothing to hand back");
   });
 });
 
@@ -400,9 +403,180 @@ test("a file cancelled in the upload manager is let go of", async () => {
   assert.ok(!h.ctx._live["a.png|5|7"]);
 });
 
-test("the server and the hook agree on the new wire: auto resume, discard, manual hand-back", () => {
-  assert.match(server, /push_resume_keys\("phoenix_kit:upload-resume", resend, %\{auto: true\}\)/);
-  assert.match(server, /push_resume_keys\("phoenix_kit:upload-discard", taken\)/);
-  assert.match(server, /&\(&1\["manual"\] == true\)/);
-  assert.match(hook, /manual: true/);
+// ---------------------------------------------------------------------------
+// Whose records are abandoned: Web Locks where the browser has them.
+// ---------------------------------------------------------------------------
+
+const LOCK = "phoenix_kit_upload_stash:";
+
+// navigator.locks as far as the hook uses it: `held` names the tabs whose lock
+// some page holds; an `ifAvailable` request says so with a null lock.
+function fakeLocks(held = {}) {
+  return {
+    held,
+    requests: [],
+    request(name, opts, fn) {
+      if (typeof opts === "function") { fn = opts; opts = {}; }
+      this.requests.push({ name, opts });
+      const tab = name.slice(LOCK.length);
+      if (opts.ifAvailable) return Promise.resolve(held[tab] ? fn(null) : fn({ name }));
+      held[tab] = true;
+      return Promise.resolve(fn({ name }));
+    }
+  };
+}
+
+test("a record whose tab holds no lock is a leftover at once, however fresh it is", async () => {
+  const h = runHook({ locks: fakeLocks() });
+  h.store.rows.push(leftover(h, "a.png|5|7", { touched: h.now() - 200 }));
+
+  h.ctx._reportLeftovers(false);
+  await settle();
+
+  assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["a.png|5|7"],
+    "no waiting for the 15 s stale rule: its page is gone");
+  assert.deepStrictEqual(h.timers.filter((t) => !t.cleared && t.ms >= 1000), []);
+});
+
+test("a record whose tab holds its lock is not abandoned, however long it has been quiet", async () => {
+  const locks = fakeLocks({ "old-tab": true });
+  const h = runHook({ locks });
+  h.store.rows.push(leftover(h, "a.png|5|7", { touched: 0 }));
+
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.deepStrictEqual(h.pushed, [], "a throttled background tab is still uploading it");
+  const look = h.timers.find((t) => !t.cleared && t.ms === 5000);
+  assert.ok(look, "it is looked at again");
+
+  delete locks.held["old-tab"]; // the tab closes
+  look.fn();
+  await settle();
+  assert.deepStrictEqual(h.pushed[0].payload.items.map((i) => i.key), ["a.png|5|7"]);
+});
+
+test("one lock check per tab, however many records it left", async () => {
+  const locks = fakeLocks();
+  const h = runHook({ locks });
+  h.store.rows.push(leftover(h, "a.png|5|7"), leftover(h, "b.png|5|7"), leftover(h, "c.png|5|7", { tab: "other" }));
+
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.deepStrictEqual(locks.requests.map((r) => r.name).sort(), [LOCK + "old-tab", LOCK + "other"]);
+  assert.strictEqual(h.pushed[0].payload.items.length, 3);
+});
+
+test("this tab's own records are never checked against locks", async () => {
+  const locks = fakeLocks();
+  const h = runHook({ locks });
+  h.store.rows.push(leftover(h, "a.png|5|7", { tab: "this-tab" }));
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.deepStrictEqual(h.pushed, []);
+  assert.deepStrictEqual(locks.requests, []);
+});
+
+test("the hook holds a lock named after its tab until it is destroyed", () => {
+  const locks = fakeLocks();
+  const h = runHook({ locks });
+  h.ctx.handleEvent = () => {};
+  h.ctx.mounted();
+
+  assert.strictEqual(locks.requests[0].name, LOCK + h.ctx._tab);
+  assert.strictEqual(typeof h.ctx._release, "function", "the lock is kept, not given back");
+  let released = false;
+  const release = h.ctx._release;
+  h.ctx._release = () => { released = true; release(); };
+  h.ctx.destroyed();
+  assert.ok(released);
+});
+
+// ---------------------------------------------------------------------------
+// How long ago a copy was picked: the server's guard against an old marker.
+// ---------------------------------------------------------------------------
+
+test("a record remembers when it was picked, and the report says how long ago", async () => {
+  const h = runHook({});
+  const file = { name: "a.png", size: 5, lastModified: 7, type: "image/png" };
+  h.ctx._stash([file]);
+  const picked = h.store.put[0].picked;
+  assert.strictEqual(picked, h.now());
+
+  h.tick(4000);
+  h.store.rows.length = 0;
+  h.store.rows.push(Object.assign({}, h.store.put[0], { tab: "old-tab", touched: 0 }));
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.strictEqual(h.pushed[0].payload.items[0].age_ms, 4000);
+});
+
+test("a record from before `picked` existed is reported without an age", async () => {
+  const h = runHook({});
+  h.store.rows.push(leftover(h, "a.png|5|7", { touched: 0 }));
+  h.ctx._reportLeftovers(false);
+  await settle();
+  assert.ok(!("age_ms" in h.pushed[0].payload.items[0]));
+});
+
+// ---------------------------------------------------------------------------
+// Keys the server asked for that are no longer here.
+// ---------------------------------------------------------------------------
+
+test("a re-send asked for whose record is gone is handed back as a row to add again", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    withInput(h);
+    h.ctx._resume(["my|photo.png|5|7"], true);
+    await settle();
+    assert.deepStrictEqual(h.pushed.map((p) => p.payload.items), [[
+      { key: "my|photo.png|5|7", name: "my|photo.png", size: 5, blob: false, manual: true }
+    ]]);
+  });
+});
+
+test("…unless the file was let go of on purpose: the request only crossed the acknowledgement", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    withInput(h);
+    h.ctx._forget(["a.png|5|7"]);
+    h.ctx._resume(["a.png|5|7"], true);
+    await settle();
+    assert.deepStrictEqual(h.pushed, []);
+
+    // Picked again later, it is a file like any other.
+    h.ctx._stash([{ name: "a.png", size: 5, lastModified: 7, type: "image/png" }]);
+    h.store.rows.length = 0;
+    h.ctx._resume(["a.png|5|7"], true);
+    await settle();
+    assert.strictEqual(h.pushed.length, 1);
+  });
+});
+
+test("a feed and a hand-back can happen together: one report for what could not be sent", async () => {
+  await withBrowser(async () => {
+    const h = runHook({});
+    const input = withInput(h);
+    h.store.rows.push(leftover(h, "a.png|5|7"));
+    h.ctx._resume(["a.png|5|7", "gone.png|5|7"], true);
+    await settle();
+    assert.deepStrictEqual(input.files.map((f) => f.name), ["a.png"]);
+    assert.deepStrictEqual(h.pushed.map((p) => p.payload.items.map((i) => i.key)), [["gone.png|5|7"]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Leftovers the server held back: asked about again when a batch ends.
+// ---------------------------------------------------------------------------
+
+test("a batch ending in the upload manager makes the hook report leftovers again", () => {
+  const h = runHook({});
+  const listeners = {};
+  h.ctx.handleEvent = () => {};
+  h.ctx.el.parentElement = { addEventListener: (n, fn) => { listeners[n] = fn; }, removeEventListener() {} };
+  h.ctx.mounted();
+  const looks = [];
+  h.ctx._reportLeftovers = (mine) => looks.push(mine);
+
+  listeners["pk-upload:batch-complete"]({ detail: {} });
+  assert.deepStrictEqual(looks, [false], "other page loads' records, not this tab's own");
 });

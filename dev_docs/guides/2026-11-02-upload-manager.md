@@ -229,8 +229,8 @@ function). The manager then:
 * **carries on after a reload**: the same file picked again, by the same
   person, is the same upload, and the server says how much it already has.
   In the media browser the files the page stashed before it went away are
-  offered again with Resume, so even the re-pick is one click (up to the
-  stash's size limit);
+  sent again by themselves when the page comes back (up to the stash's size
+  limit; see "Files left in the browser" below);
 * **checks every chunk** (SHA-256 when the browser has Web Crypto), writes it
   only at the exact end of the file (a repeated or late chunk gets `409` and
   the right offset), and never writes past the declared size.
@@ -270,6 +270,41 @@ Limits to know:
 * Cancelling a file in the manager deletes its partial file; closing the tab or
   a failure does not (that is the point).
 
+### Files left in the browser (media browser)
+
+The media browser copies every file a person picks into the browser's
+IndexedDB (`UploadResume`) and drops the copy when the server says it has the
+bytes. What a lost page leaves behind — a reload, a discarded phone tab, a
+dropped connection — is reported when the page loads and again on a reconnect;
+the server answers with what to do with each file:
+
+* **`upload_resume: :auto`** (the default of `MediaBrowser`): the files whose
+  bytes the browser holds are sent again by themselves, through the upload
+  manager, with no click. The server leaves out files already listed or
+  arriving, sends no more than the upload has room for under `max_entries`
+  (the rest wait in the stash, and the hook asks again when a batch ends), and
+  lists a file too large for the browser to keep as "add it again". If the
+  browser cannot start a re-send, the file is listed with a Resume button.
+* **`upload_resume: :ask`**: every leftover is listed as an upload problem with
+  a Resume button, as before.
+
+`:auto` applies only to a resumable upload. `ResumableUpload.consume/3` leaves
+a small `.done` marker (in the upload directory, kept a week) when it hands a
+file over; a leftover whose marker is newer than the moment it was picked has
+already been taken — the news died with the old page — and the hook is told to
+let it go instead of sending it again. A copy picked after the marker was
+written is not judged by it (the report says how long ago it was picked). The
+marker is node-local, like the partial files: on another node, or once the
+directory is wiped, the file is sent again, which is why a non-resumable
+upload (no marker) falls back to `:ask`. It is kept for the signed-in person,
+the owner `ResumableUpload.external/1` uses by default; a host whose own
+`allow_upload` names another `:owner` should use `:ask`.
+
+A page that was left is told apart from one that is only quiet by a Web Lock
+each page holds; where the browser has none (an insecure origin) a record
+untouched for 15 seconds counts as left. A file cancelled in the manager is
+forgotten.
+
 ## Telling the page
 
 Two ways to hear what the manager does, neither needs the page to read its
@@ -278,7 +313,9 @@ internals:
 * **DOM events**, fired on the panel and bubbling, with details in
   `event.detail`: `pk-upload:file-done` and `pk-upload:file-failed`
   (`{name, size, key, error}`), and `pk-upload:batch-complete` when the last
-  thing in flight ends (`{done, failed, cancelled, skipped, total, bytes}`).
+  thing in flight ends (`{done, failed, cancelled, skipped, total, bytes}`);
+  `pk-upload:cancelled` (`{keys}`) when the person cancels files, so a page
+  that keeps its own copy of them can let go.
 * **An event to the LiveView**: `notify_event="batch_done"` pushes
   `batch-complete`'s detail as string keys to `handle_event("batch_done", params, socket)`;
   `notify_target={@myself}` sends it to a component instead.

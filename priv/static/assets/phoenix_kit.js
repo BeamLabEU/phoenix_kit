@@ -10084,9 +10084,11 @@ if (typeof window.Chart === "undefined") {
   // asking for it again — and are listed as "add it again".
   //
   // Records are scoped to the page path (a library page resumes into that
-  // library) and the signed-in user, and owned by the tab that made them: each tab keeps its live
-  // records' `touched` fresh, so a second tab never mistakes another's
-  // in-flight files for leftovers.
+  // library) and the signed-in user, and owned by the tab that made them: each
+  // tab holds a Web Lock, so a second tab never mistakes another's in-flight
+  // files for leftovers — and takes a dead tab's at once. Where Web Locks are
+  // missing, each tab keeps its live records' `touched` fresh and a record
+  // untouched for a while is taken to be abandoned.
   // ----------------------------------------------------------------------------
 
   var UPLOAD_STASH_DB = "phoenix_kit_upload_stash";
@@ -10095,11 +10097,45 @@ if (typeof window.Chart === "undefined") {
   var UPLOAD_STASH_STALE_MS = 15000;
   var UPLOAD_STASH_HEARTBEAT_MS = 5000;
   var UPLOAD_STASH_KEEP_MS = 7 * 24 * 3600 * 1000;
+  // Each hook holds a Web Lock named after its tab id for as long as it lives:
+  // a record whose owner's lock is free was abandoned (the page is gone), one
+  // whose lock is held belongs to a page that is still there, throttled or not.
+  var UPLOAD_STASH_LOCK = "phoenix_kit_upload_stash:";
+  var UPLOAD_STASH_LOCK_LOOK_MS = 5000;
 
   // The same three things the server's `client_key/1` reads off an upload
   // entry — LiveView sends the File's own name, size and lastModified.
   function uploadStashKey(file) {
     return file.name + "|" + file.size + "|" + file.lastModified;
+  }
+
+  // The key's parts, for a record that is gone: a name may hold the
+  // separator, the size and the date do not.
+  function uploadStashParse(key) {
+    var parts = String(key).split("|");
+    if (parts.length < 3) return { name: String(key), size: null };
+    return { name: parts.slice(0, parts.length - 2).join("|"), size: parseInt(parts[parts.length - 2], 10) || 0 };
+  }
+
+  function uploadStashLocks() {
+    try {
+      if (typeof navigator !== "undefined" && navigator.locks && typeof navigator.locks.request === "function") return navigator.locks;
+    } catch (_) {}
+    return null;
+  }
+
+  // true: no page holds that tab's lock any more; false: one does; null: the
+  // browser cannot say (no Web Locks on an insecure origin) — the caller falls
+  // back on how long ago the record was touched.
+  function uploadStashTabGone(tab) {
+    var locks = uploadStashLocks();
+    if (!locks) return Promise.resolve(null);
+    try {
+      return Promise.resolve(locks.request(UPLOAD_STASH_LOCK + tab, { ifAvailable: true }, function(lock) { return lock !== null; }))
+        .catch(function() { return null; });
+    } catch (_) {
+      return Promise.resolve(null);
+    }
   }
 
   function uploadStashOpen() {
@@ -10166,6 +10202,9 @@ if (typeof window.Chart === "undefined") {
       // Keys fed back by this page and not yet acknowledged: a second look
       // must not offer them again while their records are being rewritten.
       this._fed = {};
+      // Keys the server acknowledged or the person cancelled: a re-send asked
+      // for after that is moot, not a lost file.
+      this._forgotten = {};
       // Stash writes still running, and whether a reconnect looked while one
       // was: its record was not there to be found.
       this._writing = 0;
@@ -10184,6 +10223,11 @@ if (typeof window.Chart === "undefined") {
       this._root.addEventListener("input", this._onPick, true);
       this._root.addEventListener("change", this._onPick, true);
 
+      // A batch ending frees room under the upload's limit: leftovers the
+      // server held back are asked about again.
+      this._onBatch = function() { self._reportLeftovers(false); };
+      this._root.addEventListener("pk-upload:batch-complete", this._onBatch);
+
       // A file the person cancelled in the upload manager is not a leftover.
       this._onCancelled = function(e) {
         var keys = e && e.detail && e.detail.keys;
@@ -10191,6 +10235,7 @@ if (typeof window.Chart === "undefined") {
       };
       this._root.addEventListener("pk-upload:cancelled", this._onCancelled);
 
+      this._hold();
       this._beat = setInterval(function() { self._heartbeat(); }, UPLOAD_STASH_HEARTBEAT_MS);
       this._rescan = null;
 
@@ -10219,7 +10264,21 @@ if (typeof window.Chart === "undefined") {
         this._root.removeEventListener("input", this._onPick, true);
         this._root.removeEventListener("change", this._onPick, true);
         this._root.removeEventListener("pk-upload:cancelled", this._onCancelled);
+        this._root.removeEventListener("pk-upload:batch-complete", this._onBatch);
       }
+      if (this._release) this._release();
+    },
+
+    // Holds this hook's lock until the page goes (or the hook is destroyed).
+    _hold() {
+      var locks = uploadStashLocks();
+      if (!locks) return;
+      var self = this;
+      try {
+        locks.request(UPLOAD_STASH_LOCK + this._tab, function() {
+          return new Promise(function(release) { self._release = release; });
+        }).catch(function() {});
+      } catch (_) {}
     },
 
     // Where a file picked now belongs: the page's path (a library switch
@@ -10257,6 +10316,7 @@ if (typeof window.Chart === "undefined") {
         var scope = self._scopeNow();
         self._live[key] = true;
         self._scopes[key] = scope;
+        delete self._forgotten[key];
         var keep = file.size <= UPLOAD_STASH_MAX_BYTES;
         self._writing++;
         uploadStashRun("readwrite", function(store) {
@@ -10270,6 +10330,8 @@ if (typeof window.Chart === "undefined") {
             lastModified: file.lastModified,
             blob: keep ? file : null,
             tab: self._tab,
+            // When it was picked: the heartbeat moves `touched`, never this.
+            picked: now,
             touched: now
           });
         }).then(function() { self._written(); });
@@ -10305,49 +10367,74 @@ if (typeof window.Chart === "undefined") {
     _forget(keys) {
       var self = this;
       var ids = (keys || []).map(function(key) { return uploadStashId(self._scopeOf(key), key); });
-      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; delete self._fed[key]; });
+      (keys || []).forEach(function(key) { delete self._live[key]; delete self._scopes[key]; delete self._fed[key]; self._forgotten[key] = true; });
       uploadStashRun("readwrite", function(store) {
         ids.forEach(function(id) { store.delete(id); });
       });
     },
 
     // `mine`: this tab's own live records (after a reconnect). Otherwise:
-    // records nobody has touched lately, from any earlier page load.
+    // records of earlier page loads whose page is gone.
     _reportLeftovers(mine) {
       var self = this;
       var now = Date.now();
       uploadStashAll().then(function(rows) {
         var expired = [];
         var scope = self._scopeNow();
-        var nextLook = null;
-        var items = rows.filter(function(row) {
+        var candidates = rows.filter(function(row) {
           if (now - row.touched > UPLOAD_STASH_KEEP_MS) { expired.push(row.id); return false; }
           if (row.scope !== scope) return false;
           if (mine) return row.tab === self._tab && self._live[row.key];
-          if (row.tab === self._tab || self._fed[row.key]) return false;
+          return row.tab !== self._tab && !self._fed[row.key];
+        });
+        if (expired.length) {
+          uploadStashRun("readwrite", function(store) { expired.forEach(function(id) { store.delete(id); }); });
+        }
+        return mine ? candidates : self._abandoned(candidates, now);
+      }).then(function(items) {
+        if (mine) items.forEach(function(row) { delete self._live[row.key]; });
+        if (!items.length) return;
+        self.pushEventTo(self.el, "upload_resume_available", {
+          items: items.map(function(row) {
+            var item = { key: row.key, name: row.name, size: row.size, blob: !!row.blob };
+            // How long ago the copy was picked, so the server can tell a file
+            // it took before that from this one.
+            if (row.picked) item.age_ms = Math.max(0, now - row.picked);
+            return item;
+          })
+        });
+      });
+    },
+
+    // Which of another page load's records were left by a page that is gone.
+    // A record whose owner's lock is free is; one whose lock is held belongs
+    // to a page still running (a background tab is throttled, not dead) and is
+    // looked at again later. Without locks: untouched for a while.
+    _abandoned(rows, now) {
+      var self = this;
+      var tabs = rows.map(function(row) { return row.tab; })
+        .filter(function(tab, at, all) { return all.indexOf(tab) === at; });
+      return Promise.all(tabs.map(uploadStashTabGone)).then(function(gone) {
+        var free = {};
+        tabs.forEach(function(tab, at) { free[tab] = gone[at]; });
+        var nextLook = null;
+        var look = function(ms) { nextLook = nextLook === null ? ms : Math.min(nextLook, ms); };
+        var items = rows.filter(function(row) {
+          if (free[row.tab] === true) return true;
+          if (free[row.tab] === false) { look(UPLOAD_STASH_LOCK_LOOK_MS); return false; }
           if (now - row.touched > UPLOAD_STASH_STALE_MS) return true;
           // Another page load's record that is still fresh: a refresh leaves
           // its records for the heartbeat to age out, so look again when this
           // one would be stale — it is either gone by then (its page finished)
           // or a leftover to offer.
-          var wait = UPLOAD_STASH_STALE_MS - (now - row.touched) + 500;
-          nextLook = nextLook === null ? wait : Math.min(nextLook, wait);
+          look(UPLOAD_STASH_STALE_MS - (now - row.touched) + 500);
           return false;
         });
-        if (nextLook !== null && !mine) {
+        if (nextLook !== null) {
           clearTimeout(self._rescan);
           self._rescan = setTimeout(function() { self._reportLeftovers(false); }, nextLook);
         }
-        if (expired.length) {
-          uploadStashRun("readwrite", function(store) { expired.forEach(function(id) { store.delete(id); }); });
-        }
-        if (mine) items.forEach(function(row) { delete self._live[row.key]; });
-        if (!items.length) return;
-        self.pushEventTo(self.el, "upload_resume_available", {
-          items: items.map(function(row) {
-            return { key: row.key, name: row.name, size: row.size, blob: !!row.blob };
-          })
-        });
+        return items;
       });
     },
 
@@ -10364,32 +10451,44 @@ if (typeof window.Chart === "undefined") {
       (keys || []).forEach(function(key) { want[key] = true; });
       uploadStashAll().then(function(rows) {
         var scope = self._scopeNow();
-        var found = rows.filter(function(row) { return row.scope === scope && want[row.key] && row.blob; });
-        if (!found.length) return;
-        // `<id>-folder-drop-upload-form` in a picker, which carries its id.
-        var input = self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
-                    self._root.querySelector("input[type=file][data-phx-upload-ref]");
-        if (!input || typeof DataTransfer === "undefined") {
-          if (auto) self._reportManual(found);
-          return;
-        }
-        var dt = new DataTransfer();
-        found.forEach(function(row) {
-          self._fed[row.key] = true;
-          dt.items.add(new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified }));
+        var held = {};
+        rows.forEach(function(row) { if (row.scope === scope && want[row.key]) held[row.key] = row; });
+        var found = [];
+        var lost = [];
+        Object.keys(want).forEach(function(key) {
+          var row = held[key];
+          if (row && row.blob) found.push(row);
+          // Asked for and not here to send: the record or its bytes went (a
+          // second tab, the browser's own cleanup) — unless it was let go of
+          // on purpose, which the server's request only crossed.
+          else if (auto && !self._forgotten[key]) lost.push(row || Object.assign(uploadStashParse(key), { key: key }));
         });
-        input.files = dt.files;
-        var ev = new Event("input", { bubbles: true });
-        ev.__pkUploadResume = true;
-        input.dispatchEvent(ev);
+        var manual = lost.map(function(row) {
+          return { key: row.key, name: row.name, size: row.size, blob: false, manual: true };
+        });
+        // `<id>-folder-drop-upload-form` in a picker, which carries its id.
+        var input = found.length && (self._root.querySelector('form[id$="folder-drop-upload-form"] input[type=file]') ||
+                    self._root.querySelector("input[type=file][data-phx-upload-ref]"));
+        if (found.length && (!input || typeof DataTransfer === "undefined")) {
+          if (auto) manual = manual.concat(self._manualItems(found));
+        } else if (found.length) {
+          var dt = new DataTransfer();
+          found.forEach(function(row) {
+            self._fed[row.key] = true;
+            dt.items.add(new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified }));
+          });
+          input.files = dt.files;
+          var ev = new Event("input", { bubbles: true });
+          ev.__pkUploadResume = true;
+          input.dispatchEvent(ev);
+        }
+        if (manual.length) self.pushEventTo(self.el, "upload_resume_available", { items: manual });
       });
     },
 
-    _reportManual(rows) {
-      this.pushEventTo(this.el, "upload_resume_available", {
-        items: rows.map(function(row) {
-          return { key: row.key, name: row.name, size: row.size, blob: true, manual: true };
-        })
+    _manualItems(rows) {
+      return rows.map(function(row) {
+        return { key: row.key, name: row.name, size: row.size, blob: true, manual: true };
       });
     }
   };

@@ -40,12 +40,31 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
             upload_name: :media_files,
             upload_problems_session: [],
             upload_inbox_problems: [],
+            parent_uploads: uploads([]),
             phoenix_kit_current_user: %{uuid: "u1"}
           },
           assigns
         ),
       private: %{live_temp: %{}}
     }
+  end
+
+  # The upload as the browser has it: resumable, as the media browser's own are.
+  defp uploads(entries, max_entries \\ 10, external \\ ResumableUpload.external()) do
+    %{media_files: %{entries: entries, max_entries: max_entries, external: external}}
+  end
+
+  # The marker `ResumableUpload.consume/3` leaves, written by hand.
+  defp mark_taken(name, written_at \\ nil) do
+    {:ok, meta, _} =
+      ResumableUpload.external(base: "/up").(
+        %{client_name: name, client_size: 5, client_last_modified: 7},
+        socket()
+      )
+
+    path = Path.join(ResumableUpload.dir(), meta.id <> ".done")
+    File.write!(path, "")
+    if written_at, do: File.touch!(path, written_at)
   end
 
   defp report(socket, items) do
@@ -105,7 +124,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
       socket =
         socket(%{
           upload_problems_session: [listed],
-          parent_uploads: %{media_files: %{entries: [entry("coming.png")], max_entries: 10}}
+          parent_uploads: uploads([entry("coming.png")])
         })
         |> report([item("listed.png"), item("coming.png"), item("new.png")])
 
@@ -113,25 +132,76 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
       assert [^listed] = problems(socket)
     end
 
-    test "no more than the upload has room for; the rest wait behind Resume" do
+    test "no more than the upload has room for; the rest wait in the stash, with no row" do
       socket =
-        socket(%{
-          parent_uploads: %{media_files: %{entries: [entry("busy.png")], max_entries: 3}}
-        })
+        socket(%{parent_uploads: uploads([entry("busy.png")], 3)})
         |> report([item("a.png"), item("b.png"), item("c.png")])
 
       assert pushed(socket) == [{@resume, %{keys: ["a.png|5|7", "b.png|5|7"], auto: true}}]
-      assert [%{client_key: "c.png|5|7", retry: true}] = problems(socket)
+      assert problems(socket) == [], "the hook asks again when a batch ends"
+    end
+
+    test "with no room at all nothing is sent and nothing is listed" do
+      socket =
+        socket(%{parent_uploads: uploads([entry("busy.png")], 1)})
+        |> report([item("a.png")])
+
+      assert pushed(socket) == []
+      assert problems(socket) == []
+    end
+
+    test "an upload that is not resumable asks, as :ask does: it has no record of what it took" do
+      for external <- [false, fn _entry, socket -> {:ok, %{}, socket} end] do
+        socket =
+          socket(%{parent_uploads: uploads([], 10, external)})
+          |> report([item("a.png")])
+
+        assert pushed(socket) == []
+        assert [%{client_key: "a.png|5|7", retry: true}] = problems(socket)
+      end
+
+      socket = report(socket(%{parent_uploads: nil}), [item("a.png")])
+      assert pushed(socket) == []
+      assert [%{client_key: "a.png|5|7"}] = problems(socket)
+    end
+
+    test "a marker older than the copy is not about it: a file picked again after it went" do
+      two_days_ago = System.os_time(:second) - 2 * 86_400
+      mark_taken("done.png", two_days_ago)
+      one_day = 86_400_000
+
+      socket = report(socket(), [item("done.png", %{"age_ms" => one_day})])
+
+      assert pushed(socket) == [{@resume, %{keys: ["done.png|5|7"], auto: true}}]
+    end
+
+    test "a marker newer than the copy is: it was taken after the pick" do
+      mark_taken("done.png")
+
+      socket = report(socket(), [item("done.png", %{"age_ms" => 60_000})])
+
+      assert pushed(socket) == [{@discard, %{keys: ["done.png|5|7"]}}]
+    end
+
+    test "a copy that does not say when it was picked is judged by any marker" do
+      mark_taken("done.png", System.os_time(:second) - 2 * 86_400)
+
+      socket = report(socket(), [item("done.png")])
+
+      assert pushed(socket) == [{@discard, %{keys: ["done.png|5|7"]}}]
+    end
+
+    test "an age that makes no sense counts as none" do
+      mark_taken("done.png")
+
+      for age <- [-5, "soon", nil, 1.5] do
+        socket = report(socket(), [item("done.png", %{"age_ms" => age})])
+        assert pushed(socket) == [{@discard, %{keys: ["done.png|5|7"]}}], inspect(age)
+      end
     end
 
     test "a file the server has already taken is let go of, not sent again" do
-      {:ok, meta, _} =
-        ResumableUpload.external(base: "/up").(
-          %{client_name: "done.png", client_size: 5, client_last_modified: 7},
-          socket()
-        )
-
-      File.write!(Path.join(ResumableUpload.dir(), meta.id <> ".done"), "")
+      mark_taken("done.png")
 
       socket = report(socket(), [item("done.png"), item("other.png")])
 
@@ -144,13 +214,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
     end
 
     test "the same file under another person is not taken" do
-      {:ok, meta, _} =
-        ResumableUpload.external(base: "/up").(
-          %{client_name: "done.png", client_size: 5, client_last_modified: 7},
-          socket()
-        )
-
-      File.write!(Path.join(ResumableUpload.dir(), meta.id <> ".done"), "")
+      mark_taken("done.png")
 
       socket = report(socket(%{phoenix_kit_current_user: %{uuid: "u2"}}), [item("done.png")])
 
@@ -160,13 +224,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
     test "a name with the separator in it is told apart from its size and date" do
       name = "a|b.png"
 
-      {:ok, meta, _} =
-        ResumableUpload.external(base: "/up").(
-          %{client_name: name, client_size: 5, client_last_modified: 7},
-          socket()
-        )
-
-      File.write!(Path.join(ResumableUpload.dir(), meta.id <> ".done"), "")
+      mark_taken(name)
 
       socket = report(socket(), [item(name)])
       assert pushed(socket) == [{@discard, %{keys: ["a|b.png|5|7"]}}]
@@ -196,16 +254,55 @@ defmodule PhoenixKitWeb.Components.MediaBrowserUploadResumeTest do
     end
 
     test "a file the server has taken is still let go of" do
-      {:ok, meta, _} =
-        ResumableUpload.external(base: "/up").(
-          %{client_name: "done.png", client_size: 5, client_last_modified: 7},
-          socket()
-        )
-
-      File.write!(Path.join(ResumableUpload.dir(), meta.id <> ".done"), "")
+      mark_taken("done.png")
 
       socket = report(socket(%{upload_resume: :ask}), [item("done.png")])
       assert pushed(socket) == [{@discard, %{keys: ["done.png|5|7"]}}]
+    end
+  end
+
+  describe "through the real upload path" do
+    test "a file the browser's page took is discarded when a new page reports it" do
+      user = %{uuid: "u1"}
+
+      entry = %Phoenix.LiveView.UploadEntry{
+        ref: "0",
+        uuid: Ecto.UUID.generate(),
+        upload_config: :media_files,
+        done?: true,
+        client_name: "fresh.png",
+        client_type: "image/png",
+        client_size: 5,
+        client_last_modified: 7
+      }
+
+      upload_socket = socket(%{phoenix_kit_current_user: user})
+
+      {:ok, meta, _} = ResumableUpload.external(base: "/up").(entry, upload_socket)
+      File.mkdir_p!(Path.dirname(meta.path))
+      File.write!(meta.path, "01234")
+
+      conf = %Phoenix.LiveView.UploadConfig{
+        name: :media_files,
+        ref: "phx-media",
+        external: true,
+        entries: [entry],
+        entry_refs_to_metas: %{"0" => meta}
+      }
+
+      upload_socket = put_in(upload_socket.assigns[:uploads], %{media_files: conf})
+      on_exit(fn -> File.rm(Path.join(System.tmp_dir!(), "pk_upload_#{entry.uuid}")) end)
+
+      # The old page: the server takes the file...
+      {:noreply, _old_page} = MediaBrowser.parent_progress(:media_files, entry, upload_socket)
+      refute File.exists?(meta.path), "the partial file went"
+
+      # ...and the page that heard of it is gone. A new page finds the copy
+      # in the browser's stash and reports it.
+      reported = report(socket(), [item("fresh.png", %{"age_ms" => 30_000})])
+
+      assert pushed(reported) == [{@discard, %{keys: ["fresh.png|5|7"]}}]
+      assert problems(reported) == []
     end
   end
 

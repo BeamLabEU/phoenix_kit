@@ -69,6 +69,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
   import Plug.Conn
 
+  require Logger
+
   alias PhoenixKit.Utils.Routes
 
   @salt "phoenix_kit resumable upload"
@@ -187,15 +189,47 @@ defmodule PhoenixKitWeb.ResumableUpload do
   A browser that kept its own copy of a file in case the transfer was cut
   short asks this before sending the copy again — the page it was told on may
   have gone before the news arrived.
+
+  The marker belongs to the file, not to the browser's copy, so a copy picked
+  AFTER the file was taken must not be judged by it: `age_ms` is how long ago
+  the browser's copy was picked, and only a marker written since then counts.
+  Without it (a copy that does not say) any marker counts.
+
+  The marker is a file in this node's temporary directory (`dir/0`), as the
+  partial files are. On another node, or after that directory is wiped, a
+  taken file is not known to be: the browser's copy is sent again.
   """
-  def taken?(owner, fields) when is_map(fields) do
-    File.exists?(done_path(upload_id(to_string(owner), fields)))
+  def taken?(owner, fields, age_ms \\ nil) when is_map(fields) do
+    case File.stat(done_path(upload_id(to_string(owner), fields)), time: :posix) do
+      {:ok, %{mtime: written}} -> written_since?(written, age_ms)
+      _ -> false
+    end
   end
+
+  # Whole seconds: a marker written in the second the copy was picked counts.
+  defp written_since?(_written, age_ms) when not is_integer(age_ms) or age_ms < 0, do: true
+
+  defp written_since?(written, age_ms),
+    do: (written + 1) * 1000 > System.os_time(:millisecond) - age_ms
+
+  @doc """
+  Whether `fun` (an upload config's `external`) is the one `external/1` builds:
+  a closure defined in this module.
+  """
+  def external?(fun) when is_function(fun),
+    do: Function.info(fun, :module) == {:module, __MODULE__}
+
+  def external?(_fun), do: false
 
   # A marker, not a copy: kept for as long as the browser may keep its own.
   defp mark_taken(%{uploader: @uploader, id: id}) when is_binary(id) do
-    File.mkdir_p(dir())
-    File.write(done_path(id), "")
+    with :ok <- File.mkdir_p(dir()),
+         :ok <- File.write(done_path(id), "") do
+      :ok
+    else
+      {:error, reason} ->
+        Logger.warning("ResumableUpload: could not mark an upload as taken (#{inspect(reason)})")
+    end
   end
 
   defp mark_taken(_meta), do: :ok
@@ -298,7 +332,8 @@ defmodule PhoenixKitWeb.ResumableUpload do
 
     if is_nil(last) or now - last > @sweep_every_seconds do
       :persistent_term.put({__MODULE__, :swept}, now)
-      sweep()
+      # Off the caller's process: it is a LiveView, and this stats every file.
+      Task.start(fn -> sweep() end)
     end
   end
 
