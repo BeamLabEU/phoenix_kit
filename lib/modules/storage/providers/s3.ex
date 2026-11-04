@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   alias PhoenixKit.Integrations
   alias PhoenixKit.Integrations.Encryption
   alias PhoenixKit.Modules.Storage.Endpoint
+  alias PhoenixKit.Modules.Storage.Providers.S3Request
 
   @behaviour PhoenixKit.Modules.Storage.Provider
 
@@ -47,7 +48,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     File.mkdir_p!(destination_dir)
 
     case ExAws.S3.download_file(bucket.bucket_name, file_path, destination_path)
-         |> ExAws.request(aws_config(bucket)) do
+         |> S3Request.request(aws_config(bucket)) do
       {:ok, _result} -> :ok
       {:error, reason} -> {:error, "Failed to download from S3: #{inspect(reason)}"}
     end
@@ -58,7 +59,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   @impl true
   def delete_file(bucket, file_path) do
     case ExAws.S3.delete_object(bucket.bucket_name, file_path)
-         |> ExAws.request(aws_config(bucket)) do
+         |> S3Request.request(aws_config(bucket)) do
       {:ok, _result} -> :ok
       {:error, reason} -> {:error, "Failed to delete from S3: #{inspect(reason)}"}
     end
@@ -74,7 +75,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   @impl true
   def file_exists?(bucket, file_path) do
     case ExAws.S3.head_object(bucket.bucket_name, file_path)
-         |> ExAws.request(aws_config(bucket)) do
+         |> S3Request.request(aws_config(bucket)) do
       {:ok, _result} ->
         true
 
@@ -173,8 +174,9 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
         if ipv6_endpoint?(bucket) do
           {:error, :ipv6_endpoint}
         else
-          :s3
-          |> ExAws.Config.new(aws_config(bucket))
+          bucket
+          |> aws_config()
+          |> S3Request.config()
           |> ExAws.S3.presigned_url(:get, bucket.bucket_name, file_path,
             expires_in: Keyword.get(opts, :expires_in, 3600),
             query_params: query_params,
@@ -222,7 +224,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
 
   defp probe_put(bucket, config, key) do
     case ExAws.S3.put_object(bucket.bucket_name, key, "ok", acl: "private")
-         |> ExAws.request(config) do
+         |> S3Request.request(config) do
       {:ok, _result} ->
         :ok
 
@@ -243,7 +245,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   end
 
   defp probe_get(bucket, config, key) do
-    case ExAws.S3.get_object(bucket.bucket_name, key) |> ExAws.request(config) do
+    case ExAws.S3.get_object(bucket.bucket_name, key) |> S3Request.request(config) do
       {:ok, %{body: "ok"}} ->
         :ok
 
@@ -260,7 +262,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   end
 
   defp probe_delete(bucket, config, key) do
-    case ExAws.S3.delete_object(bucket.bucket_name, key) |> ExAws.request(config) do
+    case ExAws.S3.delete_object(bucket.bucket_name, key) |> S3Request.request(config) do
       {:ok, _result} ->
         :ok
 
@@ -294,7 +296,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
         put_opts = [acl: Keyword.get(opts, :acl, "private"), content_type: content_type]
 
         case ExAws.S3.put_object(bucket.bucket_name, destination_path, file_content, put_opts)
-             |> ExAws.request(aws_config(bucket)) do
+             |> S3Request.request(aws_config(bucket)) do
           {:ok, _result} ->
             {:ok, public_url(bucket, destination_path)}
 
@@ -324,7 +326,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     case source_path
          |> Upload.stream_file()
          |> ExAws.S3.upload(bucket.bucket_name, destination_path, upload_opts)
-         |> ExAws.request(aws_config(bucket)) do
+         |> S3Request.request(aws_config(bucket)) do
       {:ok, _result} ->
         {:ok, public_url(bucket, destination_path)}
 
@@ -409,7 +411,7 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   def list_remote_buckets(bucket) do
     config = service_config(bucket)
 
-    case ExAws.S3.list_buckets() |> ExAws.request(config) do
+    case ExAws.S3.list_buckets() |> S3Request.request(config) do
       {:ok, %{body: %{buckets: buckets}}} when is_list(buckets) ->
         {:ok, buckets |> Enum.map(& &1.name) |> Enum.filter(&is_binary/1) |> Enum.sort()}
 
