@@ -45,6 +45,12 @@ defmodule PhoenixKit.API.Confirm do
 
   A uuid that does not exist and one of another person get the same `{:error, :unknown}`,
   so nobody learns whether somebody else's confirmation exists.
+
+  A write held for a linked Telegram chat is bound to it: the row's `context` names the bot
+  and the chat (`origin_context/1`, stored by `issue_for_user/7`), and a chat reads
+  (`get_for_user/3`), turns down (`reject_for_user/3`) or redeems
+  (`PhoenixKit.API.Executor.redeem_as/6`) only the rows held for itself. The person's
+  site session may act on a chat's row: the same person, with a stronger sign-in.
   """
 
   import Ecto.Query, warn: false
@@ -258,8 +264,20 @@ defmodule PhoenixKit.API.Confirm do
   `api_user_confirm_ttl_seconds`. Every call stores a new row: an earlier one is never
   handed out again. No code is made. The insert is not logged (`log: false`): its
   parameters carry the preview, the data the person works on.
+
+  Option `:context` (a map, `%{}` by default) is stored in the row's `context`. The
+  executor puts the origin there for a write held for a linked Telegram chat
+  (`origin_context/1`); `from_origin?/2` reads it back.
   """
-  @spec issue_for_user(Actor.t(), String.t(), String.t(), map(), String.t(), DateTime.t()) ::
+  @spec issue_for_user(
+          Actor.t(),
+          String.t(),
+          String.t(),
+          map(),
+          String.t(),
+          DateTime.t(),
+          keyword()
+        ) ::
           {:ok, Confirmation.t()} | {:error, :no_binding | Ecto.Changeset.t()}
   def issue_for_user(
         actor,
@@ -267,7 +285,8 @@ defmodule PhoenixKit.API.Confirm do
         input_hash,
         preview,
         fingerprint,
-        now \\ DateTime.utc_now()
+        now \\ DateTime.utc_now(),
+        opts \\ []
       )
 
   def issue_for_user(
@@ -276,7 +295,8 @@ defmodule PhoenixKit.API.Confirm do
         input_hash,
         preview,
         fingerprint,
-        now
+        now,
+        opts
       )
       when is_binary(user_uuid) do
     now = second(now)
@@ -288,6 +308,7 @@ defmodule PhoenixKit.API.Confirm do
       input_hash: input_hash,
       fingerprint: fingerprint,
       preview: preview,
+      context: context_option(opts),
       actor_user_uuid: user_uuid,
       status: "unused",
       expires_at: DateTime.add(now, FlowConfig.user_confirm_ttl_seconds(), :second)
@@ -295,8 +316,46 @@ defmodule PhoenixKit.API.Confirm do
     |> repo().insert(log: false)
   end
 
-  def issue_for_user(_actor, _tool_name, _input_hash, _preview, _fingerprint, _now),
+  def issue_for_user(_actor, _tool_name, _input_hash, _preview, _fingerprint, _now, _opts),
     do: {:error, :no_binding}
+
+  defp context_option(opts) do
+    case Keyword.get(opts, :context, %{}) do
+      %{} = context -> context
+      _other -> %{}
+    end
+  end
+
+  @doc """
+  The `context` a write held for `session_ref` is stored with: for a linked Telegram chat
+  (`{:telegram_link, user_uuid, connection_uuid, chat_id}`) `%{"origin" => "telegram",
+  "connection_uuid" => ..., "chat_id" => ...}` with the chat id as a string; `%{}` for a
+  session or anything else.
+  """
+  @spec origin_context(term()) :: map()
+  def origin_context({:telegram_link, _user_uuid, connection_uuid, chat_id})
+      when is_binary(connection_uuid) and (is_binary(chat_id) or is_integer(chat_id)) do
+    %{
+      "origin" => "telegram",
+      "connection_uuid" => connection_uuid,
+      "chat_id" => to_string(chat_id)
+    }
+  end
+
+  def origin_context(_session_ref), do: %{}
+
+  @doc """
+  Whether the row was held for the linked Telegram chat `session_ref`: its `context` names
+  that bot's connection and that chat (the chat id compared as a string). A row made on the
+  site, one of another chat or bot, and one without a context are not. Any `session_ref`
+  that is not a chat is not an origin to compare, so this is `false` for it.
+  """
+  @spec from_origin?(Confirmation.t(), term()) :: boolean()
+  def from_origin?(%Confirmation{context: context}, {:telegram_link, _, _, _} = session_ref)
+      when is_map(context),
+      do: context == origin_context(session_ref)
+
+  def from_origin?(_row, _session_ref), do: false
 
   @doc """
   The person's row `confirmation_uuid`, whatever its status. `{:error, :unknown}` for a
@@ -336,6 +395,9 @@ defmodule PhoenixKit.API.Confirm do
   the new one exists. `{:error, reason}` when the old row is no longer `unused` (it was
   used or rejected meanwhile), and nothing is stored. Neither statement is logged
   (`log: false`), as in `issue_for_user/6`.
+
+  The new row keeps the `context` of the old one (a write held for a chat stays that
+  chat's); option `:context` replaces it.
   """
   @spec reissue_for_user(
           Confirmation.t(),
@@ -344,20 +406,23 @@ defmodule PhoenixKit.API.Confirm do
           String.t(),
           map(),
           String.t(),
-          DateTime.t()
+          DateTime.t(),
+          keyword()
         ) ::
           {:ok, Confirmation.t()}
           | {:error, :used | :rejected | :expired | :changed | :no_binding | Ecto.Changeset.t()}
   def reissue_for_user(
-        %Confirmation{uuid: old_uuid},
+        %Confirmation{uuid: old_uuid, context: old_context},
         %Actor{} = actor,
         tool_name,
         input_hash,
         preview,
         fingerprint,
-        now \\ DateTime.utc_now()
+        now \\ DateTime.utc_now(),
+        opts \\ []
       ) do
     now = second(now)
+    context = Keyword.get(opts, :context, old_context || %{})
 
     query =
       from(c in Confirmation,
@@ -367,7 +432,10 @@ defmodule PhoenixKit.API.Confirm do
     repo().transaction(fn ->
       with {1, _} <-
              repo().update_all(query, [set: [status: "expired", updated_at: now]], log: false),
-           {:ok, row} <- issue_for_user(actor, tool_name, input_hash, preview, fingerprint, now) do
+           {:ok, row} <-
+             issue_for_user(actor, tool_name, input_hash, preview, fingerprint, now,
+               context: context
+             ) do
         row
       else
         {0, _} -> repo().rollback(why_not_claimed(old_uuid, now))
@@ -382,7 +450,13 @@ defmodule PhoenixKit.API.Confirm do
   session `session_ref` (`{session_token_uuid, user_uuid}`). `status` is `"unused"`,
   `"used"`, `"rejected"` or `"expired"` (an unused row past its time reads `"expired"`).
 
-  `{:error, :unauthorized}` when the session cannot act any more
+  `session_ref` may also be a linked Telegram chat
+  (`{:telegram_link, user_uuid, connection_uuid, chat_id}`), checked now as
+  `PhoenixKit.API.Executor` checks it (the link, the account gate, the default role). Such
+  a chat reads only a row held for that very chat (`from_origin?/2`): the person's row made
+  on the site, or for another chat or bot, is `{:error, :foreign}`, with no preview.
+
+  `{:error, :unauthorized}` when the session or chat cannot act any more
   (`SessionRef.scope_for_session/2`), `{:error, :unknown}` as in `lookup_for_user/2`, and
   `{:error, :forbidden}`, without the preview, when the session may no longer write with the
   row's tool, whatever the row's status: the tool must still be callable (its module on, the
@@ -403,10 +477,11 @@ defmodule PhoenixKit.API.Confirm do
              status: String.t(),
              expires_at: DateTime.t()
            }}
-          | {:error, :unauthorized | :unknown | :forbidden}
+          | {:error, :unauthorized | :unknown | :forbidden | :foreign}
   def get_for_user(confirmation_uuid, session_ref, now \\ DateTime.utc_now()) do
     with {:ok, scope} <- session_scope(session_ref),
          {:ok, row} <- lookup_for_user(confirmation_uuid, scope.user.uuid),
+         :ok <- own_origin(row, session_ref),
          :ok <- may_write(scope, row) do
       {:ok,
        %{
@@ -418,6 +493,12 @@ defmodule PhoenixKit.API.Confirm do
        }}
     end
   end
+
+  # A chat acts on the rows held for it only; a session on all the person's rows.
+  defp own_origin(row, {:telegram_link, _, _, _} = chat),
+    do: if(from_origin?(row, chat), do: :ok, else: {:error, :foreign})
+
+  defp own_origin(_row, _session_ref), do: :ok
 
   defp may_write(scope, %Confirmation{tool: tool_name}) do
     if Executor.session_may_write?(scope, tool_name), do: :ok, else: {:error, :forbidden}
@@ -432,19 +513,24 @@ defmodule PhoenixKit.API.Confirm do
   The person turns down their confirmation `confirmation_uuid`: one atomic `UPDATE` from
   `unused` (and not expired) to `rejected`, so a rejected row can never be redeemed and a
   redeemed one never rejected. `{:error, :used | :rejected | :expired}` when it is no longer
-  waiting; `{:error, :unauthorized}` and `{:error, :unknown}` as in `get_for_user/2`. The
-  person may turn a row down after losing the right to the tool: nothing runs.
+  waiting; `{:error, :unauthorized}`, `{:error, :unknown}` and, for a chat,
+  `{:error, :foreign}` as in `get_for_user/3`. The person may turn a row down after losing
+  the right to the tool: nothing runs.
 
   As for `get_for_user/2`, the caller must refuse an impersonated session
   (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`) before it calls.
   """
   @spec reject_for_user(term(), term(), DateTime.t()) ::
-          :ok | {:error, :unauthorized | :unknown | :used | :rejected | :expired | :changed}
+          :ok
+          | {:error,
+             :unauthorized | :unknown | :foreign | :used | :rejected | :expired | :changed}
   def reject_for_user(confirmation_uuid, session_ref, now \\ DateTime.utc_now()) do
     now = second(now)
 
     with {:ok, scope} <- session_scope(session_ref),
-         {:ok, %Confirmation{uuid: uuid}} <- lookup_for_user(confirmation_uuid, scope.user.uuid) do
+         {:ok, %Confirmation{uuid: uuid} = row} <-
+           lookup_for_user(confirmation_uuid, scope.user.uuid),
+         :ok <- own_origin(row, session_ref) do
       query =
         from(c in Confirmation,
           where:
@@ -462,6 +548,14 @@ defmodule PhoenixKit.API.Confirm do
   # The scope of a session that can still act, rebuilt as the executor rebuilds it.
   defp session_scope({token_uuid, user_uuid}) do
     case SessionRef.scope_for_session(token_uuid, user_uuid) do
+      {:ok, %Scope{user: %{uuid: _uuid}} = scope} -> {:ok, scope}
+      {:error, _reason} -> {:error, :unauthorized}
+    end
+  end
+
+  # A linked Telegram chat: the same live check the executor makes for it.
+  defp session_scope({:telegram_link, user_uuid, connection_uuid, chat_id}) do
+    case Executor.link_scope(user_uuid, connection_uuid, chat_id) do
       {:ok, %Scope{user: %{uuid: _uuid}} = scope} -> {:ok, scope}
       {:error, _reason} -> {:error, :unauthorized}
     end

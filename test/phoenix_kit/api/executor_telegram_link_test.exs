@@ -4,8 +4,9 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
   Telegram chat: the reference `{:telegram_link, user_uuid, connection_uuid, chat_id}`.
   The link (`PhoenixKit.Integrations.Telegram.Linking`) and the account gate
   (`PhoenixKit.Users.Auth.SessionRef.scope_for_user/2`) are checked on every call; the
-  rest of the flow is the live session's: read tools only, the tool's permission, the
-  user's rate-limit bucket.
+  rest of the flow is the live session's: reads by default, the tool's permission, the
+  user's rate-limit bucket. Writes from a chat (held, bound to the chat, confirmed) are in
+  `PhoenixKit.API.ExecutorTelegramConfirmTest`.
   """
   use PhoenixKit.DataCase, async: false
 
@@ -196,7 +197,7 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
       end
     end
 
-    test "a write tool is refused before validation, with no audit entry",
+    test "a write tool is refused under the default allow: :read, before validation, with no audit entry",
          %{connection: connection} do
       user = user_with_roles([["settings"]])
       ref = linked!(user, connection)
@@ -210,19 +211,25 @@ defmodule PhoenixKit.API.ExecutorTelegramLinkTest do
       assert {:error, :forbidden, _, _, _} = run(ref, @write_item, %{"junk" => 1})
       refute_received {:write_item, _}
 
-      assert_raise ArgumentError, fn -> run(ref, @write_item, %{"name" => "x"}, allow: :all) end
-
-      # Nor listed, held or confirmed with the write tools: a chat reads only.
-      assert_raise ArgumentError, fn -> Executor.visible_for(ref, :admin, allow: :all) end
-
-      assert_raise ArgumentError, fn ->
-        Executor.redeem_as(ref, :admin, Ecto.UUID.generate(), @write_item, %{"name" => "x"})
-      end
+      # Nor listed: the write tools come with `allow: :all` only (see ExecutorTelegramConfirmTest).
+      refute @write_item in visible_names(ref)
 
       assert Repo.aggregate(
                from(e in Entry, where: e.action == "api.request" and e.actor_uuid == ^user.uuid),
                :count
              ) == 0
+    end
+
+    test "any other value of :allow raises, as for a session", %{connection: connection} do
+      ref = linked!(user_with_roles([["settings"]]), connection)
+
+      for allow <- [:write, "all", nil] do
+        assert_raise ArgumentError, ~r/allow/, fn -> run(ref, @write_item, %{}, allow: allow) end
+
+        assert_raise ArgumentError, ~r/allow/, fn ->
+          Executor.visible_for(ref, :admin, allow: allow)
+        end
+      end
     end
 
     test "a system tool is not callable", %{connection: connection} do
