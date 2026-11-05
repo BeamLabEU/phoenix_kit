@@ -271,6 +271,30 @@ scope "/", MyAppWeb do
 end
 ```
 
+### Staying signed in ("remember me")
+
+A visitor who ticked "remember me" carries a signed cookie that lives 60 days
+(`PhoenixKitWeb.Users.Auth.remember_me_max_age/0`). `PhoenixKitWeb.Plugs.Integration`,
+which the installer adds to your `:browser` pipeline, rebuilds the session from
+it on every page whenever the session has no signed-in user, so your own pages
+see the visitor as signed in too.
+
+The session cookie itself is yours. A stock `mix phx.new` endpoint gives it no
+`max_age`, so the browser treats it as a session cookie, and a phone drops it
+whenever the OS stops the web app. The rebuild covers for that, but you can give
+it the same lifetime:
+
+```elixir
+# lib/my_app_web/endpoint.ex
+@session_options [
+  store: :cookie,
+  key: "_my_app_key",
+  signing_salt: "...",
+  same_site: "Lax",
+  max_age: 60 * 60 * 24 * 60
+]
+```
+
 ### Check User Roles
 
 ```elixir

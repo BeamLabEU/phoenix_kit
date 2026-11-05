@@ -82,6 +82,15 @@ defmodule PhoenixKit.Utils.SafeDestinationTest do
     get "/phoenix_kit/en", PhoenixKit.Utils.SafeDestinationTest.FakeController, :locale_home
   end
 
+  # A host with a profile catch-all at the root (`/:username`), which routes
+  # core's bare mount point `/phoenix_kit` like any other segment.
+  defmodule CatchAllRouter do
+    use Phoenix.Router
+
+    get "/", PhoenixKit.Utils.SafeDestinationTest.FakeController, :home
+    get "/:username", PhoenixKit.Utils.SafeDestinationTest.FakeController, :profile
+  end
+
   # Routes /admin (both plain and locale-prefixed) but NOT /dashboard.
   # Stands in for a host with `user_dashboard_enabled: false` that still mounts
   # the core admin area — the shape that decides where a non-admin goes when
@@ -451,6 +460,32 @@ defmodule PhoenixKit.Utils.SafeDestinationTest do
 
       assert Routes.safe_destination(conn_for(LocalizedHomeRouter), scope: plain_user()) ==
                Routes.path("/")
+    end
+  end
+
+  describe "safe_destination/2 — single-language site under a mount prefix" do
+    setup do
+      PhoenixKit.Cache.put(:settings, "languages_enabled", "false")
+      :ok
+    end
+
+    test "never lands on core's bare mount point, even where a catch-all routes it" do
+      # Guards the fixture: the bare mount is what `path("/")` emits here, and
+      # the catch-all really does answer for it.
+      assert Routes.path("/") == "/phoenix_kit/"
+      assert Routes.routable?(conn_for(CatchAllRouter), Routes.path("/"))
+      assert Routes.routable?(conn_for(CatchAllRouter), "/phoenix_kit")
+
+      for scope <- [nil, anonymous(), plain_user()] do
+        assert Routes.safe_destination(conn_for(CatchAllRouter), scope: scope) == "/"
+      end
+    end
+
+    test "falls through to core's landing when the host has no root either" do
+      refute Routes.safe_destination(conn_for(EmptyRouter), scope: nil) in [
+               "/phoenix_kit",
+               "/phoenix_kit/"
+             ]
     end
   end
 

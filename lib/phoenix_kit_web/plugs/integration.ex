@@ -8,6 +8,10 @@ defmodule PhoenixKitWeb.Plugs.Integration do
 
   ## Current Features
 
+  - **Remember-me sessions**: when the session has no user token but the
+    remember-me cookie is present, the session is rebuilt from it
+    (`PhoenixKitWeb.Users.Auth.restore_remembered_session/1`) — on every
+    page, not only the ones that run the kit's fetch plugs
   - **Website access** (`PhoenixKitWeb.Plugs.WebsiteAccess`): allowed
     addresses, the redirect to production, the password gate, maintenance
     mode — in that order, plus the `X-Robots-Tag` header while the site is
@@ -45,6 +49,7 @@ defmodule PhoenixKitWeb.Plugs.Integration do
   import Plug.Conn
 
   alias PhoenixKitWeb.Plugs.WebsiteAccess
+  alias PhoenixKitWeb.Users.Auth
 
   # Inline script to clear Phoenix LiveView transport cache.
   # This ensures WebSocket is always tried first instead of using cached LongPoll fallback.
@@ -66,7 +71,14 @@ defmodule PhoenixKitWeb.Plugs.Integration do
     # Website access — the allowed addresses, the redirect to production, the
     # password gate, and maintenance (which used to be called from here
     # directly).
-    conn = WebsiteAccess.call(conn, [])
+    #
+    # The session is rebuilt from the remember-me cookie first, because the
+    # maintenance gate lets a signed-in administrator through by reading the
+    # session's user token.
+    conn =
+      conn
+      |> Auth.restore_remembered_session()
+      |> WebsiteAccess.call([])
 
     # Skip remaining plugs if a feature already sent a response
     if conn.halted do
