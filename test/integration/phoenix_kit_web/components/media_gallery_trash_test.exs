@@ -40,8 +40,16 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
     def release(uuids, ctx) do
       state = state()
       send(state.pid, {:release, uuids, ctx})
-      Application.put_env(:phoenix_kit, :gallery_trash_test, %{state | places: %{}})
-      :ok
+      if state[:release_raise], do: raise("release boom")
+
+      case state[:release_error] do
+        nil ->
+          Application.put_env(:phoenix_kit, :gallery_trash_test, %{state | places: %{}})
+          :ok
+
+        message ->
+          {:error, message}
+      end
     end
 
     @impl true
@@ -93,6 +101,15 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
       send(socket.assigns.test_pid, {:changed, uuids})
       {:noreply, assign(socket, :selected, uuids)}
     end
+
+    # The test changes what the host passes down between two events.
+    def handle_info({:host, :user, user}, socket), do: {:noreply, assign(socket, :user, user)}
+
+    def handle_info({:host, :selected, uuids}, socket),
+      do: {:noreply, assign(socket, :selected, uuids)}
+
+    def handle_info({:host, :readonly, value}, socket),
+      do: {:noreply, assign(socket, :opts, Map.put(socket.assigns.opts, :readonly, value))}
 
     def handle_info(_msg, socket), do: {:noreply, socket}
   end
@@ -180,6 +197,25 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
   # console (`render_hook` needs a hooked element that targets the gallery).
   defp hook(view, event, params),
     do: view |> element("#g-removal-modal") |> render_hook(event, params)
+
+  # What the host passes down changes while a dialog is open.
+  defp host_sets(view, key, value) do
+    send(view.pid, {:host, key, value})
+    render(view)
+  end
+
+  defp other_user! do
+    {:ok, other} =
+      Auth.register_user(%{
+        email: "gallery-other-#{System.unique_integer([:positive])}@example.com",
+        password: "ValidPassword123!"
+      })
+
+    other
+  end
+
+  # The file stops being in use: the confirmation would now be allowed to trash.
+  defp attach_free(_file), do: guard_state(%{places: %{}})
 
   defp status(file), do: Repo.get(StorageFile, file.uuid).status
 
@@ -435,6 +471,186 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
     end
   end
 
+  describe "no current user" do
+    test "the menu offers no Move to trash", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      view = open(conn, %{ctx | user: nil}, [file])
+
+      assert has_element?(view, "[data-role='remove-image-g-#{file.uuid}']")
+      refute has_element?(view, trash_item(file))
+    end
+
+    test "a person signed out while the dialog is open cannot confirm", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :user, nil)
+      press(view, "confirm")
+
+      assert status(file) == "active"
+      refute modal?(view)
+      refute_received {:changed, _}
+    end
+
+    test "a person signed out while the dialog is open cannot trash another file",
+         %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      other = file!(ctx.user)
+      view = open(conn, ctx, [file, other])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :user, nil)
+
+      refute has_element?(view, trash_item(other))
+      hook(view, "trash_image", %{"uuid" => other.uuid})
+
+      refute modal?(view)
+      assert status(other) == "active"
+      refute_received {:changed, _}
+    end
+  end
+
+  describe "the situation changes between the dialog and the confirmation" do
+    test "a person who lost the right to change the file cannot confirm", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :user, other_user!())
+
+      refute has_element?(view, trash_item(file)), "the menu is judged again for the new person"
+      press(view, "confirm")
+
+      assert status(file) == "active"
+      refute modal?(view)
+      refute_received {:changed, _}
+    end
+
+    test "a file taken out of the selection cannot be confirmed", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      keep = file!(ctx.user)
+      view = open(conn, ctx, [file, keep])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :selected, [keep.uuid])
+      press(view, "confirm")
+
+      assert status(file) == "active"
+      refute modal?(view)
+      refute_received {:changed, _}
+    end
+
+    test "a file trashed meanwhile closes the dialog", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+
+      Repo.get!(StorageFile, file.uuid)
+      |> Ecto.Changeset.change(status: "trashed")
+      |> Repo.update!()
+
+      press(view, "confirm")
+
+      refute modal?(view)
+      refute_received {:changed, _}
+    end
+
+    test "a guard that fails at the confirmation removes nothing", %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      guard_state(%{raise: true})
+
+      capture_log(fn -> press(view, "confirm") end)
+
+      assert render(view) =~ "Could not check the files"
+      refute has_element?(view, "#g-removal-confirm")
+      assert status(file) == "active"
+      refute_received {:changed, _}
+    end
+  end
+
+  describe "the release" do
+    setup %{user: user} do
+      file = file!(user)
+      attach!(file)
+      %{held: file}
+    end
+
+    test "is not run for a person who lost the right to change the file",
+         %{conn: conn, held: file} = ctx do
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :user, other_user!())
+      press(view, "release")
+
+      refute_received {:release, _, _}
+      refute modal?(view)
+      assert status(file) == "active"
+    end
+
+    test "is not run for a file taken out of the selection", %{conn: conn, held: file} = ctx do
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      host_sets(view, :selected, [])
+      press(view, "release")
+
+      refute_received {:release, _, _}
+      refute modal?(view)
+    end
+
+    test "is not run for a file trashed meanwhile", %{conn: conn, held: file} = ctx do
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+
+      Repo.get!(StorageFile, file.uuid)
+      |> Ecto.Changeset.change(status: "trashed")
+      |> Repo.update!()
+
+      press(view, "release")
+
+      refute_received {:release, _, _}
+      refute modal?(view)
+    end
+
+    test "that answers an error keeps the dialog, shows the message and removes nothing",
+         %{conn: conn, held: file} = ctx do
+      guard_state(%{release_error: "Pinned by order 7"})
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      html = press(view, "release")
+
+      assert_received {:release, _, _}
+      assert modal?(view)
+      assert html =~ "Pinned by order 7"
+      assert has_element?(view, "#g-removal-release")
+      refute has_element?(view, "#g-removal-confirm")
+      assert status(file) == "active"
+      refute_received {:changed, _}
+    end
+
+    test "that raises keeps the dialog with the generic message and removes nothing",
+         %{conn: conn, held: file} = ctx do
+      guard_state(%{release_raise: true})
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      capture_log(fn -> press(view, "release") end)
+
+      assert modal?(view)
+      assert render(view) =~ "The files could not be freed. Nothing was removed."
+      assert status(file) == "active"
+      refute_received {:changed, _}
+    end
+  end
+
   describe "a readonly gallery" do
     test "shows the eye and no menu", %{conn: conn} = ctx do
       file = file!(ctx.user)
@@ -445,6 +661,28 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
       refute has_element?(view, trash_item(file))
 
       refute modal?(view)
+      assert status(file) == "active"
+    end
+
+    test "refuses trash, confirm and release events sent through the live view",
+         %{conn: conn} = ctx do
+      file = file!(ctx.user)
+      attach!(file)
+      view = open(conn, ctx, [file])
+
+      # A dialog left open by a gallery that becomes readonly: the element to
+      # send the events from is still there, the server must refuse them.
+      view |> element(trash_item(file)) |> render_click()
+      token = token(view)
+      host_sets(view, :readonly, true)
+
+      hook(view, "trash_image", %{"uuid" => file.uuid})
+      hook(view, "removal_release", %{"token" => token})
+      attach_free(file)
+      hook(view, "removal_confirm", %{"token" => token})
+
+      refute_received {:release, _, _}
+      refute_received {:changed, _}
       assert status(file) == "active"
     end
   end

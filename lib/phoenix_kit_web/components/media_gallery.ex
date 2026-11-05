@@ -97,7 +97,14 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   The confirmation re-reads the file, the plan and the guard's answer and
   trashes only what the dialog showed. On success the file is dropped from the
   selection and `{:changed, uuids}` is sent, so the host stores the shorter
-  list as for any remove. The host needs no extra wiring.
+  list as for any remove. The host needs no extra wiring for the dialog.
+
+  The host must **persist** that `{:changed, uuids}` (as for every change): a
+  trashed file is gone from the gallery's list, but the host's stored list
+  still names it until the host saves the shorter one. A guard that reads only
+  saved state does not see the gallery's current selection as a use, and an
+  abandoned form leaves a reference to a trashed file. Store the list when the
+  message arrives, or make the guard count the unsaved selection as a use.
 
   ## Change notifications — required host wiring (silent failure otherwise)
 
@@ -182,6 +189,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
 
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Components.MediaBrowser.Removal
   alias PhoenixKitWeb.Components.MediaBrowser.RemovalModal
   alias PhoenixKitWeb.Live.Components.MediaSelectorModal
@@ -234,6 +242,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       |> assign_new(:max_count, fn -> nil end)
       |> assign_new(:removal_guard, fn -> nil end)
       |> assign_new(:phoenix_kit_current_scope, fn -> nil end)
+      |> assign_scope()
       |> assign_new(:removal_pending, fn -> nil end)
       |> assign_new(:trashable, fn -> MapSet.new() end)
       |> assign_new(:title, fn -> nil end)
@@ -396,10 +405,40 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       )
   end
 
+  # The scope of the person acting is built once per change of who that is (the
+  # scope the host hands in, else one made from the user) and kept in the
+  # assigns: building one reads the person's roles and permissions. When it
+  # changes, the menu's `trashable` set is judged again for the files shown.
+  defp assign_scope(socket) do
+    assigns = socket.assigns
+    source = {assigns.phoenix_kit_current_scope, assigns.phoenix_kit_current_user}
+
+    if assigns[:removal_scope_source] == source do
+      socket
+    else
+      scope =
+        case assigns.phoenix_kit_current_scope do
+          %Scope{} = scope -> scope
+          _ -> Scope.for_user(assigns.phoenix_kit_current_user)
+        end
+
+      socket
+      |> assign(removal_scope: scope, removal_scope_source: source)
+      |> assign_trashable()
+    end
+  end
+
+  defp assign_trashable(%{assigns: %{files: files}} = socket),
+    do: assign(socket, :trashable, trashable(socket, files))
+
+  defp assign_trashable(socket), do: socket
+
   # The uuids of the files the person may send to the trash from the tile menu.
   defp trashable(socket, files) do
-    scope = removal_ctx(socket).scope
-    for file <- files, can_trash?(scope, file), into: MapSet.new(), do: file.uuid
+    case socket.assigns[:removal_scope] do
+      nil -> MapSet.new()
+      scope -> for file <- files, can_trash?(scope, file), into: MapSet.new(), do: file.uuid
+    end
   end
 
   defp can_trash?(scope, file), do: Libraries.can?(scope, file, :edit)
@@ -460,7 +499,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   defp removal_analysis(socket, uuid) do
     with true <- uuid in socket.assigns.selected,
          %Storage.File{} = file <- Storage.get_file(uuid),
-         true <- can_trash?(removal_ctx(socket).scope, file),
+         true <- can_trash?(socket.assigns.removal_scope, file),
          plan = Storage.removal_plan(:remove_file, {file, nil}),
          files when files != [] <- Enum.uniq(plan.trash ++ plan.delete) do
       {:ok, %{file: file, files: files, name: file.original_file_name || file.file_name}}
@@ -469,7 +508,8 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     end
   end
 
-  defp removal_ctx(socket), do: Removal.ctx(socket.assigns, :trash_file, nil)
+  defp removal_ctx(socket),
+    do: Removal.ctx(%{phoenix_kit_current_scope: socket.assigns.removal_scope}, :trash_file, nil)
 
   defp removal_decide(socket, analysis, mode) do
     ctx = removal_ctx(socket)
@@ -490,6 +530,9 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
               else: show_removal(socket, module, ctx, analysis, places, free, held, :changed)
 
           {:confirm, _shown} ->
+            show_removal(socket, module, ctx, analysis, places, free, held, :changed)
+
+          :changed ->
             show_removal(socket, module, ctx, analysis, places, free, held, :changed)
 
           _fresh_or_reasked ->
@@ -564,7 +607,24 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     end
   end
 
+  # The release is the one step that changes host data, so it is judged again
+  # like a confirmation: the file must still be in the selection, the person
+  # must still be allowed, and the plan must be what the dialog showed. A file
+  # that is no longer a candidate closes the dialog; a plan that changed
+  # redraws it, and nothing is released.
   defp release_removal(socket, uuid, pending) do
+    case removal_analysis(socket, uuid) do
+      :nothing ->
+        assign(socket, :removal_pending, nil)
+
+      {:ok, analysis} ->
+        if Enum.sort(analysis.files) == Enum.sort(pending.files),
+          do: release_held(socket, analysis, pending),
+          else: removal_decide(socket, analysis, :changed)
+    end
+  end
+
+  defp release_held(socket, analysis, pending) do
     module = Removal.guard(socket.assigns)
     held = pending.places |> Enum.map(& &1.file_uuid) |> Enum.uniq()
 
@@ -573,7 +633,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
 
     case result do
       :ok ->
-        decide_removal(socket, uuid, {:reask, pending})
+        decide_removal(socket, analysis.file.uuid, {:reask, pending})
 
       {:error, message} ->
         assign(socket, :removal_pending, %{pending | error: message || :generic})

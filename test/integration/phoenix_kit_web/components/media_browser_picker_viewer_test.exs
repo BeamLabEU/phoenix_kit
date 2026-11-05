@@ -703,6 +703,22 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
       assert html =~ "focus-visible:opacity-100"
     end
 
+    test "a picker has no select mode, so nothing takes the eye's corner or hides it",
+         %{conn: conn} = ctx do
+      a = file!(ctx.scope)
+      view = open(conn, ctx)
+      eye = ~s(#pick button[phx-click="view_file"][phx-value-file-uuid="#{a.uuid}"])
+
+      for event <- MediaBrowser.picker_off_events(), event != "set_view_mode" do
+        capture_log(fn -> hook(view, event, %{}) end)
+      end
+
+      assert has_element?(view, eye), "preview stays available"
+      refute has_element?(view, ~s(#pick input[type="checkbox"][phx-click="toggle_select"]))
+      assert has_element?(view, ~s([id$="file-kebab-grid-#{a.uuid}"]))
+      assert tile_html(view, eye) =~ "top-1 left-1"
+    end
+
     test "the file kebab is always shown on touch and when focused", %{conn: conn} = ctx do
       a = file!(ctx.scope)
       view = open(conn, ctx)

@@ -379,9 +379,11 @@
            sibling of the click target, as the kebab is: its click must not
            pick, and a double click on it must not confirm. Top-left, the
            kebab takes the top-right; the type badges sit below it. Always
-           shown on a touch screen, which has no hover to reveal it. --%>
+           shown on a touch screen, which has no hover to reveal it. A picker
+           has no select mode (`picker_off_events/0`), so the checkbox never
+           shares the corner and the eye is never hidden. --%>
       <button
-        :if={@picker and not @select_mode}
+        :if={@picker}
         type="button"
         phx-click="view_file"
         phx-target={@myself}

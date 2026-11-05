@@ -510,6 +510,7 @@ msgstr "Konto teave"
 #: lib/modules/storage/web/renditions_component.ex:558
 #: lib/modules/storage/web/renditions_component.ex:773
 #: lib/modules/storage/web/settings.html.heex:157
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:66
 #: lib/phoenix_kit_web/live/components/library_activity.ex:476
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1253
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1339
@@ -541,7 +542,7 @@ msgstr "Konto teave"
 msgid "Actions"
 msgstr "Tegevused"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:86
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:104
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2579
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:633
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:307
@@ -1732,7 +1733,6 @@ msgstr "Keeldu kõigest"
 #: lib/phoenix_kit_web/components/core/column_settings.ex:133
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:213
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:261
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:53
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:300
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:301
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2375
@@ -6164,8 +6164,10 @@ msgstr "Värvi muutmine ebaõnnestus"
 msgid "Failed to create folder"
 msgstr "Kausta loomine ebaõnnestus"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:3165
-#: lib/phoenix_kit_web/components/media_browser.ex:5863
+#: lib/phoenix_kit_web/components/media_browser.ex:3473
+#: lib/phoenix_kit_web/components/media_browser.ex:5893
+#: lib/phoenix_kit_web/components/media_browser.ex:6440
+#: lib/phoenix_kit_web/components/media_gallery.ex:606
 #, elixir-autogen, elixir-format
 msgid "Failed to move file"
 msgstr "Faili liigutamine ebaõnnestus"
@@ -7016,7 +7018,8 @@ msgstr "Meediafaile ei leitud"
 
 #: lib/phoenix_kit_web/components/core/preview_card.ex:105
 #: lib/phoenix_kit_web/components/core/preview_card.ex:157
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:67
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:55
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:56
 #: lib/phoenix_kit_web/live/settings/email_sending.html.heex:218
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:383
 #, elixir-autogen, elixir-format
@@ -7098,7 +7101,7 @@ msgstr "Kasvav järjestus — klõpsa kahanevaks"
 msgid "Descending — click for ascending"
 msgstr "Kahanev järjestus — klõpsa kasvavaks"
 
-#: lib/phoenix_kit_web/components/media_gallery.html.heex:41
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:42
 #, elixir-autogen, elixir-format
 msgid "Featured"
 msgstr "Esiletõstetud"
@@ -19340,7 +19343,8 @@ msgid "Media details"
 msgstr "Meedia üksikasjad"
 
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:144
-#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:924
+#: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:931
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Move to trash"
 msgstr "Teisalda prügikasti"
@@ -22486,7 +22490,8 @@ msgstr "Tühista valik"
 msgid "There is nothing left to remove."
 msgstr "Eemaldada pole enam midagi."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:5555
+#: lib/phoenix_kit_web/components/media_browser.ex:6130
+#: lib/phoenix_kit_web/components/media_gallery.ex:555
 #, elixir-autogen, elixir-format
 msgid "The files changed. Check the list and confirm again."
 msgstr "Failid muutusid. Kontrollige loendit ja kinnitage uuesti."
