@@ -570,6 +570,34 @@ defmodule PhoenixKitWeb.Users.Auth do
     |> assign(:phoenix_kit_current_scope, scope)
   end
 
+  @doc """
+  Rebuilds the session from the remember-me cookie, when the session has no
+  user token and the cookie is present. Otherwise returns `conn` untouched.
+
+  The same rebuild `fetch_phoenix_kit_current_scope/2` and
+  `fetch_phoenix_kit_current_user/2` do, without fetching the user. It exists
+  for `PhoenixKitWeb.Plugs.Integration`, which every host has in its
+  `:browser` pipeline: a host that runs the fetch plugs only on guarded routes
+  otherwise showed its public pages signed out once the session cookie was
+  gone (a stock endpoint's session cookie has no `max_age`, so a phone drops it
+  whenever the OS stops the app), until a kit page happened to restore it.
+
+  Cheap when there is nothing to do: no cookie is verified unless the
+  remember-me cookie is actually there, and a conn whose session was never
+  fetched is passed through.
+  """
+  @spec restore_remembered_session(Plug.Conn.t()) :: Plug.Conn.t()
+  def restore_remembered_session(conn) do
+    cond do
+      not session_fetched?(conn) -> conn
+      get_session(conn, :user_token) -> conn
+      not Map.has_key?(fetch_cookies(conn).req_cookies, @remember_me_cookie) -> conn
+      true -> conn |> ensure_user_token() |> elem(1)
+    end
+  end
+
+  defp session_fetched?(conn), do: Map.has_key?(conn.private, :plug_session)
+
   defp ensure_user_token(conn) do
     if get_session(conn, :user_token) do
       conn = MultiSession.recover_organization(conn)
