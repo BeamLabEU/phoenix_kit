@@ -481,9 +481,8 @@
          Move/Download/Delete on the right); otherwise the normal
          Display/Sort/Filter + search + Add Media row. Both live
          inside the hero so the controls don't jump on toggle. --%>
-    <%!-- Picker: the pick's count and the way out — Confirm hands it to the
-         host, Cancel leaves the host's slot as it was. Both wait while an
-         upload is on its way (the host is told, see the moduledoc). --%>
+    <%!-- Picker: the pick's count and the view options. Its way out
+         (Cancel / Confirm) sits under the grid, in the browser's footer. --%>
     <div :if={@picker} id={"#{@id}-picker-bar"} class="flex flex-wrap items-center gap-2 mt-1">
       <span class="text-sm font-semibold">
         <%= if @max_select && @pick_mode == :multiple do %>
@@ -494,13 +493,6 @@
       </span>
       <span :if={@pick_limit_hit} class="badge badge-warning">
         {ngettext("Maximum %{count} file", "Maximum %{count} files", @max_select)}
-      </span>
-      <span
-        :if={@picker_uploading}
-        class="inline-flex items-center gap-1.5 text-xs text-base-content/70"
-      >
-        <span class="loading loading-spinner loading-xs text-primary"></span>
-        {gettext("Wait for the uploads to finish")}
       </span>
       <%!-- The picker's own view option: the files of the folders below this
            one too (`subtree_toggle`). The switch is not shown over the Trash,
@@ -523,26 +515,6 @@
         />
         {gettext("Include subfolders")}
       </label>
-      <div class="flex items-center gap-2 ml-auto">
-        <button
-          type="button"
-          phx-click="pick_cancel"
-          phx-target={@myself}
-          disabled={@picker_uploading}
-          class="btn btn-sm btn-ghost"
-        >
-          {gettext("Cancel")}
-        </button>
-        <button
-          type="button"
-          phx-click="pick_confirm"
-          phx-target={@myself}
-          disabled={@picker_uploading}
-          class="btn btn-sm btn-primary gap-1.5"
-        >
-          <.icon name="hero-check" class="w-4 h-4" /> {gettext("Confirm")}
-        </button>
-      </div>
     </div>
 
     <%= if @select_mode do %>
