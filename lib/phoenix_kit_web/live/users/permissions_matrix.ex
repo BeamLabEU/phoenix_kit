@@ -324,7 +324,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
               phx-click="toggle_permission"
               phx-value-role_uuid={role.uuid}
               phx-value-key={@key}
-              class="cursor-pointer hover:opacity-70 transition-opacity max-md:inline-flex max-md:min-h-8 max-md:min-w-8 max-md:items-center max-md:justify-center"
+              class="cursor-pointer hover:opacity-70 transition-opacity max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
             >
               <%= if granted?(@matrix, role, @key) do %>
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success" />

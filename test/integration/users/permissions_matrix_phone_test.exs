@@ -55,9 +55,9 @@ defmodule PhoenixKit.Integration.Users.PermissionsMatrixPhoneTest do
 
     for toggle <- toggles do
       cls = classes(toggle)
-      # min-h-8 / min-w-8 = 2rem = 32px
-      assert "max-md:min-h-8" in cls
-      assert "max-md:min-w-8" in cls
+      # min-h-11 / min-w-11 = 2.75rem = 44px, the touch-target guidance
+      assert "max-md:min-h-11" in cls
+      assert "max-md:min-w-11" in cls
       assert "max-md:inline-flex" in cls
     end
   end
