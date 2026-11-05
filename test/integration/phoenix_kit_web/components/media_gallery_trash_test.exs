@@ -15,6 +15,8 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
 
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Permissions
+  alias PhoenixKit.Users.Roles
   alias PhoenixKitWeb.Components.MediaGallery
 
   @state_key :gallery_trash_test
@@ -520,6 +522,31 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTrashTest do
       host_sets(view, :user, other_user!())
 
       refute has_element?(view, trash_item(file)), "the menu is judged again for the new person"
+      press(view, "confirm")
+
+      assert status(file) == "active"
+      refute modal?(view)
+      refute_received {:changed, _}
+    end
+
+    test "the same person whose rights were narrowed meanwhile cannot confirm",
+         %{conn: conn} = ctx do
+      # Someone else's file is the person's to change only through `media` with
+      # `media.view_all`; the host passes the same user before and after.
+      {:ok, role} =
+        Roles.create_role(%{name: "Gallery editors #{System.unique_integer([:positive])}"})
+
+      {:ok, _} = Permissions.grant_permission(role.uuid, "media")
+      {:ok, _} = Permissions.grant_permission(role.uuid, "media.view_all")
+      {:ok, _} = Roles.assign_role(ctx.user, role.name)
+
+      file = file!(other_user!())
+      view = open(conn, ctx, [file])
+
+      view |> element(trash_item(file)) |> render_click()
+      assert modal?(view)
+
+      :ok = Permissions.revoke_permission(role.uuid, "media.view_all")
       press(view, "confirm")
 
       assert status(file) == "active"

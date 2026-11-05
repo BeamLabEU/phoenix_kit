@@ -499,7 +499,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   defp removal_analysis(socket, uuid) do
     with true <- uuid in socket.assigns.selected,
          %Storage.File{} = file <- Storage.get_file(uuid),
-         true <- can_trash?(socket.assigns.removal_scope, file),
+         true <- can_trash?(acting_scope(socket), file),
          plan = Storage.removal_plan(:remove_file, {file, nil}),
          files when files != [] <- Enum.uniq(plan.trash ++ plan.delete) do
       {:ok, %{file: file, files: files, name: file.original_file_name || file.file_name}}
@@ -509,7 +509,13 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   defp removal_ctx(socket),
-    do: Removal.ctx(%{phoenix_kit_current_scope: socket.assigns.removal_scope}, :trash_file, nil)
+    do: Removal.ctx(%{phoenix_kit_current_scope: acting_scope(socket)}, :trash_file, nil)
+
+  # The scope an action is decided with. The cached `removal_scope` only drives
+  # the menu; a user's rights can change while the page stays open, so when the
+  # host passed no scope one is built again from the user at the moment of acting.
+  defp acting_scope(%{assigns: %{phoenix_kit_current_scope: %Scope{} = scope}}), do: scope
+  defp acting_scope(socket), do: Scope.for_user(socket.assigns.phoenix_kit_current_user)
 
   defp removal_decide(socket, analysis, mode) do
     ctx = removal_ctx(socket)
