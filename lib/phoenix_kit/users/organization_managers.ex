@@ -122,8 +122,8 @@ defmodule PhoenixKit.Users.OrganizationManagers do
       from(u in User,
         where: u.account_type == "person" and u.is_active and not u.api_only,
         where:
-          ilike(u.email, ^pattern) or ilike(u.first_name, ^pattern) or
-            ilike(u.last_name, ^pattern),
+          ilike(u.email, ^pattern) or ilike(u.username, ^pattern) or
+            ilike(fragment("concat_ws(' ', ?, ?)", u.first_name, u.last_name), ^pattern),
         order_by: u.email,
         limit: 10
       )
