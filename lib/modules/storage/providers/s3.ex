@@ -47,13 +47,72 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     destination_dir = Path.dirname(destination_path)
     File.mkdir_p!(destination_dir)
 
-    case ExAws.S3.download_file(bucket.bucket_name, file_path, destination_path)
-         |> S3Request.request(aws_config(bucket)) do
-      {:ok, _result} -> :ok
+    case download(bucket.bucket_name, file_path, destination_path, aws_config(bucket)) do
+      :ok -> :ok
       {:error, reason} -> {:error, "Failed to download from S3: #{inspect(reason)}"}
     end
   rescue
     error -> {:error, "Error retrieving file from S3: #{inspect(error)}"}
+  end
+
+  # The object's size, then its bytes in ranges, written in order. Done here
+  # rather than by `ExAws.S3.download_file/3`, whose requests go through
+  # `ExAws.request/2` and fail for a B2 region (see `S3Request`): every read
+  # from B2 failed. A failed download leaves no partial file behind.
+  @download_chunk 8 * 1024 * 1024
+
+  defp download(name, key, destination_path, config) do
+    with {:ok, %{headers: headers}} <-
+           ExAws.S3.head_object(name, key) |> S3Request.request(config),
+         {:ok, size} <- content_length(headers) do
+      result =
+        File.open(destination_path, [:write, :binary], fn device ->
+          download_ranges(name, key, size, config, device, 0)
+        end)
+
+      case result do
+        {:ok, :ok} ->
+          :ok
+
+        {:ok, error} ->
+          File.rm(destination_path)
+          error
+
+        {:error, _reason} = error ->
+          error
+      end
+    end
+  end
+
+  defp download_ranges(_name, _key, size, _config, _device, offset) when offset >= size, do: :ok
+
+  defp download_ranges(name, key, size, config, device, offset) do
+    last = min(offset + @download_chunk, size) - 1
+
+    case ExAws.S3.get_object(name, key, range: "bytes=#{offset}-#{last}")
+         |> S3Request.request(config) do
+      {:ok, %{body: body}} when byte_size(body) == last - offset + 1 ->
+        :ok = IO.binwrite(device, body)
+        download_ranges(name, key, size, config, device, last + 1)
+
+      {:ok, %{body: body}} ->
+        {:error, {:short_range, offset, byte_size(body)}}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp content_length(headers) do
+    with {_header, value} <-
+           Enum.find(headers, fn {header, _value} ->
+             String.downcase(header) == "content-length"
+           end),
+         {size, ""} <- Integer.parse(to_string(value)) do
+      {:ok, size}
+    else
+      _ -> {:error, :no_content_length}
+    end
   end
 
   @impl true
@@ -311,29 +370,102 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     end
   end
 
-  # Multipart streaming upload for large files (>=5 MB).
-  # Streams file in chunks with concurrent part uploads.
-  defp multipart_upload(bucket, source_path, destination_path, opts) do
-    content_type = upload_content_type(opts, destination_path)
+  # Multipart streaming upload for large files (>=5 MB): the file in 5 MiB
+  # parts, four at a time.
+  #
+  # Done here step by step rather than by `ExAws.S3.upload/4`: that operation
+  # makes each of its requests with `ExAws.request/2`, which rebuilds the config
+  # and fails for a B2 region (see `S3Request`), so every upload of 5 MB or more
+  # to B2 failed. A failed upload is aborted, so its parts do not stay billed.
+  @part_concurrency 4
+  @part_timeout 60_000
 
-    upload_opts = [
+  defp multipart_upload(bucket, source_path, destination_path, opts) do
+    config = aws_config(bucket)
+    name = bucket.bucket_name
+
+    init_opts = [
       acl: Keyword.get(opts, :acl, "private"),
-      max_concurrency: 4,
-      timeout: 60_000,
-      content_type: content_type
+      content_type: upload_content_type(opts, destination_path)
     ]
 
-    case source_path
-         |> Upload.stream_file()
-         |> ExAws.S3.upload(bucket.bucket_name, destination_path, upload_opts)
-         |> S3Request.request(aws_config(bucket)) do
-      {:ok, _result} ->
-        {:ok, public_url(bucket, destination_path)}
+    case ExAws.S3.initiate_multipart_upload(name, destination_path, init_opts)
+         |> S3Request.request(config) do
+      {:ok, %{body: %{upload_id: upload_id}}} ->
+        case finish_multipart(name, destination_path, upload_id, source_path, config) do
+          :ok ->
+            {:ok, public_url(bucket, destination_path)}
 
-      {:error, reason} ->
-        Logger.error("S3 multipart upload failed for #{bucket.name}: #{inspect(reason)}")
-        {:error, "Failed multipart upload to S3: #{inspect(reason)}"}
+          error ->
+            abort_multipart(name, destination_path, upload_id, config)
+            multipart_failed(bucket, error)
+        end
+
+      error ->
+        multipart_failed(bucket, error)
     end
+  end
+
+  defp finish_multipart(name, key, upload_id, source_path, config) do
+    with {:ok, parts} <- upload_parts(name, key, upload_id, source_path, config),
+         {:ok, _result} <-
+           ExAws.S3.complete_multipart_upload(name, key, upload_id, parts)
+           |> S3Request.request(config) do
+      :ok
+    end
+  end
+
+  defp upload_parts(name, key, upload_id, source_path, config) do
+    source_path
+    |> Upload.stream_file()
+    |> Stream.with_index(1)
+    |> Task.async_stream(
+      fn {chunk, number} -> upload_part(name, key, upload_id, number, chunk, config) end,
+      max_concurrency: @part_concurrency,
+      timeout: @part_timeout,
+      on_timeout: :kill_task
+    )
+    |> Enum.reduce_while({:ok, []}, fn
+      {:ok, {:ok, part}}, {:ok, parts} -> {:cont, {:ok, [part | parts]}}
+      {:ok, {:error, _} = error}, _acc -> {:halt, error}
+      {:exit, reason}, _acc -> {:halt, {:error, {:part_exited, reason}}}
+    end)
+    |> case do
+      {:ok, parts} -> {:ok, Enum.sort_by(parts, &elem(&1, 0))}
+      error -> error
+    end
+  end
+
+  # `{number, etag}`, as `complete_multipart_upload` wants them.
+  defp upload_part(name, key, upload_id, number, chunk, config) do
+    case ExAws.S3.upload_part(name, key, upload_id, number, chunk)
+         |> S3Request.request(config) do
+      {:ok, %{headers: headers}} ->
+        case Enum.find(headers, fn {header, _value} -> String.downcase(header) == "etag" end) do
+          {_header, etag} -> {:ok, {number, etag}}
+          nil -> {:error, {:no_etag, number}}
+        end
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp abort_multipart(name, key, upload_id, config) do
+    ExAws.S3.abort_multipart_upload(name, key, upload_id) |> S3Request.request(config)
+  rescue
+    _error -> :ok
+  end
+
+  defp multipart_failed(bucket, error) do
+    reason =
+      case error do
+        {:error, reason} -> reason
+        other -> other
+      end
+
+    Logger.error("S3 multipart upload failed for #{bucket.name}: #{inspect(reason)}")
+    {:error, "Failed multipart upload to S3: #{inspect(reason)}"}
   end
 
   # Build per-request ExAws config from bucket credentials.

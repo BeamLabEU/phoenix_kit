@@ -65,8 +65,15 @@
   storage endpoint". S3-compatible requests now go through
   `Storage.Providers.S3Request`: with a host named, the config is built with a
   region ExAws knows and then signed for the real one. Requests to AWS itself
-  (no host) are unchanged. Verified against a real B2 bucket (write, read,
-  delete, signed URL).
+  (no host) are unchanged. ExAws's composite operations (`ExAws.S3.upload/4`,
+  `download_file/3`) build the config again for each of their requests, so the
+  S3 provider now does them itself through `S3Request`: a file of 5 MB or more
+  goes up in 5 MiB parts, four at a time, and a failed upload is **aborted**
+  (its parts are no longer left billed on the bucket); a download reads the
+  size, then 8 MiB ranges written in order, and leaves no partial file when it
+  fails. Before, every upload of 5 MB or more to B2 and every read from B2
+  failed. Verified against real B2 and Hetzner buckets (a 12 MB file there and
+  back, checksums equal) and against a local S3 stub.
 
 - **The reconciler's file lock works behind PgBouncer and for large files
   (V228).** It was a session advisory lock taken on a pooled connection.

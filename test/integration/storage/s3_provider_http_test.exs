@@ -27,12 +27,17 @@ defmodule PhoenixKit.Modules.Storage.S3ProviderHTTPTest do
     def init(store), do: store
 
     def call(conn, store) do
+      conn = fetch_query_params(conn)
       [_bucket | key_parts] = conn.path_info
       key = Enum.join(key_parts, "/")
+      query = conn.query_params
 
       cond do
         String.starts_with?(key, "broken") ->
           send_resp(conn, 500, "boom")
+
+        Map.has_key?(query, "uploads") or Map.has_key?(query, "uploadId") ->
+          multipart(conn, store, key, query)
 
         conn.method == "PUT" and Agent.get(store, &Map.get(&1, :fail_writes, false)) ->
           send_resp(conn, 403, "denied")
@@ -74,6 +79,61 @@ defmodule PhoenixKit.Modules.Storage.S3ProviderHTTPTest do
         _ ->
           send_resp(conn, 200, body)
       end
+    end
+
+    # Multipart: initiate (POST ?uploads), parts (PUT ?partNumber&uploadId),
+    # complete (POST ?uploadId) and abort (DELETE ?uploadId). `:fail_parts`
+    # makes every part answer 500.
+    defp multipart(%{method: "POST"} = conn, store, key, %{"uploads" => _}) do
+      id = "upload-#{System.unique_integer([:positive])}"
+      Agent.update(store, &Map.put(&1, {:upload, id}, %{}))
+
+      xml(
+        conn,
+        "<InitiateMultipartUploadResult><Bucket>pk</Bucket><Key>#{key}</Key>" <>
+          "<UploadId>#{id}</UploadId></InitiateMultipartUploadResult>"
+      )
+    end
+
+    defp multipart(%{method: "PUT"} = conn, store, _key, %{"uploadId" => id, "partNumber" => n}) do
+      {:ok, body, conn} = read_all(conn, "")
+
+      if Agent.get(store, &Map.get(&1, :fail_parts, false)) do
+        send_resp(conn, 500, "part failed")
+      else
+        Agent.update(store, fn state ->
+          Map.update!(state, {:upload, id}, &Map.put(&1, String.to_integer(n), body))
+        end)
+
+        conn |> put_resp_header("etag", ~s("part-#{n}")) |> send_resp(200, "")
+      end
+    end
+
+    defp multipart(%{method: "POST"} = conn, store, key, %{"uploadId" => id}) do
+      {:ok, _body, conn} = read_all(conn, "")
+
+      Agent.update(store, fn state ->
+        {parts, state} = Map.pop!(state, {:upload, id})
+        bytes = parts |> Enum.sort() |> Enum.map_join(fn {_n, part} -> part end)
+        Map.put(state, key, bytes)
+      end)
+
+      xml(
+        conn,
+        "<CompleteMultipartUploadResult><Bucket>pk</Bucket><Key>#{key}</Key>" <>
+          ~s(<ETag>"whole"</ETag></CompleteMultipartUploadResult>)
+      )
+    end
+
+    defp multipart(%{method: "DELETE"} = conn, store, _key, %{"uploadId" => id}) do
+      Agent.update(store, &(&1 |> Map.delete({:upload, id}) |> Map.put({:aborted, id}, true)))
+      send_resp(conn, 204, "")
+    end
+
+    defp xml(conn, body) do
+      conn
+      |> put_resp_content_type("application/xml")
+      |> send_resp(200, ~s(<?xml version="1.0" encoding="UTF-8"?>) <> body)
     end
 
     defp read_all(conn, acc) do
@@ -340,6 +400,57 @@ defmodule PhoenixKit.Modules.Storage.S3ProviderHTTPTest do
 
     assert :ok = S3.retrieve_file(ctx.bucket, "c/d.txt", destination)
     assert File.read!(destination) == "round trip"
+  end
+
+  # Backblaze B2's regions look like AWS ones AWS does not have, which ExAws's
+  # own config building rejects (`S3Request`); its composite upload and
+  # download operations build their own, so core does both step by step.
+  describe "a bucket in a B2-shaped region" do
+    setup ctx, do: %{b2: %{ctx.bucket | region: "us-west-002"}}
+
+    test "a small file goes up, comes back and goes away", ctx do
+      assert {:ok, _} = S3.store_file(ctx.b2, source!("small"), "b2/small.txt")
+      destination = Path.join(System.tmp_dir!(), "pk_s3_b2_#{System.unique_integer()}")
+      on_exit(fn -> File.rm(destination) end)
+
+      assert :ok = S3.retrieve_file(ctx.b2, "b2/small.txt", destination)
+      assert File.read!(destination) == "small"
+      assert :ok = S3.delete_file(ctx.b2, "b2/small.txt")
+    end
+
+    test "a large file goes up in parts and comes back whole", ctx do
+      content = :crypto.strong_rand_bytes(11 * 1024 * 1024 + 7)
+      assert {:ok, _} = S3.store_file(ctx.b2, source!(content), "b2/large.bin")
+      assert Agent.get(ctx.store, &Map.get(&1, "b2/large.bin")) == content
+
+      destination = Path.join(System.tmp_dir!(), "pk_s3_b2_#{System.unique_integer()}")
+      on_exit(fn -> File.rm(destination) end)
+
+      assert :ok = S3.retrieve_file(ctx.b2, "b2/large.bin", destination)
+      assert File.read!(destination) == content
+    end
+
+    test "a failed part aborts the upload and stores nothing", ctx do
+      Agent.update(ctx.store, &Map.put(&1, :fail_parts, true))
+      content = :crypto.strong_rand_bytes(6 * 1024 * 1024)
+
+      assert {:error, _} =
+               ExUnit.CaptureLog.with_log(fn ->
+                 S3.store_file(ctx.b2, source!(content), "b2/failed.bin")
+               end)
+               |> elem(0)
+
+      state = Agent.get(ctx.store, & &1)
+      refute Map.has_key?(state, "b2/failed.bin")
+      assert Enum.any?(Map.keys(state), &match?({:aborted, _}, &1))
+      refute Enum.any?(Map.keys(state), &match?({:upload, _}, &1))
+    end
+
+    test "a missing object is an error, and leaves no file behind", ctx do
+      destination = Path.join(System.tmp_dir!(), "pk_s3_b2_#{System.unique_integer()}")
+      assert {:error, _} = S3.retrieve_file(ctx.b2, "b2/nothing.bin", destination)
+      refute File.exists?(destination)
+    end
   end
 
   test "the location backfill leaves an instance unchecked when a bucket errors", _ctx do
