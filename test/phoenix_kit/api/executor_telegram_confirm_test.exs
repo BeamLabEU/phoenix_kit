@@ -238,10 +238,7 @@ defmodule PhoenixKit.API.ExecutorTelegramConfirmTest do
       results =
         [chat, chat]
         |> Enum.map(fn ref ->
-          Task.async(fn ->
-            Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), self())
-            confirm(ref, id)
-          end)
+          Task.async(fn -> confirm(ref, id) end)
         end)
         |> Task.await_many()
 
