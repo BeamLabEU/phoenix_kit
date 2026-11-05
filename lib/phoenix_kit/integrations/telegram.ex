@@ -27,6 +27,8 @@ defmodule PhoenixKit.Integrations.Telegram do
 
   @api_base "https://api.telegram.org"
   @timeout 15_000
+  # How long past a long poll's own `timeout` (seconds) we wait for the answer.
+  @poll_margin_ms 10_000
 
   # --- Send -----------------------------------------------------------------
 
@@ -55,6 +57,30 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> then(&request(token, "sendMessage", &1))
   end
 
+  @doc """
+  Sets the bot's reaction to a message (`setMessageReaction`); it replaces the
+  set the bot had put there. `emoji` is one emoji; `nil` or `""` clears the
+  bot's reactions. Opts: `:owner` for the credential lookup. Returns
+  `{:ok, true}` or `{:error, reason}` — Telegram's description when it refuses
+  (a message that is gone is one such refusal).
+  """
+  @spec set_message_reaction(
+          String.t(),
+          integer() | String.t(),
+          integer(),
+          String.t() | nil,
+          keyword()
+        ) :: {:ok, term()} | {:error, term()}
+  def set_message_reaction(uuid, chat_id, message_id, emoji, opts \\ [])
+      when is_binary(uuid) and (is_binary(emoji) or is_nil(emoji)) do
+    body = %{chat_id: chat_id, message_id: message_id, reaction: reaction(emoji)}
+
+    with_token(uuid, opts, &request(&1, "setMessageReaction", body))
+  end
+
+  defp reaction(emoji) when emoji in [nil, ""], do: []
+  defp reaction(emoji), do: [%{type: "emoji", emoji: emoji}]
+
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
 
   @doc """
@@ -80,8 +106,18 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> maybe_put(:allowed_updates, opts[:allowed_updates])
     |> maybe_put(:timeout, opts[:timeout])
     |> maybe_put(:limit, opts[:limit])
-    |> then(&request(token, "getUpdates", &1))
+    |> then(&request(token, "getUpdates", &1, receive_timeout(opts[:timeout])))
   end
+
+  @doc false
+  # How long to wait for a `getUpdates` answer: a long poll (`timeout` seconds)
+  # is answered up to that long after it was sent, so the wait is that plus a
+  # margin. A short or absent `timeout` keeps the default wait.
+  @spec receive_timeout(integer() | nil) :: pos_integer()
+  def receive_timeout(timeout) when is_integer(timeout),
+    do: max(@timeout, timeout * 1000 + @poll_margin_ms)
+
+  def receive_timeout(_), do: @timeout
 
   @doc "The bot itself, as `getMe` reports it (`\"username\"` among other fields)."
   @spec get_me(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -120,10 +156,10 @@ defmodule PhoenixKit.Integrations.Telegram do
     :phoenix_kit |> Application.get_env(:telegram_req_options, []) |> Keyword.take([:plug])
   end
 
-  defp request(token, method, body) do
+  defp request(token, method, body, receive_timeout \\ @timeout) do
     url = "#{@api_base}/bot#{token}/#{method}"
 
-    case Req.post(url, [json: body, receive_timeout: @timeout] ++ req_options()) do
+    case Req.post(url, [json: body, receive_timeout: receive_timeout] ++ req_options()) do
       {:ok, %{status: 200, body: %{"ok" => true, "result" => result}}} ->
         {:ok, result}
 
