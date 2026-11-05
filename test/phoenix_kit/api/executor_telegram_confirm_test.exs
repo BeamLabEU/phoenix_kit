@@ -85,6 +85,11 @@ defmodule PhoenixKit.API.ExecutorTelegramConfirmTest do
 
   defp row(id), do: Repo.get!(Confirmation, id)
 
+  defp lapse!(id) do
+    past = DateTime.utc_now() |> DateTime.add(-1, :second) |> DateTime.truncate(:second)
+    Repo.update_all(from(c in Confirmation, where: c.uuid == ^id), set: [expires_at: past])
+  end
+
   defp entries(user) do
     Repo.all(
       from(e in Entry,
@@ -217,6 +222,38 @@ defmodule PhoenixKit.API.ExecutorTelegramConfirmTest do
       refute_received {:session_write, _, _, _}
     end
 
+    test "after its lifetime: expired for the redeem, the read and the rejection", %{chat: chat} do
+      id = held!(chat)
+      lapse!(id)
+
+      assert {:error, :confirm_token_invalid, _, %{reason: "expired"}, _} = confirm(chat, id)
+      assert {:ok, %{status: "expired"}} = Confirm.get_for_user(id, chat)
+      assert Confirm.reject_for_user(id, chat) == {:error, :expired}
+      no_write!()
+    end
+
+    test "two presses at once: the handler runs once", %{chat: chat} do
+      id = held!(chat)
+
+      results =
+        [chat, chat]
+        |> Enum.map(fn ref ->
+          Task.async(fn ->
+            Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), self())
+            confirm(ref, id)
+          end)
+        end)
+        |> Task.await_many()
+
+      assert [{:error, :confirm_token_invalid, _, %{reason: "used"}, _}] =
+               Enum.filter(results, &match?({:error, _, _, _, _}, &1))
+
+      assert [{:ok, %{result: %{"updated" => true}}, _}] =
+               Enum.filter(results, &match?({:ok, _, _}, &1))
+
+      assert row(id).status == "used"
+    end
+
     test "unlinked between the proposal and the press: unauthorized, the row waits", %{
       chat: chat,
       user: user
@@ -281,6 +318,55 @@ defmodule PhoenixKit.API.ExecutorTelegramConfirmTest do
       assert {:error, :confirm_token_invalid, _, %{reason: "other_origin"}, _} = confirm(chat, id)
       assert row(id).status == "unused"
       no_write!()
+    end
+
+    test "whatever the status of the row: used, rejected or expired, it is other_origin", %{
+      chat: chat,
+      site: site
+    } do
+      used = held!(site)
+      assert {:ok, _, _} = confirm(site, used)
+      rejected = held!(site)
+      assert :ok = Confirm.reject_for_user(rejected, site)
+      expired = held!(site)
+      lapse!(expired)
+
+      for id <- [used, rejected, expired] do
+        status = row(id).status
+
+        assert {:error, :confirm_token_invalid, _, %{reason: "other_origin"}, _} =
+                 confirm(chat, id)
+
+        assert Confirm.get_for_user(id, chat) == {:error, :foreign}
+        assert Confirm.reject_for_user(id, chat) == {:error, :foreign}
+        assert row(id).status == status
+      end
+    end
+
+    test "a malformed chat reference is not the origin of a row without context", %{site: site} do
+      id = held!(site)
+      row = row(id)
+
+      for ref <- [
+            {:telegram_link, "u", nil, nil},
+            {:telegram_link, "u", "c", %{}},
+            {:telegram_link, nil, nil, nil}
+          ] do
+        refute Confirm.from_origin?(row, ref)
+      end
+
+      refute Confirm.from_origin?(row, site)
+    end
+
+    test "only the three origin keys bind a row: another key in the context changes nothing", %{
+      chat: chat
+    } do
+      id = held!(chat)
+      context = Map.put(row(id).context, "note", "later")
+      Repo.update_all(from(c in Confirmation, where: c.uuid == ^id), set: [context: context])
+
+      assert Confirm.from_origin?(row(id), chat)
+      assert {:ok, _, _} = confirm(chat, id)
     end
 
     test "a row without any context (made before this existed) is not a chat's", %{chat: chat} do
@@ -353,6 +439,13 @@ defmodule PhoenixKit.API.ExecutorTelegramConfirmTest do
 
       assert row(new_id).context == row(id).context
       assert row(new_id).context["origin"] == "telegram"
+    end
+
+    test "a site session reads a chat's row for the card", %{chat: chat, site: site} do
+      id = held!(chat)
+
+      assert {:ok, %{uuid: ^id, status: "unused", preview: %{"rows" => [_]}}} =
+               Confirm.get_for_user(id, site)
     end
 
     test "a site session turns a chat's row down", %{chat: chat, site: site} do

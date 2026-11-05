@@ -10,8 +10,11 @@ defmodule PhoenixKit.API.Confirm.Confirmation do
       current values the operation would touch.
     * `input` - the arguments of an approval; `nil` for a code, and cleared when an
       approval is decided or expires.
-    * `context` - language, currency, hosts, base URL and request id of the original
-      request (an approval runs without a request).
+    * `context` - for an approval: language, currency, hosts, base URL and request id of the
+      original request (it runs without a request); only an approval's context is read
+      back as such a snapshot. For a session's code: `%{}`, or, for a write held for a
+      linked Telegram chat, `"origin"` (`"telegram"`), `"connection_uuid"` and `"chat_id"`
+      (a string), which bind the row to that chat (`PhoenixKit.API.Confirm.from_origin?/2`).
     * `actor_key_uuid` / `client_token_hash` / `actor_user_uuid` - who it belongs to: an API
       key, the hash of a public caller's client token (the database column keeps the name it
       was created with; the field's `source:` maps it), or the person whose live session

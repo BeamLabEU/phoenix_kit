@@ -265,9 +265,11 @@ defmodule PhoenixKit.API.Confirm do
   handed out again. No code is made. The insert is not logged (`log: false`): its
   parameters carry the preview, the data the person works on.
 
-  Option `:context` (a map, `%{}` by default) is stored in the row's `context`. The
-  executor puts the origin there for a write held for a linked Telegram chat
-  (`origin_context/1`); `from_origin?/2` reads it back.
+  Option `:context` (a map, `%{}` by default; anything else is stored as `%{}`) is stored in
+  the row's `context`. The executor puts the origin there for a write held for a linked
+  Telegram chat (`origin_context/1`); `from_origin?/2` reads it back. The function trusts
+  the `:context` it is given, so a caller can mint a row that claims any chat's origin:
+  only trusted code, with a reference it has checked, may call it.
   """
   @spec issue_for_user(
           Actor.t(),
@@ -346,14 +348,20 @@ defmodule PhoenixKit.API.Confirm do
 
   @doc """
   Whether the row was held for the linked Telegram chat `session_ref`: its `context` names
-  that bot's connection and that chat (the chat id compared as a string). A row made on the
-  site, one of another chat or bot, and one without a context are not. Any `session_ref`
-  that is not a chat is not an origin to compare, so this is `false` for it.
+  that bot's connection and that chat (the chat id compared as a string); only these three
+  keys are compared, so a key added to the context later does not unbind a row. A row made
+  on the site, one of another chat or bot, and one without a context are not. A
+  `session_ref` that is not a well-formed chat is not an origin to compare, so this is
+  `false` for it.
   """
   @spec from_origin?(Confirmation.t(), term()) :: boolean()
   def from_origin?(%Confirmation{context: context}, {:telegram_link, _, _, _} = session_ref)
-      when is_map(context),
-      do: context == origin_context(session_ref)
+      when is_map(context) do
+    case origin_context(session_ref) do
+      %{"origin" => _telegram} = expected -> Map.take(context, Map.keys(expected)) == expected
+      _no_origin -> false
+    end
+  end
 
   def from_origin?(_row, _session_ref), do: false
 
