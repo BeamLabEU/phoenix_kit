@@ -7,7 +7,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Migration Versions
 
-  ### V227 - Managed organizations and session provenance ⚡ LATEST
+  ### V228 - A reconcile lease on a file ⚡ LATEST
+
+  `phoenix_kit_files.reconcile_lock_token` (`uuid`) and `reconcile_locked_until` (`timestamp(0)`): the
+  reconciler holds a file by a lease in its row, renewed while it works and left to run out if the holder
+  dies, instead of an advisory lock (unreliable behind PgBouncer's transaction pooling, or pinning a
+  server connection for as long as a copy takes). Additive, catalog-only, no backfill.
+
+  ### V227 - Managed organizations and session provenance
 
   Manager grants, delivery addresses, dependent acting sessions and invitation kinds.
 
@@ -1051,7 +1058,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Migrations.Repair.Environment
 
   @initial_version 135
-  @current_version 227
+  @current_version 228
 
   # Core 3.0 no longer creates or changes any module's table (plan
   # `dev_docs/plans/2026-10-25-module-table-ownership.md`, step 8): V135..V225

@@ -360,75 +360,104 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     for file <- files, do: refute(stale?(file))
   end
 
-  # `with_file_lock/2` holds the lock in a transaction on a connection of its
-  # own (PgBouncer's transaction pooling breaks a session lock, and the pool
-  # takes back a connection held past its timeout).
+  # `with_file_lock/3` holds a lease in the file's row (V228): no connection
+  # is held while it works (PgBouncer's transaction pooling breaks a session
+  # advisory lock, and a transaction one pins a server connection).
   describe "the file lock" do
-    test "is one holder at a time, and is free again however the holder ends" do
-      key = Ecto.UUID.generate()
+    test "is one holder at a time, and is free again however the holder ends", ctx do
+      file = upload!(ctx, "lock one")
       parent = self()
 
       holder =
         Task.async(fn ->
-          Reconciler.with_file_lock(key, fn ->
+          Reconciler.with_file_lock(file.uuid, fn ->
             send(parent, :holding)
             receive do: (:release -> :done)
           end)
         end)
 
       assert_receive :holding, 5_000
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+      assert %{reconcile_lock_token: token} = Repo.get!(Storage.File, file.uuid)
+      assert token
 
       send(holder.pid, :release)
       assert Task.await(holder) == :done
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :ran
 
-      assert_raise RuntimeError, fn -> Reconciler.with_file_lock(key, fn -> raise "boom" end) end
-      assert Reconciler.with_file_lock(key, fn -> :again end) == :again
+      assert %{reconcile_lock_token: nil, reconcile_locked_until: nil} =
+               Repo.get!(Storage.File, file.uuid)
+
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :ran
+
+      assert_raise RuntimeError, fn ->
+        Reconciler.with_file_lock(file.uuid, fn -> raise "boom" end)
+      end
+
+      assert Reconciler.with_file_lock(file.uuid, fn -> :again end) == :again
     end
 
-    test "is taken again by the process that holds it (a repair runs the reconciler)" do
-      key = Ecto.UUID.generate()
+    test "is taken again by the process that holds it (a repair runs the reconciler)", ctx do
+      file = upload!(ctx, "lock nested")
 
-      assert Reconciler.with_file_lock(key, fn ->
-               Reconciler.with_file_lock(key, fn -> :inner end)
+      assert Reconciler.with_file_lock(file.uuid, fn ->
+               Reconciler.with_file_lock(file.uuid, fn -> :inner end)
              end) == :inner
     end
 
-    test "is freed when its holder is killed" do
-      key = Ecto.UUID.generate()
+    test "a holder that dies leaves its lease to run out", ctx do
+      file = upload!(ctx, "lock killed")
       parent = self()
 
       {holder, ref} =
         spawn_monitor(fn ->
-          Reconciler.with_file_lock(key, fn ->
-            send(parent, :holding)
-            Process.sleep(:infinity)
-          end)
+          Reconciler.with_file_lock(
+            file.uuid,
+            fn ->
+              send(parent, :holding)
+              Process.sleep(:infinity)
+            end,
+            lease_seconds: 1
+          )
         end)
 
       assert_receive :holding, 5_000
       Process.exit(holder, :kill)
       assert_receive {:DOWN, ^ref, :process, ^holder, :killed}
 
-      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+
+      assert eventually(
+               fn -> Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :ran end,
+               150
+             )
     end
 
-    test "is kept out by a session lock on the same key, as the repair tests take it" do
-      key = Ecto.UUID.generate()
-      opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
-      {:ok, other} = Postgrex.start_link(opts)
+    test "is renewed while its holder works", ctx do
+      file = upload!(ctx, "lock renewed")
+      parent = self()
 
-      Postgrex.query!(
-        other,
-        "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
-        [key]
-      )
+      holder =
+        Task.async(fn ->
+          Reconciler.with_file_lock(
+            file.uuid,
+            fn ->
+              send(parent, :holding)
+              receive do: (:release -> :done)
+            end,
+            lease_seconds: 1
+          )
+        end)
 
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+      assert_receive :holding, 5_000
+      # Past the 1-second lease: still held, because it was renewed.
+      Process.sleep(2_500)
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+      send(holder.pid, :release)
+      assert Task.await(holder) == :done
+    end
 
-      GenServer.stop(other)
-      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+    test "a file that does not exist has nothing to hold" do
+      assert Reconciler.with_file_lock(Ecto.UUID.generate(), fn -> :ran end) == :ran
     end
   end
 

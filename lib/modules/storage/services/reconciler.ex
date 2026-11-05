@@ -358,110 +358,146 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   Makes `file` match its library's profile and variant set, and stamps it
   when it does. Returns `:reconciled`, `:stale` (something could not be
   done yet; it stays stale) or `:skipped` (another reconciler holds it).
-  One reconciler at a time per file, across nodes: an advisory lock on the
-  file, held while its bytes are copied (`with_file_lock/2`).
+  One reconciler at a time per file, across nodes: a lease on the file,
+  held while its bytes are copied (`with_file_lock/3`).
   """
   @spec reconcile_file(StorageFile.t()) :: :reconciled | :stale | :skipped
   def reconcile_file(%StorageFile{} = file) do
     with_file_lock(file.uuid, fn -> do_reconcile(file) end)
   end
 
+  # How long a lease lasts unless renewed, and how often the holder renews it.
+  @lease_seconds 300
+  @held_key :phoenix_kit_reconcile_leases
+
   @doc """
-  Runs `fun` while holding the file's lock, or returns `:skipped` when
-  someone else holds it.
+  Runs `fun` while holding the file's lease (V228), or returns `:skipped`
+  when someone else holds it.
 
-  The lock is a **transaction** advisory lock, taken in a transaction on a
-  connection of its own that stays open while `fun` runs; `fun`'s queries go
-  through the pool as usual. Two things rule out the simpler session lock on
-  a pooled connection:
+  The lease is the file row's `reconcile_lock_token` and
+  `reconcile_locked_until`: taken with one conditional `UPDATE` (free, or run
+  out), renewed while `fun` runs, and given back when it returns or raises. A
+  holder that dies leaves it to run out (`@lease_seconds`, 5 minutes). No
+  database connection is held meanwhile, unlike an advisory lock: a session
+  one is unreliable behind PgBouncer in transaction pooling (the unlock can
+  reach another server connection, leaving the lock held there), and a
+  transaction one pins a pooled server connection for as long as copying a
+  large video takes.
 
-    * behind PgBouncer in transaction pooling, statements outside a
-      transaction may each run on a different server connection, so the
-      unlock can miss the connection that took the lock, which then keeps it
-      and makes the file `:skipped` from then on;
-    * the pool takes a connection back from a caller that holds it longer
-      than its timeout (15 s), and copying a large video takes longer.
+  A process that already holds the lease gets it again (a repair runs the
+  reconciler on the file it holds). For a file that does not exist there is
+  nothing to hold, and `fun` runs.
 
-  The transaction pins one server connection, and its lock ends with it: when
-  `fun` returns or raises, and when the caller dies (the connection is linked
-  to it). The connection is opened from the repo's own config, without its
-  pool, so it is outside the test sandbox too.
-
-  A process that already holds the lock gets it again (a repair runs the
-  reconciler on the file it holds), as it did with the session lock.
+  `opts`: `:lease_seconds`, for tests.
   """
-  @spec with_file_lock(term(), (-> result)) :: result | :skipped when result: term()
-  def with_file_lock(file_uuid, fun) do
+  @spec with_file_lock(term(), (-> result), keyword()) :: result | :skipped when result: term()
+  def with_file_lock(file_uuid, fun, opts \\ []) do
     file_uuid = to_string(file_uuid)
-    held = Process.get(:phoenix_kit_reconcile_locks, MapSet.new())
+    held = Process.get(@held_key, MapSet.new())
 
     if MapSet.member?(held, file_uuid) do
       fun.()
     else
-      {:ok, conn} = Postgrex.start_link(lock_connection_opts())
-      ref = make_ref()
+      lease = Keyword.get(opts, :lease_seconds, @lease_seconds)
+      token = Ecto.UUID.generate()
 
-      try do
-        lock_and_run(conn, file_uuid, ref, fn ->
-          Process.put(:phoenix_kit_reconcile_locks, MapSet.put(held, file_uuid))
-
-          try do
-            fun.()
-          after
-            Process.put(:phoenix_kit_reconcile_locks, held)
-          end
-        end)
-      after
-        GenServer.stop(conn)
+      case claim(file_uuid, token, lease) do
+        :claimed -> hold(file_uuid, token, lease, held, fun)
+        :held -> :skipped
+        :no_file -> fun.()
       end
     end
   end
 
-  defp lock_and_run(conn, file_uuid, ref, fun) do
-    locked =
-      Postgrex.transaction(
-        conn,
-        fn lock_conn ->
-          if try_lock(lock_conn, file_uuid) do
-            # Kept out of the transaction's return value: if the lock's
-            # connection is lost meanwhile, the commit fails, and `fun`'s
-            # work (already done) must still be answered.
-            send(self(), {ref, fun.()})
-            :locked
-          else
-            :skipped
-          end
-        end,
-        timeout: :infinity
+  defp claim(file_uuid, token, lease) do
+    now = lease_now()
+
+    {count, _} =
+      from(f in StorageFile,
+        where:
+          f.uuid == ^file_uuid and
+            (is_nil(f.reconcile_lock_token) or is_nil(f.reconcile_locked_until) or
+               f.reconcile_locked_until < ^now)
+      )
+      |> repo().update_all(
+        set: [reconcile_lock_token: token, reconcile_locked_until: NaiveDateTime.add(now, lease)]
       )
 
-    receive do
-      {^ref, result} -> result
-    after
-      0 -> skipped(locked)
+    cond do
+      count == 1 -> :claimed
+      repo().exists?(from(f in StorageFile, where: f.uuid == ^file_uuid)) -> :held
+      true -> :no_file
     end
+  end
+
+  defp hold(file_uuid, token, lease, held, fun) do
+    renewer = start_renewer(file_uuid, token, lease)
+    Process.put(@held_key, MapSet.put(held, file_uuid))
+
+    try do
+      fun.()
+    after
+      Process.put(@held_key, held)
+      stop_renewer(renewer)
+      release(file_uuid, token)
+    end
+  end
+
+  # Renews the lease at a third of its length while the holder lives. Not
+  # linked: a failed renewal must not take the holder's work down with it (the
+  # lease then runs out, and another reconciler may take the file).
+  defp start_renewer(file_uuid, token, lease) do
+    holder = self()
+    every = max(div(lease * 1000, 3), 500)
+
+    {:ok, pid} =
+      Task.start(fn ->
+        ref = Process.monitor(holder)
+        renew_loop(ref, file_uuid, token, lease, every)
+      end)
+
+    pid
+  end
+
+  defp renew_loop(ref, file_uuid, token, lease, every) do
+    receive do
+      {:DOWN, ^ref, :process, _pid, _reason} -> :ok
+      :stop -> :ok
+    after
+      every ->
+        renew(file_uuid, token, lease)
+        renew_loop(ref, file_uuid, token, lease, every)
+    end
+  end
+
+  defp renew(file_uuid, token, lease) do
+    from(f in StorageFile, where: f.uuid == ^file_uuid and f.reconcile_lock_token == ^token)
+    |> repo().update_all(set: [reconcile_locked_until: NaiveDateTime.add(lease_now(), lease)])
   rescue
-    error in DBConnection.ConnectionError ->
-      receive do
-        {^ref, result} -> result
-      after
-        0 -> reraise error, __STACKTRACE__
-      end
+    error -> Logger.warning("Could not renew the reconcile lease: #{Exception.message(error)}")
   end
 
-  defp skipped({:ok, :skipped}), do: :skipped
+  defp stop_renewer(pid) do
+    ref = Process.monitor(pid)
+    send(pid, :stop)
 
-  # Only connection settings (as `Test.PostgresPreflight` takes them): the
-  # repo's `:pool` (the sandbox in tests), queue and ownership settings would
-  # rebuild the pool this connection is meant to be outside of.
-  @lock_connection_keys ~w(hostname port database username password ssl ssl_opts socket
-                           socket_dir socket_options parameters endpoints)a
-
-  defp lock_connection_opts do
-    repo().config()
-    |> Keyword.take(@lock_connection_keys)
-    |> Keyword.merge(pool_size: 1, types: Postgrex.DefaultTypes)
+    receive do
+      {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
+    after
+      5_000 -> Process.exit(pid, :kill)
+    end
   end
+
+  # Only the holder's own lease: one that ran out and was taken by another
+  # reconciler is theirs now.
+  defp release(file_uuid, token) do
+    from(f in StorageFile, where: f.uuid == ^file_uuid and f.reconcile_lock_token == ^token)
+    |> repo().update_all(set: [reconcile_lock_token: nil, reconcile_locked_until: nil])
+  rescue
+    error -> Logger.warning("Could not release the reconcile lease: #{Exception.message(error)}")
+  end
+
+  defp lease_now, do: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
   defp do_reconcile(file) do
     profile = Profiles.for_library(file.library_uuid)
@@ -819,19 +855,6 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   defp ok_tuple(other), do: other
 
   # ── Locks ────────────────────────────────────────────────────────────
-
-  # The same key as a session lock on it (`pg_advisory_lock(hashtext(…))`), so
-  # either kind held elsewhere keeps this one out.
-  defp try_lock(conn, file_uuid) do
-    %{rows: [[locked?]]} =
-      Postgrex.query!(
-        conn,
-        "SELECT pg_try_advisory_xact_lock(hashtext('phoenix_kit_reconcile:' || $1))",
-        [file_uuid]
-      )
-
-    locked?
-  end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()
 end

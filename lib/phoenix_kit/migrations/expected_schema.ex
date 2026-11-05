@@ -202,6 +202,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V228 (2026-11-05, a reconcile lease on a file) DECLARES two objects here by hand:
+  # `column:phoenix_kit_files.reconcile_lock_token` (uuid, nullable, `pos` 43 after V225's
+  # `short_code` at 42) and `column:phoenix_kit_files.reconcile_locked_until`
+  # (timestamp(0), nullable, `pos` 44), built by `v228_objects/0`. Kept honest by
+  # `PhoenixKit.Migrations.Postgres.V228Test`, which runs the repair differ over every
+  # `since: 228` object of a freshly migrated database. `chain_hash` restamped.
+  #
   # V226 (2026-10-29, personal API keys) DECLARES one object here by hand:
   # `column:phoenix_kit_api_keys.personal` (boolean NOT NULL DEFAULT false, `pos` 16 after
   # V219's 15 columns, `backfill: :default` as `phoenix_kit_users.api_only`), built by
@@ -668,7 +675,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "8e0dd3fa084796b1b13dc00507702ffa0546ab43f25b16018c4a1939e11e9531"
+  @chain_hash "276999bed85c7f419364e4b147f8a8faa78129da923dc9c103b3e63198b3642f"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
@@ -75706,7 +75713,8 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
       v223_objects() ++
       v224_objects() ++
       v225_objects() ++
-      v226_objects()
+      v226_objects() ++
+      v228_objects()
   end
 
   # --- V220: the dangerous-operation flow (built, not typed; see the header) ---
@@ -75849,6 +75857,30 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
           "timestamp_ops"
         ])
       ] ++ v222_objects(conf)
+  end
+
+  # --- V228: a reconcile lease on a file (see the header) ---
+
+  defp v228_objects do
+    [
+      v228_column("reconcile_lock_token", "uuid", 43),
+      v228_column("reconcile_locked_until", "timestamp(0) without time zone", 44)
+    ]
+  end
+
+  defp v228_column(column, type, pos) do
+    %{
+      id: "column:phoenix_kit_files.#{column}",
+      owner: :core,
+      check: {:catalog, %{table: "phoenix_kit_files", column: column, kind: :column}},
+      create:
+        "ALTER TABLE __SCHEMA__.phoenix_kit_files ADD COLUMN IF NOT EXISTS \"#{column}\" #{type}",
+      since: 228,
+      class: :column,
+      revisions: [{228, %{default: nil, type: type, pos: pos, not_null: false}}],
+      presence: :required,
+      backfill: nil
+    }
   end
 
   # --- V226: personal API keys (see the header) ---

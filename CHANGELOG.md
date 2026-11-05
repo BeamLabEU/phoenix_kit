@@ -68,21 +68,23 @@
   (no host) are unchanged. Verified against a real B2 bucket (write, read,
   delete, signed URL).
 
-- **The reconciler's file lock works behind PgBouncer and for large files.**
-  It was a session advisory lock taken on a pooled connection. Behind
-  PgBouncer in transaction pooling, statements outside a transaction may each
-  run on a different server connection, so the unlock could miss the one that
-  took the lock: it stayed held there, and the file was `:skipped` from then
-  on. And the pool takes back a connection held past its 15 s timeout, so
-  copying a large video (90 MB from one cloud to another) failed the whole
-  batch with "connection is closed", and the storage move stopped partway.
-  `Reconciler.with_file_lock/2` now holds a transaction advisory lock (same
-  key) in a transaction, with no timeout, on a connection of its own opened
-  from the repo's config. The lock ends with the transaction: when the work
-  returns or raises, and when its process dies. A process that holds the lock
-  takes it again (a repair runs the reconciler). Each locked file uses one
-  short-lived connection besides the pool. No migration.
-
+- **The reconciler's file lock works behind PgBouncer and for large files
+  (V228).** It was a session advisory lock taken on a pooled connection.
+  Behind PgBouncer in transaction pooling, statements outside a transaction
+  may each run on a different server connection, so the unlock could miss the
+  one that took the lock: it stayed held there, and the file was `:skipped`
+  from then on. And the pool takes back a connection held past its 15 s
+  timeout, so copying a large video (90 MB from one cloud to another) failed
+  the whole batch with "connection is closed", and a storage move stopped
+  partway. A transaction advisory lock fixes both but pins a server
+  connection for as long as each copy takes, which starved the app's pool on a
+  move. The lock is now a **lease in the file's row**: V228 adds
+  `phoenix_kit_files.reconcile_lock_token` and `reconcile_locked_until`.
+  `Reconciler.with_file_lock/3` takes it with one conditional `UPDATE`, renews
+  it while it works, gives it back when the work returns or raises, and a
+  holder that dies leaves it to run out (5 minutes). No connection is held
+  meanwhile. A process that holds the lease takes it again (a repair runs the
+  reconciler). Additive migration, catalog-only.
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,
