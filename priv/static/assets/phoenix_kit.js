@@ -13929,13 +13929,14 @@ if (typeof window.Chart === "undefined") {
 //   data-upload-form  id of the component's upload form
 //   data-upload-name  the name of its upload
 //
-// `phx-target` on the element is what makes `pushEventTo(this.el, ...)` reach the
-// component: without it the event goes to the LiveView.
+// `phx-target` on the element is for `render_hook/3` in tests. In a browser
+// `pushEventTo(this.el, ...)` finds the component from the DOM.
 (function () {
   const WAV_RATE = 16000;
   const TICK_MS = 100;
-  // How long a clip may sit in "preparing" with no answer. A dropped connection is
-  // caught sooner, by `reconnected`; this is the upload that dies some other way.
+  // How long a clip may sit in "preparing" with no sign of life. The server reports
+  // each step of an upload (`watch`), so this is one that stopped moving, not a slow
+  // one. A dropped connection is caught sooner, by `reconnected`.
   const PREPARING_TIMEOUT_MS = 120000;
 
   // Mono 16-bit PCM behind the 44-byte header the component reads the length from.
@@ -14040,7 +14041,12 @@ if (typeof window.Chart === "undefined") {
       this.el.addEventListener("click", this.onClick);
       this.el.addEventListener("keydown", this.onKey);
       this.handleEvent("audio_recorder_settled", (payload) => {
-        if (payload.id === this.el.dataset.recorder && this.state === "preparing") this.settle();
+        if (payload.id !== this.el.dataset.recorder) return;
+        clearTimeout(this.preparing);
+        if (this.state === "preparing") this.backToIdle();
+      });
+      this.handleEvent("audio_recorder_progress", (payload) => {
+        if (payload.id === this.el.dataset.recorder && this.state === "preparing") this.watch();
       });
       this.el.hidden = false;
       this.show("idle");
@@ -14110,6 +14116,9 @@ if (typeof window.Chart === "undefined") {
       }
       this.stream = stream;
       this.chunks = [];
+      // Until someone says otherwise: a recording also ends by itself, when the
+      // microphone is unplugged or the permission withdrawn, and what it caught is sent.
+      this.sending = true;
       try {
         this.recorder = new MediaRecorder(stream);
         this.recorder.ondataavailable = (event) => {
@@ -14186,20 +14195,32 @@ if (typeof window.Chart === "undefined") {
       this.show("preparing");
       try {
         const file = await this.fileFrom(new Blob(this.chunks, {type: mimeType}));
-        if (this.gone) return;
+        if (this.abandoned()) return;
         await this.push("recorder_clip", {duration: seconds});
-        this.preparing = setTimeout(() => {
-          this.settle();
-          this.push("recorder_error", {reason: "failed"});
-        }, PREPARING_TIMEOUT_MS);
+        if (this.abandoned()) return;
+        this.watch();
         // To this component's own form, by element: `this.upload/2` looks through
         // the whole LiveView, and with two recorders logs a duplicate input and
         // drops the clip without an error.
         const form = document.getElementById(this.el.dataset.uploadForm);
         this.uploadTo(form, this.el.dataset.uploadName, [file]);
       } catch (_error) {
-        if (!this.gone) this.unreadable();
+        if (!this.abandoned()) this.unreadable();
       }
+    },
+
+    // The hook is gone, or `reconnected` ended this clip while it was being made ready:
+    // going on would upload it after the person was told it failed.
+    abandoned() {
+      return this.gone || this.state !== "preparing";
+    },
+
+    watch() {
+      clearTimeout(this.preparing);
+      this.preparing = setTimeout(() => {
+        this.settle();
+        this.push("recorder_error", {reason: "failed"});
+      }, PREPARING_TIMEOUT_MS);
     },
 
     async fileFrom(blob) {
@@ -14213,7 +14234,7 @@ if (typeof window.Chart === "undefined") {
 
     unreadable() {
       this.push("recorder_error", {reason: "unreadable"});
-      this.backToIdle();
+      this.settle();
     },
 
     settle() {

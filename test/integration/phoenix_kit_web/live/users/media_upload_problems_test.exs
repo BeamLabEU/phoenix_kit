@@ -16,7 +16,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
   use PhoenixKitWeb.ConnCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.UploadInbox
+  alias PhoenixKit.Modules.Storage.{Library, UploadInbox}
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -206,6 +206,52 @@ defmodule PhoenixKitWeb.Live.Users.MediaUploadProblemsTest do
       assert html =~ "huge.png"
       assert html =~ "Larger than the 1 MB upload limit."
       assert entries(view) == []
+      assert stored_count(user) == 0
+    end
+  end
+
+  describe "no room left in the library" do
+    setup %{user: user} do
+      {:ok, _} = Settings.update_boolean_setting("storage_user_libraries_enabled", true)
+      previous = Application.get_env(:phoenix_kit, :storage_quota)
+      Application.put_env(:phoenix_kit, :storage_quota, fn _owner -> 1 end)
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:phoenix_kit, :storage_quota, previous),
+          else: Application.delete_env(:phoenix_kit, :storage_quota)
+      end)
+
+      slug = "quota#{System.unique_integer([:positive])}"
+
+      library =
+        Repo.insert!(%Library{
+          name: slug,
+          kind: "user",
+          owner_uuid: user.uuid,
+          visibility: "private",
+          key_prefix: slug,
+          slug: slug
+        })
+
+      %{library: library}
+    end
+
+    # The refusal used to read as a server fault, and the flash as missing buckets.
+    test "the upload says so, and sends nobody to the storage settings",
+         %{conn: conn, user: user, library: library} do
+      {:ok, view, _html} =
+        live(log_in_user(conn, user), Routes.path("/admin/libraries/#{library.uuid}"))
+
+      input = drop(view, files(["photo.png"]))
+      render_upload(input, "photo.png")
+      html = settle(view)
+
+      assert html =~ "photo.png"
+      assert html =~ "There is no storage left for this library."
+      assert html =~ "1 file was not stored"
+      refute html =~ "No storage buckets configured"
+      refute html =~ "The server could not save it."
       assert stored_count(user) == 0
     end
   end

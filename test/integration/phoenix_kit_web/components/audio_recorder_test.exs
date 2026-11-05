@@ -23,16 +23,26 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
     {view, html}
   end
 
-  defp upload(view, name, type, content, form \\ "#rec-upload") do
+  defp upload(view, name, type, content, id \\ "rec") do
     view
-    |> file_input(form, :audio, [%{name: name, type: type, content: content}])
+    |> file_input("##{id}-upload", "audio_recorder_#{id}", [
+      %{name: name, type: type, content: content}
+    ])
     |> render_upload(name)
+  end
+
+  defp wav_input(view, id \\ "rec", seconds \\ 1.0) do
+    file_input(view, "##{id}-upload", "audio_recorder_#{id}", [
+      %{name: "clip.wav", type: "audio/wav", content: wav(seconds)}
+    ])
   end
 
   # What the browser sends first, before any bytes: the form's `phx-change`.
   defp validate(view, name, type, content) do
     upload =
-      file_input(view, "#rec-upload", :audio, [%{name: name, type: type, content: content}])
+      file_input(view, "#rec-upload", "audio_recorder_rec", [
+        %{name: name, type: type, content: content}
+      ])
 
     view |> element("#rec-upload") |> render_change(upload)
   end
@@ -69,10 +79,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
     test "a re-render of the page during an upload leaves it alone", %{conn: conn} do
       {view, _html} = host(conn)
 
-      input =
-        file_input(view, "#rec-upload", :audio, [
-          %{name: "clip.wav", type: "audio/wav", content: wav(1.0)}
-        ])
+      input = wav_input(view)
 
       render_upload(input, "clip.wav", 50)
       send(view.pid, :toggle_busy)
@@ -92,14 +99,70 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
     end
 
     test "two recorders on a page each deliver under their own id", %{conn: conn} do
-      {one, _html} = host(conn, %{"attrs" => %{id: "one"}})
-      {two, _html} = host(conn, %{"attrs" => %{id: "two"}})
+      {view, _html} = host(conn, %{"second" => true})
 
-      upload(one, "clip.wav", "audio/wav", wav(1.0), "#one-upload")
-      upload(two, "clip.wav", "audio/wav", wav(2.0), "#two-upload")
+      upload(view, "clip.wav", "audio/wav", wav(1.0), "rec")
+      upload(view, "clip.wav", "audio/wav", wav(2.0), "other")
 
-      assert_receive {:audio_recorded, "one", %{duration: 1.0}}
-      assert_receive {:audio_recorded, "two", %{duration: 2.0}}
+      assert_receive {:audio_recorded, "rec", %{duration: 1.0}}
+      assert_receive {:audio_recorded, "other", %{duration: 2.0}}
+    end
+
+    # An upload's name belongs to the LiveView, not the component: a recorder that
+    # starts under a name another still uploads with raises in the page's process.
+    test "two recorders on a page can send at the same moment", %{conn: conn} do
+      {view, _html} = host(conn, %{"second" => true})
+
+      first = wav_input(view, "rec", 1.0)
+      second = wav_input(view, "other", 2.0)
+
+      render_upload(first, "clip.wav", 50)
+      render_upload(second, "clip.wav", 50)
+      render_upload(first, "clip.wav", 50)
+      render_upload(second, "clip.wav", 50)
+
+      assert_receive {:audio_recorded, "rec", %{duration: 1.0}}
+      assert_receive {:audio_recorded, "other", %{duration: 2.0}}
+    end
+  end
+
+  describe "an upload that does not finish" do
+    # Each step puts the hook's watchdog back: a slow upload is not a dead one.
+    test "each step tells the hook it is alive", %{conn: conn} do
+      {view, _html} = host(conn)
+
+      view |> wav_input() |> render_upload("clip.wav", 50)
+
+      assert_push_event(view, "audio_recorder_progress", %{id: "rec"})
+    end
+
+    # The hook gave up and said so: the clip must not reach the page after that.
+    test "one the hook gave up on never reaches the page", %{conn: conn} do
+      {view, _html} = host(conn)
+      view |> wav_input() |> render_upload("clip.wav", 50)
+      view |> element("#rec-recorder") |> render_hook("recorder_error", %{reason: "failed"})
+
+      assert LazyHTML.text(alert(view)) == AudioRecorder.error_message(:failed)
+
+      # One clip at a time: a next one goes through only if that entry is gone.
+      upload(view, "clip.wav", "audio/wav", wav(2.0))
+      assert_receive {:audio_recorded, "rec", %{duration: 2.0}}
+      refute_received {:audio_recorded, "rec", %{duration: 1.0}}
+    end
+
+    # A failed write leaves the entry unfinished: only the progress callback hears of it.
+    test "one the server could not write is reported and ended", %{conn: conn} do
+      {view, _html} = host(conn)
+
+      view |> wav_input() |> render_upload("clip.wav", 50)
+      assert_push_event(view, "audio_recorder_progress", %{id: "rec"})
+
+      [channel] = view.pid |> :sys.get_state() |> Map.fetch!(:upload_pids) |> Map.keys()
+      send(view.pid, {:phoenix, :report_writer_error, channel, :enospc})
+
+      assert_push_event(view, "audio_recorder_settled", %{id: "rec"})
+      assert LazyHTML.text(alert(view)) == AudioRecorder.error_message(:failed)
+      refute_received {:audio_recorded, _id, _clip}
     end
   end
 
@@ -160,9 +223,17 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
   end
 
   describe "a clip that is not what it claims" do
+    test "a WAV with no samples: the page gets no clip", %{conn: conn} do
+      {view, _html} = host(conn)
+
+      upload(view, "clip.wav", "audio/wav", wav(0))
+
+      refute_received {:audio_recorded, _id, _clip}
+      assert LazyHTML.text(alert(view)) == AudioRecorder.error_message(:unreadable)
+    end
+
     for {label, bytes} <- [
           {"is not a WAV", "this is not audio"},
-          {"has no samples", binary_part(<<"RIFF", 0::size(320)>>, 0, 44)},
           {"is cut short", "RIFF"}
         ] do
       test "#{label}: the page gets no clip", %{conn: conn} do
@@ -272,7 +343,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
     test "the clip and the errors arrive through update/2", %{conn: conn} do
       {view, _html} = host(conn, %{"consumer" => true})
 
-      upload(view, "clip.wav", "audio/wav", wav(1.0), "#nested-upload")
+      upload(view, "clip.wav", "audio/wav", wav(1.0), "nested")
       assert_receive {:consumer, :audio_recorded, {"nested", %{format: "wav", duration: 1.0}}}
       refute_received {:audio_recorded, _id, _clip}
 
@@ -289,7 +360,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
       assert LazyHTML.attribute(recorder, "hidden") == [""]
       assert LazyHTML.attribute(recorder, "phx-hook") == ["AudioRecorder"]
       assert LazyHTML.attribute(recorder, "phx-update") == ["ignore"]
-      # What makes `pushEventTo(this.el, ...)` reach the component.
+      # What `render_hook/3` routes on; a browser finds the component from the DOM.
       assert [_cid] = LazyHTML.attribute(recorder, "phx-target")
     end
 
@@ -303,7 +374,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorderTest do
 
     # A browser drops a form nested in another, and a page puts this in its own.
     test "by default the upload form goes through a portal", %{conn: conn} do
-      {_view, html} = host(conn, %{"attrs" => %{portal: true}})
+      {_view, html} = host(conn, %{"shipped_defaults" => true})
       template = html |> LazyHTML.from_fragment() |> LazyHTML.query("template[data-phx-portal]")
 
       assert LazyHTML.attribute(template, "data-phx-portal") == ["body"]

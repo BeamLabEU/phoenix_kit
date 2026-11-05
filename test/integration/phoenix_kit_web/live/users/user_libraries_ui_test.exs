@@ -786,5 +786,23 @@ defmodule PhoenixKitWeb.Live.Users.UserLibrariesUITest do
 
       assert Quotas.site_limit_mb() == nil
     end
+
+    # A number field takes "1e3", and a slip must not quietly lift the limit.
+    test "a value that is no whole number keeps the limit", %{conn: conn} do
+      {admin, _token} = create_admin_user()
+      {:ok, view, _html} = live(log_in_user(conn, admin), Routes.path("/admin/settings/media"))
+
+      view
+      |> form("#media-libraries-user-settings", %{user_libraries: %{quota_mb: "1024"}})
+      |> render_submit()
+
+      for slip <- ["1e3", "1.5", "-5", "many"] do
+        view
+        |> form("#media-libraries-user-settings", %{user_libraries: %{quota_mb: slip}})
+        |> render_submit()
+
+        assert Quotas.site_limit_mb() == 1024
+      end
+    end
   end
 end

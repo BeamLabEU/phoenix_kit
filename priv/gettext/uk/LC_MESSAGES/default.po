@@ -639,14 +639,14 @@ msgstr "Маркований список"
 #: lib/modules/storage/web/bucket_form.html.heex:489
 #: lib/modules/storage/web/bucket_form.html.heex:514
 #: lib/modules/storage/web/dimension_form.html.heex:392
-#: lib/modules/storage/web/libraries_component.ex:395
+#: lib/modules/storage/web/libraries_component.ex:401
 #: lib/modules/storage/web/library_page.html.heex:77
 #: lib/modules/storage/web/profiles_component.ex:528
 #: lib/modules/storage/web/renditions_component.ex:358
 #: lib/phoenix_kit/mentions/live.ex:257
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:41
 #: lib/phoenix_kit_web/components/annotation_composer.ex:661
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:369
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:395
 #: lib/phoenix_kit_web/components/core/form_actions.ex:119
 #: lib/phoenix_kit_web/components/core/form_actions.ex:126
 #: lib/phoenix_kit_web/components/core/modal.ex:344
@@ -743,7 +743,7 @@ msgid "Click any check or cross icon to toggle a permission for that role. The O
 msgstr "Натисніть будь-яку позначку чи хрестик, щоб увімкнути або вимкнути дозвіл для ролі. Роль «Власник» завжди має повний доступ, її не можна змінити. Ви не можете редагувати дозволи власної ролі або ролей із вищими повноваженнями. Надавати чи забирати можна лише ті дозволи, які є у вашої ролі."
 
 #: lib/modules/sitemap/web/settings.html.heex:844
-#: lib/modules/storage/web/libraries_component.ex:320
+#: lib/modules/storage/web/libraries_component.ex:326
 #: lib/phoenix_kit/mentions/live.ex:273
 #: lib/phoenix_kit_web/components/core/column_settings.ex:181
 #: lib/phoenix_kit_web/components/core/preview_card.ex:117
@@ -1193,8 +1193,8 @@ msgid "Feature Modules"
 msgstr "Функціональні модулі"
 
 #: lib/modules/storage/web/bucket_page.html.heex:224
-#: lib/modules/storage/web/libraries_component.ex:404
-#: lib/modules/storage/web/libraries_component.ex:543
+#: lib/modules/storage/web/libraries_component.ex:410
+#: lib/modules/storage/web/libraries_component.ex:549
 #: lib/modules/storage/web/library_page.html.heex:129
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
@@ -1514,7 +1514,7 @@ msgstr "OK"
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Лише власник може редагувати дозволи адміністратора"
 
-#: lib/modules/storage/web/libraries_component.ex:626
+#: lib/modules/storage/web/libraries_component.ex:632
 #: lib/phoenix_kit_web/components/core/preview_card.ex:305
 #: lib/phoenix_kit_web/components/core/preview_card.ex:339
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1343
@@ -1839,7 +1839,7 @@ msgid "SWIFT/BIC"
 msgstr "SWIFT/BIC"
 
 #: lib/modules/sitemap/web/settings.html.heex:495
-#: lib/modules/storage/web/libraries_component.ex:527
+#: lib/modules/storage/web/libraries_component.ex:533
 #: lib/modules/storage/web/library_page.html.heex:75
 #: lib/modules/storage/web/library_page.html.heex:324
 #: lib/modules/storage/web/library_page.html.heex:356
@@ -1923,7 +1923,7 @@ msgstr "Виберіть розділи й модулі, до яких ця ро
 #: lib/modules/storage/web/bucket_form.html.heex:395
 #: lib/modules/storage/web/bucket_page.html.heex:5
 #: lib/modules/storage/web/dimension_form.html.heex:5
-#: lib/modules/storage/web/libraries_component.ex:618
+#: lib/modules/storage/web/libraries_component.ex:624
 #: lib/modules/storage/web/library_page.html.heex:5
 #: lib/modules/storage/web/settings.html.heex:5
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:375
@@ -2441,8 +2441,8 @@ msgid "Set Default"
 msgstr "Встановити за замовчуванням"
 
 #: lib/modules/storage/web/bucket_page.html.heex:234
-#: lib/modules/storage/web/libraries_component.ex:405
-#: lib/modules/storage/web/libraries_component.ex:544
+#: lib/modules/storage/web/libraries_component.ex:411
+#: lib/modules/storage/web/libraries_component.ex:550
 #: lib/modules/storage/web/library_page.html.heex:137
 #: lib/modules/storage/web/library_page.html.heex:167
 #: lib/modules/storage/web/settings.html.heex:131
@@ -3002,8 +3002,8 @@ msgid "Manage user registration, defaults, and custom fields"
 msgstr "Керування реєстрацією користувачів, значеннями за замовчуванням і власними полями"
 
 #: lib/modules/storage/web/bucket_form.html.heex:31
-#: lib/modules/storage/web/libraries_component.ex:403
-#: lib/modules/storage/web/libraries_component.ex:538
+#: lib/modules/storage/web/libraries_component.ex:409
+#: lib/modules/storage/web/libraries_component.ex:544
 #: lib/modules/storage/web/library_page.html.heex:82
 #: lib/modules/storage/web/profiles_component.ex:551
 #: lib/modules/storage/web/renditions_component.ex:397
@@ -4502,7 +4502,7 @@ msgstr "Учасника додано до організації"
 msgid "Member removed from organization"
 msgstr "Учасника видалено з організації"
 
-#: lib/modules/storage/web/libraries_component.ex:542
+#: lib/modules/storage/web/libraries_component.ex:548
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:69
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:357
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:359
@@ -5689,7 +5689,7 @@ msgid "Reorder"
 msgstr "Змінити порядок"
 
 #: lib/modules/storage/web/bucket_page.html.heex:147
-#: lib/modules/storage/web/libraries_component.ex:420
+#: lib/modules/storage/web/libraries_component.ex:426
 #: lib/modules/storage/web/library_page.html.heex:20
 #: lib/modules/storage/web/profiles_component.ex:624
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:34
@@ -6051,7 +6051,7 @@ msgstr "Усі файли"
 msgid "All file types supported"
 msgstr "Підтримуються всі типи файлів"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7225
+#: lib/phoenix_kit_web/components/media_browser.ex:7246
 #, elixir-autogen, elixir-format
 msgid "Already have %{count} duplicate file. No new files were added."
 msgid_plural "Already have %{count} duplicate files. No new files were added."
@@ -6194,7 +6194,7 @@ msgstr "Папка недоступна — показано корінь"
 #: lib/phoenix_kit_web/components/media_browser.ex:3497
 #: lib/phoenix_kit_web/components/media_browser.ex:3574
 #: lib/phoenix_kit_web/components/media_browser.ex:5892
-#: lib/phoenix_kit_web/components/media_browser.ex:7629
+#: lib/phoenix_kit_web/components/media_browser.ex:7650
 #, elixir-autogen, elixir-format
 msgid "Folder not found"
 msgstr "Папку не знайдено"
@@ -6412,18 +6412,18 @@ msgstr "Завантажити медіа"
 msgid "Upload Media Files"
 msgstr "Завантажити медіафайли"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7206
+#: lib/phoenix_kit_web/components/media_browser.ex:7227
 #: lib/phoenix_kit_web/live/components/media_selector_modal.ex:652
 #, elixir-autogen, elixir-format
 msgid "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
 msgstr "Не вдалося завантажити: бакети сховища не налаштовано. Налаштуйте принаймні один бакет сховища, перш ніж завантажувати файли."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7192
+#: lib/phoenix_kit_web/components/media_browser.ex:7213
 #, elixir-autogen, elixir-format
 msgid "Upload processed"
 msgstr "Завантаження оброблено"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7234
+#: lib/phoenix_kit_web/components/media_browser.ex:7255
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{count} new file processed"
 msgid_plural "Upload successful! %{count} new files processed"
@@ -6441,7 +6441,7 @@ msgstr "Завантажено:"
 msgid "Your browser does not support the video tag."
 msgstr "Ваш браузер не підтримує тег video."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7213
+#: lib/phoenix_kit_web/components/media_browser.ex:7234
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:325
 #, elixir-autogen, elixir-format
 msgid "%{count} failed"
@@ -6466,7 +6466,7 @@ msgstr[0] "%{count} файл"
 msgstr[1] "%{count} файли"
 msgstr[2] "%{count} файлів"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7212
+#: lib/phoenix_kit_web/components/media_browser.ex:7233
 #, elixir-autogen, elixir-format
 msgid "%{count} file uploaded"
 msgid_plural "%{count} files uploaded"
@@ -6474,7 +6474,7 @@ msgstr[0] "%{count} файл завантажено"
 msgstr[1] "%{count} файли завантажено"
 msgstr[2] "%{count} файлів завантажено"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7245
+#: lib/phoenix_kit_web/components/media_browser.ex:7266
 #, elixir-autogen, elixir-format
 msgid "%{count} file was already uploaded"
 msgid_plural "%{count} files were already uploaded"
@@ -6492,7 +6492,7 @@ msgstr[0] "%{count} папка"
 msgstr[1] "%{count} папки"
 msgstr[2] "%{count} папок"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7242
+#: lib/phoenix_kit_web/components/media_browser.ex:7263
 #, elixir-autogen, elixir-format
 msgid "%{count} new file added"
 msgid_plural "%{count} new files added"
@@ -6506,12 +6506,12 @@ msgstr[2] "%{count} нових файлів додано"
 msgid "FILE"
 msgstr "ФАЙЛ"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7216
+#: lib/phoenix_kit_web/components/media_browser.ex:7237
 #, elixir-autogen, elixir-format
 msgid "Partially successful: %{uploaded}, %{failed} due to missing storage buckets."
 msgstr "Частково успішно: %{uploaded}, %{failed} через відсутність бакетів сховища."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7252
+#: lib/phoenix_kit_web/components/media_browser.ex:7273
 #, elixir-autogen, elixir-format
 msgid "Upload successful! %{added}. %{duplicates}."
 msgstr "Завантаження успішне! %{added}. %{duplicates}."
@@ -6657,7 +6657,7 @@ msgid "Attach media options"
 msgstr "Параметри додавання медіа"
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:50
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:345
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:371
 #, elixir-autogen, elixir-format
 msgid "Record"
 msgstr "Записати"
@@ -6769,12 +6769,12 @@ msgstr "Вкладення вимкнено"
 msgid "Auth failed"
 msgstr "Помилка автентифікації"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7673
+#: lib/phoenix_kit_web/components/media_browser.ex:7694
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in the all-files view"
 msgstr "Не можна створювати папки в поданні «Усі файли»"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7670
+#: lib/phoenix_kit_web/components/media_browser.ex:7691
 #, elixir-autogen, elixir-format
 msgid "Cannot create folders in trash"
 msgstr "Не можна створювати папки в кошику"
@@ -6841,7 +6841,7 @@ msgid "File removed from this folder"
 msgstr "Файл прибрано з цієї папки"
 
 #: lib/phoenix_kit_web/components/media_browser.ex:3540
-#: lib/phoenix_kit_web/components/media_browser.ex:7630
+#: lib/phoenix_kit_web/components/media_browser.ex:7651
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:41
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:664
 #, elixir-autogen, elixir-format
@@ -6987,7 +6987,7 @@ msgstr "Напишіть примітку до цієї анотації..."
 msgid "e.g. Main, Personal, My Company Drive"
 msgstr "напр. Основний, Особистий, Диск моєї компанії"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7681
+#: lib/phoenix_kit_web/components/media_browser.ex:7702
 #, elixir-autogen, elixir-format
 msgid "untitled"
 msgstr "без назви"
@@ -7805,7 +7805,7 @@ msgstr "Персонал"
 msgid "Staff module for PhoenixKit — departments, teams, and people."
 msgstr "Модуль «Персонал» для PhoenixKit — відділи, команди та люди."
 
-#: lib/modules/storage/web/libraries_component.ex:407
+#: lib/modules/storage/web/libraries_component.ex:413
 #: lib/modules/storage/web/library_page.html.heex:273
 #: lib/phoenix_kit_web/live/modules.ex:216
 #, elixir-autogen, elixir-format
@@ -10878,7 +10878,7 @@ msgstr "Адреса для відповіді"
 msgid "Require email confirmation before using the app"
 msgstr "Вимагати підтвердження пошти перед використанням застосунку"
 
-#: lib/modules/storage/web/libraries_component.ex:607
+#: lib/modules/storage/web/libraries_component.ex:613
 #: lib/phoenix_kit_web/components/image_editor.ex:1022
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:202
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:497
@@ -11810,7 +11810,7 @@ msgid "Send request"
 msgstr "Надіслати запит"
 
 #: lib/phoenix_kit/mentions/live.ex:262
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:375
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:401
 #, elixir-autogen, elixir-format
 msgid "Sending…"
 msgstr "Надсилання…"
@@ -12469,17 +12469,17 @@ msgstr "З поверненням!"
 msgid "Your account is currently inactive. Please contact the team if you believe this is an error."
 msgstr "Ваш обліковий запис наразі неактивний. Зверніться до команди, якщо вважаєте це помилкою."
 
-#: lib/phoenix_kit_web/users/auth.ex:2432
+#: lib/phoenix_kit_web/users/auth.ex:2460
 #, elixir-autogen, elixir-format
 msgid "%{label} module is not enabled"
 msgstr "Модуль «%{label}» не ввімкнено"
 
-#: lib/phoenix_kit_web/users/auth.ex:3167
+#: lib/phoenix_kit_web/users/auth.ex:3195
 #, elixir-autogen, elixir-format
 msgid "Enter your referral code to continue."
 msgstr "Введіть реферальний код, щоб продовжити."
 
-#: lib/phoenix_kit_web/users/auth.ex:3163
+#: lib/phoenix_kit_web/users/auth.ex:3191
 #, elixir-autogen, elixir-format
 msgid "Please confirm your email before accessing the application."
 msgstr "Підтвердьте email, перш ніж користуватися застосунком."
@@ -12490,47 +12490,47 @@ msgid "This account is not active. Contact an administrator."
 msgstr "Цей обліковий запис неактивний. Зверніться до адміністратора."
 
 #: lib/phoenix_kit_web/live/settings/security_gate.ex:38
-#: lib/phoenix_kit_web/users/auth.ex:1021
-#: lib/phoenix_kit_web/users/auth.ex:2453
-#: lib/phoenix_kit_web/users/auth.ex:3312
+#: lib/phoenix_kit_web/users/auth.ex:1049
+#: lib/phoenix_kit_web/users/auth.ex:2481
+#: lib/phoenix_kit_web/users/auth.ex:3340
 #, elixir-autogen, elixir-format
 msgid "You do not have permission to access this section."
 msgstr "У вас немає дозволу на доступ до цього розділу."
 
-#: lib/phoenix_kit_web/users/auth.ex:996
-#: lib/phoenix_kit_web/users/auth.ex:1161
-#: lib/phoenix_kit_web/users/auth.ex:3261
-#: lib/phoenix_kit_web/users/auth.ex:3297
+#: lib/phoenix_kit_web/users/auth.ex:1024
+#: lib/phoenix_kit_web/users/auth.ex:1189
+#: lib/phoenix_kit_web/users/auth.ex:3289
+#: lib/phoenix_kit_web/users/auth.ex:3325
 #, elixir-autogen, elixir-format
 msgid "You do not have the required permission to access this page."
 msgstr "У вас немає необхідного дозволу на доступ до цієї сторінки."
 
-#: lib/phoenix_kit_web/users/auth.ex:1929
+#: lib/phoenix_kit_web/users/auth.ex:1957
 #, elixir-autogen, elixir-format
 msgid "You must be an admin to access this page."
 msgstr "Для доступу до цієї сторінки потрібно бути адміністратором."
 
-#: lib/phoenix_kit_web/users/auth.ex:957
-#: lib/phoenix_kit_web/users/auth.ex:3224
+#: lib/phoenix_kit_web/users/auth.ex:985
+#: lib/phoenix_kit_web/users/auth.ex:3252
 #, elixir-autogen, elixir-format
 msgid "You must be an owner to access this page."
 msgstr "Для доступу до цієї сторінки потрібно бути власником."
 
-#: lib/phoenix_kit_web/users/auth.ex:3340
+#: lib/phoenix_kit_web/users/auth.ex:3368
 #, elixir-autogen, elixir-format
 msgid "You must have the %{role_name} role to access this page."
 msgstr "Для доступу до цієї сторінки потрібна роль %{role_name}."
 
-#: lib/phoenix_kit_web/users/auth.ex:1186
-#: lib/phoenix_kit_web/users/auth.ex:3088
-#: lib/phoenix_kit_web/users/auth.ex:3125
-#: lib/phoenix_kit_web/users/auth.ex:3268
+#: lib/phoenix_kit_web/users/auth.ex:1214
+#: lib/phoenix_kit_web/users/auth.ex:3116
+#: lib/phoenix_kit_web/users/auth.ex:3153
+#: lib/phoenix_kit_web/users/auth.ex:3296
 #: lib/phoenix_kit_web/users/session.ex:271
 #, elixir-autogen, elixir-format
 msgid "You must log in to access this page."
 msgstr "Для доступу до цієї сторінки потрібно увійти."
 
-#: lib/phoenix_kit_web/users/auth.ex:1932
+#: lib/phoenix_kit_web/users/auth.ex:1960
 #, elixir-autogen, elixir-format
 msgid "You no longer have permission to access this section."
 msgstr "У вас більше немає дозволу на доступ до цього розділу."
@@ -14208,7 +14208,7 @@ msgstr "Головна сторінка адмінпанелі"
 msgid "There are no custom roles yet."
 msgstr "Власних ролей ще немає."
 
-#: lib/phoenix_kit_web/users/auth.ex:1926
+#: lib/phoenix_kit_web/users/auth.ex:1954
 #, elixir-autogen, elixir-format
 msgid "This page is not available in the role you switched to."
 msgstr "Ця сторінка недоступна в ролі, на яку ви перемкнулися."
@@ -15405,7 +15405,7 @@ msgstr "Жодного стовпця не показано."
 msgid "Standard fields"
 msgstr "Стандартні поля"
 
-#: lib/modules/storage/web/libraries_component.ex:393
+#: lib/modules/storage/web/libraries_component.ex:399
 #: lib/modules/storage/web/profiles_component.ex:526
 #: lib/modules/storage/web/renditions_component.ex:356
 #, elixir-autogen, elixir-format
@@ -15432,16 +15432,16 @@ msgstr "Бібліотеку «%{name}» створено"
 msgid "Library deleted"
 msgstr "Бібліотеку видалено"
 
-#: lib/modules/storage/web/libraries_component.ex:268
-#: lib/modules/storage/web/libraries_component.ex:357
-#: lib/modules/storage/web/libraries_component.ex:360
+#: lib/modules/storage/web/libraries_component.ex:274
+#: lib/modules/storage/web/libraries_component.ex:363
+#: lib/modules/storage/web/libraries_component.ex:366
 #: lib/modules/storage/web/library_page.ex:389
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:242
 #, elixir-autogen, elixir-format
 msgid "Library name"
 msgstr "Назва бібліотеки"
 
-#: lib/modules/storage/web/libraries_component.ex:337
+#: lib/modules/storage/web/libraries_component.ex:343
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1979
 #, elixir-autogen, elixir-format
 msgid "New library"
@@ -15462,7 +15462,7 @@ msgid "Library not found"
 msgstr "Бібліотеку не знайдено"
 
 #: lib/modules/storage/web/bucket_page.html.heex:134
-#: lib/modules/storage/web/libraries_component.ex:328
+#: lib/modules/storage/web/libraries_component.ex:334
 #: lib/modules/storage/web/library_page.html.heex:9
 #: lib/modules/storage/web/settings.ex:143
 #: lib/modules/storage/web/settings.html.heex:441
@@ -15486,7 +15486,7 @@ msgstr "Бібліотеку перейменовано на «%{name}»"
 msgid "Only an empty library can be deleted."
 msgstr "Видалити можна лише порожню бібліотеку."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7153
+#: lib/phoenix_kit_web/components/media_browser.ex:7166
 #, elixir-autogen, elixir-format
 msgid "%{count} file is already in another library, so it was not added here."
 msgid_plural "%{count} files are already in another library, so they were not added here."
@@ -15514,7 +15514,7 @@ msgstr "Продовжити через Google"
 msgid "%{count} of %{limit} libraries"
 msgstr "Бібліотек: %{count} з %{limit}"
 
-#: lib/modules/storage/web/libraries_component.ex:467
+#: lib/modules/storage/web/libraries_component.ex:473
 #, elixir-autogen, elixir-format
 msgid "Allow user libraries"
 msgstr "Дозволити бібліотеки користувачів"
@@ -15551,7 +15551,7 @@ msgstr "Вийти з «%{name}»?"
 msgid "Libraries are not available"
 msgstr "Бібліотеки недоступні"
 
-#: lib/modules/storage/web/libraries_component.ex:488
+#: lib/modules/storage/web/libraries_component.ex:494
 #, elixir-autogen, elixir-format
 msgid "Libraries per user"
 msgstr "Бібліотек на користувача"
@@ -15617,7 +15617,7 @@ msgstr "Учасників ще немає: цю бібліотеку бачит
 msgid "No user has that email"
 msgstr "Немає користувача з таким email"
 
-#: lib/modules/storage/web/libraries_component.ex:531
+#: lib/modules/storage/web/libraries_component.ex:537
 #, elixir-autogen, elixir-format
 msgid "No user libraries yet."
 msgstr "Бібліотек користувачів ще немає."
@@ -15627,13 +15627,13 @@ msgstr "Бібліотек користувачів ще немає."
 msgid "Opened as admin"
 msgstr "Відкрито як адміністратор"
 
-#: lib/modules/storage/web/libraries_component.ex:624
+#: lib/modules/storage/web/libraries_component.ex:630
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:95
 #, elixir-autogen, elixir-format
 msgid "Opening a user's library is recorded in the audit log."
 msgstr "Відкриття бібліотеки користувача записується в журнал аудиту."
 
-#: lib/modules/storage/web/libraries_component.ex:539
+#: lib/modules/storage/web/libraries_component.ex:545
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1093
 #: lib/phoenix_kit_web/live/settings/api.html.heex:323
 #: lib/phoenix_kit_web/live/settings/api.html.heex:857
@@ -15643,7 +15643,7 @@ msgstr "Відкриття бібліотеки користувача запи�
 msgid "Owner"
 msgstr "Власник"
 
-#: lib/modules/storage/web/libraries_component.ex:517
+#: lib/modules/storage/web/libraries_component.ex:523
 #, elixir-autogen, elixir-format
 msgid "Private links last (hours)"
 msgstr "Приватні посилання діють (годин)"
@@ -15664,7 +15664,7 @@ msgstr "Безпека"
 msgid "Shared with me"
 msgstr "Надано мені"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7633
+#: lib/phoenix_kit_web/components/media_browser.ex:7654
 #, elixir-autogen, elixir-format
 msgid "That is not in this library"
 msgstr "Цього немає в цій бібліотеці"
@@ -15684,28 +15684,28 @@ msgstr "Не вдалося зберегти бібліотеку"
 msgid "The owner is always in the library"
 msgstr "Власник завжди є в бібліотеці"
 
-#: lib/modules/storage/web/libraries_component.ex:557
+#: lib/modules/storage/web/libraries_component.ex:563
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:114
 #, elixir-autogen, elixir-format
 msgid "Trashed"
 msgstr "У кошику"
 
-#: lib/modules/storage/web/libraries_component.ex:444
+#: lib/modules/storage/web/libraries_component.ex:450
 #, elixir-autogen, elixir-format
 msgid "User libraries"
 msgstr "Бібліотеки користувачів"
 
-#: lib/modules/storage/web/libraries_component.ex:197
+#: lib/modules/storage/web/libraries_component.ex:192
 #, elixir-autogen, elixir-format
 msgid "User library settings could not be saved"
 msgstr "Не вдалося зберегти налаштування бібліотек користувачів"
 
-#: lib/modules/storage/web/libraries_component.ex:195
+#: lib/modules/storage/web/libraries_component.ex:190
 #, elixir-autogen, elixir-format
 msgid "User library settings saved"
 msgstr "Налаштування бібліотек користувачів збережено"
 
-#: lib/modules/storage/web/libraries_component.ex:447
+#: lib/modules/storage/web/libraries_component.ex:453
 #, elixir-autogen, elixir-format
 msgid "Users with the Storage permission can keep libraries of their own, private to them and the members they add. Their files are served only through links that expire."
 msgstr "Користувачі з дозволом «Сховище» можуть мати власні бібліотеки, приватні для них і для доданих ними учасників. Їхні файли віддаються лише за посиланнями з обмеженим терміном дії."
@@ -15935,8 +15935,8 @@ msgstr "Порядок віддачі"
 msgid "Showing the first %{count} of %{total}."
 msgstr "Показано перші %{count} із %{total}."
 
-#: lib/modules/storage/web/libraries_component.ex:406
-#: lib/modules/storage/web/libraries_component.ex:541
+#: lib/modules/storage/web/libraries_component.ex:412
+#: lib/modules/storage/web/libraries_component.ex:547
 #: lib/modules/storage/web/library_page.html.heex:206
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:131
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:715
@@ -15951,8 +15951,8 @@ msgstr "Сховище"
 
 #: lib/modules/storage/web/bucket_form.html.heex:443
 #: lib/modules/storage/web/bucket_page.html.heex:132
-#: lib/modules/storage/web/libraries_component.ex:266
-#: lib/modules/storage/web/libraries_component.ex:369
+#: lib/modules/storage/web/libraries_component.ex:272
+#: lib/modules/storage/web/libraries_component.ex:375
 #: lib/modules/storage/web/library_page.html.heex:215
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:147
 #, elixir-autogen, elixir-format
@@ -16278,7 +16278,7 @@ msgid "No Object Storage connection exists yet."
 msgstr "Підключення до об'єктного сховища ще немає."
 
 #: lib/modules/storage/web/bucket_form.html.heex:421
-#: lib/modules/storage/web/libraries_component.ex:512
+#: lib/modules/storage/web/libraries_component.ex:518
 #, elixir-autogen, elixir-format
 msgid "No limit"
 msgstr "Без обмежень"
@@ -16353,7 +16353,7 @@ msgstr "Вони продовжують працювати. Перенесіть
 msgid "This bucket uses keys saved on the bucket itself."
 msgstr "Цей бакет використовує ключі, збережені в самому бакеті."
 
-#: lib/modules/storage/web/libraries_component.ex:485
+#: lib/modules/storage/web/libraries_component.ex:491
 #, elixir-autogen, elixir-format
 msgid "Allow their own buckets"
 msgstr "Дозволити власні бакети"
@@ -16399,18 +16399,18 @@ msgstr "Налаштовувати нічого."
 msgid "Only here"
 msgstr "Лише тут"
 
-#: lib/modules/storage/web/libraries_component.ex:289
+#: lib/modules/storage/web/libraries_component.ex:295
 #, elixir-autogen, elixir-format
 msgid "Own %{provider} bucket"
 msgstr "Власний бакет %{provider}"
 
-#: lib/modules/storage/web/libraries_component.ex:286
+#: lib/modules/storage/web/libraries_component.ex:292
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1633
 #, elixir-autogen, elixir-format
 msgid "Site storage"
 msgstr "Сховище сайту"
 
-#: lib/modules/storage/web/libraries_component.ex:292
+#: lib/modules/storage/web/libraries_component.ex:298
 #, elixir-autogen, elixir-format
 msgid "Site storage + own %{provider} backup"
 msgstr "Сховище сайту + власна резервна копія в %{provider}"
@@ -16425,7 +16425,7 @@ msgstr "У сайту немає власного сховища для збер
 msgid "The test stopped unexpectedly"
 msgstr "Тест несподівано зупинився"
 
-#: lib/modules/storage/web/libraries_component.ex:472
+#: lib/modules/storage/web/libraries_component.ex:478
 #, elixir-autogen, elixir-format
 msgid "Users who also hold the Storage own-storage and Integrations permissions may keep a library on their own S3-compatible bucket. Their files then live outside the site's storage."
 msgstr "Користувачі, які також мають дозволи «Сховище» (власне сховище) та «Інтеграції», можуть тримати бібліотеку у власному S3-сумісному бакеті. Тоді їхні файли зберігаються поза сховищем сайту."
@@ -17917,7 +17917,7 @@ msgid "Overview"
 msgstr "Огляд"
 
 #: lib/modules/storage/web/bucket_page.ex:430
-#: lib/modules/storage/web/libraries_component.ex:571
+#: lib/modules/storage/web/libraries_component.ex:577
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1968
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2034
 #, elixir-autogen, elixir-format
@@ -18346,12 +18346,12 @@ msgstr "Профіль «%{profile}» не можна видалити: його
 msgid "%{local} local, %{cloud} cloud copies"
 msgstr "копій: %{local} локальних, %{cloud} хмарних"
 
-#: lib/modules/storage/web/libraries_component.ex:276
+#: lib/modules/storage/web/libraries_component.ex:282
 #, elixir-autogen, elixir-format
 msgid "%{profile} · %{set}"
 msgstr "%{profile} · %{set}"
 
-#: lib/modules/storage/web/libraries_component.ex:342
+#: lib/modules/storage/web/libraries_component.ex:348
 #, elixir-autogen, elixir-format
 msgid "A library is a separate space in Media with its own folders. Everything uploaded so far is in the default library. The Media page shows a library switcher once there are two or more. Open a library to rename it or see where its files are."
 msgstr "Бібліотека — це окремий простір у «Медіа» з власними папками. Усе завантажене досі лежить у типовій бібліотеці. Перемикач бібліотек на сторінці «Медіа» з'являється, коли їх дві або більше. Відкрийте бібліотеку, щоб перейменувати її або побачити, де її файли."
@@ -18438,7 +18438,7 @@ msgstr "Це типове значення сайту; бібліотека мо
 msgid "Where its files are"
 msgstr "Де її файли"
 
-#: lib/modules/storage/web/libraries_component.ex:374
+#: lib/modules/storage/web/libraries_component.ex:380
 #, elixir-autogen, elixir-format
 msgid "Which buckets keep this library's files. Chosen now; it does not change afterwards."
 msgstr "Які бакети зберігають файли цієї бібліотеки. Обирається зараз; надалі не змінюється."
@@ -18637,7 +18637,7 @@ msgstr "Перегляд"
 msgid "Which renditions are made automatically:"
 msgstr "Які варіанти створюються автоматично:"
 
-#: lib/modules/storage/web/libraries_component.ex:388
+#: lib/modules/storage/web/libraries_component.ex:394
 #, elixir-autogen, elixir-format
 msgid "Which renditions its uploads get: smaller copies such as thumbnails and video resolutions. Chosen now; it does not change afterwards."
 msgstr "Які варіанти отримують її завантаження: менші копії, як-от мініатюри та роздільності відео. Обирається зараз; надалі не змінюється."
@@ -18717,8 +18717,8 @@ msgstr "Цей профіль використовує кожна бібліот
 msgid "New rendition profile"
 msgstr "Новий профіль варіантів"
 
-#: lib/modules/storage/web/libraries_component.ex:267
-#: lib/modules/storage/web/libraries_component.ex:383
+#: lib/modules/storage/web/libraries_component.ex:273
+#: lib/modules/storage/web/libraries_component.ex:389
 #: lib/modules/storage/web/library_page.html.heex:256
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:418
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:194
@@ -19037,12 +19037,12 @@ msgid "Saving was interrupted before it finished — the page was closed or refr
 msgstr "Збереження було перервано до завершення — сторінку закрито або оновлено."
 
 #: lib/phoenix_kit_web/components/media_browser.ex:1146
-#: lib/phoenix_kit_web/components/media_browser.ex:7037
+#: lib/phoenix_kit_web/components/media_browser.ex:7040
 #, elixir-autogen, elixir-format
 msgid "The server could not save it."
 msgstr "Сервер не зміг його зберегти."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7031
+#: lib/phoenix_kit_web/components/media_browser.ex:7034
 #, elixir-autogen, elixir-format
 msgid "The server ran into an error while saving it."
 msgstr "Під час збереження на сервері сталася помилка."
@@ -19067,7 +19067,7 @@ msgstr "Завантаження було перервано, а файл зав
 msgid "The upload was cut short, and the browser no longer has a copy of the file. Add it again."
 msgstr "Завантаження було перервано, а в браузера більше немає копії файла. Додайте його ще раз."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7034
+#: lib/phoenix_kit_web/components/media_browser.ex:7037
 #, elixir-autogen, elixir-format
 msgid "The uploaded file went missing on the server before it could be saved."
 msgstr "Завантажений файл зник на сервері до того, як його було збережено."
@@ -22633,7 +22633,7 @@ msgstr[0] "Видалити %{count} файл назавжди?"
 msgstr[1] "Видалити %{count} файли назавжди?"
 msgstr[2] "Видалити %{count} файлів назавжди?"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7484
+#: lib/phoenix_kit_web/components/media_browser.ex:7505
 #, elixir-autogen, elixir-format
 msgid "%{count} item permanently deleted"
 msgid_plural "%{count} items permanently deleted"
@@ -22641,7 +22641,7 @@ msgstr[0] "%{count} об’єкт видалено назавжди"
 msgstr[1] "%{count} об’єкти видалено назавжди"
 msgstr[2] "%{count} об’єктів видалено назавжди"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7487
+#: lib/phoenix_kit_web/components/media_browser.ex:7508
 #, elixir-autogen, elixir-format
 msgid "%{count} item moved to trash"
 msgid_plural "%{count} items moved to trash"
@@ -22649,7 +22649,7 @@ msgstr[0] "%{count} об’єкт переміщено в кошик"
 msgstr[1] "%{count} об’єкти переміщено в кошик"
 msgstr[2] "%{count} об’єктів переміщено в кошик"
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7464
+#: lib/phoenix_kit_web/components/media_browser.ex:7485
 #, elixir-autogen, elixir-format
 msgid "%{count} item is in use by something else and was kept."
 msgid_plural "%{count} items are in use by something else and were kept."
@@ -22657,7 +22657,7 @@ msgstr[0] "%{count} елемент використовується в іншо�
 msgstr[1] "%{count} елементи використовуються в іншому місці і були збережені."
 msgstr[2] "%{count} елементів використовуються в іншому місці і були збережені."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7472
+#: lib/phoenix_kit_web/components/media_browser.ex:7493
 #, elixir-autogen, elixir-format
 msgid "%{count} item could not be removed."
 msgid_plural "%{count} items could not be removed."
@@ -22909,7 +22909,7 @@ msgstr "Пакет завершено"
 msgid "Batch interrupted; unfinished work will be retried when the operation runs again"
 msgstr "Пакет перервано; незавершену роботу буде повторено під час наступного запуску операції"
 
-#: lib/modules/storage/web/libraries_component.ex:596
+#: lib/modules/storage/web/libraries_component.ex:602
 #, elixir-autogen, elixir-format
 msgid "Bring “%{name}” back online?"
 msgstr "Відновити доступ до «%{name}»?"
@@ -23238,7 +23238,7 @@ msgstr "Бібліотека / операція"
 msgid "Library activity"
 msgstr "Активність бібліотек"
 
-#: lib/modules/storage/web/libraries_component.ex:306
+#: lib/modules/storage/web/libraries_component.ex:312
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1574
 #, elixir-autogen, elixir-format
 msgid "Library settings"
@@ -23548,7 +23548,7 @@ msgstr "Основна мова без префікса"
 msgid "Primary language: %{language}."
 msgstr "Основна мова: %{language}."
 
-#: lib/modules/storage/web/libraries_component.ex:577
+#: lib/modules/storage/web/libraries_component.ex:583
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1957
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2016
 #, elixir-autogen, elixir-format
@@ -23636,7 +23636,7 @@ msgstr "Задати її та те, як мови відображаються 
 msgid "Several people have messaged this bot, so we can't tell which chat is yours — nothing was linked. Link your chat by its ID below instead."
 msgstr "Цьому боту писало кілька людей, тож ми не можемо визначити, який чат ваш, — нічого не прив'язано. Натомість прив'яжіть свій чат за ідентифікатором нижче."
 
-#: lib/modules/storage/web/libraries_component.ex:570
+#: lib/modules/storage/web/libraries_component.ex:576
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1947
 #, elixir-autogen, elixir-format
 msgid "Signed-in users"
@@ -23756,12 +23756,12 @@ msgstr "Роботу сховища призупинено"
 msgid "Stored in"
 msgstr "Зберігається в"
 
-#: lib/modules/storage/web/libraries_component.ex:608
+#: lib/modules/storage/web/libraries_component.ex:614
 #, elixir-autogen, elixir-format
 msgid "Suspend"
 msgstr "Призупинити"
 
-#: lib/modules/storage/web/libraries_component.ex:563
+#: lib/modules/storage/web/libraries_component.ex:569
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1937
 #, elixir-autogen, elixir-format
 msgid "Suspended"
@@ -23772,7 +23772,7 @@ msgstr "Призупинено"
 msgid "Switched off"
 msgstr "Вимкнено"
 
-#: lib/modules/storage/web/libraries_component.ex:598
+#: lib/modules/storage/web/libraries_component.ex:604
 #, elixir-autogen, elixir-format
 msgid "Take the public library “%{name}” offline? It answers as private until you bring it back; nothing is deleted."
 msgstr "Зробити публічну бібліотеку «%{name}» недоступною? Доки ви її не відновите, вона поводитиметься як приватна; нічого не буде видалено."
@@ -23845,12 +23845,12 @@ msgstr "Не вдалося змінити бібліотеку"
 msgid "The library could not be created. Refresh and try again."
 msgstr "Не вдалося створити бібліотеку. Оновіть сторінку й спробуйте ще раз."
 
-#: lib/modules/storage/web/libraries_component.ex:207
+#: lib/modules/storage/web/libraries_component.ex:213
 #, elixir-autogen, elixir-format
 msgid "The library is back online"
 msgstr "Бібліотека знову доступна"
 
-#: lib/modules/storage/web/libraries_component.ex:206
+#: lib/modules/storage/web/libraries_component.ex:212
 #, elixir-autogen, elixir-format
 msgid "The library is suspended"
 msgstr "Бібліотеку призупинено"
@@ -23906,7 +23906,7 @@ msgstr "Для цього бота задано вебхук, тож Telegram н
 msgid "This connection is used by storage. Create another integration to change its destination."
 msgstr "Це підключення використовує сховище. Щоб змінити місце призначення, створіть іншу інтеграцію."
 
-#: lib/phoenix_kit_web/components/media_browser.ex:7490
+#: lib/phoenix_kit_web/components/media_browser.ex:7511
 #, elixir-autogen, elixir-format
 msgid "This folder belongs to a module and can't be deleted here."
 msgstr "Ця папка належить модулю, тут її не можна видалити."
@@ -24039,7 +24039,7 @@ msgstr "Переглянути попередню спробу"
 msgid "Viewing access never grants permission to upload, edit or delete. Changing access does not move files or change the WebDAV destination."
 msgstr "Доступ на перегляд ніколи не дає права завантажувати, редагувати чи видаляти. Зміна доступу не переміщує файли й не змінює місце призначення WebDAV."
 
-#: lib/modules/storage/web/libraries_component.ex:540
+#: lib/modules/storage/web/libraries_component.ex:546
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1252
 #, elixir-autogen, elixir-format
 msgid "Visibility"
@@ -24141,12 +24141,12 @@ msgstr "Розташування bucket'а; його кінцева точка �
 msgid "Keep only the originals on this backup, not the sizes and tiles, which can be made again from them."
 msgstr "Зберігати в цій резервній копії лише оригінали, без розмірів і тайлів: їх можна знову створити з оригіналів."
 
-#: lib/modules/storage/web/libraries_component.ex:501
+#: lib/modules/storage/web/libraries_component.ex:507
 #, elixir-autogen, elixir-format
 msgid "How much of the site's storage each person's libraries may use: originals and the sizes made from them. Blank for no limit. Libraries on their own bucket do not count."
 msgstr "Скільки місця у сховищі сайту можуть займати бібліотеки однієї людини: оригінали та створені з них розміри. Порожньо — без обмеження. Бібліотеки на власному bucket'і не враховуються."
 
-#: lib/modules/storage/web/libraries_component.ex:506
+#: lib/modules/storage/web/libraries_component.ex:512
 #, elixir-autogen, elixir-format
 msgid "Storage per user (MB)"
 msgstr "Сховище на користувача (МБ)"
@@ -24282,37 +24282,50 @@ msgstr "Пошук…"
 msgid "Type a name, username or email"
 msgstr "Введіть ім'я, ім'я користувача або email"
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:178
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:183
 #, elixir-autogen, elixir-format
 msgid "Microphone access was refused. Allow it in your browser and try again."
 msgstr "Доступ до мікрофона заборонено. Дозвольте його в браузері та спробуйте ще раз."
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:180
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:185
 #, elixir-autogen, elixir-format
 msgid "No microphone is available."
 msgstr "Мікрофон недоступний."
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:355
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:381
 #, elixir-autogen, elixir-format
 msgid "Recording"
 msgstr "Триває запис"
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:366
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:392
 #, elixir-autogen, elixir-format
 msgid "Send"
 msgstr "Надіслати"
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:183
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:188
 #, elixir-autogen, elixir-format
 msgid "The recording could not be read. Please try again."
 msgstr "Не вдалося прочитати запис. Спробуйте ще раз."
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:186
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:191
 #, elixir-autogen, elixir-format
 msgid "The recording could not be sent. Please try again."
 msgstr "Не вдалося надіслати запис. Спробуйте ще раз."
 
-#: lib/phoenix_kit_web/components/core/audio_recorder.ex:185
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:190
 #, elixir-autogen, elixir-format
 msgid "The recording is too long."
 msgstr "Запис занадто довгий."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:7174
+#, elixir-autogen, elixir-format
+msgid "%{count} file was not stored: there is no storage left for this library."
+msgid_plural "%{count} files were not stored: there is no storage left for this library."
+msgstr[0] "%{count} файл не збережено: для цієї бібліотеки не залишилося місця у сховищі."
+msgstr[1] "%{count} файли не збережено: для цієї бібліотеки не залишилося місця у сховищі."
+msgstr[2] "%{count} файлів не збережено: для цієї бібліотеки не залишилося місця у сховищі."
+
+#: lib/phoenix_kit_web/components/media_browser.ex:7031
+#, elixir-autogen, elixir-format
+msgid "There is no storage left for this library."
+msgstr "Для цієї бібліотеки не залишилося місця у сховищі."

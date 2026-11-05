@@ -10,7 +10,16 @@ defmodule PhoenixKit.Modules.Storage.QuotasTest do
   use PhoenixKit.DataCase, async: false
 
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Library, Quotas, StorageProfile}
+
+  alias PhoenixKit.Modules.Storage.{
+    Bucket,
+    Libraries,
+    Library,
+    ProfileBucket,
+    Quotas,
+    StorageProfile
+  }
+
   alias PhoenixKit.Settings
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.{Auth, Permissions, Roles}
@@ -142,22 +151,44 @@ defmodule PhoenixKit.Modules.Storage.QuotasTest do
 
     test "a library on the owner's own storage does not count", ctx do
       {:ok, _} = store(ctx.owner, ctx.library, bytes(50))
-      own_storage!(ctx.owner, ctx.library)
+      own_storage!(ctx.owner, ctx.library, "primary")
 
       assert Quotas.usage(ctx.owner.uuid).total == 0
       limit_bytes!(10)
       assert Quotas.check_upload(ctx.library.uuid, 1_000) == :ok
     end
+
+    # "Backed up here": the owner's bucket holds a copy, and the site's buckets go on
+    # holding the file, so a user profile alone is no reason to leave it uncharged.
+    test "a library backed up to the owner's own storage still counts", ctx do
+      assert {:ok, _file} = store(ctx.owner, ctx.library, bytes(60))
+      own_storage!(ctx.owner, ctx.library, "backup")
+
+      assert Quotas.usage(ctx.owner.uuid).total == 60
+      limit_bytes!(100)
+      assert Quotas.check_upload(ctx.library.uuid, 41) == {:error, :quota_exceeded}
+      assert Quotas.check_upload(ctx.library.uuid, 40) == :ok
+    end
   end
 
-  # Points the library at a profile the owner owns, as their own storage
-  # (V206) would, without a real S3 bucket behind it.
-  defp own_storage!(owner, library) do
-    profile =
-      Repo.insert!(%StorageProfile{
-        name: "user-storage-#{System.unique_integer([:positive])}",
-        owner_uuid: owner.uuid
+  # Points the library at a profile the owner owns, as their own storage (V206)
+  # would, with the owner's bucket in `role`, without a real S3 bucket behind it.
+  defp own_storage!(owner, library, role) do
+    n = System.unique_integer([:positive])
+
+    bucket =
+      Repo.insert!(%Bucket{
+        name: "own-#{n}",
+        provider: "s3",
+        bucket_name: "own-#{n}",
+        enabled: true,
+        owner_uuid: owner.uuid,
+        integration_uuid: Ecto.UUID.generate(),
+        access_type: "private"
       })
+
+    profile = Repo.insert!(%StorageProfile{name: "user-storage-#{n}", owner_uuid: owner.uuid})
+    Repo.insert!(%ProfileBucket{profile_uuid: profile.uuid, bucket_uuid: bucket.uuid, role: role})
 
     {1, _} =
       Repo.update_all(from(l in Library, where: l.uuid == ^library.uuid),

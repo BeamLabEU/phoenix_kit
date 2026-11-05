@@ -5,9 +5,11 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
 
   The session decides what the page passes: `"test_pid"` gets every message, and
   `"attrs"` goes to the recorder as it is. `portal` defaults to `false` here, because
-  `file_input/4` cannot reach into a portal. With `"consumer"` set the recorder sits
-  in `Consumer`, a LiveComponent, which is what `target={@myself}` is for. Not routed;
-  rendered with `Phoenix.LiveViewTest.live_isolated/3`.
+  `file_input/4` cannot reach into a portal; `"shipped_defaults"` renders one with
+  nothing but its id. `"second"` adds a recorder `other`, on the same page. With
+  `"consumer"` set the recorder sits in `Consumer`, a LiveComponent, which is what
+  `target={@myself}` is for. Not routed; rendered with
+  `Phoenix.LiveViewTest.live_isolated/3`.
   """
   use Phoenix.LiveView
 
@@ -47,11 +49,15 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
     {:ok,
      assign(socket,
        test_pid: session["test_pid"],
-       attrs: Map.merge(%{id: "rec", portal: false}, session["attrs"] || %{}),
+       attrs: attrs(session),
        consumer: session["consumer"] == true,
+       second: session["second"] == true,
        busy: false
      ), layout: false}
   end
+
+  defp attrs(%{"shipped_defaults" => true}), do: %{id: "rec"}
+  defp attrs(session), do: Map.merge(%{id: "rec", portal: false}, session["attrs"] || %{})
 
   @impl true
   def handle_info(:toggle_busy, socket), do: {:noreply, update(socket, :busy, &(!&1))}
@@ -67,6 +73,7 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
     <div>
       <.live_component :if={@consumer} module={Consumer} id="consumer" test_pid={@test_pid} />
       <.audio_recorder :if={!@consumer} busy={@busy} {@attrs} />
+      <.audio_recorder :if={@second} id="other" portal={false} />
     </div>
     """
   end

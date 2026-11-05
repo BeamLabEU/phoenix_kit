@@ -6,8 +6,8 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   Supports all S3-compatible services (like Backblaze B2, Cloudflare R2, Hetzner, Tigris).
 
   Files under 5 MB are uploaded via `put_object` (single request).
-  Files at or above 5 MB use multipart upload via `ExAws.S3.upload/4`
-  with streaming and concurrent chunk uploads.
+  Files at or above 5 MB go up as a multipart upload, in parts sent side by side.
+  Every request goes through `PhoenixKit.Modules.Storage.Providers.S3Request`.
   """
 
   require Logger
@@ -92,8 +92,9 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3 do
     case ExAws.S3.get_object(name, key, range: "bytes=#{offset}-#{last}")
          |> S3Request.request(config) do
       {:ok, %{body: body}} when byte_size(body) == last - offset + 1 ->
-        :ok = IO.binwrite(device, body)
-        download_ranges(name, key, size, config, device, last + 1)
+        with :ok <- IO.binwrite(device, body) do
+          download_ranges(name, key, size, config, device, last + 1)
+        end
 
       {:ok, %{body: body}} ->
         {:error, {:short_range, offset, byte_size(body)}}

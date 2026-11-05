@@ -47,6 +47,7 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     Bucket,
     FileInstance,
     FileLocation,
+    ImageEditing,
     Library,
     LibraryState,
     Locations,
@@ -475,6 +476,9 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     |> repo().update_all(set: [reconcile_locked_until: NaiveDateTime.add(lease_now(), lease)])
   rescue
     error -> Logger.warning("Could not renew the reconcile lease: #{Exception.message(error)}")
+  catch
+    :exit, reason ->
+      Logger.warning("Could not renew the reconcile lease: #{Exception.format_exit(reason)}")
   end
 
   defp stop_renewer(pid) do
@@ -484,7 +488,9 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     receive do
       {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
     after
-      5_000 -> Process.exit(pid, :kill)
+      5_000 ->
+        Process.demonitor(ref, [:flush])
+        Process.exit(pid, :kill)
     end
   end
 
@@ -495,6 +501,9 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
     |> repo().update_all(set: [reconcile_lock_token: nil, reconcile_locked_until: nil])
   rescue
     error -> Logger.warning("Could not release the reconcile lease: #{Exception.message(error)}")
+  catch
+    :exit, reason ->
+      Logger.warning("Could not release the reconcile lease: #{Exception.format_exit(reason)}")
   end
 
   defp lease_now, do: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
@@ -591,7 +600,11 @@ defmodule PhoenixKit.Modules.Storage.Reconciler do
   end
 
   # What an instance is to placement: a file's own original, or something made
-  # from one (a size, or a tile, which is a system file's "original").
+  # from one (a size, or a tile, which is a system file's "original"). The hidden
+  # unedited original of an edited image is an original: nothing can make it again.
+  defp object(%StorageFile{system_managed: true} = file, %FileInstance{variant_name: "original"}),
+    do: if(ImageEditing.backup?(file), do: :original, else: :derived)
+
   defp object(%StorageFile{system_managed: true}, _instance), do: :derived
   defp object(_file, %FileInstance{variant_name: "original"}), do: :original
   defp object(_file, _instance), do: :derived

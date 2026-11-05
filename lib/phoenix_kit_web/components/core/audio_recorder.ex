@@ -30,7 +30,10 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
       `nil` without one: fine to show, not to bill by.
 
   The format comes from the file itself, not from what the browser said it was.
-  A file that is not what the recorder asked for ends as `:unreadable`.
+  A file that is not what the recorder asked for ends as `:unreadable`. A WAV is
+  read whole. For `:native` that reading is the container's opening bytes, which
+  name the format and prove nothing about what is inside: store such a clip the way
+  you store any upload.
 
   ## Formats
 
@@ -72,8 +75,12 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
   It can sit inside a page's `<form>`, under a text area for example. The upload
   needs a form of its own, and a browser drops a form nested in another, so that
   form goes through a `<.portal>` to the end of `body`. Two recorders on a page are
-  fine too: the hook uploads to its own form, by id, because `this.upload/2`
-  searches the whole LiveView and drops a clip when it finds two inputs.
+  fine too, sending at the same moment included. Each has an upload name of its own,
+  because a LiveView raises when two components use one at once, and the hook uploads
+  to its own form, by id, because `this.upload/2` searches the whole LiveView and
+  drops a clip when it finds two inputs.
+
+  `format`, `max_seconds` and `label` are read once, when the recorder first renders.
 
   ## Where it cannot work
 
@@ -106,8 +113,6 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
           content_type: String.t(),
           duration: float() | nil
         }
-
-  @upload :audio
 
   # 16 000 samples a second, two bytes each.
   @wav_bytes_per_second 32_000
@@ -187,7 +192,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
   @impl true
   def mount(socket) do
-    {:ok, assign(socket, error: nil, client_duration: nil, upload_name: @upload)}
+    {:ok, assign(socket, error: nil, client_duration: nil)}
   end
 
   @impl true
@@ -196,11 +201,17 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
   end
 
   # A LiveComponent is updated on every render of its parent, and an upload is
-  # only allowed once.
-  defp allow_once(%{assigns: %{uploads: %{@upload => _config}}} = socket), do: socket
+  # only allowed once. The name is this recorder's own: the LiveView holds a name for
+  # as long as an entry uses it, and raises when another component starts an upload
+  # under it, so two recorders sharing one take the page down when their clips overlap.
+  defp allow_once(%{assigns: %{upload_name: _name}} = socket), do: socket
 
-  defp allow_once(%{assigns: %{format: format, max_seconds: seconds}} = socket) do
-    allow_upload(socket, @upload,
+  defp allow_once(%{assigns: %{id: id, format: format, max_seconds: seconds}} = socket) do
+    name = "audio_recorder_#{id}"
+
+    socket
+    |> assign(:upload_name, name)
+    |> allow_upload(name,
       accept: accepted(format),
       max_entries: 1,
       max_file_size: max_bytes(format, seconds),
@@ -229,8 +240,10 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
     {:noreply, assign(socket, :client_duration, client_duration(params, socket))}
   end
 
+  # An upload still running is cancelled: the person has been told this clip failed,
+  # so it must not reach the page after all.
   def handle_event("recorder_error", params, socket) do
-    {:noreply, report(socket, client_reason(params))}
+    {:noreply, socket |> cancel_entries() |> report(client_reason(params))}
   end
 
   # A code from the browser, so only the ones it may send become reasons; `too_large`
@@ -246,8 +259,11 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
   defp client_duration(_params, _socket), do: nil
 
-  defp refuse_invalid(socket) do
-    config = socket.assigns.uploads[@upload]
+  defp cancel_entries(%{assigns: %{upload_name: name, uploads: uploads}} = socket),
+    do: Enum.reduce(uploads[name].entries, socket, &cancel_upload(&2, name, &1.ref))
+
+  defp refuse_invalid(%{assigns: %{upload_name: name}} = socket) do
+    config = socket.assigns.uploads[name]
 
     case Enum.find(config.entries, &(not &1.valid?)) do
       nil ->
@@ -256,13 +272,23 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
       entry ->
         reason = if :too_large in upload_errors(config, entry), do: :too_large, else: :unreadable
 
-        socket |> cancel_upload(@upload, entry.ref) |> report(reason) |> settled()
+        socket |> cancel_upload(name, entry.ref) |> report(reason) |> settled()
     end
   end
 
-  defp handle_progress(@upload, %{done?: false}, socket), do: {:noreply, socket}
+  # Each step tells the hook the upload is alive, so a slow one is not taken for a dead
+  # one. An entry the server could not write stays unfinished, and only this says so.
+  defp handle_progress(name, %{done?: false} = entry, socket) do
+    case upload_errors(socket.assigns.uploads[name], entry) do
+      [] ->
+        {:noreply, push_event(socket, "audio_recorder_progress", %{id: socket.assigns.id})}
 
-  defp handle_progress(@upload, entry, socket) do
+      _errors ->
+        {:noreply, socket |> cancel_upload(name, entry.ref) |> report(:failed) |> settled()}
+    end
+  end
+
+  defp handle_progress(_name, entry, socket) do
     bytes = consume_uploaded_entry(socket, entry, fn %{path: path} -> {:ok, File.read!(path)} end)
 
     {:noreply, socket |> deliver_clip(bytes) |> settled()}
@@ -370,7 +396,7 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
             </button>
           </div>
         </div>
-        <div data-recorder-state="preparing" hidden>
+        <div data-recorder-state="preparing" role="status" hidden>
           <div class="flex items-center gap-2 text-sm">
             <span class="loading loading-spinner loading-xs"></span> {gettext("Sending…")}
           </div>

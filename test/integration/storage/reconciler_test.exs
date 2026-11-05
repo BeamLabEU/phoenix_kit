@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   alias PhoenixKit.Modules.Storage.{
     Bucket,
     FileLocation,
+    ImageEditing,
     Libraries,
     LocationCheck,
     Locations,
@@ -25,11 +26,17 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     VariantSets
   }
 
+  alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Workers.ReconcileJob
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
   import Ecto.Query
+
+  defmodule DeadRepo do
+    @moduledoc false
+    def update_all(_query, _updates, _opts \\ []), do: exit({:noproc, {GenServer, :call, []}})
+  end
 
   setup do
     n = System.unique_integer([:positive])
@@ -66,6 +73,14 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   end
 
   defp profile(ctx), do: Profiles.get_profile(ctx.profile.uuid)
+
+  # The row a system file has: an edited image's hidden original, or a tile.
+  defp hide!(file, name) do
+    {1, _} =
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^file.uuid),
+        set: [system_managed: true, file_name: name]
+      )
+  end
 
   defp upload!(ctx, content, library \\ nil, user \\ nil) do
     path = Path.join(System.tmp_dir!(), "pk_reconcile_src_#{System.unique_integer([:positive])}")
@@ -339,6 +354,40 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       assert on(ctx.a, small)
     end
 
+    # An edit moves the unedited bytes to a hidden system file, which placement
+    # otherwise reads as made-again: exactly what such a backup exists to keep.
+    test "a backup of originals only keeps an edited image's unedited original", ctx do
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{role: "backup"})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
+
+      file = image!(ctx)
+      original = key(file)
+      small = Storage.get_file_instance_by_name(file.uuid, "small").file_name
+      hide!(file, ImageEditing.backup_name())
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+      assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+
+      assert buckets_of(original) == uuids([ctx.a, ctx.b])
+      assert on(ctx.b, original)
+      assert buckets_of(small) == uuids([ctx.a])
+    end
+
+    test "a tile, which can be cut again, leaves a backup of originals only", ctx do
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{role: "backup"})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
+
+      file = image!(ctx)
+      original = key(file)
+      hide!(file, "tile_0_0")
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+      assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+
+      assert buckets_of(original) == uuids([ctx.a])
+      refute on(ctx.b, original)
+    end
+
     test "a disabled size is kept, not made again", ctx do
       file = image!(ctx)
       small = Storage.get_dimension_by_name("small", ctx.set.uuid)
@@ -454,6 +503,28 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
       send(holder.pid, :release)
       assert Task.await(holder) == :done
+    end
+
+    # An unreachable database raises, but a dead pool exits, and giving the lease back
+    # happens in an `after`: an exit there would replace the work's own result.
+    test "a pool that is gone when the lease goes back leaves the result alone", ctx do
+      file = upload!(ctx, "dead pool")
+      repo = Application.get_env(:phoenix_kit, :repo)
+      on_exit(fn -> Application.put_env(:phoenix_kit, :repo, repo) end)
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          result =
+            Reconciler.with_file_lock(file.uuid, fn ->
+              Application.put_env(:phoenix_kit, :repo, __MODULE__.DeadRepo)
+              :done
+            end)
+
+          Application.put_env(:phoenix_kit, :repo, repo)
+          assert result == :done
+        end)
+
+      assert log =~ "Could not release the reconcile lease"
     end
 
     test "a file that does not exist has nothing to hold" do

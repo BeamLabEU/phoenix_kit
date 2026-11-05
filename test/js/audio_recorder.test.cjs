@@ -253,31 +253,175 @@ test("a recording that captured nothing is reported, not sent", async () => {
   assert.equal(backToIdle.length, 1);
 });
 
-test("a settled event for another recorder leaves this one preparing", () => {
-  let handler;
-  const originalCanRecord = window.isSecureContext;
+// A mounted hook: `events` holds what it listens for from the server.
+function mountedHook(overrides = {}) {
+  const events = {};
+  const recorder = fakeHook({
+    el: { dataset: { recorder: "mine", format: "native" }, addEventListener: noop, hidden: true },
+    handleEvent: (name, fn) => (events[name] = fn),
+    ...overrides,
+  });
   Object.assign(window, {
     isSecureContext: true,
     MediaRecorder: noop,
     navigator: { mediaDevices: { getUserMedia: noop } },
   });
-
-  const settled = [];
-  const recorder = fakeHook({
-    el: { dataset: { recorder: "mine", format: "native" }, addEventListener: noop, hidden: true },
-    handleEvent: (_name, fn) => (handler = fn),
-    settle: () => settled.push(true),
-  });
   recorder.mounted();
+  window.isSecureContext = undefined;
+  return { recorder, events };
+}
+
+test("a settled event for another recorder leaves this one preparing", () => {
+  const idle = [];
+  const { recorder, events } = mountedHook({ backToIdle: () => idle.push(true) });
   recorder.state = "preparing";
 
-  handler({ id: "theirs" });
-  assert.equal(settled.length, 0);
+  events.audio_recorder_settled({ id: "theirs" });
+  assert.equal(idle.length, 0);
 
-  handler({ id: "mine" });
-  assert.equal(settled.length, 1);
+  events.audio_recorder_settled({ id: "mine" });
+  assert.equal(idle.length, 1);
+});
 
-  window.isSecureContext = originalCanRecord;
+// A slow upload is alive: only one that stopped moving is given up on.
+test("each step of an upload puts the watchdog back, and only silence ends it", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { recorder, events } = mountedHook({ backToIdle: noop });
+  recorder.state = "preparing";
+  recorder.watch();
+
+  for (let i = 0; i < 5; i++) {
+    t.mock.timers.tick(100000);
+    events.audio_recorder_progress({ id: "mine" });
+  }
+  assert.deepEqual(recorder.pushes, []);
+
+  t.mock.timers.tick(120000);
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "failed" }]]);
+});
+
+test("a progress event for another recorder is not this upload's", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { recorder, events } = mountedHook({ backToIdle: noop });
+  recorder.state = "preparing";
+  recorder.watch();
+
+  t.mock.timers.tick(100000);
+  events.audio_recorder_progress({ id: "theirs" });
+  t.mock.timers.tick(20000);
+
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "failed" }]]);
+});
+
+test("a settled clip leaves no watchdog behind", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { recorder, events } = mountedHook({ backToIdle: noop });
+  recorder.state = "preparing";
+  recorder.watch();
+
+  recorder.state = "idle";
+  events.audio_recorder_settled({ id: "mine" });
+  t.mock.timers.tick(200000);
+
+  assert.deepEqual(recorder.pushes, []);
+});
+
+function recording(overrides = {}) {
+  const { track, stream } = fakeTracks();
+  const uploads = [];
+  const made = [];
+  const recorder = fakeHook({
+    busy: () => false,
+    startMeter: noop,
+    tick: noop,
+    backToIdle: () => (recorder.state = "idle"),
+    show: (state) => (recorder.state = state),
+    fileFrom: async () => "the file",
+    uploadTo: (_form, _name, files) => uploads.push(files),
+    ...overrides,
+  });
+  microphone(async () => stream);
+  global.MediaRecorder = function () {
+    this.state = "recording";
+    this.mimeType = "audio/webm";
+    this.start = noop;
+    this.stop = () => {
+      this.state = "inactive";
+      if (this.onstop) this.onstop();
+    };
+    made.push(this);
+  };
+  return { recorder, track, uploads, made };
+}
+
+// The browser ends a recording by itself when the microphone goes away, and nothing
+// pressed Send or Cancel. `sending` used to keep whatever the last clip left there.
+test("a recording that ends by itself is sent, even the first one", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const { recorder, uploads, made } = recording();
+
+  await recorder.start();
+  recorder.chunks.push("sound");
+  await made[0].onstop();
+
+  assert.deepEqual(uploads, [["the file"]]);
+});
+
+test("after a cancelled clip, one that ends by itself is still sent", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const { recorder, uploads, made } = recording();
+
+  await recorder.start();
+  recorder.stop(false);
+  await new Promise(setImmediate);
+  assert.deepEqual(uploads, []);
+
+  await recorder.start();
+  recorder.chunks.push("sound");
+  await made[1].onstop();
+
+  assert.deepEqual(uploads, [["the file"]]);
+});
+
+// `reconnected` tells the person the clip failed. One that was still being converted
+// went on to upload anyway, and left a watchdog that fired over the next recording.
+test("a clip a reconnect ended while it was being made ready is not uploaded", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  let converted;
+  const { recorder, uploads, made } = recording({
+    fileFrom: () => new Promise((resolve) => (converted = resolve)),
+  });
+
+  await recorder.start();
+  recorder.chunks.push("sound");
+  const finishing = made[0].onstop();
+  recorder.reconnected();
+  converted("the file");
+  await finishing;
+
+  assert.deepEqual(uploads, []);
+  assert.deepEqual(recorder.pushes.filter(([event]) => event === "recorder_error"), [
+    ["recorder_error", { reason: "failed" }],
+  ]);
+
+  t.mock.timers.tick(200000);
+  assert.equal(recorder.pushes.filter(([event]) => event === "recorder_error").length, 1);
+});
+
+test("a recorder removed while it records gives the microphone back", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const { recorder, track, uploads, made } = recording({
+    ready: true,
+    el: { dataset: {}, removeEventListener: noop },
+  });
+
+  await recorder.start();
+  recorder.chunks.push("sound");
+  recorder.destroyed();
+
+  assert.equal(track.stopped, true);
+  assert.equal(made[0].state, "inactive");
+  assert.deepEqual(uploads, []);
 });
 
 test("reconnecting during an upload ends it and says so", () => {

@@ -17,8 +17,9 @@ defmodule PhoenixKit.Modules.Storage.Quotas do
   Each object is counted once: the copies a storage profile keeps of it (a
   second disk, an off-site backup) are the site's cost, not the account's.
   Trashed files still count until they are purged, because they are still
-  stored. Libraries kept on the owner's **own** storage (a V206 user profile)
-  do not count at all.
+  stored. Libraries kept on the owner's **own** storage (their bucket is the
+  primary of a V206 user profile) do not count at all; one their buckets only
+  back up stays on the site's storage, and counts like any other.
 
   ## The limit
 
@@ -48,8 +49,8 @@ defmodule PhoenixKit.Modules.Storage.Quotas do
 
   import Ecto.Query
 
+  alias PhoenixKit.Modules.Storage.{Bucket, FileInstance, Library, ProfileBucket}
   alias PhoenixKit.Modules.Storage.File, as: StorageFile
-  alias PhoenixKit.Modules.Storage.{FileInstance, Library, StorageProfile}
   alias PhoenixKit.Settings
 
   @setting "storage_user_quota_mb"
@@ -143,10 +144,22 @@ defmodule PhoenixKit.Modules.Storage.Quotas do
   # included until purged, except those on their own storage.
   defp charged(owner_uuid) do
     from(l in Library,
-      left_join: p in StorageProfile,
-      on: p.uuid == l.storage_profile_uuid,
-      where: l.kind == "user" and l.owner_uuid == ^owner_uuid and is_nil(p.owner_uuid),
+      where: l.kind == "user" and l.owner_uuid == ^owner_uuid,
+      where:
+        is_nil(l.storage_profile_uuid) or l.storage_profile_uuid not in subquery(own_storage()),
       select: l.uuid
+    )
+  end
+
+  # The profiles that keep a library on its owner's own storage: their bucket is the
+  # primary (`Profiles.user_storage_for/1` calls that `:only`). A user profile with
+  # their buckets as backups only keeps every file on the site's buckets as well.
+  defp own_storage do
+    from(r in ProfileBucket,
+      join: b in Bucket,
+      on: b.uuid == r.bucket_uuid,
+      where: r.role == "primary" and not is_nil(b.owner_uuid),
+      select: r.profile_uuid
     )
   end
 
@@ -182,11 +195,9 @@ defmodule PhoenixKit.Modules.Storage.Quotas do
   # The owner a library's uploads are charged to, nil when they are not.
   defp charged_owner(library_uuid) do
     from(l in Library,
-      left_join: p in StorageProfile,
-      on: p.uuid == l.storage_profile_uuid,
+      where: l.uuid == ^library_uuid and l.kind == "user" and not is_nil(l.owner_uuid),
       where:
-        l.uuid == ^library_uuid and l.kind == "user" and not is_nil(l.owner_uuid) and
-          is_nil(p.owner_uuid),
+        is_nil(l.storage_profile_uuid) or l.storage_profile_uuid not in subquery(own_storage()),
       select: l.owner_uuid
     )
     |> repo().one()

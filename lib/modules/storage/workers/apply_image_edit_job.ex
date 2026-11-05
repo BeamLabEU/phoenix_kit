@@ -891,6 +891,8 @@ defmodule PhoenixKit.Modules.Storage.ApplyImageEditJob do
   end
 
   defp finish_copy({:cancel, _} = cancel, _job), do: cancel
+  # Rendering it again changes nothing: the library has no room for it.
+  defp finish_copy({:error, :quota_exceeded}, _job), do: {:cancel, :quota_exceeded}
   defp finish_copy({:error, reason}, _job), do: {:error, reason}
 
   defp copy_name(name) do

@@ -9,7 +9,7 @@ defmodule PhoenixKit.Modules.Storage.UserProfilesTest do
 
   alias PhoenixKit.Integrations
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Modules.Storage.{Libraries, Library, Profiles, StorageProfile}
+  alias PhoenixKit.Modules.Storage.{Libraries, Library, ProfileBucket, Profiles, StorageProfile}
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
@@ -126,6 +126,27 @@ defmodule PhoenixKit.Modules.Storage.UserProfilesTest do
   end
 
   describe "create_user_profile/3, backup mode" do
+    # `stores` went unused from 2.53.0 to 3.3, so a site can still hold this value,
+    # which a new row refuses. It reads as "all" everywhere else.
+    test "a Default backup row left at the old \"derived\" does not stop it", %{user: user} do
+      default = Profiles.default_profile()
+      backup = site_bucket!()
+      {:ok, _} = Profiles.put_bucket(default, backup.uuid, %{role: "backup"})
+
+      {1, _} =
+        Repo.update_all(
+          from(r in ProfileBucket,
+            where: r.profile_uuid == ^default.uuid and r.bucket_uuid == ^backup.uuid
+          ),
+          set: [stores: "derived"]
+        )
+
+      assert {:ok, profile} =
+               Profiles.create_user_profile(user.uuid, owned_bucket!(user.uuid), :backup)
+
+      assert rows(profile)[to_string(backup.uuid)].stores == "all"
+    end
+
     test "snapshots the Default's buckets and adds the user's as a backup of the originals", %{
       user: user
     } do

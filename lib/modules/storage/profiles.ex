@@ -1010,6 +1010,8 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
     }
   end
 
+  # A row can still hold the `derived` of before 2.53, which means `all` everywhere
+  # but in a new row, where it is refused.
   defp site_row(row) do
     %{
       bucket_uuid: row.bucket_uuid,
@@ -1017,7 +1019,7 @@ defmodule PhoenixKit.Modules.Storage.Profiles do
       write_priority: row.write_priority,
       serve_order: row.serve_order,
       status: row.status,
-      stores: row.stores
+      stores: if(row.stores == "originals", do: "originals", else: "all")
     }
   end
 
