@@ -14,7 +14,7 @@
       <.table_default variant="zebra" size="sm">
         <.table_default_header class="bg-primary text-primary-content">
           <.table_default_row hover={false}>
-            <.table_default_header_cell class="sticky left-0 z-0 whitespace-nowrap">
+            <.table_default_header_cell class={first_col_class("z-0", "max-md:bg-primary")}>
               {gettext("Module")}
             </.table_default_header_cell>
             <%= for role <- @roles do %>
@@ -147,7 +147,7 @@
 
           <%!-- Summary Row --%>
           <tr class="font-semibold">
-            <td class="sticky left-0 z-[1] whitespace-nowrap">
+            <td class={first_col_class("z-[1]")}>
               {gettext("Total")}
             </td>
             <%= for role <- @roles do %>

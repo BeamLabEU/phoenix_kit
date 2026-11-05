@@ -293,10 +293,13 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
   defp permission_row(assigns) do
     ~H"""
     <tr>
-      <td class={[
-        "sticky left-0 z-[1] whitespace-nowrap",
-        (@sub && "pl-8 text-sm text-base-content/80") || "font-medium"
-      ]}>
+      <td
+        class={[
+          first_col_class("z-[1]"),
+          (@sub && "pl-8 max-md:pl-5 text-sm text-base-content/80") || "font-medium"
+        ]}
+        title={@label}
+      >
         <.icon
           :if={@sub}
           name="hero-arrow-turn-down-right"
@@ -321,7 +324,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
               phx-click="toggle_permission"
               phx-value-role_uuid={role.uuid}
               phx-value-key={@key}
-              class="cursor-pointer hover:opacity-70 transition-opacity"
+              class="cursor-pointer hover:opacity-70 transition-opacity max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center"
             >
               <%= if granted?(@matrix, role, @key) do %>
                 <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
@@ -334,6 +337,14 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
       </td>
     </tr>
     """
+  end
+
+  # The pinned first column. On a phone it is capped at 40vw, with the label
+  # wrapping, so the role columns scroll beside it instead of being covered;
+  # from `md` up it is the unchanged single-line column. A pinned cell needs an
+  # opaque background on small screens, or the scrolled columns show through it.
+  defp first_col_class(z, bg \\ "max-md:bg-base-100") do
+    ["sticky left-0 md:whitespace-nowrap", "max-md:max-w-[40vw] max-md:break-words", z, bg]
   end
 
   defp granted?(matrix, role, key) do
