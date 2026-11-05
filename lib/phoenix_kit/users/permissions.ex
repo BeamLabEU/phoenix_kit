@@ -212,14 +212,15 @@ defmodule PhoenixKit.Users.Permissions do
   # Keys that must NEVER be auto-granted to the Admin role — they are opt-in and
   # appear only when an Owner explicitly grants them. The personal `integrations`
   # page is the first: admins don't get a personal connections page they never
-  # asked for. Enforced at the single `auto_grant_to_admin_roles/1` chokepoint so
-  # BOTH the boot-time sweep (`auto_grant_new_keys_to_admin/0`) and the tab
-  # registry (`Dashboard.Registry.auto_register_custom_permission/1`) honor it.
+  # asked for. A single key is stopped in `grant_to_admin/2`, which the tab registry
+  # (`Dashboard.Registry.auto_register_custom_permission/1`) reaches through
+  # `auto_grant_to_admin_roles/1`; the boot-time sweep (`sweep_admin_grants/1`) filters
+  # its keys first and grants the rest through `grant_to_admin_now/2`, which checks nothing.
   #
   # `api` is the second: whoever holds it can mint bearer keys and service users, so an
   # upgrade must not hand it to every existing Admin. It is a core section key, which is
   # exactly why this list matters: the boot sweep (`auto_grant_new_keys_to_admin/0`) walks
-  # every core key and reaches `auto_grant_to_admin_roles/1`, where this list stops it.
+  # every core key, and this list is what its filter takes out.
   #
   # `api_personal_keys` is the third: a key made with it acts as its holder, so who may hold
   # it is the Owner's choice, role by role.
@@ -1841,12 +1842,17 @@ defmodule PhoenixKit.Users.Permissions do
     # the system integrations page after it moved off the `settings` key). The
     # PERSONAL `integrations` key is deliberately NOT auto-granted — it's opt-in,
     # so admins don't silently get a personal page they didn't ask for.
+    keys =
+      @core_section_keys ++
+        [@integrations_system_key] ++ feature_module_keys() ++ sub_permission_keys()
+
     # The opt-in keys are read once for the whole sweep (the module ones come
-    # from the registry), not once per key.
+    # from the registry), not once per key, and after `keys`: nothing checks a
+    # key past this filter, so a module registered between the two reads must
+    # have its opt-in keys in the set, not only in `keys`.
     opt_in = MapSet.new(opt_in_admin_keys())
 
-    (@core_section_keys ++
-       [@integrations_system_key] ++ feature_module_keys() ++ sub_permission_keys())
+    keys
     |> Enum.reject(&MapSet.member?(opt_in, &1))
     |> Enum.flat_map(fn key ->
       case grant_to_admin_now(key, opts) do
@@ -2004,9 +2010,9 @@ defmodule PhoenixKit.Users.Permissions do
   """
   @spec auto_grant_to_admin_roles(String.t()) :: :ok | {:error, term()}
   # Opt-in keys are never auto-granted to Admin — they surface only on an explicit
-  # Owner grant. This is the authoritative chokepoint, so the guarantee holds no
-  # matter which path requests the grant (the boot-time sweep OR the tab registry
-  # auto-registering a core/feature tab's permission).
+  # Owner grant. `grant_to_admin/2` is where a single key is stopped, whoever asks
+  # for it (the tab registry auto-registering a core/feature tab's permission, or a
+  # custom key); the boot-time sweep has its own filter, in `sweep_admin_grants/1`.
   def auto_grant_to_admin_roles(key), do: grant_to_admin(key, [])
 
   # A failed grant is logged with its key, returned as `{:error, reason}` (the

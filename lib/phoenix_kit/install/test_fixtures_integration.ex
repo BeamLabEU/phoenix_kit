@@ -16,7 +16,8 @@ defmodule PhoenixKit.Install.TestFixturesIntegration do
   file alone.
 
   Idempotent. Called from both `mix phoenix_kit.install` and
-  `mix phoenix_kit.update`.
+  `mix phoenix_kit.update`. The edit goes through Igniter's buffer, so it is in
+  the diff the person approves and `--dry-run` leaves the file as it was.
   """
 
   @conn_case_path "test/support/conn_case.ex"
@@ -32,12 +33,20 @@ defmodule PhoenixKit.Install.TestFixturesIntegration do
   # the fixture import goes right after the first one found.
   @anchor ~r/^([ \t]*)import Phoenix\.ConnTest[ \t]*$/m
 
-  @doc "Adds the fixtures import to the host's ConnCase when it is safe to."
-  def ensure_conn_case_import(igniter) do
-    if File.exists?(@conn_case_path) do
-      content = File.read!(@conn_case_path)
+  @doc """
+  Adds the fixtures import to the host's ConnCase when it is safe to.
 
-      case conn_case_plan(content, test_sources()) do
+  `test_sources` answers the content of the host's other test files; a test
+  passes its own, because a test project has none on disk.
+  """
+  def ensure_conn_case_import(igniter, test_sources \\ &test_sources/0) do
+    if Igniter.exists?(igniter, @conn_case_path) do
+      igniter = Igniter.include_existing_file(igniter, @conn_case_path)
+
+      content =
+        igniter.rewrite |> Rewrite.source!(@conn_case_path) |> Rewrite.Source.get(:content)
+
+      case conn_case_plan(content, test_sources.()) do
         :already_present ->
           igniter
 
@@ -45,10 +54,11 @@ defmodule PhoenixKit.Install.TestFixturesIntegration do
           Igniter.add_notice(igniter, conflict_notice(name))
 
         :inject ->
-          File.write!(@conn_case_path, inject_import(content))
-
-          Igniter.add_notice(
-            igniter,
+          igniter
+          |> Igniter.update_file(@conn_case_path, fn source ->
+            Rewrite.Source.update(source, :content, inject_import(content))
+          end)
+          |> Igniter.add_notice(
             "✅ Added `#{@import_line}` to #{@conn_case_path}. " <>
               "Tests can now call register_and_log_in_user/1."
           )
@@ -92,7 +102,7 @@ defmodule PhoenixKit.Install.TestFixturesIntegration do
   defp defined_fixture_name(sources) do
     Enum.find_value(sources, fn source ->
       Enum.find(@fixture_names, fn name ->
-        Regex.match?(~r/^\s*defp?\s+#{name}\b/m, source)
+        Regex.match?(~r/^\s*def(?:p|macrop?|delegate)?\s+#{name}\b/m, source)
       end)
     end)
   end

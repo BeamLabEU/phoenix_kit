@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Install.DaisyUI do
   @moduledoc """
-  Advisory check of the host's vendored daisyUI version.
+  Advisory check of the host's daisyUI version.
 
   PhoenixKit's UI is styled by daisyUI, which lives in the HOST app and is
   loaded from the host's `app.css`, in one of two shapes:
@@ -16,7 +16,7 @@ defmodule PhoenixKit.Install.DaisyUI do
   The vendored file wins when both exist. The host owns either — PhoenixKit
   does not manage or replace it; it only **checks** it.
   `mix phoenix_kit.install`, `mix phoenix_kit.update`, and
-  `mix phoenix_kit.doctor` warn when the vendored copy is older than
+  `mix phoenix_kit.doctor` warn when the host's copy is older than
   `minimum_version/0`, with upgrade instructions.
 
   Why the minimum matters: daisyUI < 5.1 reserves the modal scrollbar gutter

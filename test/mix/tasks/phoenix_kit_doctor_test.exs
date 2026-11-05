@@ -8,6 +8,28 @@ defmodule Mix.Tasks.PhoenixKit.DoctorTest do
   # `Mix.Tasks.PhoenixKit.RepairTest`: exercise the pure decision the task
   # makes. Here that decision is what `--exit-code` reports to a deploy script.
 
+  describe "daisyui_outdated_message/4" do
+    # `String.capitalize/1` lowercases everything after the first letter, which
+    # turned the product's name into "Vendored daisyui" and "Daisyui dependency".
+    test "keeps the product's name as it is written, for either copy and severity" do
+      for severity <- [:broken, :behind], source <- [:vendored, :dep] do
+        message = DoctorTask.daisyui_outdated_message(severity, "5.0.0", "5.6.0", source)
+
+        assert message =~ "daisyUI"
+        refute message =~ "Daisyui"
+        refute message =~ "daisyui is"
+      end
+    end
+
+    test "names the copy the host actually has" do
+      assert DoctorTask.daisyui_outdated_message(:behind, "5.0.0", "5.6.0", :dep) =~
+               "daisyUI dependency (deps/daisyui) is 5.0.0"
+
+      assert DoctorTask.daisyui_outdated_message(:behind, "5.0.0", "5.6.0", :vendored) =~
+               "vendored daisyUI is 5.0.0"
+    end
+  end
+
   describe "exit_code/1 — only a FAIL gates the run" do
     test "all passing → 0" do
       assert DoctorTask.exit_code([

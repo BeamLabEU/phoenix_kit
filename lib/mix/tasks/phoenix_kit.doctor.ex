@@ -2343,9 +2343,10 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
   defp extract_host_from_url(_), do: nil
 
   # The host owns its daisyUI — assets/vendor/daisyui.js (phx.new before 1.8)
-  # or the sparse :daisyui git dependency (phx.new 1.8). PhoenixKit's modals rely on daisyUI >= the minimum for correct
-  # modal scrollbar-gutter handling — this check is where a host finds out
-  # it's behind (install/update print the same warning).
+  # or the sparse :daisyui git dependency (phx.new 1.8). PhoenixKit's modals
+  # rely on daisyUI >= the minimum for correct modal scrollbar-gutter handling —
+  # this check is where a host finds out it's behind (install/update print the
+  # same warning).
   @vendored_bundle "priv/static/assets/vendor/phoenix_kit.js"
   @library_facts_file "priv/static/assets/vendor/phoenix_kit_modules.js"
 
@@ -2454,20 +2455,23 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
   # Below daisyUI 5.1 modals genuinely mishandle the scrollbar gutter; at or
   # above it the host is merely short of the version core is verified against
-  # (mix phx.new vendors 5.5.19 today, so a clean install lands here). Same
+  # (mix phx.new pins 5.5.20 today, so a clean install lands here). Same
   # split as PhoenixKit.Install.DaisyUI.outdated_warning/1.
-  defp daisyui_outdated_message(:broken, version, minimum, source) do
+  # Exposed (not `defp`) and `@doc false`, same reason as the other pure
+  # decisions of this task: `run/1` is not a unit-test seam.
+  @doc false
+  def daisyui_outdated_message(:broken, version, minimum, source) do
     alias PhoenixKit.Install.DaisyUI
 
-    "#{String.capitalize(DaisyUI.label(source))} is #{version}; PhoenixKit is designed " <>
+    "Your #{DaisyUI.label(source)} is #{version}; PhoenixKit is designed " <>
       "against #{minimum}+. Below #{DaisyUI.gutter_fix_version()} modals mishandle the " <>
       "scrollbar gutter. #{DaisyUI.upgrade_hint(source)} and rebuild assets."
   end
 
-  defp daisyui_outdated_message(:behind, version, minimum, source) do
+  def daisyui_outdated_message(:behind, version, minimum, source) do
     alias PhoenixKit.Install.DaisyUI
 
-    "#{String.capitalize(DaisyUI.label(source))} is #{version}; PhoenixKit is verified " <>
+    "Your #{DaisyUI.label(source)} is #{version}; PhoenixKit is verified " <>
       "against #{minimum}+. Modals render correctly on your copy — advisory only. " <>
       "#{DaisyUI.upgrade_hint(source)} when convenient."
   end

@@ -1668,7 +1668,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       _ -> :ok
     end
 
-    # Advisory only — the host owns assets/vendor/daisyui.js; PhoenixKit's
+    # Advisory only — the host owns its daisyUI; PhoenixKit's
     # modals rely on daisyUI >= DaisyUI.minimum_version() for correct modal
     # scrollbar-gutter handling (see PhoenixKit.Install.DaisyUI).
     defp warn_if_daisyui_outdated do
