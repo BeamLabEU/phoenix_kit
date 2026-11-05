@@ -23089,8 +23089,8 @@ msgstr "Obtenir un nouveau lien"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:413
 #, elixir-autogen, elixir-format
-msgid "Get your notifications in Telegram. You open a link, press Start, and your chat is connected to this account."
-msgstr "Recevez vos notifications dans Telegram. Vous ouvrez un lien, appuyez sur Démarrer, et votre discussion est connectée à ce compte."
+msgid "Connect your Telegram chat to this account: open a link and press Start. It gets the notifications you pick, and the site's bot may let it read your data as you."
+msgstr "Connectez votre discussion Telegram à ce compte : vous ouvrez un lien et appuyez sur Démarrer. Elle reçoit les notifications que vous choisissez, et le bot du site peut lui permettre de lire vos données en votre nom."
 
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:329
 #, elixir-autogen, elixir-format
@@ -23288,8 +23288,8 @@ msgstr "Rien n'est envoyé à Telegram pour un type que vous laissez décoché."
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:306
 #, elixir-autogen, elixir-format
-msgid "Notifications you pick below arrive in your Telegram chat."
-msgstr "Les notifications que vous choisissez ci-dessous arrivent dans votre discussion Telegram."
+msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
+msgstr "Les notifications que vous choisissez ci-dessous arrivent dans votre discussion Telegram, et cette discussion peut lire vos données via le bot du site."
 
 #: lib/phoenix_kit/integrations/providers.ex:1522
 #, elixir-autogen, elixir-format
@@ -23589,8 +23589,8 @@ msgstr "Démarrage…"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:328
 #, elixir-autogen, elixir-format
-msgid "Stop sending notifications to Telegram?"
-msgstr "Ne plus envoyer de notifications à Telegram ?"
+msgid "Disconnect this Telegram chat? Notifications stop, and it can no longer read your data."
+msgstr "Déconnecter cette discussion Telegram ? Les notifications s'arrêtent et elle ne pourra plus lire vos données."
 
 #: lib/phoenix_kit_web/live/components/library_activity.ex:575
 #, elixir-autogen, elixir-format
@@ -24151,3 +24151,28 @@ msgstr "Rien à déplacer"
 #, elixir-autogen, elixir-format
 msgid "%{moved} of %{total} items moved"
 msgstr "%{moved} sur %{total} éléments déplacés"
+
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex
+#, elixir-autogen, elixir-format
+msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
+msgstr "Les messages du bot sont lus par le site, votre conversation ne peut donc pas être détectée ici : associez plutôt votre conversation par son ID ci-dessous."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Telegram can't be connected from this session."
+msgstr "Telegram ne peut pas être connecté depuis cette session."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Telegram can't be connected on this page."
+msgstr "Telegram ne peut pas être connecté sur cette page."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Your Telegram was disconnected because the account was secured (a password change or signing out sessions). Connect it again to receive notifications there."
+msgstr "Votre Telegram a été déconnecté car le compte a été sécurisé (changement de mot de passe ou fermeture de sessions). Reconnectez-le pour y recevoir les notifications."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "A Telegram chat connected to this account earlier is still linked. This account can no longer use Telegram."
+msgstr "Une discussion Telegram connectée auparavant à ce compte est toujours liée. Ce compte ne peut plus utiliser Telegram."

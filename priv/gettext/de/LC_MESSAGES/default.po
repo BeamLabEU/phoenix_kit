@@ -23089,8 +23089,8 @@ msgstr "Neuen Link anfordern"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:413
 #, elixir-autogen, elixir-format
-msgid "Get your notifications in Telegram. You open a link, press Start, and your chat is connected to this account."
-msgstr "Erhalten Sie Ihre Benachrichtigungen in Telegram. Sie öffnen einen Link, tippen auf „Starten“, und Ihr Chat ist mit diesem Konto verbunden."
+msgid "Connect your Telegram chat to this account: open a link and press Start. It gets the notifications you pick, and the site's bot may let it read your data as you."
+msgstr "Verbinden Sie Ihren Telegram-Chat mit diesem Konto: Sie öffnen einen Link und tippen auf „Starten“. Der Chat erhält die von Ihnen gewählten Benachrichtigungen, und der Bot der Website kann ihm erlauben, Ihre Daten als Sie zu lesen."
 
 #: lib/phoenix_kit_web/live/components/library_preferences.ex:329
 #, elixir-autogen, elixir-format
@@ -23288,8 +23288,8 @@ msgstr "Für Typen, die Sie nicht ankreuzen, wird nichts an Telegram gesendet."
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:306
 #, elixir-autogen, elixir-format
-msgid "Notifications you pick below arrive in your Telegram chat."
-msgstr "Die Benachrichtigungen, die Sie unten auswählen, kommen in Ihrem Telegram-Chat an."
+msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
+msgstr "Die Benachrichtigungen, die Sie unten auswählen, kommen in Ihrem Telegram-Chat an, und dieser Chat kann über den Bot der Website Ihre Daten lesen."
 
 #: lib/phoenix_kit/integrations/providers.ex:1522
 #, elixir-autogen, elixir-format
@@ -23589,8 +23589,8 @@ msgstr "Wird gestartet…"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:328
 #, elixir-autogen, elixir-format
-msgid "Stop sending notifications to Telegram?"
-msgstr "Keine Benachrichtigungen mehr an Telegram senden?"
+msgid "Disconnect this Telegram chat? Notifications stop, and it can no longer read your data."
+msgstr "Diesen Telegram-Chat trennen? Die Benachrichtigungen enden, und der Chat kann Ihre Daten nicht mehr lesen."
 
 #: lib/phoenix_kit_web/live/components/library_activity.ex:575
 #, elixir-autogen, elixir-format
@@ -24151,3 +24151,28 @@ msgstr "Nichts zu verschieben"
 #, elixir-autogen, elixir-format
 msgid "%{moved} of %{total} items moved"
 msgstr "%{moved} von %{total} Elementen verschoben"
+
+#: lib/phoenix_kit_web/live/integrations/my_integration_form.ex
+#, elixir-autogen, elixir-format
+msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
+msgstr "Die Nachrichten des Bots werden von der Website gelesen, daher kann Ihr Chat hier nicht erkannt werden – verknüpfen Sie Ihren Chat stattdessen unten über seine ID."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Telegram can't be connected from this session."
+msgstr "Telegram kann aus dieser Sitzung nicht verbunden werden."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Telegram can't be connected on this page."
+msgstr "Telegram kann auf dieser Seite nicht verbunden werden."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "Your Telegram was disconnected because the account was secured (a password change or signing out sessions). Connect it again to receive notifications there."
+msgstr "Ihr Telegram wurde getrennt, weil das Konto abgesichert wurde (Passwortänderung oder Abmeldung von Sitzungen). Verbinden Sie es erneut, um dort Benachrichtigungen zu erhalten."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex
+#, elixir-autogen, elixir-format
+msgid "A Telegram chat connected to this account earlier is still linked. This account can no longer use Telegram."
+msgstr "Ein früher mit diesem Konto verbundener Telegram-Chat ist noch verknüpft. Dieses Konto kann Telegram nicht mehr nutzen."

@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   alias PhoenixKit.Integrations.Providers
   alias PhoenixKit.Integrations.Telegram
   alias PhoenixKit.Integrations.Telegram.ChatLink
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
@@ -435,6 +436,18 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
     mode = socket.assigns.data["mode"] || "single"
     existing = socket.assigns.data["chat_ids"] || []
 
+    if Linking.resident_reader?(uuid) do
+      :reader_holds
+    else
+      peek_telegram_chats(socket, uuid, owner, mode, existing)
+    end
+  end
+
+  defp maybe_capture_telegram_chats(_socket), do: :not_telegram
+
+  # A bot's updates have one reader: while the host's resident reader holds this
+  # bot, reading here would take the updates (button presses, /start) away from it.
+  defp peek_telegram_chats(socket, uuid, owner, mode, existing) do
     case Telegram.get_updates(uuid, offset: nil, owner: owner) do
       {:ok, updates} ->
         %{ids: ids, added: added, meta: meta, candidates: candidates, ambiguous?: ambiguous?} =
@@ -460,8 +473,6 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
         :unreachable
     end
   end
-
-  defp maybe_capture_telegram_chats(_socket), do: :not_telegram
 
   # A working token with nothing linked is the state that used to be reported
   # as plain success — and it is precisely the state in which no notification
@@ -504,6 +515,13 @@ defmodule PhoenixKitWeb.Live.Integrations.MyIntegrationForm do
   # would hide the one thing that just failed.
   defp capture_flash(:unreachable, _socket) do
     {:warning, gettext("The bot answers, but its chats could not be read just now — try again.")}
+  end
+
+  defp capture_flash(:reader_holds, _socket) do
+    {:warning,
+     gettext(
+       "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
+     )}
   end
 
   defp capture_flash(_capture, _socket), do: nil

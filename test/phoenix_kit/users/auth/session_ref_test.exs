@@ -205,6 +205,69 @@ defmodule PhoenixKit.Users.Auth.SessionRefTest do
     end
   end
 
+  describe "scope_for_user/2" do
+    test "an active, confirmed user gives the full scope with narrow: false" do
+      capture_log(fn ->
+        {:ok, _} = Settings.update_boolean_setting("role_switcher_enabled", true)
+      end)
+
+      {reader, _} = role_with(["dashboard"])
+      {writer, _} = role_with(["settings"])
+      user = user_with_roles([reader, writer])
+
+      assert {:ok, %Scope{} = scope} = SessionRef.scope_for_user(user, narrow: false)
+      assert scope.user.uuid == user.uuid
+      assert Scope.active_role(scope) == nil
+      assert Scope.can?(scope, "dashboard")
+      assert Scope.can?(scope, "settings")
+
+      # Narrowed (the default), the user acts as one role, as a session that never switched.
+      assert {:ok, narrowed} = SessionRef.scope_for_user(user, [])
+      assert Scope.active_role(narrowed) != nil
+    end
+
+    test "refuses a blocked, an unconfirmed and an invite-parked user as a session would" do
+      blocked = %{register_user!() | is_active: false}
+
+      capture_log(fn ->
+        assert {:error, :inactive} = SessionRef.scope_for_user(blocked, narrow: false)
+      end)
+
+      assert {:error, :unconfirmed} =
+               SessionRef.scope_for_user(unconfirmed_user!(), narrow: false)
+
+      parked = register_user!()
+      ModuleRegistry.register(InviteOnly)
+      on_exit(fn -> ModuleRegistry.unregister(InviteOnly) end)
+
+      capture_log(fn ->
+        {:ok, _} = Settings.update_boolean_setting("referral_codes_required", true)
+        {:ok, _} = Settings.update_boolean_setting("referral_grandfather_existing", false)
+      end)
+
+      assert {:error, :referral_required} = SessionRef.scope_for_user(parked, narrow: false)
+    end
+  end
+
+  describe "scope_for_user/2 and the people a session never is" do
+    test "refuses a service user and a managed organization, as no web session would let them in" do
+      assert {:error, :service_user} =
+               SessionRef.scope_for_user(%{register_user!() | api_only: true}, narrow: false)
+
+      assert {:error, :managed_organization} =
+               SessionRef.scope_for_user(%{register_user!() | managed_by_members: true},
+                 narrow: false
+               )
+    end
+
+    test "opts are optional, and the default narrows like a session that never switched" do
+      user = register_user!()
+
+      assert {:ok, %Scope{} = scope} = SessionRef.scope_for_user(user)
+      assert scope.user.uuid == user.uuid
+    end
+  end
+
   describe "from_session/1" do
     test "the token row's id and its user, from the session's user_token" do
       user = register_user!()
