@@ -33,6 +33,9 @@ defmodule PhoenixKit.Integrations.Telegram do
   # The Bot API's own cap on a file a bot may download (`getFile`).
   @default_max_bytes 20 * 1024 * 1024
   @download_timeout 60_000
+  # The whole file GET, not one wait for the next chunk: a server that trickles
+  # bytes keeps `receive_timeout` from ever firing.
+  @download_deadline_ms 120_000
   @max_file_id_bytes 1024
 
   # --- Send -----------------------------------------------------------------
@@ -156,11 +159,14 @@ defmodule PhoenixKit.Integrations.Telegram do
   again while the body streams in, so a server that lies about the size cannot
   make this read more than the limit.
 
-  Opts: `:max_bytes` (a positive integer; default 20 MB, the Bot API's own cap)
-  and `:owner` for the credential lookup. Returns `{:ok, binary}` or
-  `{:error, reason}`, where `reason` is
+  Opts: `:max_bytes` (a positive integer; default 20 MB, the Bot API's own cap),
+  `:deadline_ms` (a positive integer; the limit on the whole file download,
+  default 120 s) and `:owner` for the credential lookup. Returns
+  `{:ok, binary}` or `{:error, reason}`, where `reason` is
 
-    * `:invalid_file_id` — not a non-empty string of sane length
+    * `:invalid_file_id` — not a non-empty valid UTF-8 string of sane length
+    * `:invalid_max_bytes` — `:max_bytes` given and not a positive integer
+    * `:timeout` — the download took longer than `:deadline_ms`
     * `{:file_too_large, size, max}` — over the limit (`size` is what `getFile`
       reported, or, when the body streamed past the limit, how much had been
       read by then)
@@ -175,32 +181,43 @@ defmodule PhoenixKit.Integrations.Telegram do
           {:ok, binary()}
           | {:error,
              :invalid_file_id
+             | :invalid_max_bytes
              | :no_file_path
              | :invalid_file_path
              | :not_configured
+             | :deleted
              | :unreachable
+             | :timeout
              | {:file_too_large, non_neg_integer(), pos_integer()}
-             | term()}
+             | String.t()}
   def download_file(uuid, file_id, opts \\ []) when is_binary(uuid) do
-    if valid_file_id?(file_id) do
-      max = max_bytes(opts[:max_bytes])
-      with_token(uuid, opts, &download_with_token(&1, file_id, max))
-    else
-      {:error, :invalid_file_id}
+    with :ok <- validate_file_id(file_id),
+         {:ok, max} <- max_bytes(opts[:max_bytes]) do
+      deadline_ms = positive_or(opts[:deadline_ms], @download_deadline_ms)
+      with_token(uuid, opts, &download_with_token(&1, file_id, max, deadline_ms))
     end
   end
 
-  defp valid_file_id?(file_id),
-    do: is_binary(file_id) and byte_size(file_id) in 1..@max_file_id_bytes
+  defp validate_file_id(file_id) when is_binary(file_id) do
+    if byte_size(file_id) in 1..@max_file_id_bytes and String.valid?(file_id),
+      do: :ok,
+      else: {:error, :invalid_file_id}
+  end
 
-  defp max_bytes(max) when is_integer(max) and max > 0, do: max
-  defp max_bytes(_), do: @default_max_bytes
+  defp validate_file_id(_), do: {:error, :invalid_file_id}
 
-  defp download_with_token(token, file_id, max) do
+  defp max_bytes(nil), do: {:ok, @default_max_bytes}
+  defp max_bytes(max) when is_integer(max) and max > 0, do: {:ok, max}
+  defp max_bytes(_), do: {:error, :invalid_max_bytes}
+
+  defp positive_or(value, _default) when is_integer(value) and value > 0, do: value
+  defp positive_or(_, default), do: default
+
+  defp download_with_token(token, file_id, max, deadline_ms) do
     with {:ok, file} <- request(token, "getFile", %{file_id: file_id}),
          {:ok, path} <- file_path(file),
          :ok <- check_size(file, max) do
-      fetch_file(token, path, max)
+      fetch_file(token, path, max, deadline_ms)
     end
   end
 
@@ -222,14 +239,20 @@ defmodule PhoenixKit.Integrations.Telegram do
 
   defp check_size(_, _), do: :ok
 
-  defp fetch_file(token, path, max) do
+  defp fetch_file(token, path, max, deadline_ms) do
     url = "#{@api_base}/file/bot#{token}/#{path}"
 
     # No redirects (the URL carries the token), no retries, and a body
-    # collector that stops reading once it is past `max`.
+    # collector that stops reading once it is past `max` or past the deadline.
+    deadline = System.monotonic_time(:millisecond) + deadline_ms
+
     options =
-      [into: collector(max), receive_timeout: @download_timeout, retry: false, redirect: false] ++
-        req_options()
+      [
+        into: collector(max, deadline),
+        receive_timeout: @download_timeout,
+        retry: false,
+        redirect: false
+      ] ++ req_options()
 
     case Req.get(url, options) do
       {:ok, %{status: 200} = response} ->
@@ -245,32 +268,43 @@ defmodule PhoenixKit.Integrations.Telegram do
   end
 
   # Collects the body of a 200 as an iolist in the response's private data and
-  # halts the stream at the first chunk that takes it past `max`. The body of
-  # any other status is dropped unread.
-  defp collector(max) do
+  # halts the stream at the first chunk that takes it past `max`, or that
+  # arrives after `deadline` (a monotonic time in ms). The body of any other
+  # status is dropped unread.
+  defp collector(max, deadline) do
     fn {:data, data}, {request, response} ->
-      if response.status == 200 do
-        size = Req.Response.get_private(response, :size, 0) + byte_size(data)
-        chunks = Req.Response.get_private(response, :chunks, [])
+      cond do
+        response.status != 200 ->
+          {:halt, {request, response}}
 
-        response =
-          response
-          |> Req.Response.put_private(:size, size)
-          |> Req.Response.put_private(:chunks, [data | chunks])
+        System.monotonic_time(:millisecond) > deadline ->
+          {:halt, {request, Req.Response.put_private(response, :timed_out, true)}}
 
-        {if(size > max, do: :halt, else: :cont), {request, response}}
-      else
-        {:halt, {request, response}}
+        true ->
+          size = Req.Response.get_private(response, :size, 0) + byte_size(data)
+          chunks = Req.Response.get_private(response, :chunks, [])
+
+          response =
+            response
+            |> Req.Response.put_private(:size, size)
+            |> Req.Response.put_private(:chunks, [data | chunks])
+
+          {if(size > max, do: :halt, else: :cont), {request, response}}
       end
     end
   end
 
   defp read_body(response, max) do
-    case Req.Response.get_private(response, :size, 0) do
-      size when size > max ->
+    size = Req.Response.get_private(response, :size, 0)
+
+    cond do
+      Req.Response.get_private(response, :timed_out, false) ->
+        {:error, :timeout}
+
+      size > max ->
         {:error, {:file_too_large, size, max}}
 
-      _ ->
+      true ->
         {:ok,
          response
          |> Req.Response.get_private(:chunks, [])
@@ -286,8 +320,6 @@ defmodule PhoenixKit.Integrations.Telegram do
        do: "#{inspect(module)} #{reason}"
 
   defp failure_reason(%{__exception__: true, __struct__: module}), do: inspect(module)
-  defp failure_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
-  defp failure_reason(_), do: "unknown"
 
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
 

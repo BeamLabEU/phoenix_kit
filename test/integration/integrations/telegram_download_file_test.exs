@@ -42,6 +42,22 @@ defmodule PhoenixKit.Integration.Integrations.TelegramDownloadFileTest do
     end)
   end
 
+  defmodule LeakyError do
+    @moduledoc false
+    defexception [:message, :url, :reason]
+  end
+
+  # Makes the Req.Test adapter answer with this exception, as a failed request.
+  defp raise_in_adapter(conn, exception),
+    do: put_in(conn.private[:req_test_exception], exception)
+
+  defp send_chunks(conn, sizes) do
+    Enum.reduce(sizes, Plug.Conn.send_chunked(conn, 200), fn size, conn ->
+      {:ok, conn} = Plug.Conn.chunk(conn, String.duplicate("x", size))
+      conn
+    end)
+  end
+
   defp file(extra \\ %{}), do: Map.merge(%{"file_id" => "F1", "file_path" => @file_path}, extra)
 
   describe "download_file/3" do
@@ -98,10 +114,51 @@ defmodule PhoenixKit.Integration.Integrations.TelegramDownloadFileTest do
         conn
       end)
 
-      assert {:error, {:file_too_large, size, 100}} =
+      # Stops at the chunk that crosses the limit: 60, then 120 > 100.
+      assert {:error, {:file_too_large, 120, 100}} =
                Telegram.download_file(connection, "F1", max_bytes: 100)
+    end
 
-      assert size > 100
+    test "a body in several chunks that sums to exactly max_bytes is accepted",
+         %{connection: connection} do
+      stub_bot(file(), &send_chunks(&1, [40, 40, 20]))
+
+      assert {:ok, body} = Telegram.download_file(connection, "F1", max_bytes: 100)
+      assert byte_size(body) == 100
+    end
+
+    test "one byte over max_bytes with no size from getFile is too large",
+         %{connection: connection} do
+      stub_bot(file(), &send_chunks(&1, [40, 40, 21]))
+
+      assert {:error, {:file_too_large, 101, 100}} =
+               Telegram.download_file(connection, "F1", max_bytes: 100)
+    end
+
+    test "a download past the deadline is a :timeout", %{connection: connection} do
+      stub_bot(file(), fn conn ->
+        conn = Plug.Conn.send_chunked(conn, 200)
+        {:ok, conn} = Plug.Conn.chunk(conn, "a")
+        Process.sleep(30)
+        {:ok, conn} = Plug.Conn.chunk(conn, "b")
+        conn
+      end)
+
+      assert {:error, :timeout} = Telegram.download_file(connection, "F1", deadline_ms: 5)
+    end
+
+    test "a redirect is not followed (the Location would be sent the token)",
+         %{connection: connection} do
+      stub_bot(file(), fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("location", "https://elsewhere.test/leak")
+        |> Plug.Conn.send_resp(302, "")
+      end)
+
+      assert {:error, "Telegram error 302"} = Telegram.download_file(connection, "F1")
+
+      assert_received {:telegram, "GET", "/file/bot" <> _}
+      refute_received {:telegram, "GET", "/leak"}
     end
 
     test "getFile's description is returned when Telegram refuses", %{connection: connection} do
@@ -172,11 +229,30 @@ defmodule PhoenixKit.Integration.Integrations.TelegramDownloadFileTest do
       end
     end
 
-    test "a max_bytes that is not a positive integer falls back to the default",
+    test "a file_id that is not valid UTF-8 is refused (it would not encode)",
+         %{connection: connection} do
+      stub_bot(file(), &Plug.Conn.send_resp(&1, 200, "x"))
+
+      assert {:error, :invalid_file_id} = Telegram.download_file(connection, <<0xFF, 0xFE>>)
+      refute_received {:telegram, _, _}
+    end
+
+    test "a max_bytes that is not a positive integer is refused with no request",
          %{connection: connection} do
       stub_bot(file(%{"file_size" => 3}), &Plug.Conn.send_resp(&1, 200, "abc"))
 
-      assert {:ok, "abc"} = Telegram.download_file(connection, "F1", max_bytes: 0)
+      for bad <- [0, -1, 1.5, "100", :infinity] do
+        assert {:error, :invalid_max_bytes} =
+                 Telegram.download_file(connection, "F1", max_bytes: bad)
+      end
+
+      refute_received {:telegram, _, _}
+    end
+
+    test "no max_bytes, or nil, is the default", %{connection: connection} do
+      stub_bot(file(%{"file_size" => 3}), &Plug.Conn.send_resp(&1, 200, "abc"))
+
+      assert {:ok, "abc"} = Telegram.download_file(connection, "F1")
       assert {:ok, "abc"} = Telegram.download_file(connection, "F1", max_bytes: nil)
     end
   end
@@ -208,6 +284,46 @@ defmodule PhoenixKit.Integration.Integrations.TelegramDownloadFileTest do
         refute inspect(result) =~ "SECRETTOKEN"
         refute log =~ "SECRETTOKEN"
       end
+    end
+
+    test "is in no error term or log line when the request error carries the URL",
+         %{connection: connection} do
+      leaky = %LeakyError{
+        message: "request to https://api.telegram.org/file/bot#{@token}/#{@file_path} failed",
+        url: "https://api.telegram.org/file/bot#{@token}/#{@file_path}",
+        reason: "bot#{@token}"
+      }
+
+      stub_bot(file(%{"file_size" => 3}), &raise_in_adapter(&1, leaky))
+
+      log =
+        capture_log([level: :debug], fn ->
+          send(self(), {:result, Telegram.download_file(connection, "F1")})
+        end)
+
+      assert_received {:result, {:error, :unreachable} = result}
+      refute inspect(result) =~ "SECRETTOKEN"
+      assert log =~ "downloadFile failed"
+      refute log =~ "SECRETTOKEN"
+    end
+
+    test "is in no log line when getFile fails with an error that carries the URL",
+         %{connection: connection} do
+      leaky = %LeakyError{
+        message: "request to https://api.telegram.org/bot#{@token}/getFile failed",
+        url: "https://api.telegram.org/bot#{@token}/getFile"
+      }
+
+      Req.Test.stub(@stub, &raise_in_adapter(&1, leaky))
+
+      log =
+        capture_log([level: :debug], fn ->
+          send(self(), {:result, Telegram.download_file(connection, "F1")})
+        end)
+
+      assert_received {:result, {:error, :unreachable}}
+      assert log =~ "getFile failed"
+      refute log =~ "SECRETTOKEN"
     end
 
     test "is in no log line when getFile itself fails", %{connection: connection} do
