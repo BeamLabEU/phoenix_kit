@@ -2309,10 +2309,27 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Updates user custom fields.
+  Replaces a user's custom fields with `custom_fields` — the WHOLE map.
 
   Custom fields are stored as JSONB and can contain arbitrary key-value pairs
   for extending user data without schema changes.
+
+  > #### To set a few keys, use `merge_user_custom_fields/3` {: .warning}
+  >
+  > This writes `custom_fields` over the column as it stands, so any key the
+  > map you pass lacks is removed, and any key it carries from an older read
+  > rolls back whatever was written since. The column is shared: PhoenixKit
+  > itself keeps `notification_preferences`, `preferred_locale` and
+  > `start_page` in it, and other features and modules keep their own keys
+  > there. A host that does `Map.put(user.custom_fields, "key", value)` on a
+  > struct loaded at mount and passes the result here silently undoes every
+  > write that landed in between.
+  >
+  > `merge_user_custom_fields/3` merges at the database level
+  > (`custom_fields || additions`) and is the way to add or change keys;
+  > `delete_user_custom_field/3` removes one. Keep this function for a form
+  > that genuinely owns the whole map, such as an admin editor showing every
+  > field.
 
   ## Examples
 
@@ -2352,6 +2369,11 @@ defmodule PhoenixKit.Users.Auth do
   Atomically merges `additions` into a user's custom_fields JSONB column
   at the database level (`custom_fields || additions`), instead of
   `update_user_custom_fields/3`'s read-modify-write contract.
+
+  **This is the recommended way to set custom-field keys**, from core, a
+  module or the host app alike: the column is shared with PhoenixKit's own
+  keys (`notification_preferences`, `preferred_locale`, `start_page`), and
+  this is the only writer that cannot overwrite them with a stale copy.
 
   Every existing caller that wants to add/update a couple of keys while
   preserving the rest follows the same pattern: fetch the user, compute

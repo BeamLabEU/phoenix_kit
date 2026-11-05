@@ -87,7 +87,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       PrefixConfig,
       RateLimiterConfig,
       RepoDetection,
-      RouterIntegration
+      RouterIntegration,
+      TestFixturesIntegration
     }
 
     # NOTE: Do NOT alias PhoenixKit.Utils.Routes here — it depends on
@@ -141,6 +142,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> warn_user_dashboard_deprecated()
       |> RouterIntegration.add_router_integration(opts[:router_path])
       |> BrowserPipelineIntegration.add_integration_to_browser_pipeline()
+      |> TestFixturesIntegration.ensure_conn_case_import()
       |> EndpointIntegration.add_endpoint_integration()
       |> EndpointIntegration.add_body_guard()
       |> MigrationStrategy.create_phoenix_kit_migration_only(opts)
