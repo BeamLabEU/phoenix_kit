@@ -71,6 +71,7 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
@@ -1508,6 +1509,7 @@ defmodule PhoenixKit.Users.Auth do
   """
   def delete_all_user_session_tokens(user) do
     Revocation.delete_all(UserToken.by_user_and_contexts_query(user, ["session"]))
+    Linking.drop_links(user.uuid)
     :ok
   end
 
@@ -1665,6 +1667,8 @@ defmodule PhoenixKit.Users.Auth do
     |> WelcomeEmail.track_transition(user)
     |> Ecto.Multi.update(:user, changeset)
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
+    # The pre-registrant keeps nothing, a chat linked to the site bot included.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     # Enqueued in this transaction — and in the OAuth callback's around it —
     # so a rollback takes the welcome email with the confirmation.
     |> WelcomeEmail.multi()
@@ -1924,6 +1928,10 @@ defmodule PhoenixKit.Users.Auth do
        }}
     end)
     |> Ecto.Multi.update(:user, fn %{credential_user: current} -> changeset_fun.(current) end)
+    # A chat linked to the site bot acts as the user in the Machine API: a new password is
+    # recovery, so it ends there too, in the transaction that ends the sessions. After the
+    # validating step: a refused change must not log (and broadcast) a drop that never happened.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
   end
 
   # Session-only fields originate with the caller's token loader. Return them

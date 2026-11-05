@@ -37,6 +37,14 @@
 
 ### Fixed
 
+- **Choosing the first manager of a new managed organization works the way it
+  looks.** The Search button only filled a closed dropdown further down the
+  page, so pressing it appeared to do nothing, and a search that found nobody
+  said nothing at all. The page now has one "First manager" picker after the
+  organization's own fields: clicking it lists people, typing narrows the list,
+  and no match says so. The person search also finds a full name ("Mari Tamm")
+  and a username, which it never did, and the searches on an organization's page
+  say when nobody matches.
 - **Backblaze B2 works.** ExAws 2.7 looks a host up from the region before a
   caller's host applies, and raises for a region shaped like AWS's that AWS
   does not have, which is every B2 region (`us-west-002`, `eu-central-003`):

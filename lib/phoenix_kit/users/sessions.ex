@@ -26,6 +26,7 @@ defmodule PhoenixKit.Users.Sessions do
   import Ecto.Query, warn: false
   require Logger
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.RepoHelper, as: Repo
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.ActiveRole
@@ -376,7 +377,12 @@ defmodule PhoenixKit.Users.Sessions do
         )
       )
 
-    if count > 0, do: Events.broadcast_user_sessions_revoked(user_uuid, count)
+    if count > 0 do
+      # The user locked their account down: a chat linked to the site bot is one of the others.
+      Linking.drop_links(user_uuid, actor_uuid: user_uuid)
+      Events.broadcast_user_sessions_revoked(user_uuid, count)
+    end
+
     count
   end
 
@@ -555,11 +561,11 @@ defmodule PhoenixKit.Users.Sessions do
   def revoke_user_sessions(%User{} = user, opts) do
     case Keyword.get(opts, :actor) do
       nil ->
-        do_revoke_user_sessions(user)
+        do_revoke_user_sessions(user, nil)
 
       actor ->
         if can_revoke_sessions_now?(user, actor),
-          do: do_revoke_user_sessions(user),
+          do: do_revoke_user_sessions(user, Map.get(actor, :uuid)),
           else: {:error, :not_permitted}
     end
   end
@@ -573,7 +579,7 @@ defmodule PhoenixKit.Users.Sessions do
 
   defp can_revoke_sessions_now?(_target, _actor), do: false
 
-  defp do_revoke_user_sessions(%User{uuid: user_uuid}) do
+  defp do_revoke_user_sessions(%User{uuid: user_uuid}, actor_uuid) do
     {count, _revoked} =
       Revocation.delete_all(
         from(token in UserToken,
@@ -581,6 +587,9 @@ defmodule PhoenixKit.Users.Sessions do
           select: token.token
         )
       )
+
+    # A chat linked to the site bot acts as the user: "sign out everywhere" ends it too.
+    Linking.drop_links(user_uuid, actor_uuid: actor_uuid)
 
     # Broadcast user sessions revocation event
     if count > 0 do

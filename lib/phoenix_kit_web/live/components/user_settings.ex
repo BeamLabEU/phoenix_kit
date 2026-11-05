@@ -49,6 +49,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   refuses every event. The component checks the person's rights itself, so adding the
   section for someone who holds neither `api_personal_keys` nor `api` shows an explanation too.
 
+  `impersonated` also gates the Telegram card of `:notifications`: a chat link is a standing
+  credential, so a page that does not pass `impersonated: false` offers no Connect there.
+
   ## Parent notifications
 
   Sends `{:phoenix_kit_user_updated, updated_user}` to the parent LiveView
@@ -1959,6 +1962,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               module={PhoenixKitWeb.Live.Components.TelegramNotificationsCard}
               id="telegram-notifications-card"
               user={@user}
+              impersonated={@api_keys_impersonated}
             />
           </div>
         <% end %>

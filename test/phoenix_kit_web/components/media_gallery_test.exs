@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
     cols = Keyword.get(opts, :cols, 4)
     featured_first = Keyword.get(opts, :featured_first, false)
     external_picker = Keyword.get(opts, :external_picker, false)
+    trashable = Keyword.get(opts, :trashable, [])
 
     %{
       id: "test-gallery",
@@ -47,6 +48,10 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
       readonly: readonly,
       external_picker: external_picker,
       max_count: nil,
+      removal_guard: nil,
+      phoenix_kit_current_scope: nil,
+      removal_pending: Keyword.get(opts, :removal_pending),
+      trashable: MapSet.new(trashable),
       title: title,
       show_picker: false,
       preview_uuid: preview_uuid,
@@ -323,6 +328,126 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
         )
 
       refute html =~ "cursor-grab"
+    end
+  end
+
+  # ── tile actions (touch screens) ─────────────────────────────────────────────
+
+  describe "tile actions" do
+    @uuid "01900000-0000-7000-8000-000000000001"
+
+    defp tile(opts) do
+      render(gallery_assigns([selected: [@uuid], variants_map: %{@uuid => []}] ++ opts))
+    end
+
+    defp tag_with(html, data_role) do
+      [tag] = Regex.run(~r/<[^>]*data-role="#{Regex.escape(data_role)}"[^>]*>/, html)
+      tag
+    end
+
+    test "the eye is top-left and shown on hover, on touch and on focus" do
+      eye = tile([]) |> tag_with("preview-image-test-gallery-#{@uuid}")
+
+      assert eye =~ "top-1 left-1"
+      refute eye =~ "bottom-1"
+      assert eye =~ "group-hover:opacity-100"
+      assert eye =~ "pointer-coarse:opacity-100"
+      assert eye =~ "focus-visible:opacity-100"
+    end
+
+    test "the menu is top-right and shown on hover, on touch and on focus" do
+      html = tile([])
+      [wrapper] = Regex.run(~r/<div[^>]*id="test-gallery-menu-#{@uuid}"[^>]*>/, html)
+
+      assert wrapper =~ "top-1 right-1"
+      assert wrapper =~ "group-hover:opacity-100"
+      assert wrapper =~ "pointer-coarse:opacity-100"
+      assert wrapper =~ "focus-within:opacity-100"
+    end
+
+    test "the menu holds Remove from selection, and no X button is left on the tile" do
+      html = tile([])
+
+      assert html =~ "Remove from selection"
+      assert html =~ ~s(phx-click="remove_image")
+      refute html =~ "btn-error"
+      refute html =~ "hero-x-mark\" class=\"w-3 h-3"
+    end
+
+    test "Move to trash is offered only for a file the person may trash" do
+      refute tile([]) =~ "Move to trash"
+      refute tile([]) =~ "trash-image-test-gallery"
+
+      html = tile(trashable: [@uuid])
+      assert html =~ "Move to trash"
+      assert tag_with(html, "trash-image-test-gallery-#{@uuid}") =~ ~s(phx-click="trash_image")
+    end
+
+    test "a readonly gallery keeps the eye and has no menu" do
+      html = tile(readonly: true, trashable: [@uuid])
+
+      assert html =~ "preview-image-test-gallery-#{@uuid}"
+      assert tag_with(html, "preview-image-test-gallery-#{@uuid}") =~ "pointer-coarse:opacity-100"
+      refute html =~ "test-gallery-menu-"
+      refute html =~ "remove-image-test-gallery"
+      refute html =~ "trash-image-test-gallery"
+      refute html =~ "Move to trash"
+    end
+
+    test "the Featured badge moves to the bottom-left, off the eye" do
+      html = tile(featured_first: true)
+      [badge] = Regex.run(~r/<div[^>]*>\s*Featured\s*<\/div>/, html)
+
+      assert badge =~ "bottom-1 left-1"
+      refute badge =~ "top-1"
+    end
+
+    test "readonly refuses the trash events on the server too" do
+      assigns = gallery_assigns(selected: [@uuid], readonly: true, trashable: [@uuid])
+
+      for event <- ["trash_image", "removal_confirm", "removal_release"] do
+        {:noreply, socket} = call_handle_event(event, %{"uuid" => @uuid, "token" => "x"}, assigns)
+        assert socket.assigns.removal_pending == nil
+        assert socket.assigns.selected == [@uuid]
+      end
+    end
+
+    test "a trash or confirm event with no uuid or token changes nothing" do
+      assigns = gallery_assigns(selected: [@uuid], trashable: [@uuid])
+
+      for event <- ["trash_image", "removal_confirm", "removal_release", "removal_cancel"] do
+        {:noreply, socket} = call_handle_event(event, %{}, assigns)
+        assert socket.assigns.removal_pending == nil
+        assert socket.assigns.selected == [@uuid]
+      end
+    end
+
+    test "the removal dialog is drawn when a removal is pending" do
+      pending = %{
+        token: "tok",
+        uuid: @uuid,
+        failed?: false,
+        kind: :trash,
+        skip?: false,
+        folders: 0,
+        selected_file_count: 0,
+        folder_uuids: [],
+        files: [@uuid],
+        free: [@uuid],
+        places: [],
+        names: %{@uuid => "kitchen.png"},
+        free_names: ["kitchen.png"],
+        free_hidden: 0,
+        release_label: nil,
+        error: nil
+      }
+
+      html = tile(removal_pending: pending)
+
+      assert html =~ ~s(id="test-gallery-removal-modal")
+      assert html =~ "Move 1 file to trash?"
+      assert html =~ "kitchen.png"
+      refute tile([]) =~ "removal-modal"
     end
   end
 
@@ -634,7 +759,9 @@ defmodule PhoenixKitWeb.Components.MediaGalleryTest do
         )
 
       assert html =~ "open-picker-test-gallery"
-      refute html =~ "cursor-not-allowed"
+      # The tile menu's items carry `disabled:cursor-not-allowed`; the Add tile must not.
+      [add] = Regex.run(~r/<button[^>]*data-role="open-picker-test-gallery"[^>]*>/, html)
+      refute add =~ "cursor-not-allowed"
     end
 
     @tag :integration
