@@ -378,6 +378,7 @@ defmodule PhoenixKit.API.Flow do
 
   defp label(reason) when reason in [:malformed, :unknown, :wrong_binding], do: "invalid"
   defp label(:wrong_input), do: "other_arguments"
+  defp label(:other_origin), do: "other_origin"
   defp label(:used), do: "used"
   defp label(:rejected), do: "rejected"
   defp label(:expired), do: "expired"
@@ -452,7 +453,9 @@ defmodule PhoenixKit.API.Flow do
       state.tool.name,
       state.input_hash,
       previewed.preview.data,
-      previewed.preview.fingerprint
+      previewed.preview.fingerprint,
+      DateTime.utc_now(),
+      context: Confirm.origin_context(state.session_ref)
     )
     |> session_row(state)
   end
@@ -497,10 +500,15 @@ defmodule PhoenixKit.API.Flow do
   one with the fresh preview (`Confirm.reissue_for_user/7`) and the answer is the prompt of
   the new row with `"reason" => "changed"`. Any other refusal is `409
   confirm_token_invalid` with `context.reason` `invalid` (unknown or somebody else's),
-  `other_arguments`, `used`, `rejected` or `expired`, without a preview.
+  `other_arguments`, `used`, `rejected` or `expired`, without a preview. A linked Telegram
+  chat redeems only a row held for that chat (`Confirm.from_origin?/2`): any other row of the
+  person is refused with `context.reason` `other_origin`, before its status is looked at, and
+  is left as it was. The row that replaces one whose values changed keeps the old row's
+  `context`.
   """
   def redeem_for_session(state, confirmation_uuid) do
     with {:ok, row} <- Confirm.lookup_for_user(confirmation_uuid, state.actor.user_uuid),
+         :ok <- own_origin(state, row),
          :ok <- Confirm.redeemable(row, state.tool.name, state.input_hash),
          {:ok, previewed} <- Executor.preview(state) do
       case Confirm.claim_token(row, previewed.preview.fingerprint) do
@@ -513,6 +521,13 @@ defmodule PhoenixKit.API.Flow do
       {:error, _code, _detail, _context, _state} = error -> error
     end
   end
+
+  # A linked chat redeems only a row held for that chat; a site session redeems any row of
+  # the person. Checked before the status, so a refusal says nothing about the row.
+  defp own_origin(%{session_ref: {:telegram_link, _, _, _} = chat}, row),
+    do: if(Confirm.from_origin?(row, chat), do: :ok, else: {:error, :other_origin})
+
+  defp own_origin(_state, _row), do: :ok
 
   defp reissue_for_session(state, row, previewed) do
     case Confirm.reissue_for_user(

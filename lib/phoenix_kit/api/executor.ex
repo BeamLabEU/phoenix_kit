@@ -188,9 +188,18 @@ defmodule PhoenixKit.API.Executor do
   (`PhoenixKit.Integrations.Telegram.Linking`). Everything above holds, with these
   differences, the first being the one that matters most:
 
-    * a chat **reads only**: `allow: :all` and `redeem_as/6` raise `ArgumentError` for it,
-      so no write tool is listed to a chat, none is held for confirmation from one and
-      none is confirmed from one;
+    * a chat reads by default (`allow: :read`), like a session. With `allow: :all` it
+      proposes writes the same way: `visible_for/3` lists them, `execute_as/5` holds them
+      in a confirmation row, and `redeem_as/6` runs one once the person confirms. The row
+      is **bound to the chat**: its `context` names the bot and the chat
+      (`PhoenixKit.API.Confirm.origin_context/1`), and a chat redeems, reads
+      (`PhoenixKit.API.Confirm.get_for_user/3`) or turns down
+      (`PhoenixKit.API.Confirm.reject_for_user/3`) only the rows held for itself. A row
+      made on the site, or for another chat or bot, is refused to a chat with `409
+      confirm_token_invalid` and `context.reason` `other_origin` (`reject_for_user/3` and
+      `get_for_user/3`: `{:error, :foreign}`), whatever its status. The person's own site
+      session may confirm a row a chat held (the same person, a stronger sign-in). A
+      caller can tell whether the core allows all this with `link_writes?/0`;
     * instead of the session, the **link** is checked on every call: the user is the one
       whose link is that chat of that bot now (`Linking.linked_user/2`); an unlinked or
       relinked chat, another bot, a chat two accounts linked, a malformed reference, a
@@ -212,10 +221,10 @@ defmodule PhoenixKit.API.Executor do
 
   Only the code that read the update from the bot may build this reference, and only from
   `Linking.actor_ref/2`, which accepts a private chat written by that very person (a
-  `callback_query`'s sender and a group message's sender are not the chat); never take one
-  from a message's text or a button's data. A chat never reaches `redeem_as/6`: it raises
-  `ArgumentError` there, like `allow: :all`, so a host that handles a confirm button must
-  not route a chat's press to it.
+  group message's sender is not the chat); never take one from a message's text or a
+  button's data. A button's data names a confirmation at most; who presses is always the
+  chat `Linking.actor_ref/2` returned, and the link, the account gate, the tool's rights and
+  the origin of the row are checked again at the press.
   """
 
   import Plug.Conn
@@ -264,6 +273,14 @@ defmodule PhoenixKit.API.Executor do
 
   @typedoc "Who `visible_for/3` and `execute_as/5` act for."
   @type actor_ref :: SessionRef.t() | telegram_link()
+
+  @doc """
+  Whether this core lets a linked Telegram chat (`t:telegram_link/0`) propose, read, turn
+  down and confirm writes: `true`. A host or module that must also run against an older
+  core, which refuses them, asks `function_exported?/3` first and falls back to reads only.
+  """
+  @spec link_writes?() :: true
+  def link_writes?, do: true
 
   @typedoc "Response headers to send with an outcome: the rate-limit headers."
   @type headers :: [{String.t(), String.t()}]
@@ -386,8 +403,8 @@ defmodule PhoenixKit.API.Executor do
   the session's rights reach, of the modules in `api_session_write_modules`); any other
   value raises `ArgumentError`.
 
-  A linked Telegram chat (`t:telegram_link/0`) is listed the read tools only; `allow: :all`
-  raises `ArgumentError` for it.
+  A linked Telegram chat (`t:telegram_link/0`) is listed the same tools a session of the
+  same user is.
 
   Returns `{:ok, tools, headers}`, or `{:error, code, detail, context, headers}`
   (`:unauthorized` with `context.reason` from `t:SessionRef.refusal/0`, or `:unlinked`
@@ -428,7 +445,8 @@ defmodule PhoenixKit.API.Executor do
       held for the person's confirmation (the answer has `"status":
       "confirmation_required"` and the `"confirmation_id"` to pass to `redeem_as/6`); one
       of another module is refused with `403 module_write_disabled`. Any other value
-      raises `ArgumentError`, as does `:all` for a linked Telegram chat, which reads only.
+      raises `ArgumentError`. For a linked Telegram chat the held row is bound to the chat
+      (see "On behalf of a linked Telegram chat").
     * `:request_context` - keyword list: `:language`, `:base_url`, `:hosts`, `:currency`
       (the handler context, `PhoenixKit.API.RequestContext.from_options/1`),
       `:request_id` (the context's `:request_id`) and `:ip` (the actor's `ip`).
@@ -489,11 +507,16 @@ defmodule PhoenixKit.API.Executor do
 
   Options: `:request_context` and `:via`, as for `execute_as/5`.
 
+  `session_ref` may be a linked Telegram chat (`t:telegram_link/0`): the link and the
+  account gate are checked now, and the row must have been held for that very chat. A row
+  of the site or of another chat or bot is `409 confirm_token_invalid` with
+  `context.reason` `other_origin`, and stays as it was.
+
   As with `execute_as/5` and `allow: :all`, the caller must refuse an impersonated session
   (`PhoenixKitWeb.Users.MultiSession.impersonated?/1`) before it calls: the core cannot tell
   it from the person's own.
   """
-  @spec redeem_as(SessionRef.t(), :admin, term(), String.t(), term(), keyword()) :: outcome()
+  @spec redeem_as(actor_ref(), :admin, term(), String.t(), term(), keyword()) :: outcome()
   def redeem_as(session_ref, :admin, confirmation_uuid, tool_name, input, opts \\ []) do
     state =
       session_ref
@@ -690,16 +713,6 @@ defmodule PhoenixKit.API.Executor do
     end
   end
 
-  # A linked Telegram chat reads only: no write is held for confirmation from a chat, and
-  # none is confirmed from one (`redeem_as/6` runs with `allow: :all`).
-  defp link_reads_only!({:telegram_link, _user_uuid, _connection_uuid, _chat_id}, allow)
-       when allow != :read do
-    raise ArgumentError,
-          "allow: #{inspect(allow)} is not supported for a linked Telegram chat: it reads only (allow: :read)"
-  end
-
-  defp link_reads_only!(_session_ref, _allow), do: :ok
-
   defp default_via({:telegram_link, _user_uuid, _connection_uuid, _chat_id}), do: "telegram"
   defp default_via(_session_ref), do: "session"
 
@@ -731,7 +744,6 @@ defmodule PhoenixKit.API.Executor do
     request = request_options(Keyword.get(opts, :request_context, []))
 
     allow = allow!(opts)
-    link_reads_only!(session_ref, allow)
 
     :admin
     |> base_state(tool_name, input, idempotency_header: false)
@@ -877,12 +889,9 @@ defmodule PhoenixKit.API.Executor do
   defp session_actor(
          %{session_ref: {:telegram_link, user_uuid, connection_uuid, chat_id}} = state
        ) do
-    with %User{uuid: ^user_uuid} = user <- Linking.linked_user(connection_uuid, chat_id),
-         {:ok, %Scope{} = scope} <- SessionRef.scope_for_user(user, narrow: true) do
-      {:ok, %{state | actor: user_actor(state, scope, "telegram")}}
-    else
+    case link_scope(user_uuid, connection_uuid, chat_id) do
+      {:ok, %Scope{} = scope} -> {:ok, %{state | actor: user_actor(state, scope, "telegram")}}
       {:error, reason} -> session_refused(state, reason)
-      _not_linked -> session_refused(state, :unlinked)
     end
   end
 
@@ -890,6 +899,24 @@ defmodule PhoenixKit.API.Executor do
     do: session_refused(state, :unlinked)
 
   defp session_actor(state), do: session_refused(state, :session_gone)
+
+  @doc false
+  # The scope of a linked Telegram chat as it stands now: the chat must be linked to that very
+  # user (`:unlinked` otherwise, also for a malformed reference) and the user pass the
+  # account gate of a session (`SessionRef.scope_for_user/2`), narrowed like a session that
+  # never switched. The one place that rule lives: `session_actor/1` and
+  # `PhoenixKit.API.Confirm` both use it.
+  @spec link_scope(term(), term(), term()) :: {:ok, Scope.t()} | {:error, atom()}
+  def link_scope(user_uuid, connection_uuid, chat_id) do
+    with %User{uuid: ^user_uuid} = user <-
+           Linking.linked_user(connection_uuid, chat_id),
+         {:ok, %Scope{} = scope} <- SessionRef.scope_for_user(user, narrow: true) do
+      {:ok, scope}
+    else
+      {:error, reason} -> {:error, reason}
+      _not_linked -> {:error, :unlinked}
+    end
+  end
 
   defp user_actor(state, %Scope{} = scope, source) do
     %Actor{
