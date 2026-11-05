@@ -135,11 +135,18 @@ defmodule PhoenixKit.Module do
   checked as the composed dotted key `"<module_key>.<key>"` (e.g.
   `"calendar.view_others"`). Both parts must match `~r/^[a-z][a-z0-9_]*$/`,
   so a composed key always contains exactly one dot.
+
+  `:opt_in` (optional, default `false`) set to `true` keeps the Admin role from
+  being given the permission automatically at boot: it is granted to a role only
+  by hand, and the default Admin is still treated as holding every permission it
+  is meant to (`PhoenixKit.Users.Auth.Scope.holds_all_enabled_permissions?/1`
+  leaves the key out). An Owner (`"*"`) holds it regardless.
   """
   @type sub_permission :: %{
-          key: String.t(),
-          label: String.t(),
-          description: String.t()
+          required(:key) => String.t(),
+          required(:label) => String.t(),
+          required(:description) => String.t(),
+          optional(:opt_in) => boolean()
         }
 
   @typedoc """

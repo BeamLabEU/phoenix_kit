@@ -652,9 +652,9 @@ defmodule PhoenixKit.Users.Auth.Scope do
   def holds_all_enabled_permissions?(%__MODULE__{cached_permissions: perms} = scope)
       when not is_nil(perms) do
     # Compare against the OPERATOR baseline: every grantable key EXCEPT the ones
-    # a default Admin is never auto-granted — the built-in opt-in key (personal
-    # `integrations`) AND any `auto_grant_admin: false` custom key. Requiring
-    # those would wrongly deny a default Admin (which holds every operator key
+    # a default Admin is never auto-granted — the opt-in keys (core's, and the
+    # modules' `opt_in: true` sub-permissions) AND any `auto_grant_admin: false`
+    # custom key. Requiring those would wrongly deny a default Admin (which holds every operator key
     # but not those opt-out extras) Owner-equivalence, locking it out of unmapped
     # admin views (the REG-1 regression, which an opt-out custom key otherwise
     # reopens). The `"*"` superadmin key satisfies this directly and

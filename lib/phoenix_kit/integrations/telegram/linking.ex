@@ -24,7 +24,9 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
 
   There is no webhook and no always-on poller: `poll/1` runs when someone is
   waiting (the profile page polls while a link is pending, and has a "I sent
-  it" button). Telegram keeps the offset, so nothing is stored here.
+  it" button). Telegram keeps the offset, so nothing is stored here. Core runs
+  no resident poller of its own; a feature module may supply the site bot's
+  resident reader.
 
   The database work of a batch — spending the tokens and recording the links —
   is one short transaction under a Postgres advisory lock (so two nodes do not

@@ -60,6 +60,33 @@ defmodule PhoenixKit.Integrations.TelegramReqOptionsTest do
              )
   end
 
+  describe "get_updates receive timeout" do
+    test "a long poll waits its own timeout plus ten seconds" do
+      assert Telegram.receive_timeout(25) == 35_000
+      assert Telegram.receive_timeout(30) == 40_000
+    end
+
+    test "a short or absent timeout keeps the default wait" do
+      assert Telegram.receive_timeout(nil) == 15_000
+      assert Telegram.receive_timeout(0) == 15_000
+      assert Telegram.receive_timeout(2) == 15_000
+    end
+
+    test "a long poll that Telegram answers late is not cut off at the default wait" do
+      # Req.Test does not enforce `receive_timeout`, so this only shows a
+      # delayed answer is read as an answer; the wait itself is pinned above.
+      Application.put_env(:phoenix_kit, :telegram_req_options, plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        Process.sleep(150)
+        Req.Test.json(conn, %{"ok" => true, "result" => [%{"update_id" => 1}]})
+      end)
+
+      assert {:ok, [%{"update_id" => 1}]} =
+               Telegram.get_updates_with_token("test-token", timeout: 25)
+    end
+  end
+
   defp stub_updates(expected) do
     Application.put_env(:phoenix_kit, :telegram_req_options, plug: {Req.Test, __MODULE__})
 
