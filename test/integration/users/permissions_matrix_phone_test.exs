@@ -46,7 +46,7 @@ defmodule PhoenixKit.Integration.Users.PermissionsMatrixPhoneTest do
     assert Enum.all?(body_cells, &(Floki.attribute(&1, "title") != [""]))
   end
 
-  test "an editable toggle is at least 32px square on small screens", %{conn: conn} do
+  test "an editable toggle is at least 44px square on small screens", %{conn: conn} do
     {:ok, view, _html} = live(conn, Routes.path("/admin/users/permissions"))
     doc = view |> render() |> Floki.parse_document!()
 
