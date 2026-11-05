@@ -51,7 +51,9 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   - `removal_guard` — the module asked before "Move to trash" (see "Tile
     actions"); `nil` takes the configured one, `false` goes without; default `nil`
   - `phoenix_kit_current_scope` — the scope of the person acting, handed to the
-    removal guard; optional, built from `phoenix_kit_current_user` without it
+    removal guard; optional. A passed scope is used as given when the gallery
+    acts, so the host keeps it current; without it one is built from
+    `phoenix_kit_current_user` at the moment of each action
   - `external_picker` — when `true`, the "Add" tile asks the host to pick
     instead of opening the built-in `MediaSelectorModal` (which is then never
     rendered); see "External picker" below. Default `false`
@@ -405,10 +407,11 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       )
   end
 
-  # The scope of the person acting is built once per change of who that is (the
-  # scope the host hands in, else one made from the user) and kept in the
+  # The scope that draws the menu is built once per change of who the person is
+  # (the scope the host hands in, else one made from the user) and kept in the
   # assigns: building one reads the person's roles and permissions. When it
   # changes, the menu's `trashable` set is judged again for the files shown.
+  # Actions never read it: they decide with `acting_scope/1`.
   defp assign_scope(socket) do
     assigns = socket.assigns
     source = {assigns.phoenix_kit_current_scope, assigns.phoenix_kit_current_user}
