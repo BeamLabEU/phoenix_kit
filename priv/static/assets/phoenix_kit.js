@@ -13912,6 +13912,336 @@ if (typeof window.Chart === "undefined") {
   }
 })();
 
+// ============================================================================
+// AudioRecorder — the microphone behind `<.audio_recorder>`
+// (PhoenixKitWeb.Components.Core.AudioRecorder)
+// ============================================================================
+//
+// Records, turns the clip into what was asked for, and uploads it through the
+// component's own LiveView upload. The states are idle, recording and preparing
+// (converting and uploading), each a `[data-recorder-state]` block of the
+// `phx-update="ignore"` element, so a re-render leaves the one showing alone.
+//
+//   data-recorder     the component's id, on the events that come back
+//   data-format       "wav_16k" or "native"
+//   data-busy         "true" disables the start button
+//   data-max-seconds  recording stops and sends at this length
+//   data-upload-form  id of the component's upload form
+//   data-upload-name  the name of its upload
+//
+// `phx-target` on the element is what makes `pushEventTo(this.el, ...)` reach the
+// component: without it the event goes to the LiveView.
+(function () {
+  const WAV_RATE = 16000;
+  const TICK_MS = 100;
+  // How long a clip may sit in "preparing" with no answer. A dropped connection is
+  // caught sooner, by `reconnected`; this is the upload that dies some other way.
+  const PREPARING_TIMEOUT_MS = 120000;
+
+  // Mono 16-bit PCM behind the 44-byte header the component reads the length from.
+  function encodeWav(samples, rate) {
+    const view = new DataView(new ArrayBuffer(44 + samples.length * 2));
+    const text = (at, s) => {
+      for (let i = 0; i < s.length; i++) view.setUint8(at + i, s.charCodeAt(i));
+    };
+    text(0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    text(8, "WAVE");
+    text(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true);
+    view.setUint32(28, rate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    text(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return view.buffer;
+  }
+
+  function clock(seconds) {
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  }
+
+  // 0 to 100 from an AnalyserNode's time-domain bytes, where silence is 128. Doubled
+  // because speech rarely gets near full scale, and a meter that barely moves reads
+  // as a microphone that is not working.
+  function meterLevel(bytes) {
+    let peak = 0;
+    for (let i = 0; i < bytes.length; i++) peak = Math.max(peak, Math.abs(bytes[i] - 128));
+    return Math.min(100, Math.round((peak / 128) * 200));
+  }
+
+  // The upload's `accept` goes by extension.
+  function extensionFor(mimeType) {
+    const type = String(mimeType || "");
+    if (type.indexOf("ogg") >= 0) return "ogg";
+    if (type.indexOf("mp4") >= 0 || type.indexOf("aac") >= 0) return "mp4";
+    return "webm";
+  }
+
+  function errorReason(error) {
+    const name = error && error.name;
+    return name === "NotAllowedError" || name === "SecurityError" ? "denied" : "unavailable";
+  }
+
+  function canRecord(win, format) {
+    const media = win.navigator && win.navigator.mediaDevices;
+    if (!win.isSecureContext || !media || !media.getUserMedia || !win.MediaRecorder) return false;
+    if (format !== "wav_16k") return true;
+    return !!((win.AudioContext || win.webkitAudioContext) && win.OfflineAudioContext);
+  }
+
+  async function toWav(blob) {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    let decoded;
+    try {
+      decoded = await context.decodeAudioData(await blob.arrayBuffer());
+    } finally {
+      context.close();
+    }
+    const length = Math.max(1, Math.ceil(decoded.duration * WAV_RATE));
+    const offline = new OfflineAudioContext(1, length, WAV_RATE);
+    const source = offline.createBufferSource();
+    source.buffer = decoded;
+    source.connect(offline.destination);
+    source.start();
+    const rendered = await offline.startRendering();
+    return encodeWav(rendered.getChannelData(0), WAV_RATE);
+  }
+
+  window.PhoenixKitHooks.AudioRecorder = {
+    mounted() {
+      this.state = "idle";
+      this.format = this.el.dataset.format;
+      this.chunks = [];
+      if (!canRecord(window, this.format)) return;
+
+      this.ready = true;
+      this.onClick = (event) => {
+        if (event.target.closest("[data-recorder-start]")) this.start();
+        else if (event.target.closest("[data-recorder-send]")) this.stop(true);
+        else if (event.target.closest("[data-recorder-cancel]")) this.stop(false);
+      };
+      // On the element, not the page: focus is on Send while recording, and a key
+      // pressed elsewhere is not about this recorder. Stopped here, or the same
+      // press closes the dialog the recorder sits in.
+      this.onKey = (event) => {
+        if (event.key !== "Escape" || this.state !== "recording") return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.stop(false);
+      };
+      this.el.addEventListener("click", this.onClick);
+      this.el.addEventListener("keydown", this.onKey);
+      this.handleEvent("audio_recorder_settled", (payload) => {
+        if (payload.id === this.el.dataset.recorder && this.state === "preparing") this.settle();
+      });
+      this.el.hidden = false;
+      this.show("idle");
+    },
+
+    updated() {
+      if (this.ready) this.part("start").disabled = this.busy();
+    },
+
+    // The upload died with the connection. The server has no entry left, so
+    // nothing else would ever end this.
+    reconnected() {
+      if (this.state === "preparing") {
+        this.settle();
+        this.push("recorder_error", {reason: "failed"});
+      }
+    },
+
+    destroyed() {
+      this.gone = true;
+      if (!this.ready) return;
+      this.el.removeEventListener("click", this.onClick);
+      this.el.removeEventListener("keydown", this.onKey);
+      clearTimeout(this.preparing);
+      if (this.recorder) this.recorder.onstop = null;
+      if (this.recorder && this.recorder.state === "recording") this.recorder.stop();
+      this.release();
+    },
+
+    part(name) {
+      return this.el.querySelector("[data-recorder-" + name + "]");
+    },
+
+    push(event, payload) {
+      return this.pushEventTo(this.el, event, payload);
+    },
+
+    busy() {
+      return this.el.dataset.busy === "true";
+    },
+
+    show(state) {
+      this.state = state;
+      this.el.querySelectorAll("[data-recorder-state]").forEach((block) => {
+        block.hidden = block.dataset.recorderState !== state;
+      });
+      this.part("start").disabled = this.busy();
+    },
+
+    async start() {
+      if (this.starting || this.state !== "idle" || this.busy()) return;
+      this.starting = true;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      } catch (error) {
+        this.starting = false;
+        if (!this.gone) this.push("recorder_error", {reason: errorReason(error)});
+        return;
+      }
+      this.starting = false;
+      // The permission prompt can outlive the page, and a late stream still holds
+      // the microphone.
+      if (this.gone) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      this.stream = stream;
+      this.chunks = [];
+      try {
+        this.recorder = new MediaRecorder(stream);
+        this.recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) this.chunks.push(event.data);
+        };
+        this.recorder.onstop = () => this.finish();
+        this.recorder.onerror = () => {
+          this.sending = false;
+          this.push("recorder_error", {reason: "unavailable"});
+          this.stop(false);
+        };
+        this.recorder.start();
+      } catch (_error) {
+        this.release();
+        this.push("recorder_error", {reason: "unavailable"});
+        return;
+      }
+      this.startedAt = Date.now();
+      this.startMeter(stream);
+      this.push("recorder_started", {});
+      this.show("recording");
+      this.part("send").focus();
+      this.tick();
+      this.timer = setInterval(() => this.tick(), TICK_MS);
+    },
+
+    // A level meter is a nicety: a browser that cannot run one still records.
+    startMeter(stream) {
+      try {
+        this.meter = new (window.AudioContext || window.webkitAudioContext)();
+        this.analyser = this.meter.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.meter.createMediaStreamSource(stream).connect(this.analyser);
+        this.levels = new Uint8Array(this.analyser.fftSize);
+      } catch (_error) {
+        this.analyser = null;
+      }
+    },
+
+    tick() {
+      const seconds = Math.floor((Date.now() - this.startedAt) / 1000);
+      this.part("time").textContent = clock(seconds);
+      if (this.analyser) {
+        this.analyser.getByteTimeDomainData(this.levels);
+        this.part("level").value = meterLevel(this.levels);
+      }
+      if (seconds >= Number(this.el.dataset.maxSeconds)) this.stop(true);
+    },
+
+    stop(send) {
+      if (!this.recorder || this.recorder.state !== "recording") return;
+      this.sending = send;
+      clearInterval(this.timer);
+      this.recorder.stop();
+    },
+
+    // Everything that keeps the browser's "recording" indicator on.
+    release() {
+      clearInterval(this.timer);
+      if (this.stream) this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+      if (this.meter) this.meter.close();
+      this.meter = null;
+      this.analyser = null;
+    },
+
+    async finish() {
+      const seconds = (Date.now() - this.startedAt) / 1000;
+      const mimeType = this.recorder.mimeType;
+      this.release();
+      if (!this.sending) return this.backToIdle();
+      if (this.chunks.length === 0) return this.unreadable();
+
+      this.show("preparing");
+      try {
+        const file = await this.fileFrom(new Blob(this.chunks, {type: mimeType}));
+        if (this.gone) return;
+        await this.push("recorder_clip", {duration: seconds});
+        this.preparing = setTimeout(() => {
+          this.settle();
+          this.push("recorder_error", {reason: "failed"});
+        }, PREPARING_TIMEOUT_MS);
+        // To this component's own form, by element: `this.upload/2` looks through
+        // the whole LiveView, and with two recorders logs a duplicate input and
+        // drops the clip without an error.
+        const form = document.getElementById(this.el.dataset.uploadForm);
+        this.uploadTo(form, this.el.dataset.uploadName, [file]);
+      } catch (_error) {
+        if (!this.gone) this.unreadable();
+      }
+    },
+
+    async fileFrom(blob) {
+      if (this.format === "wav_16k") {
+        return new File([await toWav(blob)], "clip.wav", {type: "audio/wav"});
+      }
+      // Without `;codecs=opus`, which is no part of the type a server matches on.
+      const type = blob.type.split(";")[0];
+      return new File([blob], "clip." + extensionFor(type), {type: type});
+    },
+
+    unreadable() {
+      this.push("recorder_error", {reason: "unreadable"});
+      this.backToIdle();
+    },
+
+    settle() {
+      clearTimeout(this.preparing);
+      this.backToIdle();
+    },
+
+    // The Send that had focus is hidden now, which leaves a keyboard user at the top
+    // of the page. A clip that stopped on its own must not pull focus from elsewhere.
+    backToIdle() {
+      const active = document.activeElement;
+      const lost = !active || active === document.body || this.el.contains(active);
+      this.show("idle");
+      if (lost) this.part("start").focus();
+    }
+  };
+
+  // Exported for the Node test harness (test/js); harmless in a browser.
+  if (typeof module === "object" && module.exports) {
+    module.exports.encodeWav = encodeWav;
+    module.exports.clock = clock;
+    module.exports.meterLevel = meterLevel;
+    module.exports.extensionFor = extensionFor;
+    module.exports.errorReason = errorReason;
+    module.exports.canRecord = canRecord;
+  }
+})();
+
 // >>> phoenix_kit_upload_manager.js >>> (a verbatim copy; edit that file, then copy it back between these markers)
 // ============================================================================
 // UploadManager — a queue, a speed readout and per-file controls for any

@@ -2,6 +2,18 @@
 
 ### Added
 
+- **`<.audio_recorder>`, a microphone recorder any page can use**
+  (`PhoenixKitWeb.Components.Core.AudioRecorder`, with an `AudioRecorder` hook in
+  `phoenix_kit.js`). A button, a timer, a level meter, Send and Cancel, with the
+  upload inside: the page declares no `allow_upload`, has no hidden form and
+  writes no JavaScript, and gets one message,
+  `{:audio_recorded, id, %{data:, format:, content_type:, duration:}}`.
+  `format={:wav_16k}` makes mono 16 kHz WAV in the browser for speech-to-text;
+  `format={:native}` keeps what the browser recorded. The format, and a WAV's
+  length, are read from the bytes. It works inside a page's `<form>`, with several
+  on one page, and inside a LiveComponent (`target={@myself}`). It stays hidden
+  where it cannot record. Hosts need `mix phoenix_kit.update` for the new
+  `phoenix_kit.js`. No migration.
 - Hetzner Object Storage as a storage service and bucket provider (`hetzner`).
   Its connection form asks for the location (Falkenstein `fsn1`, Nuremberg
   `nbg1`, Helsinki `hel1`) and builds the endpoint

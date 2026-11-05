@@ -162,6 +162,8 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Accordion
       import PhoenixKitWeb.Components.Core.FileUpload
       import PhoenixKitWeb.Components.Core.UploadManager, only: [upload_manager: 1]
+      # `only:` because the module is also a LiveComponent, with its callbacks.
+      import PhoenixKitWeb.Components.Core.AudioRecorder, only: [audio_recorder: 1]
       import PhoenixKitWeb.Components.Core.LanguageSwitcher
       import PhoenixKitWeb.Components.Core.MarkdownContent
       import PhoenixKitWeb.Components.Core.Markdown

@@ -652,6 +652,7 @@ msgstr ""
 #: lib/phoenix_kit/mentions/live.ex:257
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:41
 #: lib/phoenix_kit_web/components/annotation_composer.ex:661
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:369
 #: lib/phoenix_kit_web/components/core/form_actions.ex:119
 #: lib/phoenix_kit_web/components/core/form_actions.ex:126
 #: lib/phoenix_kit_web/components/core/modal.ex:344
@@ -6644,6 +6645,7 @@ msgid "Attach media options"
 msgstr ""
 
 #: lib/phoenix_kit_web/comments_gettext_manifest.ex:50
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:345
 #, elixir-autogen, elixir-format
 msgid "Record"
 msgstr ""
@@ -11788,6 +11790,7 @@ msgid "Send request"
 msgstr ""
 
 #: lib/phoenix_kit/mentions/live.ex:262
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:375
 #, elixir-autogen, elixir-format
 msgid "Sending…"
 msgstr ""
@@ -24206,4 +24209,39 @@ msgstr ""
 #: lib/phoenix_kit_web/live/users/managed_organization_new.ex:162
 #, elixir-autogen, elixir-format
 msgid "Type a name, username or email"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:178
+#, elixir-autogen, elixir-format
+msgid "Microphone access was refused. Allow it in your browser and try again."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:180
+#, elixir-autogen, elixir-format
+msgid "No microphone is available."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:355
+#, elixir-autogen, elixir-format
+msgid "Recording"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:366
+#, elixir-autogen, elixir-format
+msgid "Send"
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:183
+#, elixir-autogen, elixir-format
+msgid "The recording could not be read. Please try again."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:186
+#, elixir-autogen, elixir-format
+msgid "The recording could not be sent. Please try again."
+msgstr ""
+
+#: lib/phoenix_kit_web/components/core/audio_recorder.ex:185
+#, elixir-autogen, elixir-format
+msgid "The recording is too long."
 msgstr ""
