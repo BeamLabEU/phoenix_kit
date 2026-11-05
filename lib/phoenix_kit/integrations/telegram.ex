@@ -60,7 +60,8 @@ defmodule PhoenixKit.Integrations.Telegram do
   @doc """
   Sets the bot's reaction to a message (`setMessageReaction`); it replaces the
   set the bot had put there. `emoji` is one emoji; `nil` or `""` clears the
-  bot's reactions. Opts: `:owner` for the credential lookup. Returns
+  bot's reactions. Telegram accepts only its own list of reaction emoji for
+  bots (👀, 👍, 🤷 are on it; ❗ is not). Opts: `:owner` for the credential lookup. Returns
   `{:ok, true}` or `{:error, reason}` — Telegram's description when it refuses
   (a message that is gone is one such refusal).
   """
@@ -72,7 +73,7 @@ defmodule PhoenixKit.Integrations.Telegram do
           keyword()
         ) :: {:ok, term()} | {:error, term()}
   def set_message_reaction(uuid, chat_id, message_id, emoji, opts \\ [])
-      when is_binary(uuid) and (is_binary(emoji) or is_nil(emoji)) do
+      when is_binary(uuid) and is_integer(message_id) and (is_binary(emoji) or is_nil(emoji)) do
     body = %{chat_id: chat_id, message_id: message_id, reaction: reaction(emoji)}
 
     with_token(uuid, opts, &request(&1, "setMessageReaction", body))

@@ -654,8 +654,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
     # Compare against the OPERATOR baseline: every grantable key EXCEPT the ones
     # a default Admin is never auto-granted — the opt-in keys (core's, and the
     # modules' `opt_in: true` sub-permissions) AND any `auto_grant_admin: false`
-    # custom key. Requiring
-    # those would wrongly deny a default Admin (which holds every operator key
+    # custom key. Requiring those would wrongly deny a default Admin (which holds every operator key
     # but not those opt-out extras) Owner-equivalence, locking it out of unmapped
     # admin views (the REG-1 regression, which an opt-out custom key otherwise
     # reopens). The `"*"` superadmin key satisfies this directly and

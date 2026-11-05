@@ -612,6 +612,9 @@ defmodule PhoenixKit.Users.Permissions do
   for admin-view access). The core ones (the personal `integrations` page, `api`,
   `api_personal_keys`) plus every sub-permission a registered module declared
   with `opt_in: true`; the module's are read from the registry at call time.
+
+  Marking a key opt-in only stops new automatic grants: a grant a role already
+  holds stays until it is revoked.
   """
   @spec opt_in_admin_keys() :: [String.t()]
   def opt_in_admin_keys, do: @opt_in_admin_keys ++ module_opt_in_keys()
@@ -1838,10 +1841,15 @@ defmodule PhoenixKit.Users.Permissions do
     # the system integrations page after it moved off the `settings` key). The
     # PERSONAL `integrations` key is deliberately NOT auto-granted — it's opt-in,
     # so admins don't silently get a personal page they didn't ask for.
+    # The opt-in keys are read once for the whole sweep (the module ones come
+    # from the registry), not once per key.
+    opt_in = MapSet.new(opt_in_admin_keys())
+
     (@core_section_keys ++
        [@integrations_system_key] ++ feature_module_keys() ++ sub_permission_keys())
+    |> Enum.reject(&MapSet.member?(opt_in, &1))
     |> Enum.flat_map(fn key ->
-      case grant_to_admin(key, opts) do
+      case grant_to_admin_now(key, opts) do
         :ok -> []
         {:error, reason} -> [{key, reason}]
       end
