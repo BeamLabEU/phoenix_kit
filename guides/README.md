@@ -35,6 +35,14 @@ This folder contains comprehensive guides to help developers work with PhoenixKi
 - Extending the PhoenixKit admin interface
 - Building admin functionality for your features
 
+#### [Your App as a Module](your-app-as-a-module.md)
+
+**Use PhoenixKit's module hooks from your own application.** Clean up after a
+deleted account (`before_user_delete/1`), declare notification types, schedule
+Oban jobs, protect stored files from the orphan check, add profile settings
+tabs. A host can implement `PhoenixKit.Module` itself and is discovered like
+any other module.
+
 #### [Locale Routing](locale-routing.md)
 
 **Why the language of a page lives in its URL, and how to migrate an app that

@@ -2,10 +2,19 @@ defmodule PhoenixKit.Install.DaisyUI do
   @moduledoc """
   Advisory check of the host's vendored daisyUI version.
 
-  PhoenixKit's UI is styled by daisyUI, which lives in the HOST app
-  (`assets/vendor/daisyui.js` + `daisyui-theme.js`, scaffolded by
-  `mix phx.new` and loaded from the host's `app.css`). The host owns that
-  file — PhoenixKit does not manage or replace it; it only **checks** it.
+  PhoenixKit's UI is styled by daisyUI, which lives in the HOST app and is
+  loaded from the host's `app.css`, in one of two shapes:
+
+  - **vendored** — `assets/vendor/daisyui.js` + `daisyui-theme.js`, which
+    `mix phx.new` scaffolded before 1.8;
+  - **a git dependency** — phx.new 1.8 declares `{:daisyui, github:
+    "saadeghi/daisyui", tag: "v…", sparse: "packages/bundle", …}` in
+    `mix.exs`, and `app.css` loads `deps/daisyui/packages/bundle/daisyui`.
+    The sparse checkout has no `package.json`, but the bundle carries the same
+    `version = "…"` marker as the vendored file.
+
+  The vendored file wins when both exist. The host owns either — PhoenixKit
+  does not manage or replace it; it only **checks** it.
   `mix phoenix_kit.install`, `mix phoenix_kit.update`, and
   `mix phoenix_kit.doctor` warn when the vendored copy is older than
   `minimum_version/0`, with upgrade instructions.
@@ -49,6 +58,18 @@ defmodule PhoenixKit.Install.DaisyUI do
   # broken" and "merely older than we test against".
   @gutter_fix_version "5.1.0"
 
+  @vendored_path ["assets", "vendor", "daisyui.js"]
+  @dep_path ["deps", "daisyui", "packages", "bundle", "daisyui.js"]
+
+  @dep_upgrade_steps """
+  Bump the `tag:` of the :daisyui dependency in mix.exs, then:
+
+      mix deps.update daisyui
+      mix assets.build
+
+  Changelog: https://daisyui.com/docs/changelog/
+  """
+
   @upgrade_steps """
   Update the two files in assets/vendor/ and rebuild assets:
 
@@ -72,9 +93,28 @@ defmodule PhoenixKit.Install.DaisyUI do
   @spec gutter_fix_version() :: String.t()
   def gutter_fix_version, do: @gutter_fix_version
 
-  @doc "The host-side path of the vendored daisyUI plugin."
-  @spec host_path() :: Path.t()
-  def host_path, do: Path.join([File.cwd!(), "assets", "vendor", "daisyui.js"])
+  @doc """
+  The host-side path of the daisyUI plugin the check reads: the vendored file
+  when it exists, else the git dependency's bundle when that exists, else the
+  vendored path (which then reports `:missing`).
+  """
+  @spec host_path(Path.t()) :: Path.t()
+  def host_path(root \\ File.cwd!()) do
+    vendored = Path.join([root | @vendored_path])
+    dep = Path.join([root | @dep_path])
+
+    cond do
+      File.exists?(vendored) -> vendored
+      File.exists?(dep) -> dep
+      true -> vendored
+    end
+  end
+
+  @doc "Whether `path` is the git dependency's bundle (`:dep`) or a vendored copy."
+  @spec source(Path.t()) :: :dep | :vendored
+  def source(path) do
+    if String.ends_with?(path, Path.join(@dep_path)), do: :dep, else: :vendored
+  end
 
   @doc """
   Parse the daisyUI version out of a plugin bundle, or `nil` when the file is
@@ -96,11 +136,14 @@ defmodule PhoenixKit.Install.DaisyUI do
   - `:ok` — present and at/above the minimum
   - `{:outdated, version}` — present but older than the minimum
   - `:unversioned` — present but carries no parseable version marker
-  - `:missing` — no `assets/vendor/daisyui.js` (npm or custom setup)
+  - `:missing` — neither `assets/vendor/daisyui.js` nor the git dependency's
+    bundle (npm or custom setup)
+
+  `root` is the host project directory (default: the current directory).
   """
-  @spec check() :: :ok | {:outdated, String.t()} | :unversioned | :missing
-  def check do
-    path = host_path()
+  @spec check(Path.t()) :: :ok | {:outdated, String.t()} | :unversioned | :missing
+  def check(root \\ File.cwd!()) do
+    path = host_path(root)
 
     cond do
       not File.exists?(path) ->
@@ -150,30 +193,49 @@ defmodule PhoenixKit.Install.DaisyUI do
   The copy follows `severity/1`: a real bug report below
   `gutter_fix_version/0`, an advisory heads-up above it.
   """
-  @spec outdated_warning(String.t()) :: String.t()
-  def outdated_warning(version) when is_binary(version) do
-    warning(severity(version), version)
+  @spec outdated_warning(String.t(), Path.t()) :: String.t()
+  def outdated_warning(version, path \\ host_path()) when is_binary(version) do
+    source = source(path)
+    warning(severity(version), version, label(source), steps(source))
   end
 
-  defp warning(:broken, version) do
+  @doc "How the daisyUI copy is named in messages, by `source/1`."
+  @spec label(:dep | :vendored) :: String.t()
+  def label(:dep), do: "daisyUI dependency (deps/daisyui)"
+  def label(:vendored), do: "vendored daisyUI"
+
+  @doc "The one-line upgrade hint for the copy's source, for the doctor."
+  @spec upgrade_hint(:dep | :vendored) :: String.t()
+  def upgrade_hint(:dep),
+    do: "Bump the :daisyui dependency's tag in mix.exs, run `mix deps.update daisyui`"
+
+  def upgrade_hint(:vendored),
+    do:
+      "Update assets/vendor/daisyui.js + daisyui-theme.js from " <>
+        "https://github.com/saadeghi/daisyui/releases"
+
+  defp steps(:dep), do: @dep_upgrade_steps
+  defp steps(:vendored), do: @upgrade_steps
+
+  defp warning(:broken, version, label, steps) do
     """
-    ⚠️  Your vendored daisyUI is #{version}; PhoenixKit is designed against #{@minimum_version}+.
+    ⚠️  Your #{label} is #{version}; PhoenixKit is designed against #{@minimum_version}+.
     On daisyUI < #{@gutter_fix_version}, opening any modal/drawer mishandles the scrollbar
     gutter (a phantom right-edge strip, or content shifting ~15px on scrolling
     pages). Upgrading is the fix.
 
-    #{@upgrade_steps}
+    #{steps}
     """
   end
 
-  defp warning(:behind, version) do
+  defp warning(:behind, version, label, steps) do
     """
-    ⚠️  Your vendored daisyUI is #{version}; PhoenixKit is verified against #{@minimum_version}+.
+    ⚠️  Your #{label} is #{version}; PhoenixKit is verified against #{@minimum_version}+.
     Your copy already handles the modal scrollbar gutter correctly (daisyUI
     #{@gutter_fix_version}+), so this is a heads-up, not a bug report — nothing is broken.
     Upgrade when convenient to match the version core is tested against.
 
-    #{@upgrade_steps}
+    #{steps}
     """
   end
 end

@@ -61,6 +61,7 @@ if Code.ensure_loaded?(Igniter) do
     alias PhoenixKit.Install.ConfigSplice
     alias PhoenixKit.Install.ConfigVerify
     alias PhoenixKit.Install.IgniterHelpers
+    alias PhoenixKit.Migrations.Repair.Environment
 
     # Lifeline rescues purely by elapsed time, with no check that the node
     # executing the job is still alive, so rescue_after must stay above the
@@ -250,7 +251,13 @@ if Code.ensure_loaded?(Igniter) do
             update_existing_oban_config(source, content, app_name)
           else
             # Find insertion point before import_config statements
-            oban_config = fresh_oban_config(app_name, repo_module, prefix_line)
+            oban_config =
+              fresh_oban_config(
+                app_name,
+                repo_module,
+                prefix_line <> notifier_line(repo_config(app_name, repo_module))
+              )
+
             insertion_point = find_import_config_location(content)
 
             updated_content =
@@ -272,6 +279,40 @@ if Code.ensure_loaded?(Igniter) do
           IO.warn("Failed to add Oban configuration: #{inspect(e)}")
           add_manual_config_notice(igniter, repo_module)
       end
+    end
+
+    @doc """
+    The `notifier:` line for a freshly written Oban block, given the repo's
+    config as Mix has loaded it.
+
+    Oban's default notifier is LISTEN/NOTIFY on the Postgres connection, which
+    a transaction pooler (PgBouncer) breaks silently: jobs still run, but
+    queue pause/resume/scale signals and cross-node wake-ups are dropped. When
+    the repo config looks pooled (`Environment.classify_config/1`: a non-5432
+    port, or a host named like a pooler) the block gets
+    `notifier: Oban.Notifiers.PG`, which carries the signals over Erlang
+    distribution instead and is never worse behind a pooler. Otherwise it
+    gets a comment saying when to switch, because a repo configured only in
+    `runtime.exs` is invisible here and the pooler may still be there.
+    """
+    @spec notifier_line(keyword() | nil) :: String.t()
+    def notifier_line(repo_config) do
+      if is_list(repo_config) and Environment.classify_config(repo_config) == :maybe_pooled do
+        "\n  # Your repo looks like it goes through a connection pooler. Oban's" <>
+          "\n  # default notifier (Postgres LISTEN/NOTIFY) loses its signals behind" <>
+          "\n  # a transaction pooler without any error, so use the PG notifier." <>
+          "\n  notifier: Oban.Notifiers.PG,"
+      else
+        "\n  # Behind a transaction pooler (PgBouncer), Oban's default notifier" <>
+          "\n  # (Postgres LISTEN/NOTIFY) silently drops pause/resume/scale signals." <>
+          "\n  # If you run one, add: notifier: Oban.Notifiers.PG"
+      end
+    end
+
+    # The repo's config as Mix loaded it (config/*.exs, not runtime.exs).
+    defp repo_config(app_name, repo_module) do
+      # `Application` is aliased to Igniter's in this module.
+      Elixir.Application.get_env(:"#{app_name}", Module.concat([repo_module]))
     end
 
     # Built only for a config that does not exist yet: it asks the installed modules for
