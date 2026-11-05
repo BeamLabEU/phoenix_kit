@@ -30,6 +30,10 @@ defmodule PhoenixKit.Integrations.Telegram do
   @timeout 15_000
   # How long past a long poll's own `timeout` (seconds) we wait for the answer.
   @poll_margin_ms 10_000
+  # The Bot API's own cap on a file a bot may download (`getFile`).
+  @default_max_bytes 20 * 1024 * 1024
+  @download_timeout 60_000
+  @max_file_id_bytes 1024
 
   # --- Send -----------------------------------------------------------------
 
@@ -141,6 +145,150 @@ defmodule PhoenixKit.Integrations.Telegram do
     with_token(uuid, opts, &request(&1, "sendChatAction", %{chat_id: chat_id, action: action}))
   end
 
+  # --- Files ----------------------------------------------------------------
+
+  @doc """
+  Downloads a file a user sent to the bot (a voice message, a document) and
+  returns its bytes, so the caller never holds the bot token.
+
+  Calls `getFile` for the file's path and size, then fetches the file. The
+  size is checked twice: from `getFile` before anything is downloaded, and
+  again while the body streams in, so a server that lies about the size cannot
+  make this read more than the limit.
+
+  Opts: `:max_bytes` (a positive integer; default 20 MB, the Bot API's own cap)
+  and `:owner` for the credential lookup. Returns `{:ok, binary}` or
+  `{:error, reason}`, where `reason` is
+
+    * `:invalid_file_id` — not a non-empty string of sane length
+    * `{:file_too_large, size, max}` — over the limit (`size` is what `getFile`
+      reported, or, when the body streamed past the limit, how much had been
+      read by then)
+    * `:no_file_path` / `:invalid_file_path` — `getFile` gave no usable path
+    * Telegram's description when it refuses `getFile`, `"Telegram error <status>"`
+      for an HTTP error of the download, `:unreachable` for a transport failure
+    * `:not_configured` or the credential lookup's error
+
+  The token is in no error term, log line or exception message.
+  """
+  @spec download_file(String.t(), term(), keyword()) ::
+          {:ok, binary()}
+          | {:error,
+             :invalid_file_id
+             | :no_file_path
+             | :invalid_file_path
+             | :not_configured
+             | :unreachable
+             | {:file_too_large, non_neg_integer(), pos_integer()}
+             | term()}
+  def download_file(uuid, file_id, opts \\ []) when is_binary(uuid) do
+    if valid_file_id?(file_id) do
+      max = max_bytes(opts[:max_bytes])
+      with_token(uuid, opts, &download_with_token(&1, file_id, max))
+    else
+      {:error, :invalid_file_id}
+    end
+  end
+
+  defp valid_file_id?(file_id),
+    do: is_binary(file_id) and byte_size(file_id) in 1..@max_file_id_bytes
+
+  defp max_bytes(max) when is_integer(max) and max > 0, do: max
+  defp max_bytes(_), do: @default_max_bytes
+
+  defp download_with_token(token, file_id, max) do
+    with {:ok, file} <- request(token, "getFile", %{file_id: file_id}),
+         {:ok, path} <- file_path(file),
+         :ok <- check_size(file, max) do
+      fetch_file(token, path, max)
+    end
+  end
+
+  defp file_path(%{"file_path" => path}) do
+    # Telegram's paths are like `voice/file_7.oga`; anything else is not put
+    # into the URL the token is in.
+    if is_binary(path) and path =~ ~r/\A[A-Za-z0-9_.\/-]+\z/ and not String.contains?(path, "..") and
+         not String.starts_with?(path, "/") do
+      {:ok, path}
+    else
+      {:error, :invalid_file_path}
+    end
+  end
+
+  defp file_path(_), do: {:error, :no_file_path}
+
+  defp check_size(%{"file_size" => size}, max) when is_integer(size) and size > max,
+    do: {:error, {:file_too_large, size, max}}
+
+  defp check_size(_, _), do: :ok
+
+  defp fetch_file(token, path, max) do
+    url = "#{@api_base}/file/bot#{token}/#{path}"
+
+    # No redirects (the URL carries the token), no retries, and a body
+    # collector that stops reading once it is past `max`.
+    options =
+      [into: collector(max), receive_timeout: @download_timeout, retry: false, redirect: false] ++
+        req_options()
+
+    case Req.get(url, options) do
+      {:ok, %{status: 200} = response} ->
+        read_body(response, max)
+
+      {:ok, %{status: status}} ->
+        {:error, "Telegram error #{status}"}
+
+      {:error, reason} ->
+        Logger.warning("[Telegram] downloadFile failed: #{failure_reason(reason)}")
+        {:error, :unreachable}
+    end
+  end
+
+  # Collects the body of a 200 as an iolist in the response's private data and
+  # halts the stream at the first chunk that takes it past `max`. The body of
+  # any other status is dropped unread.
+  defp collector(max) do
+    fn {:data, data}, {request, response} ->
+      if response.status == 200 do
+        size = Req.Response.get_private(response, :size, 0) + byte_size(data)
+        chunks = Req.Response.get_private(response, :chunks, [])
+
+        response =
+          response
+          |> Req.Response.put_private(:size, size)
+          |> Req.Response.put_private(:chunks, [data | chunks])
+
+        {if(size > max, do: :halt, else: :cont), {request, response}}
+      else
+        {:halt, {request, response}}
+      end
+    end
+  end
+
+  defp read_body(response, max) do
+    case Req.Response.get_private(response, :size, 0) do
+      size when size > max ->
+        {:error, {:file_too_large, size, max}}
+
+      _ ->
+        {:ok,
+         response
+         |> Req.Response.get_private(:chunks, [])
+         |> Enum.reverse()
+         |> IO.iodata_to_binary()}
+    end
+  end
+
+  # What a failed request is logged as: the kind of failure only. A request
+  # error can carry the URL (and so the token), so it is never `inspect`ed.
+  defp failure_reason(%{__exception__: true, reason: reason, __struct__: module})
+       when is_atom(reason),
+       do: "#{inspect(module)} #{reason}"
+
+  defp failure_reason(%{__exception__: true, __struct__: module}), do: inspect(module)
+  defp failure_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp failure_reason(_), do: "unknown"
+
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
 
   @doc """
@@ -232,7 +380,7 @@ defmodule PhoenixKit.Integrations.Telegram do
         {:error, "Telegram error #{status}"}
 
       {:error, reason} ->
-        Logger.warning("[Telegram] #{method} failed: #{inspect(reason)}")
+        Logger.warning("[Telegram] #{method} failed: #{failure_reason(reason)}")
         {:error, :unreachable}
     end
   end
