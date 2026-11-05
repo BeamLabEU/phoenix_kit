@@ -24,7 +24,11 @@ defmodule PhoenixKit.Notifications.ChannelConfig do
   settings page has the current user, the delivery worker loads the recipient).
   """
 
+  import Ecto.Query, only: [from: 2]
+
+  alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.User
 
   @prefix "notification_channel:"
 
@@ -65,13 +69,40 @@ defmodule PhoenixKit.Notifications.ChannelConfig do
   end
 
   @doc """
-  Read-modify-write a channel's config with `fun`. Reads the config off the
-  passed `user`; callers that must not lose a concurrent same-channel write
-  should pass a freshly-loaded user.
+  Read-modify-write a channel's config with `fun`, on the row as it stands: the
+  config is read under a row lock, not off the passed `user`, which only names
+  the account. A struct from earlier (a page's assigns, a worker's load before a
+  send) would write back keys removed since, and a chat dropped from the Telegram
+  channel is a revoked credential (`PhoenixKit.Integrations.Telegram.Linking`).
+
+  Returns `{:error, :not_found}` when the row is gone.
   """
   @spec update(map(), String.t(), (map() -> map())) :: {:ok, map()} | {:error, term()}
   def update(user, channel_key, fun) when is_binary(channel_key) and is_function(fun, 1) do
-    put(user, channel_key, fun.(for_channel(user, channel_key)))
+    repo = RepoHelper.repo()
+
+    locked =
+      from(u in User,
+        where: u.uuid == ^user.uuid,
+        select: u.custom_fields,
+        lock: "FOR NO KEY UPDATE"
+      )
+
+    result =
+      repo.transaction(fn ->
+        case repo.all(locked) do
+          [fields] ->
+            put(user, channel_key, fun.(for_channel(%{custom_fields: fields}, channel_key)))
+
+          [] ->
+            {:error, :not_found}
+        end
+      end)
+
+    case result do
+      {:ok, written} -> written
+      {:error, _reason} = error -> error
+    end
   end
 
   @doc "Removes a channel's config entirely (e.g. user disconnects it)."

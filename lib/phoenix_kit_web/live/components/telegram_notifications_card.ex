@@ -230,11 +230,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
     keys = all_type_keys()
     types = Map.new(keys, &{&1, submitted[&1] == "true"})
 
-    # Read again: the user held in the assigns may predate a link made since,
-    # and the write would put the old channel config back.
-    user = Auth.get_user!(socket.assigns.user.uuid)
-
-    case ChannelConfig.update(user, @channel, &Map.put(&1, "types", types)) do
+    case ChannelConfig.update(socket.assigns.user, @channel, &Map.put(&1, "types", types)) do
       {:ok, _} ->
         {:noreply,
          socket |> assign(:message, {:info, gettext("Telegram preferences saved.")}) |> refresh()}

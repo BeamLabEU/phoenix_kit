@@ -2545,14 +2545,43 @@ defmodule PhoenixKit.Users.Auth do
   defp maybe_update_custom_fields(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
 
   defp maybe_update_custom_fields(user, attrs) do
-    # Merge new custom fields with existing ones (don't replace entirely)
-    existing_custom_fields = user.custom_fields || %{}
-    merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+    # Before the lock: registering a definition writes a setting.
+    CustomFields.ensure_definitions_exist(Map.merge(user.custom_fields || %{}, attrs))
 
-    update_user_custom_fields(
-      user,
-      drop_stale_avatar_crop(merged_custom_fields, existing_custom_fields, attrs)
-    )
+    # Merge new custom fields with existing ones (don't replace entirely). The write below
+    # replaces the whole map, so the merge starts from the row under its lock, not from
+    # `user`: a struct from earlier would restore keys removed since, and a chat dropped from
+    # `notification_channel:telegram` is a revoked credential.
+    result =
+      Repo.transaction(fn ->
+        existing_custom_fields = locked_custom_fields(user)
+        merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+
+        update_user_custom_fields(
+          %{user | custom_fields: existing_custom_fields},
+          drop_stale_avatar_crop(merged_custom_fields, existing_custom_fields, attrs),
+          ensure_definitions: false,
+          broadcast: false
+        )
+      end)
+
+    case result do
+      {:ok, {:ok, updated_user}} ->
+        Events.broadcast_user_updated(updated_user)
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp locked_custom_fields(%User{uuid: uuid}) do
+    Repo.one(
+      from(u in User, where: u.uuid == ^uuid, select: u.custom_fields, lock: "FOR NO KEY UPDATE")
+    ) || %{}
   end
 
   # A stored crop describes the file it was made against — its aspect ratio

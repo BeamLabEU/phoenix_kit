@@ -1204,7 +1204,7 @@ msgstr "Funktionsmodule"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3423
+#: lib/phoenix_kit/users/auth.ex:3474
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -1459,7 +1459,7 @@ msgstr "Noindex/nofollow deaktiviert. Die Website kann wieder indexiert werden."
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow aktiviert. Suchmaschinen werden diese Website nicht indexieren."
 
-#: lib/phoenix_kit/users/permissions.ex:1635
+#: lib/phoenix_kit/users/permissions.ex:1661
 #, elixir-autogen, elixir-format
 msgid "Not authenticated"
 msgstr "Nicht authentifiziert"
@@ -1514,7 +1514,7 @@ msgstr "Nummerierte Liste"
 msgid "OK"
 msgstr "OK"
 
-#: lib/phoenix_kit/users/permissions.ex:1644
+#: lib/phoenix_kit/users/permissions.ex:1670
 #, elixir-autogen, elixir-format
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Nur der Inhaber kann Administratorberechtigungen bearbeiten"
@@ -1564,7 +1564,7 @@ msgstr "Organisationsinformationen gespeichert"
 msgid "Overview of role permissions across all modules"
 msgstr "Überblick über die Rollenberechtigungen in allen Modulen"
 
-#: lib/phoenix_kit/users/permissions.ex:1638
+#: lib/phoenix_kit/users/permissions.ex:1664
 #, elixir-autogen, elixir-format
 msgid "Owner role always has full access and cannot be modified"
 msgstr "Die Rolle „Inhaber“ hat immer vollen Zugriff und kann nicht geändert werden"
@@ -1600,7 +1600,7 @@ msgstr "Passwort erfolgreich geändert."
 msgid "Pending"
 msgstr "Ausstehend"
 
-#: lib/phoenix_kit/users/permissions.ex:1647
+#: lib/phoenix_kit/users/permissions.ex:1673
 #, elixir-autogen, elixir-format
 msgid "Permission denied"
 msgstr "Zugriff verweigert"
@@ -1857,7 +1857,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:777
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:191
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:430
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:426
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1863
 #: lib/phoenix_kit_web/live/notifications/settings.ex:439
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
@@ -2265,7 +2265,7 @@ msgstr "Sie können nur Berechtigungen verwalten, die Sie selbst besitzen"
 msgid "You cannot edit permissions for this role"
 msgstr "Sie können die Berechtigungen dieser Rolle nicht bearbeiten"
 
-#: lib/phoenix_kit/users/permissions.ex:1641
+#: lib/phoenix_kit/users/permissions.ex:1667
 #, elixir-autogen, elixir-format
 msgid "You cannot edit permissions for your own role"
 msgstr "Sie können die Berechtigungen Ihrer eigenen Rolle nicht bearbeiten"
@@ -3879,7 +3879,7 @@ msgstr "Externe Dienste für die modulübergreifende Nutzung verbinden"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:27
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:246
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:291
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:375
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:371
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:494
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:148
@@ -3999,8 +3999,8 @@ msgstr "Standardsteuersatz"
 msgid "Default tax rate applied across Billing and Shop modules"
 msgstr "Standardsteuersatz, der in den Modulen „Abrechnung“ und „Shop“ angewendet wird"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:369
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:403
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:365
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:399
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:551
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:230
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:275
@@ -5368,7 +5368,7 @@ msgstr "Inhalt gespeichert"
 
 #: lib/phoenix_kit/notifications/types.ex:251
 #: lib/phoenix_kit/notifications/types.ex:274
-#: lib/phoenix_kit/users/auth.ex:3410
+#: lib/phoenix_kit/users/auth.ex:3461
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:972
 #: lib/phoenix_kit_web/live/modules.ex:200
 #, elixir-autogen, elixir-format
@@ -5774,7 +5774,7 @@ msgstr "Entitäten"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:235
-#: lib/phoenix_kit/users/auth.ex:3408
+#: lib/phoenix_kit/users/auth.ex:3459
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -11019,7 +11019,7 @@ msgstr "Tags"
 
 #: lib/phoenix_kit/integrations/providers.ex:1466
 #: lib/phoenix_kit/notifications/channels/telegram.ex:60
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:334
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:330
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -14040,27 +14040,27 @@ msgstr "Gesendet"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Wir haben einen Bestätigungslink an %{email} gesendet."
 
-#: lib/phoenix_kit/users/auth.ex:3403
+#: lib/phoenix_kit/users/auth.ex:3454
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Admin-Notizen"
 
-#: lib/phoenix_kit/users/auth.ex:3400
+#: lib/phoenix_kit/users/auth.ex:3451
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Abrechnungsprofile"
 
-#: lib/phoenix_kit/users/auth.ex:3421
+#: lib/phoenix_kit/users/auth.ex:3472
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "E-Mail-Protokolle"
 
-#: lib/phoenix_kit/users/auth.ex:3399
+#: lib/phoenix_kit/users/auth.ex:3450
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth-Verbindungen"
 
-#: lib/phoenix_kit/users/auth.ex:3406
+#: lib/phoenix_kit/users/auth.ex:3457
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Bestellungen"
@@ -14076,22 +14076,22 @@ msgstr "Endgültig löschen"
 msgid "Permanently Delete User"
 msgstr "Benutzer endgültig löschen"
 
-#: lib/phoenix_kit/users/auth.ex:3398
+#: lib/phoenix_kit/users/auth.ex:3449
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Rollenzuweisungen"
 
-#: lib/phoenix_kit/users/auth.ex:3397
+#: lib/phoenix_kit/users/auth.ex:3448
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Sitzungs- und andere Token"
 
-#: lib/phoenix_kit/users/auth.ex:3402
+#: lib/phoenix_kit/users/auth.ex:3453
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Warenkörbe"
 
-#: lib/phoenix_kit/users/auth.ex:3419
+#: lib/phoenix_kit/users/auth.ex:3470
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Support-Tickets"
@@ -22901,7 +22901,7 @@ msgstr "Mit Befunden abgeschlossen"
 msgid "Confirm the access or address change before saving."
 msgstr "Bestätigen Sie die Änderung von Zugriff oder Adresse vor dem Speichern."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:505
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:501
 #, elixir-autogen, elixir-format
 msgid "Connect Telegram"
 msgstr "Telegram verbinden"
@@ -22916,7 +22916,7 @@ msgstr "Verbinden Sie zuerst Ihren Speicher"
 msgid "Connected storage"
 msgstr "Verbundener Speicher"
 
-#: lib/phoenix_kit/integrations/telegram/linking.ex:536
+#: lib/phoenix_kit/integrations/telegram/linking.ex:575
 #, elixir-autogen, elixir-format
 msgid "Connected to %{site}. Your notifications will arrive in this chat."
 msgstr "Mit %{site} verbunden. Ihre Benachrichtigungen kommen in diesem Chat an."
@@ -22951,7 +22951,7 @@ msgstr "Die Varianten konnten nicht geändert werden."
 msgid "Could not change this setting."
 msgstr "Diese Einstellung konnte nicht geändert werden."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:298
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:294
 #, elixir-autogen, elixir-format
 msgid "Could not reach Telegram just now — try again."
 msgstr "Telegram ist gerade nicht erreichbar — versuchen Sie es erneut."
@@ -22971,7 +22971,7 @@ msgstr "Die Bibliothekseinstellungen konnten nicht gespeichert werden."
 msgid "Could not save the membership change. Please try again."
 msgstr "Die Änderung der Mitgliedschaft konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:244
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:240
 #, elixir-autogen, elixir-format
 msgid "Could not save your Telegram preferences."
 msgstr "Ihre Telegram-Einstellungen konnten nicht gespeichert werden."
@@ -23093,12 +23093,12 @@ msgstr "Verfolgen Sie Prüfungen, Kopiervorgänge und Speicheraktualisierungen. 
 msgid "General and access settings are managed by the owner or a site administrator."
 msgstr "Allgemeine und Zugriffseinstellungen werden vom Eigentümer oder von einem Administrator der Website verwaltet."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:481
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:477
 #, elixir-autogen, elixir-format
 msgid "Get a new link"
 msgstr "Neuen Link anfordern"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:494
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:490
 #, elixir-autogen, elixir-format
 msgid "Connect your Telegram chat to this account: open a link and press Start. It gets the notifications you pick, and the site's bot may let it read your data as you."
 msgstr "Verbinden Sie Ihren Telegram-Chat mit diesem Konto: Sie öffnen einen Link und tippen auf „Starten“. Der Chat erhält die von Ihnen gewählten Benachrichtigungen, und der Bot der Website kann ihm erlauben, Ihre Daten als Sie zu lesen."
@@ -23108,8 +23108,8 @@ msgstr "Verbinden Sie Ihren Telegram-Chat mit diesem Konto: Sie öffnen einen Li
 msgid "I understand and confirm the access or address change for this library and its existing files."
 msgstr "Ich verstehe und bestätige die Änderung von Zugriff oder Adresse für diese Bibliothek und ihre vorhandenen Dateien."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:450
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:472
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:446
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:468
 #, elixir-autogen, elixir-format
 msgid "I've sent it"
 msgstr "Ich habe es gesendet"
@@ -23292,12 +23292,12 @@ msgstr "Keine fertige Kopie im ausliefernden Speicher der Bibliothek"
 msgid "No stored copy is recorded"
 msgstr "Keine gespeicherte Kopie erfasst"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:410
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:406
 #, elixir-autogen, elixir-format
 msgid "Nothing is sent to Telegram for a type you leave unchecked."
 msgstr "Für Typen, die Sie nicht ankreuzen, wird nichts an Telegram gesendet."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:376
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:372
 #, elixir-autogen, elixir-format
 msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
 msgstr "Die Benachrichtigungen, die Sie unten auswählen, kommen in Ihrem Telegram-Chat an, und dieser Chat kann über den Bot der Website Ihre Daten lesen."
@@ -23342,12 +23342,12 @@ msgstr "Nur Sie und die von Ihnen hinzugefügten Mitglieder."
 msgid "Only you, invited members and site administrators can browse. Previously downloaded or cached copies cannot be recalled. Storage links already issued may remain valid until they expire."
 msgstr "Nur Sie, eingeladene Mitglieder und Administratoren der Website können sie ansehen. Bereits heruntergeladene oder zwischengespeicherte Kopien lassen sich nicht zurückholen. Bereits ausgegebene Speicherlinks können bis zu ihrem Ablauf gültig bleiben."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:441
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:437
 #, elixir-autogen, elixir-format
 msgid "Open Telegram"
 msgstr "Telegram öffnen"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:435
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:431
 #, elixir-autogen, elixir-format
 msgid "Open the link in Telegram and press Start. This page connects by itself within a few seconds."
 msgstr "Öffnen Sie den Link in Telegram und tippen Sie auf „Starten“. Diese Seite verbindet sich innerhalb weniger Sekunden von selbst."
@@ -23496,7 +23496,7 @@ msgstr "Das Veröffentlichen von Bibliotheken ist für Ihr Konto nicht aktiviert
 msgid "Publishing libraries is not enabled for your account. You can still restrict access."
 msgstr "Das Veröffentlichen von Bibliotheken ist für Ihr Konto nicht aktiviert. Sie können den Zugriff aber weiterhin einschränken."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:394
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:390
 #, elixir-autogen, elixir-format
 msgid "Reconnect"
 msgstr "Erneut verbinden"
@@ -23598,7 +23598,7 @@ msgstr "Prüfung starten"
 msgid "Starting…"
 msgstr "Wird gestartet…"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:246
 #, elixir-autogen, elixir-format
 msgid "Disconnect this Telegram chat? Notifications stop, and it can no longer read your data."
 msgstr "Diesen Telegram-Chat trennen? Die Benachrichtigungen enden, und der Chat kann Ihre Daten nicht mehr lesen."
@@ -23693,7 +23693,7 @@ msgstr "Sperren"
 msgid "Suspended"
 msgstr "Gesperrt"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:381
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:377
 #, elixir-autogen, elixir-format
 msgid "Switched off"
 msgstr "Ausgeschaltet"
@@ -23703,7 +23703,7 @@ msgstr "Ausgeschaltet"
 msgid "Take the public library “%{name}” offline? It answers as private until you bring it back; nothing is deleted."
 msgstr "Die öffentliche Bibliothek „%{name}“ offline nehmen? Sie verhält sich wie eine private, bis Sie sie wieder online stellen; es wird nichts gelöscht."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:292
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:288
 #, elixir-autogen, elixir-format
 msgid "Telegram connected."
 msgstr "Telegram verbunden."
@@ -23719,12 +23719,12 @@ msgstr "Telegram getrennt."
 msgid "Telegram is not available right now. Please try again later."
 msgstr "Telegram ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:240
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:236
 #, elixir-autogen, elixir-format
 msgid "Telegram preferences saved."
 msgstr "Telegram-Einstellungen gespeichert."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:382
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:378
 #, elixir-autogen, elixir-format
 msgid "Telegram was switched off because delivery failed — for example, the bot was blocked."
 msgstr "Telegram wurde ausgeschaltet, weil die Zustellung fehlgeschlagen ist — zum Beispiel, weil der Bot blockiert wurde."
@@ -23786,7 +23786,7 @@ msgstr "Die Bibliothek ist gesperrt"
 msgid "The link expired before Start was pressed. Get a new one."
 msgstr "Der Link ist abgelaufen, bevor auf „Starten“ getippt wurde. Fordern Sie einen neuen an."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:454
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:450
 #, elixir-autogen, elixir-format
 msgid "The link works once and expires in %{minutes} minutes."
 msgstr "Der Link funktioniert einmal und läuft in %{minutes} Minuten ab."
@@ -23862,7 +23862,7 @@ msgstr "Diese Bibliothek hat ihre Grenze für Speicherkopien erreicht. Der vorha
 msgid "This library is suspended by an administrator. Changing access does not lift the suspension."
 msgstr "Diese Bibliothek wurde von einem Administrator gesperrt. Eine Änderung des Zugriffs hebt die Sperre nicht auf."
 
-#: lib/phoenix_kit/integrations/telegram/linking.ex:542
+#: lib/phoenix_kit/integrations/telegram/linking.ex:581
 #, elixir-autogen, elixir-format
 msgid "This link has expired or was already used. Open your notification settings on %{site} and press Connect Telegram again."
 msgstr "Dieser Link ist abgelaufen oder wurde bereits verwendet. Öffnen Sie Ihre Benachrichtigungseinstellungen auf %{site} und klicken Sie erneut auf „Telegram verbinden“."
@@ -23976,7 +23976,7 @@ msgstr "Sichtbarkeit"
 msgid "Waiting for background work"
 msgstr "Wartet auf Hintergrundarbeiten"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:460
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:456
 #, elixir-autogen, elixir-format
 msgid "Waiting for you to press Start in Telegram. If you already did, press the button; otherwise get a new link."
 msgstr "Es wird darauf gewartet, dass Sie in Telegram auf „Starten“ tippen. Wenn Sie das schon getan haben, klicken Sie auf die Schaltfläche; andernfalls fordern Sie einen neuen Link an."
@@ -24022,7 +24022,7 @@ msgstr "Ohne das Häkchen wird diese Verbindung **nicht für Benutzerbenachricht
 msgid "Works: a file can be written, read and deleted."
 msgstr "Funktioniert: Eine Datei kann geschrieben, gelesen und gelöscht werden."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:349
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:345
 #, elixir-autogen, elixir-format
 msgid "You also have your own Telegram bot linked in your integrations — it is used first."
 msgstr "Sie haben außerdem einen eigenen Telegram-Bot in Ihren Integrationen verknüpft — er wird zuerst verwendet."
@@ -24169,22 +24169,22 @@ msgstr "Auch die Dateien der darunterliegenden Ordner anzeigen"
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
 msgstr "Die Nachrichten des Bots werden von der Website gelesen, daher kann Ihr Chat hier nicht erkannt werden – verknüpfen Sie Ihren Chat stattdessen unten über seine ID."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:254
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected from this session."
 msgstr "Telegram kann aus dieser Sitzung nicht verbunden werden."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:255
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:251
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected on this page."
 msgstr "Telegram kann auf dieser Seite nicht verbunden werden."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:486
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:482
 #, elixir-autogen, elixir-format
 msgid "Your Telegram was disconnected because the account was secured (a password change or signing out sessions). Connect it again to receive notifications there."
 msgstr "Ihr Telegram wurde getrennt, weil das Konto abgesichert wurde (Passwortänderung oder Abmeldung von Sitzungen). Verbinden Sie es erneut, um dort Benachrichtigungen zu erhalten."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:358
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:354
 #, elixir-autogen, elixir-format
 msgid "A Telegram chat connected to this account earlier is still linked. This account can no longer use Telegram."
 msgstr "Ein früher mit diesem Konto verbundener Telegram-Chat ist noch verknüpft. Dieses Konto kann Telegram nicht mehr nutzen."

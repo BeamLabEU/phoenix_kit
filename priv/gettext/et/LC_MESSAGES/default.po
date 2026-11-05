@@ -1207,7 +1207,7 @@ msgstr "Funktsionaalsed moodulid"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3423
+#: lib/phoenix_kit/users/auth.ex:3474
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -1462,7 +1462,7 @@ msgstr "Noindex/nofollow keelatud. Saiti saab uuesti indekseerida."
 msgid "Noindex/nofollow enabled. Search engines will not index this site."
 msgstr "Noindex/nofollow lubatud. Otsingumootorid ei indekseeri seda saiti."
 
-#: lib/phoenix_kit/users/permissions.ex:1635
+#: lib/phoenix_kit/users/permissions.ex:1661
 #, elixir-autogen, elixir-format
 msgid "Not authenticated"
 msgstr "Autentimata"
@@ -1517,7 +1517,7 @@ msgstr "Nummerdatud loend"
 msgid "OK"
 msgstr "OK"
 
-#: lib/phoenix_kit/users/permissions.ex:1644
+#: lib/phoenix_kit/users/permissions.ex:1670
 #, elixir-autogen, elixir-format
 msgid "Only the Owner can edit Admin permissions"
 msgstr "Ainult Omanik saab muuta Administraatori õigusi"
@@ -1567,7 +1567,7 @@ msgstr "Organisatsiooni teave salvestatud"
 msgid "Overview of role permissions across all modules"
 msgstr "Rollide õiguste ülevaade kõigis moodulites"
 
-#: lib/phoenix_kit/users/permissions.ex:1638
+#: lib/phoenix_kit/users/permissions.ex:1664
 #, elixir-autogen, elixir-format
 msgid "Owner role always has full access and cannot be modified"
 msgstr "Omaniku rollil on alati täielik juurdepääs ja seda ei saa muuta"
@@ -1603,7 +1603,7 @@ msgstr "Parool muudetud edukalt."
 msgid "Pending"
 msgstr "Ootel"
 
-#: lib/phoenix_kit/users/permissions.ex:1647
+#: lib/phoenix_kit/users/permissions.ex:1673
 #, elixir-autogen, elixir-format
 msgid "Permission denied"
 msgstr "Õigus puudub"
@@ -1860,7 +1860,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/media_browser/grid_view.html.heex:74
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:777
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:191
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:430
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:426
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1863
 #: lib/phoenix_kit_web/live/notifications/settings.ex:439
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
@@ -2269,7 +2269,7 @@ msgstr "Sa saad hallata ainult õigusi, mis sul on"
 msgid "You cannot edit permissions for this role"
 msgstr "Sa ei saa muuta selle rolli õigusi"
 
-#: lib/phoenix_kit/users/permissions.ex:1641
+#: lib/phoenix_kit/users/permissions.ex:1667
 #, elixir-autogen, elixir-format
 msgid "You cannot edit permissions for your own role"
 msgstr "Sa ei saa muuta oma rolli õigusi"
@@ -3884,7 +3884,7 @@ msgstr "Ühenda välised teenused kasutamiseks kõigis moodulites"
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:27
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:246
 #: lib/phoenix_kit_web/components/core/integrations_ui.ex:291
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:375
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:371
 #: lib/phoenix_kit_web/live/settings/email_sending.ex:494
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:94
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:148
@@ -4004,8 +4004,8 @@ msgstr "Vaikimisi maksumäär"
 msgid "Default tax rate applied across Billing and Shop modules"
 msgstr "Vaikimisi maksumäär, mida rakendatakse Arvelduse ja Poe moodulites"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:369
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:403
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:365
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:399
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:551
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:230
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:275
@@ -5373,7 +5373,7 @@ msgstr "Sisu salvestatud"
 
 #: lib/phoenix_kit/notifications/types.ex:251
 #: lib/phoenix_kit/notifications/types.ex:274
-#: lib/phoenix_kit/users/auth.ex:3410
+#: lib/phoenix_kit/users/auth.ex:3461
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:972
 #: lib/phoenix_kit_web/live/modules.ex:200
 #, elixir-autogen, elixir-format
@@ -5779,7 +5779,7 @@ msgstr "Üksused"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:235
-#: lib/phoenix_kit/users/auth.ex:3408
+#: lib/phoenix_kit/users/auth.ex:3459
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -11028,7 +11028,7 @@ msgstr "Sildid"
 
 #: lib/phoenix_kit/integrations/providers.ex:1466
 #: lib/phoenix_kit/notifications/channels/telegram.ex:60
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:334
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:330
 #, elixir-autogen, elixir-format
 msgid "Telegram"
 msgstr "Telegram"
@@ -14049,27 +14049,27 @@ msgstr "Saadetud"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Saatsime kinnituslingi aadressile %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3403
+#: lib/phoenix_kit/users/auth.ex:3454
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Administraatori märkmed"
 
-#: lib/phoenix_kit/users/auth.ex:3400
+#: lib/phoenix_kit/users/auth.ex:3451
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Arveldusprofiilid"
 
-#: lib/phoenix_kit/users/auth.ex:3421
+#: lib/phoenix_kit/users/auth.ex:3472
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "E-posti logid"
 
-#: lib/phoenix_kit/users/auth.ex:3399
+#: lib/phoenix_kit/users/auth.ex:3450
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "OAuth-ühendused"
 
-#: lib/phoenix_kit/users/auth.ex:3406
+#: lib/phoenix_kit/users/auth.ex:3457
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Tellimused"
@@ -14085,22 +14085,22 @@ msgstr "Kustuta jäädavalt"
 msgid "Permanently Delete User"
 msgstr "Kustuta kasutaja jäädavalt"
 
-#: lib/phoenix_kit/users/auth.ex:3398
+#: lib/phoenix_kit/users/auth.ex:3449
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Rollide määramised"
 
-#: lib/phoenix_kit/users/auth.ex:3397
+#: lib/phoenix_kit/users/auth.ex:3448
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Seansi- ja muud tokenid"
 
-#: lib/phoenix_kit/users/auth.ex:3402
+#: lib/phoenix_kit/users/auth.ex:3453
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Ostukorvid"
 
-#: lib/phoenix_kit/users/auth.ex:3419
+#: lib/phoenix_kit/users/auth.ex:3470
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Tugipäringud"
@@ -22910,7 +22910,7 @@ msgstr "Lõpetatud, leiti probleeme"
 msgid "Confirm the access or address change before saving."
 msgstr "Enne salvestamist kinnitage juurdepääsu või aadressi muudatus."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:505
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:501
 #, elixir-autogen, elixir-format
 msgid "Connect Telegram"
 msgstr "Ühenda Telegram"
@@ -22925,7 +22925,7 @@ msgstr "Ühendage kõigepealt oma salvestus"
 msgid "Connected storage"
 msgstr "Ühendatud salvestus"
 
-#: lib/phoenix_kit/integrations/telegram/linking.ex:536
+#: lib/phoenix_kit/integrations/telegram/linking.ex:575
 #, elixir-autogen, elixir-format
 msgid "Connected to %{site}. Your notifications will arrive in this chat."
 msgstr "Ühendatud saidiga %{site}. Teie teavitused saabuvad sellesse vestlusse."
@@ -22960,7 +22960,7 @@ msgstr "Variante ei õnnestunud muuta."
 msgid "Could not change this setting."
 msgstr "Seda seadet ei õnnestunud muuta."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:298
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:294
 #, elixir-autogen, elixir-format
 msgid "Could not reach Telegram just now — try again."
 msgstr "Telegramiga ei saanud praegu ühendust — proovige uuesti."
@@ -22980,7 +22980,7 @@ msgstr "Kogu seadeid ei õnnestunud salvestada."
 msgid "Could not save the membership change. Please try again."
 msgstr "Liikmesuse muudatust ei õnnestunud salvestada. Palun proovige uuesti."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:244
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:240
 #, elixir-autogen, elixir-format
 msgid "Could not save your Telegram preferences."
 msgstr "Teie Telegrami eelistusi ei õnnestunud salvestada."
@@ -23102,12 +23102,12 @@ msgstr "Jälgige kontrolle, kopeerimist ja salvestuse uuendusi. Avage toiming, e
 msgid "General and access settings are managed by the owner or a site administrator."
 msgstr "Üld- ja juurdepääsuseadeid haldab omanik või saidi administraator."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:481
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:477
 #, elixir-autogen, elixir-format
 msgid "Get a new link"
 msgstr "Hangi uus link"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:494
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:490
 #, elixir-autogen, elixir-format
 msgid "Connect your Telegram chat to this account: open a link and press Start. It gets the notifications you pick, and the site's bot may let it read your data as you."
 msgstr "Ühendage oma Telegrami vestlus selle kontoga: avate lingi ja vajutate „Start“. Vestlus saab teie valitud teavitused ning saidi bot võib lubada tal lugeda teie andmeid teie nimel."
@@ -23117,8 +23117,8 @@ msgstr "Ühendage oma Telegrami vestlus selle kontoga: avate lingi ja vajutate �
 msgid "I understand and confirm the access or address change for this library and its existing files."
 msgstr "Mõistan ja kinnitan selle kogu ja selle olemasolevate failide juurdepääsu või aadressi muudatuse."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:450
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:472
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:446
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:468
 #, elixir-autogen, elixir-format
 msgid "I've sent it"
 msgstr "Olen saatnud"
@@ -23301,12 +23301,12 @@ msgstr "Kogu serveerivas salvestuses pole valmis koopiat"
 msgid "No stored copy is recorded"
 msgstr "Salvestatud koopiat pole registreeritud"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:410
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:406
 #, elixir-autogen, elixir-format
 msgid "Nothing is sent to Telegram for a type you leave unchecked."
 msgstr "Märkimata jäetud tüübi kohta ei saadeta Telegrami midagi."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:376
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:372
 #, elixir-autogen, elixir-format
 msgid "Notifications you pick below arrive in your Telegram chat, and this chat may read your data through the site's bot."
 msgstr "Allpool valitud teavitused saabuvad teie Telegrami vestlusse ja see vestlus võib saidi boti kaudu lugeda teie andmeid."
@@ -23351,12 +23351,12 @@ msgstr "Ainult teie ja teie lisatud liikmed."
 msgid "Only you, invited members and site administrators can browse. Previously downloaded or cached copies cannot be recalled. Storage links already issued may remain valid until they expire."
 msgstr "Sirvida saavad ainult teie, kutsutud liikmed ja saidi administraatorid. Varem alla laaditud või vahemällu salvestatud koopiaid ei saa tagasi võtta. Juba väljastatud salvestuslingid võivad kehtida kuni aegumiseni."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:441
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:437
 #, elixir-autogen, elixir-format
 msgid "Open Telegram"
 msgstr "Ava Telegram"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:435
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:431
 #, elixir-autogen, elixir-format
 msgid "Open the link in Telegram and press Start. This page connects by itself within a few seconds."
 msgstr "Avage link Telegramis ja vajutage „Start“. See leht ühendub mõne sekundi jooksul ise."
@@ -23505,7 +23505,7 @@ msgstr "Kogude avaldamine pole teie kontole lubatud."
 msgid "Publishing libraries is not enabled for your account. You can still restrict access."
 msgstr "Kogude avaldamine pole teie kontole lubatud. Juurdepääsu saate siiski piirata."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:394
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:390
 #, elixir-autogen, elixir-format
 msgid "Reconnect"
 msgstr "Ühenda uuesti"
@@ -23608,7 +23608,7 @@ msgstr "Alusta kontrolli"
 msgid "Starting…"
 msgstr "Alustamine…"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:246
 #, elixir-autogen, elixir-format
 msgid "Disconnect this Telegram chat? Notifications stop, and it can no longer read your data."
 msgstr "Kas katkestada ühendus selle Telegrami vestlusega? Teavitused lõpevad ja vestlus ei saa enam teie andmeid lugeda."
@@ -23703,7 +23703,7 @@ msgstr "Peata"
 msgid "Suspended"
 msgstr "Peatatud"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:381
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:377
 #, elixir-autogen, elixir-format
 msgid "Switched off"
 msgstr "Välja lülitatud"
@@ -23713,7 +23713,7 @@ msgstr "Välja lülitatud"
 msgid "Take the public library “%{name}” offline? It answers as private until you bring it back; nothing is deleted."
 msgstr "Kas võtta avalik kogu „%{name}“ võrgust maha? Kuni te selle taastate, käitub see nagu privaatne kogu; midagi ei kustutata."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:292
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:288
 #, elixir-autogen, elixir-format
 msgid "Telegram connected."
 msgstr "Telegram ühendatud."
@@ -23729,12 +23729,12 @@ msgstr "Telegram lahti ühendatud."
 msgid "Telegram is not available right now. Please try again later."
 msgstr "Telegram pole praegu saadaval. Palun proovige hiljem uuesti."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:240
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:236
 #, elixir-autogen, elixir-format
 msgid "Telegram preferences saved."
 msgstr "Telegrami eelistused salvestatud."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:382
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:378
 #, elixir-autogen, elixir-format
 msgid "Telegram was switched off because delivery failed — for example, the bot was blocked."
 msgstr "Telegram lülitati välja, sest edastamine ebaõnnestus — näiteks oli bot blokeeritud."
@@ -23796,7 +23796,7 @@ msgstr "Kogu on peatatud"
 msgid "The link expired before Start was pressed. Get a new one."
 msgstr "Link aegus enne, kui vajutati „Start“. Hankige uus link."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:454
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:450
 #, elixir-autogen, elixir-format
 msgid "The link works once and expires in %{minutes} minutes."
 msgstr "Link töötab ühe korra ja aegub %{minutes} minuti pärast."
@@ -23872,7 +23872,7 @@ msgstr "See kogu on jõudnud salvestuskoopiate piirini. Olemasolev salvestus jä
 msgid "This library is suspended by an administrator. Changing access does not lift the suspension."
 msgstr "Administraator on selle kogu peatanud. Juurdepääsu muutmine ei tühista peatamist."
 
-#: lib/phoenix_kit/integrations/telegram/linking.ex:542
+#: lib/phoenix_kit/integrations/telegram/linking.ex:581
 #, elixir-autogen, elixir-format
 msgid "This link has expired or was already used. Open your notification settings on %{site} and press Connect Telegram again."
 msgstr "See link on aegunud või juba kasutatud. Avage oma teavituste seaded saidil %{site} ja vajutage uuesti „Ühenda Telegram“."
@@ -23986,7 +23986,7 @@ msgstr "Nähtavus"
 msgid "Waiting for background work"
 msgstr "Ootab taustatöid"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:460
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:456
 #, elixir-autogen, elixir-format
 msgid "Waiting for you to press Start in Telegram. If you already did, press the button; otherwise get a new link."
 msgstr "Ootame, et vajutaksite Telegramis „Start“. Kui juba vajutasite, vajutage nuppu; muul juhul hankige uus link."
@@ -24032,7 +24032,7 @@ msgstr "Märkimata jätmisel **ei kasutata seda ühendust kasutajate teavitustek
 msgid "Works: a file can be written, read and deleted."
 msgstr "Töötab: faili saab kirjutada, lugeda ja kustutada."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:349
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:345
 #, elixir-autogen, elixir-format
 msgid "You also have your own Telegram bot linked in your integrations — it is used first."
 msgstr "Teie integratsioonides on seotud ka teie enda Telegrami bot — seda kasutatakse esimesena."
@@ -24179,22 +24179,22 @@ msgstr "Näita ka allpool asuvate kaustade faile"
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
 msgstr "Roboti sõnumeid loeb sait, mistõttu ei saa teie vestlust siin tuvastada – siduge oma vestlus hoopis allpool selle ID järgi."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:254
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected from this session."
 msgstr "Telegrami ei saa sellest sessioonist ühendada."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:255
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:251
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected on this page."
 msgstr "Telegrami ei saa sellel lehel ühendada."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:486
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:482
 #, elixir-autogen, elixir-format
 msgid "Your Telegram was disconnected because the account was secured (a password change or signing out sessions). Connect it again to receive notifications there."
 msgstr "Teie Telegrami ühendus katkestati, sest konto turvati (parooli muutmine või sessioonide lõpetamine). Ühendage see uuesti, et seal teavitusi saada."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:358
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:354
 #, elixir-autogen, elixir-format
 msgid "A Telegram chat connected to this account earlier is still linked. This account can no longer use Telegram."
 msgstr "Varem selle kontoga ühendatud Telegrami vestlus on endiselt seotud. See konto ei saa enam Telegrami kasutada."

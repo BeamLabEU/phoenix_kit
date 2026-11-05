@@ -70,20 +70,27 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   so the link is dropped (`drop_links/1`, the routing choices stay) when the user
   recovers the account: a password change or reset (also by an administrator), the
   confirmation of an unconfirmed account by an external proof, signing out all sessions or
-  the others (when there were any), deactivation. Signing out one session leaves it.
+  the others (when there were any), deactivation, the conversion of an organization to
+  managed or back. Signing out one session leaves it.
   Link tokens not used yet go with it, because a token is not bound to the session that
   minted it. The chat is also where the user's Telegram notifications go, so they stop
   until it is connected again: the activity feed gets a `telegram.link_dropped` entry
   and the card says so (`link_dropped_at`).
 
-  The password writes and the confirmation drop the link in the transaction that rotates the
-  credential, so a failed change keeps it. Signing out sessions and deactivation drop it in a
-  statement of their own right after the sessions are deleted: if that one failed, the
-  sessions would be gone and the link would stay.
+  The password writes, the confirmation and the conversions drop the link in the transaction
+  that rotates the credential, so a failed change keeps it. Signing out sessions and
+  deactivation drop it in a statement of their own right after the sessions are deleted: if
+  that one failed, the sessions would be gone and the link would stay.
+
+  A dropped link has to stay dropped, so a write that goes back to the user's `custom_fields`
+  must not start from a struct held since: the channel's map goes through
+  `ChannelConfig.update/3` and a merge through `Auth.update_user_fields/2`, both of which read
+  the row under its lock, or through `Auth.merge_user_custom_fields/3`, which names its keys.
 
   A managed organization (`managed_by_members`) and a service user (`api_only`) cannot link
   a chat (`linkable?/1`) and are nobody's link (`linked_user/2`); a link one of them stored
-  earlier is inert, and the card lets such an account disconnect it.
+  earlier is inert, and the card lets such an account disconnect it. It never comes back to
+  life: the conversion to an independent organization drops it.
   """
 
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -182,28 +189,34 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
           {:ok, %{user_uuid: String.t(), connection_uuid: String.t()}} | :error
   def consume_token(token, connection_uuid)
       when is_binary(token) and is_binary(connection_uuid) do
+    with {:ok, query} <- live_token(token, connection_uuid),
+         spend = select(query, [t], %{user_uuid: t.user_uuid, connection_uuid: t.sent_to}),
+         {1, [row]} <- RepoHelper.repo().delete_all(spend) do
+      {:ok, row}
+    else
+      _ -> :error
+    end
+  end
+
+  def consume_token(_token, _connection_uuid), do: :error
+
+  # The row of a token that is still good for this bot, as a query.
+  defp live_token(token, connection_uuid) do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded} when decoded != "" ->
         hashed = :crypto.hash(:sha256, decoded)
 
-        query =
-          from t in UserToken,
-            where:
-              t.token == ^hashed and t.context == @context and t.sent_to == ^connection_uuid and
-                t.inserted_at > ago(^@ttl_minutes, "minute"),
-            select: %{user_uuid: t.user_uuid, connection_uuid: t.sent_to}
-
-        case RepoHelper.repo().delete_all(query) do
-          {1, [row]} -> {:ok, row}
-          _ -> :error
-        end
+        {:ok,
+         from(t in UserToken,
+           where:
+             t.token == ^hashed and t.context == @context and t.sent_to == ^connection_uuid and
+               t.inserted_at > ago(^@ttl_minutes, "minute")
+         )}
 
       _ ->
         :error
     end
   end
-
-  def consume_token(_token, _connection_uuid), do: :error
 
   # --- Polling ----------------------------------------------------------------
 
@@ -472,12 +485,36 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   end
 
   defp link_one(connection_uuid, chat_id, token, outcomes) do
-    with {:ok, %{user_uuid: user_uuid}} <- consume_token(token, connection_uuid),
+    with {:ok, user_uuid} <- lock_token_owner(token, connection_uuid),
+         {:ok, _spent} <- consume_token(token, connection_uuid),
          %{} = user <- Auth.get_user(user_uuid),
          {:ok, _} <- link_chat(user, connection_uuid, chat_id) do
       Map.put(outcomes, chat_id, {:linked, user})
     else
       _ -> Map.put_new_lazy(outcomes, chat_id, fn -> failure(connection_uuid, chat_id) end)
+    end
+  end
+
+  # The user's row before the token, the order everything else takes the two in: a
+  # credential change holds the row when it deletes the tokens, so spending the token first
+  # deadlocks with it. A change in flight is waited for here, and by then it has taken the
+  # token, which `consume_token/2` finds gone.
+  defp lock_token_owner(token, connection_uuid) do
+    repo = RepoHelper.repo()
+
+    with {:ok, query} <- live_token(token, connection_uuid),
+         user_uuid when is_binary(user_uuid) <- repo.one(select(query, [t], t.user_uuid)),
+         [_row] <-
+           repo.all(
+             from(u in User,
+               where: u.uuid == ^user_uuid,
+               select: u.uuid,
+               lock: "FOR NO KEY UPDATE"
+             )
+           ) do
+      {:ok, user_uuid}
+    else
+      _ -> :error
     end
   end
 
@@ -558,7 +595,7 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   """
   @spec link_chat(map(), String.t(), integer() | String.t()) :: {:ok, map()} | {:error, term()}
   def link_chat(%{uuid: user_uuid}, connection_uuid, chat_id) do
-    # Fresh from the database: `ChannelConfig.update/3` writes back what it read.
+    # Fresh from the database: the checks below read the user, not the caller's struct.
     user = Auth.get_user!(user_uuid)
 
     if linkable?(user) do
@@ -646,13 +683,14 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   @doc """
   Drops the site-bot link of the user `user_uuid` (the chat, the bot and the time) and the
   link tokens they minted and have not used, in two statements that touch nothing else: the
-  routing choices stay, as with `unlink/1`. The tokens go first, as in `link_batch/2`, so a
-  racing link transaction and a drop take the rows in the same order. When a link was there
-  it leaves a `link_dropped_at` mark for the card to explain, and a `telegram.link_dropped`
-  entry in the activity feed (no chat, no bot; `:actor_uuid` names who did it, when the
-  caller knows). Runs inside the caller's transaction when there is one, and logs from
-  inside it: a caller that can still roll back must call it after its validating step.
-  See "A link is a standing credential" in the moduledoc.
+  routing choices stay, as with `unlink/1`. A caller inside a transaction holds the user's row
+  by then, and a link in flight takes that row before the token (`lock_token_owner/2`), so the
+  two cannot deadlock; outside one, the two statements hold nothing between them. When a link
+  was there it leaves a `link_dropped_at` mark for the card to explain, and a
+  `telegram.link_dropped` entry in the activity feed (no chat, no bot; `:actor_uuid` names who
+  did it, when the caller knows). Runs inside the caller's transaction when there is one, and
+  logs from inside it: a caller that can still roll back must call it after its validating
+  step. See "A link is a standing credential" in the moduledoc.
   """
   @spec drop_links(String.t(), keyword()) :: :ok
   def drop_links(user_uuid, opts \\ []) when is_binary(user_uuid) do
