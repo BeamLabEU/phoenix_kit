@@ -244,11 +244,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
   # — safe because those only ever appear on non-image files, and only
   # images can be featured. In select mode the corner belongs to the
   # selection checkbox (`top-1 left-1 z-10`, the same size as the star), so
-  # the passive badge steps right of it instead of hiding underneath.
+  # the passive badge steps right of it instead of hiding underneath. A
+  # picker's tile has its View (eye) button there outside select mode, so the
+  # badge steps right of that one too.
   attr :file, :map, required: true
   attr :featured, :any, default: nil
   attr :interactive, :boolean, default: false
   attr :select_mode, :boolean, default: false
+  attr :picker, :boolean, default: false
   attr :myself, :any, default: nil
 
   def featured_badge(assigns) do
@@ -278,7 +281,11 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       data-role="featured-badge"
       class={[
         "absolute top-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-black/40 text-white pointer-events-none",
-        if(@select_mode, do: "left-7", else: "left-1.5")
+        cond do
+          @select_mode -> "left-7"
+          @picker -> "left-8"
+          true -> "left-1.5"
+        end
       ]}
     >
       <span
@@ -395,7 +402,7 @@ defmodule PhoenixKitWeb.Components.MediaBrowser.Helpers do
       <.table_row_menu
         :if={!@select_mode}
         id={"file-kebab-stack-#{@file.file_uuid}"}
-        class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+        class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
         trigger_class="!bg-black/40 hover:!bg-black/60 !text-white !border-0"
       >
         <.table_row_menu_button

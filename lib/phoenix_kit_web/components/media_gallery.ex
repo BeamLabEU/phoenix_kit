@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     grid (e.g. `"grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8"`). Plumbed straight
     through to `<.draggable_list>`.
   - `featured_first` — when `true`, the first item in `:selected` renders a
-    "Featured" badge in the top-left corner. Matches the
+    "Featured" badge in the bottom-left corner. Matches the
     `phoenix_kit_posts` post-creation convention where the first image is the
     featured one and drag-reordering changes the feature. Default `false` so
     existing consumers aren't surprised.
@@ -45,9 +45,13 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   - `picker_size` — the picker's `size`: `:default` or `:full` (the whole
     viewport, more files a page); default `:default`
   - `phoenix_kit_current_user` — required for upload in the picker
-  - `readonly` — when `true`, hides the pick button, remove buttons, and DnD;
-    preview (lightbox) still works; the server refuses pick, remove and
+  - `readonly` — when `true`, hides the pick button, the tile menu, and DnD;
+    preview (lightbox) still works; the server refuses pick, remove, trash and
     reorder events too; default `false`
+  - `removal_guard` — the module asked before "Move to trash" (see "Tile
+    actions"); `nil` takes the configured one, `false` goes without; default `nil`
+  - `phoenix_kit_current_scope` — the scope of the person acting, handed to the
+    removal guard; optional, built from `phoenix_kit_current_user` without it
   - `external_picker` — when `true`, the "Add" tile asks the host to pick
     instead of opening the built-in `MediaSelectorModal` (which is then never
     rendered); see "External picker" below. Default `false`
@@ -55,6 +59,45 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     `:multiple` mode; `nil` means unlimited. For `:single` mode the limit is
     always 1 (implied by `mode`). When the limit is reached, the "Add" tile is
     hidden entirely (not just disabled) and `apply_selection` refuses to exceed it.
+
+  ## Tile actions
+
+  Each tile has the preview (eye) button in its top-left corner and a ⋮ menu in
+  its top-right corner. Both are shown on hover on a mouse screen and always on
+  a touch screen (`pointer-coarse`), and on keyboard focus. The menu holds:
+
+  - **Remove from selection** — takes the file out of the list (the file itself
+    stays in the library) and reports `{:changed, uuids}`.
+  - **Move to trash** — sends the file to the media trash, and takes it out of
+    the list the same way. Shown only to a person who may change that file
+    (`Libraries.can?(scope, file, :edit)`: its uploader, an Owner/Admin, a
+    `media.view_all` holder), and only for a file that is in the selection.
+
+  A readonly gallery shows the eye and no menu, and refuses both events.
+
+  ### How "Move to trash" reuses the media browser's removal guard
+
+  The gallery does not copy the browser's removal flow and does not make the
+  host write one. It keeps its own small version of it, built from the same
+  parts the browser uses: `Storage.removal_plan/2` says whether the file would
+  disappear, `MediaBrowser.Removal` asks the host's
+  `PhoenixKit.Modules.Storage.RemovalGuard` module (the configured one, or the
+  `removal_guard` attribute) where the file is in use, and the browser's
+  `RemovalModal` draws the dialog inside the gallery, so it looks and reads
+  the same (and Escape closes it). The dialog always asks first, as the menu
+  sits next to the harmless "Remove from selection":
+
+  - not in use — "Move 1 file to trash?" with the name; the confirmation
+    trashes the file;
+  - in use — the places are listed, nothing is removed, and when the guard
+    offers a release (the "unpin everywhere" button) pressing it releases the
+    file and asks again;
+  - the guard failed — "Could not check the files", nothing is removed.
+
+  The confirmation re-reads the file, the plan and the guard's answer and
+  trashes only what the dialog showed. On success the file is dropped from the
+  selection and `{:changed, uuids}` is sent, so the host stores the shorter
+  list as for any remove. The host needs no extra wiring.
 
   ## Change notifications — required host wiring (silent failure otherwise)
 
@@ -138,6 +181,9 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKitWeb.Components.MediaBrowser.Removal
+  alias PhoenixKitWeb.Components.MediaBrowser.RemovalModal
   alias PhoenixKitWeb.Live.Components.MediaSelectorModal
 
   import PhoenixKit.Modules.Shared.Components.ImageSet
@@ -186,6 +232,10 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       |> assign_new(:readonly, fn -> false end)
       |> assign_new(:external_picker, fn -> false end)
       |> assign_new(:max_count, fn -> nil end)
+      |> assign_new(:removal_guard, fn -> nil end)
+      |> assign_new(:phoenix_kit_current_scope, fn -> nil end)
+      |> assign_new(:removal_pending, fn -> nil end)
+      |> assign_new(:trashable, fn -> MapSet.new() end)
       |> assign_new(:title, fn -> nil end)
       |> assign_new(:show_picker, fn -> false end)
       |> assign_new(:preview_uuid, fn -> nil end)
@@ -201,7 +251,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   # A readonly gallery renders no Add tile, remove buttons or drag handle;
   # refuse a forged event too. Preview stays available.
   def handle_event(event, _params, %{assigns: %{readonly: true}} = socket)
-      when event in ["open_picker", "remove_image", "reorder_images"] do
+      when event in ~w(open_picker remove_image reorder_images trash_image removal_confirm removal_release) do
     {:noreply, socket}
   end
 
@@ -229,6 +279,44 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
     notify_parent(socket)
     {:noreply, socket}
   end
+
+  # "Move to trash" from the tile menu: the removal guard is asked first and the
+  # dialog shown (see the moduledoc's "Tile actions"); nothing is removed here.
+  def handle_event("trash_image", %{"uuid" => uuid}, socket) when is_binary(uuid) do
+    {:noreply, decide_removal(socket, uuid, :fresh)}
+  end
+
+  def handle_event("removal_confirm", %{"token" => token}, socket) do
+    case socket.assigns.removal_pending do
+      %{token: ^token, uuid: uuid, failed?: false} = pending ->
+        {:noreply, decide_removal(socket, uuid, {:confirm, pending})}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("removal_release", %{"token" => token}, socket) do
+    case socket.assigns.removal_pending do
+      %{token: ^token, uuid: uuid, release_label: label} = pending when is_binary(label) ->
+        {:noreply, release_removal(socket, uuid, pending)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("removal_cancel", %{"token" => token}, socket) do
+    case socket.assigns.removal_pending do
+      %{token: ^token} -> {:noreply, assign(socket, :removal_pending, nil)}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # A malformed event (no uuid, no token): nothing to answer.
+  def handle_event(event, _params, socket)
+      when event in ~w(trash_image removal_confirm removal_release removal_cancel),
+      do: {:noreply, socket}
 
   def handle_event("preview_image", %{"uuid" => uuid}, socket) do
     {:noreply, assign(socket, :preview_uuid, uuid)}
@@ -264,7 +352,13 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   defp do_load_files(socket, []) do
-    assign(socket, files: [], variants_map: %{}, rotations_map: %{}, selected_loaded: [])
+    assign(socket,
+      files: [],
+      variants_map: %{},
+      rotations_map: %{},
+      trashable: MapSet.new(),
+      selected_loaded: []
+    )
   end
 
   defp do_load_files(socket, selected) do
@@ -275,6 +369,7 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       files: files,
       variants_map: variants_map,
       rotations_map: rotations_map(files),
+      trashable: trashable(socket, files),
       selected_loaded: selected
     )
   rescue
@@ -291,8 +386,23 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
       Ecto.Query.CastError
     ] ->
       Logger.warning("MediaGallery: could not load files — #{Exception.message(e)}")
-      assign(socket, files: [], variants_map: %{}, rotations_map: %{}, selected_loaded: nil)
+
+      assign(socket,
+        files: [],
+        variants_map: %{},
+        rotations_map: %{},
+        trashable: MapSet.new(),
+        selected_loaded: nil
+      )
   end
+
+  # The uuids of the files the person may send to the trash from the tile menu.
+  defp trashable(socket, files) do
+    scope = removal_ctx(socket).scope
+    for file <- files, can_trash?(scope, file), into: MapSet.new(), do: file.uuid
+  end
+
+  defp can_trash?(scope, file), do: Libraries.can?(scope, file, :edit)
 
   # uuid => saved orientation, for the thumbnails' CSS transform. The grid
   # iterates uuids (not file structs), so it needs the lookup; keeps gallery
@@ -329,6 +439,146 @@ defmodule PhoenixKitWeb.Components.MediaGallery do
   end
 
   defp selection_at_limit?(_selected, _mode, _max_count), do: false
+
+  # ── "Move to trash" through the removal guard ──────────────────────────
+
+  # `mode` is where the call came from: `:fresh` (the menu item),
+  # `{:confirm, pending}` (the dialog's button) or `{:reask, pending}` (the
+  # guard released the file). Only a confirmation removes anything, and only
+  # what the dialog showed.
+  defp decide_removal(socket, uuid, mode) do
+    case removal_analysis(socket, uuid) do
+      {:ok, analysis} -> removal_decide(socket, analysis, mode)
+      :nothing -> assign(socket, :removal_pending, nil)
+    end
+  end
+
+  # What trashing `uuid` would remove, from the plan the operation itself
+  # follows (`Storage.removal_plan/2`). `:nothing` for a uuid that is not in the
+  # selection, a file the person may not change, or one that is gone, already in
+  # the trash or managed: any uuid can be sent from a console.
+  defp removal_analysis(socket, uuid) do
+    with true <- uuid in socket.assigns.selected,
+         %Storage.File{} = file <- Storage.get_file(uuid),
+         true <- can_trash?(removal_ctx(socket).scope, file),
+         plan = Storage.removal_plan(:remove_file, {file, nil}),
+         files when files != [] <- Enum.uniq(plan.trash ++ plan.delete) do
+      {:ok, %{file: file, files: files, name: file.original_file_name || file.file_name}}
+    else
+      _ -> :nothing
+    end
+  end
+
+  defp removal_ctx(socket), do: Removal.ctx(socket.assigns, :trash_file, nil)
+
+  defp removal_decide(socket, analysis, mode) do
+    ctx = removal_ctx(socket)
+    module = Removal.guard(socket.assigns)
+
+    case removal_places(module, analysis.files, ctx) do
+      :error ->
+        assign(socket, :removal_pending, removal_failed(analysis))
+
+      {:ok, places} ->
+        held = places |> Enum.map(& &1.file_uuid) |> Enum.uniq()
+        free = analysis.files -- held
+
+        case mode do
+          {:confirm, shown} when held == [] and free != [] ->
+            if same_removal?(shown, analysis, free),
+              do: removal_execute(socket, analysis, shown),
+              else: show_removal(socket, module, ctx, analysis, places, free, held, :changed)
+
+          {:confirm, _shown} ->
+            show_removal(socket, module, ctx, analysis, places, free, held, :changed)
+
+          _fresh_or_reasked ->
+            show_removal(socket, module, ctx, analysis, places, free, held, nil)
+        end
+    end
+  end
+
+  # No guard: nothing is in use that the library can see, the dialog still asks.
+  defp removal_places(nil, _files, _ctx), do: {:ok, []}
+  defp removal_places(module, files, ctx), do: Removal.places(module, files, ctx)
+
+  defp same_removal?(shown, analysis, free),
+    do:
+      Enum.sort(shown.files) == Enum.sort(analysis.files) and
+        Enum.sort(shown.free) == Enum.sort(free)
+
+  defp show_removal(socket, module, ctx, analysis, places, free, held, why) do
+    error =
+      if why == :changed, do: gettext("The files changed. Check the list and confirm again.")
+
+    pending = %{
+      removal_failed(analysis)
+      | failed?: false,
+        files: analysis.files,
+        free: free,
+        places: places,
+        names: %{analysis.file.uuid => analysis.name},
+        free_names: if(analysis.file.uuid in free, do: [analysis.name], else: []),
+        release_label: if(module && held != [], do: Removal.release_label(module, ctx)),
+        error: error
+    }
+
+    assign(socket, :removal_pending, pending)
+  end
+
+  defp removal_failed(analysis) do
+    %{
+      token: Base.url_encode64(:crypto.strong_rand_bytes(9), padding: false),
+      uuid: analysis.file.uuid,
+      failed?: true,
+      kind: :trash,
+      skip?: false,
+      folders: 0,
+      selected_file_count: 0,
+      folder_uuids: [],
+      files: analysis.files,
+      free: [],
+      places: [],
+      names: %{},
+      free_names: [],
+      free_hidden: 0,
+      release_label: nil,
+      error: nil
+    }
+  end
+
+  # The confirmed removal: trashes the file, takes it out of the selection and
+  # tells the host. The file is read and judged again by `removal_analysis/2`
+  # just before this.
+  defp removal_execute(socket, analysis, pending) do
+    case Storage.remove_file_from_folder(analysis.file, nil) do
+      {:ok, :trashed, _file} ->
+        new_selected = Enum.reject(socket.assigns.selected, &(&1 == analysis.file.uuid))
+        socket = socket |> assign(:removal_pending, nil) |> assign(:selected, new_selected)
+        socket = load_files(socket)
+        notify_parent(socket)
+        socket
+
+      _ ->
+        assign(socket, :removal_pending, %{pending | error: gettext("Failed to move file")})
+    end
+  end
+
+  defp release_removal(socket, uuid, pending) do
+    module = Removal.guard(socket.assigns)
+    held = pending.places |> Enum.map(& &1.file_uuid) |> Enum.uniq()
+
+    result =
+      if module, do: Removal.release(module, held, removal_ctx(socket)), else: {:error, nil}
+
+    case result do
+      :ok ->
+        decide_removal(socket, uuid, {:reask, pending})
+
+      {:error, message} ->
+        assign(socket, :removal_pending, %{pending | error: message || :generic})
+    end
+  end
 
   defp notify_parent(socket), do: notify_parent(socket, {:changed, socket.assigns.selected})
 

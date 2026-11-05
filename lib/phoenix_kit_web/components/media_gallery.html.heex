@@ -7,8 +7,8 @@
 
     <%!-- Thumbnail grid via the canonical <.draggable_list> primitive.
          Grid layout (cols configurable), aspect-square thumbnails, featured
-         badge on the first item (opt-in), hover-revealed remove + preview
-         buttons. Add-tile sits as the trailing grid cell so the picker is
+         badge on the first item (opt-in), preview button + menu revealed on
+         hover and always shown on touch screens. Add-tile sits as the trailing grid cell so the picker is
          visually part of the gallery. --%>
     <.draggable_list
       id={"#{@id}-grid"}
@@ -33,41 +33,59 @@
           />
 
           <%!-- Featured badge: only the first item in @selected, only when
-               the consumer opted in via featured_first={true}. --%>
+               the consumer opted in via featured_first={true}. Bottom-left,
+               the top corners belong to the preview button and the menu. --%>
           <div
             :if={@featured_first and uuid == List.first(@selected)}
-            class="absolute top-1 left-1 badge badge-primary badge-xs h-auto pointer-events-none"
+            class="absolute bottom-1 left-1 badge badge-primary badge-xs h-auto pointer-events-none"
           >
             {gettext("Featured")}
           </div>
 
-          <%!-- Remove button (hover-revealed, top-right) — hidden in readonly. --%>
-          <button
-            :if={not @readonly}
-            type="button"
-            class="sortable-ignore absolute top-1 right-1 btn btn-xs btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
-            data-role={"remove-image-#{@id}-#{uuid}"}
-            phx-click="remove_image"
-            phx-value-uuid={uuid}
-            phx-target={@myself}
-            title={gettext("Remove")}
-          >
-            <.icon name="hero-x-mark" class="w-3 h-3" />
-          </button>
-
-          <%!-- Eye / preview button (hover-revealed, bottom-right). Available
-               in readonly mode too — lightbox is a view-only feature. --%>
+          <%!-- Eye / preview button (top-left). Available in readonly mode
+               too — lightbox is a view-only feature. Revealed on hover, and
+               always on a touch screen (no hover there) and on keyboard focus. --%>
           <button
             type="button"
-            class="sortable-ignore absolute bottom-1 right-1 btn btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity"
+            class="sortable-ignore absolute top-1 left-1 btn btn-xs btn-circle opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 transition-opacity"
             data-role={"preview-image-#{@id}-#{uuid}"}
             phx-click="preview_image"
             phx-value-uuid={uuid}
             phx-target={@myself}
             title={gettext("Preview")}
+            aria-label={gettext("Preview")}
           >
             <.icon name="hero-eye" class="w-3 h-3" />
           </button>
+
+          <%!-- Tile menu (top-right) — hidden in readonly. Same reveal rules as
+               the eye; the menu list itself is not part of the tile. --%>
+          <.table_row_menu
+            :if={not @readonly}
+            id={"#{@id}-menu-#{uuid}"}
+            label={gettext("Actions")}
+            class="sortable-ignore !absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity"
+            trigger_class="!bg-black/40 hover:!bg-black/60 !text-white !border-0"
+          >
+            <.table_row_menu_button
+              phx-click="remove_image"
+              phx-value-uuid={uuid}
+              phx-target={@myself}
+              data-role={"remove-image-#{@id}-#{uuid}"}
+              icon="hero-x-mark"
+              label={gettext("Remove from selection")}
+            />
+            <.table_row_menu_button
+              :if={MapSet.member?(@trashable, uuid)}
+              phx-click="trash_image"
+              phx-value-uuid={uuid}
+              phx-target={@myself}
+              data-role={"trash-image-#{@id}-#{uuid}"}
+              icon="hero-trash"
+              label={gettext("Move to trash")}
+              variant="error"
+            />
+          </.table_row_menu>
         </div>
       </:item>
 
@@ -110,6 +128,10 @@
       notify={{__MODULE__, @id}}
     />
   </div>
+
+  <%!-- The "Move to trash" dialog (the media browser's removal dialog, shown
+       above everything as a popover), inside the single root. --%>
+  <RemovalModal.removal_modal id={@id} myself={@myself} pending={@removal_pending} />
 
   <%!-- Lightbox — delegated to MediaViewer, inside the single root so morphdom patches it reliably --%>
   <.live_component

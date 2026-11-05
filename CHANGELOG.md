@@ -63,6 +63,21 @@
   takes it again (a repair runs the reconciler). Each locked file uses one
   short-lived connection besides the pool. No migration.
 
+- **Media tile actions work on touch screens.** The buttons on a media tile
+  were revealed by hover alone, so a phone or tablet never showed them.
+  `MediaGallery`: the preview (eye) button is in the top-left corner and a ⋮
+  menu in the top-right, both always shown on touch (`pointer-coarse`) and on
+  keyboard focus, on hover for a mouse; the "Featured" badge moved to the
+  bottom-left. The X is replaced by the menu: **Remove from selection** (what
+  the X did) and **Move to trash**, which asks the removal guard
+  (`PhoenixKit.Modules.Storage.RemovalGuard`) and shows the media browser's
+  removal dialog inside the gallery: a file in use lists its places and offers
+  the host's release, and a trashed file leaves the selection and is reported
+  as `{:changed, uuids}`. Offered only for a file the person may change; a
+  readonly gallery keeps the eye and shows no menu. `MediaBrowser` (picker):
+  the eye moved to the top-left, the PDF and video badges sit below it, and the
+  folder and file ⋮ menus are always shown on touch. No migration.
+
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,

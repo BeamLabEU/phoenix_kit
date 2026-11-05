@@ -685,6 +685,71 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerViewerTest do
     end
   end
 
+  # Hover is the only thing that reveals a tile's controls on a mouse screen; a
+  # touch screen has none, so every control carries `pointer-coarse:opacity-100`.
+  describe "tile controls on a touch screen" do
+    defp tile_html(view, selector), do: view |> element(selector) |> render()
+
+    test "the eye is in the top-left corner and always shown on touch", %{conn: conn} = ctx do
+      a = file!(ctx.scope)
+      view = open(conn, ctx)
+
+      html =
+        tile_html(view, ~s(#pick button[phx-click="view_file"][phx-value-file-uuid="#{a.uuid}"]))
+
+      assert html =~ "top-1 left-1"
+      refute html =~ "right-8"
+      assert html =~ "pointer-coarse:opacity-100"
+      assert html =~ "focus-visible:opacity-100"
+    end
+
+    test "the file kebab is always shown on touch and when focused", %{conn: conn} = ctx do
+      a = file!(ctx.scope)
+      view = open(conn, ctx)
+
+      html = view |> element(~s([id$="file-kebab-grid-#{a.uuid}"])) |> render()
+
+      assert html =~ "group-hover:opacity-100"
+      assert html =~ "pointer-coarse:opacity-100"
+      assert html =~ "focus-within:opacity-100"
+    end
+
+    test "the folder kebab is always shown on touch and when focused", %{conn: conn} = ctx do
+      sub = folder!("Kitchen", ctx.scope)
+      view = open(conn, ctx)
+
+      html = view |> element(~s([id$="folder-kebab-grid-#{sub.uuid}"])) |> render()
+
+      assert html =~ "group-hover:opacity-100"
+      assert html =~ "pointer-coarse:opacity-100"
+      assert html =~ "focus-within:opacity-100"
+    end
+
+    test "the PDF badge sits below the eye in a picker, not under it", %{conn: conn} = ctx do
+      file!(ctx.scope, %{mime_type: "application/pdf", file_type: "document", ext: "pdf"})
+      html = ctx |> then(&open(conn, &1)) |> render()
+
+      assert html =~ ~r/top-9[^>]*>\s*PDF/
+      refute html =~ ~r/top-2[^>]*>\s*PDF/
+    end
+
+    test "the video badge sits below the eye in a picker, not under it", %{conn: conn} = ctx do
+      file!(ctx.scope, %{mime_type: "video/mp4", file_type: "video", ext: "mp4"})
+      html = ctx |> then(&open(conn, &1)) |> render()
+
+      assert html =~ ~r/top-9[^>]*>\s*<span[^>]*hero-play-solid/
+      refute html =~ ~r/top-2[^>]*>\s*<span[^>]*hero-play-solid/
+    end
+
+    test "outside a picker the badges keep their corner", %{conn: conn} = ctx do
+      file!(ctx.scope, %{mime_type: "application/pdf", file_type: "document", ext: "pdf"})
+      html = ctx |> then(&open(conn, &1, %{"plain" => true})) |> render()
+
+      assert html =~ ~r/top-2[^>]*>\s*PDF/
+      refute html =~ "top-9"
+    end
+  end
+
   test "the viewer's pick events are not writes" do
     refute "view_file" in MediaBrowser.write_events()
     refute "viewer_pick" in MediaBrowser.write_events()

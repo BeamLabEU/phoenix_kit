@@ -142,7 +142,7 @@
           <.table_row_menu
             :if={not @readonly and @folder_actions}
             id={dom_id(%{picker: @picker, id: @id}, "folder-kebab-grid-#{folder.uuid}")}
-            class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+            class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
           >
             <.table_row_menu_button
               phx-click="start_rename_folder"
@@ -326,13 +326,19 @@
         </.thumbnail_url>
 
         <%= if file.file_type == "video" do %>
-          <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
+          <div class={[
+            "absolute left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center",
+            if(@picker, do: "top-9", else: "top-2")
+          ]}>
             <.icon name="hero-play-solid" class="w-4 h-4" />
           </div>
         <% end %>
 
         <%= if file.mime_type == "application/pdf" do %>
-          <div class="absolute top-2 left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none">
+          <div class={[
+            "absolute left-2 bg-error/80 text-white px-2 py-0.5 rounded text-xs font-bold pointer-events-none",
+            if(@picker, do: "top-9", else: "top-2")
+          ]}>
             PDF
           </div>
         <% end %>
@@ -366,19 +372,21 @@
         featured={@featured}
         interactive={not @readonly and not @select_mode and not @filter_trash and not @picker}
         select_mode={@select_mode}
+        picker={@picker}
         myself={@myself}
       />
       <%!-- A picker's click picks, so its viewer opens from the eye. A
            sibling of the click target, as the kebab is: its click must not
-           pick, and a double click on it must not confirm. Always shown on
-           a touch screen, which has no hover to reveal it. --%>
+           pick, and a double click on it must not confirm. Top-left, the
+           kebab takes the top-right; the type badges sit below it. Always
+           shown on a touch screen, which has no hover to reveal it. --%>
       <button
-        :if={@picker}
+        :if={@picker and not @select_mode}
         type="button"
         phx-click="view_file"
         phx-target={@myself}
         phx-value-file-uuid={file.file_uuid}
-        class="btn btn-xs btn-ghost btn-circle !absolute top-1 right-8 !bg-black/40 hover:!bg-black/60 !text-white !border-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+        class="btn btn-xs btn-ghost btn-circle !absolute top-1 left-1 !bg-black/40 hover:!bg-black/60 !text-white !border-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
         title={gettext("View")}
         aria-label={gettext("View")}
       >
@@ -394,7 +402,7 @@
       <%= unless @select_mode do %>
         <.table_row_menu
           id={dom_id(%{picker: @picker, id: @id}, "file-kebab-grid-#{file.file_uuid}")}
-          class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+          class="!absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
           trigger_class="!bg-black/40 hover:!bg-black/60 !text-white !border-0"
         >
           <.table_row_menu_button

@@ -1751,6 +1751,11 @@ msgstr "Rechazar todo"
 msgid "Remove"
 msgstr "Quitar"
 
+#: lib/phoenix_kit_web/components/media_gallery.html.heex:76
+#, elixir-autogen, elixir-format
+msgid "Remove from selection"
+msgstr "Quitar de la selección"
+
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:87
 #: lib/phoenix_kit_web/live/settings/users.html.heex:555
 #: lib/phoenix_kit_web/live/settings/users.html.heex:600
