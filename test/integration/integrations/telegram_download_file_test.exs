@@ -147,6 +147,14 @@ defmodule PhoenixKit.Integration.Integrations.TelegramDownloadFileTest do
       assert {:error, :timeout} = Telegram.download_file(connection, "F1", deadline_ms: 5)
     end
 
+    # The collector only runs on a chunk, so a server that stops sending never
+    # reaches the deadline check: this is what `receive_timeout` firing looks like.
+    test "a server that goes silent is a :timeout, not :unreachable", %{connection: connection} do
+      stub_bot(file(), &Req.Test.transport_error(&1, :timeout))
+
+      assert {:error, :timeout} = Telegram.download_file(connection, "F1")
+    end
+
     test "a redirect is not followed (the Location would be sent the token)",
          %{connection: connection} do
       stub_bot(file(), fn conn ->

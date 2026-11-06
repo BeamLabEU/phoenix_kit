@@ -10,9 +10,10 @@ defmodule PhoenixKit.Integrations.Telegram do
   only reachable by an owner entitled to it) and calls the Bot API directly.
 
   Scope is deliberately narrow: **sending** (and answering a button press),
-  plus a **one-shot `getUpdates`** used to discover a user's `chat_id` when they
-  link their chat. A streaming receiver is not here: a host that runs one hands
-  its batches to `Linking.handle_updates/3` (see `Telegram.Linking`).
+  **fetching a file** a user sent to the bot (`download_file/3`), plus a
+  **one-shot `getUpdates`** used to discover a user's `chat_id` when they link
+  their chat. A streaming receiver is not here: a host that runs one hands its
+  batches to `Linking.handle_updates/3` (see `Telegram.Linking`).
 
       Telegram.send_message(conn_uuid, chat_id, "Deploy finished ✅")
       Telegram.send_message(conn_uuid, chat_id, "*Alert*", parse_mode: "MarkdownV2")
@@ -161,12 +162,15 @@ defmodule PhoenixKit.Integrations.Telegram do
 
   Opts: `:max_bytes` (a positive integer; default 20 MB, the Bot API's own cap),
   `:deadline_ms` (a positive integer; the limit on the whole file download,
-  default 120 s) and `:owner` for the credential lookup. Returns
-  `{:ok, binary}` or `{:error, reason}`, where `reason` is
+  default 120 s, checked as the bytes arrive, so a server that goes silent is
+  given up on after that long, or 60 s, of silence) and `:owner` for the
+  credential lookup. Returns `{:ok, binary}` or `{:error, reason}`, where
+  `reason` is
 
     * `:invalid_file_id` — not a non-empty valid UTF-8 string of sane length
     * `:invalid_max_bytes` — `:max_bytes` given and not a positive integer
-    * `:timeout` — the download took longer than `:deadline_ms`
+    * `:timeout` — the download took longer than `:deadline_ms`, or the server
+      went silent
     * `{:file_too_large, size, max}` — over the limit (`size` is what `getFile`
       reported, or, when the body streamed past the limit, how much had been
       read by then)
@@ -249,7 +253,9 @@ defmodule PhoenixKit.Integrations.Telegram do
     options =
       [
         into: collector(max, deadline),
-        receive_timeout: @download_timeout,
+        # The collector only runs when bytes arrive, so a silent server is this
+        # timeout's to end, and a short deadline must not wait the full 60 s.
+        receive_timeout: min(@download_timeout, deadline_ms),
         retry: false,
         redirect: false
       ] ++ req_options()
@@ -260,6 +266,9 @@ defmodule PhoenixKit.Integrations.Telegram do
 
       {:ok, %{status: status}} ->
         {:error, "Telegram error #{status}"}
+
+      {:error, %{reason: :timeout}} ->
+        {:error, :timeout}
 
       {:error, reason} ->
         Logger.warning("[Telegram] downloadFile failed: #{failure_reason(reason)}")

@@ -14060,6 +14060,8 @@ if (typeof window.Chart === "undefined") {
       // A page's own button starts the recorder with this event. Listened for even
       // where recording cannot work, so that button gets an answer, not silence.
       this.onStart = () => {
+        // With no button of its own, this is where the focus goes back to.
+        this.opener = document.activeElement;
         if (this.ready) this.start();
         else this.push("recorder_error", {reason: "unavailable"});
       };
@@ -14261,6 +14263,9 @@ if (typeof window.Chart === "undefined") {
     // id is the upload's ref). The page's upload shows it from here on, so this
     // recorder is ready for the next clip at once.
     handOver(file) {
+      // Off the connection the page's upload would drop it without a word. Still
+      // "preparing", this is `reconnected`'s to report, as for a clip of the recorder's own.
+      if (!this.liveSocket.isConnected()) return this.watch();
       const input = document.getElementById(this.el.dataset.uploadRef);
       const form = input && input.form;
       if (!form) {
@@ -14312,8 +14317,8 @@ if (typeof window.Chart === "undefined") {
       const active = document.activeElement;
       const lost = !active || active === document.body || this.el.contains(active);
       this.show("idle");
-      const start = this.part("start");
-      if (lost && start) start.focus();
+      const back = this.part("start") || this.opener;
+      if (lost && back) back.focus();
     }
   };
 

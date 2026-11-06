@@ -182,6 +182,7 @@ function fakeHook(overrides = {}) {
     chunks: [],
     pushes,
     pushEventTo: (_el, event, payload) => pushes.push([event, payload]),
+    liveSocket: { isConnected: () => true },
     show: noop,
     part: () => ({ focus: noop }),
     ...overrides,
@@ -481,6 +482,42 @@ test("the start event where recording cannot work reports it", () => {
   assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "unavailable" }]]);
 });
 
+// Send had the focus and is hidden now. With no start button of its own, a keyboard
+// user would land at the top of the page.
+test("without a start button, the focus goes back to the page's button", () => {
+  const el = listeningElement({ format: "native", startButton: "false" });
+  el.contains = () => true;
+  let focused = 0;
+  const opener = { focus: () => focused++ };
+  const recorder = fakeHook({ el, part: () => null });
+  hook.mounted.call(recorder);
+
+  document.activeElement = opener;
+  el.listeners["phoenix_kit:audio_recorder_start"]();
+  document.activeElement = { inRecorder: true };
+  recorder.backToIdle();
+  delete document.activeElement;
+
+  assert.equal(focused, 1);
+});
+
+test("a clip that ends while the focus is elsewhere leaves it there", () => {
+  const el = listeningElement({ format: "native", startButton: "false" });
+  el.contains = () => false;
+  let focused = 0;
+  const opener = { focus: () => focused++ };
+  const recorder = fakeHook({ el, part: () => null });
+  hook.mounted.call(recorder);
+
+  document.activeElement = opener;
+  el.listeners["phoenix_kit:audio_recorder_start"]();
+  document.activeElement = { elsewhere: true };
+  recorder.backToIdle();
+  delete document.activeElement;
+
+  assert.equal(focused, 0);
+});
+
 test("the start listener goes with the recorder", () => {
   const el = listeningElement({ format: "native" });
   const recorder = fakeHook({ el });
@@ -563,6 +600,47 @@ test("into a page's upload, the clip is handed over, not sent as the recorder's 
 
   assert.deepEqual(handed, ["the file"]);
   assert.ok(!recorder.pushes.some(([event]) => event === "recorder_clip"));
+});
+
+// The upload's `phx-change` is dropped while disconnected and its new input has another
+// ref after a rejoin, so going idle here would lose the clip with nothing said.
+test("into a page's upload with the connection down, reconnecting reports the clip", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let uploads = 0;
+  const recorder = fakeHook({
+    el: { dataset: { uploadRef: "phx-ref", uploadName: "attachment" } },
+    liveSocket: { isConnected: () => false },
+    uploadTo: () => uploads++,
+    backToIdle() { this.state = "idle"; },
+    state: "preparing",
+  });
+
+  recorder.handOver({ name: "recording.webm" });
+  assert.equal(uploads, 0);
+  assert.equal(recorder.state, "preparing");
+  assert.deepEqual(recorder.pushes, []);
+
+  recorder.reconnected();
+  assert.equal(recorder.state, "idle");
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "failed" }]]);
+});
+
+test("into a page's upload, a connection that never returns still ends the clip", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const recorder = fakeHook({
+    el: { dataset: { uploadRef: "phx-ref", uploadName: "attachment" } },
+    liveSocket: { isConnected: () => false },
+    backToIdle() { this.state = "idle"; },
+    state: "preparing",
+  });
+
+  recorder.handOver({ name: "recording.webm" });
+  assert.equal(recorder.state, "preparing");
+  assert.deepEqual(recorder.pushes, []);
+
+  t.mock.timers.tick(120000);
+  assert.equal(recorder.state, "idle");
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "failed" }]]);
 });
 
 test("a clip joining a page's files is named by when it was recorded", () => {

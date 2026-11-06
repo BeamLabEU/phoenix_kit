@@ -71,12 +71,13 @@ defmodule PhoenixKitWeb.Test.AudioRecorderHostLive do
   @impl true
   def handle_info(:toggle_busy, socket), do: {:noreply, update(socket, :busy, &(!&1))}
 
-  def handle_event("validate_attachment", _params, socket), do: {:noreply, socket}
-
   def handle_info(message, socket) do
     send(socket.assigns.test_pid, message)
     {:noreply, socket}
   end
+
+  @impl true
+  def handle_event("validate_attachment", _params, socket), do: {:noreply, socket}
 
   @impl true
   def render(assigns) do

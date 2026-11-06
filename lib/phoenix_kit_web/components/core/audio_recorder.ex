@@ -80,7 +80,8 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
   to its own form, by id, because `this.upload/2` searches the whole LiveView and
   drops a clip when it finds two inputs.
 
-  `format`, `max_seconds` and `label` are read once, when the recorder first renders.
+  `format`, `max_seconds`, `label` and `start_button` are read once, when the recorder
+  first renders.
 
   ## Started from your own button
 
@@ -104,9 +105,10 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
   it had been picked, and the recorder is free for the next one at once. Its
   limits, progress, cancel and `consume_uploaded_entries/3` are then the page's,
   exactly as for any other file, and no `{:audio_recorded, …}` is sent. The
-  upload must accept the clip: `audio/*` (or `.webm`, `.ogg`, `.mp4`) for
-  `:native`, `.wav` for `:wav_16k`. Its `<.live_file_input>` must be on the page,
-  which is where the recorder finds it. The file is named
+  upload must accept the clip: `audio/*` for `:native`, `audio/*` or `.wav` for
+  `:wav_16k`. `:native` needs the wildcard: `.ogg`, which Firefox records, has no
+  MIME type here, so `allow_upload/3` raises on it. Its `<.live_file_input>` must
+  be on the page, which is where the recorder finds it. The file is named
   `recording-<date>-<time>.<ext>`. Problems in getting the clip as far as the
   upload are still the recorder's (`:denied`, `:unavailable`, `:unreadable`,
   `:failed`); the upload's own errors (too many files, too large) are the
