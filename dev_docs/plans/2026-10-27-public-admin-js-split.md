@@ -135,7 +135,7 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 266 742 B raw, 76 105 gzip, 101 186 minified, 31 024 minified + gzip;
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 266 820 B raw, 76 138 gzip, 101 264 minified, 31 059 minified + gzip;
 `phoenix_kit_admin.js` is 426 222 / 120 055 / 160 877 / 47 229. The size budget in `admin_split.test.cjs` (272 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
@@ -143,8 +143,8 @@ test.
 `AudioRecorder` (the `<.audio_recorder>` of 3.4.0, a microphone recorder "any page can use") is public by the rule above:
 a generic form primitive, imported into every page's helpers next to `file_upload`, and documented with a public
 form as its example, so a page that renders it must not wait for the admin bundle (47 KB min+gz, against the hook's
-own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 009 B raw /
-1 997 B min+gz to the public file, which is why the budget went from 256 to 272 KiB (the test says so); its body is
+own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 087 B raw (the hook and its line in the header) /
+2 032 B min+gz to the public file, which is why the budget went from 256 to 272 KiB (the test says so); its body is
 main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
 recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
 
