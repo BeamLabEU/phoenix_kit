@@ -1,4 +1,6 @@
-## Unreleased
+## 3.4.0 - 2026-11-06
+
+Run `mix phoenix_kit.update` (V228 and the new `phoenix_kit.js`).
 
 ### Added
 
@@ -46,6 +48,76 @@
   uploader already has is never refused, and nothing stored is removed.
   `Quotas.usage/1` and `Quotas.status/1` are for pages that show it. No
   migration.
+- **An upload manager** (`PhoenixKitWeb.Components.Core.UploadManager`, with
+  `phoenix_kit_upload_manager.js`, also carried in `phoenix_kit.js`), used by the
+  media browser, the selector page and the picker modal. Files wait in the
+  browser and go to LiveView a few at a time: one goes first as a speed probe,
+  and transfers are added while the total speed keeps rising. A panel shows the
+  speed, the time left and a row per file, with pause, skip, upload next, cancel
+  and retry. `UploadManager.allow_upload/3` sets an upload up in one call, and DOM
+  events (`pk-upload:file-done`, `file-failed`, `batch-complete`) tell a page what
+  happened. Guide: `dev_docs/guides/2026-11-02-upload-manager.md`.
+- **Resumable uploads** (`PhoenixKitWeb.ResumableUpload`, at
+  `/api/resumable-uploads`; setting `storage_resumable_uploads`, on by default). A
+  file goes in 2 MiB chunks under a signed token, so a pause, a dropped connection
+  or a reload carries on from the server's offset. After a reload the browser
+  sends what it still holds by itself, and never a file the server already stored
+  (`upload_resume={:auto | :ask}` on the media browser). Consume entries with
+  `ResumableUpload.consume/3`. Partial files live in
+  `config :phoenix_kit, :resumable_upload_dir`, so behind a load balancer the
+  chunks of one file must reach the same node. A host's test that drives the media
+  browser with `render_upload` sets `storage_resumable_uploads` to `false`.
+- Media settings: **Max files per upload** (`storage_max_upload_files`, default
+  100, at most 1000; uploads were silently held to 10), **Max concurrent uploads**
+  (`storage_max_concurrent_uploads`, default 5, 1 to 20), and editable trash and
+  bucket log retention periods.
+- **A linked Telegram chat can act for its user** through the machine API:
+  `Executor.visible_for/3`, `execute_as/5` and `redeem_as/6` take
+  `{:telegram_link, user_uuid, connection_uuid, chat_id}`, built only by
+  `Linking.actor_ref/2`. The link is checked on every call, and the chat has the
+  user's rights as they stand, narrowed to their default role. It reads, and with
+  `allow: :all` proposes writes, each held in a confirmation row bound to that chat
+  and bot: a chat reads, turns down and confirms only its own rows, and the
+  person's site session may act on any of them. `Executor.link_writes?/0` tells a
+  module the core allows this. The link is dropped on a password change, on
+  signing out other sessions and when an organization is converted.
+- **A feature module can read the site bot all the time.**
+  `Linking.handle_updates/3` takes its batches, `config :phoenix_kit,
+  :telegram_updates_reader` keeps `poll/1` out of its way, and `getUpdates` waits
+  for the request's own `timeout` plus ten seconds. New in the client:
+  `Telegram.answer_callback_query/3`, `edit_message_text/5`, `send_chat_action/4`
+  and `set_message_reaction/5`. `SessionRef.scope_for_user/2` is the web account
+  gate as a public function.
+- **Opt-in module sub-permissions.** A module may declare a sub-permission with
+  `opt_in: true`: Admin is then not given it automatically, as with core's opt-in
+  keys. An existing grant stays until it is revoked.
+- **`host_*` entry points for managed organizations**, for a host with its own
+  screens or machine API: `ManagedOrganizations.host_create/3`,
+  `host_convert_to_managed/3` and `host_convert_to_independent/3`, and
+  `OrganizationManagers.host_add/3`, `host_remove/3` and `host_update_contact/3`.
+  The host decides who may act; the core records `created_by`, which must be an
+  active person.
+- The media browser's picker takes `allow_move` (drag the pick to a folder),
+  `subtree_toggle` (an "Include subfolders" switch) and `per_page`.
+- `MediaGallery` tiles have a menu with **Move to trash**, through the same
+  removal guard and dialog as the media browser. Hosts need no new wiring.
+- A guide, "Your App as a Module" (`guides/your-app-as-a-module.md`): a host can
+  `use PhoenixKit.Module` itself.
+
+### Changed
+
+- **`Auth.update_user_fields/2` and `ChannelConfig.update/3` merge onto the row
+  under a lock**, instead of writing back the map of a struct loaded earlier. A
+  stale write could put a dropped Telegram link back.
+- The installer and `mix phoenix_kit.update` add `import PhoenixKit.Test.Fixtures`
+  to the host's `ConnCase`, unless a test source already defines one of its names.
+  A fresh Oban block gets `notifier: Oban.Notifiers.PG` when the repo config looks
+  pooled.
+- The daisyUI check also reads the git dependency a newer `phx.new` declares
+  (`deps/daisyui/packages/bundle/`).
+- In the media picker, Cancel and Confirm sit in a footer under the grid and stay
+  in view however long the folder is.
+- Leaf 0.9 and 0.10 are admitted; the lock has 0.10.1.
 
 ### Fixed
 
@@ -94,6 +166,35 @@
   holder that dies leaves it to run out (5 minutes). No connection is held
   meanwhile. A process that holds the lease takes it again (a repair runs the
   reconciler). Additive migration, catalog-only.
+- **A dropped connection no longer loses an upload.** A file picked while the
+  socket was down was never sent, the manager went dead after a reconnect, and a
+  file cut mid-transfer was reported done and never stored. This matters on phones,
+  where a camera app sends the tab to the background.
+- **A file whose processing job fails for good ends as `failed`**, instead of
+  staying `processing` for ever.
+- The media selector page and the picker modal follow the site's upload size limit.
+  They had LiveView's default of 8 MB.
+- **The PDF preview works in Chrome.** Its built-in viewer renders nothing in a
+  sandboxed frame, so that one iframe has no sandbox now. A link or form inside the
+  PDF is no longer contained by the frame.
+- **`repair` no longer duplicates an index or key constraint that exists under
+  another name.** One of the same structure that no manifest names counts as
+  present and is reported as such. An index left invalid does not count.
+- **Logout no longer lands on the kit's mount point.** Under `url_prefix`, a host
+  with a catch-all route such as `/:username` answered it, so the visitor reached
+  that host's "no such user" page.
+- **A remembered session comes back on every page**, through
+  `PhoenixKitWeb.Plugs.Integration`, not only on pages that run the kit's fetch
+  plugs. `guides/integration.md` says how to give the host's session cookie the
+  same lifetime.
+- The permissions matrix can be edited on a phone: its pinned first column covered
+  the whole scroll area.
+- Media tile actions are reachable on touch screens. They only appeared on hover.
+
+### i18n
+
+- Every new string is translated in all eight locales.
+
 ## 3.3.0 - 2026-11-03
 
 The first release on Hex since 3.0.0: it also ships everything listed under 3.0.1 to 3.2.6 below,
