@@ -18,9 +18,9 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       (`:code.priv_dir/1`), versioned by the consumer's loaded application
       version — not core's lockfile, which can resolve a different minor
       than the host does.
-    * SortableJS, Panzoom, wavesurfer and Cally (npm-only) ship inside core, each
-      at an exact version with its checksum, licence and provenance README
-      (`priv/static/assets/vendor_libs/`).
+    * SortableJS, Panzoom, wavesurfer, Cally and Chart.js (npm-only) ship inside
+      core, each at an exact version with its checksum, licence and provenance
+      README (`priv/static/assets/vendor_libs/`).
     * The content hash is in the name because a path dependency can change
       its bytes without changing its version; with it, each name is
       cacheable for good.
@@ -110,6 +110,16 @@ defmodule PhoenixKit.Install.ViewerLibraries do
       sha256: "1bca765cc75bc4af079ecd1b2edd659b155e5d1715e75a29d68272d9f141f951",
       cdn: "https://cdn.jsdelivr.net/npm/wavesurfer.js@{vsn}/dist/wavesurfer.esm.js"
     },
+    # The UMD build, a classic script defining `window.Chart`; self-contained.
+    # Loaded by the email dashboard's `EmailCharts` hook, and by a host that
+    # wants a chart of its own through `PhoenixKitLibraries.chartjs()`.
+    %{
+      name: "chartjs",
+      source: {:phoenix_kit, "static/assets/vendor_libs/chartjs/chart.umd.js"},
+      version: "4.5.1",
+      sha256: "ecc3cd1eeb8c34d2178e3f59fd63ec5a3d84358c11730af0b9958dc886d7652a",
+      cdn: "https://cdn.jsdelivr.net/npm/chart.js@{vsn}/dist/chart.umd.js"
+    },
     # An ES module (loaded with import()); self-contained. The calendar popup
     # of `<.date_input>`.
     %{
@@ -168,10 +178,7 @@ defmodule PhoenixKit.Install.ViewerLibraries do
           file
 
         {:error, reason} ->
-          Mix.shell().info(
-            "[PhoenixKit] Could not minify #{lib.name} (#{reason}); serving it unminified."
-          )
-
+          note_unminified("#{lib.name}: #{reason}")
           vendor_file!(dir, lib, vsn, content, false)
       end
     end
@@ -209,10 +216,74 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   end
 
   @doc false
+  # The minified `content` when `minify?/0` says to and the minifier can; the
+  # content as it is, with a note, when it cannot — a missing esbuild costs
+  # size, never a build.
+  @spec maybe_minify(binary(), String.t()) :: binary()
+  def maybe_minify(content, label) do
+    with true <- minify?() and String.trim(content) != "",
+         {:ok, small} <- minify(content) do
+      small
+    else
+      false ->
+        content
+
+      {:error, reason} ->
+        note_unminified("#{label}: #{reason}")
+        content
+    end
+  end
+
+  @doc false
+  # One line per compile, however many files could not be minified: the cause
+  # is the same for all of them (no esbuild yet), and seven lines of it on every
+  # compile is noise.
+  def reset_minify_note, do: Process.delete({__MODULE__, :minify_noted})
+
+  defp note_unminified(detail) do
+    unless Process.get({__MODULE__, :minify_noted}) do
+      Process.put({__MODULE__, :minify_noted}, true)
+
+      Mix.shell().info(
+        "[PhoenixKit] Could not minify the vendored JavaScript (#{detail}); serving the readable " <>
+          "files. Install esbuild (`mix assets.setup`) and compile again."
+      )
+    end
+  end
+
+  @doc false
   # The host's esbuild — the binary its own asset build installs — as a plain
-  # transform: no bundling, so a script stays the script it was.
+  # transform: no bundling, so a script stays the script it was. A host that
+  # minifies some other way names `config :phoenix_kit, js_minifier: {Mod,
+  # :fun}` (a one-argument function returning `{:ok, binary}` or `{:error,
+  # reason}`). Minifying what is already minified changes nothing that runs.
   @spec minify(binary()) :: {:ok, binary()} | {:error, String.t()}
   def minify(content) do
+    case Application.get_env(:phoenix_kit, :js_minifier) do
+      {mod, fun} when is_atom(mod) and is_atom(fun) ->
+        mod |> apply(fun, [content]) |> checked()
+
+      _ ->
+        minify_with_esbuild(content)
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  catch
+    kind, value -> {:error, "the minifier #{kind}: #{inspect(value)}"}
+  end
+
+  # A host's own minifier is trusted to minify, not to answer in the right
+  # shape: anything but a non-empty binary is a failed minify (readable files
+  # and a note), never a crashed build or an empty file.
+  defp checked({:ok, small}) when is_binary(small) and byte_size(small) > 0, do: {:ok, small}
+  defp checked({:ok, _}), do: {:error, "the minifier returned no output"}
+  defp checked({:error, reason}) when is_binary(reason), do: {:error, reason}
+  defp checked({:error, reason}), do: {:error, inspect(reason)}
+
+  defp checked(other),
+    do: {:error, "the minifier returned #{inspect(other)}, not {:ok, binary} or {:error, reason}"}
+
+  defp minify_with_esbuild(content) do
     with {:ok, bin} <- esbuild_bin() do
       stamp = System.unique_integer([:positive])
       input = Path.join(System.tmp_dir!(), "pk_minify_#{stamp}.js")
@@ -251,6 +322,80 @@ defmodule PhoenixKit.Install.ViewerLibraries do
     end
   rescue
     e -> {:error, Exception.message(e)}
+  end
+
+  @doc """
+  Vendors a library the host builds rather than copies — today the admin hook
+  bundle, `phoenix_kit_admin.js` — under a versioned, content-hashed name, with
+  the same rules as the others: an unchanged compile writes nothing, a previous
+  name is never deleted, production minifies it. Returns its fact.
+  """
+  @spec vendor_generated!(Path.t(), String.t(), String.t(), binary()) ::
+          %{file: String.t(), cdn: nil}
+  def vendor_generated!(root, name, vsn, content) do
+    dir = Path.join(root, @lib_dir)
+    File.mkdir_p!(dir)
+    file = vendor_file!(dir, %{name: name}, vsn, content, minify?())
+    %{file: file, cdn: nil}
+  end
+
+  @default_base_url "/assets/vendor/lib/"
+
+  @doc """
+  The URL the library files are served from, when the host says so with
+  `config :phoenix_kit, library_base_url: "…"` — always ending in `/` — and
+  `nil` when it does not.
+
+  Read when the compiler runs, so it belongs in `config/config.exs` (or
+  `prod.exs`); `config/runtime.exs` is read too late to reach the file the
+  compiler writes.
+
+  Without it the browser works the URL out for itself, in this order: next to
+  the tag that loads `phoenix_kit.js` (right for a host serving its assets from
+  a CDN or under a path prefix), then `#{@default_base_url}` — the place the
+  compiler writes the files, used when no such tag exists (a host that bundles
+  `phoenix_kit.js` into its own `app.js`).
+  """
+  @spec base_url!() :: String.t() | nil
+  def base_url! do
+    case Application.get_env(:phoenix_kit, :library_base_url) do
+      nil ->
+        nil
+
+      url when is_binary(url) and url != "" ->
+        unless String.starts_with?(url, "/") or url =~ ~r{\Ahttps?://} do
+          Mix.shell().info(
+            "[PhoenixKit] library_base_url #{inspect(url)} is neither an absolute path nor an " <>
+              "http(s) URL, so the browser will resolve it against each page. Use \"/assets/vendor/lib/\" " <>
+              "or a full URL."
+          )
+        end
+
+        String.trim_trailing(url, "/") <> "/"
+
+      other ->
+        Mix.raise("""
+        config :phoenix_kit, :library_base_url must be a non-empty string — the URL
+        the priv/static/assets/vendor/lib directory is served from — got: #{inspect(other)}
+        """)
+    end
+  end
+
+  @doc """
+  The statement that hands the browser the base. A host-configured URL becomes
+  `window.PHOENIX_KIT_LIB_BASE` (a value the host already put on `window` wins);
+  otherwise the compiler's default goes under a key of its own, which the
+  browser consults only after the tag its bundle was loaded from.
+  """
+  @spec base_js() :: String.t()
+  def base_js do
+    case base_url!() do
+      nil ->
+        "window.PHOENIX_KIT_LIB_BASE_DEFAULT=window.PHOENIX_KIT_LIB_BASE_DEFAULT||#{Jason.encode!(@default_base_url)};"
+
+      url ->
+        "window.PHOENIX_KIT_LIB_BASE=window.PHOENIX_KIT_LIB_BASE||#{Jason.encode!(url)};"
+    end
   end
 
   @doc "The JavaScript statement carrying the facts, for the install-facts preamble."

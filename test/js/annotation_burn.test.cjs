@@ -13,7 +13,7 @@ const path = require("path");
 const assert = require("node:assert");
 const { test } = require("node:test");
 
-const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js");
+const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
 const src = fs.readFileSync(SOURCE, "utf8");
 
 function burnSection() {

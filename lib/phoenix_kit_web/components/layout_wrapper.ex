@@ -1290,7 +1290,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   daisyUI's `grid-auto-columns: max-content auto` leaves column
                   one empty, so `.drawer-content` (grid-column-start: 2) spans
                   the full width. --%>
-            <div id="admin-drawer" class={["drawer", @show_admin_nav && "lg:drawer-open"]}>
+            <%!-- `data-pk-admin` tells phoenix_kit.js this page will mount admin hooks, so
+                  it can fetch their bundle while the socket connects. --%>
+            <div
+              id="admin-drawer"
+              class={["drawer", @show_admin_nav && "lg:drawer-open"]}
+              data-pk-admin
+            >
               <input id="admin-mobile-menu" type="checkbox" class="drawer-toggle" />
 
               <%!-- Main content --%>

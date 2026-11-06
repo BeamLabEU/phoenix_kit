@@ -24,12 +24,12 @@ function mediaBrowserSource(ext) {
   return files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 }
 
-const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js");
+const SOURCE = path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js");
 const src = fs.readFileSync(SOURCE, "utf8");
 
 // Lift the hook out of the bundle and run it against a stand-in DOM.
 function loadHook() {
-  const start = src.indexOf("  window.PhoenixKitHooks.InstantViewer = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.InstantViewer = {");
   assert.notStrictEqual(start, -1, "could not find the InstantViewer hook");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
   const listeners = { document: {}, window: {} };
@@ -52,12 +52,12 @@ function loadHook() {
   });
   const fn = new Function(
     "window", "document", "setTimeout", "clearTimeout", "Image",
-    "window.PhoenixKitHooks = window.PhoenixKitHooks || {};" +
-      src.slice(start, end) + "; return window.PhoenixKitHooks.InstantViewer;"
+    "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};" +
+      src.slice(start, end) + "; return window.PhoenixKitAdminHooks.InstantViewer;"
   );
   const timers = [];
   const hook = fn(
-    Object.assign(win, { PhoenixKitHooks: hooks }),
+    Object.assign(win, { PhoenixKitAdminHooks: hooks }),
     doc,
     (cb, ms) => { timers.push({ cb, ms }); return timers.length; },
     () => {},
@@ -468,7 +468,7 @@ test("closing the viewer mid-hold takes the floating blur down with it", () => {
   listeners.window["pk:viewer-closed"].fn();
   assert.strictEqual(el.style.display, "none");
 
-  const keydown = src.slice(src.indexOf("window.PhoenixKitHooks.ViewerKeydown = {"));
+  const keydown = src.slice(src.indexOf("window.PhoenixKitAdminHooks.ViewerKeydown = {"));
   assert.ok(keydown.includes('new CustomEvent("pk:viewer-closed")'),
     "the viewer's own teardown is what announces the close");
 });
@@ -511,8 +511,8 @@ test("what the last viewer actually showed beats the server's pref", () => {
 });
 
 test("the viewer hands over its element, or there is nothing to wait on", () => {
-  const keydown = src.slice(src.indexOf("window.PhoenixKitHooks.ViewerKeydown = {"),
-                            src.indexOf("destroyed()", src.indexOf("window.PhoenixKitHooks.ViewerKeydown = {")));
+  const keydown = src.slice(src.indexOf("window.PhoenixKitAdminHooks.ViewerKeydown = {"),
+                            src.indexOf("destroyed()", src.indexOf("window.PhoenixKitAdminHooks.ViewerKeydown = {")));
   assert.ok(/detail:\s*\{\s*el:/.test(keydown),
     "the stand-in finds the image through the element the event carries");
 });
@@ -520,8 +520,8 @@ test("the viewer hands over its element, or there is nothing to wait on", () => 
 test("the real viewer is what announces itself", () => {
   // Nothing else can: the modal is a different LiveComponent, and this hook
   // holds no reference to it.
-  const keydown = src.slice(src.indexOf("window.PhoenixKitHooks.ViewerKeydown = {"),
-                            src.indexOf("destroyed()", src.indexOf("window.PhoenixKitHooks.ViewerKeydown = {")));
+  const keydown = src.slice(src.indexOf("window.PhoenixKitAdminHooks.ViewerKeydown = {"),
+                            src.indexOf("destroyed()", src.indexOf("window.PhoenixKitAdminHooks.ViewerKeydown = {")));
   assert.ok(/new CustomEvent\("pk:viewer-open"/.test(keydown),
     "the viewer's own hook fires the event the stand-in waits for");
 });

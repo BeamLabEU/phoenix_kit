@@ -1,6 +1,6 @@
 "use strict";
 
-// Unit tests for `listFilterMatches` in priv/static/assets/phoenix_kit.js —
+// Unit tests for `listFilterMatches` in priv/static/assets/phoenix_kit_admin.js —
 // the matching behind the ListFilter hook, which filters the breadcrumb
 // switcher's list (PhoenixKitWeb.Components.Core.CrumbSwitcher) as you type.
 //
@@ -60,7 +60,7 @@ global.window = {
 global.localStorage = storage;
 global.sessionStorage = storage;
 
-const { listFilterMatches } = require("../../priv/static/assets/phoenix_kit.js");
+const { listFilterMatches } = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 test("an empty or blank query matches everything", () => {
   assert.equal(listFilterMatches("Kitchen Furniture", ""), true);

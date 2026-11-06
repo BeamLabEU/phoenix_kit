@@ -3,7 +3,7 @@ defmodule PhoenixKit.Users.AvatarCropTest do
   The geometry behind non-destructive avatar cropping.
 
   `layout/1` is mirrored by `avatarCropLayout` in
-  `priv/static/assets/phoenix_kit.js` (tested in
+  `priv/static/assets/phoenix_kit_admin.js` (tested in
   `test/js/avatar_crop.test.cjs`) — several cases here pin the same numbers
   as the JS suite on purpose: the editor's preview must render exactly what
   the avatar component later renders, so the two implementations are held

@@ -1,7 +1,7 @@
 "use strict";
 
 // Unit tests for `imageEditorRect` / `imageEditorSwapped` in
-// priv/static/assets/phoenix_kit.js — the geometry behind the ImageEditor
+// priv/static/assets/phoenix_kit_admin.js — the geometry behind the ImageEditor
 // hook (drawing a crop or a redaction area on the editor's preview).
 //
 // Run: mix test.js  (node --test needs the explicit file on Node 25)
@@ -63,7 +63,7 @@ global.sessionStorage = storage;
 const {
   imageEditorRect,
   imageEditorSwapped,
-} = require("../../priv/static/assets/phoenix_kit.js");
+} = (require("../../priv/static/assets/phoenix_kit.js"), require("../../priv/static/assets/phoenix_kit_admin.js"));
 
 function near(actual, expected, message) {
   assert.ok(Math.abs(actual - expected) < 0.0001, `${message}: ${actual} vs ${expected}`);

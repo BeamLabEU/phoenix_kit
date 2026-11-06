@@ -17,12 +17,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const src = fs.readFileSync(
-  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit.js"),
+  path.join(__dirname, "..", "..", "priv", "static", "assets", "phoenix_kit_admin.js"),
   "utf8"
 );
 
 function load({ dialogs = [], active = null } = {}) {
-  const start = src.indexOf("  window.PhoenixKitHooks.ViewerKeydown = {");
+  const start = src.indexOf("  window.PhoenixKitAdminHooks.ViewerKeydown = {");
   assert.notEqual(start, -1, "could not find ViewerKeydown");
   const end = src.indexOf("\n  };", start) + "\n  };".length;
   const listeners = {};
@@ -35,7 +35,7 @@ function load({ dialogs = [], active = null } = {}) {
   const win = { addEventListener() {}, removeEventListener() {}, dispatchEvent() {} };
   const hook = new Function(
     "window", "document", "Image", "CustomEvent", "navigator",
-    "window.PhoenixKitHooks = {};" + src.slice(start, end) + "; return window.PhoenixKitHooks.ViewerKeydown;"
+    "window.PhoenixKitAdminHooks = {};" + src.slice(start, end) + "; return window.PhoenixKitAdminHooks.ViewerKeydown;"
   )(win, doc, function () {}, function (n, o) { this.name = n; this.detail = o && o.detail; }, {});
   return { hook, listeners, doc };
 }
