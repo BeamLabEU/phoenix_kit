@@ -9,9 +9,10 @@ defmodule PhoenixKit.Integrations.Telegram do
   token via `Integrations.get_credentials/2` (owner-scoped, so a connection is
   only reachable by an owner entitled to it) and calls the Bot API directly.
 
-  Scope is deliberately narrow: **sending**, plus a **one-shot `getUpdates`**
-  used purely to discover a user's `chat_id` when they link their chat (NOT a
-  streaming receiver — long-poll loops / webhooks are out of scope).
+  Scope is deliberately narrow: **sending** (and answering a button press),
+  plus a **one-shot `getUpdates`** used to discover a user's `chat_id` when they
+  link their chat. A streaming receiver is not here: a host that runs one hands
+  its batches to `Linking.handle_updates/3` (see `Telegram.Linking`).
 
       Telegram.send_message(conn_uuid, chat_id, "Deploy finished ✅")
       Telegram.send_message(conn_uuid, chat_id, "*Alert*", parse_mode: "MarkdownV2")
@@ -27,6 +28,8 @@ defmodule PhoenixKit.Integrations.Telegram do
 
   @api_base "https://api.telegram.org"
   @timeout 15_000
+  # How long past a long poll's own `timeout` (seconds) we wait for the answer.
+  @poll_margin_ms 10_000
 
   # --- Send -----------------------------------------------------------------
 
@@ -55,6 +58,89 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> then(&request(token, "sendMessage", &1))
   end
 
+  @doc """
+  Sets the bot's reaction to a message (`setMessageReaction`); it replaces the
+  set the bot had put there. `emoji` is one emoji; `nil` or `""` clears the
+  bot's reactions. Telegram accepts only its own list of reaction emoji for
+  bots (👀, 👍, 🤷 are on it; ❗ is not). Opts: `:owner` for the credential lookup. Returns
+  `{:ok, true}` or `{:error, reason}` — Telegram's description when it refuses
+  (a message that is gone is one such refusal).
+  """
+  @spec set_message_reaction(
+          String.t(),
+          integer() | String.t(),
+          integer(),
+          String.t() | nil,
+          keyword()
+        ) :: {:ok, term()} | {:error, term()}
+  def set_message_reaction(uuid, chat_id, message_id, emoji, opts \\ [])
+      when is_binary(uuid) and is_integer(message_id) and (is_binary(emoji) or is_nil(emoji)) do
+    body = %{chat_id: chat_id, message_id: message_id, reaction: reaction(emoji)}
+
+    with_token(uuid, opts, &request(&1, "setMessageReaction", body))
+  end
+
+  defp reaction(emoji) when emoji in [nil, ""], do: []
+  defp reaction(emoji), do: [%{type: "emoji", emoji: emoji}]
+
+  @doc """
+  Answers a press on an inline button (`answerCallbackQuery`), so the client
+  stops showing it as pending. Opts: `:text` (a short notice shown to the user),
+  `:show_alert` (as an alert instead of a toast), and `:owner` for the
+  credential lookup. Returns `{:ok, true}` or `{:error, reason}`.
+  """
+  @spec answer_callback_query(String.t(), String.t(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def answer_callback_query(uuid, callback_query_id, opts \\ [])
+      when is_binary(uuid) and is_binary(callback_query_id) do
+    with_token(uuid, opts, fn token ->
+      %{callback_query_id: callback_query_id}
+      |> maybe_put(:text, opts[:text])
+      |> maybe_put(:show_alert, opts[:show_alert])
+      |> then(&request(token, "answerCallbackQuery", &1))
+    end)
+  end
+
+  @doc """
+  Replaces the text of a message the bot sent earlier (`editMessageText`).
+
+  Opts: `:parse_mode` (`"MarkdownV2"` / `"HTML"`), `:reply_markup` (inline
+  keyboard map; omitted, Telegram drops the old keyboard), `:disable_web_page_preview`
+  (no link preview), and `:owner` for the credential lookup. Returns
+  `{:ok, message}` (or `{:ok, true}`) or `{:error, reason}` — editing to the
+  same text is an error (`"Bad Request: message is not modified"`).
+  """
+  @spec edit_message_text(
+          String.t(),
+          integer() | String.t(),
+          integer(),
+          String.t(),
+          keyword()
+        ) :: {:ok, term()} | {:error, term()}
+  def edit_message_text(uuid, chat_id, message_id, text, opts \\ [])
+      when is_binary(uuid) and is_integer(message_id) and is_binary(text) do
+    with_token(uuid, opts, fn token ->
+      %{chat_id: chat_id, message_id: message_id, text: text}
+      |> maybe_put(:parse_mode, opts[:parse_mode])
+      |> maybe_put(:reply_markup, opts[:reply_markup])
+      |> maybe_put_preview(opts[:disable_web_page_preview])
+      |> then(&request(token, "editMessageText", &1))
+    end)
+  end
+
+  @doc """
+  Shows a chat action such as "typing…" (`sendChatAction`); Telegram clears it
+  after ~5 seconds or when the bot sends a message. `action` defaults to
+  `"typing"`. Opts: `:owner` for the credential lookup. Returns `{:ok, true}`
+  or `{:error, reason}`.
+  """
+  @spec send_chat_action(String.t(), integer() | String.t(), String.t(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def send_chat_action(uuid, chat_id, action \\ "typing", opts \\ [])
+      when is_binary(uuid) and is_binary(action) do
+    with_token(uuid, opts, &request(&1, "sendChatAction", %{chat_id: chat_id, action: action}))
+  end
+
   # --- Chat linking (one-shot reads; NOT a receive pipeline) ----------------
 
   @doc """
@@ -80,8 +166,18 @@ defmodule PhoenixKit.Integrations.Telegram do
     |> maybe_put(:allowed_updates, opts[:allowed_updates])
     |> maybe_put(:timeout, opts[:timeout])
     |> maybe_put(:limit, opts[:limit])
-    |> then(&request(token, "getUpdates", &1))
+    |> then(&request(token, "getUpdates", &1, receive_timeout(opts[:timeout])))
   end
+
+  @doc false
+  # How long to wait for a `getUpdates` answer: a long poll (`timeout` seconds)
+  # is answered up to that long after it was sent, so the wait is that plus a
+  # margin. A short or absent `timeout` keeps the default wait.
+  @spec receive_timeout(integer() | nil) :: pos_integer()
+  def receive_timeout(timeout) when is_integer(timeout),
+    do: max(@timeout, timeout * 1000 + @poll_margin_ms)
+
+  def receive_timeout(_), do: @timeout
 
   @doc "The bot itself, as `getMe` reports it (`\"username\"` among other fields)."
   @spec get_me(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -120,10 +216,10 @@ defmodule PhoenixKit.Integrations.Telegram do
     :phoenix_kit |> Application.get_env(:telegram_req_options, []) |> Keyword.take([:plug])
   end
 
-  defp request(token, method, body) do
+  defp request(token, method, body, receive_timeout \\ @timeout) do
     url = "#{@api_base}/bot#{token}/#{method}"
 
-    case Req.post(url, [json: body, receive_timeout: @timeout] ++ req_options()) do
+    case Req.post(url, [json: body, receive_timeout: receive_timeout] ++ req_options()) do
       {:ok, %{status: 200, body: %{"ok" => true, "result" => result}}} ->
         {:ok, result}
 
@@ -140,6 +236,10 @@ defmodule PhoenixKit.Integrations.Telegram do
         {:error, :unreachable}
     end
   end
+
+  # `disable_web_page_preview` was superseded by `link_preview_options` in Bot API 7.0.
+  defp maybe_put_preview(map, true), do: Map.put(map, :link_preview_options, %{is_disabled: true})
+  defp maybe_put_preview(map, _), do: map
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

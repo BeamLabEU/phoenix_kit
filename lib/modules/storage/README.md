@@ -558,7 +558,7 @@ stops serving them, and the ones made stay stored.
 
 `Storage.Reconciler`, run as a **job run per library** (`Storage.Jobs.Reconcile`,
 `storage.reconcile`: 10 files a batch, 2 s apart, one file at a time under a
-session advisory lock), makes every **stale** file match its library's profile
+lease in its row, V228), makes every **stale** file match its library's profile
 and set. `Workers.ReconcileJob` is the Oban job every change to storage
 settings still queues; it starts those runs (`Reconcile.trigger/1`) for the
 libraries that have files to bring up to date, so it works inside a
@@ -801,7 +801,7 @@ pass, and the `!` forms that raise `File.Error` as `File.read!/1` did): the orig
 SHA-256 and MD5 at upload (`Storage.store_file_in_buckets/7`, `Auth.calculate_file_hash/1`),
 each rendition's, `Storage.store_from_url/2`, the dedup backfill and `POST /api/upload`.
 What a hash costs in memory is the chunk, not the file. Bytes move the same way: a bucket
-download is streamed to a file (`ExAws.S3.download_file`), a local bucket writes to a
+download is written to a file in 8 MiB ranges, a local bucket writes to a
 temporary name and renames, and S3 uploads of 5 MB or more are multipart streams. A test
 stores a 160 MiB file and fails if binary memory rises by more than 64 MiB.
 

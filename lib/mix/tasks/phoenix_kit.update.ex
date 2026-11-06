@@ -143,7 +143,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MissingIgniter,
       ObanConfig,
       PrefixConfig,
-      RateLimiterConfig
+      RateLimiterConfig,
+      TestFixturesIntegration
     }
 
     alias PhoenixKit.Migrations.Modules, as: MigrationModules
@@ -464,6 +465,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # before it existed.
       igniter = JsIntegration.ensure_module_js_integration(igniter)
       igniter = JsIntegration.ensure_theme_bootstrap(igniter)
+      igniter = TestFixturesIntegration.ensure_conn_case_import(igniter)
 
       # Check if this is the first pass (config missing) or second pass (config exists)
       config_status = Process.get(:phoenix_kit_config_status, :ok)
@@ -1666,7 +1668,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       _ -> :ok
     end
 
-    # Advisory only — the host owns assets/vendor/daisyui.js; PhoenixKit's
+    # Advisory only — the host owns its daisyUI; PhoenixKit's
     # modals rely on daisyUI >= DaisyUI.minimum_version() for correct modal
     # scrollbar-gutter handling (see PhoenixKit.Install.DaisyUI).
     defp warn_if_daisyui_outdated do

@@ -7027,6 +7027,9 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
   def describe_upload_failure(:no_buckets_configured),
     do: gettext("No storage is set up to receive files.")
 
+  def describe_upload_failure(:quota_exceeded),
+    do: gettext("There is no storage left for this library.")
+
   def describe_upload_failure({:exception, _message}),
     do: gettext("The server ran into an error while saving it.")
 
@@ -7133,16 +7136,26 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     {skipped, rest} =
       Enum.split_with(uploaded_files, &match?({:postpone, :in_other_library}, &1))
 
-    cond do
-      skipped != [] and rest == [] ->
-        {:warning, other_library_message(length(skipped))}
+    {refused, rest} = Enum.split_with(rest, &match?({:postpone, :quota_exceeded}, &1))
 
-      skipped != [] ->
-        {type, message} = upload_flash(rest)
-        {type, message <> " " <> other_library_message(length(skipped))}
+    notes =
+      [
+        skipped != [] && other_library_message(length(skipped)),
+        refused != [] && no_room_message(length(refused))
+      ]
+      |> Enum.filter(& &1)
+      |> Enum.join(" ")
+
+    cond do
+      notes == "" ->
+        upload_flash(rest)
+
+      rest == [] ->
+        {:warning, notes}
 
       true ->
-        upload_flash(rest)
+        {type, message} = upload_flash(rest)
+        {type, message <> " " <> notes}
     end
   end
 
@@ -7153,6 +7166,14 @@ defmodule PhoenixKitWeb.Components.MediaBrowser do
     ngettext(
       "%{count} file is already in another library, so it was not added here.",
       "%{count} files are already in another library, so they were not added here.",
+      count
+    )
+  end
+
+  defp no_room_message(count) do
+    ngettext(
+      "%{count} file was not stored: there is no storage left for this library.",
+      "%{count} files were not stored: there is no storage left for this library.",
       count
     )
   end

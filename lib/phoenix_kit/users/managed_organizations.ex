@@ -101,6 +101,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
 
   alias PhoenixKit.API.Keys
   alias PhoenixKit.API.Keys.Key
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
@@ -292,7 +293,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
     unless changeset.valid?, do: RepoHelper.repo().rollback(changeset)
 
     # Drain BEFORE clearing policy: a surviving acting token would otherwise
-    # become an ordinary session. No old password, provider or key returns.
+    # become an ordinary session. No old password, provider, key or chat returns.
     revoke_credentials!(org, authority.person_uuid)
 
     OrganizationManagers.clear_locked(org, authority)
@@ -360,5 +361,8 @@ defmodule PhoenixKit.Users.ManagedOrganizations do
     from(k in Key, where: k.user_uuid == ^org.uuid, order_by: k.uuid, lock: "FOR UPDATE")
     |> repo.all()
     |> Enum.each(fn key -> key |> Keys.revoke(actor_uuid) |> Locks.value!() end)
+
+    # Inert while the account is managed, live again the moment it is not.
+    Linking.drop_links(org.uuid, actor_uuid: actor_uuid)
   end
 end

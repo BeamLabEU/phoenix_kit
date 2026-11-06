@@ -71,6 +71,7 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Integrations.Telegram.Linking
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.Libraries
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
@@ -1508,6 +1509,7 @@ defmodule PhoenixKit.Users.Auth do
   """
   def delete_all_user_session_tokens(user) do
     Revocation.delete_all(UserToken.by_user_and_contexts_query(user, ["session"]))
+    Linking.drop_links(user.uuid)
     :ok
   end
 
@@ -1665,6 +1667,8 @@ defmodule PhoenixKit.Users.Auth do
     |> WelcomeEmail.track_transition(user)
     |> Ecto.Multi.update(:user, changeset)
     |> Revocation.multi_delete_all(:tokens, revoked_tokens_query(user))
+    # The pre-registrant keeps nothing, a chat linked to the site bot included.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
     # Enqueued in this transaction — and in the OAuth callback's around it —
     # so a rollback takes the welcome email with the confirmation.
     |> WelcomeEmail.multi()
@@ -1924,6 +1928,10 @@ defmodule PhoenixKit.Users.Auth do
        }}
     end)
     |> Ecto.Multi.update(:user, fn %{credential_user: current} -> changeset_fun.(current) end)
+    # A chat linked to the site bot acts as the user in the Machine API: a new password is
+    # recovery, so it ends there too, in the transaction that ends the sessions. After the
+    # validating step: a refused change must not log (and broadcast) a drop that never happened.
+    |> Ecto.Multi.run(:telegram_links, fn _repo, _ -> {:ok, Linking.drop_links(user.uuid)} end)
   end
 
   # Session-only fields originate with the caller's token loader. Return them
@@ -2301,10 +2309,27 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Updates user custom fields.
+  Replaces a user's custom fields with `custom_fields` — the WHOLE map.
 
   Custom fields are stored as JSONB and can contain arbitrary key-value pairs
   for extending user data without schema changes.
+
+  > #### To set a few keys, use `merge_user_custom_fields/3` {: .warning}
+  >
+  > This writes `custom_fields` over the column as it stands, so any key the
+  > map you pass lacks is removed, and any key it carries from an older read
+  > rolls back whatever was written since. The column is shared: PhoenixKit
+  > itself keeps `notification_preferences`, `preferred_locale` and
+  > `start_page` in it, and other features and modules keep their own keys
+  > there. A host that does `Map.put(user.custom_fields, "key", value)` on a
+  > struct loaded at mount and passes the result here silently undoes every
+  > write that landed in between.
+  >
+  > `merge_user_custom_fields/3` merges at the database level
+  > (`custom_fields || additions`) and is the way to add or change keys;
+  > `delete_user_custom_field/3` removes one. Keep this function for a form
+  > that genuinely owns the whole map, such as an admin editor showing every
+  > field.
 
   ## Examples
 
@@ -2344,6 +2369,11 @@ defmodule PhoenixKit.Users.Auth do
   Atomically merges `additions` into a user's custom_fields JSONB column
   at the database level (`custom_fields || additions`), instead of
   `update_user_custom_fields/3`'s read-modify-write contract.
+
+  **This is the recommended way to set custom-field keys**, from core, a
+  module or the host app alike: the column is shared with PhoenixKit's own
+  keys (`notification_preferences`, `preferred_locale`, `start_page`), and
+  this is the only writer that cannot overwrite them with a stale copy.
 
   Every existing caller that wants to add/update a couple of keys while
   preserving the rest follows the same pattern: fetch the user, compute
@@ -2515,14 +2545,43 @@ defmodule PhoenixKit.Users.Auth do
   defp maybe_update_custom_fields(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
 
   defp maybe_update_custom_fields(user, attrs) do
-    # Merge new custom fields with existing ones (don't replace entirely)
-    existing_custom_fields = user.custom_fields || %{}
-    merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+    # Before the lock: registering a definition writes a setting.
+    CustomFields.ensure_definitions_exist(Map.merge(user.custom_fields || %{}, attrs))
 
-    update_user_custom_fields(
-      user,
-      drop_stale_avatar_crop(merged_custom_fields, existing_custom_fields, attrs)
-    )
+    # Merge new custom fields with existing ones (don't replace entirely). The write below
+    # replaces the whole map, so the merge starts from the row under its lock, not from
+    # `user`: a struct from earlier would restore keys removed since, and a chat dropped from
+    # `notification_channel:telegram` is a revoked credential.
+    result =
+      Repo.transaction(fn ->
+        existing_custom_fields = locked_custom_fields(user)
+        merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+
+        update_user_custom_fields(
+          %{user | custom_fields: existing_custom_fields},
+          drop_stale_avatar_crop(merged_custom_fields, existing_custom_fields, attrs),
+          ensure_definitions: false,
+          broadcast: false
+        )
+      end)
+
+    case result do
+      {:ok, {:ok, updated_user}} ->
+        Events.broadcast_user_updated(updated_user)
+        {:ok, updated_user}
+
+      {:ok, {:error, changeset}} ->
+        {:error, changeset}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp locked_custom_fields(%User{uuid: uuid}) do
+    Repo.one(
+      from(u in User, where: u.uuid == ^uuid, select: u.custom_fields, lock: "FOR NO KEY UPDATE")
+    ) || %{}
   end
 
   # A stored crop describes the file it was made against — its aspect ratio

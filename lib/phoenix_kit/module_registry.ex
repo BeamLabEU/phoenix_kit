@@ -598,7 +598,9 @@ defmodule PhoenixKit.ModuleRegistry do
   @doc """
   Returns the sub-permissions declared by registered modules, keyed by the
   parent module key. Each entry carries the COMPOSED dotted key
-  (`"calendar.view_others"`) plus its label and description.
+  (`"calendar.view_others"`) plus its label, description and `opt_in` (`true`
+  when the module declared the sub-permission with `opt_in: true`, meaning the
+  Admin role is not given it automatically).
 
   Malformed declarations (bad key format, missing fields, key over
   #{@max_sub_key_length} chars, duplicate keys within one module) are dropped
@@ -640,7 +642,8 @@ defmodule PhoenixKit.ModuleRegistry do
       %{
         key: "#{base}.#{sub.key}",
         label: sub.label,
-        description: Map.get(sub, :description, "")
+        description: Map.get(sub, :description, ""),
+        opt_in: Map.get(sub, :opt_in) == true
       }
     end)
   end

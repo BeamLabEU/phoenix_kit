@@ -696,14 +696,18 @@ defmodule PhoenixKitWeb.Components.MediaBrowserPickerTest do
       refute has_element?(view, ~s(#pick button[phx-click="delete_selected"]))
     end
 
-    test "the toolbar shows the count with Confirm and Cancel", %{conn: conn} = ctx do
+    test "the header shows the count; Confirm and Cancel sit in the footer under the grid",
+         %{conn: conn} = ctx do
       a = file!(ctx.scope)
       view = open(conn, ctx)
 
       html = click_file(view, a)
       assert html =~ "1 selected"
-      assert has_element?(view, ~s(#pick button[phx-click="pick_confirm"]))
-      assert has_element?(view, ~s(#pick button[phx-click="pick_cancel"]))
+
+      for event <- ~w(pick_confirm pick_cancel) do
+        assert has_element?(view, ~s(#pick-picker-actions button[phx-click="#{event}"]))
+        refute has_element?(view, ~s(#pick-picker-bar button[phx-click="#{event}"]))
+      end
     end
   end
 

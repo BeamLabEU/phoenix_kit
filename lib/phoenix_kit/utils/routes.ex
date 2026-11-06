@@ -374,15 +374,25 @@ defmodule PhoenixKit.Utils.Routes do
   # It collapses to `"/"` whenever no locale prefix applies (a single-language
   # install, or the default language configured prefixless); the second element
   # is dropped then rather than probing the same path twice. Under a mount
-  # prefix it yields `/phoenix_kit/en`, which is core's own mount point and not
-  # the host's home at all — the probe simply refuses it, which is the point of
-  # asking the router instead of trusting the shape.
+  # prefix a multilingual site yields `/phoenix_kit/en`, which a host may
+  # declare as its localized landing — the probe decides.
+  #
+  # The bare mount point is never offered. On a single-language site under
+  # `url_prefix: "/phoenix_kit"`, `path("/")` is `/phoenix_kit/` itself — core's
+  # own mount, not anybody's home — and the probe cannot be trusted to refuse
+  # it: a host with a catch-all such as `get "/:username"` routes `/phoenix_kit`
+  # like any other segment, so a logout landed on the host's "no such user"
+  # page instead of its home.
   defp home_candidates do
     case path("/") do
       "/" -> [fn -> "/" end]
-      localized_root -> [fn -> localized_root end, fn -> "/" end]
+      root -> if bare_mount?(root), do: [fn -> "/" end], else: [fn -> root end, fn -> "/" end]
     end
   end
+
+  # `path("/")` emits the mount with a trailing slash (`/phoenix_kit/`), and the
+  # router matches it either way.
+  defp bare_mount?(path), do: String.trim_trailing(path, "/") == prefix_base()
 
   @doc """
   The host's own home page, localized — for a plain navigation link (the

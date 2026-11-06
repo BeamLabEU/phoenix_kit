@@ -76,7 +76,7 @@ defmodule PhoenixKit.Notifications.Prefs do
   Note the overlay is computed from the passed `user`'s prefs, so a concurrent
   write to the *same* `notification_preferences` key can still be lost; only
   sibling `custom_fields` keys are protected. Callers that must not lose one
-  should pass a freshly-loaded user (same caveat as `ChannelConfig.update/3`).
+  should pass a freshly-loaded user.
 
   Returns `{:error, :not_found}` if the user row was deleted concurrently.
   """

@@ -25,6 +25,7 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
      |> assign_new(:notice, fn -> nil end)
      |> assign_new(:error, fn -> nil end)
      |> assign_new(:people, fn -> [] end)
+     |> assign_new(:searched?, fn -> false end)
      |> load()}
   end
 
@@ -86,7 +87,7 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
 
   def handle_event("search", %{"query" => term}, socket) do
     case OrganizationManagers.search(socket.assigns.actor, socket.assigns.organization_uuid, term) do
-      {:ok, people} -> {:noreply, assign(socket, :people, people)}
+      {:ok, people} -> {:noreply, assign(socket, people: people, searched?: true)}
       _ -> finish(socket, {:error, :forbidden}, nil)
     end
   end
@@ -141,7 +142,9 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
 
   defp finish(socket, {:ok, _}, message) do
     {:noreply,
-     socket |> assign(:notice, message) |> assign(:error, nil) |> assign(:people, []) |> load()}
+     socket
+     |> assign(notice: message, error: nil, people: [], searched?: false)
+     |> load()}
   end
 
   defp finish(socket, {:error, reason}, _message) do
@@ -247,9 +250,17 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
               phx-target={@myself}
               class="flex gap-3 items-end"
             >
-              <Input.input name="query" value="" label={gettext("Find an active person")} />
+              <Input.input
+                name="query"
+                value=""
+                label={gettext("Find an active person")}
+                placeholder={gettext("Type a name, username or email")}
+              />
               <button type="submit" class="btn btn-outline">{gettext("Search")}</button>
             </form>
+            <p :if={@searched? and @people == []} class="text-sm text-base-content/70">
+              {gettext("No active person with that name, username or email")}
+            </p>
             <button
               :for={person <- @people}
               type="button"
@@ -306,9 +317,17 @@ defmodule PhoenixKitWeb.Live.Components.OrganizationManagers do
               phx-target={@myself}
               class="flex gap-3 items-end"
             >
-              <Input.input name="query" value="" label={gettext("Find the first manager")} />
+              <Input.input
+                name="query"
+                value=""
+                label={gettext("Find the first manager")}
+                placeholder={gettext("Type a name, username or email")}
+              />
               <button type="submit" class="btn btn-outline">{gettext("Search")}</button>
             </form>
+            <p :if={@searched? and @people == []} class="text-sm text-base-content/70">
+              {gettext("No active person with that name, username or email")}
+            </p>
             <button
               :for={person <- @people}
               type="button"

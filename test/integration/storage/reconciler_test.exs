@@ -16,6 +16,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   alias PhoenixKit.Modules.Storage.{
     Bucket,
     FileLocation,
+    ImageEditing,
     Libraries,
     LocationCheck,
     Locations,
@@ -25,11 +26,17 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     VariantSets
   }
 
+  alias PhoenixKit.Modules.Storage.File, as: StorageFile
   alias PhoenixKit.Modules.Storage.Workers.ReconcileJob
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
 
   import Ecto.Query
+
+  defmodule DeadRepo do
+    @moduledoc false
+    def update_all(_query, _updates, _opts \\ []), do: exit({:noproc, {GenServer, :call, []}})
+  end
 
   setup do
     n = System.unique_integer([:positive])
@@ -66,6 +73,14 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
   end
 
   defp profile(ctx), do: Profiles.get_profile(ctx.profile.uuid)
+
+  # The row a system file has: an edited image's hidden original, or a tile.
+  defp hide!(file, name) do
+    {1, _} =
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^file.uuid),
+        set: [system_managed: true, file_name: name]
+      )
+  end
 
   defp upload!(ctx, content, library \\ nil, user \\ nil) do
     path = Path.join(System.tmp_dir!(), "pk_reconcile_src_#{System.unique_integer([:positive])}")
@@ -339,6 +354,40 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
       assert on(ctx.a, small)
     end
 
+    # An edit moves the unedited bytes to a hidden system file, which placement
+    # otherwise reads as made-again: exactly what such a backup exists to keep.
+    test "a backup of originals only keeps an edited image's unedited original", ctx do
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{role: "backup"})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
+
+      file = image!(ctx)
+      original = key(file)
+      small = Storage.get_file_instance_by_name(file.uuid, "small").file_name
+      hide!(file, ImageEditing.backup_name())
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+      assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+
+      assert buckets_of(original) == uuids([ctx.a, ctx.b])
+      assert on(ctx.b, original)
+      assert buckets_of(small) == uuids([ctx.a])
+    end
+
+    test "a tile, which can be cut again, leaves a backup of originals only", ctx do
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{role: "backup"})
+      {:ok, _} = Profiles.update_profile(profile(ctx), %{copies_local: 2})
+
+      file = image!(ctx)
+      original = key(file)
+      hide!(file, "tile_0_0")
+
+      {:ok, _} = Profiles.put_bucket(profile(ctx), ctx.b.uuid, %{stores: "originals"})
+      assert Reconciler.reconcile_file(Storage.get_file(file.uuid)) == :reconciled
+
+      assert buckets_of(original) == uuids([ctx.a])
+      refute on(ctx.b, original)
+    end
+
     test "a disabled size is kept, not made again", ctx do
       file = image!(ctx)
       small = Storage.get_dimension_by_name("small", ctx.set.uuid)
@@ -360,75 +409,126 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     for file <- files, do: refute(stale?(file))
   end
 
-  # `with_file_lock/2` holds the lock in a transaction on a connection of its
-  # own (PgBouncer's transaction pooling breaks a session lock, and the pool
-  # takes back a connection held past its timeout).
+  # `with_file_lock/3` holds a lease in the file's row (V228): no connection
+  # is held while it works (PgBouncer's transaction pooling breaks a session
+  # advisory lock, and a transaction one pins a server connection).
   describe "the file lock" do
-    test "is one holder at a time, and is free again however the holder ends" do
-      key = Ecto.UUID.generate()
+    test "is one holder at a time, and is free again however the holder ends", ctx do
+      file = upload!(ctx, "lock one")
       parent = self()
 
       holder =
         Task.async(fn ->
-          Reconciler.with_file_lock(key, fn ->
+          Reconciler.with_file_lock(file.uuid, fn ->
             send(parent, :holding)
             receive do: (:release -> :done)
           end)
         end)
 
       assert_receive :holding, 5_000
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+      assert %{reconcile_lock_token: token} = Repo.get!(Storage.File, file.uuid)
+      assert token
 
       send(holder.pid, :release)
       assert Task.await(holder) == :done
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :ran
 
-      assert_raise RuntimeError, fn -> Reconciler.with_file_lock(key, fn -> raise "boom" end) end
-      assert Reconciler.with_file_lock(key, fn -> :again end) == :again
+      assert %{reconcile_lock_token: nil, reconcile_locked_until: nil} =
+               Repo.get!(Storage.File, file.uuid)
+
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :ran
+
+      assert_raise RuntimeError, fn ->
+        Reconciler.with_file_lock(file.uuid, fn -> raise "boom" end)
+      end
+
+      assert Reconciler.with_file_lock(file.uuid, fn -> :again end) == :again
     end
 
-    test "is taken again by the process that holds it (a repair runs the reconciler)" do
-      key = Ecto.UUID.generate()
+    test "is taken again by the process that holds it (a repair runs the reconciler)", ctx do
+      file = upload!(ctx, "lock nested")
 
-      assert Reconciler.with_file_lock(key, fn ->
-               Reconciler.with_file_lock(key, fn -> :inner end)
+      assert Reconciler.with_file_lock(file.uuid, fn ->
+               Reconciler.with_file_lock(file.uuid, fn -> :inner end)
              end) == :inner
     end
 
-    test "is freed when its holder is killed" do
-      key = Ecto.UUID.generate()
+    test "a holder that dies leaves its lease to run out", ctx do
+      file = upload!(ctx, "lock killed")
       parent = self()
 
       {holder, ref} =
         spawn_monitor(fn ->
-          Reconciler.with_file_lock(key, fn ->
-            send(parent, :holding)
-            Process.sleep(:infinity)
-          end)
+          Reconciler.with_file_lock(
+            file.uuid,
+            fn ->
+              send(parent, :holding)
+              Process.sleep(:infinity)
+            end,
+            lease_seconds: 1
+          )
         end)
 
       assert_receive :holding, 5_000
       Process.exit(holder, :kill)
       assert_receive {:DOWN, ^ref, :process, ^holder, :killed}
 
-      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+
+      assert eventually(
+               fn -> Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :ran end,
+               150
+             )
     end
 
-    test "is kept out by a session lock on the same key, as the repair tests take it" do
-      key = Ecto.UUID.generate()
-      opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
-      {:ok, other} = Postgrex.start_link(opts)
+    test "is renewed while its holder works", ctx do
+      file = upload!(ctx, "lock renewed")
+      parent = self()
 
-      Postgrex.query!(
-        other,
-        "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
-        [key]
-      )
+      holder =
+        Task.async(fn ->
+          Reconciler.with_file_lock(
+            file.uuid,
+            fn ->
+              send(parent, :holding)
+              receive do: (:release -> :done)
+            end,
+            lease_seconds: 1
+          )
+        end)
 
-      assert Reconciler.with_file_lock(key, fn -> :ran end) == :skipped
+      assert_receive :holding, 5_000
+      # Past the 1-second lease: still held, because it was renewed.
+      Process.sleep(2_500)
+      assert Reconciler.with_file_lock(file.uuid, fn -> :ran end) == :skipped
+      send(holder.pid, :release)
+      assert Task.await(holder) == :done
+    end
 
-      GenServer.stop(other)
-      assert eventually(fn -> Reconciler.with_file_lock(key, fn -> :ran end) == :ran end)
+    # An unreachable database raises, but a dead pool exits, and giving the lease back
+    # happens in an `after`: an exit there would replace the work's own result.
+    test "a pool that is gone when the lease goes back leaves the result alone", ctx do
+      file = upload!(ctx, "dead pool")
+      repo = Application.get_env(:phoenix_kit, :repo)
+      on_exit(fn -> Application.put_env(:phoenix_kit, :repo, repo) end)
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          result =
+            Reconciler.with_file_lock(file.uuid, fn ->
+              Application.put_env(:phoenix_kit, :repo, __MODULE__.DeadRepo)
+              :done
+            end)
+
+          Application.put_env(:phoenix_kit, :repo, repo)
+          assert result == :done
+        end)
+
+      assert log =~ "Could not release the reconcile lease"
+    end
+
+    test "a file that does not exist has nothing to hold" do
+      assert Reconciler.with_file_lock(Ecto.UUID.generate(), fn -> :ran end) == :ran
     end
   end
 

@@ -182,13 +182,11 @@ defmodule PhoenixKitWeb.Live.Users.MediaStorageTest do
 
     test "a busy file reports a retryable error and leaves the page usable", ctx do
       file = image!(ctx.user)
-      opts = Keyword.take(Repo.config(), [:hostname, :port, :username, :password, :database])
-      {:ok, holder} = Postgrex.start_link(opts)
+      until = NaiveDateTime.utc_now() |> NaiveDateTime.add(300) |> NaiveDateTime.truncate(:second)
 
-      Postgrex.query!(
-        holder,
-        "SELECT pg_advisory_lock(hashtext('phoenix_kit_reconcile:' || $1))",
-        [file.uuid]
+      # Another reconciler's lease on the file (V228).
+      Repo.update_all(from(f in StorageFile, where: f.uuid == ^file.uuid),
+        set: [reconcile_lock_token: Ecto.UUID.generate(), reconcile_locked_until: until]
       )
 
       {:ok, view, _html} = live(ctx.conn, storage_path(file))

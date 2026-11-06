@@ -109,4 +109,52 @@ defmodule PhoenixKit.Install.DaisyUITest do
       assert warning =~ "assets/vendor"
     end
   end
+
+  # phx.new 1.8 no longer vendors daisyUI: mix.exs declares it as a sparse git
+  # dependency and app.css loads deps/daisyui/packages/bundle/daisyui. The
+  # sparse checkout has no package.json; the bundle carries the marker.
+  describe "the phx.new 1.8 git dependency" do
+    @tag :tmp_dir
+    test "is read when there is no vendored copy", %{tmp_dir: root} do
+      write_bundle(root, ["deps", "daisyui", "packages", "bundle"], "5.6.17")
+
+      assert DaisyUI.host_path(root) ==
+               Path.join(root, "deps/daisyui/packages/bundle/daisyui.js")
+
+      assert DaisyUI.check(root) == :ok
+      assert DaisyUI.source(DaisyUI.host_path(root)) == :dep
+    end
+
+    @tag :tmp_dir
+    test "an old tag is reported as outdated, with dependency upgrade steps", %{tmp_dir: root} do
+      write_bundle(root, ["deps", "daisyui", "packages", "bundle"], "5.5.20")
+
+      assert DaisyUI.check(root) == {:outdated, "5.5.20"}
+
+      warning = DaisyUI.outdated_warning("5.5.20", DaisyUI.host_path(root))
+      assert warning =~ "deps/daisyui"
+      assert warning =~ "mix deps.update daisyui"
+      refute warning =~ "assets/vendor"
+    end
+
+    @tag :tmp_dir
+    test "the vendored copy wins when both exist", %{tmp_dir: root} do
+      write_bundle(root, ["deps", "daisyui", "packages", "bundle"], "5.6.17")
+      write_bundle(root, ["assets", "vendor"], "5.0.35")
+
+      assert DaisyUI.source(DaisyUI.host_path(root)) == :vendored
+      assert DaisyUI.check(root) == {:outdated, "5.0.35"}
+    end
+
+    @tag :tmp_dir
+    test "neither shape present is :missing", %{tmp_dir: root} do
+      assert DaisyUI.check(root) == :missing
+    end
+  end
+
+  defp write_bundle(root, dir, version) do
+    dir = Path.join([root | dir])
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, "daisyui.js"), ~s|var version = "#{version}";\n|)
+  end
 end

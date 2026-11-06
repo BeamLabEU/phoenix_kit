@@ -31,7 +31,7 @@ test.after(() => {
 });
 
 // Every hook `phoenix_kit.js` registered before the split (unchanged in 3.0.0), plus
-// the ones added since (`RemovalModal`, #999; `UploadManager`, #1006). A hook
+// the ones added since (`RemovalModal`, #999; `UploadManager`, #1006; `AudioRecorder`, 3.4.0). A hook
 // that is neither listed as public nor as admin has been lost; one that is
 // listed twice has been classified twice.
 const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset TimezoneDetector
@@ -39,7 +39,7 @@ const PUBLIC = `LibraryLoadNotice CookieConsent FlashAutoDismiss TimezoneOffset 
   SelectOnMount TimeAgo CopyToClipboard FadeOut PreserveScroll InfiniteScroll PageSizeAutoFit
   MaintenanceCountdown PkShiftEnter PkUrlMirror PhoenixKitUrlState PkCheckboxIndeterminate PkDateInput
   PkChartCrosshair ViewportPopover Leaf FrescoViewer FrescoCanvas TesseraLayer EtcherLayer
-  MentionInput UploadStats UploadGuard`.split(/\s+/);
+  MentionInput UploadStats UploadGuard AudioRecorder`.split(/\s+/);
 
 const ADMIN = `SortableGrid MediaImageZoom MarkdownEditor InstantViewer ViewerKeydown ViewerPaneFit
   MediaViewerDialog PkHashHighlight BulkSelectScope TableLocalSearch AdminSidebarScroll PkDialogDraft
@@ -72,8 +72,8 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 
 // ── The inventory ──────────────────────────────────────────────────────────
 
-test("the two lists are disjoint and together are the 74 hooks the bundle has", () => {
-  assert.equal(PUBLIC.length, 34);
+test("the two lists are disjoint and together are the 75 hooks the bundle has", () => {
+  assert.equal(PUBLIC.length, 35);
   assert.equal(ADMIN.length, 40);
   assert.deepEqual(PUBLIC.filter((n) => ADMIN.includes(n)), []);
 });
@@ -186,10 +186,11 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 256 KiB: the public half is about 248 KiB with the mention field and the two upload hooks (public pages
-  // render them). A coarse backstop only: a small admin hook would still fit in the margin, and it is the name
+  // 272 KiB: the public half is about 260 KiB with the mention field, the two upload hooks (public pages
+  // render them) and the audio recorder, a public primitive that main added (13 KB, "any page can use"; it was
+  // 256 KiB before). A coarse backstop only: a small admin hook would still fit in the margin, and it is the name
   // checks above that catch one put in the wrong file.
-  assert.ok(publicBytes < 256 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
+  assert.ok(publicBytes < 272 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });
 

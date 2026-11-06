@@ -12,7 +12,8 @@ This guide is designed to help both developers and AI assistants (Claude, Cursor
 2. [Installation](#installation)
 3. [Configuration Reference](#configuration-reference)
 4. [Authentication Integration](#authentication-integration)
-5. [Troubleshooting](#troubleshooting)
+5. [Testing Your App](#testing-your-app)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -271,6 +272,30 @@ scope "/", MyAppWeb do
 end
 ```
 
+### Staying signed in ("remember me")
+
+A visitor who ticked "remember me" carries a signed cookie that lives 60 days
+(`PhoenixKitWeb.Users.Auth.remember_me_max_age/0`). `PhoenixKitWeb.Plugs.Integration`,
+which the installer adds to your `:browser` pipeline, rebuilds the session from
+it on every page whenever the session has no signed-in user, so your own pages
+see the visitor as signed in too.
+
+The session cookie itself is yours. A stock `mix phx.new` endpoint gives it no
+`max_age`, so the browser treats it as a session cookie, and a phone drops it
+whenever the OS stops the web app. The rebuild covers for that, but you can give
+it the same lifetime:
+
+```elixir
+# lib/my_app_web/endpoint.ex
+@session_options [
+  store: :cookie,
+  key: "_my_app_key",
+  signing_salt: "...",
+  same_site: "Lax",
+  max_age: 60 * 60 * 24 * 60
+]
+```
+
 ### Check User Roles
 
 ```elixir
@@ -402,6 +427,53 @@ backs it up with the admin-area test alone.
 
 ---
 
+## Testing Your App
+
+PhoenixKit ships test helpers in `PhoenixKit.Test.Fixtures`. Use them instead of
+signing users in by hand. A hand-rolled login that sets `:user_token` but not
+`:live_socket_id` looks fine and quietly stops LiveView from disconnecting on
+logout.
+
+`mix phoenix_kit.install` and `mix phoenix_kit.update` add the import to
+`test/support/conn_case.ex` when they can do so safely. They leave the file
+alone if your tests already define a function with one of the same names. To
+add it by hand, put it inside the `quote` block:
+
+```elixir
+# test/support/conn_case.ex
+using do
+  quote do
+    # ...
+    import Phoenix.ConnTest
+    import PhoenixKit.Test.Fixtures
+  end
+end
+```
+
+Then:
+
+```elixir
+setup :register_and_log_in_user
+
+test "the dashboard renders", %{conn: conn, user: user} do
+  assert conn |> get(~p"/dashboard") |> html_response(200) =~ user.email
+end
+```
+
+| Helper | Gives you |
+|---|---|
+| `register_and_log_in_user/1` | A confirmed user, signed into `conn`. Use it as a `setup` step. Adds `:user` to the context. |
+| `log_in_user/2` | Signs an existing user into a conn. |
+| `user_fixture/1` | A registered, **unconfirmed** user. |
+| `confirmed_user_fixture/1` | The same, but confirmed. |
+| `admin_fixture/1` | A user with the Admin role. |
+| `scope_for/1` | A real `%Scope{}` for code that takes a scope directly. |
+
+Sandbox ownership stays in your `ConnCase` and `DataCase`. The fixtures only
+call `Auth.register_user/1` and put keys into the session.
+
+---
+
 ## Troubleshooting
 
 ### "Repo not configured"
@@ -478,6 +550,7 @@ entirely — `igniter_new` skips it when the dep is already present.
 ## Further Reading
 
 - **[Custom Admin Pages](custom-admin-pages.md)** - Add pages to the admin sidebar
+- **[Your App as a Module](your-app-as-a-module.md)** - Account-deletion cleanup, notification types, Oban crons and more, from your own app
 - **[Admin Dashboard Reference](dashboard/ADMIN_README.md)** - Admin navigation and tabs system
 - **[Dashboard Components](dashboard/README.md)** - Tabs, subtabs, badges, and more
 

@@ -89,14 +89,14 @@ the user dashboard, or when it is a global behaviour every page needs; generic s
 public (their cost is a few hundred gzip bytes each, less than one lazy request); specialised or heavy hooks go
 to the admin bundle.** The split is an explicit list in `phoenix_kit.js` (`ADMIN_HOOKS`), and a node test pins it.
 
-*Public, 34* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
+*Public, 35* — LibraryLoadNotice, CookieConsent, FlashAutoDismiss, TimezoneOffset, TimezoneDetector,
 LanguageSwitcherSearch, LanguageSwitcherPosition, PkDialog, PkDialogTrigger, PopupLink, ResetSelect,
 SelectOnMount, TimeAgo, CopyToClipboard, FadeOut, PreserveScroll, InfiniteScroll, PageSizeAutoFit,
 MaintenanceCountdown, PkShiftEnter, PkUrlMirror, PhoenixKitUrlState, PkCheckboxIndeterminate, PkDateInput,
 PkChartCrosshair, ViewportPopover, and the five already-lazy library wrappers Leaf, FrescoViewer, FrescoCanvas,
-TesseraLayer, EtcherLayer; and MentionInput, UploadStats and UploadGuard, which core's own `file_upload` component
+TesseraLayer, EtcherLayer; MentionInput, UploadStats and UploadGuard, which core's own `file_upload` component
 and its mention-enabled text fields render, so a module's public page (a form with an upload, a comment box) has
-them.
+them; and AudioRecorder, the microphone behind `<.audio_recorder>` (3.4.0).
 
 *Admin, 40* — SortableGrid, MediaImageZoom, MarkdownEditor, InstantViewer, ViewerKeydown, ViewerPaneFit,
 MediaViewerDialog, ViewerSwipe, ViewerGallery, ViewerHiresLoading, AnnotationBurn, EtcherTooltipActions,
@@ -111,7 +111,8 @@ core renders it in the media browser, its pickers and the selector page and nowh
 it on a public page. Its script is also a standalone file for projects outside PhoenixKit
 (`phoenix_kit_upload_manager.js`), of which `phoenix_kit_admin.js` holds a copy, identical but for the lines that
 register the hook (`PhoenixKitAdminHooks` instead of `PhoenixKitHooks`; `upload_manager_bundle.test.cjs`). Public, it
-would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B raw, over the 256 KiB budget).
+would have been 55 KB raw / 8.2 KB min+gz more in every page's file (303 603 B raw when measured, over the 256 KiB
+budget it had then, and over today's 272 KiB as well).
 Behind a stub it has the limit of every stub, and one more cost: the manager registers the chunked uploader
 (`PkChunked`) when it starts, and a file chosen before the bundle has arrived is preflighted regardless, so the stub
 of `UploadManager` keeps a stand-in under that name (`holdChunkedUploader`) which takes the entries LiveView hands
@@ -134,10 +135,18 @@ real uploader because the bundle replaces the stand-in in the turn the hooks mou
 (`upload_resume_reload.test.cjs`).
 
 At design time the public hooks were estimated at ~107 KB of ~507 KB of hook code. **As built** (esbuild 0.25.4
-`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 253 733 B raw, 72 415 gzip, 94 841 minified, 29 027 minified + gzip;
-`phoenix_kit_admin.js` is 426 222 / 120 055 / 160 877 / 47 229. The size budget in `admin_split.test.cjs` (256 KiB for
+`--minify`, `gzip -9 -n`): `phoenix_kit.js` is 266 742 B raw, 76 105 gzip, 101 186 minified, 31 024 minified + gzip;
+`phoenix_kit_admin.js` is 426 222 / 120 055 / 160 877 / 47 229. The size budget in `admin_split.test.cjs` (272 KiB for
 the public file) is a coarse backstop; what keeps an admin hook out of the public file is the name check in the same
 test.
+
+`AudioRecorder` (the `<.audio_recorder>` of 3.4.0, a microphone recorder "any page can use") is public by the rule above:
+a generic form primitive, imported into every page's helpers next to `file_upload`, and documented with a public
+form as its example, so a page that renders it must not wait for the admin bundle (47 KB min+gz, against the hook's
+own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 009 B raw /
+1 997 B min+gz to the public file, which is why the budget went from 256 to 272 KiB (the test says so); its body is
+main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
+recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
 
 The same pass classifies the **non-hook top-level code** (the collapse scroll keeper, the change cue, the global
 textarea / stray-click / unsaved-changes listeners, the Etcher tooltip bridges): code that runs for every page
@@ -173,7 +182,7 @@ the output of one and of two esbuild passes). The vendored `phoenix_kit.js` and
 
 Expected (same esbuild, measured above): `phoenix_kit_modules.js` 132 KB → 77 KB gzip for the 19-bundle build; the vendored
 `phoenix_kit.js` 226 KB gzip as shipped → 25 KB gzip minified for the public part (**as built**:
-254 KB raw / 72 KB gzip readable, 29 KB gzip minified, the mention field and the two upload hooks being public;
+267 KB raw / 76 KB gzip readable, 31 KB gzip minified, the mention field, the two upload hooks and the audio recorder being public;
 the admin bundle is 426 KB / 120 KB readable, 161 KB / 47 KB gzip minified;
 Chart.js stays its own 208 KB / 70 KB file that only the email dashboard fetches).
 
@@ -225,7 +234,7 @@ module's admin stubs are registered whichever of `phoenix_kit.js` and `phoenix_k
    file's keys equal `ADMIN_HOOKS`; stubs load once for N mounts, delegate `mounted/updated/destroyed` with the
    right `this`, survive destroy-while-loading and a failed load; a public-size budget. Then move the code; the
    existing `test/js` files that exercise admin hooks are pointed at the file that now holds what they test (as built:
-   27 of main's 49; there were 39 test files when this was written).
+   27 of main's 50; there were 39 test files when this was written).
 3. **Delivery.** Tests: `vendor_all` writes the admin file under a content-hash name, the facts name it, an
    unchanged compile writes nothing, `minify?` true + esbuild present yields smaller files for the three outputs,
    absent esbuild yields the readable ones. Facts file sets the library base. Doctor check.

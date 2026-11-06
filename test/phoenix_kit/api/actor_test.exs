@@ -7,6 +7,7 @@ defmodule PhoenixKit.API.ActorTest do
     actor = %Actor{}
 
     assert actor.kind == :anonymous
+    assert actor.source == nil
     assert actor.scopes == []
     assert actor.scope == nil
     assert actor.requires_approval == false
@@ -20,6 +21,7 @@ defmodule PhoenixKit.API.ActorTest do
     assert %Actor{} |> Map.from_struct() |> Map.keys() |> Enum.sort() ==
              Enum.sort([
                :kind,
+               :source,
                :key_uuid,
                :key_prefix,
                :user_uuid,

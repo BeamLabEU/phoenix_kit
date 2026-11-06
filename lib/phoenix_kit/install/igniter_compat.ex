@@ -16,6 +16,7 @@ defmodule PhoenixKit.Install.IgniterCompat do
   ]
 
   @rewrite_modules [
+    Rewrite,
     Rewrite.Source
   ]
 

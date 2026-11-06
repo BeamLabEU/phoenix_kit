@@ -1,19 +1,22 @@
 defmodule PhoenixKit.API.Actor do
   @moduledoc """
   Who is calling the API: a key (with its owner and effective scopes), a person's live
-  browser session (in process, `PhoenixKit.API.Executor.execute_as/5`) or an anonymous
-  public caller.
+  browser session or linked Telegram chat (in process,
+  `PhoenixKit.API.Executor.execute_as/5`) or an anonymous public caller.
 
-    * `kind` - `:key` for a verified bearer key, `:user` for a live session,
-      `:anonymous` for a public caller.
+    * `kind` - `:key` for a verified bearer key, `:user` for a live session or a linked
+      Telegram chat, `:anonymous` for a public caller.
+    * `source` - the channel a `:user` acts through: `"telegram"` for a linked Telegram
+      chat, `nil` for a live session (and for every other kind).
     * `key_uuid`, `key_prefix` - the key, when there is one (`nil` for `:user`).
-    * `user_uuid` - the key's owner, or the session's user.
+    * `user_uuid` - the key's owner, or the session's (or linked chat's) user.
     * `scopes` - the key's effective scopes (its own, filtered by the owner's live
       permissions), or the scopes the session's scope holds
       (`PhoenixKit.API.Keys.held_scopes_of/1`).
     * `scope` - the `PhoenixKit.Users.Auth.Scope` those scopes were computed from: the
       owner's `Scope.for_user(owner, narrow: false)` for a key, the session's narrowed
-      scope for `:user`, `nil` for an anonymous caller. Handlers read it as `ctx.scope`.
+      scope for `:user` (the user's default role's, for a linked chat too), `nil` for an anonymous caller.
+      Handlers read it as `ctx.scope`.
     * `personal` - the key is a personal one (`PhoenixKit.API.Keys.Key`'s `personal`): its
       owner's right to personal keys was checked when the actor was built.
       `PhoenixKit.API.Keys.effective_scopes/1` checks it again for an old actor. `false` for
@@ -33,6 +36,7 @@ defmodule PhoenixKit.API.Actor do
 
   @derive {Inspect, except: [:scope]}
   defstruct kind: :anonymous,
+            source: nil,
             key_uuid: nil,
             key_prefix: nil,
             user_uuid: nil,
@@ -45,6 +49,7 @@ defmodule PhoenixKit.API.Actor do
 
   @type t :: %__MODULE__{
           kind: :key | :user | :anonymous,
+          source: String.t() | nil,
           key_uuid: String.t() | nil,
           key_prefix: String.t() | nil,
           user_uuid: String.t() | nil,

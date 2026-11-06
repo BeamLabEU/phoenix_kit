@@ -417,7 +417,6 @@
                 pick_mode={assigns[:pick_mode]}
                 picked={assigns[:picked]}
                 picker={assigns[:picker]}
-                picker_uploading={assigns[:picker_uploading]}
                 max_select={assigns[:max_select]}
                 readonly={assigns[:readonly]}
                 removal_guarded={assigns[:removal_guarded]}
@@ -660,6 +659,43 @@
                   <% end %>
                 </div>
               <% end %>
+            </div>
+            <%!-- Picker: the way out, under the grid where a dialog's
+                 buttons are — Confirm hands the pick to the host, Cancel
+                 leaves the host's slot as it was. Outside the scroll area,
+                 so it stays in view however long the folder is. Both wait
+                 while an upload is on its way (the host is told, see the
+                 moduledoc). --%>
+            <div
+              :if={@picker}
+              id={"#{@id}-picker-actions"}
+              class="shrink-0 flex flex-wrap items-center justify-end gap-2 border-t border-base-200 px-2 pt-2"
+            >
+              <span
+                :if={@picker_uploading}
+                class="mr-auto inline-flex items-center gap-1.5 text-xs text-base-content/70"
+              >
+                <span class="loading loading-spinner loading-xs text-primary"></span>
+                {gettext("Wait for the uploads to finish")}
+              </span>
+              <button
+                type="button"
+                phx-click="pick_cancel"
+                phx-target={@myself}
+                disabled={@picker_uploading}
+                class="btn btn-sm btn-ghost"
+              >
+                {gettext("Cancel")}
+              </button>
+              <button
+                type="button"
+                phx-click="pick_confirm"
+                phx-target={@myself}
+                disabled={@picker_uploading}
+                class="btn btn-sm btn-primary gap-1.5"
+              >
+                <.icon name="hero-check" class="w-4 h-4" /> {gettext("Confirm")}
+              </button>
             </div>
           </div>
         </div>

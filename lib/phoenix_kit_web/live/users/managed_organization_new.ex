@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Input
-  alias PhoenixKitWeb.Components.Core.Select
 
   @impl true
   def mount(_params, session, socket) do
@@ -19,6 +18,7 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
        socket
        |> assign(:actor, actor)
        |> assign(:people, [])
+       |> assign(:manager, nil)
        |> assign(:error, nil)
        |> assign(:page_title, gettext("New managed organization"))
        |> assign(:page_section, gettext("Users"))
@@ -45,21 +45,32 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
   def handle_event("validate", %{"organization" => attrs}, socket),
     do: {:noreply, assign(socket, :form, to_form(attrs, as: :organization))}
 
-  def handle_event("search", %{"query" => query}, socket) do
+  # An empty query is the picker opening on focus: it answers with a first page.
+  def handle_event("picker_search", %{"q" => query}, socket) when is_binary(query) do
     case available?(socket.assigns.actor) &&
            OrganizationManagers.search_for_creation(socket.assigns.actor, query) do
       {:ok, people} ->
-        {:noreply, assign(socket, :people, people)}
+        {:noreply, socket |> assign(:people, people) |> push_results(query, people)}
 
       _ ->
         {:noreply,
-         assign(
-           socket,
+         socket
+         |> assign(
            :error,
            gettext("This change is not available. Refresh the page and check your access.")
-         )}
+         )
+         |> push_results(query, [])}
     end
   end
+
+  # Only a person the search offered can be picked; `create` checks them again.
+  def handle_event("picker_pick", %{"uuid" => uuid}, socket) do
+    manager = Enum.find(socket.assigns.people, &(&1.uuid == uuid))
+    {:noreply, socket |> assign(:manager, manager) |> assign(:error, nil)}
+  end
+
+  def handle_event("picker_clear", _params, socket),
+    do: {:noreply, assign(socket, :manager, nil)}
 
   def handle_event("create", %{"organization" => attrs}, socket) do
     result =
@@ -87,6 +98,23 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
   defp available?(actor),
     do: Auth.organization_accounts_enabled?() and match?({:ok, _}, Actor.admin(actor))
 
+  defp push_results(socket, query, people) do
+    results =
+      Enum.map(people, fn person ->
+        %{
+          kind: "person",
+          uuid: person.uuid,
+          label: User.display_name(person),
+          sublabel: User.delivery_email(person)
+        }
+      end)
+
+    push_event(socket, "picker_results", %{q: query, results: results, has_more: false})
+  end
+
+  defp manager_label(nil), do: nil
+  defp manager_label(person), do: "#{User.display_name(person)} (#{User.delivery_email(person)})"
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -106,10 +134,6 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
           )}
         </p>
         <div :if={@error} class="alert alert-error" role="alert">{@error}</div>
-        <form id="managed-organization-search" phx-submit="search" class="flex gap-3 items-end">
-          <Input.input name="query" value="" label={gettext("Find the first manager")} />
-          <button type="submit" class="btn btn-outline">{gettext("Search")}</button>
-        </form>
         <.form
           for={@form}
           id="managed-organization-create"
@@ -123,15 +147,29 @@ defmodule PhoenixKitWeb.Live.Users.ManagedOrganizationNew do
             required
           />
           <Input.input field={@form[:contact_email]} type="email" label={gettext("Contact email")} />
-          <Select.select
-            field={@form[:person_uuid]}
-            label={gettext("First manager")}
-            options={[
-              {gettext("Choose a person"), ""}
-              | Enum.map(@people, &{"#{User.display_name(&1)} (#{User.delivery_email(&1)})", &1.uuid})
-            ]}
-            required
-          />
+          <div>
+            <label class="label mb-2" for="managed-organization-manager">
+              <span class="font-semibold">{gettext("First manager")}</span>
+              <span class="text-error ml-0.5" aria-hidden="true">*</span>
+            </label>
+            <.search_picker
+              id="managed-organization-manager"
+              dropdown_id="managed-organization-manager-list"
+              chosen={manager_label(@manager)}
+              search_on_focus
+              close_on_pick
+              required
+              placeholder={gettext("Type a name, username or email")}
+              searching_label={gettext("Searching…")}
+              no_matches_label={gettext("No active person with that name, username or email")}
+              clear_label={gettext("Clear")}
+            />
+            <input
+              type="hidden"
+              name={@form[:person_uuid].name}
+              value={@manager && @manager.uuid}
+            />
+          </div>
           <button type="submit" class="btn btn-primary">{gettext("Create managed organization")}</button>
         </.form>
       </div>

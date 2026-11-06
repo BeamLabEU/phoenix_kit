@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
   alias PhoenixKit.Utils.Routes
 
   alias PhoenixKitWeb.Components.ProfileSettingsTabs
+  alias PhoenixKitWeb.Users.MultiSession
 
   # Landing from the confirmation link in a change-email message. The token is
   # spent here and the result carried into the page as a message, then the URL
@@ -71,6 +72,9 @@ defmodule PhoenixKitWeb.Live.Users.ProfileSettings do
      # Raw session token of this browser — lets the Active Sessions section
      # mark the current device and keep it signed in on "sign out others".
      |> assign(:current_session_token, session["user_token"])
+     # A borrowed session (an administrator impersonating) makes no standing credentials
+     # (the Telegram link) for the account.
+     |> assign(:impersonated, MultiSession.impersonated?(session))
      |> assign_new(:email_success_message, fn -> nil end)
      |> assign_new(:email_error_message, fn -> nil end)}
   end

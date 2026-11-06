@@ -4,7 +4,14 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
   never updates location health, rewrites bytes or queues repairs. Problems carry
   identifiers and fixed codes only; no provider responses or credentials enter logs.
   """
-  alias PhoenixKit.Modules.Storage.{Bucket, FileReport, Manager, ProfileBucket, Profiles}
+  alias PhoenixKit.Modules.Storage.{
+    Bucket,
+    FileReport,
+    ImageEditing,
+    Manager,
+    ProfileBucket,
+    Profiles
+  }
 
   @doc "Checks one file. The optional probe functions are also used by fixture tests."
   def check(file, mode, include_previews, opts \\ []) do
@@ -80,6 +87,9 @@ defmodule PhoenixKit.Modules.Storage.LibraryVerification do
 
   # A file's own original, or something made from one (a size, or a tile:
   # a system file's original), as placement sees it.
+  defp object(%{system_managed: true} = file, %{kind: :original}),
+    do: if(ImageEditing.backup?(file), do: :original, else: :derived)
+
   defp object(%{system_managed: true}, _row), do: :derived
   defp object(_file, %{kind: :original}), do: :original
   defp object(_file, _row), do: :derived

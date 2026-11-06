@@ -2342,10 +2342,11 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
   defp extract_host_from_url(_), do: nil
 
-  # The host owns assets/vendor/daisyui.js (scaffolded by phx.new, upgraded
-  # manually). PhoenixKit's modals rely on daisyUI >= the minimum for correct
-  # modal scrollbar-gutter handling — this check is where a host finds out
-  # it's behind (install/update print the same warning).
+  # The host owns its daisyUI — assets/vendor/daisyui.js (phx.new before 1.8)
+  # or the sparse :daisyui git dependency (phx.new 1.8). PhoenixKit's modals
+  # rely on daisyUI >= the minimum for correct modal scrollbar-gutter handling —
+  # this check is where a host finds out it's behind (install/update print the
+  # same warning).
   @vendored_bundle "priv/static/assets/vendor/phoenix_kit.js"
   @library_facts_file "priv/static/assets/vendor/phoenix_kit_modules.js"
 
@@ -2496,43 +2497,51 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
     minimum = DaisyUI.minimum_version()
 
+    path = DaisyUI.host_path()
+    source = DaisyUI.source(path)
+
     case DaisyUI.check() do
       :ok ->
-        {:pass, "daisyUI #{DaisyUI.installed_version(DaisyUI.host_path())} (>= #{minimum})"}
+        {:pass,
+         "daisyUI #{DaisyUI.installed_version(path)} (>= #{minimum}, #{DaisyUI.label(source)})"}
 
       {:outdated, version} ->
-        {:warn, daisyui_outdated_message(DaisyUI.severity(version), version, minimum)}
+        {:warn, daisyui_outdated_message(DaisyUI.severity(version), version, minimum, source)}
 
       :unversioned ->
         {:warn,
-         "assets/vendor/daisyui.js carries no version marker — cannot verify it against " <>
+         "#{Path.relative_to_cwd(path)} carries no version marker — cannot verify it against " <>
            "PhoenixKit's designed-for minimum (#{minimum})."}
 
       :missing ->
         {:warn,
-         "No assets/vendor/daisyui.js — custom daisyUI setup? PhoenixKit is designed " <>
-           "against daisyUI #{minimum}+; make sure your setup matches."}
+         "Neither assets/vendor/daisyui.js nor a :daisyui dependency in deps/ — custom " <>
+           "daisyUI setup? PhoenixKit is designed against daisyUI #{minimum}+; make sure " <>
+           "your setup matches."}
     end
   end
 
   # Below daisyUI 5.1 modals genuinely mishandle the scrollbar gutter; at or
   # above it the host is merely short of the version core is verified against
-  # (mix phx.new vendors 5.5.19 today, so a clean install lands here). Same
+  # (mix phx.new pins 5.5.20 today, so a clean install lands here). Same
   # split as PhoenixKit.Install.DaisyUI.outdated_warning/1.
-  defp daisyui_outdated_message(:broken, version, minimum) do
+  # Exposed (not `defp`) and `@doc false`, same reason as the other pure
+  # decisions of this task: `run/1` is not a unit-test seam.
+  @doc false
+  def daisyui_outdated_message(:broken, version, minimum, source) do
     alias PhoenixKit.Install.DaisyUI
 
-    "Vendored daisyUI is #{version}; PhoenixKit is designed against #{minimum}+. " <>
-      "Below #{DaisyUI.gutter_fix_version()} modals mishandle the scrollbar gutter. " <>
-      "Update assets/vendor/daisyui.js + daisyui-theme.js from " <>
-      "https://github.com/saadeghi/daisyui/releases and rebuild assets."
+    "Your #{DaisyUI.label(source)} is #{version}; PhoenixKit is designed " <>
+      "against #{minimum}+. Below #{DaisyUI.gutter_fix_version()} modals mishandle the " <>
+      "scrollbar gutter. #{DaisyUI.upgrade_hint(source)} and rebuild assets."
   end
 
-  defp daisyui_outdated_message(:behind, version, minimum) do
-    "Vendored daisyUI is #{version}; PhoenixKit is verified against #{minimum}+. " <>
-      "Modals render correctly on your copy — advisory only. Update " <>
-      "assets/vendor/daisyui.js + daisyui-theme.js from " <>
-      "https://github.com/saadeghi/daisyui/releases when convenient."
+  def daisyui_outdated_message(:behind, version, minimum, source) do
+    alias PhoenixKit.Install.DaisyUI
+
+    "Your #{DaisyUI.label(source)} is #{version}; PhoenixKit is verified " <>
+      "against #{minimum}+. Modals render correctly on your copy — advisory only. " <>
+      "#{DaisyUI.upgrade_hint(source)} when convenient."
   end
 
   # The user dashboard (/dashboard) is deprecated. It still works unchanged, so

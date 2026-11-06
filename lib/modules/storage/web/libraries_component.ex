@@ -175,12 +175,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
         _ -> div(URLSigner.private_url_window_seconds(), 3600)
       end
 
-    # Blank or 0 is no limit, stored as "0" (a setting cannot be empty).
-    quota =
-      case Integer.parse(String.trim(to_string(params["quota_mb"]))) do
-        {n, ""} when n > 0 -> to_string(n)
-        _ -> "0"
-      end
+    quota = quota_setting(String.trim(to_string(params["quota_mb"])))
 
     opts = actor(socket) ++ [source: "settings"]
 
@@ -195,6 +190,17 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.LibrariesComponent do
       {:noreply, socket |> load() |> flash(:info, gettext("User library settings saved"))}
     else
       _ -> {:noreply, flash(socket, :error, gettext("User library settings could not be saved"))}
+    end
+  end
+
+  # Blank or 0 is no limit, stored as "0" (a setting cannot be empty). A number field
+  # also lets "1e3" through, and a slip like that keeps the limit there is.
+  defp quota_setting(""), do: "0"
+
+  defp quota_setting(text) do
+    case Integer.parse(text) do
+      {mb, ""} when mb >= 0 -> to_string(mb)
+      _ -> to_string(Quotas.site_limit_mb() || 0)
     end
   end
 

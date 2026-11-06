@@ -258,6 +258,10 @@ defmodule PhoenixKit.Modules.Storage.File do
     # When the reconciler last tried the file and could not finish (it
     # waits before trying it again).
     field :reconcile_attempted_at, :naive_datetime
+    # The reconciler's lease on the file (V228): who holds it and until when
+    # (`Reconciler.with_file_lock/3`).
+    field :reconcile_lock_token, Ecto.UUID
+    field :reconcile_locked_until, :naive_datetime
 
     has_many :instances, PhoenixKit.Modules.Storage.FileInstance, foreign_key: :file_uuid
     has_many :folder_links, PhoenixKit.Modules.Storage.FolderLink, foreign_key: :file_uuid
