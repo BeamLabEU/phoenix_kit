@@ -520,6 +520,26 @@ defmodule PhoenixKitWeb.Users.AuthFlowsTest do
       assert html =~ "login_form"
       assert length(String.split(html, "<!DOCTYPE html>")) - 1 == 1
     end
+
+    test "the login page offers the eye on its password field", %{conn: conn} do
+      html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
+
+      assert html =~ ~s(aria-controls="user_password")
+    end
+
+    test "the sign-up link comes right after the form, before the other sign-in methods",
+         %{conn: conn} do
+      Settings.update_setting("allow_registration", "true")
+      Settings.update_setting("magic_link_login_enabled", "true")
+      html = conn |> get(Routes.path("/users/log-in")) |> html_response(200)
+
+      {form_end, _} = :binary.match(html, "</form>")
+      {sign_up, _} = :binary.match(html, "Create an account")
+      {others, _} = :binary.match(html, "Or continue with")
+
+      assert form_end < sign_up
+      assert sign_up < others
+    end
   end
 
   describe "settings validation" do

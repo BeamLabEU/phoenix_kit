@@ -1,3 +1,24 @@
+## Unreleased
+
+Run `mix phoenix_kit.update` (the new `phoenix_kit.js`). No migration.
+
+### Added
+
+- **An eye button on password fields** (`<.input type="password" password_toggle>`):
+  it shows and hides what was typed. On for the login page, both registration
+  pages, password reset, the Add account dialog, and the password fields of
+  account settings and the email-change page. It is opt-in, so other password
+  fields and host forms stay as they were. The button runs in the browser and a
+  re-render keeps its state. `phoenix_kit.js` hides the password again when the
+  form is sent; with an older copy of that file the button still works, but the
+  field goes out as plain text input. A field with the button has spellcheck and
+  capitalization off, and Edge's own eye is hidden.
+
+### Changed
+
+- The login page's "Create an account" link moved up, right under the Log in
+  button, above the magic link, QR code and OAuth buttons.
+
 ## 3.4.0 - 2026-11-06
 
 Run `mix phoenix_kit.update` (V228 and the new `phoenix_kit.js`).

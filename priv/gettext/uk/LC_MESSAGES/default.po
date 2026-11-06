@@ -191,7 +191,7 @@ msgstr "Зареєстровані облікові записи"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:275
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:280
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1978
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1982
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:18
 #, elixir-autogen
 msgid "Active Sessions"
@@ -664,7 +664,7 @@ msgstr "Маркований список"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:932
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:118
 #: lib/phoenix_kit_web/components/tree_picker.ex:262
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:383
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:385
 #: lib/phoenix_kit_web/live/components/library_activity.ex:291
 #: lib/phoenix_kit_web/live/components/library_activity.ex:457
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1787
@@ -675,7 +675,7 @@ msgstr "Маркований список"
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1257
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1287
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1415
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1897
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1901
 #: lib/phoenix_kit_web/live/modules/jobs/runs_components.ex:170
 #: lib/phoenix_kit_web/live/notifications/settings.ex:437
 #: lib/phoenix_kit_web/live/settings/api.html.heex:923
@@ -752,7 +752,7 @@ msgstr "Натисніть будь-яку позначку чи хрестик,
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:118
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:45
 #: lib/phoenix_kit_web/components/media_viewer.html.heex:36
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:390
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:392
 #: lib/phoenix_kit_web/legal_gettext_manifest.ex:50
 #: lib/phoenix_kit_web/live/components/library_activity.ex:584
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1587
@@ -883,7 +883,7 @@ msgid "Create Role"
 msgstr "Створити роль"
 
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:42
-#: lib/phoenix_kit_web/users/login.html.heex:138
+#: lib/phoenix_kit_web/users/login.html.heex:95
 #: lib/phoenix_kit_web/users/magic_link.html.heex:86
 #, elixir-autogen, elixir-format
 msgid "Create an account"
@@ -1207,7 +1207,7 @@ msgid "Files"
 msgstr "Файли"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:275
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:76
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "First Name"
 msgstr "Ім'я"
@@ -1224,7 +1224,7 @@ msgstr "Підписки"
 
 #: lib/phoenix_kit_web/users/forgot_password.ex:16
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:8
-#: lib/phoenix_kit_web/users/login.html.heex:70
+#: lib/phoenix_kit_web/users/login.html.heex:71
 #, elixir-autogen, elixir-format
 msgid "Forgot your password?"
 msgstr "Забули пароль?"
@@ -1317,16 +1317,16 @@ msgstr "Для інтерактивних функцій редактора по
 msgid "Italic"
 msgstr "Курсив"
 
-#: lib/phoenix_kit_web/users/login.html.heex:61
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:140
+#: lib/phoenix_kit_web/users/login.html.heex:62
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:146
 #: lib/phoenix_kit_web/users/qr_login.html.heex:39
-#: lib/phoenix_kit_web/users/registration.html.heex:185
+#: lib/phoenix_kit_web/users/registration.html.heex:191
 #, elixir-autogen, elixir-format
 msgid "Keep me logged in"
 msgstr "Не виходити із системи"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:281
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:92
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:98
 #, elixir-autogen, elixir-format
 msgid "Last Name"
 msgstr "Прізвище"
@@ -1356,18 +1356,18 @@ msgstr "Модуль «Правові документи» увімкнено"
 msgid "Line Break"
 msgstr "Розрив рядка"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:627
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:629
 #: lib/phoenix_kit_web/users/confirmation.html.heex:33
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:139
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:140
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:32
 #: lib/phoenix_kit_web/users/login.ex:20
-#: lib/phoenix_kit_web/users/login.html.heex:79
-#: lib/phoenix_kit_web/users/reset_password.html.heex:52
+#: lib/phoenix_kit_web/users/login.html.heex:80
+#: lib/phoenix_kit_web/users/reset_password.html.heex:54
 #, elixir-autogen, elixir-format
 msgid "Log in"
 msgstr "Увійти"
 
-#: lib/phoenix_kit_web/users/login.html.heex:76
+#: lib/phoenix_kit_web/users/login.html.heex:77
 #, elixir-autogen, elixir-format
 msgid "Logging in..."
 msgstr "Вхід…"
@@ -1407,7 +1407,7 @@ msgstr "Модуль"
 msgid "Must be unique, 1-50 characters."
 msgstr "Має бути унікальною, 1–50 символів."
 
-#: lib/phoenix_kit_web/users/login.html.heex:133
+#: lib/phoenix_kit_web/users/login.html.heex:90
 #, elixir-autogen, elixir-format
 msgid "New to %{project_title}?"
 msgstr "Вперше в %{project_title}?"
@@ -1543,8 +1543,8 @@ msgid "Options"
 msgstr "Опції"
 
 #: lib/phoenix_kit_web/components/oauth_buttons.ex:61
-#: lib/phoenix_kit_web/users/login.html.heex:95
-#: lib/phoenix_kit_web/users/registration.html.heex:210
+#: lib/phoenix_kit_web/users/login.html.heex:110
+#: lib/phoenix_kit_web/users/registration.html.heex:216
 #, elixir-autogen, elixir-format
 msgid "Or continue with"
 msgstr "Або продовжити через"
@@ -1853,7 +1853,7 @@ msgstr "SWIFT/BIC"
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:777
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:191
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:426
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1863
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1867
 #: lib/phoenix_kit_web/live/notifications/settings.ex:439
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:256
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:306
@@ -1956,12 +1956,12 @@ msgstr "Налаштування"
 msgid "Shared across modules"
 msgstr "Спільне для модулів"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:241
+#: lib/phoenix_kit_web/users/registration.html.heex:247
 #, elixir-autogen, elixir-format
 msgid "Sign in"
 msgstr "Увійти"
 
-#: lib/phoenix_kit_web/users/login.html.heex:108
+#: lib/phoenix_kit_web/users/login.html.heex:123
 #, elixir-autogen, elixir-format
 msgid "Sign in with Magic Link"
 msgstr "Отримати посилання для входу"
@@ -4222,7 +4222,7 @@ msgstr "Інтеграцію видалено"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:466
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:338
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2111
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2115
 #: lib/phoenix_kit_web/live/settings/integration_form.html.heex:10
 #: lib/phoenix_kit_web/live/settings/integrations.ex:37
 #: lib/phoenix_kit_web/live/users/permissions_matrix.html.heex:86
@@ -4605,7 +4605,7 @@ msgid "Notification preferences saved."
 msgstr "Налаштування сповіщень збережено."
 
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:337
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1884
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1888
 #: lib/phoenix_kit_web/live/integrations/my_integration_form.ex:774
 #: lib/phoenix_kit_web/live/settings.html.heex:407
 #: lib/phoenix_kit_web/live/settings/users.ex:464
@@ -4654,7 +4654,7 @@ msgid "Organization Members"
 msgstr "Учасники організації"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:227
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:58
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:64
 #: lib/phoenix_kit_web/users/registration.html.heex:155
 #: lib/phoenix_kit_web/users/user_form.html.heex:220
 #, elixir-autogen, elixir-format
@@ -4680,7 +4680,7 @@ msgstr "Персональні вхідні, що формуються зі ст
 msgid "Personal"
 msgstr "Особистий"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1923
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1927
 #, elixir-autogen, elixir-format
 msgid "Pick which notification types you want to receive. Unchecked types are muted — activities still record in the audit log but no bell notification is created for you."
 msgstr "Виберіть типи сповіщень, які хочете отримувати. Типи без позначки вимкнено — активності все одно записуються в журнал аудиту, але сповіщення-дзвіночок для вас не створюється."
@@ -4743,7 +4743,7 @@ msgstr "Зберегти бакет"
 msgid "Save Tax Settings"
 msgstr "Зберегти налаштування податків"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1953
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1957
 #: lib/phoenix_kit_web/live/notifications/settings.ex:351
 #, elixir-autogen, elixir-format
 msgid "Save preferences"
@@ -7151,7 +7151,7 @@ msgstr "Якщо ввімкнено, основна мова не має сег�
 msgid "Account Confirmation"
 msgstr "Підтвердження облікового запису"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:236
+#: lib/phoenix_kit_web/users/registration.html.heex:242
 #, elixir-autogen, elixir-format
 msgid "Already have an account?"
 msgstr "Уже маєте обліковий запис?"
@@ -7176,7 +7176,7 @@ msgstr "Перевірте свою поштову скриньку"
 msgid "Click the registration link"
 msgstr "Натисніть посилання для реєстрації"
 
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:149
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:155
 #, elixir-autogen, elixir-format
 msgid "Complete Registration"
 msgstr "Завершити реєстрацію"
@@ -7201,7 +7201,7 @@ msgstr "Підтвердити обліковий запис"
 msgid "Confirm my account"
 msgstr "Підтвердити мій обліковий запис"
 
-#: lib/phoenix_kit_web/users/reset_password.html.heex:28
+#: lib/phoenix_kit_web/users/reset_password.html.heex:29
 #, elixir-autogen, elixir-format
 msgid "Confirm new password"
 msgstr "Підтвердьте новий пароль"
@@ -7213,7 +7213,7 @@ msgid "Confirming..."
 msgstr "Підтвердження..."
 
 #: lib/phoenix_kit_web/users/registration.html.heex:8
-#: lib/phoenix_kit_web/users/registration.html.heex:193
+#: lib/phoenix_kit_web/users/registration.html.heex:199
 #, elixir-autogen, elixir-format
 msgid "Create account"
 msgstr "Створити обліковий запис"
@@ -7305,16 +7305,16 @@ msgstr "Реєстрація без пароля"
 msgid "Prefer a password?"
 msgstr "Віддаєте перевагу паролю?"
 
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:109
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:115
 #: lib/phoenix_kit_web/users/registration.html.heex:93
 #, elixir-autogen, elixir-format
 msgid "Referral Code"
 msgstr "Реферальний код"
 
 #: lib/phoenix_kit_web/users/confirmation.html.heex:26
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:132
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:133
 #: lib/phoenix_kit_web/users/registration.ex:24
-#: lib/phoenix_kit_web/users/reset_password.html.heex:45
+#: lib/phoenix_kit_web/users/reset_password.html.heex:47
 #, elixir-autogen, elixir-format
 msgid "Register"
 msgstr "Зареєструватися"
@@ -7325,7 +7325,7 @@ msgstr "Зареєструватися"
 msgid "Register via Magic Link"
 msgstr "Реєстрація за посиланням"
 
-#: lib/phoenix_kit_web/users/registration.html.heex:222
+#: lib/phoenix_kit_web/users/registration.html.heex:228
 #, elixir-autogen, elixir-format
 msgid "Register with Magic Link"
 msgstr "Отримати посилання для реєстрації"
@@ -7359,12 +7359,12 @@ msgstr "Надіслати підтвердження ще раз"
 #: lib/phoenix_kit_web/users/reset_password.ex:14
 #: lib/phoenix_kit_web/users/reset_password.html.heex:7
 #: lib/phoenix_kit_web/users/reset_password.html.heex:15
-#: lib/phoenix_kit_web/users/reset_password.html.heex:36
+#: lib/phoenix_kit_web/users/reset_password.html.heex:38
 #, elixir-autogen, elixir-format
 msgid "Reset Password"
 msgstr "Скинути пароль"
 
-#: lib/phoenix_kit_web/users/reset_password.html.heex:33
+#: lib/phoenix_kit_web/users/reset_password.html.heex:35
 #, elixir-autogen, elixir-format
 msgid "Resetting..."
 msgstr "Скидання..."
@@ -8474,7 +8474,7 @@ msgstr "Перегляд статусу та історії фонових за�
 msgid "AI models via OpenAI (GPT, embeddings, images, audio)"
 msgstr "Моделі ШІ через OpenAI (GPT, ембедінги, зображення, аудіо)"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:500
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:502
 #: lib/phoenix_kit_web/live/settings/users.ex:448
 #, elixir-autogen, elixir-format
 msgid "Account menu"
@@ -8689,7 +8689,7 @@ msgstr "Назва папки"
 msgid "Folder name can't be blank"
 msgstr "Назва папки не може бути порожньою"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:629
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:631
 #, elixir-autogen, elixir-format
 msgid "Forgot password"
 msgstr "Забули пароль"
@@ -8759,7 +8759,7 @@ msgid "If your account belongs to multiple organizations, keys are scoped to the
 msgstr "Якщо ваш обліковий запис належить до кількох організацій, ключі прив'язуються до організації, вибраної під час створення ключа."
 
 #: lib/phoenix_kit_web/components/core/file_details_fields.ex:61
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:571
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:573
 #: lib/phoenix_kit_web/live/settings/email_preview.html.heex:48
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -8784,7 +8784,7 @@ msgstr "Спочатку найбільші"
 msgid "List"
 msgstr "Список"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:630
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:632
 #, elixir-autogen, elixir-format
 msgid "Magic link"
 msgstr "Посилання для входу"
@@ -8836,7 +8836,7 @@ msgstr "Немає зображень"
 msgid "No media yet."
 msgstr "Медіа ще немає."
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:518
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:520
 #, elixir-autogen, elixir-format
 msgid "Not signed in"
 msgstr "Ви не увійшли"
@@ -8908,7 +8908,7 @@ msgstr "Показувати піктограму"
 msgid "Show title"
 msgstr "Показувати назву"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:628
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:630
 #, elixir-autogen, elixir-format
 msgid "Sign up"
 msgstr "Зареєструватися"
@@ -9193,8 +9193,8 @@ msgstr "Вхід у %{project_title}"
 msgid "Welcome back"
 msgstr "З поверненням"
 
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:77
-#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:93
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:83
+#: lib/phoenix_kit_web/users/magic_link_registration.html.heex:99
 #, elixir-autogen, elixir-format
 msgid "optional"
 msgstr "необов'язково"
@@ -9625,7 +9625,7 @@ msgstr "Відскануйте цей код камерою телефона, а
 msgid "Show a new code"
 msgstr "Показати новий код"
 
-#: lib/phoenix_kit_web/users/login.html.heex:118
+#: lib/phoenix_kit_web/users/login.html.heex:133
 #: lib/phoenix_kit_web/users/qr_login.ex:30
 #: lib/phoenix_kit_web/users/qr_login.html.heex:7
 #, elixir-autogen, elixir-format
@@ -9710,24 +9710,24 @@ msgstr "Ви можете закрити цю сторінку."
 msgid "Accounts"
 msgstr "Облікові записи"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:474
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:476
 #, elixir-autogen, elixir-format
 msgid "Add Facebook account"
 msgstr "Додати обліковий запис Facebook"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:462
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:464
 #, elixir-autogen, elixir-format
 msgid "Add GitHub account"
 msgstr "Додати обліковий запис GitHub"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:450
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:452
 #, elixir-autogen, elixir-format
 msgid "Add Google account"
 msgstr "Додати обліковий запис Google"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:318
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:355
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:385
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:387
 #, elixir-autogen, elixir-format
 msgid "Add account"
 msgstr "Додати обліковий запис"
@@ -9742,7 +9742,7 @@ msgstr "Email або ім'я користувача"
 msgid "Log out from all accounts"
 msgstr "Вийти з усіх облікових записів"
 
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:439
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:441
 #, elixir-autogen, elixir-format
 msgid "Or add via"
 msgstr "Або додайте через"
@@ -9876,7 +9876,7 @@ msgstr "xAI вимагає поповненого облікового запи�
 msgid "Active now"
 msgstr "Активний зараз"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1989
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1993
 #, elixir-autogen, elixir-format
 msgid "Devices currently signed in to your account. If you don't recognize one, sign it out."
 msgstr "Пристрої, з яких зараз виконано вхід у ваш обліковий запис. Якщо якийсь вам незнайомий, завершіть його сеанс."
@@ -9891,17 +9891,17 @@ msgstr "Новий вхід у ваш обліковий запис: %{details}.
 msgid "New sign-in to your account."
 msgstr "Новий вхід у ваш обліковий запис."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2033
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2037
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr "Вийти"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2044
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2048
 #, elixir-autogen, elixir-format
 msgid "Sign out of all other sessions?"
 msgstr "Вийти з усіх інших сеансів?"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2047
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2051
 #, elixir-autogen, elixir-format
 msgid "Sign out other sessions"
 msgstr "Вийти з інших сеансів"
@@ -9921,7 +9921,7 @@ msgstr "Ви вийшли з цього сеансу."
 msgid "That session is no longer active."
 msgstr "Цей сеанс більше не активний."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2006
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2010
 #, elixir-autogen, elixir-format
 msgid "This device"
 msgstr "Цей пристрій"
@@ -11325,7 +11325,7 @@ msgstr "Інструкції для пошукових роботів"
 msgid "Enter your referral code"
 msgstr "Введіть свій реферальний код"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:125
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:126
 #: lib/phoenix_kit_web/users/referral_gate.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "Log out"
@@ -12560,7 +12560,7 @@ msgstr "Введіть правильну адресу електронної п
 msgid "Too many registration attempts. Please try again later."
 msgstr "Забагато спроб реєстрації. Спробуйте ще раз пізніше."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1905
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1909
 #, elixir-autogen, elixir-format
 msgid "%{enabled} of %{total} notification types enabled"
 msgstr "Увімкнено типів сповіщень: %{enabled} з %{total}"
@@ -12685,7 +12685,7 @@ msgstr "Знову вітаємо"
 msgid "Hey there"
 msgstr "Привіт"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1898
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1902
 #, elixir-autogen, elixir-format
 msgid "Manage Notifications"
 msgstr "Керування сповіщеннями"
@@ -12908,7 +12908,7 @@ msgid "Started today"
 msgstr "Розпочаті сьогодні"
 
 #: lib/phoenix_kit_web/components/core/admin_label.ex:70
-#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:696
+#: lib/phoenix_kit_web/components/user_dashboard_nav.ex:698
 #, elixir-autogen, elixir-format
 msgid "My Account"
 msgstr "Мій обліковий запис"
@@ -13682,12 +13682,12 @@ msgstr "У цієї функції немає перемикача."
 msgid "Site is closed to visitors"
 msgstr "Сайт закрито для відвідувачів"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2114
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2118
 #, elixir-autogen, elixir-format
 msgid "Manage Integrations"
 msgstr "Керування інтеграціями"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2122
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2126
 #, elixir-autogen, elixir-format
 msgid "No personal integrations yet."
 msgstr "Особистих інтеграцій ще немає."
@@ -13698,7 +13698,7 @@ msgstr "Особистих інтеграцій ще немає."
 msgid "You don't have access to Integrations."
 msgstr "У вас немає доступу до інтеграцій."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2118
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2122
 #, elixir-autogen, elixir-format
 msgid "Your own API keys and bot connections — only you can see or use these."
 msgstr "Ваші власні API-ключі та підключення ботів — їх бачите й використовуєте лише ви."
@@ -13953,12 +13953,12 @@ msgstr "Показано %{from}–%{to} %{noun}"
 msgid "Showing %{from} to %{to} of %{total} %{noun}"
 msgstr "Показано %{from}–%{to} із %{total} %{noun}"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:111
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:112
 #, elixir-autogen, elixir-format
 msgid "Update email & resend confirmation"
 msgstr "Оновити email і надіслати підтвердження повторно"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:108
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:109
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr "Оновлення…"
@@ -14181,7 +14181,7 @@ msgstr "Дозволити користувачам з кількома роля
 msgid "Saved."
 msgstr "Збережено."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1841
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1845
 #: lib/phoenix_kit_web/live/settings/users.ex:459
 #, elixir-autogen, elixir-format
 msgid "Start page"
@@ -14198,7 +14198,7 @@ msgstr "Змінити роль"
 msgid "Switcher location"
 msgstr "Розташування перемикача"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1853
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1857
 #, elixir-autogen, elixir-format
 msgid "The admin home"
 msgstr "Головна сторінка адмінпанелі"
@@ -14218,7 +14218,7 @@ msgstr "Ця сторінка недоступна в ролі, на яку ви
 msgid "Ticked roles are not offered in the switcher: they apply whichever role is active."
 msgstr "Позначені ролі не пропонуються в перемикачі: вони діють незалежно від активної ролі."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:1844
+#: lib/phoenix_kit_web/live/components/user_settings.ex:1848
 #, elixir-autogen, elixir-format
 msgid "Where to go after you sign in."
 msgstr "Куди переходити після входу."
@@ -14244,7 +14244,7 @@ msgstr "Користувач із двома або більше ролями, �
 msgid "Acting as"
 msgstr "Діє як"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2009
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2013
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:384
 #, elixir-autogen, elixir-format
 msgid "Acting as %{role}"
@@ -14255,7 +14255,7 @@ msgstr "Діє як %{role}"
 msgid "Current password"
 msgstr "Поточний пароль"
 
-#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:101
+#: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:102
 #, elixir-autogen, elixir-format
 msgid "We ask for your password again as a safety check before moving your account to a new email address."
 msgstr "Ми повторно запитуємо пароль для безпеки перед переносом вашого облікового запису на нову адресу email."
@@ -15107,7 +15107,7 @@ msgstr "%{location} (приблизно)"
 msgid "%{attempts} attempts across %{networks} network(s), against %{accounts} known account(s)"
 msgstr "Спроб: %{attempts}, мереж: %{networks}, відомих облікових записів: %{accounts}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2075
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2079
 #, elixir-autogen, elixir-format
 msgid "%{count} attempt"
 msgid_plural "%{count} attempts"
@@ -15120,7 +15120,7 @@ msgstr[2] "%{count} спроб"
 msgid "Attempts"
 msgstr "Спроби"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2062
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2066
 #, elixir-autogen, elixir-format
 msgid "Failed sign-in attempts"
 msgstr "Невдалі спроби входу"
@@ -15146,7 +15146,7 @@ msgstr "Востаннє бачили"
 msgid "Network"
 msgstr "Мережа"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2065
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2069
 #, elixir-autogen, elixir-format
 msgid "Sign-ins to your account that did not succeed. Nobody got in."
 msgstr "Входи у ваш обліковий запис, які не вдалися. Ніхто не потрапив усередину."
@@ -15194,7 +15194,7 @@ msgstr "Згруповано за ідентифікатором, мережею
 msgid "At most one email per account per 24 hours, so an attack cannot flood their inbox."
 msgstr "Не більше одного листа на обліковий запис за 24 години, щоб атака не могла заповнити поштову скриньку."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2083
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2087
 #, elixir-autogen, elixir-format
 msgid "Correct password, account was deactivated."
 msgstr "Пароль правильний, але обліковий запис деактивовано."
@@ -15249,7 +15249,7 @@ msgstr "Неправильний пароль"
 msgid "Annotation settings reset."
 msgstr "Налаштування анотацій скинуто."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2177
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2181
 #, elixir-autogen, elixir-format
 msgid "Annotation tools"
 msgstr "Інструменти анотацій"
@@ -15259,22 +15259,22 @@ msgstr "Інструменти анотацій"
 msgid "Could not read the current figures"
 msgstr "Не вдалося прочитати поточні показники"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2239
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2243
 #, elixir-autogen, elixir-format
 msgid "Reset annotation settings"
 msgstr "Скинути налаштування анотацій"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2234
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2238
 #, elixir-autogen, elixir-format
 msgid "Reset your annotation colours, thickness and toolbar to the defaults?"
 msgstr "Скинути кольори, товщину ліній і панель інструментів анотацій до типових?"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2246
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2250
 #, elixir-autogen, elixir-format
 msgid "Your annotations themselves are not touched — only how the tools are set up."
 msgstr "Самих анотацій це не стосується — лише налаштування інструментів."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2224
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2228
 #, elixir-autogen, elixir-format
 msgid "Your drawing colours, line thickness, label size and toolbar layout are remembered as you work. Reset them to start fresh."
 msgstr "Кольори малювання, товщина ліній, розмір підписів і розташування панелі інструментів запам'ятовуються під час роботи. Скиньте їх, щоб почати з нуля."
@@ -18647,12 +18647,12 @@ msgstr "Які варіанти отримують її завантаження
 msgid "reset %{count} renditions"
 msgstr "скинуто варіантів: %{count}"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2192
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2196
 #, elixir-autogen, elixir-format
 msgid "Open media ready to annotate"
 msgstr "Відкривати медіа готовими до анотування"
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2197
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2201
 #, elixir-autogen, elixir-format
 msgid "The viewer opens with the drawing tools already on, so you can edit and move things right away — switch the pencil off to see the finished picture. Off, the viewer opens on the finished picture and the pencil starts the tools."
 msgstr "Переглядач відкривається з уже ввімкненими інструментами малювання, тож можна одразу редагувати й переміщувати об'єкти — вимкніть олівець, щоб побачити готове зображення. Якщо вимкнено, переглядач відкривається на готовому зображенні, а інструменти запускає олівець."
@@ -20079,12 +20079,12 @@ msgstr "Створено з оригіналу."
 msgid "Removed from %{bucket}, which the profile no longer uses."
 msgstr "Видалено з %{bucket}, який профіль більше не використовує."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2217
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2221
 #, elixir-autogen, elixir-format
 msgid "If moving around a picture with two fingers on your trackpad goes the opposite way to what you expect, turn this on. Zooming is not affected."
 msgstr "Якщо переміщення зображення двома пальцями на трекпаді відбувається в протилежний бік, ніж ви очікуєте, увімкніть це. Масштабування не змінюється."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2212
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2216
 #, elixir-autogen, elixir-format
 msgid "Invert two-finger pan"
 msgstr "Інвертувати прокрутку двома пальцями"
@@ -21979,7 +21979,7 @@ msgstr "Поверніться до свого облікового запису
 msgid "Return to your own account before signing in as another user."
 msgstr "Поверніться до свого облікового запису, перш ніж входити від імені іншого користувача."
 
-#: lib/phoenix_kit_web/live/components/user_settings.ex:2019
+#: lib/phoenix_kit_web/live/components/user_settings.ex:2023
 #, elixir-autogen, elixir-format
 msgid "%{organization}, from this browser"
 msgstr "%{organization}, із цього браузера"
@@ -24329,3 +24329,8 @@ msgstr[2] "%{count} файлів не збережено: для цієї біб
 #, elixir-autogen, elixir-format
 msgid "There is no storage left for this library."
 msgstr "Для цієї бібліотеки не залишилося місця у сховищі."
+
+#: lib/phoenix_kit_web/components/core/input.ex:235
+#, elixir-autogen, elixir-format
+msgid "Show password"
+msgstr "Показати пароль"

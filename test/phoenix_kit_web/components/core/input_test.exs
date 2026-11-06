@@ -86,4 +86,87 @@ defmodule PhoenixKitWeb.Components.Core.InputTest do
       assert attr(doc, "label[for=limit]", "class") == ["label mb-2"]
     end
   end
+
+  describe "password_toggle" do
+    test "puts an eye button beside the field, outside any label" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input id="pw" name="user[password]" type="password" value="" password_toggle />
+        """)
+
+      [click] = attr(doc, "button[data-pk-password-toggle]", "phx-click")
+      assert click =~ ~s([id=\\"pw\\"])
+      assert attr(doc, "button[data-pk-password-toggle]", "type") == ["button"]
+      assert attr(doc, "button[data-pk-password-toggle]", "aria-label") == ["Show password"]
+      assert attr(doc, "button[data-pk-password-toggle]", "aria-pressed") == ["false"]
+      assert attr(doc, "button[data-pk-password-toggle]", "aria-controls") == ["pw"]
+      assert doc |> LazyHTML.query("div.relative > input#pw") |> Enum.count() == 1
+    end
+
+    test "with the icon slot the button stays out of the label, or it names the input" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input id="pw" name="pw" type="password" value="" password_toggle>
+          <:icon><span>i</span></:icon>
+        </.input>
+        """)
+
+      assert doc |> LazyHTML.query("label.input input#pw") |> Enum.count() == 1
+      assert doc |> LazyHTML.query("label button") |> Enum.empty?()
+      assert doc |> LazyHTML.query("div.relative > button") |> Enum.count() == 1
+    end
+
+    test "a revealed field is kept from spellcheck and capitalization" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input id="pw" name="pw" type="password" value="" password_toggle />
+        """)
+
+      assert attr(doc, "input#pw", "spellcheck") == ["false"]
+      assert attr(doc, "input#pw", "autocapitalize") == ["none"]
+      assert attr(doc, "input#pw", "autocorrect") == ["off"]
+    end
+
+    test "without an id one comes from the name, or the button has nothing to target" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input name="user[password]" type="password" value="" password_toggle />
+        """)
+
+      assert attr(doc, "input", "id") == ["user_password_"]
+      assert attr(doc, "button", "aria-controls") == ["user_password_"]
+    end
+
+    test "is off by default: a password field stays as it was" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input id="pw" name="pw" type="password" value="" />
+        """)
+
+      assert doc |> LazyHTML.query("button") |> Enum.empty?()
+      assert doc |> LazyHTML.query("div.relative") |> Enum.empty?()
+      assert attr(doc, "input#pw", "spellcheck") == []
+    end
+
+    test "means nothing on another type" do
+      assigns = %{}
+
+      doc =
+        render(~H"""
+        <.input id="name" name="name" type="text" value="" password_toggle />
+        """)
+
+      assert doc |> LazyHTML.query("button") |> Enum.empty?()
+    end
+  end
 end

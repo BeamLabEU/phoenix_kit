@@ -371,11 +371,13 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
               </div>
               <div class="fieldset">
                 <label class="label"><span class="fieldset-legend">{gettext("Password")}</span></label>
-                <input
+                <.input
+                  id="pk-add-account-password-dashboard"
                   name="user[password]"
                   type="password"
+                  value=""
                   required
-                  class="input w-full"
+                  password_toggle
                 />
               </div>
               <div class="modal-action">

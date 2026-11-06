@@ -1635,6 +1635,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   label="Current Password"
                   value={@email_form_current_password}
                   required
+                  password_toggle
                 />
                 <:actions>
                   <div class="ml-auto">
@@ -1710,11 +1711,13 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   type="password"
                   label="New Password"
                   required
+                  password_toggle
                 />
                 <.input
                   field={@password_form[:password_confirmation]}
                   type="password"
                   label="Confirm New Password"
+                  password_toggle
                 />
                 <.input
                   field={@password_form[:current_password]}
@@ -1724,6 +1727,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   id={"#{@id}-current-password-for-password"}
                   value={@current_password}
                   required
+                  password_toggle
                 />
                 <:actions>
                   <div class="ml-auto">

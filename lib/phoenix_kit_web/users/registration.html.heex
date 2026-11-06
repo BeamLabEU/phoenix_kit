@@ -166,7 +166,13 @@
         <label class="label" for="user_password">
           <span class="fieldset-legend">{gettext("Password")}</span>
         </label>
-        <.input field={@form[:password]} type="password" autocomplete="new-password" required>
+        <.input
+          field={@form[:password]}
+          type="password"
+          autocomplete="new-password"
+          required
+          password_toggle
+        >
           <:icon>
             <PhoenixKitWeb.Components.Core.Icons.icon_lock class="h-[1em] w-[1em] opacity-50" />
           </:icon>

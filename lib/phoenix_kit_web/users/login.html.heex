@@ -45,6 +45,7 @@
         value=""
         autocomplete="current-password"
         required
+        password_toggle
       >
         <:icon>
           <PhoenixKitWeb.Components.Core.Icons.icon_lock class="h-[1em] w-[1em] opacity-50" />
@@ -81,6 +82,20 @@
       </button>
     </fieldset>
   </.form>
+
+  <%!-- Registration link: right under the button, above the alternative
+       sign-in methods, which can run to a screen of provider buttons. --%>
+  <%= if @allow_registration do %>
+    <div class="text-center mt-4 text-sm">
+      <span>{gettext("New to %{project_title}?", project_title: @project_title)}</span>
+      <.link
+        navigate={Routes.path("/users/register") <> Routes.return_to_query(@return_to)}
+        class="font-semibold text-primary hover:underline"
+      >
+        {gettext("Create an account")}
+      </.link>
+    </div>
+  <% end %>
 
   <%!-- Alternative authentication methods --%>
   <%!-- Only show this section if at least one alternative method is available --%>
@@ -124,19 +139,6 @@
           return_to={@return_to}
         />
       </div>
-    </div>
-  <% end %>
-
-  <%!-- Registration link --%>
-  <%= if @allow_registration do %>
-    <div class="text-center mt-4 text-sm">
-      <span>{gettext("New to %{project_title}?", project_title: @project_title)}</span>
-      <.link
-        navigate={Routes.path("/users/register") <> Routes.return_to_query(@return_to)}
-        class="font-semibold text-primary hover:underline"
-      >
-        {gettext("Create an account")}
-      </.link>
     </div>
   <% end %>
 </PhoenixKitWeb.Components.AuthPageWrapper.auth_page_wrapper>

@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKitWeb.Users.MultiSession
 
   import PhoenixKitWeb.Components.Core.Icon
+  import PhoenixKitWeb.Components.Core.Input, only: [input: 1]
   import PhoenixKitWeb.Components.Core.ThemeController, only: [theme_controller: 1]
 
   @doc """
@@ -522,11 +523,13 @@ defmodule PhoenixKitWeb.Components.AdminNav do
               </div>
               <div class="fieldset">
                 <label class="label"><span class="fieldset-legend">Password</span></label>
-                <input
+                <.input
+                  id="pk-add-account-password"
                   name="user[password]"
                   type="password"
+                  value=""
                   required
-                  class="input w-full"
+                  password_toggle
                 />
               </div>
               <div class="modal-action">

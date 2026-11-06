@@ -3263,6 +3263,30 @@ if (typeof window.Chart === "undefined") {
   };
 
   // ---------------------------------------------------------------------------
+  // Password fields with an eye button (`<.input password_toggle>`).
+  //
+  // The button itself is LiveView JS commands and needs nothing from this file.
+  // What they cannot do is hide the password again when its form is sent: a
+  // revealed field is a plain text input, which a browser may keep in its form
+  // history and which its password manager may not offer to save. So a submit
+  // presses every pressed button of that form first, which also keeps the icon
+  // and `aria-pressed` right on a form that comes back with errors. Capture
+  // phase: this has to happen before LiveView or the browser reads the form.
+  // ---------------------------------------------------------------------------
+  function hideRevealedPasswords(form) {
+    if (!form || typeof form.querySelectorAll !== "function") return;
+    form.querySelectorAll('[data-pk-password-toggle][aria-pressed="true"]').forEach(function(button) {
+      button.click();
+    });
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.hideRevealedPasswords = hideRevealedPasswords;
+  }
+
+  document.addEventListener("submit", function(e) { hideRevealedPasswords(e.target); }, true);
+
+  // ---------------------------------------------------------------------------
   // PkHashHighlight — lights the element the URL fragment names.
   //
   // The CSS `:target` variant only follows a fragment the browser itself
