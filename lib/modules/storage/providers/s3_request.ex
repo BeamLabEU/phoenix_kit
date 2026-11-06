@@ -9,10 +9,11 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3Request do
   so every B2 request failed with "s3 not supported in region us-west-002 for
   partition aws", the explicit B2 host notwithstanding (ExAws 2.7).
 
-  When the options name a `:host`, `config/1` builds the config with a region
-  ExAws knows and then puts the real one back: it is the region requests are
-  signed for, which S3-compatible services check. Without a `:host` (AWS
-  itself), the config is ExAws's own.
+  When a `:host` is named, `config/1` builds the config with a region ExAws
+  knows and then puts the real one back: it is the region requests are signed
+  for, which S3-compatible services check. Both are read as ExAws reads them:
+  the options, then `config :ex_aws, :s3`, then `config :ex_aws` for the region.
+  With no host anywhere (AWS itself), the config is ExAws's own.
   """
 
   # Any region ExAws resolves; only used to build the defaults the caller's
@@ -22,15 +23,22 @@ defmodule PhoenixKit.Modules.Storage.Providers.S3Request do
   @doc "The ExAws config for `opts` (see the moduledoc)."
   @spec config(keyword()) :: map()
   def config(opts) do
-    if Keyword.get(opts, :host) do
-      region = Keyword.get(opts, :region) || @neutral_region
+    settings = Map.new(Application.get_env(:ex_aws, :s3, []))
 
+    if Keyword.get(opts, :host) || settings[:host] do
       :s3
       |> ExAws.Config.new(Keyword.put(opts, :region, @neutral_region))
-      |> Map.put(:region, region)
+      |> Map.put(:region, region(opts, settings))
     else
       ExAws.Config.new(:s3, opts)
     end
+  end
+
+  defp region(opts, settings) do
+    configured =
+      Keyword.get(opts, :region) || settings[:region] || Application.get_env(:ex_aws, :region)
+
+    ExAws.Config.retrieve_runtime_value(configured, %{}) || @neutral_region
   end
 
   @doc "`ExAws.request/2`, with the config from `config/1`."

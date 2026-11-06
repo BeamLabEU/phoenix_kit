@@ -49,6 +49,8 @@ defmodule PhoenixKit.Integrations.KeyStore.S3 do
 
   @behaviour PhoenixKit.Integrations.KeyStore
 
+  alias PhoenixKit.Modules.Storage.Providers.S3Request
+
   @default_object "phoenix_kit/integrations-encryption.key"
 
   @impl true
@@ -141,8 +143,9 @@ defmodule PhoenixKit.Integrations.KeyStore.S3 do
     end
   end
 
+  # Through `S3Request`, or a Backblaze B2 region raises before the host applies.
   defp request(operation, opts) do
-    ExAws.request(operation, Keyword.get(opts, :ex_aws_config, []))
+    S3Request.request(operation, Keyword.get(opts, :ex_aws_config, []))
   rescue
     # A misconfigured ExAws (no region, unusable credential provider) raises
     # rather than returning. Keep only the exception type: its message can quote

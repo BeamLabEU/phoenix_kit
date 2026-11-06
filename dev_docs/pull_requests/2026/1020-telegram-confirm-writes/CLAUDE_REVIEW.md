@@ -1,6 +1,6 @@
 # PR #1020 — Let a linked Telegram chat propose writes, held for confirmation and bound to that chat
 
-**Author:** timujinne · **Reviewer:** Claude · **Verdict:** approve; nothing to fix, one improvement open for a decision
+**Author:** timujinne · **Reviewer:** Claude · **Verdict:** approve; nothing to fix, one improvement deferred
 
 A chat could only read. It can now propose writes the way a session does: each is held in a confirmation row, and the row's
 `context` names the bot and the chat that made it. A chat reads, turns down and redeems only its own rows; the person's site
@@ -27,7 +27,7 @@ session may act on any of them.
 
 ## Findings
 
-### IMPROVEMENT - MEDIUM — a chat confirms its own proposals, dangerous tools included (open, for a decision)
+### IMPROVEMENT - MEDIUM — a chat confirms its own proposals, dangerous tools included (deferred)
 
 `Flow.gate/1` sends every write of a `:user` actor to `session_flow/1` before it looks at `dangerous?/1`, so `danger: :always`
 tools are held and confirmed like any other. For a session that is fine: the person is signed in. From a chat, the proposal
@@ -35,14 +35,17 @@ and the press both come from the same Telegram account, so whoever holds that ac
 role allows, in the modules an admin ticked "Agent may act" for. That box was written with a site session in mind, and it
 now covers chats too, with no switch of its own.
 
-It is opt-in where it counts: nothing happens unless a module passes `allow: :all` for a chat. Not changed, because it is
-a product decision. If wanted, the small version is refusing `redeem_as/6` from a chat for a tool whose `danger` applies,
-so those wait for the person's site session.
+It is opt-in where it counts: nothing happens unless a module passes `allow: :all` for a chat. The first version of this
+review called the fix small, and only the refusal is. There is nowhere on the site to confirm such a row yet: `/admin/approvals`
+is for API keys, `phoenix_kit_agent`'s cards cover its own chat, and core keeps only a hash of the input, so a page could not
+run it. Sending the person to do the action by hand is small; a confirmation page means a new page and keeping the input on
+the row. The maintainer left this for later, with more security and transparency planned for the feature.
 
 ### NITPICK — a held row outlives the link (left)
 
 `drop_links/2` leaves a chat's `unused` rows in place until they expire. The chat cannot use them, since the link is checked
-first. The person's site session could still confirm one, which takes a deliberate press on a preview. Left.
+first. A module that kept the arguments could still confirm one from the person's site session, which takes a deliberate
+press on a preview. Left.
 
 ### NITPICK — a rejection from a chat is logged without `via` (left)
 

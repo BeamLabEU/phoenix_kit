@@ -35,7 +35,7 @@
   the profile's files stale. No migration.
 - **Storage quotas** (`Storage.Quotas`). An account is charged for the user
   libraries it owns, whoever uploaded into them: originals plus the sizes and
-  tiles made from them, each object once (a profile's extra copies are the
+  tiles made from them, each file once (a profile's extra copies are the
   site's cost), trash included until purged, libraries on the owner's own
   storage excluded. The limit is the new `storage_user_quota_mb` setting
   (Settings → Media → Libraries, "Storage per user (MB)"; `0` is none), or a
@@ -64,8 +64,10 @@
   partition aws", and checking a B2 connection said "Could not reach the
   storage endpoint". S3-compatible requests now go through
   `Storage.Providers.S3Request`: with a host named, the config is built with a
-  region ExAws knows and then signed for the real one. Requests to AWS itself
-  (no host) are unchanged. ExAws's composite operations (`ExAws.S3.upload/4`,
+  region ExAws knows and then signed for the real one, whether the host and region
+  come from the caller or from `config :ex_aws`. The off-host key store
+  (`Integrations.KeyStore.S3`) goes through it too. Requests to AWS itself (no host)
+  are unchanged. ExAws's composite operations (`ExAws.S3.upload/4`,
   `download_file/3`) build the config again for each of their requests, so the
   S3 provider now does them itself through `S3Request`: a file of 5 MB or more
   goes up in 5 MiB parts, four at a time, and a failed upload is **aborted**

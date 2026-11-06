@@ -1,7 +1,7 @@
 # Direct commits of 2026-11-03 to 2026-11-05 (on main, no PR)
 
 **Author:** Dmitri Don · **Reviewer:** Claude · **Verdict:** nine bugs fixed, three of them high (two in storage, one in the
-recorder); three improvements open
+recorder), and one improvement; nothing left open
 
 Everything since 3.3.0 that no review doc covered: the storage commits, the first-manager picker and the audio recorder.
 Reviewed elsewhere and not repeated here: `4f6d2258d` (#1005), `82b9b5c4a` (#1006), `1e16cc213` (#1007 to #1012), `89d1b488d`
@@ -44,12 +44,13 @@ whole number now keeps the limit there is, as the neighbouring fields do.
 result. It cancels now. No test: a real render needs `magick`, which this machine lacks. The person is still not told,
 which is true of every failure on that path.
 
-### IMPROVEMENT - MEDIUM — usage sums rows, not objects (open)
+### IMPROVEMENT - MEDIUM — usage sums rows, not objects (left, by decision)
 
 `usage/1` adds up `File.size` per row, so the same bytes uploaded by two people into one library count twice, and the
-second upload can be refused though the moduledoc says each object counts once. The other way round, the sizes of an edited
-image's hidden original are not counted. Both are small next to the total, and neither loses anything. Counting distinct
-`FileInstance.file_name` would fix both, at the cost of a heavier query on the upload path, so it is left for a decision.
+second upload can be refused. The other way round, the sizes of an edited image's hidden original are not counted. Both are
+small next to the total, and neither loses anything. Counting distinct `FileInstance.file_name` would fix both, at the cost
+of a heavier query on the upload path. The maintainer chose rows, and the moduledoc, which promised each object once, now
+says what it does.
 
 ### NITPICK — a host hook that raises takes the upload down (left)
 
@@ -90,16 +91,17 @@ count cannot loop. Changing the option bumps the revision and queues the reconci
 
 ## `dbb4f2766`, `c9118b465` — the reconciler's lease (V228)
 
-### IMPROVEMENT - MEDIUM — a file whose holder died is skipped until the next run (open)
+### NITPICK — a dead holder's lease can skip a file, in one rare case (left)
 
-A holder killed mid-copy, which is what a deploy does, leaves its lease for up to five minutes. The boot trigger starts a pass
-30 s later, `claim/3` answers `:held`, and the pass counts the file as `:skipped` and finishes. Nothing comes back for it
-until the next trigger, at worst the daily prune. The advisory lock this replaced died with its connection, so the retry
-found it free. `Jobs.Reconcile`'s comment that "that reconciler counts it" is not true of a dead one.
+The first version of this review called this an open improvement, and had the recovery wrong. It said the boot trigger starts
+a new pass 30 s after a restart, which then meets the dead holder's lease. It does not. The interrupted run stays claimed while
+its Oban job reads `executing` (`SweepWorker` leaves that to Lifeline), the boot trigger only records a restart on it
+(`existing/3` in `Engine`), and Lifeline rescues the job after `rescue_after`, 60 minutes by default. The five-minute lease ran
+out long before, so the pass carries on and copies the file. A storage move cut by a restart therefore looks stalled for up
+to an hour, then finishes by itself. Nothing here changed that.
 
-One file per running pass, it heals by itself, and the library shows as out of date meanwhile. Re-queuing the trigger past
-the lease is the obvious fix, but `ReconcileJob` is unique across `:scheduled`, so a scheduled retry would swallow a real
-settings change for those minutes. Left for a decision.
+What is left is a batch killed by its 30-minute `timeout/1` and retried inside the five minutes: that file is `:skipped` and
+waits for the next run. Read from the code; no restart was staged.
 
 ### NITPICK — the lease's soft failures handled a raise but not an exit (fixed)
 
@@ -129,14 +131,16 @@ now, which takes the path that removes the file. Disk full cannot be staged here
 
 The moduledoc and the README named `ExAws.S3.upload/4` and `ExAws.S3.download_file`, and the README a session advisory lock.
 
-### IMPROVEMENT - MEDIUM — the key store still fails on B2 (open)
+### IMPROVEMENT - MEDIUM — the key store failed on B2 (fixed)
 
-`KeyStore.S3` names Backblaze B2 in its moduledoc, and its `request/2` still calls `ExAws.request/2`, the call `2adb71b10` moved
-everything else off. On a B2 region it raises, which `request/2` rescues into `{:ex_aws_raised, _}`, so the off-host copy of the
-encryption secret never gets written, and a `Chain` falls back to the local file. Not swapped for `S3Request.request/2`,
-because that is not the same call there: this store's options come from the host and may leave the region to `config :ex_aws`,
-which `S3Request.config/1` would replace with its neutral one and then sign with. The fix wants a test against a B2-shaped
-region, and nothing in the suite runs this store with a config.
+`KeyStore.S3` names Backblaze B2 in its moduledoc, and its `request/2` still called `ExAws.request/2`, the call `2adb71b10` moved
+everything else off. On a B2 region that raised, which `request/2` rescued into `{:ex_aws_raised, _}`, so the off-host copy of
+the encryption secret was never written. It goes through `S3Request.request/2` now.
+
+That alone would have been wrong: this store's settings come from the host and may leave the host or the region to
+`config :ex_aws`, and `S3Request.config/1` read neither, so it would have signed with its neutral region. It now reads both as
+ExAws does. `key_store_s3_test.exs` runs the store through real HTTP against a stub, in a B2-shaped region, with the settings
+in each place, and checks the region each request is signed for. Not run against real B2.
 
 ### NITPICK — a download reads its ranges one at a time (left)
 
@@ -214,7 +218,8 @@ passed `portal: true` itself. No JS test called `destroyed/0`, so "the microphon
 
 `mix precommit` passes (credo, dialyzer, 685 JS tests). `mix test` on a fresh database: 14,261 tests, 7 failures, all of them
 `magick`, which this machine lacks. The same run before these fixes gave 14,250 tests and 8 failures, the eighth a sandbox
-race whose file passes alone. An alias reorder in `quotas.ex` came after that run, and the suites it touches ran again.
+race whose file passes alone. An alias reorder in `quotas.ex` came after that run, and the suites it touches ran again. So did
+the S3 and key store suites after the key store fix, which came later still.
 
 The browser run is 26 scenarios in real Chromium with a fake microphone: 26 of 26 on the fixed code. On the old code the
 two tightened scenarios and the console check fail. Not tested: Safari, Firefox, a real microphone. Telegram, S3 and the

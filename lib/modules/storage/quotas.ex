@@ -14,8 +14,10 @@ defmodule PhoenixKit.Modules.Storage.Quotas do
     * `renditions` — the sizes made from them (every `FileInstance` but the
       `original`) and the tiles of zoomable images (system-managed files).
 
-  Each object is counted once: the copies a storage profile keeps of it (a
-  second disk, an off-site backup) are the site's cost, not the account's.
+  Each file is counted once, however many copies a storage profile keeps of it
+  (a second disk, an off-site backup): those are the site's cost, not the
+  account's. It adds up files, not stored objects, so the same bytes uploaded by
+  two people count for both.
   Trashed files still count until they are purged, because they are still
   stored. Libraries kept on the owner's **own** storage (their bucket is the
   primary of a V206 user profile) do not count at all; one their buckets only
