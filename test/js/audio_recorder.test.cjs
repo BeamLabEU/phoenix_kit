@@ -441,3 +441,130 @@ test("reconnecting while idle or recording does nothing", () => {
     assert.deepEqual(recorder.pushes, []);
   }
 });
+
+// --- Started from the page's own button, and into the page's own upload ----------
+
+const { recordingName } = require("../../priv/static/assets/phoenix_kit.js");
+
+function listeningElement(dataset = {}) {
+  const listeners = {};
+  return {
+    dataset,
+    hidden: true,
+    listeners,
+    addEventListener: (name, fn) => (listeners[name] = fn),
+    removeEventListener: (name) => delete listeners[name],
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+}
+
+test("the start event starts a recorder that can record", () => {
+  const el = listeningElement({ format: "native" });
+  let started = 0;
+  const recorder = fakeHook({ el, start: () => started++ });
+  hook.mounted.call(recorder);
+  recorder.ready = true;
+
+  el.listeners["phoenix_kit:audio_recorder_start"]();
+  assert.equal(started, 1);
+});
+
+// The page's button gets an answer even where the browser cannot record.
+test("the start event where recording cannot work reports it", () => {
+  const el = listeningElement({ format: "native" });
+  const recorder = fakeHook({ el });
+  hook.mounted.call(recorder);
+  assert.equal(recorder.ready, undefined, "the stubbed window cannot record");
+
+  el.listeners["phoenix_kit:audio_recorder_start"]();
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "unavailable" }]]);
+});
+
+test("the start listener goes with the recorder", () => {
+  const el = listeningElement({ format: "native" });
+  const recorder = fakeHook({ el });
+  hook.mounted.call(recorder);
+  hook.destroyed.call(recorder);
+  assert.equal(el.listeners["phoenix_kit:audio_recorder_start"], undefined);
+});
+
+test("without a start button the recorder shows only while it records", () => {
+  const el = listeningElement({ startButton: "false" });
+  const recorder = fakeHook({ el, busy: () => false, part: () => null });
+  recorder.show = hook.show;
+
+  recorder.show("recording");
+  assert.equal(el.hidden, false);
+  recorder.show("preparing");
+  assert.equal(el.hidden, false);
+  recorder.show("idle");
+  assert.equal(el.hidden, true);
+});
+
+test("with a start button, idle leaves the recorder's own visibility alone", () => {
+  const el = listeningElement({ startButton: "true" });
+  el.hidden = false;
+  const recorder = fakeHook({ el, busy: () => false, part: () => null });
+  recorder.show = hook.show;
+  recorder.show("idle");
+  assert.equal(el.hidden, false);
+});
+
+function intoPageUpload(input) {
+  const handed = [];
+  const recorder = fakeHook({
+    el: { dataset: { uploadRef: "phx-ref-1", uploadName: "attachment" } },
+    settle: () => (recorder.state = "idle"),
+    uploadTo: (form, name, files) => handed.push([form, name, files]),
+  });
+  const previous = global.document.getElementById;
+  global.document.getElementById = (id) => (id === "phx-ref-1" ? input : null);
+  return { recorder, handed, restore: () => (global.document.getElementById = previous) };
+}
+
+test("into a page's upload, the clip goes to that upload's form and the recorder is free", () => {
+  const form = { id: "composer" };
+  const { recorder, handed, restore } = intoPageUpload({ form });
+  recorder.state = "preparing";
+  recorder.handOver("the file");
+  restore();
+
+  assert.deepEqual(handed, [[form, "attachment", ["the file"]]]);
+  assert.equal(recorder.state, "idle");
+  assert.deepEqual(recorder.pushes, []);
+});
+
+test("into a page's upload whose input is gone, the clip is reported failed", () => {
+  const { recorder, handed, restore } = intoPageUpload(null);
+  recorder.state = "preparing";
+  recorder.handOver("the file");
+  restore();
+
+  assert.deepEqual(handed, []);
+  assert.deepEqual(recorder.pushes, [["recorder_error", { reason: "failed" }]]);
+  assert.equal(recorder.state, "idle");
+});
+
+test("into a page's upload, the clip is handed over, not sent as the recorder's own", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const handed = [];
+  const { recorder, made } = recording({
+    el: { dataset: { uploadRef: "phx-ref-1", uploadName: "attachment" } },
+    handOver: (file) => {
+      handed.push(file);
+      recorder.state = "idle";
+    },
+  });
+
+  await recorder.start();
+  recorder.chunks.push("sound");
+  await made[0].onstop();
+
+  assert.deepEqual(handed, ["the file"]);
+  assert.ok(!recorder.pushes.some(([event]) => event === "recorder_clip"));
+});
+
+test("a clip joining a page's files is named by when it was recorded", () => {
+  assert.equal(recordingName(new Date(2026, 10, 6, 20, 30, 5)), "recording-2026-11-06-203005");
+});
