@@ -82,6 +82,36 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
   `format`, `max_seconds` and `label` are read once, when the recorder first renders.
 
+  ## Started from your own button
+
+  A page with a control of its own (an item in an attach menu, say) passes
+  `start_button={false}`: the recorder then shows nothing until it records, and
+  `start/2` starts it from any `phx-click`:
+
+      <button type="button" phx-click={AudioRecorder.start("comment-voice")}>Record</button>
+      <.audio_recorder id="comment-voice" start_button={false} ... />
+
+  It is a `JS.dispatch` on the recorder, so the click itself asks for the
+  microphone (some browsers want the person's own gesture for that), and it
+  chains: `AudioRecorder.start("comment-voice") |> JS.push("close_menu")`. Where
+  the browser cannot record, starting reports `:unavailable` rather than doing
+  nothing.
+
+  ## Into an upload of your own
+
+  A page that already takes files (an attachments field) can have the recording
+  join them: `upload={@uploads.attachment}` puts the clip into that upload, as if
+  it had been picked, and the recorder is free for the next one at once. Its
+  limits, progress, cancel and `consume_uploaded_entries/3` are then the page's,
+  exactly as for any other file, and no `{:audio_recorded, …}` is sent. The
+  upload must accept the clip: `audio/*` (or `.webm`, `.ogg`, `.mp4`) for
+  `:native`, `.wav` for `:wav_16k`. Its `<.live_file_input>` must be on the page,
+  which is where the recorder finds it. The file is named
+  `recording-<date>-<time>.<ext>`. Problems in getting the clip as far as the
+  upload are still the recorder's (`:denied`, `:unavailable`, `:unreadable`,
+  `:failed`); the upload's own errors (too many files, too large) are the
+  page's, shown with `upload_errors/2` as for any upload.
+
   ## Where it cannot work
 
   The recorder stays hidden without a secure context (plain HTTP on a LAN address)
@@ -103,6 +133,8 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
   use Phoenix.LiveComponent
   use Gettext, backend: PhoenixKitWeb.Gettext
+
+  alias Phoenix.LiveView.JS
 
   import PhoenixKitWeb.Components.Core.Icon
 
@@ -157,6 +189,14 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
     default: true,
     doc: "Moves the upload form to `body`, so the recorder can sit inside a form."
 
+  attr :start_button, :boolean,
+    default: true,
+    doc: "`false` shows nothing until recording; start it with `start/2` from a button of yours."
+
+  attr :upload, :any,
+    default: nil,
+    doc: "A page's own upload (`@uploads.name`) to put the clip into, instead of sending it."
+
   attr :class, :any, default: nil
 
   @doc "The recorder. See the module documentation."
@@ -172,9 +212,20 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
       errors={@errors}
       target={@target}
       portal={@portal}
+      start_button={@start_button}
+      upload={@upload}
       class={@class}
     />
     """
+  end
+
+  @doc """
+  Starts the recorder `id` — for `start_button={false}`, from a button of the page's.
+  Chains like any `Phoenix.LiveView.JS` command.
+  """
+  @spec start(JS.t(), String.t()) :: JS.t()
+  def start(js \\ %JS{}, id) when is_binary(id) do
+    JS.dispatch(js, "phoenix_kit:audio_recorder_start", to: "#" <> id <> "-recorder")
   end
 
   @doc "The translated text for a reason, for a page that shows its own errors."
@@ -205,6 +256,11 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
   # as long as an entry uses it, and raises when another component starts an upload
   # under it, so two recorders sharing one take the page down when their clips overlap.
   defp allow_once(%{assigns: %{upload_name: _name}} = socket), do: socket
+
+  # Into the page's own upload: nothing of this recorder's to allow. The name and
+  # ref are read from it on every render, so a page that rebuilds its upload is
+  # followed.
+  defp allow_once(%{assigns: %{upload: %Phoenix.LiveView.UploadConfig{}}} = socket), do: socket
 
   defp allow_once(%{assigns: %{id: id, format: format, max_seconds: seconds}} = socket) do
     name = "audio_recorder_#{id}"
@@ -261,6 +317,9 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
   defp cancel_entries(%{assigns: %{upload_name: name, uploads: uploads}} = socket),
     do: Enum.reduce(uploads[name].entries, socket, &cancel_upload(&2, name, &1.ref))
+
+  # Into a page's upload, its entries are the page's, never this recorder's to cancel.
+  defp cancel_entries(socket), do: socket
 
   defp refuse_invalid(%{assigns: %{upload_name: name}} = socket) do
     config = socket.assigns.uploads[name]
@@ -362,12 +421,19 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
         data-format={@format}
         data-busy={to_string(@busy)}
         data-max-seconds={@max_seconds}
-        data-upload-form={"#{@id}-upload"}
-        data-upload-name={@upload_name}
+        data-start-button={to_string(@start_button)}
+        data-upload-form={if !@upload, do: "#{@id}-upload"}
+        data-upload-name={if @upload, do: @upload.name, else: @upload_name}
+        data-upload-ref={if @upload, do: @upload.ref}
         hidden
       >
         <div data-recorder-state="idle">
-          <button type="button" data-recorder-start class="btn btn-sm btn-outline">
+          <button
+            :if={@start_button}
+            type="button"
+            data-recorder-start
+            class="btn btn-sm btn-outline"
+          >
             <.icon name="hero-microphone" class="size-4" /> {@label || gettext("Record")}
           </button>
         </div>
@@ -405,11 +471,11 @@ defmodule PhoenixKitWeb.Components.Core.AudioRecorder do
 
       <p :if={@error} role="alert" class="mt-1 text-sm text-error">{error_message(@error)}</p>
 
-      <.portal :if={@portal} id={"#{@id}-portal"} target="body">
+      <.portal :if={!@upload and @portal} id={"#{@id}-portal"} target="body">
         <.upload_form id={"#{@id}-upload"} upload={@uploads[@upload_name]} myself={@myself} />
       </.portal>
       <.upload_form
-        :if={!@portal}
+        :if={!@upload and !@portal}
         id={"#{@id}-upload"}
         upload={@uploads[@upload_name]}
         myself={@myself}

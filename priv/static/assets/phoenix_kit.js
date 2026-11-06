@@ -13951,7 +13951,11 @@ if (typeof window.Chart === "undefined") {
 //   data-busy         "true" disables the start button
 //   data-max-seconds  recording stops and sends at this length
 //   data-upload-form  id of the component's upload form
-//   data-upload-name  the name of its upload
+//   data-upload-name  the name of its upload, or of the page's (with data-upload-ref)
+//   data-upload-ref   set when the clip goes into a page's own upload: the ref of
+//                     that upload, which is the id of its file input
+//   data-start-button "false" when the page starts the recorder itself
+//                     (`AudioRecorder.start/2` dispatches phoenix_kit:audio_recorder_start)
 //
 // `phx-target` on the element is for `render_hook/3` in tests. In a browser
 // `pushEventTo(this.el, ...)` finds the component from the DOM.
@@ -14040,11 +14044,26 @@ if (typeof window.Chart === "undefined") {
     return encodeWav(rendered.getChannelData(0), WAV_RATE);
   }
 
+  // "recording-2026-11-06-203015", for a clip that joins a page's own files.
+  function recordingName(date) {
+    const two = (n) => String(n).padStart(2, "0");
+    return "recording-" + date.getFullYear() + "-" + two(date.getMonth() + 1) + "-" +
+      two(date.getDate()) + "-" + two(date.getHours()) + two(date.getMinutes()) +
+      two(date.getSeconds());
+  }
+
   window.PhoenixKitHooks.AudioRecorder = {
     mounted() {
       this.state = "idle";
       this.format = this.el.dataset.format;
       this.chunks = [];
+      // A page's own button starts the recorder with this event. Listened for even
+      // where recording cannot work, so that button gets an answer, not silence.
+      this.onStart = () => {
+        if (this.ready) this.start();
+        else this.push("recorder_error", {reason: "unavailable"});
+      };
+      this.el.addEventListener("phoenix_kit:audio_recorder_start", this.onStart);
       if (!canRecord(window, this.format)) return;
 
       this.ready = true;
@@ -14077,7 +14096,7 @@ if (typeof window.Chart === "undefined") {
     },
 
     updated() {
-      if (this.ready) this.part("start").disabled = this.busy();
+      if (this.ready && this.part("start")) this.part("start").disabled = this.busy();
     },
 
     // The upload died with the connection. The server has no entry left, so
@@ -14091,6 +14110,7 @@ if (typeof window.Chart === "undefined") {
 
     destroyed() {
       this.gone = true;
+      this.el.removeEventListener("phoenix_kit:audio_recorder_start", this.onStart);
       if (!this.ready) return;
       this.el.removeEventListener("click", this.onClick);
       this.el.removeEventListener("keydown", this.onKey);
@@ -14117,7 +14137,10 @@ if (typeof window.Chart === "undefined") {
       this.el.querySelectorAll("[data-recorder-state]").forEach((block) => {
         block.hidden = block.dataset.recorderState !== state;
       });
-      this.part("start").disabled = this.busy();
+      const start = this.part("start");
+      if (start) start.disabled = this.busy();
+      // Started from the page's own button: nothing to show while idle.
+      if (this.el.dataset.startButton === "false") this.el.hidden = state === "idle";
     },
 
     async start() {
@@ -14220,6 +14243,7 @@ if (typeof window.Chart === "undefined") {
       try {
         const file = await this.fileFrom(new Blob(this.chunks, {type: mimeType}));
         if (this.abandoned()) return;
+        if (this.el.dataset.uploadRef) return this.handOver(file);
         await this.push("recorder_clip", {duration: seconds});
         if (this.abandoned()) return;
         this.watch();
@@ -14231,6 +14255,20 @@ if (typeof window.Chart === "undefined") {
       } catch (_error) {
         if (!this.abandoned()) this.unreadable();
       }
+    },
+
+    // Into the page's own upload, through that upload's form, found by its input (whose
+    // id is the upload's ref). The page's upload shows it from here on, so this
+    // recorder is ready for the next clip at once.
+    handOver(file) {
+      const input = document.getElementById(this.el.dataset.uploadRef);
+      const form = input && input.form;
+      if (!form) {
+        this.push("recorder_error", {reason: "failed"});
+        return this.settle();
+      }
+      this.uploadTo(form, this.el.dataset.uploadName, [file]);
+      this.settle();
     },
 
     // The hook is gone, or `reconnected` ended this clip while it was being made ready:
@@ -14248,12 +14286,14 @@ if (typeof window.Chart === "undefined") {
     },
 
     async fileFrom(blob) {
+      // A clip that joins a page's files is named so it can be told apart there.
+      const base = this.el.dataset.uploadRef ? recordingName(new Date()) : "clip";
       if (this.format === "wav_16k") {
-        return new File([await toWav(blob)], "clip.wav", {type: "audio/wav"});
+        return new File([await toWav(blob)], base + ".wav", {type: "audio/wav"});
       }
       // Without `;codecs=opus`, which is no part of the type a server matches on.
       const type = blob.type.split(";")[0];
-      return new File([blob], "clip." + extensionFor(type), {type: type});
+      return new File([blob], base + "." + extensionFor(type), {type: type});
     },
 
     unreadable() {
@@ -14272,7 +14312,8 @@ if (typeof window.Chart === "undefined") {
       const active = document.activeElement;
       const lost = !active || active === document.body || this.el.contains(active);
       this.show("idle");
-      if (lost) this.part("start").focus();
+      const start = this.part("start");
+      if (lost && start) start.focus();
     }
   };
 
@@ -14284,6 +14325,7 @@ if (typeof window.Chart === "undefined") {
     module.exports.extensionFor = extensionFor;
     module.exports.errorReason = errorReason;
     module.exports.canRecord = canRecord;
+    module.exports.recordingName = recordingName;
   }
 })();
 
