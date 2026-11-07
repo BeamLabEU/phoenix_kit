@@ -306,6 +306,9 @@ against baseline + repair.
   replace the pre-squash oracle. Re-run with
   `PGDATABASE=<scratch-test-db> MIX_ENV=test mix run --no-start dev_docs/squash/generate_v227_manifest.exs`,
   then format, restamp and verify the resulting objects against the real catalog.
+  `generate_v229_manifest.exs` does the same for V228 -> V229 and emits
+  `ExpectedSchema.V229` plus `reference/v229_account_relationships.sql`; it adds the
+  one seed row the catalog diff cannot see.
 
 - The `ExpectedSchema` manifest is **tool-generated with a deterministic
   emit order and a `chain_hash`**. It is NEVER hand-merged: after any rebase

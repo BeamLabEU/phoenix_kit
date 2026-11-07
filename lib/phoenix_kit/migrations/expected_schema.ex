@@ -202,6 +202,13 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # access to; the real-database integration suite re-ran clean against a DB
   # migrated through V196, which is the property s7/s8 exist to prove.
   #
+  # V229 (2026-11-07, relationship types and roles on an acting link) adds a generated
+  # overlay, `ExpectedSchema.V229` (dev_docs/squash/generate_v229_manifest.exs: the
+  # catalog diff V228 -> V229 in a scratch schema), merged after `V227`. Its one
+  # hand-declared object is `seed:phoenix_kit_relationship_types:manager`, row data the
+  # catalog diff cannot see. Kept honest by `PhoenixKit.Migrations.Postgres.V229Test`.
+  # `chain_hash` restamped.
+  #
   # V228 (2026-11-05, a reconcile lease on a file) DECLARES two objects here by hand:
   # `column:phoenix_kit_files.reconcile_lock_token` (uuid, nullable, `pos` 43 after V225's
   # `short_code` at 42) and `column:phoenix_kit_files.reconcile_locked_until`
@@ -670,20 +677,23 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   #   PG majors.
 
   alias PhoenixKit.Migrations.ExpectedSchema.V227
+  alias PhoenixKit.Migrations.ExpectedSchema.V229
   alias PhoenixKit.Migrations.Postgres.Helpers
 
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "276999bed85c7f419364e4b147f8a8faa78129da923dc9c103b3e63198b3642f"
+  @chain_hash "faab65521faefc493ad7c24d48717d3323e1e10dd426b13de8460b2d35dc8dae"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)
 
     raw_objects()
     # Catalog-generated post-squash delta; preserves the baseline's historical
-    # revisions and bimodal objects. Regenerate with generate_v227_manifest.exs.
+    # revisions and bimodal objects. Regenerate with generate_v227_manifest.exs
+    # and generate_v229_manifest.exs.
     |> V227.merge()
+    |> V229.merge()
     |> Enum.reject(&module_owned_object?/1)
     |> Enum.map(&materialize_object(&1, prefix))
   end
@@ -740,7 +750,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   # `ModuleOwnedTablesTest` still has to prove the ownership lists cover all
   # of core's chain. Goes when step 7 rewrites this file.
   def created_table_names do
-    objects = raw_objects() |> V227.merge()
+    objects = raw_objects() |> V227.merge() |> V229.merge()
 
     for %{class: :table, check: {:catalog, %{name: name}}} <- objects,
         into: MapSet.new(),
