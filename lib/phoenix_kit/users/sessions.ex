@@ -541,6 +541,31 @@ defmodule PhoenixKit.Users.Sessions do
     count
   end
 
+  @doc """
+  Revokes the sessions of one acting link that are **acting as** one of `role_uuids`,
+  called when those roles leave the link: the browser signs out instead of quietly
+  continuing in another role. `revoke_user_sessions_in_role/2` would reach every person
+  acting for the organization. Returns the number revoked.
+  """
+  @spec revoke_link_sessions_in_roles(String.t(), [String.t()]) :: non_neg_integer()
+  def revoke_link_sessions_in_roles(_link_uuid, []), do: 0
+
+  def revoke_link_sessions_in_roles(link_uuid, role_uuids)
+      when is_binary(link_uuid) and is_list(role_uuids) do
+    {count, revoked} =
+      Revocation.delete_all(
+        from(token in UserToken,
+          where:
+            token.organization_manager_uuid == ^link_uuid and token.context == "session" and
+              token.active_role_uuid in ^role_uuids,
+          select: %{uuid: token.uuid, token: token.token}
+        )
+      )
+
+    Enum.each(revoked, &Events.broadcast_session_revoked(&1.uuid))
+    count
+  end
+
   # Fills `:active_role` (the name of the role each session acts as, or nil)
   # from the sessions' stored uuids — one roles query for the whole list.
   defp with_active_roles(sessions) do

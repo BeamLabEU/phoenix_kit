@@ -221,6 +221,22 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
     )
   end
 
+  @doc "Delivers an invitation to act for an organization without managing it."
+  def deliver_link_invitation(email, organization_name, relationship_name, invitation_url) do
+    deliver_templated(
+      email,
+      email,
+      "organization_link_invitation",
+      %{
+        "user_email" => email,
+        "organization_name" => organization_name,
+        "relationship_name" => relationship_name,
+        "invitation_url" => invitation_url
+      },
+      &CoreTemplates.organization_link_invitation_defaults/0
+    )
+  end
+
   @doc """
   Deliver magic link registration instructions.
 

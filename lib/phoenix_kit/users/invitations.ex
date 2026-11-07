@@ -40,7 +40,9 @@ defmodule PhoenixKit.Users.Invitations do
 
   `kind: :member` (the default) takes the inviting User. `kind: :manager`
   takes a ManagedOrganizations.Actor from the trusted signed browser session;
-  it resolves the inviting person itself and rechecks the live grant/admin.
+  it resolves the inviting person itself and rechecks the live grant/admin. It also
+  takes the link to create on acceptance: `:type`, `:roles` and `:all_roles`, as
+  `PhoenixKit.Users.OrganizationManagers` describes.
   Manager responses and duplicate responses are presented generically by the UI.
 
   Returns `{:ok, invitation, encoded_token}` on success.
@@ -58,7 +60,8 @@ defmodule PhoenixKit.Users.Invitations do
       when is_binary(email) do
     case Keyword.get(opts, :kind, :member) do
       :manager ->
-        ManagerInvitations.create(organization.uuid, email, actor)
+        link_opts = Keyword.take(opts, [:type, :roles, :all_roles])
+        ManagerInvitations.create(organization.uuid, email, actor, link_opts)
 
       :member ->
         create_member_invitation(organization, email, invited_by_user(actor))

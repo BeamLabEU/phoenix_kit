@@ -109,6 +109,21 @@ defmodule PhoenixKit.Email.CoreTemplates do
         end
       },
       %{
+        name: "organization_link_invitation",
+        label: gettext("Organization staff invitation"),
+        description:
+          gettext("Invites a person to act for an organization without managing it."),
+        defaults: &organization_link_invitation_defaults/0,
+        variables: fn ->
+          %{
+            "user_email" => @sample_email,
+            "organization_name" => "Acme Ltd",
+            "relationship_name" => "Staff",
+            "invitation_url" => sample_url("/users/log-in")
+          }
+        end
+      },
+      %{
         name: "organization_invitation",
         label: gettext("Organization invitation"),
         description: gettext("Sent to an address that is invited to join an organization."),
@@ -348,6 +363,25 @@ defmodule PhoenixKit.Email.CoreTemplates do
         Sign in or create your personal account, then accept the invitation banner.
 
         [Review manager invitation]({{invitation_url}})
+
+        This invitation expires in 7 days. If you did not expect it, you can ignore this email.
+        """)
+    }
+  end
+
+  @doc "Default copy of an invitation to act for an organization without managing it."
+  def organization_link_invitation_defaults do
+    %{
+      subject: gettext("You've been invited to join {{organization_name}}"),
+      markdown:
+        gettext("""
+        Hi {{user_email}},
+
+        {{organization_name}} has invited you to join as {{relationship_name}}. You act for the organization using your own account.
+
+        Sign in or create your personal account, then accept the invitation banner.
+
+        [Review invitation]({{invitation_url}})
 
         This invitation expires in 7 days. If you did not expect it, you can ignore this email.
         """)

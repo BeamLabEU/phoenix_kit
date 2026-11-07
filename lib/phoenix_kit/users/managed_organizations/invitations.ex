@@ -15,11 +15,20 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.RelationshipType
+  alias PhoenixKit.Users.RelationshipTypes
+  alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Sessions.Revocation
+  alias PhoenixKit.Utils.Multilang
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
-  def create(organization_uuid, email, actor) when is_binary(email) do
+  # `opts` are the link options of `OrganizationManagers`. A pending invitation with
+  # other values is `:invitation_pending`: the manager cancels it first, or the new
+  # roles would be lost. An address already linked gets the same answer as any other,
+  # as new and existing accounts do; the existing link stands when it is accepted.
+  def create(organization_uuid, email, actor, opts \\ [])
+
+  def create(organization_uuid, email, actor, opts) when is_binary(email) do
     result =
       Revocation.transaction(fn ->
         org = Locks.organization!(organization_uuid)
@@ -30,12 +39,13 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
         RateLimiter.check_manager_invitation_rate_limit(authority.person_uuid, org.uuid)
         |> Locks.value!()
 
+        link = OrganizationManagers.new_link!(org, authority, opts)
         email = email |> String.trim() |> String.downcase()
-        changeset = invitation_changeset(org, email, authority.person_uuid)
+        changeset = invitation_changeset(org, email, authority.person_uuid, link)
         unless changeset.valid?, do: RepoHelper.repo().rollback(changeset)
 
         case pending(org.uuid, email) do
-          %OrganizationInvitation{} = existing -> {existing, nil, org}
+          %OrganizationInvitation{} = existing -> {same_link!(existing, link), nil, org}
           nil -> insert(changeset, org)
         end
       end)
@@ -50,7 +60,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
     end
   end
 
-  def create(_, _, _), do: {:error, :forbidden}
+  def create(_, _, _, _), do: {:error, :forbidden}
 
   def accept(%OrganizationInvitation{} = initial, %User{} = caller) do
     if caller.acting_user_uuid || caller.managed_by_members do
@@ -77,7 +87,12 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
           granted_by_uuid: invitation.invited_by_uuid
         }
 
-        OrganizationManagers.insert_locked(org, person.uuid, authority)
+        OrganizationManagers.insert_locked(
+          org,
+          person.uuid,
+          authority,
+          accepted_link!(invitation)
+        )
 
         updated =
           invitation
@@ -135,12 +150,40 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
     end)
   end
 
-  defp invitation_changeset(org, email, person_uuid) do
+  # The link the invitation promised, already authorized when it was sent. Only the
+  # roles that still exist apply, so a role deleted meanwhile leaves the person with
+  # less. An archived type takes no new links.
+  defp accepted_link!(invitation) do
+    type = RepoHelper.repo().get!(RelationshipType, invitation.relationship_type_uuid)
+
+    if type.status != "active",
+      do: RepoHelper.repo().rollback(:relationship_type_archived)
+
+    OrganizationManagers.keep_link(%{
+      type: type,
+      all_roles: invitation.all_roles,
+      roles: RepoHelper.repo().all(from(r in Role, where: r.uuid in ^invitation.role_uuids)),
+      metadata: %{}
+    })
+  end
+
+  defp same_link!(existing, link) do
+    same? =
+      existing.relationship_type_uuid == link.type.uuid and
+        existing.all_roles == link.all_roles and
+        Enum.sort(existing.role_uuids) == Enum.sort(Enum.map(link.roles, & &1.uuid))
+
+    if same?, do: existing, else: RepoHelper.repo().rollback(:invitation_pending)
+  end
+
+  defp invitation_changeset(org, email, person_uuid, link) do
     OrganizationInvitation.create_changeset(%OrganizationInvitation{}, %{
       organization_uuid: org.uuid,
       email: email,
       kind: :manager,
-      relationship_type_uuid: RelationshipType.manager_uuid(),
+      relationship_type_uuid: link.type.uuid,
+      all_roles: link.all_roles,
+      role_uuids: Enum.map(link.roles, & &1.uuid),
       invited_by_uuid: person_uuid,
       token: :crypto.strong_rand_bytes(32),
       expires_at: DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.truncate(:second)
@@ -230,10 +273,21 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
         do: "/users/log-in",
         else: "/users/register?invitation=#{token}"
 
-    UserNotifier.deliver_manager_invitation(
-      invitation.email,
-      User.display_name(org),
-      Routes.url(path)
-    )
+    case RepoHelper.repo().get!(RelationshipType, invitation.relationship_type_uuid) do
+      %RelationshipType{can_manage: true} ->
+        UserNotifier.deliver_manager_invitation(
+          invitation.email,
+          User.display_name(org),
+          Routes.url(path)
+        )
+
+      %RelationshipType{} = type ->
+        UserNotifier.deliver_link_invitation(
+          invitation.email,
+          User.display_name(org),
+          RelationshipTypes.name(type, Multilang.primary_language()),
+          Routes.url(path)
+        )
+    end
   end
 end
