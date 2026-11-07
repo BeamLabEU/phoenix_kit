@@ -264,6 +264,22 @@ defmodule PhoenixKit.Users.Auth.User do
     if invalid_email?(email), do: [{field, "must use a deliverable email domain"}], else: []
   end
 
+  @doc """
+  Copies the session-only fields from `source` onto `user`, for a reload by uuid that
+  must stay the same session: they say which role it acts as and which link it acts
+  through, so losing them changes what the session may do.
+  """
+  @spec put_session_fields(t(), t()) :: t()
+  def put_session_fields(%__MODULE__{} = user, %__MODULE__{} = source) do
+    %{
+      user
+      | active_role_uuid: source.active_role_uuid,
+        acting_user_uuid: source.acting_user_uuid,
+        acting_session_uuid: source.acting_session_uuid,
+        organization_manager_uuid: source.organization_manager_uuid
+    }
+  end
+
   @doc "The address to display or deliver to; contact email never authenticates an account."
   def delivery_email(%{managed_by_members: true, contact_email: email}), do: email
   def delivery_email(%{managed_by_members: true}), do: nil

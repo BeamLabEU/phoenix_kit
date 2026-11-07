@@ -14,6 +14,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RateLimiter
+  alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -139,6 +140,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
       organization_uuid: org.uuid,
       email: email,
       kind: :manager,
+      relationship_type_uuid: RelationshipType.manager_uuid(),
       invited_by_uuid: person_uuid,
       token: :crypto.strong_rand_bytes(32),
       expires_at: DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.truncate(:second)

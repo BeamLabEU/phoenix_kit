@@ -51,13 +51,19 @@ defmodule PhoenixKit.Users.ActiveRole do
 
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.ActingLink
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
 
-  @type role :: %{uuid: String.t(), name: String.t()}
+  @type role :: %{
+          required(:uuid) => String.t(),
+          required(:name) => String.t(),
+          optional(:data) => map()
+        }
 
   @type config :: %{enabled?: boolean(), always_on: [String.t()]}
 
@@ -184,17 +190,18 @@ defmodule PhoenixKit.Users.ActiveRole do
   """
   @spec effective_role_names(User.t()) :: [String.t()]
   def effective_role_names(%User{} = user) do
-    {_active, effective, _switchable} = narrow(user, Roles.get_user_role_records(user))
+    {_active, effective, _switchable} = narrow(user, Scope.eligible_role_records(user))
     Enum.map(effective, & &1.name)
   end
 
   @doc """
   The role in effect for each session in `sessions`, for the sessions lists.
 
-  Takes maps with `:token_uuid`, `:user_uuid` and `:active_role_uuid` (what
+  Takes maps with `:token_uuid`, `:user_uuid`, `:active_role_uuid` and, for a session
+  acting for an organization, `:organization_manager_uuid` (what
   `PhoenixKit.Users.Sessions` selects) and returns `%{token_uuid => name}`
-  with `nil` where the session is not narrowed — one roles query for the
-  whole page, then the pure rules per row.
+  with `nil` where the session is not narrowed — one query each for the roles and
+  the links of the whole page, then the pure rules per row.
   """
   @spec session_role_names([map()]) :: %{optional(String.t()) => String.t() | nil}
   def session_role_names([]), do: %{}
@@ -202,16 +209,28 @@ defmodule PhoenixKit.Users.ActiveRole do
   def session_role_names(sessions) when is_list(sessions) do
     config = config()
 
-    held_by_user =
-      if config.enabled?,
-        do: sessions |> Enum.map(& &1.user_uuid) |> Roles.get_role_records_for_users(),
-        else: %{}
+    {held_by_user, links} =
+      if config.enabled? do
+        {sessions |> Enum.map(& &1.user_uuid) |> Roles.get_role_records_for_users(),
+         sessions |> Enum.map(&link_uuid/1) |> ActingLink.load_many()}
+      else
+        {%{}, %{}}
+      end
 
     Map.new(sessions, fn session ->
-      held = Map.get(held_by_user, session.user_uuid, [])
+      held = held_by_user |> Map.get(session.user_uuid, []) |> session_roles(session, links)
       active = resolve(held, session.active_role_uuid, config)
       {session.token_uuid, active && active.name}
     end)
+  end
+
+  defp link_uuid(session), do: Map.get(session, :organization_manager_uuid)
+
+  defp session_roles(held, session, links) do
+    case link_uuid(session) do
+      nil -> held
+      uuid -> ActingLink.narrow(held, Map.get(links, uuid))
+    end
   end
 
   @doc """
@@ -245,7 +264,7 @@ defmodule PhoenixKit.Users.ActiveRole do
           {:ok, role()} | {:error, :disabled | :not_switchable | :not_found}
   def switch(%User{} = user, token, role_uuid) when is_binary(token) and is_binary(role_uuid) do
     config = config()
-    held = Roles.get_user_role_records(user)
+    held = Scope.eligible_role_records(user)
     candidates = switchable_roles(held, config)
     target = Enum.find(candidates, &(&1.uuid == role_uuid))
     current = resolve(held, session_role_uuid(user), config)

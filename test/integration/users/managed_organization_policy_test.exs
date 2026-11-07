@@ -108,8 +108,11 @@ defmodule PhoenixKit.Users.ManagedOrganizationPolicyTest do
       |> Repo.insert!()
     end
 
+    person = Fixtures.person()
+    %{user: acting} = Fixtures.enter(org, person, Fixtures.manager(org, person))
+
     for opts <- [[], [narrow: false]] do
-      scope = Scope.for_user(org, opts)
+      scope = Scope.for_user(acting, opts)
       refute Scope.owner?(scope)
       refute Scope.has_role?(scope, "Admin")
       refute Scope.superadmin?(scope)
@@ -146,7 +149,13 @@ defmodule PhoenixKit.Users.ManagedOrganizationPolicyTest do
       |> Repo.insert!()
 
     assert member.kind == :member
-    manager_attrs = Map.merge(attrs, %{kind: :manager, token: :crypto.strong_rand_bytes(32)})
+
+    manager_attrs =
+      Map.merge(attrs, %{
+        kind: :manager,
+        relationship_type_uuid: PhoenixKit.Users.RelationshipType.manager_uuid(),
+        token: :crypto.strong_rand_bytes(32)
+      })
 
     assert {:ok, %{kind: :manager}} =
              %OrganizationInvitation{}

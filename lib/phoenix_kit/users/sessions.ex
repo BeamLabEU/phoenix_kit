@@ -81,6 +81,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       },
@@ -146,6 +147,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       })
@@ -235,6 +237,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       },
@@ -276,6 +279,7 @@ defmodule PhoenixKit.Users.Sessions do
         browser: token.browser,
         os: token.os,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at
       },
       order_by: [desc: token.inserted_at]
@@ -419,6 +423,7 @@ defmodule PhoenixKit.Users.Sessions do
         user_is_active: user.is_active,
         user_confirmed_at: user.confirmed_at,
         active_role_uuid: token.active_role_uuid,
+        organization_manager_uuid: token.organization_manager_uuid,
         created_at: token.inserted_at,
         expires_at: fragment("? + interval '60 days'", token.inserted_at)
       }
@@ -772,6 +777,7 @@ defmodule PhoenixKit.Users.Sessions do
       browser: Map.get(session_data, :browser),
       os: Map.get(session_data, :os),
       active_role_uuid: Map.get(session_data, :active_role_uuid),
+      organization_manager_uuid: Map.get(session_data, :organization_manager_uuid),
       active_role: nil,
       created_at: session_data.created_at,
       expires_at: session_data.expires_at,

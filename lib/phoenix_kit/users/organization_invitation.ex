@@ -4,12 +4,18 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
 
   Represents an invitation sent by an organization admin to a person (by email).
   The raw token is never stored — only the SHA-256 hash, following the UserToken pattern.
+
+  A `:manager` invitation carries the link it will create: its `relationship_type`,
+  `all_roles` and `role_uuids`. `role_uuids` is a snapshot with no foreign key: at
+  acceptance only the roles that still exist apply, so a role deleted meanwhile
+  leaves the person with less, never more.
   """
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix
   import Ecto.Changeset
 
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Users.RelationshipType
 
   @primary_key {:uuid, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
@@ -25,6 +31,13 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
     field :token, :binary
     field :expires_at, :utc_datetime
     field :accepted_at, :utc_datetime
+    field :all_roles, :boolean, default: true
+    field :role_uuids, {:array, UUIDv7}, default: []
+
+    belongs_to :relationship_type, RelationshipType,
+      foreign_key: :relationship_type_uuid,
+      references: :uuid,
+      type: UUIDv7
 
     belongs_to :organization, User,
       foreign_key: :organization_uuid,
@@ -42,7 +55,17 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
   @doc "Changeset for creating a new invitation."
   def create_changeset(invitation, attrs) do
     invitation
-    |> cast(attrs, [:email, :organization_uuid, :invited_by_uuid, :token, :expires_at, :kind])
+    |> cast(attrs, [
+      :email,
+      :organization_uuid,
+      :invited_by_uuid,
+      :token,
+      :expires_at,
+      :kind,
+      :relationship_type_uuid,
+      :all_roles,
+      :role_uuids
+    ])
     |> validate_required([:email, :organization_uuid, :token, :expires_at])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email address")
     |> validate_length(:email, max: 160)
@@ -53,6 +76,12 @@ defmodule PhoenixKit.Users.OrganizationInvitation do
     |> unique_constraint(:token)
     |> unique_constraint([:organization_uuid, :email, :kind],
       name: :phoenix_kit_org_invitations_pending_unique_idx
+    )
+    |> foreign_key_constraint(:relationship_type_uuid,
+      name: :pk_org_invitations_relationship_type_fkey
+    )
+    |> check_constraint(:relationship_type_uuid,
+      name: :phoenix_kit_org_invitations_type_check
     )
   end
 

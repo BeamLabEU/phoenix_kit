@@ -570,6 +570,8 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
     |> Ecto.Changeset.change(%{
       organization_uuid: org.uuid,
       kind: kind,
+      relationship_type_uuid:
+        if(kind == :manager, do: PhoenixKit.Users.RelationshipType.manager_uuid()),
       status: status,
       email: "invite-#{UUIDv7.generate()}@example.com",
       token: :crypto.strong_rand_bytes(32),

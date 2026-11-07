@@ -1918,14 +1918,7 @@ defmodule PhoenixKit.Users.Auth do
     |> Ecto.Multi.run(:credential_user, fn repo, _ ->
       current = repo.one!(from(u in User, where: u.uuid == ^user.uuid, lock: "FOR NO KEY UPDATE"))
 
-      {:ok,
-       %{
-         current
-         | active_role_uuid: user.active_role_uuid,
-           acting_user_uuid: user.acting_user_uuid,
-           acting_session_uuid: user.acting_session_uuid,
-           organization_manager_uuid: user.organization_manager_uuid
-       }}
+      {:ok, User.put_session_fields(current, user)}
     end)
     |> Ecto.Multi.update(:user, fn %{credential_user: current} -> changeset_fun.(current) end)
     # A chat linked to the site bot acts as the user in the Machine API: a new password is
@@ -1936,15 +1929,7 @@ defmodule PhoenixKit.Users.Auth do
 
   # Session-only fields originate with the caller's token loader. Return them
   # to that same caller, never in a shared user-update broadcast.
-  defp preserve_session_fields(current, source) do
-    %{
-      current
-      | active_role_uuid: source.active_role_uuid,
-        acting_user_uuid: source.acting_user_uuid,
-        acting_session_uuid: source.acting_session_uuid,
-        organization_manager_uuid: source.organization_manager_uuid
-    }
-  end
+  defp preserve_session_fields(current, source), do: User.put_session_fields(current, source)
 
   ## Role Management Functions
 

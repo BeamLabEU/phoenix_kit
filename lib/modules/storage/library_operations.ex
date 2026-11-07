@@ -19,6 +19,7 @@ defmodule PhoenixKit.Modules.Storage.LibraryOperations do
   alias PhoenixKit.Modules.Storage.VerificationPolicy
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.User
 
   @kinds ["storage.reconcile", "storage.verify_library"]
   @page_size 20
@@ -232,10 +233,11 @@ defmodule PhoenixKit.Modules.Storage.LibraryOperations do
     end
   end
 
-  defp fresh_scope(%Scope{user: %{active_role_uuid: role}} = scope) do
+  # Fresh rows, but the same session: the active role and the acting link stay.
+  defp fresh_scope(%Scope{user: %User{} = current} = scope) do
     case Auth.get_user(Scope.user_uuid(scope)) do
       %{is_active: true, api_only: false} = user ->
-        Scope.for_user(%{user | active_role_uuid: role})
+        user |> User.put_session_fields(current) |> Scope.for_user()
 
       _ ->
         nil

@@ -8,6 +8,7 @@ defmodule PhoenixKit.Users.Role do
 
   - `name`: Role name (unique, required for identification)
   - `description`: Human-readable description of the role
+  - `data`: Name and description per language; shown through `Roles.display_name/2`
   - `is_system_role`: Whether this is a system-defined role that shouldn't be deleted
 
   ## System Roles
@@ -49,6 +50,9 @@ defmodule PhoenixKit.Users.Role do
   schema "phoenix_kit_user_roles" do
     field :name, :string
     field :description, :string
+    # Name and description per language (`PhoenixKit.Utils.Multilang`). `name` above
+    # stays the key code and settings match on; see `Roles.display_name/2`.
+    field :data, :map, default: %{}
     field :is_system_role, :boolean, default: false
     # Operator-defined order (V190): decides the default role of a new session
     # and the order the role switcher lists roles in. See
@@ -84,10 +88,11 @@ defmodule PhoenixKit.Users.Role do
   """
   def changeset(role, attrs) do
     role
-    |> cast(attrs, [:name, :description, :is_system_role, :position])
+    |> cast(attrs, [:name, :description, :is_system_role, :position, :data])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 50)
     |> validate_length(:description, max: 500)
+    |> validate_data_shape()
     |> unique_constraint(:name)
     |> validate_system_role_protection()
   end
@@ -122,6 +127,32 @@ defmodule PhoenixKit.Users.Role do
   end
 
   # Protect system roles from being modified
+  @doc """
+  Changeset for editing an existing role. `name` is a fixed key: code and settings
+  match on it (the `new_user_default_role` setting, a host's `%{name: "Buyer"}`), so a
+  changed one is an error. A different label belongs in `data`.
+  """
+  def update_changeset(%__MODULE__{} = role, attrs) do
+    role
+    |> cast(attrs, [:name, :description, :position, :data])
+    |> validate_length(:description, max: 500)
+    |> validate_data_shape()
+    |> validate_name_unchanged()
+  end
+
+  defp validate_name_unchanged(changeset) do
+    if Map.has_key?(changeset.changes, :name),
+      do: add_error(changeset, :name, "cannot be changed"),
+      else: changeset
+  end
+
+  # `data` is free-form once cast, and a string or list there would crash every reader.
+  defp validate_data_shape(changeset) do
+    if PhoenixKit.Utils.Multilang.valid_text_data?(get_field(changeset, :data)),
+      do: changeset,
+      else: add_error(changeset, :data, "is invalid")
+  end
+
   defp validate_system_role_protection(changeset) do
     if changeset.data.is_system_role &&
          get_change(changeset, :is_system_role) == false do
