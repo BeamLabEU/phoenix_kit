@@ -1,8 +1,8 @@
 # Account relationships
 
-**Status:** scope only, not started. Two questions are open with WoodMatrix
-(see [Open questions](#open-questions)); the plan is written on the default
-answer to each.
+**Status:** scope only, not started. Design agreed: WoodMatrix accepted it and
+answered both open questions on 2026-11-07 (see
+[Decided with WoodMatrix](#decided-with-woodmatrix)).
 **Requested by:** WoodMatrix, 2026-11-06. Brief and our reply:
 `woodmatrix/dev_docs/2026-11-06-brief-phoenix-kit-account-relationships.md`.
 **Builds on:** [Acting for an organization](2026-10-29-act-as-organization.md),
@@ -55,19 +55,22 @@ matrix, sidebar and role switcher keep working.
   the company, and `require_permitted_roles!` and the managed ceiling's assignment
   guards read only the company's role rows, so they would never see those roles.
 
-## Open questions
+## Decided with WoodMatrix
 
-Answers go at the end of the WoodMatrix brief.
+Answered on 2026-11-07, at the end of the brief.
 
-1. **Does Phase 1 need non-acting person-to-company types?** Default: no. Phase 1
-   then only grows the existing table, and `RelationshipTypes` refuses
-   `can_act: false` until Phase 2. If yes, `phoenix_kit_account_links` moves into
-   Phase 1 unchanged.
-2. **May a person without `can_manage` edit the company's profile?** Default: no.
+1. **Phase 1 has no non-acting person-to-company types.** Everyone WoodMatrix
+   links acts for the company; people who don't log in live in the CRM. Phase 1
+   only grows the existing table, and `RelationshipTypes` refuses `can_act: false`
+   until Phase 2.
+2. **A person without `can_manage` cannot edit the company's profile.** Other
+   parties see its name in emails, and its country sets date and number formats.
    Today the Account tab has no gate, and `profile_params/2` passes
    `organization_name` through to `User.profile_changeset/3`, so a forged
    `update_profile` event can rename the company as well. See
    [Staff level](#staff-level).
+3. **`held_roles` stays the company's roles in an acting session.** WoodMatrix
+   asked for this to be decided and documented. See [Scope](#scope).
 
 ## Data model
 
@@ -217,9 +220,27 @@ deleted.
   role_uuids}`. It is built in `for_user/2`, so no new session field has to pass
   through `preserve_session_fields`, `password_update_multi` or
   `Events.broadcast_user_updated`.
-- `held_roles` stays the company's real roles, so "you cannot edit a role you
-  hold" stays strict.
+- `held_roles` keeps reading the raw `held` list.
 - New helpers: `Scope.acting_link/1`, `Scope.can_manage_organization?/1`.
+
+**`held_roles` in an acting session means the company's roles**, including those
+outside the person's link and above the managed ceiling. It says nothing about
+what the person may do: that is `user_roles/1`, `has_role?/2` and `can?/2`. The
+link is a filter like the ceiling, and core already leaves the ceiling out of
+`held_roles` (the comment at `roles.ex:1372`). Its readers:
+
+| Reader | In an acting session |
+|---|---|
+| `Permissions.can_edit_role_permissions?/2` (`permissions.ex:1638`) | The reason for this choice. A person with only Supplier whose role holds `users` still cannot edit Buyer, a role of the company they act for. With the link's roles in `held_roles`, they could |
+| `Roles.actor_context/1` (`roles.ex:1379`) | Not reached: managed organizations take the clause above it |
+| `Scope.to_map/1` | Reports it unchanged |
+| `PhoenixKitWebAnalytics.Tracking.current_roles/1` | An internal-traffic flag, not access. Someone acting for a company that holds a listed role counts as internal |
+| Role switcher | Does not read it. `switchable_roles` comes from the eligible roles, so it follows the link. The moduledoc at `scope.ex:92` says otherwise: correct it |
+
+The trap is a host reading it as "what this person has".
+`Onboarding.active_business_role/1` in WoodMatrix did, and put a Supplier-only
+person in Buyer mode. So state this meaning in the `held_roles/1` doc, the `Scope`
+moduledoc, `AGENTS.md` and `dev_docs/guides/2026-09-13-active-role.md`.
 
 **Fails closed.** A managed organization with no `organization_manager_uuid`, or
 whose link cannot be read, holds no roles. It has no session of its own, so such a
@@ -309,8 +330,6 @@ Phase 2 adds `AccountLinks.linked/2` (by type and direction).
 
 ### Staff level
 
-Assumes the default answer to open question 2.
-
 - `ProfileSettingsTabs.visible?("managers", …)` also needs
   `Scope.can_manage_organization?/1`.
 - `UserSettings.allowed_sections` drops `:identity` and `:custom_fields` while
@@ -342,7 +361,8 @@ Preferences stay open to everyone acting (`update_start_page`, the viewer toggle
    manifest entry, not only a restamp), `test/phoenix_kit/migrations/v229_test.exs`,
    and the prefix migration test.
 2. `RelationshipTypes` and its tests.
-3. Scope, `ActiveRole`, `library_operations.ex:235`, and the fail-closed rule.
+3. Scope, `ActiveRole`, `library_operations.ex:235`, the fail-closed rule, and the
+   `held_roles` docs.
 4. Authority and the last-manager rule.
 5. Link lifecycle, rule 7, `Revocation` and the session change for rule 6, and
    `role_has_assignments?`.
@@ -352,7 +372,8 @@ Preferences stay open to everyone acting (`update_start_page`, the viewer toggle
 9. Gettext with the full extract and merge round-trip, then hand-fix fuzzy entries.
 10. `AGENTS.md`, moduledocs, a pointer in §6 of the act-as-organization plan,
     CHANGELOG, minor version bump.
-11. WoodMatrix trials it through a git dependency before the publish.
+11. WoodMatrix tracks core from GitHub `main`, so it trials Phase 1 once this is
+    pushed, before the publish.
 
 `mix precommit` does not run the suite, and a run with no database excludes every
 integration test but still exits 0. This touches the schema and access, so run the
@@ -404,6 +425,10 @@ Added by this plan:
 - Moving the last `can_manage` link to a staff type is refused.
 - `delete_role/2` on a role in use on a link answers `:role_in_use`.
 - A managed organization with no link in the session holds no roles.
+- WoodMatrix's case: a person with only Supplier on their link, at a company
+  holding Buyer and Supplier. `user_roles/1` has Supplier and User, `active_role/1`
+  is `nil`, `held_roles/1` still has Buyer, and `can_edit_role_permissions?/2`
+  refuses Buyer with `:self_role`.
 - Library operations keep narrowing and still work for an acting person.
 - `host_add/4` needs no rank from `created_by` but refuses a role the company lacks.
 - Re-inviting with other roles is refused; an invitation with a deleted role leaves
