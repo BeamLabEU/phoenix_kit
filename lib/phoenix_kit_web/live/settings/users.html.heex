@@ -500,7 +500,7 @@
                       value={role.uuid}
                       checked={always_on_role?(@settings, role.uuid)}
                     />
-                    <span class="text-base-content">{role.name}</span>
+                    <span class="text-base-content">{PhoenixKit.Users.Roles.display_name(role)}</span>
                   </label>
                 <% end %>
                 <.unsaved_hint dirty={

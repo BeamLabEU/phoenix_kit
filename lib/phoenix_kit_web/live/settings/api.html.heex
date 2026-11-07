@@ -1202,7 +1202,7 @@
           value={role.name}
           unchecked_value={nil}
           checked={role.name in @service_user_params["roles"]}
-          label={role.name}
+          label={PhoenixKit.Users.Roles.display_name(role)}
           class="checkbox-sm"
           wrapper_class="py-1"
         />

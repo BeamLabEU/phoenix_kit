@@ -7,8 +7,8 @@
 # that discards pre-floor history (README, Manifest + reference policy). This
 # tool preserves every historical object and revision verbatim and emits only
 # the delta overlay. It never rewrites the baseline or its reference dumps.
-# The two schema snapshots below supply every new shape. The built-in `manager`
-# relationship type is row data, so its `seed` object is added here by hand.
+# The two schema snapshots below supply every new shape. The built-in relationship
+# types are row data, so their `seed` objects are added here by hand.
 # Run restamp_chain_hash.exs after formatting the migration.
 
 System.put_env("PK_GEN_LIBRARY", "1")
@@ -95,35 +95,43 @@ try do
 
   if changes == [], do: raise("V229 produced no catalog changes")
 
-  seed = %{
-    id: "seed:phoenix_kit_relationship_types:manager",
-    owner: :core,
-    check:
-      "SELECT EXISTS (SELECT 1 FROM __SCHEMA__.phoenix_kit_relationship_types WHERE \"key\" = 'manager')",
-    create:
-      "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"builtin\")\nVALUES ('019a0000-0000-7000-8000-000000000229', 'manager', 'person', 'organization', TRUE, TRUE, TRUE)\nON CONFLICT DO NOTHING",
-    since: 229,
-    class: :seed,
-    revisions: [
-      {229,
-       %{
-         values: %{
-           "builtin" => true,
-           "can_act" => true,
-           "can_manage" => true,
-           "from_kind" => "person",
-           "key" => "manager",
-           "to_kind" => "organization"
-         },
-         key_value: "manager",
-         key_column: "key"
-       }}
-    ],
-    presence: :required,
-    backfill: nil
-  }
+  seed = fn uuid, key, can_manage, position ->
+    %{
+      id: "seed:phoenix_kit_relationship_types:#{key}",
+      owner: :core,
+      check:
+        "SELECT EXISTS (SELECT 1 FROM __SCHEMA__.phoenix_kit_relationship_types WHERE \"key\" = '#{key}')",
+      create:
+        "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"position\", \"builtin\")\nVALUES ('#{uuid}', '#{key}', 'person', 'organization', TRUE, #{String.upcase(to_string(can_manage))}, #{position}, TRUE)\nON CONFLICT DO NOTHING",
+      since: 229,
+      class: :seed,
+      revisions: [
+        {229,
+         %{
+           values: %{
+             "builtin" => true,
+             "can_act" => true,
+             "can_manage" => can_manage,
+             "from_kind" => "person",
+             "key" => key,
+             "position" => position,
+             "to_kind" => "organization"
+           },
+           key_value: key,
+           key_column: "key"
+         }}
+      ],
+      presence: :required,
+      backfill: nil
+    }
+  end
 
-  changes = changes ++ [seed]
+  changes =
+    changes ++
+      [
+        seed.("019a0000-0000-7000-8000-000000000229", "manager", true, 10),
+        seed.("019a0000-0000-7000-8000-00000000022a", "staff", false, 20)
+      ]
   literal = inspect(changes, pretty: true, limit: :infinity, printable_limit: :infinity)
 
   source = """

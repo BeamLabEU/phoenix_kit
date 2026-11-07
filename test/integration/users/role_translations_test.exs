@@ -17,8 +17,8 @@ defmodule PhoenixKit.Users.RoleTranslationsTest do
 
   @data %{
     "_primary_language" => "en",
-    "en" => %{"_name" => "Buyer", "_description" => "Buys things"},
-    "de" => %{"_name" => "Käufer"}
+    "en" => %{"_label" => "Buyer", "_description" => "Buys things"},
+    "de" => %{"_label" => "Käufer"}
   }
 
   describe "display_name/2" do
@@ -70,7 +70,7 @@ defmodule PhoenixKit.Users.RoleTranslationsTest do
   describe "update_role/2" do
     test "writes translations, description and position" do
       role = role!()
-      data = Multilang.build_text_data(%{"_name" => %{"en" => "Buyer", "de" => "Käufer"}})
+      data = Multilang.build_text_data(%{"_label" => %{"en" => "Buyer", "de" => "Käufer"}})
 
       assert {:ok, updated} =
                Roles.update_role(role, %{data: data, description: "New", position: 9})
@@ -102,7 +102,7 @@ defmodule PhoenixKit.Users.RoleTranslationsTest do
     end
 
     test "refuses a data map that would crash its readers" do
-      assert {:error, changeset} = Roles.update_role(role!(), %{data: %{"_name" => 1}})
+      assert {:error, changeset} = Roles.update_role(role!(), %{data: %{"_label" => 1}})
       assert Keyword.has_key?(changeset.errors, :data)
     end
   end

@@ -104,9 +104,25 @@
           %{id: "notes", label: gettext("Notes"), icon: "hero-document-text"},
           (length(@admin_notes) > 0 && %{badge: length(@admin_notes)}) || %{}
         ),
-        @org_accounts_enabled && @user.account_type == "organization" &&
+        @user.account_type == "organization" &&
+          (@org_accounts_enabled || @user.managed_by_members) &&
           Map.merge(
-            %{id: "members", label: gettext("Members"), icon: "hero-user-group"},
+            %{id: "people", label: gettext("People"), icon: "hero-user-group"},
+            (@people_count > 0 && %{badge: @people_count}) || %{}
+          ),
+        @person_links != [] &&
+          %{
+            id: "organizations",
+            label: gettext("Organizations"),
+            icon: "hero-building-office-2",
+            badge: length(@person_links)
+          },
+        # Members are the older one-company tie. A managed organization has People
+        # instead, and shows this only for the members it still has.
+        @org_accounts_enabled && @user.account_type == "organization" &&
+          (not @user.managed_by_members || @organization_members != []) &&
+          Map.merge(
+            %{id: "members", label: gettext("Members"), icon: "hero-users"},
             (length(@organization_members) > 0 &&
                %{badge: length(@organization_members)}) || %{}
           )
@@ -678,6 +694,61 @@
       <% end %>
 
       <%!-- Members Tab Content --%>
+      <%= if @active_tab == "people" && @user.account_type == "organization" do %>
+        <.live_component
+          module={PhoenixKitWeb.Live.Components.OrganizationManagers}
+          id="organization-managers"
+          organization_uuid={@user.uuid}
+          actor={@manager_actor}
+        />
+      <% end %>
+
+      <%= if @active_tab == "organizations" do %>
+        <div class="card bg-base-200 shadow-sm">
+          <div class="card-body gap-4">
+            <div>
+              <h2 class="card-title">{gettext("Organizations")}</h2>
+              <p class="text-sm text-base-content/70">
+                {gettext("Organizations this person can act for, and what they can do in each.")}
+              </p>
+            </div>
+            <div
+              :for={link <- @person_links}
+              id={"person-link-#{link.uuid}"}
+              class="border-b border-base-300 py-3 last:border-b-0 space-y-1"
+            >
+              <.pk_link
+                navigate={"/admin/users/view/#{link.organization.uuid}?tab=people"}
+                class="link font-medium"
+              >
+                {PhoenixKit.Users.Auth.User.display_name(link.organization)}
+              </.pk_link>
+              <div class="flex flex-wrap gap-1">
+                <span class="badge badge-sm badge-primary">
+                  {RelationshipTypes.name(link.type)}
+                </span>
+                <span :if={link.all_roles?} class="badge badge-sm badge-outline">
+                  {gettext("All roles")}
+                </span>
+                <span
+                  :if={not link.all_roles? and link_roles(link) == []}
+                  class="badge badge-sm badge-ghost"
+                >
+                  {gettext("No roles")}
+                </span>
+                <span
+                  :for={role <- link_roles(link)}
+                  :if={not link.all_roles?}
+                  class="badge badge-sm badge-outline"
+                >
+                  {Roles.display_name(role)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
       <%= if @active_tab == "members" && @org_accounts_enabled && @user.account_type == "organization" do %>
         <div class="card bg-base-200 shadow-sm">
           <div class="card-body">
@@ -925,15 +996,6 @@
   <% end %>
 
   <%!-- Status / Confirmation Change Modal --%>
-  <.live_component
-    :if={
-      @user.account_type == "organization" and (@org_accounts_enabled or @user.managed_by_members)
-    }
-    module={PhoenixKitWeb.Live.Components.OrganizationManagers}
-    id="organization-managers"
-    organization_uuid={@user.uuid}
-    actor={@manager_actor}
-  />
   <%= if assigns[:confirmation_modal] && @confirmation_modal.show do %>
     <div class="modal modal-open">
       <div class="modal-box">

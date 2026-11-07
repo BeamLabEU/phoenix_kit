@@ -86,6 +86,7 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Users.Sessions
@@ -102,14 +103,40 @@ defmodule PhoenixKit.Users.OrganizationManagers do
         RepoHelper.repo().all(
           from(m in OrganizationManager,
             where: m.organization_uuid == ^org.uuid,
-            preload: [:user, :relationship_type, role_links: :role],
+            preload: [:user, :granted_by, :relationship_type, role_links: :role],
             order_by: m.inserted_at
           )
         )
 
       invitations = Invitations.list_invitations(org.uuid, kind: :manager)
-      %{organization: org, authority: authority, grants: grants, invitations: invitations}
+
+      %{
+        organization: org,
+        authority: authority,
+        grants: grants,
+        invitations: invitations,
+        types: RelationshipTypes.list_types(),
+        organization_roles: assignable_roles(org),
+        manageable_roles: Roles.manageable_role_names(rank_scope(authority)),
+        may_give_all?: may_give_all?(org, authority)
+      }
     end)
+  end
+
+  # What a link can list: the organization's roles, past the ceiling. `User` always
+  # stays through narrowing, so it is nothing to tick.
+  defp assignable_roles(org) do
+    base = Role.system_roles().user
+
+    RepoHelper.repo().all(
+      from(a in RoleAssignment,
+        join: role in assoc(a, :role),
+        where: a.user_uuid == ^org.uuid and role.name != ^base,
+        order_by: [role.position, role.name],
+        select: role
+      )
+    )
+    |> Enum.reject(&Scope.managed_ceiling_role?(&1.name))
   end
 
   def update_contact(actor, organization_uuid, attrs) do
@@ -610,21 +637,25 @@ defmodule PhoenixKit.Users.OrganizationManagers do
     :ok
   end
 
-  defp require_may_give_all!(_org, %{kind: :manager, link: %{all_roles: true}}), do: :ok
-  defp require_may_give_all!(_org, %{kind: :manager}), do: not_permitted!()
+  defp require_may_give_all!(org, authority) do
+    unless may_give_all?(org, authority), do: not_permitted!()
+    :ok
+  end
 
-  defp require_may_give_all!(org, %{kind: :admin} = authority) do
-    org
-    |> Roles.get_user_role_records()
-    |> Enum.map(& &1.name)
-    |> then(&require_manageable!(authority, &1))
+  defp may_give_all?(_org, %{kind: :manager, link: %{all_roles: all_roles}}), do: all_roles
+
+  defp may_give_all?(org, %{kind: :admin} = authority) do
+    org |> Roles.get_user_role_records() |> Enum.map(& &1.name) |> manageable?(authority)
   end
 
   defp require_manageable!(authority, roles) do
-    scope = rank_scope(authority)
-
-    unless Enum.all?(roles, &Roles.can_manage_role?(scope, &1)), do: not_permitted!()
+    unless manageable?(roles, authority), do: not_permitted!()
     :ok
+  end
+
+  defp manageable?(roles, authority) do
+    scope = rank_scope(authority)
+    Enum.all?(roles, &Roles.can_manage_role?(scope, &1))
   end
 
   defp not_permitted!, do: RepoHelper.repo().rollback(:not_permitted)
@@ -633,6 +664,15 @@ defmodule PhoenixKit.Users.OrganizationManagers do
   # manager with Buyer and Supplier acting as Buyer can still hand out Supplier.
   defp rank_scope(%{kind: :manager, scope: scope}), do: Scope.for_user(scope.user, narrow: false)
   defp rank_scope(%{scope: scope}), do: scope
+
+  @doc "How many people are linked to an organization."
+  @spec count_of(String.t()) :: non_neg_integer()
+  def count_of(organization_uuid) do
+    RepoHelper.repo().aggregate(
+      from(m in OrganizationManager, where: m.organization_uuid == ^organization_uuid),
+      :count
+    )
+  end
 
   @doc """
   Active people linked to an organization, for a host's own use (who gets its emails).

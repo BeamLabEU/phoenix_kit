@@ -275,7 +275,12 @@ defmodule PhoenixKitWeb.Users.Session do
         case ActiveRole.switch(user, get_session(conn, :user_token), role_uuid) do
           {:ok, role} ->
             conn
-            |> put_flash(:info, gettext("You are now acting as %{role}.", role: role.name))
+            |> put_flash(
+              :info,
+              gettext("You are now acting as %{role}.",
+                role: PhoenixKit.Users.Roles.display_name(role)
+              )
+            )
             |> redirect_after_role_switch(params)
 
           {:error, _reason} ->

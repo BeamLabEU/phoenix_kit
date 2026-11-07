@@ -41,10 +41,10 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
     s: s
   } do
     {:ok, _view, html} = live(conn, Routes.path("/profile/settings/managers"))
-    assert html =~ "Managers use their own accounts"
+    assert html =~ "People use their own accounts"
     assert html =~ s.person.email
-    assert html =~ "Invite a manager by email"
-    refute html =~ "Find an active person"
+    assert html =~ "Add person"
+    refute html =~ "Find someone with an account"
     refute html =~ "Allow this organization"
     refute html =~ "Convert to independent"
     refute html =~ s.organization.email
@@ -62,6 +62,8 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
           s.person.email,
           s.person.email
         ] do
+      render_click(element(view, "button[phx-click=open_add]"))
+
       html =
         view
         |> form("#profile-user-settings-managers-managers-invite", %{email: email})
@@ -82,7 +84,8 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
         %{person_uuid: s.person.uuid, allow_managerless: "true"}
       )
 
-    assert html =~ "Add another active manager first"
+    assert html =~ "the organization&#39;s last manager"
+    refute html =~ "Remove anyway"
     assert Repo.get(OrganizationManager, s.manager.uuid)
   end
 
@@ -230,15 +233,20 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
     {:ok, view, html} =
       live(
         log_in_user(build_conn(), admin),
-        Routes.path("/admin/users/view/#{s.organization.uuid}")
+        Routes.path("/admin/users/view/#{s.organization.uuid}?tab=people")
       )
 
-    assert html =~ "Find an active person"
     assert html =~ "Give this organization its own login"
+    refute html =~ "Remove anyway"
+    assert render_click(element(view, "button[phx-click=open_add]")) =~ "Find someone with an account"
+    render_click(element(view, "#organization-managers-dialog button[phx-click=close_dialog]"))
+
     form = "#organization-managers-remove-#{s.manager.uuid}"
-    render_submit(element(view, form), %{person_uuid: s.person.uuid, allow_managerless: "false"})
+    html = render_submit(element(view, form), %{person_uuid: s.person.uuid})
     assert Repo.get(OrganizationManager, s.manager.uuid)
-    render_submit(element(view, form), %{person_uuid: s.person.uuid, allow_managerless: "true"})
+    assert html =~ "Remove anyway"
+
+    render_submit(element(view, "#organization-managers-remove-anyway-#{s.manager.uuid}"))
     refute Repo.get(OrganizationManager, s.manager.uuid)
     refute Auth.get_user_by_session_token(s.token)
   end

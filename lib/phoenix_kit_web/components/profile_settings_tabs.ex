@@ -230,8 +230,11 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
     end
   end
 
-  defp visible?("managers", %Scope{user: %{managed_by_members: true, acting_user_uuid: person}}),
-    do: is_binary(person)
+  defp visible?(
+         "managers",
+         %Scope{user: %{managed_by_members: true, acting_user_uuid: person}} = scope
+       ),
+       do: is_binary(person) and Scope.can_manage_organization?(scope)
 
   defp visible?("managers", _scope), do: false
 
@@ -330,7 +333,7 @@ defmodule PhoenixKitWeb.Components.ProfileSettingsTabs do
 
   defp registered_by_id, do: Map.new(ProfileSettingsTab.all(), &{&1.id, &1})
 
-  defp core_label("managers"), do: gettext("Managers")
+  defp core_label("managers"), do: gettext("People")
   defp core_label("account"), do: gettext("Account")
   defp core_label("security"), do: gettext("Security")
   defp core_label("sessions"), do: gettext("Sessions")

@@ -31,7 +31,7 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   def role_badge(assigns) do
     ~H"""
     <span class={["badge", role_class(@role), size_class(@size), @class]}>
-      {@role.name}
+      {PhoenixKit.Users.Roles.display_name(@role)}
     </span>
     """
   end

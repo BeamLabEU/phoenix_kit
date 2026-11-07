@@ -9,7 +9,7 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ### V229 - Relationship types and roles on an acting link ⚡ LATEST
 
-  `phoenix_kit_relationship_types` (kinds of link as data, one built-in `manager`),
+  `phoenix_kit_relationship_types` (kinds of link as data, built-in `manager` and `staff`),
   `phoenix_kit_organization_managers.relationship_type_uuid`, `all_roles` and `metadata`,
   `phoenix_kit_organization_manager_roles` (the roles of a narrowed link), the same facts on
   `phoenix_kit_organization_invitations`, and `phoenix_kit_user_roles.data` (translations). Every existing

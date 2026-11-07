@@ -811,12 +811,20 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         true -> "badge-ghost"
       end
 
-    assigns = assigns |> assign(:label, label) |> assign(:variant, variant)
+    assigns =
+      assigns |> assign(:label, shown_label(assigns.scope, label)) |> assign(:variant, variant)
 
     ~H"""
     <div class={["badge badge-xs", @variant]}>{@label}</div>
     """
   end
+
+  # The scope already holds the records, so a translated label costs no query.
+  defp shown_label(%{role_records: records}, name) when is_list(records) do
+    PhoenixKit.Users.Roles.display_name(Enum.find(records, %{name: name}, &(&1.name == name)))
+  end
+
+  defp shown_label(_scope, name), do: PhoenixKit.Users.Roles.display_name(%{name: name})
 
   # OAuth buttons for the "Add account" modal.
   #

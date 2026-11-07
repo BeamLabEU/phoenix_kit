@@ -147,7 +147,7 @@ defmodule PhoenixKitWeb.Users.ManagedOrganizationCreationTest do
 
   test "searching for a manager that finds nobody says so", %{conn: conn} do
     org = F.person(%{account_type: "organization", organization_name: "Independent"})
-    {:ok, view, html} = live(conn, Routes.path("/admin/users/view/#{org.uuid}"))
+    {:ok, view, html} = live(conn, Routes.path("/admin/users/view/#{org.uuid}?tab=people"))
     refute html =~ "No active person with that name, username or email"
 
     html =
@@ -170,7 +170,7 @@ defmodule PhoenixKitWeb.Users.ManagedOrganizationCreationTest do
 
     org = F.person(%{account_type: "organization", organization_name: "Independent"})
     manager = F.person()
-    {:ok, view, _html} = live(conn, Routes.path("/admin/users/view/#{org.uuid}"))
+    {:ok, view, _html} = live(conn, Routes.path("/admin/users/view/#{org.uuid}?tab=people"))
     view |> form("#organization-managers-search", %{query: manager.email}) |> render_submit()
 
     render_click(

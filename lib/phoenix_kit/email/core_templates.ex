@@ -111,8 +111,7 @@ defmodule PhoenixKit.Email.CoreTemplates do
       %{
         name: "organization_link_invitation",
         label: gettext("Organization staff invitation"),
-        description:
-          gettext("Invites a person to act for an organization without managing it."),
+        description: gettext("Invites a person to act for an organization without managing it."),
         defaults: &organization_link_invitation_defaults/0,
         variables: fn ->
           %{

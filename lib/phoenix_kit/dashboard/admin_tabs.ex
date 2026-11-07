@@ -16,6 +16,7 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   alias PhoenixKit.Dashboard.{Badge, Group, Tab}
   alias PhoenixKit.ModuleRegistry
   alias PhoenixKit.Modules.Storage.Libraries
+  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
 
   # Sidebar position of the top-level tabs that feature modules register.
@@ -74,18 +75,27 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
   # Builder helper to reduce repetition across admin subtab definitions.
   # All admin tabs share level: :admin; subtabs share parent and permission.
   defp admin_subtab(id, label, icon, path, priority, parent, permission, opts \\ []) do
-    %Tab{
-      id: id,
-      label: label,
-      icon: icon,
-      path: path,
-      priority: priority,
-      level: :admin,
-      permission: permission,
-      parent: parent,
-      match: Keyword.get(opts, :match, :prefix),
-      gettext_backend: PhoenixKitWeb.Gettext
-    }
+    struct!(
+      %Tab{
+        id: id,
+        label: label,
+        icon: icon,
+        path: path,
+        priority: priority,
+        level: :admin,
+        permission: permission,
+        parent: parent,
+        match: Keyword.get(opts, :match, :prefix),
+        gettext_backend: PhoenixKitWeb.Gettext
+      },
+      Keyword.take(opts, [:visible])
+    )
+  end
+
+  @doc false
+  # Relationship types only mean something once organizations do.
+  def organization_accounts_visible?(_scope) do
+    Settings.get_boolean_setting("enable_organization_accounts", false)
   end
 
   @doc """
@@ -187,6 +197,16 @@ defmodule PhoenixKit.Dashboard.AdminTabs do
         240,
         :admin_users,
         "users"
+      ),
+      admin_subtab(
+        :admin_users_relationship_types,
+        gettext_noop("Relationship types"),
+        "hero-link",
+        "users/relationship-types",
+        245,
+        :admin_users,
+        "users",
+        visible: &__MODULE__.organization_accounts_visible?/1
       ),
       admin_subtab(
         :admin_users_permissions,

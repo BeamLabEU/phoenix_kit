@@ -675,6 +675,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   defp persist_user_view_mode(user, _mode), do: user
 
+  defp role_label(role_name), do: Map.get(Roles.display_names(), role_name, role_name)
+
   defp get_user_roles(user) do
     # Use preloaded roles if available
     case Ecto.assoc_loaded?(user.roles) do
@@ -729,7 +731,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
           put_flash(
             socket,
             :error,
-            gettext("You are not allowed to change the %{role} role", role: role_name)
+            gettext("You are not allowed to change the %{role} role", role: role_label(role_name))
           )
 
         {:noreply, socket}
@@ -737,8 +739,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       {:ok, action} ->
         role_flash_msg =
           if action == :added,
-            do: gettext("Role %{role} added to user successfully", role: role_name),
-            else: gettext("Role %{role} removed from user successfully", role: role_name)
+            do: gettext("Role %{role} added to user successfully", role: role_label(role_name)),
+            else:
+              gettext("Role %{role} removed from user successfully", role: role_label(role_name))
 
         socket =
           socket

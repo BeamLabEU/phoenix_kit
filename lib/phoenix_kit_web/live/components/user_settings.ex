@@ -71,6 +71,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   alias PhoenixKit.Notifications.Prefs, as: NotificationPrefs
   alias PhoenixKit.Notifications.Types, as: NotificationTypes
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.ActingLink
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.AvatarCrop
@@ -118,6 +119,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   @etcher_user_keys ~w(etcher_colors etcher_line_params)
 
   @credential_sections [:email, :password, :oauth, :sessions, :api_keys]
+  @company_profile_sections [:identity, :custom_fields]
+  @company_profile_events ~w(validate_profile update_profile open_avatar_selector open_avatar_crop
+    close_avatar_crop reset_avatar_crop avatar_crop_changed save_avatar_crop)
   @credential_events ~w(validate_email update_email validate_password update_password
     connect_oauth_provider disconnect_oauth_provider toggle_email_form
     toggle_password_form revoke_session revoke_other_sessions)
@@ -137,10 +141,22 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   defp api_keys_scope(%{uuid: uuid}, %Scope{user: %{uuid: uuid}} = scope), do: scope
   defp api_keys_scope(_user, _scope), do: nil
 
-  defp allowed_sections(%{managed_by_members: true}, sections),
-    do: sections -- @credential_sections
+  defp allowed_sections(%{managed_by_members: true} = user, sections) do
+    sections = sections -- @credential_sections
+    if staff?(user), do: sections -- @company_profile_sections, else: sections
+  end
 
   defp allowed_sections(_user, sections), do: sections
+
+  # Someone acting through a link that does not manage. Read from the link each time:
+  # the company's name reaches other parties, and its country sets how dates and numbers
+  # read, so staff keep only their preferences. An admin looking at the company has no
+  # link here and is not staff.
+  defp staff?(%{organization_manager_uuid: uuid} = user) when is_binary(uuid) do
+    not match?(%{can_manage?: true}, ActingLink.for_user(user))
+  end
+
+  defp staff?(_user), do: false
 
   # Picking a file no longer sets it on the spot: the crop editor opens on
   # the picked image first, so the person frames it once instead of
@@ -295,6 +311,20 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
   def handle_event(event, _params, %{assigns: %{user: %{managed_by_members: true}}} = socket)
       when event in ["browser_timezone_detected", "use_browser_timezone"],
       do: {:noreply, socket}
+
+  # Checked on every event, from the link rather than the assigns, then handed to the
+  # event's own clause. `:link_checked` is an atom, which a browser's params never hold.
+  def handle_event(
+        event,
+        params,
+        %{assigns: %{user: %{organization_manager_uuid: uuid} = user}} = socket
+      )
+      when event in @company_profile_events and is_binary(uuid) and
+             not is_map_key(params, :link_checked) do
+    if staff?(user),
+      do: {:noreply, socket},
+      else: handle_event(event, Map.put(params, :link_checked, true), socket)
+  end
 
   def handle_event("validate_email", params, socket) do
     %{"current_password" => password, "user" => user_params} = params

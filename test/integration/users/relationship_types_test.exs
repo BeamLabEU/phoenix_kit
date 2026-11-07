@@ -145,18 +145,55 @@ defmodule PhoenixKit.Users.RelationshipTypesTest do
     end
   end
 
+  describe "the key" do
+    test "comes from the name unless given" do
+      name = "Sales Rep #{System.unique_integer([:positive])}"
+      {:ok, type} = RelationshipTypes.create_type(attrs(%{key: nil, name: name}))
+      assert type.key =~ ~r/^sales_rep_\d+$/
+    end
+
+    test "must be given when the name has no Latin letters" do
+      assert {:error, cs} = RelationshipTypes.create_type(attrs(%{key: "", name: "Работник"}))
+      assert error_on(cs, :key)
+    end
+
+    test "key_from/1 keeps to letters, digits and _" do
+      assert RelationshipType.key_from("  Über Agent! 2 ") == "uber_agent_2"
+      assert RelationshipType.key_from("123 go") == "go"
+      assert RelationshipType.key_from("Работник") == ""
+    end
+  end
+
+  test "link_counts/0 counts links by type" do
+    type = type!()
+    s = Fixtures.acting_session()
+
+    Repo.update_all(from(m in OrganizationManager, where: m.uuid == ^s.manager.uuid),
+      set: [relationship_type_uuid: type.uuid]
+    )
+
+    assert RelationshipTypes.link_counts()[type.uuid] == 1
+  end
+
   describe "archive and delete" do
     test "archive stops nothing that exists, and restore brings the type back" do
       assert {:ok, %{status: "archived"} = type} = RelationshipTypes.archive_type(type!())
       assert {:ok, %{status: "active"}} = RelationshipTypes.restore_type(type)
     end
 
-    test "the built-in type cannot be archived or deleted" do
+    test "manager cannot be archived or deleted" do
       manager = RelationshipTypes.manager_type()
 
       assert {:error, cs} = RelationshipTypes.archive_type(manager)
       assert error_on(cs, :status)
       assert {:error, :builtin} = RelationshipTypes.delete_type(manager)
+    end
+
+    test "staff can be archived by a site with no use for it, but not deleted" do
+      staff = RelationshipTypes.get_type_by_key("staff")
+
+      assert {:ok, %{status: "archived"}} = RelationshipTypes.archive_type(staff)
+      assert {:error, :builtin} = RelationshipTypes.delete_type(staff)
     end
 
     test "an unused type is deleted" do

@@ -220,7 +220,7 @@ defmodule PhoenixKit.Users.ActiveRole do
     Map.new(sessions, fn session ->
       held = held_by_user |> Map.get(session.user_uuid, []) |> session_roles(session, links)
       active = resolve(held, session.active_role_uuid, config)
-      {session.token_uuid, active && active.name}
+      {session.token_uuid, active && Roles.display_name(active)}
     end)
   end
 

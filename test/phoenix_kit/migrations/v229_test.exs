@@ -72,6 +72,11 @@ defmodule PhoenixKit.Migrations.Postgres.V229Test do
            } = Repo.get(RelationshipType, RelationshipType.manager_uuid())
   end
 
+  test "a staff level exists with no setup" do
+    assert %RelationshipType{can_act: true, can_manage: false, builtin: true} =
+             Repo.get_by(RelationshipType, key: "staff")
+  end
+
   test "a grant written without a type is a manager link with all roles" do
     s = Fixtures.acting_session()
     manager_uuid = RelationshipType.manager_uuid()
@@ -103,7 +108,7 @@ defmodule PhoenixKit.Migrations.Postgres.V229Test do
     assert marker() == "229"
 
     run(V229.up_statements("public"))
-    assert [[1]] = query("SELECT count(*)::int FROM phoenix_kit_relationship_types")
+    assert [[2]] = query("SELECT count(*)::int FROM phoenix_kit_relationship_types")
   end
 
   test "a pending manager invitation from before V229 becomes a manager invitation" do
@@ -245,7 +250,8 @@ defmodule PhoenixKit.Migrations.Postgres.V229Test do
             "column:phoenix_kit_organization_managers.all_roles",
             "column:phoenix_kit_organization_invitations.role_uuids",
             "column:phoenix_kit_user_roles.data",
-            "seed:phoenix_kit_relationship_types:manager"
+            "seed:phoenix_kit_relationship_types:manager",
+            "seed:phoenix_kit_relationship_types:staff"
           ] do
         assert id in ids, id
       end

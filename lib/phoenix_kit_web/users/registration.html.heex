@@ -15,7 +15,7 @@
     <div class="alert alert-info mb-4">
       <.icon name="hero-building-office-2" class="w-5 h-5 shrink-0" />
       <span>
-        <%= if @pending_invitation.kind == :manager do %>
+        <%= if @pending_invitation.kind == :manager and @pending_invitation.relationship_type.can_manage do %>
           {gettext(
             "You've been invited to manage %{organization}. Create a personal account to accept the invitation.",
             organization: @pending_invitation.organization.organization_name

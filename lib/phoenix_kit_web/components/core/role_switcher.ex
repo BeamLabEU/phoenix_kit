@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Components.Core.RoleSwitcher do
 
   alias PhoenixKit.Users.ActiveRole
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Icon
   alias PhoenixKitWeb.Components.Core.Icons
@@ -154,7 +155,7 @@ defmodule PhoenixKitWeb.Components.Core.RoleSwitcher do
       <div class="!p-0 flex items-center min-w-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
         <%= if role.uuid == @active.uuid do %>
           <div class="flex w-full min-w-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-content">
-            <span class="flex-1 min-w-0 truncate" title={role.name}>{role.name}</span>
+            <span class="flex-1 min-w-0 truncate" title={Roles.display_name(role)}>{Roles.display_name(role)}</span>
             <Icons.icon_check class="w-4 h-4 shrink-0" />
           </div>
         <% else %>
@@ -173,7 +174,7 @@ defmodule PhoenixKitWeb.Components.Core.RoleSwitcher do
               type="submit"
               class="flex w-full min-w-0 items-center gap-2 rounded-lg px-4 py-2 text-start hover:bg-base-200"
             >
-              <span class="flex-1 min-w-0 truncate" title={role.name}>{role.name}</span>
+              <span class="flex-1 min-w-0 truncate" title={Roles.display_name(role)}>{Roles.display_name(role)}</span>
               <span class="w-4 shrink-0" aria-hidden="true"></span>
             </button>
           </.form>

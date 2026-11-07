@@ -26,6 +26,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
+  alias PhoenixKit.Users.OrganizationManagers
+  alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -34,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKitWeb.Users.MultiSession
 
   @impl true
-  def mount(%{"id" => user_uuid}, session, socket) do
+  def mount(%{"id" => user_uuid} = params, session, socket) do
     project_title = Settings.get_project_title()
 
     user = Auth.get_user_with_roles(user_uuid)
@@ -113,7 +115,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:project_title, project_title)
           |> assign(:date_time_settings, date_time_settings)
           |> assign(:geolocation_tracking_enabled, geolocation_tracking_enabled)
-          |> assign(:active_tab, "profile")
+          |> assign(:active_tab, initial_tab(params))
           |> assign(:custom_field_definitions, custom_field_definitions)
           |> assign(:show_delete_modal, false)
           |> assign(:connections_enabled, connections_enabled)
@@ -132,6 +134,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:editing_note_uuid, nil)
           |> assign(:org_accounts_enabled, org_accounts_enabled)
           |> assign(:organization_members, organization_members)
+          |> assign(:people_count, people_count(user, org_accounts_enabled))
+          |> assign(:person_links, person_links(user, org_accounts_enabled))
           |> assign(:show_role_modal, false)
           |> assign(:all_roles, Roles.list_roles())
           # The roles this admin may give or take away (`Roles.can_manage_role?/2`);
@@ -144,6 +148,28 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
         {:ok, socket}
     end
+  end
+
+  # A link from elsewhere can open a tab; a tab the page does not show falls back
+  # to nothing visible, so only these two are taken from the URL.
+  defp initial_tab(%{"tab" => tab}) when tab in ["people", "organizations"], do: tab
+  defp initial_tab(_params), do: "profile"
+
+  defp people_count(%{account_type: "organization"} = user, enabled?)
+       when enabled? or user.managed_by_members,
+       do: OrganizationManagers.count_of(user.uuid)
+
+  defp people_count(_user, _enabled?), do: 0
+
+  defp person_links(%{account_type: "person"} = user, true),
+    do: OrganizationManagers.organizations_of(user.uuid)
+
+  defp person_links(_user, _enabled?), do: []
+
+  # The base role is on every link, so it says nothing here.
+  defp link_roles(link) do
+    base = PhoenixKit.Users.Role.system_roles().user
+    Enum.reject(link.roles, &(&1.name == base))
   end
 
   @impl true

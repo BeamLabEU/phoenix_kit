@@ -2508,6 +2508,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     PhoenixKitWeb.Live.Users.ManagedOrganizationNew => "users",
     PhoenixKitWeb.Live.Users.UserDetails => "users",
     PhoenixKitWeb.Live.Users.Roles => "users",
+    PhoenixKitWeb.Live.Users.RelationshipTypes => "users",
+    PhoenixKitWeb.Live.Users.RelationshipTypeForm => "users",
     PhoenixKitWeb.Live.Users.PermissionsMatrix => "users",
     PhoenixKitWeb.Live.Users.LiveSessions => "users",
     PhoenixKitWeb.Live.Users.Sessions => "users",
@@ -3366,7 +3368,7 @@ defmodule PhoenixKitWeb.Users.Auth do
               |> put_flash(
                 :error,
                 gettext("You must have the %{role_name} role to access this page.",
-                  role_name: role_name
+                  role_name: PhoenixKit.Users.Roles.display_name(%{name: role_name})
                 )
               )
               |> redirect(to: Routes.safe_destination(conn, scope: scope))

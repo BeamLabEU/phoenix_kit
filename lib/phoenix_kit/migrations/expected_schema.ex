@@ -204,9 +204,9 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   #
   # V229 (2026-11-07, relationship types and roles on an acting link) adds a generated
   # overlay, `ExpectedSchema.V229` (dev_docs/squash/generate_v229_manifest.exs: the
-  # catalog diff V228 -> V229 in a scratch schema), merged after `V227`. Its one
-  # hand-declared object is `seed:phoenix_kit_relationship_types:manager`, row data the
-  # catalog diff cannot see. Kept honest by `PhoenixKit.Migrations.Postgres.V229Test`.
+  # catalog diff V228 -> V229 in a scratch schema), merged after `V227`. Its hand-declared
+  # objects are the `seed:phoenix_kit_relationship_types:*` rows, data the catalog diff
+  # cannot see. Kept honest by `PhoenixKit.Migrations.Postgres.V229Test`.
   # `chain_hash` restamped.
   #
   # V228 (2026-11-05, a reconcile lease on a file) DECLARES two objects here by hand:
@@ -683,7 +683,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema do
   @schema_token "__SCHEMA__"
   @name_marker_exempt "__PK_NAME_EXEMPT__"
   @name_marker_always "__PK_NAME_ALWAYS__"
-  @chain_hash "faab65521faefc493ad7c24d48717d3323e1e10dd426b13de8460b2d35dc8dae"
+  @chain_hash "157ce0078efd4f9cdfe81ce28fff0ba805daf327794f4dffb91ffed5d82074bc"
 
   def objects(prefix) do
     prefix = normalize_prefix!(prefix)

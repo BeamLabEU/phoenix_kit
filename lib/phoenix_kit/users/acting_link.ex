@@ -58,7 +58,8 @@ defmodule PhoenixKit.Users.ActingLink do
         join: type in assoc(m, :relationship_type),
         left_join: role in assoc(m, :role_links),
         where: m.uuid in ^uuids,
-        select: {m.uuid, m.organization_uuid, type.key, type.can_manage, m.all_roles, role.role_uuid}
+        select:
+          {m.uuid, m.organization_uuid, type.key, type.can_manage, m.all_roles, role.role_uuid}
       )
     )
   end

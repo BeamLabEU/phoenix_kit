@@ -154,7 +154,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
              :info,
              gettext("Revoked %{label} from %{role_name}",
                label: label,
-               role_name: role.name
+               role_name: PhoenixKit.Users.Roles.display_name(role)
              )
            )
            |> refresh_matrix()}
@@ -172,7 +172,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
              :error,
              gettext("Failed to revoke %{label} from %{role_name}",
                label: label,
-               role_name: role.name
+               role_name: PhoenixKit.Users.Roles.display_name(role)
              )
            )
            |> refresh_matrix()}
@@ -186,7 +186,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
              :info,
              gettext("Granted %{label} to %{role_name}",
                label: label,
-               role_name: role.name
+               role_name: PhoenixKit.Users.Roles.display_name(role)
              )
            )
            |> refresh_matrix()}
@@ -198,7 +198,7 @@ defmodule PhoenixKitWeb.Live.Users.PermissionsMatrix do
              :error,
              gettext("Failed to grant %{label} to %{role_name}",
                label: label,
-               role_name: role.name
+               role_name: PhoenixKit.Users.Roles.display_name(role)
              )
            )
            |> refresh_matrix()}

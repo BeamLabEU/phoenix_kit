@@ -1,15 +1,15 @@
 defmodule PhoenixKit.Users.RelationshipTypes do
   @moduledoc """
   The kinds of link between accounts, as data. An app or an admin adds its own
-  without a core release; one built-in type, `manager`, stands for what a grant has
-  always done.
+  without a core release. Two are built in: `manager` stands for what a grant has
+  always done, and `staff` may act for an organization but not manage it.
 
   ## Lifecycle
 
     * **create** — a type with a key and access flags that never change afterwards.
     * **update** — translated names and order.
     * **archive / restore** — an archived type keeps its links and their sessions
-      but is no longer offered for new ones. The built-in cannot be archived.
+      but is no longer offered for new ones. `manager` cannot be archived.
     * **delete** — only a custom type nothing uses. The foreign keys are
       `ON DELETE RESTRICT`, so a type in use can only be archived.
 
@@ -195,6 +195,16 @@ defmodule PhoenixKit.Users.RelationshipTypes do
     Ecto.StaleEntryError -> {:error, :not_found}
   end
 
+  @doc "How many links each type has, `%{type_uuid => count}`, for a list of types."
+  @spec link_counts() :: %{optional(String.t()) => pos_integer()}
+  def link_counts do
+    OrganizationManager
+    |> group_by([m], m.relationship_type_uuid)
+    |> select([m], {m.relationship_type_uuid, count(m.uuid)})
+    |> repo().all()
+    |> Map.new()
+  end
+
   @doc "Whether a link or an invitation uses the type."
   @spec in_use?(RelationshipType.t()) :: boolean()
   def in_use?(%RelationshipType{uuid: uuid}) do
@@ -309,9 +319,11 @@ defmodule PhoenixKit.Users.RelationshipTypes do
   end
 
   defp builtin_name("manager"), do: gettext("Manager")
+  defp builtin_name("staff"), do: gettext("Staff")
   defp builtin_name(_key), do: nil
 
   defp builtin_inverse_name("manager"), do: gettext("Managers")
+  defp builtin_inverse_name("staff"), do: gettext("Staff")
   defp builtin_inverse_name(_key), do: nil
 
   defp next_position do

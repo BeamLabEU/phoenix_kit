@@ -20,7 +20,7 @@
             <%= for role <- @roles do %>
               <.table_default_header_cell class="text-center min-w-[100px]">
                 <.pk_link navigate="/admin/users/roles" class="link link-hover">
-                  {role.name}
+                  {PhoenixKit.Users.Roles.display_name(role)}
                 </.pk_link>
               </.table_default_header_cell>
             <% end %>

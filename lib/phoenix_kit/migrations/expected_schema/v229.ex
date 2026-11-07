@@ -665,11 +665,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["kind", "relationship_type_uuid"],
              definition:
                "CHECK ((((kind)::text = 'manager'::text) = (relationship_type_uuid IS NOT NULL)))",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -696,11 +696,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              type: "p",
              columns: ["uuid"],
              definition: "PRIMARY KEY (uuid)",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -727,11 +727,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["can_act", "from_kind", "to_kind"],
              definition:
                "CHECK (((NOT can_act) OR (((from_kind)::text = 'person'::text) AND ((to_kind)::text = 'organization'::text))))",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -759,11 +759,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["from_kind", "to_kind"],
              definition:
                "CHECK ((((from_kind)::text = ANY ((ARRAY['person'::character varying, 'organization'::character varying])::text[])) AND ((to_kind)::text = ANY ((ARRAY['person'::character varying, 'organization'::character varying])::text[]))))",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -790,11 +790,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              type: "c",
              columns: ["can_manage", "can_act"],
              definition: "CHECK (((NOT can_manage) OR can_act))",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -820,11 +820,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              type: "p",
              columns: ["uuid"],
              definition: "PRIMARY KEY (uuid)",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -852,11 +852,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["status"],
              definition:
                "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'archived'::character varying])::text[])))",
+             on_delete: nil,
+             on_update: nil,
              name_template: nil,
              foreign_table: nil,
-             foreign_columns: nil,
-             on_delete: nil,
-             on_update: nil
+             foreign_columns: nil
            }}
         ],
         presence: :required,
@@ -884,11 +884,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["relationship_type_uuid"],
              definition:
                "FOREIGN KEY (relationship_type_uuid) REFERENCES __SCHEMA__.phoenix_kit_relationship_types(uuid) ON DELETE RESTRICT",
+             on_delete: "r",
+             on_update: "a",
              name_template: nil,
              foreign_table: "phoenix_kit_relationship_types",
-             foreign_columns: ["uuid"],
-             on_delete: "r",
-             on_update: "a"
+             foreign_columns: ["uuid"]
            }}
         ],
         presence: :required,
@@ -916,11 +916,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["organization_manager_uuid"],
              definition:
                "FOREIGN KEY (organization_manager_uuid) REFERENCES __SCHEMA__.phoenix_kit_organization_managers(uuid) ON DELETE CASCADE",
+             on_delete: "c",
+             on_update: "a",
              name_template: nil,
              foreign_table: "phoenix_kit_organization_managers",
-             foreign_columns: ["uuid"],
-             on_delete: "c",
-             on_update: "a"
+             foreign_columns: ["uuid"]
            }}
         ],
         presence: :required,
@@ -948,11 +948,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["assigned_by_uuid"],
              definition:
                "FOREIGN KEY (assigned_by_uuid) REFERENCES __SCHEMA__.phoenix_kit_users(uuid) ON DELETE SET NULL",
+             on_delete: "n",
+             on_update: "a",
              name_template: nil,
              foreign_table: "phoenix_kit_users",
-             foreign_columns: ["uuid"],
-             on_delete: "n",
-             on_update: "a"
+             foreign_columns: ["uuid"]
            }}
         ],
         presence: :required,
@@ -980,11 +980,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["role_uuid"],
              definition:
                "FOREIGN KEY (role_uuid) REFERENCES __SCHEMA__.phoenix_kit_user_roles(uuid) ON DELETE RESTRICT",
+             on_delete: "r",
+             on_update: "a",
              name_template: nil,
              foreign_table: "phoenix_kit_user_roles",
-             foreign_columns: ["uuid"],
-             on_delete: "r",
-             on_update: "a"
+             foreign_columns: ["uuid"]
            }}
         ],
         presence: :required,
@@ -1011,11 +1011,11 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
              columns: ["relationship_type_uuid"],
              definition:
                "FOREIGN KEY (relationship_type_uuid) REFERENCES __SCHEMA__.phoenix_kit_relationship_types(uuid) ON DELETE RESTRICT",
+             on_delete: "r",
+             on_update: "a",
              name_template: nil,
              foreign_table: "phoenix_kit_relationship_types",
-             foreign_columns: ["uuid"],
-             on_delete: "r",
-             on_update: "a"
+             foreign_columns: ["uuid"]
            }}
         ],
         presence: :required,
@@ -1027,7 +1027,7 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
         check:
           "SELECT EXISTS (SELECT 1 FROM __SCHEMA__.phoenix_kit_relationship_types WHERE \"key\" = 'manager')",
         create:
-          "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"builtin\")\nVALUES ('019a0000-0000-7000-8000-000000000229', 'manager', 'person', 'organization', TRUE, TRUE, TRUE)\nON CONFLICT DO NOTHING",
+          "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"position\", \"builtin\")\nVALUES ('019a0000-0000-7000-8000-000000000229', 'manager', 'person', 'organization', TRUE, TRUE, 10, TRUE)\nON CONFLICT DO NOTHING",
         since: 229,
         class: :seed,
         revisions: [
@@ -1039,9 +1039,38 @@ defmodule PhoenixKit.Migrations.ExpectedSchema.V229 do
                "can_manage" => true,
                "from_kind" => "person",
                "key" => "manager",
+               "position" => 10,
                "to_kind" => "organization"
              },
              key_value: "manager",
+             key_column: "key"
+           }}
+        ],
+        presence: :required,
+        backfill: nil
+      },
+      %{
+        id: "seed:phoenix_kit_relationship_types:staff",
+        owner: :core,
+        check:
+          "SELECT EXISTS (SELECT 1 FROM __SCHEMA__.phoenix_kit_relationship_types WHERE \"key\" = 'staff')",
+        create:
+          "INSERT INTO __SCHEMA__.phoenix_kit_relationship_types (\"uuid\", \"key\", \"from_kind\", \"to_kind\", \"can_act\", \"can_manage\", \"position\", \"builtin\")\nVALUES ('019a0000-0000-7000-8000-00000000022a', 'staff', 'person', 'organization', TRUE, FALSE, 20, TRUE)\nON CONFLICT DO NOTHING",
+        since: 229,
+        class: :seed,
+        revisions: [
+          {229,
+           %{
+             values: %{
+               "builtin" => true,
+               "can_act" => true,
+               "can_manage" => false,
+               "from_kind" => "person",
+               "key" => "staff",
+               "position" => 20,
+               "to_kind" => "organization"
+             },
+             key_value: "staff",
              key_column: "key"
            }}
         ],

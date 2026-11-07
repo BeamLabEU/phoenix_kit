@@ -77,6 +77,8 @@ defmodule PhoenixKit.Users.Auth.Scope do
   - `:held_roles` - List of every role name the account really holds
   - `:active_role` - `%{uuid, name}` of the role the user is acting as, or `nil`
   - `:switchable_roles` - `%{uuid, name}` of every role the user can switch to (`[]` when not narrowed)
+  - `:role_records` - `%{uuid, name, data}` of the roles IN EFFECT, for showing them
+    translated (`Roles.display_name/2`) without a query
   - `:acting_link` - The person's link while acting for an organization, or `nil`
     (`PhoenixKit.Users.ActingLink`)
 
@@ -125,6 +127,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
           cached_roles: [String.t()] | nil,
           cached_permissions: MapSet.t() | nil,
           held_roles: [String.t()] | nil,
+          role_records: [ActiveRole.role()],
           acting_link: ActingLink.t() | nil,
           active_role: ActiveRole.role() | nil,
           switchable_roles: [ActiveRole.role()],
@@ -140,6 +143,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
             cached_roles: nil,
             cached_permissions: nil,
             held_roles: nil,
+            role_records: [],
             acting_link: nil,
             active_role: nil,
             switchable_roles: [],
@@ -244,6 +248,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
       cached_roles: cached_roles,
       cached_permissions: MapSet.new(permission_ceiling(user, permission_keys)),
       held_roles: Enum.map(held, & &1.name),
+      role_records: effective,
       acting_link: acting_link,
       active_role: active_role,
       switchable_roles: switchable

@@ -3,20 +3,21 @@ defmodule PhoenixKit.Users.RelationshipType do
   One kind of link between accounts, defined by the app or an admin as data.
 
     * `key` — the stable machine value (`manager`). Lowercase letters, digits and
-      `_`, starting with a letter. Never translated.
+      `_`, starting with a letter. Never translated. Made from the name unless given.
     * `from_kind` / `to_kind` — `person` or `organization` on each end.
     * `can_act` — the from-person may enter the to-company through the switcher.
       A link of this type lives in `phoenix_kit_organization_managers`, and every
       row of that table means "may act", so the session code needs no type filter.
     * `can_manage` — they may also manage the company's people and profile.
     * `data` — core's multilang JSONB (`PhoenixKit.Utils.Multilang`): the translated
-      `_name` and `_inverse_name` ("Client of" and "Clients"). The built-in type is
-      seeded with an empty `data`, so its name is a gettext string until an admin
-      overrides it.
+      `_name` and `_inverse_name` ("Client of" and "Clients"). The built-in types are
+      seeded with an empty `data`, so their names are gettext strings until an admin
+      overrides them.
     * `status` — `active` or `archived`. Archiving stops new links; existing links
       and their sessions carry on.
-    * `builtin` — seeded by the migration, never castable. It cannot be archived or
-      deleted.
+    * `builtin` — seeded by the migration, never castable. It cannot be deleted.
+      `manager`, the default of every grant, cannot be archived either; a site with no
+      use for `staff` archives it.
 
   ⚠️ `key`, the two kinds, `can_act` and `can_manage` are **fixed at creation**:
   `update_changeset/2` does not cast them. `can_act` decides which table a link lives
@@ -40,6 +41,7 @@ defmodule PhoenixKit.Users.RelationshipType do
   # The built-in `manager` type, seeded by V229 and named by the column default of
   # `phoenix_kit_organization_managers.relationship_type_uuid`.
   @manager_uuid "019a0000-0000-7000-8000-000000000229"
+  @manager_key "manager"
 
   @statuses ~w(active archived)
   @kinds ~w(person organization)
@@ -88,6 +90,10 @@ defmodule PhoenixKit.Users.RelationshipType do
   @spec manager_uuid() :: String.t()
   def manager_uuid, do: @manager_uuid
 
+  @doc "The longest key."
+  @spec key_max() :: pos_integer()
+  def key_max, do: @key_max
+
   @doc "The fields fixed at creation, for comparing what a host asks of `ensure/3`."
   @spec fixed_fields() :: [atom()]
   def fixed_fields, do: @fixed
@@ -99,6 +105,7 @@ defmodule PhoenixKit.Users.RelationshipType do
     |> cast(attrs, @fixed ++ @editable ++ @virtual)
     |> validate_data_shape()
     |> sync_data()
+    |> derive_key()
     |> validate_required(@fixed)
     |> validate_key()
     |> validate_inclusion(:from_kind, @kinds)
@@ -115,7 +122,7 @@ defmodule PhoenixKit.Users.RelationshipType do
   end
 
   @doc """
-  Changeset for edits: names, position and status only. A built-in cannot be archived.
+  Changeset for edits: names, position and status only. `manager` cannot be archived.
   """
   @spec update_changeset(t(), map()) :: Ecto.Changeset.t(t())
   def update_changeset(%__MODULE__{} = type, attrs) do
@@ -151,6 +158,37 @@ defmodule PhoenixKit.Users.RelationshipType do
     end
   end
 
+  # The key comes from the primary-language name unless one was given.
+  defp derive_key(%Ecto.Changeset{valid?: false} = changeset), do: changeset
+
+  defp derive_key(changeset) do
+    with key when key in [nil, ""] <- get_field(changeset, :key),
+         name when is_binary(name) <- Multilang.text_field(get_field(changeset, :data), "name"),
+         derived when derived != "" <- key_from(name) do
+      put_change(changeset, :key, derived)
+    else
+      _ -> changeset
+    end
+  end
+
+  @doc """
+  A machine key from a name: ASCII letters and digits, lowercased, `_` between words,
+  starting with a letter. `""` when nothing usable is left (a Cyrillic-only name), and
+  the form then asks for a key.
+  """
+  @spec key_from(String.t()) :: String.t()
+  def key_from(name) when is_binary(name) do
+    name
+    |> String.normalize(:nfd)
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "_")
+    |> String.trim("_")
+    |> String.replace(~r/\A[0-9_]+/, "")
+    |> String.slice(0, @key_max)
+    |> String.trim_trailing("_")
+  end
+
   defp validate_key(changeset) do
     changeset
     |> validate_length(:key, min: 1, max: @key_max)
@@ -182,8 +220,8 @@ defmodule PhoenixKit.Users.RelationshipType do
   end
 
   defp validate_builtin_stays_active(changeset) do
-    if changeset.data.builtin and get_field(changeset, :status) != "active",
-      do: add_error(changeset, :status, "a built-in type cannot be archived"),
+    if changeset.data.key == @manager_key and get_field(changeset, :status) != "active",
+      do: add_error(changeset, :status, "this type cannot be archived"),
       else: changeset
   end
 

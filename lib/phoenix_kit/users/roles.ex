@@ -443,15 +443,19 @@ defmodule PhoenixKit.Users.Roles do
   @doc """
   The name to show for a role, in `lang` (default: the viewer's language).
 
-  Takes a `%Role{}` or the role records a scope holds. Reads the role's translations,
-  then the primary language's, then the gettext string of a system role, then `name`.
-  Never match on this in code: `name` is the key.
+  Takes a `%Role{}` or the role records a scope holds. Reads the role's label in that
+  language, then the primary language's, then the gettext string of a system role, then
+  `name`. Never match on this in code: `name` is the key.
   """
   @spec display_name(Role.t() | %{name: String.t()}, String.t() | nil) :: String.t()
   def display_name(%{name: name} = role, lang \\ nil) when is_binary(name) do
-    Multilang.text_field(Map.get(role, :data), "name", lang || Multilang.current_locale()) ||
+    Multilang.text_field(Map.get(role, :data), "label", lang || Multilang.current_locale()) ||
       system_role_label(name) || name
   end
+
+  @doc "Fills the virtual `label` from the primary-language `data`, for the edit form."
+  @spec hydrate(Role.t()) :: Role.t()
+  def hydrate(%Role{} = role), do: %{role | label: Multilang.text_field(role.data, "label")}
 
   @doc "The description to show for a role, in `lang`, or `nil`."
   @spec display_description(Role.t(), String.t() | nil) :: String.t() | nil
@@ -1165,11 +1169,11 @@ defmodule PhoenixKit.Users.Roles do
       iex> update_role(role, %{name: "NewName"})
       {:error, %Ecto.Changeset{}}
 
-  A role's `name` is a fixed key and cannot change. Its label goes in `data`, built
-  by `PhoenixKit.Utils.Multilang.build_text_data/1` (give the primary language too:
-  it is what every other language falls back to):
+  A role's `name` is a fixed key and cannot change. What people see is its label, in
+  `data`, built by `PhoenixKit.Utils.Multilang.build_text_data/1` (give the primary
+  language too: it is what every other language falls back to):
 
-      iex> data = Multilang.build_text_data(%{"_name" => %{"en" => "Buyer", "de" => "Käufer"}})
+      iex> data = Multilang.build_text_data(%{"_label" => %{"en" => "Buyer", "de" => "Käufer"}})
       iex> update_role(role, %{data: data})
       {:ok, %Role{}}
   """

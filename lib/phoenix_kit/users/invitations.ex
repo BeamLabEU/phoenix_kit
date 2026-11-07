@@ -136,7 +136,7 @@ defmodule PhoenixKit.Users.Invitations do
         i.email == ^email and
           i.status == :pending and
           i.expires_at > ^now,
-      preload: [:organization]
+      preload: [:organization, :relationship_type]
     )
     |> repo.all()
   end
@@ -160,7 +160,7 @@ defmodule PhoenixKit.Users.Invitations do
               i.token == ^hashed_token and
                 i.status == :pending and
                 i.expires_at > ^now,
-            preload: [:organization]
+            preload: [:organization, :relationship_type]
           )
           |> repo.one()
 

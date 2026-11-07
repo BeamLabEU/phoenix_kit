@@ -5,8 +5,9 @@ defmodule PhoenixKit.Migrations.Postgres.V229 do
   Plan: `dev_docs/plans/2026-11-07-account-relationships.md`.
 
     * **`phoenix_kit_relationship_types`** (new): the kinds of link an app defines,
-      as data. One built-in row, `manager`, has a fixed uuid so the column default
-      below can name it.
+      as data. Two built-in rows, so a staff level works with no setup: `manager`,
+      with a fixed uuid so the column default below can name it, and `staff`, who may
+      act but not manage.
     * **`phoenix_kit_organization_managers`** gains `relationship_type_uuid`,
       `all_roles` and `metadata`. Every existing grant becomes a `manager` link
       with `all_roles = true`, which is what it means today.
@@ -40,6 +41,7 @@ defmodule PhoenixKit.Migrations.Postgres.V229 do
   # holds the two together. Literal here so the migration never depends on
   # application code that may change after it shipped.
   @manager_type_uuid "019a0000-0000-7000-8000-000000000229"
+  @staff_type_uuid "019a0000-0000-7000-8000-00000000022a"
 
   def up(opts) do
     prefix = Map.get(opts, :prefix, "public")
@@ -87,9 +89,10 @@ defmodule PhoenixKit.Migrations.Postgres.V229 do
       "CREATE UNIQUE INDEX IF NOT EXISTS phoenix_kit_relationship_types_key_index ON #{p}phoenix_kit_relationship_types (key)",
       """
       INSERT INTO #{p}phoenix_kit_relationship_types
-        (uuid, key, from_kind, to_kind, can_act, can_manage, builtin)
+        (uuid, key, from_kind, to_kind, can_act, can_manage, position, builtin)
       VALUES
-        ('#{@manager_type_uuid}', 'manager', 'person', 'organization', true, true, true)
+        ('#{@manager_type_uuid}', 'manager', 'person', 'organization', true, true, 10, true),
+        ('#{@staff_type_uuid}', 'staff', 'person', 'organization', true, false, 20, true)
       ON CONFLICT DO NOTHING
       """,
       "ALTER TABLE #{p}phoenix_kit_organization_managers ADD COLUMN IF NOT EXISTS relationship_type_uuid uuid NOT NULL DEFAULT '#{@manager_type_uuid}'",
