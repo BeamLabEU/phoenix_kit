@@ -57,8 +57,8 @@ defmodule PhoenixKit.Users.Roles do
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.OrganizationManagerRole
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Users.Sessions.Revocation

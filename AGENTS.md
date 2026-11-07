@@ -130,6 +130,18 @@ Full reference: `dev_docs/guides/2026-07-28-login-and-registration.md`. All sett
 - ⚠️ **Flash belongs inside the LiveView tree** (LayoutWrapper / dashboard / host layout). `root.html.heex` deliberately has none — a copy there double-rendered every message with duplicate ids.
 - ⚠️ A `disabled` `<.checkbox>` still submits its **un-disabled** hidden `value="false"` fallback, silently rewriting the setting on save. Don't use `disabled` to mean "inactive right now" in a settings form.
 
+## Acting for an organization: links, types and roles
+
+A person acts for a managed organization through a **link**: a row of `phoenix_kit_organization_managers` with a type (`RelationshipTypes`, data; built-in `manager` and `staff`), and either all the organization's roles or a list of them. Plan: `dev_docs/plans/2026-11-07-account-relationships.md`. `PhoenixKit.Users.OrganizationManagers`' moduledoc is the reference for writing them.
+
+- ⚠️ **Every row of `phoenix_kit_organization_managers` means "may act".** The session code reads it with no type filter, on purpose. A link that grants no access never goes in this table: it gets `phoenix_kit_account_links` (Phase 2), and that table stays out of every access decision.
+- ⚠️ **`all_roles` is the only way to say "every role"; never read a blank list as "all".** An empty list means no roles. That is what stops unticking someone's last role from giving them everything, and a per-role check from passing an empty list.
+- ⚠️ **One rule for what a link gives: `ActingLink.narrow/2`.** `Scope.for_user/2`, `ActiveRole` and the session lists all go through it, and a role the organization does not hold has no effect. The `User` base role survives narrowing. A link reaches a scope only through `%User{organization_manager_uuid: _}`, which only the token loader fills, so a reload by uuid during a request carries the session with `User.put_session_fields/2`. A scope built from a bare organization (a job, a module's check by uuid) holds only the roles **every** link allows (`ActingLink.outside_session/1`): all of them while nobody is narrowed, as ever, and never wider than any person's session.
+- ⚠️ **A new way of managing an organization goes through `Actor.authorize/2`**, which refuses a link whose type lacks `can_manage`. Staff keep their preferences only: `UserSettings` hides and server-refuses the company's profile (`@company_profile_events`). A type's `key`, kinds, `can_act` and `can_manage` are fixed at creation.
+- **Handing out roles** goes through `OrganizationManagers.new_link!/3` and `update_locked/4`: someone acting is judged on their whole link (`narrow: false`), a role they may not give can stay on someone's link untouched (the form carries it as a hidden input), nobody but an Owner changes their own link, and `host_*` calls take no rank but still need a role the organization holds.
+- **Changing a link** signs out that link's sessions acting as a role that left it (`Sessions.revoke_link_sessions_in_roles/2`; `revoke_user_sessions_in_role/2` would reach everyone at the company), and refreshes open pages after the commit.
+- ⚠️ **A role's `name` is a fixed key** (`update_role/2` refuses a change): code and settings match on it. Show a role with `Roles.display_name/2`, which reads its translated label; never match on that.
+
 ## Permissions
 
 `PhoenixKit.Users.Permissions` — allowlist model (row present = granted, absent = denied); Owner always has full access, enforced in code. The moduledoc is the source of truth; highlights:
@@ -148,6 +160,7 @@ Full reference: `dev_docs/guides/2026-07-28-login-and-registration.md`. All sett
 - **Active role** (`PhoenixKit.Users.ActiveRole`, opt-in `role_switcher_enabled`): a user with 2+ switchable roles acts as one **per session**, and `Scope.for_user/1` narrows `cached_roles`/`cached_permissions` to it. Default = first held role in role order (`/admin/users/roles`). Guide: `dev_docs/guides/2026-09-13-active-role.md`.
   - ⚠️ **The active role lives on the session token** (`phoenix_kit_users_tokens.active_role_uuid`) and reaches `for_user/1` only through `%User{active_role_uuid: _}`, a virtual field that only the token loader fills. The refresh reloads through `phoenix_kit_session_token`, never by uuid — a by-uuid reload or a session/assign copy silently changes the role.
   - Access decisions read the scope; rules protecting against a user's REAL roles read `Scope.held_roles/1`. `Roles.*`/`User.get_roles` DB reads ignore the active role. Removing a role signs out the sessions acting as it (`Sessions.revoke_user_sessions_in_role/2`).
+  - ⚠️ **`Scope.held_roles/1` never answers "what may this person do".** In an acting session it is the organization's roles, past the link and the ceiling. Read `Scope.user_roles/1` or `has_role?/2`.
   - ⚠️ **Internal `custom_fields` keys: `Auth.merge_user_custom_fields/3`, never a whole-map replace from a struct held in assigns** — a stale replace restores every other key's old value. The other way round, `custom_fields` passed to `Auth.update_user_profile/2` / `User.profile_changeset/3` is the account holder's input: only defined, user-accessible fields are kept (`CustomFields.cast_user_input/2`), so system code never writes its keys through it.
 
 ## Languages

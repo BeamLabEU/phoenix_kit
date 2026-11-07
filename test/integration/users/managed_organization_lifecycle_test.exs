@@ -19,6 +19,7 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RoleAssignment
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
@@ -570,8 +571,7 @@ defmodule PhoenixKit.Users.ManagedOrganizationLifecycleTest do
     |> Ecto.Changeset.change(%{
       organization_uuid: org.uuid,
       kind: kind,
-      relationship_type_uuid:
-        if(kind == :manager, do: PhoenixKit.Users.RelationshipType.manager_uuid()),
+      relationship_type_uuid: if(kind == :manager, do: RelationshipType.manager_uuid()),
       status: status,
       email: "invite-#{UUIDv7.generate()}@example.com",
       token: :crypto.strong_rand_bytes(32),

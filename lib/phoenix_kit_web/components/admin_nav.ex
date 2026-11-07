@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.LanguageSwitcher
   alias PhoenixKitWeb.Users.MultiSession
@@ -821,10 +822,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # The scope already holds the records, so a translated label costs no query.
   defp shown_label(%{role_records: records}, name) when is_list(records) do
-    PhoenixKit.Users.Roles.display_name(Enum.find(records, %{name: name}, &(&1.name == name)))
+    Roles.display_name(Enum.find(records, %{name: name}, &(&1.name == name)))
   end
 
-  defp shown_label(_scope, name), do: PhoenixKit.Users.Roles.display_name(%{name: name})
+  defp shown_label(_scope, name), do: Roles.display_name(%{name: name})
 
   # OAuth buttons for the "Add account" modal.
   #

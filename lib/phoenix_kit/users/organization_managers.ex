@@ -695,7 +695,7 @@ defmodule PhoenixKit.Users.OrganizationManagers do
       |> of_type(Keyword.get(opts, :type))
       |> RepoHelper.repo().all()
 
-    held = Roles.get_user_role_records(%User{uuid: organization_uuid})
+    held = Map.get(Roles.get_role_records_for_users([organization_uuid]), organization_uuid, [])
     Enum.map(links, &link_read(&1, :person, &1.user, held))
   end
 

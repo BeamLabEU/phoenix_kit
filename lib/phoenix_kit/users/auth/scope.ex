@@ -111,7 +111,8 @@ defmodule PhoenixKit.Users.Auth.Scope do
       Scope.acting_link(scope)              # %{type_key: "staff", role_uuids: [...], ...} or nil
       Scope.can_manage_organization?(scope) # may they manage its people and profile?
 
-  A managed organization's scope built from anything but its session holds no roles.
+  A managed organization's scope built from anything but a session holds only the roles
+  every link allows (`ActingLink.outside_session/1`), so it is never wider than a session.
   """
 
   alias PhoenixKit.Users.ActingLink
@@ -272,10 +273,10 @@ defmodule PhoenixKit.Users.Auth.Scope do
     eligible_roles(user, Roles.get_user_role_records(user), ActingLink.for_user(user))
   end
 
-  defp eligible_roles(%User{managed_by_members: true}, roles, acting_link) do
+  defp eligible_roles(%User{managed_by_members: true} = user, roles, acting_link) do
     roles
     |> Enum.reject(&managed_ceiling_role?(&1.name))
-    |> ActingLink.narrow(acting_link)
+    |> ActingLink.narrow(acting_link || ActingLink.outside_session(user))
   end
 
   defp eligible_roles(_user, roles, _acting_link), do: roles

@@ -11,12 +11,12 @@ msgstr ""
 "Language: pl\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10||n%100>=20) ? 1 : 2);\n"
 
-#: lib/phoenix_kit/users/invitations.ex:373
+#: lib/phoenix_kit/users/invitations.ex:376
 #, elixir-autogen, elixir-format
 msgid "A pending invitation already exists for this email"
 msgstr "Dla tego adresu e-mail istnieje już oczekujące zaproszenie"
 
-#: lib/phoenix_kit/users/invitations.ex:359
+#: lib/phoenix_kit/users/invitations.ex:362
 #, elixir-autogen, elixir-format
 msgid "This user already belongs to an organization"
 msgstr "Ten użytkownik już należy do organizacji"

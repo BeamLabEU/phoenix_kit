@@ -10,9 +10,16 @@ defmodule PhoenixKit.Users.ActingLink do
   session lists all go through here, so they cannot disagree.
 
   The link reaches a scope through `%User{organization_manager_uuid: _}`, a virtual
-  field only the session token loader fills. An organization has no session of its
-  own, so a user with no link there, or a link that is gone, gets `nil` and `narrow/2`
-  answers no roles: a scope must never be wider than a session could be.
+  field only the session token loader fills. A link named there that is gone gives `nil`,
+  and `narrow/2` answers no roles.
+
+  ## Outside a session
+
+  A scope built from a bare organization (a background job, a module checking an
+  account by uuid) has no link to go by. `outside_session/1` limits it to the roles
+  **every** link allows, so it is never wider than any person's session could be. While
+  nobody is narrowed that is all the organization's roles, as it always was: a site that
+  never narrows sees no change.
   """
 
   import Ecto.Query
@@ -42,6 +49,42 @@ defmodule PhoenixKit.Users.ActingLink do
   end
 
   def for_user(%User{}), do: nil
+
+  @doc """
+  What limits a managed organization's roles when `user` did not come from a session, to
+  give `narrow/2`: every narrowed link's list in common. See the module documentation.
+
+  A user that names a link did come from a session, so `for_user/1` answers for it; if
+  that found nothing, the link is gone and this is `nil` as well.
+  """
+  @spec outside_session(User.t()) :: %{all_roles?: boolean(), role_uuids: [String.t()]} | nil
+  def outside_session(%User{organization_manager_uuid: uuid}) when is_binary(uuid), do: nil
+
+  def outside_session(%User{uuid: organization}) do
+    lists =
+      RepoHelper.repo().all(
+        from(m in OrganizationManager,
+          left_join: role in assoc(m, :role_links),
+          where: m.organization_uuid == ^organization and not m.all_roles,
+          select: {m.uuid, role.role_uuid}
+        )
+      )
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> Map.values()
+
+    case lists do
+      [] ->
+        %{all_roles?: true, role_uuids: []}
+
+      lists ->
+        common =
+          lists
+          |> Enum.map(&MapSet.new(Enum.reject(&1, fn role -> is_nil(role) end)))
+          |> Enum.reduce(&MapSet.intersection/2)
+
+        %{all_roles?: false, role_uuids: MapSet.to_list(common)}
+    end
+  end
 
   @doc "The links with these uuids, keyed by uuid. `nil`s are ignored."
   @spec load_many([String.t() | nil]) :: %{optional(String.t()) => t()}
@@ -81,7 +124,8 @@ defmodule PhoenixKit.Users.ActingLink do
   the listed ones. The `User` system role stays, as it does through the role switcher:
   it is a baseline, not something to tick. No link means no roles.
   """
-  @spec narrow([role], t() | nil) :: [role] when role: %{uuid: String.t(), name: String.t()}
+  @spec narrow([role], %{all_roles?: boolean(), role_uuids: [String.t()]} | nil) :: [role]
+        when role: %{uuid: String.t(), name: String.t()}
   def narrow(_roles, nil), do: []
   def narrow(roles, %{all_roles?: true}), do: roles
 

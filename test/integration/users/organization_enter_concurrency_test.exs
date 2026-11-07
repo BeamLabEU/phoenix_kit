@@ -8,6 +8,7 @@ defmodule PhoenixKit.Users.OrganizationEnterConcurrencyTest do
   alias PhoenixKit.Test.ManagedOrganizationFixtures, as: F
   alias PhoenixKit.Test.Repo
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.ManagedOrganizations.Sessions, as: OrganizationSessions
@@ -45,12 +46,23 @@ defmodule PhoenixKit.Users.OrganizationEnterConcurrencyTest do
       end
 
       Sandbox.mode(Repo, :auto)
+      # Committed outside the sandbox, and they would outlive the users they name.
+      Repo.delete_all(from(e in Entry, where: e.actor_uuid in ^ids or e.target_uuid in ^ids))
       Repo.delete_all(from(u in User, where: u.uuid in ^ids))
       PhoenixKit.Settings.update_setting("enable_organization_accounts", "false")
       Sandbox.mode(Repo, :manual)
     end)
 
-    %{actor: actor, person: person, org: org, beta: beta, token: token, root: root}
+    %{
+      actor: actor,
+      admin: admin,
+      person: person,
+      other: other,
+      org: org,
+      beta: beta,
+      token: token,
+      root: root
+    }
   end
 
   for source <- [:root, :grant, :person, :organization] do
@@ -72,6 +84,46 @@ defmodule PhoenixKit.Users.OrganizationEnterConcurrencyTest do
       assert {:error, :forbidden} = Task.await(second, 5_000)
       refute Repo.exists?(from(t in UserToken, where: t.acting_session_uuid == ^s.root.uuid))
     end
+  end
+
+  describe "a link changing while someone enters" do
+    defp narrow_link(s) do
+      OrganizationManagers.host_update(s.org.uuid, s.person.uuid, [roles: []], s.admin)
+    end
+
+    defp acting_link(token) do
+      token |> Auth.get_user_by_session_token() |> Scope.for_user() |> Scope.acting_link()
+    end
+
+    test "a change that waits behind an entry reaches the session it made", s do
+      {first, entered} = hold(fn -> OrganizationSessions.enter(s.token, s.org.uuid) end)
+      second = blocked(fn -> narrow_link(s) end)
+      release(first)
+      assert {:ok, _} = Task.await(second, 5_000)
+
+      assert %{all_roles?: false} = acting_link(entered.token)
+    end
+
+    test "an entry that waits behind a change enters with the new roles", s do
+      {first, _} = hold(fn -> narrow_link(s) end)
+      second = blocked(fn -> OrganizationSessions.enter(s.token, s.org.uuid) end)
+      release(first)
+      assert {:ok, entered} = Task.await(second, 5_000)
+
+      assert %{all_roles?: false} = acting_link(entered.token)
+    end
+  end
+
+  test "two changes cannot take an organization's last two managers at once", s do
+    move = fn person ->
+      OrganizationManagers.host_update(s.org.uuid, person.uuid, [type: "staff"], s.admin)
+    end
+
+    {first, _} = hold(fn -> move.(s.person) end)
+    second = blocked(fn -> move.(s.other) end)
+    release(first)
+
+    assert {:error, :cannot_remove_last_active_manager} = Task.await(second, 5_000)
   end
 
   test "concurrent entries for different organizations serialize on the root and replace the old token",

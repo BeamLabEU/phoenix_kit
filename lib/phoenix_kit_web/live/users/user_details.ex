@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Users.ManagedOrganizations.Actor, as: OrganizationActor
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RelationshipTypes
+  alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -168,7 +169,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
   # The base role is on every link, so it says nothing here.
   defp link_roles(link) do
-    base = PhoenixKit.Users.Role.system_roles().user
+    base = Role.system_roles().user
     Enum.reject(link.roles, &(&1.name == base))
   end
 

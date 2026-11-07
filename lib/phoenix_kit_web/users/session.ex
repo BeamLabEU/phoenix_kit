@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Users.Session do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.LoginAttempts
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -278,7 +279,7 @@ defmodule PhoenixKitWeb.Users.Session do
             |> put_flash(
               :info,
               gettext("You are now acting as %{role}.",
-                role: PhoenixKit.Users.Roles.display_name(role)
+                role: Roles.display_name(role)
               )
             )
             |> redirect_after_role_switch(params)

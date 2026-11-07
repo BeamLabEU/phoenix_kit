@@ -1,12 +1,53 @@
 # Account relationships
 
-**Status:** scope only, not started. Design agreed: WoodMatrix accepted it and
-answered both open questions on 2026-11-07 (see
-[Decided with WoodMatrix](#decided-with-woodmatrix)).
+**Status:** Phase 1 built on `main`, unreleased; Phase 2 not started. Design agreed:
+WoodMatrix accepted it and answered both open questions on 2026-11-07 (see
+[Decided with WoodMatrix](#decided-with-woodmatrix)). What changed while building is in
+[As built](#as-built).
 **Requested by:** WoodMatrix, 2026-11-06. Brief and our reply:
 `woodmatrix/dev_docs/2026-11-06-brief-phoenix-kit-account-relationships.md`.
 **Builds on:** [Acting for an organization](2026-10-29-act-as-organization.md),
 whose §6 decided "one manager level" for v1. This plan replaces that decision.
+
+## As built
+
+Phase 1 differs from the text below in these places, each found while building it.
+
+- **`staff` is built in too.** With only `manager`, an admin would have to invent a type
+  before any staff level existed. It can be archived but not deleted; `manager` can do
+  neither. The column is `builtin`, as in `PartyRoleType`.
+- **An invitation to an address already linked is not refused.** Two tests pin one answer
+  for new, existing and manager addresses on purpose. The invitation goes out, and on
+  acceptance the existing link stands. A pending invitation with other values is still
+  refused.
+- **Role translations use a `label`**, stored as `_label`. The multilang form writes the
+  primary language into the field of the same name, so a translated `name` would try to
+  rename the role.
+- **`SessionRef.scope_for_session/3` was not needed.** The rank check builds its unnarrowed
+  scope from the token-loaded user.
+- **`Scope` gained `role_records`**, so the account menu shows a translated role with no
+  query.
+- **Outside a session a company keeps the roles every link allows, not none.** "No roles"
+  broke existing grants: CRM's interaction links, publishing's AI jobs and project notices
+  all build a company's scope by uuid outside any session. Full roles would let a
+  Buyer-only person pick up Supplier through such a path. `ActingLink.outside_session/1`
+  gives both: with nobody narrowed it is every role, as today, and otherwise it is never
+  wider than any person's session. A link that is named but gone still gives no roles.
+- **Test changes to existing files:** the policy test's hand-built invitation and two
+  helpers that insert invitations directly now name a type; the V227 round trip runs
+  through V229; and the panel's tests follow its new layout and wording.
+
+The admin screens went further than the text below, after a look at the real pages (the
+panel used to sit below every tab of the company page):
+
+- a People tab, reachable by URL (`?tab=people`), with the older Members tab hidden from a
+  managed company that has no members;
+- one dialog to add or change someone, in place of the separate search and invite forms;
+- a person's page shows their organizations, which no screen showed before;
+- the "no active managers" override appears only after the last-manager refusal, not as a
+  checkbox on every row;
+- each refusal has its own message, shown where the person is working;
+- the key of a new type stays folded away unless the name cannot give one.
 
 ## Problem
 
@@ -103,13 +144,14 @@ All in V229, core tables, listed in `ModuleOwnedTables`' core list. New schemas
 | `can_act` | Fixed at creation |
 | `can_manage` | Fixed at creation |
 | `status` | `active` or `archived` |
-| `position`, `built_in` | As in `PartyRoleTypes` |
+| `position`, `builtin` | As in `PartyRoleTypes` |
 
 Checks: `NOT can_manage OR can_act`, and
 `NOT can_act OR (from_kind = 'person' AND to_kind = 'organization')`.
 
-The migration seeds one built-in type, `manager`, with `can_act` and `can_manage`
-on and a fixed uuid, so the column default below can name it.
+The migration seeds two built-in types: `manager`, with `can_act` and `can_manage` on
+and a fixed uuid so the column default below can name it, and `staff`, who may act but
+not manage.
 
 **The access flags are fixed at creation.** `can_act` decides which table a link
 lives in. Turning off `can_manage` on `manager` would leave every company with no
@@ -285,21 +327,20 @@ The trap is a host reading it as "what this person has".
 person in Buyer mode. So state this meaning in the `held_roles/1` doc, the `Scope`
 moduledoc, `AGENTS.md` and `dev_docs/guides/2026-09-13-active-role.md`.
 
-**Fails closed.** A managed organization with no `organization_manager_uuid`, or
-whose link cannot be read, holds no roles. It has no session of its own, so such a
-scope is not a person's, and this keeps `ActiveRole`'s promise of "never wider
-than a session could be". The audit of the `Scope.for_user` callers found:
+**Never wider than a session.** A link named on the user that is gone holds no roles. A
+bare organization, with no link on it, holds only the roles every link allows
+(`ActingLink.outside_session/1`): all of them while nobody is narrowed, as ever. The audit
+of who builds such a scope:
 
 | Caller | Effect |
 |---|---|
-| `lib/modules/storage/library_operations.ex:235` | Reloads by uuid and copies only the active role. Must carry the acting fields too, or acting people lose library access |
+| `lib/modules/storage/library_operations.ex:235` | A reload during a request. Carries the session with `User.put_session_fields/2`, or a narrowed person would lose it |
 | `PhoenixKit.API.Access.fresh_scope/2` | Also by uuid, but refused already: the ceiling keeps `api` keys off a company |
 | `Referrals.satisfied_by_account?/1` (`%User{}` form) | `marked_satisfied?` answers first for managed organizations |
-| `test/integration/users/managed_organization_policy_test.exs:112` | Builds a scope from a bare organization and asserts it holds `users`; it needs an acting session instead |
-| `test/phoenix_kit/users/referral_access_gate_test.exs:141` | Also a bare organization, but passes unchanged: `marked_satisfied?` answers before any role is read |
+| `PhoenixKitProjects.Notices.may_view?/2`, `PhoenixKitCRM.InteractionLinks`, `PhoenixKitPublishing` AI jobs, `PhoenixKitAI.Web.Access` | Modules asking about an account outside a session. They keep working, limited to what every link allows |
 
-The other callers receive a user from a token loader, and the embedded path
-already special-cases managed organizations (`embedded_session_user/2`).
+The other core callers receive a user from a token loader, and the embedded path already
+special-cases managed organizations (`embedded_session_user/2`).
 
 ### ActiveRole
 
@@ -316,9 +357,6 @@ function, or the switcher and the scope disagree. `session_role_names/1`
 type. This covers all five callers of `Actor.authorize/2`: `details/2`,
 `update_contact/3`, `remove/4`, invitation `create/3` and `cancel/3`. The brief
 listed three.
-
-`SessionRef.scope_for_session/2` hard-codes `narrow: true`. Add a `/3` taking
-`narrow:` for rule 7.
 
 ### Link lifecycle
 
@@ -349,13 +387,11 @@ this in the moduledoc beside the existing warning.
 `Invitations.create/4` takes type and roles, and `create/3` stays. Rule 7 runs at
 creation.
 
-- An email whose person already has a link at this company:
-  `{:error, :already_linked}`.
 - A pending invitation with other values: `{:error, :invitation_pending}`, so the
   manager cancels it first. With the same values it returns the existing one, as
   `pending/2` does now. Today a new role list would be silently dropped.
-- A link made between invitation and acceptance: the existing link stands, the
-  invitation is marked accepted, and the activity entry says so.
+- An address already linked gets the usual answer, and on acceptance the existing link
+  stands and the invitation is marked accepted.
 - The inviter's rights are not re-checked at acceptance, the same as today.
 
 Mail: `organization_manager_invitation` says "invited to manage" and "become a
@@ -429,8 +465,8 @@ in the new role picker.
    manifest entry, not only a restamp), `test/phoenix_kit/migrations/v229_test.exs`,
    and the prefix migration test.
 2. `RelationshipTypes`, role translations, and their tests.
-3. Scope, `ActiveRole`, `library_operations.ex:235`, the fail-closed rule, and the
-   `held_roles` docs.
+3. Scope, `ActiveRole`, `library_operations.ex:235`, the limit outside a session, and
+   the `held_roles` docs.
 4. Authority and the last-manager rule.
 5. Link lifecycle, rule 7, `Revocation` and the session change for rule 6, and
    `role_has_assignments?`.
@@ -466,8 +502,8 @@ No change to `Scope`, `Actor`, `Locks`, `Revocation`, or the session query.
 
 ## Tests
 
-Existing: the 19 test files touching grants must pass unchanged, apart from the
-policy test above. That is the proof of rule 1.
+Existing: the 19 test files touching grants must pass, with only the changes listed
+under [As built](#as-built) and the wording of the panel. That is the proof of rule 1.
 
 From the brief:
 
@@ -495,7 +531,8 @@ Added by this plan:
 - Removing a role from a link signs out only that link's sessions acting as it.
 - Moving the last `can_manage` link to a staff type is refused.
 - `delete_role/2` on a role in use on a link answers `:role_in_use`.
-- A managed organization with no link in the session holds no roles.
+- A bare organization keeps every role while nobody is narrowed, and otherwise only
+  what every link allows. A link that is gone gives no roles.
 - WoodMatrix's case: a person with only Supplier on their link, at a company
   holding Buyer and Supplier. `user_roles/1` has Supplier and User, `active_role/1`
   is `nil`, `held_roles/1` still has Buyer, and `can_edit_role_permissions?/2`
@@ -529,9 +566,10 @@ Phase 2:
 - **One extra query per scope build for an acting session.** Only acting sessions
   pay it. Measure before caching anything, and keep any cache out of the access
   decision.
-- **Fail-closed changes a by-uuid read.** Host code that builds
-  `Scope.for_user(org)` itself gets no roles after this. Call it out in the
-  CHANGELOG.
+- **A module's check by uuid narrows once someone is narrowed.** With a company whose
+  people have different roles, such a check sees only what they share, so a module
+  feature can refuse more than it did. It fails towards less access, and a module that
+  has the session's scope should pass that instead.
 - **Roles can no longer be renamed.** A host whose admins rename roles uses the
   translated name instead. Call it out in the CHANGELOG too.
 

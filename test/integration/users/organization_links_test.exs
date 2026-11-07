@@ -17,10 +17,12 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Invitations
+  alias PhoenixKit.Users.ManagedOrganizations.Invitations, as: ManagerInvitations
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagerRole
   alias PhoenixKit.Users.OrganizationManagers
+  alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.RelationshipType
   alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Roles
@@ -110,7 +112,7 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
                )
 
       assert {:ok, _} =
-               PhoenixKit.Users.ManagedOrganizations.Invitations.cancel(
+               ManagerInvitations.cancel(
                  s.actor,
                  organization.uuid,
                  invitation.uuid
@@ -143,7 +145,7 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
                )
 
       assert {:error, :forbidden} =
-               PhoenixKit.Users.ManagedOrganizations.Invitations.cancel(
+               ManagerInvitations.cancel(
                  s.actor,
                  organization.uuid,
                  invitation.uuid
@@ -336,7 +338,7 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
       manager_session(organization)
       restricted = Fixtures.role(["storage"], organization)
       {actor, admin} = Fixtures.admin_actor()
-      :ok = PhoenixKit.Users.Permissions.revoke_permission(admin_role_uuid(), "storage")
+      :ok = Permissions.revoke_permission(admin_role_uuid(), "storage")
       person = Fixtures.person()
 
       assert {:error, :not_permitted} =
@@ -736,7 +738,7 @@ defmodule PhoenixKit.Users.OrganizationLinksTest do
       %{organization: organization, buyer: buyer} = company()
       s = manager_session(organization)
       gone = Fixtures.role(["sitemap"], organization)
-      {:ok, _} = PhoenixKit.Users.Permissions.grant_permission(buyer.uuid, "sitemap")
+      {:ok, _} = Permissions.grant_permission(buyer.uuid, "sitemap")
       person = Fixtures.person()
 
       {:ok, invitation, _} =

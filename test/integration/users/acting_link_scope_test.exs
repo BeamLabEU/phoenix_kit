@@ -20,6 +20,7 @@ defmodule PhoenixKit.Integration.Users.ActingLinkScopeTest do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Permissions
   alias PhoenixKit.Users.RelationshipType
+  alias PhoenixKit.Users.RelationshipTypes
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Users.Sessions
 
@@ -259,17 +260,60 @@ defmodule PhoenixKit.Integration.Users.ActingLinkScopeTest do
   end
 
   describe "a scope is never wider than a session could be" do
-    test "a managed organization not loaded from a session holds no roles" do
-      %{organization: organization} = company()
+    defp outside_session(organization), do: Repo.get!(User, organization.uuid) |> Scope.for_user()
+
+    test "outside a session a company with nobody narrowed keeps every role, as it always did" do
+      %{organization: organization, buyer: buyer, supplier: supplier} = company()
+      Fixtures.manager(organization, Fixtures.person())
+      Fixtures.manager(organization, Fixtures.person())
 
       for user <- [organization, Repo.get!(User, organization.uuid)] do
         scope = Scope.for_user(user)
 
-        assert Scope.user_roles(scope) == []
-        refute Scope.has_module_access?(scope, "users")
+        assert Enum.sort(Scope.user_roles(scope)) ==
+                 Enum.sort([buyer.name, supplier.name, "User"])
+
+        assert Scope.has_module_access?(scope, "users")
         assert Scope.acting_link(scope) == nil
         refute Scope.can_manage_organization?(scope)
       end
+    end
+
+    test "outside a session a company with no links keeps its roles" do
+      %{organization: organization, buyer: buyer} = company()
+      assert buyer.name in Scope.user_roles(outside_session(organization))
+    end
+
+    test "once someone is narrowed, it is never wider than their session" do
+      %{organization: organization, buyer: buyer} = company()
+      Fixtures.manager(organization, Fixtures.person())
+      Fixtures.narrowed_link(organization, Fixtures.person(), [buyer])
+
+      scope = outside_session(organization)
+
+      assert Enum.sort(Scope.user_roles(scope)) == Enum.sort([buyer.name, "User"])
+      assert Scope.has_module_access?(scope, "users")
+      refute Scope.has_module_access?(scope, "media")
+    end
+
+    test "with people narrowed differently it keeps only what they share" do
+      %{organization: organization, buyer: buyer, supplier: supplier} = company()
+      Fixtures.narrowed_link(organization, Fixtures.person(), [buyer, supplier])
+      Fixtures.narrowed_link(organization, Fixtures.person(), [supplier])
+
+      assert Enum.sort(Scope.user_roles(outside_session(organization))) ==
+               Enum.sort([supplier.name, "User"])
+
+      Fixtures.narrowed_link(organization, Fixtures.person(), [buyer])
+      assert Scope.user_roles(outside_session(organization)) == ["User"]
+    end
+
+    test "someone with no roles on their link leaves nothing beyond the base role" do
+      %{organization: organization} = company()
+      Fixtures.manager(organization, Fixtures.person())
+      Fixtures.narrowed_link(organization, Fixtures.person(), [])
+
+      assert Scope.user_roles(outside_session(organization)) == ["User"]
     end
 
     test "a link that is gone, or belongs to another company, gives nothing" do
@@ -338,7 +382,7 @@ defmodule PhoenixKit.Integration.Users.ActingLinkScopeTest do
   end
 
   defp staff_type do
-    PhoenixKit.Users.RelationshipTypes.create_type(%{
+    RelationshipTypes.create_type(%{
       key: "staff_#{System.unique_integer([:positive])}",
       name: "Staff",
       from_kind: "person",

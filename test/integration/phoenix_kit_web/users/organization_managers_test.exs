@@ -238,7 +238,10 @@ defmodule PhoenixKitWeb.Users.OrganizationManagersTest do
 
     assert html =~ "Give this organization its own login"
     refute html =~ "Remove anyway"
-    assert render_click(element(view, "button[phx-click=open_add]")) =~ "Find someone with an account"
+
+    assert render_click(element(view, "button[phx-click=open_add]")) =~
+             "Find someone with an account"
+
     render_click(element(view, "#organization-managers-dialog button[phx-click=close_dialog]"))
 
     form = "#organization-managers-remove-#{s.manager.uuid}"

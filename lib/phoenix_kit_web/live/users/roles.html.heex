@@ -125,7 +125,10 @@
                   value: if(role.is_system_role, do: gettext("System"), else: gettext("Custom"))
                 },
                 %{label: gettext("Users"), value: Map.get(@role_stats, role.name, 0)},
-                %{label: gettext("Description"), value: Roles.display_description(role) || gettext("—")}
+                %{
+                  label: gettext("Description"),
+                  value: Roles.display_description(role) || gettext("—")
+                }
               ]
             end
           }

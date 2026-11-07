@@ -2,6 +2,7 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
   @moduledoc false
 
   alias PhoenixKit.Test.Repo
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.Auth.UserToken
   alias PhoenixKit.Users.ManagedOrganizations.Actor
@@ -101,7 +102,7 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
       root: root,
       token: token,
       row: row,
-      user: PhoenixKit.Users.Auth.get_user_by_session_token(token)
+      user: Auth.get_user_by_session_token(token)
     }
   end
 

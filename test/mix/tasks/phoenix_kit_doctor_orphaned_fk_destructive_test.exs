@@ -30,6 +30,15 @@ defmodule Mix.Tasks.PhoenixKit.DoctorOrphanedFkDestructiveTest do
   alias Mix.Tasks.PhoenixKit.Doctor, as: DoctorTask
   alias PhoenixKit.Test.Repo
 
+  # Adding a foreign key validates every row, and the concurrency suites commit activity
+  # rows outside the sandbox, so a row naming a user they have since deleted would fail
+  # these tests depending on the order they run in. This runs in the test's own
+  # transaction, so it rolls back with it.
+  setup do
+    Repo.query!("DELETE FROM phoenix_kit_activities")
+    :ok
+  end
+
   describe "check_orphaned_fk_refs/1 — destructive: a genuinely orphaned row outside the old 4 pairs is caught" do
     # The widened check reads every single-column FK straight from
     # `pg_constraint` (`discover_fk_constraints/2`), not just the four pairs

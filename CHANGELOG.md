@@ -1,9 +1,43 @@
 ## Unreleased
 
-Run `mix phoenix_kit.update` (the new `phoenix_kit.js`). No migration.
+Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
+
+⚠️ Two changes to check in a host:
+
+- A role can no longer be renamed: `name` is a fixed key that code and settings match
+  on. Change what people see with the new label on the Roles page.
+- `Scope.held_roles/1` does not say what someone acting for an organization may do. It
+  is the organization's roles, past their link. Read `Scope.user_roles/1`.
 
 ### Added
 
+- **Different roles per person at each organization.** A person's link to an
+  organization now has a type and either all its roles or a list of them, so Anna can be
+  a Buyer at a company that also sells, while Peter is only a Supplier there. A link
+  narrows: a person gets the roles the organization holds that are also on their link,
+  and a role it does not hold has no effect. Every existing grant is a manager with all
+  roles and behaves as before.
+- **A staff level.** Two relationship types are built in. `manager` is what a grant has
+  always been; `staff` can act for an organization but not manage it, so they cannot
+  invite, remove people or edit the company's profile, and they do not count for the
+  last-manager rule.
+- **Relationship types as data** (Users -> Relationship types, `RelationshipTypes`). An
+  app or an admin adds its own, in plain language: a name and what people of that type
+  can do. `ensure/3` creates one at boot and never overwrites an admin's edits.
+- **People on the company page.** A People tab lists each person's type, roles, and who
+  added them and when, with one dialog to add or change someone: an admin can find a
+  person or invite by email, a manager invites by email. Roles the person may not hand
+  out stay visible but locked. A person's page has an Organizations tab showing where
+  they can act and as what.
+- **Invitations carry the access they offer**, and acceptance creates that link. An
+  invitation for staff has its own email (`organization_link_invitation`).
+- **Translated role names.** The Roles page edits a label and description per language,
+  shown everywhere through `Roles.display_name/2`, the role switcher and account menu
+  included.
+- For hosts: `OrganizationManagers.host_add/4`, `host_update/4`, `people_of/2` and
+  `organizations_of/1`, and `Scope.acting_link/1` and `Scope.can_manage_organization?/1`.
+  A scope built from a bare organization, outside any session, holds only the roles every
+  link allows: all of them until someone is narrowed.
 - **An eye button on password fields** (`<.input type="password" password_toggle>`):
   it shows and hides what was typed. On for the login page, both registration
   pages, password reset, the Add account dialog, and the password fields of
@@ -16,6 +50,11 @@ Run `mix phoenix_kit.update` (the new `phoenix_kit.js`). No migration.
 
 ### Changed
 
+- Removing a role from a link signs out that link's sessions acting as it, as removing a
+  role from an account does. Changing a link refreshes open pages.
+- The Managers section is now People, on its own tab of the company page instead of
+  below every tab. Removing the last manager explains itself, and only then offers an
+  administrator the override.
 - The login page's "Create an account" link moved up, right under the Log in
   button, above the magic link, QR code and OAuth buttons.
 
