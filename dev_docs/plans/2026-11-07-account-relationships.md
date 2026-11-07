@@ -72,6 +72,21 @@ Answered on 2026-11-07, at the end of the brief.
 3. **`held_roles` stays the company's roles in an acting session.** WoodMatrix
    asked for this to be decided and documented. See [Scope](#scope).
 
+## Added in review
+
+Decided on 2026-11-07, after WoodMatrix's answers.
+
+1. **A company link always records who made it and when, and who ended it and
+   when.** Ended links stay in the table. See
+   [`phoenix_kit_account_links`](#phoenix_kit_account_links-phase-2).
+2. **Each role on a link records who gave it** (`assigned_by_uuid`).
+3. **Roles get translations, and `name` becomes a fixed key.** See
+   [Role translations](#role-translations).
+
+The roles on a link are the existing core roles: the same table, the same Roles
+page and permission matrix. There is no second list of roles and no per-company
+version of one.
+
 ## Data model
 
 All in V229, core tables, listed in `ModuleOwnedTables`' core list. New schemas
@@ -116,7 +131,9 @@ The unique index on `(organization_uuid, user_uuid)` stays, and it is rule 3.
 ### `phoenix_kit_organization_manager_roles` (new)
 
 `uuid`, `organization_manager_uuid` (`ON DELETE CASCADE`), `role_uuid`
-(`ON DELETE RESTRICT`), `inserted_at`. Unique on the pair, index on `role_uuid`.
+(`ON DELETE RESTRICT`), `assigned_by_uuid` (`ON DELETE SET NULL`), `inserted_at`.
+Unique on the pair, index on `role_uuid`. Only references: names and permissions
+stay on the role.
 
 ### `phoenix_kit_organization_invitations` (grows)
 
@@ -133,12 +150,38 @@ type, so the pending unique index does not change.
 `role_uuids` is a snapshot, not a join table: at acceptance it keeps the roles
 that still exist, so a role deleted meanwhile leaves the person with less.
 
+### `phoenix_kit_user_roles` (grows)
+
+```sql
+ADD COLUMN data jsonb NOT NULL DEFAULT '{}'
+```
+
+Name and description per language, the shape of the types' `data`. `name` stays
+and becomes a fixed key. The table is already in the manifest, so the new column
+goes in as a further entry there.
+
 ### `phoenix_kit_account_links` (Phase 2)
 
-`uuid`, `from_uuid`, `to_uuid` (users, `ON DELETE CASCADE`),
-`relationship_type_uuid` (`RESTRICT`), `created_by_uuid` (`SET NULL`), `metadata`,
-timestamps. Unique on `(from_uuid, to_uuid, relationship_type_uuid)`, check
-`from_uuid <> to_uuid`.
+| Column | Notes |
+|---|---|
+| `uuid` | `uuid_generate_v7()` default |
+| `from_uuid`, `to_uuid` | Users, `ON DELETE CASCADE` |
+| `relationship_type_uuid` | `ON DELETE RESTRICT` |
+| `created_by_uuid` | Every write must supply it. `ON DELETE SET NULL`, so the column itself is nullable |
+| `ended_at`, `ended_by_uuid` | Set when the link ends. `ended_by_uuid` is `ON DELETE SET NULL` |
+| `metadata`, timestamps | |
+
+Check `from_uuid <> to_uuid`. A partial unique index on
+`(from_uuid, to_uuid, relationship_type_uuid) WHERE ended_at IS NULL` allows one
+live link per pair and type.
+
+Ending a link keeps the row, and adding it again makes a new row, so a pair's whole
+history stays. This is safe because no access decision reads this table.
+
+The limits: if the person who made or ended a link is deleted, their uuid goes
+empty but the dates stay, and if either linked account is deleted, its links go
+with it. Ended links still count as use of a type, so that type can be archived
+but not deleted.
 
 ## Rules
 
@@ -283,7 +326,9 @@ listed three.
 
 - `add/4` and `host_add/4` take `type:`, `roles:`, `all_roles:`, `metadata:`.
   `add/3` and `host_add/3` stay and mean the built-in `manager` with all roles.
-- `update/4` and `host_update/4` are new, and take the locks `add/3` takes.
+- `update/4` and `host_update/4` are new, and take the locks `add/3` takes. They
+  change only the role rows that differ, so a kept role keeps its
+  `assigned_by_uuid` and date. Rule 6 needs the removed set anyway.
 - `insert_locked/3` stays for first managers (`managed_organizations.ex:152`), who
   always get `manager`, and `insert_locked/4` takes the options.
 - `ensure_can_lose!` joins the type and counts `can_manage` only.
@@ -325,8 +370,9 @@ No `Actor`; the caller decides who sees what. Public, on `OrganizationManagers`:
 - `people_of/2`: active people linked to a company, optionally by type.
 - `organizations_of/1`: a person's companies, with type and roles.
 
-Phase 2 adds `AccountLinks.linked/2` (by type and direction).
-`ManagedOrganizations.Sessions.list_for/1` stays internal.
+Phase 2 adds `AccountLinks.linked/2` (by type and direction; live links unless
+given `include_ended: true`). `ManagedOrganizations.Sessions.list_for/1` stays
+internal.
 
 ### Staff level
 
@@ -342,8 +388,30 @@ Phase 2 adds `AccountLinks.linked/2` (by type and direction).
 Preferences stay open to everyone acting (`update_start_page`, the viewer toggles,
 `update_notification_prefs`), though they are stored on the company and shared.
 
+### Role translations
+
+Role names are stored in one language and shown as stored in 13 web files,
+including `role_badge` and the role switcher, so a German page would show "Buyer"
+in the new role picker.
+
+- `Roles.display_name/2` and `Roles.display_description/2` read `data` for the
+  current language (`Multilang.current_locale/0`), then the primary language, then
+  `gettext` for Owner, Admin and User, then `name`.
+- `get_user_role_records/1` and `get_role_records_for_users/1` also select `data`,
+  because the switcher's records hold only `uuid` and `name` today. Places with
+  just a name string (flash messages, `session.active_role`) use a name-to-label
+  map loaded once per page.
+- **`name` is fixed at creation.** `update_role/2` refuses a changed `name`, and the
+  Roles page shows it read-only. Code and settings match on it: WoodMatrix's
+  `%{name: "Buyer"}` and the `new_user_default_role` setting. That form is the only
+  rename path in core today, so an admin who wants another label edits the
+  translation instead.
+- Activity entries keep `name`, so the log reads the same in every language.
+
 ### Admin UI
 
+- **Roles page:** language tabs for name and description through
+  `<.multilang_fields_wrapper>`, with the fixed `name` outside it.
 - **Types screen:** `/admin/users/relationship-types`, `users` permission, a tab
   beside Roles, shown while `enable_organization_accounts` is on. Create, edit
   names, reorder, archive, restore, delete when unused. Flags are read-only after
@@ -360,7 +428,7 @@ Preferences stay open to everyone acting (`update_start_page`, the viewer toggle
 1. V229, schemas, `ModuleOwnedTables`, `ExpectedSchema` (new objects need a real
    manifest entry, not only a restamp), `test/phoenix_kit/migrations/v229_test.exs`,
    and the prefix migration test.
-2. `RelationshipTypes` and its tests.
+2. `RelationshipTypes`, role translations, and their tests.
 3. Scope, `ActiveRole`, `library_operations.ex:235`, the fail-closed rule, and the
    `held_roles` docs.
 4. Authority and the last-manager rule.
@@ -384,12 +452,15 @@ full `mix test` against a scratch database and check the excluded count.
 After WoodMatrix confirms the need (1-2 months):
 
 - `phoenix_kit_account_links`, `PhoenixKit.Users.AccountLink` and `AccountLinks`:
-  `host_add/4`, `host_update/4`, `host_remove/4`, `linked/2`.
+  `host_add/4`, `host_update/4`, `host_remove/4`, `linked/2`. `created_by` is
+  required on all three writes, and `host_remove/4` ends the link rather than
+  deleting it.
 - `RelationshipTypes` accepts `can_act: false`.
 - A links section on the organization details page, and activity entries.
 - Ends need only match the type's kinds; the to end need not be managed.
-- The unique index is the only concurrency control needed, because no access
-  decision reads this table.
+- The partial unique index is the only concurrency control needed, because no
+  access decision reads this table. Ending a link is one
+  `UPDATE ... WHERE ended_at IS NULL`.
 
 No change to `Scope`, `Actor`, `Locks`, `Revocation`, or the session query.
 
@@ -433,10 +504,22 @@ Added by this plan:
 - `host_add/4` needs no rank from `created_by` but refuses a role the company lacks.
 - Re-inviting with other roles is refused; an invitation with a deleted role leaves
   the person with less.
+- Changing a link's roles keeps `assigned_by_uuid` on the roles that stay.
+- `Roles.display_name/2` follows its fallback order, the switcher shows the
+  translated name, and `update_role/2` refuses a rename, forged event included.
 - Forged `update_profile` and avatar events are refused for staff.
 - The losing-rights-mid-session case for every new event.
 - Concurrency alongside `organization_enter_concurrency_test.exs`: a link changed
   or removed while a person enters.
+
+Phase 2:
+
+- A company link cannot be written without `created_by`.
+- Ending a link keeps the row with who and when, `linked/2` hides it unless asked,
+  and adding the link again makes a new row.
+- Two live links for one pair and type are refused.
+- A type with only ended links can be archived but not deleted.
+- A company-to-company link gives its members no way into the other company.
 
 ## Risks
 
@@ -449,10 +532,13 @@ Added by this plan:
 - **Fail-closed changes a by-uuid read.** Host code that builds
   `Scope.for_user(org)` itself gets no roles after this. Call it out in the
   CHANGELOG.
+- **Roles can no longer be renamed.** A host whose admins rename roles uses the
+  translated name instead. Call it out in the CHANGELOG too.
 
 ## Not in scope
 
 As in the brief: removing `organization_uuid` or `:member` invitations; chains or
-trees of links; access or reporting from company links; a history table beyond the
-activity log; limits on links per account. Also a way for a staff person to leave
+trees of links; access or reporting from company links; limits on links per
+account. Acting links get no history table: who changed or removed one stays in the
+activity log, which is pruned after `activity_retention_days`. Also a way for a staff person to leave
 a company on their own: a manager removes them, for now.
