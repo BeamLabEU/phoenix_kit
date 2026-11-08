@@ -152,7 +152,7 @@
           <%= if session.type == :authenticated do %>
             <% user = Map.get(@users_map, session.user_uuid) %>
             <div class="flex items-center gap-2 min-w-0">
-              <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+              <.user_avatar user={user || %{email: session.user_email}} size="sm" peek />
               <div class="min-w-0">
                 <div class="font-medium text-sm truncate">{session.user_email}</div>
                 <div class="text-xs text-base-content/70 font-mono truncate">
@@ -224,7 +224,7 @@
                 <%= if session.type == :authenticated do %>
                   <% user = Map.get(@users_map, session.user_uuid) %>
                   <div class="flex items-center gap-2">
-                    <.user_avatar user={user || %{email: session.user_email}} size="sm" />
+                    <.user_avatar user={user || %{email: session.user_email}} size="sm" peek />
                     <div>
                       <div class="font-medium text-sm">{session.user_email}</div>
                       <div class="text-xs text-base-content/70">ID: {session.user_uuid}</div>

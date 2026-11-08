@@ -48,6 +48,10 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   - `user` - User struct with email and optional custom_fields
   - `size` - Avatar size: "xs" (w-6), "sm" (w-8), "md" (w-10), "lg" (w-12), "xl" (w-40). Defaults to "sm"
   - `class` - Additional CSS classes
+  - `peek` - Show the picture larger while the pointer is over it (lists of
+    small avatars). The preview floats above the page, placed by
+    `phoenix_kit.js`, so a scrolling table does not clip it. Only an avatar
+    with a picture gets one: enlarged initials show nothing new.
   - `shape` - An `AvatarShape` key to draw in; defaults to the site's shape
     (Settings → Users → Avatars). A border or ring on a masked shape is
     masked away along its curves (`AvatarShape.masked?/1`).
@@ -62,6 +66,11 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   attr :size, :string, default: "sm"
   attr :class, :string, default: ""
   attr :shape, :string, default: nil
+  attr :peek, :boolean, default: false
+
+  # The size the hover preview is drawn at, in CSS pixels; phoenix_kit.js
+  # (AvatarPeek) draws it at the same size.
+  @peek_px 176
 
   def user_avatar(assigns) do
     email = get_email(assigns.user)
@@ -98,6 +107,8 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
           nil
       end
 
+    peek_url = if assigns.peek, do: peek_url(avatar_result, crop, email)
+
     size_classes = size_classes(assigns.size)
     gradient = gradient_for_email(email)
     initial = get_user_initial(assigns.user)
@@ -105,6 +116,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     assigns =
       assigns
       |> assign(:avatar_url, avatar_url)
+      |> assign(:peek_url, peek_url)
       |> assign(:crop_style, crop && AvatarCrop.img_style(crop))
       |> assign(:shape_class, AvatarShape.class(assigns.shape || AvatarShape.current()))
       |> assign(:size_classes, size_classes)
@@ -112,15 +124,21 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       |> assign(:initial, initial)
 
     ~H"""
-    <div class={["avatar", if(@avatar_url, do: "", else: "placeholder")]}>
-      <div class={[
-        @shape_class,
-        "overflow-hidden relative flex items-center justify-center",
-        if(@avatar_url, do: "bg-neutral", else: ["bg-gradient-to-br", @gradient]),
-        "text-white font-bold",
-        @size_classes,
-        @class
-      ]}>
+    <div
+      class={["avatar", if(@avatar_url, do: "", else: "placeholder")]}
+      data-avatar-peek={@peek_url}
+    >
+      <div
+        data-avatar-frame={@peek_url && true}
+        class={[
+          @shape_class,
+          "overflow-hidden relative flex items-center justify-center",
+          if(@avatar_url, do: "bg-neutral", else: ["bg-gradient-to-br", @gradient]),
+          "text-white font-bold",
+          @size_classes,
+          @class
+        ]}
+      >
         <%= if @avatar_url do %>
           <%!-- Fallback initials (always rendered, shown when image fails) --%>
           <span
@@ -151,6 +169,21 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     </div>
     """
   end
+
+  # The hover preview loads a picture sized for itself; the small avatar's
+  # would be blurry at that size. Enlarged initials show nothing new: nil.
+  defp peek_url({:storage, file_id, _variant}, crop, _email) do
+    variant =
+      if crop,
+        do: AvatarCrop.variant_for(@peek_px, crop["zoom"], crop["ar"]),
+        else: AvatarCrop.variant_for(@peek_px)
+
+    URLSigner.signed_url(file_id, variant)
+  end
+
+  defp peek_url({:gravatar, _url}, _crop, email), do: gravatar_url(email, @peek_px * 2)
+  defp peek_url({:url, url}, _crop, _email), do: url
+  defp peek_url(nil, _crop, _email), do: nil
 
   # Avatar source resolution (cascading priority)
   defp get_avatar_source(user, size) do

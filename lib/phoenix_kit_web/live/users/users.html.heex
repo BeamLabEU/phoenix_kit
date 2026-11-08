@@ -458,7 +458,7 @@
         </:toolbar_actions>
         <:card_header :let={user}>
           <div class="flex items-center gap-3 min-w-0">
-            <.user_avatar :if={"avatar" in @selected_columns} user={user} size="sm" />
+            <.user_avatar :if={"avatar" in @selected_columns} user={user} size="sm" peek />
             <div class="flex flex-col gap-0.5 min-w-0">
               <div class="flex items-center gap-2 min-w-0">
                 <span class="font-medium text-sm truncate min-w-0">{account_title(user)}</span>
@@ -564,7 +564,19 @@
                       />
                       <%= cond do %>
                         <% column_id == "avatar" -> %>
-                          <.user_avatar user={user} size="sm" />
+                          <%!-- Above the row's stretched link, so the
+                               pointer reaches it for the hover preview; a
+                               link itself, so a click still opens the user. --%>
+                          <.link
+                            navigate={
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
+                            }
+                            class="relative z-10 inline-flex"
+                            tabindex="-1"
+                            aria-hidden="true"
+                          >
+                            <.user_avatar user={user} size="sm" peek />
+                          </.link>
                         <% column_id == "email" -> %>
                           <% title = account_title(user) %>
                           <% subtitle = account_subtitle(user) %>

@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Test.ManagedOrganizationFixtures, as: F
-  alias PhoenixKit.Users.{CustomFields, TableColumns}
+  alias PhoenixKit.Users.{Auth, CustomFields, TableColumns}
   alias PhoenixKit.Utils.Routes
 
   defp marker, do: "lay#{System.unique_integer([:positive])}"
@@ -178,6 +178,42 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
     doc = doc(view)
     refute "Avatar" in header_texts(doc)
     assert [] = doc |> row("#{m}-ann@") |> Floki.find(".avatar")
+  end
+
+  test "an avatar with a picture shows a larger copy on hover, and its click opens the user",
+       %{conn: conn, admin: admin} do
+    m = marker()
+    person = F.person(%{email: "#{m}-pic@example.com"})
+
+    {:ok, _} =
+      Auth.update_user_fields(person, %{
+        "avatar_file_uuid" => Ecto.UUID.generate()
+      })
+
+    F.person(%{email: "#{m}-plain@example.com"})
+    {:ok, view, _html} = open(conn, admin, "?q=#{m}")
+    doc = doc(view)
+
+    [peek] =
+      doc |> row("#{m}-pic@") |> Floki.find(".avatar") |> Floki.attribute("data-avatar-peek")
+
+    assert peek =~ "/medium/", "a picture sized for the preview, not the row's small one"
+
+    assert [href] =
+             doc
+             |> row("#{m}-pic@")
+             |> Floki.find("a.z-10:has(.avatar)")
+             |> Floki.attribute("href")
+
+    assert href =~ "/admin/users/view/#{person.uuid}"
+
+    # Gravatar is tried for every address, so a plain avatar gets one too;
+    # only enlarged initials would show nothing new.
+    assert [_] =
+             doc
+             |> row("#{m}-plain@")
+             |> Floki.find(".avatar")
+             |> Floki.attribute("data-avatar-peek")
   end
 
   describe "a custom field's column name" do

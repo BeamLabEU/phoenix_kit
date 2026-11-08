@@ -13529,6 +13529,100 @@ if (typeof window.Chart === "undefined") {
 })();
 
 // ---------------------------------------------------------------------------
+// AvatarPeek — a larger copy of a small avatar while the pointer is over it.
+//
+// `<.user_avatar peek>` marks its wrapper `data-avatar-peek="<url of a
+// picture sized for the preview>"` and its frame `data-avatar-frame`. One
+// delegated listener (no hook, no ids) clones the frame — shape, crop and
+// all, since every geometry in it is a percentage — into a panel fixed to
+// the viewport, so a scrolling table cannot clip it. Decorative only: it
+// repeats a picture the row already shows.
+// ---------------------------------------------------------------------------
+(function () {
+  if (typeof window === "undefined" || window.PhoenixKitAvatarPeek) return;
+  window.PhoenixKitAvatarPeek = true;
+
+  var SIZE = 176; // UserInfo's @peek_px
+  var GAP = 12;
+  var PAD = 8;
+
+  // Beside the avatar, on the right unless that runs off the viewport,
+  // vertically centred on it and kept inside the viewport.
+  function avatarPeekPosition(rect, size, viewport) {
+    var box = size + 2 * PAD;
+    var left = rect.right + GAP;
+    if (left + box > viewport.width - GAP) left = rect.left - GAP - box;
+    if (left < GAP) left = GAP;
+    var top = rect.top + rect.height / 2 - box / 2;
+    top = Math.max(GAP, Math.min(top, viewport.height - GAP - box));
+    return { left: left, top: top };
+  }
+
+  var current = null;
+  var panel = null;
+
+  function hide() {
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+    panel = null;
+    current = null;
+  }
+
+  function show(el) {
+    var frame = el.querySelector("[data-avatar-frame]");
+    if (!frame) return;
+    var clone = frame.cloneNode(true);
+    clone.removeAttribute("data-avatar-frame");
+    clone.style.width = SIZE + "px";
+    clone.style.height = SIZE + "px";
+    clone.style.fontSize = "4rem";
+    var img = clone.querySelector("img");
+    var src = el.getAttribute("data-avatar-peek");
+    if (img && src) img.src = src;
+
+    var pos = avatarPeekPosition(el.getBoundingClientRect(), SIZE, {
+      width: window.innerWidth,
+      height: window.innerHeight
+    });
+    panel = document.createElement("div");
+    panel.setAttribute("data-avatar-peek-panel", "");
+    panel.setAttribute("aria-hidden", "true");
+    panel.style.cssText =
+      "position:fixed;z-index:1000;pointer-events:none;" +
+      "left:" + pos.left + "px;top:" + pos.top + "px;padding:" + PAD + "px;" +
+      "background:var(--color-base-100,#fff);border-radius:var(--radius-box,1rem);" +
+      "box-shadow:0 12px 32px rgba(0,0,0,.28);" +
+      "opacity:0;transform:scale(.94);transition:opacity .12s ease,transform .12s ease;";
+    panel.appendChild(clone);
+    document.body.appendChild(panel);
+    // Next frame, so the transition runs from the starting values.
+    requestAnimationFrame(function () {
+      if (!panel) return;
+      panel.style.opacity = "1";
+      panel.style.transform = "scale(1)";
+    });
+    current = el;
+  }
+
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("mouseover", function (e) {
+      var target = e.target;
+      var el = target && target.closest ? target.closest("[data-avatar-peek]") : null;
+      if (el === current && panel) return;
+      hide();
+      if (el) show(el);
+    });
+    // Anything that moves the page moves the avatar away from its preview.
+    document.addEventListener("scroll", hide, true);
+    window.addEventListener("blur", hide);
+    window.addEventListener("phx:page-loading-start", hide);
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports.avatarPeekPosition = avatarPeekPosition;
+  }
+})();
+
+// ---------------------------------------------------------------------------
 // ImageEditor — drawing on the image editor's preview.
 //
 // The editor (PhoenixKitWeb.Components.ImageEditor) is a complete form

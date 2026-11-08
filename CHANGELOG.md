@@ -25,6 +25,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   follow the site's choice, and the editor's zoom floor fits the shape. The masks are
   daisyUI's; the host's Tailwind build picks them up from the kit's sources.
   `PhoenixKit.Users.AvatarShape` and `user_avatar`'s `shape` attribute are new.
+- **A larger avatar on hover.** In the users table and the sessions list, pointing at a
+  small avatar shows it larger beside it, in the site's shape and with its crop; a click
+  on it opens the user. `user_avatar` takes `peek` for any list; the preview floats above
+  the page (`phoenix_kit.js`), so a scrolling table does not clip it.
 - **Different roles per person at each organization.** A person's link to an
   organization now has a type and either all its roles or a list of them, so Anna can be
   a Buyer at a company that also sells, while Peter is only a Supplier there. A link
