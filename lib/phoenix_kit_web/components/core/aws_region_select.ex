@@ -29,6 +29,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
   import PhoenixKitWeb.Components.Core.Icon
 
   attr :id, :string, required: true
@@ -47,12 +48,12 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
     <div class="fieldset">
       <label class="label" for={@id}>
         <span class="fieldset-legend font-medium">
-          AWS Region
+          {gettext("AWS Region")}
           <%= if @verified == :success do %>
-            <span class="badge badge-success ml-2">Verified</span>
+            <span class="badge badge-success ml-2">{gettext("Verified")}</span>
           <% end %>
           <%= if @verified == :error do %>
-            <span class="badge badge-error ml-2">Error</span>
+            <span class="badge badge-error ml-2">{gettext("Error")}</span>
           <% end %>
         </span>
       </label>
@@ -62,7 +63,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
           <%!-- Loading state --%>
           <div class="flex items-center justify-center h-12 bg-base-100 border border-base-300 rounded-md">
             <span class="loading loading-spinner loading-sm"></span>
-            <span class="ml-2 text-sm">Loading regions...</span>
+            <span class="ml-2 text-sm">{gettext("Loading regions...")}</span>
           </div>
         <% else %>
           <%= if @regions_loaded and not Enum.empty?(@regions) do %>
@@ -83,12 +84,12 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
                 disabled={@verifying}
               >
                 <%!-- Empty option --%>
-                <option value="">Select a region (optional)</option>
+                <option value="">{gettext("Select a region (optional)")}</option>
 
                 <%!-- Show currently selected region first if not in list --%>
                 <%= if @value != "" and @value not in @regions do %>
                   <option value={@value} selected>
-                    {@value} (currently selected)
+                    {gettext("%{region} (currently selected)", region: @value)}
                   </option>
                 <% end %>
 
@@ -145,15 +146,22 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
         <span class="fieldset-label text-sm text-base-content/70">
           <%= cond do %>
             <% @verified == :success -> %>
-              ✅ Region verified successfully. Available for AWS services.
+              {gettext("✅ Region verified successfully. Available for AWS services.")}
             <% @verified == :error -> %>
-              ❌ Unable to verify region. Please check your credentials.
+              {gettext("❌ Unable to verify region. Please check your credentials.")}
             <% @regions_loaded and not Enum.empty?(@regions) -> %>
-              📋 Select from {length(@regions)} available regions, or keep your custom region.
+              {gettext("📋 Select from %{count} available regions, or keep your custom region.",
+                count: length(@regions)
+              )}
             <% @value != "" and not @regions_loaded -> %>
-              💡 Region entered manually: {@value}. Click "Load regions" to see all options.
+              {gettext(
+                "💡 Region entered manually: %{region}. Click \"Load regions\" to see all options.",
+                region: @value
+              )}
             <% true -> %>
-              💡 Enter region manually (e.g., eu-north-1) or click "Load regions" to choose from list.
+              {gettext(
+                "💡 Enter region manually (e.g., eu-north-1) or click \"Load regions\" to choose from list."
+              )}
           <% end %>
         </span>
       </label>

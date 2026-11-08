@@ -87,7 +87,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
     socket =
       socket
       |> assign(:project_title, Settings.get_project_title())
-      |> assign(:page_title, "Dashboard")
+      |> assign(:page_title, gettext("Dashboard"))
       |> assign(:greeting_key, greeting_key_for_mount(socket))
       # Every scope-derived assign on this page — `:can_access_admin_area?`
       # included — comes from `Overview.assign_scope_gates/1`, and from nowhere

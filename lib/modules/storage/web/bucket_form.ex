@@ -167,7 +167,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
 
         flash_socket =
           socket
-          |> put_flash(:info, "Storage path created: #{expanded_path}")
+          |> put_flash(:info, gettext("Storage path created: %{path}", path: expanded_path))
 
         socket =
           flash_socket
@@ -186,7 +186,9 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
           socket
           |> put_flash(
             :error,
-            "Storage path could not be created: #{inspect(reason)}. Please create it manually."
+            gettext("Storage path could not be created: %{reason}. Please create it manually.",
+              reason: inspect(reason)
+            )
           )
           |> assign(:show_create_path_modal, false)
           |> push_navigate(
@@ -312,7 +314,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       socket
       |> put_flash(
         :error,
-        "Invalid storage path format. Please check the path and try again."
+        gettext("Invalid storage path format. Please check the path and try again.")
       )
       |> push_navigate(to: socket.assigns.current_path || Routes.path("/admin/settings/media"))
 
@@ -365,7 +367,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
         socket =
           socket
           |> assign(:changeset, changeset)
-          |> put_flash(:error, "Failed to create bucket")
+          |> put_flash(:error, gettext("Failed to create bucket"))
 
         {:noreply, socket}
     end
@@ -378,7 +380,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
       {:ok, _bucket} ->
         socket =
           socket
-          |> put_flash(:info, "Bucket updated successfully")
+          |> put_flash(:info, gettext("Bucket updated successfully"))
           |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
@@ -391,7 +393,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
         socket =
           socket
           |> assign(:changeset, changeset)
-          |> put_flash(:error, "Failed to update bucket")
+          |> put_flash(:error, gettext("Failed to update bucket"))
 
         {:noreply, socket}
     end

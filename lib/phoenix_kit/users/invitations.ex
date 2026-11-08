@@ -30,6 +30,7 @@ defmodule PhoenixKit.Users.Invitations do
   alias PhoenixKit.Users.ManagedOrganizations.Invitations, as: ManagerInvitations
   alias PhoenixKit.Users.OrganizationInvitation
   alias PhoenixKit.Users.Referrals
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -386,7 +387,12 @@ defmodule PhoenixKit.Users.Invitations do
 
     case repo.get_by(User, email: invitation.email) do
       nil ->
-        url = Routes.url("/users/register?invitation=#{encoded_token}")
+        # In the language of the mail (an address has no saved one: the
+        # site's), not in the inviting admin's.
+        url =
+          Routes.url("/users/register?invitation=#{encoded_token}",
+            locale: RecipientLocale.for_rendering(invitation.email)
+          )
 
         UserNotifier.deliver_organization_invitation(
           invitation.email,

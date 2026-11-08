@@ -131,9 +131,11 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
 
   defp send_registration_link_async(socket, email) do
     ip_address = socket.assigns[:ip_address]
+    # Read here: the task below is another process, with no page language.
+    locale = socket.assigns[:current_locale]
 
     Phoenix.LiveView.start_async(socket, :send_magic_link, fn ->
-      MagicLinkRegistration.send_registration_link(email, ip_address)
+      MagicLinkRegistration.send_registration_link(email, ip_address, locale: locale)
     end)
   end
 

@@ -968,6 +968,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
+  # The bell is sticky: it keeps its process, and so its Gettext locale, across
+  # navigation. With the language in its id, a language switch mounts a new one.
+  # The site's primary language keeps the plain id.
+  defp bell_id(locale) when is_binary(locale) and locale != "" do
+    if locale == Routes.get_default_admin_locale(),
+      do: "pk-notifications-bell",
+      else: "pk-notifications-bell-" <> locale
+  end
+
+  defp bell_id(_locale), do: "pk-notifications-bell"
+
   defp widget_user(assigns) do
     assigns[:phoenix_kit_current_user] ||
       (assigns[:phoenix_kit_current_scope] && assigns[:phoenix_kit_current_scope].user)
@@ -1254,11 +1265,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   <% end %>
                   <%= if @socket && bell_user && PhoenixKit.Notifications.enabled?() do %>
                     {Phoenix.Component.live_render(@socket, PhoenixKitWeb.Live.NotificationsBell,
-                      id: "pk-notifications-bell",
+                      id: bell_id(assigns[:current_locale_base]),
                       sticky: true,
                       session: %{
                         "user_uuid" => bell_user.uuid,
                         "locale" => assigns[:current_locale_base],
+                        "dialect" => assigns[:current_locale],
                         "can_open_inbox" => @can_open_inbox
                       }
                     )}

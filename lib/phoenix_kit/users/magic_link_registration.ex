@@ -20,6 +20,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Users.Referrals
   alias PhoenixKit.Users.WelcomeEmail
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"
@@ -33,7 +34,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   exist; pass it whenever you have it, or a single client can spread its
   attempts across unlimited addresses.
   """
-  def send_registration_link(email, ip_address \\ nil) when is_binary(email) do
+  def send_registration_link(email, ip_address \\ nil, opts \\ []) when is_binary(email) do
     email = String.trim(email) |> String.downcase()
 
     # BEFORE the lookup, deliberately. Limiting after it would throttle only
@@ -43,7 +44,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     with true <- valid_email?(email),
          :ok <- RateLimiter.check_registration_rate_limit(email, ip_address),
          nil <- Auth.get_user_by_email(email) do
-      generate_and_send_token(email)
+      generate_and_send_token(email, opts[:locale])
     else
       false -> {:error, :invalid_email}
       {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
@@ -147,15 +148,19 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
 
   # Private functions
 
-  defp generate_and_send_token(email) do
+  defp generate_and_send_token(email, page_locale) do
     {token, user_token} =
       UserToken.build_email_token_for_context(email, @magic_link_registration_context)
 
     case Repo.insert(user_token) do
       {:ok, _} ->
-        registration_url = registration_link_url(token)
+        # No account yet, so no saved language: the page's, else the site's.
+        locale = RecipientLocale.for_mail(email, page_locale)
 
-        case send_registration_email(email, registration_url) do
+        registration_url =
+          RecipientLocale.in_locale(locale, fn -> registration_link_url(token) end)
+
+        case send_registration_email(email, registration_url, locale) do
           {:ok, _} ->
             {:ok, email, token}
 
@@ -224,9 +229,9 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     end
   end
 
-  defp send_registration_email(email, registration_url) do
+  defp send_registration_email(email, registration_url, locale) do
     temp_user = %{email: email}
-    Auth.UserNotifier.deliver_magic_link_registration(temp_user, registration_url)
+    Auth.UserNotifier.deliver_magic_link_registration(temp_user, registration_url, locale: locale)
   end
 
   defp process_referral_code(user, referral_code) when is_binary(referral_code) do

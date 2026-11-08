@@ -273,7 +273,7 @@
             type="text"
             name="search_query"
             value={@search_query}
-            placeholder="Search countries or languages..."
+            placeholder={gettext("Search countries or languages...")}
             phx-keyup="search_countries"
             phx-debounce="150"
           />
@@ -289,9 +289,10 @@
               <summary class="collapse-title font-bold text-lg py-3">
                 <span class="ml-2">{continent}</span>
                 <span class="badge badge-ghost badge-sm ml-2">
-                  {count_covered_countries_in_continent(countries, @enabled_codes)}/{length(
-                    countries
-                  )} countries
+                  {gettext("%{covered}/%{total} countries",
+                    covered: count_covered_countries_in_continent(countries, @enabled_codes),
+                    total: length(countries)
+                  )}
                 </span>
               </summary>
               <div class="collapse-content px-2 pb-2">
@@ -371,9 +372,13 @@
       <div>
         <h3 class="font-bold">{gettext("Language Configuration")}</h3>
         <div class="text-sm space-y-1">
-          <p>• Toggle languages on/off to enable or disable them for your application</p>
-          <p>• The default language cannot be disabled and serves as the fallback</p>
-          <p>• Click "Set Default" on any enabled language to make it the default</p>
+          <p>
+            {gettext("• Toggle languages on/off to enable or disable them for your application")}
+          </p>
+          <p>{gettext("• The default language cannot be disabled and serves as the fallback")}</p>
+          <p>
+            {gettext("• Click \"Set Default\" on any enabled language to make it the default")}
+          </p>
         </div>
       </div>
     </div>
@@ -383,7 +388,9 @@
       <div class="card-body">
         <h2 class="card-title text-xl mb-4">{gettext("Frontend Language Switcher")}</h2>
         <p class="text-base-content/70 mb-6">
-          Configure and preview the language switcher component for your frontend application.
+          {gettext(
+            "Configure and preview the language switcher component for your frontend application."
+          )}
         </p>
 
         <%= if @ml_enabled and length(@languages) >= 1 do %>
@@ -490,7 +497,7 @@
                   <pre>{generate_switcher_code(@switcher_show_flags, @switcher_show_names, @switcher_goto_home, @switcher_hide_current, @switcher_show_native_names)}</pre>
                 </div>
                 <p class="text-xs text-base-content/60 mt-2">
-                  Copy this code to your frontend application and customize as needed.
+                  {gettext("Copy this code to your frontend application and customize as needed.")}
                 </p>
               </div>
             </div>
@@ -503,14 +510,21 @@
               <h3 class="font-bold">{gettext("Implementation Notes")}</h3>
               <div class="text-sm space-y-1">
                 <p>
-                  • Make sure <code class="bg-base-300 px-2 py-1 rounded">@current_locale</code>
-                  is available in your assigns
+                  {gettext("• Make sure %{code} is available in your assigns",
+                    code: "@current_locale"
+                  )}
                 </p>
                 <p>
-                  • The component automatically fetches enabled languages from the Language Module
+                  {gettext(
+                    "• The component automatically fetches enabled languages from the Language Module"
+                  )}
                 </p>
-                <p>• Only enabled languages will appear in the switcher</p>
-                <p>• Language switcher works with your existing route-based locale system</p>
+                <p>{gettext("• Only enabled languages will appear in the switcher")}</p>
+                <p>
+                  {gettext(
+                    "• Language switcher works with your existing route-based locale system"
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -520,7 +534,9 @@
             <div>
               <h3 class="font-bold">{gettext("Enable and Configure Languages")}</h3>
               <p class="text-sm mt-2">
-                Add at least one language using the form above to see live previews of the language switcher component.
+                {gettext(
+                  "Add at least one language using the form above to see live previews of the language switcher component."
+                )}
               </p>
             </div>
           </div>

@@ -37,7 +37,7 @@ defmodule PhoenixKitWeb.Live.Notifications.Settings do
      |> assign(:page_title, gettext("My Settings"))
      |> assign(:project_title, Settings.get_project_title())
      |> assign(:url_path, Routes.path("/admin/notifications/settings"))
-     |> assign(:types, Types.list())
+     |> assign(:types, Types.shown())
      |> assign(:channels, Channels.list())
      |> assign(:modal, nil)
      |> assign_user(user)}

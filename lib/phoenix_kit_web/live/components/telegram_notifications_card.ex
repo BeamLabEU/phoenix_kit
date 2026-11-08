@@ -405,7 +405,7 @@ defmodule PhoenixKitWeb.Live.Components.TelegramNotificationsCard do
               <p class="text-xs text-base-content/60">
                 {gettext("Nothing is sent to Telegram for a type you leave unchecked.")}
               </p>
-              <%= for type <- Types.list() do %>
+              <%= for type <- Types.shown() do %>
                 <.checkbox
                   name={"telegram_types[#{type.key}]"}
                   checked={type_on?(@config, type.key)}

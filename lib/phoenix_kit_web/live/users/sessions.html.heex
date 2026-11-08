@@ -179,13 +179,21 @@
             </p>
             <div class="bg-base-200 rounded p-3 mb-4">
               <div class="text-sm">
-                <div><strong>Token:</strong> {@selected_session.token_preview}...</div>
                 <div>
-                  <strong>Created:</strong> {UtilsDate.format_datetime_with_user_format(
+                  <strong>{gettext("Token:")}</strong> {@selected_session.token_preview}...
+                </div>
+                <div>
+                  <strong>{gettext("Created:")}</strong> {UtilsDate.format_datetime_with_user_format(
                     @selected_session.created_at
                   )}
                 </div>
-                <div><strong>Age:</strong> {@selected_session.age_in_days} days</div>
+                <div>
+                  <strong>{gettext("Age:")}</strong> {ngettext(
+                    "%{count} day",
+                    "%{count} days",
+                    @selected_session.age_in_days
+                  )}
+                </div>
               </div>
             </div>
           <% end %>

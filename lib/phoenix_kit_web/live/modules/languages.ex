@@ -136,10 +136,10 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     case Languages.reorder_languages(ordered_codes) do
       {:ok, _} ->
         socket = reload_display_languages(socket, true)
-        {:noreply, put_flash(socket, :info, "Language order updated")}
+        {:noreply, put_flash(socket, :info, gettext("Language order updated"))}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to reorder languages")}
+        {:noreply, put_flash(socket, :error, gettext("Failed to reorder languages"))}
     end
   end
 
@@ -187,7 +187,10 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
         socket =
           socket
           |> reload_display_languages()
-          |> put_flash(:info, "#{language.name} set as default language")
+          |> put_flash(
+            :info,
+            gettext("%{language} set as default language", language: language.name)
+          )
 
         {:noreply, socket}
 
@@ -196,7 +199,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to set default language")
+        socket = put_flash(socket, :error, gettext("Failed to set default language"))
         {:noreply, socket}
     end
   end
@@ -238,12 +241,16 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
         predefined_lang = Languages.get_predefined_language(code)
         language_name = (predefined_lang && predefined_lang.name) || code
-        action = if is_enabled, do: "disabled", else: "enabled"
+
+        message =
+          if is_enabled,
+            do: gettext("%{language} disabled", language: language_name),
+            else: gettext("%{language} enabled", language: language_name)
 
         socket =
           socket
           |> reload_display_languages()
-          |> put_flash(:info, "#{language_name} #{action}")
+          |> put_flash(:info, message)
 
         {:noreply, socket}
 
@@ -252,7 +259,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update language")
+        socket = put_flash(socket, :error, gettext("Failed to update language"))
         {:noreply, socket}
     end
   end

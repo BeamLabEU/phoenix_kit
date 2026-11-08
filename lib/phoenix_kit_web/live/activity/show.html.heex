@@ -36,7 +36,10 @@
             <div>
               <div class="text-xs text-base-content/50 mb-1">{gettext("Date & Time")}</div>
               <div class="text-sm">
-                {Calendar.strftime(@entry.inserted_at, "%B %d, %Y at %H:%M:%S UTC")}
+                {PhoenixKit.Utils.Date.short_with_year(@entry.inserted_at)}, {Calendar.strftime(
+                  @entry.inserted_at,
+                  "%H:%M:%S"
+                )} UTC
               </div>
             </div>
           </div>

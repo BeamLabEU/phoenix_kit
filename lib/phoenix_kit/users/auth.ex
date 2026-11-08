@@ -82,6 +82,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Utils.FileHash
   alias PhoenixKit.Utils.Geolocation
   alias PhoenixKit.Utils.Pagination
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.SessionFingerprint
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
@@ -841,13 +842,36 @@ defmodule PhoenixKit.Users.Auth do
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
+  def deliver_user_update_email_instructions(
+        %User{} = user,
+        current_email,
+        update_email_url_fun,
+        opts \\ []
+      )
       when is_function(update_email_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
     Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
+    locale = mail_locale(user, opts)
+
+    UserNotifier.deliver_update_email_instructions(
+      user,
+      mail_url(locale, update_email_url_fun, encoded_token),
+      locale: locale
+    )
   end
+
+  # The language of an account email, its link included: the person's saved
+  # language, else the `:locale` the caller passes (the page they asked from,
+  # for mail a person requests for themselves), else the site's. One value for
+  # both, so the text and the page the link opens agree. An admin's send passes
+  # no `:locale`, so it never hands the admin's own language to someone else.
+  defp mail_locale(user, opts), do: RecipientLocale.for_mail(user, opts[:locale])
+
+  # The URL function builds its path with `Routes.url/1`, which takes the
+  # process's language; build it in the mail's.
+  defp mail_url(locale, url_fun, token),
+    do: RecipientLocale.in_locale(locale, fn -> url_fun.(token) end)
 
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user password.
@@ -1536,7 +1560,7 @@ defmodule PhoenixKit.Users.Auth do
       {:error, :already_confirmed}
 
   """
-  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun)
+  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun, opts \\ [])
       when is_function(confirmation_url_fun, 1) do
     # A service user (`api_only`) needs no confirmation and has no inbox: it counts as
     # confirmed, so no token is made and no mail is sent.
@@ -1545,7 +1569,13 @@ defmodule PhoenixKit.Users.Auth do
     else
       {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
       Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+      locale = mail_locale(user, opts)
+
+      UserNotifier.deliver_confirmation_instructions(
+        user,
+        mail_url(locale, confirmation_url_fun, encoded_token),
+        locale: locale
+      )
     end
   end
 
@@ -1833,21 +1863,23 @@ defmodule PhoenixKit.Users.Auth do
       when is_function(reset_password_url_fun, 1) do
     if Keyword.get(opts, :rate_limit, true) do
       case RateLimiter.check_password_reset_rate_limit(user.email) do
-        :ok -> send_reset_password_instructions(user, reset_password_url_fun)
+        :ok -> send_reset_password_instructions(user, reset_password_url_fun, opts)
         {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
       end
     else
-      send_reset_password_instructions(user, reset_password_url_fun)
+      send_reset_password_instructions(user, reset_password_url_fun, opts)
     end
   end
 
-  defp send_reset_password_instructions(user, reset_password_url_fun) do
+  defp send_reset_password_instructions(user, reset_password_url_fun, opts) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
     Repo.insert!(user_token)
+    locale = mail_locale(user, opts)
 
     UserNotifier.deliver_reset_password_instructions(
       user,
-      reset_password_url_fun.(encoded_token)
+      mail_url(locale, reset_password_url_fun, encoded_token),
+      locale: locale
     )
   end
 
@@ -2187,6 +2219,31 @@ defmodule PhoenixKit.Users.Auth do
       {:error, _step, changeset, _changes} -> {:error, changeset}
     end
   end
+
+  @doc """
+  Saves the language of the page a person is on as their language, when they
+  have none saved yet: at registration and at sign-in. Without it, someone who
+  registered at `/de/users/register` got their mail in the site's language.
+
+  Nothing is saved when they already have a language (the switcher sets it),
+  or when the page is in the site's own language: that is what they get
+  without a saved one, and an address without a language names none.
+
+  Returns the user, updated or not. A failed save is not an error here.
+  """
+  @spec remember_page_locale(User.t(), String.t() | nil) :: User.t()
+  def remember_page_locale(%User{} = user, page_locale) do
+    with nil <- RecipientLocale.preferred(user),
+         locale when is_binary(locale) and locale != "" <- page_locale,
+         false <- RecipientLocale.site_language?(locale),
+         {:ok, %User{} = updated} <- update_user_locale_preference(user, locale) do
+      updated
+    else
+      _ -> user
+    end
+  end
+
+  def remember_page_locale(user, _page_locale), do: user
 
   @doc """
   Updates user's preferred locale (dialect preference).

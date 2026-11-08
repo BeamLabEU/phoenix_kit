@@ -1,0 +1,176 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: zh\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "can't be blank"
+msgstr "不能为空"
+
+msgid "has already been taken"
+msgstr "已被占用"
+
+msgid "is invalid"
+msgstr "无效"
+
+msgid "must be accepted"
+msgstr "必须被接受"
+
+msgid "has invalid format"
+msgstr "格式无效"
+
+msgid "has an invalid entry"
+msgstr "包含无效的条目"
+
+msgid "is reserved"
+msgstr "已被保留"
+
+msgid "does not match confirmation"
+msgstr "与确认内容不一致"
+
+msgid "is still associated with this entry"
+msgstr "仍与此条目关联"
+
+msgid "are still associated with this entry"
+msgstr "仍与此条目关联"
+
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
+msgstr[0] "应有 %{count} 项"
+
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "应为 %{count} 个字符"
+
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "应为 %{count} 个字节"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] "至少应有 %{count} 项"
+
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
+msgstr[0] "至少应为 %{count} 个字符"
+
+msgid "should be at least %{count} byte(s)"
+msgid_plural "should be at least %{count} byte(s)"
+msgstr[0] "至少应为 %{count} 个字节"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] "最多应有 %{count} 项"
+
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "最多应为 %{count} 个字符"
+
+msgid "should be at most %{count} byte(s)"
+msgid_plural "should be at most %{count} byte(s)"
+msgstr[0] "最多应为 %{count} 个字节"
+
+msgid "must be less than %{number}"
+msgstr "必须小于 %{number}"
+
+msgid "must be greater than %{number}"
+msgstr "必须大于 %{number}"
+
+msgid "must be less than or equal to %{number}"
+msgstr "必须小于或等于 %{number}"
+
+msgid "must be greater than or equal to %{number}"
+msgstr "必须大于或等于 %{number}"
+
+msgid "must be equal to %{number}"
+msgstr "必须等于 %{number}"
+
+#: lib/phoenix_kit/users/auth/user.ex:470
+#: lib/phoenix_kit/users/auth/user.ex:623
+#, elixir-autogen, elixir-format
+msgid "cannot be changed for a managed organization"
+msgstr "不能用于受管组织"
+
+#: lib/phoenix_kit/users/auth/user.ex:714
+#, elixir-autogen, elixir-format
+msgid "cannot reference self"
+msgstr "不能引用自身"
+
+#: lib/phoenix_kit/users/auth/user.ex:444
+#, elixir-autogen, elixir-format
+msgid "did not change"
+msgstr "未更改"
+
+#: lib/phoenix_kit/users/auth/user.ex:463
+#, elixir-autogen, elixir-format
+msgid "does not match password"
+msgstr "与密码不匹配"
+
+#: lib/phoenix_kit/users/auth/user.ex:557
+#, elixir-autogen, elixir-format
+msgid "is not valid"
+msgstr "无效"
+
+#: lib/phoenix_kit/users/auth/user.ex:1187
+#, elixir-autogen, elixir-format
+msgid "must be a timezone identifier"
+msgstr "必须是时区标识符"
+
+#: lib/phoenix_kit/users/auth/user.ex:1204
+#, elixir-autogen, elixir-format
+msgid "must be a timezone identifier like Europe/Warsaw"
+msgstr "必须是时区标识符，例如 Europe/Warsaw"
+
+#: lib/phoenix_kit/users/auth/user.ex:1143
+#, elixir-autogen, elixir-format
+msgid "must be a valid country code"
+msgstr "必须是有效的国家代码"
+
+#: lib/phoenix_kit/users/auth/user.ex:298
+#, elixir-autogen, elixir-format
+msgid "must be a valid email address"
+msgstr "必须是有效的电子邮件地址"
+
+#: lib/phoenix_kit/users/auth/user.ex:651
+#: lib/phoenix_kit/users/auth/user.ex:1228
+#, elixir-autogen, elixir-format
+msgid "must be a valid map"
+msgstr "必须是有效的映射"
+
+#: lib/phoenix_kit/users/auth/user.ex:567
+#, elixir-autogen, elixir-format
+msgid "must be different from current password"
+msgstr "必须与当前密码不同"
+
+#: lib/phoenix_kit/users/auth/user.ex:386
+#, elixir-autogen, elixir-format
+msgid "must contain at least one digit"
+msgstr "必须至少包含一个数字"
+
+#: lib/phoenix_kit/users/auth/user.ex:378
+#, elixir-autogen, elixir-format
+msgid "must contain at least one lowercase character"
+msgstr "必须至少包含一个小写字母"
+
+#: lib/phoenix_kit/users/auth/user.ex:369
+#, elixir-autogen, elixir-format
+msgid "must contain at least one uppercase character"
+msgstr "必须至少包含一个大写字母"
+
+#: lib/phoenix_kit/users/auth/user.ex:253
+#: lib/phoenix_kit/users/auth/user.ex:312
+#, elixir-autogen, elixir-format
+msgid "must have the @ sign and no spaces"
+msgstr "必须包含 @ 符号且不含空格"
+
+#: lib/phoenix_kit/users/auth/user.ex:962
+#, elixir-autogen, elixir-format
+msgid "must start with a letter and contain only letters, numbers, and underscores"
+msgstr "必须以字母开头，且只能包含字母、数字和下划线"

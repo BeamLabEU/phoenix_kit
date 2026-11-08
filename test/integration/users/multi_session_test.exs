@@ -125,6 +125,22 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
   end
 
   describe "switch_to/2" do
+    test "is logged without a target, so nobody is notified of their own switch" do
+      owner = owner_user()
+      other = plain_user()
+      conn = conn_for(owner)
+      {:ok, conn} = MultiSession.add_account(conn, other.email, "ValidPassword123!")
+
+      [_root, added] = MultiSession.list_accounts(Plug.Conn.get_session(conn))
+      assert {:ok, _conn, _user} = MultiSession.switch_to(conn, added.ref)
+
+      assert %{entries: [entry]} =
+               Activity.list(action: "session.switched", resource_uuid: other.uuid)
+
+      assert entry.resource_uuid == other.uuid
+      assert is_nil(entry.target_uuid)
+    end
+
     test "activates a token already in the stack by ref" do
       owner = owner_user()
       other = plain_user()

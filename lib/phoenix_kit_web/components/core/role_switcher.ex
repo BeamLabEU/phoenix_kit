@@ -96,7 +96,7 @@ defmodule PhoenixKitWeb.Components.Core.RoleSwitcher do
         aria-label={gettext("Switch role")}
       >
         <Icon.icon name="hero-identification" class="w-4 h-4" />
-        <span class="max-w-40 truncate">{@active.name}</span>
+        <span class="max-w-40 truncate">{Roles.display_name(@active)}</span>
         <Icon.icon name="hero-chevron-down" class="w-3 h-3 opacity-60" />
       </div>
       <ul

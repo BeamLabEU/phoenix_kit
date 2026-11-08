@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
   import PhoenixKitWeb.Components.Core.Icon
 
   attr :access_key_id, :string, required: true
@@ -79,10 +80,10 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
         >
           <%= if @verifying do %>
             <span class="loading loading-spinner loading-xs"></span>
-            <span>Verifying...</span>
+            <span>{gettext("Verifying...")}</span>
           <% else %>
             <.icon name="hero-shield-check" class="w-4 h-4" />
-            <span>Verify Credentials</span>
+            <span>{gettext("Verify Credentials")}</span>
           <% end %>
         </button>
       </div>
@@ -94,7 +95,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <div class="alert alert-success">
               <.icon name="hero-check-circle" class="w-5 h-5" />
               <div>
-                <p class="font-semibold">✅ Verification Successful</p>
+                <p class="font-semibold">{gettext("✅ Verification Successful")}</p>
                 <p class="text-sm mt-1">{@message}</p>
               </div>
             </div>
@@ -102,7 +103,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <div class="alert alert-error">
               <.icon name="hero-x-circle" class="w-5 h-5" />
               <div>
-                <p class="font-semibold">❌ Verification Failed</p>
+                <p class="font-semibold">{gettext("❌ Verification Failed")}</p>
                 <p class="text-sm mt-1">{@message}</p>
               </div>
             </div>
@@ -110,9 +111,11 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <div class="alert alert-info">
               <.icon name="hero-information-circle" class="w-5 h-5" />
               <div>
-                <p class="font-semibold">Ready for Verification</p>
+                <p class="font-semibold">{gettext("Ready for Verification")}</p>
                 <p class="text-sm mt-1">
-                  Enter your AWS credentials and click "Verify Credentials" to test connectivity.
+                  {gettext(
+                    "Enter your AWS credentials and click \"Verify Credentials\" to test connectivity."
+                  )}
                 </p>
               </div>
             </div>
@@ -120,9 +123,11 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <div class="alert alert-info">
               <.icon name="hero-information-circle" class="w-5 h-5" />
               <div>
-                <p class="font-semibold">Ready for Verification</p>
+                <p class="font-semibold">{gettext("Ready for Verification")}</p>
                 <p class="text-sm mt-1">
-                  Enter your AWS credentials and click "Verify Credentials" to test connectivity.
+                  {gettext(
+                    "Enter your AWS credentials and click \"Verify Credentials\" to test connectivity."
+                  )}
                 </p>
               </div>
             </div>
@@ -133,12 +138,14 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
       <%= if @verified == :success and map_size(@permissions) > 0 do %>
         <div class="mt-4 border-t border-base-300 pt-4">
           <h3 class="text-sm font-semibold mb-2 flex items-center gap-2">
-            <.icon name="hero-shield-check" class="w-4 h-4" /> AWS Permissions Check
+            <.icon name="hero-shield-check" class="w-4 h-4" /> {gettext("AWS Permissions Check")}
           </h3>
           <div class="alert alert-info mb-3 py-2 text-xs">
             <.icon name="hero-information-circle" class="w-4 h-4" />
             <p class="text-xs">
-              ℹ️ Basic permissions checked using List operations. Actual CREATE permissions will be verified during "Setup AWS Infrastructure".
+              {gettext(
+                "ℹ️ Basic permissions checked using List operations. Actual CREATE permissions will be verified during \"Setup AWS Infrastructure\"."
+              )}
             </p>
           </div>
 
@@ -189,11 +196,13 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <%= if Map.has_key?(@permissions, :ec2) do %>
               <div class="bg-base-200 rounded-lg p-3 border border-info/30">
                 <h4 class="text-xs font-semibold text-base-content/70 mb-1 flex items-center gap-2">
-                  EC2 (Optional Feature)
-                  <span class="badge badge-info badge-xs">auto-loading regions</span>
+                  {gettext("EC2 (Optional Feature)")}
+                  <span class="badge badge-info badge-xs">{gettext("auto-loading regions")}</span>
                 </h4>
                 <p class="text-xs text-base-content/60 mb-2">
-                  Used for automatic region discovery. Manual region selection available if denied.
+                  {gettext(
+                    "Used for automatic region discovery. Manual region selection available if denied."
+                  )}
                 </p>
                 <div class="space-y-1">
                   <%= for {permission, status} <- @permissions.ec2 do %>
@@ -211,9 +220,11 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
             <div class="alert alert-warning mt-3 text-xs">
               <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
               <div>
-                <p class="font-semibold">Missing Critical Permissions (SQS/SNS/SES)</p>
+                <p class="font-semibold">{gettext("Missing Critical Permissions (SQS/SNS/SES)")}</p>
                 <p class="text-xs mt-1">
-                  Some required List permissions are denied. "Setup AWS Infrastructure" will likely fail without CREATE permissions. Please review your IAM policy.
+                  {gettext(
+                    "Some required List permissions are denied. \"Setup AWS Infrastructure\" will likely fail without CREATE permissions. Please review your IAM policy."
+                  )}
                 </p>
               </div>
             </div>
@@ -235,15 +246,15 @@ defmodule PhoenixKitWeb.Components.Core.AWSCredentialsVerify do
       <%= case @status do %>
         <% :granted -> %>
           <span class="flex items-center gap-1 text-success">
-            <.icon name="hero-check-circle" class="w-4 h-4" /> Granted
+            <.icon name="hero-check-circle" class="w-4 h-4" /> {gettext("Granted")}
           </span>
         <% :denied -> %>
           <span class="flex items-center gap-1 text-error">
-            <.icon name="hero-x-circle" class="w-4 h-4" /> Denied
+            <.icon name="hero-x-circle" class="w-4 h-4" /> {gettext("Denied")}
           </span>
         <% :unknown -> %>
           <span class="flex items-center gap-1 text-warning">
-            <.icon name="hero-question-mark-circle" class="w-4 h-4" /> Unknown
+            <.icon name="hero-question-mark-circle" class="w-4 h-4" /> {gettext("Unknown")}
           </span>
       <% end %>
     </div>

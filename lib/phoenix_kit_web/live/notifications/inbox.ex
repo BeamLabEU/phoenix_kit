@@ -157,20 +157,6 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
 
   defp reset_limit(socket), do: assign(socket, :limit, socket.assigns.per_page)
 
-  defp relative_time(%DateTime{} = dt) do
-    seconds = DateTime.diff(DateTime.utc_now(), dt)
-
-    cond do
-      seconds < 60 -> gettext("just now")
-      seconds < 3600 -> gettext("%{n}m ago", n: div(seconds, 60))
-      seconds < 86_400 -> gettext("%{n}h ago", n: div(seconds, 3600))
-      seconds < 604_800 -> gettext("%{n}d ago", n: div(seconds, 86_400))
-      true -> Calendar.strftime(dt, "%b %d")
-    end
-  end
-
-  defp relative_time(_), do: ""
-
   # Group the rows into contiguous day buckets so a long history stays
   # scannable. chunk_by preserves order without a re-sort.
   #
@@ -327,7 +313,7 @@ defmodule PhoenixKitWeb.Live.Notifications.Inbox do
                             {view.text}
                           </button>
                           <p class="text-xs text-base-content/50 mt-1">
-                            {relative_time(n.inserted_at)}
+                            {PhoenixKit.Utils.Date.ago(n.inserted_at)}
                           </p>
                         </div>
 

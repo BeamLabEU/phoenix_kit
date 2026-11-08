@@ -8,14 +8,10 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   alias PhoenixKit.Dashboard.Registry, as: TabRegistry
   alias PhoenixKit.Dashboard.Tab
-  alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
-  alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.AdminLabel
-  alias PhoenixKitWeb.Components.Core.LanguageSwitcher
 
   # Guest dropdown link catalog. Each entry is
   # `{key, path, icon, label_fn, setting_gate_fn}`; `label_fn`/`gate_fn`
@@ -109,7 +105,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       |> assign(:user, user)
       |> assign(:multi_session_allowed?, multi_session_allowed?)
       |> assign(:accounts, accounts)
-      |> assign(:accounts_removable?, any_removable_account?(accounts))
 
     ~H"""
     <%= if @scope && PhoenixKit.Users.Auth.Scope.authenticated?(@scope) do %>
@@ -208,118 +203,14 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             current_locale={@current_locale}
           />
 
-          <%= if @multi_session_allowed? do %>
-            <div class="divider my-0"></div>
-
-            <li class="menu-title px-4 py-1">
-              <span class="text-xs">{gettext("Accounts")}</span>
-            </li>
-
-            <%!--
-              Account rows. The wrapper div is the only `li > *`, so it carries
-              the `!p-0` / `!bg-transparent` reset for the padding and hover
-              colour daisyUI's `menu` puts on a menu item's direct child; every
-              bit of spacing then lives on the inner row, which is structurally
-              identical in both branches. That is what keeps the active row's
-              email flush with the inactive ones — the two branches used to nest
-              at different depths and the emails drifted apart by a pad's width.
-            --%>
-            <%= for account <- @accounts do %>
-              <%!--
-                `flex-nowrap` on the li and `w-full` on the row: daisyUI's
-                menu `li` is a WRAPPING column flex, whose line is as wide as
-                its widest item's content, so a long email stretched the row
-                past the menu's edge (the active row's badge and check cut
-                off) however `min-w-0`/`truncate` were set inside it.
-              --%>
-              <li class="p-0 min-w-0 flex-nowrap">
-                <div class="!p-0 flex w-full items-center gap-1 min-w-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
-                  <%= if account.active? do %>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex w-full min-w-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-content">
-                        <span class="flex-1 min-w-0 truncate" title={account.email}>
-                          {account.email}
-                        </span>
-                        <span class="badge badge-xs border-0 bg-primary-content/20 text-primary-content shrink-0">
-                          {account.role}
-                        </span>
-                        <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 shrink-0" />
-                      </div>
-                    </div>
-                  <% else %>
-                    <.form
-                      for={%{}}
-                      action={Routes.locale_aware_path(assigns, "/users/session/active")}
-                      method="put"
-                      class="flex-1 min-w-0"
-                    >
-                      <input type="hidden" name="ref" value={account.ref} />
-                      <input type="hidden" name="return_to" value={@current_path} />
-                      <%!--
-                        `text-start` is load-bearing. A <button> inherits the UA
-                        `text-align: center`, and the email span below is
-                        `flex-1`, so a short email centres itself inside its
-                        column and drifts right of the active row's — that row
-                        is a <div> and starts at the text edge.
-                      --%>
-                      <button
-                        type="submit"
-                        class="flex w-full min-w-0 items-center gap-2 rounded-lg px-4 py-2 text-start hover:bg-base-200"
-                      >
-                        <span class="flex-1 min-w-0 truncate" title={account.email}>
-                          {account.email}
-                        </span>
-                        <span class="badge badge-xs badge-ghost shrink-0">{account.role}</span>
-                        <%!-- Stands in for the active row's check so the role badges share a right edge. --%>
-                        <span class="w-4 shrink-0" aria-hidden="true"></span>
-                      </button>
-                    </.form>
-                  <% end %>
-
-                  <%!--
-                    Fixed-width trailing slot, rendered on every row as soon as a
-                    single account is removable so the email column keeps one
-                    width down the list. Left empty for the active and root rows.
-                  --%>
-                  <div
-                    :if={@accounts_removable?}
-                    class="w-6 shrink-0 flex items-center justify-center"
-                  >
-                    <.form
-                      :if={not account.active? and not account.root?}
-                      for={%{}}
-                      action={
-                        Routes.locale_aware_path(assigns, "/users/session/accounts/#{account.ref}")
-                      }
-                      method="delete"
-                    >
-                      <input type="hidden" name="return_to" value={@current_path} />
-                      <button
-                        type="submit"
-                        class="btn btn-ghost btn-xs btn-square text-error"
-                        title={gettext("Remove")}
-                        aria-label={gettext("Remove") <> " " <> account.email}
-                      >
-                        <PhoenixKitWeb.Components.Core.Icons.icon_x_thin class="w-3 h-3" />
-                      </button>
-                    </.form>
-                  </div>
-                </div>
-              </li>
-            <% end %>
-
-            <li :if={is_nil(PhoenixKit.Users.Auth.Scope.acting_user_uuid(@scope))} class="p-0">
-              <label
-                for="pk-add-account-modal-dashboard"
-                class="!p-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent cursor-pointer"
-              >
-                <span class="flex w-full items-center gap-3 rounded-lg px-4 py-2 hover:bg-base-200">
-                  <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-4 h-4 shrink-0" />
-                  <span>{gettext("Add account")}</span>
-                </span>
-              </label>
-            </li>
-          <% end %>
+          <PhoenixKitWeb.Components.AccountMenu.accounts_section
+            :if={@multi_session_allowed?}
+            scope={@scope}
+            accounts={@accounts}
+            current_path={@current_path}
+            current_locale={@current_locale}
+            modal_id="pk-add-account-modal-dashboard"
+          />
 
           <div class="divider my-0"></div>
 
@@ -348,50 +239,12 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         </ul>
       </div>
 
-      <%= if @multi_session_allowed? do %>
-        <input type="checkbox" id="pk-add-account-modal-dashboard" class="modal-toggle" />
-        <div class="modal" role="dialog">
-          <div class="modal-box">
-            <h3 class="text-lg font-bold mb-4">{gettext("Add account")}</h3>
-            <.form
-              for={%{}}
-              action={Routes.locale_aware_path(assigns, "/users/session/accounts")}
-              method="post"
-              class="space-y-4"
-            >
-              <input type="hidden" name="return_to" value={@current_path} />
-              <div class="fieldset">
-                <label class="label"><span class="fieldset-legend">{gettext("Email or username")}</span></label>
-                <input
-                  name="user[email_or_username]"
-                  type="text"
-                  required
-                  class="input w-full"
-                />
-              </div>
-              <div class="fieldset">
-                <label class="label"><span class="fieldset-legend">{gettext("Password")}</span></label>
-                <.input
-                  id="pk-add-account-password-dashboard"
-                  name="user[password]"
-                  type="password"
-                  value=""
-                  required
-                  password_toggle
-                />
-              </div>
-              <div class="modal-action">
-                <label for="pk-add-account-modal-dashboard" class="btn btn-outline">
-                  {gettext("Cancel")}
-                </label>
-                <button type="submit" class="btn btn-primary">{gettext("Add account")}</button>
-              </div>
-            </.form>
-            <.add_account_oauth_buttons current_path={@current_path} />
-          </div>
-          <label class="modal-backdrop" for="pk-add-account-modal-dashboard">{gettext("Close")}</label>
-        </div>
-      <% end %>
+      <PhoenixKitWeb.Components.AccountMenu.add_account_modal
+        :if={@multi_session_allowed?}
+        id="pk-add-account-modal-dashboard"
+        current_path={@current_path}
+        current_locale={@current_locale}
+      />
     <% else %>
       <.guest_dropdown
         current_path={@current_path}
@@ -399,85 +252,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         guest_links={@guest_links}
         show_language_switcher={@show_language_switcher}
       />
-    <% end %>
-    """
-  end
-
-  # True when at least one account row can show its remove button. Drives the
-  # fixed-width trailing slot on EVERY row: without it the rows that carry a
-  # remove button would squeeze their email column narrower than the rows that
-  # do not, and the list would step in and out down its right edge.
-  defp any_removable_account?(accounts) do
-    Enum.any?(accounts, &(not &1.active? and not &1.root?))
-  end
-
-  # OAuth buttons for the "Add account" modal.
-  # Uses the same provider availability checks as the main login page —
-  # a provider button only appears when it is enabled in General Settings.
-  # Each link targets /users/auth/:provider with add_account=1 so the OAuth
-  # callback knows to append the result to the multi-session stack.
-  # Duplicated from AdminNav's private component of the same name rather
-  # than shared — keeps this frontend-facing module independent of the
-  # admin-only one.
-  attr :current_path, :string, default: "/"
-
-  defp add_account_oauth_buttons(assigns) do
-    google_enabled = OAuthAvailability.provider_enabled?(:google)
-    github_enabled = OAuthAvailability.provider_enabled?(:github)
-    facebook_enabled = OAuthAvailability.provider_enabled?(:facebook)
-
-    any_enabled = google_enabled or github_enabled or facebook_enabled
-
-    assigns =
-      assigns
-      |> assign(:google_enabled, google_enabled)
-      |> assign(:github_enabled, github_enabled)
-      |> assign(:facebook_enabled, facebook_enabled)
-      |> assign(:any_enabled, any_enabled)
-
-    ~H"""
-    <%= if @any_enabled do %>
-      <div class="mt-4">
-        <div class="divider text-base-content/60 text-xs">{gettext("Or add via")}</div>
-        <div class="space-y-2">
-          <%= if @google_enabled do %>
-            <.link
-              href={
-                Routes.path("/users/auth/google", locale: :none) <>
-                  "?add_account=1&return_to=#{URI.encode_www_form(@current_path)}"
-              }
-              class="btn btn-outline w-full flex items-center justify-center gap-2"
-            >
-              <PhoenixKitWeb.Components.Core.Icons.icon_google class="w-5 h-5" />
-              <span>{gettext("Add Google account")}</span>
-            </.link>
-          <% end %>
-          <%= if @github_enabled do %>
-            <.link
-              href={
-                Routes.path("/users/auth/github", locale: :none) <>
-                  "?add_account=1&return_to=#{URI.encode_www_form(@current_path)}"
-              }
-              class="btn btn-outline w-full flex items-center justify-center gap-2"
-            >
-              <PhoenixKitWeb.Components.Core.Icons.icon_github class="w-5 h-5" />
-              <span>{gettext("Add GitHub account")}</span>
-            </.link>
-          <% end %>
-          <%= if @facebook_enabled do %>
-            <.link
-              href={
-                Routes.path("/users/auth/facebook", locale: :none) <>
-                  "?add_account=1&return_to=#{URI.encode_www_form(@current_path)}"
-              }
-              class="btn btn-outline w-full flex items-center justify-center gap-2"
-            >
-              <PhoenixKitWeb.Components.Core.Icons.icon_facebook class="w-5 h-5" />
-              <span>{gettext("Add Facebook account")}</span>
-            </.link>
-          <% end %>
-        </div>
-      </div>
     <% end %>
     """
   end
@@ -539,69 +313,19 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
     """
   end
 
-  # Shared, independently scrollable language list used by both the
-  # authenticated and guest dropdowns. Renders nothing when fewer than two
-  # languages are enabled. Anchors are styled directly (no nested daisyUI
-  # `<ul class="menu">`) so the parent menu doesn't apply submenu indent or
-  # li-child padding that would force horizontal scroll. See admin_nav.ex
-  # for the matching pattern.
+  # The language list, shared with the admin menu (`AccountMenu`). Plain
+  # links: the guest menu is on the sign-in pages, which have no socket.
   attr(:current_path, :string, required: true)
   attr(:current_locale, :string, required: true)
 
   defp language_menu_section(assigns) do
-    # Highlight by BASE code, not full-dialect equality. `@current_locale`
-    # may be a base ("en", per the attr doc) or a resolved dialect that
-    # differs from the enabled one (e.g. `resolve_dialect("en")` => "en-US"
-    # while English is enabled as "en-GB"), so a raw `==` against the
-    # enabled dialect never matched on the default locale. Comparing bases
-    # makes en/en-GB/en-US all match and works whether the caller passes a
-    # base or a dialect — same rule the standalone `Core.LanguageSwitcher` uses.
-    current_base = DialectMapper.extract_base(assigns.current_locale)
-
-    user_languages =
-      Enum.map(get_user_languages(), fn language ->
-        Map.put(language, :active?, DialectMapper.extract_base(language.code) == current_base)
-      end)
-
-    assigns = assign(assigns, :user_languages, user_languages)
-
     ~H"""
-    <%= if length(@user_languages) > 1 do %>
-      <div class="divider my-0"></div>
-
-      <li class="menu-title px-4 py-1">
-        <span class="text-xs">{gettext("Language")}</span>
-      </li>
-
-      <li class="p-0 !bg-transparent hover:!bg-transparent focus:!bg-transparent">
-        <div class="!p-0 block w-full max-h-60 overflow-y-auto overflow-x-hidden !bg-transparent hover:!bg-transparent focus:!bg-transparent">
-          <a
-            :for={language <- @user_languages}
-            href={
-              Routes.locale_switch_path(@current_path, language.code,
-                current_locale: assigns[:current_locale]
-              )
-            }
-            class={[
-              "w-full flex items-center gap-3 rounded-lg px-4 py-2 text-sm",
-              "focus:outline-none focus-visible:outline-none",
-              if(language.active?,
-                do:
-                  "bg-primary !text-primary-content hover:bg-primary hover:!text-primary-content active:!bg-primary/80",
-                else:
-                  "!text-base-content hover:bg-base-200 hover:!text-base-content focus:!text-base-content active:!text-base-content active:!bg-base-300"
-              )
-            ]}
-          >
-            <span class="text-lg">{get_language_flag(language.code)}</span>
-            <span>{language.name}</span>
-            <%= if language.active? do %>
-              <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
-            <% end %>
-          </a>
-        </div>
-      </li>
-    <% end %>
+    <PhoenixKitWeb.Components.AccountMenu.language_section
+      languages={PhoenixKitWeb.Components.AccountMenu.languages(@current_locale)}
+      current_path={@current_path}
+      current_locale={@current_locale}
+      switch={:link}
+    />
     """
   end
 
@@ -630,45 +354,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   defp guest_link_label(:register), do: gettext("Sign up")
   defp guest_link_label(:reset), do: gettext("Forgot password")
   defp guest_link_label(:magic_link), do: gettext("Magic link")
-
-  # Helper function to get user languages from Languages module
-  # Returns enabled languages or falls back to English if module is disabled
-  defp get_user_languages do
-    # Get enabled languages from the Languages module
-    languages =
-      if Languages.enabled?() do
-        Languages.get_enabled_languages()
-      else
-        # Fallback to English when module is disabled
-        [%{code: "en-US", name: "English (United States)", is_enabled: true}]
-      end
-
-    # Map to expected format with enriched data from predefined languages.
-    # The final `dedupe_names/1` call drops the country qualifier when
-    # only one dialect of a given base language is configured — the
-    # same rule the frontend switcher applies, called from its
-    # canonical home in `Core.LanguageSwitcher` so the logic lives in
-    # one place.
-    languages
-    |> Enum.map(fn lang ->
-      case Languages.get_predefined_language(lang.code) do
-        %{name: name, flag: flag, native: native} ->
-          %{code: lang.code, name: name, flag: flag, native: native}
-
-        nil ->
-          %{code: lang.code, name: String.upcase(lang.code), flag: "🌐", native: ""}
-      end
-    end)
-    |> LanguageSwitcher.dedupe_names()
-  end
-
-  # Helper function to get language flag emoji
-  defp get_language_flag(code) when is_binary(code) do
-    case Languages.get_predefined_language(code) do
-      %{flag: flag} -> flag
-      nil -> "🌐"
-    end
-  end
 
   # The label for the entry that leads to the admin area.
   #

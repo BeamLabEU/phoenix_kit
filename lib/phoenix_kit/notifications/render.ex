@@ -12,6 +12,7 @@ defmodule PhoenixKit.Notifications.Render do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Notifications.Notification
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
 
@@ -86,7 +87,7 @@ defmodule PhoenixKit.Notifications.Render do
       if blank?(added) do
         gettext("Your roles were updated.")
       else
-        gettext("Your roles were updated (added: %{roles}).", roles: inspect(added))
+        gettext("Your roles were updated (added: %{roles}).", roles: role_names(added))
       end
 
     {"hero-identification", text}
@@ -204,6 +205,18 @@ defmodule PhoenixKit.Notifications.Render do
     {"hero-user-plus", gettext("Your account was added to another sign-in session.")}
   end
 
+  # No longer sent: switching between two accounts signed in in the same
+  # browser affects nobody else (`MultiSession` logs it without a target).
+  # Kept for the rows sent before.
+  defp icon_and_text("session.switched", _meta) do
+    {"hero-arrows-right-left",
+     gettext("You switched to this account from another signed-in account.")}
+  end
+
+  defp icon_and_text("user.created", _meta) do
+    {"hero-user-plus", gettext("An administrator created your account.")}
+  end
+
   defp icon_and_text(action, _meta) when is_binary(action) do
     {"hero-bell", humanize(action)}
   end
@@ -255,6 +268,16 @@ defmodule PhoenixKit.Notifications.Render do
   end
 
   defp meta_string(_meta, _key), do: nil
+
+  # Role names as the recipient sees them (each role's label in their
+  # language), joined. One query, and only for this notification.
+  defp role_names(names) when is_list(names) do
+    labels = Roles.display_names()
+    Enum.map_join(names, ", ", &Map.get(labels, to_string(&1), to_string(&1)))
+  end
+
+  defp role_names(name) when is_binary(name), do: role_names([name])
+  defp role_names(other), do: inspect(other)
 
   defp humanize(action) do
     action

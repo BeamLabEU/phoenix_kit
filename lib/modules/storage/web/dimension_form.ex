@@ -98,7 +98,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
         socket =
           socket
           |> assign(:changeset, changeset)
-          |> put_flash(:error, "Failed to create dimension")
+          |> put_flash(:error, gettext("Failed to create dimension"))
 
         {:noreply, socket}
     end
@@ -120,7 +120,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
         socket =
           socket
           |> assign(:changeset, changeset)
-          |> put_flash(:error, "Failed to update dimension")
+          |> put_flash(:error, gettext("Failed to update dimension"))
 
         {:noreply, socket}
     end

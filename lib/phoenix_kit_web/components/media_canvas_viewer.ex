@@ -115,6 +115,7 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Format
 
   # Etcher's toolbar color slots are a single palette shared across every
@@ -2485,8 +2486,8 @@ defmodule PhoenixKitWeb.Components.MediaCanvasViewer do
   # locales can reorder components ("%d %b %Y" in en-GB / fr / de
   # etc.) without code changes. `strftime`'s month + day-name
   # expansion already resolves through `Calendar` translations.
-  defp format_date(%DateTime{} = dt), do: Calendar.strftime(dt, gettext("%b %d, %Y"))
-  defp format_date(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, gettext("%b %d, %Y"))
+  defp format_date(%DateTime{} = dt), do: UtilsDate.short_with_year(dt)
+  defp format_date(%NaiveDateTime{} = dt), do: UtilsDate.short_with_year(dt)
   defp format_date(_), do: nil
 
   defp truncate(nil, _), do: nil

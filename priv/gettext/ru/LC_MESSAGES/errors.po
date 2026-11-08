@@ -129,3 +129,86 @@ msgstr "должно быть больше или равно %{number}"
 ## From Ecto.Changeset.validate_number/3
 msgid "must be equal to %{number}"
 msgstr "должно быть равно %{number}"
+
+#: lib/phoenix_kit/users/auth/user.ex:470
+#: lib/phoenix_kit/users/auth/user.ex:623
+#, elixir-autogen, elixir-format
+msgid "cannot be changed for a managed organization"
+msgstr "нельзя изменить для управляемой организации"
+
+#: lib/phoenix_kit/users/auth/user.ex:714
+#, elixir-autogen, elixir-format
+msgid "cannot reference self"
+msgstr "не может ссылаться на себя"
+
+#: lib/phoenix_kit/users/auth/user.ex:444
+#, elixir-autogen, elixir-format
+msgid "did not change"
+msgstr "не изменилось"
+
+#: lib/phoenix_kit/users/auth/user.ex:463
+#, elixir-autogen, elixir-format
+msgid "does not match password"
+msgstr "не совпадает с паролем"
+
+#: lib/phoenix_kit/users/auth/user.ex:557
+#, elixir-autogen, elixir-format
+msgid "is not valid"
+msgstr "недопустимо"
+
+#: lib/phoenix_kit/users/auth/user.ex:1187
+#, elixir-autogen, elixir-format
+msgid "must be a timezone identifier"
+msgstr "должно быть идентификатором часового пояса"
+
+#: lib/phoenix_kit/users/auth/user.ex:1204
+#, elixir-autogen, elixir-format
+msgid "must be a timezone identifier like Europe/Warsaw"
+msgstr "должно быть идентификатором часового пояса, например Europe/Warsaw"
+
+#: lib/phoenix_kit/users/auth/user.ex:1143
+#, elixir-autogen, elixir-format
+msgid "must be a valid country code"
+msgstr "должно быть допустимым кодом страны"
+
+#: lib/phoenix_kit/users/auth/user.ex:298
+#, elixir-autogen, elixir-format
+msgid "must be a valid email address"
+msgstr "должно быть допустимым адресом электронной почты"
+
+#: lib/phoenix_kit/users/auth/user.ex:651
+#: lib/phoenix_kit/users/auth/user.ex:1228
+#, elixir-autogen, elixir-format
+msgid "must be a valid map"
+msgstr "должно быть допустимым словарём"
+
+#: lib/phoenix_kit/users/auth/user.ex:567
+#, elixir-autogen, elixir-format
+msgid "must be different from current password"
+msgstr "должно отличаться от текущего пароля"
+
+#: lib/phoenix_kit/users/auth/user.ex:386
+#, elixir-autogen, elixir-format
+msgid "must contain at least one digit"
+msgstr "должно содержать хотя бы одну цифру"
+
+#: lib/phoenix_kit/users/auth/user.ex:378
+#, elixir-autogen, elixir-format
+msgid "must contain at least one lowercase character"
+msgstr "должно содержать хотя бы одну строчную букву"
+
+#: lib/phoenix_kit/users/auth/user.ex:369
+#, elixir-autogen, elixir-format
+msgid "must contain at least one uppercase character"
+msgstr "должно содержать хотя бы одну заглавную букву"
+
+#: lib/phoenix_kit/users/auth/user.ex:253
+#: lib/phoenix_kit/users/auth/user.ex:312
+#, elixir-autogen, elixir-format
+msgid "must have the @ sign and no spaces"
+msgstr "должно содержать символ @ и не содержать пробелов"
+
+#: lib/phoenix_kit/users/auth/user.ex:962
+#, elixir-autogen, elixir-format
+msgid "must start with a letter and contain only letters, numbers, and underscores"
+msgstr "должно начинаться с буквы и содержать только буквы, цифры и подчёркивания"

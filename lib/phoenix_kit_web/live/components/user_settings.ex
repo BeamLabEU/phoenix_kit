@@ -240,7 +240,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign(
         :timezone_options,
         [
-          {"Use System Default", nil}
+          {gettext("Use System Default"), nil}
           | TimeZone.options(selected: user.user_timezone)
         ]
       )
@@ -273,7 +273,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
       |> assign_new(:show_email_form, fn -> false end)
       |> assign_new(:show_password_form, fn -> false end)
       |> assign_new(:show_notification_prefs, fn -> false end)
-      |> assign_new(:notification_types, fn -> NotificationTypes.list() end)
+      |> assign_new(:notification_types, fn -> NotificationTypes.shown() end)
       |> assign_new(:notification_prefs, fn -> NotificationPrefs.get(user) end)
       |> assign_new(:notification_success_message, fn -> nil end)
       |> assign_new(:current_session_token, fn -> assigns[:current_session_token] end)
@@ -353,7 +353,8 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
         Auth.deliver_user_update_email_instructions(
           applied_user,
           user.email,
-          socket.assigns.email_confirm_url_fn
+          socket.assigns.email_confirm_url_fn,
+          locale: PhoenixKit.Utils.Multilang.current_locale()
         )
 
         socket =
@@ -491,7 +492,10 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
 
     socket =
       socket
-      |> assign(:oauth_info_message, "Redirecting to #{format_provider_name(provider)}...")
+      |> assign(
+        :oauth_info_message,
+        gettext("Redirecting to %{provider}…", provider: format_provider_name(provider))
+      )
       |> redirect(external: oauth_url)
 
     {:noreply, socket}
@@ -1200,7 +1204,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
             <%= if @last_uploaded_avatar_uuid do %>
               <div class="alert alert-success text-sm mb-4">
                 <.icon name="hero-check" class="stroke-current shrink-0 h-4 w-4" />
-                <span>Avatar uploaded successfully!</span>
+                <span>{gettext("Avatar uploaded successfully!")}</span>
               </div>
             <% end %>
             <%= if @avatar_error_message do %>
@@ -1232,7 +1236,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     phx-target={@myself}
                     class="btn btn-primary w-40"
                   >
-                    <.icon name="hero-photo" class="w-5 h-5" /> Browse Media
+                    <.icon name="hero-photo" class="w-5 h-5" /> {gettext("Browse Media")}
                   </button>
                   <button
                     :if={get_in(@user.custom_fields, ["avatar_file_uuid"])}
@@ -1251,18 +1255,18 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   <.input
                     field={@profile_form[:first_name]}
                     type="text"
-                    label="First Name"
+                    label={gettext("First Name")}
                   />
                   <.input
                     field={@profile_form[:last_name]}
                     type="text"
-                    label="Last Name"
+                    label={gettext("Last Name")}
                   />
                   <div class="col-span-1 lg:col-span-2">
                     <.input
                       field={@profile_form[:username]}
                       type="text"
-                      label="Username"
+                      label={gettext("Username")}
                     />
                   </div>
                 </div>
@@ -1283,7 +1287,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               >
                 <.select
                   field={@profile_form[:user_timezone]}
-                  label="Personal Timezone"
+                  label={gettext("Personal Timezone")}
                   options={@timezone_options}
                 />
 
@@ -1353,7 +1357,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <:actions>
                 <div class="ml-auto">
                   <.button phx-disable-with="Updating..." class="btn-primary">
-                    Update Profile
+                    {gettext("Update Profile")}
                   </.button>
                 </div>
               </:actions>
@@ -1478,9 +1482,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               phx-target={@myself}
             >
               <%= if :identity in @sections do %>
-                <div class="divider text-sm text-base-content/60">Additional Information</div>
+                <div class="divider text-sm text-base-content/60">
+                  {gettext("Additional Information")}
+                </div>
               <% else %>
-                <h2 class="text-lg font-semibold mb-2">Additional Information</h2>
+                <h2 class="text-lg font-semibold mb-2">{gettext("Additional Information")}</h2>
               <% end %>
 
               <div
@@ -1515,7 +1521,9 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       />
                       <div class="label">
                         <span class="fieldset-label text-xs text-base-content/60">
-                          Structured value, stored by a feature rather than typed here — read-only.
+                          {gettext(
+                            "Structured value, stored by a feature rather than typed here — read-only."
+                          )}
                         </span>
                       </div>
                     <% else %>
@@ -1596,7 +1604,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <:actions>
                 <div class="ml-auto">
                   <.button phx-disable-with="Updating..." class="btn-primary">
-                    Update Custom Fields
+                    {gettext("Update Custom Fields")}
                   </.button>
                 </div>
               </:actions>
@@ -1612,7 +1620,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
-                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> Email Address
+                <.icon name="hero-envelope" class="w-5 h-5 text-primary" /> {gettext("Email Address")}
               </h2>
               <button
                 type="button"
@@ -1624,7 +1632,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name={if @show_email_form, do: "hero-x-mark", else: "hero-pencil"}
                   class="w-4 h-4"
                 />
-                {if @show_email_form, do: "Cancel", else: "Change Email"}
+                {if @show_email_form, do: gettext("Cancel"), else: gettext("Change Email")}
               </button>
             </div>
 
@@ -1654,7 +1662,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <.input
                   field={@email_form[:email]}
                   type="email"
-                  label="New Email"
+                  label={gettext("New Email")}
                   required
                 />
                 <.input
@@ -1662,7 +1670,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name="current_password"
                   id={"#{@id}-current-password-for-email"}
                   type="password"
-                  label="Current Password"
+                  label={gettext("Current Password")}
                   value={@email_form_current_password}
                   required
                   password_toggle
@@ -1670,7 +1678,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <:actions>
                   <div class="ml-auto">
                     <.button phx-disable-with="Changing..." class="btn-primary">
-                      Update Email
+                      {gettext("Update Email")}
                     </.button>
                   </div>
                 </:actions>
@@ -1688,7 +1696,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div>
             <div class="flex items-center justify-between">
               <h2 class="text-lg font-semibold flex items-center gap-2">
-                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> Password
+                <.icon name="hero-lock-closed" class="w-5 h-5 text-primary" /> {gettext("Password")}
               </h2>
               <button
                 type="button"
@@ -1700,7 +1708,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                   name={if @show_password_form, do: "hero-x-mark", else: "hero-pencil"}
                   class="w-4 h-4"
                 />
-                {if @show_password_form, do: "Cancel", else: "Change Password"}
+                {if @show_password_form, do: gettext("Cancel"), else: gettext("Change Password")}
               </button>
             </div>
 
@@ -1739,21 +1747,21 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <.input
                   field={@password_form[:password]}
                   type="password"
-                  label="New Password"
+                  label={gettext("New Password")}
                   required
                   password_toggle
                 />
                 <.input
                   field={@password_form[:password_confirmation]}
                   type="password"
-                  label="Confirm New Password"
+                  label={gettext("Confirm New Password")}
                   password_toggle
                 />
                 <.input
                   field={@password_form[:current_password]}
                   name="current_password"
                   type="password"
-                  label="Current Password"
+                  label={gettext("Current Password")}
                   id={"#{@id}-current-password-for-password"}
                   value={@current_password}
                   required
@@ -1762,7 +1770,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                 <:actions>
                   <div class="ml-auto">
                     <.button phx-disable-with="Changing..." class="btn-primary">
-                      Update Password
+                      {gettext("Update Password")}
                     </.button>
                   </div>
                 </:actions>
@@ -1776,7 +1784,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
           <div class="divider"></div>
           <div>
             <h2 class="text-lg font-semibold flex items-center gap-2 mb-4">
-              <.icon name="hero-link" class="w-5 h-5 text-primary" /> Connected Accounts
+              <.icon name="hero-link" class="w-5 h-5 text-primary" /> {gettext("Connected Accounts")}
             </h2>
 
             <%= if @oauth_success_message do %>
@@ -1821,9 +1829,13 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                       phx-target={@myself}
                       phx-value-provider={provider.provider}
                       class="btn btn-sm btn-outline btn-error"
-                      data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                      data-confirm={
+                        gettext(
+                          "Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                        )
+                      }
                     >
-                      Disconnect
+                      {gettext("Disconnect")}
                     </button>
                   </div>
                 <% end %>
@@ -1842,7 +1854,7 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
                     class="btn btn-outline"
                   >
                     <.icon name="hero-plus" class="w-4 h-4 mr-1" />
-                    Connect {format_provider_name(provider)}
+                    {gettext("Connect %{provider}", provider: format_provider_name(provider))}
                   </button>
                 <% end %>
               </div>
@@ -1853,9 +1865,11 @@ defmodule PhoenixKitWeb.Live.Components.UserSettings do
               <div class="alert alert-warning text-sm mt-4">
                 <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-4 w-4" />
                 <div>
-                  <div class="font-semibold">No Password Set</div>
+                  <div class="font-semibold">{gettext("No Password Set")}</div>
                   <div class="text-xs">
-                    You signed up using OAuth. Consider setting a password above as a backup sign-in method.
+                    {gettext(
+                      "You signed up using OAuth. Consider setting a password above as a backup sign-in method."
+                    )}
                   </div>
                 </div>
               </div>

@@ -19,6 +19,7 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
   import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
   alias PhoenixKit.Integrations.Providers
+  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # ── Display helpers ──────────────────────────────────────────────────
 
@@ -63,12 +64,12 @@ defmodule PhoenixKitWeb.Components.Core.IntegrationsUI do
         diff_seconds = DateTime.diff(DateTime.utc_now(), dt, :second)
 
         cond do
-          diff_seconds < 0 -> Calendar.strftime(dt, "%b %-d %Y")
+          diff_seconds < 0 -> UtilsDate.short_with_year(dt)
           diff_seconds < 60 -> gettext("just now")
           diff_seconds < 3600 -> gettext_minutes(div(diff_seconds, 60))
           diff_seconds < 86_400 -> gettext_hours(div(diff_seconds, 3600))
           diff_seconds < 7 * 86_400 -> gettext_days(div(diff_seconds, 86_400))
-          true -> Calendar.strftime(dt, "%b %-d %Y")
+          true -> UtilsDate.short_with_year(dt)
         end
 
       _ ->

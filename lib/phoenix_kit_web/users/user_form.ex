@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # get_setting_options/0: this form already loads all_roles above for
     # its own role-management UI, so building the whole options map here
     # too would query roles a second time for nothing.
-    timezone_options = [{"Use System Default", nil} | Settings.timezone_options()]
+    timezone_options = [{gettext("Use System Default"), nil} | Settings.timezone_options()]
 
     # Organization accounts
     org_accounts_enabled =
@@ -288,7 +288,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Prevent users from modifying their own roles
     if user.uuid == current_user.uuid do
       socket =
-        put_flash(socket, :error, "You cannot modify your own roles.")
+        put_flash(socket, :error, gettext("You cannot modify your own roles."))
 
       {:noreply, socket}
     else
@@ -304,7 +304,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:ok, _assignments} ->
           socket =
             socket
-            |> put_flash(:info, "User roles updated successfully.")
+            |> put_flash(:info, gettext("User roles updated successfully."))
             |> assign(:user_roles, Roles.get_user_roles(user))
             |> assign(:pending_roles, [])
 
@@ -313,9 +313,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:error, reason} ->
           error_message =
             case reason do
-              :owner_role_protected -> "Owner role cannot be manually assigned."
-              :cannot_remove_last_owner -> "Cannot remove Owner role from the last Owner."
-              _ -> "Failed to update roles. Please try again."
+              :owner_role_protected ->
+                gettext("Owner role cannot be manually assigned.")
+
+              :cannot_remove_last_owner ->
+                gettext("Cannot remove Owner role from the last Owner.")
+
+              _ ->
+                gettext("Failed to update roles. Please try again.")
             end
 
           socket = put_flash(socket, :error, error_message)
@@ -331,7 +336,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Prevent users from modifying their own roles
     if user.uuid == current_user.uuid do
       socket =
-        put_flash(socket, :error, "You cannot modify your own roles.")
+        put_flash(socket, :error, gettext("You cannot modify your own roles."))
 
       {:noreply, socket}
     else
@@ -352,7 +357,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:ok, _assignments} ->
           socket =
             socket
-            |> put_flash(:info, "User roles updated successfully.")
+            |> put_flash(:info, gettext("User roles updated successfully."))
             |> assign(:user_roles, Roles.get_user_roles(user))
 
           {:noreply, socket}
@@ -360,9 +365,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
         {:error, reason} ->
           error_message =
             case reason do
-              :owner_role_protected -> "Owner role cannot be manually assigned."
-              :cannot_remove_last_owner -> "Cannot remove Owner role from the last Owner."
-              _ -> "Failed to update roles. Please try again."
+              :owner_role_protected ->
+                gettext("Owner role cannot be manually assigned.")
+
+              :cannot_remove_last_owner ->
+                gettext("Cannot remove Owner role from the last Owner.")
+
+              _ ->
+                gettext("Failed to update roles. Please try again.")
             end
 
           socket = put_flash(socket, :error, error_message)
@@ -487,11 +497,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
            actor: socket.assigns[:phoenix_kit_current_user]
          ) do
       {:ok, updated_user} ->
-        status_text = if new_status, do: "activated", else: "deactivated"
+        status_message =
+          if new_status,
+            do: gettext("User activated successfully."),
+            else: gettext("User deactivated successfully.")
 
         socket =
           socket
-          |> put_flash(:info, "User #{status_text} successfully.")
+          |> put_flash(:info, status_message)
           |> assign(:user, updated_user)
           |> reload_changeset_after_status_update(updated_user)
 
@@ -502,14 +515,16 @@ defmodule PhoenixKitWeb.Users.UserForm do
           put_flash(
             socket,
             :error,
-            "Cannot deactivate the last Owner. Assign the Owner role to another user first."
+            gettext(
+              "Cannot deactivate the last Owner. Assign the Owner role to another user first."
+            )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
         socket =
-          put_flash(socket, :error, "Failed to update user status. Please try again.")
+          put_flash(socket, :error, gettext("Failed to update user status. Please try again."))
 
         {:noreply, socket}
     end
@@ -527,7 +542,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
           socket
           |> put_flash(
             :info,
-            "Password reset email sent to #{user.email}. The user will receive instructions to reset their password."
+            gettext(
+              "Password reset email sent to %{email}. The user will receive instructions to reset their password.",
+              email: user.email
+            )
           )
           |> assign(:show_reset_password_modal, false)
 
@@ -535,7 +553,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
       {:error, _reason} ->
         socket =
-          put_flash(socket, :error, "Failed to send password reset email. Please try again.")
+          put_flash(
+            socket,
+            :error,
+            gettext("Failed to send password reset email. Please try again.")
+          )
 
         {:noreply, socket}
     end
@@ -988,7 +1010,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       socket
       |> assign(:user, fresh_user)
       |> reload_changeset_with_updated_user(fresh_user)
-      |> put_flash(:info, "User updated successfully.")
+      |> put_flash(:info, gettext("User updated successfully."))
       |> push_navigate(to: socket.assigns.return_to)
 
     {:noreply, socket}
@@ -1015,11 +1037,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp format_role_update_error(:owner_role_protected) do
-    "User profile updated but Owner role cannot be manually assigned."
+    gettext("User profile updated but Owner role cannot be manually assigned.")
   end
 
   defp format_role_update_error(:cannot_remove_last_owner) do
-    "User profile updated but cannot remove Owner role from the last Owner."
+    gettext("User profile updated but cannot remove Owner role from the last Owner.")
   end
 
   defp format_role_update_error(:cannot_modify_own_roles) do
@@ -1027,7 +1049,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp format_role_update_error(_) do
-    "User profile updated but roles failed to update."
+    gettext("User profile updated but roles failed to update.")
   end
 
   defp roles_refused_message(refused) do
@@ -1055,7 +1077,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         :custom_fields_data,
         merge_custom_fields_data(socket.assigns.custom_fields_data, custom_fields_params)
       )
-      |> put_flash(:error, "Please fix the custom field errors below.")
+      |> put_flash(:error, gettext("Please fix the custom field errors below."))
 
     {:noreply, socket}
   end
@@ -1076,7 +1098,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   defp handle_custom_fields_save_error(socket) do
     socket =
       socket
-      |> put_flash(:error, "User profile updated but custom fields failed to save.")
+      |> put_flash(:error, gettext("User profile updated but custom fields failed to save."))
       |> push_navigate(to: socket.assigns.return_to)
 
     {:noreply, socket}
@@ -1357,7 +1379,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         |> assign(:pending_avatar_file_uuid, avatar_file_uuid)
         |> assign(:avatar_changed, true)
         |> assign(:show_media_selector, false)
-        |> put_flash(:info, "Avatar selected. Click 'Update User' to save.")
+        |> put_flash(:info, gettext("Avatar selected. Click 'Update User' to save."))
       else
         socket
         |> assign(:show_media_selector, false)

@@ -91,7 +91,7 @@
               >
                 <li>
                   <.link href={PhoenixKit.Utils.Routes.user_settings_path()}>
-                    Settings
+                    {gettext("Settings")}
                   </.link>
                 </li>
                 <li>
@@ -100,7 +100,7 @@
                     method="delete"
                     class="flex items-center px-4 py-2 hover:bg-base-200"
                   >
-                    Logout
+                    {gettext("Logout")}
                   </.link>
                 </li>
               </ul>
@@ -111,14 +111,14 @@
                 href={PhoenixKit.Utils.Routes.path("/users/register")}
                 class="btn btn-primary btn-sm"
               >
-                Sign Up
+                {gettext("Sign Up")}
               </.link>
             <% end %>
             <.link
               href={PhoenixKit.Utils.Routes.path("/users/log-in")}
               class="btn btn-ghost btn-sm"
             >
-              Login
+              {gettext("Login")}
             </.link>
           <% end %>
         </div>

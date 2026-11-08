@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   alias PhoenixKit.Users.MagicLink
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth
 
@@ -64,7 +65,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
 
     {:ok,
      socket
-     |> assign(:page_title, "Magic Link Login")
+     |> assign(:page_title, gettext("Magic Link Login"))
      |> assign(:form, form)
      |> assign(:sent, false)
      |> assign(:loading, false)
@@ -140,10 +141,16 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   end
 
   # Send magic link email to user and handle response
-  defp send_magic_link_email_to_user(user, token, return_to) do
-    magic_link_url = MagicLink.magic_link_url(token) <> Routes.return_to_query(return_to)
+  # The text and the link in one language: the person's saved one, else the
+  # page's they asked from.
+  defp send_magic_link_email_to_user(user, token, return_to, page_locale) do
+    locale = RecipientLocale.for_mail(user, page_locale)
 
-    case Mailer.send_magic_link_email(user, magic_link_url) do
+    magic_link_url =
+      RecipientLocale.in_locale(locale, fn -> MagicLink.magic_link_url(token) end) <>
+        Routes.return_to_query(return_to)
+
+    case Mailer.send_magic_link_email(user, magic_link_url, locale: locale) do
       {:ok, _} -> {:ok, user}
       {:error, reason} -> {:error, reason}
     end
@@ -151,10 +158,13 @@ defmodule PhoenixKitWeb.Users.MagicLink do
 
   # Process the magic link sending in the background
   defp send_magic_link_async(socket, email, return_to, ip_address) do
+    # Read here: the task below is another process, with no page language.
+    page_locale = socket.assigns[:current_locale]
+
     Phoenix.LiveView.start_async(socket, :send_magic_link, fn ->
       case MagicLink.generate_magic_link(email, ip_address) do
         {:ok, user, token} ->
-          send_magic_link_email_to_user(user, token, return_to)
+          send_magic_link_email_to_user(user, token, return_to, page_locale)
 
         {:error, :user_not_found} ->
           # For security, we simulate the same delay as successful case

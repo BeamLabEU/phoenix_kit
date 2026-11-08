@@ -461,7 +461,7 @@
               </span>
               <span :if={show_date} class="inline-flex items-center gap-1">
                 <.icon name="hero-calendar" class="w-3.5 h-3.5" />
-                {Calendar.strftime(header_folder.inserted_at, "%b %d, %Y")}
+                {PhoenixKit.Utils.Date.short_with_year(header_folder.inserted_at)}
               </span>
               <span :if={show_date && show_file_count} class="text-base-content/40">
                 •

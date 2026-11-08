@@ -111,7 +111,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
     <div :if={@total_pages > 1} class={["join", @class]}>
       <%= if @page > 1 do %>
         <.link patch={@build_url.(@page - 1)} class="join-item btn btn-sm">
-          « Prev
+          « {gettext("Prev")}
         </.link>
       <% end %>
 
@@ -126,7 +126,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
 
       <%= if @page < @total_pages do %>
         <.link patch={@build_url.(@page + 1)} class="join-item btn btn-sm">
-          Next »
+          {gettext("Next")} »
         </.link>
       <% end %>
     </div>
@@ -243,7 +243,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
               patch={build_page_url(@base_path, @params, @current_page - 1)}
               class="join-item btn btn-sm"
             >
-              « Prev
+              « {gettext("Prev")}
             </.link>
           <% end %>
           <%!-- Page numbers (show current ± 2 pages) --%>
@@ -264,7 +264,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
               patch={build_page_url(@base_path, @params, @current_page + 1)}
               class="join-item btn btn-sm"
             >
-              Next »
+              {gettext("Next")} »
             </.link>
           <% end %>
         </div>
@@ -453,8 +453,8 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
   - `total` — total rows matching the current filter/sort (required)
   - `on_load_more` — LV event name pushed on button click
     (default `"load_more"`)
-  - `noun_plural` — used in the "Showing N of M %{noun}" line
-    (default `"items"`)
+  - `noun_plural` — used in the "Showing N of M %{noun}" line, already
+    translated (default: "results", translated)
   - `class` — additional classes on the outer wrapper
   - `infinite` — when `true`, the footer also auto-loads on scroll via
     the `InfiniteScroll` hook (the manual button stays as a fallback).
@@ -488,7 +488,7 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
   attr :loaded, :integer, required: true
   attr :total, :integer, required: true
   attr :on_load_more, :string, default: "load_more"
-  attr :noun_plural, :string, default: "items"
+  attr :noun_plural, :string, default: nil
   attr :class, :string, default: ""
   attr :id, :string, default: nil
   attr :infinite, :boolean, default: false
@@ -509,11 +509,9 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
 
     # Only the infinite variant renders data-cursor; skip the work otherwise.
     assigns =
-      assign(
-        assigns,
-        :effective_cursor,
-        if(assigns.infinite, do: resolve_cursor(assigns), else: "")
-      )
+      assigns
+      |> assign(:effective_cursor, if(assigns.infinite, do: resolve_cursor(assigns), else: ""))
+      |> assign(:noun_plural, assigns.noun_plural || gettext("results"))
 
     ~H"""
     <div

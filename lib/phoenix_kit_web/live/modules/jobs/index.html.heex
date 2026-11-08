@@ -12,31 +12,31 @@
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Available</div>
+        <div class="stat-title text-xs">{gettext("Available")}</div>
         <div class="stat-value text-lg text-info">{Map.get(@stats, "available", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Scheduled</div>
+        <div class="stat-title text-xs">{gettext("Scheduled")}</div>
         <div class="stat-value text-lg text-warning">{Map.get(@stats, "scheduled", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Executing</div>
+        <div class="stat-title text-xs">{gettext("Executing")}</div>
         <div class="stat-value text-lg text-primary">{Map.get(@stats, "executing", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Completed</div>
+        <div class="stat-title text-xs">{gettext("Completed")}</div>
         <div class="stat-value text-lg text-success">{Map.get(@stats, "completed", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Retryable</div>
+        <div class="stat-title text-xs">{gettext("Retryable")}</div>
         <div class="stat-value text-lg text-warning">{Map.get(@stats, "retryable", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Discarded</div>
+        <div class="stat-title text-xs">{gettext("Discarded")}</div>
         <div class="stat-value text-lg text-error">{Map.get(@stats, "discarded", 0)}</div>
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
-        <div class="stat-title text-xs">Cancelled</div>
+        <div class="stat-title text-xs">{gettext("Cancelled")}</div>
         <div class="stat-value text-lg text-base-content/50">
           {Map.get(@stats, "cancelled", 0)}
         </div>
@@ -169,8 +169,10 @@
               <.select
                 name="queue"
                 value={@filter_queue}
-                label="Queue"
-                options={[{"All Queues", "all"} | Enum.map(@queue_stats, fn {q, _} -> {q, q} end)]}
+                label={gettext("Queue")}
+                options={[
+                  {gettext("All Queues"), "all"} | Enum.map(@queue_stats, fn {q, _} -> {q, q} end)
+                ]}
                 class="select-sm"
               />
             </form>
@@ -179,16 +181,16 @@
               <.select
                 name="state"
                 value={@filter_state}
-                label="State"
+                label={gettext("State")}
                 options={[
-                  {"All States", "all"},
-                  {"available", "available"},
-                  {"scheduled", "scheduled"},
-                  {"executing", "executing"},
-                  {"completed", "completed"},
-                  {"retryable", "retryable"},
-                  {"discarded", "discarded"},
-                  {"cancelled", "cancelled"}
+                  {gettext("All States"), "all"},
+                  {gettext("available"), "available"},
+                  {gettext("scheduled"), "scheduled"},
+                  {gettext("executing"), "executing"},
+                  {gettext("completed"), "completed"},
+                  {gettext("retryable"), "retryable"},
+                  {gettext("discarded"), "discarded"},
+                  {gettext("cancelled"), "cancelled"}
                 ]}
                 class="select-sm"
               />
@@ -198,9 +200,9 @@
               <.select
                 name="worker"
                 value={@filter_worker}
-                label="Worker"
+                label={gettext("Worker")}
                 options={[
-                  {"All Workers", "all"}
+                  {gettext("All Workers"), "all"}
                   | Enum.map(@worker_stats, fn {w, c} -> {"#{short_worker_name(w)} (#{c})", w} end)
                 ]}
                 class="select-sm"
@@ -214,14 +216,14 @@
                 <div class="dropdown">
                   <div tabindex="0" role="button" class="btn btn-xs btn-ghost text-warning">
                     <.icon name="hero-eye-slash" class="w-4 h-4" />
-                    {length(@hidden_workers)} hidden
+                    {gettext("%{count} hidden", count: length(@hidden_workers))}
                   </div>
                   <div
                     tabindex="0"
                     class="dropdown-content z-50 menu p-2 shadow bg-base-200 rounded-box w-64"
                   >
                     <div class="text-xs font-semibold px-2 py-1 text-base-content/70">
-                      Hidden Workers
+                      {gettext("Hidden Workers")}
                     </div>
                     <%= for worker <- @hidden_workers do %>
                       <button
@@ -240,13 +242,13 @@
                       class="btn btn-xs btn-ghost text-error"
                       phx-click="clear_hidden_workers"
                     >
-                      Show all workers
+                      {gettext("Show all workers")}
                     </button>
                   </div>
                 </div>
               <% end %>
               <span class="text-sm text-base-content/70">
-                {@total_count} jobs | Auto-refresh: 30s
+                {gettext("%{count} jobs | Auto-refresh: 30s", count: @total_count)}
               </span>
             </div>
           </div>
@@ -255,20 +257,20 @@
           <.table_default variant="zebra" size="sm">
             <.table_default_header>
               <.table_default_row>
-                <.table_default_header_cell>ID</.table_default_header_cell>
-                <.table_default_header_cell>Queue</.table_default_header_cell>
-                <.table_default_header_cell>Worker</.table_default_header_cell>
-                <.table_default_header_cell>State</.table_default_header_cell>
-                <.table_default_header_cell>Attempt</.table_default_header_cell>
-                <.table_default_header_cell>Inserted</.table_default_header_cell>
-                <.table_default_header_cell>Scheduled</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("ID")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Queue")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Worker")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("State")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Attempt")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Inserted")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Scheduled")}</.table_default_header_cell>
               </.table_default_row>
             </.table_default_header>
             <.table_default_body>
               <%= if Enum.empty?(@jobs) do %>
                 <.table_default_row hover={false}>
                   <.table_default_cell colspan={7} class="text-center py-8 text-base-content/50">
-                    No jobs found
+                    {gettext("No jobs found")}
                   </.table_default_cell>
                 </.table_default_row>
               <% else %>
@@ -326,10 +328,13 @@
                 phx-value-page={max(1, @current_page - 1)}
                 disabled={@current_page == 1}
               >
-                Previous
+                {gettext("Previous")}
               </button>
               <span class="btn btn-sm btn-ghost no-animation">
-                Page {@current_page} of {@total_pages}
+                {gettext("Page %{current} of %{total}",
+                  current: @current_page,
+                  total: @total_pages
+                )}
               </span>
               <button
                 class="btn btn-sm btn-outline"
@@ -337,7 +342,7 @@
                 phx-value-page={min(@total_pages, @current_page + 1)}
                 disabled={@current_page == @total_pages}
               >
-                Next
+                {gettext("Next")}
               </button>
             </div>
           <% end %>
@@ -350,28 +355,30 @@
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-4">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="font-semibold">Scheduled Tasks</h3>
+            <h3 class="font-semibold">{gettext("Scheduled Tasks")}</h3>
             <span class="text-sm text-base-content/70">
-              {length(@scheduled_jobs)} tasks | Auto-refresh: 30s
+              {gettext("%{count} tasks | Auto-refresh: 30s", count: length(@scheduled_jobs))}
             </span>
           </div>
 
           <.table_default variant="zebra" size="sm">
             <.table_default_header>
               <.table_default_row>
-                <.table_default_header_cell>Type</.table_default_header_cell>
-                <.table_default_header_cell>Resource</.table_default_header_cell>
-                <.table_default_header_cell>Status</.table_default_header_cell>
-                <.table_default_header_cell>Scheduled For</.table_default_header_cell>
-                <.table_default_header_cell>Executed At</.table_default_header_cell>
-                <.table_default_header_cell>Args</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Type")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Resource")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Status")}</.table_default_header_cell>
+                <.table_default_header_cell>
+                  {gettext("Scheduled For")}
+                </.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Executed At")}</.table_default_header_cell>
+                <.table_default_header_cell>{gettext("Args")}</.table_default_header_cell>
               </.table_default_row>
             </.table_default_header>
             <.table_default_body>
               <%= if Enum.empty?(@scheduled_jobs) do %>
                 <.table_default_row hover={false}>
                   <.table_default_cell colspan={6} class="text-center py-8 text-base-content/50">
-                    No scheduled tasks found
+                    {gettext("No scheduled tasks found")}
                   </.table_default_cell>
                 </.table_default_row>
               <% else %>
@@ -438,54 +445,54 @@
           <%!-- Basic Info Grid --%>
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <div class="text-xs text-base-content/50">ID</div>
+              <div class="text-xs text-base-content/50">{gettext("ID")}</div>
               <div class="font-mono text-sm">{@selected_job.id}</div>
             </div>
             <div>
-              <div class="text-xs text-base-content/50">Queue</div>
+              <div class="text-xs text-base-content/50">{gettext("Queue")}</div>
               <div class="text-sm">{@selected_job.queue}</div>
             </div>
             <div>
-              <div class="text-xs text-base-content/50">Attempts</div>
+              <div class="text-xs text-base-content/50">{gettext("Attempts")}</div>
               <div class="text-sm">{@selected_job.attempt}/{@selected_job.max_attempts}</div>
             </div>
             <div>
-              <div class="text-xs text-base-content/50">Priority</div>
+              <div class="text-xs text-base-content/50">{gettext("Priority")}</div>
               <div class="text-sm">{@selected_job.priority}</div>
             </div>
           </div>
 
           <%!-- Timestamps --%>
           <div class="mb-6">
-            <h4 class="font-semibold text-sm mb-2">Timestamps</h4>
+            <h4 class="font-semibold text-sm mb-2">{gettext("Timestamps")}</h4>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
               <div>
-                <span class="text-base-content/50">Inserted:</span>
+                <span class="text-base-content/50">{gettext("Inserted:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_job.inserted_at)}
                 </span>
               </div>
               <div>
-                <span class="text-base-content/50">Scheduled:</span>
+                <span class="text-base-content/50">{gettext("Scheduled:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_job.scheduled_at)}
                 </span>
               </div>
               <div>
-                <span class="text-base-content/50">Attempted:</span>
+                <span class="text-base-content/50">{gettext("Attempted:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_job.attempted_at)}
                 </span>
               </div>
               <div>
-                <span class="text-base-content/50">Completed:</span>
+                <span class="text-base-content/50">{gettext("Completed:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_job.completed_at)}
                 </span>
               </div>
               <%= if @selected_job.discarded_at do %>
                 <div>
-                  <span class="text-error">Discarded:</span>
+                  <span class="text-error">{gettext("Discarded:")}</span>
                   <span class="font-mono text-xs ml-1">
                     {format_datetime(@selected_job.discarded_at)}
                   </span>
@@ -493,7 +500,7 @@
               <% end %>
               <%= if @selected_job.cancelled_at do %>
                 <div>
-                  <span class="text-warning">Cancelled:</span>
+                  <span class="text-warning">{gettext("Cancelled:")}</span>
                   <span class="font-mono text-xs ml-1">
                     {format_datetime(@selected_job.cancelled_at)}
                   </span>
@@ -505,7 +512,7 @@
           <%!-- Tags --%>
           <%= if @selected_job.tags && @selected_job.tags != [] do %>
             <div class="mb-6">
-              <h4 class="font-semibold text-sm mb-2">Tags</h4>
+              <h4 class="font-semibold text-sm mb-2">{gettext("Tags")}</h4>
               <div class="flex flex-wrap gap-1">
                 <%= for tag <- @selected_job.tags do %>
                   <span class="badge badge-sm badge-outline">{tag}</span>
@@ -518,7 +525,7 @@
           <div class="collapse collapse-arrow bg-base-200 mb-2">
             <input type="checkbox" checked />
             <div class="collapse-title font-semibold text-sm">
-              Arguments
+              {gettext("Arguments")}
             </div>
             <div class="collapse-content">
               <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_job.args)}</code></pre>
@@ -530,7 +537,7 @@
             <div class="collapse collapse-arrow bg-base-200 mb-2">
               <input type="checkbox" />
               <div class="collapse-title font-semibold text-sm">
-                Metadata
+                {gettext("Metadata")}
               </div>
               <div class="collapse-content">
                 <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_job.meta)}</code></pre>
@@ -557,7 +564,7 @@
           <% end %>
 
           <div class="modal-action">
-            <button type="button" class="btn" phx-click="close_job">Close</button>
+            <button type="button" class="btn" phx-click="close_job">{gettext("Close")}</button>
           </div>
         </div>
         <div class="modal-backdrop" phx-click="close_job"></div>
@@ -589,42 +596,42 @@
           <%!-- Basic Info Grid --%>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <div>
-              <div class="text-xs text-base-content/50">Handler</div>
+              <div class="text-xs text-base-content/50">{gettext("Handler")}</div>
               <div class="text-sm font-mono text-xs">
                 {@selected_scheduled_job.handler_module}
               </div>
             </div>
             <div>
-              <div class="text-xs text-base-content/50">Attempts</div>
+              <div class="text-xs text-base-content/50">{gettext("Attempts")}</div>
               <div class="text-sm">
                 {@selected_scheduled_job.attempts}/{@selected_scheduled_job.max_attempts}
               </div>
             </div>
             <div>
-              <div class="text-xs text-base-content/50">Priority</div>
+              <div class="text-xs text-base-content/50">{gettext("Priority")}</div>
               <div class="text-sm">{@selected_scheduled_job.priority}</div>
             </div>
           </div>
 
           <%!-- Timestamps --%>
           <div class="mb-6">
-            <h4 class="font-semibold text-sm mb-2">Timestamps</h4>
+            <h4 class="font-semibold text-sm mb-2">{gettext("Timestamps")}</h4>
             <div class="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span class="text-base-content/50">Created:</span>
+                <span class="text-base-content/50">{gettext("Created:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_scheduled_job.inserted_at)}
                 </span>
               </div>
               <div>
-                <span class="text-base-content/50">Scheduled For:</span>
+                <span class="text-base-content/50">{gettext("Scheduled For:")}</span>
                 <span class="font-mono text-xs ml-1">
                   {format_datetime(@selected_scheduled_job.scheduled_at)}
                 </span>
               </div>
               <%= if @selected_scheduled_job.executed_at do %>
                 <div>
-                  <span class="text-success">Executed:</span>
+                  <span class="text-success">{gettext("Executed:")}</span>
                   <span class="font-mono text-xs ml-1">
                     {format_datetime(@selected_scheduled_job.executed_at)}
                   </span>
@@ -637,7 +644,7 @@
           <div class="collapse collapse-arrow bg-base-200 mb-2">
             <input type="checkbox" checked />
             <div class="collapse-title font-semibold text-sm">
-              Arguments
+              {gettext("Arguments")}
             </div>
             <div class="collapse-content">
               <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_scheduled_job.args)}</code></pre>
@@ -649,7 +656,7 @@
             <div class="collapse collapse-arrow bg-error/10 mb-2">
               <input type="checkbox" checked />
               <div class="collapse-title font-semibold text-sm text-error">
-                Last Error
+                {gettext("Last Error")}
               </div>
               <div class="collapse-content">
                 <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto whitespace-pre-wrap"><code>{@selected_scheduled_job.last_error}</code></pre>
@@ -658,7 +665,7 @@
           <% end %>
 
           <div class="modal-action">
-            <button type="button" class="btn" phx-click="close_scheduled_job">Close</button>
+            <button type="button" class="btn" phx-click="close_scheduled_job">{gettext("Close")}</button>
           </div>
         </div>
         <div class="modal-backdrop" phx-click="close_scheduled_job"></div>

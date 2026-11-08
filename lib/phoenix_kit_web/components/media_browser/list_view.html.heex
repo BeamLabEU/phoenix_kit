@@ -202,7 +202,7 @@
                 <div class="md:hidden flex items-center gap-1.5 text-xs text-base-content/50 mt-0.5">
                   <span>{gettext("Folder")}</span>
                   <span>·</span>
-                  <span>{Calendar.strftime(folder.inserted_at, "%b %d, %Y")}</span>
+                  <span>{PhoenixKit.Utils.Date.short_with_year(folder.inserted_at)}</span>
                 </div>
               </td>
               <td class="hidden lg:table-cell">
@@ -233,7 +233,7 @@
               </td>
               <td class="hidden md:table-cell"></td>
               <td class="hidden md:table-cell text-sm text-base-content/70">
-                {Calendar.strftime(folder.inserted_at, "%b %d, %Y")}
+                {PhoenixKit.Utils.Date.short_with_year(folder.inserted_at)}
               </td>
               <td>
                 <.table_row_menu
@@ -386,7 +386,7 @@
               <span>·</span>
               <span>{format_file_size(file.size)}</span>
               <span>·</span>
-              <span>{Calendar.strftime(file.inserted_at, "%b %d, %Y")}</span>
+              <span>{PhoenixKit.Utils.Date.short_with_year(file.inserted_at)}</span>
             </div>
           </td>
           <td class="hidden lg:table-cell">
@@ -410,7 +410,7 @@
             {format_file_size(file.size)}
           </td>
           <td class="hidden md:table-cell text-sm text-base-content/70">
-            {Calendar.strftime(file.inserted_at, "%b %d, %Y")}
+            {PhoenixKit.Utils.Date.short_with_year(file.inserted_at)}
           </td>
           <td>
             <%!--

@@ -69,6 +69,16 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   field goes out as plain text input. A field with the button has spellcheck and
   capitalization off, and Edge's own eye is hidden.
 
+- **Chinese.** Core ships Simplified Chinese (`zh`) for every string, used for
+  `zh-CN` and, until a catalogue of their own exists, other Chinese dialects. The
+  translations are machine-made: have someone who reads Chinese check the pages your
+  users see.
+- `Routes.url/2` takes `path/2`'s options, `locale:` included, for a link in someone
+  else's language. Also `Routes.path_locale/1`, `Routes.served_locale?/1`,
+  `PhoenixKit.Utils.Date.ago/1`, `Notifications.Types.shown/0`,
+  `Auth.remember_page_locale/2`, and `RecipientLocale.for_mail/2`,
+  `site_language?/1` and `global_locale/1`.
+
 ### Changed
 
 - Removing a role from a link signs out that link's sessions acting as it, as removing a
@@ -91,11 +101,55 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
     Roles, Status and custom fields. Dates no longer wrap.
   - Shorter labels: Roles, an "Email ✓" or "Email pending" badge, and "Managed".
 
+- **Account mail is in one language, link included.** The confirmation, password
+  reset, email change, magic link, registration link and invitation emails built their
+  link in the sender's language: an admin working in English sent a German user German
+  text and an English link. Text and link now share one language: the recipient's saved
+  one, else the site's. Mail a person asks for themselves (magic link, reset,
+  confirmation) uses the page they asked on when they have no saved language. The
+  `deliver_*` functions of `Auth` take `locale:` for that page; an admin's send passes
+  none.
+- **A person's language is saved when they register or sign in** on a page in another
+  language than the site's, if they have none saved yet. Their mail follows it.
+- **After sign-in you land in your saved language** when the sign-in page's address
+  named none (a bookmarked `/users/log-in`). A destination that names a language keeps
+  it. The URL still decides the page language: nothing reads the preference on a page.
+- The language menus (the account menus and the sign-in pages) name each language in
+  that language: "Deutsch", "Français", "简体中文". The account menus share their
+  accounts list, "Add account" dialog and language list (`AccountMenu`).
+- The notifications bell follows a language switch: its id carries the language, so a
+  switch mounts a new one (`pk-notifications-bell-de`; the primary language keeps
+  `pk-notifications-bell`). It also renders in the page's language now; its own process
+  had none.
+- Switching between two accounts signed in in the same browser is logged without a
+  target and notifies nobody. The notifications already sent read "You switched to this
+  account from another signed-in account."; an account an admin creates reads "An
+  administrator created your account."; updated roles are listed by their translated
+  names.
+- My Settings and the profile's notification list leave out the types of disabled
+  modules. Their stored preferences are kept.
+- The process-wide Gettext locale on the web is the base language (`de`), as it already
+  was in mail, so a module reads the same language in both.
+- `<.load_more>`'s default count noun is a translated "results", not "items".
+
 ### Fixed
 
 - With only the status or email filter on and no match, the Users table said "No users
   are registered yet." and offered no way back. Every filter now counts, and the empty
   state offers Clear Filters.
+
+### i18n
+
+- About 330 more strings are translated in every language: the account menu and its
+  "Add account" dialog, the notifications bell, profile settings (Account, Security,
+  Connected Accounts), the time zone list, the form validation messages of accounts
+  ("must have the @ sign and no spaces" and the rest), pagination's Prev and Next, the
+  language switcher, the sidebars, page titles, and admin pages: the user form, Jobs,
+  Authorization, Sitemap, the AWS forms, Languages, Sessions, OAuth and the storage
+  forms.
+- Dates no longer use English month names: the bell, the inbox, the media browser,
+  event timelines, the activity entry, integrations and the time display. "Never" is
+  translated.
 
 ## 3.4.0 - 2026-11-06
 

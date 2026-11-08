@@ -8,10 +8,12 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.AvatarCrop
   alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.Roles
 
   # Gradient colors for avatar fallback (15 variants)
   @gradients [
@@ -130,7 +132,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
                future img attributes cannot drift between branches. --%>
           <img
             src={@avatar_url}
-            alt="Avatar"
+            alt={gettext("Avatar")}
             style={@crop_style}
             class={unless @crop_style, do: "absolute inset-0 w-full h-full object-cover"}
             onerror="this.style.display='none';"
@@ -319,9 +321,9 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   defp get_primary_role_name(user) do
     case user.roles do
-      [] -> "No role"
-      [%Role{name: name} | _] -> name
-      _ -> "No role"
+      [] -> gettext("No role")
+      [%Role{} = role | _] -> Roles.display_name(role)
+      _ -> gettext("No role")
     end
   end
 end

@@ -24,13 +24,17 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
   alias PhoenixKit.Notifications.Render
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
   def mount(_params, %{"user_uuid" => user_uuid} = session, socket) when is_binary(user_uuid) do
     if connected?(socket), do: Events.subscribe(user_uuid)
 
-    # Recipient's current locale, threaded from the layout so click-through links
-    # land on the right locale-prefixed path (the bell is a sticky nested LV with
-    # no locale of its own — without this, Routes.path would use the default).
+    # The page's language, threaded from the layout: the bell is a nested
+    # LiveView, so its own process has no Gettext locale until it installs one,
+    # and its links need the locale for their prefix. The layout puts the
+    # language in the bell's id, so a language switch mounts a new bell.
+    put_locale(session["dialect"] || session["locale"])
+
     {:ok,
      socket
      |> assign(:user_uuid, user_uuid)
@@ -112,7 +116,7 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
   def render(assigns) do
     ~H"""
     <div class="dropdown dropdown-end">
-      <label tabindex="0" class="btn btn-ghost btn-circle" title="Notifications">
+      <label tabindex="0" class="btn btn-ghost btn-circle" title={gettext("Notifications")}>
         <div class="indicator">
           <.icon name="hero-bell" class="w-5 h-5" />
           <%= if @unread_count > 0 do %>
@@ -128,21 +132,21 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
       >
         <div class="card-body p-0">
           <div class="flex items-center justify-between px-4 py-3 border-b border-base-200">
-            <span class="font-semibold">Notifications</span>
+            <span class="font-semibold">{gettext("Notifications")}</span>
             <%= if @unread_count > 0 do %>
               <button
                 type="button"
                 phx-click="mark_all_seen"
                 class="btn btn-ghost btn-xs"
               >
-                Mark all seen
+                {gettext("Mark all seen")}
               </button>
             <% end %>
           </div>
 
           <%= if @recent == [] do %>
             <div class="px-4 py-8 text-center text-sm text-base-content/60">
-              You're all caught up.
+              {gettext("You're all caught up.")}
             </div>
           <% else %>
             <%!-- Plain vertical flex list, not daisyUI `menu`: `menu` sets
@@ -177,7 +181,7 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
                         {view.text}
                       </p>
                       <p class="text-xs text-base-content/50 mt-0.5">
-                        {relative_time(n.inserted_at)}
+                        {PhoenixKit.Utils.Date.ago(n.inserted_at)}
                       </p>
                     </div>
                   </button>
@@ -197,7 +201,7 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
               navigate={Routes.path("/admin/notifications", locale: @locale)}
               class="btn btn-ghost btn-sm btn-block"
             >
-              View all
+              {gettext("View all")}
             </.link>
           </div>
         </div>
@@ -271,20 +275,11 @@ defmodule PhoenixKitWeb.Live.NotificationsBell do
     end
   end
 
+  defp put_locale(locale) when is_binary(locale),
+    do: UserAuth.put_gettext_locale(locale)
+
+  defp put_locale(_none), do: :ok
+
   defp display_count(n) when n > 99, do: "99+"
   defp display_count(n), do: Integer.to_string(n)
-
-  defp relative_time(%DateTime{} = dt) do
-    seconds = DateTime.diff(DateTime.utc_now(), dt)
-
-    cond do
-      seconds < 60 -> "just now"
-      seconds < 3600 -> "#{div(seconds, 60)}m ago"
-      seconds < 86_400 -> "#{div(seconds, 3600)}h ago"
-      seconds < 604_800 -> "#{div(seconds, 86_400)}d ago"
-      true -> Calendar.strftime(dt, "%b %d")
-    end
-  end
-
-  defp relative_time(_), do: ""
 end

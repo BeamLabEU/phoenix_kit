@@ -45,19 +45,24 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   # `recipient` is what the locale is resolved from (a user struct, or a bare
   # address where no account exists yet); `address` is who it is sent to. They
   # differ only on the magic-link registration path.
-  defp deliver_templated(_recipient, nil, _name, _variables, _defaults),
+  #
+  # `opts[:locale]` is the language decided by the caller (`Auth` decides it
+  # once, for the text and the link alike); without it, the recipient's.
+  defp deliver_templated(recipient, address, name, variables, defaults, opts \\ [])
+
+  defp deliver_templated(_recipient, nil, _name, _variables, _defaults, _opts),
     do: {:ok, %{suppressed: true}}
 
-  defp deliver_templated(recipient, address, name, variables, defaults) do
+  defp deliver_templated(recipient, address, name, variables, defaults, opts) do
     recipient
-    |> build_templated(address, name, variables, defaults)
+    |> build_templated(address, name, variables, defaults, opts)
     |> deliver_built()
   end
 
   # Resolves the content and builds the message; nothing is handed to the
   # mailer yet.
-  defp build_templated(recipient, address, name, variables, defaults) do
-    content = Content.resolve(name, recipient, variables, defaults)
+  defp build_templated(recipient, address, name, variables, defaults, opts \\ []) do
+    content = Content.resolve(name, recipient, variables, defaults, Keyword.take(opts, [:locale]))
 
     new()
     |> to(address || [])
@@ -125,39 +130,42 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   @doc """
   Deliver instructions to confirm account.
   """
-  def deliver_confirmation_instructions(user, url) do
+  def deliver_confirmation_instructions(user, url, opts \\ []) do
     deliver_templated(
       user,
       User.delivery_email(user),
       "register",
       %{"user_email" => User.delivery_email(user), "confirmation_url" => url},
-      &CoreTemplates.register_defaults/0
+      &CoreTemplates.register_defaults/0,
+      opts
     )
   end
 
   @doc """
   Deliver instructions to reset a user password.
   """
-  def deliver_reset_password_instructions(user, url) do
+  def deliver_reset_password_instructions(user, url, opts \\ []) do
     deliver_templated(
       user,
       User.delivery_email(user),
       "reset_password",
       %{"user_email" => User.delivery_email(user), "reset_url" => url},
-      &CoreTemplates.reset_password_defaults/0
+      &CoreTemplates.reset_password_defaults/0,
+      opts
     )
   end
 
   @doc """
   Deliver instructions to update a user email.
   """
-  def deliver_update_email_instructions(user, url) do
+  def deliver_update_email_instructions(user, url, opts \\ []) do
     deliver_templated(
       user,
       User.delivery_email(user),
       "update_email",
       %{"user_email" => User.delivery_email(user), "update_url" => url},
-      &CoreTemplates.update_email_defaults/0
+      &CoreTemplates.update_email_defaults/0,
+      opts
     )
   end
 
@@ -243,7 +251,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   Accepts a user struct or a bare address: on this path the account does not
   exist yet, so there may be no stored locale preference to resolve.
   """
-  def deliver_magic_link_registration(user_or_email, url) do
+  def deliver_magic_link_registration(user_or_email, url, opts \\ []) do
     email =
       case user_or_email do
         %{email: email} -> email
@@ -255,7 +263,8 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       email,
       "magic_link_registration",
       %{"user_email" => email, "registration_url" => url},
-      &CoreTemplates.magic_link_registration_defaults/0
+      &CoreTemplates.magic_link_registration_defaults/0,
+      opts
     )
   end
 

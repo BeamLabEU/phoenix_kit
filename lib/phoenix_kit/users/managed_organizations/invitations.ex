@@ -19,6 +19,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.Multilang
+  alias PhoenixKit.Utils.RecipientLocale
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
@@ -273,12 +274,16 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
         do: "/users/log-in",
         else: "/users/register?invitation=#{token}"
 
+    # The link in the mail's language (the address's: the site's), not in the
+    # language of the person inviting.
+    url = Routes.url(path, locale: RecipientLocale.for_rendering(invitation.email))
+
     case RepoHelper.repo().get!(RelationshipType, invitation.relationship_type_uuid) do
       %RelationshipType{can_manage: true} ->
         UserNotifier.deliver_manager_invitation(
           invitation.email,
           User.display_name(org),
-          Routes.url(path)
+          url
         )
 
       %RelationshipType{} = type ->
@@ -286,7 +291,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Invitations do
           invitation.email,
           User.display_name(org),
           RelationshipTypes.name(type, Multilang.primary_language()),
-          Routes.url(path)
+          url
         )
     end
   end

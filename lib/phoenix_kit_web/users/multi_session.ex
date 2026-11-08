@@ -722,7 +722,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
           user ->
             conn = if acting?(session), do: end_organization!(conn), else: conn
             conn = conn |> renew_and_put_active_token(token) |> remember_active(token)
-            log_event("session.switched", root_user(session), user)
+            log_event("session.switched", root_user(session), user, notify: false)
             {:ok, conn, user}
         end
     end
@@ -1081,7 +1081,12 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     end
   end
 
-  defp log_event(action, %Auth.User{} = actor, %Auth.User{} = target) do
+  # `notify: false` leaves `target_uuid` empty, which is what decides a
+  # notification: switching between two accounts signed in in the same browser
+  # is the person's own doing, and nobody else is affected.
+  defp log_event(action, actor, target, opts \\ [])
+
+  defp log_event(action, %Auth.User{} = actor, %Auth.User{} = target, opts) do
     PhoenixKit.Activity.log(%{
       action: action,
       module: "users",
@@ -1089,14 +1094,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       actor_uuid: actor.uuid,
       resource_type: "user",
       resource_uuid: target.uuid,
-      target_uuid: target.uuid,
+      target_uuid: if(Keyword.get(opts, :notify, true), do: target.uuid),
       metadata: %{"email" => target.email, "actor_role" => "admin"}
     })
   rescue
     _ -> :ok
   end
 
-  defp log_event(_action, _actor, _target), do: :ok
+  defp log_event(_action, _actor, _target, _opts), do: :ok
 
   # A refused impersonation. `target` is a `%User{}` when one was resolved and a
   # bare uuid when the actor was turned away before the lookup; either way the

@@ -22,6 +22,9 @@ defmodule PhoenixKit.Users.Auth.User do
   """
   use Ecto.Schema
   use PhoenixKit.SchemaPrefix
+  # Only to mark the validation messages for extraction (`dgettext_noop`): a
+  # form translates them in the "errors" domain when it shows them.
+  use Gettext, backend: PhoenixKitWeb.Gettext
   import Ecto.Changeset
 
   alias PhoenixKit.Modules.Languages
@@ -247,7 +250,9 @@ defmodule PhoenixKit.Users.Auth.User do
   defp validate_email(changeset, opts) do
     changeset
     |> validate_required([:email])
-    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
+      message: dgettext_noop("errors", "must have the @ sign and no spaces")
+    )
     |> validate_length(:email, max: 160)
     |> validate_change(:email, &validate_deliverable_email/2)
     |> maybe_validate_unique_email(opts)
@@ -292,7 +297,7 @@ defmodule PhoenixKit.Users.Auth.User do
     |> cast(attrs, [:contact_email])
     |> update_change(:contact_email, &normalize_google_email/1)
     |> validate_format(:contact_email, ~r/^[^\s]+@[^\s]+$/,
-      message: "must be a valid email address"
+      message: dgettext_noop("errors", "must be a valid email address")
     )
     |> validate_length(:contact_email, max: 160)
     |> validate_change(:contact_email, &validate_deliverable_email/2)
@@ -306,7 +311,7 @@ defmodule PhoenixKit.Users.Auth.User do
     changeset
     |> update_change(:google_email, &normalize_google_email/1)
     |> validate_format(:google_email, ~r/^[^\s]+@[^\s]+$/,
-      message: "must have the @ sign and no spaces"
+      message: dgettext_noop("errors", "must have the @ sign and no spaces")
     )
     |> validate_length(:google_email, max: 160)
   end
@@ -363,7 +368,7 @@ defmodule PhoenixKit.Users.Auth.User do
   # Conditionally validate uppercase requirement
   defp maybe_validate_uppercase(changeset, true) do
     validate_format(changeset, :password, ~r/[A-Z]/,
-      message: "must contain at least one uppercase character"
+      message: dgettext_noop("errors", "must contain at least one uppercase character")
     )
   end
 
@@ -372,7 +377,7 @@ defmodule PhoenixKit.Users.Auth.User do
   # Conditionally validate lowercase requirement
   defp maybe_validate_lowercase(changeset, true) do
     validate_format(changeset, :password, ~r/[a-z]/,
-      message: "must contain at least one lowercase character"
+      message: dgettext_noop("errors", "must contain at least one lowercase character")
     )
   end
 
@@ -380,7 +385,9 @@ defmodule PhoenixKit.Users.Auth.User do
 
   # Conditionally validate digit requirement
   defp maybe_validate_digit(changeset, true) do
-    validate_format(changeset, :password, ~r/[0-9]/, message: "must contain at least one digit")
+    validate_format(changeset, :password, ~r/[0-9]/,
+      message: dgettext_noop("errors", "must contain at least one digit")
+    )
   end
 
   defp maybe_validate_digit(changeset, _), do: changeset
@@ -438,7 +445,7 @@ defmodule PhoenixKit.Users.Auth.User do
     |> refuse_managed_credentials(:email)
     |> case do
       %{changes: %{email: _}} = changeset -> changeset
-      %{} = changeset -> add_error(changeset, :email, "did not change")
+      %{} = changeset -> add_error(changeset, :email, dgettext_noop("errors", "did not change"))
     end
   end
 
@@ -457,14 +464,21 @@ defmodule PhoenixKit.Users.Auth.User do
   def password_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [:password])
-    |> validate_confirmation(:password, message: "does not match password")
+    |> validate_confirmation(:password,
+      message: dgettext_noop("errors", "does not match password")
+    )
     |> validate_password_different_from_current()
     |> validate_password(opts)
     |> refuse_managed_credentials(:password)
   end
 
   defp refuse_managed_credentials(%{data: %{managed_by_members: true}} = changeset, field),
-    do: add_error(changeset, field, "cannot be changed for a managed organization")
+    do:
+      add_error(
+        changeset,
+        field,
+        dgettext_noop("errors", "cannot be changed for a managed organization")
+      )
 
   defp refuse_managed_credentials(changeset, _field), do: changeset
 
@@ -551,7 +565,7 @@ defmodule PhoenixKit.Users.Auth.User do
     if valid_password?(changeset.data, password) do
       changeset
     else
-      add_error(changeset, :current_password, "is not valid")
+      add_error(changeset, :current_password, dgettext_noop("errors", "is not valid"))
     end
   end
 
@@ -561,7 +575,11 @@ defmodule PhoenixKit.Users.Auth.User do
 
     if new_password && changeset.data.hashed_password do
       if Bcrypt.verify_pass(new_password, changeset.data.hashed_password) do
-        add_error(changeset, :password, "must be different from current password")
+        add_error(
+          changeset,
+          :password,
+          dgettext_noop("errors", "must be different from current password")
+        )
       else
         changeset
       end
@@ -617,7 +635,12 @@ defmodule PhoenixKit.Users.Auth.User do
   defp protect_managed_profile_credentials(%{data: %{managed_by_members: true}} = changeset) do
     Enum.reduce([:email, :google_email], changeset, fn field, acc ->
       if changed?(acc, field),
-        do: add_error(acc, field, "cannot be changed for a managed organization"),
+        do:
+          add_error(
+            acc,
+            field,
+            dgettext_noop("errors", "cannot be changed for a managed organization")
+          ),
         else: acc
     end)
   end
@@ -645,7 +668,7 @@ defmodule PhoenixKit.Users.Auth.User do
         end
 
       _other ->
-        add_error(changeset, :custom_fields, "must be a valid map")
+        add_error(changeset, :custom_fields, dgettext_noop("errors", "must be a valid map"))
     end
   end
 
@@ -708,7 +731,7 @@ defmodule PhoenixKit.Users.Auth.User do
     org_uuid = get_field(changeset, :organization_uuid)
 
     if uuid && org_uuid && uuid == org_uuid do
-      add_error(changeset, :organization_uuid, "cannot reference self")
+      add_error(changeset, :organization_uuid, dgettext_noop("errors", "cannot reference self"))
     else
       changeset
     end
@@ -956,7 +979,11 @@ defmodule PhoenixKit.Users.Auth.User do
     changeset
     |> validate_length(:username, min: 3, max: 30)
     |> validate_format(:username, ~r/^[a-zA-Z][a-zA-Z0-9_]*$/,
-      message: "must start with a letter and contain only letters, numbers, and underscores"
+      message:
+        dgettext_noop(
+          "errors",
+          "must start with a letter and contain only letters, numbers, and underscores"
+        )
     )
     |> validate_change(:username, fn :username, username ->
       if reserved_username?(username), do: [username: "is reserved"], else: []
@@ -1137,7 +1164,11 @@ defmodule PhoenixKit.Users.Auth.User do
             if BeamLabCountries.get(upcased) do
               put_change(changeset, :country, upcased)
             else
-              add_error(changeset, :country, "must be a valid country code")
+              add_error(
+                changeset,
+                :country,
+                dgettext_noop("errors", "must be a valid country code")
+              )
             end
         end
     end
@@ -1181,7 +1212,11 @@ defmodule PhoenixKit.Users.Auth.User do
         end
 
       _ ->
-        add_error(changeset, :user_timezone, "must be a timezone identifier")
+        add_error(
+          changeset,
+          :user_timezone,
+          dgettext_noop("errors", "must be a timezone identifier")
+        )
     end
   end
 
@@ -1198,7 +1233,7 @@ defmodule PhoenixKit.Users.Auth.User do
       add_error(
         changeset,
         :user_timezone,
-        "must be a timezone identifier like Europe/Warsaw"
+        dgettext_noop("errors", "must be a timezone identifier like Europe/Warsaw")
       )
     end
   end
@@ -1222,7 +1257,7 @@ defmodule PhoenixKit.Users.Auth.User do
     case get_change(changeset, :custom_fields) do
       nil -> changeset
       value when is_map(value) -> changeset
-      _ -> add_error(changeset, :custom_fields, "must be a valid map")
+      _ -> add_error(changeset, :custom_fields, dgettext_noop("errors", "must be a valid map"))
     end
   end
 end
