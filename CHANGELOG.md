@@ -202,6 +202,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   impersonation, an organization's slot) is borrowed. A session from before keeps taking
   its added accounts for borrowed until they are added again, and the Telegram card now
   says so. `pk_own_tokens` is a reserved session key for header widgets.
+- **A video shorter than half a second was never processed.** Its duration rounded to 0
+  seconds, which a file's changeset refuses, so the whole update failed with it: the file
+  stayed without its size, capture date and previews, and was marked failed after the last
+  try. A clip of any length is now at least 1 second; a reported length of 0 is left out.
 - The profile page's "Avatar crop updated!" and "Avatar crop reset." were never shown.
 - With only the status or email filter on and no match, the Users table said "No users
   are registered yet." and offered no way back. Every filter now counts, and the empty

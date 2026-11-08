@@ -386,12 +386,19 @@ defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
     %{}
     |> put_parsed(:width, kv["width"], &Integer.parse/1)
     |> put_parsed(:height, kv["height"], &Integer.parse/1)
-    |> put_parsed(:duration, kv["duration"], fn v ->
-      case Float.parse(v) do
-        {f, rest} -> {round(f), rest}
-        :error -> :error
-      end
-    end)
+    |> put_parsed(:duration, kv["duration"], &parse_duration/1)
+  end
+
+  # Whole seconds, as the column keeps them. A clip of any length is at least 1: rounding a
+  # clip shorter than half a second gave 0, which the file's changeset refuses (`greater than
+  # 0`), and the whole update failed with it, leaving the file without its size, date or
+  # previews. A length of 0 or less is not one, and is left out.
+  defp parse_duration(value) do
+    case Float.parse(value) do
+      {seconds, rest} when seconds > 0 -> {max(round(seconds), 1), rest}
+      {_none, _rest} -> :error
+      :error -> :error
+    end
   end
 
   defp put_parsed(map, _key, nil, _parser), do: map
