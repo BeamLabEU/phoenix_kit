@@ -111,85 +111,85 @@ msgstr "debe ser mayor o igual que %{number}"
 msgid "must be equal to %{number}"
 msgstr "debe ser igual a %{number}"
 
-#: lib/phoenix_kit/users/auth/user.ex:470
-#: lib/phoenix_kit/users/auth/user.ex:623
+#: lib/phoenix_kit/users/auth/user.ex:480
+#: lib/phoenix_kit/users/auth/user.ex:642
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "no se puede cambiar en una organización administrada"
 
-#: lib/phoenix_kit/users/auth/user.ex:714
+#: lib/phoenix_kit/users/auth/user.ex:734
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "no puede hacer referencia a sí mismo"
 
-#: lib/phoenix_kit/users/auth/user.ex:444
+#: lib/phoenix_kit/users/auth/user.ex:448
 #, elixir-autogen, elixir-format
 msgid "did not change"
 msgstr "no cambió"
 
-#: lib/phoenix_kit/users/auth/user.ex:463
+#: lib/phoenix_kit/users/auth/user.ex:468
 #, elixir-autogen, elixir-format
 msgid "does not match password"
 msgstr "no coincide con la contraseña"
 
-#: lib/phoenix_kit/users/auth/user.ex:557
+#: lib/phoenix_kit/users/auth/user.ex:568
 #, elixir-autogen, elixir-format
 msgid "is not valid"
 msgstr "no es válido"
 
-#: lib/phoenix_kit/users/auth/user.ex:1187
+#: lib/phoenix_kit/users/auth/user.ex:1218
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "debe ser un identificador de zona horaria"
 
-#: lib/phoenix_kit/users/auth/user.ex:1204
+#: lib/phoenix_kit/users/auth/user.ex:1236
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "debe ser un identificador de zona horaria como Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1143
+#: lib/phoenix_kit/users/auth/user.ex:1170
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "debe ser un código de país válido"
 
-#: lib/phoenix_kit/users/auth/user.ex:298
+#: lib/phoenix_kit/users/auth/user.ex:300
 #, elixir-autogen, elixir-format
 msgid "must be a valid email address"
 msgstr "debe ser una dirección de correo electrónico válida"
 
-#: lib/phoenix_kit/users/auth/user.ex:651
-#: lib/phoenix_kit/users/auth/user.ex:1228
+#: lib/phoenix_kit/users/auth/user.ex:671
+#: lib/phoenix_kit/users/auth/user.ex:1260
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "debe ser un mapa válido"
 
-#: lib/phoenix_kit/users/auth/user.ex:567
+#: lib/phoenix_kit/users/auth/user.ex:581
 #, elixir-autogen, elixir-format
 msgid "must be different from current password"
 msgstr "debe ser diferente de la contraseña actual"
 
-#: lib/phoenix_kit/users/auth/user.ex:386
+#: lib/phoenix_kit/users/auth/user.ex:389
 #, elixir-autogen, elixir-format
 msgid "must contain at least one digit"
 msgstr "debe contener al menos un dígito"
 
-#: lib/phoenix_kit/users/auth/user.ex:378
+#: lib/phoenix_kit/users/auth/user.ex:380
 #, elixir-autogen, elixir-format
 msgid "must contain at least one lowercase character"
 msgstr "debe contener al menos un carácter en minúscula"
 
-#: lib/phoenix_kit/users/auth/user.ex:369
+#: lib/phoenix_kit/users/auth/user.ex:371
 #, elixir-autogen, elixir-format
 msgid "must contain at least one uppercase character"
 msgstr "debe contener al menos un carácter en mayúscula"
 
-#: lib/phoenix_kit/users/auth/user.ex:253
-#: lib/phoenix_kit/users/auth/user.ex:312
+#: lib/phoenix_kit/users/auth/user.ex:254
+#: lib/phoenix_kit/users/auth/user.ex:314
 #, elixir-autogen, elixir-format
 msgid "must have the @ sign and no spaces"
 msgstr "debe tener el signo @ y no contener espacios"
 
-#: lib/phoenix_kit/users/auth/user.ex:962
+#: lib/phoenix_kit/users/auth/user.ex:983
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "debe empezar por una letra y contener solo letras, números y guiones bajos"

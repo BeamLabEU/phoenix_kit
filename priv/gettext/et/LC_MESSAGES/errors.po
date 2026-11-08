@@ -121,85 +121,85 @@ msgstr "peab olema suurem või võrdne %{number}"
 msgid "must be equal to %{number}"
 msgstr "peab olema võrdne %{number}"
 
-#: lib/phoenix_kit/users/auth/user.ex:470
-#: lib/phoenix_kit/users/auth/user.ex:623
+#: lib/phoenix_kit/users/auth/user.ex:480
+#: lib/phoenix_kit/users/auth/user.ex:642
 #, elixir-autogen, elixir-format
 msgid "cannot be changed for a managed organization"
 msgstr "ei saa hallatava organisatsiooni puhul muuta"
 
-#: lib/phoenix_kit/users/auth/user.ex:714
+#: lib/phoenix_kit/users/auth/user.ex:734
 #, elixir-autogen, elixir-format
 msgid "cannot reference self"
 msgstr "ei saa viidata iseendale"
 
-#: lib/phoenix_kit/users/auth/user.ex:444
+#: lib/phoenix_kit/users/auth/user.ex:448
 #, elixir-autogen, elixir-format
 msgid "did not change"
 msgstr "ei muutunud"
 
-#: lib/phoenix_kit/users/auth/user.ex:463
+#: lib/phoenix_kit/users/auth/user.ex:468
 #, elixir-autogen, elixir-format
 msgid "does not match password"
 msgstr "ei ühti parooliga"
 
-#: lib/phoenix_kit/users/auth/user.ex:557
+#: lib/phoenix_kit/users/auth/user.ex:568
 #, elixir-autogen, elixir-format
 msgid "is not valid"
 msgstr "ei ole kehtiv"
 
-#: lib/phoenix_kit/users/auth/user.ex:1187
+#: lib/phoenix_kit/users/auth/user.ex:1218
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier"
 msgstr "peab olema ajavööndi identifikaator"
 
-#: lib/phoenix_kit/users/auth/user.ex:1204
+#: lib/phoenix_kit/users/auth/user.ex:1236
 #, elixir-autogen, elixir-format
 msgid "must be a timezone identifier like Europe/Warsaw"
 msgstr "peab olema ajavööndi identifikaator, näiteks Europe/Warsaw"
 
-#: lib/phoenix_kit/users/auth/user.ex:1143
+#: lib/phoenix_kit/users/auth/user.ex:1170
 #, elixir-autogen, elixir-format
 msgid "must be a valid country code"
 msgstr "peab olema kehtiv riigikood"
 
-#: lib/phoenix_kit/users/auth/user.ex:298
+#: lib/phoenix_kit/users/auth/user.ex:300
 #, elixir-autogen, elixir-format
 msgid "must be a valid email address"
 msgstr "peab olema kehtiv e-posti aadress"
 
-#: lib/phoenix_kit/users/auth/user.ex:651
-#: lib/phoenix_kit/users/auth/user.ex:1228
+#: lib/phoenix_kit/users/auth/user.ex:671
+#: lib/phoenix_kit/users/auth/user.ex:1260
 #, elixir-autogen, elixir-format
 msgid "must be a valid map"
 msgstr "peab olema kehtiv map"
 
-#: lib/phoenix_kit/users/auth/user.ex:567
+#: lib/phoenix_kit/users/auth/user.ex:581
 #, elixir-autogen, elixir-format
 msgid "must be different from current password"
 msgstr "peab erinema praegusest paroolist"
 
-#: lib/phoenix_kit/users/auth/user.ex:386
+#: lib/phoenix_kit/users/auth/user.ex:389
 #, elixir-autogen, elixir-format
 msgid "must contain at least one digit"
 msgstr "peab sisaldama vähemalt ühte numbrit"
 
-#: lib/phoenix_kit/users/auth/user.ex:378
+#: lib/phoenix_kit/users/auth/user.ex:380
 #, elixir-autogen, elixir-format
 msgid "must contain at least one lowercase character"
 msgstr "peab sisaldama vähemalt ühte väiketähte"
 
-#: lib/phoenix_kit/users/auth/user.ex:369
+#: lib/phoenix_kit/users/auth/user.ex:371
 #, elixir-autogen, elixir-format
 msgid "must contain at least one uppercase character"
 msgstr "peab sisaldama vähemalt ühte suurtähte"
 
-#: lib/phoenix_kit/users/auth/user.ex:253
-#: lib/phoenix_kit/users/auth/user.ex:312
+#: lib/phoenix_kit/users/auth/user.ex:254
+#: lib/phoenix_kit/users/auth/user.ex:314
 #, elixir-autogen, elixir-format
 msgid "must have the @ sign and no spaces"
 msgstr "peab sisaldama @-märki ja mitte sisaldama tühikuid"
 
-#: lib/phoenix_kit/users/auth/user.ex:962
+#: lib/phoenix_kit/users/auth/user.ex:983
 #, elixir-autogen, elixir-format
 msgid "must start with a letter and contain only letters, numbers, and underscores"
 msgstr "peab algama tähega ja sisaldama ainult tähti, numbreid ja alakriipse"

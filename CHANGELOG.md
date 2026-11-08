@@ -11,6 +11,14 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Added
 
+- **The admin's user form has the person's avatar controls.** Pick a picture, frame it
+  in the crop editor, adjust or reset the crop later, as on the profile page: both pages
+  render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is
+  saved at once instead of waiting for "Update User", and the person is told ("Your
+  avatar was updated.", for a new crop too).
+- **Zoom out to fit.** The crop editor zooms out below the fill, down to where the whole
+  picture fits inside the circle, so a wide logo shows whole, on white, instead of its
+  middle. `AvatarCrop.min_zoom/1` and `AvatarCrop.zoomed_out?/1` are new.
 - **Different roles per person at each organization.** A person's link to an
   organization now has a type and either all its roles or a list of them, so Anna can be
   a Buyer at a company that also sells, while Peter is only a Supplier there. A link
@@ -134,6 +142,7 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- The profile page's "Avatar crop updated!" and "Avatar crop reset." were never shown.
 - With only the status or email filter on and no match, the Users table said "No users
   are registered yet." and offered no way back. Every filter now counts, and the empty
   state offers Clear Filters.

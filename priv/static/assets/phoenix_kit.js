@@ -13243,9 +13243,24 @@ if (typeof window.Chart === "undefined") {
     return {
       width: width,
       height: height,
-      left: clamp(50 - crop.x * width, 100 - width, 0),
-      top: clamp(50 - crop.y * height, 100 - height, 0)
+      left: avatarCropOffset(crop.x, width),
+      top: avatarCropOffset(crop.y, height)
     };
+  }
+
+  // The frame never sees past an edge of an image that covers it; an image
+  // smaller than the frame along this axis (zoomed out) sits in the middle.
+  function avatarCropOffset(focal, size) {
+    return size < 100 ? (100 - size) / 2 : clamp(50 - focal * size, 100 - size, 0);
+  }
+
+  // The lowest zoom for aspect ratio `ar`: the whole picture inside the round
+  // frame, its diagonal across the circle. Mirror of
+  // PhoenixKit.Users.AvatarCrop.min_zoom/1.
+  function avatarCropMinZoom(ar) {
+    var a = clamp(ar, 0.05, 20);
+    var long = Math.max(a, 1 / a);
+    return 1 / Math.sqrt(1 + long * long);
   }
 
   // Focal coordinates that would render clamped are snapped back into the
@@ -13282,6 +13297,17 @@ if (typeof window.Chart === "undefined") {
       this.img = this.el.querySelector("[data-crop-img]");
       this.slider = this.el.querySelector("[data-crop-zoom]");
 
+      // The slider reaches down to where this picture fits the circle, which
+      // depends on its shape: set again once the image tells its real ratio.
+      this._syncMinZoom = function () {
+        var min = avatarCropMinZoom(self.crop.ar);
+        if (self.crop.zoom < min) self.crop.zoom = min;
+        if (self.slider) {
+          self.slider.min = String(min);
+          self.slider.value = String(self.crop.zoom);
+        }
+      };
+
       // The stored aspect ratio was captured from this same file, but the
       // image itself is the authority once it arrives — a freshly picked
       // avatar has no stored crop and starts from ar = 1 until then.
@@ -13292,9 +13318,11 @@ if (typeof window.Chart === "undefined") {
           // value — on a reopened editor they already match.
           if (Math.abs(ar - self.crop.ar) > 0.001) {
             self.crop.ar = ar;
+            self._syncMinZoom();
             self._render();
             self._push();
           } else {
+            self._syncMinZoom();
             self._render();
           }
         }
@@ -13306,7 +13334,7 @@ if (typeof window.Chart === "undefined") {
       }
 
       if (this.slider) {
-        this.slider.value = String(this.crop.zoom);
+        this._syncMinZoom();
         this.slider.addEventListener("input", function () {
           // About the frame's centre: what is in the middle stays there.
           var r = self.frame.getBoundingClientRect();
@@ -13328,7 +13356,7 @@ if (typeof window.Chart === "undefined") {
         var before = avatarCropLayout(self.crop);
         var u = (px - before.left) / before.width;
         var v = (py - before.top) / before.height;
-        self.crop.zoom = clamp(zoom, 1, maxZoom);
+        self.crop.zoom = clamp(zoom, avatarCropMinZoom(self.crop.ar), maxZoom);
         var after = avatarCropLayout(self.crop);
         self.crop.x = (50 - (px - u * after.width)) / after.width;
         self.crop.y = (50 - (py - v * after.height)) / after.height;
@@ -13488,6 +13516,7 @@ if (typeof window.Chart === "undefined") {
   if (typeof module === "object" && module.exports) {
     module.exports.avatarCropLayout = avatarCropLayout;
     module.exports.clampAvatarCropFocal = clampAvatarCropFocal;
+    module.exports.avatarCropMinZoom = avatarCropMinZoom;
   }
 })();
 

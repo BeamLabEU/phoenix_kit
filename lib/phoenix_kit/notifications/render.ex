@@ -135,7 +135,10 @@ defmodule PhoenixKit.Notifications.Render do
     {"hero-exclamation-circle", gettext("Your email is no longer confirmed.")}
   end
 
-  defp icon_and_text("user.avatar_changed", _meta) do
+  # An admin re-framing someone's picture changes how the avatar looks just as
+  # a new picture does, so it reads the same.
+  defp icon_and_text(action, _meta)
+       when action in ["user.avatar_changed", "user.avatar_crop_changed"] do
     {"hero-user-circle", gettext("Your avatar was updated.")}
   end
 
@@ -235,7 +238,7 @@ defmodule PhoenixKit.Notifications.Render do
   @account_actions ~w(
     user.roles_updated user.status_changed user.password_changed user.password_reset
     user.email_changed user.email_confirmed user.email_unconfirmed user.avatar_changed
-    user.profile_updated user.note_created user.note_deleted user.timezone_mismatch
+    user.avatar_crop_changed user.profile_updated user.note_created user.note_deleted user.timezone_mismatch
     organization.manager_added organization.manager_removed
   )
 

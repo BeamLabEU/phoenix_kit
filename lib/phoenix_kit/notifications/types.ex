@@ -242,6 +242,7 @@ defmodule PhoenixKit.Notifications.Types do
           "organization.manager_added",
           "organization.manager_removed",
           "user.avatar_changed",
+          "user.avatar_crop_changed",
           "user.note_created",
           "user.note_deleted"
         ],

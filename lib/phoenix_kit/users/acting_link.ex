@@ -51,6 +51,18 @@ defmodule PhoenixKit.Users.ActingLink do
   def for_user(%User{}), do: nil
 
   @doc """
+  Whether `user` is a session acting for an organization through a link that does not
+  manage it (staff). Staff keep their own preferences but do not change the company's
+  profile. Read from the link each time, so a link changed during the session counts at
+  once.
+  """
+  @spec staff?(User.t()) :: boolean()
+  def staff?(%User{organization_manager_uuid: uuid} = user) when is_binary(uuid),
+    do: not match?(%{can_manage?: true}, for_user(user))
+
+  def staff?(%User{}), do: false
+
+  @doc """
   What limits a managed organization's roles when `user` did not come from a session, to
   give `narrow/2`: every narrowed link's list in common. See the module documentation.
 

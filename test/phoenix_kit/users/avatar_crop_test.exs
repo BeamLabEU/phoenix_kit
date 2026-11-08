@@ -71,9 +71,21 @@ defmodule PhoenixKit.Users.AvatarCropTest do
                })
     end
 
-    test "a zoom below cover fit is raised to it" do
-      assert %{"zoom" => 1.0} =
-               AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.2, "ar" => 1.0})
+    test "a zoom below the fit-inside floor is raised to it" do
+      %{"zoom" => square} =
+        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.2, "ar" => 1.0})
+
+      near(square, 1 / :math.sqrt(2))
+
+      %{"zoom" => wide} =
+        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.2, "ar" => 3.0})
+
+      near(wide, 1 / :math.sqrt(10))
+    end
+
+    test "a wide logo can be zoomed out below the cover fit" do
+      assert %{"zoom" => 0.4} =
+               AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.4, "ar" => 3.0})
     end
 
     test "half a crop is no crop" do
@@ -131,6 +143,51 @@ defmodule PhoenixKit.Users.AvatarCropTest do
     test "capped at large — never the unbounded original" do
       assert AvatarCrop.variant_for(160, 8.0) == "large"
       assert AvatarCrop.variant_for(160, 8.0, 4.0) == "large"
+    end
+  end
+
+  describe "zooming out (2026-11-08: a wide logo showed only its middle)" do
+    test "the floor puts the whole picture inside the circle" do
+      for ar <- [1.0, 3.0, 1 / 3, 1.5] do
+        l =
+          AvatarCrop.layout(%{
+            "x" => 0.5,
+            "y" => 0.5,
+            "zoom" => AvatarCrop.min_zoom(ar),
+            "ar" => ar
+          })
+
+        near(:math.sqrt(l.width * l.width + l.height * l.height), 100.0)
+      end
+    end
+
+    test "portrait mirrors landscape" do
+      near(AvatarCrop.min_zoom(3.0), AvatarCrop.min_zoom(1 / 3))
+    end
+
+    test "an axis smaller than the frame is centered, wherever the focal point" do
+      zoom = AvatarCrop.min_zoom(3.0)
+      l = AvatarCrop.layout(%{"x" => 0.1, "y" => 0.9, "zoom" => zoom, "ar" => 3.0})
+
+      near(l.left, (100.0 - l.width) / 2)
+      near(l.top, (100.0 - l.height) / 2)
+    end
+
+    test "an axis that still covers the frame keeps its freedom" do
+      # 3:1 at zoom 0.5: 150% wide, 50% tall.
+      l = AvatarCrop.layout(%{"x" => 0.0, "y" => 0.0, "zoom" => 0.5, "ar" => 3.0})
+
+      near(l.left, 0.0)
+      near(l.top, 25.0)
+    end
+
+    test "zoomed out is a real crop, and says so" do
+      crop = %{"x" => 0.5, "y" => 0.5, "zoom" => 0.8, "ar" => 1.0}
+
+      assert AvatarCrop.drop_identity(crop) == crop
+      assert AvatarCrop.zoomed_out?(crop)
+      refute AvatarCrop.zoomed_out?(%{crop | "zoom" => 1.0})
+      refute AvatarCrop.zoomed_out?(nil)
     end
   end
 

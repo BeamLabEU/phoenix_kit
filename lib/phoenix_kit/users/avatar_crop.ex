@@ -25,6 +25,9 @@ defmodule PhoenixKit.Users.AvatarCrop do
     the image's width and height. `0.5/0.5` is the image center.
   - `zoom` — magnification relative to the cover fit. `1.0` shows exactly
     what `object-fit: cover` would show; the ceiling is #{inspect(8.0)}.
+    Below `1.0` the picture zooms out, down to `min_zoom/1`, where all of it
+    fits inside the round frame: a wide logo shows whole instead of its
+    middle. The frame shows white around it (`zoomed_out?/1`).
   - `ar` — the image's width/height ratio, captured when the crop was made
     so rendering never needs to look dimensions up (avatars appear dozens to
     a page; a per-avatar dimension query would be the N+1 this design
@@ -37,10 +40,10 @@ defmodule PhoenixKit.Users.AvatarCrop do
   `100·zoom·ar` wide (portrait mirrored). The image is then offset so the
   focal point sits at the frame's center, clamped so the frame never shows
   past an edge — the same clamp the editor applies, so what was saved is
-  what renders.
+  what renders. Along an axis where the zoomed-out image is smaller than the
+  frame it is centered instead.
   """
 
-  @min_zoom 1.0
   @max_zoom 8.0
   @min_ar 0.05
   @max_ar 20.0
@@ -77,7 +80,7 @@ defmodule PhoenixKit.Users.AvatarCrop do
       %{
         "x" => clamp(x, 0.0, 1.0),
         "y" => clamp(y, 0.0, 1.0),
-        "zoom" => clamp(zoom, @min_zoom, @max_zoom),
+        "zoom" => clamp(zoom, min_zoom(ar), @max_zoom),
         "ar" => clamp(ar, @min_ar, @max_ar)
       }
     else
@@ -106,13 +109,39 @@ defmodule PhoenixKit.Users.AvatarCrop do
     %{
       width: width,
       height: height,
-      left: clamp(50.0 - x * width, 100.0 - width, 0.0),
-      top: clamp(50.0 - y * height, 100.0 - height, 0.0)
+      left: offset(x, width),
+      top: offset(y, height)
     }
   end
 
+  # The frame never sees past an edge of an image that covers it; an image
+  # smaller than the frame along this axis (zoomed out) sits in the middle.
+  defp offset(_focal, size) when size < 100.0, do: (100.0 - size) / 2
+  defp offset(focal, size), do: clamp(50.0 - focal * size, 100.0 - size, 0.0)
+
   @doc """
-  The inline style that seats a cropped image in its frame.
+  The lowest zoom for an image of aspect ratio `ar`: the whole picture inside
+  the round frame, its diagonal across the circle. A square image gets
+  `1/√2`, a 3:1 logo `1/√10`.
+
+  Mirrored by `avatarCropMinZoom` in `priv/static/assets/phoenix_kit.js`.
+  """
+  def min_zoom(ar) when is_number(ar) do
+    ar = clamp(ar / 1, @min_ar, @max_ar)
+    long = max(ar, 1.0 / ar)
+    1.0 / :math.sqrt(1.0 + long * long)
+  end
+
+  @doc """
+  Whether the crop is zoomed out below the cover fit, so the frame shows
+  around the picture: `img_style/1` then paints it white.
+  """
+  def zoomed_out?(%{"zoom" => zoom}) when is_number(zoom), do: zoom < 0.999
+  def zoomed_out?(_crop), do: false
+
+  @doc """
+  The inline style that seats a cropped image in its frame. A zoomed-out crop
+  also paints the frame white around the picture.
 
   The frame supplies `position: relative; overflow: hidden` (the avatar
   component already has both); `max-width: none` undoes Tailwind's global
@@ -124,7 +153,16 @@ defmodule PhoenixKit.Users.AvatarCrop do
 
     "position:absolute;max-width:none;" <>
       "width:#{fmt(l.width)}%;height:#{fmt(l.height)}%;" <>
-      "left:#{fmt(l.left)}%;top:#{fmt(l.top)}%;"
+      "left:#{fmt(l.left)}%;top:#{fmt(l.top)}%;" <> zoomed_out_fill(crop)
+  end
+
+  # A zoomed-out picture leaves part of the frame uncovered: white there and
+  # behind a transparent picture, as in the editor, instead of whatever the
+  # frame holds (the avatar's initials). It is the image's own paint, the
+  # shadow clipped by the frame, so an image that fails to load and is hidden
+  # takes the white with it.
+  defp zoomed_out_fill(crop) do
+    if zoomed_out?(crop), do: "background:#fff;box-shadow:0 0 0 9999px #fff;", else: ""
   end
 
   @doc """
@@ -162,7 +200,7 @@ defmodule PhoenixKit.Users.AvatarCrop do
 
   def drop_identity(crop) do
     identity? =
-      crop["zoom"] <= 1.001 and
+      abs(crop["zoom"] - 1.0) <= 0.001 and
         abs(crop["x"] - 0.5) < 0.005 and
         abs(crop["y"] - 0.5) < 0.005
 

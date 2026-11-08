@@ -113,6 +113,19 @@ def handle_info({PhoenixKitWeb.Components.FeaturedImage, "order-featured", {:set
 - The picker renders through `<.portal>` so it can sit inside a host `<.form>`; `has_element?/2` cannot see into it in tests — assert on `#<id>-portal`. Recommended Phoenix LiveView ≥ 1.2.12.
 - One `Storage` query per instance: not for lists — draw list thumbnails from data you already have.
 
+## AvatarEditor Component
+
+A person's avatar with its controls: "Browse Media", the crop editor that opens on a pick, "Adjust Crop" and "Reset" — `lib/phoenix_kit_web/live/components/avatar_editor.ex`. The profile settings and the admin's user form both render it; a page that edits an avatar uses it too, so the controls stay the same everywhere.
+
+```heex
+<.live_component module={PhoenixKitWeb.Live.Components.AvatarEditor}
+  id="user-form-avatar" user={@user} actor={@phoenix_kit_current_user} picker={:media} />
+```
+
+- **It writes, at once:** every save goes through `Auth.update_user_fields/2`, and the host hears `{AvatarEditor, id, {:saved, user, message} | {:failed, message}}` (or `send_update(module, id: id, avatar_editor: result)` with `notify: {module, id}`). Assign the saved user back: it draws the `user` it is handed.
+- **`actor`** other than `user` names them in the activity entry and notifies the person. **`picker`** is `:own` (the actor's uploads) or `:media` (the site library, under the `:avatar` `UploadsParentFolder` hook).
+- Staff acting for a company are refused on every event (`ActingLink.staff?/1`). It may sit in a host `<form>`: the picker goes through `<.portal>`, and the crop slider is detached from the form.
+
 ## Charts and lanes
 
 `PhoenixKitWeb.Components.Core.Chart` draws zero-JS SVG charts (`<.line_chart>` and friends; imported everywhere through `use PhoenixKitWeb`). `<.chart_lanes>` (`Core.ChartLanes`, imported with `only: [chart_lanes: 1]`) draws rows of horizontal bands on the same x axis: what was scheduled, on or booked over the stretch the chart shows. It knows nothing about the domain; each band says only how it is drawn and in what colour.

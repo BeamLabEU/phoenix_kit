@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Components.AvatarEditor
 
   def mount(params, session, socket) do
     user_uuid = params["id"]
@@ -84,9 +85,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:default_role, default_role)
       |> assign(:timezone_options, timezone_options)
       |> assign(:country_options, CountryData.countries_for_select())
-      |> assign(:show_media_selector, false)
-      |> assign(:pending_avatar_file_uuid, nil)
-      |> assign(:avatar_changed, false)
       |> assign(:registration_ip, registration_ip)
       |> assign(:org_accounts_enabled, org_accounts_enabled)
       |> assign(:organizations, organizations)
@@ -96,23 +94,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:page_section_path, Routes.path("/admin/users"))
       |> load_user_data(mode, user_uuid)
       |> assign_credential_authority()
-      # Resolved when the selector opens — the host hook may create a folder.
-      |> assign(:avatar_scope_folder, nil)
       |> load_form_data()
       |> maybe_set_edit_page_title()
 
     {:ok, socket}
-  end
-
-  defp assign_avatar_scope_folder(socket) do
-    actor_uuid =
-      socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.uuid
-
-    assign(
-      socket,
-      :avatar_scope_folder,
-      PhoenixKit.UploadsParentFolder.resolve(:avatar, actor_uuid, socket.assigns[:user])
-    )
   end
 
   # Whether this actor may set a password for, mail a reset link to, or change
@@ -160,13 +145,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp resolve_return_to(_return_to, _user_uuid), do: Routes.path("/admin/users")
-
-  def handle_event("open_media_selector", _params, socket) do
-    {:noreply,
-     socket
-     |> assign_avatar_scope_folder()
-     |> assign(:show_media_selector, true)}
-  end
 
   def handle_event("validate_user", %{"user" => user_params}, socket) do
     # Filter password from params if password field is not shown
@@ -678,18 +656,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> Map.get("custom_fields", %{})
       |> drop_schema_identity_fields(socket)
 
-    # Include pending avatar if it was changed via media selector
-    custom_fields_params =
-      if socket.assigns[:avatar_changed] && socket.assigns[:pending_avatar_file_uuid] do
-        Map.put(custom_fields_params, "avatar_file_uuid", socket.assigns.pending_avatar_file_uuid)
-      else
-        custom_fields_params
-      end
-
     profile_params = Map.delete(user_params, "custom_fields")
-
-    avatar_changed? = socket.assigns[:avatar_changed] == true
-    avatar_file_uuid = socket.assigns[:pending_avatar_file_uuid]
 
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
@@ -697,32 +664,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
          {:ok, user_with_account_type} <-
            update_account_type_fields(user_with_fields, user_params),
          result <- update_user_roles_if_changed(socket, user_with_account_type) do
-      # Log avatar change if it happened
-      if avatar_changed? && avatar_file_uuid do
-        admin = socket.assigns[:phoenix_kit_current_user]
-
-        PhoenixKit.Activity.log(%{
-          action: "user.avatar_changed",
-          module: "users",
-          mode: "manual",
-          actor_uuid: admin && admin.uuid,
-          resource_type: "user",
-          resource_uuid: user_with_account_type.uuid,
-          target_uuid: user_with_account_type.uuid,
-          metadata: %{
-            "avatar_from" => get_in(user.custom_fields, ["avatar_file_uuid"]) || "",
-            "avatar_to" => avatar_file_uuid,
-            "actor_role" => "admin"
-          }
-        })
-      end
-
-      # Clear avatar change flag after successful update
-      socket =
-        socket
-        |> assign(:avatar_changed, false)
-        |> assign(:pending_avatar_file_uuid, nil)
-
       # The credential fields were dropped for lack of rank while this
       # submission actually asked to change one. The rest of the save is
       # committed — that is the established behaviour and a test pins it — so
@@ -1365,30 +1306,15 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
-  def handle_info({:media_selected, file_uuids}, socket) do
-    # Get the first selected file UUID (single selection mode)
-    avatar_file_uuid = List.first(file_uuids)
-
-    # Store avatar selection without saving to database yet
-    # Avatar will be saved when "Update User" button is clicked
-    socket =
-      if avatar_file_uuid do
-        Logger.info("Avatar selected (pending save): #{avatar_file_uuid}")
-
-        socket
-        |> assign(:pending_avatar_file_uuid, avatar_file_uuid)
-        |> assign(:avatar_changed, true)
-        |> assign(:show_media_selector, false)
-        |> put_flash(:info, gettext("Avatar selected. Click 'Update User' to save."))
-      else
-        socket
-        |> assign(:show_media_selector, false)
-      end
-
-    {:noreply, socket}
+  # The avatar is saved by `AvatarEditor` straight away, apart from the form. Only
+  # the custom fields are taken from the saved row: the form's own struct carries
+  # what it loaded (roles and the rest).
+  def handle_info({AvatarEditor, _id, {:saved, saved, message}}, socket) do
+    user = %{socket.assigns.user | custom_fields: saved.custom_fields}
+    {:noreply, socket |> assign(:user, user) |> put_flash(:info, message)}
   end
 
-  def handle_info({:media_selector_closed}, socket) do
-    {:noreply, assign(socket, :show_media_selector, false)}
+  def handle_info({AvatarEditor, _id, {:failed, message}}, socket) do
+    {:noreply, put_flash(socket, :error, message)}
   end
 end

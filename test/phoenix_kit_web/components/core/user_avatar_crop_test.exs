@@ -46,6 +46,28 @@ defmodule PhoenixKitWeb.Components.Core.UserAvatarCropTest do
     refute html =~ "object-cover"
   end
 
+  test "a zoomed-out crop paints the circle white behind the picture" do
+    # A wide logo shown whole leaves part of the circle uncovered; without
+    # the fill the initials placeholder showed there.
+    out =
+      avatar(%{
+        "avatar_file_uuid" => @uuid,
+        "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 0.4, "ar" => 3}
+      })
+
+    assert out =~ "box-shadow:0 0 0 9999px #fff"
+    assert out =~ "background:#fff"
+    assert out =~ "top:30.00%"
+
+    zoomed_in =
+      avatar(%{
+        "avatar_file_uuid" => @uuid,
+        "avatar_crop" => %{"x" => 0.5, "y" => 0.5, "zoom" => 2, "ar" => 1}
+      })
+
+    refute zoomed_in =~ "box-shadow"
+  end
+
   test "zoom buys a sharper variant for the same box" do
     # A small (sm = 32px) box normally loads "small"; the xl settings
     # preview at 3x zoom needs more source than medium holds.

@@ -31,101 +31,23 @@
     <%!-- User Form --%>
     <div class="max-w-2xl mx-auto">
       <div class="bg-base-100 rounded-lg shadow-md p-6">
-        <%!-- Avatar Upload Section (Edit mode only) --%>
+        <%!-- Avatar (edit mode only): the same control the person has in
+             their profile settings, picking from the site's media library. It
+             saves straight away, apart from the form below. --%>
         <%= if @mode == :edit do %>
-          <div class="mb-6">
-            <div class="flex gap-6">
-              <%!-- Avatar Preview (Left) --%>
-              <div class="flex-shrink-0">
-                <% avatar_file_uuid =
-                  @pending_avatar_file_uuid ||
-                    (@user.custom_fields && @user.custom_fields["avatar_file_uuid"]) %>
-                <% variant = "medium" %>
-                <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
-                  <%= if avatar_file_uuid do %>
-                    <% avatar_url =
-                      PhoenixKit.Modules.Storage.URLSigner.signed_url(avatar_file_uuid, variant) %>
-                    <%!-- The stored crop belongs to the CURRENT avatar; a
-                         pending selection is a different file, previewed
-                         uncropped until saved. --%>
-                    <% crop =
-                      if @pending_avatar_file_uuid,
-                        do: nil,
-                        else: PhoenixKit.Users.AvatarCrop.from_user(@user) %>
-                    <img
-                      src={avatar_url}
-                      alt={gettext("Avatar")}
-                      style={crop && PhoenixKit.Users.AvatarCrop.img_style(crop)}
-                      class={if crop, do: nil, else: "w-full h-full object-cover"}
-                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                    />
-                    <div class="hidden w-full h-full bg-primary flex items-center justify-center text-center">
-                      <div>
-                        <.icon
-                          name="hero-check-circle"
-                          class="w-12 h-12 text-success mx-auto mb-2"
-                        />
-                        <p class="text-xs text-primary-content">{gettext("Avatar")}</p>
-                      </div>
-                    </div>
-                    <%!-- Pending Badge --%>
-                    <%= if @pending_avatar_file_uuid do %>
-                      <div class="absolute top-2 right-2 badge badge-warning badge-sm h-auto">
-                        {gettext("Pending")}
-                      </div>
-                    <% end %>
-                  <% else %>
-                    <% initials =
-                      (@user.first_name || @user.email)
-                      |> String.first()
-                      |> String.upcase() %>
-                    <div class="text-center">
-                      <p class="text-5xl font-bold text-primary-content">{initials}</p>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-
-              <%!-- Media Selector Controls (Right) --%>
-              <div class="flex-1">
-                <div class="space-y-3">
-                  <div>
-                    <label class="label">
-                      <span class="fieldset-legend font-semibold">{gettext("Profile Avatar")}</span>
-                    </label>
-                    <p class="text-sm text-base-content/70 mb-3">
-                      {gettext("Select an image from your media library")}
-                    </p>
-                  </div>
-
-                  <%!-- Media Selector Button --%>
-                  <button
-                    type="button"
-                    phx-click="open_media_selector"
-                    class="btn btn-outline btn-primary"
-                  >
-                    <.icon name="hero-photo" class="w-5 h-5 mr-2" />
-                    {if avatar_file_uuid,
-                      do: gettext("Change Avatar"),
-                      else: gettext("Select Avatar")}
-                  </button>
-
-                  <%!-- Current Avatar Info --%>
-                  <%= if avatar_file_uuid do %>
-                    <%= if @pending_avatar_file_uuid do %>
-                      <div class="text-sm text-warning font-semibold">
-                        <.icon name="hero-clock" class="w-4 h-4 inline" />
-                        {gettext("New avatar pending - click \"Update User\" to save")}
-                      </div>
-                    <% else %>
-                      <div class="text-sm text-base-content/60">
-                        <.icon name="hero-check-circle" class="w-4 h-4 inline text-success" />
-                        {gettext("Avatar selected")}
-                      </div>
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
+          <div class="mb-6 flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            <.live_component
+              module={PhoenixKitWeb.Live.Components.AvatarEditor}
+              id="user-form-avatar"
+              user={@user}
+              actor={@phoenix_kit_current_user}
+              picker={:media}
+            />
+            <div class="flex-1 text-center sm:text-left">
+              <span class="fieldset-legend font-semibold">{gettext("Profile Avatar")}</span>
+              <p class="text-sm text-base-content/70">
+                {gettext("Changes to the avatar are saved straight away.")}
+              </p>
             </div>
           </div>
 
@@ -1070,35 +992,4 @@
       </div>
     <% end %>
   </div>
-
-  <%!-- Media Selector Modal --%>
-  <%= if @mode == :edit do %>
-    <% current_avatar_uuid = @user.custom_fields && @user.custom_fields["avatar_file_uuid"] %>
-    <%= if current_avatar_uuid do %>
-      <.live_component
-        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
-        id="media-selector-modal"
-        show={@show_media_selector}
-        mode={:single}
-        file_type_filter={:image}
-        lock_file_type
-        title={gettext("Select Avatar")}
-        selected_uuids={[current_avatar_uuid]}
-        phoenix_kit_current_user={@phoenix_kit_current_user}
-        scope_folder_id={@avatar_scope_folder}
-      />
-    <% else %>
-      <.live_component
-        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
-        id="media-selector-modal"
-        show={@show_media_selector}
-        mode={:single}
-        file_type_filter={:image}
-        lock_file_type
-        title={gettext("Select Avatar")}
-        phoenix_kit_current_user={@phoenix_kit_current_user}
-        scope_folder_id={@avatar_scope_folder}
-      />
-    <% end %>
-  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
