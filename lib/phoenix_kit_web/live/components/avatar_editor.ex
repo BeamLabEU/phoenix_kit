@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
   @moduledoc """
-  A person's avatar and the controls to change it. "Browse Media" picks a
+  A person's avatar and the controls to change it. "Browse" picks a
   picture and opens the crop editor on it straight away; "Adjust Crop" and
   "Reset" change the framing later. The profile settings (`UserSettings`) and
   the admin's user form both render this component, so the person and an
@@ -298,8 +298,9 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
         phx-click="open_avatar_selector"
         phx-target={@myself}
         class="btn btn-primary w-40"
+        title={gettext("Browse Media")}
       >
-        <.icon name="hero-photo" class="w-5 h-5" /> {gettext("Browse Media")}
+        <.icon name="hero-photo" class="w-5 h-5" /> {gettext("Browse")}
       </button>
       <button
         :if={@avatar_uuid}

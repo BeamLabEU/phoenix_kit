@@ -901,14 +901,20 @@ defmodule PhoenixKitWeb.Users.UserForm do
     account_type = Map.get(user_params, "account_type")
 
     if account_type do
-      org_uuid = Map.get(user_params, "organization_uuid")
-      org_uuid = if org_uuid == "" or is_nil(org_uuid), do: nil, else: org_uuid
-
       attrs = %{
         "account_type" => account_type,
-        "organization_name" => Map.get(user_params, "organization_name"),
-        "organization_uuid" => org_uuid
+        "organization_name" => Map.get(user_params, "organization_name")
       }
+
+      # The older company selector is on the form only while the person has
+      # that tie; a form without it leaves the tie as it is (it may have been
+      # set from the user's page meanwhile), never clears it.
+      attrs =
+        case Map.fetch(user_params, "organization_uuid") do
+          {:ok, uuid} when uuid in [nil, ""] -> Map.put(attrs, "organization_uuid", nil)
+          {:ok, uuid} -> Map.put(attrs, "organization_uuid", uuid)
+          :error -> attrs
+        end
 
       Auth.change_account_type(user, attrs)
     else

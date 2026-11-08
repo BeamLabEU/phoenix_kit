@@ -176,9 +176,13 @@
               </div>
             <% end %>
 
-            <%!-- Organization Selector (shown for persons when feature is enabled and orgs exist) --%>
-            <%= if @org_accounts_enabled and @current_account_type != "organization" and length(@organizations) > 0 do %>
-              <div class="fieldset w-full">
+            <%!-- The older single company tie (`organization_uuid`), kept only
+                 for a person who still has one: to change it or let it go.
+                 Companies are attached on the user's page, which also creates
+                 them, so a person without the tie gets a pointer there. --%>
+            <% legacy_tie? = @mode == :edit and not is_nil(@user.organization_uuid) %>
+            <%= if @org_accounts_enabled and @current_account_type != "organization" and legacy_tie? and @organizations != [] do %>
+              <div id="user-form-legacy-organization" class="fieldset w-full">
                 <label class="label">
                   <span class="fieldset-legend font-semibold">{gettext("Organization")}</span>
                   <span class="fieldset-label text-base-content/60">{gettext("Optional")}</span>
@@ -190,9 +194,21 @@
                   options={Enum.map(@organizations, &{&1.organization_name, to_string(&1.uuid)})}
                 />
                 <div class="text-xs text-base-content/60 mt-1">
-                  {gettext("Link this person to an organization account")}
+                  {gettext(
+                    "The person's earlier company link. Other companies are added on the user's page."
+                  )}
                 </div>
               </div>
+            <% end %>
+            <%= if @org_accounts_enabled and @mode == :edit and @current_account_type != "organization" and not legacy_tie? do %>
+              <.link
+                id="user-form-organizations-hint"
+                navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{@user.uuid}")}
+                class="link link-primary text-sm inline-flex items-center gap-1"
+              >
+                <.icon name="hero-building-office-2" class="w-4 h-4" />
+                {gettext("Add or remove organizations on the user's page")}
+              </.link>
             <% end %>
 
             <%!-- Personal Timezone --%>

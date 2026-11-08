@@ -131,6 +131,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   (`user_avatar` size `"card"`), a table row's 48 px instead of 32 px, and the header
   of a user's page 160 px instead of 80 px (96 px on a phone). That header's avatar no
   longer moves down when the card grows (the Organizations search opening).
+- **The user form's Organization selector shows only for a person who still has
+  that older company tie**, to change it or let it go; a person without one gets a link
+  to their page, where companies are added and removed. The avatar's "Browse Media"
+  button reads "Browse" (it did not fit).
 - **The Users table's Account cell reads name, email, @username.** A person with a
   name is named first, with the email under it; Full Name holds the name alone, no
   longer the person's company.
@@ -206,6 +210,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   seconds, which a file's changeset refuses, so the whole update failed with it: the file
   stayed without its size, capture date and previews, and was marked failed after the last
   try. A clip of any length is now at least 1 second; a reported length of 0 is left out.
+- **Saving the admin's user form no longer clears a company tie set meanwhile.** The
+  selector posted its "no organization" value when the person had none, so a company
+  attached from the user's page while the form was open was dropped on save. The form
+  now leaves the tie alone unless the selector is on it.
 - The profile page's "Avatar crop updated!" and "Avatar crop reset." were never shown.
 - With only the status or email filter on and no match, the Users table said "No users
   are registered yet." and offered no way back. Every filter now counts, and the empty
