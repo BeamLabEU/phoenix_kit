@@ -11,508 +11,477 @@
   current_locale={@current_locale}
 >
   <div class="flex-col px-4 py-6">
-    <%!-- Actions row: user-level actions that must stay visible regardless of
-         which tab is active or the user's account type (the org-members table
-         below is tab-gated and organization-only, so it can't own these). --%>
-    <div class="flex flex-wrap items-center gap-2 justify-end mb-4">
-      <%!-- Same actions offered by the "..." menu on the Users list, so nothing
-           there is unreachable from this page. --%>
-      <.table_row_menu id="user-detail-actions" label={gettext("More actions")}>
-        <.table_row_menu_link
-          navigate={
-            PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@user.uuid}?return_to=view")
+    <div class="max-w-4xl mx-auto">
+      <%!-- Who this is, above every tab: the picture, the name, the state of
+           the account, and what can be done with it. --%>
+      <div class="card bg-base-200 shadow-sm mb-6">
+        <div class="card-body p-4 sm:p-6 flex-row flex-wrap items-start gap-4 sm:gap-6">
+          <.user_avatar user={@user} size="lg" class="!w-20 !h-20 !text-3xl" />
+
+          <div class="flex-1 min-w-0 space-y-2">
+            <%!-- A long unbreakable name wraps instead of overflowing. --%>
+            <h2 class="text-xl font-semibold break-words">{user_display_name(@user)}</h2>
+            <p class="text-sm text-base-content/70 break-words">
+              <span :if={@user.username}>@{@user.username} · </span>{Auth.User.delivery_email(
+                @user
+              )}
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+              <%= if @user.is_active do %>
+                <span class="badge badge-success badge-sm h-auto">{gettext("Active")}</span>
+              <% else %>
+                <span class="badge badge-error badge-sm h-auto">{gettext("Inactive")}</span>
+              <% end %>
+              <%= if @user.confirmed_at do %>
+                <span class="badge badge-info badge-sm h-auto">{gettext("Email Confirmed")}</span>
+              <% else %>
+                <span class="badge badge-warning badge-sm h-auto">
+                  {gettext("Email Unconfirmed")}
+                </span>
+              <% end %>
+              <span
+                :if={@org_accounts_enabled}
+                class={[
+                  "badge badge-sm h-auto",
+                  if(@user.account_type == "organization",
+                    do: "badge-primary",
+                    else: "badge-ghost"
+                  )
+                ]}
+              >
+                {if @user.account_type == "organization",
+                  do: gettext("Organization"),
+                  else: gettext("Personal")}
+              </span>
+              <.role_badge :for={role <- @user.roles || []} role={role} size={:sm} />
+            </div>
+
+            <p class="text-xs text-base-content/60 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                {gettext("Registered")}: {format_datetime(
+                  @user.inserted_at,
+                  @phoenix_kit_current_user,
+                  @date_time_settings
+                )}
+              </span>
+            </p>
+
+            <%!-- A person's companies, attached, detached or created here. --%>
+            <.live_component
+              :if={@org_accounts_enabled and @user.account_type == "person"}
+              module={PhoenixKitWeb.Live.Components.PersonOrganizations}
+              id="person-organizations"
+              person={@user}
+              actor={@manager_actor}
+              can_edit={can_edit_organizations?(assigns)}
+            />
+          </div>
+
+          <%!-- Edit at hand; everything else, Permanently Delete last and
+               apart, in the menu (the same actions as the Users list's). --%>
+          <div class="flex items-center gap-2">
+            <.link
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@user.uuid}?return_to=view")
+              }
+              class="btn btn-sm btn-primary"
+            >
+              <.icon name="hero-pencil" class="w-4 h-4" /> {gettext("Edit User")}
+            </.link>
+            <.table_row_menu id="user-detail-actions" label={gettext("More actions")}>
+              <%!-- Sign in as this user. Rendered only where the rules allow it; the
+                   POST leaves LiveView because it rewrites the session cookie. --%>
+              <.table_row_menu_link
+                :if={MultiSession.impersonable?(@impersonation_actor, @user)}
+                href={PhoenixKit.Utils.Routes.path("/users/session/impersonate/#{@user.uuid}")}
+                method="post"
+                data-confirm={
+                  gettext("Sign in as %{email}?", email: Auth.User.delivery_email(@user))
+                }
+                icon="hero-arrow-right-end-on-rectangle"
+                label={gettext("Sign in as user")}
+                variant="warning"
+              />
+              <%= if @user.uuid != @phoenix_kit_current_user.uuid do %>
+                <.table_row_menu_button
+                  phx-click="show_role_management"
+                  icon="hero-user-group"
+                  label={gettext("Roles")}
+                  variant="primary"
+                />
+              <% else %>
+                <.table_row_menu_link
+                  navigate={PhoenixKit.Utils.Routes.user_settings_path()}
+                  icon="hero-cog-6-tooth"
+                  label={gettext("Settings")}
+                  variant="info"
+                />
+              <% end %>
+              <%!-- Both switches answer to the same rank rule the context enforces, so
+                    neither is offered for a target that outranks the actor. Gating
+                    only the status button left the confirmation twin advertising an
+                    action `toggle_user_confirmation/2` refuses — and unconfirming is
+                    not cosmetic: `require_email_confirmation` is honoured at eleven
+                    gates, so it locks the account out of every protected page. --%>
+              <%= if @user.uuid != @phoenix_kit_current_user.uuid && !target_is_owner?(@user) &&
+                       Auth.can_manage_user_status?(@user, @phoenix_kit_current_user) do %>
+                <.table_row_menu_divider />
+                <.table_row_menu_button
+                  :if={not @user.managed_by_members}
+                  phx-click="request_confirmation_toggle"
+                  phx-value-is_confirmed={to_string(!!@user.confirmed_at)}
+                  icon={if @user.confirmed_at, do: "hero-envelope-open", else: "hero-envelope"}
+                  label={
+                    if @user.confirmed_at,
+                      do: gettext("Unconfirm Email"),
+                      else: gettext("Confirm Email")
+                  }
+                  variant={if @user.confirmed_at, do: "success", else: "warning"}
+                />
+                <.table_row_menu_button
+                  phx-click="request_status_toggle"
+                  phx-value-is_active={to_string(@user.is_active)}
+                  icon={if @user.is_active, do: "hero-check-circle", else: "hero-x-circle"}
+                  label={if @user.is_active, do: gettext("Deactivate"), else: gettext("Activate")}
+                  variant={if @user.is_active, do: "success", else: "warning"}
+                />
+              <% end %>
+              <%!-- Last and apart: it opens the confirmation with this user's
+                   real counts, never deletes on the click. --%>
+              <%= if Auth.can_delete_user?(@user, @phoenix_kit_current_user) do %>
+                <.table_row_menu_divider />
+                <.table_row_menu_button
+                  phx-click="show_delete_modal"
+                  icon="hero-trash"
+                  label={gettext("Permanently Delete")}
+                  variant="error"
+                />
+              <% end %>
+            </.table_row_menu>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Tabs: the active one is in the URL (`?tab=account`). --%>
+      <div class="flex justify-center mb-6">
+        <.nav_tabs
+          active_tab={@active_tab}
+          tabs={
+            PhoenixKitWeb.Live.Settings.UrlTabs.patch_links(
+              detail_tabs(assigns),
+              "/admin/users/view/#{@user.uuid}"
+            )
           }
-          icon="hero-pencil"
-          label={gettext("Edit User")}
-          variant="primary"
         />
-        <%!-- Sign in as this user. Rendered only where the rules allow it; the
-             POST leaves LiveView because it rewrites the session cookie. --%>
-        <.table_row_menu_link
-          :if={MultiSession.impersonable?(@impersonation_actor, @user)}
-          href={PhoenixKit.Utils.Routes.path("/users/session/impersonate/#{@user.uuid}")}
-          method="post"
-          data-confirm={gettext("Sign in as %{email}?", email: Auth.User.delivery_email(@user))}
-          icon="hero-arrow-right-end-on-rectangle"
-          label={gettext("Sign in as user")}
-          variant="warning"
-        />
-        <%= if @user.uuid != @phoenix_kit_current_user.uuid do %>
-          <.table_row_menu_button
-            phx-click="show_role_management"
-            icon="hero-user-group"
-            label={gettext("Roles")}
-            variant="primary"
-          />
-        <% else %>
-          <.table_row_menu_link
-            navigate={PhoenixKit.Utils.Routes.user_settings_path()}
-            icon="hero-cog-6-tooth"
-            label={gettext("Settings")}
-            variant="info"
-          />
-        <% end %>
-        <%!-- Both switches answer to the same rank rule the context enforces, so
-              neither is offered for a target that outranks the actor. Gating
-              only the status button left the confirmation twin advertising an
-              action `toggle_user_confirmation/2` refuses — and unconfirming is
-              not cosmetic: `require_email_confirmation` is honoured at eleven
-              gates, so it locks the account out of every protected page. --%>
-        <%= if @user.uuid != @phoenix_kit_current_user.uuid && !target_is_owner?(@user) &&
-                 Auth.can_manage_user_status?(@user, @phoenix_kit_current_user) do %>
-          <.table_row_menu_divider />
-          <.table_row_menu_button
-            :if={not @user.managed_by_members}
-            phx-click="request_confirmation_toggle"
-            phx-value-is_confirmed={to_string(!!@user.confirmed_at)}
-            icon={if @user.confirmed_at, do: "hero-envelope-open", else: "hero-envelope"}
-            label={
-              if @user.confirmed_at,
-                do: gettext("Unconfirm Email"),
-                else: gettext("Confirm Email")
-            }
-            variant={if @user.confirmed_at, do: "success", else: "warning"}
-          />
-          <.table_row_menu_button
-            phx-click="request_status_toggle"
-            phx-value-is_active={to_string(@user.is_active)}
-            icon={if @user.is_active, do: "hero-check-circle", else: "hero-x-circle"}
-            label={if @user.is_active, do: gettext("Deactivate"), else: gettext("Activate")}
-            variant={if @user.is_active, do: "success", else: "warning"}
-          />
-        <% end %>
-      </.table_row_menu>
-
-      <%= if Auth.can_delete_user?(@user, @phoenix_kit_current_user) do %>
-        <button
-          type="button"
-          class="btn btn-error btn-sm btn-outline"
-          phx-click="show_delete_modal"
-        >
-          <PhoenixKitWeb.Components.Core.Icons.icon_trash /> {gettext("Permanently Delete")}
-        </button>
-      <% end %>
-    </div>
-
-    <%!-- Tabs Navigation --%>
-    <% user_detail_tabs =
-      [
-        %{id: "profile", label: gettext("Profile"), icon: "hero-user"},
-        @connections_enabled &&
-          %{id: "connections", label: gettext("Connections"), icon: "hero-user-group"},
-        Map.merge(
-          %{id: "notes", label: gettext("Notes"), icon: "hero-document-text"},
-          (length(@admin_notes) > 0 && %{badge: length(@admin_notes)}) || %{}
-        ),
-        @user.account_type == "organization" &&
-          (@org_accounts_enabled || @user.managed_by_members) &&
-          Map.merge(
-            %{id: "people", label: gettext("People"), icon: "hero-user-group"},
-            (@people_count > 0 && %{badge: @people_count}) || %{}
-          ),
-        @person_links != [] &&
-          %{
-            id: "organizations",
-            label: gettext("Organizations"),
-            icon: "hero-building-office-2",
-            badge: length(@person_links)
-          },
-        # Members are the older one-company tie. A managed organization has People
-        # instead, and shows this only for the members it still has.
-        @org_accounts_enabled && @user.account_type == "organization" &&
-          (not @user.managed_by_members || @organization_members != []) &&
-          Map.merge(
-            %{id: "members", label: gettext("Members"), icon: "hero-users"},
-            (length(@organization_members) > 0 &&
-               %{badge: length(@organization_members)}) || %{}
-          )
-      ]
-      |> Enum.filter(& &1) %>
-    <div class="flex justify-center mb-6">
-      <.nav_tabs active_tab={@active_tab} on_change="change_tab" tabs={user_detail_tabs} />
+      </div>
     </div>
 
     <%!-- Tab Content --%>
     <div class="max-w-4xl mx-auto">
       <%= if @active_tab == "profile" do %>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <%!-- Left Column: Avatar and Quick Stats --%>
-          <div class="lg:col-span-1">
-            <div class="card bg-base-200 shadow-sm">
-              <div class="card-body items-center text-center">
-                <%!-- Avatar --%>
-                <div class="mb-4">
-                  <.user_avatar user={@user} size="lg" class="!w-24 !h-24 !text-3xl" />
-                </div>
-
-                <%!-- Name (block, not card-title's flex, so a long unbreakable
-                     name wraps within the card instead of overflowing both sides). --%>
-                <h2 class="text-xl font-semibold break-words w-full">
-                  {user_display_name(@user)}
-                </h2>
-
-                <%!-- Username --%>
-                <%= if @user.username do %>
-                  <p class="text-base-content/70 break-words w-full">@{@user.username}</p>
+        <div class="space-y-6">
+          <%!-- Basic Information --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body">
+              <h3 class="card-title text-lg">{gettext("Basic Information")}</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <%= if @org_accounts_enabled do %>
+                  <div>
+                    <label class="text-sm font-medium text-base-content/70">
+                      {gettext("Account Type")}
+                    </label>
+                    <p class="text-base-content">
+                      <span class={
+                          "badge badge-sm h-auto #{if @user.account_type == "organization", do: "badge-info", else: "badge-ghost"}"
+                        }>
+                        {if @user.account_type == "organization",
+                          do: gettext("Organization"),
+                          else: gettext("Personal")}
+                      </span>
+                    </p>
+                  </div>
                 <% end %>
-
-                <%!-- Status Badges --%>
-                <div class="flex flex-wrap gap-2 mt-4 justify-center">
-                  <%= if @user.is_active do %>
-                    <span class="badge badge-success">{gettext("Active")}</span>
-                  <% else %>
-                    <span class="badge badge-error">{gettext("Inactive")}</span>
-                  <% end %>
-
-                  <%= if @user.confirmed_at do %>
-                    <span class="badge badge-info">{gettext("Email Confirmed")}</span>
-                  <% else %>
-                    <span class="badge badge-warning">{gettext("Email Unconfirmed")}</span>
-                  <% end %>
-                  <%= if @org_accounts_enabled do %>
-                    <span class={
-                      "badge #{if @user.account_type == "organization", do: "badge-primary", else: "badge-ghost"}"
-                    }>
-                      {if @user.account_type == "organization",
-                        do: gettext("Organization"),
-                        else: gettext("Personal")}
-                    </span>
-                  <% end %>
-                </div>
-
-                <%!-- Roles --%>
-                <%= if @user.roles && length(@user.roles) > 0 do %>
-                  <div class="mt-4">
-                    <h3 class="text-sm font-semibold text-base-content/70 mb-2">
-                      {gettext("Roles")}
-                    </h3>
-                    <div class="flex flex-wrap gap-1 justify-center">
-                      <%= for role <- @user.roles do %>
-                        <.role_badge role={role} size={:sm} />
-                      <% end %>
+                <%= if @user.account_type == "organization" do %>
+                  <div>
+                    <label class="text-sm font-medium text-base-content/70">
+                      {gettext("Organization Name")}
+                    </label>
+                    <p class="text-base-content">{@user.organization_name || "-"}</p>
+                  </div>
+                <% else %>
+                  <%= if @user.organization_uuid do %>
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70">
+                        {gettext("Organization")}
+                      </label>
+                      <p class="text-base-content">
+                        <.pk_link
+                          navigate={"/admin/users/view/#{@user.organization_uuid}"}
+                          class="link link-primary text-sm"
+                        >
+                          {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
+                              PhoenixKit.Users.Auth.User.full_name(@user.organization)) ||
+                            to_string(@user.organization_uuid)}
+                        </.pk_link>
+                      </p>
                     </div>
-                  </div>
+                  <% end %>
                 <% end %>
-
-                <%!-- Organization link (for person accounts) --%>
-                <%= if @org_accounts_enabled && @user.organization_uuid do %>
-                  <div class="mt-4">
-                    <h3 class="text-sm font-semibold text-base-content/70 mb-2">
-                      {gettext("Organization")}
-                    </h3>
-                    <.pk_link
-                      navigate={"/admin/users/view/#{@user.organization_uuid}"}
-                      class="link link-primary text-sm"
-                    >
-                      {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
-                          PhoenixKit.Users.Auth.User.full_name(@user.organization)) ||
-                        to_string(@user.organization_uuid)}
-                    </.pk_link>
-                  </div>
-                <% end %>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Email")}
+                  </label>
+                  <p class="text-base-content flex items-center gap-2 flex-wrap">
+                    {Auth.User.delivery_email(@user)}
+                    <%= if @user.confirmed_at do %>
+                      <span class="badge badge-success badge-sm h-auto">
+                        {gettext("Email Confirmed")}
+                      </span>
+                    <% else %>
+                      <span class="badge badge-warning badge-sm h-auto">
+                        {gettext("Email Unconfirmed")}
+                      </span>
+                    <% end %>
+                  </p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Username")}
+                  </label>
+                  <p class="text-base-content">{@user.username || "-"}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("First Name")}
+                  </label>
+                  <p class="text-base-content">{@user.first_name || "-"}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Last Name")}
+                  </label>
+                  <p class="text-base-content">{@user.last_name || "-"}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Timezone")}
+                  </label>
+                  <p class="text-base-content">{format_timezone(@user.user_timezone)}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Country")}
+                  </label>
+                  <p class="text-base-content">
+                    {CountryData.country_name(@user.country) || gettext("Not set")}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <%!-- Right Column: Details --%>
-          <div class="lg:col-span-2 space-y-6">
-            <%!-- Basic Information --%>
+          <%!-- Custom Fields --%>
+          <%= if @custom_field_definitions && length(@custom_field_definitions) > 0 do %>
             <div class="card bg-base-200 shadow-sm">
               <div class="card-body">
-                <h3 class="card-title text-lg">{gettext("Basic Information")}</h3>
+                <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <%= if @org_accounts_enabled do %>
+                  <%= for field <- @custom_field_definitions do %>
                     <div>
                       <label class="text-sm font-medium text-base-content/70">
-                        {gettext("Account Type")}
+                        {field["label"]}
                       </label>
                       <p class="text-base-content">
-                        <span class={
-                          "badge badge-sm h-auto #{if @user.account_type == "organization", do: "badge-info", else: "badge-ghost"}"
-                        }>
-                          {if @user.account_type == "organization",
-                            do: gettext("Organization"),
-                            else: gettext("Personal")}
-                        </span>
+                        {format_custom_field_value(
+                          get_custom_field_value(@user, field["key"]),
+                          field["type"],
+                          field["key"]
+                        )}
                       </p>
                     </div>
                   <% end %>
-                  <%= if @user.account_type == "organization" do %>
-                    <div>
-                      <label class="text-sm font-medium text-base-content/70">
-                        {gettext("Organization Name")}
-                      </label>
-                      <p class="text-base-content">{@user.organization_name || "-"}</p>
-                    </div>
-                  <% else %>
-                    <%= if @user.organization_uuid do %>
-                      <div>
-                        <label class="text-sm font-medium text-base-content/70">
-                          {gettext("Organization")}
-                        </label>
-                        <p class="text-base-content">
-                          <.pk_link
-                            navigate={"/admin/users/view/#{@user.organization_uuid}"}
-                            class="link link-primary text-sm"
-                          >
-                            {(Ecto.assoc_loaded?(@user.organization) && @user.organization &&
-                                PhoenixKit.Users.Auth.User.full_name(@user.organization)) ||
-                              to_string(@user.organization_uuid)}
-                          </.pk_link>
-                        </p>
-                      </div>
-                    <% end %>
-                  <% end %>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Email")}
-                    </label>
-                    <p class="text-base-content flex items-center gap-2 flex-wrap">
-                      {Auth.User.delivery_email(@user)}
-                      <%= if @user.confirmed_at do %>
-                        <span class="badge badge-success badge-sm h-auto">
-                          {gettext("Email Confirmed")}
-                        </span>
-                      <% else %>
-                        <span class="badge badge-warning badge-sm h-auto">
-                          {gettext("Email Unconfirmed")}
-                        </span>
-                      <% end %>
-                    </p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Username")}
-                    </label>
-                    <p class="text-base-content">{@user.username || "-"}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("First Name")}
-                    </label>
-                    <p class="text-base-content">{@user.first_name || "-"}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Last Name")}
-                    </label>
-                    <p class="text-base-content">{@user.last_name || "-"}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Timezone")}
-                    </label>
-                    <p class="text-base-content">{format_timezone(@user.user_timezone)}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Country")}
-                    </label>
-                    <p class="text-base-content">
-                      {CountryData.country_name(@user.country) || gettext("Not set")}
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
-
-            <%!-- Account Information --%>
-            <div class="card bg-base-200 shadow-sm">
-              <div class="card-body">
-                <h3 class="card-title text-lg">{gettext("Account Information")}</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("User UUID")}
-                    </label>
-                    <p class="text-base-content font-mono text-sm">{@user.uuid}</p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Status")}
-                    </label>
-                    <p class="text-base-content">
-                      {if @user.is_active, do: gettext("Active"), else: gettext("Inactive")}
-                    </p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Email Confirmed")}
-                    </label>
-                    <p class="text-base-content">
-                      <%= if @user.confirmed_at do %>
-                        {format_datetime(
-                          @user.confirmed_at,
-                          @phoenix_kit_current_user,
-                          @date_time_settings
-                        )}
-                      <% else %>
-                        {gettext("Not confirmed")}
-                      <% end %>
-                    </p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Registered")}
-                    </label>
-                    <p class="text-base-content">
-                      {format_datetime(
-                        @user.inserted_at,
-                        @phoenix_kit_current_user,
-                        @date_time_settings
-                      )}
-                    </p>
-                  </div>
-                  <%!-- Who added this user from the admin panel. "-" covers a
-                       self-registered user, a user added before V191 whose
-                       activity entry was already pruned, and one whose
-                       creator has since been deleted (ON DELETE SET NULL). --%>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Added By")}
-                    </label>
-                    <p class="text-base-content">
-                      <%= if @user.created_by do %>
-                        <.link
-                          navigate={
-                            PhoenixKit.Utils.Routes.path(
-                              "/admin/users/view/#{@user.created_by.uuid}"
-                            )
-                          }
-                          class="link link-primary"
-                        >
-                          {user_display_name(@user.created_by)}
-                        </.link>
-                      <% else %>
-                        -
-                      <% end %>
-                    </p>
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-base-content/70">
-                      {gettext("Last Updated")}
-                    </label>
-                    <p class="text-base-content">
-                      {format_datetime(
-                        @user.updated_at,
-                        @phoenix_kit_current_user,
-                        @date_time_settings
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <%!-- Registration Details --%>
-            <div class="card bg-base-200 shadow-sm">
-              <div class="card-body">
-                <h3 class="card-title text-lg">{gettext("Registration Details")}</h3>
-                <%= cond do %>
-                  <% !@geolocation_tracking_enabled -> %>
-                    <div class="mt-2 text-sm text-base-content/60">
-                      {gettext(
-                        "Location tracking is off, so this user has no registration location."
-                      )}
-                      <.link
-                        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/users")}
-                        class="link link-primary"
-                      >
-                        {gettext("Turn it on in Settings > Users.")}
-                      </.link>
-                    </div>
-                  <% @user.registration_ip || format_location(@user) -> %>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                      <%= if @user.registration_ip do %>
-                        <div>
-                          <label class="text-sm font-medium text-base-content/70">
-                            {gettext("Registration IP")}
-                          </label>
-                          <p class="text-base-content font-mono text-sm">
-                            {@user.registration_ip}
-                          </p>
-                        </div>
-                      <% end %>
-                      <%= if format_location(@user) do %>
-                        <div>
-                          <label class="text-sm font-medium text-base-content/70">
-                            {gettext("Registration Location")}
-                          </label>
-                          <p class="text-base-content">{format_location(@user)}</p>
-                        </div>
-                      <% end %>
-                    </div>
-                  <% true -> %>
-                    <p class="mt-2 text-sm text-base-content/50">{gettext("No data")}</p>
-                <% end %>
-              </div>
-            </div>
-
-            <%!-- CRM contact (guarded: only rendered when the optional CRM
-                 module is installed and enabled, the viewer holds the `crm`
-                 permission, and this user has a linked contact — see
-                 load_crm_contact/2 for @crm_contact). --%>
-            <div :if={@crm_contact} class="card bg-base-200 shadow-sm">
-              <div class="card-body">
-                <h3 class="card-title text-lg">{gettext("CRM")}</h3>
-                <p class="text-sm text-base-content/70">
-                  {gettext("This user is linked to a CRM contact.")}
-                </p>
-                <.link
-                  navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/crm/contacts/#{@crm_contact.uuid}")
-                  }
-                  class="link link-primary text-sm"
-                >
-                  {crm_contact_label(@crm_contact)}
-                </.link>
-              </div>
-            </div>
-
-            <%!-- Custom Fields --%>
-            <%= if @custom_field_definitions && length(@custom_field_definitions) > 0 do %>
+          <% else %>
+            <%= if @user.custom_fields && map_size(@user.custom_fields) > 0 do %>
               <div class="card bg-base-200 shadow-sm">
                 <div class="card-body">
                   <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <%= for field <- @custom_field_definitions do %>
+                    <%= for {key, value} <- Enum.sort(@user.custom_fields) do %>
                       <div>
                         <label class="text-sm font-medium text-base-content/70">
-                          {field["label"]}
+                          {Phoenix.Naming.humanize(key)}
                         </label>
                         <p class="text-base-content">
-                          {format_custom_field_value(
-                            get_custom_field_value(@user, field["key"]),
-                            field["type"],
-                            field["key"]
-                          )}
+                          {format_custom_field_value(value, nil, key)}
                         </p>
                       </div>
                     <% end %>
                   </div>
                 </div>
               </div>
-            <% else %>
-              <%= if @user.custom_fields && map_size(@user.custom_fields) > 0 do %>
-                <div class="card bg-base-200 shadow-sm">
-                  <div class="card-body">
-                    <h3 class="card-title text-lg">{gettext("Custom Fields")}</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                      <%= for {key, value} <- Enum.sort(@user.custom_fields) do %>
-                        <div>
-                          <label class="text-sm font-medium text-base-content/70">
-                            {Phoenix.Naming.humanize(key)}
-                          </label>
-                          <p class="text-base-content">
-                            {format_custom_field_value(value, nil, key)}
-                          </p>
-                        </div>
-                      <% end %>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
             <% end %>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%!-- Account Tab: the account's record, how it arrived, and its CRM contact. --%>
+      <%= if @active_tab == "account" do %>
+        <div class="space-y-6">
+          <%!-- Account Information --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body">
+              <h3 class="card-title text-lg">{gettext("Account Information")}</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("User UUID")}
+                  </label>
+                  <p class="text-base-content font-mono text-sm">{@user.uuid}</p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Status")}
+                  </label>
+                  <p class="text-base-content">
+                    {if @user.is_active, do: gettext("Active"), else: gettext("Inactive")}
+                  </p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Email Confirmed")}
+                  </label>
+                  <p class="text-base-content">
+                    <%= if @user.confirmed_at do %>
+                      {format_datetime(
+                        @user.confirmed_at,
+                        @phoenix_kit_current_user,
+                        @date_time_settings
+                      )}
+                    <% else %>
+                      {gettext("Not confirmed")}
+                    <% end %>
+                  </p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Registered")}
+                  </label>
+                  <p class="text-base-content">
+                    {format_datetime(
+                      @user.inserted_at,
+                      @phoenix_kit_current_user,
+                      @date_time_settings
+                    )}
+                  </p>
+                </div>
+                <%!-- Who added this user from the admin panel. "-" covers a
+                       self-registered user, a user added before V191 whose
+                       activity entry was already pruned, and one whose
+                       creator has since been deleted (ON DELETE SET NULL). --%>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Added By")}
+                  </label>
+                  <p class="text-base-content">
+                    <%= if @user.created_by do %>
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/users/view/#{@user.created_by.uuid}"
+                          )
+                        }
+                        class="link link-primary"
+                      >
+                        {user_display_name(@user.created_by)}
+                      </.link>
+                    <% else %>
+                      -
+                    <% end %>
+                  </p>
+                </div>
+                <div>
+                  <label class="text-sm font-medium text-base-content/70">
+                    {gettext("Last Updated")}
+                  </label>
+                  <p class="text-base-content">
+                    {format_datetime(
+                      @user.updated_at,
+                      @phoenix_kit_current_user,
+                      @date_time_settings
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Registration Details --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body">
+              <h3 class="card-title text-lg">{gettext("Registration Details")}</h3>
+              <%= cond do %>
+                <% !@geolocation_tracking_enabled -> %>
+                  <div class="mt-2 text-sm text-base-content/60">
+                    {gettext(
+                      "Location tracking is off, so this user has no registration location."
+                    )}
+                    <.link
+                      navigate={PhoenixKit.Utils.Routes.path("/admin/settings/users")}
+                      class="link link-primary"
+                    >
+                      {gettext("Turn it on in Settings > Users.")}
+                    </.link>
+                  </div>
+                <% @user.registration_ip || format_location(@user) -> %>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <%= if @user.registration_ip do %>
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Registration IP")}
+                        </label>
+                        <p class="text-base-content font-mono text-sm">
+                          {@user.registration_ip}
+                        </p>
+                      </div>
+                    <% end %>
+                    <%= if format_location(@user) do %>
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">
+                          {gettext("Registration Location")}
+                        </label>
+                        <p class="text-base-content">{format_location(@user)}</p>
+                      </div>
+                    <% end %>
+                  </div>
+                <% true -> %>
+                  <p class="mt-2 text-sm text-base-content/50">{gettext("No data")}</p>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- CRM contact (guarded: only rendered when the optional CRM
+                 module is installed and enabled, the viewer holds the `crm`
+                 permission, and this user has a linked contact — see
+                 load_crm_contact/2 for @crm_contact). --%>
+          <div :if={@crm_contact} class="card bg-base-200 shadow-sm">
+            <div class="card-body">
+              <h3 class="card-title text-lg">{gettext("CRM")}</h3>
+              <p class="text-sm text-base-content/70">
+                {gettext("This user is linked to a CRM contact.")}
+              </p>
+              <.link
+                navigate={
+                  PhoenixKit.Utils.Routes.path("/admin/crm/contacts/#{@crm_contact.uuid}")
+                }
+                class="link link-primary text-sm"
+              >
+                {crm_contact_label(@crm_contact)}
+              </.link>
+            </div>
           </div>
         </div>
       <% end %>

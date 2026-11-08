@@ -34,10 +34,11 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.TimeZone
+  alias PhoenixKitWeb.Live.Settings.UrlTabs
   alias PhoenixKitWeb.Users.MultiSession
 
   @impl true
-  def mount(%{"id" => user_uuid} = params, session, socket) do
+  def mount(%{"id" => user_uuid}, session, socket) do
     project_title = Settings.get_project_title()
 
     user = Auth.get_user_with_roles(user_uuid)
@@ -116,7 +117,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:project_title, project_title)
           |> assign(:date_time_settings, date_time_settings)
           |> assign(:geolocation_tracking_enabled, geolocation_tracking_enabled)
-          |> assign(:active_tab, initial_tab(params))
+          |> assign(:active_tab, "profile")
           |> assign(:custom_field_definitions, custom_field_definitions)
           |> assign(:show_delete_modal, false)
           |> assign(:connections_enabled, connections_enabled)
@@ -151,10 +152,62 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
     end
   end
 
-  # A link from elsewhere can open a tab; a tab the page does not show falls back
-  # to nothing visible, so only these two are taken from the URL.
-  defp initial_tab(%{"tab" => tab}) when tab in ["people", "organizations"], do: tab
-  defp initial_tab(_params), do: "profile"
+  # The tab is in the URL (`?tab=account`), so a refresh, a link or Back keeps it;
+  # one this user's page does not show opens Profile (`UrlTabs.active/2`).
+  @impl true
+  def handle_params(params, _url, %{assigns: %{user: _}} = socket) do
+    {:noreply, assign(socket, :active_tab, UrlTabs.active(params, detail_tabs(socket.assigns)))}
+  end
+
+  def handle_params(_params, _url, socket), do: {:noreply, socket}
+
+  # The tabs this user's page shows, in order; badges count what is inside.
+  defp detail_tabs(assigns) do
+    user = assigns.user
+
+    [
+      %{id: "profile", label: gettext("Profile"), icon: "hero-user"},
+      %{id: "account", label: gettext("Account"), icon: "hero-identification"},
+      assigns.connections_enabled &&
+        %{id: "connections", label: gettext("Connections"), icon: "hero-user-group"},
+      with_badge(
+        %{id: "notes", label: gettext("Notes"), icon: "hero-document-text"},
+        length(assigns.admin_notes)
+      ),
+      user.account_type == "organization" &&
+        (assigns.org_accounts_enabled || user.managed_by_members) &&
+        with_badge(
+          %{id: "people", label: gettext("People"), icon: "hero-user-group"},
+          assigns.people_count
+        ),
+      assigns.person_links != [] &&
+        with_badge(
+          %{id: "organizations", label: gettext("Organizations"), icon: "hero-building-office-2"},
+          length(assigns.person_links)
+        ),
+      # Members are the older one-company tie. A managed organization has People
+      # instead, and shows this only for the members it still has.
+      assigns.org_accounts_enabled && user.account_type == "organization" &&
+        (not user.managed_by_members || assigns.organization_members != []) &&
+        with_badge(
+          %{id: "members", label: gettext("Members"), icon: "hero-users"},
+          length(assigns.organization_members)
+        )
+    ]
+    |> Enum.filter(& &1)
+  end
+
+  # An Owner or Admin in their own account (not acting for an organization):
+  # the core functions behind the Organizations row check the same again.
+  defp can_edit_organizations?(assigns) do
+    scope = assigns[:phoenix_kit_current_scope]
+
+    match?(%{current: same, root: same}, assigns.manager_actor) and
+      (Scope.owner?(scope) or Scope.has_role?(scope, "Admin"))
+  end
+
+  defp with_badge(tab, 0), do: tab
+  defp with_badge(tab, count), do: Map.put(tab, :badge, count)
 
   defp people_count(%{account_type: "organization"} = user, enabled?)
        when enabled? or user.managed_by_members,
@@ -174,8 +227,15 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   end
 
   @impl true
+  # The tabs are patch links; this is the same move for a caller that pushes it.
   def handle_event("change_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
+    {:noreply,
+     push_patch(socket,
+       to:
+         Routes.path(
+           "/admin/users/view/#{socket.assigns.user.uuid}?tab=#{URI.encode_www_form(tab)}"
+         )
+     )}
   end
 
   @impl true
@@ -503,6 +563,18 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   @impl true
   def handle_info({:phoenix_kit_user_updated, user}, socket) do
     {:noreply, maybe_refresh_user(socket, user)}
+  end
+
+  # The Organizations row changed a tie: reload the person and the tab of links.
+  def handle_info({PhoenixKitWeb.Live.Components.PersonOrganizations, :changed}, socket) do
+    socket = maybe_refresh_user(socket, socket.assigns.user)
+
+    {:noreply,
+     assign(
+       socket,
+       :person_links,
+       person_links(socket.assigns.user, socket.assigns.org_accounts_enabled)
+     )}
   end
 
   def handle_info({:user_updated, user}, socket) do

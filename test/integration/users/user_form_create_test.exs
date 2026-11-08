@@ -63,8 +63,9 @@ defmodule PhoenixKit.Integration.Users.UserFormCreateTest do
     {:ok, _view, html} =
       conn
       |> log_in_user(admin)
-      |> live(Routes.path("/admin/users/view/#{created.uuid}"))
+      |> live(Routes.path("/admin/users/view/#{created.uuid}?tab=account"))
 
+    # On the Account tab since the page was split into tabs (2026-11-08).
     assert html =~ "Added By"
     assert html =~ "Ada Admin"
   end
