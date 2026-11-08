@@ -25,6 +25,12 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   the token elsewhere. `Linking.linked_users/2` lists every account that linked a
   chat, for a bot that asks such a person which account it acts for (`linked_user/2`
   still names nobody for that chat). No migration.
+- **A capture date from Telegram Desktop's chat export.** Its files without a name of their
+  own are named for when they were sent, day first after an `@`
+  (`photo_12@14-05-2021_18-23-45.jpg`, `video_3@…`, `file_7@…`), in the exporting computer's
+  local time; `CaptureDate.from_filename/1` now reads that shape (the `filename` source), so
+  an export dropped into a library keeps its dates. A day-first date anywhere else is still
+  not read: it cannot be told from a month-first one.
 - **The admin's user form has the person's avatar controls.** Pick a picture, frame it
   in the crop editor, adjust or reset the crop later, as on the profile page: both pages
   render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is

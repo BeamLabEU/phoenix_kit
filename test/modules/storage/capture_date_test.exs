@@ -186,7 +186,12 @@ defmodule PhoenixKit.Modules.Storage.CaptureDateTest do
           {"Screen Shot 2024-03-15 at 08.11.00.png", ~N[2024-03-15 08:11:00]},
           {"IMG-20240315-WA0001.jpg", ~N[2024-03-15 00:00:00]},
           {"holiday 2019-05-20.jpg", ~N[2019-05-20 00:00:00]},
-          {"uploads/nested/IMG_20180701_120000.jpg", ~N[2018-07-01 12:00:00]}
+          {"uploads/nested/IMG_20180701_120000.jpg", ~N[2018-07-01 12:00:00]},
+          # Telegram Desktop's chat export, day first after the `@`
+          {"photos/photo_12@14-05-2021_18-23-45.jpg", ~N[2021-05-14 18:23:45]},
+          {"video_files/video_3@01-02-2019_07-05-09.mp4", ~N[2019-02-01 07:05:09]},
+          {"round_video_messages/file_7@31-12-2020_23-59-59.mp4", ~N[2020-12-31 23:59:59]},
+          {"photo_1@14-05-2021_18-23-45 (1).jpg", ~N[2021-05-14 18:23:45]}
         ] do
       test "reads #{name}" do
         expected = unquote(Macro.escape(expected))
@@ -206,7 +211,11 @@ defmodule PhoenixKit.Modules.Storage.CaptureDateTest do
           "photo_123456789012345.jpg",
           "IMG_20181301_120000.jpg",
           "IMG_20180701_250000.jpg",
-          "IMG_20990101_120000.jpg"
+          "IMG_20990101_120000.jpg",
+          # day first only after Telegram's `@`, and a real day and month
+          "photo 14-05-2021_18-23-45.jpg",
+          "photo_1@32-05-2021_18-23-45.jpg",
+          "photo_1@14-13-2021_18-23-45.jpg"
         ] do
       test "finds no date in #{name}" do
         assert CaptureDate.from_filename(unquote(name)) == nil
