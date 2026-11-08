@@ -22,7 +22,9 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   (Fotki's media bot). Every call, `download_file/3` and the connection test included,
   goes to `config :phoenix_kit, :telegram_api_base` when set (`Telegram.api_base/0`),
   else Telegram's cloud; a setting that is not an http(s) URL raises rather than sending
-  the token elsewhere. No migration.
+  the token elsewhere. `Linking.linked_users/2` lists every account that linked a
+  chat, for a bot that asks such a person which account it acts for (`linked_user/2`
+  still names nobody for that chat). No migration.
 - **The admin's user form has the person's avatar controls.** Pick a picture, frame it
   in the crop editor, adjust or reset the crop later, as on the profile page: both pages
   render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is

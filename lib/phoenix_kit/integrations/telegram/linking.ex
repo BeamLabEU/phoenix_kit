@@ -681,6 +681,34 @@ defmodule PhoenixKit.Integrations.Telegram.Linking do
   def linked_user(_connection_uuid, _chat_id), do: nil
 
   @doc """
+  Every user whose site-bot link is chat `chat_id` of the bot `connection_uuid`, read from
+  the database now, oldest link first; `[]` when none. One person may link the same
+  Telegram to several of their accounts, and a host's bot that acts for that person (saving
+  what they send, Fotki's media bot) asks them which account. Service users and managed
+  organizations are left out, as in `linked_user/2`, and the users are not checked any
+  further: each is the caller's account gate.
+
+  Anything that acts on the chat's **authority**, such as reading through the Machine API,
+  keeps to `linked_user/2`, which names nobody for a chat linked by two accounts.
+  """
+  @spec linked_users(String.t(), integer() | String.t()) :: [User.t()]
+  def linked_users(connection_uuid, chat_id)
+      when is_binary(connection_uuid) and (is_binary(chat_id) or is_integer(chat_id)) do
+    query =
+      from u in holders(connection_uuid, chat_id),
+        where: u.api_only == false and u.managed_by_members == false,
+        order_by: [
+          asc: fragment("?->'notification_channel:telegram'->>'linked_at'", u.custom_fields),
+          asc: u.inserted_at
+        ],
+        limit: 20
+
+    RepoHelper.repo().all(query)
+  end
+
+  def linked_users(_connection_uuid, _chat_id), do: []
+
+  @doc """
   Drops the site-bot link of the user `user_uuid` (the chat, the bot and the time) and the
   link tokens they minted and have not used, in two statements that touch nothing else: the
   routing choices stay, as with `unlink/1`. A caller inside a transaction holds the user's row
