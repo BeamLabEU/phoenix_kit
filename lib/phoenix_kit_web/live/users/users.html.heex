@@ -381,10 +381,13 @@
                         {"no", gettext("No"), value == :no}
                       ] do %>
                     <li>
+                      <%!-- `choice`, never `value`: LiveView's client overwrites a
+                           `phx-value-value` with the element's own `value`, which
+                           is "" on a button, so every pick arrived as "Any". --%>
                       <button
                         phx-click="filter_by_custom_field"
                         phx-value-key={field["key"]}
-                        phx-value-value={val}
+                        phx-value-choice={val}
                         class={selected && "menu-active"}
                       >
                         {label}

@@ -211,9 +211,11 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     {:noreply, push_url_state(socket, filter_confirmation: confirmation)}
   end
 
-  def handle_event("filter_by_custom_field", %{"key" => key, "value" => value}, socket) do
+  # The pick comes as `choice`: a browser sends a button's own `value` ("")
+  # in place of a `phx-value-value`.
+  def handle_event("filter_by_custom_field", %{"key" => key, "choice" => choice}, socket) do
     values =
-      case value do
+      case choice do
         "yes" -> Map.put(socket.assigns.custom_filter_values, key, :yes)
         "no" -> Map.put(socket.assigns.custom_filter_values, key, :no)
         _any -> Map.delete(socket.assigns.custom_filter_values, key)

@@ -30,7 +30,9 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettings do
 
   `columns` is every configurable column; `selected` is the shown ids in
   display order. Labels may be strings or 0-arity functions (evaluated at
-  render, so gettext labels stay lazy). Ids in `selected` that are not in
+  render, so gettext labels stay lazy). A column's optional `hint` (string
+  or 0-arity fn) is a second, smaller line under its label in both lists —
+  the full name of a column whose label is shortened. Ids in `selected` that are not in
   `columns` are ignored, so consumers with unmanaged always-on columns
   (a Name column outside the editor) can pass their full list. A column's
   optional `group` heads the Available list for consecutive columns of
@@ -61,7 +63,7 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettings do
   attr :columns, :list,
     default: nil,
     doc:
-      "Every configurable column: %{id: String.t(), label: String.t() | (-> String.t())}, optionally `group:` (a heading for the Available list, string or 0-arity fn)."
+      "Every configurable column: %{id: String.t(), label: String.t() | (-> String.t())}, optionally `group:` (a heading for the Available list, string or 0-arity fn) and `hint:` (a smaller second line under the label, string or 0-arity fn)."
 
   attr :selected, :list, default: nil, doc: "Shown column ids, in display order."
 
@@ -122,7 +124,15 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettings do
                     name="hero-bars-3"
                     class="w-4 h-4 pk-drag-handle cursor-grab text-base-content/40"
                   />
-                  <span class="flex-1 text-sm">{column_label(s.map[id])}</span>
+                  <span class="flex-1 text-sm">
+                    {column_label(s.map[id])}
+                    <span
+                      :if={column_hint(s.map[id])}
+                      class="block text-xs text-base-content/50"
+                    >
+                      {column_hint(s.map[id])}
+                    </span>
+                  </span>
                   <button
                     type="button"
                     phx-click="remove_column"
@@ -154,7 +164,12 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettings do
                       class="flex items-center gap-2 w-full text-left text-sm px-2 py-1 rounded hover:bg-base-200 cursor-pointer transition-colors"
                     >
                       <.icon name="hero-plus" class="w-4 h-4 text-base-content/40" />
-                      <span>{column_label(c)}</span>
+                      <span>
+                        {column_label(c)}
+                        <span :if={column_hint(c)} class="block text-xs text-base-content/50">
+                          {column_hint(c)}
+                        </span>
+                      </span>
                     </button>
                   </li>
                 </ul>
@@ -210,4 +225,8 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettings do
   defp column_label(%{label: label}) when is_function(label, 0), do: label.()
   defp column_label(%{label: label}), do: label
   defp column_label(_), do: ""
+
+  defp column_hint(%{hint: hint}) when is_function(hint, 0), do: hint.()
+  defp column_hint(%{hint: hint}) when is_binary(hint) and hint != "", do: hint
+  defp column_hint(_), do: nil
 end

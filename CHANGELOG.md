@@ -40,8 +40,11 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   link allows: all of them until someone is narrowed.
 - **A short column name for a custom field.** Settings -> Users -> Custom fields has an
   optional "Column name" (`column_label`), shown as the field's header in the Users
-  table, with the full label on hover. Blank uses the label; every other place shows the
-  label.
+  table, with the full label on hover, and in the column picker, with the full label
+  under it. Blank uses the label; the cards, forms and user pages show the label.
+- **A second line for a column in the column picker** (`<.column_settings_modal>`): a
+  column's optional `hint` shows under its label in both lists. A column without one
+  looks as before.
 - **Filter the Users table by a yes/no custom field.** Turn on "Filter in the Users
   table" on a boolean field (`filterable`) and the filter bar offers Any, Yes and No for
   it. Yes matches `true` and `"true"`; No matches everything else, a user never marked

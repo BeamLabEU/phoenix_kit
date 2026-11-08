@@ -59,9 +59,17 @@ defmodule PhoenixKit.Users.TableColumns do
         %{id: id, label: meta.label, group: gettext("Standard fields")}
       end
 
+    # A custom field reads as its column name, as in the table's header, with
+    # the full label under it when the two differ.
     custom =
       for {id, meta} <- Enum.sort_by(available.custom, fn {id, _} -> id end) do
-        %{id: id, label: meta.label, group: gettext("Custom fields")}
+        case meta do
+          %{column_label: name} when is_binary(name) and name != "" ->
+            %{id: id, label: name, hint: meta.label, group: gettext("Custom fields")}
+
+          _ ->
+            %{id: id, label: meta.label, group: gettext("Custom fields")}
+        end
       end
 
     %{

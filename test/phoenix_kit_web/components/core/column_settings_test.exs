@@ -7,6 +7,8 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettingsTest do
   - available list renders unselected columns as add buttons
   - selected ids missing from the catalog are ignored (unmanaged columns)
   - labels accept strings and 0-arity functions
+  - an optional `hint` is a second line under the label in both lists; a
+    column without one stays a single line
   - footer is Reset + Close (live editor — no Apply)
   - `target` is forwarded to clicks and the SortableGrid hook
   - show={false} renders nothing
@@ -47,6 +49,39 @@ defmodule PhoenixKitWeb.Components.Core.ColumnSettingsTest do
     assert html =~ ~s(data-sortable-handle=".pk-drag-handle")
     assert html =~ ~s(class="sortable-item)
     refute html =~ "col-item"
+  end
+
+  test "a column's hint is a second line under its label, in both lists" do
+    columns = [
+      %{id: "approved", label: "Approved", hint: "Approved for Wood Matrix"},
+      %{id: "vip", label: "VIP", hint: fn -> "Very important person" end},
+      %{id: "sku", label: "SKU"}
+    ]
+
+    assigns = %{columns: columns}
+
+    doc =
+      rendered_to_string(~H"""
+      <.column_settings_modal show={true} columns={@columns} selected={["approved", "sku"]} />
+      """)
+      |> Floki.parse_document!()
+
+    lines = fn node ->
+      node |> Floki.find("span.text-xs") |> Enum.map(&String.trim(Floki.text(&1)))
+    end
+
+    shown = Floki.find(doc, ~s(li[data-id="approved"]))
+
+    assert shown |> Floki.text() |> String.split() |> Enum.join(" ") =~
+             "Approved Approved for Wood Matrix"
+
+    assert lines.(shown) == ["Approved for Wood Matrix"]
+
+    available = Floki.find(doc, ~s(button[phx-value-column_id="vip"]))
+    assert lines.(available) == ["Very important person"]
+
+    # No hint: one line, as before.
+    assert lines.(Floki.find(doc, ~s(li[data-id="sku"]))) == []
   end
 
   test "unselected columns render as add buttons" do

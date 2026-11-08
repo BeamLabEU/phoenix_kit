@@ -181,7 +181,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
   end
 
   describe "a custom field's column name" do
-    test "heads the column, with the full label on hover; the picker and cards keep the label",
+    test "heads the column and the picker, with the full label on hover and under it; cards keep the label",
          %{conn: conn, admin: admin} do
       key = "approved_#{System.unique_integer([:positive])}"
 
@@ -206,8 +206,34 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       assert Floki.attribute(header(doc, "Approved"), "title") == ["Approved for Wood Matrix"]
       assert Floki.attribute(header(doc, "Account"), "title") == []
 
-      html = view |> element(~s(button[phx-click="show_column_modal"])) |> render_click()
-      assert html =~ ~s(flex-1 text-sm">Approved for Wood Matrix<)
+      # The picker reads like the header, with the full label under it.
+      picker =
+        view
+        |> element(~s(button[phx-click="show_column_modal"]))
+        |> render_click()
+        |> Floki.parse_document!()
+
+      shown = Floki.find(picker, ~s(li[data-id="custom_#{key}"]))
+      assert squish(shown) == "Approved Approved for Wood Matrix"
+
+      assert shown |> Floki.find("span.text-xs") |> Floki.text() |> String.trim() ==
+               "Approved for Wood Matrix"
+
+      # A standard column stays one line.
+      assert [] = picker |> Floki.find(~s(li[data-id="email"])) |> Floki.find("span.text-xs")
+
+      view
+      |> element(~s(button[phx-click="remove_column"][phx-value-column_id="custom_#{key}"]))
+      |> render_click()
+
+      available =
+        view
+        |> render()
+        |> Floki.parse_document!()
+        |> Floki.find(~s(button[phx-click="add_column"][phx-value-column_id="custom_#{key}"]))
+
+      assert squish(available) == "Approved Approved for Wood Matrix"
+      render_click(view, "add_column", %{"column_id" => "custom_#{key}"})
 
       render_click(view, "hide_column_modal", %{})
       html = render_click(view, "set_view_mode", %{"mode" => "card"})
@@ -408,8 +434,14 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       button = Floki.find(doc, "#users-filter-cf-#{key} div[role=button]")
       assert squish(button) == "Approved: No"
 
+      # The menu sends its pick as `choice`: a `phx-value-value` is replaced by
+      # the button's own empty `value` in a browser, which LiveViewTest skips.
+      html = render(view)
+      assert html =~ ~s(phx-value-choice="yes")
+      refute html =~ "phx-value-value"
+
       view
-      |> element(~s(#users-filter-cf-#{key} button[phx-value-value="yes"]))
+      |> element(~s(#users-filter-cf-#{key} button[phx-value-choice="yes"]))
       |> render_click()
 
       path = assert_patch(view)
@@ -420,8 +452,31 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       assert row(doc, "#{m}-yes1@") && row(doc, "#{m}-yes2@")
       refute row(doc, "#{m}-none@")
 
-      view |> element(~s(#users-filter-cf-#{key} button[phx-value-value="any"])) |> render_click()
+      view
+      |> element(~s(#users-filter-cf-#{key} button[phx-value-choice="any"]))
+      |> render_click()
+
       refute URI.decode_query(URI.parse(assert_patch(view)).query || "")["cf"]
+    end
+
+    test "a pick works with the payload a browser sends", %{
+      conn: conn,
+      admin: admin,
+      key: key,
+      m: m
+    } do
+      {:ok, view, _html} = open(conn, admin, "?q=#{m}")
+
+      # What Chromium sent for "No" (checked in a real browser): the button's
+      # empty `value` rides along.
+      render_click(view, "filter_by_custom_field", %{
+        "key" => key,
+        "choice" => "no",
+        "value" => ""
+      })
+
+      assert URI.decode_query(URI.parse(assert_patch(view)).query)["cf"] == "#{key}:no"
+      assert view |> doc() |> Floki.find("table tbody tr") |> length() == 3
     end
 
     test "Clear Filters drops it with the rest", %{conn: conn, admin: admin, key: key, m: m} do
