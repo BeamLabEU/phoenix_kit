@@ -216,6 +216,26 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
              |> Floki.attribute("data-avatar-peek")
   end
 
+  test "a grid card draws the avatar larger than a table row does",
+       %{conn: conn, admin: admin} do
+    m = marker()
+    F.person(%{email: "#{m}-card@example.com"})
+    {:ok, view, _html} = open(conn, admin, "?q=#{m}")
+
+    assert [row_frame] = view |> doc() |> row("#{m}-card@") |> Floki.find("[data-avatar-frame]")
+    assert row_frame |> Floki.attribute("class") |> hd() =~ "w-8 h-8"
+
+    render_click(view, "set_view_mode", %{"mode" => "card"})
+
+    card_frames =
+      view
+      |> doc()
+      |> Floki.find(".card-body [data-avatar-frame]")
+      |> Enum.filter(&(&1 |> Floki.attribute("class") |> hd() =~ "w-16 h-16"))
+
+    assert [_] = card_frames
+  end
+
   describe "a custom field's column name" do
     test "heads the column and the picker, with the full label on hover and under it; cards keep the label",
          %{conn: conn, admin: admin} do

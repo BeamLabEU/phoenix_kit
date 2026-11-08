@@ -46,7 +46,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   ## Attributes
   - `user` - User struct with email and optional custom_fields
-  - `size` - Avatar size: "xs" (w-6), "sm" (w-8), "md" (w-10), "lg" (w-12), "xl" (w-40). Defaults to "sm"
+  - `size` - Avatar size: "xs" (w-6), "sm" (w-8), "md" (w-10), "lg" (w-12), "card" (w-16, a grid card's header), "xl" (w-40). Defaults to "sm"
   - `class` - Additional CSS classes
   - `peek` - Show the picture larger while the pointer is over it (lists of
     small avatars). The preview floats above the page, placed by
@@ -243,6 +243,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       "sm" -> 64
       "md" -> 80
       "lg" -> 96
+      "card" -> 128
       "xl" -> 320
       _ -> 64
     end
@@ -256,6 +257,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       "sm" -> 32
       "md" -> 40
       "lg" -> 48
+      "card" -> 64
       "xl" -> 160
       _ -> 32
     end
@@ -268,6 +270,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       "sm" -> "w-8 h-8 text-xs"
       "md" -> "w-10 h-10 text-sm"
       "lg" -> "w-12 h-12 text-base"
+      "card" -> "w-16 h-16 text-xl"
       "xl" -> "w-40 h-40 text-5xl"
       _ -> "w-8 h-8 text-xs"
     end
@@ -283,6 +286,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       "sm" -> "small"
       "md" -> "medium"
       "lg" -> "medium"
+      "card" -> "medium"
       "xl" -> "medium"
       _ -> "small"
     end

@@ -107,6 +107,8 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Changed
 
+- **Bigger avatars in the users grid.** A card's avatar is 64 px instead of 32 px
+  (`user_avatar` size `"card"`); the table rows keep the small one.
 - **A user's admin page is split into tabs.** Who it is (picture, name, status, roles,
   registration date) sits in a header every tab shares, with Edit at hand. Profile holds
   the basic information and custom fields; the new Account tab holds the account record,
