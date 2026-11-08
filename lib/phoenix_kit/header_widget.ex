@@ -41,8 +41,8 @@ defmodule PhoenixKit.HeaderWidget do
   of an admin-layout page. The widget has to check the permission itself from the session
   (see `c:PhoenixKit.Module.header_widgets/0`).
 
-  The keys `user_token`, `pk_session_accounts`, `live_socket_id` and `phoenix_kit_session_uuid`
-  are reserved (`reserved_session_keys/0`): they belong to the cookie session, which LiveView
+  The keys `user_token`, `pk_session_accounts`, `pk_own_tokens`, `live_socket_id` and
+  `phoenix_kit_session_uuid` are reserved (`reserved_session_keys/0`): they belong to the cookie session, which LiveView
   merges under the signed session of the nested LiveView, so a value here would hide the real
   one from the session and impersonation checks. They are dropped from the session (one
   warning per module and widget, without the values).
@@ -63,7 +63,7 @@ defmodule PhoenixKit.HeaderWidget do
   # nested LiveView is merged OVER the cookie session (Phoenix.LiveView.Channel), so a widget
   # session carrying one of them would replace what `SessionRef.from_session/1` and
   # `MultiSession.impersonated?/1` read in the widget's `mount/3`.
-  @reserved_session_keys ~w(user_token pk_session_accounts live_socket_id phoenix_kit_session_uuid)
+  @reserved_session_keys ~w(user_token pk_session_accounts pk_own_tokens live_socket_id phoenix_kit_session_uuid)
 
   @doc "The session keys a widget's session function cannot set: they are dropped."
   @spec reserved_session_keys() :: [String.t()]

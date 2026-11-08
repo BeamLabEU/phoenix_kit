@@ -178,6 +178,15 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Fixed
 
+- **An account added to the switcher with its own password is no longer taken for a
+  borrowed one.** `MultiSession.impersonated?/1` was true for every account but the root,
+  so a person who added their second account by password could not link Telegram or make
+  a personal API key in it ("can't be connected from this session"). The session now lists
+  the accounts the user added themselves (`pk_own_tokens`: by password, by OAuth, or
+  restored from the remembered-accounts cookie), and only an account off that list (an
+  impersonation, an organization's slot) is borrowed. A session from before keeps taking
+  its added accounts for borrowed until they are added again, and the Telegram card now
+  says so. `pk_own_tokens` is a reserved session key for header widgets.
 - The profile page's "Avatar crop updated!" and "Avatar crop reset." were never shown.
 - With only the status or email filter on and no match, the Users table said "No users
   are registered yet." and offered no way back. Every filter now counts, and the empty

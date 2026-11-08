@@ -24267,10 +24267,15 @@ msgstr "Näita ka allpool asuvate kaustade faile"
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
 msgstr "Roboti sõnumeid loeb sait, mistõttu ei saa teie vestlust siin tuvastada – siduge oma vestlus hoopis allpool selle ID järgi."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:256
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected from this session."
 msgstr "Telegrami ei saa sellest sessioonist ühendada."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:258
+#, elixir-autogen, elixir-format
+msgid "If this is your own account, remove it from the account switcher and add it again, or sign in to it on its own."
+msgstr "Kui see on sinu enda konto, eemalda see kontovahetajast ja lisa uuesti või logi sisse ainult sellele kontole."
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:251
 #, elixir-autogen, elixir-format

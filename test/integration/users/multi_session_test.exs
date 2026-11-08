@@ -515,6 +515,88 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
     end
   end
 
+  describe "impersonated?/1 — own accounts and borrowed ones" do
+    defp staff_user do
+      {:ok, user} = Auth.register_user(%{email: unique_email(), password: "ValidPassword123!"})
+      {:ok, user} = Auth.admin_confirm_user(user)
+      Roles.assign_role(user, "Admin")
+      Repo.get!(Auth.User, user.uuid)
+    end
+
+    defp borrowed?(conn), do: MultiSession.impersonated?(Plug.Conn.get_session(conn))
+
+    test "an account added with its own password is the user's, not borrowed" do
+      {:ok, conn} =
+        MultiSession.add_account(conn_for(plain_user()), plain_user().email, "ValidPassword123!")
+
+      refute borrowed?(conn)
+    end
+
+    test "an account added through OAuth is the user's too" do
+      {:ok, conn} = MultiSession.add_authenticated_user(conn_for(plain_user()), plain_user())
+      refute borrowed?(conn)
+    end
+
+    test "an impersonation stays borrowed, beside the user's own added account" do
+      admin = staff_user()
+      own = plain_user()
+      target = plain_user()
+
+      {:ok, conn} = MultiSession.add_account(conn_for(admin), own.email, "ValidPassword123!")
+      refute borrowed?(conn)
+
+      {:ok, conn} = MultiSession.impersonate(conn, target)
+      assert borrowed?(conn)
+
+      [_root, own_row, borrowed_row] = MultiSession.list_accounts(Plug.Conn.get_session(conn))
+      {:ok, conn, _} = MultiSession.switch_to(conn, own_row.ref)
+      refute borrowed?(conn)
+
+      {:ok, conn, _} = MultiSession.switch_to(conn, borrowed_row.ref)
+      assert borrowed?(conn)
+    end
+
+    test "an account removed from the switcher leaves the own list" do
+      other = plain_user()
+
+      {:ok, conn} =
+        MultiSession.add_account(conn_for(plain_user()), other.email, "ValidPassword123!")
+
+      token = Plug.Conn.get_session(conn)["user_token"]
+      [_root, row] = MultiSession.list_accounts(Plug.Conn.get_session(conn))
+
+      {:ok, conn} = MultiSession.remove_account(conn, row.ref)
+      refute token in Plug.Conn.get_session(conn)["pk_own_tokens"]
+    end
+
+    test "logging out of an added account takes it off the own list" do
+      {:ok, conn} =
+        MultiSession.add_account(conn_for(plain_user()), plain_user().email, "ValidPassword123!")
+
+      token = Plug.Conn.get_session(conn)["user_token"]
+      {:switched, conn, _root} = MultiSession.log_out_active(conn)
+      refute token in Plug.Conn.get_session(conn)["pk_own_tokens"]
+    end
+
+    test "accounts restored from the remembered mirror come back as the user's own" do
+      {:ok, _} = Settings.update_boolean_setting("multi_session_enabled", true)
+      root = Auth.generate_user_session_token(plain_user())
+      added = Auth.generate_user_session_token(plain_user())
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Conn.put_session(:user_token, root)
+        |> Plug.Conn.put_private(:pk_persisted_accounts, {root, [added], nil, added})
+        |> MultiSession.restore_persisted_accounts(root)
+
+      session = Plug.Conn.get_session(conn)
+      assert session["user_token"] == added
+      assert session["pk_own_tokens"] == [added]
+      refute MultiSession.impersonated?(session)
+    end
+  end
+
   describe "impersonate/2 — the audit trail" do
     # Only the session.* family — registering and confirming the fixtures logs
     # its own `user.*` rows against the same resource_uuid.

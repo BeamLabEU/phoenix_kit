@@ -849,7 +849,7 @@ defmodule PhoenixKit.Module do
       `:current_locale`, `:impersonating?`, ...) and returns the session map of the nested
       LiveView: **string** keys, values that can be signed into the page (ids and strings,
       not structs). `nil` means "no widget for this user": nothing is rendered, no dock, no
-      warning. The keys `user_token`, `pk_session_accounts`, `live_socket_id` and
+      warning. The keys `user_token`, `pk_session_accounts`, `pk_own_tokens`, `live_socket_id` and
       `phoenix_kit_session_uuid` are reserved (they belong to the cookie session, which a
       nested LiveView's session would otherwise hide): they are dropped from the map, with
       one warning per module and widget.

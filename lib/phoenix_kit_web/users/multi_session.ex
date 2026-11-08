@@ -42,6 +42,16 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     stale mirror stay valid until they expire — so on a shared computer the next
     person to sign in would otherwise inherit the previous user's accounts.
 
+  ## Own and borrowed accounts
+
+  An account the user added themselves, with its password or through OAuth, is theirs; one
+  that joined on someone else's authority (an impersonation, a managed organization's slot) is
+  borrowed. The stack alone cannot tell them apart, so the tokens of the first kind are listed
+  under `:pk_own_tokens`, and `impersonated?/1` answers true only for an active account that is
+  neither the root nor on that list. The list says what is allowed, not what is refused, so a
+  session from before it existed, or one whose list was lost, errs on the safe side: its added
+  accounts count as borrowed until they are added again.
+
   The same cookie remembers which of those accounts was ACTIVE, so a lost
   session (Safari dropping a backgrounded tab's cookie, a browser restart) comes
   back on the account the user was using rather than silently on the root. Only
@@ -64,6 +74,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   alias PhoenixKitWeb.Users.Auth, as: WebAuth
 
   @stack_key :pk_session_accounts
+  # The tokens of the stack the user added THEMSELVES (password, OAuth, or restored from the
+  # durable mirror, which only ever holds those). `impersonated?/1` reads it; see there.
+  @own_key :pk_own_tokens
   @organization_key :pk_organization_token
   @max_accounts 5
 
@@ -156,15 +169,18 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   end
 
   @doc """
-  True when the session's active account is not the root of its stack: the browser is
-  acting inside an account that joined the session after the original login.
+  True when the session's active account is **borrowed**: neither the root of its stack (the
+  original login) nor an account the user added themselves (`:pk_own_tokens`, see "Own and
+  borrowed accounts").
 
-  An impersonation is always such an account (`impersonate/2` appends to the stack and
-  makes the borrowed account active). The stack does not record how an account joined
-  it, so an account added with its own password answers `true` as well: a caller that
-  must never act inside a borrowed account (an assistant spending the account's limits,
-  reading its history) errs on the safe side. Takes the string-keyed session map, so
-  it works in a plug and in a LiveView mount alike; reads no database.
+  An impersonation is always borrowed (`impersonate/2` appends to the stack and makes the
+  borrowed account active, without marking it as the user's own), and so is a managed
+  organization's slot. An account added with its own password or through OAuth
+  (`add_account/3`, `add_authenticated_user/3`) is not. A session without the list, from before
+  it existed, answers `true` for every added account: a caller that must never act inside a
+  borrowed account (an assistant spending the account's limits, reading its history, a
+  standing credential being made) errs on the safe side. Takes the string-keyed session map,
+  so it works in a plug and in a LiveView mount alike; reads no database.
 
   A nested (sticky) LiveView calls it itself, with the session LiveView hands it: the
   cookie session is merged into the session of every LiveView, in the connected mount
@@ -174,8 +190,31 @@ defmodule PhoenixKitWeb.Users.MultiSession do
   @spec impersonated?(map()) :: boolean()
   def impersonated?(session) when is_map(session) do
     case {session["user_token"], stack_tokens(session)} do
-      {active, [root | _]} when is_binary(active) -> active != root
-      _no_active_account -> false
+      {active, [root | _]} when is_binary(active) ->
+        active != root and active not in own_tokens(session)
+
+      _no_active_account ->
+        false
+    end
+  end
+
+  # The accounts the user added themselves; anything but a list of tokens is none.
+  defp own_tokens(session) do
+    case session["pk_own_tokens"] do
+      tokens when is_list(tokens) -> Enum.filter(tokens, &is_binary/1)
+      _ -> []
+    end
+  end
+
+  defp put_own(conn, token) do
+    own = conn |> get_session() |> own_tokens()
+    put_session(conn, @own_key, Enum.uniq(own ++ [token]))
+  end
+
+  defp drop_own(conn, token) do
+    case conn |> get_session() |> own_tokens() do
+      [] -> conn
+      own -> put_session(conn, @own_key, List.delete(own, token))
     end
   end
 
@@ -367,6 +406,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
               conn =
                 conn
                 |> put_session(@stack_key, stack ++ [token])
+                |> put_own(token)
                 |> renew_and_put_active_token(token)
                 |> persist_account(token)
 
@@ -402,7 +442,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       in the feed those two are the same sentence, and one of them is a user
       adding an account of their own.
     * `:persist` — whether the account joins this browser's durable stack
-      (default `true`). `impersonate/2` passes `false`; see its docstring.
+      (default `true`). `impersonate/2` passes `false`; see its docstring. It also says whether
+      the account is the user's own (`impersonated?/1`): what joins the durable stack is only
+      ever what the user added themselves, so the two cannot disagree.
   """
   def add_authenticated_user(conn, user, opts \\ [])
 
@@ -429,11 +471,14 @@ defmodule PhoenixKitWeb.Users.MultiSession do
       true ->
         token = Auth.generate_user_session_token(user)
 
+        own? = Keyword.get(opts, :persist, true)
+
         conn =
           conn
           |> put_session(@stack_key, stack ++ [token])
+          |> then(&if(own?, do: put_own(&1, token), else: &1))
           |> renew_and_put_active_token(token)
-          |> maybe_persist_account(token, Keyword.get(opts, :persist, true))
+          |> maybe_persist_account(token, own?)
 
         log_event(Keyword.get(opts, :event, "session.account_added"), root_user(session), user)
         {:ok, conn}
@@ -750,7 +795,9 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         else
           Auth.delete_user_session_token(token)
           new_stack = List.delete(stack, token)
-          conn = conn |> put_session(@stack_key, new_stack) |> forget_account(token)
+
+          conn =
+            conn |> put_session(@stack_key, new_stack) |> drop_own(token) |> forget_account(token)
 
           conn =
             if session["user_token"] == token,
@@ -809,6 +856,7 @@ defmodule PhoenixKitWeb.Users.MultiSession do
         conn =
           conn
           |> put_session(@stack_key, new_stack)
+          |> drop_own(active)
           |> put_active_token(root_token)
           |> forget_account(active)
 
@@ -929,7 +977,13 @@ defmodule PhoenixKitWeb.Users.MultiSession do
     live = accounts ++ List.wrap(organization)
     active = if active in live, do: active
 
-    conn = conn |> restore_stack(root_token, live) |> restore_active(active)
+    # The mirror holds only accounts the user added themselves (an impersonation is never
+    # written there), so the ordinary ones come back as their own; an organization does not.
+    conn =
+      conn
+      |> restore_stack(root_token, live)
+      |> put_session(@own_key, accounts)
+      |> restore_active(active)
 
     conn =
       if organization,

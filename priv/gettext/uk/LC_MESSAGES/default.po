@@ -24328,10 +24328,15 @@ msgstr "Показувати також файли з папок нижче"
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
 msgstr "Повідомлення бота читає сайт, тому ваш чат тут визначити неможливо — натомість прив'яжіть чат за його ID нижче."
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:256
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected from this session."
 msgstr "Telegram не можна підключити з цього сеансу."
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:258
+#, elixir-autogen, elixir-format
+msgid "If this is your own account, remove it from the account switcher and add it again, or sign in to it on its own."
+msgstr "Якщо це ваш власний обліковий запис, вилучіть його з перемикача акаунтів і додайте знову або увійдіть лише в нього."
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:251
 #, elixir-autogen, elixir-format

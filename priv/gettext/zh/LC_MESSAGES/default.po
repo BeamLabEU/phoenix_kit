@@ -24284,10 +24284,15 @@ msgstr "同时显示此文件夹下方各文件夹中的文件"
 msgid "The bot's messages are read by the site, so your chat can't be detected here — link your chat by its ID below instead."
 msgstr "机器人的消息由站点读取，因此无法在此检测到您的聊天：请改用下方的 ID 关联您的聊天。"
 
-#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:250
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:256
 #, elixir-autogen, elixir-format
 msgid "Telegram can't be connected from this session."
 msgstr "无法从此会话连接 Telegram。"
+
+#: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:258
+#, elixir-autogen, elixir-format
+msgid "If this is your own account, remove it from the account switcher and add it again, or sign in to it on its own."
+msgstr "如果这是您自己的账户，请从账户切换器中移除后重新添加，或单独登录该账户。"
 
 #: lib/phoenix_kit_web/live/components/telegram_notifications_card.ex:251
 #, elixir-autogen, elixir-format
