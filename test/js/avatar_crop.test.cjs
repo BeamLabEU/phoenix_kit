@@ -173,7 +173,7 @@ function mountCrop(crop, opts = {}) {
   );
   const slider = opts.slider ? { value: "", min: "", addEventListener: noop } : null;
   const el = {
-    dataset: { crop: JSON.stringify(crop) },
+    dataset: Object.assign({ crop: JSON.stringify(crop) }, opts.dataset || {}),
     closest: () => null,
     querySelector: (sel) =>
       sel === "[data-crop-frame]"
@@ -263,4 +263,12 @@ test("the slider reaches down to this picture's floor once its shape is known", 
   near(hook.crop.ar, 3, "the image's own ratio");
   near(parseFloat(slider.min), avatarCropMinZoom(3), "slider floor for a 3:1 picture");
   assert.equal(pushes.length, 1, "the real ratio is sent to the server");
+});
+
+test("the floor shrinks with the site's shape", () => {
+  // A diamond (fit 0.70): the picture must fit the diamond's centred circle.
+  const { hook, fire } = mountCrop({ x: 0.5, y: 0.5, zoom: 1, ar: 3 }, { dataset: { fit: "0.70" } });
+  fire("wheel", { clientX: 100, clientY: 100, deltaY: 5000, deltaMode: 0 });
+  near(hook.crop.zoom, avatarCropMinZoom(3) * 0.7, "stops at the diamond's floor");
+  clearTimeout(hook._wheelTimer);
 });

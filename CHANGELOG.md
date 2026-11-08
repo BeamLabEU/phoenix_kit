@@ -17,8 +17,14 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   saved at once instead of waiting for "Update User", and the person is told ("Your
   avatar was updated.", for a new crop too).
 - **Zoom out to fit.** The crop editor zooms out below the fill, down to where the whole
-  picture fits inside the circle, so a wide logo shows whole, on white, instead of its
-  middle. `AvatarCrop.min_zoom/1` and `AvatarCrop.zoomed_out?/1` are new.
+  picture fits inside the avatar's shape, so a wide logo shows whole, on white, instead
+  of its middle. `AvatarCrop.min_zoom/2` and `AvatarCrop.zoomed_out?/1` are new.
+- **A shape for the site's avatars.** Settings → Users → Avatars offers eleven: circle
+  (the default, drawn as before), squircle, rounded square, square, two hexagons,
+  decagon, pentagon, diamond, heart and star. Every `user_avatar` and the crop editor
+  follow the site's choice, and the editor's zoom floor fits the shape. The masks are
+  daisyUI's; the host's Tailwind build picks them up from the kit's sources.
+  `PhoenixKit.Users.AvatarShape` and `user_avatar`'s `shape` attribute are new.
 - **Different roles per person at each organization.** A person's link to an
   organization now has a type and either all its roles or a list of them, so Anna can be
   a Buyer at a company that also sells, while Peter is only a Supplier there. A link

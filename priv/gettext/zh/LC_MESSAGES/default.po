@@ -49,7 +49,7 @@ msgstr "系统信息"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:158
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:443
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
-#: lib/phoenix_kit_web/live/settings/users.ex:50
+#: lib/phoenix_kit_web/live/settings/users.ex:52
 #: lib/phoenix_kit_web/live/users/managed_organization_new.ex:24
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:40
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:22
@@ -71,7 +71,7 @@ msgstr "用户管理"
 #: lib/phoenix_kit/users/table_columns.ex:298
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:126
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1195
-#: lib/phoenix_kit_web/live/settings/users.ex:103
+#: lib/phoenix_kit_web/live/settings/users.ex:107
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:44
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:187
 #: lib/phoenix_kit_web/live/users/users.html.heex:811
@@ -89,8 +89,8 @@ msgstr "角色管理"
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:144
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:339
 #: lib/phoenix_kit_web/live/settings/authorization.ex:85
-#: lib/phoenix_kit_web/live/settings/users.ex:96
-#: lib/phoenix_kit_web/live/settings/users.ex:463
+#: lib/phoenix_kit_web/live/settings/users.ex:100
+#: lib/phoenix_kit_web/live/settings/users.ex:479
 #, elixir-autogen
 msgid "Sessions"
 msgstr "会话"
@@ -542,7 +542,7 @@ msgstr "操作"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2579
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:633
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:307
-#: lib/phoenix_kit_web/live/settings/users.html.heex:947
+#: lib/phoenix_kit_web/live/settings/users.html.heex:988
 #: lib/phoenix_kit_web/users/user_form.html.heex:742
 #, elixir-autogen, elixir-format
 msgid "Add"
@@ -554,7 +554,7 @@ msgstr "添加"
 msgid "Add %{language} translation"
 msgstr "添加 %{language} 翻译"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:971
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1012
 #, elixir-autogen, elixir-format
 msgid "Add Field"
 msgstr "添加字段"
@@ -671,7 +671,7 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:932
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:118
 #: lib/phoenix_kit_web/components/tree_picker.ex:262
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:408
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:432
 #: lib/phoenix_kit_web/live/components/library_activity.ex:291
 #: lib/phoenix_kit_web/live/components/library_activity.ex:457
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1787
@@ -693,7 +693,7 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1217
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:486
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:152
-#: lib/phoenix_kit_web/live/settings/users.html.heex:974
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1015
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:18
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:281
 #: lib/phoenix_kit_web/live/users/roles.html.heex:38
@@ -1564,7 +1564,7 @@ msgstr "可选"
 msgid "Optional, up to 500 characters."
 msgstr "可选，最多 500 个字符。"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:904
+#: lib/phoenix_kit_web/live/settings/users.html.heex:945
 #, elixir-autogen, elixir-format
 msgid "Options"
 msgstr "选项"
@@ -1604,7 +1604,7 @@ msgstr "页面发布成功"
 #: lib/phoenix_kit/integrations/providers.ex:1335
 #: lib/phoenix_kit_web/components/account_menu.ex:329
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1413
-#: lib/phoenix_kit_web/live/settings/users.ex:461
+#: lib/phoenix_kit_web/live/settings/users.ex:477
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:69
 #: lib/phoenix_kit_web/users/login.html.heex:39
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:42
@@ -1932,7 +1932,7 @@ msgstr "已保存"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:766
-#: lib/phoenix_kit_web/live/settings/users.html.heex:745
+#: lib/phoenix_kit_web/live/settings/users.html.heex:748
 #, elixir-autogen, elixir-format
 msgid "Saving..."
 msgstr "正在保存…"
@@ -1976,7 +1976,7 @@ msgstr "选择此角色可以访问的板块和模块。您只能授予您自己
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:22
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:33
-#: lib/phoenix_kit_web/live/settings/users.ex:55
+#: lib/phoenix_kit_web/live/settings/users.ex:57
 #: lib/phoenix_kit_web/live/settings/website_access.ex:63
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:51
 #: lib/phoenix_kit_web/live/users/users.html.heex:820
@@ -2148,7 +2148,7 @@ msgstr "角色总数"
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:367
 #: lib/phoenix_kit_web/live/settings/users.html.heex:553
 #: lib/phoenix_kit_web/live/settings/users.html.heex:598
-#: lib/phoenix_kit_web/live/settings/users.html.heex:843
+#: lib/phoenix_kit_web/live/settings/users.html.heex:884
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:186
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:64
 #: lib/phoenix_kit_web/live/users/roles.html.heex:124
@@ -2182,7 +2182,7 @@ msgstr "未知"
 msgid "Unsaved changes"
 msgstr "未保存的更改"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:971
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1012
 #, elixir-autogen, elixir-format
 msgid "Update Field"
 msgstr "更新字段"
@@ -2598,7 +2598,7 @@ msgid "Add Bucket"
 msgstr "添加存储桶"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:589
-#: lib/phoenix_kit_web/live/settings/users.html.heex:783
+#: lib/phoenix_kit_web/live/settings/users.html.heex:824
 #, elixir-autogen, elixir-format
 msgid "Add Custom Field"
 msgstr "添加自定义字段"
@@ -2668,7 +2668,7 @@ msgstr "应用更改"
 msgid "Applying..."
 msgstr "正在应用…"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:960
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1001
 #, elixir-autogen, elixir-format
 msgid "At least one option is required for %{type} fields"
 msgstr "%{type} 字段至少需要一个选项"
@@ -2844,7 +2844,7 @@ msgstr "创建新应用或选择现有应用"
 msgid "Create project or select existing one"
 msgstr "创建项目或选择现有项目"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:104
+#: lib/phoenix_kit_web/live/settings/users.ex:108
 #: lib/phoenix_kit_web/users/user_form.html.heex:519
 #, elixir-autogen, elixir-format
 msgid "Custom User Fields"
@@ -2860,7 +2860,7 @@ msgstr "日期格式"
 msgid "Define additional profile fields for users"
 msgstr "定义用户的其他个人资料字段"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:782
+#: lib/phoenix_kit_web/live/settings/users.html.heex:823
 #, elixir-autogen, elixir-format
 msgid "Edit Custom Field"
 msgstr "编辑自定义字段"
@@ -2892,7 +2892,7 @@ msgstr "端点"
 msgid "Enter"
 msgstr "输入"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:937
+#: lib/phoenix_kit_web/live/settings/users.html.heex:978
 #, elixir-autogen, elixir-format
 msgid "Enter option value"
 msgstr "输入选项值"
@@ -2926,7 +2926,7 @@ msgstr "Facebook 登录"
 msgid "Field"
 msgstr "字段"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:790
+#: lib/phoenix_kit_web/live/settings/users.html.heex:831
 #, elixir-autogen, elixir-format
 msgid "Field Key"
 msgstr "字段键"
@@ -3008,7 +3008,7 @@ msgid "Key:"
 msgstr "键："
 
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:414
-#: lib/phoenix_kit_web/live/settings/users.html.heex:810
+#: lib/phoenix_kit_web/live/settings/users.html.heex:851
 #, elixir-autogen, elixir-format
 msgid "Label"
 msgstr "标签"
@@ -3035,7 +3035,7 @@ msgstr "本地文件系统"
 msgid "Login Page Branding"
 msgstr "登录页品牌"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:802
+#: lib/phoenix_kit_web/live/settings/users.html.heex:843
 #, elixir-autogen, elixir-format
 msgid "Lowercase letters, numbers, underscores only"
 msgstr "仅限小写字母、数字和下划线"
@@ -3055,7 +3055,7 @@ msgstr "保持宽高比"
 msgid "Manage login page branding and authentication methods"
 msgstr "管理登录页品牌和认证方式"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:53
+#: lib/phoenix_kit_web/live/settings/users.ex:55
 #, elixir-autogen, elixir-format
 msgid "Manage user registration, defaults, and custom fields"
 msgstr "管理用户注册、默认值和自定义字段"
@@ -3170,7 +3170,7 @@ msgstr "OAuth 设置说明"
 msgid "Original"
 msgstr "原始"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:816
+#: lib/phoenix_kit_web/live/settings/users.html.heex:857
 #, elixir-autogen, elixir-format
 msgid "Phone Number"
 msgstr "电话号码"
@@ -3219,13 +3219,13 @@ msgstr "随机"
 msgid "Reload OAuth Configuration"
 msgstr "重新加载 OAuth 配置"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:864
+#: lib/phoenix_kit_web/live/settings/users.html.heex:905
 #, elixir-autogen, elixir-format
 msgid "Required field"
 msgstr "必填字段"
 
 #: lib/phoenix_kit_web/components/core/column_settings.ex:188
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:399
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:423
 #: lib/phoenix_kit_web/live/settings.html.heex:689
 #, elixir-autogen, elixir-format
 msgid "Reset"
@@ -3274,7 +3274,7 @@ msgstr "保存所有设置"
 msgid "Save Authorization Settings"
 msgstr "保存授权设置"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:747
+#: lib/phoenix_kit_web/live/settings/users.html.heex:750
 #, elixir-autogen, elixir-format
 msgid "Save User Settings"
 msgstr "保存用户设置"
@@ -3416,7 +3416,7 @@ msgstr "存储桶总数"
 msgid "Track user registration location"
 msgstr "跟踪用户注册地点"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:953
+#: lib/phoenix_kit_web/live/settings/users.html.heex:994
 #, elixir-autogen, elixir-format
 msgid "Type an option and press Enter or click Add"
 msgstr "输入选项后按 Enter 或点击添加"
@@ -3447,7 +3447,7 @@ msgstr "用户可编辑"
 msgid "User actions"
 msgstr "用户操作"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:877
+#: lib/phoenix_kit_web/live/settings/users.html.heex:918
 #, elixir-autogen, elixir-format
 msgid "User can edit this field"
 msgstr "用户可以编辑此字段"
@@ -3479,7 +3479,7 @@ msgstr "访问"
 msgid "Week Start On"
 msgstr "每周起始日"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:880
+#: lib/phoenix_kit_web/live/settings/users.html.heex:921
 #, elixir-autogen, elixir-format
 msgid "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
 msgstr "选中后，用户可以在其设置页面查看和编辑此字段。取消选中后，只有管理员可以编辑。"
@@ -3572,7 +3572,7 @@ msgstr "标头设置为"
 msgid "mode"
 msgstr "模式"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:906
+#: lib/phoenix_kit_web/live/settings/users.html.heex:947
 #, elixir-autogen, elixir-format
 msgid "option(s)"
 msgstr "个选项"
@@ -3829,7 +3829,7 @@ msgstr "授权失败：%{reason}"
 msgid "Authorize access to your %{provider} account. This will open a sign-in page where you choose which account to connect."
 msgstr "授权访问您的 %{provider} 账户。这将打开一个登录页面，您可以在其中选择要连接的账户。"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:205
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:210
 #, elixir-autogen, elixir-format
 msgid "Avatar updated successfully!"
 msgstr "头像更新成功！"
@@ -4182,7 +4182,7 @@ msgstr "保存通知偏好设置失败。"
 msgid "Failed to send invitation"
 msgstr "发送邀请失败"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:206
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:211
 #, elixir-autogen, elixir-format
 msgid "Failed to update avatar"
 msgstr "更新头像失败"
@@ -4682,7 +4682,7 @@ msgstr "通知偏好设置已保存。"
 #: lib/phoenix_kit_web/live/notifications_bell.ex:119
 #: lib/phoenix_kit_web/live/notifications_bell.ex:135
 #: lib/phoenix_kit_web/live/settings.html.heex:407
-#: lib/phoenix_kit_web/live/settings/users.ex:464
+#: lib/phoenix_kit_web/live/settings/users.ex:480
 #, elixir-autogen, elixir-format
 msgid "Notifications"
 msgstr "通知"
@@ -5948,7 +5948,7 @@ msgid "Logout"
 msgstr "退出登录"
 
 #: lib/modules/sitemap/web/settings.html.heex:434
-#: lib/phoenix_kit_web/live/settings/users.ex:95
+#: lib/phoenix_kit_web/live/settings/users.ex:99
 #, elixir-autogen
 msgid "Registration"
 msgstr "注册"
@@ -8045,27 +8045,27 @@ msgstr "已确认的邮箱"
 msgid "Current Page"
 msgstr "当前页"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:342
+#: lib/phoenix_kit_web/live/settings/users.ex:358
 #, elixir-autogen, elixir-format
 msgid "Custom field deleted successfully"
 msgstr "自定义字段已删除"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:262
+#: lib/phoenix_kit_web/live/settings/users.ex:278
 #, elixir-autogen, elixir-format
 msgid "Custom field saved successfully"
 msgstr "自定义字段已保存"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:347
+#: lib/phoenix_kit_web/live/settings/users.ex:363
 #, elixir-autogen, elixir-format
 msgid "Failed to delete custom field"
 msgstr "删除自定义字段失败"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:275
+#: lib/phoenix_kit_web/live/settings/users.ex:291
 #, elixir-autogen, elixir-format
 msgid "Failed to save custom field"
 msgstr "保存自定义字段失败"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:376
+#: lib/phoenix_kit_web/live/settings/users.ex:392
 #, elixir-autogen, elixir-format
 msgid "Failed to update field"
 msgstr "更新字段失败"
@@ -8093,17 +8093,17 @@ msgstr "更新用户角色失败"
 msgid "Failed to update user status"
 msgstr "更新用户状态失败"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:369
+#: lib/phoenix_kit_web/live/settings/users.ex:385
 #, elixir-autogen, elixir-format
 msgid "Field '%{label}' disabled"
 msgstr "字段“%{label}”已停用"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:368
+#: lib/phoenix_kit_web/live/settings/users.ex:384
 #, elixir-autogen, elixir-format
 msgid "Field '%{label}' enabled"
 msgstr "字段“%{label}”已启用"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:380
+#: lib/phoenix_kit_web/live/settings/users.ex:396
 #, elixir-autogen, elixir-format
 msgid "Field not found"
 msgstr "未找到字段"
@@ -8346,7 +8346,7 @@ msgstr "用户邮箱已成功取消确认"
 msgid "User roles updated successfully"
 msgstr "用户角色已成功更新"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:175
+#: lib/phoenix_kit_web/live/settings/users.ex:191
 #, elixir-autogen, elixir-format
 msgid "User settings updated successfully"
 msgstr "用户设置已成功更新"
@@ -8536,7 +8536,7 @@ msgid "AI models via OpenAI (GPT, embeddings, images, audio)"
 msgstr "通过 OpenAI 访问 AI 模型（GPT、嵌入、图像、音频）"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:276
-#: lib/phoenix_kit_web/live/settings/users.ex:448
+#: lib/phoenix_kit_web/live/settings/users.ex:464
 #, elixir-autogen, elixir-format
 msgid "Account menu"
 msgstr "账户菜单"
@@ -9452,7 +9452,7 @@ msgstr "未保存的更改"
 msgid "saved:"
 msgstr "已保存："
 
-#: lib/phoenix_kit_web/live/settings/users.ex:102
+#: lib/phoenix_kit_web/live/settings/users.ex:106
 #, elixir-autogen, elixir-format
 msgid "New User Defaults"
 msgstr "新用户默认值"
@@ -10885,7 +10885,7 @@ msgstr "计划：%{entries}"
 msgid "Please enter a name"
 msgstr "请输入名称"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:99
+#: lib/phoenix_kit_web/live/settings/users.ex:103
 #, elixir-autogen, elixir-format
 msgid "Post-Login Redirects"
 msgstr "登录后重定向"
@@ -12052,8 +12052,8 @@ msgstr "正在服务器上处理…"
 msgid "Select Audio"
 msgstr "选择音频"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:317
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:331
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:327
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:341
 #, elixir-autogen, elixir-format
 msgid "Select Avatar"
 msgstr "选择头像"
@@ -13403,7 +13403,7 @@ msgstr "%{when} 恢复开放"
 msgid "Account types on the signup page"
 msgstr "注册页面上的账户类型"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:416
+#: lib/phoenix_kit_web/live/settings/users.ex:432
 #, elixir-autogen, elixir-format
 msgid "Organization accounts only"
 msgstr "仅组织账户"
@@ -13413,7 +13413,7 @@ msgstr "仅组织账户"
 msgid "People who work for one join it by invitation instead, so no personal account is ever opened from the public form."
 msgstr "为组织工作的人改为通过邀请加入，因此不会通过公开表单创建个人账户。"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:415
+#: lib/phoenix_kit_web/live/settings/users.ex:431
 #, elixir-autogen, elixir-format
 msgid "Personal accounts only"
 msgstr "仅个人账户"
@@ -13423,7 +13423,7 @@ msgstr "仅个人账户"
 msgid "The account type picker disappears from the signup page and every visitor who registers opens an organization."
 msgstr "注册页面上不再显示账户类型选择器，每位注册的访客都会创建一个组织。"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:414
+#: lib/phoenix_kit_web/live/settings/users.ex:430
 #, elixir-autogen, elixir-format
 msgid "Visitor chooses"
 msgstr "由访客选择"
@@ -13921,37 +13921,37 @@ msgstr "来源"
 msgid "Storage buckets and file processing"
 msgstr "存储桶与文件处理"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:348
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:358
 #, elixir-autogen, elixir-format
 msgid "Adjust Avatar Crop"
 msgstr "调整头像裁剪"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:302
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:312
 #, elixir-autogen, elixir-format
 msgid "Adjust Crop"
 msgstr "调整裁剪"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:177
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:182
 #, elixir-autogen, elixir-format
 msgid "Avatar crop reset."
 msgstr "头像裁剪已重置。"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:167
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:172
 #, elixir-autogen, elixir-format
 msgid "Avatar crop updated!"
 msgstr "头像裁剪已更新！"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:217
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:222
 #, elixir-autogen, elixir-format
 msgid "Failed to update avatar crop"
 msgstr "更新头像裁剪失败"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:421
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:445
 #, elixir-autogen, elixir-format
 msgid "Save Crop"
 msgstr "保存裁剪"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:383
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:407
 #, elixir-autogen, elixir-format
 msgid "Zoom"
 msgstr "缩放"
@@ -14233,7 +14233,7 @@ msgstr "无法保存。"
 msgid "Could not switch to that role."
 msgstr "无法切换到该角色。"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:449
+#: lib/phoenix_kit_web/live/settings/users.ex:465
 #, elixir-autogen, elixir-format
 msgid "Header (account menu on phones)"
 msgstr "页眉（手机上的账户菜单）"
@@ -14249,7 +14249,7 @@ msgid "Saved."
 msgstr "已保存。"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1603
-#: lib/phoenix_kit_web/live/settings/users.ex:459
+#: lib/phoenix_kit_web/live/settings/users.ex:475
 #, elixir-autogen, elixir-format
 msgid "Start page"
 msgstr "起始页"
@@ -15442,7 +15442,7 @@ msgstr "%{name} 上传失败。"
 
 #: lib/phoenix_kit/users/table_columns.ex:68
 #: lib/phoenix_kit/users/table_columns.ex:71
-#: lib/phoenix_kit_web/live/settings/users.ex:457
+#: lib/phoenix_kit_web/live/settings/users.ex:473
 #, elixir-autogen, elixir-format
 msgid "Custom fields"
 msgstr "自定义字段"
@@ -16555,32 +16555,33 @@ msgstr "%{month}%{day}日"
 msgid "%{day} %{month} %{year}"
 msgstr "%{year}年%{month}%{day}日"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:460
+#: lib/phoenix_kit_web/live/settings/users.ex:476
 #, elixir-autogen, elixir-format
 msgid "Annotation tools reset"
 msgstr "标注工具已重置"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:458
+#: lib/phoenix_kit_web/live/settings/users.ex:474
 #, elixir-autogen, elixir-format
 msgid "Change email"
 msgstr "更改邮箱"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:758
+#: lib/phoenix_kit_web/live/settings/users.html.heex:761
 #, elixir-autogen, elixir-format
 msgid "Choose what people see on their own settings page. A tab whose sections are all hidden disappears. Hiding only removes the section from the page; it does not change anyone's data."
 msgstr "选择用户在自己的设置页面上看到的内容。所有分区都被隐藏的标签页会消失。隐藏只是从页面上移除该分区，不会更改任何人的数据。"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:462
+#: lib/phoenix_kit_web/live/settings/users.ex:478
 #, elixir-autogen, elixir-format
 msgid "Connected sign-in accounts"
 msgstr "已关联的登录账户"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:131
+#: lib/phoenix_kit_web/live/settings/users.ex:121
+#: lib/phoenix_kit_web/live/settings/users.ex:147
 #, elixir-autogen, elixir-format
 msgid "Could not save that change."
 msgstr "无法保存该更改。"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:456
+#: lib/phoenix_kit_web/live/settings/users.ex:472
 #, elixir-autogen, elixir-format
 msgid "Google email address"
 msgstr "Google 邮箱地址"
@@ -16595,7 +16596,7 @@ msgstr "后一天"
 msgid "Previous day"
 msgstr "前一天"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:105
+#: lib/phoenix_kit_web/live/settings/users.ex:109
 #, elixir-autogen, elixir-format
 msgid "Profile Page"
 msgstr "个人资料页面"
@@ -24813,7 +24814,7 @@ msgstr "暂无"
 msgid "%{field}: %{value}"
 msgstr "%{field}：%{value}"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:895
+#: lib/phoenix_kit_web/live/settings/users.html.heex:936
 #, elixir-autogen, elixir-format
 msgid "Adds a Yes/No filter for this field to the Users table."
 msgstr "为此字段在用户表中添加一个“是/否”筛选器。"
@@ -24824,12 +24825,12 @@ msgid "Any"
 msgstr "任意"
 
 #: lib/phoenix_kit/users/table_columns.ex:270
-#: lib/phoenix_kit_web/components/core/user_info.ex:140
+#: lib/phoenix_kit_web/components/core/user_info.ex:142
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "头像"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:824
+#: lib/phoenix_kit_web/live/settings/users.html.heex:865
 #, elixir-autogen, elixir-format
 msgid "Column name"
 msgstr "列名"
@@ -24844,7 +24845,7 @@ msgstr "邮箱待验证"
 msgid "Email ✓"
 msgstr "邮箱 ✓"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:892
+#: lib/phoenix_kit_web/live/settings/users.html.heex:933
 #, elixir-autogen, elixir-format
 msgid "Filter in the Users table"
 msgstr "在用户表中筛选"
@@ -24860,7 +24861,7 @@ msgstr "管理 %{name} 的角色"
 msgid "Managed"
 msgstr "受管"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:833
+#: lib/phoenix_kit_web/live/settings/users.html.heex:874
 #, elixir-autogen, elixir-format
 msgid "Shown as the column header in the Users table. Leave blank to use the label."
 msgstr "显示为用户表的列标题。留空则使用标签。"
@@ -25048,7 +25049,7 @@ msgstr "已授权的重定向 URI"
 msgid "Basic"
 msgstr "基本"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:292
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:302
 #, elixir-autogen, elixir-format
 msgid "Browse Media"
 msgstr "浏览媒体"
@@ -25639,8 +25640,8 @@ msgstr "未找到语言"
 msgid "No results found"
 msgstr "未找到结果"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:329
 #: lib/phoenix_kit_web/components/core/user_info.ex:331
+#: lib/phoenix_kit_web/components/core/user_info.ex:333
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "无角色"
@@ -26460,3 +26461,68 @@ msgstr "📋 从 %{count} 个可用区域中选择，或保留您的自定义区
 #, elixir-autogen, elixir-format
 msgid "Changes to the avatar are saved straight away."
 msgstr "头像的更改会立即保存。"
+
+#: lib/phoenix_kit_web/live/settings/users.ex:110
+#, elixir-autogen, elixir-format
+msgid "Avatars"
+msgstr "头像"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:53
+#, elixir-autogen, elixir-format
+msgid "Circle"
+msgstr "圆形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:64
+#, elixir-autogen, elixir-format
+msgid "Decagon"
+msgstr "十边形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:66
+#, elixir-autogen, elixir-format
+msgid "Diamond"
+msgstr "菱形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:60
+#, elixir-autogen, elixir-format
+msgid "Flat hexagon"
+msgstr "扁平六边形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:67
+#, elixir-autogen, elixir-format
+msgid "Heart"
+msgstr "心形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:57
+#, elixir-autogen, elixir-format
+msgid "Hexagon"
+msgstr "六边形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:65
+#, elixir-autogen, elixir-format
+msgid "Pentagon"
+msgstr "五边形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:55
+#, elixir-autogen, elixir-format
+msgid "Rounded square"
+msgstr "圆角方形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:56
+#, elixir-autogen, elixir-format
+msgid "Square"
+msgstr "方形"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:54
+#, elixir-autogen, elixir-format
+msgid "Squircle"
+msgstr "超椭圆"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:68
+#, elixir-autogen, elixir-format
+msgid "Star"
+msgstr "星形"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:783
+#, elixir-autogen, elixir-format
+msgid "The shape every avatar on this site is drawn in: menus, lists, profiles and the crop editor."
+msgstr "本站所有头像的显示形状：菜单、列表、个人资料和裁剪编辑器中都会使用。"

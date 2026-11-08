@@ -8,9 +8,10 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
 
   The crop is data, never pixels (`PhoenixKit.Users.AvatarCrop`). Every save
   is written at once through `Auth.update_user_fields/2`, which also drops the
-  old picture's crop when the file changes. The zoom goes from where the
-  whole picture fits inside the circle (a wide logo shown whole, on white) up
-  to 8×.
+  old picture's crop when the file changes. Everything is drawn in the site's
+  avatar shape (`PhoenixKit.Users.AvatarShape`), and the zoom goes from where
+  the whole picture fits inside that shape (a wide logo shown whole, on white)
+  up to 8×.
 
   ## Usage
 
@@ -68,6 +69,7 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
   alias PhoenixKit.Users.ActingLink
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.AvatarCrop
+  alias PhoenixKit.Users.AvatarShape
   alias PhoenixKitWeb.Live.Components.MediaSelectorModal
   alias PhoenixKitWeb.Live.Components.UserMediaSelectorModal
 
@@ -110,7 +112,8 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
      |> assign(:actor, Map.get(assigns, :actor) || assigns.user)
      |> assign(:picker, Map.get(assigns, :picker, :own))
      |> assign(:notify, Map.get(assigns, :notify))
-     |> assign(:class, Map.get(assigns, :class))}
+     |> assign(:class, Map.get(assigns, :class))
+     |> assign(:shape, AvatarShape.current())}
   end
 
   defp open_crop_on_pick(socket, file_uuid) do
@@ -283,7 +286,12 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
     <div id={@id} class={["flex flex-col items-center gap-2", @class]}>
       <%!-- The "xl" size loads the medium (800px) variant into the 160px
            circle, and applies the stored crop. --%>
-      <.user_avatar user={@user} size="xl" class="border-2 border-primary" />
+      <.user_avatar
+        user={@user}
+        size="xl"
+        shape={@shape}
+        class={if AvatarShape.masked?(@shape), do: "", else: "border-2 border-primary"}
+      />
       <button
         type="button"
         id={"#{@id}-browse"}
@@ -355,19 +363,28 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
           phx-update="ignore"
           data-crop={Phoenix.json_library().encode!(@pending_crop || %{})}
           data-max-zoom={AvatarCrop.max_zoom()}
+          data-fit={AvatarShape.fit(@shape)}
           class="flex flex-col items-center gap-4 py-2"
         >
-          <div
-            data-crop-frame
-            class="relative w-64 h-64 rounded-full overflow-hidden bg-white cursor-grab touch-none select-none ring-2 ring-primary ring-offset-2"
-          >
-            <img
-              data-crop-img
-              src={URLSigner.signed_url(@pending_uuid || @avatar_uuid, "large")}
-              alt=""
-              draggable="false"
-              class="absolute max-w-none pointer-events-none"
-            />
+          <%!-- Framed in the site's shape. The outline is the same shape a
+               little larger behind it: a ring would be masked away. --%>
+          <div class="relative w-64 h-64">
+            <div class={["absolute -inset-1 bg-primary", AvatarShape.class(@shape)]}></div>
+            <div
+              data-crop-frame
+              class={[
+                "relative w-64 h-64 overflow-hidden bg-white cursor-grab touch-none select-none",
+                AvatarShape.class(@shape)
+              ]}
+            >
+              <img
+                data-crop-img
+                src={URLSigner.signed_url(@pending_uuid || @avatar_uuid, "large")}
+                alt=""
+                draggable="false"
+                class="absolute max-w-none pointer-events-none"
+              />
+            </div>
           </div>
           <div class="flex items-center gap-3 w-64">
             <.icon name="hero-magnifying-glass-minus" class="w-4 h-4 opacity-60" />
@@ -377,7 +394,12 @@ defmodule PhoenixKitWeb.Live.Components.AvatarEditor do
               data-crop-zoom
               form={"#{@id}-crop-no-form"}
               type="range"
-              min={AvatarCrop.min_zoom((@pending_crop && @pending_crop["ar"]) || 1.0)}
+              min={
+                AvatarCrop.min_zoom(
+                  (@pending_crop && @pending_crop["ar"]) || 1.0,
+                  AvatarShape.fit(@shape)
+                )
+              }
               max={AvatarCrop.max_zoom()}
               step="0.01"
               value="1"

@@ -56,7 +56,7 @@ msgstr "Системная информация"
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:158
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:443
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:108
-#: lib/phoenix_kit_web/live/settings/users.ex:50
+#: lib/phoenix_kit_web/live/settings/users.ex:52
 #: lib/phoenix_kit_web/live/users/managed_organization_new.ex:24
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:40
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:22
@@ -78,7 +78,7 @@ msgstr "Управление пользователями"
 #: lib/phoenix_kit/users/table_columns.ex:298
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:126
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1195
-#: lib/phoenix_kit_web/live/settings/users.ex:103
+#: lib/phoenix_kit_web/live/settings/users.ex:107
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:44
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:187
 #: lib/phoenix_kit_web/live/users/users.html.heex:811
@@ -96,8 +96,8 @@ msgstr "Управление ролями"
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:144
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:339
 #: lib/phoenix_kit_web/live/settings/authorization.ex:85
-#: lib/phoenix_kit_web/live/settings/users.ex:96
-#: lib/phoenix_kit_web/live/settings/users.ex:463
+#: lib/phoenix_kit_web/live/settings/users.ex:100
+#: lib/phoenix_kit_web/live/settings/users.ex:479
 #, elixir-autogen
 msgid "Sessions"
 msgstr "Сессии"
@@ -551,7 +551,7 @@ msgstr "Действия"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2579
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:633
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:307
-#: lib/phoenix_kit_web/live/settings/users.html.heex:947
+#: lib/phoenix_kit_web/live/settings/users.html.heex:988
 #: lib/phoenix_kit_web/users/user_form.html.heex:742
 #, elixir-autogen, elixir-format
 msgid "Add"
@@ -563,7 +563,7 @@ msgstr "Добавить"
 msgid "Add %{language} translation"
 msgstr "Добавить перевод на %{language}"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:971
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1012
 #, elixir-autogen, elixir-format
 msgid "Add Field"
 msgstr "Добавить поле"
@@ -680,7 +680,7 @@ msgstr "Маркированный список"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:932
 #: lib/phoenix_kit_web/components/media_browser/removal_modal.ex:118
 #: lib/phoenix_kit_web/components/tree_picker.ex:262
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:408
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:432
 #: lib/phoenix_kit_web/live/components/library_activity.ex:291
 #: lib/phoenix_kit_web/live/components/library_activity.ex:457
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1787
@@ -702,7 +702,7 @@ msgstr "Маркированный список"
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1217
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:486
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:152
-#: lib/phoenix_kit_web/live/settings/users.html.heex:974
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1015
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:18
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:281
 #: lib/phoenix_kit_web/live/users/roles.html.heex:38
@@ -1573,7 +1573,7 @@ msgstr "Необязательно"
 msgid "Optional, up to 500 characters."
 msgstr "Необязательно, до 500 символов."
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:904
+#: lib/phoenix_kit_web/live/settings/users.html.heex:945
 #, elixir-autogen, elixir-format
 msgid "Options"
 msgstr "Параметры"
@@ -1613,7 +1613,7 @@ msgstr "Страница успешно опубликована"
 #: lib/phoenix_kit/integrations/providers.ex:1335
 #: lib/phoenix_kit_web/components/account_menu.ex:329
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1413
-#: lib/phoenix_kit_web/live/settings/users.ex:461
+#: lib/phoenix_kit_web/live/settings/users.ex:477
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:69
 #: lib/phoenix_kit_web/users/login.html.heex:39
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:42
@@ -1941,7 +1941,7 @@ msgstr "Сохранено"
 #: lib/phoenix_kit_web/components/core/markdown_editor.ex:417
 #: lib/phoenix_kit_web/live/settings.html.heex:673
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:766
-#: lib/phoenix_kit_web/live/settings/users.html.heex:745
+#: lib/phoenix_kit_web/live/settings/users.html.heex:748
 #, elixir-autogen, elixir-format
 msgid "Saving..."
 msgstr "Сохранение..."
@@ -1985,7 +1985,7 @@ msgstr "Выберите, к каким разделам и модулям эт�
 #: lib/phoenix_kit_web/live/settings/organization.ex:51
 #: lib/phoenix_kit_web/live/settings/send_profile_form.ex:22
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:33
-#: lib/phoenix_kit_web/live/settings/users.ex:55
+#: lib/phoenix_kit_web/live/settings/users.ex:57
 #: lib/phoenix_kit_web/live/settings/website_access.ex:63
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:51
 #: lib/phoenix_kit_web/live/users/users.html.heex:820
@@ -2159,7 +2159,7 @@ msgstr "Всего ролей"
 #: lib/phoenix_kit_web/live/modules/jobs/index.html.heex:367
 #: lib/phoenix_kit_web/live/settings/users.html.heex:553
 #: lib/phoenix_kit_web/live/settings/users.html.heex:598
-#: lib/phoenix_kit_web/live/settings/users.html.heex:843
+#: lib/phoenix_kit_web/live/settings/users.html.heex:884
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:186
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:64
 #: lib/phoenix_kit_web/live/users/roles.html.heex:124
@@ -2193,7 +2193,7 @@ msgstr "Неизвестно"
 msgid "Unsaved changes"
 msgstr "Несохранённые изменения"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:971
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1012
 #, elixir-autogen, elixir-format
 msgid "Update Field"
 msgstr "Обновить поле"
@@ -2611,7 +2611,7 @@ msgid "Add Bucket"
 msgstr "Добавить бакет"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:589
-#: lib/phoenix_kit_web/live/settings/users.html.heex:783
+#: lib/phoenix_kit_web/live/settings/users.html.heex:824
 #, elixir-autogen, elixir-format
 msgid "Add Custom Field"
 msgstr "Добавить пользовательское поле"
@@ -2681,7 +2681,7 @@ msgstr "Применить изменения"
 msgid "Applying..."
 msgstr "Применение..."
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:960
+#: lib/phoenix_kit_web/live/settings/users.html.heex:1001
 #, elixir-autogen, elixir-format
 msgid "At least one option is required for %{type} fields"
 msgstr "Для полей типа %{type} требуется хотя бы один вариант"
@@ -2857,7 +2857,7 @@ msgstr "Создайте новое приложение или выберите
 msgid "Create project or select existing one"
 msgstr "Создайте проект или выберите существующий"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:104
+#: lib/phoenix_kit_web/live/settings/users.ex:108
 #: lib/phoenix_kit_web/users/user_form.html.heex:519
 #, elixir-autogen, elixir-format
 msgid "Custom User Fields"
@@ -2873,7 +2873,7 @@ msgstr "Формат даты"
 msgid "Define additional profile fields for users"
 msgstr "Определите дополнительные поля профиля для пользователей"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:782
+#: lib/phoenix_kit_web/live/settings/users.html.heex:823
 #, elixir-autogen, elixir-format
 msgid "Edit Custom Field"
 msgstr "Редактировать пользовательское поле"
@@ -2905,7 +2905,7 @@ msgstr "Конечная точка"
 msgid "Enter"
 msgstr "Введите"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:937
+#: lib/phoenix_kit_web/live/settings/users.html.heex:978
 #, elixir-autogen, elixir-format
 msgid "Enter option value"
 msgstr "Введите значение варианта"
@@ -2939,7 +2939,7 @@ msgstr "Вход через Facebook"
 msgid "Field"
 msgstr "Поле"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:790
+#: lib/phoenix_kit_web/live/settings/users.html.heex:831
 #, elixir-autogen, elixir-format
 msgid "Field Key"
 msgstr "Ключ поля"
@@ -3021,7 +3021,7 @@ msgid "Key:"
 msgstr "Ключ:"
 
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:414
-#: lib/phoenix_kit_web/live/settings/users.html.heex:810
+#: lib/phoenix_kit_web/live/settings/users.html.heex:851
 #, elixir-autogen, elixir-format
 msgid "Label"
 msgstr "Метка"
@@ -3048,7 +3048,7 @@ msgstr "Локальная файловая система"
 msgid "Login Page Branding"
 msgstr "Оформление страницы входа"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:802
+#: lib/phoenix_kit_web/live/settings/users.html.heex:843
 #, elixir-autogen, elixir-format
 msgid "Lowercase letters, numbers, underscores only"
 msgstr "Только строчные буквы, цифры, символы подчёркивания"
@@ -3068,7 +3068,7 @@ msgstr "Сохранять соотношение сторон"
 msgid "Manage login page branding and authentication methods"
 msgstr "Управляйте оформлением страницы входа и методами аутентификации"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:53
+#: lib/phoenix_kit_web/live/settings/users.ex:55
 #, elixir-autogen, elixir-format
 msgid "Manage user registration, defaults, and custom fields"
 msgstr "Управляйте регистрацией пользователей, настройками по умолчанию и пользовательскими полями"
@@ -3183,7 +3183,7 @@ msgstr "Инструкции по настройке OAuth"
 msgid "Original"
 msgstr "Оригинал"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:816
+#: lib/phoenix_kit_web/live/settings/users.html.heex:857
 #, elixir-autogen, elixir-format
 msgid "Phone Number"
 msgstr "Номер телефона"
@@ -3232,13 +3232,13 @@ msgstr "Случайный"
 msgid "Reload OAuth Configuration"
 msgstr "Перезагрузить конфигурацию OAuth"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:864
+#: lib/phoenix_kit_web/live/settings/users.html.heex:905
 #, elixir-autogen, elixir-format
 msgid "Required field"
 msgstr "Обязательное поле"
 
 #: lib/phoenix_kit_web/components/core/column_settings.ex:188
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:399
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:423
 #: lib/phoenix_kit_web/live/settings.html.heex:689
 #, elixir-autogen, elixir-format
 msgid "Reset"
@@ -3287,7 +3287,7 @@ msgstr "Сохранить все настройки"
 msgid "Save Authorization Settings"
 msgstr "Сохранить настройки авторизации"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:747
+#: lib/phoenix_kit_web/live/settings/users.html.heex:750
 #, elixir-autogen, elixir-format
 msgid "Save User Settings"
 msgstr "Сохранить настройки пользователей"
@@ -3429,7 +3429,7 @@ msgstr "Всего бакетов"
 msgid "Track user registration location"
 msgstr "Отслеживать местоположение при регистрации пользователя"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:953
+#: lib/phoenix_kit_web/live/settings/users.html.heex:994
 #, elixir-autogen, elixir-format
 msgid "Type an option and press Enter or click Add"
 msgstr "Введите вариант и нажмите Enter или кнопку «Добавить»"
@@ -3461,7 +3461,7 @@ msgstr "Редактируется пользователем"
 msgid "User actions"
 msgstr "Действия с пользователем"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:877
+#: lib/phoenix_kit_web/live/settings/users.html.heex:918
 #, elixir-autogen, elixir-format
 msgid "User can edit this field"
 msgstr "Пользователь может редактировать это поле"
@@ -3493,7 +3493,7 @@ msgstr "Перейти"
 msgid "Week Start On"
 msgstr "Начало недели"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:880
+#: lib/phoenix_kit_web/live/settings/users.html.heex:921
 #, elixir-autogen, elixir-format
 msgid "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
 msgstr "Если включено, пользователи могут просматривать и редактировать это поле на странице настроек. Если выключено, редактировать могут только администраторы."
@@ -3586,7 +3586,7 @@ msgstr "заголовок установлен в"
 msgid "mode"
 msgstr "режим"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:906
+#: lib/phoenix_kit_web/live/settings/users.html.heex:947
 #, elixir-autogen, elixir-format
 msgid "option(s)"
 msgstr "вариант(ов)"
@@ -3843,7 +3843,7 @@ msgstr "Авторизация не удалась: %{reason}"
 msgid "Authorize access to your %{provider} account. This will open a sign-in page where you choose which account to connect."
 msgstr "Авторизуйте доступ к вашему аккаунту %{provider}. Откроется страница входа, где вы выберете аккаунт для подключения."
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:205
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:210
 #, elixir-autogen, elixir-format
 msgid "Avatar updated successfully!"
 msgstr "Аватар успешно обновлён!"
@@ -4196,7 +4196,7 @@ msgstr "Не удалось сохранить настройки уведомл
 msgid "Failed to send invitation"
 msgstr "Не удалось отправить приглашение"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:206
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:211
 #, elixir-autogen, elixir-format
 msgid "Failed to update avatar"
 msgstr "Не удалось обновить аватар"
@@ -4696,7 +4696,7 @@ msgstr "Настройки уведомлений сохранены."
 #: lib/phoenix_kit_web/live/notifications_bell.ex:119
 #: lib/phoenix_kit_web/live/notifications_bell.ex:135
 #: lib/phoenix_kit_web/live/settings.html.heex:407
-#: lib/phoenix_kit_web/live/settings/users.ex:464
+#: lib/phoenix_kit_web/live/settings/users.ex:480
 #, elixir-autogen, elixir-format
 msgid "Notifications"
 msgstr "Уведомления"
@@ -5970,7 +5970,7 @@ msgid "Logout"
 msgstr "Выход"
 
 #: lib/modules/sitemap/web/settings.html.heex:434
-#: lib/phoenix_kit_web/live/settings/users.ex:95
+#: lib/phoenix_kit_web/live/settings/users.ex:99
 #, elixir-autogen
 msgid "Registration"
 msgstr "Регистрация"
@@ -8103,27 +8103,27 @@ msgstr "Подтверждённый email"
 msgid "Current Page"
 msgstr "Текущая страница"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:342
+#: lib/phoenix_kit_web/live/settings/users.ex:358
 #, elixir-autogen, elixir-format
 msgid "Custom field deleted successfully"
 msgstr "Пользовательское поле успешно удалено"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:262
+#: lib/phoenix_kit_web/live/settings/users.ex:278
 #, elixir-autogen, elixir-format
 msgid "Custom field saved successfully"
 msgstr "Пользовательское поле успешно сохранено"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:347
+#: lib/phoenix_kit_web/live/settings/users.ex:363
 #, elixir-autogen, elixir-format
 msgid "Failed to delete custom field"
 msgstr "Не удалось удалить пользовательское поле"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:275
+#: lib/phoenix_kit_web/live/settings/users.ex:291
 #, elixir-autogen, elixir-format
 msgid "Failed to save custom field"
 msgstr "Не удалось сохранить пользовательское поле"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:376
+#: lib/phoenix_kit_web/live/settings/users.ex:392
 #, elixir-autogen, elixir-format
 msgid "Failed to update field"
 msgstr "Не удалось обновить поле"
@@ -8151,17 +8151,17 @@ msgstr "Не удалось обновить роли пользователя"
 msgid "Failed to update user status"
 msgstr "Не удалось обновить статус пользователя"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:369
+#: lib/phoenix_kit_web/live/settings/users.ex:385
 #, elixir-autogen, elixir-format
 msgid "Field '%{label}' disabled"
 msgstr "Поле «%{label}» отключено"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:368
+#: lib/phoenix_kit_web/live/settings/users.ex:384
 #, elixir-autogen, elixir-format
 msgid "Field '%{label}' enabled"
 msgstr "Поле «%{label}» включено"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:380
+#: lib/phoenix_kit_web/live/settings/users.ex:396
 #, elixir-autogen, elixir-format
 msgid "Field not found"
 msgstr "Поле не найдено"
@@ -8404,7 +8404,7 @@ msgstr "Подтверждение email пользователя успешно
 msgid "User roles updated successfully"
 msgstr "Роли пользователя успешно обновлены"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:175
+#: lib/phoenix_kit_web/live/settings/users.ex:191
 #, elixir-autogen, elixir-format
 msgid "User settings updated successfully"
 msgstr "Настройки пользователя успешно обновлены"
@@ -8597,7 +8597,7 @@ msgid "AI models via OpenAI (GPT, embeddings, images, audio)"
 msgstr "ИИ-модели через OpenAI (GPT, эмбеддинги, изображения, аудио)"
 
 #: lib/phoenix_kit_web/components/user_dashboard_nav.ex:276
-#: lib/phoenix_kit_web/live/settings/users.ex:448
+#: lib/phoenix_kit_web/live/settings/users.ex:464
 #, elixir-autogen, elixir-format
 msgid "Account menu"
 msgstr "Меню аккаунта"
@@ -9514,7 +9514,7 @@ msgstr "Несохранённое изменение"
 msgid "saved:"
 msgstr "сохранено:"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:102
+#: lib/phoenix_kit_web/live/settings/users.ex:106
 #, elixir-autogen, elixir-format
 msgid "New User Defaults"
 msgstr "Значения по умолчанию для новых пользователей"
@@ -10953,7 +10953,7 @@ msgstr "Тариф: %{entries}"
 msgid "Please enter a name"
 msgstr "Введите название"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:99
+#: lib/phoenix_kit_web/live/settings/users.ex:103
 #, elixir-autogen, elixir-format
 msgid "Post-Login Redirects"
 msgstr "Переходы после входа"
@@ -12120,8 +12120,8 @@ msgstr "Обработка на сервере…"
 msgid "Select Audio"
 msgstr "Выбрать аудио"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:317
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:331
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:327
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:341
 #, elixir-autogen, elixir-format
 msgid "Select Avatar"
 msgstr "Выбрать аватар"
@@ -13473,7 +13473,7 @@ msgstr "Вернёмся %{when}"
 msgid "Account types on the signup page"
 msgstr "Типы аккаунтов на странице регистрации"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:416
+#: lib/phoenix_kit_web/live/settings/users.ex:432
 #, elixir-autogen, elixir-format
 msgid "Organization accounts only"
 msgstr "Только аккаунты организаций"
@@ -13483,7 +13483,7 @@ msgstr "Только аккаунты организаций"
 msgid "People who work for one join it by invitation instead, so no personal account is ever opened from the public form."
 msgstr "Сотрудники организации присоединяются к ней по приглашению, поэтому через публичную форму личный аккаунт не создаётся."
 
-#: lib/phoenix_kit_web/live/settings/users.ex:415
+#: lib/phoenix_kit_web/live/settings/users.ex:431
 #, elixir-autogen, elixir-format
 msgid "Personal accounts only"
 msgstr "Только личные аккаунты"
@@ -13493,7 +13493,7 @@ msgstr "Только личные аккаунты"
 msgid "The account type picker disappears from the signup page and every visitor who registers opens an organization."
 msgstr "Выбор типа аккаунта исчезает со страницы регистрации, и каждый зарегистрировавшийся посетитель создаёт организацию."
 
-#: lib/phoenix_kit_web/live/settings/users.ex:414
+#: lib/phoenix_kit_web/live/settings/users.ex:430
 #, elixir-autogen, elixir-format
 msgid "Visitor chooses"
 msgstr "Выбирает посетитель"
@@ -13991,37 +13991,37 @@ msgstr "Источники"
 msgid "Storage buckets and file processing"
 msgstr "Хранилища и обработка файлов"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:348
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:358
 #, elixir-autogen, elixir-format
 msgid "Adjust Avatar Crop"
 msgstr "Настроить кадрирование аватара"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:302
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:312
 #, elixir-autogen, elixir-format
 msgid "Adjust Crop"
 msgstr "Настроить кадр"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:177
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:182
 #, elixir-autogen, elixir-format
 msgid "Avatar crop reset."
 msgstr "Кадрирование аватара сброшено."
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:167
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:172
 #, elixir-autogen, elixir-format
 msgid "Avatar crop updated!"
 msgstr "Кадрирование аватара обновлено!"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:217
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:222
 #, elixir-autogen, elixir-format
 msgid "Failed to update avatar crop"
 msgstr "Не удалось обновить кадрирование аватара"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:421
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:445
 #, elixir-autogen, elixir-format
 msgid "Save Crop"
 msgstr "Сохранить кадр"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:383
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:407
 #, elixir-autogen, elixir-format
 msgid "Zoom"
 msgstr "Масштаб"
@@ -14303,7 +14303,7 @@ msgstr "Не удалось сохранить."
 msgid "Could not switch to that role."
 msgstr "Не удалось переключиться на эту роль."
 
-#: lib/phoenix_kit_web/live/settings/users.ex:449
+#: lib/phoenix_kit_web/live/settings/users.ex:465
 #, elixir-autogen, elixir-format
 msgid "Header (account menu on phones)"
 msgstr "Шапка (меню аккаунта на телефонах)"
@@ -14319,7 +14319,7 @@ msgid "Saved."
 msgstr "Сохранено."
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1603
-#: lib/phoenix_kit_web/live/settings/users.ex:459
+#: lib/phoenix_kit_web/live/settings/users.ex:475
 #, elixir-autogen, elixir-format
 msgid "Start page"
 msgstr "Стартовая страница"
@@ -15520,7 +15520,7 @@ msgstr "Не удалось загрузить %{name}."
 
 #: lib/phoenix_kit/users/table_columns.ex:68
 #: lib/phoenix_kit/users/table_columns.ex:71
-#: lib/phoenix_kit_web/live/settings/users.ex:457
+#: lib/phoenix_kit_web/live/settings/users.ex:473
 #, elixir-autogen, elixir-format
 msgid "Custom fields"
 msgstr "Пользовательские поля"
@@ -16651,32 +16651,33 @@ msgstr "%{day} %{month}"
 msgid "%{day} %{month} %{year}"
 msgstr "%{day} %{month} %{year}"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:460
+#: lib/phoenix_kit_web/live/settings/users.ex:476
 #, elixir-autogen, elixir-format
 msgid "Annotation tools reset"
 msgstr "Сброс инструментов аннотаций"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:458
+#: lib/phoenix_kit_web/live/settings/users.ex:474
 #, elixir-autogen, elixir-format
 msgid "Change email"
 msgstr "Смена email"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:758
+#: lib/phoenix_kit_web/live/settings/users.html.heex:761
 #, elixir-autogen, elixir-format
 msgid "Choose what people see on their own settings page. A tab whose sections are all hidden disappears. Hiding only removes the section from the page; it does not change anyone's data."
 msgstr "Выберите, что люди видят на своей странице настроек. Вкладка, все разделы которой скрыты, исчезает. Скрытие лишь убирает раздел со страницы и не меняет ничьих данных."
 
-#: lib/phoenix_kit_web/live/settings/users.ex:462
+#: lib/phoenix_kit_web/live/settings/users.ex:478
 #, elixir-autogen, elixir-format
 msgid "Connected sign-in accounts"
 msgstr "Подключённые аккаунты для входа"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:131
+#: lib/phoenix_kit_web/live/settings/users.ex:121
+#: lib/phoenix_kit_web/live/settings/users.ex:147
 #, elixir-autogen, elixir-format
 msgid "Could not save that change."
 msgstr "Не удалось сохранить это изменение."
 
-#: lib/phoenix_kit_web/live/settings/users.ex:456
+#: lib/phoenix_kit_web/live/settings/users.ex:472
 #, elixir-autogen, elixir-format
 msgid "Google email address"
 msgstr "Адрес email Google"
@@ -16691,7 +16692,7 @@ msgstr "Следующий день"
 msgid "Previous day"
 msgstr "Предыдущий день"
 
-#: lib/phoenix_kit_web/live/settings/users.ex:105
+#: lib/phoenix_kit_web/live/settings/users.ex:109
 #, elixir-autogen, elixir-format
 msgid "Profile Page"
 msgstr "Страница профиля"
@@ -24881,7 +24882,7 @@ msgstr "пока нет"
 msgid "%{field}: %{value}"
 msgstr "%{field}: %{value}"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:895
+#: lib/phoenix_kit_web/live/settings/users.html.heex:936
 #, elixir-autogen, elixir-format
 msgid "Adds a Yes/No filter for this field to the Users table."
 msgstr "Добавляет в таблицу пользователей фильтр «Да/Нет» по этому полю."
@@ -24892,12 +24893,12 @@ msgid "Any"
 msgstr "Любое"
 
 #: lib/phoenix_kit/users/table_columns.ex:270
-#: lib/phoenix_kit_web/components/core/user_info.ex:140
+#: lib/phoenix_kit_web/components/core/user_info.ex:142
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "Аватар"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:824
+#: lib/phoenix_kit_web/live/settings/users.html.heex:865
 #, elixir-autogen, elixir-format
 msgid "Column name"
 msgstr "Название столбца"
@@ -24912,7 +24913,7 @@ msgstr "Email не подтверждён"
 msgid "Email ✓"
 msgstr "Email ✓"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:892
+#: lib/phoenix_kit_web/live/settings/users.html.heex:933
 #, elixir-autogen, elixir-format
 msgid "Filter in the Users table"
 msgstr "Фильтр в таблице пользователей"
@@ -24928,7 +24929,7 @@ msgstr "Управление ролями: %{name}"
 msgid "Managed"
 msgstr "Управляемая"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:833
+#: lib/phoenix_kit_web/live/settings/users.html.heex:874
 #, elixir-autogen, elixir-format
 msgid "Shown as the column header in the Users table. Leave blank to use the label."
 msgstr "Показывается как заголовок столбца в таблице пользователей. Оставьте пустым, чтобы использовать метку."
@@ -25118,7 +25119,7 @@ msgstr "Разрешённые URI перенаправления"
 msgid "Basic"
 msgstr "Базовый"
 
-#: lib/phoenix_kit_web/live/components/avatar_editor.ex:292
+#: lib/phoenix_kit_web/live/components/avatar_editor.ex:302
 #, elixir-autogen, elixir-format
 msgid "Browse Media"
 msgstr "Обзор медиафайлов"
@@ -25709,8 +25710,8 @@ msgstr "Языки не найдены"
 msgid "No results found"
 msgstr "Ничего не найдено"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:329
 #: lib/phoenix_kit_web/components/core/user_info.ex:331
+#: lib/phoenix_kit_web/components/core/user_info.ex:333
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "Нет роли"
@@ -26530,3 +26531,68 @@ msgstr "📋 Выберите один из доступных регионов 
 #, elixir-autogen, elixir-format
 msgid "Changes to the avatar are saved straight away."
 msgstr "Изменения аватара сохраняются сразу."
+
+#: lib/phoenix_kit_web/live/settings/users.ex:110
+#, elixir-autogen, elixir-format
+msgid "Avatars"
+msgstr "Аватары"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:53
+#, elixir-autogen, elixir-format
+msgid "Circle"
+msgstr "Круг"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:64
+#, elixir-autogen, elixir-format
+msgid "Decagon"
+msgstr "Десятиугольник"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:66
+#, elixir-autogen, elixir-format
+msgid "Diamond"
+msgstr "Ромб"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:60
+#, elixir-autogen, elixir-format
+msgid "Flat hexagon"
+msgstr "Плоский шестиугольник"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:67
+#, elixir-autogen, elixir-format
+msgid "Heart"
+msgstr "Сердце"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:57
+#, elixir-autogen, elixir-format
+msgid "Hexagon"
+msgstr "Шестиугольник"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:65
+#, elixir-autogen, elixir-format
+msgid "Pentagon"
+msgstr "Пятиугольник"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:55
+#, elixir-autogen, elixir-format
+msgid "Rounded square"
+msgstr "Скруглённый квадрат"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:56
+#, elixir-autogen, elixir-format
+msgid "Square"
+msgstr "Квадрат"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:54
+#, elixir-autogen, elixir-format
+msgid "Squircle"
+msgstr "Сквиркл"
+
+#: lib/phoenix_kit/users/avatar_shape.ex:68
+#, elixir-autogen, elixir-format
+msgid "Star"
+msgstr "Звезда"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:783
+#, elixir-autogen, elixir-format
+msgid "The shape every avatar on this site is drawn in: menus, lists, profiles and the crop editor."
+msgstr "Форма, в которой показывается каждый аватар на сайте: в меню, списках, профилях и в редакторе кадрирования."

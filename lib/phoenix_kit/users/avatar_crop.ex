@@ -25,9 +25,10 @@ defmodule PhoenixKit.Users.AvatarCrop do
     the image's width and height. `0.5/0.5` is the image center.
   - `zoom` — magnification relative to the cover fit. `1.0` shows exactly
     what `object-fit: cover` would show; the ceiling is #{inspect(8.0)}.
-    Below `1.0` the picture zooms out, down to `min_zoom/1`, where all of it
-    fits inside the round frame: a wide logo shows whole instead of its
-    middle. The frame shows white around it (`zoomed_out?/1`).
+    Below `1.0` the picture zooms out, down to `min_zoom/2`, where all of it
+    fits inside the site's avatar shape (`PhoenixKit.Users.AvatarShape`): a
+    wide logo shows whole instead of its middle. The frame shows white around
+    it (`zoomed_out?/1`).
   - `ar` — the image's width/height ratio, captured when the crop was made
     so rendering never needs to look dimensions up (avatars appear dozens to
     a page; a per-avatar dimension query would be the N+1 this design
@@ -43,6 +44,8 @@ defmodule PhoenixKit.Users.AvatarCrop do
   what renders. Along an axis where the zoomed-out image is smaller than the
   frame it is centered instead.
   """
+
+  alias PhoenixKit.Users.AvatarShape
 
   @max_zoom 8.0
   @min_ar 0.05
@@ -80,7 +83,8 @@ defmodule PhoenixKit.Users.AvatarCrop do
       %{
         "x" => clamp(x, 0.0, 1.0),
         "y" => clamp(y, 0.0, 1.0),
-        "zoom" => clamp(zoom, min_zoom(ar), @max_zoom),
+        # Any shape's floor is a valid crop: the site's shape can change later.
+        "zoom" => clamp(zoom, min_zoom(ar, AvatarShape.lowest_fit()), @max_zoom),
         "ar" => clamp(ar, @min_ar, @max_ar)
       }
     else
@@ -120,16 +124,18 @@ defmodule PhoenixKit.Users.AvatarCrop do
   defp offset(focal, size), do: clamp(50.0 - focal * size, 100.0 - size, 0.0)
 
   @doc """
-  The lowest zoom for an image of aspect ratio `ar`: the whole picture inside
-  the round frame, its diagonal across the circle. A square image gets
-  `1/√2`, a 3:1 logo `1/√10`.
+  The lowest zoom for an image of aspect ratio `ar` in a shape of fit `fit`
+  (`AvatarShape.fit/1`): the whole picture inside the shape, its diagonal
+  across the largest circle centred in it. In a circle (`fit` 1.0) a square
+  image gets `1/√2`, a 3:1 logo `1/√10`.
 
-  Mirrored by `avatarCropMinZoom` in `priv/static/assets/phoenix_kit.js`.
+  Mirrored by `avatarCropMinZoom` in `priv/static/assets/phoenix_kit.js`
+  (which the editor scales by the shape's fit).
   """
-  def min_zoom(ar) when is_number(ar) do
+  def min_zoom(ar, fit \\ 1.0) when is_number(ar) and is_number(fit) do
     ar = clamp(ar / 1, @min_ar, @max_ar)
     long = max(ar, 1.0 / ar)
-    1.0 / :math.sqrt(1.0 + long * long)
+    fit / :math.sqrt(1.0 + long * long)
   end
 
   @doc """

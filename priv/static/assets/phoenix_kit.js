@@ -13256,7 +13256,8 @@ if (typeof window.Chart === "undefined") {
 
   // The lowest zoom for aspect ratio `ar`: the whole picture inside the round
   // frame, its diagonal across the circle. Mirror of
-  // PhoenixKit.Users.AvatarCrop.min_zoom/1.
+  // PhoenixKit.Users.AvatarCrop.min_zoom/2 at fit 1; the hook scales it by
+  // the shape's fit.
   function avatarCropMinZoom(ar) {
     var a = clamp(ar, 0.05, 20);
     var long = Math.max(a, 1 / a);
@@ -13278,6 +13279,13 @@ if (typeof window.Chart === "undefined") {
     mounted() {
       var self = this;
       var maxZoom = parseFloat(this.el.dataset.maxZoom || "8");
+      // The site's avatar shape: the largest circle centred in it, against
+      // half the frame (PhoenixKit.Users.AvatarShape.fit/1). The zoom floor
+      // shrinks with it so a picture zoomed all the way out fits the shape.
+      var fit = parseFloat(this.el.dataset.fit || "1") || 1;
+      var minZoom = function () {
+        return avatarCropMinZoom(self.crop.ar) * fit;
+      };
 
       var stored = {};
       try {
@@ -13300,7 +13308,7 @@ if (typeof window.Chart === "undefined") {
       // The slider reaches down to where this picture fits the circle, which
       // depends on its shape: set again once the image tells its real ratio.
       this._syncMinZoom = function () {
-        var min = avatarCropMinZoom(self.crop.ar);
+        var min = minZoom();
         if (self.crop.zoom < min) self.crop.zoom = min;
         if (self.slider) {
           self.slider.min = String(min);
@@ -13356,7 +13364,7 @@ if (typeof window.Chart === "undefined") {
         var before = avatarCropLayout(self.crop);
         var u = (px - before.left) / before.width;
         var v = (py - before.top) / before.height;
-        self.crop.zoom = clamp(zoom, avatarCropMinZoom(self.crop.ar), maxZoom);
+        self.crop.zoom = clamp(zoom, minZoom(), maxZoom);
         var after = avatarCropLayout(self.crop);
         self.crop.x = (50 - (px - u * after.width)) / after.width;
         self.crop.y = (50 - (py - v * after.height)) / after.height;

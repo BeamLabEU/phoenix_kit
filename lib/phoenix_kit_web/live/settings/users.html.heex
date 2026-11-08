@@ -732,7 +732,10 @@
             </div>
 
             <%!-- Action Buttons (the Profile Page tab saves each switch at once) --%>
-            <div class={["flex gap-3 pt-4", @active_tab == "profile_page" && "hidden"]}>
+            <div class={[
+              "flex gap-3 pt-4",
+              @active_tab in ["profile_page", "avatars"] && "hidden"
+            ]}>
               <button
                 type="submit"
                 class={[
@@ -770,6 +773,44 @@
                 phx-click="toggle_profile_section"
                 phx-value-section={section}
               />
+            </div>
+          </div>
+
+          <%!-- Avatars tab: outside the main form, a click saves at once.
+               Each tile shows the admin's own avatar in that shape. --%>
+          <div :if={@active_tab == "avatars"} id="avatar-shapes" class="space-y-4">
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "The shape every avatar on this site is drawn in: menus, lists, profiles and the crop editor."
+              )}
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <button
+                :for={shape <- @avatar_shapes}
+                type="button"
+                id={"avatar-shape-#{shape.key}"}
+                phx-click="set_avatar_shape"
+                phx-value-shape={shape.key}
+                aria-pressed={to_string(shape.key == @avatar_shape)}
+                class={[
+                  "flex flex-col items-center gap-2 rounded-box border-2 p-4 transition-colors",
+                  if(shape.key == @avatar_shape,
+                    do: "border-primary bg-primary/10",
+                    else: "border-base-300 hover:border-primary/50"
+                  )
+                ]}
+              >
+                <.user_avatar
+                  user={@phoenix_kit_current_user}
+                  size="lg"
+                  shape={shape.key}
+                  class="!w-16 !h-16 !text-2xl"
+                />
+                <span class="text-sm font-medium flex items-center gap-1">
+                  <.icon :if={shape.key == @avatar_shape} name="hero-check" class="w-4 h-4" />
+                  {shape.label}
+                </span>
+              </button>
             </div>
           </div>
 

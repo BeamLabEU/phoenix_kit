@@ -125,6 +125,7 @@ A person's avatar with its controls: "Browse Media", the crop editor that opens 
 - **It writes, at once:** every save goes through `Auth.update_user_fields/2`, and the host hears `{AvatarEditor, id, {:saved, user, message} | {:failed, message}}` (or `send_update(module, id: id, avatar_editor: result)` with `notify: {module, id}`). Assign the saved user back: it draws the `user` it is handed.
 - **`actor`** other than `user` names them in the activity entry and notifies the person. **`picker`** is `:own` (the actor's uploads) or `:media` (the site library, under the `:avatar` `UploadsParentFolder` hook).
 - Staff acting for a company are refused on every event (`ActingLink.staff?/1`). It may sit in a host `<form>`: the picker goes through `<.portal>`, and the crop slider is detached from the form.
+- **Shape:** avatars are drawn in the site's shape (`PhoenixKit.Users.AvatarShape`, Settings → Users → Avatars): draw a person's picture with `<.user_avatar>`, never a hand-made `rounded-full` image, or it ignores the choice. `shape=` overrides it for one avatar; a border or ring on a masked shape is masked away (`AvatarShape.masked?/1`).
 
 ## Charts and lanes
 

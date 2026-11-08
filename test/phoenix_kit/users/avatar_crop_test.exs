@@ -12,6 +12,7 @@ defmodule PhoenixKit.Users.AvatarCropTest do
   use ExUnit.Case, async: true
 
   alias PhoenixKit.Users.AvatarCrop
+  alias PhoenixKit.Users.AvatarShape
 
   defp near(actual, expected) do
     assert_in_delta actual, expected, 0.0001
@@ -71,16 +72,20 @@ defmodule PhoenixKit.Users.AvatarCropTest do
                })
     end
 
-    test "a zoom below the fit-inside floor is raised to it" do
-      %{"zoom" => square} =
-        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.2, "ar" => 1.0})
+    test "a zoom below every shape's floor is raised to the lowest one" do
+      # The site's shape can change after a crop is saved, so any shape's
+      # floor is a valid crop: the lowest is the star's.
+      lowest = AvatarShape.lowest_fit()
 
-      near(square, 1 / :math.sqrt(2))
+      %{"zoom" => square} =
+        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.01, "ar" => 1.0})
+
+      near(square, lowest / :math.sqrt(2))
 
       %{"zoom" => wide} =
-        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.2, "ar" => 3.0})
+        AvatarCrop.normalize(%{"x" => 0.5, "y" => 0.5, "zoom" => 0.01, "ar" => 3.0})
 
-      near(wide, 1 / :math.sqrt(10))
+      near(wide, lowest / :math.sqrt(10))
     end
 
     test "a wide logo can be zoomed out below the cover fit" do
@@ -163,6 +168,11 @@ defmodule PhoenixKit.Users.AvatarCropTest do
 
     test "portrait mirrors landscape" do
       near(AvatarCrop.min_zoom(3.0), AvatarCrop.min_zoom(1 / 3))
+    end
+
+    test "a narrower shape lowers the floor by its fit" do
+      # A diamond's largest centred circle is 0.70 of a circle's.
+      near(AvatarCrop.min_zoom(3.0, 0.70), 0.70 / :math.sqrt(10))
     end
 
     test "an axis smaller than the frame is centered, wherever the focal point" do

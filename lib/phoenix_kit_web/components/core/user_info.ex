@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.AvatarCrop
+  alias PhoenixKit.Users.AvatarShape
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Roles
 
@@ -47,6 +48,9 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   - `user` - User struct with email and optional custom_fields
   - `size` - Avatar size: "xs" (w-6), "sm" (w-8), "md" (w-10), "lg" (w-12), "xl" (w-40). Defaults to "sm"
   - `class` - Additional CSS classes
+  - `shape` - An `AvatarShape` key to draw in; defaults to the site's shape
+    (Settings → Users → Avatars). A border or ring on a masked shape is
+    masked away along its curves (`AvatarShape.masked?/1`).
 
   ## Examples
 
@@ -57,6 +61,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   attr :user, :map, required: true
   attr :size, :string, default: "sm"
   attr :class, :string, default: ""
+  attr :shape, :string, default: nil
 
   def user_avatar(assigns) do
     email = get_email(assigns.user)
@@ -101,6 +106,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
       assigns
       |> assign(:avatar_url, avatar_url)
       |> assign(:crop_style, crop && AvatarCrop.img_style(crop))
+      |> assign(:shape_class, AvatarShape.class(assigns.shape || AvatarShape.current()))
       |> assign(:size_classes, size_classes)
       |> assign(:gradient, gradient)
       |> assign(:initial, initial)
@@ -108,7 +114,8 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     ~H"""
     <div class={["avatar", if(@avatar_url, do: "", else: "placeholder")]}>
       <div class={[
-        "rounded-full overflow-hidden relative flex items-center justify-center",
+        @shape_class,
+        "overflow-hidden relative flex items-center justify-center",
         if(@avatar_url, do: "bg-neutral", else: ["bg-gradient-to-br", @gradient]),
         "text-white font-bold",
         @size_classes,
