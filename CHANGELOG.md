@@ -25,6 +25,14 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   follow the site's choice, and the editor's zoom floor fits the shape. The masks are
   daisyUI's; the host's Tailwind build picks them up from the kit's sources.
   `PhoenixKit.Users.AvatarShape` and `user_avatar`'s `shape` attribute are new.
+- **A person's organizations, changed from their page.** The header of a person's admin
+  page lists their companies as chips (a link's type, or Member for the older tie). An
+  Owner or Admin detaches one from its × after a one-click confirm (the last manager only
+  with "Remove anyway"), and "+ Add" opens one search: Enter attaches the first match (a
+  link of the chosen type, or the older tie for a company with its own login), and a name
+  nobody has creates a managed organization with the person as its manager.
+  `PhoenixKit.Users.PersonOrganizations` goes through the core functions that check the
+  actor.
 - **A larger avatar on hover.** In the users table and the sessions list, pointing at a
   small avatar shows it larger beside it, in the site's shape and with its crop; a click
   on it opens the user. `user_avatar` takes `peek` for any list; the preview floats above
@@ -99,6 +107,12 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Changed
 
+- **A user's admin page is split into tabs.** Who it is (picture, name, status, roles,
+  registration date) sits in a header every tab shares, with Edit at hand. Profile holds
+  the basic information and custom fields; the new Account tab holds the account record,
+  registration details and the CRM contact; Notes and the rest follow. The tab is in the
+  URL (`?tab=account`). Permanently Delete moved from a button beside the "..." menu,
+  where people were afraid of hitting it, to the end of that menu.
 - Removing a role from a link signs out that link's sessions acting as it, as removing a
   role from an account does. Changing a link refreshes open pages.
 - The Managers section is now People, on its own tab of the company page instead of

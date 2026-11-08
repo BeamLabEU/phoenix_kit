@@ -55,7 +55,7 @@ msgstr "系统信息"
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:22
 #: lib/phoenix_kit_web/live/users/roles.html.heex:127
 #: lib/phoenix_kit_web/live/users/roles.html.heex:198
-#: lib/phoenix_kit_web/live/users/user_details.ex:114
+#: lib/phoenix_kit_web/live/users/user_details.ex:115
 #: lib/phoenix_kit_web/live/users/users.ex:117
 #: lib/phoenix_kit_web/users/user_form.ex:93
 #, elixir-autogen
@@ -72,8 +72,7 @@ msgstr "用户管理"
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:126
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1195
 #: lib/phoenix_kit_web/live/settings/users.ex:107
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:44
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:187
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:110
 #: lib/phoenix_kit_web/live/users/users.html.heex:823
 #: lib/phoenix_kit_web/live/users/users.html.heex:931
 #, elixir-autogen
@@ -124,8 +123,8 @@ msgstr "创建新账户"
 #: lib/phoenix_kit/notifications/channels/email.ex:35
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2566
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:268
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:767
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:233
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:736
 #: lib/phoenix_kit_web/live/users/users.html.heex:327
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:45
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:53
@@ -318,9 +317,9 @@ msgid "Disabled accounts"
 msgstr "已停用账户"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:416
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:168
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:274
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:340
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:37
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:239
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:355
 #: lib/phoenix_kit_web/live/users/users.ex:859
 #: lib/phoenix_kit_web/live/users/users.html.heex:1077
 #, elixir-autogen
@@ -381,9 +380,9 @@ msgstr "认证"
 #: lib/phoenix_kit_web/live/settings/api.ex:1376
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:114
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:267
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:162
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:335
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:800
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:32
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:350
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:769
 #: lib/phoenix_kit_web/live/users/users.ex:861
 #: lib/phoenix_kit_web/live/users/users.ex:1153
 #: lib/phoenix_kit_web/live/users/users.html.heex:267
@@ -495,7 +494,7 @@ msgstr "全部接受"
 msgid "Access denied"
 msgstr "访问被拒绝"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:322
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:337
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:25
 #: lib/phoenix_kit_web/users/registration.html.heex:59
 #, elixir-autogen, elixir-format
@@ -531,7 +530,7 @@ msgstr "账户信息"
 #: lib/phoenix_kit_web/live/settings/users.html.heex:609
 #: lib/phoenix_kit_web/live/users/roles.html.heex:199
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:355
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:769
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:738
 #: lib/phoenix_kit_web/users/user_form.html.heex:763
 #: lib/phoenix_kit_web/users/user_form.html.heex:843
 #, elixir-autogen, elixir-format
@@ -540,6 +539,7 @@ msgstr "操作"
 
 #: lib/phoenix_kit_web/components/media_gallery.html.heex:104
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2579
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:312
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:633
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:307
 #: lib/phoenix_kit_web/live/settings/users.html.heex:988
@@ -559,13 +559,13 @@ msgstr "添加 %{language} 翻译"
 msgid "Add Field"
 msgstr "添加字段"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:580
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:608
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:549
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:577
 #, elixir-autogen, elixir-format
 msgid "Add Note"
 msgstr "添加备注"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:688
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:657
 #, elixir-autogen, elixir-format
 msgid "Add a note above to start documenting information about this user."
 msgstr "请在上方添加备注，开始记录有关此用户的信息。"
@@ -603,12 +603,12 @@ msgstr "已归档"
 msgid "Are you sure you want to delete the role \"%{role_name}\"? This action cannot be undone."
 msgstr "您确定要删除角色“%{role_name}”吗？此操作无法撤销。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:669
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:638
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to delete this note?"
 msgstr "您确定要删除此备注吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:850
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:819
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to permanently delete"
 msgstr "您确定要永久删除"
@@ -621,13 +621,13 @@ msgstr "银行名称"
 
 #: lib/modules/storage/web/bucket_form.html.heex:27
 #: lib/modules/storage/web/dimension_form.html.heex:35
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:222
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:187
 #, elixir-autogen, elixir-format
 msgid "Basic Information"
 msgstr "基本信息"
 
 #: lib/phoenix_kit_web/live/settings/crawlers.html.heex:131
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:564
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:533
 #, elixir-autogen, elixir-format
 msgid "Blocked"
 msgstr "已屏蔽"
@@ -678,6 +678,9 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2233
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:66
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:812
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:254
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:276
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:374
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1026
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1197
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:1257
@@ -700,10 +703,10 @@ msgstr "项目符号列表"
 #: lib/phoenix_kit_web/live/users/roles.html.heex:104
 #: lib/phoenix_kit_web/live/users/roles.html.heex:519
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:220
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:599
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:903
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:989
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:1017
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:568
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:872
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:958
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:986
 #: lib/phoenix_kit_web/live/users/users.html.heex:89
 #: lib/phoenix_kit_web/live/users/users.html.heex:1116
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:72
@@ -718,12 +721,12 @@ msgstr "取消"
 msgid "Cannot delete role: it is currently assigned to users"
 msgstr "无法删除角色：该角色当前已分配给用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:363
+#: lib/phoenix_kit_web/live/users/user_details.ex:423
 #, elixir-autogen, elixir-format
 msgid "Cannot delete the last system owner"
 msgstr "无法删除最后一位系统所有者"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:346
+#: lib/phoenix_kit_web/live/users/user_details.ex:406
 #, elixir-autogen, elixir-format
 msgid "Cannot delete your own account"
 msgstr "无法删除您自己的账户"
@@ -813,15 +816,15 @@ msgstr "配置"
 #: lib/phoenix_kit_web/components/core/modal.ex:343
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:697
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:75
-#: lib/phoenix_kit_web/live/users/user_details.ex:293
+#: lib/phoenix_kit_web/live/users/user_details.ex:353
 #: lib/phoenix_kit_web/live/users/users.ex:404
 #, elixir-autogen, elixir-format
 msgid "Confirm"
 msgstr "确认"
 
 #: lib/phoenix_kit_web/live/settings/integrations.ex:64
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:102
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:546
+#: lib/phoenix_kit_web/live/users/user_details.ex:172
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:515
 #, elixir-autogen, elixir-format
 msgid "Connections"
 msgstr "连接"
@@ -869,7 +872,7 @@ msgstr "核心板块"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1147
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:53
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:309
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:274
 #: lib/phoenix_kit_web/users/user_form.html.heex:211
 #, elixir-autogen, elixir-format
 msgid "Country"
@@ -930,8 +933,8 @@ msgid "Custom"
 msgstr "自定义"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:580
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:476
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:499
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:288
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:311
 #, elixir-autogen, elixir-format
 msgid "Custom Fields"
 msgstr "自定义字段"
@@ -983,8 +986,8 @@ msgstr "DPO 联系方式已保存"
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:223
 #: lib/phoenix_kit_web/live/users/roles.html.heex:172
 #: lib/phoenix_kit_web/live/users/roles.html.heex:283
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:670
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:673
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:639
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:642
 #, elixir-autogen, elixir-format
 msgid "Delete"
 msgstr "删除"
@@ -1068,15 +1071,15 @@ msgstr "草稿"
 #: lib/phoenix_kit_web/live/users/relationship_types.ex:192
 #: lib/phoenix_kit_web/live/users/roles.html.heex:163
 #: lib/phoenix_kit_web/live/users/roles.html.heex:274
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:659
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:662
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:628
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:631
 #: lib/phoenix_kit_web/live/users/users.html.heex:797
 #: lib/phoenix_kit_web/live/users/users.html.heex:914
 #, elixir-autogen, elixir-format
 msgid "Edit"
 msgstr "编辑"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:578
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:547
 #, elixir-autogen, elixir-format
 msgid "Edit Note"
 msgstr "编辑备注"
@@ -1128,7 +1131,7 @@ msgstr "输入角色名称（例如：经理、编辑）"
 msgid "Error"
 msgstr "错误"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:469
+#: lib/phoenix_kit_web/live/users/user_details.ex:529
 #, elixir-autogen, elixir-format
 msgid "Failed to delete note"
 msgstr "删除备注失败"
@@ -1138,7 +1141,7 @@ msgstr "删除备注失败"
 msgid "Failed to delete role"
 msgstr "删除角色失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:377
+#: lib/phoenix_kit_web/live/users/user_details.ex:437
 #, elixir-autogen, elixir-format
 msgid "Failed to delete user"
 msgstr "删除用户失败"
@@ -1226,19 +1229,19 @@ msgid "Files"
 msgstr "文件"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1074
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:291
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:256
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:82
 #: lib/phoenix_kit_web/users/user_form.html.heex:162
 #, elixir-autogen, elixir-format
 msgid "First Name"
 msgstr "名"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:528
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:497
 #, elixir-autogen, elixir-format
 msgid "Followers"
 msgstr "关注者"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:537
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:506
 #, elixir-autogen, elixir-format
 msgid "Following"
 msgstr "关注中"
@@ -1284,9 +1287,9 @@ msgid "Image"
 msgstr "图片"
 
 #: lib/phoenix_kit_web/components/core/badge.ex:103
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:164
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:335
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:804
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:34
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:350
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:773
 #: lib/phoenix_kit_web/live/users/users.ex:861
 #: lib/phoenix_kit_web/live/users/users.ex:1153
 #: lib/phoenix_kit_web/live/users/users.html.heex:268
@@ -1348,14 +1351,14 @@ msgid "Keep me logged in"
 msgstr "保持登录状态"
 
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1079
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:297
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:262
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:98
 #: lib/phoenix_kit_web/users/user_form.html.heex:172
 #, elixir-autogen, elixir-format
 msgid "Last Name"
 msgstr "姓"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:393
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:408
 #, elixir-autogen, elixir-format
 msgid "Last Updated"
 msgstr "最后更新"
@@ -1437,8 +1440,8 @@ msgstr "初次使用 %{project_title}？"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:556
 #: lib/phoenix_kit_web/live/settings/users.html.heex:632
-#: lib/phoenix_kit_web/live/users/user_details.ex:839
-#: lib/phoenix_kit_web/live/users/user_details.ex:840
+#: lib/phoenix_kit_web/live/users/user_details.ex:911
+#: lib/phoenix_kit_web/live/users/user_details.ex:912
 #: lib/phoenix_kit_web/live/users/users.ex:983
 #: lib/phoenix_kit_web/live/users/users.ex:1271
 #: lib/phoenix_kit_web/live/users/users.ex:1273
@@ -1454,7 +1457,7 @@ msgstr "否"
 msgid "No description"
 msgstr "无描述"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:686
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:655
 #, elixir-autogen, elixir-format
 msgid "No notes yet"
 msgstr "暂无备注"
@@ -1498,28 +1501,28 @@ msgstr "未认证"
 msgid "Not configured"
 msgstr "未配置"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:350
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:365
 #, elixir-autogen, elixir-format
 msgid "Not confirmed"
 msgstr "未确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:396
+#: lib/phoenix_kit_web/live/users/user_details.ex:456
 #, elixir-autogen, elixir-format
 msgid "Note added successfully"
 msgstr "备注添加成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:466
+#: lib/phoenix_kit_web/live/users/user_details.ex:526
 #, elixir-autogen, elixir-format
 msgid "Note deleted successfully"
 msgstr "备注删除成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:442
+#: lib/phoenix_kit_web/live/users/user_details.ex:502
 #, elixir-autogen, elixir-format
 msgid "Note updated successfully"
 msgstr "备注更新成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:104
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:621
+#: lib/phoenix_kit_web/live/users/user_details.ex:174
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:590
 #, elixir-autogen, elixir-format
 msgid "Notes"
 msgstr "备注"
@@ -1619,7 +1622,7 @@ msgstr "密码"
 msgid "Password changed successfully."
 msgstr "密码修改成功。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:555
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:524
 #, elixir-autogen, elixir-format
 msgid "Pending"
 msgstr "待处理"
@@ -1683,7 +1686,7 @@ msgstr "主要语言：%{lang}"
 msgid "Privacy Preferences"
 msgstr "隐私偏好"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:100
+#: lib/phoenix_kit_web/live/users/user_details.ex:169
 #, elixir-autogen, elixir-format
 msgid "Profile"
 msgstr "个人资料"
@@ -1716,22 +1719,23 @@ msgid "Published"
 msgstr "已发布"
 
 #: lib/phoenix_kit/users/table_columns.ex:310
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:356
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:62
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:371
 #, elixir-autogen, elixir-format
 msgid "Registered"
 msgstr "已注册"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:410
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:425
 #, elixir-autogen, elixir-format
 msgid "Registration Details"
 msgstr "注册详情"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:429
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:444
 #, elixir-autogen, elixir-format
 msgid "Registration IP"
 msgstr "注册 IP"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:439
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:454
 #, elixir-autogen, elixir-format
 msgid "Registration Location"
 msgstr "注册地点"
@@ -1759,6 +1763,7 @@ msgstr "全部拒绝"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2375
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2544
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:641
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:268
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:364
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:397
 #: lib/phoenix_kit_web/live/settings.html.heex:147
@@ -1850,7 +1855,7 @@ msgstr "角色已不存在"
 
 #: lib/phoenix_kit_web/live/users/permissions_matrix.ex:104
 #: lib/phoenix_kit_web/live/users/roles.ex:285
-#: lib/phoenix_kit_web/live/users/user_details.ex:710
+#: lib/phoenix_kit_web/live/users/user_details.ex:782
 #: lib/phoenix_kit_web/live/users/users.ex:773
 #, elixir-autogen, elixir-format
 msgid "Role not found"
@@ -1978,7 +1983,7 @@ msgstr "选择此角色可以访问的板块和模块。您只能授予您自己
 #: lib/phoenix_kit_web/live/settings/send_profiles.ex:33
 #: lib/phoenix_kit_web/live/settings/users.ex:57
 #: lib/phoenix_kit_web/live/settings/website_access.ex:63
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:51
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:117
 #: lib/phoenix_kit_web/live/users/users.html.heex:832
 #: lib/phoenix_kit_web/live/users/users.html.heex:939
 #, elixir-autogen, elixir-format
@@ -2045,8 +2050,8 @@ msgstr "州/省"
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:114
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:193
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:351
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:332
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:768
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:347
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:737
 #: lib/phoenix_kit_web/live/users/users.html.heex:282
 #: lib/phoenix_kit_web/users/user_form.html.heex:762
 #, elixir-autogen, elixir-format
@@ -2110,18 +2115,18 @@ msgstr "税务与注册"
 msgid "Tax ID"
 msgstr "税号"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:851
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:820
 #, elixir-autogen, elixir-format
 msgid "This action cannot be undone."
 msgstr "此操作无法撤销。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:542
-#: lib/phoenix_kit_web/live/users/user_details.ex:560
+#: lib/phoenix_kit_web/live/users/user_details.ex:614
+#: lib/phoenix_kit_web/live/users/user_details.ex:632
 #, elixir-autogen, elixir-format
 msgid "This user has been deleted"
 msgstr "此用户已被删除"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:303
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:268
 #, elixir-autogen, elixir-format
 msgid "Timezone"
 msgstr "时区"
@@ -2187,7 +2192,7 @@ msgstr "未保存的更改"
 msgid "Update Field"
 msgstr "更新字段"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:603
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:572
 #, elixir-autogen, elixir-format
 msgid "Update Note"
 msgstr "更新备注"
@@ -2207,13 +2212,13 @@ msgstr "用于法律文件和发票"
 msgid "Used in legal documents and sitemap generation"
 msgstr "用于法律文件和站点地图生成"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:339
+#: lib/phoenix_kit_web/live/users/user_details.ex:399
 #: lib/phoenix_kit_web/live/users/users.ex:1386
 #, elixir-autogen, elixir-format
 msgid "User deleted successfully"
 msgstr "用户删除成功"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:49
+#: lib/phoenix_kit_web/live/users/user_details.ex:50
 #, elixir-autogen, elixir-format
 msgid "User not found"
 msgstr "未找到用户"
@@ -2226,7 +2231,7 @@ msgstr "用户自定义角色"
 #: lib/phoenix_kit/integrations/providers.ex:1323
 #: lib/phoenix_kit/users/table_columns.ex:285
 #: lib/phoenix_kit_web/live/components/user_settings.ex:1085
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:285
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:250
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:76
 #: lib/phoenix_kit_web/users/user_form.html.heex:87
@@ -2247,7 +2252,7 @@ msgstr "视频"
 #: lib/phoenix_kit_web/live/activity/index.html.heex:303
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:387
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:388
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:813
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:782
 #: lib/phoenix_kit_web/live/users/users.html.heex:787
 #: lib/phoenix_kit_web/live/users/users.html.heex:907
 #: lib/phoenix_kit_web/users/user_form.html.heex:801
@@ -2270,15 +2275,15 @@ msgstr "我们使用 Cookie 来改善您的浏览体验并分析我们的流量�
 msgid "We value your privacy"
 msgstr "我们重视您的隐私"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:591
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:560
 #, elixir-autogen, elixir-format
 msgid "Write a note about this user..."
 msgstr "撰写关于此用户的备注…"
 
 #: lib/phoenix_kit_web/live/settings/users.html.heex:556
 #: lib/phoenix_kit_web/live/settings/users.html.heex:630
-#: lib/phoenix_kit_web/live/users/user_details.ex:837
-#: lib/phoenix_kit_web/live/users/user_details.ex:838
+#: lib/phoenix_kit_web/live/users/user_details.ex:909
+#: lib/phoenix_kit_web/live/users/user_details.ex:910
 #: lib/phoenix_kit_web/live/users/users.ex:983
 #: lib/phoenix_kit_web/live/users/users.ex:1270
 #: lib/phoenix_kit_web/live/users/users.ex:1272
@@ -2331,7 +2336,7 @@ msgstr "您的个人仪表板已就绪。您可以在此浏览账户设置并管
 msgid "always"
 msgstr "始终"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:644
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:613
 #, elixir-autogen, elixir-format
 msgid "edited"
 msgstr "已编辑"
@@ -2342,8 +2347,8 @@ msgstr "已编辑"
 msgid "users"
 msgstr "用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:270
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:80
+#: lib/phoenix_kit_web/live/users/user_details.ex:330
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:146
 #: lib/phoenix_kit_web/live/users/users.ex:381
 #: lib/phoenix_kit_web/live/users/users.html.heex:879
 #: lib/phoenix_kit_web/live/users/users.html.heex:967
@@ -2363,8 +2368,8 @@ msgstr "所有类型"
 msgid "Apply"
 msgstr "应用"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:270
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:80
+#: lib/phoenix_kit_web/live/users/user_details.ex:330
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:146
 #: lib/phoenix_kit_web/live/users/users.ex:381
 #: lib/phoenix_kit_web/live/users/users.html.heex:878
 #: lib/phoenix_kit_web/live/users/users.html.heex:967
@@ -2508,14 +2513,14 @@ msgstr "大小"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1498
 #: lib/phoenix_kit_web/live/users/roles.html.heex:125
 #: lib/phoenix_kit_web/live/users/roles.html.heex:150
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:966
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:935
 #: lib/phoenix_kit_web/live/users/users.html.heex:66
 #: lib/phoenix_kit_web/users/user_form.html.heex:483
 #, elixir-autogen, elixir-format
 msgid "System"
 msgstr "系统"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:293
+#: lib/phoenix_kit_web/live/users/user_details.ex:353
 #: lib/phoenix_kit_web/live/users/users.ex:404
 #, elixir-autogen, elixir-format
 msgid "Unconfirm"
@@ -3090,7 +3095,7 @@ msgstr "管理用户注册、默认值和自定义字段"
 #: lib/phoenix_kit_web/live/settings/send_profiles.html.heex:47
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:101
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:186
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:766
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:735
 #, elixir-autogen, elixir-format
 msgid "Name"
 msgstr "名称"
@@ -3136,6 +3141,7 @@ msgid "Noindex · Nofollow"
 msgstr "Noindex · Nofollow"
 
 #: lib/modules/storage/web/bucket_page.html.heex:86
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:215
 #: lib/phoenix_kit_web/live/settings.html.heex:625
 #, elixir-autogen, elixir-format
 msgid "None"
@@ -3742,11 +3748,12 @@ msgstr "接受"
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:93
 #: lib/phoenix_kit_web/live/settings/integrations.html.heex:141
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:96
+#: lib/phoenix_kit_web/live/users/user_details.ex:170
 #, elixir-autogen, elixir-format
 msgid "Account"
 msgstr "账户"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:227
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:192
 #: lib/phoenix_kit_web/users/registration.html.heex:126
 #: lib/phoenix_kit_web/users/user_form.html.heex:114
 #, elixir-autogen, elixir-format
@@ -3774,7 +3781,7 @@ msgstr "添加集成"
 msgid "Add credits (optional)"
 msgstr "充值（可选）"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:760
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:729
 #, elixir-autogen, elixir-format
 msgid "Add members from the user edit page"
 msgstr "从用户编辑页面添加成员"
@@ -3814,7 +3821,7 @@ msgstr "您确定要断开此账户的连接吗？"
 msgid "Are you sure you want to disconnect?"
 msgstr "您确定要断开连接吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:823
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:792
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to remove this member?"
 msgstr "您确定要移除此成员吗？"
@@ -4166,7 +4173,7 @@ msgstr "连接失败，请重试。"
 msgid "Failed to decline invitation. Please try again."
 msgstr "拒绝邀请失败，请重试。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:497
+#: lib/phoenix_kit_web/live/users/user_details.ex:557
 #: lib/phoenix_kit_web/users/user_form.ex:407
 #, elixir-autogen, elixir-format
 msgid "Failed to remove member"
@@ -4568,7 +4575,7 @@ msgstr "媒体统计"
 msgid "Member added to organization"
 msgstr "成员已添加到组织"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:494
+#: lib/phoenix_kit_web/live/users/user_details.ex:554
 #: lib/phoenix_kit_web/users/user_form.ex:402
 #, elixir-autogen, elixir-format
 msgid "Member removed from organization"
@@ -4581,7 +4588,7 @@ msgstr "成员已从组织中移除"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1382
 #: lib/phoenix_kit_web/live/components/library_settings.ex:1465
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:103
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:125
+#: lib/phoenix_kit_web/live/users/user_details.ex:193
 #, elixir-autogen, elixir-format
 msgid "Members"
 msgstr "成员"
@@ -4638,7 +4645,7 @@ msgstr "未配置集成。"
 msgid "No integrations match your search."
 msgstr "没有符合搜索条件的集成。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:759
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:728
 #: lib/phoenix_kit_web/users/user_form.html.heex:752
 #, elixir-autogen, elixir-format
 msgid "No members yet"
@@ -4709,10 +4716,9 @@ msgstr "组织"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:434
 #: lib/phoenix_kit_web/live/settings/organization.ex:46
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:177
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:201
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:234
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:251
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:54
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:199
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:216
 #: lib/phoenix_kit_web/live/users/users.html.heex:222
 #: lib/phoenix_kit_web/users/registration.html.heex:143
 #: lib/phoenix_kit_web/users/user_form.html.heex:135
@@ -4721,13 +4727,13 @@ msgstr "组织"
 msgid "Organization"
 msgstr "组织"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:755
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:724
 #: lib/phoenix_kit_web/users/user_form.html.heex:716
 #, elixir-autogen, elixir-format
 msgid "Organization Members"
 msgstr "组织成员"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:243
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:208
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:64
 #: lib/phoenix_kit_web/users/registration.html.heex:155
 #: lib/phoenix_kit_web/users/user_form.html.heex:146
@@ -4745,8 +4751,8 @@ msgstr "待处理的邀请"
 msgid "Per-user inbox driven by the activity feed"
 msgstr "基于动态的每用户收件箱"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:178
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:235
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:55
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:200
 #: lib/phoenix_kit_web/live/users/users.html.heex:221
 #: lib/phoenix_kit_web/users/registration.html.heex:137
 #: lib/phoenix_kit_web/users/user_form.html.heex:125
@@ -4791,7 +4797,7 @@ msgstr "公开（直接 URL）"
 msgid "Quality & Format"
 msgstr "质量与格式"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:822
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:791
 #: lib/phoenix_kit_web/users/user_form.html.heex:810
 #, elixir-autogen, elixir-format
 msgid "Remove from organization"
@@ -6286,7 +6292,7 @@ msgid "Manage user media and uploads"
 msgstr "管理用户媒体和上传"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:949
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:20
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:92
 #, elixir-autogen, elixir-format
 msgid "More actions"
 msgstr "更多操作"
@@ -7609,7 +7615,7 @@ msgstr "无元数据"
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:336
 #: lib/phoenix_kit_web/live/activity/show.html.heex:52
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:570
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:110
+#: lib/phoenix_kit_web/live/users/user_details.ex:180
 #, elixir-autogen, elixir-format
 msgid "People"
 msgstr "人员"
@@ -7687,7 +7693,7 @@ msgid "Blog posts, categories, and content publishing"
 msgstr "博客文章、分类和内容发布"
 
 #: lib/phoenix_kit_web/live/modules.ex:195
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:457
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:472
 #, elixir-autogen, elixir-format
 msgid "CRM"
 msgstr "CRM"
@@ -7932,19 +7938,19 @@ msgstr "匿名"
 msgid "Anonymous User"
 msgstr "匿名用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:268
+#: lib/phoenix_kit_web/live/users/user_details.ex:328
 #: lib/phoenix_kit_web/live/users/users.ex:379
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to activate this user?"
 msgstr "确定要激活此用户吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:291
+#: lib/phoenix_kit_web/live/users/user_details.ex:351
 #: lib/phoenix_kit_web/live/users/users.ex:402
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to confirm this user's email?"
 msgstr "确定要确认此用户的邮箱吗？"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:267
+#: lib/phoenix_kit_web/live/users/user_details.ex:327
 #: lib/phoenix_kit_web/live/users/users.ex:378
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to deactivate this user?"
@@ -7961,7 +7967,7 @@ msgstr "确定要删除此字段吗？"
 msgid "Are you sure you want to revoke this session for"
 msgstr "确定要撤销此会话吗："
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:290
+#: lib/phoenix_kit_web/live/users/user_details.ex:350
 #: lib/phoenix_kit_web/live/users/users.ex:401
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to unconfirm this user's email?"
@@ -7983,7 +7989,7 @@ msgstr "自动刷新已关闭"
 msgid "Auto-refresh ON"
 msgstr "自动刷新已开启"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:630
+#: lib/phoenix_kit_web/live/users/user_details.ex:702
 #: lib/phoenix_kit_web/live/users/users.ex:527
 #, elixir-autogen, elixir-format
 msgid "Cannot deactivate the last system owner"
@@ -7994,8 +8000,8 @@ msgstr "无法停用最后一位系统所有者"
 msgid "Cannot modify your own confirmation status"
 msgstr "无法修改您自己的确认状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:209
-#: lib/phoenix_kit_web/live/users/user_details.ex:711
+#: lib/phoenix_kit_web/live/users/user_details.ex:269
+#: lib/phoenix_kit_web/live/users/user_details.ex:783
 #: lib/phoenix_kit_web/live/users/users.ex:241
 #: lib/phoenix_kit_web/live/users/users.ex:326
 #: lib/phoenix_kit_web/live/users/users.ex:354
@@ -8010,7 +8016,7 @@ msgstr "无法修改您自己的角色"
 msgid "Cannot modify your own status"
 msgstr "无法修改您自己的状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:708
+#: lib/phoenix_kit_web/live/users/user_details.ex:780
 #: lib/phoenix_kit_web/live/users/users.ex:324
 #: lib/phoenix_kit_web/live/users/users.ex:771
 #, elixir-autogen, elixir-format
@@ -8022,13 +8028,13 @@ msgstr "无法移除最后一位系统所有者"
 msgid "Clear Filters"
 msgstr "清除筛选"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:287
+#: lib/phoenix_kit_web/live/users/user_details.ex:347
 #: lib/phoenix_kit_web/live/users/users.ex:398
 #, elixir-autogen, elixir-format
 msgid "Confirm Email Status Change"
 msgstr "确认邮箱状态变更"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:264
+#: lib/phoenix_kit_web/live/users/user_details.ex:324
 #: lib/phoenix_kit_web/live/users/users.ex:375
 #, elixir-autogen, elixir-format
 msgid "Confirm Status Change"
@@ -8070,13 +8076,13 @@ msgstr "保存自定义字段失败"
 msgid "Failed to update field"
 msgstr "更新字段失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:679
+#: lib/phoenix_kit_web/live/users/user_details.ex:751
 #: lib/phoenix_kit_web/live/users/users.ex:579
 #, elixir-autogen, elixir-format
 msgid "Failed to update user confirmation status"
 msgstr "更新用户确认状态失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:712
+#: lib/phoenix_kit_web/live/users/user_details.ex:784
 #: lib/phoenix_kit_web/live/users/users.ex:775
 #, elixir-autogen, elixir-format
 msgid "Failed to update user role"
@@ -8087,7 +8093,7 @@ msgstr "更新用户角色失败"
 msgid "Failed to update user roles"
 msgstr "更新用户角色失败"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:633
+#: lib/phoenix_kit_web/live/users/user_details.ex:705
 #: lib/phoenix_kit_web/live/users/users.ex:531
 #, elixir-autogen, elixir-format
 msgid "Failed to update user status"
@@ -8163,21 +8169,21 @@ msgstr "从未"
 msgid "No active sessions"
 msgstr "没有活跃的会话"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:446
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:461
 #: lib/phoenix_kit_web/live/users/users.html.heex:759
 #, elixir-autogen, elixir-format
 msgid "No data"
 msgstr "无数据"
 
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:404
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:737
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:706
 #: lib/phoenix_kit_web/live/users/users.ex:854
 #: lib/phoenix_kit_web/live/users/users.html.heex:672
 #, elixir-autogen, elixir-format
 msgid "No roles"
 msgstr "无角色"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:980
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:949
 #: lib/phoenix_kit_web/live/users/users.html.heex:80
 #: lib/phoenix_kit_web/users/user_form.html.heex:455
 #, elixir-autogen, elixir-format
@@ -8194,20 +8200,20 @@ msgstr "尚无已注册的用户。"
 msgid "No users found"
 msgstr "未找到用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:802
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:312
+#: lib/phoenix_kit_web/live/users/user_details.ex:874
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:277
 #, elixir-autogen, elixir-format
 msgid "Not set"
 msgstr "未设置"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:709
+#: lib/phoenix_kit_web/live/users/user_details.ex:781
 #: lib/phoenix_kit_web/live/users/users.ex:325
 #: lib/phoenix_kit_web/live/users/users.ex:772
 #, elixir-autogen, elixir-format
 msgid "Owner role cannot be assigned manually"
 msgstr "所有者角色无法手动分配"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:939
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:908
 #: lib/phoenix_kit_web/live/users/users.html.heex:39
 #, elixir-autogen, elixir-format
 msgid "Owner role cannot be modified"
@@ -8305,7 +8311,7 @@ msgstr "会话总数"
 msgid "Try adjusting your search or filter criteria."
 msgstr "请尝试调整您的搜索或筛选条件。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:986
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:955
 #: lib/phoenix_kit_web/live/users/users.html.heex:86
 #, elixir-autogen, elixir-format
 msgid "Update Roles"
@@ -8316,31 +8322,31 @@ msgstr "更新角色"
 msgid "User Statistics"
 msgstr "用户统计"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:611
+#: lib/phoenix_kit_web/live/users/user_details.ex:683
 #: lib/phoenix_kit_web/live/users/users.ex:515
 #, elixir-autogen, elixir-format
 msgid "User activated successfully"
 msgstr "用户已成功激活"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:612
+#: lib/phoenix_kit_web/live/users/user_details.ex:684
 #: lib/phoenix_kit_web/live/users/users.ex:516
 #, elixir-autogen, elixir-format
 msgid "User deactivated successfully"
 msgstr "用户已成功停用"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:669
+#: lib/phoenix_kit_web/live/users/user_details.ex:741
 #: lib/phoenix_kit_web/live/users/users.ex:567
 #, elixir-autogen, elixir-format
 msgid "User email confirmed successfully"
 msgstr "用户邮箱已成功确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:670
+#: lib/phoenix_kit_web/live/users/user_details.ex:742
 #: lib/phoenix_kit_web/live/users/users.ex:568
 #, elixir-autogen, elixir-format
 msgid "User email unconfirmed successfully"
 msgstr "用户邮箱已成功取消确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:242
+#: lib/phoenix_kit_web/live/users/user_details.ex:302
 #: lib/phoenix_kit_web/live/users/users.ex:300
 #, elixir-autogen, elixir-format
 msgid "User roles updated successfully"
@@ -9229,14 +9235,14 @@ msgstr "根据您的邮箱地址自动填写，可编辑为您自己的选择"
 msgid "Join %{project_title} today"
 msgstr "今天就加入 %{project_title}"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:35
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:100
 #: lib/phoenix_kit_web/live/users/users.html.heex:811
 #: lib/phoenix_kit_web/live/users/users.html.heex:921
 #, elixir-autogen, elixir-format
 msgid "Sign in as %{email}?"
 msgstr "以 %{email} 登录？"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:37
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:103
 #: lib/phoenix_kit_web/live/users/users.html.heex:814
 #: lib/phoenix_kit_web/live/users/users.html.heex:923
 #, elixir-autogen, elixir-format
@@ -9572,7 +9578,7 @@ msgstr "返回登录"
 msgid "Browser"
 msgstr "浏览器"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:72
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:138
 #: lib/phoenix_kit_web/live/users/users.html.heex:863
 #: lib/phoenix_kit_web/live/users/users.html.heex:958
 #, elixir-autogen, elixir-format
@@ -9602,8 +9608,8 @@ msgstr "编辑 %{name}"
 msgid "Email Pending"
 msgstr "邮箱待确认"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:170
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:278
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:40
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:243
 #, elixir-autogen, elixir-format
 msgid "Email Unconfirmed"
 msgstr "邮箱未确认"
@@ -9628,7 +9634,7 @@ msgstr "IP 地址"
 msgid "Location"
 msgstr "地点"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:414
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:429
 #, elixir-autogen, elixir-format
 msgid "Location tracking is off, so this user has no registration location."
 msgstr "位置跟踪已关闭，因此该用户没有注册地点。"
@@ -9739,12 +9745,12 @@ msgstr "此登录请求已过期或不再有效。"
 msgid "This sign-in was already handled."
 msgstr "此次登录已处理。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:421
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:436
 #, elixir-autogen, elixir-format
 msgid "Turn it on in Settings > Users."
 msgstr "请在 设置 > 用户 中开启。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:71
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:137
 #: lib/phoenix_kit_web/live/users/users.html.heex:862
 #: lib/phoenix_kit_web/live/users/users.html.heex:957
 #, elixir-autogen, elixir-format
@@ -9756,7 +9762,7 @@ msgstr "取消邮箱确认"
 msgid "Use a phone that's already signed in to %{project_title}."
 msgstr "请使用已登录 %{project_title} 的手机。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:326
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:341
 #, elixir-autogen, elixir-format
 msgid "User UUID"
 msgstr "用户 UUID"
@@ -10121,7 +10127,7 @@ msgstr "编辑存储桶"
 msgid "Create User"
 msgstr "创建用户"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:26
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:90
 #: lib/phoenix_kit_web/users/user_form.ex:1134
 #, elixir-autogen, elixir-format
 msgid "Edit User"
@@ -10137,12 +10143,12 @@ msgstr "创建新用户账户"
 msgid "Edit user information"
 msgstr "编辑用户信息"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:459
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:474
 #, elixir-autogen, elixir-format
 msgid "This user is linked to a CRM contact."
 msgstr "此用户已关联到一个 CRM 联系人。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:754
+#: lib/phoenix_kit_web/live/users/user_details.ex:826
 #, elixir-autogen, elixir-format
 msgid "Unnamed contact"
 msgstr "未命名联系人"
@@ -11497,20 +11503,20 @@ msgstr "显示在每个国家/地区列表的顶部。拖动可重新排序。"
 msgid "When on, signing in with a provider can only join an existing account if the provider states it verified that address. Turning this off lets anyone who gets an address onto a provider account sign in as its owner — only do so for a provider that does not report verification."
 msgstr "开启后，通过提供商登录时，只有提供商声明已验证该地址，才能加入现有账户。关闭后，任何能把某个地址绑定到提供商账户的人都可以作为其所有者登录，仅在提供商不报告验证状态时才这样做。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:647
+#: lib/phoenix_kit_web/live/users/user_details.ex:719
 #: lib/phoenix_kit_web/live/users/users.ex:545
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's confirmation"
 msgstr "您无权更改此用户的确认状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:591
+#: lib/phoenix_kit_web/live/users/user_details.ex:663
 #: lib/phoenix_kit_web/live/users/users.ex:495
 #: lib/phoenix_kit_web/users/user_form.ex:465
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's status"
 msgstr "您无权更改此用户的状态"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:371
+#: lib/phoenix_kit_web/live/users/user_details.ex:431
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to delete this user"
 msgstr "您无权删除此用户"
@@ -14156,13 +14162,13 @@ msgstr "OAuth 连接"
 msgid "Orders"
 msgstr "订单"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:92
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:900
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:157
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:869
 #, elixir-autogen, elixir-format
 msgid "Permanently Delete"
 msgstr "永久删除"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:845
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:814
 #, elixir-autogen, elixir-format
 msgid "Permanently Delete User"
 msgstr "永久删除用户"
@@ -14192,12 +14198,12 @@ msgstr "支持工单"
 msgid "We couldn't send that email just now — please try again in a moment."
 msgstr "暂时无法发送该邮件，请稍后重试。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:877
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:846
 #, elixir-autogen, elixir-format
 msgid "Will be anonymized (preserved without PII):"
 msgstr "将被匿名化（保留但不含个人身份信息）："
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:863
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:832
 #, elixir-autogen, elixir-format
 msgid "Will be permanently deleted:"
 msgstr "将被永久删除："
@@ -14372,7 +14378,7 @@ msgstr "缺少 %{provider} OAuth 凭据：%{fields}"
 msgid "OAuth configuration reloaded from database"
 msgstr "已从数据库重新加载 OAuth 配置"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:372
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:387
 #, elixir-autogen, elixir-format
 msgid "Added By"
 msgstr "添加者"
@@ -22018,13 +22024,13 @@ msgstr "更改谁可以注册需要“安全设置”权限。"
 msgid "Changing the new-user defaults needs the Security settings permission."
 msgstr "更改新用户默认值需要“安全设置”权限。"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:940
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:909
 #: lib/phoenix_kit_web/live/users/users.html.heex:40
 #, elixir-autogen, elixir-format
 msgid "You can only give roles whose permissions you hold"
 msgstr "您只能授予自己拥有其权限的角色"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:717
+#: lib/phoenix_kit_web/live/users/user_details.ex:789
 #: lib/phoenix_kit_web/live/users/users.ex:780
 #: lib/phoenix_kit_web/users/user_form.ex:997
 #, elixir-autogen, elixir-format
@@ -22104,8 +22110,8 @@ msgstr "%{organization} · 通过 %{person}"
 msgid "Managed organization"
 msgstr "受管组织"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:895
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:1013
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:864
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:982
 #, elixir-autogen
 msgid "Allow managed organizations to have no active managers"
 msgstr "允许受管组织没有活跃的管理者"
@@ -22228,8 +22234,8 @@ msgstr "该组织没有自己的登录。请选择一位活跃的人员，用其
 msgid "This change is not available. Refresh the page and check your access."
 msgstr "此更改不可用。请刷新页面并检查您的访问权限。"
 
-#: lib/phoenix_kit_web/live/users/user_details.ex:354
-#: lib/phoenix_kit_web/live/users/user_details.ex:624
+#: lib/phoenix_kit_web/live/users/user_details.ex:414
+#: lib/phoenix_kit_web/live/users/user_details.ex:696
 #, elixir-autogen
 msgid "This person is the last active manager. Add another manager or explicitly allow the organization to have no managers."
 msgstr "此人是最后一位活跃的管理者。请添加另一位管理者，或明确允许该组织没有管理者。"
@@ -24446,7 +24452,7 @@ msgid "Admin"
 msgstr "管理员"
 
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:398
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:731
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:700
 #, elixir-autogen, elixir-format
 msgid "All roles"
 msgstr "所有角色"
@@ -24611,13 +24617,14 @@ msgstr "或通过电子邮件邀请某人"
 msgid "Organization staff invitation"
 msgstr "组织员工邀请"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:116
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:710
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:209
+#: lib/phoenix_kit_web/live/users/user_details.ex:185
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:679
 #, elixir-autogen, elixir-format
 msgid "Organizations"
 msgstr "组织"
 
-#: lib/phoenix_kit_web/live/users/user_details.html.heex:712
+#: lib/phoenix_kit_web/live/users/user_details.html.heex:681
 #, elixir-autogen, elixir-format
 msgid "Organizations this person can act for, and what they can do in each."
 msgstr "此人可以代表的组织，以及在每个组织中可以做什么。"
@@ -24655,6 +24662,7 @@ msgid "Remove %{person} from this organization?"
 msgstr "从此组织中移除 %{person}？"
 
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:659
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:246
 #, elixir-autogen, elixir-format
 msgid "Remove anyway"
 msgstr "仍然移除"
@@ -24825,7 +24833,7 @@ msgid "Any"
 msgstr "任意"
 
 #: lib/phoenix_kit/users/table_columns.ex:270
-#: lib/phoenix_kit_web/components/core/user_info.ex:183
+#: lib/phoenix_kit_web/components/core/user_info.ex:160
 #, elixir-autogen, elixir-format
 msgid "Avatar"
 msgstr "头像"
@@ -25599,6 +25607,7 @@ msgid "Must be a JSON array of objects"
 msgstr "必须是对象的 JSON 数组"
 
 #: lib/phoenix_kit_web/components/dashboard/badge.ex:165
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:366
 #, elixir-autogen, elixir-format
 msgid "New"
 msgstr "新"
@@ -25640,8 +25649,8 @@ msgstr "未找到语言"
 msgid "No results found"
 msgstr "未找到结果"
 
-#: lib/phoenix_kit_web/components/core/user_info.ex:372
-#: lib/phoenix_kit_web/components/core/user_info.ex:374
+#: lib/phoenix_kit_web/components/core/user_info.ex:364
+#: lib/phoenix_kit_web/components/core/user_info.ex:366
 #, elixir-autogen, elixir-format
 msgid "No role"
 msgstr "无角色"
@@ -26526,3 +26535,103 @@ msgstr "星形"
 #, elixir-autogen, elixir-format
 msgid "The shape every avatar on this site is drawn in: menus, lists, profiles and the crop editor."
 msgstr "本站所有头像的显示形状：菜单、列表、个人资料和裁剪编辑器中都会使用。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:233
+#, elixir-autogen, elixir-format
+msgid "%{name} would have no manager."
+msgstr "%{name} 将没有管理者。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:117
+#, elixir-autogen, elixir-format
+msgid "Added to %{name}."
+msgstr "已加入 %{name}。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:171
+#, elixir-autogen, elixir-format
+msgid "An organization with this name already exists. Pick it from the list."
+msgstr "已有同名组织，请从列表中选择。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:179
+#, elixir-autogen, elixir-format
+msgid "Check the organization's name."
+msgstr "请检查组织名称。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:364
+#, elixir-autogen, elixir-format
+msgid "Create a new organization with this name"
+msgstr "以此名称创建新组织"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:412
+#, elixir-autogen, elixir-format
+msgid "Create “%{name}” with this person as manager"
+msgstr "创建“%{name}”，并让此人担任管理者"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:133
+#, elixir-autogen, elixir-format
+msgid "Created %{name} with this person as its manager."
+msgstr "已创建 %{name}，此人为其管理者。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:334
+#, elixir-autogen, elixir-format
+msgid "Find an organization or type a new name"
+msgstr "查找组织或输入新名称"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:347
+#, elixir-autogen, elixir-format
+msgid "Link type"
+msgstr "关联类型"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:194
+#, elixir-autogen, elixir-format
+msgid "Member"
+msgstr "成员"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:168
+#, elixir-autogen, elixir-format
+msgid "Only an Owner or Admin can change a person's organizations."
+msgstr "只有 Owner 或 Admin 可以更改一个人的组织。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:174
+#, elixir-autogen, elixir-format
+msgid "Only an active person account can be added to an organization."
+msgstr "只能将有效的个人账户加入组织。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:177
+#, elixir-autogen, elixir-format
+msgid "Organization accounts are turned off in Settings → Users."
+msgstr "组织账户已在 设置 → 用户 中关闭。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:295
+#, elixir-autogen, elixir-format
+msgid "Remove from %{name}"
+msgstr "从 %{name} 移除"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:258
+#, elixir-autogen, elixir-format
+msgid "Remove from %{name}?"
+msgstr "从 %{name} 移除？"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:99
+#, elixir-autogen, elixir-format
+msgid "Removed from %{name}."
+msgstr "已从 %{name} 移除。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:180
+#, elixir-autogen, elixir-format
+msgid "This change is not available."
+msgstr "此更改不可用。"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:354
+#, elixir-autogen, elixir-format
+msgid "as %{type}"
+msgstr "作为%{type}"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:397
+#, elixir-autogen, elixir-format
+msgid "own login"
+msgstr "自有登录"
+
+#: lib/phoenix_kit_web/live/components/person_organizations.ex:396
+#, elixir-autogen, elixir-format
+msgid "own login · replaces the current one"
+msgstr "自有登录 · 将替换当前组织"
