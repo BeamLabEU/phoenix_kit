@@ -55,7 +55,7 @@ msgstr "Інформація про систему"
 #: lib/phoenix_kit_web/live/users/roles.html.heex:127
 #: lib/phoenix_kit_web/live/users/roles.html.heex:198
 #: lib/phoenix_kit_web/live/users/user_details.ex:114
-#: lib/phoenix_kit_web/live/users/users.ex:114
+#: lib/phoenix_kit_web/live/users/users.ex:120
 #: lib/phoenix_kit_web/users/user_form.ex:95
 #, elixir-autogen
 msgid "Users"
@@ -67,13 +67,14 @@ msgid "User management"
 msgstr "Керування користувачами"
 
 #: lib/phoenix_kit/dashboard/admin_tabs.ex:194
+#: lib/phoenix_kit/users/table_columns.ex:290
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:126
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1195
 #: lib/phoenix_kit_web/live/settings/users.ex:103
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:44
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:187
-#: lib/phoenix_kit_web/live/users/users.html.heex:728
-#: lib/phoenix_kit_web/live/users/users.html.heex:836
+#: lib/phoenix_kit_web/live/users/users.html.heex:807
+#: lib/phoenix_kit_web/live/users/users.html.heex:915
 #, elixir-autogen
 msgid "Roles"
 msgstr "Ролі"
@@ -120,12 +121,11 @@ msgid "Create new account"
 msgstr "Створити обліковий запис"
 
 #: lib/phoenix_kit/notifications/channels/email.ex:35
-#: lib/phoenix_kit/users/table_columns.ex:266
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:200
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2566
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:268
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:767
-#: lib/phoenix_kit_web/live/users/users.html.heex:322
+#: lib/phoenix_kit_web/live/users/users.html.heex:327
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:45
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:53
 #: lib/phoenix_kit_web/users/forgot_password.html.heex:15
@@ -157,31 +157,31 @@ msgid "Update statistics"
 msgstr "Оновити статистику"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:239
-#: lib/phoenix_kit_web/live/users/users.html.heex:923
+#: lib/phoenix_kit_web/live/users/users.html.heex:1002
 #, elixir-autogen
 msgid "System Owners"
 msgstr "Власники системи"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:240
-#: lib/phoenix_kit_web/live/users/users.html.heex:924
+#: lib/phoenix_kit_web/live/users/users.html.heex:1003
 #, elixir-autogen
 msgid "Complete system authority"
 msgstr "Повні повноваження в системі"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:251
-#: lib/phoenix_kit_web/live/users/users.html.heex:935
+#: lib/phoenix_kit_web/live/users/users.html.heex:1014
 #, elixir-autogen
 msgid "Administrators"
 msgstr "Адміністратори"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:252
-#: lib/phoenix_kit_web/live/users/users.html.heex:936
+#: lib/phoenix_kit_web/live/users/users.html.heex:1015
 #, elixir-autogen
 msgid "Management privileges"
 msgstr "Права керування"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:263
-#: lib/phoenix_kit_web/live/users/users.html.heex:911
+#: lib/phoenix_kit_web/live/users/users.html.heex:990
 #, elixir-autogen
 msgid "Total Users"
 msgstr "Усього користувачів"
@@ -291,26 +291,26 @@ msgstr "Окремі з'єднання"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:390
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:292
-#: lib/phoenix_kit_web/live/users/users.html.heex:963
+#: lib/phoenix_kit_web/live/users/users.html.heex:1042
 #, elixir-autogen
 msgid "Active Users"
 msgstr "Активні користувачі"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:391
-#: lib/phoenix_kit_web/live/users/users.html.heex:964
+#: lib/phoenix_kit_web/live/users/users.html.heex:1043
 #, elixir-autogen
 msgid "Currently online"
 msgstr "Зараз онлайн"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:403
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:293
-#: lib/phoenix_kit_web/live/users/users.html.heex:976
+#: lib/phoenix_kit_web/live/users/users.html.heex:1055
 #, elixir-autogen
 msgid "Inactive Users"
 msgstr "Неактивні користувачі"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:404
-#: lib/phoenix_kit_web/live/users/users.html.heex:977
+#: lib/phoenix_kit_web/live/users/users.html.heex:1056
 #, elixir-autogen
 msgid "Disabled accounts"
 msgstr "Вимкнені облікові записи"
@@ -319,42 +319,41 @@ msgstr "Вимкнені облікові записи"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:168
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:274
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:340
-#: lib/phoenix_kit_web/live/users/users.ex:850
-#: lib/phoenix_kit_web/live/users/users.html.heex:589
-#: lib/phoenix_kit_web/live/users/users.html.heex:989
+#: lib/phoenix_kit_web/live/users/users.ex:874
+#: lib/phoenix_kit_web/live/users/users.html.heex:1068
 #, elixir-autogen
 msgid "Email Confirmed"
 msgstr "Email підтверджено"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:417
-#: lib/phoenix_kit_web/live/users/users.html.heex:990
+#: lib/phoenix_kit_web/live/users/users.html.heex:1069
 #, elixir-autogen
 msgid "Verified emails"
 msgstr "Підтверджені адреси email"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:429
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:295
-#: lib/phoenix_kit_web/live/users/users.html.heex:1002
+#: lib/phoenix_kit_web/live/users/users.html.heex:1081
 #, elixir-autogen
 msgid "Pending Email"
 msgstr "Email очікує підтвердження"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:430
-#: lib/phoenix_kit_web/live/users/users.html.heex:308
-#: lib/phoenix_kit_web/live/users/users.html.heex:1003
+#: lib/phoenix_kit_web/live/users/users.html.heex:313
+#: lib/phoenix_kit_web/live/users/users.html.heex:1082
 #, elixir-autogen
 msgid "Awaiting confirmation"
 msgstr "Очікують підтвердження"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:442
-#: lib/phoenix_kit_web/live/users/users.html.heex:171
-#: lib/phoenix_kit_web/live/users/users.html.heex:947
+#: lib/phoenix_kit_web/live/users/users.html.heex:176
+#: lib/phoenix_kit_web/live/users/users.html.heex:1026
 #, elixir-autogen
 msgid "Regular Users"
 msgstr "Звичайні користувачі"
 
 #: lib/phoenix_kit_web/components/core/dashboard_overview.ex:443
-#: lib/phoenix_kit_web/live/users/users.html.heex:948
+#: lib/phoenix_kit_web/live/users/users.html.heex:1027
 #, elixir-autogen
 msgid "Standard access level"
 msgstr "Стандартний рівень доступу"
@@ -383,10 +382,10 @@ msgstr "Автентифікація"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:162
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:335
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:800
-#: lib/phoenix_kit_web/live/users/users.ex:852
-#: lib/phoenix_kit_web/live/users/users.ex:1000
-#: lib/phoenix_kit_web/live/users/users.html.heex:262
-#: lib/phoenix_kit_web/live/users/users.html.heex:598
+#: lib/phoenix_kit_web/live/users/users.ex:876
+#: lib/phoenix_kit_web/live/users/users.ex:1168
+#: lib/phoenix_kit_web/live/users/users.html.heex:267
+#: lib/phoenix_kit_web/live/users/users.html.heex:677
 #: lib/phoenix_kit_web/users/user_form.html.heex:843
 #, elixir-autogen
 msgid "Active"
@@ -539,7 +538,7 @@ msgstr "Дії"
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2579
 #: lib/phoenix_kit_web/live/settings/authorization.html.heex:633
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:307
-#: lib/phoenix_kit_web/live/settings/users.html.heex:915
+#: lib/phoenix_kit_web/live/settings/users.html.heex:947
 #: lib/phoenix_kit_web/users/user_form.html.heex:799
 #, elixir-autogen, elixir-format
 msgid "Add"
@@ -551,7 +550,7 @@ msgstr "Додати"
 msgid "Add %{language} translation"
 msgstr "Додати переклад: %{language}"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:939
+#: lib/phoenix_kit_web/live/settings/users.html.heex:971
 #, elixir-autogen, elixir-format
 msgid "Add Field"
 msgstr "Додати поле"
@@ -688,7 +687,7 @@ msgstr "Маркований список"
 #: lib/phoenix_kit_web/live/settings/api.html.heex:1217
 #: lib/phoenix_kit_web/live/settings/organization.html.heex:486
 #: lib/phoenix_kit_web/live/settings/send_profile_form.html.heex:152
-#: lib/phoenix_kit_web/live/settings/users.html.heex:942
+#: lib/phoenix_kit_web/live/settings/users.html.heex:974
 #: lib/phoenix_kit_web/live/users/media_selector.html.heex:18
 #: lib/phoenix_kit_web/live/users/relationship_type_form.ex:281
 #: lib/phoenix_kit_web/live/users/roles.html.heex:38
@@ -700,7 +699,7 @@ msgstr "Маркований список"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:989
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:1017
 #: lib/phoenix_kit_web/live/users/users.html.heex:89
-#: lib/phoenix_kit_web/live/users/users.html.heex:1028
+#: lib/phoenix_kit_web/live/users/users.html.heex:1107
 #: lib/phoenix_kit_web/users/confirmation_instructions.html.heex:72
 #, elixir-autogen, elixir-format
 msgid "Cancel"
@@ -805,7 +804,7 @@ msgstr "Налаштувати"
 #: lib/phoenix_kit_web/components/media_browser/browser.html.heex:697
 #: lib/phoenix_kit_web/live/components/media_selector_modal.html.heex:75
 #: lib/phoenix_kit_web/live/users/user_details.ex:293
-#: lib/phoenix_kit_web/live/users/users.ex:402
+#: lib/phoenix_kit_web/live/users/users.ex:420
 #, elixir-autogen, elixir-format
 msgid "Confirm"
 msgstr "Підтвердити"
@@ -1061,8 +1060,8 @@ msgstr "Чернетка"
 #: lib/phoenix_kit_web/live/users/roles.html.heex:274
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:659
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:662
-#: lib/phoenix_kit_web/live/users/users.html.heex:702
-#: lib/phoenix_kit_web/live/users/users.html.heex:819
+#: lib/phoenix_kit_web/live/users/users.html.heex:781
+#: lib/phoenix_kit_web/live/users/users.html.heex:898
 #, elixir-autogen, elixir-format
 msgid "Edit"
 msgstr "Редагувати"
@@ -1206,7 +1205,7 @@ msgstr "Функціональні модулі"
 #: lib/modules/storage/web/library_page.html.heex:165
 #: lib/modules/storage/web/settings.html.heex:123
 #: lib/modules/storage/web/settings.html.heex:148
-#: lib/phoenix_kit/users/auth.ex:3459
+#: lib/phoenix_kit/users/auth.ex:3501
 #: lib/phoenix_kit_web/components/core/preview_card.ex:284
 #: lib/phoenix_kit_web/live/users/libraries.html.heex:104
 #, elixir-autogen, elixir-format
@@ -1273,10 +1272,10 @@ msgstr "Зображення"
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:164
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:335
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:804
-#: lib/phoenix_kit_web/live/users/users.ex:852
-#: lib/phoenix_kit_web/live/users/users.ex:1000
-#: lib/phoenix_kit_web/live/users/users.html.heex:263
-#: lib/phoenix_kit_web/live/users/users.html.heex:602
+#: lib/phoenix_kit_web/live/users/users.ex:876
+#: lib/phoenix_kit_web/live/users/users.ex:1168
+#: lib/phoenix_kit_web/live/users/users.html.heex:268
+#: lib/phoenix_kit_web/live/users/users.html.heex:681
 #: lib/phoenix_kit_web/users/user_form.html.heex:847
 #, elixir-autogen, elixir-format
 msgid "Inactive"
@@ -1422,10 +1421,12 @@ msgstr "Вперше в %{project_title}?"
 #: lib/phoenix_kit_web/live/settings/users.html.heex:632
 #: lib/phoenix_kit_web/live/users/user_details.ex:839
 #: lib/phoenix_kit_web/live/users/user_details.ex:840
-#: lib/phoenix_kit_web/live/users/users.ex:1118
-#: lib/phoenix_kit_web/live/users/users.ex:1120
-#: lib/phoenix_kit_web/live/users/users.ex:1145
-#: lib/phoenix_kit_web/live/users/users.ex:1147
+#: lib/phoenix_kit_web/live/users/users.ex:998
+#: lib/phoenix_kit_web/live/users/users.ex:1286
+#: lib/phoenix_kit_web/live/users/users.ex:1288
+#: lib/phoenix_kit_web/live/users/users.ex:1313
+#: lib/phoenix_kit_web/live/users/users.ex:1315
+#: lib/phoenix_kit_web/live/users/users.html.heex:381
 #, elixir-autogen, elixir-format
 msgid "No"
 msgstr "Ні"
@@ -1542,7 +1543,7 @@ msgstr "Необов'язково"
 msgid "Optional, up to 500 characters."
 msgstr "Необов'язково, до 500 символів."
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:872
+#: lib/phoenix_kit_web/live/settings/users.html.heex:904
 #, elixir-autogen, elixir-format
 msgid "Options"
 msgstr "Опції"
@@ -1690,7 +1691,7 @@ msgstr "Провайдера не знайдено"
 msgid "Published"
 msgstr "Опубліковано"
 
-#: lib/phoenix_kit/users/table_columns.ex:297
+#: lib/phoenix_kit/users/table_columns.ex:302
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:356
 #, elixir-autogen, elixir-format
 msgid "Registered"
@@ -1773,13 +1774,12 @@ msgstr "Забрано «%{label}» у ролі %{role_name}"
 
 #: lib/modules/storage/web/bucket_page.html.heex:133
 #: lib/modules/storage/web/profiles_component.ex:719
-#: lib/phoenix_kit/users/table_columns.ex:285
 #: lib/phoenix_kit_web/components/core/role_switcher.ex:128
 #: lib/phoenix_kit_web/live/activity/index.html.heex:59
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2524
 #: lib/phoenix_kit_web/live/components/library_settings.ex:2574
 #: lib/phoenix_kit_web/live/users/roles.html.heex:195
-#: lib/phoenix_kit_web/live/users/users.html.heex:187
+#: lib/phoenix_kit_web/live/users/users.html.heex:192
 #, elixir-autogen, elixir-format
 msgid "Role"
 msgstr "Роль"
@@ -1828,7 +1828,7 @@ msgstr "Ролі більше не існує"
 #: lib/phoenix_kit_web/live/users/permissions_matrix.ex:104
 #: lib/phoenix_kit_web/live/users/roles.ex:291
 #: lib/phoenix_kit_web/live/users/user_details.ex:710
-#: lib/phoenix_kit_web/live/users/users.ex:765
+#: lib/phoenix_kit_web/live/users/users.ex:789
 #, elixir-autogen, elixir-format
 msgid "Role not found"
 msgstr "Роль не знайдено"
@@ -1952,8 +1952,8 @@ msgstr "Виберіть розділи й модулі, до яких ця ро
 #: lib/phoenix_kit_web/live/settings/users.ex:55
 #: lib/phoenix_kit_web/live/settings/website_access.ex:63
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:51
-#: lib/phoenix_kit_web/live/users/users.html.heex:737
-#: lib/phoenix_kit_web/live/users/users.html.heex:844
+#: lib/phoenix_kit_web/live/users/users.html.heex:816
+#: lib/phoenix_kit_web/live/users/users.html.heex:923
 #, elixir-autogen, elixir-format
 msgid "Settings"
 msgstr "Налаштування"
@@ -1999,7 +1999,7 @@ msgstr "Область/штат"
 #: lib/modules/storage/web/settings.html.heex:135
 #: lib/modules/storage/web/settings.html.heex:156
 #: lib/modules/storage/web/settings.html.heex:757
-#: lib/phoenix_kit/users/table_columns.ex:291
+#: lib/phoenix_kit/users/table_columns.ex:296
 #: lib/phoenix_kit_web/live/components/library_activity.ex:473
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:779
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:217
@@ -2019,7 +2019,7 @@ msgstr "Область/штат"
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:343
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:332
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:768
-#: lib/phoenix_kit_web/live/users/users.html.heex:277
+#: lib/phoenix_kit_web/live/users/users.html.heex:282
 #: lib/phoenix_kit_web/users/user_form.html.heex:819
 #, elixir-autogen, elixir-format
 msgid "Status"
@@ -2119,7 +2119,7 @@ msgstr "Усього ролей"
 #: lib/phoenix_kit_web/live/activity/show.html.heex:113
 #: lib/phoenix_kit_web/live/settings/users.html.heex:553
 #: lib/phoenix_kit_web/live/settings/users.html.heex:598
-#: lib/phoenix_kit_web/live/settings/users.html.heex:824
+#: lib/phoenix_kit_web/live/settings/users.html.heex:843
 #: lib/phoenix_kit_web/live/users/live_sessions.html.heex:186
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:64
 #: lib/phoenix_kit_web/live/users/roles.html.heex:124
@@ -2152,7 +2152,7 @@ msgstr "Невідомо"
 msgid "Unsaved changes"
 msgstr "Незбережені зміни"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:939
+#: lib/phoenix_kit_web/live/settings/users.html.heex:971
 #, elixir-autogen, elixir-format
 msgid "Update Field"
 msgstr "Оновити поле"
@@ -2178,7 +2178,7 @@ msgid "Used in legal documents and sitemap generation"
 msgstr "Використовується в юридичних документах і для створення карти сайту"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:339
-#: lib/phoenix_kit_web/live/users/users.ex:1233
+#: lib/phoenix_kit_web/live/users/users.ex:1401
 #, elixir-autogen, elixir-format
 msgid "User deleted successfully"
 msgstr "Користувача успішно видалено"
@@ -2194,7 +2194,7 @@ msgid "User-defined roles"
 msgstr "Ролі, створені користувачами"
 
 #: lib/phoenix_kit/integrations/providers.ex:1323
-#: lib/phoenix_kit/users/table_columns.ex:272
+#: lib/phoenix_kit/users/table_columns.ex:277
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:285
 #: lib/phoenix_kit_web/users/magic_link_registration.html.heex:30
 #: lib/phoenix_kit_web/users/registration.html.heex:76
@@ -2216,8 +2216,8 @@ msgstr "Відео"
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:387
 #: lib/phoenix_kit_web/live/users/media_storage.html.heex:388
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:813
-#: lib/phoenix_kit_web/live/users/users.html.heex:692
-#: lib/phoenix_kit_web/live/users/users.html.heex:812
+#: lib/phoenix_kit_web/live/users/users.html.heex:771
+#: lib/phoenix_kit_web/live/users/users.html.heex:891
 #: lib/phoenix_kit_web/users/user_form.html.heex:858
 #, elixir-autogen, elixir-format
 msgid "View"
@@ -2247,10 +2247,12 @@ msgstr "Напишіть нотатку про цього користувача
 #: lib/phoenix_kit_web/live/settings/users.html.heex:630
 #: lib/phoenix_kit_web/live/users/user_details.ex:837
 #: lib/phoenix_kit_web/live/users/user_details.ex:838
-#: lib/phoenix_kit_web/live/users/users.ex:1117
-#: lib/phoenix_kit_web/live/users/users.ex:1119
-#: lib/phoenix_kit_web/live/users/users.ex:1144
-#: lib/phoenix_kit_web/live/users/users.ex:1146
+#: lib/phoenix_kit_web/live/users/users.ex:998
+#: lib/phoenix_kit_web/live/users/users.ex:1285
+#: lib/phoenix_kit_web/live/users/users.ex:1287
+#: lib/phoenix_kit_web/live/users/users.ex:1312
+#: lib/phoenix_kit_web/live/users/users.ex:1314
+#: lib/phoenix_kit_web/live/users/users.html.heex:380
 #, elixir-autogen, elixir-format
 msgid "Yes"
 msgstr "Так"
@@ -2309,15 +2311,15 @@ msgstr "користувачів"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:270
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:80
-#: lib/phoenix_kit_web/live/users/users.ex:379
-#: lib/phoenix_kit_web/live/users/users.html.heex:784
-#: lib/phoenix_kit_web/live/users/users.html.heex:872
+#: lib/phoenix_kit_web/live/users/users.ex:397
+#: lib/phoenix_kit_web/live/users/users.html.heex:863
+#: lib/phoenix_kit_web/live/users/users.html.heex:951
 #, elixir-autogen, elixir-format
 msgid "Activate"
 msgstr "Активувати"
 
 #: lib/phoenix_kit_web/live/activity/index.html.heex:267
-#: lib/phoenix_kit_web/live/users/users.html.heex:215
+#: lib/phoenix_kit_web/live/users/users.html.heex:220
 #, elixir-autogen, elixir-format
 msgid "All Types"
 msgstr "Усі типи"
@@ -2330,9 +2332,9 @@ msgstr "Застосувати"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:270
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:80
-#: lib/phoenix_kit_web/live/users/users.ex:379
-#: lib/phoenix_kit_web/live/users/users.html.heex:783
-#: lib/phoenix_kit_web/live/users/users.html.heex:872
+#: lib/phoenix_kit_web/live/users/users.ex:397
+#: lib/phoenix_kit_web/live/users/users.html.heex:862
+#: lib/phoenix_kit_web/live/users/users.html.heex:951
 #, elixir-autogen, elixir-format
 msgid "Deactivate"
 msgstr "Деактивувати"
@@ -2480,7 +2482,7 @@ msgid "System"
 msgstr "Система"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:293
-#: lib/phoenix_kit_web/live/users/users.ex:402
+#: lib/phoenix_kit_web/live/users/users.ex:420
 #, elixir-autogen, elixir-format
 msgid "Unconfirm"
 msgstr "Скасувати підтвердження"
@@ -2628,7 +2630,7 @@ msgstr "Застосувати зміни"
 msgid "Applying..."
 msgstr "Застосування…"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:928
+#: lib/phoenix_kit_web/live/settings/users.html.heex:960
 #, elixir-autogen, elixir-format
 msgid "At least one option is required for %{type} fields"
 msgstr "Для полів типу «%{type}» потрібна принаймні одна опція"
@@ -2843,7 +2845,7 @@ msgstr "Кінцева точка"
 msgid "Enter"
 msgstr "Введіть"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:905
+#: lib/phoenix_kit_web/live/settings/users.html.heex:937
 #, elixir-autogen, elixir-format
 msgid "Enter option value"
 msgstr "Введіть значення опції"
@@ -3167,7 +3169,7 @@ msgstr "Випадково"
 msgid "Reload OAuth Configuration"
 msgstr "Перезавантажити конфігурацію OAuth"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:845
+#: lib/phoenix_kit_web/live/settings/users.html.heex:864
 #, elixir-autogen, elixir-format
 msgid "Required field"
 msgstr "Обов'язкове поле"
@@ -3362,7 +3364,7 @@ msgstr "Усього бакетів"
 msgid "Track user registration location"
 msgstr "Відстежувати місце реєстрації користувачів"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:921
+#: lib/phoenix_kit_web/live/settings/users.html.heex:953
 #, elixir-autogen, elixir-format
 msgid "Type an option and press Enter or click Add"
 msgstr "Введіть опцію і натисніть Enter або «Додати»"
@@ -3387,13 +3389,13 @@ msgstr "Доступ користувачів"
 msgid "User Editable"
 msgstr "Редагується користувачем"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:684
-#: lib/phoenix_kit_web/live/users/users.html.heex:808
+#: lib/phoenix_kit_web/live/users/users.html.heex:763
+#: lib/phoenix_kit_web/live/users/users.html.heex:887
 #, elixir-autogen, elixir-format
 msgid "User actions"
 msgstr "Дії з користувачем"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:858
+#: lib/phoenix_kit_web/live/settings/users.html.heex:877
 #, elixir-autogen, elixir-format
 msgid "User can edit this field"
 msgstr "Користувач може редагувати це поле"
@@ -3425,7 +3427,7 @@ msgstr "Перейти"
 msgid "Week Start On"
 msgstr "Тиждень починається з"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:861
+#: lib/phoenix_kit_web/live/settings/users.html.heex:880
 #, elixir-autogen, elixir-format
 msgid "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
 msgstr "Якщо позначено, користувачі можуть переглядати й редагувати це поле на сторінці своїх налаштувань. Якщо не позначено, редагувати його можуть лише адміністратори."
@@ -3512,7 +3514,7 @@ msgstr "заголовок має значення"
 msgid "mode"
 msgstr "режим"
 
-#: lib/phoenix_kit_web/live/settings/users.html.heex:874
+#: lib/phoenix_kit_web/live/settings/users.html.heex:906
 #, elixir-autogen, elixir-format
 msgid "option(s)"
 msgstr "опц."
@@ -3675,6 +3677,7 @@ msgid "Accept"
 msgstr "Прийняти"
 
 #: lib/phoenix_kit/notifications/types.ex:212
+#: lib/phoenix_kit/users/table_columns.ex:271
 #: lib/phoenix_kit_web/components/profile_settings_tabs.ex:337
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:249
 #: lib/phoenix_kit_web/live/integrations/my_integrations.ex:283
@@ -4638,7 +4641,7 @@ msgstr "Використовується лише ширина, висота о�
 msgid "OpenRouter"
 msgstr "OpenRouter"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:528
+#: lib/phoenix_kit_web/live/users/users.html.heex:594
 #, elixir-autogen, elixir-format
 msgid "Org"
 msgstr "Орг."
@@ -4649,7 +4652,7 @@ msgstr "Орг."
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:201
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:234
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:251
-#: lib/phoenix_kit_web/live/users/users.html.heex:217
+#: lib/phoenix_kit_web/live/users/users.html.heex:222
 #: lib/phoenix_kit_web/users/registration.html.heex:143
 #: lib/phoenix_kit_web/users/user_form.html.heex:209
 #: lib/phoenix_kit_web/users/user_form.html.heex:257
@@ -4683,7 +4686,7 @@ msgstr "Персональні вхідні, що формуються зі ст
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:178
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:235
-#: lib/phoenix_kit_web/live/users/users.html.heex:216
+#: lib/phoenix_kit_web/live/users/users.html.heex:221
 #: lib/phoenix_kit_web/users/registration.html.heex:137
 #: lib/phoenix_kit_web/users/user_form.html.heex:199
 #, elixir-autogen, elixir-format
@@ -5373,7 +5376,7 @@ msgstr "Вміст зберігається"
 
 #: lib/phoenix_kit/notifications/types.ex:251
 #: lib/phoenix_kit/notifications/types.ex:274
-#: lib/phoenix_kit/users/auth.ex:3446
+#: lib/phoenix_kit/users/auth.ex:3488
 #: lib/phoenix_kit_web/components/media_canvas_viewer.html.heex:972
 #: lib/phoenix_kit_web/live/modules.ex:200
 #, elixir-autogen, elixir-format
@@ -5783,7 +5786,7 @@ msgstr "Сутності"
 #: lib/modules/sitemap/web/settings.html.heex:135
 #: lib/modules/sitemap/web/settings.html.heex:315
 #: lib/phoenix_kit/notifications/types.ex:235
-#: lib/phoenix_kit/users/auth.ex:3444
+#: lib/phoenix_kit/users/auth.ex:3486
 #: lib/phoenix_kit_web/live/modules.ex:212
 #, elixir-autogen
 msgid "Posts"
@@ -6352,7 +6355,7 @@ msgstr "Перейменувати"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:912
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:978
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:878
-#: lib/phoenix_kit_web/live/users/users.html.heex:386
+#: lib/phoenix_kit_web/live/users/users.html.heex:436
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr "Пошук"
@@ -7853,13 +7856,13 @@ msgstr[0] "%{count} сеанс відкликано для %{email}"
 msgstr[1] "%{count} сеанси відкликано для %{email}"
 msgstr[2] "%{count} сеансів відкликано для %{email}"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:400
-#: lib/phoenix_kit_web/live/users/users.html.heex:403
+#: lib/phoenix_kit_web/live/users/users.html.heex:450
+#: lib/phoenix_kit_web/live/users/users.html.heex:453
 #, elixir-autogen, elixir-format
 msgid "Add New User"
 msgstr "Додати нового користувача"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:170
+#: lib/phoenix_kit_web/live/users/users.html.heex:175
 #, elixir-autogen, elixir-format
 msgid "Admins Only"
 msgstr "Лише адміністратори"
@@ -7872,12 +7875,12 @@ msgid "All"
 msgstr "Усі"
 
 #: lib/phoenix_kit_web/live/users/sessions.html.heex:291
-#: lib/phoenix_kit_web/live/users/users.html.heex:168
+#: lib/phoenix_kit_web/live/users/users.html.heex:173
 #, elixir-autogen, elixir-format
 msgid "All Users"
 msgstr "Усі користувачі"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:912
+#: lib/phoenix_kit_web/live/users/users.html.heex:991
 #, elixir-autogen, elixir-format
 msgid "All registered accounts"
 msgstr "Усі зареєстровані облікові записи"
@@ -7895,19 +7898,19 @@ msgid "Anonymous User"
 msgstr "Анонімний користувач"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:268
-#: lib/phoenix_kit_web/live/users/users.ex:377
+#: lib/phoenix_kit_web/live/users/users.ex:395
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to activate this user?"
 msgstr "Ви впевнені, що хочете активувати цього користувача?"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:291
-#: lib/phoenix_kit_web/live/users/users.ex:400
+#: lib/phoenix_kit_web/live/users/users.ex:418
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to confirm this user's email?"
 msgstr "Ви впевнені, що хочете підтвердити email цього користувача?"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:267
-#: lib/phoenix_kit_web/live/users/users.ex:376
+#: lib/phoenix_kit_web/live/users/users.ex:394
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to deactivate this user?"
 msgstr "Ви впевнені, що хочете деактивувати цього користувача?"
@@ -7924,7 +7927,7 @@ msgid "Are you sure you want to revoke this session for"
 msgstr "Ви впевнені, що хочете відкликати цей сеанс для"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:290
-#: lib/phoenix_kit_web/live/users/users.ex:399
+#: lib/phoenix_kit_web/live/users/users.ex:417
 #, elixir-autogen, elixir-format
 msgid "Are you sure you want to unconfirm this user's email?"
 msgstr "Ви впевнені, що хочете скасувати підтвердження email цього користувача?"
@@ -7946,52 +7949,52 @@ msgid "Auto-refresh ON"
 msgstr "Автооновлення ввімкнено"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:630
-#: lib/phoenix_kit_web/live/users/users.ex:525
+#: lib/phoenix_kit_web/live/users/users.ex:543
 #, elixir-autogen, elixir-format
 msgid "Cannot deactivate the last system owner"
 msgstr "Не можна деактивувати останнього власника системи"
 
-#: lib/phoenix_kit_web/live/users/users.ex:475
+#: lib/phoenix_kit_web/live/users/users.ex:493
 #, elixir-autogen, elixir-format
 msgid "Cannot modify your own confirmation status"
 msgstr "Не можна змінювати власний статус підтвердження"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:209
 #: lib/phoenix_kit_web/live/users/user_details.ex:711
-#: lib/phoenix_kit_web/live/users/users.ex:239
-#: lib/phoenix_kit_web/live/users/users.ex:324
-#: lib/phoenix_kit_web/live/users/users.ex:352
-#: lib/phoenix_kit_web/live/users/users.ex:766
+#: lib/phoenix_kit_web/live/users/users.ex:257
+#: lib/phoenix_kit_web/live/users/users.ex:342
+#: lib/phoenix_kit_web/live/users/users.ex:370
+#: lib/phoenix_kit_web/live/users/users.ex:790
 #: lib/phoenix_kit_web/users/user_form.ex:1026
 #, elixir-autogen, elixir-format
 msgid "Cannot modify your own roles"
 msgstr "Не можна змінювати власні ролі"
 
-#: lib/phoenix_kit_web/live/users/users.ex:463
+#: lib/phoenix_kit_web/live/users/users.ex:481
 #, elixir-autogen, elixir-format
 msgid "Cannot modify your own status"
 msgstr "Не можна змінювати власний статус"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:708
-#: lib/phoenix_kit_web/live/users/users.ex:322
-#: lib/phoenix_kit_web/live/users/users.ex:763
+#: lib/phoenix_kit_web/live/users/users.ex:340
+#: lib/phoenix_kit_web/live/users/users.ex:787
 #, elixir-autogen, elixir-format
 msgid "Cannot remove the last system owner"
 msgstr "Не можна видалити останнього власника системи"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:470
+#: lib/phoenix_kit_web/live/users/users.html.heex:528
 #, elixir-autogen, elixir-format
 msgid "Clear Filters"
 msgstr "Скинути фільтри"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:287
-#: lib/phoenix_kit_web/live/users/users.ex:396
+#: lib/phoenix_kit_web/live/users/users.ex:414
 #, elixir-autogen, elixir-format
 msgid "Confirm Email Status Change"
 msgstr "Підтвердьте зміну статусу email"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:264
-#: lib/phoenix_kit_web/live/users/users.ex:373
+#: lib/phoenix_kit_web/live/users/users.ex:391
 #, elixir-autogen, elixir-format
 msgid "Confirm Status Change"
 msgstr "Підтвердьте зміну статусу"
@@ -8033,24 +8036,24 @@ msgid "Failed to update field"
 msgstr "Не вдалося оновити поле"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:679
-#: lib/phoenix_kit_web/live/users/users.ex:577
+#: lib/phoenix_kit_web/live/users/users.ex:595
 #, elixir-autogen, elixir-format
 msgid "Failed to update user confirmation status"
 msgstr "Не вдалося оновити статус підтвердження користувача"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:712
-#: lib/phoenix_kit_web/live/users/users.ex:767
+#: lib/phoenix_kit_web/live/users/users.ex:791
 #, elixir-autogen, elixir-format
 msgid "Failed to update user role"
 msgstr "Не вдалося оновити роль користувача"
 
-#: lib/phoenix_kit_web/live/users/users.ex:325
+#: lib/phoenix_kit_web/live/users/users.ex:343
 #, elixir-autogen, elixir-format
 msgid "Failed to update user roles"
 msgstr "Не вдалося оновити ролі користувача"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:633
-#: lib/phoenix_kit_web/live/users/users.ex:529
+#: lib/phoenix_kit_web/live/users/users.ex:547
 #, elixir-autogen, elixir-format
 msgid "Failed to update user status"
 msgstr "Не вдалося оновити статус користувача"
@@ -8107,8 +8110,8 @@ msgstr "Моніторинг і керування активними сеанс
 #: lib/phoenix_kit/integrations/providers.ex:1381
 #: lib/phoenix_kit_web/live/components/personal_api_keys.ex:840
 #: lib/phoenix_kit_web/live/settings/api.html.heex:410
-#: lib/phoenix_kit_web/live/users/users.ex:864
-#: lib/phoenix_kit_web/live/users/users.html.heex:678
+#: lib/phoenix_kit_web/live/users/users.ex:888
+#: lib/phoenix_kit_web/live/users/users.html.heex:757
 #, elixir-autogen, elixir-format
 msgid "Never"
 msgstr "Ніколи"
@@ -8119,15 +8122,15 @@ msgid "No active sessions"
 msgstr "Немає активних сеансів"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:446
-#: lib/phoenix_kit_web/live/users/users.html.heex:664
+#: lib/phoenix_kit_web/live/users/users.html.heex:743
 #, elixir-autogen, elixir-format
 msgid "No data"
 msgstr "Немає даних"
 
 #: lib/phoenix_kit_web/live/components/organization_managers.ex:404
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:737
-#: lib/phoenix_kit_web/live/users/users.ex:845
-#: lib/phoenix_kit_web/live/users/users.html.heex:581
+#: lib/phoenix_kit_web/live/users/users.ex:869
+#: lib/phoenix_kit_web/live/users/users.html.heex:657
 #, elixir-autogen, elixir-format
 msgid "No roles"
 msgstr "Немає ролей"
@@ -8138,12 +8141,12 @@ msgstr "Немає ролей"
 msgid "No roles available. Create roles first in Role Management."
 msgstr "Немає доступних ролей. Спершу створіть ролі в розділі керування ролями."
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:462
+#: lib/phoenix_kit_web/live/users/users.html.heex:520
 #, elixir-autogen, elixir-format
 msgid "No users are registered yet."
 msgstr "Користувачів ще не зареєстровано."
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:458
+#: lib/phoenix_kit_web/live/users/users.html.heex:516
 #, elixir-autogen, elixir-format
 msgid "No users found"
 msgstr "Користувачів не знайдено"
@@ -8155,8 +8158,8 @@ msgid "Not set"
 msgstr "Не задано"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:709
-#: lib/phoenix_kit_web/live/users/users.ex:323
-#: lib/phoenix_kit_web/live/users/users.ex:764
+#: lib/phoenix_kit_web/live/users/users.ex:341
+#: lib/phoenix_kit_web/live/users/users.ex:788
 #, elixir-autogen, elixir-format
 msgid "Owner role cannot be assigned manually"
 msgstr "Роль власника не можна призначати вручну"
@@ -8167,7 +8170,7 @@ msgstr "Роль власника не можна призначати вруч�
 msgid "Owner role cannot be modified"
 msgstr "Роль власника не можна змінювати"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:169
+#: lib/phoenix_kit_web/live/users/users.html.heex:174
 #, elixir-autogen, elixir-format
 msgid "Owners Only"
 msgstr "Лише власники"
@@ -8193,12 +8196,12 @@ msgstr "Відкликати сеанс"
 msgid "Revoke Sessions"
 msgstr "Відкликати сеанси"
 
-#: lib/phoenix_kit_web/live/users/users.ex:742
+#: lib/phoenix_kit_web/live/users/users.ex:766
 #, elixir-autogen, elixir-format
 msgid "Role %{role} added to user successfully"
 msgstr "Роль %{role} успішно додано користувачу"
 
-#: lib/phoenix_kit_web/live/users/users.ex:744
+#: lib/phoenix_kit_web/live/users/users.ex:768
 #, elixir-autogen, elixir-format
 msgid "Role %{role} removed from user successfully"
 msgstr "Роль %{role} успішно знято з користувача"
@@ -8213,7 +8216,7 @@ msgstr "Пошук за IP, User-Agent, email..."
 msgid "Search by email or token..."
 msgstr "Пошук за email або токеном..."
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:358
+#: lib/phoenix_kit_web/live/users/users.html.heex:408
 #, elixir-autogen, elixir-format
 msgid "Search by email, username, or name..."
 msgstr "Пошук за email, іменем користувача або ім'ям..."
@@ -8254,7 +8257,7 @@ msgstr "Це виведе користувача з системи на всіх
 msgid "Total Sessions"
 msgstr "Усього сеансів"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:461
+#: lib/phoenix_kit_web/live/users/users.html.heex:519
 #, elixir-autogen, elixir-format
 msgid "Try adjusting your search or filter criteria."
 msgstr "Спробуйте змінити критерії пошуку або фільтра."
@@ -8265,37 +8268,37 @@ msgstr "Спробуйте змінити критерії пошуку або �
 msgid "Update Roles"
 msgstr "Оновити ролі"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:903
+#: lib/phoenix_kit_web/live/users/users.html.heex:982
 #, elixir-autogen, elixir-format
 msgid "User Statistics"
 msgstr "Статистика користувачів"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:611
-#: lib/phoenix_kit_web/live/users/users.ex:513
+#: lib/phoenix_kit_web/live/users/users.ex:531
 #, elixir-autogen, elixir-format
 msgid "User activated successfully"
 msgstr "Користувача успішно активовано"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:612
-#: lib/phoenix_kit_web/live/users/users.ex:514
+#: lib/phoenix_kit_web/live/users/users.ex:532
 #, elixir-autogen, elixir-format
 msgid "User deactivated successfully"
 msgstr "Користувача успішно деактивовано"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:669
-#: lib/phoenix_kit_web/live/users/users.ex:565
+#: lib/phoenix_kit_web/live/users/users.ex:583
 #, elixir-autogen, elixir-format
 msgid "User email confirmed successfully"
 msgstr "Email користувача успішно підтверджено"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:670
-#: lib/phoenix_kit_web/live/users/users.ex:566
+#: lib/phoenix_kit_web/live/users/users.ex:584
 #, elixir-autogen, elixir-format
 msgid "User email unconfirmed successfully"
 msgstr "Підтвердження email користувача успішно скасовано"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:242
-#: lib/phoenix_kit_web/live/users/users.ex:298
+#: lib/phoenix_kit_web/live/users/users.ex:316
 #, elixir-autogen, elixir-format
 msgid "User roles updated successfully"
 msgstr "Ролі користувача успішно оновлено"
@@ -8310,8 +8313,8 @@ msgstr "Налаштування користувачів успішно оно�
 msgid "User/Session"
 msgstr "Користувач/сеанс"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:417
-#: lib/phoenix_kit_web/live/users/users.html.heex:523
+#: lib/phoenix_kit_web/live/users/users.html.heex:468
+#: lib/phoenix_kit_web/live/users/users.html.heex:589
 #, elixir-autogen, elixir-format
 msgid "you"
 msgstr "ви"
@@ -8497,7 +8500,7 @@ msgstr "Моделі ШІ через OpenAI (GPT, ембедінги, зобра
 msgid "Account menu"
 msgstr "Меню облікового запису"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:231
+#: lib/phoenix_kit_web/live/users/users.html.heex:236
 #, elixir-autogen, elixir-format
 msgid "Account type"
 msgstr "Тип облікового запису"
@@ -8582,7 +8585,7 @@ msgid "Click **Create new secret key**, give it a name"
 msgstr "Натисніть **Create new secret key** і вкажіть назву"
 
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:901
-#: lib/phoenix_kit_web/live/users/users.html.heex:369
+#: lib/phoenix_kit_web/live/users/users.html.heex:419
 #, elixir-autogen, elixir-format
 msgid "Close search"
 msgstr "Закрити пошук"
@@ -8749,8 +8752,8 @@ msgstr "Перейдіть на [platform.openai.com](https://platform.openai.co
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:634
 #: lib/phoenix_kit_web/live/activity/index.html.heex:83
 #: lib/phoenix_kit_web/live/activity/index.html.heex:97
-#: lib/phoenix_kit_web/live/users/users.html.heex:127
-#: lib/phoenix_kit_web/live/users/users.html.heex:141
+#: lib/phoenix_kit_web/live/users/users.html.heex:132
+#: lib/phoenix_kit_web/live/users/users.html.heex:146
 #, elixir-autogen, elixir-format
 msgid "Grid"
 msgstr "Сітка"
@@ -8795,8 +8798,8 @@ msgstr "Спочатку найбільші"
 #: lib/phoenix_kit_web/components/media_browser/header.html.heex:635
 #: lib/phoenix_kit_web/live/activity/index.html.heex:84
 #: lib/phoenix_kit_web/live/activity/index.html.heex:97
-#: lib/phoenix_kit_web/live/users/users.html.heex:128
-#: lib/phoenix_kit_web/live/users/users.html.heex:141
+#: lib/phoenix_kit_web/live/users/users.html.heex:133
+#: lib/phoenix_kit_web/live/users/users.html.heex:146
 #, elixir-autogen, elixir-format
 msgid "List"
 msgstr "Список"
@@ -9186,15 +9189,15 @@ msgid "Join %{project_title} today"
 msgstr "Приєднуйтеся до %{project_title}"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:35
-#: lib/phoenix_kit_web/live/users/users.html.heex:716
-#: lib/phoenix_kit_web/live/users/users.html.heex:826
+#: lib/phoenix_kit_web/live/users/users.html.heex:795
+#: lib/phoenix_kit_web/live/users/users.html.heex:905
 #, elixir-autogen, elixir-format
 msgid "Sign in as %{email}?"
 msgstr "Увійти як %{email}?"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:37
-#: lib/phoenix_kit_web/live/users/users.html.heex:719
-#: lib/phoenix_kit_web/live/users/users.html.heex:828
+#: lib/phoenix_kit_web/live/users/users.html.heex:798
+#: lib/phoenix_kit_web/live/users/users.html.heex:907
 #, elixir-autogen, elixir-format
 msgid "Sign in as user"
 msgstr "Увійти від імені користувача"
@@ -9474,18 +9477,18 @@ msgstr "Налаштування сховища успішно оновлено"
 msgid "Indented rows are fine-grained permissions within a module. Granting one also grants the module itself; revoking a module removes its fine-grained permissions with it."
 msgstr "Рядки з відступом — це докладні дозволи всередині модуля. Надання такого дозволу надає й сам модуль; відкликання модуля вилучає і його докладні дозволи."
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:622
+#: lib/phoenix_kit_web/live/users/users.html.heex:701
 #, elixir-autogen, elixir-format
 msgid "Location tracking is off, so no user shows a location. Turn it on in Settings > Users."
 msgstr "Відстеження місцезнаходження вимкнено, тому жоден користувач не показує локацію. Увімкніть його в розділі «Налаштування > Користувачі»."
 
-#: lib/phoenix_kit_web/live/users/users.ex:872
-#: lib/phoenix_kit_web/live/users/users.html.heex:637
+#: lib/phoenix_kit_web/live/users/users.ex:896
+#: lib/phoenix_kit_web/live/users/users.html.heex:716
 #, elixir-autogen, elixir-format
 msgid "Tracking disabled"
 msgstr "Відстеження вимкнено"
 
-#: lib/phoenix_kit_web/live/users/users.ex:734
+#: lib/phoenix_kit_web/live/users/users.ex:758
 #, elixir-autogen, elixir-format
 msgid "You are not allowed to change the %{role} role"
 msgstr "Вам не дозволено змінювати роль %{role}"
@@ -9528,8 +9531,8 @@ msgid "Browser"
 msgstr "Браузер"
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:72
-#: lib/phoenix_kit_web/live/users/users.html.heex:768
-#: lib/phoenix_kit_web/live/users/users.html.heex:863
+#: lib/phoenix_kit_web/live/users/users.html.heex:847
+#: lib/phoenix_kit_web/live/users/users.html.heex:942
 #, elixir-autogen, elixir-format
 msgid "Confirm Email"
 msgstr "Підтвердити email"
@@ -9552,8 +9555,7 @@ msgstr "Пристрій"
 msgid "Edit %{name}"
 msgstr "Редагувати: %{name}"
 
-#: lib/phoenix_kit_web/live/users/users.ex:850
-#: lib/phoenix_kit_web/live/users/users.html.heex:593
+#: lib/phoenix_kit_web/live/users/users.ex:874
 #, elixir-autogen, elixir-format
 msgid "Email Pending"
 msgstr "Email очікує підтвердження"
@@ -9576,7 +9578,7 @@ msgstr "IP-адреса"
 
 #: lib/modules/storage/web/bucket_page.html.heex:57
 #: lib/phoenix_kit/integrations/object_storage_services.ex:284
-#: lib/phoenix_kit/users/table_columns.ex:303
+#: lib/phoenix_kit/users/table_columns.ex:308
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:154
 #: lib/phoenix_kit_web/components/core/file_exif_panel.ex:252
 #: lib/phoenix_kit_web/users/qr_login_confirm.ex:198
@@ -9701,8 +9703,8 @@ msgid "Turn it on in Settings > Users."
 msgstr "Увімкніть його в розділі «Налаштування > Користувачі»."
 
 #: lib/phoenix_kit_web/live/users/user_details.html.heex:71
-#: lib/phoenix_kit_web/live/users/users.html.heex:767
-#: lib/phoenix_kit_web/live/users/users.html.heex:862
+#: lib/phoenix_kit_web/live/users/users.html.heex:846
+#: lib/phoenix_kit_web/live/users/users.html.heex:941
 #, elixir-autogen, elixir-format
 msgid "Unconfirm Email"
 msgstr "Скасувати підтвердження email"
@@ -11454,13 +11456,13 @@ msgid "When on, signing in with a provider can only join an existing account if 
 msgstr "Коли ввімкнено, вхід через провайдера може приєднатися до наявного облікового запису, лише якщо провайдер стверджує, що підтвердив цю адресу. Якщо вимкнути, будь-хто, хто отримає адресу, зможе ввійти в обліковий запис провайдера як його власник — робіть це лише для провайдера, який не повідомляє про підтвердження."
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:647
-#: lib/phoenix_kit_web/live/users/users.ex:543
+#: lib/phoenix_kit_web/live/users/users.ex:561
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's confirmation"
 msgstr "У вас немає прав для зміни підтвердження цього користувача"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:591
-#: lib/phoenix_kit_web/live/users/users.ex:493
+#: lib/phoenix_kit_web/live/users/users.ex:511
 #: lib/phoenix_kit_web/users/user_form.ex:477
 #, elixir-autogen, elixir-format
 msgid "You don't have permission to change this user's status"
@@ -12080,7 +12082,7 @@ msgstr "Максимальний розмір файлу: %{size}"
 
 #: lib/phoenix_kit_web/components/core/column_settings.ex:95
 #: lib/phoenix_kit_web/live/settings/website_access.html.heex:226
-#: lib/phoenix_kit_web/live/users/users.html.heex:393
+#: lib/phoenix_kit_web/live/users/users.html.heex:443
 #, elixir-autogen, elixir-format
 msgid "Columns"
 msgstr "Стовпці"
@@ -12902,17 +12904,18 @@ msgstr "Розгорнути меню"
 msgid "Unexpired sign-ins, not live connections"
 msgstr "Чинні входи, а не активні з'єднання"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:306
+#: lib/phoenix_kit_web/live/users/users.html.heex:311
 #, elixir-autogen, elixir-format
 msgid "Any email state"
 msgstr "Будь-який стан email"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:261
+#: lib/phoenix_kit_web/live/users/users.html.heex:266
 #, elixir-autogen, elixir-format
 msgid "Any status"
 msgstr "Будь-який статус"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:307
+#: lib/phoenix_kit_web/live/users/users.html.heex:312
+#: lib/phoenix_kit_web/live/users/users.html.heex:666
 #, elixir-autogen, elixir-format
 msgid "Email confirmed"
 msgstr "Email підтверджено"
@@ -14085,27 +14088,27 @@ msgstr "Надіслано"
 msgid "We sent a confirmation link to %{email}."
 msgstr "Ми надіслали посилання для підтвердження на %{email}."
 
-#: lib/phoenix_kit/users/auth.ex:3439
+#: lib/phoenix_kit/users/auth.ex:3481
 #, elixir-autogen, elixir-format
 msgid "Admin notes"
 msgstr "Нотатки адміністратора"
 
-#: lib/phoenix_kit/users/auth.ex:3436
+#: lib/phoenix_kit/users/auth.ex:3478
 #, elixir-autogen, elixir-format
 msgid "Billing profiles"
 msgstr "Платіжні профілі"
 
-#: lib/phoenix_kit/users/auth.ex:3457
+#: lib/phoenix_kit/users/auth.ex:3499
 #, elixir-autogen, elixir-format
 msgid "Email logs"
 msgstr "Журнали листів"
 
-#: lib/phoenix_kit/users/auth.ex:3435
+#: lib/phoenix_kit/users/auth.ex:3477
 #, elixir-autogen, elixir-format
 msgid "OAuth connections"
 msgstr "Підключення OAuth"
 
-#: lib/phoenix_kit/users/auth.ex:3442
+#: lib/phoenix_kit/users/auth.ex:3484
 #, elixir-autogen, elixir-format
 msgid "Orders"
 msgstr "Замовлення"
@@ -14121,22 +14124,22 @@ msgstr "Видалити остаточно"
 msgid "Permanently Delete User"
 msgstr "Остаточно видалити користувача"
 
-#: lib/phoenix_kit/users/auth.ex:3434
+#: lib/phoenix_kit/users/auth.ex:3476
 #, elixir-autogen, elixir-format
 msgid "Role assignments"
 msgstr "Призначення ролей"
 
-#: lib/phoenix_kit/users/auth.ex:3433
+#: lib/phoenix_kit/users/auth.ex:3475
 #, elixir-autogen, elixir-format
 msgid "Session and other tokens"
 msgstr "Токени сеансів та інші токени"
 
-#: lib/phoenix_kit/users/auth.ex:3438
+#: lib/phoenix_kit/users/auth.ex:3480
 #, elixir-autogen, elixir-format
 msgid "Shopping carts"
 msgstr "Кошики"
 
-#: lib/phoenix_kit/users/auth.ex:3455
+#: lib/phoenix_kit/users/auth.ex:3497
 #, elixir-autogen, elixir-format
 msgid "Support tickets"
 msgstr "Запити в підтримку"
@@ -15406,12 +15409,12 @@ msgstr "Не вдалося завантажити %{name}."
 msgid "Custom fields"
 msgstr "Власні поля"
 
-#: lib/phoenix_kit/users/table_columns.ex:278
+#: lib/phoenix_kit/users/table_columns.ex:283
 #, elixir-autogen, elixir-format
 msgid "Full Name"
 msgstr "Повне ім'я"
 
-#: lib/phoenix_kit/users/table_columns.ex:309
+#: lib/phoenix_kit/users/table_columns.ex:314
 #, elixir-autogen, elixir-format
 msgid "Last Confirmed"
 msgstr "Востаннє підтверджено"
@@ -21940,7 +21943,7 @@ msgid "You can only give roles whose permissions you hold"
 msgstr "Ви можете надавати лише ті ролі, дозволи яких маєте самі"
 
 #: lib/phoenix_kit_web/live/users/user_details.ex:717
-#: lib/phoenix_kit_web/live/users/users.ex:772
+#: lib/phoenix_kit_web/live/users/users.ex:796
 #: lib/phoenix_kit_web/users/user_form.ex:1034
 #, elixir-autogen, elixir-format
 msgid "Not changed — you can only give or take away roles whose permissions you hold: %{roles}"
@@ -22013,8 +22016,8 @@ msgstr "%{organization}, із цього браузера"
 msgid "%{organization} · via %{person}"
 msgstr "%{organization} · через %{person}"
 
-#: lib/phoenix_kit_web/live/users/users.html.heex:415
-#: lib/phoenix_kit_web/live/users/users.html.heex:520
+#: lib/phoenix_kit_web/live/users/users.html.heex:465
+#: lib/phoenix_kit_web/live/users/users.html.heex:585
 #, elixir-autogen, elixir-format
 msgid "Managed organization"
 msgstr "Керована організація"
@@ -24744,3 +24747,59 @@ msgstr "Ви не можете змінити власний доступ. По�
 #, elixir-autogen, elixir-format
 msgid "none yet"
 msgstr "поки немає"
+
+#: lib/phoenix_kit_web/live/users/users.ex:996
+#, elixir-autogen, elixir-format
+msgid "%{field}: %{value}"
+msgstr "%{field}: %{value}"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:895
+#, elixir-autogen, elixir-format
+msgid "Adds a Yes/No filter for this field to the Users table."
+msgstr "Додає до таблиці користувачів фільтр «Так/Ні» за цим полем."
+
+#: lib/phoenix_kit_web/live/users/users.html.heex:379
+#, elixir-autogen, elixir-format
+msgid "Any"
+msgstr "Будь-яке"
+
+#: lib/phoenix_kit/users/table_columns.ex:262
+#, elixir-autogen, elixir-format
+msgid "Avatar"
+msgstr "Аватар"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:824
+#, elixir-autogen, elixir-format
+msgid "Column name"
+msgstr "Назва стовпця"
+
+#: lib/phoenix_kit_web/live/users/users.html.heex:672
+#, elixir-autogen, elixir-format
+msgid "Email pending"
+msgstr "Email не підтверджено"
+
+#: lib/phoenix_kit_web/live/users/users.html.heex:668
+#, elixir-autogen, elixir-format
+msgid "Email ✓"
+msgstr "Email ✓"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:892
+#, elixir-autogen, elixir-format
+msgid "Filter in the Users table"
+msgstr "Фільтр у таблиці користувачів"
+
+#: lib/phoenix_kit_web/live/users/users.html.heex:17
+#, elixir-autogen, elixir-format
+msgid "Manage Roles for %{name}"
+msgstr "Керування ролями: %{name}"
+
+#: lib/phoenix_kit_web/live/users/users.html.heex:466
+#: lib/phoenix_kit_web/live/users/users.html.heex:586
+#, elixir-autogen, elixir-format
+msgid "Managed"
+msgstr "Керована"
+
+#: lib/phoenix_kit_web/live/settings/users.html.heex:833
+#, elixir-autogen, elixir-format
+msgid "Shown as the column header in the Users table. Leave blank to use the label."
+msgstr "Показується як заголовок стовпця в таблиці користувачів. Залиште порожнім, щоб використати підпис."

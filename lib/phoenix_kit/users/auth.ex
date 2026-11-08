@@ -3042,7 +3042,13 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
-  Lists users with pagination and optional role filtering.
+  Lists users with pagination and optional filters.
+
+  Filters: `:search`, `:role`, `:account_type`, `:status`, `:confirmation`,
+  and `:custom_fields`, a list of `{field_key, :yes | :no}` for boolean custom
+  fields. `:yes` matches `true` and `"true"`; `:no` matches everything else,
+  a missing key included: a user never marked is not marked. Every filter runs
+  in SQL, so the count and the pages are of the matching users.
 
   ## Examples
 
@@ -3051,6 +3057,9 @@ defmodule PhoenixKit.Users.Auth do
 
       iex> list_users_paginated(page: 1, page_size: 10, role: "Admin")
       %{users: [%User{}], total_count: 3, total_pages: 1}
+
+      iex> list_users_paginated(custom_fields: [{"approved", :no}])
+      %{users: [%User{}], total_count: 5, total_pages: 1}
   """
   def list_users_paginated(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
@@ -3060,6 +3069,7 @@ defmodule PhoenixKit.Users.Auth do
     account_type_filter = Keyword.get(opts, :account_type)
     status_filter = Keyword.get(opts, :status)
     confirmation_filter = Keyword.get(opts, :confirmation)
+    custom_field_filters = Keyword.get(opts, :custom_fields, [])
 
     base_query = from(u in User, order_by: [desc: u.inserted_at])
 
@@ -3070,6 +3080,7 @@ defmodule PhoenixKit.Users.Auth do
       |> maybe_filter_by_account_type(account_type_filter)
       |> maybe_filter_by_status(status_filter)
       |> maybe_filter_by_confirmation(confirmation_filter)
+      |> maybe_filter_by_custom_fields(custom_field_filters)
 
     total_count = PhoenixKit.RepoHelper.aggregate(query, :count, :uuid)
     total_pages = Pagination.total_pages(total_count, page_size)
@@ -3132,6 +3143,37 @@ defmodule PhoenixKit.Users.Auth do
     do: from([u] in query, where: is_nil(u.confirmed_at))
 
   defp maybe_filter_by_confirmation(query, _unknown), do: query
+
+  # A boolean custom field is written as `true`, or as `"true"` by a form, so
+  # both count as yes. The key goes in as a parameter, never into the SQL.
+  defp maybe_filter_by_custom_fields(query, filters) when is_list(filters) do
+    Enum.reduce(filters, query, fn
+      {key, :yes}, query when is_binary(key) ->
+        from([u] in query,
+          where:
+            fragment(
+              "coalesce((? -> ?) IN ('true'::jsonb, '\"true\"'::jsonb), false)",
+              u.custom_fields,
+              ^key
+            )
+        )
+
+      {key, :no}, query when is_binary(key) ->
+        from([u] in query,
+          where:
+            not fragment(
+              "coalesce((? -> ?) IN ('true'::jsonb, '\"true\"'::jsonb), false)",
+              u.custom_fields,
+              ^key
+            )
+        )
+
+      _unknown, query ->
+        query
+    end)
+  end
+
+  defp maybe_filter_by_custom_fields(query, _filters), do: query
 
   defp maybe_filter_by_search(query, ""), do: query
 

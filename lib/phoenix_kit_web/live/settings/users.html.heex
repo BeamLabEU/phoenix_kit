@@ -818,6 +818,25 @@
                     />
                   </div>
 
+                  <%!-- Column name: the Users table's header. Blank = the label. --%>
+                  <div class="fieldset">
+                    <label class="label">
+                      <span class="fieldset-legend">{gettext("Column name")}</span>
+                    </label>
+                    <.input
+                      type="text"
+                      name="field[column_label]"
+                      value={if @editing_field, do: @editing_field["column_label"], else: ""}
+                    />
+                    <div class="label">
+                      <span class="fieldset-label">
+                        {gettext(
+                          "Shown as the column header in the Users table. Leave blank to use the label."
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
                   <%!-- Field Type --%>
                   <div class="fieldset">
                     <label class="label">
@@ -861,6 +880,19 @@
                         {gettext(
                           "When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it."
                         )}
+                      </:description>
+                    </.checkbox>
+                  </div>
+
+                  <%!-- Yes/No fields only: a filter in the Users table. --%>
+                  <div :if={@field_form_type == "boolean"} class="fieldset">
+                    <.checkbox
+                      name="field[filterable]"
+                      checked={!!(@editing_field && @editing_field["filterable"])}
+                      label={gettext("Filter in the Users table")}
+                    >
+                      <:description>
+                        {gettext("Adds a Yes/No filter for this field to the Users table.")}
                       </:description>
                     </.checkbox>
                   </div>

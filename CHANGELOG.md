@@ -38,6 +38,16 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   `organizations_of/1`, and `Scope.acting_link/1` and `Scope.can_manage_organization?/1`.
   A scope built from a bare organization, outside any session, holds only the roles every
   link allows: all of them until someone is narrowed.
+- **A short column name for a custom field.** Settings -> Users -> Custom fields has an
+  optional "Column name" (`column_label`), shown as the field's header in the Users
+  table, with the full label on hover. Blank uses the label; every other place shows the
+  label.
+- **Filter the Users table by a yes/no custom field.** Turn on "Filter in the Users
+  table" on a boolean field (`filterable`) and the filter bar offers Any, Yes and No for
+  it. Yes matches `true` and `"true"`; No matches everything else, a user never marked
+  included. The filter is in the URL (`?cf=approved:no`, `?cf=approved:no,vip:yes`), so
+  a dashboard card or a bookmark can link to it. `Auth.list_users_paginated/1` takes it
+  as `custom_fields: [{"approved", :no}]`.
 - **An eye button on password fields** (`<.input type="password" password_toggle>`):
   it shows and hides what was typed. On for the login page, both registration
   pages, password reset, the Add account dialog, and the password fields of
@@ -57,6 +67,24 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   administrator the override.
 - The login page's "Create an account" link moved up, right under the Log in
   button, above the magic link, QR code and OAuth buttons.
+- **The Users table reads better on a tablet.**
+  - The first column is headed Account. A company shows its name there, with its
+    email under it, so a managed company with no contact email no longer shows a blank
+    line, and the row's link, the card view and the roles dialog name it too.
+  - Full Name is for people; a company's cell shows "-".
+  - The avatar is its own column, first and on by default. ⚠️ An admin who saved their
+    own columns, or a site with a default column set, does not get it until they tick
+    it.
+  - When the table is too wide it drops columns instead of scrolling sideways:
+    Location first, then Last Confirmed, Username, Registered, Avatar, Full Name,
+    Roles, Status and custom fields. Dates no longer wrap.
+  - Shorter labels: Roles, an "Email ✓" or "Email pending" badge, and "Managed".
+
+### Fixed
+
+- With only the status or email filter on and no match, the Users table said "No users
+  are registered yet." and offered no way back. Every filter now counts, and the empty
+  state offers Clear Filters.
 
 ## 3.4.0 - 2026-11-06
 

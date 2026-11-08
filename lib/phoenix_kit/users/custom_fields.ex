@@ -13,6 +13,10 @@ defmodule PhoenixKit.Users.CustomFields do
 
   - `key` - Unique identifier for the field (string)
   - `label` - Display label for the field (string)
+  - `column_label` - Optional short name for the field's column header in the Users
+    table (string). Absent means the label is used; blank is stored as absent
+  - `filterable` - For a `boolean` field: whether the Users table offers a
+    Yes/No filter for it (boolean, default: false)
   - `type` - Field type: text, textarea, number, boolean, date, email, url, uuid, select, radio, checkbox
   - `required` - Whether the field is required (boolean)
   - `position` - Display order (integer)
@@ -154,6 +158,32 @@ defmodule PhoenixKit.Users.CustomFields do
     list_field_definitions()
     |> Enum.filter(&(&1["enabled"] == true))
     |> Enum.sort_by(&(&1["position"] || 0))
+  end
+
+  @doc """
+  The enabled `boolean` fields the Users table offers a filter for (`"filterable"`
+  on), sorted by position.
+  """
+  @spec list_filterable_field_definitions() :: [map()]
+  def list_filterable_field_definitions do
+    Enum.filter(list_enabled_field_definitions(), &filterable?/1)
+  end
+
+  @doc "Whether the Users table offers a Yes/No filter for this field."
+  @spec filterable?(map()) :: boolean()
+  def filterable?(%{"type" => "boolean", "filterable" => true}), do: true
+  def filterable?(_definition), do: false
+
+  @doc """
+  The field's name in the Users table: its column name when one is set,
+  else its label. Everywhere else shows the label.
+  """
+  @spec column_label(map()) :: String.t()
+  def column_label(definition) do
+    case definition do
+      %{"column_label" => name} when is_binary(name) and name != "" -> name
+      _ -> definition["label"] || definition["key"]
+    end
   end
 
   @doc """
@@ -613,11 +643,23 @@ defmodule PhoenixKit.Users.CustomFields do
       "position" => field_def["position"] || 0,
       "enabled" => normalize_boolean(Map.get(field_def, "enabled"), true),
       "user_accessible" => normalize_boolean(Map.get(field_def, "user_accessible"), true),
+      "filterable" => normalize_boolean(Map.get(field_def, "filterable"), false),
       "validation" => field_def["validation"] || %{},
       "default" => field_def["default"] || "",
       "options" => field_def["options"] || []
     }
+    |> put_column_label(field_def["column_label"])
   end
+
+  # Blank or spaces only is stored as absent, so the label shows.
+  defp put_column_label(definition, name) when is_binary(name) do
+    case String.trim(name) do
+      "" -> definition
+      trimmed -> Map.put(definition, "column_label", trimmed)
+    end
+  end
+
+  defp put_column_label(definition, _name), do: definition
 
   # Convert string boolean values to actual booleans
   defp normalize_boolean(value, default) do
