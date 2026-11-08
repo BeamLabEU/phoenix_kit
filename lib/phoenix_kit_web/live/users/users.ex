@@ -42,7 +42,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.{CustomFields, Roles, TableColumns}
+  alias PhoenixKit.Users.{CustomFields, PersonOrganizations, Roles, TableColumns}
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Actor
@@ -107,6 +107,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         :geolocation_tracking_enabled,
         Settings.get_boolean_setting("track_registration_geolocation", false)
       )
+      |> assign(:person_orgs, %{})
       |> assign(:show_role_modal, false)
       |> assign(:managing_user, nil)
       |> assign(:user_roles, [])
@@ -629,12 +630,35 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     |> assign(:custom_filter_values, Map.new(custom_filters))
     |> assign(:users, [])
     |> assign(:users, users)
+    |> assign(:person_orgs, person_orgs(socket, users))
     |> assign(
       :impersonable_uuids,
       MultiSession.impersonable_uuids(socket.assigns[:impersonation_actor], users)
     )
     |> assign(:total_count, total_count)
     |> assign(:total_pages, total_pages)
+  end
+
+  # Each person's companies, for the Organizations column and card field
+  # (two queries for the page); nothing while organization accounts are off.
+  defp person_orgs(socket, users) do
+    if socket.assigns.org_accounts_enabled,
+      do: PersonOrganizations.organizations_by_person(users),
+      else: %{}
+  end
+
+  # How many of a person's companies a cell lists: all of up to three, else
+  # two and "+N more" (the person's page has them all), so the cell is never
+  # taller than the account's three lines.
+  @org_cell_max 3
+
+  @doc false
+  def organizations_cell(person_orgs, user) do
+    orgs = Map.get(person_orgs, user.uuid, [])
+
+    if length(orgs) <= @org_cell_max,
+      do: {orgs, 0},
+      else: {Enum.take(orgs, @org_cell_max - 1), length(orgs) - (@org_cell_max - 1)}
   end
 
   defp load_stats(socket) do
@@ -801,7 +825,8 @@ defmodule PhoenixKitWeb.Live.Users.Users do
         selected_columns,
         current_user,
         date_time_settings,
-        geolocation_tracking_enabled
+        geolocation_tracking_enabled,
+        person_orgs \\ %{}
       ) do
     # The card's header already shows the account and its avatar.
     selected_columns
@@ -811,13 +836,16 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       label = render_column_header(column_id) || column_id
 
       value =
-        build_card_field_value(
-          user,
-          column_id,
-          current_user,
-          date_time_settings,
-          geolocation_tracking_enabled
-        )
+        if column_id == "organizations",
+          do: card_organizations(person_orgs, user),
+          else:
+            build_card_field_value(
+              user,
+              column_id,
+              current_user,
+              date_time_settings,
+              geolocation_tracking_enabled
+            )
 
       %{label: label, value: if(nowrap_column?(column_id), do: nowrap(value), else: value)}
     end)
@@ -848,6 +876,20 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   defp card_full_name(user), do: person_name(user) || "-"
+
+  defp card_organizations(person_orgs, user) do
+    case organizations_cell(person_orgs, user) do
+      {[], _} ->
+        "-"
+
+      {shown, 0} ->
+        Enum.map_join(shown, ", ", &PersonOrganizations.name/1)
+
+      {shown, more} ->
+        Enum.map_join(shown, ", ", &PersonOrganizations.name/1) <>
+          " " <> ngettext("+%{count} more", "+%{count} more", more)
+    end
+  end
 
   defp card_roles(user) do
     roles = get_user_roles(user)
@@ -901,14 +943,15 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     present(name) || User.delivery_email(user) || User.display_name(user)
   end
 
-  def account_title(user), do: User.delivery_email(user) || User.display_name(user)
+  def account_title(user),
+    do: person_name(user) || User.delivery_email(user) || User.display_name(user)
 
-  @doc "The line under a company's name: its email, when it has one."
+  @doc "The line under a name: the email, when the name is not the email."
   def account_subtitle(%User{account_type: "organization", organization_name: name} = user) do
     if present(name), do: User.delivery_email(user)
   end
 
-  def account_subtitle(_user), do: nil
+  def account_subtitle(user), do: if(person_name(user), do: User.delivery_email(user))
 
   @doc """
   A person's name, for the Full Name column. `nil` for a company, whose name
@@ -1011,12 +1054,14 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # and the actions never go. Custom fields go last: they hold what a site
   # added the table for, such as an approval flag.
   @fit_priorities %{
-    "location" => 9,
-    "last_confirmed" => 8,
-    "username" => 7,
+    "location" => 10,
+    "last_confirmed" => 9,
+    "username" => 8,
+    # The name is in the account column too.
+    "full_name" => 7,
     "registered" => 6,
     "avatar" => 5,
-    "full_name" => 4,
+    "organizations" => 4,
     "role" => 3,
     "status" => 2
   }

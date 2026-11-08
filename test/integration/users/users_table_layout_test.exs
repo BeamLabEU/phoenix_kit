@@ -76,6 +76,13 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
 
       F.person(%{email: "#{m}-ann@example.com"})
 
+      F.person(%{
+        email: "#{m}-denis@example.com",
+        first_name: "Denis",
+        last_name: "Sivovol",
+        username: "#{m}_denis"
+      })
+
       {:ok, view, _html} = open(conn, admin, "?q=#{m}")
       doc = doc(view)
 
@@ -88,6 +95,12 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       assert squish(cell(doc, "#{m}-ann@", "Account")) =~ ~r/^#{m}-ann@example\.com/
       assert row_link_label(doc, "#{m} Amwood OU") == "#{m} Amwood OU"
       assert row_link_label(doc, "#{m}-ann@") == "#{m}-ann@example.com"
+
+      # A person with a name: the name, the email, the username, once each.
+      assert squish(cell(doc, "#{m}-denis@", "Account")) ==
+               "Denis Sivovol #{m}-denis@example.com @#{m}_denis"
+
+      assert row_link_label(doc, "#{m}-denis@") == "Denis Sivovol"
     end
 
     test "a managed company without a contact email shows its name, not a blank", %{
@@ -124,7 +137,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
     end
   end
 
-  test "Full Name is for people, and still names the company a person belongs to", %{
+  test "Full Name is for people, and holds the name alone", %{
     conn: conn,
     admin: admin
   } do
@@ -148,7 +161,80 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
     doc = doc(view)
 
     assert squish(cell(doc, "#{m}-birch@", "Full Name")) == "-"
-    assert squish(cell(doc, "#{m}-ann@", "Full Name")) == "Ann Lee #{m} Birch AS"
+    assert squish(cell(doc, "#{m}-ann@", "Full Name")) == "Ann Lee"
+  end
+
+  describe "the Organizations column" do
+    defp org_cell(doc, text), do: cell(doc, text, "Organizations")
+
+    test "lists a person's companies, both kinds, each opening its page", %{
+      conn: conn,
+      admin: admin
+    } do
+      m = marker()
+      birch = F.organization(%{organization_name: "#{m} Birch AS", managed_by_members: false})
+      person = F.person(%{email: "#{m}-ann@example.com", organization_uuid: birch.uuid})
+      oak = F.organization(%{organization_name: "#{m} Oak Trading"})
+      F.manager(oak, person)
+      F.person(%{email: "#{m}-solo@example.com"})
+
+      {:ok, view, _html} = open(conn, admin, "?q=#{m}")
+      doc = doc(view)
+
+      assert "Organizations" in header_texts(doc)
+      assert squish(org_cell(doc, "#{m}-ann@")) == "#{m} Birch AS #{m} Oak Trading"
+
+      assert [href] =
+               doc
+               |> org_cell("#{m}-ann@")
+               |> Floki.find("a#user-#{person.uuid}-org-#{oak.uuid}")
+               |> Floki.attribute("href")
+
+      assert href =~ "/admin/users/view/#{oak.uuid}"
+      assert squish(org_cell(doc, "#{m}-solo@")) == "-"
+    end
+
+    test "shows three, or two and how many more, linking to the person's page", %{
+      conn: conn,
+      admin: admin
+    } do
+      m = marker()
+      three = F.person(%{email: "#{m}-three@example.com"})
+      five = F.person(%{email: "#{m}-five@example.com"})
+
+      for n <- 1..5 do
+        org = F.organization(%{organization_name: "#{m} Co #{n}"})
+        F.manager(org, five)
+        if n <= 3, do: F.manager(org, three)
+      end
+
+      {:ok, view, _html} = open(conn, admin, "?q=#{m}")
+      doc = doc(view)
+
+      assert squish(org_cell(doc, "#{m}-three@")) == "#{m} Co 1 #{m} Co 2 #{m} Co 3"
+      assert squish(org_cell(doc, "#{m}-five@")) == "#{m} Co 1 #{m} Co 2 +3 more"
+
+      assert [href] =
+               doc
+               |> org_cell("#{m}-five@")
+               |> Floki.find("a#user-#{five.uuid}-orgs-more")
+               |> Floki.attribute("href")
+
+      assert href =~ "/admin/users/view/#{five.uuid}"
+
+      html = render_click(view, "set_view_mode", %{"mode" => "card"})
+      assert html =~ "#{m} Co 1, #{m} Co 2 +3 more"
+    end
+
+    test "is not offered while organization accounts are off", %{conn: conn, admin: admin} do
+      Settings.update_setting("enable_organization_accounts", "false")
+
+      refute "organizations" in Enum.map(TableColumns.columns_spec().columns, & &1.id)
+      refute "organizations" in TableColumns.get_default_columns()
+
+      {:ok, view, _html} = open(conn, admin)
+      refute "Organizations" in header_texts(doc(view))
+    end
   end
 
   test "the avatar is a column of its own, on by default, and hiding it removes it", %{
@@ -223,7 +309,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
     {:ok, view, _html} = open(conn, admin, "?q=#{m}")
 
     assert [row_frame] = view |> doc() |> row("#{m}-card@") |> Floki.find("[data-avatar-frame]")
-    assert row_frame |> Floki.attribute("class") |> hd() =~ "w-8 h-8"
+    assert row_frame |> Floki.attribute("class") |> hd() =~ "w-12 h-12"
 
     render_click(view, "set_view_mode", %{"mode" => "card"})
 
@@ -390,7 +476,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
 
     {:ok, _} =
       TableColumns.update_user_table_columns(
-        ~w(avatar email username full_name role status registered location last_confirmed) ++
+        ~w(avatar email username full_name organizations role status registered location last_confirmed) ++
           ["custom_#{key}"]
       )
 
@@ -409,12 +495,13 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       end)
 
     assert priorities == %{
-             "Location" => ["9"],
-             "Last Confirmed" => ["8"],
-             "Username" => ["7"],
+             "Location" => ["10"],
+             "Last Confirmed" => ["9"],
+             "Username" => ["8"],
+             "Full Name" => ["7"],
              "Registered" => ["6"],
              "Avatar" => ["5"],
-             "Full Name" => ["4"],
+             "Organizations" => ["4"],
              "Roles" => ["3"],
              "Status" => ["2"],
              "Approved" => ["1"],

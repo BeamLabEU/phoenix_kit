@@ -69,6 +69,17 @@ defmodule PhoenixKit.Integration.Users.UserDetailsLayoutTest do
     end
   end
 
+  test "the header's avatar is large and sits in a box pinned to the top", %{conn: conn} do
+    view = open(conn, plain_user())
+
+    assert has_element?(
+             view,
+             "#user-detail-avatar.self-start.shrink-0 [data-avatar-frame], #user-detail-avatar.self-start.shrink-0 .avatar > div"
+           )
+
+    assert view |> element("#user-detail-avatar") |> render() =~ "w-40 h-40"
+  end
+
   test "Profile and Account are tabs of their own, in the URL", %{conn: conn} do
     target = plain_user()
     view = open(conn, target)

@@ -11,6 +11,11 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Added
 
+- **An Organizations column in the Users table.** Every company a person belongs to,
+  linked (manager, staff…) or by the older single tie, by name, each opening the
+  company's page. Up to three show; past that two and "+N more", which opens the
+  person's page. Offered, and on by default, only while organization accounts are on;
+  an admin with a saved column choice adds it from the column picker.
 - **The admin's user form has the person's avatar controls.** Pick a picture, frame it
   in the crop editor, adjust or reset the crop later, as on the profile page: both pages
   render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is
@@ -107,8 +112,13 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Changed
 
-- **Bigger avatars in the users grid.** A card's avatar is 64 px instead of 32 px
-  (`user_avatar` size `"card"`); the table rows keep the small one.
+- **Bigger avatars in the users list.** A grid card's avatar is 64 px instead of 32 px
+  (`user_avatar` size `"card"`), a table row's 48 px instead of 32 px, and the header
+  of a user's page 160 px instead of 80 px (96 px on a phone). That header's avatar no
+  longer moves down when the card grows (the Organizations search opening).
+- **The Users table's Account cell reads name, email, @username.** A person with a
+  name is named first, with the email under it; Full Name holds the name alone, no
+  longer the person's company.
 - **A user's admin page is split into tabs.** Who it is (picture, name, status, roles,
   registration date) sits in a header every tab shares, with Edit at hand. Profile holds
   the basic information and custom fields; the new Account tab holds the account record,

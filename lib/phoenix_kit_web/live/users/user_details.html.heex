@@ -15,10 +15,18 @@
       <%!-- Who this is, above every tab: the picture, the name, the state of
            the account, and what can be done with it. --%>
       <div class="card bg-base-200 shadow-sm mb-6">
-        <div class="card-body p-4 sm:p-6 flex-row flex-wrap items-start gap-4 sm:gap-6">
-          <.user_avatar user={@user} size="lg" class="!w-20 !h-20 !text-3xl" />
+        <%!-- The avatar sits in a box of its own pinned to the top, so the
+             card growing (the Organizations search opening) never moves it. --%>
+        <div class="card-body p-4 sm:p-6 flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+          <div id="user-detail-avatar" class="shrink-0 self-start">
+            <.user_avatar
+              user={@user}
+              size="xl"
+              class="max-sm:!w-24 max-sm:!h-24 max-sm:!text-3xl"
+            />
+          </div>
 
-          <div class="flex-1 min-w-0 space-y-2">
+          <div class="flex-1 min-w-0 w-full space-y-2">
             <%!-- A long unbreakable name wraps instead of overflowing. --%>
             <h2 class="text-xl font-semibold break-words">{user_display_name(@user)}</h2>
             <p class="text-sm text-base-content/70 break-words">
@@ -80,7 +88,7 @@
 
           <%!-- Edit at hand; everything else, Permanently Delete last and
                apart, in the menu (the same actions as the Users list's). --%>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0 self-start">
             <.link
               navigate={
                 PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@user.uuid}?return_to=view")

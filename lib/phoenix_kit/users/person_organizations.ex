@@ -26,6 +26,7 @@ defmodule PhoenixKit.Users.PersonOrganizations do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.ManagedOrganizations
+  alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RelationshipTypes
 
@@ -63,6 +64,50 @@ defmodule PhoenixKit.Users.PersonOrganizations do
   end
 
   def list(_user), do: []
+
+  @doc """
+  For a list of accounts (a page of the Users table), each person's companies
+  by name, as `%{person_uuid => [organization]}`, in two queries whatever the
+  page size: the links, then the older tie (read from a preloaded
+  `:organization` when there is one). A company reached both ways is listed
+  once; an account with none is left out of the map.
+  """
+  @spec organizations_by_person([User.t()]) :: %{String.t() => [User.t()]}
+  def organizations_by_person(users) when is_list(users) do
+    people = Enum.filter(users, &match?(%User{account_type: "person"}, &1))
+    uuids = Enum.map(people, & &1.uuid)
+
+    linked =
+      from(m in OrganizationManager,
+        join: org in assoc(m, :organization),
+        where: m.user_uuid in ^uuids and org.managed_by_members and org.is_active,
+        select: {m.user_uuid, org}
+      )
+      |> RepoHelper.repo().all()
+
+    tied = Enum.flat_map(people, &older_tie/1)
+
+    (linked ++ tied)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Map.new(fn {uuid, orgs} ->
+      {uuid, orgs |> Enum.uniq_by(& &1.uuid) |> Enum.sort_by(&String.downcase(name(&1)))}
+    end)
+  end
+
+  # As `list/1` reads it: any organization the column points at.
+  defp older_tie(%User{organization_uuid: nil}), do: []
+
+  defp older_tie(%User{organization: %User{account_type: "organization"} = org} = person),
+    do: [{person.uuid, org}]
+
+  defp older_tie(%User{organization: %Ecto.Association.NotLoaded{}} = person) do
+    case Auth.get_user(person.organization_uuid) do
+      %User{account_type: "organization"} = org -> [{person.uuid, org}]
+      _ -> []
+    end
+  end
+
+  defp older_tie(_person), do: []
 
   @doc """
   Active organizations whose name contains `term`, those starting with it

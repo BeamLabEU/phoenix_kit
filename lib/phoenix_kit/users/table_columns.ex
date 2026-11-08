@@ -43,7 +43,7 @@ defmodule PhoenixKit.Users.TableColumns do
   end
 
   # The standard columns in the order the column picker offers them.
-  @standard_order ~w(avatar email username full_name role status registered location last_confirmed)
+  @standard_order ~w(avatar email username full_name organizations role status registered location last_confirmed)
 
   @doc """
   The spec `PhoenixKitWeb.TableColumns` needs for the Users table: every
@@ -105,11 +105,18 @@ defmodule PhoenixKit.Users.TableColumns do
     # avatar first: it was drawn inside the first column before it became a
     # column of its own. "username" is left out — the first column already
     # shows it (@username under the email) — but the picker still offers it.
+    # "organizations" sits after the person's name rather than in
+    # alphabetical order.
     standard_fields =
       get_standard_columns()
       |> Map.keys()
       |> Enum.sort()
-      |> Enum.reject(&(&1 in ["avatar", "username"]))
+      |> Enum.reject(&(&1 in ["avatar", "username", "organizations"]))
+      |> then(fn fields ->
+        if Map.has_key?(get_standard_columns(), "organizations"),
+          do: insert_after(fields, "full_name", "organizations"),
+          else: fields
+      end)
 
     ["avatar" | standard_fields] ++ ["actions"]
   end
@@ -262,7 +269,35 @@ defmodule PhoenixKit.Users.TableColumns do
 
   # Private functions
 
+  defp insert_after(list, after_item, item) do
+    case Enum.find_index(list, &(&1 == after_item)) do
+      nil -> list ++ [item]
+      index -> List.insert_at(list, index + 1, item)
+    end
+  end
+
   defp get_standard_columns do
+    Map.merge(base_standard_columns(), organization_columns())
+  end
+
+  # The companies a person belongs to: offered only while organization
+  # accounts are on, so a site without them never sees an empty column.
+  defp organization_columns do
+    if Settings.get_boolean_setting("enable_organization_accounts", false) do
+      %{
+        "organizations" => %{
+          label: gettext("Organizations"),
+          field: nil,
+          required: false,
+          type: :organizations
+        }
+      }
+    else
+      %{}
+    end
+  end
+
+  defp base_standard_columns do
     %{
       # Its own column so an admin can hide it. The header is read by screen
       # readers and the column picker only.

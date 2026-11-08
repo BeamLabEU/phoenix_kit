@@ -118,7 +118,8 @@
               @selected_columns,
               @phoenix_kit_current_user,
               @date_time_settings,
-              @geolocation_tracking_enabled
+              @geolocation_tracking_enabled,
+              @person_orgs
             )
           end
         }
@@ -476,9 +477,8 @@
                   <span class="badge badge-info badge-xs h-auto shrink-0">{gettext("you")}</span>
                 <% end %>
               </div>
-              <%!-- A company's email under its name; a person's name under
-                   their email. --%>
-              <% second_line = account_subtitle(user) || person_name(user) %>
+              <%!-- The email under the name, when there is a name. --%>
+              <% second_line = account_subtitle(user) %>
               <%= if second_line do %>
                 <span class="text-sm text-base-content/60 truncate">{second_line}</span>
               <% end %>
@@ -580,7 +580,7 @@
                             tabindex="-1"
                             aria-hidden="true"
                           >
-                            <.user_avatar user={user} size="sm" peek />
+                            <.user_avatar user={user} size="lg" peek />
                           </.link>
                         <% column_id == "email" -> %>
                           <% title = account_title(user) %>
@@ -630,38 +630,47 @@
                                   @{user.username}
                                 </div>
                               <% end %>
-                              <%!-- A person's name inline on mobile only, since
-                                   the full_name column is hidden there. A
-                                   company's name is already the first line. --%>
-                              <% mobile_full_name = person_name(user) %>
-                              <%= if mobile_full_name do %>
-                                <div
-                                  class="md:hidden text-sm text-base-content/60 truncate"
-                                  title={mobile_full_name}
-                                >
-                                  {mobile_full_name}
-                                </div>
-                              <% end %>
                             </div>
                           </.link>
                         <% column_id == "full_name" -> %>
-                          <div class="flex flex-col gap-1 min-w-0 max-w-[18rem]">
-                            <%!-- People only: a company's name is in the first
-                                 column. --%>
-                            <% full_name = person_name(user) %>
-                            <%= if full_name do %>
-                              <div class="truncate" title={full_name}>{full_name}</div>
-                            <% else %>
-                              <div class="text-base-content/50">-</div>
-                            <% end %>
-                            <%= if @org_accounts_enabled && user.organization do %>
-                              <div
-                                class="text-xs text-base-content/60 truncate"
-                                title={user.organization.organization_name}
-                              >
-                                {user.organization.organization_name}
-                              </div>
-                            <% end %>
+                          <%!-- People only: a company's name is in the first
+                               column, and a person's companies in their own. --%>
+                          <% full_name = person_name(user) %>
+                          <%= if full_name do %>
+                            <div class="truncate max-w-[18rem]" title={full_name}>
+                              {full_name}
+                            </div>
+                          <% else %>
+                            <div class="text-base-content/50">-</div>
+                          <% end %>
+                        <% column_id == "organizations" -> %>
+                          <%!-- The first few by name, each opening its page
+                               (above the row's stretched link); the rest are
+                               on the person's page. --%>
+                          <% {shown, more} = organizations_cell(@person_orgs, user) %>
+                          <div class="flex flex-col gap-1 min-w-0 max-w-[16rem] text-sm">
+                            <.link
+                              :for={org <- shown}
+                              id={"user-#{user.uuid}-org-#{org.uuid}"}
+                              navigate={
+                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{org.uuid}")
+                              }
+                              class="relative z-10 link link-hover truncate"
+                              title={PersonOrganizations.name(org)}
+                            >
+                              {PersonOrganizations.name(org)}
+                            </.link>
+                            <.link
+                              :if={more > 0}
+                              id={"user-#{user.uuid}-orgs-more"}
+                              navigate={
+                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
+                              }
+                              class="relative z-10 link link-hover text-xs text-base-content/60"
+                            >
+                              {ngettext("+%{count} more", "+%{count} more", more)}
+                            </.link>
+                            <div :if={shown == []} class="text-base-content/50">-</div>
                           </div>
                         <% column_id == "role" -> %>
                           <% user_roles = get_user_roles(user) %>
