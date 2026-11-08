@@ -961,24 +961,17 @@
         </:card_actions>
       </.table_default>
 
-      <%!-- Pagination --%>
-      <div
-        :if={@users != []}
-        class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 border-t border-base-300"
-      >
-        <.pagination_controls
-          page={@page}
-          total_pages={@total_pages}
-          build_url={&url_state_path(assigns, page: &1)}
-        />
-        <.page_size_selector
-          id="users-per-page"
-          value={@per_page}
-          auto_fit
-          auto={@auto_fit}
-          table_id="users-table"
-        />
-      </div>
+      <.pagination_bar
+        id="users-pagination"
+        page={@page}
+        total_pages={@total_pages}
+        total_count={@total_count}
+        per_page={@per_page}
+        auto={@auto_fit}
+        table_id="users-table"
+        noun_plural={gettext("users")}
+        build_url={&url_state_path(assigns, page: &1)}
+      />
     </div>
 
     <%!-- Enhanced Stats --%>

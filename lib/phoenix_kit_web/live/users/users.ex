@@ -11,31 +11,27 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   # previous query instead of leaving the page. `role` and `account_type`
   # default to "all", which is therefore what gets omitted from the URL.
   use PhoenixKitWeb.Live.UrlState,
-    params: [
-      search_query: [default: "", url_key: "q", alias: "search"],
-      filter_role: [default: "all", url_key: "role"],
-      filter_account_type: [default: "all", url_key: "account_type"],
-      # Deep-linked from the admin dashboard's user cards, so each number there
-      # opens the list behind it. Values mirror the predicates
-      # `Roles.get_extended_stats/0` counts with.
-      filter_status: [default: "all", url_key: "status"],
-      filter_confirmation: [default: "all", url_key: "confirmation"],
-      # Boolean custom field filters, one declared key for all of them:
-      # `?cf=approved:no,vip:yes`. Field keys exist only at runtime, and a
-      # key UrlState doesn't know survives every patch, "Clear Filters"
-      # included. Read through `custom_filters/2`, which drops what no
-      # filterable field offers.
-      filter_custom: [default: "", url_key: "cf"],
-      page: [default: 1, cast: :integer, min: 1],
-      # Rows per page, picked with <.page_size_selector>. Allowlisted rather
-      # than bounded: an arbitrary integer out of the URL is a LIMIT clause.
-      per_page: [default: 10, cast: :integer, in: [10, 25, 50, 100]],
-      # The selector's "Auto" mode (pilot on this tab only): the client
-      # measures the viewport and pushes the per_page that fits. Only the
-      # flag lives here — the size it resolved to is `per_page` as usual, so
-      # the URL stays fully self-describing.
-      auto_fit: [default: false, cast: :boolean, url_key: "fit"]
-    ]
+    # Rows per page and Auto, remembered per person across the admin's
+    # lists (`PhoenixKitWeb.PageSize`).
+    params:
+      [
+        search_query: [default: "", url_key: "q", alias: "search"],
+        filter_role: [default: "all", url_key: "role"],
+        filter_account_type: [default: "all", url_key: "account_type"],
+        # Deep-linked from the admin dashboard's user cards, so each number there
+        # opens the list behind it. Values mirror the predicates
+        # `Roles.get_extended_stats/0` counts with.
+        filter_status: [default: "all", url_key: "status"],
+        filter_confirmation: [default: "all", url_key: "confirmation"],
+        # Boolean custom field filters, one declared key for all of them:
+        # `?cf=approved:no,vip:yes`. Field keys exist only at runtime, and a
+        # key UrlState doesn't know survives every patch, "Clear Filters"
+        # included. Read through `custom_filters/2`, which drops what no
+        # filterable field offers.
+        filter_custom: [default: "", url_key: "cf"],
+        page: [default: 1, cast: :integer, min: 1]
+      ] ++
+        PhoenixKitWeb.PageSize.url_params()
 
   # Imported per-LiveView rather than from `PhoenixKitWeb, :live_view`: a host
   # app that defines its own `row_link/1` would get an ambiguous import the
@@ -50,6 +46,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   alias PhoenixKit.Utils.CountryData
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Actor
+  alias PhoenixKitWeb.PageSize
   alias PhoenixKitWeb.TableColumns, as: ColumnPrefs
   alias PhoenixKitWeb.Users.MultiSession
 
@@ -122,6 +119,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       |> assign(:date_time_settings, date_time_settings)
       |> assign_columns()
       |> load_stats()
+      |> PageSize.mount()
 
     {:ok, socket}
   end
@@ -229,26 +227,10 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     {:noreply, reset_url_state(socket)}
   end
 
-  # Picking "Auto" only raises the flag; the PageSizeAutoFit hook then
-  # measures and pushes the size it fits, tagged `auto: "1"` so the flag
-  # survives. A number picked by hand lowers it. Either way `push_url_state`
-  # resets the page: page 7 of 10 rows is not page 7 of 100.
-  def handle_event("change_per_page", %{"per_page" => "auto"}, socket) do
-    {:noreply, push_url_state(socket, auto_fit: true)}
-  end
-
-  def handle_event("change_per_page", %{"per_page" => per_page} = params, socket) do
-    case {Integer.parse(per_page), Map.has_key?(params, "auto")} do
-      {{per_page, ""}, true} ->
-        {:noreply, push_url_state(socket, per_page: per_page)}
-
-      {{per_page, ""}, false} ->
-        {:noreply, push_url_state(socket, per_page: per_page, auto_fit: false)}
-
-      _ ->
-        {:noreply, socket}
-    end
-  end
+  # Saved for the person and applied to every list (`PageSize`); the page
+  # goes back to 1, as page 7 of 10 rows is not page 7 of 100.
+  def handle_event("change_per_page", params, socket),
+    do: {:noreply, PageSize.handle_change(params, socket)}
 
   def handle_event("show_role_management", %{"user_uuid" => user_uuid}, socket) do
     user = Auth.get_user!(user_uuid)

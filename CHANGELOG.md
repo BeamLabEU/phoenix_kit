@@ -42,6 +42,14 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   optional "Column name" (`column_label`), shown as the field's header in the Users
   table, with the full label on hover, and in the column picker, with the full label
   under it. Blank uses the label; the cards, forms and user pages show the label.
+- **Rows per page are remembered.** Pick 10, 25, 50, 100 or Auto on any of the Users,
+  Roles, Sessions or Live Sessions lists and every one of them opens at that size from
+  then on, for you only, on any device. A link that names a size still wins, and "Clear
+  Filters" no longer resets it. Every list now starts at 25 (Users was 10, the session
+  lists 20) and offers Auto. For a list of your own: `PhoenixKitWeb.PageSize`, and
+  `UrlState.put_url_state_default/3` underneath it.
+- **One footer for admin lists** (`<.pagination_bar>`): how many rows are shown, the
+  pages and the rows-per-page selector, laid out the same on every list.
 - **A second line for a column in the column picker** (`<.column_settings_modal>`): a
   column's optional `hint` shows under its label in both lists. A column without one
   looks as before.

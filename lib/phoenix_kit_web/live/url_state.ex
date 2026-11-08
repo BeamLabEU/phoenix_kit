@@ -743,6 +743,46 @@ defmodule PhoenixKitWeb.Live.UrlState do
   end
 
   @doc """
+  Gives a declared parameter another default, for this LiveView only: a
+  person's own saved page size, say (`PhoenixKitWeb.PageSize`).
+
+  The new default is what a URL without the key reads as, what
+  `reset_url_state/1` goes back to, and what is left out of every URL the
+  LiveView writes. A URL that names another value still wins.
+
+  Call it in `mount/3`. In `:patch` mode the first `handle_params` runs after
+  mount and reads the query with it. In `:history` mode the client's report on
+  connect does, so a dead render shows the declared default. A value the
+  parameter would refuse from a URL (wrong type, not in `:in`, out of bounds)
+  is ignored, and the default stays as it was.
+  """
+  @spec put_url_state_default(Phoenix.LiveView.Socket.t(), atom(), term()) ::
+          Phoenix.LiveView.Socket.t()
+  def put_url_state_default(socket, key, value) do
+    cfg = config!(socket)
+
+    case Enum.find_index(cfg.params, &(&1.key == key)) do
+      nil ->
+        raise ArgumentError, "unknown UrlState parameter: #{inspect(key)}"
+
+      index ->
+        spec = Enum.at(cfg.params, index)
+
+        if cast_type?(value, spec.cast) and valid_value?(value, spec) do
+          params = List.replace_at(cfg.params, index, %{spec | default: value})
+          Phoenix.Component.assign(socket, @cfg_assign, %{cfg | params: params})
+        else
+          socket
+        end
+    end
+  end
+
+  defp cast_type?(value, :integer), do: is_integer(value)
+  defp cast_type?(value, :boolean), do: is_boolean(value)
+  defp cast_type?(value, :atom), do: is_atom(value)
+  defp cast_type?(value, :string), do: is_binary(value)
+
+  @doc """
   Resets every declared parameter to its default — the "clear all filters"
   action. Unknown query keys are preserved.
   """
@@ -794,6 +834,7 @@ defmodule PhoenixKitWeb.Live.UrlState do
           push_url_state: 3,
           url_state_path: 2,
           reset_url_state: 1,
+          put_url_state_default: 3,
           url_state_sync: 1
         ]
 

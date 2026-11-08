@@ -305,15 +305,17 @@
           </.sortable_tbody>
         </.table_default>
 
-        <%!-- Pagination --%>
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 border-t border-base-300">
-          <.pagination_controls
-            page={@page}
-            total_pages={@total_pages}
-            build_url={&url_state_path(assigns, page: &1)}
-          />
-          <.page_size_selector value={@per_page} />
-        </div>
+        <.pagination_bar
+          id="roles-pagination"
+          page={@page}
+          total_pages={@total_pages}
+          total_count={@total_count}
+          per_page={@per_page}
+          auto={@auto_fit}
+          table_id="roles-table"
+          noun_plural={gettext("roles")}
+          build_url={&url_state_path(assigns, page: &1)}
+        />
       <% else %>
         <%!-- Empty state --%>
         <.empty_state
