@@ -11,7 +11,7 @@ Centralized OAuth / API key / bot token / credential management.
 - `lib/phoenix_kit/integrations/providers.ex` — provider registry (built-ins: Google, Microsoft; the AI providers OpenAI, Anthropic, OpenRouter, Mistral, DeepSeek, xAI, Z.ai, Amazon Bedrock; ElevenLabs, AWS SES, object storage, SMTP, Brevo, Telegram, GitHub, DataForSEO, SerpApi)
 - `lib/phoenix_kit/integrations/oauth.ex` — generic OAuth 2.0 with CSRF state
 - `lib/phoenix_kit/integrations/events.ex` — PubSub events (owner-routed)
-- `lib/phoenix_kit/integrations/telegram.ex` — Telegram bot client (send + one-shot getUpdates)
+- `lib/phoenix_kit/integrations/telegram.ex` — Telegram bot client (send, one-shot getUpdates, file download with a size cap, chats and members, leaving a chat, the command list; the Bot API server is `config :phoenix_kit, :telegram_api_base`, default the cloud)
 - `lib/phoenix_kit/integrations/telegram/linking.ex` + `site_bot.ex` — the website bot for user notifications: deep-link chat linking and the admin's choice of bot (one bot — one site; see the notifications guide)
 - `lib/phoenix_kit_web/live/settings/integrations.ex` + `integration_form.ex` — website-wide (system) UI
 - `lib/phoenix_kit_web/live/integrations/my_integrations.ex` + `my_integration_form.ex` — personal (per-user) UI

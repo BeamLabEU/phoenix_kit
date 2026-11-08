@@ -12,8 +12,11 @@ defmodule PhoenixKit.Integrations.Telegram do
   Scope is deliberately narrow: **sending** (and answering a button press),
   **fetching a file** a user sent to the bot (`download_file/3`), plus a
   **one-shot `getUpdates`** used to discover a user's `chat_id` when they link
-  their chat. A streaming receiver is not here: a host that runs one hands its
-  batches to `Linking.handle_updates/3` (see `Telegram.Linking`).
+  their chat, and what a host's bot that works in **groups** needs: the chat and
+  its members (`get_chat/3`, `get_chat_member/4`), leaving a chat
+  (`leave_chat/3`) and the command list (`set_my_commands/3`). A streaming
+  receiver is not here: a host that runs one hands its batches to
+  `Linking.handle_updates/3` (see `Telegram.Linking`).
 
       Telegram.send_message(conn_uuid, chat_id, "Deploy finished ✅")
       Telegram.send_message(conn_uuid, chat_id, "*Alert*", parse_mode: "MarkdownV2")
@@ -21,13 +24,20 @@ defmodule PhoenixKit.Integrations.Telegram do
   `chat_id` is the numeric id of a user/group/channel, or `"@channelusername"`.
   A user must have messaged the bot first (Telegram's anti-spam rule) — which is
   exactly what the chat-link `/start` step arranges.
+
+  ## The Bot API server
+
+  Calls go to Telegram's cloud, `https://api.telegram.org`, unless
+  `config :phoenix_kit, :telegram_api_base` names another server (`api_base/0`),
+  such as a self-hosted [Bot API server](https://github.com/tdlib/telegram-bot-api).
+  The connection test on the integration form asks the same server.
   """
 
   require Logger
 
   alias PhoenixKit.Integrations
 
-  @api_base "https://api.telegram.org"
+  @default_api_base "https://api.telegram.org"
   @timeout 15_000
   # How long past a long poll's own `timeout` (seconds) we wait for the answer.
   @poll_margin_ms 10_000
@@ -149,6 +159,64 @@ defmodule PhoenixKit.Integrations.Telegram do
     with_token(uuid, opts, &request(&1, "sendChatAction", %{chat_id: chat_id, action: action}))
   end
 
+  # --- Chats and commands ---------------------------------------------------
+
+  @doc """
+  The chat as Telegram reports it now (`getChat`): a ChatFullInfo with its
+  `"type"` and `"title"`, and `"has_protected_content"` when its members may not
+  forward or save what is posted there. Opts: `:owner` for the credential lookup.
+  Returns `{:ok, chat}` or `{:error, reason}`.
+  """
+  @spec get_chat(String.t(), integer() | String.t(), keyword()) ::
+          {:ok, map()} | {:error, term()}
+  def get_chat(uuid, chat_id, opts \\ []) when is_binary(uuid) do
+    with_token(uuid, opts, &request(&1, "getChat", %{chat_id: chat_id}))
+  end
+
+  @doc """
+  One member of a chat (`getChatMember`): a ChatMember whose `"status"` is
+  `"creator"`, `"administrator"`, `"member"`, `"restricted"`, `"left"` or
+  `"kicked"`. Opts: `:owner` for the credential lookup. Returns
+  `{:ok, member}` or `{:error, reason}`.
+  """
+  @spec get_chat_member(String.t(), integer() | String.t(), integer(), keyword()) ::
+          {:ok, map()} | {:error, term()}
+  def get_chat_member(uuid, chat_id, user_id, opts \\ [])
+      when is_binary(uuid) and is_integer(user_id) do
+    with_token(uuid, opts, &request(&1, "getChatMember", %{chat_id: chat_id, user_id: user_id}))
+  end
+
+  @doc """
+  Makes the bot leave a group, supergroup or channel (`leaveChat`). Opts:
+  `:owner` for the credential lookup. Returns `{:ok, true}` or `{:error, reason}`.
+  """
+  @spec leave_chat(String.t(), integer() | String.t(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def leave_chat(uuid, chat_id, opts \\ []) when is_binary(uuid) do
+    with_token(uuid, opts, &request(&1, "leaveChat", %{chat_id: chat_id}))
+  end
+
+  @doc """
+  Sets the bot's command list (`setMyCommands`), which Telegram offers when
+  someone types `/`. `commands` is a list of
+  `%{command: "help", description: "What I do"}`: a command is 1–32 lowercase
+  letters, digits and underscores, a description 1–256 characters.
+
+  Opts: `:scope` (a BotCommandScope, e.g. `%{type: "all_group_chats"}`; without
+  one, every chat), `:language_code` (two letters; without one, the list serves
+  every language that has no list of its own), and `:owner` for the credential
+  lookup. Returns `{:ok, true}` or `{:error, reason}`.
+  """
+  @spec set_my_commands(String.t(), [map()], keyword()) :: {:ok, term()} | {:error, term()}
+  def set_my_commands(uuid, commands, opts \\ []) when is_binary(uuid) and is_list(commands) do
+    with_token(uuid, opts, fn token ->
+      %{commands: commands}
+      |> maybe_put(:scope, opts[:scope])
+      |> maybe_put(:language_code, opts[:language_code])
+      |> then(&request(token, "setMyCommands", &1))
+    end)
+  end
+
   # --- Files ----------------------------------------------------------------
 
   @doc """
@@ -244,7 +312,7 @@ defmodule PhoenixKit.Integrations.Telegram do
   defp check_size(_, _), do: :ok
 
   defp fetch_file(token, path, max, deadline_ms) do
-    url = "#{@api_base}/file/bot#{token}/#{path}"
+    url = "#{api_base()}/file/bot#{token}/#{path}"
 
     # No redirects (the URL carries the token), no retries, and a body
     # collector that stops reading once it is past `max` or past the deadline.
@@ -396,6 +464,36 @@ defmodule PhoenixKit.Integrations.Telegram do
     end
   end
 
+  @doc """
+  The Bot API server every call goes to: `config :phoenix_kit, :telegram_api_base`
+  (an `http` or `https` URL, such as a self-hosted Bot API server's), else
+  Telegram's cloud, `#{@default_api_base}`. A trailing `/` is dropped.
+
+  Raises `ArgumentError` for a setting that is not an http(s) URL, rather than
+  sending the bot token somewhere unintended. A bot moving from the cloud to
+  its own server has to be logged out of the cloud first (Telegram's `logOut`).
+  """
+  @spec api_base() :: String.t()
+  def api_base do
+    case Application.get_env(:phoenix_kit, :telegram_api_base) do
+      nil ->
+        @default_api_base
+
+      base when is_binary(base) ->
+        case URI.parse(base) do
+          %URI{scheme: scheme, host: host}
+          when scheme in ["http", "https"] and host not in [nil, ""] ->
+            String.trim_trailing(base, "/")
+
+          _ ->
+            raise ArgumentError, ":telegram_api_base must be an http(s) URL"
+        end
+
+      _other ->
+        raise ArgumentError, ":telegram_api_base must be an http(s) URL"
+    end
+  end
+
   @doc false
   # Extra `Req` options for every Bot API call — tests route them through
   # `Req.Test` with `config :phoenix_kit, :telegram_req_options, plug: ...`.
@@ -406,7 +504,7 @@ defmodule PhoenixKit.Integrations.Telegram do
   end
 
   defp request(token, method, body, receive_timeout \\ @timeout) do
-    url = "#{@api_base}/bot#{token}/#{method}"
+    url = "#{api_base()}/bot#{token}/#{method}"
 
     case Req.post(url, [json: body, receive_timeout: receive_timeout] ++ req_options()) do
       {:ok, %{status: 200, body: %{"ok" => true, "result" => result}}} ->

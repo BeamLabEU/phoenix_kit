@@ -16,6 +16,13 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   company's page. Up to three show; past that two and "+N more", which opens the
   person's page. Offered, and on by default, only while organization accounts are on;
   an admin with a saved column choice adds it from the column picker.
+- **The Telegram client can work in groups, and talk to a self-hosted Bot API
+  server** (`PhoenixKit.Integrations.Telegram`): `get_chat/3`, `get_chat_member/4`,
+  `leave_chat/3` and `set_my_commands/3`, for a host's bot that is added to groups
+  (Fotki's media bot). Every call, `download_file/3` and the connection test included,
+  goes to `config :phoenix_kit, :telegram_api_base` when set (`Telegram.api_base/0`),
+  else Telegram's cloud; a setting that is not an http(s) URL raises rather than sending
+  the token elsewhere. No migration.
 - **The admin's user form has the person's avatar controls.** Pick a picture, frame it
   in the crop editor, adjust or reset the crop later, as on the profile page: both pages
   render `PhoenixKitWeb.Live.Components.AvatarEditor`. A change on the admin form is

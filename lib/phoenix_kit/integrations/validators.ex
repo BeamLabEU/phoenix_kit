@@ -955,7 +955,7 @@ defmodule PhoenixKit.Integrations.Validators do
   end
 
   defp request_telegram(token) do
-    url = "https://api.telegram.org/bot#{token}/getMe"
+    url = "#{Telegram.api_base()}/bot#{token}/getMe"
 
     case Req.get(url, [receive_timeout: @http_timeout] ++ Telegram.req_options()) do
       {:ok, %{status: 200, body: body}} ->
