@@ -186,13 +186,13 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 280 KiB: the public half is about 270 KiB with the mention field, the two upload hooks (public pages
-  // render them) and the audio recorder, a public primitive that main added (15 KB, "any page can use").
-  // The budget has been raised twice: 256 -> 272 KiB for the recorder, and 272 -> 280 KiB for what the review
-  // of this split asked of the public file (a stub mounts at once when the bundle is loaded, the stubs that
-  // gave up are retried, the early start waits for the install facts, the sidebar's saved scroll is
-  // applied when the page is parsed: about 5 KB together). A coarse backstop only: a small admin hook would
-  // still fit in the margin, and it is the name checks above that catch one put in the wrong file.
+  // 280 KiB: the public half is about 273 KiB with the mention field, the two upload hooks (public pages
+  // render them), the audio recorder, a public primitive that main added (15 KB, "any page can use"), and the
+  // retry and the menu restore of the stubs. The budget has been raised twice: 256 -> 272 KiB for the recorder,
+  // and 272 -> 280 KiB as deliberate headroom for the next public hook from main (2.4 KB were left under 272
+  // when it was raised; the fixes that followed took the file past 272 on their own). A coarse backstop only:
+  // a small admin hook would still fit in the margin, and it is the name checks above that catch one put in
+  // the wrong file.
   assert.ok(publicBytes < 280 * 1024, "phoenix_kit.js is " + publicBytes + " bytes");
   assert.ok(adminBytes > publicBytes / 2, "the admin file is where the weight went");
 });

@@ -157,7 +157,7 @@ a generic form primitive, imported into every page's helpers next to `file_uploa
 form as its example, so a page that renders it must not wait for the admin bundle (48 KB min+gz, against the hook's
 own 2.3 KB). Core renders it nowhere itself and no known module puts it on a page yet. It added 13 087 B raw (the hook and its line in the header) /
 2 032 B min+gz to the public file at 3.4.0, and 2 677 B raw more with the follow-up of #1023 (the recorder started from
-a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so; it went to 280 KiB later, for the review fixes, which added about 5 KB of their own); its body is
+a page's own button, a clip joining a page's own upload), which is why the budget went from 256 to 272 KiB (the test says so; it went to 280 KiB later as deliberate headroom for the next public hook from main: 2.4 KB were left under 272 when it was raised, and the fixes that followed took the file past 272 KiB on their own); its body is
 main's, character for character. A lazy chunk of its own, the other way to keep it off pages without a
 recorder, would cost a third vendored file (compiler, facts, doctor) for those 2 KB.
 
