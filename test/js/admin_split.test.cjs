@@ -710,3 +710,39 @@ test("the CDN fallback does not borrow the nonce: it has to pass the host's allo
   assert.equal(env.scripts[1].src, cdn);
   assert.ok(!env.scripts[1].nonce, "the CDN copy has none");
 });
+
+// ── A stub mounts synchronously once the bundle is there ──────────────────
+
+// LiveView mounts the hooks of a diff and dispatches the diff's events in one
+// synchronous stack. A hook that registers its `handleEvent` a microtask later
+// misses an event pushed in the diff that mounted it.
+test("with the bundle already loaded, a stub's real mounted() runs before mounted() returns", () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "fake_admin.js");
+  fs.writeFileSync(file, fakeAdmin());
+  const env = publicPage();
+  env.load(file); // the bundle is here: a host that imported it, or an earlier mount fetched it
+  const hook = makeHook(env.window.PhoenixKitHooks.SortableGrid);
+  hook.mounted();
+
+  assert.equal(typeof hook.handlers.ping, "function", "handleEvent is registered in the same turn");
+  assert.deepEqual(plain(hook.pushed), [["hello", { n: "SortableGrid" }]]);
+  hook.handlers.ping(); // the event of the very diff that mounted the hook
+  assert.deepEqual(Array.from(env.window.__calls, (c) => c[0]), ["SortableGrid.mounted", "SortableGrid.event"]);
+  assert.equal(hook.helper(), "h:SortableGrid", "the real hook's methods are on the instance");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("a stub destroyed right after a synchronous mount still reaches the real destroyed()", () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "fake_admin.js");
+  fs.writeFileSync(file, fakeAdmin());
+  const env = publicPage();
+  env.load(file);
+  const hook = makeHook(env.window.PhoenixKitHooks.RowMenu);
+  hook.mounted();
+  hook.destroyed();
+
+  assert.deepEqual(Array.from(env.window.__calls, (c) => c[0]), ["RowMenu.mounted", "RowMenu.destroyed"]);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

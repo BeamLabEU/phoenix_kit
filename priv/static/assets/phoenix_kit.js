@@ -4696,7 +4696,7 @@
         var self = this;
         self.__pkGone = false;
         var started = Object.prototype.hasOwnProperty.call(ADMIN_STUB_SETUP, name) ? ADMIN_STUB_SETUP[name](self) : null;
-        loadAdminBundle().then(function() {
+        function mountReal() {
           if (self.__pkGone) return;
           var real = window.PhoenixKitAdminHooks && window.PhoenixKitAdminHooks[name];
           if (!real) {
@@ -4711,7 +4711,13 @@
           });
           if (typeof real.mounted === "function") real.mounted.call(self);
           if (typeof started === "function") started(self);
-        }, function() {
+        }
+        // With the bundle here, mount in this very turn. LiveView mounts the hooks of a
+        // diff and then dispatches the diff's events in one synchronous stack, so a
+        // `handleEvent` registered a microtask later would miss an event the same diff
+        // pushed. A promise would have deferred it even when it had already settled.
+        if (window.PhoenixKitAdminLoaded) return mountReal();
+        loadAdminBundle().then(mountReal, function() {
           // loadLibrary has reported the failure; this names the hook that went without.
           var urls = pkLibUrls("admin");
           console.error("[PhoenixKit] The " + name + " hook did not start: the admin bundle could not be loaded (" +
