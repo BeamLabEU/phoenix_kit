@@ -42,8 +42,9 @@ defmodule PhoenixKitWeb.Actor do
 
   @doc """
   `[actor_uuid: uuid]` for a context call that logs, or `[]` when nobody
-  is signed in. Adds `acting_user_uuid:` while acting for an organization;
-  `Activity.log/1,3` merges it into metadata alongside the caller's own values.
+  is signed in. Adds `acting_user_uuid:` while acting for an organization, and
+  `impersonated_by_uuid:` in a session someone signed in to as this user;
+  `Activity.log/1,3` merges both into metadata alongside the caller's own values.
   """
   @spec opts(source()) :: keyword()
   def opts(source) do
@@ -52,12 +53,27 @@ defmodule PhoenixKitWeb.Actor do
         []
 
       uuid ->
-        case acting_user_uuid(source) do
-          nil -> [actor_uuid: uuid]
-          person -> [actor_uuid: uuid, acting_user_uuid: person]
-        end
+        [actor_uuid: uuid]
+        |> put_present(:acting_user_uuid, acting_user_uuid(source))
+        |> put_present(:impersonated_by_uuid, impersonated_by_uuid(source))
     end
   end
+
+  defp put_present(opts, _key, nil), do: opts
+  defp put_present(opts, key, value), do: opts ++ [{key, value}]
+
+  @doc "Who signed in as this session's person (\"sign in as this user\"), or `nil`."
+  def impersonated_by_uuid(%Scope{impersonated_by_uuid: uuid}), do: uuid
+  def impersonated_by_uuid(%{assigns: assigns}), do: impersonated_by_uuid(assigns)
+
+  def impersonated_by_uuid(%{} = assigns) do
+    case Map.get(assigns, :phoenix_kit_current_scope) do
+      %Scope{} = scope -> impersonated_by_uuid(scope)
+      _ -> nil
+    end
+  end
+
+  def impersonated_by_uuid(_), do: nil
 
   @doc "The real person behind an organization session, from token-loaded provenance."
   def acting_user_uuid(%Scope{} = scope), do: Scope.acting_user_uuid(scope)

@@ -153,7 +153,8 @@ defmodule PhoenixKit.Test.ManagedOrganizationFixtures do
     {:ok, actor} =
       Actor.from_session(%{
         "user_token" => s.token,
-        "pk_session_accounts" => [s.root_token]
+        "pk_session_accounts" => [s.root_token, s.token],
+        "pk_organization_token" => s.token
       })
 
     actor

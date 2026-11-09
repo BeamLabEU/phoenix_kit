@@ -179,17 +179,35 @@ defmodule PhoenixKitWeb.Users.Session do
         )
         |> redirect(to: Routes.post_auth_path())
 
-      {:error, :rate_limit_exceeded} ->
+      {:error, reason} ->
         conn
-        |> put_flash(:error, gettext("Too many organization switches. Please try again later."))
-        |> redirect_back(%{})
-
-      {:error, _} ->
-        conn
-        |> put_flash(:error, gettext("Could not enter that organization."))
+        |> put_flash(:error, enter_refusal(reason))
         |> redirect_back(%{})
     end
   end
+
+  # Every refusal says why (2026-11-09, from WoodMatrix: "Could not enter that
+  # organization." left the person guessing).
+  defp enter_refusal(:rate_limit_exceeded),
+    do: gettext("Too many organization switches. Please try again later.")
+
+  defp enter_refusal(:no_link),
+    do: gettext("This account is not linked to that organization, so it cannot act for it.")
+
+  defp enter_refusal(:organization_inactive),
+    do: gettext("That organization is deactivated, so nobody can act for it.")
+
+  defp enter_refusal(:organization_not_managed),
+    do: gettext("That organization signs in with its own account, so nobody acts for it.")
+
+  defp enter_refusal(:organization_accounts_disabled),
+    do: gettext("Organization accounts are turned off on this site.")
+
+  defp enter_refusal(:unconfirmed),
+    do: gettext("Confirm this account's email address to act for an organization.")
+
+  defp enter_refusal(:session_gone),
+    do: gettext("This session has ended. Sign in again to act for an organization.")
 
   def leave_organization(conn, params) do
     case MultiSession.leave_organization(conn) do
@@ -551,9 +569,6 @@ defmodule PhoenixKitWeb.Users.Session do
     do: gettext("You do not have permission to sign in as another user.")
 
   defp impersonation_error(:target_is_owner), do: gettext("An owner account cannot be used.")
-
-  defp impersonation_error(:target_is_staff),
-    do: gettext("Only an owner can sign in as another administrator.")
 
   defp impersonation_error(:self), do: gettext("That is already your account.")
 

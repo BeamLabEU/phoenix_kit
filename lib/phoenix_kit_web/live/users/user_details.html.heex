@@ -881,8 +881,8 @@
                         {gettext("System")}
                       </span>
                     <% end %>
-                    <%= if role.description do %>
-                      <span class="text-sm text-base-content/70">- {role.description}</span>
+                    <%= if description = PhoenixKit.Users.Roles.display_description(role) do %>
+                      <span class="text-sm text-base-content/70">- {description}</span>
                     <% end %>
                   </div>
                 </label>

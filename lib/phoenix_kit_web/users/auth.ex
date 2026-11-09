@@ -3084,7 +3084,8 @@ defmodule PhoenixKitWeb.Users.Auth do
         multi_session_allowed?: previous.multi_session_allowed?,
         acting_organizations: previous.acting_organizations,
         acting_person: previous.acting_person,
-        organization_root: previous.organization_root
+        organization_root: previous.organization_root,
+        impersonated_by_uuid: previous.impersonated_by_uuid
     }
   end
 

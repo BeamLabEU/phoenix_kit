@@ -461,8 +461,30 @@ defmodule PhoenixKit.Users.Roles do
   @spec display_description(Role.t(), String.t() | nil) :: String.t() | nil
   def display_description(%Role{} = role, lang \\ nil) do
     Multilang.text_field(role.data, "description", lang || Multilang.current_locale()) ||
-      role.description
+      system_role_description(role) || role.description
   end
+
+  # A system role's description as the migration seeded it, translated; one an
+  # admin has rewritten is theirs and shows as written.
+  defp system_role_description(%Role{
+         name: "Owner",
+         description: "System owner with full access"
+       }),
+       do: gettext("System owner with full access")
+
+  defp system_role_description(%Role{
+         name: "Admin",
+         description: "Administrator with elevated privileges"
+       }),
+       do: gettext("Administrator with elevated privileges")
+
+  defp system_role_description(%Role{
+         name: "User",
+         description: "Standard user with basic access"
+       }),
+       do: gettext("Standard user with basic access")
+
+  defp system_role_description(_role), do: nil
 
   @doc """
   `%{name => label}` for every role, for a page that holds role names as strings.

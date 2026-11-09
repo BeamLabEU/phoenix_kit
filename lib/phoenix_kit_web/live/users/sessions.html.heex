@@ -149,7 +149,8 @@
           </h3>
           <div class="flex flex-wrap gap-2">
             <span :for={{name, count} <- @stats.by_os} class="badge badge-ghost gap-1">
-              {name} <span class="font-semibold">{count}</span>
+              {if name == "Unknown", do: gettext("Unknown"), else: name}
+              <span class="font-semibold">{count}</span>
             </span>
           </div>
         </div>
@@ -161,7 +162,8 @@
           </h3>
           <div class="flex flex-wrap gap-2">
             <span :for={{name, count} <- @stats.by_browser} class="badge badge-ghost gap-1">
-              {name} <span class="font-semibold">{count}</span>
+              {if name == "Unknown", do: gettext("Unknown"), else: name}
+              <span class="font-semibold">{count}</span>
             </span>
           </div>
         </div>

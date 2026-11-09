@@ -128,21 +128,20 @@ defmodule PhoenixKitWeb.Users.ManagedOrganizationCreationTest do
     assert html =~ "#{Routes.path("/admin/users/new/managed")}"
   end
 
-  test "borrowed admin account cannot create a managed organization", %{admin: admin} do
-    root = F.person()
-    {root_token, _} = F.session(root)
+  test "signed in as someone who is not an Admin, nobody creates a managed organization",
+       %{admin: admin} do
     {admin_token, _} = F.session(admin)
+    borrowed = F.person()
+    {borrowed_token, _} = F.session(borrowed)
 
     conn =
       init_test_session(build_conn(), %{
-        user_token: admin_token,
-        pk_session_accounts: [root_token, admin_token]
+        user_token: borrowed_token,
+        pk_session_accounts: [admin_token, borrowed_token]
       })
 
-    assert {:error, {:live_redirect, %{to: to}}} =
-             live(conn, Routes.path("/admin/users/new/managed"))
-
-    assert to == Routes.path("/admin/users")
+    # A borrowed account acts as that user (2026-11-09), who may not.
+    assert {:error, {_redirect, %{to: _}}} = live(conn, Routes.path("/admin/users/new/managed"))
   end
 
   test "searching for a manager that finds nobody says so", %{conn: conn} do

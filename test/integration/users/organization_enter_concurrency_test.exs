@@ -65,7 +65,13 @@ defmodule PhoenixKit.Users.OrganizationEnterConcurrencyTest do
     }
   end
 
-  for source <- [:root, :grant, :person, :organization] do
+  # What each revocation leaves the waiting entry to say (every refusal names its reason).
+  for {source, reason} <- [
+        root: :session_gone,
+        grant: :no_link,
+        person: :session_gone,
+        organization: :organization_inactive
+      ] do
     test "#{source} revocation collects an earlier entry after its commit", s do
       {first, entered} = hold(fn -> OrganizationSessions.enter(s.token, s.org.uuid) end)
       Endpoint.subscribe(Sessions.live_socket_id(entered.token))
@@ -81,7 +87,7 @@ defmodule PhoenixKit.Users.OrganizationEnterConcurrencyTest do
       {first, _} = hold(fn -> revoke(unquote(source), s) end)
       second = blocked(fn -> OrganizationSessions.enter(s.token, s.org.uuid) end)
       release(first)
-      assert {:error, :forbidden} = Task.await(second, 5_000)
+      assert {:error, unquote(reason)} = Task.await(second, 5_000)
       refute Repo.exists?(from(t in UserToken, where: t.acting_session_uuid == ^s.root.uuid))
     end
   end

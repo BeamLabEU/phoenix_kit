@@ -52,12 +52,14 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
 
   defp named(attrs), do: F.person(Map.merge(%{first_name: "Ann", last_name: "Lee"}, attrs))
 
-  # An Admin whose session is in a borrowed account of its stack (signed in
-  # as another Admin, which nobody's password added).
+  # An Admin who signed in as a user that may see the Users pages but is neither
+  # an Owner nor an Admin: a borrowed account acts as that user (2026-11-09), so
+  # the page is read-only, as it is for them.
   defp switched_conn do
     {_actor, root} = F.admin_actor()
-    {_actor, other} = F.admin_actor()
-    stacked_conn(root, other, own?: false)
+    viewer = F.person()
+    {:ok, _} = Roles.assign_role(viewer, F.role(["users"]).name)
+    stacked_conn(root, viewer, own?: false)
   end
 
   # `active` sits second in a stack opened by `root`; with `own?: true` it was
@@ -214,7 +216,7 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
   end
 
   describe "a session that may not change it" do
-    test "a switched session sees the people, read-only, and why", %{org: org} do
+    test "signed in as a user who may not, the people show read-only, and why", %{org: org} do
       ann = named(%{email: "ann@example.com"})
       F.manager(org, ann)
 
@@ -223,7 +225,7 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
       assert has_element?(view, "#{@row}-person-#{ann.uuid}")
       refute has_element?(view, "#{@row}-open")
       refute has_element?(view, "#{@row}-remove-#{ann.uuid}")
-      assert has_element?(view, "#{@row}-notice", "Switch back to your own account")
+      assert has_element?(view, "#{@row}-notice", "Only an Owner or Admin")
 
       # Forged events change nothing.
       view
@@ -242,7 +244,7 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
       assert has_element?(
                view,
                "#organization-managers-read-only",
-               "Switch back to your own account"
+               "Only an Owner or Admin"
              )
 
       assert has_element?(view, "#organization-managers-read-only-#{ann.uuid}", "Ann Lee")
@@ -267,7 +269,18 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
       view = open(switched_conn(), ann)
 
       refute has_element?(view, "#person-organizations-open")
-      assert has_element?(view, "#person-organizations-notice", "Switch back to your own account")
+      assert has_element?(view, "#person-organizations-notice", "Only an Owner or Admin")
+    end
+
+    test "signed in as an Admin (an Owner may), the page is that Admin's to change",
+         %{org: org} do
+      {_actor, root} = F.admin_actor()
+      {_actor, admin} = F.admin_actor()
+
+      view = open(stacked_conn(root, admin, own?: false), org)
+
+      assert has_element?(view, "#{@row}-open")
+      refute has_element?(view, "#{@row}-notice")
     end
   end
 
@@ -306,7 +319,7 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
       assert has_element?(view, "#{@row}-notice", "Only an Owner or Admin")
     end
 
-    test "the Actor stands on the added account; a borrowed one on the stack's root" do
+    test "the Actor stands on the account shown, added or borrowed" do
       {_actor, root} = F.admin_actor()
       {_actor, other} = F.admin_actor()
       {root_token, _} = F.session(root)
@@ -316,10 +329,10 @@ defmodule PhoenixKitWeb.Users.OrganizationPeopleTest do
       assert {:ok, %Actor{current: same, root: same}} =
                Actor.from_session(Map.put(session, "pk_own_tokens", [token]))
 
-      assert {:ok, %Actor{current: {_, uuid}, root: {_, root_uuid}}} =
-               Actor.from_session(session)
-
-      assert {uuid, root_uuid} == {other.uuid, root.uuid}
+      assert {:ok, %Actor{current: same, root: same}} = Actor.from_session(session)
+      assert {_row, uuid} = same
+      assert uuid == other.uuid
+      refute uuid == root.uuid
     end
   end
 

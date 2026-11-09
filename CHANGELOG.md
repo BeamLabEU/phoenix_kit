@@ -228,8 +228,26 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   the first one or one the person added themselves (`MultiSession.person_token/1`, which
   `ManagedOrganizations.Actor.from_session/1` follows too); the company's session is bound
   to that account's, so signing it out of the switcher ends the company's session as well,
-  and leaving comes back to it. A borrowed account ("sign in as this user") still enters
-  on the first account's authority, never its own.
+  and leaving comes back to it.
+- **"Sign in as this user" gives the full experience.** A borrowed account now enters,
+  lists and manages the user's own companies as that user (their link, their roles), where
+  it used to go by the staff member's account and was refused ("Could not enter that
+  organization."). Who signed in is kept: `organization.entered`, `organization.enter_refused`
+  and every activity logged through `PhoenixKitWeb.Actor.opts/1` in that session carry
+  `impersonated_by_uuid` (`MultiSession.impersonated_by/1`, the new `Scope` field
+  `impersonated_by_uuid`). A company entered that way ends with the borrowed account and is
+  never remembered across a browser restart. What belongs to the person alone stays
+  refused as before (`impersonated?/1`: personal API keys, standing credentials).
+- **An Admin signs in as a user from any account of their own.** Who may sign in as whom
+  was judged on the session's first account, so an Admin whose admin account had been
+  added to the switcher after another one could not. It is now the account shown when it
+  is the person's own (the first one, or added with its password); a borrowed account
+  still lends nothing on. An Admin may now also sign in as another Admin; nobody signs in
+  as an Owner.
+- **Entering an organization says why it was refused**: not linked (an unknown company
+  reads the same), deactivated, signs in on its own, organization accounts off, email not
+  confirmed, session ended, too many switches. `OrganizationSessions.enter` returns those
+  reasons, and `organization.enter_refused` records them.
 - **An Owner or Admin in an account added to the switcher with its own password manages
   organizations again.** Only the first account of a session could change who acts for an
   organization (People and Organizations rows, the People tab, the user form), so an Owner
@@ -273,6 +291,16 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### i18n
 
+- **The users admin no longer slips into English** (from a client using it in Russian):
+  role names in the users list, its cards, the account menu and the new-user hint go
+  through `Roles.display_name/2`; the system roles' seeded descriptions are translated
+  until someone rewrites them (`Roles.display_description/2`); permission labels on the
+  Permissions page, the sub-permissions included, are marked with `gettext_noop` so
+  extraction keeps them, and are translated; `CountryData.country_name/1` names the
+  country in the page's language; the browser and system breakdown on Sessions says
+  "Unknown" in it. The notifications bell and the header widgets were in English on
+  every page that did not hand the layout its `current_locale`: the layout now falls back
+  to the language the page renders in.
 - About 330 more strings are translated in every language: the account menu and its
   "Add account" dialog, the notifications bell, profile settings (Account, Security,
   Connected Accounts), the time zone list, the form validation messages of accounts

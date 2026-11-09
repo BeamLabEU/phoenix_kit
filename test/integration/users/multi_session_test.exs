@@ -374,9 +374,8 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
                MultiSession.impersonate(conn_for(admin_user()), owner_user())
     end
 
-    test "an admin cannot take another admin — that is sideways, not support" do
-      assert {:error, :target_is_staff} =
-               MultiSession.impersonate(conn_for(admin_user()), admin_user())
+    test "an admin can take another admin (2026-11-09)" do
+      assert {:ok, _conn} = MultiSession.impersonate(conn_for(admin_user()), admin_user())
     end
 
     test "an owner can take an admin, because there is nothing above it to reach" do
@@ -430,7 +429,7 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
 
       assert MultiSession.impersonable?(admin, plain)
       refute MultiSession.impersonable?(admin, owner)
-      refute MultiSession.impersonable?(admin, other_admin)
+      assert MultiSession.impersonable?(admin, other_admin)
       refute MultiSession.impersonable?(admin, admin)
       assert MultiSession.impersonable?(owner, other_admin)
 
@@ -477,7 +476,7 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
   end
 
   describe "impersonation_actor/1" do
-    test "is the ROOT account, not whichever account is active" do
+    test "is the person's own account, not the borrowed one active" do
       Settings.update_boolean_setting("multi_session_enabled", true)
       admin = admin_user()
       target = plain_user()
@@ -488,6 +487,44 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
       # opened the stack, so a menu rendered from here still judges by them.
       actor = MultiSession.impersonation_actor(Plug.Conn.get_session(conn))
       assert actor.uuid == admin.uuid
+    end
+
+    # The session opened by a plain person, then `admin` added on top: with its own
+    # password (`own?: true`), or borrowed.
+    defp stacked(admin, own?: own?) do
+      root = plain_user()
+      root_token = Auth.generate_user_session_token(root)
+      token = Auth.generate_user_session_token(admin)
+
+      Phoenix.ConnTest.build_conn()
+      |> Phoenix.ConnTest.init_test_session(%{})
+      |> Plug.Conn.put_session(:user_token, token)
+      |> Plug.Conn.put_session(:pk_session_accounts, [root_token, token])
+      |> Plug.Conn.put_session(:pk_own_tokens, if(own?, do: [token], else: []))
+    end
+
+    test "an Admin added with its own password signs in as a user from there (2026-11-09)" do
+      Settings.update_boolean_setting("multi_session_enabled", true)
+      admin = admin_user()
+      target = plain_user()
+      conn = stacked(admin, own?: true)
+      session = Plug.Conn.get_session(conn)
+
+      assert MultiSession.may_impersonate?(session)
+      assert MultiSession.impersonation_actor(session).uuid == admin.uuid
+      assert MultiSession.impersonable?(MultiSession.impersonation_actor(session), target)
+      assert {:ok, conn} = MultiSession.impersonate(conn, target)
+      assert MultiSession.impersonated_by(Plug.Conn.get_session(conn))
+    end
+
+    test "a borrowed Admin lends nothing on: the root still decides" do
+      Settings.update_boolean_setting("multi_session_enabled", true)
+      conn = stacked(admin_user(), own?: false)
+      session = Plug.Conn.get_session(conn)
+
+      refute MultiSession.may_impersonate?(session)
+      refute MultiSession.impersonable?(MultiSession.impersonation_actor(session), plain_user())
+      assert {:error, :not_allowed} = MultiSession.impersonate(conn, plain_user())
     end
 
     test "is nil when multi-account switching is off, so the menus offer nothing" do
@@ -545,6 +582,9 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
       {:ok, conn} = MultiSession.add_account(conn_for(admin), own.email, "ValidPassword123!")
       refute borrowed?(conn)
 
+      # The account shown decides (2026-11-09): back to the admin's to sign in as someone.
+      [root_row, _own_row] = MultiSession.list_accounts(Plug.Conn.get_session(conn))
+      {:ok, conn, _} = MultiSession.switch_to(conn, root_row.ref)
       {:ok, conn} = MultiSession.impersonate(conn, target)
       assert borrowed?(conn)
 

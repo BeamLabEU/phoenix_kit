@@ -15,46 +15,85 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
   alias PhoenixKit.Users.Sessions.Revocation
   alias PhoenixKit.Utils.UUID, as: UUIDUtils
 
-  def enter(root_token, organization_uuid, previous_token \\ nil) do
-    with true <- Auth.organization_accounts_enabled?(),
-         %UserToken{} = root <- token_row(root_token),
-         {:ok, %{user: %User{account_type: "person", managed_by_members: false}}} <-
-           SessionRef.scope_for_session(root.uuid, root.user_uuid),
+  @typedoc """
+  Why entering was refused: organization accounts are off, the session to enter from is
+  gone or its email is not confirmed while that is required, too many entries, the person has no link to it (a company that does not exist
+  answers the same, so the reason never tells one apart), or it is not managed by its
+  people or is deactivated (told only to someone linked to it).
+  """
+  @type refusal ::
+          :organization_accounts_disabled
+          | :session_gone
+          | :unconfirmed
+          | :rate_limit_exceeded
+          | :no_link
+          | :organization_not_managed
+          | :organization_inactive
+
+  @doc """
+  Enters `organization_uuid` from the person session `root_token`. `opts`:
+  `:impersonated_by` — the uuid of whoever signed in as that person, recorded on the
+  `organization.entered` and `organization.enter_refused` entries.
+  """
+  @spec enter(String.t(), term(), String.t() | nil, keyword()) ::
+          {:ok, %{token: binary(), user: User.t()}} | {:error, refusal()}
+  def enter(root_token, organization_uuid, previous_token \\ nil, opts \\ []) do
+    with :ok <- accounts_on(),
+         {:ok, root} <- person_session(root_token),
          :ok <- RateLimiter.check_organization_enter_rate_limit(root.user_uuid) do
-      result = enter_locked(root, organization_uuid, previous_token)
-      if match?({:error, _}, result), do: log_refusal(root.user_uuid, organization_uuid)
+      result = enter_locked(root, organization_uuid, previous_token, opts)
+
+      with {:error, reason} <- result,
+           do: log_refusal(root.user_uuid, organization_uuid, reason, opts)
+
       result
-    else
-      {:error, :rate_limit_exceeded} = error -> error
-      _ -> {:error, :forbidden}
     end
   end
 
-  defp enter_locked(root, uuid, _previous) do
+  defp accounts_on do
+    if Auth.organization_accounts_enabled?(),
+      do: :ok,
+      else: {:error, :organization_accounts_disabled}
+  end
+
+  defp person_session(token) do
+    with %UserToken{} = root <- token_row(token),
+         {:ok, %{user: %User{account_type: "person", managed_by_members: false}}} <-
+           SessionRef.scope_for_session(root.uuid, root.user_uuid) do
+      {:ok, root}
+    else
+      {:error, :unconfirmed} -> {:error, :unconfirmed}
+      _ -> {:error, :session_gone}
+    end
+  end
+
+  defp enter_locked(root, uuid, _previous, opts) do
     Revocation.transaction(fn ->
-      unless UUIDUtils.valid?(uuid), do: RepoHelper.repo().rollback(:forbidden)
-      org = Locks.organization!(uuid)
+      unless UUIDUtils.valid?(uuid), do: RepoHelper.repo().rollback(:no_link)
+
+      org =
+        case Locks.users!([uuid]) do
+          [%User{account_type: "organization"} = org] -> org
+          _ -> RepoHelper.repo().rollback(:no_link)
+        end
+
       Locks.users!([root.user_uuid], "FOR KEY SHARE")
       lock_root!(root)
       grant = lock_grant!(org, root.user_uuid)
 
       require_root!(root)
 
-      unless org.managed_by_members and org.is_active,
-        do: RepoHelper.repo().rollback(:forbidden)
+      unless org.managed_by_members, do: RepoHelper.repo().rollback(:organization_not_managed)
+      unless org.is_active, do: RepoHelper.repo().rollback(:organization_inactive)
 
-      reuse_or_mint(root, org, grant)
+      reuse_or_mint(root, org, grant, opts)
     end)
-    |> case do
-      {:ok, result} -> {:ok, result}
-      {:error, _} -> {:error, :forbidden}
-    end
   end
 
   defp require_root!(root) do
     case SessionRef.scope_for_session(root.uuid, root.user_uuid) do
       {:ok, %{user: %User{account_type: "person", managed_by_members: false}}} -> :ok
-      _ -> RepoHelper.repo().rollback(:forbidden)
+      _ -> RepoHelper.repo().rollback(:session_gone)
     end
   end
 
@@ -72,7 +111,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
     )
   end
 
-  defp reuse_or_mint(root, org, grant) do
+  defp reuse_or_mint(root, org, grant, opts) do
     existing = current_session(root, org, grant)
     previous = existing && existing.token
     existing = if existing, do: session_user(existing.uuid)
@@ -84,11 +123,11 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
         %{token: previous, user: user}
 
       _ ->
-        mint(root, org, grant)
+        mint(root, org, grant, opts)
     end
   end
 
-  defp mint(root, org, grant) do
+  defp mint(root, org, grant, opts) do
     delete_bound(root, nil)
     {token, row} = UserToken.build_session_token(org)
 
@@ -111,10 +150,14 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
       actor_uuid: org.uuid,
       resource_type: "organization",
       resource_uuid: org.uuid,
-      metadata: %{
-        "acting_user_uuid" => root.user_uuid,
-        "organization_name" => org.organization_name
-      }
+      metadata:
+        with_impersonator(
+          %{
+            "acting_user_uuid" => root.user_uuid,
+            "organization_name" => org.organization_name
+          },
+          opts
+        )
     })
 
     user = session_user(stored.uuid) || RepoHelper.repo().rollback(:forbidden)
@@ -164,7 +207,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
            log: false
          ) do
       %UserToken{acting_session_uuid: nil, organization_manager_uuid: nil} -> :ok
-      _ -> RepoHelper.repo().rollback(:forbidden)
+      _ -> RepoHelper.repo().rollback(:session_gone)
     end
   end
 
@@ -174,7 +217,7 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
         where: m.organization_uuid == ^org.uuid and m.user_uuid == ^person_uuid,
         lock: "FOR KEY SHARE"
       )
-    ) || RepoHelper.repo().rollback(:forbidden)
+    ) || RepoHelper.repo().rollback(:no_link)
   end
 
   defp delete_bound(root, except) do
@@ -185,13 +228,27 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Sessions do
     Revocation.delete_all(query)
   end
 
-  defp log_refusal(person_uuid, org_uuid) do
+  defp log_refusal(person_uuid, org_uuid, reason, opts) do
     Activity.log(%{
       action: "organization.enter_refused",
       module: "users",
       mode: "manual",
       actor_uuid: person_uuid,
-      metadata: %{"organization_uuid" => if(UUIDUtils.valid?(org_uuid), do: org_uuid)}
+      metadata:
+        with_impersonator(
+          %{
+            "organization_uuid" => if(UUIDUtils.valid?(org_uuid), do: org_uuid),
+            "reason" => Atom.to_string(reason)
+          },
+          opts
+        )
     })
+  end
+
+  defp with_impersonator(metadata, opts) do
+    case Keyword.get(opts, :impersonated_by) do
+      uuid when is_binary(uuid) -> Map.put(metadata, "impersonated_by_uuid", uuid)
+      _ -> metadata
+    end
   end
 end

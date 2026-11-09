@@ -870,9 +870,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       admin_panel_text: admin_panel_text(),
       # The small "[dev]" tag beside the project title — see `resolve_dev_environment/1`.
       dev_environment?: resolve_dev_environment(assigns[:dev_environment]),
-      current_locale: assigns[:current_locale],
-      current_locale_base:
-        assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale]),
+      current_locale: page_locale(assigns),
+      current_locale_base: DialectMapper.extract_base(page_locale(assigns)),
       scope: assigns[:phoenix_kit_current_scope],
       # Whether this visitor gets a navigation sidebar at all.
       #
@@ -947,6 +946,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # each with its session built from this render's assigns. Like the bell, they need
   # the parent socket to embed a nested LiveView and a signed-in user; without either
   # there are none, and so no dock column either.
+  # The page's language: the one it passes, else the one its process renders in
+  # (the navigation hook sets it from the URL on every page). Pages that did not
+  # pass `current_locale` mounted the bell and the header widgets, nested
+  # LiveViews with processes of their own, in English (2026-11-09).
+  defp page_locale(assigns),
+    do: assigns[:current_locale] || Gettext.get_locale(PhoenixKitWeb.Gettext)
+
   defp header_widgets(assigns) do
     user = widget_user(assigns)
 
@@ -954,10 +960,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       assigns
       |> Map.put(:phoenix_kit_current_user, user)
       # The same locale the bell gets: `current_locale_base` is computed after this call.
-      |> Map.put_new(
-        :current_locale_base,
-        assigns[:current_locale] && DialectMapper.extract_base(assigns[:current_locale])
-      )
+      |> Map.put_new(:current_locale_base, DialectMapper.extract_base(page_locale(assigns)))
       |> Map.put(
         :impersonating?,
         HeaderWidget.impersonating?(assigns[:phoenix_kit_current_scope])

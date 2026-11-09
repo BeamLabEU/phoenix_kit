@@ -135,7 +135,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
       a = added(s)
       row = Auth.get_session_token_record(a.token)
 
-      assert {:error, :forbidden} = MultiSession.act_as_organization(a.conn, s.org.uuid)
+      assert {:error, :no_link} = MultiSession.act_as_organization(a.conn, s.org.uuid)
       assert {:ok, conn, user} = MultiSession.act_as_organization(a.conn, a.organization.uuid)
       assert user.uuid == a.organization.uuid
       assert user.acting_user_uuid == a.other.uuid
@@ -187,24 +187,94 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
       assert get_session(conn, :pk_session_accounts) == [s.token]
       refute get_session(conn, :pk_organization_token)
     end
+  end
 
-    test "a borrowed account still enters on the root's authority, never its own", s do
-      borrowed = F.person()
-      organization = F.organization()
-      F.manager(organization, borrowed)
-      {borrowed_token, _} = F.session(borrowed)
+  describe "signing in as a user (2026-11-09, from WoodMatrix: the full experience)" do
+    # The root (Owner-like staff, linked to `s.org`) signs in as Igor, who manages
+    # Dailrade: a borrowed account, not one of the root's own.
+    defp borrowed(s) do
+      igor = F.person(%{first_name: "Igor", last_name: "Smirnov"})
+      dailrade = F.organization(%{organization_name: "Dailrade"})
+      grant = F.manager(dailrade, igor)
+      {token, row} = F.session(igor)
 
       conn =
         init_test_session(build_conn(), %{
-          user_token: borrowed_token,
-          pk_session_accounts: [s.token, borrowed_token],
+          user_token: token,
+          pk_session_accounts: [s.token, token],
           pk_own_tokens: []
         })
 
-      assert {:error, :forbidden} = MultiSession.act_as_organization(conn, organization.uuid)
-      assert {:ok, _conn, user} = MultiSession.act_as_organization(conn, s.org.uuid)
-      assert user.acting_user_uuid == s.person.uuid
-      assert user.acting_session_uuid == s.root.uuid
+      %{igor: igor, dailrade: dailrade, grant: grant, token: token, row: row, conn: conn}
+    end
+
+    test "enters the user's own companies, as the user, and records who signed in as them",
+         s do
+      b = borrowed(s)
+
+      assert {:error, :no_link} = MultiSession.act_as_organization(b.conn, s.org.uuid)
+      assert {:ok, conn, user} = MultiSession.act_as_organization(b.conn, b.dailrade.uuid)
+      assert user.acting_user_uuid == b.igor.uuid
+      assert user.acting_session_uuid == b.row.uuid
+      assert user.organization_manager_uuid == b.grant.uuid
+
+      assert [entry] =
+               Activity.list(resource_type: "organization", resource_uuid: b.dailrade.uuid).entries
+
+      assert entry.action == "organization.entered"
+      assert entry.metadata["acting_user_uuid"] == b.igor.uuid
+      assert entry.metadata["impersonated_by_uuid"] == s.person.uuid
+
+      # It ends with the browser session, like the borrowed account: never mirrored.
+      refute conn.resp_cookies[@mirror]
+
+      # Managing it stands on Igor's link, not on the staff member's account.
+      assert {:ok, %ActorRef{root: {root_row, root_uuid}}} =
+               ActorRef.from_session(get_session(conn))
+
+      assert {root_row, root_uuid} == {b.row.uuid, b.igor.uuid}
+    end
+
+    test "the menu lists the user's companies, and every activity names who signed in", s do
+      b = borrowed(s)
+
+      scope = MultiSession.populate_scope(Scope.for_user(b.igor), get_session(b.conn))
+      assert Enum.map(scope.acting_organizations, & &1.uuid) == [b.dailrade.uuid]
+      assert scope.impersonated_by_uuid == s.person.uuid
+
+      {:ok, conn, user} = MultiSession.act_as_organization(b.conn, b.dailrade.uuid)
+      scope = MultiSession.populate_scope(Scope.for_user(user), get_session(conn))
+      assert scope.impersonated_by_uuid == s.person.uuid
+
+      assert {:ok, entry} = Activity.log("users", "organization.changed", Actor.opts(scope))
+      assert entry.actor_uuid == b.dailrade.uuid
+      assert entry.metadata["acting_user_uuid"] == b.igor.uuid
+      assert entry.metadata["impersonated_by_uuid"] == s.person.uuid
+
+      # The person's own session names nobody.
+      own = MultiSession.populate_scope(Scope.for_user(s.person), get_session(s.conn))
+      refute own.impersonated_by_uuid
+      refute Keyword.has_key?(Actor.opts(own), :impersonated_by_uuid)
+    end
+
+    test "ending the sign-in ends the company's session too", s do
+      b = borrowed(s)
+      {:ok, conn, _} = MultiSession.act_as_organization(b.conn, b.dailrade.uuid)
+      organization_token = get_session(conn, :user_token)
+
+      assert {:ok, conn} = MultiSession.remove_account(conn, b.row.uuid)
+
+      refute Auth.get_user_by_session_token(organization_token)
+      assert get_session(conn, :user_token) == s.token
+      refute get_session(conn, :pk_organization_token)
+    end
+
+    test "what belongs to the person alone stays theirs", s do
+      b = borrowed(s)
+      {:ok, conn, _} = MultiSession.act_as_organization(b.conn, b.dailrade.uuid)
+
+      assert MultiSession.impersonated?(get_session(b.conn))
+      assert MultiSession.impersonated?(get_session(conn))
     end
   end
 
@@ -217,17 +287,39 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
       user_uuid: s.org.uuid
     })
 
-    assert {:error, :forbidden} = MultiSession.act_as_organization(conn, organization.uuid)
+    assert {:error, :no_link} = MultiSession.act_as_organization(conn, organization.uuid)
   end
 
-  test "inactive, independent, unconfirmed-root and invalid targets refuse entry", s do
-    for org <- [F.organization(%{is_active: false}), F.organization(%{managed_by_members: false})] do
-      assert {:error, :forbidden} = MultiSession.act_as_organization(s.conn, org.uuid)
-    end
+  test "inactive, independent, unconfirmed-root and invalid targets refuse entry, saying why",
+       s do
+    # Linked while active and managed, then changed: what a link outlives.
+    [inactive, independent] =
+      for change <- [%{is_active: false}, %{managed_by_members: false}] do
+        org = F.organization()
+        F.manager(org, s.person)
+        org |> Ecto.Changeset.change(change) |> Repo.update!()
+      end
 
-    assert {:error, :forbidden} = MultiSession.act_as_organization(s.conn, "not-a-uuid")
+    assert {:error, :organization_inactive} =
+             MultiSession.act_as_organization(s.conn, inactive.uuid)
+
+    assert {:error, :organization_not_managed} =
+             MultiSession.act_as_organization(s.conn, independent.uuid)
+
+    # Unlinked, missing and malformed read the same: nothing tells them apart.
+    assert {:error, :no_link} = MultiSession.act_as_organization(s.conn, F.organization().uuid)
+    assert {:error, :no_link} = MultiSession.act_as_organization(s.conn, UUIDv7.generate())
+    assert {:error, :no_link} = MultiSession.act_as_organization(s.conn, "not-a-uuid")
+
     s.person |> Ecto.Changeset.change(confirmed_at: nil) |> Repo.update!()
-    assert {:error, :forbidden} = MultiSession.act_as_organization(s.conn, s.org.uuid)
+    assert {:error, :unconfirmed} = MultiSession.act_as_organization(s.conn, s.org.uuid)
+  end
+
+  test "the page says why entering was refused", s do
+    conn = post(s.conn, Routes.path("/users/session/organizations/#{F.organization().uuid}"))
+
+    assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+             "This account is not linked to that organization"
   end
 
   test "entry is rate limited on the root, including refused targets and no-ops", s do
@@ -240,7 +332,7 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
         else: Application.delete_env(:phoenix_kit, PhoenixKit.Users.RateLimiter)
     end)
 
-    assert {:error, :forbidden} = MultiSession.act_as_organization(s.conn, UUIDv7.generate())
+    assert {:error, :no_link} = MultiSession.act_as_organization(s.conn, UUIDv7.generate())
     assert {:error, :rate_limit_exceeded} = MultiSession.act_as_organization(s.conn, s.org.uuid)
   end
 
@@ -249,7 +341,10 @@ defmodule PhoenixKitWeb.Users.OrganizationSwitchingTest do
     org_token = get_session(conn, :user_token)
     Endpoint.subscribe(Sessions.live_socket_id(org_token))
     Settings.update_setting("enable_organization_accounts", "false")
-    assert {:error, :forbidden} = MultiSession.act_as_organization(conn, s.org.uuid)
+
+    assert {:error, :organization_accounts_disabled} =
+             MultiSession.act_as_organization(conn, s.org.uuid)
+
     assert {:ok, conn, user} = MultiSession.leave_organization(conn)
     assert user.uuid == s.person.uuid
     assert get_session(conn, :user_token) == s.token

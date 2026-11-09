@@ -133,12 +133,16 @@ defmodule PhoenixKit.Users.Auth.Scope do
           active_role: ActiveRole.role() | nil,
           switchable_roles: [ActiveRole.role()],
           multi_session_accounts: list(),
-          multi_session_allowed?: boolean()
+          multi_session_allowed?: boolean(),
+          impersonated_by_uuid: String.t() | nil
         }
 
   # `multi_session_*` are transient, request-scoped UI fields populated by the
   # scope-mounting hook/plug (which have the Plug session) for the header
   # account switcher; they are NOT loaded by `for_user/1` and default empty.
+  # So is `impersonated_by_uuid`: who signed in as this session's person ("sign in
+  # as this user", `MultiSession.impersonated_by/1`), carried onto its activity by
+  # `PhoenixKitWeb.Actor.opts/1`. Display and audit only, never an access decision.
   defstruct user: nil,
             authenticated?: false,
             cached_roles: nil,
@@ -153,6 +157,7 @@ defmodule PhoenixKit.Users.Auth.Scope do
             acting_organizations: [],
             acting_person: nil,
             organization_root: nil,
+            impersonated_by_uuid: nil,
             pending_invitations: []
 
   use Gettext, backend: PhoenixKitWeb.Gettext

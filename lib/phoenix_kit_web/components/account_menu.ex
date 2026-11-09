@@ -212,7 +212,7 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
                 {account.email}
               </span>
               <span class="badge badge-xs border-0 bg-primary-content/20 text-primary-content shrink-0">
-                {account.role}
+                {PhoenixKit.Users.Roles.display_name(%{name: account.role})}
               </span>
               <Icons.icon_check class="w-4 h-4 shrink-0" />
             </div>
@@ -238,7 +238,9 @@ defmodule PhoenixKitWeb.Components.AccountMenu do
               <span class="flex-1 min-w-0 truncate" title={account.email}>
                 {account.email}
               </span>
-              <span class="badge badge-xs badge-ghost shrink-0">{account.role}</span>
+              <span class="badge badge-xs badge-ghost shrink-0">{PhoenixKit.Users.Roles.display_name(
+                %{name: account.role}
+              )}</span>
               <%!-- Stands in for the active row's check so the role badges share a right edge. --%>
               <span class="w-4 shrink-0" aria-hidden="true"></span>
             </button>

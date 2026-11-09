@@ -277,6 +277,7 @@ defmodule PhoenixKit.Activity do
   @type log_opt ::
           {:actor_uuid, String.t() | nil}
           | {:acting_user_uuid, String.t() | nil}
+          | {:impersonated_by_uuid, String.t() | nil}
           | {:mode, String.t()}
           | {:resource_type, String.t()}
           | {:resource_uuid, String.t()}
@@ -289,7 +290,8 @@ defmodule PhoenixKit.Activity do
   wrap in its own `Activity` helper. `module` is the module key
   (`"catalogue"`, `"crm"`, …), stored on the entry.
 
-  Options: `:actor_uuid`, `:acting_user_uuid` (merged into metadata), `:mode` (default `"manual"`), `:resource_type`,
+  Options: `:actor_uuid`, `:acting_user_uuid` and `:impersonated_by_uuid` (merged into
+  metadata), `:mode` (default `"manual"`), `:resource_type`,
   `:resource_uuid`, `:target_uuid`, `:metadata` (a map, or a keyword or
   pair list; keep it PII-free) and `:permanent` (only `true` keeps the
   entry from being pruned). Same result and same never-crash guarantee as `log/1`:
@@ -326,6 +328,7 @@ defmodule PhoenixKit.Activity do
       mode: Keyword.get(opts, :mode, "manual"),
       actor_uuid: Keyword.get(opts, :actor_uuid),
       acting_user_uuid: Keyword.get(opts, :acting_user_uuid),
+      impersonated_by_uuid: Keyword.get(opts, :impersonated_by_uuid),
       resource_type: Keyword.get(opts, :resource_type),
       resource_uuid: Keyword.get(opts, :resource_uuid),
       target_uuid: Keyword.get(opts, :target_uuid),
@@ -919,13 +922,19 @@ defmodule PhoenixKit.Activity do
   end
 
   defp acting_metadata(attrs) do
-    case Map.pop(attrs, :acting_user_uuid) do
+    attrs
+    |> pop_into_metadata(:acting_user_uuid, "acting_user_uuid")
+    |> pop_into_metadata(:impersonated_by_uuid, "impersonated_by_uuid")
+  end
+
+  defp pop_into_metadata(attrs, key, name) do
+    case Map.pop(attrs, key) do
       {nil, attrs} ->
         attrs
 
-      {person, attrs} ->
+      {value, attrs} ->
         metadata = Map.get(attrs, :metadata) || %{}
-        Map.put(attrs, :metadata, Map.put(metadata, "acting_user_uuid", person))
+        Map.put(attrs, :metadata, Map.put(metadata, name, value))
     end
   end
 

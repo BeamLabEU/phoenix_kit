@@ -893,7 +893,10 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   defp card_roles(user) do
     roles = get_user_roles(user)
-    if Enum.empty?(roles), do: gettext("No roles"), else: Enum.join(roles, ", ")
+
+    if Enum.empty?(roles),
+      do: gettext("No roles"),
+      else: Enum.map_join(roles, ", ", &Roles.display_name(%{name: &1}))
   end
 
   defp card_status(user) do
@@ -1184,7 +1187,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
          _current_user,
          _date_time_settings
        ) do
-    get_primary_role_name_unsafe(user)
+    Roles.display_name(%{name: get_primary_role_name_unsafe(user)})
   end
 
   defp render_cell_by_type(

@@ -489,9 +489,9 @@
                                     "System"
                                   )}</span>
                                 <% end %>
-                                <%= if role.description do %>
+                                <%= if description = PhoenixKit.Users.Roles.display_description(role) do %>
                                   <span class="text-xs text-base-content/70">
-                                    - {role.description}
+                                    - {description}
                                   </span>
                                 <% end %>
                                 <%= if owner_role? do %>
@@ -673,7 +673,7 @@
                   <ul class="mt-1 text-base-content/70">
                     <li>
                       {gettext("• User will be assigned default \"%{role}\" role",
-                        role: @default_role
+                        role: PhoenixKit.Users.Roles.display_name(%{name: @default_role})
                       )}
                     </li>
                     <li>{gettext("• Account will be active by default")}</li>
