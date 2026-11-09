@@ -167,7 +167,7 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
   describe "the Organizations column" do
     defp org_cell(doc, text), do: cell(doc, text, "Organizations")
 
-    test "lists a person's companies, both kinds, each opening its page", %{
+    test "lists a person's companies, both kinds, as plain text (a click opens the person)", %{
       conn: conn,
       admin: admin
     } do
@@ -184,17 +184,13 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       assert "Organizations" in header_texts(doc)
       assert squish(org_cell(doc, "#{m}-ann@")) == "#{m} Birch AS #{m} Oak Trading"
 
-      assert [href] =
-               doc
-               |> org_cell("#{m}-ann@")
-               |> Floki.find("a#user-#{person.uuid}-org-#{oak.uuid}")
-               |> Floki.attribute("href")
-
-      assert href =~ "/admin/users/view/#{oak.uuid}"
+      cell = org_cell(doc, "#{m}-ann@")
+      assert [_] = Floki.find(cell, "span#user-#{person.uuid}-org-#{oak.uuid}")
+      assert Floki.find(cell, "a") == []
       assert squish(org_cell(doc, "#{m}-solo@")) == "-"
     end
 
-    test "shows three, or two and how many more, linking to the person's page", %{
+    test "shows three, or two and how many more", %{
       conn: conn,
       admin: admin
     } do
@@ -214,13 +210,11 @@ defmodule PhoenixKitWeb.Integration.Users.UsersTableLayoutTest do
       assert squish(org_cell(doc, "#{m}-three@")) == "#{m} Co 1 #{m} Co 2 #{m} Co 3"
       assert squish(org_cell(doc, "#{m}-five@")) == "#{m} Co 1 #{m} Co 2 +3 more"
 
-      assert [href] =
-               doc
-               |> org_cell("#{m}-five@")
-               |> Floki.find("a#user-#{five.uuid}-orgs-more")
-               |> Floki.attribute("href")
-
-      assert href =~ "/admin/users/view/#{five.uuid}"
+      assert doc
+             |> org_cell("#{m}-five@")
+             |> Floki.find("span#user-#{five.uuid}-orgs-more")
+             |> squish() ==
+               "+3 more"
 
       html = render_click(view, "set_view_mode", %{"mode" => "card"})
       assert html =~ "#{m} Co 1, #{m} Co 2 +3 more"

@@ -26,9 +26,9 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
   The older Notes tab shows only while it holds notes, or while Comments is not there to
   write new ones in.
 - **An Organizations column in the Users table.** Every company a person belongs to,
-  linked (manager, staff…) or by the older single tie, by name, each opening the
-  company's page. Up to three show; past that two and "+N more", which opens the
-  person's page. Offered, and on by default, only while organization accounts are on;
+  linked (manager, staff…) or by the older single tie, by name, as plain text: a click
+  there opens the person, like anywhere on the row (their page links each company). Up
+  to three show; past that two and "+N more". Offered, and on by default, only while organization accounts are on;
   an admin with a saved column choice adds it from the column picker.
 - **The Telegram client can work in groups, and talk to a self-hosted Bot API
   server** (`PhoenixKit.Integrations.Telegram`): `get_chat/3`, `get_chat_member/4`,

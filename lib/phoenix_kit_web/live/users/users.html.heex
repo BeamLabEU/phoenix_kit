@@ -644,32 +644,26 @@
                             <div class="text-base-content/50">-</div>
                           <% end %>
                         <% column_id == "organizations" -> %>
-                          <%!-- The first few by name, each opening its page
-                               (above the row's stretched link); the rest are
-                               on the person's page. --%>
+                          <%!-- The first few by name, then how many more. Plain
+                               text: a click here is a click on the row, which
+                               opens the person (their page links each one). --%>
                           <% {shown, more} = organizations_cell(@person_orgs, user) %>
                           <div class="flex flex-col gap-1 min-w-0 max-w-[16rem] text-sm">
-                            <.link
+                            <span
                               :for={org <- shown}
                               id={"user-#{user.uuid}-org-#{org.uuid}"}
-                              navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{org.uuid}")
-                              }
-                              class="relative z-10 link link-hover truncate"
+                              class="truncate"
                               title={PersonOrganizations.name(org)}
                             >
                               {PersonOrganizations.name(org)}
-                            </.link>
-                            <.link
+                            </span>
+                            <span
                               :if={more > 0}
                               id={"user-#{user.uuid}-orgs-more"}
-                              navigate={
-                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.uuid}")
-                              }
-                              class="relative z-10 link link-hover text-xs text-base-content/60"
+                              class="text-xs text-base-content/60"
                             >
                               {ngettext("+%{count} more", "+%{count} more", more)}
-                            </.link>
+                            </span>
                             <div :if={shown == []} class="text-base-content/50">-</div>
                           </div>
                         <% column_id == "role" -> %>
