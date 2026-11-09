@@ -2393,7 +2393,8 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
 
     if match?({:pass, _}, verdict) and config[:app] != :phoenix_kit do
       with {:pass, _} <- viewer_library_facts_verdict(@library_facts_file),
-           {:pass, _} <- admin_bundle_verdict(@library_facts_file) do
+           {:pass, _} <- admin_bundle_verdict(@library_facts_file),
+           {:pass, _} <- facts_tag_verdict(config[:app]) do
         verdict
       end
     else
@@ -2489,6 +2490,57 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
         {:warn,
          "#{path} is missing, so the viewer libraries have no file names to load. " <>
            "Run `mix compile` (or `mix phoenix_kit.update`)."}
+    end
+  end
+
+  # The two root layouts a generated host has: the paths `mix phoenix_kit.install`
+  # writes the script tags into.
+  defp root_layout_paths(app) do
+    [
+      "lib/#{app}_web/components/layouts/root.html.heex",
+      "lib/#{app}_web/templates/layout/root.html.heex"
+    ]
+  end
+
+  @doc false
+  # The facts file on disk is not the facts in the browser: the browser gets them
+  # from a script tag in the root layout, and without it the admin hooks and the
+  # viewer libraries have no file names to load, while every check above passes.
+  # Only a root layout at the installer's own paths is read; a host with another
+  # layout is not guessed at.
+  @spec facts_tag_verdict(atom() | nil, Path.t()) :: {:pass, String.t()} | {:warn, String.t()}
+  def facts_tag_verdict(app, root \\ File.cwd!())
+
+  def facts_tag_verdict(nil, _root),
+    do: {:pass, "no app to look for a root layout of: not checked"}
+
+  def facts_tag_verdict(app, root) do
+    found =
+      app
+      |> root_layout_paths()
+      |> Enum.map(&Path.join(root, &1))
+      |> Enum.find(&File.regular?/1)
+
+    case found && File.read(found) do
+      nil ->
+        {:pass,
+         "no root layout at the installer's paths: whether it loads the facts is not checked"}
+
+      {:ok, content} ->
+        if String.contains?(content, "phoenix_kit_modules.js") do
+          {:pass, "#{found} loads phoenix_kit_modules.js"}
+        else
+          {:warn,
+           "#{found} does not load phoenix_kit_modules.js, which carries the install facts: " <>
+             "without that tag the browser does not know the file names of the admin bundle or " <>
+             "the viewer libraries, and the admin area's sortable lists, tables, editors and " <>
+             "media browser do nothing. Run `mix phoenix_kit.update`, or add " <>
+             "`<script src={~p\"/assets/vendor/phoenix_kit_modules.js\"}></script>` after the " <>
+             "phoenix_kit.js tag."}
+        end
+
+      {:error, _} ->
+        {:pass, "#{found} could not be read: not checked"}
     end
   end
 

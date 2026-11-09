@@ -126,4 +126,60 @@ defmodule Mix.Tasks.PhoenixKit.DoctorViewerLibrariesTest do
       assert msg =~ "mix compile"
     end
   end
+
+  # The facts reach the browser through one script tag in the root layout, which a look
+  # at the disk cannot see. The installer writes the tag into the root layout of a
+  # generated host; the doctor reads the same two files and guesses at no other.
+  describe "facts_tag_verdict/2" do
+    @describetag :tmp_dir
+
+    defp layout!(dir, path, content) do
+      full = Path.join(dir, path)
+      File.mkdir_p!(Path.dirname(full))
+      File.write!(full, content)
+      full
+    end
+
+    test "a root layout that loads the facts passes", %{tmp_dir: dir} do
+      layout!(dir, "lib/my_app_web/components/layouts/root.html.heex", """
+      <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+      <script src={~p"/assets/vendor/phoenix_kit_modules.js"}></script>
+      """)
+
+      assert {:pass, msg} = Doctor.facts_tag_verdict(:my_app, dir)
+      assert msg =~ "phoenix_kit_modules.js"
+    end
+
+    test "a root layout without the tag warns, naming the file and the fix", %{tmp_dir: dir} do
+      path =
+        layout!(dir, "lib/my_app_web/components/layouts/root.html.heex", """
+        <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+        """)
+
+      assert {:warn, msg} = Doctor.facts_tag_verdict(:my_app, dir)
+      assert msg =~ path
+      assert msg =~ "phoenix_kit_modules.js"
+      assert msg =~ "mix phoenix_kit.update"
+      assert msg =~ "admin"
+    end
+
+    test "the older templates/layout path is read too", %{tmp_dir: dir} do
+      layout!(
+        dir,
+        "lib/my_app_web/templates/layout/root.html.heex",
+        "<script src=\"/a.js\"></script>"
+      )
+
+      assert {:warn, _} = Doctor.facts_tag_verdict(:my_app, dir)
+    end
+
+    test "a host with another layout, or none to find, is not guessed at", %{tmp_dir: dir} do
+      assert {:pass, msg} = Doctor.facts_tag_verdict(:my_app, dir)
+      assert msg =~ "not checked"
+
+      layout!(dir, "lib/other_web/components/layouts/root.html.heex", "<html></html>")
+      assert {:pass, _} = Doctor.facts_tag_verdict(:my_app, dir)
+      assert {:pass, _} = Doctor.facts_tag_verdict(nil, dir)
+    end
+  end
 end

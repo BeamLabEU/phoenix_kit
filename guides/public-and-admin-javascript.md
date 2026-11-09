@@ -31,7 +31,8 @@ A host that `import`s `phoenix_kit.js` into `app.js` and spreads `window.Phoenix
 ones are stubs that load the admin bundle, then become the real hook on the LiveView's own hook
 instance (`this.el`, `this.pushEvent`, `this.handleEvent` all work), so an admin page never reports an
 unknown hook. `mix phoenix_kit.doctor` **warns** when the facts name no admin bundle or the file is not
-on disk.
+on disk, and when the root layout at the installer's own paths (`lib/<app>_web/components/layouts/root.html.heex`, or the
+older `templates/layout/`) does not load `phoenix_kit_modules.js`; a host with another layout is not guessed at.
 
 `phoenix_kit_admin.js` is not meant to be included by hand: it needs the helpers `phoenix_kit.js`
 shares with it and runs after it, and the stubs load it themselves. (The copy under `deps/` holds
