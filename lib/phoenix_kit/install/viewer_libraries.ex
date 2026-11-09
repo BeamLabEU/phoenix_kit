@@ -246,8 +246,22 @@ defmodule PhoenixKit.Install.ViewerLibraries do
 
       Mix.shell().info(
         "[PhoenixKit] Could not minify the vendored JavaScript (#{detail}); serving the readable " <>
-          "files. Install esbuild (`mix assets.setup`) and compile again."
+          "files. #{minify_advice()}"
       )
+    end
+  end
+
+  # What to do about it depends on who was asked to minify: the host's own
+  # function, or the esbuild the host's asset build installs.
+  defp minify_advice do
+    case Application.get_env(:phoenix_kit, :js_minifier) do
+      {_mod, _fun} ->
+        "Check `config :phoenix_kit, js_minifier:`: the module has to be compiled before this " <>
+          "compiler runs, so it must come from a dependency, not from the host's own lib/. " <>
+          "Then compile again."
+
+      _ ->
+        "Install esbuild (`mix assets.setup`) and compile again."
     end
   end
 
@@ -256,12 +270,20 @@ defmodule PhoenixKit.Install.ViewerLibraries do
   # transform: no bundling, so a script stays the script it was. A host that
   # minifies some other way names `config :phoenix_kit, js_minifier: {Mod,
   # :fun}` (a one-argument function returning `{:ok, binary}` or `{:error,
-  # reason}`). Minifying what is already minified changes nothing that runs.
+  # reason}`; the module must come from a dependency, because this compiler runs
+  # before the host's own modules are compiled). Minifying what is already
+  # minified changes nothing that runs.
   @spec minify(binary()) :: {:ok, binary()} | {:error, String.t()}
   def minify(content) do
     case Application.get_env(:phoenix_kit, :js_minifier) do
       {mod, fun} when is_atom(mod) and is_atom(fun) ->
-        mod |> apply(fun, [content]) |> checked()
+        # The install puts this compiler ahead of the host's own, so on a clean
+        # build a minifier defined in the host's lib/ is not there yet.
+        if Code.ensure_loaded?(mod) and function_exported?(mod, fun, 1) do
+          mod |> apply(fun, [content]) |> checked()
+        else
+          {:error, "#{inspect(mod)}.#{fun}/1 is not available (not compiled yet, or not defined)"}
+        end
 
       _ ->
         minify_with_esbuild(content)

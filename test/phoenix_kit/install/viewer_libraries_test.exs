@@ -381,6 +381,44 @@ defmodule PhoenixKit.Install.ViewerLibrariesTest do
       end
     end
 
+    test "a minifier module that is not compiled yet is named, and the note does not send the host to install esbuild",
+         %{root: root} do
+      # A host's own module is compiled after the :phoenix_kit_js_sources compiler
+      # (which the install puts first), so on a clean build it is not there yet.
+      Application.put_env(
+        :phoenix_kit,
+        :js_minifier,
+        {Module.concat([HostMinifierNotCompiledYet]), :minify}
+      )
+
+      assert :ok = Compiler.vendor_all(root)
+
+      vendor = Path.join(root, "priv/static/assets/vendor")
+      assert File.read!(Path.join(vendor, "phoenix_kit.js")) =~ "PhoenixKit JavaScript Bundle"
+
+      assert [note] = collect_notes([])
+      assert note =~ "HostMinifierNotCompiledYet.minify/1"
+      assert note =~ "not available"
+      assert note =~ "from a dependency"
+      refute note =~ "Install esbuild"
+    end
+
+    test "a missing esbuild still says to install it" do
+      Application.delete_env(:phoenix_kit, :js_minifier)
+
+      case ViewerLibraries.minify("var a = 1;") do
+        {:ok, _} ->
+          :ok
+
+        {:error, _no_esbuild} ->
+          ViewerLibraries.reset_minify_note()
+          assert ViewerLibraries.maybe_minify("var a = 1;", "x") == "var a = 1;"
+          assert [note] = collect_notes([])
+          assert note =~ "Install esbuild"
+          refute note =~ "from a dependency"
+      end
+    end
+
     test "with a real esbuild, minifying already minified output changes nothing that runs" do
       # The test environment has no esbuild (core lists it for :dev only), so this
       # runs where one is installed and passes quietly elsewhere; the JS tests were

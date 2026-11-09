@@ -73,7 +73,9 @@ stay readable) and the admin bundle with the host's own esbuild — the binary `
 installs, so run it before the compile that builds the release. Without that binary, or when the
 transform fails, the readable files are served and the compile says so once; it never fails the
 build. `config :phoenix_kit, js_minifier: {Mod, :fun}` names another minifier (one argument; returns
-`{:ok, binary}` or `{:error, reason}`; any other answer counts as a failed minify). Minifying an
+`{:ok, binary}` or `{:error, reason}`; any other answer counts as a failed minify). The module has to come from a
+dependency: the compiler runs before the host's own modules are compiled, so on a clean build one defined in the host's
+`lib/` is not there yet, and the note says so instead of asking for esbuild. Minifying an
 already minified file is harmless, so a host that runs the vendored files through its own esbuild
 profile as well loses nothing.
 
