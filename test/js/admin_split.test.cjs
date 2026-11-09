@@ -186,7 +186,7 @@ test("the admin file registers into its own namespace only", () => {
 test("a size budget keeps the public file public", () => {
   const publicBytes = fs.statSync(PUBLIC_FILE).size;
   const adminBytes = fs.statSync(ADMIN_FILE).size;
-  // 272 KiB: the public half is about 265 KiB with the mention field, the two upload hooks (public pages
+  // 272 KiB: the public half is about 270 KiB with the mention field, the two upload hooks (public pages
   // render them) and the audio recorder, a public primitive that main added (15 KB, "any page can use"; the budget
   // was 256 KiB before). A coarse backstop only: a small admin hook would still fit in the margin, and it is the name
   // checks above that catch one put in the wrong file.
