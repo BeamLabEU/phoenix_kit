@@ -74,7 +74,10 @@ microtask: LiveView mounts the hooks of a diff and dispatches the diff's events 
 `handleEvent` registered a turn later misses them. A failed load reports through the existing library notice, and LiveView
 mounts a hook once per element, so the stub that was refused or failed is kept by the page and retried: after the pause
 that follows a failure (4 s), then at doubling intervals up to a minute, for as long as one still waits; whichever request gets
-the bundle (a retry or another hook's mount) mounts all of them, and a stub destroyed meanwhile is dropped.
+the bundle (a retry or another hook's mount) mounts all of them, and a stub destroyed meanwhile is dropped. A bundle that arrives
+but throws while it runs is not retried: the retry is for a request that failed, and running the file again would repeat its
+top-level code (a document listener each time) and fail the same way, so that is reported and final for the page. A hook whose
+own `mounted()` throws is reported by name and does not stop the stubs behind it.
 
 Because **every name stays in `PhoenixKitHooks`**, nothing a host (or an external module) already references can
 become an "unknown hook", and the classification below only decides *performance*, never *correctness*: a hook

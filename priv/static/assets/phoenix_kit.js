@@ -329,13 +329,18 @@
           // (urls[0]): the CDN fallback, which a host opts into, must still pass the
           // host's script-src allowlist, not skip it on a borrowed nonce.
           if (PK_SCRIPT_NONCE && i === 0) script.nonce = PK_SCRIPT_NONCE;
-          function failed(reason) {
+          // `ran`: the file arrived and was executed, but did not define what `check()` looks
+          // for (it threw part-way, or is from another version). Unlike a failed request,
+          // that will not heal by asking again, and a caller can tell the two apart.
+          function failed(reason, ran) {
             // Removed so a later attempt (a remount, a reconnect) can try anew.
             script.remove();
             if (i + 1 < urls.length) { tryUrl(i + 1); return; }
             settled();
             pkLibFail(name, current, reason, attempt.csp);
-            reject(new Error(name + " failed to load"));
+            var err = new Error(name + " failed to load");
+            if (ran) err.pkRan = true;
+            reject(err);
           }
           script.onload = function() {
             if (check()) {
@@ -343,7 +348,7 @@
               delete pkLibFailures[name];
               resolve();
             } else {
-              failed("load");
+              failed("load", true);
             }
           };
           script.onerror = function() { failed(attempt.csp ? "csp" : "load"); };
@@ -4592,6 +4597,10 @@
   var adminWaiting = [];
   var adminRetryTimer = null;
   var adminRetryDelay = ADMIN_RETRY_PAUSE_MS;
+  // Set when the admin file arrived and threw while running: asking again would run its
+  // top-level code a second time (every document listener it installs, twice) and fail the
+  // same way, so for the life of the page that is the answer to every mount.
+  var adminRanError = null;
 
   // The request itself: no pause in front of it, because a retry is the pause's end.
   function requestAdminBundle() {
@@ -4599,6 +4608,7 @@
       check: function() { return !!window.PhoenixKitAdminLoaded; },
       unlimitedAttempts: true
     }).catch(function(err) {
+      if (err && err.pkRan) adminRanError = err;
       // The pause keeps thirty mounts from making thirty requests; with the facts
       // missing there is no request to keep them from, and the facts file may be
       // only late (a deferred tag), so the next mount must be free to try.
@@ -4608,6 +4618,7 @@
   }
 
   function loadAdminBundle() {
+    if (adminRanError) return Promise.reject(adminRanError);
     if (Date.now() < adminRetryAt) {
       return Promise.reject(new Error("the admin bundle failed a moment ago"));
     }
@@ -4624,6 +4635,10 @@
     waiting.forEach(function(stub) { stub.mount(); });
   }
 
+  var ADMIN_RAN_MESSAGE = "The admin bundle was loaded but failed while running (see the error above), so the " +
+    "admin hooks stay off until the page is reloaded. Check that phoenix_kit.js and phoenix_kit_admin.js are from " +
+    "the same PhoenixKit version: run mix phoenix_kit.update, then mix compile.";
+
   function scheduleAdminRetry() {
     if (adminRetryTimer !== null) return;
     adminRetryTimer = setTimeout(function() {
@@ -4634,7 +4649,12 @@
         adminRetryDelay = ADMIN_RETRY_PAUSE_MS;
         return;
       }
-      requestAdminBundle().then(mountWaitingStubs, function() {
+      requestAdminBundle().then(mountWaitingStubs, function(err) {
+        if (err && err.pkRan) {
+          adminWaiting = [];
+          console.error("[PhoenixKit] " + ADMIN_RAN_MESSAGE);
+          return;
+        }
         adminRetryDelay = Math.min(adminRetryDelay * 2, ADMIN_RETRY_MAX_MS);
         scheduleAdminRetry();
       });
@@ -4791,7 +4811,12 @@
         loadAdminBundle().then(function() {
           mountReal();
           mountWaitingStubs();
-        }, function() {
+        }, function(err) {
+          if (err && err.pkRan) {
+            // The file ran and threw: nothing to retry. The hook that went without is named.
+            console.error("[PhoenixKit] The " + name + " hook did not start. " + ADMIN_RAN_MESSAGE);
+            return;
+          }
           // loadLibrary has reported the failure; this names the hook that went without.
           var urls = pkLibUrls("admin");
           console.error("[PhoenixKit] The " + name + " hook did not start: the admin bundle could not be loaded (" +

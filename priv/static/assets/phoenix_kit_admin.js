@@ -28,6 +28,11 @@
   if (!PK) {
     throw new Error("[PhoenixKit] phoenix_kit_admin.js must load after phoenix_kit.js");
   }
+  // What this file reads eagerly below. A phoenix_kit.js from before it was added would make the
+  // file throw some two thousand lines in, with its listeners already installed; say so first.
+  if (!PK.sidebarScroll) {
+    throw new Error("[PhoenixKit] phoenix_kit_admin.js and phoenix_kit.js are from different PhoenixKit versions");
+  }
 
   window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};
 

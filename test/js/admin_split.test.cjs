@@ -982,3 +982,57 @@ test("with the bundle loaded, a throwing mounted() does not stop the waiting stu
   assert.ok(env.errors.some((m) => m.includes("RowMenu")));
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+// ── A bundle that loads but throws while running is not run again ────────
+
+// The browser fires `load` for a script that threw, so the loader sees "loaded, but the hooks are
+// not there" and used to take it for a transient failure. Retrying a transport failure is right; an
+// error in the file will not heal, and every run executes the top-level code that already ran (a
+// document listener each time).
+test("a bundle that loads but throws while running is reported once and never run again", async () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "throwing_admin.js");
+  fs.writeFileSync(file, "document.addEventListener('scroll', function() {}, true);\nthrow new Error('version skew');\n");
+  const env = publicPage();
+  const listeners = env.listenerCount("document", "scroll");
+  const hook = makeHook(env.window.PhoenixKitHooks.SortableGrid);
+  hook.mounted();
+  try { env.load(file); } catch (_e) { /* the browser reports it and still fires load */ }
+  env.loaded(0);
+  await tick();
+
+  assert.equal(env.listenerCount("document", "scroll"), listeners + 1, "ran once");
+  assert.deepEqual(env.pendingTimers(), [], "no retry is scheduled for an error that will not go away");
+  assert.ok(env.errors.some((m) => m.includes("SortableGrid") && m.includes("while running")),
+    "the hook that went without is named: " + JSON.stringify(env.errors));
+
+  // Nor does a later mount, after the pause, fetch and run it again.
+  env.advance(RETRY_PAUSE_MS + 1);
+  makeHook(env.window.PhoenixKitHooks.RowMenu).mounted();
+  await tick();
+  env.advance(60000);
+  env.runTimers();
+  assert.equal(env.scripts.length, 1, "one request, for the life of the page");
+  assert.ok(env.errors.some((m) => m.includes("RowMenu")), "the later mount is told as well");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("a failed request (the file is not there) is still retried: only a run that threw is final", async () => {
+  const t = withFakeAdmin();
+  makeHook(t.env.window.PhoenixKitHooks.SortableGrid).mounted();
+  t.env.failed(0);
+  await tick();
+  assert.equal(t.env.pendingTimers().length, 1);
+  t.cleanup();
+});
+
+test("an admin file next to a phoenix_kit.js that predates what it reads says so, before it registers anything", () => {
+  const env = publicPage();
+  delete env.window.PhoenixKitInternals.sidebarScroll; // an older phoenix_kit.js
+  const listeners = env.listenerCount("document", "scroll");
+
+  assert.throws(() => env.load("phoenix_kit_admin.js"), /different PhoenixKit versions/);
+  assert.equal(env.listenerCount("document", "scroll"), listeners, "no listener was left behind");
+  assert.ok(!env.window.PhoenixKitAdminLoaded);
+  assert.deepEqual(Object.keys(env.window.PhoenixKitAdminHooks || {}), [], "no hook was registered");
+});
