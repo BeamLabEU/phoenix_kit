@@ -1,13 +1,17 @@
-## Unreleased
+## 3.5.0 - 2026-11-09
 
 Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
-⚠️ Two changes to check in a host:
+⚠️ Three changes to check in a host:
 
 - A role can no longer be renamed: `name` is a fixed key that code and settings match
   on. Change what people see with the new label on the Roles page.
 - `Scope.held_roles/1` does not say what someone acting for an organization may do. It
   is the organization's roles, past their link. Read `Scope.user_roles/1`.
+- "Sign in as this user" now acts as that user everywhere, their companies included, and
+  an Admin may sign in as another Admin (never an Owner). Who signed in is recorded as
+  `impersonated_by_uuid` on activity logged through `PhoenixKitWeb.Actor.opts/1`. What
+  belongs to the person alone still checks `MultiSession.impersonated?/1`.
 
 ### Added
 
