@@ -194,6 +194,17 @@ defmodule PhoenixKit.Integration.I18n.MailAndSignInLanguageTest do
       assert redirected_to(conn) == Routes.path("/admin/users", locale: "de")
     end
 
+    test "a saved language keeps a host destination that has no translated route", %{conn: conn} do
+      destination = "/__test/crawlers-no-index-probe?from=login"
+
+      conn =
+        sign_in(conn, Routes.path("/users/log-in", locale: "en"), confirmed!("de-DE"), %{
+          "return_to" => destination
+        })
+
+      assert redirected_to(conn) == destination
+    end
+
     test "a sign-in page in another language wins, and saves it for a person with none",
          %{conn: conn} do
       user = confirmed!(nil)

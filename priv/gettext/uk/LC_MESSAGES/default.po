@@ -26910,3 +26910,7 @@ msgstr "Власник системи з повним доступом"
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "Власне сховище"
+
+#, elixir-autogen, elixir-format
+msgid "Your access to act for %{organization} was updated."
+msgstr "Ваш доступ для дій від імені %{organization} оновлено."

@@ -64,6 +64,10 @@ defmodule PhoenixKit.Modules.Storage.CompositeAnimationTest do
       System.cmd("convert", [
         path,
         "-coalesce",
+        # IM7 reads `.a` as zero when an opaque PNG has no alpha channel.
+        # Enable it before measuring, preserving any existing transparency.
+        "-alpha",
+        "on",
         "-format",
         Enum.join(channels, ",") <> "\n",
         "info:"

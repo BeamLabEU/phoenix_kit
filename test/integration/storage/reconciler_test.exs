@@ -532,7 +532,7 @@ defmodule PhoenixKit.Modules.Storage.ReconcilerTest do
     end
   end
 
-  defp eventually(fun, tries \\ 50) do
+  defp eventually(fun, tries) do
     cond do
       fun.() ->
         true

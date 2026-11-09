@@ -1,5 +1,8 @@
 import Config
 
+# Exercise real password hashing without the production cost for every fixture.
+config :bcrypt_elixir, log_rounds: 4
+
 # Configure test environment for PhoenixKit
 # This file is imported by config.exs when Mix.env() == :test
 

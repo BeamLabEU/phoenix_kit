@@ -394,6 +394,11 @@ defmodule PhoenixKitWeb.Users.PeoplePanelTest do
 
       render_submit(element(view, "#{@panel}-edit"), %{"access" => "all"})
       refute link_of(ctx.organization, person.uuid).all_roles
+
+      # Stale dialog events after the panel becomes read-only must not crash it.
+      render_click(with_target(view, @panel), "open_add", %{})
+      render_click(with_target(view, @panel), "open_edit", %{"uuid" => link.uuid})
+      refute has_element?(view, "#{@panel}-edit")
     end
   end
 

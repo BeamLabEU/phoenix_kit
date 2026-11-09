@@ -143,23 +143,31 @@ defmodule PhoenixKit.Users.Role do
     |> validate_length(:description, max: 500)
     |> validate_data_shape()
     |> validate_name_unchanged()
-    |> sync_label()
+    |> sync_text_fields()
   end
 
-  # With translations off the form has no `data`: the label folds in under the primary
+  # With translations off the form has no `data`: text folds in under the primary
   # language. When `data` is supplied it is the truth: the form already merged it.
-  defp sync_label(%Ecto.Changeset{valid?: true, params: %{"label" => _} = params} = changeset)
+  defp sync_text_fields(%Ecto.Changeset{valid?: true, params: params} = changeset)
        when not is_map_key(params, "data") do
-    existing = get_field(changeset, :data) || %{}
-    primary = existing["_primary_language"] || Multilang.primary_language()
+    fields =
+      for field <- [:label, :description],
+          Map.has_key?(params, Atom.to_string(field)),
+          into: %{},
+          do: {"_#{field}", get_field(changeset, field) || ""}
 
-    merged =
-      Map.put(Multilang.get_primary_data(existing), "_label", get_field(changeset, :label) || "")
+    if fields == %{} do
+      changeset
+    else
+      existing = get_field(changeset, :data) || %{}
+      primary = existing["_primary_language"] || Multilang.primary_language()
+      merged = Map.merge(Multilang.get_primary_data(existing), fields)
 
-    put_change(changeset, :data, Multilang.put_language_data(existing, primary, merged))
+      put_change(changeset, :data, Multilang.put_language_data(existing, primary, merged))
+    end
   end
 
-  defp sync_label(changeset), do: changeset
+  defp sync_text_fields(changeset), do: changeset
 
   defp validate_name_unchanged(changeset) do
     if Map.has_key?(changeset.changes, :name),

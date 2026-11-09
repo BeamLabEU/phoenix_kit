@@ -511,10 +511,39 @@ defmodule PhoenixKit.Integration.Users.MultiSessionTest do
       session = Plug.Conn.get_session(conn)
 
       assert MultiSession.may_impersonate?(session)
+
+      refute PhoenixKit.HeaderWidget.impersonating?(
+               MultiSession.populate_scope(Auth.Scope.for_user(admin), session)
+             )
+
       assert MultiSession.impersonation_actor(session).uuid == admin.uuid
       assert MultiSession.impersonable?(MultiSession.impersonation_actor(session), target)
       assert {:ok, conn} = MultiSession.impersonate(conn, target)
-      assert MultiSession.impersonated_by(Plug.Conn.get_session(conn))
+      borrowed = Plug.Conn.get_session(conn)
+      assert MultiSession.impersonated_by(borrowed) == admin.uuid
+
+      assert PhoenixKit.HeaderWidget.impersonating?(
+               MultiSession.populate_scope(Auth.Scope.for_user(target), borrowed)
+             )
+
+      assert MultiSession.impersonation_actor(borrowed).uuid == admin.uuid
+
+      assert %{entries: [entry]} = Activity.list(action: "session.impersonated")
+      assert entry.actor_uuid == admin.uuid
+
+      # Attribution survives a switch away and back to this borrowed account.
+      accounts = MultiSession.list_accounts(borrowed)
+      admin_ref = Enum.find(accounts, &(&1.user.uuid == admin.uuid)).ref
+      target_ref = Enum.find(accounts, &(&1.user.uuid == target.uuid)).ref
+      {:ok, conn, _} = MultiSession.switch_to(conn, admin_ref)
+      {:ok, conn, _} = MultiSession.switch_to(conn, target_ref)
+      assert MultiSession.impersonated_by(Plug.Conn.get_session(conn)) == admin.uuid
+
+      # Removing the operator's secondary sign-in does not rewrite history as
+      # though the stack's unrelated root had borrowed the account.
+      {:ok, conn} = MultiSession.remove_account(conn, admin_ref)
+      assert MultiSession.impersonated_by(Plug.Conn.get_session(conn)) == admin.uuid
+      refute MultiSession.may_impersonate?(Plug.Conn.get_session(conn))
     end
 
     test "a borrowed Admin lends nothing on: the root still decides" do

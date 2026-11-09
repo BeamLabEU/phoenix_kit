@@ -14,9 +14,12 @@ defmodule PhoenixKit.CustomPermissionKeysConfigTest do
   alias PhoenixKit.Users.Permissions
 
   setup do
+    Permissions.clear_custom_keys()
     previous = Application.get_env(:phoenix_kit, :custom_permission_keys)
 
     on_exit(fn ->
+      Permissions.clear_custom_keys()
+
       if previous do
         Application.put_env(:phoenix_kit, :custom_permission_keys, previous)
       else

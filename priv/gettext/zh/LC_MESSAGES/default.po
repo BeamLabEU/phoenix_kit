@@ -26858,3 +26858,7 @@ msgstr "拥有完全访问权限的系统所有者"
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "使用自己的存储"
+
+#, elixir-autogen, elixir-format
+msgid "Your access to act for %{organization} was updated."
+msgstr "您代表 %{organization} 操作的权限已更新。"

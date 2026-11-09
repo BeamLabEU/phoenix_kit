@@ -26835,3 +26835,7 @@ msgstr "Systeminhaber mit vollem Zugriff"
 #, elixir-autogen, elixir-format
 msgid "Use their own storage"
 msgstr "Eigenen Speicher nutzen"
+
+#, elixir-autogen, elixir-format
+msgid "Your access to act for %{organization} was updated."
+msgstr "Ihr Zugriff zum Handeln für %{organization} wurde aktualisiert."

@@ -455,7 +455,13 @@ defmodule PhoenixKit.Users.Roles do
 
   @doc "Fills the virtual `label` from the primary-language `data`, for the edit form."
   @spec hydrate(Role.t()) :: Role.t()
-  def hydrate(%Role{} = role), do: %{role | label: Multilang.text_field(role.data, "label")}
+  def hydrate(%Role{} = role) do
+    %{
+      role
+      | label: Multilang.text_field(role.data, "label"),
+        description: Multilang.text_field(role.data, "description") || role.description
+    }
+  end
 
   @doc "The description to show for a role, in `lang`, or `nil`."
   @spec display_description(Role.t(), String.t() | nil) :: String.t() | nil

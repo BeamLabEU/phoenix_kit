@@ -32,25 +32,29 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
   alias PhoenixKitWeb.Users.MultiSession
 
   @enforce_keys [:current, :root]
-  defstruct [:current, :root]
+  defstruct [:current, :root, :impersonated_by_uuid]
 
   @doc """
   The session's authority, from the trusted signed session map.
 
-  `root` is the session whose authority `current` stands on. That is the root of
-  the stack, except for an account the person added themselves with its own
-  password or through OAuth (`MultiSession.impersonated?/1` is false for it):
-  signing in to it proved the same as a fresh login would, so it stands on its
-  own (`current == root`), and an Owner or Admin there manages organizations as
-  in their first account (2026-11-09, from WoodMatrix). A borrowed account (an
-  impersonation) keeps the stack's root, so it never passes as an Owner's or
-  Admin's own session; an organization slot has the account it was entered from
-  as its root. `MultiSession.person_token/1` is the one rule.
+  `root` is the person session whose authority `current` stands on. An ordinary
+  account stands on its own (`current == root`), including an added account and
+  a support impersonation, which gives the supported person's full organization
+  experience (2026-11-09). An organization slot has the account it was entered
+  from as its root. `MultiSession.person_token/1` is the one rule.
+
+  The support operator is retained separately in `impersonated_by_uuid` for the
+  audit trail; it never supplies the supported account's authority.
   """
   def from_session(session) when is_map(session) do
     with {:ok, current} <- SessionRef.from_session(session),
          {:ok, root} <- root_ref(session, current) do
-      {:ok, %__MODULE__{current: current, root: root}}
+      {:ok,
+       %__MODULE__{
+         current: current,
+         root: root,
+         impersonated_by_uuid: MultiSession.impersonated_by(session)
+       }}
     else
       _ -> {:error, :forbidden}
     end
@@ -81,7 +85,13 @@ defmodule PhoenixKit.Users.ManagedOrganizations.Actor do
          %UserToken{} <- lock_token(token),
          {:ok, root_scope} <- SessionRef.scope_for_session(parent, person),
          {:ok, scope} <- SessionRef.scope_for_session(token, user) do
-      authority(actor, org, root_scope, scope, grant)
+      case authority(actor, org, root_scope, scope, grant) do
+        {:ok, authority} ->
+          {:ok, Map.put(authority, :impersonated_by_uuid, actor.impersonated_by_uuid)}
+
+        error ->
+          error
+      end
     else
       _ -> {:error, :forbidden}
     end

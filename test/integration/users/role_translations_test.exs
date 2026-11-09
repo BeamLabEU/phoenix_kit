@@ -68,6 +68,20 @@ defmodule PhoenixKit.Users.RoleTranslationsTest do
   end
 
   describe "update_role/2" do
+    test "editing without language tabs updates the primary description and keeps translations" do
+      role = role!(%{data: @data, description: "Column"})
+
+      assert Roles.hydrate(role).description == "Buys things"
+
+      assert {:ok, updated} = Roles.update_role(role, %{description: "Purchases supplies"})
+      assert Roles.display_description(updated, "en") == "Purchases supplies"
+      assert Roles.display_name(updated, "en") == "Buyer"
+      assert updated.data["de"] == @data["de"]
+
+      assert {:ok, cleared} = Roles.update_role(updated, %{description: ""})
+      assert Roles.display_description(cleared, "en") == nil
+    end
+
     test "writes translations, description and position" do
       role = role!()
       data = Multilang.build_text_data(%{"_label" => %{"en" => "Buyer", "de" => "Käufer"}})
