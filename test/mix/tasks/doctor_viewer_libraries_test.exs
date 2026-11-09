@@ -163,6 +163,43 @@ defmodule Mix.Tasks.PhoenixKit.DoctorViewerLibrariesTest do
       assert msg =~ "admin"
     end
 
+    test "a tag that is commented out is not a tag", %{tmp_dir: dir} do
+      tag = ~s(<script src={~p"/assets/vendor/phoenix_kit_modules.js"}></script>)
+
+      for {kind, commented} <- [
+            {"HEEx", "<%!-- #{tag} --%>"},
+            {"HTML", "<!-- #{tag} -->"},
+            {"EEx", "<%# #{tag} %>"},
+            {"multi-line HEEx", "<%!--\n  #{tag}\n--%>"}
+          ] do
+        layout!(dir, "lib/my_app_web/components/layouts/root.html.heex", """
+        <script src={~p"/assets/vendor/phoenix_kit.js"}></script>
+        #{commented}
+        """)
+
+        assert {:warn, _} = Doctor.facts_tag_verdict(:my_app, dir),
+               "#{kind} comment counted as present"
+      end
+    end
+
+    test "a comment elsewhere in the layout does not hide a real tag", %{tmp_dir: dir} do
+      layout!(dir, "lib/my_app_web/components/layouts/root.html.heex", """
+      <%!-- the analytics tag is below --%>
+      <!-- scripts -->
+      <script src={~p"/assets/vendor/phoenix_kit_modules.js"}></script>
+      """)
+
+      assert {:pass, _} = Doctor.facts_tag_verdict(:my_app, dir)
+    end
+
+    test "the warning allows for a host that loads the facts another way", %{tmp_dir: dir} do
+      layout!(dir, "lib/my_app_web/components/layouts/root.html.heex", "<html></html>")
+
+      assert {:warn, msg} = Doctor.facts_tag_verdict(:my_app, dir)
+      assert msg =~ "another way"
+      assert msg =~ "ignore"
+    end
+
     test "the older templates/layout path is read too", %{tmp_dir: dir} do
       layout!(
         dir,

@@ -2527,7 +2527,7 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
          "no root layout at the installer's paths: whether it loads the facts is not checked"}
 
       {:ok, content} ->
-        if String.contains?(content, "phoenix_kit_modules.js") do
+        if content |> strip_template_comments() |> String.contains?("phoenix_kit_modules.js") do
           {:pass, "#{found} loads phoenix_kit_modules.js"}
         else
           {:warn,
@@ -2536,12 +2536,22 @@ defmodule Mix.Tasks.PhoenixKit.Doctor do
              "the viewer libraries, and the admin area's sortable lists, tables, editors and " <>
              "media browser do nothing. Run `mix phoenix_kit.update`, or add " <>
              "`<script src={~p\"/assets/vendor/phoenix_kit_modules.js\"}></script>` after the " <>
-             "phoenix_kit.js tag."}
+             "phoenix_kit.js tag. (If you load the facts another way, from a component or another " <>
+             "file, ignore this: only this layout was looked at.)"}
         end
 
       {:error, _} ->
         {:pass, "#{found} could not be read: not checked"}
     end
+  end
+
+  # A tag that is commented out is not loaded: HEEx (`<%!-- --%>`), EEx (`<%# %>`)
+  # and HTML (`<!-- -->`) comments, however many lines they span.
+  defp strip_template_comments(content) do
+    content
+    |> String.replace(~r/<%!--.*?--%>/s, "")
+    |> String.replace(~r/<%#.*?%>/s, "")
+    |> String.replace(~r/<!--.*?-->/s, "")
   end
 
   defp check_daisyui do
