@@ -1036,3 +1036,28 @@ test("an admin file next to a phoenix_kit.js that predates what it reads says so
   assert.ok(!env.window.PhoenixKitAdminLoaded);
   assert.deepEqual(Object.keys(env.window.PhoenixKitAdminHooks || {}), [], "no hook was registered");
 });
+
+// ── A class-based hook cannot stand behind a stub ─────────────────────────
+
+// A stub is an object of callbacks copied onto the hook LiveView made; a class has none of its own
+// to copy (`Object.keys` of it is its statics), so such a hook used to do nothing, silently.
+test("a hook exported as a class says so by name instead of silently doing nothing", async () => {
+  const dir = tmpDir("pk_admin_");
+  const file = path.join(dir, "class_admin.js");
+  fs.writeFileSync(file,
+    "window.PhoenixKitAdminHooks = window.PhoenixKitAdminHooks || {};\n" +
+    "window.PhoenixKitAdminHooks.SortableGrid = class { mounted() { window.__ran = true; } };\n" +
+    "window.PhoenixKitAdminLoaded = true;\n");
+  const env = publicPage();
+  makeHook(env.window.PhoenixKitHooks.SortableGrid).mounted();
+  env.load(file);
+  env.loaded(0);
+  await tick();
+
+  const message = env.errors.find((m) => m.includes("SortableGrid"));
+  assert.ok(message, JSON.stringify(env.errors));
+  assert.match(message, /class/);
+  assert.match(message, /object of callbacks/);
+  assert.ok(!env.window.__ran, "and it did not run");
+  fs.rmSync(dir, { recursive: true, force: true });
+});

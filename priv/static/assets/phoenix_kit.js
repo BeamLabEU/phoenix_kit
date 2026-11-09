@@ -4785,6 +4785,13 @@
               "phoenix_kit_admin.js are from different PhoenixKit versions.");
             return;
           }
+          if (typeof real === "function") {
+            // `Object.keys` of a class is its statics, and LiveView would have made an instance of
+            // it; a stub can only take callbacks off an object and put them on the hook it has.
+            console.error("[PhoenixKit] The admin hook " + name + " is a class or a function. A hook behind a stub has " +
+              "to be an object of callbacks (`{ mounted() { … }, destroyed() { … } }`), so it did not start.");
+            return;
+          }
           Object.keys(real).forEach(function(key) {
             if (key !== "mounted") self[key] = real[key];
           });
