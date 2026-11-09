@@ -141,6 +141,10 @@ Run `mix phoenix_kit.update` (V229 and the new `phoenix_kit.js`).
 
 ### Changed
 
+- **A person's page has no Organizations tab any more.** It repeated the Organizations
+  row of the top card read-only. That row now says what the person can do in each
+  company ("Manager · All roles", or the roles of their link), and lists a change as
+  soon as it is made.
 - **Bigger avatars in the users list.** A grid card's avatar is 64 px instead of 32 px
   (`user_avatar` size `"card"`), a table row's 48 px instead of 32 px, and the header
   of a user's page 160 px instead of 80 px (96 px on a phone). That header's avatar no

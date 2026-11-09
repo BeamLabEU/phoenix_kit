@@ -451,36 +451,25 @@ defmodule PhoenixKitWeb.Users.PeoplePanelTest do
   end
 
   describe "a person's page" do
-    test "lists the organizations they can act for, with what they can do", ctx do
+    test "lists the organizations they can act for in the top card, with no tab of its own",
+         ctx do
       other = F.organization(%{organization_name: "Pine Works"})
       person = F.person()
       F.narrowed_link(ctx.organization, person, [ctx.buyer])
       F.manager(other, person)
       {_actor, admin} = F.admin_actor()
 
-      {:ok, view, html} =
+      {:ok, view, _html} =
         live(log_in_user(build_conn(), admin), Routes.path("/admin/users/view/#{person.uuid}"))
 
-      assert html =~ "Organizations"
+      row = view |> element("#person-organizations") |> render()
+      assert row =~ "Oak Trading"
+      assert row =~ "Pine Works"
+      assert row =~ ctx.buyer.name
+      assert row =~ "All roles"
 
-      html = render_click(view, "change_tab", %{tab: "organizations"})
-      assert html =~ "Oak Trading"
-      assert html =~ "Pine Works"
-      assert html =~ ctx.buyer.name
-      assert html =~ "All roles"
-      assert html =~ "/admin/users/view/#{ctx.organization.uuid}?tab=people"
-    end
-
-    test "has no such tab for someone with no organization", _ctx do
-      {_actor, admin} = F.admin_actor()
-
-      {:ok, _view, html} =
-        live(
-          log_in_user(build_conn(), admin),
-          Routes.path("/admin/users/view/#{F.person().uuid}")
-        )
-
-      refute html =~ "hero-building-office-2"
+      # The top card says it all; the old read-only tab repeated it.
+      refute render(view) =~ "hero-building-office-2"
     end
   end
 

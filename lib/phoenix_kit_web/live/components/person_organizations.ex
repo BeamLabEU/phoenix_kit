@@ -21,8 +21,10 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
   """
   use PhoenixKitWeb, :live_component
 
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.PersonOrganizations
   alias PhoenixKit.Users.RelationshipTypes
+  alias PhoenixKitWeb.Live.Components.OrganizationPeople
 
   @impl true
   def mount(socket) do
@@ -153,9 +155,15 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
 
   defp close(socket), do: assign(socket, adding: false, term: "", results: [])
 
+  # Reloads its own list: the parent's refresh reaches this component only when
+  # the person's row itself changed (the older tie), never for a link.
   defp changed(socket, message) do
     send(self(), {__MODULE__, :changed})
-    put_flash(socket, :info, message)
+    person = Auth.get_user(socket.assigns.person.uuid) || socket.assigns.person
+
+    socket
+    |> assign(person: person, entries: PersonOrganizations.list(person))
+    |> put_flash(:info, message)
   end
 
   defp entry_name(socket, uuid) do
@@ -193,9 +201,6 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
       ) and
       not PersonOrganizations.name_taken?(name)
   end
-
-  defp entry_label(%{kind: :member}), do: gettext("Member")
-  defp entry_label(%{type: type}), do: RelationshipTypes.name(type)
 
   @impl true
   def render(assigns) do
@@ -285,7 +290,12 @@ defmodule PhoenixKitWeb.Live.Components.PersonOrganizations do
                 >
                   {PersonOrganizations.name(entry.organization)}
                 </.pk_link>
-                <span class="text-base-content/60">· {entry_label(entry)}</span>
+                <span
+                  :for={part <- OrganizationPeople.access_label(entry)}
+                  class="text-base-content/60"
+                >
+                  · {part}
+                </span>
                 <button
                   :if={@can_edit}
                   type="button"

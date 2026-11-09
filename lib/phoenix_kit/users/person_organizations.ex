@@ -29,24 +29,37 @@ defmodule PhoenixKit.Users.PersonOrganizations do
   alias PhoenixKit.Users.OrganizationManager
   alias PhoenixKit.Users.OrganizationManagers
   alias PhoenixKit.Users.RelationshipTypes
+  alias PhoenixKit.Users.Role
 
   @search_limit 8
 
   @type entry :: %{
           organization: User.t(),
           kind: :link | :member,
-          type: PhoenixKit.Users.RelationshipType.t() | nil
+          type: PhoenixKit.Users.RelationshipType.t() | nil,
+          all_roles?: boolean(),
+          roles: [Role.t()]
         }
 
   @doc """
-  The person's companies by name: each link (`kind: :link`, with its `type`),
+  The person's companies by name: each link (`kind: :link`, with its `type`, `all_roles?`
+  and `roles` less the base role),
   then the older tie (`kind: :member`) unless the same company is linked too.
   """
   @spec list(User.t()) :: [entry()]
   def list(%User{account_type: "person"} = person) do
+    # The base role is on every link, so it says nothing here.
+    base = Role.system_roles().user
+
     links =
       for link <- OrganizationManagers.organizations_of(person.uuid) do
-        %{organization: link.organization, kind: :link, type: link.type}
+        %{
+          organization: link.organization,
+          kind: :link,
+          type: link.type,
+          all_roles?: link.all_roles?,
+          roles: Enum.reject(link.roles, &(&1.name == base))
+        }
       end
 
     linked = MapSet.new(links, & &1.organization.uuid)
@@ -55,7 +68,7 @@ defmodule PhoenixKit.Users.PersonOrganizations do
       with uuid when is_binary(uuid) <- person.organization_uuid,
            false <- MapSet.member?(linked, uuid),
            %User{account_type: "organization"} = org <- Auth.get_user(uuid) do
-        [%{organization: org, kind: :member, type: nil}]
+        [%{organization: org, kind: :member, type: nil, all_roles?: false, roles: []}]
       else
         _ -> []
       end

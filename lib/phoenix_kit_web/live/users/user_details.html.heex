@@ -753,52 +753,6 @@
         />
       <% end %>
 
-      <%= if @active_tab == "organizations" do %>
-        <div class="card bg-base-200 shadow-sm">
-          <div class="card-body gap-4">
-            <div>
-              <h2 class="card-title">{gettext("Organizations")}</h2>
-              <p class="text-sm text-base-content/70">
-                {gettext("Organizations this person can act for, and what they can do in each.")}
-              </p>
-            </div>
-            <div
-              :for={link <- @person_links}
-              id={"person-link-#{link.uuid}"}
-              class="border-b border-base-300 py-3 last:border-b-0 space-y-1"
-            >
-              <.pk_link
-                navigate={"/admin/users/view/#{link.organization.uuid}?tab=people"}
-                class="link font-medium"
-              >
-                {PhoenixKit.Users.Auth.User.display_name(link.organization)}
-              </.pk_link>
-              <div class="flex flex-wrap gap-1">
-                <span class="badge badge-sm badge-primary">
-                  {RelationshipTypes.name(link.type)}
-                </span>
-                <span :if={link.all_roles?} class="badge badge-sm badge-outline">
-                  {gettext("All roles")}
-                </span>
-                <span
-                  :if={not link.all_roles? and link_roles(link) == []}
-                  class="badge badge-sm badge-ghost"
-                >
-                  {gettext("No roles")}
-                </span>
-                <span
-                  :for={role <- link_roles(link)}
-                  :if={not link.all_roles?}
-                  class="badge badge-sm badge-outline"
-                >
-                  {Roles.display_name(role)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      <% end %>
-
       <%= if @active_tab == "members" && @org_accounts_enabled && @user.account_type == "organization" do %>
         <div class="card bg-base-200 shadow-sm">
           <div class="card-body">
